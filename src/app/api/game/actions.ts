@@ -40,8 +40,18 @@ type Svc = SupabaseClient
 // UPSERT SCORE
 // ═══════════════════════════════════════════════════════════
 
+/**
+ * Tope de putts por hoyo. No es una regla de golf (no hay máximo), es el tope
+ * del dato: `gross_score` ya no puede pasar de 19, así que 19 putts es el techo
+ * aritmético de un hoyo. Existe porque `putts` entraba a la tabla sin mirar y
+ * alimenta las estadísticas de Mi Golf y del coach: un `99999` o un `2.5`
+ * tipeados por un cliente roto (o a mano) corrompían el promedio de putts del
+ * jugador para siempre, sin error visible en ninguna pantalla.
+ */
+const MAX_PUTTS_POR_HOYO = 19
+
 function validateScoreInputs(body: Record<string, unknown>): string | null {
-  const { round_id, hole_number, gross_score, par } = body
+  const { round_id, hole_number, gross_score, par, putts, fairway_hit, gir } = body
   if (!isUuid(round_id))
     return 'round_id inválido'
   if (!Number.isInteger(hole_number) || (hole_number as number) < 1 || (hole_number as number) > 18)
@@ -52,6 +62,16 @@ function validateScoreInputs(body: Record<string, unknown>): string | null {
   }
   if (par !== undefined && (!Number.isInteger(par) || (par as number) < 3 || (par as number) > 5))
     return 'El par debe ser 3, 4 o 5'
+  if (putts !== null && putts !== undefined) {
+    if (!Number.isInteger(putts) || (putts as number) < 0 || (putts as number) > MAX_PUTTS_POR_HOYO)
+      return `Los putts deben ser un entero entre 0 y ${MAX_PUTTS_POR_HOYO}`
+  }
+  // `fairway_hit` y `gir` son booleanos en la tabla: un string los hacía reventar
+  // con un 500 de Postgres en vez de un 400 que el scorer sabe mostrar.
+  if (fairway_hit !== null && fairway_hit !== undefined && typeof fairway_hit !== 'boolean')
+    return 'fairway_hit debe ser booleano'
+  if (gir !== null && gir !== undefined && typeof gir !== 'boolean')
+    return 'gir debe ser booleano'
   return null
 }
 
@@ -72,19 +92,40 @@ export async function upsertScore(
     )
   }
 
-  let { net_score, points } = body as { net_score: number | null; points: number | null }
-
-  // Derivar el neto es best-effort: si falla, NO se persiste un neto calculado
-  // a medias — un número silenciosamente equivocado en la tabla es peor que un
-  // save que avisa.
+  // El neto y los puntos NO se leen del body: los deriva el servidor.
   //
-  // 503 y no 409 a propósito: los diez 409 de este archivo son conflictos de
-  // ESTADO donde reintentar es inútil (ronda cerrada, torneo finalizado). Éste
-  // es un fallo transitorio de infraestructura donde reintentar es exactamente
-  // lo correcto. Mezclarlos haría que un cliente que razone "409 = no insistas"
-  // abandone un save recuperable.
+  // Los dos scorers (organizador y jugador) los calculan en el navegador y los
+  // mandaban en el POST, y este endpoint los persistía tal cual. Eso dejaba
+  // `hole_scores.net_score`/`points` y los totales de `rounds` a merced del
+  // cliente: con la anon key, su propio JWT y un `fetch` a mano, el jugador de
+  // un torneo escribía el neto que quisiera sobre su propia tarjeta (la
+  // autorización de más arriba la pasa: es SU ronda). El leaderboard se salvaba
+  // sólo porque desde el 03-sep deriva todo del bruto (`build-from-legacy`), no
+  // porque el dato guardado fuera confiable: las pantallas que SÍ leen la
+  // columna (admin, GWI del torneo, resumen del scorer) y las estadísticas se
+  // comían el número inventado.
+  //
+  // La derivación ya existía como fallback para los callers que mandan sólo el
+  // bruto (el "deshacer" y el guardado de putts/fairway/GIR) y usa la MISMA
+  // función canónica que los dos scorers (`puntajeDeHoyo` sobre
+  // `courseHandicapDeScoring`), así que el número no cambia: lo único que
+  // cambia es quién lo firma. "Un concepto, una fuente": el bruto es lo único
+  // que el cliente aporta.
+  let net_score: number | null = null
+  let points: number | null = null
+  // El par del catálogo de la cancha gana sobre el del body por la misma razón:
+  // con un par inflado los puntos stableford derivados subían solos. Si el
+  // catálogo no tiene el hoyo, se usa el del body (comportamiento de hoy).
+  let parEfectivo = par as number | undefined
+
+  // Si la derivación falla, el BRUTO se guarda igual con neto y puntos en NULL:
+  // en un torneo real no se pierde un golpe por un fallo transitorio de la base,
+  // y el leaderboard deriva el neto del bruto. Antes esto devolvía 503, pero
+  // entonces la derivación sólo corría en el camino de las estadísticas; ahora
+  // corre en CADA save del scorer y un 503 ahí sería perder la tarjeta.
+  let derivado = false
   try {
-    if (gross_score != null && (net_score == null || points == null)) {
+    if (gross_score != null) {
       const { data: roundData } = await svc
         .from('rounds')
         .select('player_id, round_number, players(handicap_at_registration, tee_id, tournament_id, genero, categories(default_tee_color, gender))')
@@ -157,14 +198,15 @@ export async function upsertScore(
               roundHoles
             )
             strokeIndex = siAlloc[hole_number as number] ?? strokeIndex
+            const parDelCatalogo = courseHoles.find((h) => h.numero === hole_number)?.par
+            if (parDelCatalogo != null) parEfectivo = parDelCatalogo
           }
         }
 
-        // El MISMO gate que usan los dos scorers y el board. Este fallback existe
-        // para los callers que mandan sólo el gross — el "deshacer" del scorer y
-        // el guardado de putts/fairway/GIR. Con el índice crudo, marcar una
-        // estadística REESCRIBÍA el neto correcto que el scorer acababa de
-        // persistir: en un torneo WHS el dato bueno se corrompía solo.
+        // El MISMO gate que usan los dos scorers y el board: por eso derivar
+        // siempre no cambia el número, sólo quién lo firma. Con el índice crudo,
+        // marcar una estadística REESCRIBÍA el neto correcto que el scorer
+        // acababa de persistir: en un torneo WHS el dato bueno se corrompía solo.
         const courseHcp = courseHandicapDeScoring({
           mode: hcpCtx.mode,
           player: {
@@ -182,7 +224,7 @@ export async function upsertScore(
 
         const puntaje = puntajeDeHoyo({
           gross: gross_score as number,
-          par: par as number,
+          par: parEfectivo as number,
           courseHandicap: courseHcp,
           strokeIndex,
           holeCount: roundHoles,
@@ -191,22 +233,27 @@ export async function upsertScore(
           modo: tournInfo?.modo_juego,
         })
 
-        if (net_score == null) net_score = puntaje.neto
-        if (points == null) points = puntaje.puntos
+        net_score = puntaje.neto
+        points = puntaje.puntos
+        derivado = true
       }
     }
   } catch (err) {
     captureGameError('upsertScore.derivarNeto', err, { round_id, hole_number })
-    return NextResponse.json(
-      { error: 'No pudimos calcular el neto del hoyo. Intenta de nuevo.' },
-      { status: 503 },
-    )
+    // Sin 503: el golpe se guarda con neto y puntos en NULL (ver arriba). Lo que
+    // NO se hace es caer al número del cliente.
+    net_score = null
+    points = null
   }
 
   const upsertData: Record<string, unknown> = {
-    round_id, hole_number, par, gross_score, net_score, points,
+    round_id, hole_number, gross_score, net_score, points,
     source: 'manual_organizer', status: 'loaded',
   }
+  // `par` sólo se escribe si vino (del catálogo o del body): mandar `null` en el
+  // upsert de un "deshacer" o de un putts —que no traen par— borraría el par ya
+  // guardado del hoyo.
+  if (parEfectivo !== undefined) upsertData.par = parEfectivo
   if (putts !== undefined && putts !== null) upsertData.putts = putts
   if (fairway_hit !== undefined && fairway_hit !== null) upsertData.fairway_hit = fairway_hit
   if (gir !== undefined && gir !== null) upsertData.gir = gir
@@ -255,7 +302,10 @@ export async function upsertScore(
     .update({ total_gross: totalGross, total_net: totalNet, total_points: totalPoints })
     .eq('id', round_id)
 
-  return NextResponse.json({ success: true, totalGross, totalNet, totalPoints })
+  // `derivado: false` = el golpe quedó guardado pero sin neto ni puntos (la
+  // derivación falló y no se cae al número del cliente). Va en la respuesta para
+  // que el caso se pueda ver desde afuera sin leer la base.
+  return NextResponse.json({ success: true, totalGross, totalNet, totalPoints, derivado })
 }
 
 // ═══════════════════════════════════════════════════════════
