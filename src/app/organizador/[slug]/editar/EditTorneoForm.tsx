@@ -253,7 +253,12 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                 </div>
               ) : (
                 <>
-                  {teesEsModo && eligiendoTeeGlobal && (
+                  {/* La condición es `eligiendoTeeGlobal` SOLO: al tocar un color, `tees` deja de
+                      guardar el modo y `teesEsModo` pasa a false, así que un `teesEsModo &&` acá
+                      borraba el aviso y la vuelta atrás justo en el paso donde hacen falta —con el
+                      tee elegido y sin guardar todavía. El modo original se lee de `tournament.tees`,
+                      que no cambia con el estado. */}
+                  {eligiendoTeeGlobal && (
                     <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>
                       Todos juegan desde este tee. Reemplaza el modo <strong>{etiquetaDeTeesDelTorneo(tournament.tees)}</strong> al guardar.
                     </p>
@@ -281,7 +286,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                       <button type="button" onClick={teeNames.retry} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--brand-on-bg)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Reintentar</button>
                     </p>
                   )}
-                  {teesEsModo && eligiendoTeeGlobal && (
+                  {eligiendoTeeGlobal && (
                     <button type="button" onClick={() => { setEligiendoTeeGlobal(false); setTees(tournament.tees) }}
                       style={{ background: 'none', border: 'none', padding: 0, marginTop: '6px', color: 'var(--text-2)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>
                       Dejar el modo como está
