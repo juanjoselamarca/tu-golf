@@ -484,35 +484,32 @@ describe('leerTeeDeCadaJugador', () => {
     expect((await leerTeeDeCadaJugador(cliente, 't1')).valor.jugadoresSinTee).toBe(0)
   })
 
-  // Sin `courses.par_total`, la escala la da el CATÁLOGO DE HOYOS de la cancha (`parDeLaRondaDelTorneo`),
-  // que es la segunda fuente del motor. Esta es la única razón por la que el conteo lee `course_holes`:
-  // la misma cancha de 9 con tees en escala de 18, con el par 35 saliendo de sus hoyos en vez de su
-  // columna, tiene que seguir rechazando el tee. Con un default de par 72 el rating 55 parecería sano.
-  it('sin par en la cancha, la escala la dan sus hoyos: el tee mentiroso sigue sin contar', async () => {
+  // El par con el que se mide sale del CATÁLOGO DE HOYOS, no de la columna `courses.par_total`:
+  // `parDeLaRondaDelTorneo`, el mismo helper del board y del historial. Es la única razón por la que
+  // este conteo lee `course_holes`, y se prueba con el caso donde las dos fuentes NO coinciden: una
+  // cancha de pares (18 hoyos par 3, par 54) importada con un 72 en la columna. Su tee publica un
+  // rating 55, que es correcto contra el par de sus hoyos y absurdo contra el 72 de la columna.
+  //
+  // Con el catálogo, el tee sirve y nadie se queda sin tee. Leyendo la columna, el guardarrail lo
+  // descarta y la pantalla avisaría de un problema que el motor no tiene. Ver la nota
+  // "el par de la ronda no es el par de la cancha".
+  it('el par con el que se mide sale de los hoyos, aunque la columna de la cancha diga otra cosa', async () => {
     const { cliente } = clienteFalso(
-      conTees({
-        tournaments: {
-          data: {
-            ...TORNEO,
-            hole_count: 9,
-            courses: {
-              ...TORNEO.courses,
-              par_total: null,
-              course_rating: 35.4,
-              slope_rating: 125,
-              course_tees: [{ id: 'tee-mentiroso', nombre: 'blanco', rating: 55, slope: 113, genero: 'M' }],
-            },
+      conCancha(
+        {
+          par_total: 72,
+          course_tees: [{ id: 'tee-de-pares', nombre: 'blanco', rating: 55, slope: 113, genero: 'M' }],
+        },
+        {
+          course_holes: {
+            data: Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 3, stroke_index: i + 1 })),
+            error: null,
           },
-          error: null,
+          players: { data: [jugador({ tee_id: 'tee-de-pares' })], error: null },
         },
-        course_holes: {
-          data: Array.from({ length: 9 }, (_, i) => ({ numero: i + 1, par: i === 0 ? 3 : 4, stroke_index: i + 1 })),
-          error: null,
-        },
-        players: { data: [jugador({ tee_id: 'tee-mentiroso' })], error: null },
-      }),
+      ),
     )
-    expect((await leerTeeDeCadaJugador(cliente, 't1')).valor.jugadoresSinTee).toBe(1)
+    expect((await leerTeeDeCadaJugador(cliente, 't1')).valor.jugadoresSinTee).toBe(0)
   })
 
   it('si la consulta de jugadores falla, no afirma que ninguno se quedó sin tee', async () => {

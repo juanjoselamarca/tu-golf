@@ -86,7 +86,12 @@ vi.mock('@/lib/supabase', () => ({
 const teesDeLaCancha = vi.fn(async () => [
   { courseId: 'c1', courseName: 'Los Quillayes', tees: [{ nombre: 'blanco' }, { nombre: 'dorado' }] },
 ])
-vi.mock('@/lib/data/course-tees', () => ({ getTeeNamesForCourses: (...a: unknown[]) => teesDeLaCancha(...(a as [])) }))
+// Mock PARCIAL: el modulo tambien exporta las columnas del select que usa el lector del board
+// (`COURSE_VARIANT_COLUMNS`), y `tournament-config` llega hasta ahi por el conteo de tees.
+vi.mock('@/lib/data/course-tees', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data/course-tees')>()),
+  getTeeNamesForCourses: (...a: unknown[]) => teesDeLaCancha(...(a as [])),
+}))
 
 const SIN_CANDADOS: CandadosDeConfiguracion = { cancha: null, hoyos: null, formato: null, tee: null }
 /** El torneo arrancó: `candadosDeConfiguracion` cierra las cuatro columnas con el motivo 'scores'. */
@@ -119,7 +124,9 @@ const TORNEO = {
   use_handicap: true,
   date_start: '2026-11-15',
   cover_image_url: null,
-  courses: { id: 'c1', nombre: 'Los Quillayes' },
+  // El embed se tipa nullable a propósito: `course_id` es una columna nullable y el embed también
+  // vuelve vacío si la fila de la cancha no se pudo leer. Ese caso tiene su propio describe abajo.
+  courses: { id: 'c1', nombre: 'Los Quillayes' } as { id: string; nombre: string } | null,
   status: 'in_progress',
   // El torneo todavía no tiene scores ni tarjeta compartida: el tee se puede cambiar. Es el caso de
   // los 3 torneos de usuarios que están así en prod (2 borradores y 1 abierto, 0 scores).
@@ -141,7 +148,9 @@ const CANCHAS = [
 function montar(cambios: Partial<typeof TORNEO> = {}) {
   const torneo = { ...TORNEO, ...cambios }
   filaEnLaBase = {
-    course_id: torneo.courses.id,
+    // El embed puede venir vacío con la COLUMNA cargada (la fila de la cancha no se pudo leer), y
+    // es justo el caso donde importa qué escribe el UPDATE: lo que hay en la base.
+    course_id: torneo.courses?.id ?? 'c1',
     format: torneo.format,
     hole_count: torneo.hole_count,
     tees: torneo.tees,
@@ -444,6 +453,61 @@ describe('EditTorneoForm — la cancha con el torneo ya en juego', () => {
     montar({ candados: CANDADOS_POR_TARJETA })
     expect(await screen.findByText(/ya tiene una tarjeta compartida.*la cancha no se puede cambiar/)).toBeTruthy()
     expect(screen.queryByText(/ya tiene scores anotados.*la cancha/)).toBeNull()
+  })
+
+  // El hallazgo de la 9ª vuelta: con el embed de la cancha vacío Y el candado puesto, la pantalla
+  // quedaba MUERTA. La validación exigía elegir una cancha en un buscador deshabilitado, así que
+  // ni el nombre se podía guardar: el organizador no tenía ninguna acción posible. Lo que escribe
+  // el UPDATE no sale de la pantalla sino de la base, que sí tiene la columna cargada.
+  it('con la cancha sin resolver y el candado puesto, el resto se guarda igual', async () => {
+    const user = userEvent.setup()
+    montar({ courses: null, candados: CANDADOS_POR_SCORES })
+    expect(inputDeCancha().hasAttribute('disabled')).toBe(true)
+
+    // El input del nombre se toma ANTES de vaciarlo: con el buscador de cancha también vacío,
+    // buscarlo por su valor después matchearía los dos.
+    const nombre = screen.getByDisplayValue('Copa de Primavera')
+    await user.clear(nombre)
+    await user.type(nombre, 'Copa de Otoño')
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0].name).toBe('Copa de Otoño')
+    // La cancha de la BASE, no un '' que borraría la columna del torneo en juego.
+    expect(updates[0].course_id).toBe('c1')
+    // Y no se le pide lo que no puede hacer.
+    expect(screen.queryByText('Debes seleccionar una cancha.')).toBeNull()
+  })
+
+  // La mutación que destapó el hueco: el candado estaba puesto cuando la pantalla cargó y la
+  // relectura lo encuentra ABIERTO (el torneo volvió a borrador, o la tarjeta compartida se borró).
+  // Ahí el guardado escribe lo que la pantalla manda, y la pantalla no pudo resolver la cancha: sin
+  // el guard, ese UPDATE le borra la cancha a un torneo que la tiene cargada en su columna.
+  it('si el candado se abre entre la carga y el guardado, la cancha vacía no borra la de la base', async () => {
+    const user = userEvent.setup()
+    montar({ courses: null, candados: CANDADOS_POR_SCORES })
+
+    // La relectura: ni scores ni tarjeta compartida, así que `candadosDeConfiguracion` abre.
+    senalesEnLaBase = { scores: 0, compartidas: 0 }
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0].course_id).toBe('c1')
+    // Y se guarda de verdad: sin aviso de "guardamos el resto", porque no hubo nada bloqueado.
+    expect(toasts.map((t) => t.tipo)).toEqual(['success'])
+  })
+
+  // Sin candado, en cambio, la cancha SÍ hay que elegirla: un torneo sin cancha no se puede jugar,
+  // y acá el buscador está vivo. Sin este test, el de arriba pasaría en verde con la validación
+  // borrada del todo.
+  it('sin candado y sin cancha, el guardado la sigue exigiendo', async () => {
+    const user = userEvent.setup()
+    montar({ courses: null, status: 'draft' })
+    expect(inputDeCancha().hasAttribute('disabled')).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+    expect(await screen.findByText('Debes seleccionar una cancha.')).toBeTruthy()
+    expect(updates).toHaveLength(0)
   })
 
   // Sin candado el camino tiene que estar VIVO: un test que solo mira el botón apagado pasaría en

@@ -225,7 +225,11 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
       name: name.trim(),
       // Con el candado puesto este valor lo ignora el guardado (escribe el `course_id` de la base);
       // sin candado, la validación de arriba ya garantizó que hay cancha elegida.
-      course_id: selectedCourse?.id ?? tournament.courses?.id ?? '',
+      // Vacío cuando la cancha no se pudo resolver (el embed vino sin ella). No se cae a
+      // `tournament.courses?.id` porque `selectedCourse` sale de ESE mismo embed: sería un fallback
+      // que nada puede observar. Lo que protege la columna es `guardarConfiguracion`, que nunca
+      // escribe un `course_id` vacío y, con el candado puesto, escribe el de la fila que releyó.
+      course_id: selectedCourse?.id ?? '',
       format,
       hole_count: holeCount,
       tees,

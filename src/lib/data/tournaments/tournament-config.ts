@@ -343,7 +343,12 @@ export async function guardarConfiguracionDelTorneo(
       // `course_id` entra al UPDATE desde la fila vieja cuando está bloqueado: cambiar la cancha con
       // scores puestos mueve el rating, el par y los stroke index de los hoyos YA jugados, y deja
       // los `players.tee_id` apuntando a tees de otra cancha.
-      course_id: aEscribir<string | null>('cancha', fila.course_id, cambios.course_id),
+      //
+      // Y un `course_id` VACÍO nunca se escribe, bloqueado o no: la pantalla manda '' cuando no pudo
+      // resolver la cancha (el embed vino vacío), y si el candado se abrió entre la carga y el
+      // guardado ese '' le borraría la cancha a un torneo que la tiene. Vacío = "no traigo dato",
+      // que no es lo mismo que "borrala".
+      course_id: aEscribir<string | null>('cancha', fila.course_id, cambios.course_id || fila.course_id),
       format: aEscribir('formato', fila.format, cambios.format),
       hole_count: aEscribir('hoyos', fila.hole_count, cambios.hole_count),
       tees: aEscribir('tee', fila.tees, cambios.tees),
