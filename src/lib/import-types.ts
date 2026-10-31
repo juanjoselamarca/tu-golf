@@ -13,23 +13,38 @@ export const ERROR_IMPORT_IA_NO_DISPONIBLE = 'ia_no_disponible'
  */
 export const ERROR_IMPORT_LECTURA_FALLIDA = 'lectura_fallida'
 
+/** Código de /api/import/confirm cuando las tarjetas no pasan la validación. */
+export const ERROR_IMPORT_DATOS_INVALIDOS = 'invalid_rounds'
+
+/** Código del 409 de /api/import/confirm: otro confirm del mismo job sigue guardando. */
+export const ERROR_IMPORT_CONFIRM_EN_CURSO = 'confirm_en_curso'
+
 export interface ImportJob {
   id: string
   user_id: string
   source: string
-  status: 'pending' | 'processing' | 'review_required' | 'confirmed' | 'completed' | 'failed'
+  /** 'confirming': un confirm lo tomó y está guardando (`reclamarJobImport`). */
+  status: 'pending' | 'processing' | 'review_required' | 'confirming' | 'confirmed' | 'completed' | 'failed'
   total_detected: number
   total_valid: number
   total_excluded: number
   total_imported: number
   /** Duplicados Garmin re-escritos. null = job anterior a la columna o sin completar. */
   total_updated: number | null
+  /** null = job anterior a la columna o sin completar. */
+  unsaved_rounds: TarjetasNoGuardadas | null
   raw_data?: unknown
   mapped_data?: unknown
   errors?: unknown
   created_at: string
   updated_at: string
   completed_at?: string | null
+}
+
+/** Tarjetas que el confirm no guardó, con su tempId. Es lo que responde el confirm y lo que guarda el job. */
+export interface TarjetasNoGuardadas {
+  errors: Array<{ tempId: string; error: string }>
+  duplicates: Array<{ tempId: string; course: string; date: string }>
 }
 
 export interface ImportRoundData {

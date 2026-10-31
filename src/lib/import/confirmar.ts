@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { calcularCPI, validarRonda, type ResultadoCPI } from '@/golf/stats/cpi'
 import { calcularNivel } from '@/lib/indice-golfers'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
-import type { ImportRoundData } from '@/lib/import-types'
+import type { ImportJob, ImportRoundData, TarjetasNoGuardadas } from '@/lib/import-types'
 import { importRound, metadataDelImport, tarjetaDelImport, type ImportSource } from '@/lib/import-round'
 import { actualizacionGarmin, fetchFilasGarminExistentes } from '@/lib/data/import-garmin'
 import { COLS_PERFIL_IMPORT } from '@/lib/data/import-tarjeta'
@@ -14,12 +14,26 @@ import { callLLM, AllProvidersFailedError } from '@/lib/ai'
 import { captureError } from '@/lib/error-tracking'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 
-export interface TarjetasGuardadas {
+export interface TarjetasGuardadas extends TarjetasNoGuardadas {
   insertedIds: string[]
   /** Duplicados Garmin re-escritos (UPDATE): se guardaron, pero no son nuevos. */
   updatedIds: string[]
-  errors: Array<{ tempId: string; error: string }>
-  duplicates: Array<{ tempId: string; course: string; date: string }>
+}
+
+/** Respuesta del reintento sobre un job ya completado: lo que guardó el primer confirm y lo que no. */
+export function resultadoDelJobCompletado(job: Pick<ImportJob, 'id' | 'total_imported' | 'total_updated' | 'unsaved_rounds'>) {
+  const errors = job.unsaved_rounds?.errors ?? []
+  const duplicates = job.unsaved_rounds?.duplicates ?? []
+  return {
+    success: true,
+    job_id: job.id,
+    total_imported: job.total_imported ?? 0,
+    total_updated: job.total_updated ?? 0,
+    total_errors: errors.length,
+    total_duplicates: duplicates.length,
+    errors: errors.length > 0 ? errors : undefined,
+    duplicates: duplicates.length > 0 ? duplicates : undefined,
+  }
 }
 
 /** No se pudieron leer las tarjetas Garmin ya guardadas: no se escribió nada (el job sigue abierto para reintentar). */

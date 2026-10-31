@@ -112,11 +112,34 @@ describe('useConfirmarImportacion', () => {
     expect(result.current.error).toBeNull()
   })
 
-  it('error HTTP → muestra el mensaje del servidor', async () => {
-    fetchMock.mockReturnValue(respuesta(404, { error: 'Job no encontrado o no te pertenece' }))
+  it('409 con confirm en curso → dice que se están guardando y no lo reporta como error', async () => {
+    vi.mocked(captureError).mockClear()
+    fetchMock.mockReturnValue(respuesta(409, { code: 'confirm_en_curso' }))
+    const { result } = renderHook(() => useConfirmarImportacion())
+    await act(async () => { await result.current.confirmar('job-1', []) })
+    expect(result.current.error).toBe('Tus tarjetas se están guardando. Espera un momento y vuelve a intentar.')
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('el code de confirm en curso con otro status sí se reporta: solo el 409 es esperado', async () => {
+    vi.mocked(captureError).mockClear()
+    fetchMock.mockReturnValue(respuesta(500, { code: 'confirm_en_curso' }))
+    const { result } = renderHook(() => useConfirmarImportacion())
+    await act(async () => { await result.current.confirmar('job-1', []) })
+    expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({
+      meta: expect.objectContaining({ status: 500, code: 'confirm_en_curso' }),
+    }))
+  })
+
+  it('error HTTP → muestra el mensaje del servidor y lo reporta con su status y code', async () => {
+    vi.mocked(captureError).mockClear()
+    fetchMock.mockReturnValue(respuesta(404, { error: 'Job no encontrado o no te pertenece', code: 'x' }))
     const { result } = renderHook(() => useConfirmarImportacion())
     await act(async () => { await result.current.confirmar('job-1', []) })
     expect(result.current.error).toBe('Job no encontrado o no te pertenece')
+    expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({
+      meta: expect.objectContaining({ status: 404, code: 'x' }),
+    }))
   })
 
   it('sin red / respuesta no-JSON → mensaje genérico, nunca silencio', async () => {

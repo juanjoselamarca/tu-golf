@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import type { ImportRoundData } from '@/lib/import-types'
-import { guardarTarjetasImportadas, LecturaGarminError, recalcularTrasImportar } from '@/lib/import/confirmar'
+import { ERROR_IMPORT_CONFIRM_EN_CURSO, ERROR_IMPORT_DATOS_INVALIDOS, type ImportRoundData } from '@/lib/import-types'
+import { guardarTarjetasImportadas, LecturaGarminError, recalcularTrasImportar, resultadoDelJobCompletado } from '@/lib/import/confirmar'
+import { completarJobImport, fetchJobImport, soltarJobImport, tomarJobImport } from '@/lib/data/import-jobs'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { z } from 'zod'
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
     const parsed = ConfirmBodySchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Datos de importación inválidos', code: 'invalid_rounds', details: parsed.error.issues.slice(0, 5) },
+        { error: 'Datos de importación inválidos', code: ERROR_IMPORT_DATOS_INVALIDOS, details: parsed.error.issues.slice(0, 5) },
         { status: 400 },
       )
     }
@@ -94,51 +95,46 @@ export async function POST(request: NextRequest) {
       rounds: ImportRoundData[]
     }
 
-    // Verify job belongs to user
-    const { data: job, error: jobError } = await supabase
-      .from('import_jobs')
-      .select('*')
-      .eq('id', job_id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (jobError || !job) {
+    const job = await fetchJobImport(supabase, job_id, user.id)
+    if (!job) {
       return NextResponse.json({ error: 'Job no encontrado o no te pertenece' }, { status: 404 })
     }
 
     // Reintento tras un corte: el primer confirm terminó en el servidor y ya guardó. Se responde lo que guardó.
-    if (job.status === 'completed') {
-      return NextResponse.json({
-        success: true,
-        job_id,
-        total_imported: job.total_imported ?? 0,
-        total_updated: job.total_updated ?? 0,
+    if (job.status === 'completed') return NextResponse.json(resultadoDelJobCompletado(job))
+
+    // Si el primer confirm sigue guardando, se espera su resultado en vez de guardar el lote dos veces.
+    const toma = await tomarJobImport(supabase, job_id, user.id)
+    if (!toma.tomado) {
+      if (toma.completado) return NextResponse.json(resultadoDelJobCompletado(toma.completado))
+      // El cliente no lo reporta (es esperado); este aviso deja ver un job que quedó tomado sin soltarse.
+      // Con await: es la única señal y la respuesta ya esperó, no se arriesga a que la función se congele antes.
+      await captureError(new Error('import confirm: se agotó la espera del confirm en curso'), {
+        context: 'import.confirm.en-curso',
+        level: 'warning',
+        userId: user.id,
+        meta: { jobId: job_id },
       })
+      // Sin `error`: el mensaje lo pone el cliente según el code.
+      return NextResponse.json({ code: ERROR_IMPORT_CONFIRM_EN_CURSO }, { status: 409 })
     }
 
     let guardadas: Awaited<ReturnType<typeof guardarTarjetasImportadas>>
+    let completado = false
     try {
       guardadas = await guardarTarjetasImportadas(supabase, user.id, selectedRounds)
+      // Con 0 guardadas el job vuelve a revisión: el usuario puede descartar la tarjeta que falló y reintentar.
+      if (guardadas.insertedIds.length + guardadas.updatedIds.length > 0) {
+        completado = await completarJobImport(supabase, job_id, guardadas)
+      }
     } catch (err) {
       if (!(err instanceof LecturaGarminError)) throw err
       void captureError(err.causa, { context: 'import.confirm.filas-garmin', userId: user.id, meta: { jobId: job_id } })
       return NextResponse.json({ error: 'No pudimos leer tus tarjetas Garmin. Intenta de nuevo en un momento.' }, { status: 503 })
+    } finally {
+      if (!completado) await soltarJobImport(supabase, job_id)
     }
     const { insertedIds, updatedIds, errors: insertErrors, duplicates } = guardadas
-
-    // Update job status. Con 0 guardadas el job queda abierto: el usuario puede
-    // descartar la tarjeta que falló y reintentar (un job completado solo repite lo que guardó).
-    if (insertedIds.length + updatedIds.length > 0) await supabase
-      .from('import_jobs')
-      .update({
-        status: 'completed',
-        // Misma definición que la respuesta: solo nuevas (las re-escritas van aparte).
-        total_imported: insertedIds.length,
-        total_updated: updatedIds.length,
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', job_id)
 
     const cpiResult = await recalcularTrasImportar(supabase, user.id, insertedIds.length)
 
