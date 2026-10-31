@@ -108,17 +108,23 @@ export function esModoDeTeesAsignadoAMano(tees: string | null | undefined): bool
 }
 
 /**
- * Lo que pasa cuando el modo resuelve por categoría y NINGUNA categoría del torneo tiene tee (o no
- * hay categorías): la cadena de `resolvePlayerTee` se queda sin eslabón (el último,
- * `tournaments.tees`, guarda el MODO, que no matchea ningún nombre de tee), devuelve `source:'none'` y
- * `compute-player-course-hcp` cae al rating de la CANCHA. Medido en prod el 30-oct-2026: 9 torneos
- * en un modo por categoría están así, y de esos los 6 "en curso" son fixtures `gate-scorer-*` de
- * los gates del propio proyecto; los de usuarios son 2 borradores y 1 abierto, todos con 0 scores.
- * Decirles "el tee sale de la categoría de cada jugador" es prometerles una categoría que no
- * existe, así que se les dice lo que de verdad está pasando.
+ * Lo que pasa cuando el modo resuelve por categoría y NINGUNA categoría del torneo tiene un tee que
+ * la cancha publique (o no hay categorías): la cadena de `resolvePlayerTee` se queda sin eslabón (el
+ * último, `tournaments.tees`, guarda el MODO, que no matchea ningún nombre de tee), devuelve
+ * `source:'none'` y `compute-player-course-hcp` cae al rating de la CANCHA. Medido en prod el
+ * 30-oct-2026: 9 torneos en un modo por categoría están así, y de esos los 6 "en curso" son
+ * fixtures `gate-scorer-*` de los gates del propio proyecto; los de usuarios son 2 borradores y 1
+ * abierto, todos con 0 scores.
+ *
+ * Va en FUTURO a propósito. A este caso se llega con `jugadoresSinTee === 0` (si hubiera alguno sin
+ * tee gana `origenDelTeeConJugadoresSinTee`, que es más concreto), así que hoy no hay NADIE sacando
+ * el hándicap del rating de la cancha por esto: o el torneo todavía no tiene inscritos, o los que
+ * tiene traen su `players.tee_id` asignado a mano. Decir "el hándicap sale del rating general de la
+ * cancha" en presente afirmaba un daño a nadie — el falso positivo que esta prosa viene a evitar,
+ * solo al revés.
  */
 export const ORIGEN_DEL_TEE_SIN_CATEGORIAS =
-  'este torneo no tiene categorías con tee, así que el hándicap sale del rating general de la cancha'
+  'este torneo no tiene categorías con tee, así que quien se inscriba sacará el hándicap del rating general de la cancha'
 
 /**
  * No se pudo leer cuántas categorías tienen tee (la consulta falló). No se afirma nada: prometer la
@@ -142,20 +148,27 @@ export const ORIGEN_DEL_TEE_INDETERMINADO =
  * - Una categoría sin tee y sin ningún inscrito no le quita el tee a nadie: avisarla como si
  *   hubiera jugadores afectados es un falso positivo.
  *
+ * Los dos conteos los hace `leerTeeDeCadaJugador` (`src/lib/data/tournaments/tournament-config.ts`)
+ * LLAMANDO al motor —`resolvePlayerTee` sobre los `course_tees` de la cancha del torneo, más
+ * `teeCalculaHandicap`—, no espejando su predicado: "tener tee" no es `tee_id != null`, es que el
+ * eslabón RESUELVA a una fila con slope y rating.
+ *
  * Igual se cuentan las categorías, porque responden otra pregunta que el organizador necesita: qué
  * le va a pasar a quien se inscriba DESPUÉS. Un borrador sin jugadores todavía y sin ninguna
  * categoría con tee está roto para todos los que lleguen, y ahí el conteo de jugadores no dice nada.
  */
 export interface TeeDeCadaJugador {
   /**
-   * Jugadores del torneo (los que no están retirados ni descalificados) sin tee que la cadena
-   * pueda resolver: sin `tee_id` propio y sin categoría con tee, categoría nula incluida.
-   * `null` = no se pudo contar.
+   * Jugadores del torneo (los que no están retirados ni descalificados) a los que el motor NO les
+   * resuelve un tee con el que calcular: ni por `players.tee_id`, ni por el tee de su categoría
+   * (categoría nula incluida), ni por el tee global. `null` = no se pudo contar.
    */
   jugadoresSinTee: number | null
-  /** Jugadores del torneo que cuentan, con tee o sin él. */
-  jugadoresTotal: number
-  /** Categorías con `default_tee_color`, o `null` si no se pudo contar. */
+  /**
+   * Categorías cuyo `default_tee_color` el motor resuelve a un tee de la cancha con slope y
+   * rating, o `null` si no se pudo contar. Una categoría que apunta a un color que esta cancha no
+   * publica NO cuenta: a sus jugadores el hándicap les sale igual del rating de la cancha.
+   */
   categoriasConTee: number | null
   /** Categorías del torneo, con tee o sin él. */
   categoriasTotal: number

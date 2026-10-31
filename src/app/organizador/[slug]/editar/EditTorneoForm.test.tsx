@@ -33,7 +33,13 @@ vi.mock('@/hooks/useToast', () => ({
  * Lo que la base responde cuando el guardado RELEE. Es el corazón de estos tests: los candados que
  * la pantalla recibió por props pueden tener minutos de antigüedad, así que lo que decide es esto.
  */
-let filaEnLaBase: { format: string; hole_count: number; tees: string; status: string | null }
+let filaEnLaBase: {
+  course_id: string
+  format: string
+  hole_count: number
+  tees: string
+  status: string | null
+}
 let senalesEnLaBase: { scores: number | null; compartidas: number | null }
 
 vi.mock('@/lib/supabase', () => ({
@@ -82,12 +88,24 @@ const teesDeLaCancha = vi.fn(async () => [
 ])
 vi.mock('@/lib/data/course-tees', () => ({ getTeeNamesForCourses: (...a: unknown[]) => teesDeLaCancha(...(a as [])) }))
 
-const SIN_CANDADOS: CandadosDeConfiguracion = { hoyos: null, formato: null, tee: null }
-/** El torneo arrancó: `candadosDeConfiguracion` cierra las tres columnas con el motivo 'scores'. */
-const CANDADOS_POR_SCORES: CandadosDeConfiguracion = { hoyos: 'scores', formato: 'scores', tee: 'scores' }
+const SIN_CANDADOS: CandadosDeConfiguracion = { cancha: null, hoyos: null, formato: null, tee: null }
+/** El torneo arrancó: `candadosDeConfiguracion` cierra las cuatro columnas con el motivo 'scores'. */
+const CANDADOS_POR_SCORES: CandadosDeConfiguracion = {
+  cancha: 'scores',
+  hoyos: 'scores',
+  formato: 'scores',
+  tee: 'scores',
+}
+/** La tarjeta compartida ya existe: el scorer tiene su copia de la cancha, los hoyos y el tee. */
+const CANDADOS_POR_TARJETA: CandadosDeConfiguracion = {
+  cancha: 'tarjeta-compartida',
+  hoyos: 'tarjeta-compartida',
+  formato: 'publicado',
+  tee: 'tarjeta-compartida',
+}
 
 /** Ningún jugador resuelve su tee y ninguna de las 3 categorías tiene uno. */
-const SIN_CATEGORIA_CON_TEE: TeeDeCadaJugador = { jugadoresSinTee: 0, jugadoresTotal: 0, categoriasConTee: 0, categoriasTotal: 3 }
+const SIN_CATEGORIA_CON_TEE: TeeDeCadaJugador = { jugadoresSinTee: 0, categoriasConTee: 0, categoriasTotal: 3 }
 
 const TORNEO = {
   id: 't1',
@@ -109,7 +127,10 @@ const TORNEO = {
   tee_de_cada_jugador: SIN_CATEGORIA_CON_TEE,
 }
 
-const CANCHAS = [{ id: 'c1', nombre: 'Los Quillayes', ciudad: 'Santiago' }]
+const CANCHAS = [
+  { id: 'c1', nombre: 'Los Quillayes', ciudad: 'Santiago' },
+  { id: 'c2', nombre: 'Los Leones', ciudad: 'Santiago' },
+]
 
 /**
  * Monta la pantalla y deja la base COHERENTE con lo que se montó: la fila que el guardado relee
@@ -119,14 +140,33 @@ const CANCHAS = [{ id: 'c1', nombre: 'Los Quillayes', ciudad: 'Santiago' }]
  */
 function montar(cambios: Partial<typeof TORNEO> = {}) {
   const torneo = { ...TORNEO, ...cambios }
-  filaEnLaBase = { format: torneo.format, hole_count: torneo.hole_count, tees: torneo.tees, status: torneo.status }
-  const porScores = torneo.candados.tee === 'scores' || torneo.candados.hoyos === 'scores'
-  senalesEnLaBase = { scores: porScores ? 72 : 0, compartidas: 0 }
+  filaEnLaBase = {
+    course_id: torneo.courses.id,
+    format: torneo.format,
+    hole_count: torneo.hole_count,
+    tees: torneo.tees,
+    status: torneo.status,
+  }
+  const porScores = Object.values(torneo.candados).some((m) => m === 'scores')
+  const porTarjeta = Object.values(torneo.candados).some((m) => m === 'tarjeta-compartida')
+  senalesEnLaBase = { scores: porScores ? 72 : 0, compartidas: porTarjeta ? 1 : 0 }
   return render(<EditTorneoForm tournament={torneo} courses={CANCHAS} />)
 }
 
 /** El selector de colores está en pantalla (su botón, no el link que lo abre). */
 const botonDeTee = (nombre: RegExp) => screen.queryByRole('button', { name: nombre })
+
+const inputDeCancha = () => screen.getByPlaceholderText('Buscar cancha...')
+
+/**
+ * Busca una cancha y la elige, como lo haría el organizador: el campo arranca con el nombre de la
+ * cancha actual, así que primero se borra y se escribe la nueva (la lista filtra por lo escrito).
+ */
+async function elegirCancha(user: ReturnType<typeof userEvent.setup>, busqueda: string, nombre: RegExp) {
+  await user.clear(inputDeCancha())
+  await user.type(inputDeCancha(), busqueda)
+  await user.click(await screen.findByRole('button', { name: nombre }))
+}
 
 beforeEach(() => {
   updates.length = 0
@@ -193,7 +233,7 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
   })
 
   it('con el tee de todos resuelto no se ofrece la salida: ahí el motor SÍ tiene de dónde sacarlo', async () => {
-    montar({ tee_de_cada_jugador: { jugadoresSinTee: 0, jugadoresTotal: 4, categoriasConTee: 3, categoriasTotal: 3 } })
+    montar({ tee_de_cada_jugador: { jugadoresSinTee: 0, categoriasConTee: 3, categoriasTotal: 3 } })
     expect(await screen.findByText(/categoría de cada jugador/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
   })
@@ -202,7 +242,7 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
   // se queda sin tee aunque TODAS las categorías tengan uno. Contando categorías la pantalla le
   // prometía justo la categoría que no tiene.
   it('un jugador sin tee resoluble se avisa aunque todas las categorías tengan tee, y se le ofrece la salida', async () => {
-    montar({ tee_de_cada_jugador: { jugadoresSinTee: 1, jugadoresTotal: 3, categoriasConTee: 2, categoriasTotal: 2 } })
+    montar({ tee_de_cada_jugador: { jugadoresSinTee: 1, categoriasConTee: 2, categoriasTotal: 2 } })
     expect(await screen.findByText(/1 jugador inscrito no tiene tee/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeTruthy()
   })
@@ -212,7 +252,7 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
   // torneo es el último eslabón de la cadena: rescata a esos sin pisarle el tee a la que ya lo tiene.
   it('con algunas categorías sin tee lo dice con los números y ofrece la salida igual', async () => {
     const user = userEvent.setup()
-    montar({ tee_de_cada_jugador: { jugadoresSinTee: 0, jugadoresTotal: 2, categoriasConTee: 1, categoriasTotal: 3 } })
+    montar({ tee_de_cada_jugador: { jugadoresSinTee: 0, categoriasConTee: 1, categoriasTotal: 3 } })
     expect(await screen.findByText(/2 de las 3 categorías no tienen tee/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: /Elegir un tee para todo el torneo/ }))
     // Y la copy NO dice "todos juegan desde este tee": la categoría con tee mantiene el suyo.
@@ -221,7 +261,7 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
   })
 
   it('si no se pudo leer, no afirma nada ni ofrece una salida a ciegas', async () => {
-    montar({ tee_de_cada_jugador: { jugadoresSinTee: null, jugadoresTotal: 0, categoriasConTee: null, categoriasTotal: 0 } })
+    montar({ tee_de_cada_jugador: { jugadoresSinTee: null, categoriasConTee: null, categoriasTotal: 0 } })
     expect(await screen.findByText(/no pudimos leer/)).toBeTruthy()
     expect(screen.queryByText(/no tiene categorías con tee/)).toBeNull()
     expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
@@ -337,6 +377,85 @@ describe('EditTorneoForm — el tee con el torneo ya en juego', () => {
     await waitFor(() => expect(updates).toHaveLength(1))
     expect(updates[0].tees).toBe('blanco')
     expect(updates[0].name).toBe('Copa de Primavera')
-    expect(toasts.find((t) => t.tipo === 'warning')?.titulo).toBe('Guardamos el resto')
+    const aviso = toasts.find((t) => t.tipo === 'warning')
+    expect(aviso?.titulo).toBe('Guardamos el resto')
+    // Y no le inventa una causa: no se pudo mirar, así que no se afirma que haya scores.
+    expect(aviso?.mensaje).toMatch(/No pudimos verificar/)
+    expect(aviso?.mensaje).not.toMatch(/scores anotados/)
+    // Un candado que no se pudo confirmar es lo único que se arregla recargando, así que ahí sí.
+    expect(aviso?.mensaje).toMatch(/Recarga la página/)
+  })
+})
+
+// El hallazgo de la 8ª vuelta: la CANCHA era la única de las cuatro columnas sin candado. Cambiarla
+// con el torneo andando mueve el rating, el slope, el par y los stroke index, así que recalcula
+// hasta el neto de un hoyo ya jugado, y además deja los `players.tee_id` apuntando a tees de otra
+// cancha (el conteo de "jugadores sin tee" los cuenta como huérfanos, que es lo que son).
+describe('EditTorneoForm — la cancha con el torneo ya en juego', () => {
+  it('no se puede cambiar, dice por qué y el buscador no abre', async () => {
+    const user = userEvent.setup()
+    montar({ candados: CANDADOS_POR_SCORES })
+    expect(inputDeCancha().hasAttribute('disabled')).toBe(true)
+    expect(await screen.findByText(/la cancha no se puede cambiar/)).toBeTruthy()
+    expect(screen.getByText(/ya tiene scores anotados.*la cancha no se puede cambiar/)).toBeTruthy()
+    // Y el buscador no se abre: con el candado puesto no se le ofrece una lista que no va a servir.
+    await user.click(inputDeCancha())
+    expect(screen.queryByRole('button', { name: /Los Leones/ })).toBeNull()
+  })
+
+  // La misma carrera que la del tee (el P1 de la 7ª vuelta): el torneo se inicia DESPUÉS de que esta
+  // pantalla se cargó, así que el candado de las props llega tarde. Lo que decide es la relectura.
+  it('si el torneo arranca después de cargada la pantalla, el guardado no escribe la cancha nueva', async () => {
+    const user = userEvent.setup()
+    montar()
+    await elegirCancha(user, 'Leones', /Los Leones/)
+    expect(screen.getByText(/✓ Los Leones/)).toBeTruthy()
+
+    // Alguien inicia el torneo en el medio: llegan los scores y, con ellos, el candado.
+    senalesEnLaBase = { scores: 18, compartidas: 0 }
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0].course_id).toBe('c1')
+    const aviso = toasts.find((t) => t.tipo === 'warning')
+    expect(aviso?.titulo).toBe('Guardamos el resto')
+    expect(aviso?.mensaje).toMatch(/la cancha quedó como estaba/)
+  })
+
+  // El otro motivo, que es el que no tenía candado ninguno hasta ahora: `startTournament` le copia a
+  // la tarjeta su propia cancha (`rondas_libres.course_id`, issue #698), así que la primera tarjeta
+  // compartida la congela aunque no haya ni un score. Y el aviso tiene que decir ESA causa: con un
+  // texto fijo sobre los scores le estaría mintiendo a un torneo con 0.
+  it('la primera tarjeta compartida también la congela, y el aviso nombra esa causa', async () => {
+    const user = userEvent.setup()
+    montar()
+    await elegirCancha(user, 'Leones', /Los Leones/)
+
+    senalesEnLaBase = { scores: 0, compartidas: 1 }
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0].course_id).toBe('c1')
+    const aviso = toasts.find((t) => t.tipo === 'warning')
+    expect(aviso?.mensaje).toMatch(/ya tiene una tarjeta compartida/)
+    expect(aviso?.mensaje).toMatch(/la cancha quedó como estaba/)
+    expect(aviso?.mensaje).not.toMatch(/scores anotados/)
+  })
+
+  it('con el candado por la tarjeta, el aviso de la cancha nombra la tarjeta y no los scores', async () => {
+    montar({ candados: CANDADOS_POR_TARJETA })
+    expect(await screen.findByText(/ya tiene una tarjeta compartida.*la cancha no se puede cambiar/)).toBeTruthy()
+    expect(screen.queryByText(/ya tiene scores anotados.*la cancha/)).toBeNull()
+  })
+
+  // Sin candado el camino tiene que estar VIVO: un test que solo mira el botón apagado pasaría en
+  // verde con el guardado de la cancha borrado del todo.
+  it('en un borrador la cancha se cambia y llega al UPDATE', async () => {
+    const user = userEvent.setup()
+    montar({ status: 'draft' })
+    expect(inputDeCancha().hasAttribute('disabled')).toBe(false)
+    await elegirCancha(user, 'Leones', /Los Leones/)
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0].course_id).toBe('c2')
+    expect(toasts.map((t) => t.tipo)).toEqual(['success'])
   })
 })

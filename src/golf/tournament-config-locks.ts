@@ -8,18 +8,21 @@
 // el candado de 9↔18 hoyos se quedó MUERTO durante todo un PR sin que nada avisara: la pantalla
 // apagaba el botón y el UPDATE escribía la columna igual.
 //
-// Son TRES candados distintos a propósito. Lo que cada columna rompe es distinto:
+// Es la ENUMERACIÓN CANÓNICA de lo que se congela: una columna de la configuración que rompe datos
+// ya escritos y no está acá queda sin candado en las dos capas a la vez.
 //
-// - hoyos: solo con scores puestos. Antes del primer score, 9↔18 no invalida ninguna fila (el par
-//   de la ronda se recalcula) y el organizador que lo configuró mal tiene que poder arreglarlo.
-// - formato: desde que el torneo sale del borrador. Los grupos y los equipos ya se armaron con ese
-//   formato, y los jugadores ya vieron a qué se inscribían.
-// - tee: desde el primer score O la primera tarjeta compartida. El tee no se guarda en la tarjeta:
-//   entra al CALCULAR el neto (`leaderboard.ts` resuelve el course handicap leyendo
-//   `tournaments.tees`), así que cambiarlo con scores puestos mueve los netos de los hoyos YA
-//   jugados en el leaderboard en vivo. Y `startTournament` le copia el tee a `rondas_libres.tees`
-//   al crear la tarjeta (issue #698): desde ese momento el board y la tarjeta calcularían dos
-//   hándicaps distintos para el mismo jugador.
+// Dos cosas distintas cierran los candados, porque son dos daños distintos:
+//
+// - El primer SCORE: lo anotado se calculó con esta configuración. Cambiarla mueve los netos de los
+//   hoyos YA jugados en el leaderboard en vivo.
+// - La primera TARJETA COMPARTIDA: `startTournament` le copia al scorer su propia copia de la
+//   cancha, los hoyos y el tee (`rondas_libres`: `course_id`, `holes`, `tees` — issue #698). Desde
+//   ese momento, cambiar el torneo hace que el board y la tarjeta calculen cosas distintas para el
+//   mismo jugador, aunque todavía no haya ni un score.
+//
+// Por eso la cancha, los hoyos y el tee cierran con cualquiera de las dos, y el formato cierra
+// antes: desde que el torneo sale del borrador. Los grupos y los equipos ya se armaron con ese
+// formato y los inscritos ya vieron a qué entraban.
 //
 // Devuelve el MOTIVO y no un booleano porque la pantalla tiene que decirlo, y porque un booleano
 // dejaba a la copy mintiendo: con la consulta de scores caída el candado cerraba (bien) pero la
@@ -38,8 +41,12 @@ export interface SenalesDeTorneoEnJuego {
   status: string | null
 }
 
-/** Las columnas de la configuración que se bloquean. */
-export type ColumnaDeConfiguracion = 'hoyos' | 'formato' | 'tee'
+/**
+ * Las columnas de la configuración que se bloquean. Las cuatro cambian el cálculo de algo ya
+ * escrito: la cancha mueve el rating, el par y los stroke index; los hoyos, qué tarjeta existe; el
+ * formato, cómo se puntúa; el tee, el hándicap con que se puntúa.
+ */
+export type ColumnaDeConfiguracion = 'cancha' | 'hoyos' | 'formato' | 'tee'
 
 /**
  * Por qué una columna quedó bloqueada.
@@ -53,21 +60,24 @@ export type MotivoDelCandado = 'scores' | 'publicado' | 'tarjeta-compartida' | '
 /** El motivo por columna, o `null` si esa columna se puede cambiar. */
 export type CandadosDeConfiguracion = Record<ColumnaDeConfiguracion, MotivoDelCandado | null>
 
-/** ¿Quedó alguna columna bloqueada sin que se pudiera confirmar por qué? */
-export function candadoIndeterminado(candados: CandadosDeConfiguracion): boolean {
-  return Object.values(candados).some((m) => m === 'indeterminado')
-}
-
-/** Los tres candados a partir de las señales. */
+/** Los cuatro candados a partir de las señales. */
 export function candadosDeConfiguracion({
   scores,
   tarjetasCompartidas,
   status,
 }: SenalesDeTorneoEnJuego): CandadosDeConfiguracion {
-  // El motivo de los scores, que pesa en las tres columnas: si no se pudieron contar, nada de lo
+  // El motivo de los scores, que pesa en las cuatro columnas: si no se pudieron contar, nada de lo
   // que dependa de ellos se puede afirmar.
   const porScores: MotivoDelCandado | null =
     scores == null ? 'indeterminado' : scores > 0 ? 'scores' : null
+
+  // La tarjeta compartida congela todo lo que el scorer se copió: cancha, hoyos y tee.
+  const porTarjeta: MotivoDelCandado | null =
+    tarjetasCompartidas == null
+      ? 'indeterminado'
+      : tarjetasCompartidas > 0
+        ? 'tarjeta-compartida'
+        : null
 
   // `tournaments.status` es NOT NULL con default 'draft', así que un null acá no sale de la base:
   // sale de que no se pudo leer. Tratarlo como borrador abriría el formato de un torneo que quizás
@@ -75,15 +85,14 @@ export function candadosDeConfiguracion({
   const porPublicacion: MotivoDelCandado | null =
     status == null ? 'indeterminado' : torneoFueraDelBorrador(status) ? 'publicado' : null
 
+  // El orden del `??` es el orden del daño: primero el score (concreto y ya anotado), después la
+  // copia del scorer.
+  const enJuego = porScores ?? porTarjeta
+
   return {
-    hoyos: porScores,
+    cancha: enJuego,
+    hoyos: enJuego,
     formato: porScores ?? porPublicacion,
-    tee:
-      porScores ??
-      (tarjetasCompartidas == null
-        ? 'indeterminado'
-        : tarjetasCompartidas > 0
-          ? 'tarjeta-compartida'
-          : null),
+    tee: enJuego,
   }
 }

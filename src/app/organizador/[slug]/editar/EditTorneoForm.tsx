@@ -23,7 +23,7 @@ import type {
   ColumnaDeConfiguracion,
   MotivoDelCandado,
 } from '@/golf/tournament-config-locks'
-import { guardarConfiguracionDelTorneo } from '@/lib/data/tournaments/tournament-config'
+import { guardarConfiguracionDelTorneo, type ColumnaBloqueada } from '@/lib/data/tournaments/tournament-config'
 import { useCourseTeeNames } from '@/hooks/useCourseTeeNames'
 
 interface TournamentData {
@@ -45,44 +45,70 @@ const FORMATS = (Object.entries(FORMAT_META) as [FormatoJuego, typeof FORMAT_MET
   ([key, meta]) => ({ value: key, label: meta.label, desc: meta.description }),
 )
 /**
- * Lo que se le dice al organizador por cada columna bloqueada. La copy la elige el MOTIVO y no un
- * booleano: con la consulta de scores caída el candado cierra igual, pero afirmarle "después de que
- * los jugadores comenzaron a scorear" sobre un torneo con 0 scores es decirle algo que no miramos.
- * Un motivo sin frase propia —y 'indeterminado' es el caso— cae a la neutral, que no afirma nada.
+ * La copy del candado se arma de DOS fuentes: la CAUSA (por qué el torneo está congelado, que la
+ * elige el motivo) y el RIESGO (qué rompería cambiar esa columna). Así el aviso del campo y el
+ * aviso de "guardamos el resto" dicen lo mismo sin repetir ninguna frase.
+ *
+ * La causa la elige el MOTIVO y no un booleano: con la consulta de scores caída el candado cierra
+ * igual, pero afirmarle "ya empezaron a scorear" sobre un torneo con 0 scores es decirle algo que
+ * no miramos. Y el toast afirmaba "el torneo ya está en juego" para cualquier candado, incluido el
+ * de un torneo publicado sin un solo score.
  */
-const AVISO_CANDADO_INDETERMINADO =
-  'No pudimos verificar si el torneo ya está en juego, así que la configuración queda bloqueada. Recarga la página para intentarlo de nuevo.'
-
-const AVISO_CANDADO: Record<ColumnaDeConfiguracion, Partial<Record<MotivoDelCandado, string>>> = {
-  hoyos: {
-    scores: 'No se puede cambiar el número de hoyos después de que los jugadores comenzaron a scorear.',
-  },
-  formato: {
-    scores: 'No se puede cambiar el formato después de que los jugadores comenzaron a scorear.',
-    publicado: 'No se puede cambiar el formato una vez que el torneo fue publicado.',
-  },
-  tee: {
-    scores: 'Este torneo ya tiene scores anotados, así que el tee no se puede cambiar: movería el hándicap con el que se está puntuando.',
-    'tarjeta-compartida': 'Este torneo ya tiene una tarjeta compartida, así que el tee no se puede cambiar: el scorer ya guardó su propia copia del tee.',
-  },
+const CAUSA_DEL_CANDADO: Record<MotivoDelCandado, string> = {
+  scores: 'Este torneo ya tiene scores anotados',
+  publicado: 'Este torneo ya fue publicado',
+  'tarjeta-compartida': 'Este torneo ya tiene una tarjeta compartida',
+  indeterminado: 'No pudimos verificar si este torneo ya está en juego',
 }
 
-function avisoDelCandado(columna: ColumnaDeConfiguracion, motivo: MotivoDelCandado | null): string | null {
-  if (motivo == null) return null
-  return AVISO_CANDADO[columna][motivo] ?? AVISO_CANDADO_INDETERMINADO
+const RIESGO_DE_LA_COLUMNA: Record<ColumnaDeConfiguracion, string> = {
+  cancha: 'movería el rating, el par y los stroke index de los hoyos que ya se jugaron',
+  hoyos: 'las tarjetas ya se armaron con esos hoyos',
+  formato: 'los grupos y los equipos ya se armaron con el formato elegido',
+  tee: 'el tee entra al calcular el neto, así que movería el hándicap con el que se está puntuando',
 }
 
-/** Las columnas que el guardado dejó intactas, en una frase: "el tee", "el formato y los hoyos". */
+/** El nombre de cada columna en una frase: "el tee", "el formato y los hoyos". */
 const NOMBRE_DE_COLUMNA: Record<ColumnaDeConfiguracion, string> = {
+  cancha: 'la cancha',
   hoyos: 'el número de hoyos',
   formato: 'el formato',
   tee: 'el tee',
+}
+
+/** "Recarga para reintentar" solo cuando el candado es por un dato que no se pudo leer. */
+const REINTENTAR = ' Recarga la página para intentarlo de nuevo.'
+
+function avisoDelCandado(columna: ColumnaDeConfiguracion, motivo: MotivoDelCandado | null): string | null {
+  if (motivo == null) return null
+  const nombre = NOMBRE_DE_COLUMNA[columna]
+  const extra = motivo === 'indeterminado' ? REINTENTAR : ''
+  return `${CAUSA_DEL_CANDADO[motivo]}, así que ${nombre} no se puede cambiar: ${RIESGO_DE_LA_COLUMNA[columna]}.${extra}`
 }
 
 function listaDeColumnas(columnas: ColumnaDeConfiguracion[]): string {
   const nombres = columnas.map((c) => NOMBRE_DE_COLUMNA[c])
   if (nombres.length === 1) return nombres[0]
   return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+}
+
+/**
+ * Lo que el guardado no escribió, en una frase por MOTIVO. Agrupa por motivo porque es lo que
+ * cambia la verdad de la frase: dos columnas bloqueadas por los scores comparten causa, pero una
+ * bloqueada por la publicación y otra por la tarjeta compartida no.
+ */
+function avisoDeLoQueNoSeGuardo(bloqueadas: ColumnaBloqueada[]): string {
+  const porMotivo = new Map<MotivoDelCandado, ColumnaDeConfiguracion[]>()
+  for (const { columna, motivo } of bloqueadas) {
+    porMotivo.set(motivo, [...(porMotivo.get(motivo) ?? []), columna])
+  }
+  return [...porMotivo]
+    .map(([motivo, columnas]) => {
+      const verbo = columnas.length === 1 ? 'quedó' : 'quedaron'
+      const extra = motivo === 'indeterminado' ? REINTENTAR : ''
+      return `${CAUSA_DEL_CANDADO[motivo]}, así que ${listaDeColumnas(columnas)} ${verbo} como estaba${columnas.length === 1 ? '' : 'n'}.${extra}`
+    })
+    .join(' ')
 }
 
 function FieldErr({ msg }: { msg: string | null }) {
@@ -128,6 +154,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   // vuelve a leer las señales y vuelve a correr el mismo predicado, porque entre que esta pantalla
   // se cargó y el organizador toca Guardar pueden pasar minutos y alguien puede haber iniciado el
   // torneo en el medio.
+  const candadoDeCancha = tournament.candados.cancha
   const candadoDeHoyos = tournament.candados.hoyos
   const candadoDeFormato = tournament.candados.formato
   const candadoDelTee = tournament.candados.tee
@@ -200,11 +227,10 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
       return
     }
 
-    // Lo que el torneo en juego no dejó cambiar se dice, en vez de fingir que se guardó todo.
+    // Lo que el candado no dejó cambiar se dice con SU motivo, en vez de fingir que se guardó todo
+    // o de afirmar que el torneo está en juego cuando el candado era por otra cosa.
     if (resultado.bloqueadas.length > 0) {
-      const que = listaDeColumnas(resultado.bloqueadas)
-      const verbo = resultado.bloqueadas.length === 1 ? 'quedó' : 'quedaron'
-      showWarning('Guardamos el resto', `El torneo ya está en juego, así que ${que} ${verbo} como estaba.`)
+      showWarning('Guardamos el resto', avisoDeLoQueNoSeGuardo(resultado.bloqueadas))
       router.push(`/organizador/${tournament.slug}/jugadores`)
       return
     }
@@ -239,16 +265,22 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <FieldErr msg={fieldError('name')} />
           </div>
 
-          {/* Cancha */}
+          {/* Cancha: con el torneo en juego NO se cambia. El rating, el par y los stroke index de
+              los hoyos ya jugados salen de la cancha, y `players.tee_id` apunta a los tees de ESTA
+              — cambiarla los deja huérfanos y el hándicap cae al rating general. El scorer además
+              se copió la cancha al crear la tarjeta compartida (`rondas_libres.course_id`). */}
           <div ref={dropdownRef} style={{ position: 'relative' }}>
             <label style={labelStyle}>Cancha</label>
-            <input type="text" placeholder="Buscar cancha..." value={courseSearch}
+            <input type="text" placeholder="Buscar cancha..." value={courseSearch} disabled={candadoDeCancha != null}
               onChange={(e) => { setCourseSearch(e.target.value); setSelectedCourse(null); setShowCourses(true) }}
-              onFocus={() => setShowCourses(true)}
-              style={{ ...inputStyle('course'), borderColor: fieldError('course') ? 'var(--error-border)' : selectedCourse ? 'var(--brand)' : 'rgba(122,143,168,0.3)' }} />
+              onFocus={() => { if (candadoDeCancha == null) setShowCourses(true) }}
+              style={{ ...inputStyle('course'), borderColor: fieldError('course') ? 'var(--error-border)' : selectedCourse ? 'var(--brand)' : 'rgba(122,143,168,0.3)', opacity: candadoDeCancha != null ? 0.5 : 1, cursor: candadoDeCancha != null ? 'not-allowed' : 'text' }} />
             {selectedCourse && <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '4px' }}>✓ {selectedCourse.nombre}</div>}
             <FieldErr msg={fieldError('course')} />
-            {showCourses && filteredCourses.length > 0 && (
+            {candadoDeCancha && (
+              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>{avisoDelCandado('cancha', candadoDeCancha)}</p>
+            )}
+            {candadoDeCancha == null && showCourses && filteredCourses.length > 0 && (
               <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-surface)', border: '1px solid var(--border-md)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 50 }}>
                 {filteredCourses.slice(0, 15).map((c) => (
                   <button key={c.id} type="button"

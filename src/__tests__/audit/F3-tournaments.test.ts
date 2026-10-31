@@ -122,16 +122,18 @@ describe('[peso:3] Creation validation — formato + modo', () => {
   // prueba el predicado real. La cobertura de verdad vive en `src/golf/tournament-config-locks.test.ts`
   // (los tres candados y sus motivos), `src/lib/data/tournaments/tournament-config.test.ts` (que el
   // UPDATE escriba el valor viejo) y `EditTorneoForm.test.tsx` (la pantalla).
-  it('con un score puesto se bloquean el formato y los hoyos, y el motivo son los scores', () => {
+  it('con un score puesto se bloquean el formato, los hoyos y la cancha, y el motivo son los scores', () => {
     const candados = candadosDeConfiguracion({ scores: 1, tarjetasCompartidas: 0, status: 'in_progress' })
     expect(candados.formato).toBe('scores')
     expect(candados.hoyos).toBe('scores')
+    expect(candados.cancha).toBe('scores')
   })
 
   it('sin scores y en borrador no se bloquea nada: el organizador arregla lo que configuró mal', () => {
     const candados = candadosDeConfiguracion({ scores: 0, tarjetasCompartidas: 0, status: 'draft' })
     expect(candados.formato).toBeNull()
     expect(candados.hoyos).toBeNull()
+    expect(candados.cancha).toBeNull()
   })
 
   // Si el conteo de scores no se pudo hacer, el candado cierra igual: un candado que falla ABIERTO
@@ -140,6 +142,7 @@ describe('[peso:3] Creation validation — formato + modo', () => {
     const candados = candadosDeConfiguracion({ scores: null, tarjetasCompartidas: 0, status: 'draft' })
     expect(candados.formato).toBe('indeterminado')
     expect(candados.hoyos).toBe('indeterminado')
+    expect(candados.cancha).toBe('indeterminado')
   })
 
   // El test viejo afirmaba "EditTorneoForm solo tiene stroke_play y stableford" declarando ese array
