@@ -108,7 +108,8 @@ export async function POST(request: NextRequest) {
     if (!toma.tomado) {
       if (toma.completado) return NextResponse.json(resultadoDelJobCompletado(toma.completado))
       // El cliente no lo reporta (es esperado); este aviso deja ver un job que quedó tomado sin soltarse.
-      void captureError(new Error('import confirm: se agotó la espera del confirm en curso'), {
+      // Con await: es la única señal y la respuesta ya esperó, no se arriesga a que la función se congele antes.
+      await captureError(new Error('import confirm: se agotó la espera del confirm en curso'), {
         context: 'import.confirm.en-curso',
         level: 'warning',
         userId: user.id,
