@@ -17,7 +17,8 @@ export interface ImportJob {
   id: string
   user_id: string
   source: string
-  status: 'pending' | 'processing' | 'review_required' | 'confirmed' | 'completed' | 'failed'
+  /** 'confirming': un confirm lo tomó y está guardando (`reclamarJobImport`). */
+  status: 'pending' | 'processing' | 'review_required' | 'confirming' | 'confirmed' | 'completed' | 'failed'
   total_detected: number
   total_valid: number
   total_excluded: number

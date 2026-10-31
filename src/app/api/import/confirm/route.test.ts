@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { NextRequest } from 'next/server'
 import { leerResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
-import { actualizacionGarmin } from '@/lib/data/import-garmin'
+import { actualizacionGarmin, fetchFilasGarminExistentes } from '@/lib/data/import-garmin'
+import { ESPERA_CONFIRM_EN_CURSO_MS, PLAZO_RECLAMO_CONFIRM_MS } from '@/lib/data/import-jobs'
 import { importRound } from '@/lib/import-round'
 
 const USER_ID = '11111111-1111-4111-8111-111111111111'
@@ -10,21 +11,39 @@ const JOB_ID = '33333333-3333-4333-8333-333333333333'
 type Llamada = { tabla: string; op: string; payload?: unknown }
 let llamadas: Llamada[] = []
 let job: Record<string, unknown> = {}
+/** Cómo leen el job las lecturas siguientes a la primera (mientras otro confirm guarda). */
+let jobsSiguientes: Record<string, unknown>[] = []
+/** Resultado de cada intento de reclamar el job; el último se repite. */
+let reclamos: boolean[] = []
+let fallaCompletar = false
 
 /** Builder encadenable y "thenable" como el de PostgREST que registra cada escritura. */
 function builder(tabla: string) {
   let op = 'select'
+  let payload: unknown
   const resultado = () => {
-    if (tabla === 'import_jobs' && op === 'select') return { data: job, error: null }
+    if (tabla === 'import_jobs' && op === 'select') {
+      const leido = job
+      if (jobsSiguientes.length > 0) job = jobsSiguientes.shift()!
+      return { data: leido, error: null }
+    }
+    if (tabla === 'import_jobs' && op === 'update' && (payload as { status?: string }).status === 'confirming') {
+      const tomado = reclamos.length > 1 ? reclamos.shift()! : (reclamos[0] ?? true)
+      return { data: tomado ? [{ id: JOB_ID }] : [], error: null }
+    }
+    if (tabla === 'import_jobs' && op === 'update' && (payload as { status?: string }).status === 'completed' && fallaCompletar) {
+      return { data: null, error: { message: 'caída' } }
+    }
     if (tabla === 'historical_rounds' && op === 'update') return { data: [{ id: 'ronda-garmin' }], error: null }
     if (tabla === 'historical_rounds' && op === 'select') return { data: [], error: null, count: 0 }
     return { data: null, error: null }
   }
   const b: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'gte', 'order', 'limit']) b[m] = vi.fn(() => b)
+  for (const m of ['select', 'eq', 'neq', 'or', 'gte', 'order', 'limit']) b[m] = vi.fn(() => b)
   for (const m of ['insert', 'update', 'delete']) {
     b[m] = vi.fn((p?: unknown) => {
       op = m
+      payload = p
       llamadas.push({ tabla, op: m, payload: p })
       return b
     })
@@ -57,7 +76,7 @@ vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: vi.fn() }))
 vi.mock('@/lib/ai', () => ({ callLLM: vi.fn(async () => ({ text: '' })), AllProvidersFailedError: class extends Error {} }))
 vi.mock('@/golf/coach/detect-and-save-patterns', () => ({ detectAndSavePatterns: vi.fn(async () => undefined) }))
 
-import { POST } from './route'
+import { maxDuration, POST } from './route'
 
 const scores = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(i + 1), 5]))
 const rondaGarmin = {
@@ -82,8 +101,13 @@ function confirmar() {
 
 const escrituras = () => llamadas.filter(l => l.op !== 'select')
 
+const escriturasDelJob = () => escrituras().filter(l => l.tabla === 'import_jobs').map(l => l.payload)
+
 beforeEach(() => {
   llamadas = []
+  jobsSiguientes = []
+  reclamos = []
+  fallaCompletar = false
   vi.clearAllMocks()
 })
 
@@ -123,13 +147,99 @@ describe('POST /api/import/confirm: reintento sobre un job ya completado', () =>
 })
 
 describe('POST /api/import/confirm: al completar el job', () => {
-  it('guarda las re-escritas en total_updated, aparte de las nuevas, y lo que no se guardó', async () => {
+  it('lo reclama antes de guardar y al cerrar guarda las re-escritas aparte y lo que no se guardó', async () => {
     job = { id: JOB_ID, user_id: USER_ID, status: 'review_required' }
     const res = await confirmar()
     expect(res.status).toBe(200)
-    const cierre = llamadas.find(l => l.tabla === 'import_jobs' && l.op === 'update')
-    expect(cierre?.payload).toMatchObject({
-      status: 'completed', total_imported: 0, total_updated: 1, unsaved_rounds: { errors: [], duplicates: [] },
-    })
+    expect(escriturasDelJob()).toEqual([
+      expect.objectContaining({ status: 'confirming' }),
+      expect.objectContaining({
+        status: 'completed', total_imported: 0, total_updated: 1, unsaved_rounds: { errors: [], duplicates: [] },
+      }),
+    ])
+  })
+
+  it('con 0 guardadas lo devuelve a revisión para que el usuario corrija y reintente', async () => {
+    job = { id: JOB_ID, user_id: USER_ID, status: 'review_required' }
+    vi.mocked(fetchFilasGarminExistentes).mockResolvedValueOnce(new Map())
+    vi.mocked(importRound).mockResolvedValueOnce({ success: false, warnings: ['sin cancha'] } as never)
+    const res = await confirmar()
+    expect(res.status).toBe(200)
+    expect(escriturasDelJob()).toEqual([
+      expect.objectContaining({ status: 'confirming' }),
+      expect.objectContaining({ status: 'review_required' }),
+    ])
+  })
+
+  it('si no puede marcarlo completado lo devuelve a revisión: el reintento no espera el plazo del reclamo', async () => {
+    job = { id: JOB_ID, user_id: USER_ID, status: 'review_required' }
+    fallaCompletar = true
+    expect((await confirmar()).status).toBe(200)
+    expect(escriturasDelJob()).toEqual([
+      expect.objectContaining({ status: 'confirming' }),
+      expect.objectContaining({ status: 'completed' }),
+      expect.objectContaining({ status: 'review_required' }),
+    ])
+  })
+
+  it('si no puede leer las tarjetas Garmin responde 503 y lo devuelve a revisión', async () => {
+    job = { id: JOB_ID, user_id: USER_ID, status: 'review_required' }
+    vi.mocked(fetchFilasGarminExistentes).mockRejectedValueOnce(new Error('caída'))
+    const res = await confirmar()
+    expect(res.status).toBe(503)
+    expect(escriturasDelJob()).toEqual([
+      expect.objectContaining({ status: 'confirming' }),
+      expect.objectContaining({ status: 'review_required' }),
+    ])
+  })
+})
+
+describe('POST /api/import/confirm: reintento mientras el primer confirm sigue guardando', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('espera a que el primero termine y responde lo que guardó, sin guardar de nuevo', async () => {
+    job = { id: JOB_ID, user_id: USER_ID, status: 'confirming' }
+    jobsSiguientes = [
+      { id: JOB_ID, user_id: USER_ID, status: 'confirming' },
+      { id: JOB_ID, user_id: USER_ID, status: 'completed', total_imported: 5, total_updated: 0 },
+    ]
+    reclamos = [false]
+    const pendiente = confirmar()
+    await vi.advanceTimersByTimeAsync(10_000)
+    const res = await pendiente
+    expect(res.status).toBe(200)
+    expect(leerResultadoConfirmacion(await res.json())).toMatchObject({ importadas: 5 })
+    expect(importRound).not.toHaveBeenCalled()
+    expect(actualizacionGarmin).not.toHaveBeenCalled()
+    expect(escriturasDelJob().every(p => (p as { status: string }).status === 'confirming')).toBe(true)
+  })
+
+  it('si el primero lo soltó sin guardar, lo reclama y guarda', async () => {
+    job = { id: JOB_ID, user_id: USER_ID, status: 'confirming' }
+    reclamos = [false, true]
+    const pendiente = confirmar()
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect((await pendiente).status).toBe(200)
+    expect(actualizacionGarmin).toHaveBeenCalledTimes(1)
+  })
+
+  it('si el primero no termina dentro de la espera responde 409 sin guardar', async () => {
+    job = { id: JOB_ID, user_id: USER_ID, status: 'confirming' }
+    reclamos = [false]
+    const pendiente = confirmar()
+    await vi.advanceTimersByTimeAsync(ESPERA_CONFIRM_EN_CURSO_MS + 10_000)
+    const res = await pendiente
+    expect(res.status).toBe(409)
+    expect(await res.json()).not.toHaveProperty('error')
+    expect(importRound).not.toHaveBeenCalled()
+    expect(actualizacionGarmin).not.toHaveBeenCalled()
+  })
+})
+
+describe('PLAZO_RECLAMO_CONFIRM_MS', () => {
+  it('vence después del maxDuration del confirm: nunca le quita el job a uno que sigue guardando', () => {
+    expect(PLAZO_RECLAMO_CONFIRM_MS).toBeGreaterThan(maxDuration * 1000)
+    expect(ESPERA_CONFIRM_EN_CURSO_MS).toBeLessThan(maxDuration * 1000)
   })
 })
