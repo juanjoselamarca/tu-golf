@@ -10,8 +10,7 @@
  *  4. validateResponse con su lista de canchas
  *  5. Schema del endpoint acepta payload sanitizado de su sesión actual
  *
- * Uso:
- *   npx vitest run src/__tests__/integration/coach-e2e.test.ts
+ * Solo lo corre prod-canarios.yml: el proyecto prod de Vitest existe solo con VITEST_PROD=1.
  *
  * Skipea automáticamente si no hay SUPABASE_SERVICE_ROLE_KEY (no rompe CI).
  */
