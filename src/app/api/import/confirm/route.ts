@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import type { ImportRoundData } from '@/lib/import-types'
+import { ERROR_IMPORT_CONFIRM_EN_CURSO, ERROR_IMPORT_DATOS_INVALIDOS, type ImportRoundData } from '@/lib/import-types'
 import { guardarTarjetasImportadas, LecturaGarminError, recalcularTrasImportar, resultadoDelJobCompletado } from '@/lib/import/confirmar'
 import { completarJobImport, fetchJobImport, soltarJobImport, tomarJobImport } from '@/lib/data/import-jobs'
 import { captureError } from '@/lib/error-tracking'
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     const parsed = ConfirmBodySchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Datos de importación inválidos', code: 'invalid_rounds', details: parsed.error.issues.slice(0, 5) },
+        { error: 'Datos de importación inválidos', code: ERROR_IMPORT_DATOS_INVALIDOS, details: parsed.error.issues.slice(0, 5) },
         { status: 400 },
       )
     }
@@ -107,8 +107,8 @@ export async function POST(request: NextRequest) {
     const toma = await tomarJobImport(supabase, job_id, user.id)
     if (!toma.tomado) {
       if (toma.completado) return NextResponse.json(resultadoDelJobCompletado(toma.completado))
-      // Sin `error`: el cliente muestra su mensaje genérico de reintentar.
-      return NextResponse.json({ code: 'confirm_en_curso' }, { status: 409 })
+      // Sin `error`: el mensaje lo pone el cliente según el code.
+      return NextResponse.json({ code: ERROR_IMPORT_CONFIRM_EN_CURSO }, { status: 409 })
     }
 
     let guardadas: Awaited<ReturnType<typeof guardarTarjetasImportadas>>

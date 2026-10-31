@@ -239,7 +239,7 @@ describe('POST /api/import/confirm: reintento mientras el primer confirm sigue g
     await vi.advanceTimersByTimeAsync(ESPERA_CONFIRM_EN_CURSO_MS + 10_000)
     const res = await pendiente
     expect(res.status).toBe(409)
-    expect(await res.json()).not.toHaveProperty('error')
+    expect(await res.json()).toEqual({ code: 'confirm_en_curso' })
     expect(importRound).not.toHaveBeenCalled()
     expect(actualizacionGarmin).not.toHaveBeenCalled()
   })

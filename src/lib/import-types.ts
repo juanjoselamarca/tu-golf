@@ -13,6 +13,12 @@ export const ERROR_IMPORT_IA_NO_DISPONIBLE = 'ia_no_disponible'
  */
 export const ERROR_IMPORT_LECTURA_FALLIDA = 'lectura_fallida'
 
+/** Código de /api/import/confirm cuando las tarjetas no pasan la validación. */
+export const ERROR_IMPORT_DATOS_INVALIDOS = 'invalid_rounds'
+
+/** Código del 409 de /api/import/confirm: otro confirm del mismo job sigue guardando. */
+export const ERROR_IMPORT_CONFIRM_EN_CURSO = 'confirm_en_curso'
+
 export interface ImportJob {
   id: string
   user_id: string
