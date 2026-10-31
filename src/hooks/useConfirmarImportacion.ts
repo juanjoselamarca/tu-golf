@@ -113,7 +113,7 @@ export function useConfirmarImportacion() {
           setError(typeof msg === 'string' && msg ? msg : ERROR_GENERICO)
           void captureError(new Error(`import confirm ${res.status}`), {
             context: 'import.confirm',
-            meta: { status: res.status, rounds: rounds.length },
+            meta: { status: res.status, code: body?.code, rounds: rounds.length },
           })
           return null
         }
