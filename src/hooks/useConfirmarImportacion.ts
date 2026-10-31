@@ -11,7 +11,7 @@
 
 import { useCallback, useState } from 'react'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
-import type { ImportRoundData } from '@/lib/import-types'
+import { ERROR_IMPORT_CONFIRM_EN_CURSO, ERROR_IMPORT_DATOS_INVALIDOS, type ImportRoundData } from '@/lib/import-types'
 import { captureError } from '@/lib/error-tracking'
 import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
 import { PLAZO_CONFIRMAR_IMPORTACION_MS } from '@/lib/red/plazos'
@@ -32,6 +32,11 @@ export interface ResultadoConfirmacion {
 const ERROR_GENERICO = 'No pudimos guardar las tarjetas. Revisa tu conexión e intenta de nuevo.'
 const ERROR_DATOS_INVALIDOS =
   'Una de las tarjetas tiene datos fuera de rango. Revisa sus hoyos o descártala e intenta de nuevo.'
+const ERROR_CONFIRM_EN_CURSO = 'Tus tarjetas se están guardando. Espera un momento y vuelve a intentar.'
+const MENSAJE_POR_CODIGO: Record<string, string> = {
+  [ERROR_IMPORT_DATOS_INVALIDOS]: ERROR_DATOS_INVALIDOS,
+  [ERROR_IMPORT_CONFIRM_EN_CURSO]: ERROR_CONFIRM_EN_CURSO,
+}
 
 function conteo(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0
@@ -109,7 +114,7 @@ export function useConfirmarImportacion() {
         )
         if (!res.ok) {
           const body = data as { error?: unknown; code?: unknown } | null
-          const msg = body?.code === 'invalid_rounds' ? ERROR_DATOS_INVALIDOS : body?.error
+          const msg = (typeof body?.code === 'string' && MENSAJE_POR_CODIGO[body.code]) || body?.error
           setError(typeof msg === 'string' && msg ? msg : ERROR_GENERICO)
           void captureError(new Error(`import confirm ${res.status}`), {
             context: 'import.confirm',

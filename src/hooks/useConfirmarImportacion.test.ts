@@ -112,12 +112,12 @@ describe('useConfirmarImportacion', () => {
     expect(result.current.error).toBeNull()
   })
 
-  it('409 con confirm en curso → mensaje genérico, y el tracking trae el code para separarlo de un error', async () => {
+  it('409 con confirm en curso → dice que se están guardando, y el tracking trae el code para separarlo de un error', async () => {
     vi.mocked(captureError).mockClear()
     fetchMock.mockReturnValue(respuesta(409, { code: 'confirm_en_curso' }))
     const { result } = renderHook(() => useConfirmarImportacion())
     await act(async () => { await result.current.confirmar('job-1', []) })
-    expect(result.current.error).toMatch(/Revisa tu conexión/)
+    expect(result.current.error).toBe('Tus tarjetas se están guardando. Espera un momento y vuelve a intentar.')
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({
       meta: expect.objectContaining({ status: 409, code: 'confirm_en_curso' }),
     }))
