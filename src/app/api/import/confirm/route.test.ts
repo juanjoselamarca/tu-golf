@@ -222,6 +222,7 @@ describe('POST /api/import/confirm: reintento mientras el primer confirm sigue g
     expect(importRound).not.toHaveBeenCalled()
     expect(actualizacionGarmin).not.toHaveBeenCalled()
     expect(escriturasDelJob().every(p => (p as { status: string }).status === 'confirming')).toBe(true)
+    expect(captureError).not.toHaveBeenCalled()
   })
 
   it('si el primero lo soltó sin guardar, lo reclama y guarda', async () => {
@@ -246,6 +247,7 @@ describe('POST /api/import/confirm: reintento mientras el primer confirm sigue g
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({
       context: 'import.confirm.en-curso',
       level: 'warning',
+      userId: USER_ID,
       meta: { jobId: JOB_ID },
     }))
   })
