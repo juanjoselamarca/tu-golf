@@ -429,7 +429,8 @@ create table public."import_jobs" (
   "created_at" timestamp with time zone default now(),
   "updated_at" timestamp with time zone default now(),
   "completed_at" timestamp with time zone,
-  "total_updated" integer
+  "total_updated" integer,
+  "unsaved_rounds" jsonb
 );
 create table public."inbox_reports" (
   "id" uuid default gen_random_uuid() not null,
