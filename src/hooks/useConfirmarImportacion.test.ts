@@ -113,10 +113,10 @@ describe('useConfirmarImportacion', () => {
   })
 
   it('error HTTP → muestra el mensaje del servidor', async () => {
-    fetchMock.mockReturnValue(respuesta(400, { error: 'Este job ya fue completado' }))
+    fetchMock.mockReturnValue(respuesta(404, { error: 'Job no encontrado o no te pertenece' }))
     const { result } = renderHook(() => useConfirmarImportacion())
     await act(async () => { await result.current.confirmar('job-1', []) })
-    expect(result.current.error).toBe('Este job ya fue completado')
+    expect(result.current.error).toBe('Job no encontrado o no te pertenece')
   })
 
   it('sin red / respuesta no-JSON → mensaje genérico, nunca silencio', async () => {

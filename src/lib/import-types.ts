@@ -22,6 +22,8 @@ export interface ImportJob {
   total_valid: number
   total_excluded: number
   total_imported: number
+  /** Duplicados Garmin re-escritos. null = job anterior a la columna o sin completar. */
+  total_updated: number | null
   raw_data?: unknown
   mapped_data?: unknown
   errors?: unknown
