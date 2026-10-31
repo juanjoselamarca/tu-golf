@@ -114,6 +114,19 @@ export type MotivoSinScores = 'no_empezo' | 'cerrado'
 /** Torneo que todavía no empezó (borrador o inscripciones abiertas): el único que el organizador puede iniciar. */
 export const TORNEO_SIN_EMPEZAR_STATUSES = ['draft', 'open'] as const
 
+/** El torneo recién creado, que todavía no vio nadie más que el organizador. */
+export const TORNEO_BORRADOR_STATUS = 'draft' as const
+
+/**
+ * ¿El torneo ya salió del borrador? Es decir: ¿ya lo vio alguien más que el organizador?
+ * Desde ese momento hay inscritos, grupos y equipos armados con el formato elegido, así que el
+ * formato ya no se cambia (ver `tournament-config-locks.ts`). Un status desconocido cuenta como
+ * fuera del borrador: no se afirma que sigue privado sin saberlo.
+ */
+export function torneoFueraDelBorrador(status: string | null | undefined): boolean {
+  return status != null && status !== TORNEO_BORRADOR_STATUS
+}
+
 export function torneoSinEmpezar(status: string | null | undefined): boolean {
   return !!status && (TORNEO_SIN_EMPEZAR_STATUSES as readonly string[]).includes(status)
 }
@@ -123,8 +136,29 @@ export function motivoSinScores(status: string | null | undefined): MotivoSinSco
   return torneoSinEmpezar(status) ? 'no_empezo' : 'cerrado'
 }
 
+/**
+ * TODOS los estados que `players.status` puede guardar. Es el CHECK de la tabla
+ * (`players_status_check` en el baseline): si alguno se agrega en una migración, se agrega acá y
+ * las dos listas de abajo se reparten solas.
+ */
+export const PLAYER_STATUSES = ['pending', 'approved', 'waitlist', 'withdrawn', 'disqualified'] as const
+
+export type PlayerStatus = (typeof PLAYER_STATUSES)[number]
+
 /** Estados del JUGADOR (`players.status`) que lo dejan fuera del torneo: no anota ni aparece en la tabla. */
 export const JUGADOR_FUERA_STATUSES = ['withdrawn', 'disqualified'] as const
+
+/**
+ * Los que SIGUEN dentro del torneo: cuentan para la tabla, para los grupos y para cualquier
+ * pregunta sobre "los jugadores de este torneo". Se DERIVA de las otras dos para que no haya dos
+ * listas que mantener: el literal `['pending', 'approved', 'waitlist']` estaba copiado a mano en
+ * `leaderboard.ts`, `scoring.ts` y `tvBoard.ts`, y un estado nuevo en el CHECK habría quedado
+ * fuera de la tabla sin que nada avisara.
+ */
+export const JUGADOR_EN_TORNEO_STATUSES = PLAYER_STATUSES.filter(
+  (e): e is Exclude<PlayerStatus, (typeof JUGADOR_FUERA_STATUSES)[number]> =>
+    !(JUGADOR_FUERA_STATUSES as readonly string[]).includes(e),
+)
 
 export function jugadorFueraDelTorneo(status: string | null | undefined): boolean {
   return !!status && (JUGADOR_FUERA_STATUSES as readonly string[]).includes(status)
