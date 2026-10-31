@@ -117,7 +117,7 @@ export function useConfirmarImportacion() {
           const msg = (typeof body?.code === 'string' && MENSAJE_POR_CODIGO[body.code]) || body?.error
           setError(typeof msg === 'string' && msg ? msg : ERROR_GENERICO)
           // El 409 de confirm en curso es esperado (otro confirm del mismo job sigue guardando), no una falla.
-          if (body?.code !== ERROR_IMPORT_CONFIRM_EN_CURSO) {
+          if (!(res.status === 409 && body?.code === ERROR_IMPORT_CONFIRM_EN_CURSO)) {
             void captureError(new Error(`import confirm ${res.status}`), {
               context: 'import.confirm',
               meta: { status: res.status, code: body?.code, rounds: rounds.length },

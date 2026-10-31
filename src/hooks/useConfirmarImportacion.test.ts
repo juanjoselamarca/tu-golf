@@ -121,6 +121,16 @@ describe('useConfirmarImportacion', () => {
     expect(captureError).not.toHaveBeenCalled()
   })
 
+  it('el code de confirm en curso con otro status sí se reporta: solo el 409 es esperado', async () => {
+    vi.mocked(captureError).mockClear()
+    fetchMock.mockReturnValue(respuesta(500, { code: 'confirm_en_curso' }))
+    const { result } = renderHook(() => useConfirmarImportacion())
+    await act(async () => { await result.current.confirmar('job-1', []) })
+    expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({
+      meta: expect.objectContaining({ status: 500, code: 'confirm_en_curso' }),
+    }))
+  })
+
   it('error HTTP → muestra el mensaje del servidor y lo reporta con su status y code', async () => {
     vi.mocked(captureError).mockClear()
     fetchMock.mockReturnValue(respuesta(404, { error: 'Job no encontrado o no te pertenece', code: 'x' }))
