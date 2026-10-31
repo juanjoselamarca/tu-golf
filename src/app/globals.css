@@ -50,9 +50,15 @@
   --bogey:  #C4992A;
   --double: #DC2626;
 
-  /* Legacy palette aliases (compat con .glass-card, .leader-row, etc.) */
-  --bg-deep: #08120f;
-  --bg-deep-2: #0d1b17;
+  /* Legacy palette aliases (compat con .glass-card, .leader-row, etc.)
+     --bg-deep / --bg-deep-2 son "el fondo profundo": el MISMO concepto que --bg /
+     --bg-surface, así que llevan el mismo navy. Eran el oliva #08120f / #0d1b17, que
+     coincidía con el body viejo por accidente — al llevar el body al navy canónico,
+     dejarlos oliva abría una costura de tono justo donde antes no había ninguna, y en
+     pantalla de cancha: RondaHeader (`/ronda-libre/<codigo>` y `/score`) y TVMode
+     pintan su fondo con --bg-deep pegado al body. Un concepto, una fuente. */
+  --bg-deep: #070d18;
+  --bg-deep-2: #0e1c2f;
   --bg-card: #12231e;
   --bg-card-2: #173129;
   --gold: #c8a55a;
@@ -248,13 +254,21 @@
     min-width: 320px;
   }
 
+  /* Dark: el fondo del body es el navy canónico --bg (#070d18, DESIGN.md §3).
+     Antes eran los literales del palette legacy (#08120f / #0d1b17, oliva) más una
+     viñeta verde rgba(30,70,55,0.35). Como la navbar y las cards SÍ pintan navy, el
+     body sólo asomaba en los huecos y ahí leía como una banda ajena: es la franja
+     oliva de 80 px bajo la navbar en "Nuevo torneo" (medida en rgb(15,23,17) sobre el
+     fotograma crudo del reel del 30-oct, entre la navbar rgb(10,20,39) y el contenido
+     rgb(13,27,47)). El landing no dependía del oliva: `.home-mkt` pinta su propio
+     `--navy: #070d18`, así que el body ahora le hace juego en vez de pelearle.
+     Un concepto, una fuente: acá van los tokens, igual que en [data-theme="light"]. */
   [data-theme="dark"] body {
-    background-color: #08120f;
+    background-color: var(--bg);
     background-image:
-      radial-gradient(circle at top, rgba(200, 165, 90, 0.10), transparent 30%),
-      radial-gradient(circle at bottom right, rgba(30, 70, 55, 0.35), transparent 28%),
-      linear-gradient(180deg, #08120f 0%, #0d1b17 100%);
-    color: #f3efe6;
+      radial-gradient(circle at top, rgba(196, 153, 42, 0.10), transparent 30%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-surface) 100%);
+    color: var(--text);
   }
 
   [data-theme="light"] body {
