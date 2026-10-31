@@ -8,6 +8,7 @@
 //   módulo para mantenerlo trivialmente testeable en jsdom si hace falta).
 
 import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
+import { captureError } from '@/lib/error-tracking'
 import type {
   DBTournament,
   DBTournamentGroupRow,
@@ -121,7 +122,17 @@ async function nombresFaltantes(
     .filter((f) => !f.profiles?.name?.trim() && f.user_id)
     .map((f) => f.user_id as string)
   if (ids.length === 0) return new Map()
-  return leerNombres(ids)
+  try {
+    return await leerNombres(ids)
+  } catch (e) {
+    // La lectura falla CERRADO (lanza) porque en el gemelo de índices un error
+    // tragado publica el neto como gross. Acá no hay número que mentir: el
+    // degradado honesto es "Jugador". Dejar subir el throw convertiría un blip
+    // del servicio en la página de error de Next para el link público del
+    // torneo — peor que antes del arreglo, cuando sólo salían nombres feos.
+    void captureError(e, { context: 'leaderboard.nombresFaltantes', meta: { jugadores: ids.length } })
+    return new Map()
+  }
 }
 
 export async function fetchCourseHoles(

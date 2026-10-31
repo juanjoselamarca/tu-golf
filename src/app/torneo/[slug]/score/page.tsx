@@ -43,12 +43,20 @@ type Tournament = ScoringTournament
  *  sesión — la policy SELECT de `profiles` es `TO authenticated`, así que el embed
  *  llega null y el selector "¿Quién eres?" quedaba con N filas que decían "Jugador". */
 function playerDisplayName(p: Player, nombresServidor: Record<string, string> = {}): string {
-  return p.profiles?.name ?? p.player_name ?? nombresServidor[p.id] ?? 'Jugador'
+  // El del servidor va ANTES de `player_name`: ya es el resultado de
+  // `resolveLegacyPlayerName` (perfil → player_name → 'Jugador'), así que nunca
+  // es peor. Al revés, un inscrito con cuenta Y `player_name` tipeado por el
+  // organizador salía "juanito" acá y "Juan Pérez" en el board: dos etiquetas
+  // para la misma tarjeta, justo la confusión que este arreglo vino a cerrar.
+  // `||` y no `??`: un nombre en blanco no es un nombre.
+  return p.profiles?.name?.trim() || nombresServidor[p.id]?.trim() || p.player_name?.trim() || 'Jugador'
 }
 
-/** ¿Falta el nombre de algún inscrito CON cuenta? (visor sin sesión). */
+/** ¿Falta el nombre de algún inscrito CON cuenta? (visor sin sesión). MISMO
+ *  predicado que `nombresFaltantes` de la capa de datos: lo que decide es tener
+ *  `user_id` sin nombre de perfil, no si además hay `player_name`. */
 function faltanNombres(roster: readonly Player[]): boolean {
-  return roster.some((p) => !p.profiles?.name?.trim() && !p.player_name?.trim())
+  return roster.some((p) => !p.profiles?.name?.trim() && !!p.user_id)
 }
 
 export default function PlayerScoringPage() {

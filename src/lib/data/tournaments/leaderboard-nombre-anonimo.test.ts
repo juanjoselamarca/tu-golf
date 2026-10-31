@@ -35,6 +35,9 @@ vi.mock('@/lib/supabaseAdmin', () => ({
   }),
 }))
 
+const captureErrorMock = vi.fn()
+vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureErrorMock(...a) }))
+
 import { fetchEnrolledPlayerNames, fetchLegacyPlayers, fetchWithdrawnPlayers, type Client } from './leaderboard'
 import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
@@ -95,5 +98,23 @@ describe('board público con visor anónimo — nombres', () => {
     // Sin el relleno, la primera fila se filtraba en silencio (name null) y el
     // retirado desaparecía del board para quien lo mira sin cuenta.
     expect(out.map((e) => e.name)).toEqual(['Juan José Lamarca', 'Invitado Pedro'])
+  })
+})
+
+describe('board público: el lector de nombres caído no tumba la página', () => {
+  it('devuelve las filas sin nombre en vez de lanzar, y deja rastro del fallo', async () => {
+    captureErrorMock.mockClear()
+    const filas = [{ id: 'p1', user_id: 'u1', player_name: null, profiles: null }]
+    const falla = async () => {
+      throw new Error('servicio de nombres caído')
+    }
+    // Sin el try/catch, este throw sube hasta el `Promise.all` de
+    // `src/app/torneo/[slug]/page.tsx` (que no lo captura) y el link público del
+    // torneo se convierte en la página de error de Next: un blip del servicio
+    // dejaría el board PEOR que antes del arreglo, cuando sólo salían nombres feos.
+    const out = await fetchLegacyPlayers(anon(filas) as unknown as Client, 't1', falla)
+    expect(out).toHaveLength(1)
+    expect(out[0].profiles ?? null).toBeNull()
+    expect(captureErrorMock).toHaveBeenCalledTimes(1)
   })
 })
