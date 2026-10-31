@@ -2,84 +2,59 @@
 /**
  * scripts/verify-db-schema.mjs
  *
- * Valida que cada columna referenciada en código (.from('tabla').select('col1,col2'))
- * EXISTA en la BD de Supabase. Previene el bug del 7-may-2026 donde par_per_hole
- * fue añadida al SELECT de /perfil/historial pero nadie creó la migración —
- * resultando en error "No se pudieron cargar las tarjetas" en producción.
+ * Valida que cada columna referenciada en código (.from('tabla').select('col1,col2')) EXISTA en supabase/schema.sql,
+ * el esquema que dejan todas las migraciones (el check `esquema` lo mantiene igual a ellas). Previene el bug del
+ * 7-may-2026 donde par_per_hole fue añadida al SELECT de /perfil/historial pero nadie creó la migración, resultando en
+ * error "No se pudieron cargar las tarjetas" en producción.
  *
- * Antes que nada bloquea si la rama edita, borra o renombra una migración que ya está en origin/main
- * (columnas-de-migraciones.mjs → revisarMigracionesTocadas). Siempre, con o sin credenciales y sin mirar
- * schema_migrations: editarla no cambia prod si ya la aplicó, y si no (espera aprobación, no corrió por un
- * evento) re-correr esa corrida aplica la versión vieja; borrarla o renombrarla rompe `supabase db push
- * --include-all`. Única salida: PERMITIR_TOCAR_MIGRACION=<version>[,<version>] para una migración que FALLÓ
- * al aplicarse, solo en la línea del push (en .env.local se ignora y avisa). Se verifica en código, fail-closed: exime solo si schema_migrations de prod es legible y NO tiene
- * esa versión (sin credenciales o con prod registrándola, bloquea igual) e imprime un aviso fuerte. Sin
- * origin/main legible, solo avisa. Antes de comparar hace `git fetch --quiet origin main` (si falla, avisa y usa la
- * copia local). Una migración que la rama AGREGA bloquea si main ya trae ese nombre con otro contenido, si main ya
- * trae esa versión con otro nombre, o si prod ya registra su versión (agregadasQueYaEstanEnMain decide "está en main").
+ * No lee ninguna base: nada local ni de test toca prod. Que la migración ya esté APLICADA en prod antes de mergear el
+ * código que la lee lo cuida el orden de los PR (migración primero, docs/CONVENCIONES_TECNICAS.md), no este check.
+ *
+ * Antes que nada bloquea si la rama edita, borra o renombra una migración que ya está en origin/main (columnas-de-migraciones.mjs
+ * → revisarMigracionesTocadas). Siempre: editarla no cambia prod si ya la aplicó, y si no (espera aprobación, no corrió
+ * por un evento) re-correr esa corrida aplica la versión vieja; borrarla o renombrarla rompe `supabase db push
+ * --include-all`. Única salida: PERMITIR_TOCAR_MIGRACION=<version>[,<version>] para una migración que FALLÓ al
+ * aplicarse, solo en la línea del push (en .env.local se ignora y avisa). Acá exime sin comprobar prod; en el PR lo
+ * decide la etiqueta permitir-tocar-migracion:<version> que pone Juanjo. Sin origin/main legible, solo avisa. Antes de
+ * comparar hace `git fetch --quiet origin main` (si falla, avisa y usa la copia local). Una migración que la rama AGREGA
+ * bloquea si main ya trae ese nombre con otro contenido o esa versión con otro nombre.
  *
  * Uso:
- *   node --env-file-if-exists=.env.local scripts/verify-db-schema.mjs   (igual que el hook pre-push)
- *   … --solo-migraciones   solo el bloqueo de migraciones tocadas y sale (verify.mjs lo corre aunque salte el resto)
+ *   node scripts/verify-db-schema.mjs   (igual que el hook pre-push)
+ *   … --solo-migraciones   solo el bloqueo de migraciones tocadas y sale (el atajo del pre-push lo corre igual)
+ *   … --solo-columnas      solo las columnas, sin el bloqueo de migraciones tocadas (ci.yml)
  *
  * Exit codes:
- *   0 = OK (todas las columnas referenciadas existen en BD)
- *   1 = mismatches encontrados, o la rama edita/borra/renombra una migración que ya está en main (push
- *       debe bloquearse). Lo segundo sale 1 aunque falte .env.local: se revisa antes de las credenciales.
- *   2 = faltan credenciales (.env.local) o no se pudo conectar a BD (warning, no bloquea — entornos
- *       sin acceso; el hook pre-push lo acepta)
+ *   0 = OK (todas las columnas referenciadas existen en schema.sql)
+ *   1 = mismatches encontrados, o la rama edita/borra/renombra una migración que ya está en main (push debe bloquearse)
  *
  * Limitaciones conocidas (false negatives — no es exhaustivo):
  *   - Skip selects con '*' (no hay columnas explícitas que validar)
  *   - Skip selects con '(' o ':' (joins/relaciones — sintaxis Supabase compleja)
  *   - Skip from(varname) dinámico
  *   - Skip rondas con template literals
+ *   - Skip vistas: schema.sql no las trae
  *
  * Lo que SÍ detecta: el caso común de listar columnas hardcoded que no existen.
  */
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { execSql } from './lib/exec-sql.mjs'
-import {
-  agregadasQueYaEstanEnMain,
-  aplicadasSoloDeProd,
-  clasificarColumnasFaltantes,
-  columnasDeMigraciones,
-  explicarColumnaNueva,
-  migracionesAgregadasEnLaRama,
-  migracionesAplicadasEnProd,
-  migracionesEnMain,
-  PIE_COLUMNAS_CON_MIGRACION,
-  revisarMigracionesTocadas,
-} from './lib/columnas-de-migraciones.mjs'
-import { esMigracionAplicable } from './lib/nombre-migracion.mjs'
+import { revisarMigracionesTocadas } from './lib/columnas-de-migraciones.mjs'
+import { columnasPorTabla } from './lib/esquema-sql.mjs'
 
 const SRC_ROOT = path.resolve('src')
 
-// 200 ms antes de salir: en Windows, process.exit con fetch abiertos dispara UV_HANDLE_CLOSING
-// (aserción de libuv → exit code distinto de 0 con todo OK → el pre-push bloqueaba, 16-oct).
-async function salir(code) {
-  await new Promise(r => setTimeout(r, 200))
-  process.exit(code)
+// En CI el bloqueo de migraciones tocadas lo hace migraciones-inmutables.yml, que tiene la historia que el checkout no trae.
+if (!process.argv.includes('--solo-columnas')) {
+  const tocadas = revisarMigracionesTocadas()
+  if (tocadas.bloquea) {
+    console.error(tocadas.texto)
+    process.exit(1)
+  }
+  if (tocadas.texto) console.warn(tocadas.texto)
 }
-
-// Antes que las credenciales: sin .env.local (exit 2) el pre-push igual debe bloquear esto. Solo lee prod si
-// PERMITIR_TOCAR_MIGRACION pide una migración tocada (sin credenciales esa lectura da null y no exime).
-const tocadas = await revisarMigracionesTocadas({
-  leerAplicadas: () => aplicadasSoloDeProd({ leer: () => migracionesAplicadasEnProd(execSql) }),
-})
-if (tocadas.bloquea) {
-  console.error(tocadas.texto)
-  await salir(1)
-}
-if (tocadas.texto) console.warn(tocadas.texto)
-if (process.argv.includes('--solo-migraciones')) await salir(0)
-
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn('⚠ verify-db-schema: faltan credenciales (.env.local) — skip')
-  await salir(2)
-}
+if (process.argv.includes('--solo-migraciones')) process.exit(0)
 
 // ── 1. Walk src/ y recolectar archivos .ts/.tsx ─────────────────
 function walk(dir, files = []) {
@@ -137,38 +112,25 @@ for (const file of files) {
 
 if (pairs.length === 0) {
   console.log('verify-db-schema: 0 pares (tabla, columnas) extraíbles — OK')
-  await salir(0)
+  process.exit(0)
 }
 
-// ── 3. Agrupar por tabla y consultar information_schema ────────
+// ── 3. Columnas por tabla según supabase/schema.sql ─────────────
 const tablesUsed = [...new Set(pairs.map(p => p.table))].sort()
-
-const sql = `
-  SELECT table_name, column_name
-  FROM information_schema.columns
-  WHERE table_schema = 'public'
-    AND table_name = ANY (ARRAY[${tablesUsed.map(t => `'${t}'`).join(',')}]::text[]);
-`.trim()
-
-let rows
+let dbColsByTable
 try {
-  rows = await execSql(sql)
+  dbColsByTable = columnasPorTabla(fs.readFileSync(path.resolve('supabase/schema.sql'), 'utf8'))
 } catch (err) {
-  console.warn(`⚠ verify-db-schema: ${err.message} — skip`)
-  await salir(2)
-}
-const dbColsByTable = new Map()
-for (const row of rows) {
-  if (!dbColsByTable.has(row.table_name)) dbColsByTable.set(row.table_name, new Set())
-  dbColsByTable.get(row.table_name).add(row.column_name)
+  console.error(`❌ verify-db-schema: ${err.message}`)
+  process.exit(1)
 }
 
-// ── 4. Diff: ¿alguna columna referenciada NO existe en BD? ──────
+// ── 4. Diff: ¿alguna columna referenciada NO existe en schema.sql? ─
 const mismatches = []
 for (const { table, columns, file, line } of pairs) {
   const dbCols = dbColsByTable.get(table)
   if (!dbCols) {
-    // Tabla no encontrada (puede ser vista, rpc-disfrazada, o FK indirecta)
+    // Tabla no encontrada (vista, rpc disfrazada o FK indirecta)
     // No fallamos aquí — sólo loggeamos como warning.
     continue
   }
@@ -182,7 +144,7 @@ for (const { table, columns, file, line } of pairs) {
 // ── 5. Aplicar baseline de mismatches conocidos ─────────────────
 // Bugs preexistentes que no podemos arreglar en este commit pero queremos
 // documentar como deuda. El hook bloquea sólo mismatches NUEVOS.
-// Para regenerar: node --env-file=.env.local scripts/verify-db-schema.mjs --update-baseline
+// Para regenerar: node scripts/verify-db-schema.mjs --update-baseline
 const baselinePath = path.resolve('scripts/db-schema-baseline.json')
 const updateBaseline = process.argv.includes('--update-baseline')
 
@@ -203,63 +165,34 @@ if (updateBaseline) {
     .map(m => ({ table: m.table, column: m.column, file: m.file, line: m.line }))
     .sort((a, b) => `${a.table}.${a.column}`.localeCompare(`${b.table}.${b.column}`))
   const out = {
-    _comment: 'Mismatches schema-vs-code conocidos. Bugs reales que el hook ignora hasta que se arreglen. Regenerar: node --env-file=.env.local scripts/verify-db-schema.mjs --update-baseline',
+    _comment: 'Mismatches schema-vs-code conocidos. Bugs reales que el hook ignora hasta que se arreglen. Regenerar: node scripts/verify-db-schema.mjs --update-baseline',
     generated_at: new Date().toISOString(),
     known_mismatches: knownMismatches,
   }
   fs.writeFileSync(baselinePath, JSON.stringify(out, null, 2) + '\n')
   console.log(`✓ baseline actualizado: ${knownMismatches.length} mismatches en ${baselinePath}`)
-  await salir(0)
+  process.exit(0)
 }
 
-const noBaseline = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`))
-
-// Columnas que faltan en prod pero que agrega una migración (columnas-de-migraciones.mjs explica los tres casos).
-const MIGRACIONES = 'supabase/migrations'
-const { deLaRama, enMainSinAplicar, nuevas: newMismatches } = clasificarColumnasFaltantes(noBaseline, {
-  deLaRama: columnasDeMigraciones(agregadasQueYaEstanEnMain(migracionesAgregadasEnLaRama(), { enMain: migracionesEnMain() }).nuevas),
-  delRepo: columnasDeMigraciones(fs.existsSync(MIGRACIONES)
-    ? fs.readdirSync(MIGRACIONES).map(f => `${MIGRACIONES}/${f}`).filter(esMigracionAplicable).sort()
-    : []),
-  enMain: migracionesEnMain(),
-  aplicadas: await migracionesAplicadasEnProd(execSql),
-})
-if (deLaRama.length > 0) {
-  console.log('verify-db-schema: columnas que aún no están en prod y que agrega una migración de esta rama (no bloquean):')
-  for (const m of deLaRama) console.log(`   ${m.table}.${m.column} ← ${m.migracion} · la lee ${m.file}:${m.line}`)
-}
-if (enMainSinAplicar.length > 0) {
-  console.warn('⚠ verify-db-schema: columnas que faltan en prod y que agrega una migración YA en main (no bloquean):')
-  for (const m of enMainSinAplicar) {
-    console.warn(`   ${m.table}.${m.column}: la agrega ${m.migracion}, ya en main; falta aprobar migraciones-prod. ` +
-      `NO crear migración ni actualizar baseline. (la lee ${m.file}:${m.line})`)
-  }
-}
+const newMismatches = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`))
 
 if (newMismatches.length === 0) {
-  const knownCount = mismatches.length - noBaseline.length
+  const knownCount = mismatches.length - newMismatches.length
   const suffix = knownCount > 0 ? ` (${knownCount} en baseline ignorados)` : ''
   console.log(`verify-db-schema: ${pairs.length} pares verificados, ${tablesUsed.length} tablas, 0 mismatches nuevos — OK${suffix}`)
-  await salir(0)
+  process.exit(0)
 }
 
 // ── 6. Reportar y bloquear sólo lo nuevo ────────────────────────
 console.error('')
-console.error('❌ verify-db-schema: columnas NUEVAS referenciadas en código que NO existen en BD:')
+console.error('❌ verify-db-schema: columnas NUEVAS referenciadas en código que NO existen en supabase/schema.sql:')
 console.error('')
-for (const m of newMismatches) {
-  const origen = m.migracion ? `  (${explicarColumnaNueva(m)})` : ''
-  console.error(`   ${m.file}:${m.line}  →  ${m.table}.${m.column}${origen}`)
-}
+for (const m of newMismatches) console.error(`   ${m.file}:${m.line}  →  ${m.table}.${m.column}`)
 console.error('')
-if (newMismatches.some(m => !m.migracion)) {
-  console.error('Acción (columnas sin migración): crear migración en supabase/migrations/ que añada esas columnas,')
-  console.error('o quitar la referencia del SELECT si fue añadida por error.')
-}
-if (newMismatches.some(m => m.migracion)) {
-  console.error(PIE_COLUMNAS_CON_MIGRACION)
-}
+console.error('Acción: crear la migración que añada esas columnas y regenerar supabase/schema.sql (node scripts/ci/esquema.mjs, con')
+console.error('Docker; sin Docker, pushea primero la migración sola y toma el artifact schema-sql del check Esquema de su PR),')
+console.error('o quitar la referencia del SELECT si fue añadida por error. Si la migración ya existe, falta regenerar schema.sql.')
 console.error('')
 console.error('Si el mismatch ya existía y es deuda conocida, regenerar baseline con:')
-console.error('  node --env-file=.env.local scripts/verify-db-schema.mjs --update-baseline')
-await salir(1)
+console.error('  node scripts/verify-db-schema.mjs --update-baseline')
+process.exit(1)

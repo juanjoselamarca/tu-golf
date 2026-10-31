@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * The checks that gate a push (CLAUDE.md, rule 1): typecheck, tests, build from a clean .next and the DB schema
- * check. When they pass it records the tree they ran on, and the pre-push hook skips them if every pushed commit
+ * The checks that gate a push (CLAUDE.md, rule 1): typecheck, tests, build from a clean .next and the schema check
+ * against supabase/schema.sql. When they pass it records the tree they ran on, and the pre-push hook skips them if every pushed commit
  * has exactly that tree, instead of repeating them right after `npm run verify`.
  *
  * Usage:  npm run verify                      (before committing)
@@ -30,12 +30,12 @@ function workingTree() {
   }
 }
 
-const SCHEMA = 'node --env-file-if-exists=.env.local scripts/verify-db-schema.mjs'
+const SCHEMA = 'node scripts/verify-db-schema.mjs'
 
-function run(label, command, okStatuses = [0]) {
+function run(label, command) {
   console.log(`verify: ${label}`)
   const { status } = spawnSync(command, { shell: true, stdio: 'inherit' })
-  if (!okStatuses.includes(status)) process.exit(status || 1)
+  if (status !== 0) process.exit(status || 1)
 }
 
 if (process.argv.includes('--pre-push')) {
@@ -53,7 +53,7 @@ if (process.argv.includes('--pre-push')) {
   }
   const pushed = lineasDelPrePush(stdin).map(l => l.localSha).filter(sha => !esBorrado(sha))
   if (verified && pushed.every(sha => git(['rev-parse', `${sha}^{tree}`]) === verified)) {
-    // The migration guard never skips: it compares against origin/main and prod, which change after npm run verify.
+    // The migration guard never skips: it compares against origin/main, which changes after npm run verify.
     run('migraciones', `${SCHEMA} --solo-migraciones`)
     console.log('pre-push: these commits are the tree npm run verify already passed, skipping the checks')
     process.exit(0)
@@ -65,6 +65,5 @@ run('tsc', 'npx tsc --noEmit')
 run('tests', 'npm run test')
 rmSync('.next', { recursive: true, force: true })
 run('build', 'npm run build')
-// Exit 2 = no credentials or no network: warns, does not block.
-run('schema', SCHEMA, [0, 2])
+run('schema', SCHEMA)
 if (workingTree() === tree) writeFileSync(VERIFIED_TREE, `${tree}\n`)

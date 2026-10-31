@@ -1,5 +1,5 @@
 {
-  "_comment": "Mismatches schema-vs-code conocidos. Bugs reales que el hook ignora hasta que se arreglen. Regenerar: node --env-file=.env.local scripts/verify-db-schema.mjs --update-baseline",
+  "_comment": "Mismatches schema-vs-code conocidos. Bugs reales que el hook ignora hasta que se arreglen. Regenerar: node scripts/verify-db-schema.mjs --update-baseline",
   "generated_at": "2026-05-16T18:01:20.756Z",
   "known_mismatches": []
 }
