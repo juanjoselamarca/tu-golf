@@ -43,13 +43,18 @@ export default defineConfig({
           setupFiles: ['src/__tests__/setup/test-db-guard.ts'],
         },
       },
-      {
-        extends: true,
-        test: {
-          name: 'prod',
-          include: ['src/__tests__/prod/**/*.test.ts'],
-        },
-      },
+      // Solo con VITEST_PROD=1, que definen prod-canarios.yml y migraciones-prod.yml: nada local toca prod.
+      ...(process.env.VITEST_PROD === '1'
+        ? [
+            {
+              extends: true as const,
+              test: {
+                name: 'prod',
+                include: ['src/__tests__/prod/**/*.test.ts'],
+              },
+            },
+          ]
+        : []),
     ],
     coverage: {
       provider: 'v8',
