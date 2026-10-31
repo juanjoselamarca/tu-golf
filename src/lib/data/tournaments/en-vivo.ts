@@ -17,6 +17,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveTeam } from '@/app/torneo/[slug]/en-vivo/types'
 import type { Player } from '@/lib/golf-data'
 import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
+import type { LeerNombresDePerfil } from '@/lib/data/nombres-de-perfil-lectura'
 import { boardPublicoRondaLibre, vistaPublica, type VistaPublica } from './vista-publica'
 import { normalizeStatus } from '@/app/torneo/[slug]/en-vivo/normalize-status'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from '@/app/torneo/[slug]/en-vivo/scrambleTeamsToLive'
@@ -132,11 +133,15 @@ function filaEnVivo(p: Player, meta: { categoryId?: string | null; categoryName?
  * `leerIndices` (canónica de #509, `LeerIndicesDePerfil`): el índice de los
  * jugadores con cuenta que no lo fijaron en su tarjeta. Las pantallas públicas
  * inyectan `indicesDePerfil` (servicio, server-only): sólo entra al cálculo.
+ *
+ * `leerNombres` (`LeerNombresDePerfil`): el nombre de esos mismos jugadores. Con el
+ * cliente del request un visor anónimo recibe 0 filas de `profiles` y el board salía
+ * con "Jugador" en todas las filas. Las pantallas públicas inyectan `nombresDePerfil`.
  */
 export async function armarTorneoEnVivo(
   supabase: Client,
   row: TorneoEnVivoRow,
-  opciones: { visorConSesion: boolean; leerIndices: LeerIndicesDePerfil },
+  opciones: { visorConSesion: boolean; leerIndices: LeerIndicesDePerfil; leerNombres: LeerNombresDePerfil },
 ): Promise<TorneoEnVivo> {
   const holeCount = row.hole_count ?? 18
   const modoReal = normalizeModo(row.modo_juego)
@@ -181,7 +186,7 @@ export async function armarTorneoEnVivo(
       fetchLegacyHcpContext(supabase, row.id),
       // Rondas en otra cancha que la 1 (vacío si no hay). Misma fuente que /torneo.
       fetchRoundContexts(supabase, row),
-      fetchLegacyPlayers(supabase, row.id),
+      fetchLegacyPlayers(supabase, row.id, opciones.leerNombres),
     ])
     const grupoDeJugador = new Map<string, string>()
     for (const g of grupos) for (const gp of g.tournament_group_players ?? []) grupoDeJugador.set(gp.player_id, g.id)

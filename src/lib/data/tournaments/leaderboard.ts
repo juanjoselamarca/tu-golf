@@ -20,6 +20,7 @@ import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/go
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { createClient } from '@/utils/supabase/server'
 import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
+import type { LeerNombresDePerfil } from '@/lib/data/nombres-de-perfil-lectura'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   parDeLaRondaDelTorneo,
@@ -86,21 +87,41 @@ export async function fetchEnrolledPlayerCount(
   return count ?? 0
 }
 
-/** Nombres de jugadores inscritos (máx 50). Para la vista pública abierta. */
+/** Nombres de jugadores inscritos (máx 50). Para la vista pública abierta.
+ *  `leerNombres`: el embed `profiles(name)` llega null con un visor ANÓNIMO (la
+ *  policy SELECT de `profiles` es `TO authenticated`) y la lista quedaba en
+ *  "Jugador, Jugador, Jugador…". El caller de servidor inyecta `nombresDePerfil`. */
 export async function fetchEnrolledPlayerNames(
   supabase: Client | SupabaseClient,
   tournamentId: string,
+  leerNombres: LeerNombresDePerfil,
 ): Promise<string[]> {
   const { data } = await supabase
     .from('players')
-    .select('player_name, profiles(name)')
+    .select('user_id, player_name, profiles(name)')
     .eq('tournament_id', tournamentId)
     .not('status', 'in', JUGADOR_FUERA_IN)
     .limit(50)
   if (!data) return []
-  return (data as unknown as Array<{ player_name: string | null; profiles: { name: string } | null }>)
-    .map((p) => p.profiles?.name ?? p.player_name ?? 'Jugador')
+  const filas = data as unknown as Array<{ user_id: string | null; player_name: string | null; profiles: { name: string } | null }>
+  const nombres = await nombresFaltantes(filas, leerNombres)
+  return filas
+    .map((p) => p.profiles?.name ?? (p.user_id ? nombres.get(p.user_id) : null) ?? p.player_name ?? 'Jugador')
     .filter(Boolean)
+}
+
+/** Nombres de perfil de las filas cuyo embed `profiles(name)` llegó vacío (visor
+ *  anónimo). Una sola consulta de servicio para toda la tanda; vacío si no falta
+ *  ninguno, así el visor CON sesión no paga una consulta extra. */
+async function nombresFaltantes(
+  filas: ReadonlyArray<{ user_id?: string | null; profiles?: { name?: string | null } | null }>,
+  leerNombres: LeerNombresDePerfil,
+): Promise<ReadonlyMap<string, string>> {
+  const ids = filas
+    .filter((f) => !f.profiles?.name?.trim() && f.user_id)
+    .map((f) => f.user_id as string)
+  if (ids.length === 0) return new Map()
+  return leerNombres(ids)
 }
 
 export async function fetchCourseHoles(
@@ -486,7 +507,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
  *  copias de esta lista significan que un día `/tv` reparte un handicap distinto
  *  que `/torneo` — exactamente el bug que este board vino a cerrar. */
 export const LEGACY_PLAYER_SELECT =
-  'id, handicap_at_registration, player_name, category_id, tee_id, ' +
+  'id, user_id, handicap_at_registration, player_name, category_id, tee_id, ' +
   // `default_tee_color`: eslabón "category" del fallback de tee. Existe en la
   // tabla desde la migración 20260925 (antes el embed devolvía 42703).
   // `genero` (congelado en players) y `categories.gender`: el género del
@@ -497,16 +518,29 @@ export const LEGACY_PLAYER_SELECT =
   'rounds(id, status, total_gross, total_net, total_points, round_number, ' +
   'hole_scores(hole_number, gross_score))'
 
+/** `leerNombres`: con un visor ANÓNIMO el embed `profiles(name)` llega null y
+ *  `resolveLegacyPlayerName` caía a "Jugador" en TODAS las filas del board. El
+ *  caller de servidor inyecta `nombresDePerfil` (servicio); los gemelos de
+ *  navegador, cuyo visor siempre tiene sesión, `sinLecturaDeNombres`. */
 export async function fetchLegacyPlayers(
   supabase: Client,
   tournamentId: string,
+  leerNombres: LeerNombresDePerfil,
 ): Promise<DBPlayer[]> {
   const { data } = await supabase
     .from('players')
     .select(LEGACY_PLAYER_SELECT)
     .eq('tournament_id', tournamentId)
     .in('status', ['pending', 'approved', 'waitlist'])
-  return (data as unknown as DBPlayer[] | null) ?? []
+  const filas = (data as unknown as DBPlayer[] | null) ?? []
+  const nombres = await nombresFaltantes(filas, leerNombres)
+  if (nombres.size === 0) return filas
+  return filas.map((p) => {
+    const nombre = p.user_id ? nombres.get(p.user_id) : undefined
+    if (!nombre || p.profiles?.name?.trim()) return p
+    // El índice del embed se conserva tal cual: lo resuelve `fetchLegacyHcpContext`.
+    return { ...p, profiles: { ...(p.profiles ?? { indice: null }), name: nombre } }
+  })
 }
 
 /**
@@ -517,17 +551,21 @@ export async function fetchLegacyPlayers(
 export async function fetchWithdrawnPlayers(
   supabase: Client,
   tournamentId: string,
+  leerNombres: LeerNombresDePerfil,
 ): Promise<WithdrawnEntry[]> {
   const { data } = await supabase
     .from('players')
-    .select('status, status_reason, player_name, profiles(name)')
+    .select('user_id, status, status_reason, player_name, profiles(name)')
     .eq('tournament_id', tournamentId)
     .in('status', [...JUGADOR_FUERA_STATUSES])
 
   const raw = (data as unknown as DBWithdrawnPlayer[] | null) ?? []
+  // Sin esto, un WD con cuenta desaparecía del footer para el visor anónimo: su
+  // nombre quedaba en null y la fila se filtraba en silencio.
+  const nombres = await nombresFaltantes(raw, leerNombres)
   const out: WithdrawnEntry[] = []
   for (const p of raw) {
-    const displayName = p.profiles?.name ?? p.player_name
+    const displayName = p.profiles?.name ?? (p.user_id ? nombres.get(p.user_id) : null) ?? p.player_name
     if (displayName) {
       out.push({ name: displayName, status: p.status, reason: p.status_reason })
     }

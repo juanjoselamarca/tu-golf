@@ -38,9 +38,17 @@ import { claveAvisoTorneo } from '@/hooks/ronda/useAvisoNoMolestar'
 type Player = ScoringPlayer
 type Tournament = ScoringTournament
 
-/** Nombre visible del jugador: registrado usa profiles.name, invitado usa player_name. */
-function playerDisplayName(p: Player): string {
-  return p.profiles?.name ?? p.player_name ?? 'Jugador'
+/** Nombre visible del jugador: registrado usa profiles.name, invitado usa player_name.
+ *  `nombresServidor`: el relleno de `/api/torneos/[slug]/nombres` para el visor SIN
+ *  sesión — la policy SELECT de `profiles` es `TO authenticated`, así que el embed
+ *  llega null y el selector "¿Quién eres?" quedaba con N filas que decían "Jugador". */
+function playerDisplayName(p: Player, nombresServidor: Record<string, string> = {}): string {
+  return p.profiles?.name ?? p.player_name ?? nombresServidor[p.id] ?? 'Jugador'
+}
+
+/** ¿Falta el nombre de algún inscrito CON cuenta? (visor sin sesión). */
+function faltanNombres(roster: readonly Player[]): boolean {
+  return roster.some((p) => !p.profiles?.name?.trim() && !p.player_name?.trim())
 }
 
 export default function PlayerScoringPage() {
@@ -48,6 +56,9 @@ export default function PlayerScoringPage() {
   const router = useRouter()
   const [tournament,    setTournament]    = useState<Tournament | null>(null)
   const [players,       setPlayers]       = useState<Player[]>([])
+  /** `players.id` → nombre, servido por `/api/torneos/[slug]/nombres`. Sólo se
+   *  pide cuando el roster llegó sin nombres (visor sin sesión). */
+  const [nombresServidor, setNombresServidor] = useState<Record<string, string>>({})
   const [courseHoles,   setCourseHoles]   = useState<CourseHole[]>([])
   // Catálogo de tees de la cancha: sin él, el gate WHS no puede resolver el
   // slope/CR del jugador y caería al camino seguro (índice crudo).
@@ -178,6 +189,20 @@ export default function PlayerScoringPage() {
         if (cancelled) return
 
         setPlayers(roster)
+        // Sin sesión, el roster llega sin nombres: se piden al servidor para que el
+        // selector no muestre N filas idénticas (y nadie anote en la tarjeta de otro).
+        if (faltanNombres(roster)) {
+          void (async () => {
+            try {
+              const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/nombres`, { cache: 'no-store' })
+              if (!res.ok) return
+              const body = (await res.json()) as { nombres?: Record<string, string> }
+              if (!cancelled && body.nombres) setNombresServidor(body.nombres)
+            } catch {
+              // Sin nombres el selector sigue usable con el HCP: no se bloquea la tarjeta.
+            }
+          })()
+        }
         // Catálogo CRUDO de la cancha del torneo: la expansión a los hoyos de
         // la ronda la hace `useRondaActivaDelJugador` con la cancha de ESA ronda.
         setCourseHoles(courseCtx.holes)
@@ -464,7 +489,7 @@ export default function PlayerScoringPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>
             <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 2px' }}>{tournament.name}</h1>
-            {selectedPlayer && <p style={{ fontSize: '13px', color: 'var(--brand-on-bg)', margin: 0 }}>{playerDisplayName(selectedPlayer)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}{tournament && hcpPctDelTorneo(tournament) !== HCP_PCT_DEFAULT && ` · juega con ${courseHcpDe(selectedPlayer)} (${hcpPctDelTorneo(tournament)} %)`}</p>}
+            {selectedPlayer && <p style={{ fontSize: '13px', color: 'var(--brand-on-bg)', margin: 0 }}>{playerDisplayName(selectedPlayer, nombresServidor)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}{tournament && hcpPctDelTorneo(tournament) !== HCP_PCT_DEFAULT && ` · juega con ${courseHcpDe(selectedPlayer)} (${hcpPctDelTorneo(tournament)} %)`}</p>}
           </div>
           {tournament.formato_juego && (
             <span style={{
@@ -496,7 +521,7 @@ export default function PlayerScoringPage() {
                   style={{ padding: '14px 16px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '10px', color: 'var(--text)', fontSize: '16px', fontWeight: 500, cursor: 'pointer', textAlign: 'left', transition: 'all 180ms' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#c4992a'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(122,143,168,0.2)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(7,13,24,0.5)' }}>
-                  {playerDisplayName(p)}
+                  {playerDisplayName(p, nombresServidor)}
                   {p.handicap_at_registration != null && <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '8px' }}>HCP {p.handicap_at_registration}</span>}
                 </button>
               ))}

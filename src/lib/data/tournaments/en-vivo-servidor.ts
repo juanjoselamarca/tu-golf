@@ -6,6 +6,7 @@ import 'server-only'
 
 import { createAnonClient } from '@/utils/supabase/anon'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
+import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 import { armarTorneoEnVivo, fetchTorneoEnVivoRow, type TorneoEnVivo } from './en-vivo'
 import type { Client } from './leaderboard'
 
@@ -22,5 +23,5 @@ export async function armarTorneoEnVivoParaRuta(slug: string, opciones: { visorC
   const anon = createAnonClient()
   const row = await fetchTorneoEnVivoRow(anon, slug)
   if (!row) return null
-  return armarTorneoEnVivo(anon as unknown as Client, row, { visorConSesion: opciones.visorConSesion, leerIndices: indicesDePerfil })
+  return armarTorneoEnVivo(anon as unknown as Client, row, { visorConSesion: opciones.visorConSesion, leerIndices: indicesDePerfil, leerNombres: nombresDePerfil })
 }

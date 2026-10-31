@@ -7,6 +7,10 @@ import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 
 export interface DBPlayer {
   id: string
+  /** Dueño de la inscripción (null si es invitado sin cuenta). Lo necesita el
+   *  relleno de `profiles.name` para el visor anónimo (`nombresDePerfil`).
+   *  Opcional: los fetch que no lo traen no rellenan nombre. */
+  user_id?: string | null
   handicap_at_registration: number | null
   player_name: string | null
   profiles: { name: string; indice: number | null } | null
@@ -114,6 +118,7 @@ export interface DBRondaLibreJugador {
 }
 
 export interface DBWithdrawnPlayer {
+  user_id?: string | null
   status: 'withdrawn' | 'disqualified'
   status_reason: string | null
   player_name: string | null

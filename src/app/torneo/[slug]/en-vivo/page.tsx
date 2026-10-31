@@ -10,6 +10,7 @@ import LiveView from './LiveView'
 import { LiveUpsell } from './LiveUpsell'
 import { armarTorneoEnVivo, fetchTorneoEnVivoRow } from '@/lib/data/tournaments/en-vivo'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
+import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +34,7 @@ export default async function LivePage(props: PageProps) {
   }
 
   // Visor con sesión y PRO (gate de arriba): ve todo. Índices: lectura canónica de #509.
-  const data = await armarTorneoEnVivo(supabase, row, { visorConSesion: true, leerIndices: indicesDePerfil })
+  const data = await armarTorneoEnVivo(supabase, row, { visorConSesion: true, leerIndices: indicesDePerfil, leerNombres: nombresDePerfil })
   return (
     <LiveView
       tournament={data.tournament}
