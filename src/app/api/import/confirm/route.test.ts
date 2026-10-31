@@ -71,7 +71,7 @@ vi.mock('@/utils/supabase/server', () => ({
   }),
 }))
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: () => ({ allowed: true }), rateLimitHeaders: () => ({}) }))
-vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 vi.mock('@/lib/data/import-garmin', () => ({
   fetchFilasGarminExistentes: vi.fn(async () => new Map([['g-1', {}]])),
   actualizacionGarmin: vi.fn(async () => ({})),
@@ -205,7 +205,11 @@ describe('POST /api/import/confirm: al completar el job', () => {
 
 describe('POST /api/import/confirm: reintento mientras el primer confirm sigue guardando', () => {
   beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    // Si un test falla sin consumir su mockImplementationOnce, no se lo pasa al siguiente.
+    vi.mocked(captureError).mockReset()
+  })
 
   it('espera a que el primero termine y responde lo que guardó, sin guardar de nuevo', async () => {
     job = { id: JOB_ID, user_id: USER_ID, status: 'confirming' }
