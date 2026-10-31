@@ -828,7 +828,7 @@ Canónico desde el PR de la base de pruebas (#515): recibe el ref explícito, re
 - [x] `scripts/respaldo/respaldo-diario.mjs:48` (`sql()`) y `:61` (`lit()`) — resuelto: lee vía `exec_sql` en solo lectura (`scripts/lib/exec-sql.mjs`), sin token
 - [ ] `scripts/respaldo/restaurar.mjs:54` (`sql()`) y `:65` (`lit()`) — escribe con `--aplicar`: migrar SIN read_only en ese camino (hoy sqlEn lo forzaría contra prod; restaurar en prod es justo el caso que debe escribir → necesita una salida explícita y revisada)
 - [ ] `scripts/audit-handicap-calc.mjs:40` (endpoint propio)
-- [ ] `scripts/verify-db-schema.mjs:45` (endpoint propio)
+- [x] `scripts/verify-db-schema.mjs:45` — resuelto: ya no lee ninguna base, compara contra `supabase/schema.sql`
 - [x] `scripts/run-sql.mjs:59` — resuelto: lee vía `exec_sql` en solo lectura (`scripts/lib/exec-sql.mjs`); prod ya no se escribe por SQL directo
 
 ## Formato de score: dos nombres para "vs par" (detectado en revisión de #509, 09-oct-2026)
