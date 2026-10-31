@@ -29,30 +29,48 @@ import { join } from 'node:path'
 
 const CSS = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf-8')
 
-/** Cuerpo de la regla `[data-theme="<tema>"] body { ... }`. */
-function reglaDelBody(tema: 'dark' | 'light'): string {
+/**
+ * TODAS las reglas `[data-theme="<tema>"] body { ... }`, no sólo la primera: si alguien
+ * agrega una segunda más abajo, esa gana en cascada y mirar sólo la primera deja pasar
+ * el defecto. El canario exige que todas cumplan, así que da igual cuál gane.
+ */
+function reglasDelBody(tema: 'dark' | 'light'): string[] {
   const re = new RegExp(`\\[data-theme="${tema}"\\]\\s*body\\s*\\{`, 'g')
-  const m = re.exec(CSS)
-  if (!m) throw new Error(`No existe la regla [data-theme="${tema}"] body en globals.css`)
-  // Recorre balanceando llaves: el valor trae paréntesis y comas, no sirve un split.
-  let depth = 1
-  let i = m.index + m[0].length
-  const start = i
-  for (; i < CSS.length && depth > 0; i++) {
-    if (CSS[i] === '{') depth++
-    else if (CSS[i] === '}') depth--
+  const out: string[] = []
+  for (const m of CSS.matchAll(re)) {
+    // Recorre balanceando llaves: el valor trae paréntesis y comas, no sirve un split.
+    let depth = 1
+    let i = m.index + m[0].length
+    const start = i
+    for (; i < CSS.length && depth > 0; i++) {
+      if (CSS[i] === '{') depth++
+      else if (CSS[i] === '}') depth--
+    }
+    out.push(CSS.slice(start, i - 1))
   }
-  return CSS.slice(start, i - 1)
+  if (!out.length) throw new Error(`No existe la regla [data-theme="${tema}"] body en globals.css`)
+  return out
 }
 
-/** Valor de un custom property dentro del bloque `[data-theme="<tema>"] { ... }` (sin `body`). */
+/**
+ * Valor de un custom property para un tema: primero el bloque `[data-theme="<tema>"]`,
+ * y si no está ahí, `:root`.
+ *
+ * El fallback a `:root` NO es un detalle: los alias legacy (`--bg-deep`, `--bg-deep-2`)
+ * viven sólo en `:root`. Sin él, `var(--bg-deep)` dentro de la regla del body se queda
+ * sin resolver y el canario lo deja pasar — que es exactamente el agujero que encontró
+ * la revisión (oliva reintroducido por `var()`, con cero literales en la regla).
+ */
 function token(tema: 'dark' | 'light', nombre: string): string {
-  const re = new RegExp(`\\[data-theme="${tema}"\\]\\s*\\{([\\s\\S]*?)\\n\\s*\\}`, 'g')
-  for (let m = re.exec(CSS); m; m = re.exec(CSS)) {
-    const decl = new RegExp(`${nombre}\\s*:\\s*([^;]+);`).exec(m[1])
+  const bloques = [
+    ...[...CSS.matchAll(new RegExp(`\\[data-theme="${tema}"\\]\\s*\\{([\\s\\S]*?)\\n\\s*\\}`, 'g'))].map((m) => m[1]),
+    ...[...CSS.matchAll(/:root\s*\{([\s\S]*?)\n\s*\}/g)].map((m) => m[1]),
+  ]
+  for (const bloque of bloques) {
+    const decl = new RegExp(`${nombre}\\s*:\\s*([^;]+);`).exec(bloque)
     if (decl) return decl[1].trim()
   }
-  throw new Error(`No se encontró ${nombre} en [data-theme="${tema}"]`)
+  throw new Error(`No se encontró ${nombre} en [data-theme="${tema}"] ni en :root`)
 }
 
 type Rgb = { r: number; g: number; b: number }
@@ -63,15 +81,38 @@ function hexARgb(hex: string): Rgb {
   return { r: parseInt(full.slice(0, 2), 16), g: parseInt(full.slice(2, 4), 16), b: parseInt(full.slice(4, 6), 16) }
 }
 
-/** Todo color literal de un bloque CSS: `#rgb`/`#rrggbb` y `rgb()`/`rgba()`. */
-function coloresLiterales(bloque: string): { fuente: string; rgb: Rgb }[] {
+/**
+ * Todo color de un bloque CSS, **resolviendo los `var(--x)`** contra el bloque del tema.
+ *
+ * Resolver es lo que hace que el canario no sea vacuo: sin eso, escribir
+ * `linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-deep-2) 100%)` reintroduce el
+ * oliva entero sin dejar un solo literal en la regla, y un test que sólo mira literales
+ * se queda sin nada que inspeccionar y pasa en verde.
+ */
+function coloresDe(bloque: string, tema: 'dark' | 'light'): { fuente: string; rgb: Rgb }[] {
   const out: { fuente: string; rgb: Rgb }[] = []
-  for (const m of bloque.matchAll(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g)) {
-    out.push({ fuente: m[0], rgb: hexARgb(m[0]) })
+  const push = (fuente: string, valor: string, vistos = new Set<string>()) => {
+    for (const m of valor.matchAll(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g)) {
+      out.push({ fuente: fuente === m[0] ? m[0] : `${fuente} → ${m[0]}`, rgb: hexARgb(m[0]) })
+    }
+    for (const m of valor.matchAll(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/g)) {
+      out.push({ fuente: fuente === valor ? m[0] + ')' : `${fuente} → ${m[0]})`, rgb: { r: +m[1], g: +m[2], b: +m[3] } })
+    }
+    // var(--x) → su valor en el bloque del tema (con corte de ciclos y alias encadenados).
+    for (const m of valor.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
+      const nombre = m[1]
+      if (vistos.has(nombre)) continue
+      vistos.add(nombre)
+      let resuelto: string
+      try {
+        resuelto = token(tema, nombre)
+      } catch {
+        continue // no definido para este tema: lo pinta el fallback de :root, fuera de alcance
+      }
+      push(fuente === valor ? `var(${nombre})` : `${fuente} → var(${nombre})`, resuelto, vistos)
+    }
   }
-  for (const m of bloque.matchAll(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/g)) {
-    out.push({ fuente: m[0] + ')', rgb: { r: +m[1], g: +m[2], b: +m[3] } })
-  }
+  push(bloque, bloque)
   return out
 }
 
@@ -89,10 +130,11 @@ function esVerdeDominante({ r, g, b }: Rgb): boolean {
 
 describe('canario: el body oscuro es navy, no oliva', () => {
   it('el background-color del body oscuro sale del token --bg, no de un literal', () => {
-    const regla = reglaDelBody('dark')
-    const bgColor = /background-color\s*:\s*([^;]+);/.exec(regla)
-    expect(bgColor, 'la regla del body oscuro declara background-color').not.toBeNull()
-    expect(bgColor![1].trim()).toBe('var(--bg)')
+    const regla = reglasDelBody('dark').join(';')
+    const bgColors = [...regla.matchAll(/background-color\s*:\s*([^;]+);/g)].map((m) => m[1].trim())
+    expect(bgColors.length, 'la regla del body oscuro declara background-color').toBeGreaterThan(0)
+    // TODAS: en CSS gana la última, así que una sola mala alcanza para romperlo.
+    expect(bgColors).toEqual(bgColors.map(() => 'var(--bg)'))
   })
 
   it('el token --bg del tema oscuro es navy (azul domina al verde)', () => {
@@ -106,8 +148,8 @@ describe('canario: el body oscuro es navy, no oliva', () => {
   })
 
   it('ningún color del body oscuro es verde-dominante (ni el fondo ni la viñeta)', () => {
-    const regla = reglaDelBody('dark')
-    const verdosos = coloresLiterales(regla).filter((c) => esVerdeDominante(c.rgb))
+    const regla = reglasDelBody('dark').join(';')
+    const verdosos = coloresDe(regla, 'dark').filter((c) => esVerdeDominante(c.rgb))
     expect(
       verdosos.map((c) => `${c.fuente} → rgb(${c.rgb.r},${c.rgb.g},${c.rgb.b})`),
       'el body del tema oscuro no puede traer verdes: la navbar y las cards pintan navy y el hueco queda como banda ajena',
@@ -115,16 +157,16 @@ describe('canario: el body oscuro es navy, no oliva', () => {
   })
 
   it('el body oscuro no reintroduce los literales del palette legacy oliva', () => {
-    const regla = reglaDelBody('dark').toLowerCase()
+    const regla = reglasDelBody('dark').join(';').toLowerCase()
     for (const legacy of ['#08120f', '#0d1b17', '#12231e', '#173129']) {
       expect(regla, `${legacy} es del palette legacy oliva; el body va con tokens`).not.toContain(legacy)
     }
   })
 
   it('el body claro sigue saliendo del token --bg (simetría de los dos temas)', () => {
-    const regla = reglaDelBody('light')
-    const bgColor = /background-color\s*:\s*([^;]+);/.exec(regla)
-    expect(bgColor, 'la regla del body claro declara background-color').not.toBeNull()
-    expect(bgColor![1].trim()).toBe('var(--bg)')
+    const regla = reglasDelBody('light').join(';')
+    const bgColors = [...regla.matchAll(/background-color\s*:\s*([^;]+);/g)].map((m) => m[1].trim())
+    expect(bgColors.length, 'la regla del body claro declara background-color').toBeGreaterThan(0)
+    expect(bgColors).toEqual(bgColors.map(() => 'var(--bg)'))
   })
 })
