@@ -27,13 +27,16 @@ export default async function EditarTorneoPage(props: { params: Promise<{ slug: 
 
   if (!tournament || tournament.organizer_id !== user.id) redirect('/dashboard')
 
-  // Check if any scores exist (hole_scores from any round in this tournament)
-  const { data: scoresData } = await supabase
+  // `head: true` NO devuelve filas: el conteo viene en `count` y `data` es siempre null. Leerlo de
+  // `data.length` hacía que `has_scores` fuera SIEMPRE false, y con eso moría el único candado que
+  // impide cambiar de 9 a 18 hoyos con el torneo andando (el form escribe `hole_count` directo a la
+  // tabla, sin route que lo valide del otro lado). Probado contra prod: data = null, count = 1.044.
+  const { count: scoresCount } = await supabase
     .from('hole_scores')
     .select('id', { count: 'exact', head: true })
     .eq('tournament_id', tournament.id)
 
-  const has_scores = (scoresData && scoresData.length > 0) ? true : false
+  const has_scores = (scoresCount ?? 0) > 0
 
   const { data: coursesRaw } = await supabase
     .from('courses')
