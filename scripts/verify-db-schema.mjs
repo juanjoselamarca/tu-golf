@@ -10,7 +10,7 @@
  * No lee ninguna base: nada local ni de test toca prod. Que la migración ya esté APLICADA en prod antes de mergear el
  * código que la lee lo cuida el orden de los PR (migración primero, docs/CONVENCIONES_TECNICAS.md), no este check.
  *
- * Antes que nada bloquea si la rama edita, borra o renombra una migración que ya está en origin/main (columnas-de-migraciones.mjs
+ * Antes que nada bloquea si la rama edita, borra o renombra una migración que ya está en origin/main (migraciones-tocadas.mjs
  * → revisarMigracionesTocadas). Siempre: editarla no cambia prod si ya la aplicó, y si no (espera aprobación, no corrió
  * por un evento) re-correr esa corrida aplica la versión vieja; borrarla o renombrarla rompe `supabase db push
  * --include-all`. Única salida: PERMITIR_TOCAR_MIGRACION=<version>[,<version>] para una migración que FALLÓ al
@@ -40,7 +40,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { revisarMigracionesTocadas } from './lib/columnas-de-migraciones.mjs'
+import { revisarMigracionesTocadas } from './lib/migraciones-tocadas.mjs'
 import { columnasPorTabla } from './lib/esquema-sql.mjs'
 
 const SRC_ROOT = path.resolve('src')

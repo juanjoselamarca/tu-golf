@@ -14,7 +14,7 @@ import {
   TEXTO_CORRIDAS_PERMITIR_TOCAR,
   versionDeMigracion,
   versionesPermitidas,
-} from './columnas-de-migraciones.mjs'
+} from './migraciones-tocadas.mjs'
 import { esMigracionAplicable, NOMBRE_MIGRACION_CLI, VERSION_CLI } from './nombre-migracion.mjs'
 
 describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
