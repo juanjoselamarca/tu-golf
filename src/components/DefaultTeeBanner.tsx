@@ -174,7 +174,7 @@ export function DefaultTeeBanner() {
             ))}
           </div>
           {error && (
-            <p style={{ fontSize: '13px', color: 'var(--double)', margin: '12px 0 0' }}>
+            <p style={{ fontSize: '13px', color: 'var(--error-fg)', margin: '12px 0 0' }}>
               No pudimos guardar. Prueba de nuevo.
             </p>
           )}
