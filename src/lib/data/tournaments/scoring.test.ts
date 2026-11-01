@@ -13,6 +13,7 @@ import {
   updatePlayerHandicap,
 } from './scoring'
 import { LEGACY_PLAYER_SELECT } from './leaderboard'
+import { MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 
 type Result = { data: unknown; error?: unknown }
 
@@ -125,5 +126,50 @@ describe('updatePlayerHandicap', () => {
   it('error de update → propaga (el hook muestra el toast)', async () => {
     const { client } = supabaseMock({ players: { data: null, error: { message: 'rls' } } })
     await expect(updatePlayerHandicap(client, 'p1', 12.4)).rejects.toBeTruthy()
+  })
+
+  /**
+   * El handicap de inscripción REPARTE GOLPES en el board y en el neto que
+   * persiste el scorer. La validación del formulario no alcanza: la capa de
+   * datos no puede escribir un número fuera del rango WHS venga de donde venga.
+   * Es la puerta por la que entraron a prod los 7 jugadores con handicap entre
+   * −59 y −38 del torneo "a" (12-may-2026).
+   */
+  describe('rango WHS (fuente única @/golf/handicap-index-range)', () => {
+    /** Mock que registra si hubo UPDATE y con qué payload. */
+    function clienteQueRegistra() {
+      const updates: unknown[] = []
+      const chain = {
+        update: vi.fn((payload: unknown) => {
+          updates.push(payload)
+          return chain
+        }),
+        eq: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      }
+      return { client: { from: vi.fn(() => chain) } as never, updates }
+    }
+
+    it.each([55, 54.1, -10.1, -59, 999, NaN, Infinity])(
+      'rechaza %p SIN tocar la base',
+      async (valor) => {
+        const { client, updates } = clienteQueRegistra()
+        await expect(updatePlayerHandicap(client, 'p1', valor as number)).rejects.toThrow(
+          MENSAJE_INDICE_FUERA_DE_RANGO,
+        )
+        expect(updates).toEqual([])
+      },
+    )
+
+    it.each([-10, -2, 0, 12.4, 54])('acepta %p y lo escribe tal cual', async (valor) => {
+      const { client, updates } = clienteQueRegistra()
+      await updatePlayerHandicap(client, 'p1', valor)
+      expect(updates).toEqual([{ handicap_at_registration: valor }])
+    })
+
+    it('un índice PLUS (−2) es válido: el organizador puede asignarlo', async () => {
+      const { client, updates } = clienteQueRegistra()
+      await updatePlayerHandicap(client, 'p1', -2)
+      expect(updates).toEqual([{ handicap_at_registration: -2 }])
+    })
   })
 })
