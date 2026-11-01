@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import { updatePlayerHandicap } from '@/lib/data/tournaments/scoring'
+import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 
 interface UseHcpEditorArgs {
   onSaved: (playerId: string, value: number) => void
@@ -27,8 +28,11 @@ export function useHcpEditor({ onSaved }: UseHcpEditorArgs) {
   const save = useCallback(
     async (playerId: string) => {
       const value = parseFloat(editValue)
-      if (isNaN(value) || value < 0 || value > 54) {
-        showWarning('Handicap inválido', 'Debe ser un número entre 0 y 54.')
+      // Rango desde la fuente única `@/golf/handicap-index-range` (−10..54). El
+      // `value < 0` que estaba acá a mano rechazaba a los jugadores PLUS: a un
+      // índice +2 (−2) el organizador no podía asignarle su handicap.
+      if (!esIndiceDeHandicapValido(value)) {
+        showWarning('Handicap inválido', MENSAJE_INDICE_FUERA_DE_RANGO)
         setEditingId(null)
         return
       }
