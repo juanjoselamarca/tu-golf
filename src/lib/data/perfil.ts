@@ -14,12 +14,14 @@ export interface Profile {
   nivel: number | null
   nivel_updated_at: string | null
   nivel_expires_at: string | null
+  /** Plan del usuario. Lo muestra la fila "Mi plan"; `null` = sin valor en la base → free. */
+  subscription_tier: string | null
 }
 
 // Fuente ÚNICA de la lista de columnas del perfil. La importan también los hooks
 // client-side que re-fetchean el profile (evita que dos copias se desincronicen).
 export const PROFILE_COLS =
-  'id, name, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at'
+  'id, name, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at, subscription_tier'
 
 export type { ResultadoCPI }
 
