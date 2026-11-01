@@ -7,6 +7,7 @@ const baseProfile: Profile = {
   id: 'u1', name: 'Ana', indice: 12.3, avatar_url: null,
   indice_golfers: 10.1, indice_golfers_updated_at: '2026-01-01',
   nivel: 3, nivel_updated_at: null, nivel_expires_at: null,
+  subscription_tier: 'free',
 }
 
 vi.mock('@/lib/supabase', () => ({
