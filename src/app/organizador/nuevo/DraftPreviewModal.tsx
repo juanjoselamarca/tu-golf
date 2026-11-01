@@ -161,9 +161,9 @@ function NoticeState({
     <div
       style={{
         ...noticeStyle,
-        background: tone === 'error' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(196, 153, 42, 0.08)',
-        color: tone === 'error' ? '#b91c1c' : '#854d0e',
-        borderColor: tone === 'error' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(196, 153, 42, 0.3)',
+        background: tone === 'error' ? 'var(--error-bg)' : 'rgba(196, 153, 42, 0.08)',
+        color: tone === 'error' ? 'var(--error-fg)' : 'var(--brand-on-bg)',
+        borderColor: tone === 'error' ? 'var(--error-border)' : 'rgba(196, 153, 42, 0.3)',
       }}
     >
       <strong style={{ display: 'block', marginBottom: 4 }}>{title}</strong>

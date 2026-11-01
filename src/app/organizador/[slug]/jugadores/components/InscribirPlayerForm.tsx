@@ -420,7 +420,7 @@ export function InscribirPlayerForm({
           )}
 
           {parsedBatch.length === 0 && batchText.trim() !== '' && (
-            <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--double)' }}>
+            <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--error-fg)' }}>
               No se encontraron nombres validos. Escribe un nombre por linea.
             </div>
           )}

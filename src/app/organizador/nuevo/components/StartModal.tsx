@@ -201,12 +201,12 @@ const subtitleStyle: React.CSSProperties = {
 }
 
 const errorStyle: React.CSSProperties = {
-  background: 'rgba(239, 68, 68, 0.1)',
-  color: 'var(--double)',
+  background: 'var(--error-bg)',
+  color: 'var(--error-fg)',
   padding: '8px 12px',
   borderRadius: 8,
   fontSize: 13,
-  border: '1px solid rgba(239, 68, 68, 0.25)',
+  border: '1px solid var(--error-border)',
 }
 
 const sectionStyle: React.CSSProperties = {
@@ -219,7 +219,7 @@ const sectionStyle: React.CSSProperties = {
 
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 10,
+  fontSize: 12,
   fontWeight: 700,
   color: 'var(--text-3)',
   textTransform: 'uppercase',
