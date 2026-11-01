@@ -1,6 +1,7 @@
 // Capa de acceso a la suscripción del usuario.
 // Patrón: recibe el cliente por parámetro (como src/lib/data/tournaments/).
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { tierDePerfil } from '@/golf/billing/nombre-de-plan'
 import type { Tier } from '@/golf/billing/plans'
 
 export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'paused' | 'canceled'
@@ -60,7 +61,7 @@ export async function getSubscription(supabase: SupabaseClient, userId: string):
   if (!data) return FREE_FALLBACK
 
   return {
-    tier: (data.subscription_tier as Tier) ?? 'free',
+    tier: tierDePerfil(data.subscription_tier),
     status: (data.subscription_status as SubscriptionStatus) ?? 'active',
     trialRoundsRemaining: data.trial_rounds_remaining ?? null,
     trialEndsAt: data.trial_ends_at ?? null,
