@@ -81,6 +81,7 @@ export default defineConfig({
         'torneo-live-api.spec.ts',
         'ronda-libre-equipos-leaderboard.spec.ts',
         'scorer-match-play.spec.ts',
+        'torneo-invitado-join-claim.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
