@@ -44,12 +44,14 @@ export function decidirPromocion({ evento, faltas, comparacion }) {
   return { promover: true, exit: 0, motivo: '' }
 }
 
-const gh = args => execFileSync('gh', ['api', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+// maxBuffer: el 1 MB por defecto no alcanza para la lista de corridas de un commit con muchas.
+const gh = args => execFileSync('gh', ['api', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 })
 const ghJson = ruta => JSON.parse(gh([ruta]))
 
 function comparar(sha) {
   try {
-    return ghJson(`repos/{owner}/{repo}/compare/${RAMA_PROD}...${sha}`).status
+    // Solo el estado: la comparación completa trae commits y parches (2,9 MB con production 613 commits atrás).
+    return gh([`repos/{owner}/{repo}/compare/${RAMA_PROD}...${sha}`, '--jq', '.status']).trim()
   } catch (e) {
     if (/HTTP 404/.test(String(e.stderr))) return 'sin-rama'
     throw e
