@@ -15,7 +15,8 @@ no vuelve permitido lo que la regla prohíbe.
    sin mergear.
 
 1b. 🏌️ **Evento en vivo = no se toca prod.** Mergear a `main` no toca prod (Vercel publica desde `production`).
-   Antes de promover a `production`, correr SQL o lanzar smokes contra prod:
+   🔒 **De noche no se promueve:** `npm run promover` lo corre una persona de día; tu merge queda en `main` hasta
+   entonces. Antes de correr SQL o lanzar smokes contra prod:
    `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs`. Exit 3 = hay gente jugando → detente y anótalo en el
    resumen. (Incidente 04-oct-2026: deploys + CI en plena ronda tumbaron la API.)
 2. **Checks rojos = no se mergea.** Todos los checks del PR en verde, también los no
