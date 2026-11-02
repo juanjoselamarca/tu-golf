@@ -185,14 +185,15 @@ export async function upsertScore(
           total_rounds: number | null
         } | null
         const ronda = tournInfo ? await fetchRoundPlayConfig(svc, tournInfo, roundNumber) : null
-        const hcpCtx = await fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tournId, ronda)
         const courseId = ronda?.courseId ?? undefined
         const roundHoles = ronda?.holeCount ?? 18
         // Ahora que el servidor firma el puntaje, un hoyo 14 en una vuelta de 9
-        // se firmaría con SI 14 y par 4: no es un hoyo de esta vuelta.
+        // se firmaría con SI 14 y par 4: no es un hoyo de esta vuelta. Antes de
+        // leer el handicap, para que una falla de esa lectura no lo deje pasar.
         if ((hole_number as number) > roundHoles) {
           return NextResponse.json({ error: `hole_number debe ser entero entre 1 y ${roundHoles}` }, { status: 400 })
         }
+        const hcpCtx = await fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tournId, ronda)
 
         // SI normalizado (permutación 1..N) para ALOCAR golpes: se traen TODOS los
         // hoyos del recorrido (1..roundHoles) y se normaliza, en vez de leer el SI
@@ -326,8 +327,8 @@ export async function upsertScore(
     .not('gross_score', 'is', null)
 
   const totalGross = allScores?.reduce((s, h) => s + (h.gross_score ?? 0), 0) ?? 0
-  // Un hoyo insertado con la derivación caída queda con neto NULL: se suma el
-  // bruto, que nunca da un neto mejor que el real (sumar 0 sí).
+  // Un hoyo insertado con la derivación caída queda con neto NULL: se suma su
+  // bruto en vez de 0, que regalaba todo el hoyo.
   const totalNet = allScores?.reduce((s, h) => s + (h.net_score ?? h.gross_score ?? 0), 0) ?? 0
   const totalPoints = allScores?.reduce((s, h) => s + (h.points ?? 0), 0) ?? 0
 

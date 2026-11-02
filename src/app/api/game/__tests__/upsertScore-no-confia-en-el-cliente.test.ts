@@ -282,6 +282,14 @@ describe('upsertScore · el neto y los puntos los firma el servidor', () => {
     expect(upserted).toBeNull()
   })
 
+  it('el hoyo fuera de la vuelta da 400 aunque falle la lectura del handicap', async () => {
+    fetchRoundPlayConfig.mockResolvedValue({ roundNumber: 1, courseId: COURSE, holeCount: 9 })
+    fetchLegacyHcpContext.mockRejectedValue(new Error('fetch failed'))
+    const res = await upsertScore(svc() as never, USER, { ...golpeConMentira, hole_number: 14 })
+    expect(res.status).toBe(400)
+    expect(upserted).toBeNull()
+  })
+
   it('el total neto suma el bruto del hoyo que quedó sin neto, no un 0', async () => {
     filasGuardadas = [
       { gross_score: 5, net_score: 4, points: 3 },
