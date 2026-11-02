@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, unlinkSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { createNightRunner } from '../night.mjs';
@@ -18,7 +18,7 @@ const H = 3600 * 1000;
 const DAY = 24 * H;
 const at = (d, h, m = 0) => new Date(2026, 9, d, h, m).getTime(); // hora local
 
-const ENV_KEYS = ['CEO_CLAUDE_BIN', 'CEO_FAKE_SCENARIO', 'CEO_FAKE_WINDOWS', 'CEO_FAKE_TELEGRAM', 'CEO_WORKTREES_DIR', 'SUPABASE_ACCESS_TOKEN', 'NEXT_PUBLIC_SUPABASE_URL', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_CHAT_ID'];
+const ENV_KEYS = ['PATH', 'CEO_CLAUDE_BIN', 'CEO_FAKE_SCENARIO', 'CEO_FAKE_WINDOWS', 'CEO_FAKE_TELEGRAM', 'CEO_WORKTREES_DIR', 'SUPABASE_ACCESS_TOKEN', 'NEXT_PUBLIC_SUPABASE_URL', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_CHAT_ID'];
 let saved;
 let T; // directorio temporal de la prueba
 let clock;
@@ -32,7 +32,7 @@ function setup(scenario) {
   const origin = resolve(T, 'origin.git');
   const repo = resolve(T, 'repo');
   execFileSync('git', ['init', '-q', '--bare', '-b', 'main', origin]);
-  execFileSync('git', ['clone', '-q', origin, repo]);
+  execFileSync('git', ['clone', '-q', origin, repo], { stdio: ['ignore', 'pipe', 'pipe'] });
   writeFileSync(resolve(repo, 'README.md'), 'x');
   git(['checkout', '-q', '-b', 'main'], repo);
   git(['add', '.'], repo);
@@ -59,6 +59,11 @@ function setup(scenario) {
     CEO_WORKTREES_DIR: resolve(T, 'wt'),
   });
   delete process.env.SUPABASE_ACCESS_TOKEN;
+  // gh falso que siempre falla: el runner no le consulta nada a GitHub ni ensucia la salida.
+  const bin = resolve(T, 'bin');
+  mkdirSync(bin);
+  writeFileSync(resolve(bin, 'gh'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  process.env.PATH = `${bin}${delimiter}${process.env.PATH}`;
 
   const stubScript = resolve(T, 'relaunch-stub.mjs');
   writeFileSync(stubScript, `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(resolve(T, 'relaunched.txt'))}, process.argv.slice(2).join(' '));`);
