@@ -28,7 +28,7 @@
 -- autorizan nada — RLS los rechaza igual. Se sacan para que el permiso diga la verdad: toda escritura es service
 -- role (/api/game, startTournament, /api/admin/*). SELECT se queda: el leaderboard lo lee con la sesión.
 --
--- Idempotente. Rollback: supabase/migrations/rollback/20261030_jugador_no_edita_su_fila_del_scorer_rollback.sql
+-- Idempotente. Rollback: supabase/migrations/rollback/20261102_jugador_no_edita_su_fila_del_scorer_rollback.sql
 
 DROP POLICY IF EXISTS "jugador_update_scores" ON public.ronda_libre_jugadores;
 

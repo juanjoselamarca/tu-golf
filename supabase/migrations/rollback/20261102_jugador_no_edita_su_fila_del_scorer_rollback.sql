@@ -1,4 +1,4 @@
--- Rollback de 20261030120000_jugador_no_edita_su_fila_del_scorer.
+-- Rollback de 20261102120000_jugador_no_edita_su_fila_del_scorer.
 -- Devuelve el hueco: el jugador vuelve a poder hacer PATCH de su fila de ronda_libre_jugadores (handicap, scores,
 -- ronda_id). Usar solo si algo que no vimos dependía de la policy; avisar en el PR antes de correrlo.
 

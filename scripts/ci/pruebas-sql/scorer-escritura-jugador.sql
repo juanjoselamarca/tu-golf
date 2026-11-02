@@ -1,4 +1,4 @@
--- Pruebas SQL de 20261030120000_jugador_no_edita_su_fila_del_scorer con ROLES REALES (authenticated + su JWT),
+-- Pruebas SQL de 20261102120000_jugador_no_edita_su_fila_del_scorer con ROLES REALES (authenticated + su JWT),
 -- contra el Postgres desechable del check `esquema` (scripts/ci/esquema.mjs), con todas las migraciones aplicadas.
 --
 -- Qué exige: el jugador de una ronda (por ejemplo, cada inscrito de un torneo, a quien `startTournament` le crea su
