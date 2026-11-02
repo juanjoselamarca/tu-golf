@@ -17,6 +17,11 @@ import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { CourseVariantRow } from '@/golf/courses/gender-variant'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import {
+  esHandicapDeInscripcionValido,
+  mensajeHandicapFueraDeRango,
+  type RangoHandicap,
+} from '@/golf/handicap-index-range'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
 import { fetchRoundPlayConfig } from './rounds'
@@ -313,11 +318,28 @@ export async function fetchRoundTotals(
   return (data as Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'> | null) ?? null
 }
 
+/**
+ * Handicap de inscripción de un jugador (lo edita el organizador desde el tab
+ * Resumen). Este número REPARTE GOLPES en el board y en el neto que persiste el
+ * scorer, así que se valida ACÁ y no sólo en el formulario: la validación del
+ * navegador no es una garantía — se la salta cualquier otro caller (un script,
+ * un endpoint futuro, la consola del organizador). Es la puerta por la que
+ * entraron a prod los 7 jugadores con handicap entre −59 y −38 del torneo "a"
+ * (12-may-2026, cerrado, 0 rondas).
+ *
+ * Rango: `rango` viene de la fuente única `@/golf/handicap-index-range`
+ * (`rangoDeHandicapDeInscripcion`): índice (−10..54, los plus incluidos) en
+ * WHS, la MISMA que validan `players` y `guest-join`; en raw, lo que la fórmula
+ * de la cancha produce para ese rango, porque ahí la columna guarda un course
+ * handicap que pasa de 54 legítimamente.
+ */
 export async function updatePlayerHandicap(
   supabase: SupabaseClient,
   playerId: string,
   value: number,
+  rango: RangoHandicap,
 ): Promise<void> {
+  if (!esHandicapDeInscripcionValido(value, rango)) throw new Error(mensajeHandicapFueraDeRango(rango))
   const { error } = await supabase
     .from('players')
     .update({ handicap_at_registration: value })
