@@ -49,6 +49,10 @@ export const RANGO_INDICE: RangoHandicap = {
  *   54 es un course handicap 64, y rechazarlo con "máximo 54" era rechazar a un
  *   jugador legítimo. Sin cancha creíble la fórmula devuelve el índice, así que
  *   el rango vuelve a ser el de índice.
+ *
+ * En raw el rango es la UNIÓN de esa imagen con el rango de índice: a los
+ * invitados `/api/torneos/[slug]/players` les guarda el índice tipeado, sin
+ * convertir, y en una cancha fácil (slope 105) la imagen no llega a 54.
  */
 export function rangoDeHandicapDeInscripcion(
   hcpCalcMode: string | null | undefined,
@@ -57,7 +61,19 @@ export function rangoDeHandicapDeInscripcion(
   if (esModoHcpWhs(hcpCalcMode)) return RANGO_INDICE
   const a = resolverCourseHandicap(HANDICAP_INDEX_MIN, course)
   const b = resolverCourseHandicap(HANDICAP_INDEX_MAX, course)
-  return { min: Math.min(a, b), max: Math.max(a, b), guarda: 'course_handicap' }
+  return {
+    min: Math.min(HANDICAP_INDEX_MIN, a, b),
+    max: Math.max(HANDICAP_INDEX_MAX, a, b),
+    guarda: 'course_handicap',
+  }
+}
+
+/** Columnas de `courses` que usa la inscripción → `CourseData` del motor; null si falta slope o CR. */
+export function courseDataDeInscripcion(
+  course: { slope_rating: number | null; course_rating: number | null; par_total: number | null } | null | undefined,
+): CourseData | null {
+  if (!course || course.slope_rating == null || course.course_rating == null) return null
+  return { slope: course.slope_rating, courseRating: course.course_rating, par: course.par_total ?? 72 }
 }
 
 /**

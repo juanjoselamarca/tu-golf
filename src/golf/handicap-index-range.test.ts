@@ -4,6 +4,7 @@ import {
   HANDICAP_INDEX_MIN,
   MENSAJE_INDICE_FUERA_DE_RANGO,
   RANGO_INDICE,
+  courseDataDeInscripcion,
   esHandicapDeInscripcionValido,
   esIndiceDeHandicapValido,
   formatearHandicap,
@@ -64,6 +65,15 @@ describe('rangoDeHandicapDeInscripcion', () => {
     expect(r.min).toBe(HANDICAP_INDEX_MIN)
     expect(r.max).toBe(HANDICAP_INDEX_MAX)
     expect(r.guarda).toBe('course_handicap')
+  })
+
+  it('raw en cancha fácil: el rango no deja afuera el índice que la columna guarda a los invitados', () => {
+    const facil = { slope: 105, courseRating: 69, par: 72 }
+    // −10 → −12 y 54 → 47 por la fórmula; la unión con el rango de índice cubre ambos.
+    const r = rangoDeHandicapDeInscripcion('raw', facil)
+    expect(r.min).toBe(-12)
+    expect(r.max).toBe(HANDICAP_INDEX_MAX)
+    expect(esHandicapDeInscripcionValido(50, r)).toBe(true)
   })
 
   it('modo nulo o desconocido se trata como raw (igual que el leaderboard)', () => {
@@ -136,5 +146,18 @@ describe('parsearHandicap', () => {
     for (const v of [-2, -2.4, 0, 12.4, 54]) {
       expect(parsearHandicap(formatearHandicap(v))).toBe(v)
     }
+  })
+})
+
+describe('courseDataDeInscripcion', () => {
+  it('arma la cancha del motor desde las columnas de courses, con par 72 si falta', () => {
+    expect(courseDataDeInscripcion({ slope_rating: 130, course_rating: 73.5, par_total: 71 })).toEqual({ slope: 130, courseRating: 73.5, par: 71 })
+    expect(courseDataDeInscripcion({ slope_rating: 130, course_rating: 73.5, par_total: null })?.par).toBe(72)
+  })
+
+  it('sin slope o sin course rating no hay cancha creíble', () => {
+    expect(courseDataDeInscripcion({ slope_rating: null, course_rating: 73.5, par_total: 72 })).toBeNull()
+    expect(courseDataDeInscripcion({ slope_rating: 130, course_rating: null, par_total: 72 })).toBeNull()
+    expect(courseDataDeInscripcion(null)).toBeNull()
   })
 })
