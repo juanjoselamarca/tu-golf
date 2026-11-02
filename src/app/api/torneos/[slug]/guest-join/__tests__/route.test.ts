@@ -13,7 +13,11 @@ vi.mock('@/golf/billing/require-feature', async () => ({
   rechazoDeFeature: (await vi.importActual<typeof import('@/golf/billing/require-feature')>('@/golf/billing/require-feature')).rechazoDeFeature,
   checkFeatureAccess: vi.fn(async () => ({ allowed: true })),
 }))
-vi.mock('@/lib/guest-token', () => ({ signGuestToken: (id: string) => `tok-${id}` }))
+vi.mock('@/lib/guest-token', () => ({
+  signGuestToken: (id: string) => `tok-${id}`,
+  // Como el real, lee el token con charCodeAt: lo que no es string revienta.
+  verifyGuestToken: (id: string, tok: string) => tok.charCodeAt(0) >= 0 && tok === `tok-${id}`,
+}))
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 const enrollPlayer = vi.fn()
@@ -23,19 +27,23 @@ type Op = { table: string; op: 'update' | 'delete'; values?: Record<string, unkn
 const ops: Op[] = []
 let linkError: { message: string; code?: string } | null
 let undoError: { message: string } | null
-// Respuestas sucesivas al lookup de players por guestId (1º: ¿ya inscrito?, 2º: tras un 23505).
+// Respuestas sucesivas al lookup de players por guestId EN ESTE torneo (1º: ¿ya inscrito?, 2º: tras un 23505).
 let lookups: Array<{ id: string } | null>
+// El lookup del guestId en cualquier torneo (sin filtro por tournament_id).
+let enOtroTorneo: { data: { id: string } | null; error: { message: string } | null }
 
 function builder(table: string) {
   const filtros: Array<[string, unknown]> = []
   let op: Op | null = null
   const b = {
     select: () => b,
+    limit: () => b,
     eq: (col: string, val: unknown) => { filtros.push([col, val]); return b },
     update: (values: Record<string, unknown>) => { op = { table, op: 'update', values, filtros }; return b },
     delete: () => { op = { table, op: 'delete', filtros }; return b },
     maybeSingle: async () => {
       if (table === 'tournaments') return { data: { id: 't1', status: 'open', organizer_id: 'o1' } }
+      if (table === 'players' && !filtros.some(([col]) => col === 'tournament_id')) return enOtroTorneo
       if (table === 'players') return { data: lookups.shift() ?? null }
       return { data: null }
     },
@@ -52,10 +60,10 @@ import { POST } from '../route'
 
 const GUEST = '22222222-2222-4222-8222-222222222222'
 const params = { params: Promise.resolve({ slug: 'copa' }) }
-const req = () => new NextRequest('https://golfersplus.vercel.app/api/torneos/copa/guest-join', {
+const req = (guestToken?: string) => new NextRequest('https://golfersplus.vercel.app/api/torneos/copa/guest-join', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ guestId: GUEST, name: 'Juan Pérez', handicap: 18 }),
+  body: JSON.stringify({ guestId: GUEST, name: 'Juan Pérez', handicap: 18, guestToken }),
 })
 
 beforeEach(() => {
@@ -63,6 +71,7 @@ beforeEach(() => {
   linkError = null
   undoError = null
   lookups = []
+  enOtroTorneo = { data: null, error: null }
   captureError.mockReset()
   enrollPlayer.mockReset().mockResolvedValue({ ok: true, playerId: 'p-nuevo' })
 })
@@ -106,11 +115,71 @@ describe('POST /api/torneos/[slug]/guest-join', () => {
     expect(captureError).not.toHaveBeenCalled()
   })
 
-  it('ya inscrito con este guestId: devuelve el token sin volver a inscribir', async () => {
+  it('ya inscrito y con su token: lo reemite sin volver a inscribir', async () => {
     lookups = [{ id: 'p-viejo' }]
-    const res = await POST(req(), params)
-    expect(await res.json()).toMatchObject({ ok: true, playerId: 'p-viejo', alreadyRegistered: true })
+    const res = await POST(req(`tok-${GUEST}`), params)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, playerId: 'p-viejo', guestToken: `tok-${GUEST}`, alreadyRegistered: true })
     expect(enrollPlayer).not.toHaveBeenCalled()
     expect(ops).toEqual([])
+  })
+
+  // El endpoint no requiere auth (es la razón de ser del guest scoring), así que lo único que
+  // separa al invitado de quien conozca su guestId es el token. Si se reemitía sin pedirlo, con
+  // un guestId cualquiera se obtenía el token del invitado: anotar por él (/api/game) y
+  // reclamar su jugador con una cuenta propia (/guest-claim).
+  it.each([
+    ['sin token', undefined],
+    ['con el token de otro guestId', 'tok-11111111-1111-4111-8111-111111111111'],
+    ['con un token inventado', 'tok-falso'],
+  ])('ya inscrito %s: 403 y NO entrega token', async (_caso, token) => {
+    lookups = [{ id: 'p-viejo' }]
+    const res = await POST(req(token), params)
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('guest_token_required')
+    expect(body.guestToken).toBeUndefined()
+    expect(body.playerId).toBeUndefined()
+    expect(enrollPlayer).not.toHaveBeenCalled()
+    expect(ops).toEqual([])
+  })
+
+  // El token firma sólo el guestId: si inscribir el guestId ajeno en OTRO torneo abierto lo
+  // devolvía, con él se anotaba y reclamaba en el torneo original de la víctima.
+  it('guestId con jugador en otro torneo y sin su token: 403, no inscribe ni entrega token', async () => {
+    enOtroTorneo = { data: { id: 'p-de-otro-torneo' }, error: null }
+    const res = await POST(req(), params)
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('guest_token_required')
+    expect(body.guestToken).toBeUndefined()
+    expect(enrollPlayer).not.toHaveBeenCalled()
+    expect(ops).toEqual([])
+  })
+
+  it('un guestToken que no es string se trata como sin token, no revienta', async () => {
+    lookups = [{ id: 'p-viejo' }]
+    const res = await POST(req(Array(64).fill('a') as unknown as string), params)
+    expect(res.status).toBe(403)
+    expect((await res.json()).error).toBe('guest_token_required')
+  })
+
+  it('guestId con jugador en otro torneo y con su token: inscribe (el mismo dispositivo en dos torneos)', async () => {
+    enOtroTorneo = { data: { id: 'p-de-otro-torneo' }, error: null }
+    const res = await POST(req(`tok-${GUEST}`), params)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, playerId: 'p-nuevo', guestToken: `tok-${GUEST}` })
+    expect(enrollPlayer).toHaveBeenCalledOnce()
+  })
+
+  it('si falla el lookup en otros torneos, no inscribe ni entrega token (falla cerrado)', async () => {
+    enOtroTorneo = { data: null, error: { message: 'timeout' } }
+    const res = await POST(req(), params)
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error).toBe('lookup_failed')
+    expect(body.guestToken).toBeUndefined()
+    expect(enrollPlayer).not.toHaveBeenCalled()
+    expect(captureError).toHaveBeenCalledWith(enOtroTorneo.error, expect.objectContaining({ context: 'guest-join.lookup' }))
   })
 })

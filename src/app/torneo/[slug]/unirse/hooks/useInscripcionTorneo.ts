@@ -6,12 +6,7 @@ import type {
   JoinInfoProfile,
 } from '@/lib/data/tournaments/joinFlow'
 import type { CapacityInfo } from '@/lib/data/tournaments/enrollPlayer'
-import {
-  getOrCreateGuestId,
-  setGuestName as saveGuestName,
-  setGuestHandicap as saveGuestHandicap,
-  setGuestToken,
-} from '@/lib/guest-session'
+import { clearGuestSession, getGuestToken, getOrCreateGuestId, setGuestHandicap as saveGuestHandicap, setGuestName as saveGuestName, setGuestToken } from '@/lib/guest-session'
 import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
 import { PLAZO_INSCRIPCION_MS } from '@/lib/red/plazos'
 
@@ -155,20 +150,32 @@ export function useInscripcionTorneo(slug: string) {
     setGuestJoining(true)
     setError(null)
 
-    const guestId = getOrCreateGuestId()
     const handicapNum = guestHandicap ? parseFloat(guestHandicap) : undefined
-
-    let res: RespuestaJson
-    try {
-      res = aRespuestaJson(await fetchJsonConPlazo(`/api/torneos/${encodeURIComponent(slug)}/guest-join`, {
+    const postGuestJoin = async (guestId: string, guestToken: string | undefined) =>
+      aRespuestaJson(await fetchJsonConPlazo(`/api/torneos/${encodeURIComponent(slug)}/guest-join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           guestId,
           name: trimmedName,
           handicap: handicapNum != null && !isNaN(handicapNum) ? handicapNum : undefined,
+          guestToken,
         }),
       }, PLAZO_INSCRIPCION_MS, { leerCuerpoSiNoOk: true }))
+
+    let res: RespuestaJson
+    try {
+      // Si este guestId ya tiene jugador, el server sólo le reemite el token a quien pruebe
+      // que ya lo tenía: va el guardado.
+      res = await postGuestJoin(getOrCreateGuestId(), getGuestToken() ?? undefined)
+      // 403 guest_token_required: el guestId ya tiene jugador y aquí no está su token (la
+      // respuesta que lo traía se perdió en la señal de la cancha). Ese jugador ya no se puede
+      // usar desde este dispositivo, así que se entra una vez con un invitado nuevo: una fila
+      // repetida la borra el organizador, un jugador bloqueado en el tee 1 no tiene salida.
+      if (res.status === 403 && (res.body as { error?: string } | null)?.error === 'guest_token_required') {
+        clearGuestSession()
+        res = await postGuestJoin(getOrCreateGuestId(), undefined)
+      }
     } catch {
       setError('No pudimos confirmar tu inscripción. Revisa tu señal y vuelve a intentarlo.')
       setGuestJoining(false)
