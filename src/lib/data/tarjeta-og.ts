@@ -11,6 +11,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { inferHoles, type ParPerHoleInput } from '@/golf/core/holes'
 import { resolveParTotal, computeVsParGross, formatVsParLabel } from '@/golf/share/vs-par'
 
+/** Las lee el bot del preview, sin sesión: cada una necesita el GRANT de anon (migración 20261025000000). */
+export const COLUMNAS_OG = 'total_gross, course_name, holes_played, user_id, par_per_hole, scores'
+
 export interface TarjetaOgData {
   playerName: string
   gross: number
@@ -28,7 +31,7 @@ export async function loadTarjetaOgData(
 ): Promise<TarjetaOgData | null> {
   const { data: round } = await supabase
     .from('historical_rounds')
-    .select('total_gross, course_name, holes_played, user_id, par_per_hole, scores')
+    .select(COLUMNAS_OG)
     .eq('id', id)
     .single()
 
