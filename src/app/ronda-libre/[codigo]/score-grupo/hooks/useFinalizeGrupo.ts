@@ -223,7 +223,7 @@ export function useFinalizeGrupo(input: {
         // es SECURITY DEFINER sin `EXCEPTION WHEN OTHERS`, así que lo que
         // falle en la BD llega hasta acá.
         // Tarjeta propia nueva: el coach aprende de la ronda, igual que en el individual.
-        if (guardado.status === 'insertada' && guardado.id) avisarAlCoachRondaNueva(guardado.id, j.user_id)
+        if (guardado.status === 'insertada' && guardado.id) avisarAlCoachRondaNueva(guardado.id)
         void recalcularIndiceGolfers(supabase, j.user_id, {
           context: 'score_grupo_finalize.calcular_indice',
           level: 'warning',

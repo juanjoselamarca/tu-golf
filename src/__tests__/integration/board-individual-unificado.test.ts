@@ -1,21 +1,19 @@
-// Board individual unificado — verificación contra la data REAL de prod.
+// Board individual unificado — verificación contra la data de la base de pruebas.
 //
 // Las tres pantallas del board individual (`/torneo/[slug]`, `.../tv`,
 // `.../en-vivo`) tenían su propia computación de neto, "a par", orden y nombre.
 // Ahora las tres proyectan la salida de `buildLeaderboardFromLegacy`. Este test
-// corre ese motor sobre los torneos del gate sembrados en prod y asegura las
+// corre ese motor sobre los torneos del gate sembrados en la base de pruebas y asegura las
 // invariantes que la divergencia rompía.
 //
-// Read-only: no escribe ni borra nada. Skipea sin SUPABASE_SERVICE_ROLE_KEY,
-// así que el `vitest run` de pre-push lo saltea limpio.
+// Read-only: no escribe ni borra nada. Skipea sin SUPABASE_SERVICE_ROLE_KEY.
 //
 // Correr: npm run test:integration
 //
-// FIXTURE: los torneos de `GATE_SLUGS` son filas reales de prod, sembradas por
-// `node scripts/seed-gate-scorer.mjs` (`--limpiar` para borrarlas). Nada las
-// protege de una limpieza de torneos viejos: si el test empieza a fallar con
-// "el torneo del gate no existe en prod" o "sin jugadores", re-sembralos con ese
-// script antes de buscar el bug en el motor.
+// FIXTURE: los torneos de `GATE_SLUGS` vienen de `scripts/test-db/seed-data/tournaments.json`,
+// que siembra `scripts/test-db/seed.mjs`. Si el test empieza a fallar con "el torneo del gate
+// no existe en la base de pruebas" o "sin jugadores", revisa ese seed antes de buscar el bug
+// en el motor.
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
@@ -54,8 +52,8 @@ function makeClient() {
 }
 type SB = ReturnType<typeof makeClient>
 
-describe.skipIf(!hasCreds)('board individual unificado — data real de prod', () => {
-  // Este beforeAll habla con prod por red. Si una llamada rechaza y la excepción
+describe.skipIf(!hasCreds)('board individual unificado — data de la base de pruebas', () => {
+  // Este beforeAll habla con la base por red. Si una llamada rechaza y la excepción
   // escapa, Vitest marca el ARCHIVO como failed y sus tests como skipped — un
   // rojo intermitente que no dice nada. Los errores se juntan y los reporta un
   // test, así una caída de red se lee como lo que es.
@@ -78,7 +76,7 @@ describe.skipIf(!hasCreds)('board individual unificado — data real de prod', (
       .eq('slug', slug)
       .single()
     if (tErr) throw new Error(`tournaments: ${tErr.message}`)
-    if (!t) throw new Error('el torneo del gate no existe en prod')
+    if (!t) throw new Error('el torneo del gate no existe en la base de pruebas')
 
     const row = t as unknown as {
       id: string
@@ -121,11 +119,11 @@ describe.skipIf(!hasCreds)('board individual unificado — data real de prod', (
     })
   }
 
-  it('la carga desde prod no tuvo errores', () => {
+  it('la carga desde la base de pruebas no tuvo errores', () => {
     expect(loadErrors).toEqual([])
   })
 
-  it('encuentra los torneos del gate en prod, CON jugadores', () => {
+  it('encuentra los torneos del gate en la base de pruebas, CON jugadores', () => {
     // Sin este guard las seis aserciones de abajo pasan en vacío: iteran sobre
     // `loaded` y sobre `board.players`, así que un cambio de RLS o una columna
     // renombrada las dejaría verdes sobre cero datos. supabase-js no lanza en

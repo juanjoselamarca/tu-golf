@@ -7,7 +7,8 @@ vi.mock('@/lib/resolve-course', () => ({
   resolveCourse: vi.fn(async () => ({ courseId: null, courseCreated: false, holesPopulated: false, matchScore: null, warnings: [] })),
 }))
 
-type Respuesta = { data?: unknown; error?: unknown; count?: number }
+/** `ventana`: lo que devuelve la lectura ordenada de `historical_rounds` (la ventana del índice del día); sin ella, nada. */
+type Respuesta = { data?: unknown; error?: unknown; count?: number; ventana?: unknown[] }
 
 /** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await, sea cual sea la cadena; captura los insert. */
 function fake(porTabla: Record<string, Respuesta>) {
@@ -15,11 +16,16 @@ function fake(porTabla: Record<string, Respuesta>) {
   return {
     insertados,
     from(tabla: string) {
+      let ordenada = false
       const proxy: Record<string, unknown> = new Proxy({}, {
         get(_t, prop) {
           if (prop === 'insert') return (payload: Record<string, unknown>) => { insertados.push(payload); return proxy }
+          if (prop === 'order') return () => { ordenada = true; return proxy }
           if (prop === 'then') return (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
-            Promise.resolve({ data: null, error: null, ...(porTabla[tabla] ?? {}) }).then(ok, ko)
+            Promise.resolve({
+              data: null, error: null,
+              ...(ordenada && tabla === 'historical_rounds' ? { data: porTabla[tabla]?.ventana ?? [] } : porTabla[tabla] ?? {}),
+            }).then(ok, ko)
           return () => proxy
         },
       })
@@ -43,11 +49,13 @@ const tarjeta = (extra: Partial<TarjetaGarminReimportada> = {}): TarjetaGarminRe
   par_per_hole: null, metadata: { garmin_scorecard_id: 'g1' }, ...extra,
 })
 
-const PERFIL = { genero: 'M', indice: 12, indice_golfers: null, default_tee_color: null }
+const PERFIL = { genero: 'M', indice: 12, default_tee_color: null }
+/** El perfil que lee el tope (el índice de hoy, sin historial). */
+const PERFIL_HOY = { profiles: { data: { indice: 12 } } }
 
 describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => {
   it('el UPDATE escribe el diferencial desde el gross ajustado y adjusted_gross (antes no recalculaba el diferencial)', async () => {
-    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO } })
+    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO }, ...PERFIL_HOY })
     const u = await actualizacionGarmin(sb as never, 'u1', tarjeta(), PERFIL, null)
     expect(u.adjusted_gross).toBe(92)
     expect(u.diferencial).toBe(dif(92))
@@ -83,7 +91,7 @@ describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => 
   it('sin cancha resuelta no toca course_id ni tee_color (nunca null sobre un vínculo) ni usa el CR/slope del archivo', async () => {
     const sb = fake({})
     const conRatingsDelArchivo = { ...tarjeta({ course_id: null, tee_color: null }), course_rating: 70, slope_rating: 120 } as TarjetaGarminReimportada
-    const u = await actualizacionGarmin(sb as never, 'u1', conRatingsDelArchivo, PERFIL, { course_id: null, tee_color: null })
+    const u = await actualizacionGarmin(sb as never, 'u1', conRatingsDelArchivo, PERFIL, { course_id: null, tee_color: null, created_at: '2026-10-02T12:00:00Z' })
     expect(vi.mocked(resolveCourse)).toHaveBeenCalled()
     expect(u).not.toHaveProperty('course_id')
     expect(u).not.toHaveProperty('tee_color')
@@ -94,10 +102,10 @@ describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => 
 
   it('tee corregido en la app sobrevive al re-import: manda el de la fila y el diferencial sale de ESE tee', async () => {
     vi.mocked(resolveCourse).mockClear()
-    const sb = fake({ course_tees: { data: [TEE_AZUL, TEE_BLANCO] }, course_holes: { data: CATALOGO } })
+    const sb = fake({ course_tees: { data: [TEE_AZUL, TEE_BLANCO] }, course_holes: { data: CATALOGO }, ...PERFIL_HOY })
     // El archivo dice azul y otra cancha; la fila (corregida en la app) dice c1 / blanco.
     const u = await actualizacionGarmin(sb as never, 'u1', tarjeta({ course_id: null, tee_color: 'azul' }), PERFIL,
-      { course_id: 'c1', tee_color: 'blanco' })
+      { course_id: 'c1', tee_color: 'blanco', created_at: '2026-10-02T12:00:00Z' })
     expect(u.tee_color).toBe('blanco')
     expect(u.course_id).toBe('c1')
     expect(u.course_rating).toBe(69.5)
@@ -110,9 +118,9 @@ describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => 
   })
 
   it('con la cancha de la fila (re-vinculada en la app) no se pisa course_name con el del archivo', async () => {
-    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO } })
+    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO }, ...PERFIL_HOY })
     const conFila = await actualizacionGarmin(sb as never, 'u1', tarjeta({ course_name: 'Nombre Garmin' }), PERFIL,
-      { course_id: 'c1', tee_color: 'azul' })
+      { course_id: 'c1', tee_color: 'azul', created_at: '2026-10-02T12:00:00Z' })
     expect(conFila).not.toHaveProperty('course_name')
     const sinFila = await actualizacionGarmin(sb as never, 'u1', tarjeta({ course_name: 'Nombre Garmin' }), PERFIL, null)
     expect(sinFila.course_name).toBe('Nombre Garmin')
@@ -120,9 +128,9 @@ describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => 
 
   it('fetchFilasGarminExistentes: cancha y tee actuales por garmin_scorecard_id; lanza si la lectura falla', async () => {
     const ok = await fetchFilasGarminExistentes(fake({ historical_rounds: { data: [
-      { garmin_scorecard_id: 'g1', course_id: 'c1', tee_color: 'blanco' },
+      { garmin_scorecard_id: 'g1', course_id: 'c1', tee_color: 'blanco', created_at: '2026-10-02T12:00:00Z' },
     ] } }) as never, 'u1', ['g1'])
-    expect(ok.get('g1')).toEqual({ course_id: 'c1', tee_color: 'blanco' })
+    expect(ok.get('g1')).toEqual({ course_id: 'c1', tee_color: 'blanco', created_at: '2026-10-02T12:00:00Z' })
     const conAjuste = await fetchFilasGarminExistentes(fake({ historical_rounds: { data: [
       { garmin_scorecard_id: 'g1', course_id: 'c1', tee_color: 'azul', metadata: { ajuste_whs: { indice: 20 } } },
     ] } }) as never, 'u1', ['g1'])
@@ -133,18 +141,28 @@ describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => 
   })
 
   it('re-importar: el tope usa el índice del DÍA (ajuste_whs de la fila), no el de hoy del perfil', async () => {
-    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO } })
+    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO }, ...PERFIL_HOY })
     // Hoy índice 12 (CH 13, tope hoyo 4 = 8 → 92); el día de la ronda era 0 (CH 0, tope 7 → 91).
-    const hoy = await actualizacionGarmin(sb as never, 'u1', tarjeta(), PERFIL, { course_id: 'c1', tee_color: 'azul' })
+    const hoy = await actualizacionGarmin(sb as never, 'u1', tarjeta(), PERFIL, { course_id: 'c1', tee_color: 'azul', created_at: '2026-10-02T12:00:00Z' })
     expect(hoy.adjusted_gross).toBe(92)
     const delDia = await actualizacionGarmin(sb as never, 'u1', tarjeta(), PERFIL,
-      { course_id: 'c1', tee_color: 'azul', ajuste_whs: { indice: 0, course_hcp: 0, tee: 'azul' } })
+      { course_id: 'c1', tee_color: 'azul', created_at: '2026-10-02T12:00:00Z', ajuste_whs: { indice: 0, course_hcp: 0, tee: 'azul' } })
     expect(delDia.adjusted_gross).toBe(91)
     expect((delDia.metadata as { ajuste_whs: { indice: number } }).ajuste_whs.indice).toBe(0)
   })
 
+  it('re-importar una fila sin ajuste guardado: el índice del día, sin lo registrado después de guardarla', async () => {
+    const sb = fake({
+      course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO }, ...PERFIL_HOY,
+      // 12:00 en Chile se guardó; el 20 se registró a las 19:00 del mismo día.
+      indice_historial: { data: [{ indice: 10, fecha: '2026-09-20T12:00:00Z' }, { indice: 20, fecha: '2026-10-01T22:00:00Z' }] },
+    })
+    const u = await actualizacionGarmin(sb as never, 'u1', tarjeta(), PERFIL, { course_id: 'c1', tee_color: 'azul', created_at: '2026-10-01T15:00:00Z' })
+    expect((u.metadata as { ajuste_whs: { indice: number } }).ajuste_whs.indice).toBe(10)
+  })
+
   it('bola compartida: diferencial null', async () => {
-    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO } })
+    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO }, ...PERFIL_HOY })
     const u = await actualizacionGarmin(sb as never, 'u1', tarjeta({ formato_juego: 'foursome' }), PERFIL, null)
     expect(u.diferencial).toBeNull()
   })

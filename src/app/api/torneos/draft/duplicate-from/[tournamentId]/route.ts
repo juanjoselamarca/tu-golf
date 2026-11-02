@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { configFromTournament, type SourceCategory } from '@/lib/draft/duplicate-config'
 import { fetchAllRoundPlayConfigs } from '@/lib/data/tournaments/rounds'
+import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,9 +61,23 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ tournam
     .single()
   if (dErr || !draft) return NextResponse.json({ error: 'Error creando draft' }, { status: 500 })
 
-  await supabase.from('tournament_draft_collaborators').insert({
-    draft_id: draft.id, user_id: user.id, role: 'owner', added_by: user.id,
-  })
+  // Igual que en POST /api/torneos/draft: el trigger trg_tournament_drafts_dueno_colaborador la
+  // garantiza en la base, acá se inserta con upsert y el error se reporta en vez de tragarse.
+  const { error: colErr } = await supabase
+    .from('tournament_draft_collaborators')
+    .upsert(
+      { draft_id: draft.id, user_id: user.id, role: 'owner', added_by: user.id },
+      { onConflict: 'draft_id,user_id', ignoreDuplicates: true },
+    )
+
+  if (colErr) {
+    await captureError(colErr, {
+      context: 'draft/duplicate-from: fila de colaborador del dueño',
+      userId: user.id,
+      meta: { draft_id: draft.id },
+    })
+    return NextResponse.json({ error: 'Error creando draft' }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true, draft })
 }
