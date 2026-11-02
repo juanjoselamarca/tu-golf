@@ -24,12 +24,19 @@ const CACHE_PATH = '.claude/inbox-pending.json';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const TIMEOUT_MS = 2000;
 const TRUNC = 60;
+// Prefijo de `notas` con que /inbox deja un fix mergeado que espera `npm run promover` (.claude/commands/inbox.md, paso 8.10).
+export const ESPERA_PROMOCION = 'esperando promoción: ';
 
 export function buildSummary(rows) {
   if (!rows || rows.length === 0) return '';
-  const n = rows.length;
-  const lines = [`📥 ${n} pendiente${n === 1 ? '' : 's'} en inbox:`];
-  for (const r of rows.slice(0, 10)) {
+  const pendientes = rows.filter(r => r.status !== 'en_progreso');
+  const esperando = rows.length - pendientes.length;
+  const lines = [];
+  if (esperando) lines.push(`⏳ ${esperando} fix${esperando === 1 ? '' : 'es'} del inbox esperando promoción a production: tras npm run promover, /inbox ${esperando === 1 ? 'lo' : 'los'} cierra.`);
+  if (!pendientes.length) return lines.join('\n');
+  const n = pendientes.length;
+  lines.push(`📥 ${n} pendiente${n === 1 ? '' : 's'} en inbox:`);
+  for (const r of pendientes.slice(0, 10)) {
     const content = (r.texto ?? r.caption ?? '(sin texto)').replace(/\s+/g, ' ');
     const truncated = content.length > TRUNC ? content.slice(0, TRUNC) + '...' : content;
     lines.push(`  • ${truncated}`);
@@ -61,14 +68,15 @@ async function queryPending() {
   const supabase = createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data, error } = await supabase
-    .from('inbox_reports')
-    .select('id, recibido_en, texto, caption, status')
-    .in('status', ['nuevo', 'triaged'])
-    .order('recibido_en', { ascending: true })
-    .limit(20);
-  if (error) throw error;
-  return data ?? [];
+  const columnas = 'id, recibido_en, texto, caption, status';
+  const [pendientes, esperando] = await Promise.all([
+    supabase.from('inbox_reports').select(columnas).in('status', ['nuevo', 'triaged'])
+      .order('recibido_en', { ascending: true }).limit(20),
+    supabase.from('inbox_reports').select(columnas).eq('status', 'en_progreso').like('notas', `${ESPERA_PROMOCION}%`).limit(20),
+  ]);
+  if (pendientes.error) throw pendientes.error;
+  if (esperando.error) throw esperando.error;
+  return [...(pendientes.data ?? []), ...(esperando.data ?? [])];
 }
 
 async function main() {

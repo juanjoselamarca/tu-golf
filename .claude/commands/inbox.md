@@ -37,9 +37,10 @@ const { createClient } = require('@supabase/supabase-js');
 ```
 
 Para cada uno, con el SHA que viene después de `esperando promoción: `:
-`gh api 'repos/{owner}/{repo}/compare/<sha>...production' --jq .status`. Si es `ahead` o `identical`, ya está en
-prod: corre los pasos 8.10 (deploy READY), 8.11 (smoke) y 8.12 (resuelto) de ese reporte. Si no, sigue esperando y va
-al resumen en "Esperando promoción".
+`gh api 'repos/{owner}/{repo}/compare/<sha>...production' --jq .status`. Si no es `ahead` ni `identical`, sigue
+esperando y va al resumen en "Esperando promoción". Si lo es, ya está en prod: corre
+`node --env-file=.env.local scripts/ci/evento-en-vivo.mjs` (exit 3 = hay gente jugando: sin smoke, sigue esperando) y
+después los pasos 8.10 (deploy READY), 8.11 (smoke) y 8.12 (resuelto) de ese reporte.
 
 ### PASO 1 — Snapshot de pendientes
 
@@ -60,7 +61,7 @@ const { createClient } = require('@supabase/supabase-js');
 "
 ```
 
-Guardá el JSON resultante en memoria de la sesión. Si está vacío → respondé "Inbox vacío. Nada que procesar." y terminá.
+Guardá el JSON resultante en memoria de la sesión. Si está vacío y el PASO 0 no tuvo reportes → respondé "Inbox vacío. Nada que procesar." y terminá; si el PASO 0 tuvo, salta al PASO 11 (resumen).
 
 ### PASO 2 — Descargar fotos
 
@@ -153,13 +154,13 @@ Para cada técnico (o cada grupo paralelo), seguí EXACTAMENTE estos 13 pasos:
    - `git push -u origin feat/inbox-<slug>-claude`
    - `gh pr create --base main --head feat/inbox-<slug>-claude --title "..." --body "..."`
 9. **Merge con CI verde** (regla única en `scripts/ceo-prompts/merge-rule.md`): `gh pr checks <N> --watch --fail-fast --required` y recién ahí `gh pr merge <N> --squash`. **Nunca `--admin`**: se salta los checks obligatorios y el 25-sep-2026 rompió 4 deploys de prod. Si un check falla, se arregla en la rama; si no se puede, el PR queda abierto y se reporta.
-10. **Esperar la promoción y el deploy:** mergear a `main` no publica nada y Claude no promueve: `npm run promover` lo corren solo Max o Juanjo. Deja el reporte esperando (sigue `en_progreso`; el PASO 0 de la próxima corrida lo retoma) y pídeles la promoción en el resumen:
+10. **Esperar la promoción y el deploy:** mergear a `main` no publica nada y Claude no promueve: `npm run promover` lo corren solo Max o Juanjo. Deja el reporte esperando (sigue `en_progreso`; el PASO 0 de una corrida posterior a la promoción lo retoma, y `scripts/inbox-bootstrap.mjs` lo avisa al iniciar sesión), pídeles la promoción en el resumen y en esta corrida salta 11 y 12 y sigue con 13:
     ```sql
     UPDATE inbox_reports
     SET rama_fix='feat/inbox-<slug>-claude', enlace_auditoria='<PR_URL>', notas='esperando promoción: <merge-sha>'
     WHERE id='<uuid>';
     ```
-    Ya promovido, poll Vercel hasta `readyState === 'READY'` del deploy de producción con ese SHA. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
+    Ya promovido (desde el PASO 0), poll Vercel hasta `readyState === 'READY'` del deploy de producción del HEAD de `production` (`gh api 'repos/{owner}/{repo}/commits/production' --jq .sha`): Vercel construye solo ese, y ya contiene el merge-sha. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
 11. **SMOKE POST-DEPLOY** (mitigación crítica CERO FALLOS):
     - Si el bug era en endpoint API → curl al endpoint, esperar respuesta no-5xx con cuerpo coherente.
     - Si era en página → skill `browse` a la URL, verificar ausencia de `console.error` y que el elemento bug-fixed se vea correcto.
@@ -203,7 +204,7 @@ Para cada reporte `visual`:
    `--desde <sha>` (solo el delta). Después skill `design-review` (visual QA + fix iterativo).
 9. Continuá con el sub-flujo técnico desde PASO 8.6 (verificaciones → commit → PR → merge → deploy → smoke).
 10. **Decision log**: copiá `docs/design-decisions/_template.md` a `docs/design-decisions/<YYYY-MM-DD>-<slug>.md` y llenálo (problema, variantes consideradas, elegida, razón).
-11. UPDATE BD igual que en técnico.
+11. BD igual que en técnico: queda esperando promoción (8.10) y lo cierra el PASO 0.
 
 ### PASO 10 — Decisiones de producto pendientes
 
