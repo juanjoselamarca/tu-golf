@@ -53,7 +53,10 @@ jobs:
       # COACH_E2E_EMAIL: NO setear — coach-e2e necesita un usuario REAL con historial (default: la cuenta de Juanjo).
 
     steps:
+      # El código que está en prod: un canario de una migración mergeada y todavía no promovida fallaría contra prod.
       - uses: actions/checkout@v4
+        with:
+          ref: production
 
       # Sin secrets los tests se SALTEAN y el job quedaría verde: el centinela apagado sin que nadie se entere.
       - name: Verificar que hay credenciales reales

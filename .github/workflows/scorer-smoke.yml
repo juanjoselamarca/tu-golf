@@ -121,7 +121,7 @@ jobs:
         id: smoke
         run: node scripts/test-db/e2e-local.mjs -- scorer-smoke.spec.ts --project=mobile-chromium-auth
 
-      # Fuera de un PR (programado / push a main) un rojo es el código de main, que es el de prod: el 02-oct
+      # Fuera de un PR (programado / push a main) un rojo es el código de main, el próximo en llegar a prod: el 02-oct
       # falló a las 20:38 y nadie se enteró en 4 h. Avisa por Telegram.
       - name: Avisar por Telegram si falla fuera de un PR
         if: failure() && steps.smoke.outcome == 'failure' && github.event_name != 'pull_request'
