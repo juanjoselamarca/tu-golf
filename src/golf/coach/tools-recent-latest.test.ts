@@ -98,4 +98,15 @@ describe('get_recent_rounds / get_latest_round — fuente única historical_roun
     expect(r.ok).toBe(false)
     expect((r as { ok: false; error: string }).error).toMatch(/no tiene rondas/i)
   })
+
+  it('get_latest_round desempata dos rondas del mismo día por la cargada última (25-oct)', async () => {
+    const orders: string[] = []
+    const builder: Record<string, unknown> = {}
+    for (const m of ['select', 'eq', 'or', 'not', 'limit', 'in']) builder[m] = () => builder
+    builder.order = (c: string) => { orders.push(c); return builder }
+    builder.then = (resolve: (v: unknown) => unknown) => resolve({ data: [], error: null })
+    const sb = { from: () => builder } as unknown as ToolExecutionContext['supabase']
+    await executeTool('get_latest_round', {}, ctx(sb))
+    expect(orders).toEqual(['played_at', 'created_at'])
+  })
 })

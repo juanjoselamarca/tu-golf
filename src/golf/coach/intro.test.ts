@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 // Detector canonico de voseo (habia uno inline aca, mas pobre que la lista real).
 import { buscarVoseo } from '../../../scripts/lib/voseo.mjs'
-import { buildIntro, buildActivePlanSummary, type IntroContext, type ActivePlanOutcome } from './intro'
+import { buildIntro, buildActivePlanSummary, describeRecoveryStatus, type IntroContext, type ActivePlanOutcome } from './intro'
 
 const base: IntroContext = {
   name: 'Juan',
@@ -176,5 +176,23 @@ describe('buildActivePlanSummary (D3 — surfacing plan activo)', () => {
     expect(r!.status).toBe('active')
     expect(r!.title).toBe('Plan activo')
     expect(r!.description).toBe('')
+  })
+})
+
+describe('describeRecoveryStatus', () => {
+  const plan = { hypothesis: 'h', rule: 'r', status: 'active' }
+  it('sin plan no muestra "Adherencia: 0%" (se leía como fracaso)', () => {
+    expect(describeRecoveryStatus(1, null)).toBe('Patrones activos: 1.')
+  })
+  it('con plan pero sin rondas medidas tampoco muestra adherencia', () => {
+    expect(describeRecoveryStatus(1, buildActivePlanSummary(plan, []))).toBe('Patrones activos: 1.')
+  })
+  it('con rondas medidas usa el % canónico de buildActivePlanSummary', () => {
+    const s = buildActivePlanSummary(plan, [
+      { target_reached: true, played_at: '2026-10-01' },
+      { target_reached: false, played_at: '2026-10-05' },
+      { target_reached: true, played_at: '2026-10-09' },
+    ])
+    expect(describeRecoveryStatus(2, s)).toBe('Patrones activos: 2. Adherencia: 67%.')
   })
 })
