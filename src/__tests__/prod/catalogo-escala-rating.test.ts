@@ -12,7 +12,6 @@
 //
 // Corre contra prod en prod-canarios.yml: la base de pruebas tiene una copia fija del catálogo.
 // Read-only. Skipea sin SUPABASE_SERVICE_ROLE_KEY.
-// Correr: node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/__tests__/prod/catalogo-escala-rating.test.ts
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { createClient } from '@supabase/supabase-js'

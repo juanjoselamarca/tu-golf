@@ -68,7 +68,7 @@ function fake(porTabla: Record<string, { data?: unknown }>) {
 describe('resolverTarjetaImportada — metadata del cliente (#545)', () => {
   const base = {
     userId: 'u1', courseName: 'X', courseId: 'c1', teeColor: null, parPerHole: null,
-    scores: del1(18).map(n => PAR18[n] + 1), totalGross: 90, holesPlayed: 18, formatoJuego: 'stroke_play', source: 'manual',
+    scores: del1(18).map(n => PAR18[n] + 1), totalGross: 90, holesPlayed: 18, formatoJuego: 'stroke_play', source: 'manual', playedAt: '2026-10-01',
   }
   it('sin hoyos: el par del catálogo va a las posiciones 1..N', async () => {
     const r = await resolverTarjetaImportada(fake({ course_holes: { data: catalogo18 } }) as never, { ...base, metadata: {} }, null)
@@ -96,7 +96,7 @@ describe('resolverTarjetaImportada — hoyos que no es lista', () => {
     const sb = fake({ course_holes: { data: catalogo18 }, course_tees: { data: [azul] } })
     const r = await resolverTarjetaImportada(sb as never, {
       userId: 'u1', courseName: 'X', courseId: 'c1', teeColor: 'azul', parPerHole: null,
-      scores: del1(9).map(n => PAR18[n] + 1), totalGross: 45, holesPlayed: 9, formatoJuego: 'stroke_play', source: 'manual',
+      scores: del1(9).map(n => PAR18[n] + 1), totalGross: 45, holesPlayed: 9, formatoJuego: 'stroke_play', source: 'manual', playedAt: '2026-10-01',
       metadata: { hoyos: '123456789' as unknown as number[] },
     }, null)
     expect(Object.keys(r.parPerHole!)).toHaveLength(9)

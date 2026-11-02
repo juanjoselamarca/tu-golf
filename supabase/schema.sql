@@ -428,7 +428,9 @@ create table public."import_jobs" (
   "errors" jsonb,
   "created_at" timestamp with time zone default now(),
   "updated_at" timestamp with time zone default now(),
-  "completed_at" timestamp with time zone
+  "completed_at" timestamp with time zone,
+  "total_updated" integer,
+  "unsaved_rounds" jsonb
 );
 create table public."inbox_reports" (
   "id" uuid default gen_random_uuid() not null,
@@ -1022,7 +1024,7 @@ BEGIN
       AND  course_rating         IS NOT NULL
       AND  excluded_from_handicap = FALSE
       AND  (total_gross IS NULL OR holes_played IS NULL OR total_gross >= 3 * holes_played)
-    ORDER  BY played_at DESC
+    ORDER  BY played_at DESC, created_at DESC NULLS LAST, id DESC
     LIMIT  20
   ) sub;
 
@@ -2587,7 +2589,6 @@ CREATE INDEX idx_historical_rounds_formato ON public.historical_rounds USING btr
 CREATE INDEX idx_historical_rounds_user ON public.historical_rounds USING btree (user_id, played_at DESC);
 CREATE INDEX idx_historical_rounds_user_played ON public.historical_rounds USING btree (user_id, played_at DESC);
 CREATE INDEX idx_hole_scores_round ON public.hole_scores USING btree (round_id);
-CREATE INDEX idx_hr_garmin_id ON public.historical_rounds USING btree (user_id, garmin_scorecard_id) WHERE (garmin_scorecard_id IS NOT NULL);
 CREATE INDEX idx_import_jobs_user ON public.import_jobs USING btree (user_id);
 CREATE INDEX idx_inbox_media_group ON public.inbox_reports USING btree (telegram_media_group_id, telegram_msg_date DESC) WHERE (telegram_media_group_id IS NOT NULL);
 CREATE INDEX idx_inbox_msgid_chat ON public.inbox_reports USING btree (telegram_message_id, telegram_chat_id);
@@ -2666,6 +2667,7 @@ CREATE UNIQUE INDEX uq_course_tees_identity ON public.course_tees USING btree (c
 CREATE UNIQUE INDEX uq_courses_fedegolf_natural ON public.courses USING btree (fedegolf_club_id, fedegolf_cancha_id);
 CREATE UNIQUE INDEX uq_courses_user_added_nombre ON public.courses USING btree (lower(nombre)) WHERE (fuente = 'user_added'::text);
 CREATE UNIQUE INDEX uq_historical_user_date_course_gross ON public.historical_rounds USING btree (user_id, played_at, course_id, total_gross) WHERE ((course_id IS NOT NULL) AND (NOT COALESCE(((metadata ? 'ronda_libre_jugador_id'::text) OR (metadata ? 'tournament_round_id'::text)), false)));
+CREATE UNIQUE INDEX ux_historical_rounds_garmin_scorecard ON public.historical_rounds USING btree (user_id, garmin_scorecard_id) WHERE (garmin_scorecard_id IS NOT NULL);
 CREATE UNIQUE INDEX ux_historical_rounds_ronda_libre_jugador ON public.historical_rounds USING btree (((metadata ->> 'ronda_libre_jugador_id'::text))) WHERE (metadata ? 'ronda_libre_jugador_id'::text);
 CREATE UNIQUE INDEX ux_historical_rounds_tournament_round ON public.historical_rounds USING btree (((metadata ->> 'tournament_round_id'::text))) WHERE (metadata ? 'tournament_round_id'::text);
 CREATE UNIQUE INDEX ux_historical_rounds_user_ticket ON public.historical_rounds USING btree (user_id, fedegolf_ticket);

@@ -36,6 +36,8 @@ export interface ImportRoundInput {
   modoJuego?: 'gross' | 'neto' | string
   holesPlayed?: number
   importConfidence?: number
+  /** Id de la tarjeta en Garmin: único por usuario, es lo que reconoce una re-importación. */
+  garminScorecardId?: string | null
 }
 
 export interface ImportRoundResult {
@@ -44,6 +46,8 @@ export interface ImportRoundResult {
   totalGross: number
   totalNeto: number | null
   warnings: string[]
+  /** La tarjeta Garmin ya estaba en el historial (otra importación la guardó antes). */
+  duplicada?: boolean
 }
 
 /**
@@ -87,8 +91,7 @@ export async function importRound(
     warnings.push(`Total gross (${input.totalGross}) no coincide con suma de scores (${sumScores})`)
   }
 
-  // Perfil del usuario (género para desambiguar cancha, índice/tee para neto e
-  // índice para el tope WHS 3.1).
+  // Perfil del usuario (género para desambiguar cancha, índice para neto y tee por defecto).
   const { data: profile } = await supabase
     .from('profiles')
     .select(COLS_PERFIL_IMPORT)
@@ -126,6 +129,7 @@ export async function importRound(
       metadata: metadataBase,
       formatoJuego,
       source: input.source,
+      playedAt: input.playedAt,
     }, profile)
   warnings.push(...avisosCancha)
 
@@ -156,10 +160,14 @@ export async function importRound(
       modo_juego: (input.modoJuego as 'gross' | 'neto') ?? 'gross',
       holes_played: holesPlayed,
       import_confidence: input.importConfidence ?? null,
+      garmin_scorecard_id: input.garminScorecardId ?? null,
     })
     .select('id')
     .single()
 
+  if (error?.code === '23505' && error.message?.includes('ux_historical_rounds_garmin_scorecard')) {
+    return { success: false, duplicada: true, totalGross, totalNeto, warnings: ['La tarjeta Garmin ya está en tu historial'] }
+  }
   if (error) {
     return {
       success: false,
@@ -257,16 +265,19 @@ export function tarjetaDelImport(
  */
 export const CLAVES_METADATA_DEL_SERVIDOR = ['hoyos', 'ajuste_whs', 'estimados', 'ronda_libre_jugador_id'] as const
 
+/** Marcas de la revisión del import ("ya está en tu historial"): describen el archivo, no la ronda. */
+const CLAVES_METADATA_DE_LA_REVISION = ['is_duplicate', 'existing_id'] as const
+
 /**
- * `metadata` de la fila importada: la del cliente sin `CLAVES_METADATA_DEL_SERVIDOR`,
- * más el `hoyos` que decide el servidor (desde las claves de los golpes).
+ * `metadata` de la fila importada: la del cliente sin `CLAVES_METADATA_DEL_SERVIDOR` ni
+ * `CLAVES_METADATA_DE_LA_REVISION`, más el `hoyos` que decide el servidor (desde las claves de los golpes).
  */
 export function metadataDelImport(
   metadataCliente: Readonly<Record<string, unknown>> | null | undefined,
   tarjeta: { hoyos: number[] | null },
 ): Record<string, unknown> {
   const resto: Record<string, unknown> = { ...(metadataCliente ?? {}) }
-  for (const k of CLAVES_METADATA_DEL_SERVIDOR) delete resto[k]
+  for (const k of [...CLAVES_METADATA_DEL_SERVIDOR, ...CLAVES_METADATA_DE_LA_REVISION]) delete resto[k]
   return { ...resto, ...(tarjeta.hoyos ? { hoyos: tarjeta.hoyos } : {}) }
 }
 

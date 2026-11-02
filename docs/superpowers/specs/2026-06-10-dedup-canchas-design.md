@@ -181,3 +181,5 @@ Para mostrar el impacto por usuario ANTES del apply, el dry-run estima el índic
 4. Tabla: `usuario | índice antes | índice después | delta | rondas del cluster afectadas`.
 
 El número oficial lo confirma el RPC al aplicar; esta estimación es para el gate de aprobación.
+
+> **Estado al 30-oct-2026.** Este cálculo describe la fórmula de junio. Hoy el índice sigue la Regla 5.2 del WHS (#557): sin × 0.96 y con el ajuste de la Tabla 5.2a. La ventana además descarta los scores imposibles y desempata por `created_at` e `id`. El dry-run arma la ventana con `buildIndexWindows` (`src/golf/courses/course-dedup.ts`, sobre `src/golf/core/index-window.ts`) y calcula el índice con `computeGolfersIndex` (`src/golf/core/whs-index.ts`). `rondasUsadas` y `calcularIndiceGolfersLocal` ya no existen.
