@@ -17,7 +17,11 @@ import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { CourseVariantRow } from '@/golf/courses/gender-variant'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
-import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
+import {
+  esHandicapDeInscripcionValido,
+  mensajeHandicapFueraDeRango,
+  type RangoHandicap,
+} from '@/golf/handicap-index-range'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
 import { fetchRoundPlayConfig } from './rounds'
@@ -322,15 +326,19 @@ export async function fetchRoundTotals(
  * entraron a prod los 7 jugadores con handicap entre −59 y −38 del torneo "a"
  * (12-may-2026, cerrado, 0 rondas).
  *
- * Rango: la fuente única `@/golf/handicap-index-range` (−10..54, los plus
- * incluidos), la MISMA que validan `players` y `guest-join`.
+ * Rango: `rango` viene de la fuente única `@/golf/handicap-index-range`
+ * (`rangoDeHandicapDeInscripcion`): índice (−10..54, los plus incluidos) en
+ * WHS, la MISMA que validan `players` y `guest-join`; en raw, lo que la fórmula
+ * de la cancha produce para ese rango, porque ahí la columna guarda un course
+ * handicap que pasa de 54 legítimamente.
  */
 export async function updatePlayerHandicap(
   supabase: SupabaseClient,
   playerId: string,
   value: number,
+  rango: RangoHandicap,
 ): Promise<void> {
-  if (!esIndiceDeHandicapValido(value)) throw new Error(MENSAJE_INDICE_FUERA_DE_RANGO)
+  if (!esHandicapDeInscripcionValido(value, rango)) throw new Error(mensajeHandicapFueraDeRango(rango))
   const { error } = await supabase
     .from('players')
     .update({ handicap_at_registration: value })

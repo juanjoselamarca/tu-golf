@@ -13,7 +13,12 @@ import {
   updatePlayerHandicap,
 } from './scoring'
 import { LEGACY_PLAYER_SELECT } from './leaderboard'
-import { MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
+import {
+  MENSAJE_INDICE_FUERA_DE_RANGO,
+  RANGO_INDICE,
+  mensajeHandicapFueraDeRango,
+  rangoDeHandicapDeInscripcion,
+} from '@/golf/handicap-index-range'
 
 type Result = { data: unknown; error?: unknown }
 
@@ -125,7 +130,7 @@ describe('fetchResumenBoardInputs', () => {
 describe('updatePlayerHandicap', () => {
   it('error de update → propaga (el hook muestra el toast)', async () => {
     const { client } = supabaseMock({ players: { data: null, error: { message: 'rls' } } })
-    await expect(updatePlayerHandicap(client, 'p1', 12.4)).rejects.toBeTruthy()
+    await expect(updatePlayerHandicap(client, 'p1', 12.4, RANGO_INDICE)).rejects.toBeTruthy()
   })
 
   /**
@@ -153,7 +158,7 @@ describe('updatePlayerHandicap', () => {
       'rechaza %p SIN tocar la base',
       async (valor) => {
         const { client, updates } = clienteQueRegistra()
-        await expect(updatePlayerHandicap(client, 'p1', valor as number)).rejects.toThrow(
+        await expect(updatePlayerHandicap(client, 'p1', valor as number, RANGO_INDICE)).rejects.toThrow(
           MENSAJE_INDICE_FUERA_DE_RANGO,
         )
         expect(updates).toEqual([])
@@ -162,14 +167,34 @@ describe('updatePlayerHandicap', () => {
 
     it.each([-10, -2, 0, 12.4, 54])('acepta %p y lo escribe tal cual', async (valor) => {
       const { client, updates } = clienteQueRegistra()
-      await updatePlayerHandicap(client, 'p1', valor)
+      await updatePlayerHandicap(client, 'p1', valor, RANGO_INDICE)
       expect(updates).toEqual([{ handicap_at_registration: valor }])
     })
 
     it('un índice PLUS (−2) es válido: el organizador puede asignarlo', async () => {
       const { client, updates } = clienteQueRegistra()
-      await updatePlayerHandicap(client, 'p1', -2)
+      await updatePlayerHandicap(client, 'p1', -2, RANGO_INDICE)
       expect(updates).toEqual([{ handicap_at_registration: -2 }])
+    })
+
+    // Revisión del PR #720 (P2): en los torneos raw la columna guarda el COURSE
+    // HANDICAP pre-convertido, que con slope 130 llega a 64 para un índice 54.
+    describe('torneo raw: el rango es el de la fórmula de la cancha', () => {
+      const raw = rangoDeHandicapDeInscripcion('raw', { slope: 130, courseRating: 73.5, par: 72 })
+
+      it('acepta un course handicap mayor que 54 que el rango de índice rechazaría', async () => {
+        const { client, updates } = clienteQueRegistra()
+        await updatePlayerHandicap(client, 'p1', 60, raw)
+        expect(updates).toEqual([{ handicap_at_registration: 60 }])
+      })
+
+      it('rechaza lo que ni un índice 54 produce en esa cancha, con el mensaje del rango real', async () => {
+        const { client, updates } = clienteQueRegistra()
+        await expect(updatePlayerHandicap(client, 'p1', 65, raw)).rejects.toThrow(
+          mensajeHandicapFueraDeRango(raw),
+        )
+        expect(updates).toEqual([])
+      })
     })
   })
 })

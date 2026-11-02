@@ -4,6 +4,7 @@
 // `hasPlayData`, los mismos porteros del podio.
 
 import { isFinishedCard, hasPlayData } from '@/golf/leaderboard'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import type { ResumenLider } from '@/golf/leaderboard/resumen-cards'
 import type { Player } from '@/lib/golf-data'
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
@@ -119,8 +120,8 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                         <input
                           type="number"
                           step="0.1"
-                          min={0}
-                          max={54}
+                          min={hcpEditor.rango.min}
+                          max={hcpEditor.rango.max}
                           autoFocus
                           value={hcpEditor.editValue}
                           onChange={(e) => hcpEditor.setEditValue(e.target.value)}
@@ -137,7 +138,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                           style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--brand-on-bg)', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
                           title="Editar handicap"
                         >
-                          {rosterPlayer?.handicap_at_registration ?? row.hcpDisplay ?? '--'}
+                          {formatearHandicap(rosterPlayer?.handicap_at_registration ?? row.hcpDisplay)}
                         </button>
                       )}
                     </td>

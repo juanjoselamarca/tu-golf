@@ -2,21 +2,46 @@
 // Persistencia vía capa de datos; el caller decide qué refrescar al guardar
 // (roster local + board del Resumen, que reparte golpes con este número).
 
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { updatePlayerHandicap } from '@/lib/data/tournaments/scoring'
-import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
+import { updatePlayerHandicap, type ScoringCourse } from '@/lib/data/tournaments/scoring'
+import type { CourseData } from '@/golf/core/course-handicap'
+import {
+  esHandicapDeInscripcionValido,
+  mensajeHandicapFueraDeRango,
+  parsearHandicap,
+  rangoDeHandicapDeInscripcion,
+} from '@/golf/handicap-index-range'
 
 interface UseHcpEditorArgs {
   onSaved: (playerId: string, value: number) => void
+  /** `tournaments.hcp_calc_mode`: en WHS la columna guarda el ÍNDICE; en raw, el course handicap. */
+  hcpCalcMode: string | null | undefined
+  /** Cancha de la ronda 1: en raw el rango creíble sale de SU fórmula. */
+  course: ScoringCourse | null
 }
 
-export function useHcpEditor({ onSaved }: UseHcpEditorArgs) {
+/** `ScoringCourse` → `CourseData` del motor. Mismo armado que `/api/torneos/[slug]/players`. */
+function courseDataDe(c: ScoringCourse | null): CourseData | null {
+  if (!c || c.slope_rating == null || c.course_rating == null) return null
+  return { slope: c.slope_rating, courseRating: c.course_rating, par: c.par_total ?? 72 }
+}
+
+export function useHcpEditor({ onSaved, hcpCalcMode, course }: UseHcpEditorArgs) {
   const { showError, showSuccess, showWarning } = useToast()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
+
+  // Rango desde la fuente única `@/golf/handicap-index-range`: índice (−10..54)
+  // en WHS; en raw, la imagen de ese rango por la fórmula de la cancha, porque
+  // ahí la columna guarda un course handicap que pasa de 54 legítimamente. La
+  // vista toma `min`/`max` de acá: el stepper del input baja a los plus.
+  const rango = useMemo(
+    () => rangoDeHandicapDeInscripcion(hcpCalcMode, courseDataDe(course)),
+    [hcpCalcMode, course],
+  )
 
   const startEdit = useCallback((playerId: string, current: number | null) => {
     setEditingId(playerId)
@@ -27,17 +52,15 @@ export function useHcpEditor({ onSaved }: UseHcpEditorArgs) {
 
   const save = useCallback(
     async (playerId: string) => {
-      const value = parseFloat(editValue)
-      // Rango desde la fuente única `@/golf/handicap-index-range` (−10..54). El
-      // `value < 0` que estaba acá a mano rechazaba a los jugadores PLUS: a un
-      // índice +2 (−2) el organizador no podía asignarle su handicap.
-      if (!esIndiceDeHandicapValido(value)) {
-        showWarning('Handicap inválido', MENSAJE_INDICE_FUERA_DE_RANGO)
+      // "+2" (notación del golf) y "-2" (como lo guarda la app) son el mismo plus.
+      const value = parsearHandicap(editValue)
+      if (!esHandicapDeInscripcionValido(value, rango)) {
+        showWarning('Handicap inválido', mensajeHandicapFueraDeRango(rango))
         setEditingId(null)
         return
       }
       try {
-        await updatePlayerHandicap(createClient(), playerId, value)
+        await updatePlayerHandicap(createClient(), playerId, value, rango)
         onSaved(playerId, value)
         showSuccess('Handicap actualizado', '', { duration: 1500 })
       } catch (e) {
@@ -46,10 +69,10 @@ export function useHcpEditor({ onSaved }: UseHcpEditorArgs) {
       }
       setEditingId(null)
     },
-    [editValue, onSaved, showError, showSuccess, showWarning],
+    [editValue, onSaved, rango, showError, showSuccess, showWarning],
   )
 
-  return { editingId, editValue, setEditValue, startEdit, cancel, save }
+  return { editingId, editValue, setEditValue, startEdit, cancel, save, rango }
 }
 
 export type UseHcpEditorReturn = ReturnType<typeof useHcpEditor>

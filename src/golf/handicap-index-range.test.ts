@@ -3,8 +3,15 @@ import {
   HANDICAP_INDEX_MAX,
   HANDICAP_INDEX_MIN,
   MENSAJE_INDICE_FUERA_DE_RANGO,
+  RANGO_INDICE,
+  esHandicapDeInscripcionValido,
   esIndiceDeHandicapValido,
+  formatearHandicap,
+  mensajeHandicapFueraDeRango,
+  parsearHandicap,
+  rangoDeHandicapDeInscripcion,
 } from './handicap-index-range'
+import { resolverCourseHandicap } from './core/course-handicap'
 
 describe('esIndiceDeHandicapValido', () => {
   it('acepta índices reales, incluido 0, plus y los bordes', () => {
@@ -28,5 +35,106 @@ describe('esIndiceDeHandicapValido', () => {
   it('el mensaje muestra el plus con signo + y el máximo WHS', () => {
     expect(MENSAJE_INDICE_FUERA_DE_RANGO).toContain('+10')
     expect(MENSAJE_INDICE_FUERA_DE_RANGO).toContain('54')
+  })
+})
+
+// Revisión del PR #720: la columna guarda un COURSE HANDICAP en los torneos
+// raw/legacy (`players/route.ts` lo pre-convierte), y ese número pasa de 54
+// legítimamente. El rango no se inventa: es la imagen del rango de índice por
+// la MISMA fórmula que usa el write-path.
+describe('rangoDeHandicapDeInscripcion', () => {
+  const cancha = { slope: 130, courseRating: 73.5, par: 72 }
+
+  it('WHS: la columna guarda el índice → rango de índice', () => {
+    expect(rangoDeHandicapDeInscripcion('whs', cancha)).toBe(RANGO_INDICE)
+  })
+
+  it('raw: la imagen del rango de índice por resolverCourseHandicap con la cancha', () => {
+    const r = rangoDeHandicapDeInscripcion('raw', cancha)
+    expect(r.guarda).toBe('course_handicap')
+    expect(r.min).toBe(resolverCourseHandicap(HANDICAP_INDEX_MIN, cancha))
+    expect(r.max).toBe(resolverCourseHandicap(HANDICAP_INDEX_MAX, cancha))
+    // 54 × 130/113 + 1,5 = 63,6 → 64: un índice 54 en esta cancha ES un course handicap 64.
+    expect(r.max).toBe(64)
+    expect(r.max).toBeGreaterThan(HANDICAP_INDEX_MAX)
+  })
+
+  it('raw sin cancha creíble: la fórmula devuelve el índice → mismo rango que el de índice', () => {
+    const r = rangoDeHandicapDeInscripcion('raw', null)
+    expect(r.min).toBe(HANDICAP_INDEX_MIN)
+    expect(r.max).toBe(HANDICAP_INDEX_MAX)
+    expect(r.guarda).toBe('course_handicap')
+  })
+
+  it('modo nulo o desconocido se trata como raw (igual que el leaderboard)', () => {
+    expect(rangoDeHandicapDeInscripcion(null, cancha).max).toBe(64)
+    expect(rangoDeHandicapDeInscripcion('legacy', cancha).max).toBe(64)
+  })
+
+  it('el predicado y el mensaje siguen al rango, no a una constante', () => {
+    const raw = rangoDeHandicapDeInscripcion('raw', cancha)
+    expect(esHandicapDeInscripcionValido(60, raw)).toBe(true)
+    expect(esHandicapDeInscripcionValido(60, RANGO_INDICE)).toBe(false)
+    expect(esHandicapDeInscripcionValido(65, raw)).toBe(false)
+    expect(mensajeHandicapFueraDeRango(RANGO_INDICE)).toBe(MENSAJE_INDICE_FUERA_DE_RANGO)
+    expect(mensajeHandicapFueraDeRango(raw)).toContain('handicap de cancha')
+    expect(mensajeHandicapFueraDeRango(raw)).toContain('64')
+    expect(mensajeHandicapFueraDeRango(raw)).toContain('+10')
+  })
+})
+
+// Revisión del PR #720: un plus 2 se mostraba "-2" (el crudo de la base) y el
+// mensaje pedía "+10" en un input que no acepta el "+". Una sola notación.
+describe('formatearHandicap', () => {
+  it('los plus van con signo +, nunca en negativo', () => {
+    expect(formatearHandicap(-2)).toBe('+2')
+    expect(formatearHandicap(-2.4)).toBe('+2.4')
+    expect(formatearHandicap(-10)).toBe('+10')
+  })
+
+  it('los demás se muestran como vienen', () => {
+    expect(formatearHandicap(0)).toBe('0')
+    expect(formatearHandicap(12.4)).toBe('12.4')
+    expect(formatearHandicap(54)).toBe('54')
+    expect(formatearHandicap('18.5')).toBe('18.5')
+  })
+
+  it('sin dato → "--"', () => {
+    for (const v of [null, undefined, '', NaN, 'abc']) {
+      expect(formatearHandicap(v as never)).toBe('--')
+    }
+  })
+})
+
+describe('parsearHandicap', () => {
+  it('acepta el plus con signo (+2 → −2) y el negativo con que lo guarda la app', () => {
+    expect(parsearHandicap('+2')).toBe(-2)
+    expect(parsearHandicap('+2.4')).toBe(-2.4)
+    expect(parsearHandicap('-2')).toBe(-2)
+    expect(parsearHandicap(' +10 ')).toBe(-10)
+  })
+
+  it('acepta la coma decimal chilena', () => {
+    expect(parsearHandicap('18,5')).toBe(18.5)
+    expect(parsearHandicap('12.4')).toBe(12.4)
+    expect(parsearHandicap('12.')).toBe(12)
+    expect(parsearHandicap('.5')).toBe(0.5)
+  })
+
+  it('+0 y -0 son 0, no −0', () => {
+    expect(Object.is(parsearHandicap('+0'), 0)).toBe(true)
+    expect(Object.is(parsearHandicap('-0'), 0)).toBe(true)
+  })
+
+  it('lo que no es un número es NaN (el caller muestra el mensaje)', () => {
+    for (const t of ['', '   ', 'abc', '1e3', '+-2', '2+', '18.5.1', '1,2,3']) {
+      expect(Number.isNaN(parsearHandicap(t))).toBe(true)
+    }
+  })
+
+  it('ida y vuelta: lo que se muestra se puede volver a tipear', () => {
+    for (const v of [-2, -2.4, 0, 12.4, 54]) {
+      expect(parsearHandicap(formatearHandicap(v))).toBe(v)
+    }
   })
 })
