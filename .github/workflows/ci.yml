@@ -43,6 +43,9 @@ jobs:
       - name: Run tests
         run: npm run test -- --run
 
+      - name: Columnas del código contra supabase/schema.sql
+        run: node scripts/verify-db-schema.mjs --solo-columnas
+
       - name: Build
         run: npm run build
         env:

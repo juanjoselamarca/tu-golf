@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generarDDL, huella, diferencias, EXTENSIONES_EXCLUIDAS } from './sync-schema.mjs'
 import { cuerpoConsulta, esProd, sqlEn } from '../lib/management-sql.mjs'
 import { PROD_REF, projectRefDe } from '../lib/supabase-ref.mjs'
+import { columnasPorTabla } from '../lib/esquema-sql.mjs'
 
 /** Catálogo mínimo con la forma que devuelven las LECTURAS de sync-schema.mjs. */
 function catalogo(extra = {}) {
@@ -87,6 +88,25 @@ describe('generarDDL', () => {
     expect(() => generarDDL(catalogo({ tiposRaros: [{ typname: 'dom', typtype: 'd' }] }), [])).toThrow(/tipos no soportados/)
     expect(() => generarDDL(catalogo({ relacionesRaras: [{ relname: 'v', relkind: 'v' }] }), [])).toThrow(/relaciones no soportadas/)
     expect(() => generarDDL(catalogo({ funciones: [{ firma: 'public.agg(int)', prokind: 'a', def: null }] }), [])).toThrow(/agregados/)
+  })
+})
+
+describe('columnasPorTabla (verify-db-schema lee lo que escribe generarDDL)', () => {
+  it('lee cada tabla con sus columnas, también unlogged y con opciones de almacenamiento', () => {
+    const base = catalogo()
+    const dos = catalogo({
+      tablas: [
+        { ...base.tablas[0], relpersistence: 'u', reloptions: ['fillfactor=70'] },
+        { relname: 'u', dueno: 'postgres', rls: false, force_rls: false, relpersistence: 'p', relreplident: 'd', reloptions: null },
+      ],
+      columnas: [...base.columnas, { relname: 'u', attnum: 1, attname: 'x', tipo: 'text', attnotnull: false, attidentity: '', attgenerated: '', expr: null, colacion: null }],
+    })
+    expect(columnasPorTabla(generarDDL(dos, [], { vaciar: false }))).toEqual(new Map([['t', new Set(['id', 'n', 'g'])], ['u', new Set(['x'])]]))
+  })
+  it('lanza si no lee todas las tablas o no lee ninguna, en vez de dejar pasar todo', () => {
+    expect(() => columnasPorTabla('')).toThrow(/0 de 0 tablas/)
+    expect(() => columnasPorTabla('CREATE TABLE public."t" (\n  "a" int\n);')).toThrow(/0 de 0 tablas/)
+    expect(() => columnasPorTabla('create table public."t" (\n  "a" int\n);\ncreate table public."u" (\n  "b" int\n) partition by list (b);')).toThrow(/1 de 2 tablas/)
   })
 })
 
