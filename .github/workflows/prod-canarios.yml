@@ -98,7 +98,7 @@ jobs:
       - name: Canarios de prod (catálogo, privilegios, coach) y deriva del esquema
         run: |
           deriva=0; node scripts/ci/deriva-esquema.mjs --comparar huella/huella-esquema.json || deriva=$?
-          node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
+          VITEST_PROD=1 node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
           exit $deriva
 
       - name: Barrer basura de los E2E de Playwright en prod (> 60 min)

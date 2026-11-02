@@ -22,7 +22,7 @@ import path from 'node:path'
 
 import { leerTanda } from './cola.mjs'
 import { ESCENAS } from './escenas.mjs'
-import { destinoInstagram, huellaDeLoRevisado } from './marca.mjs'
+import { ENCABEZADO_DE_EXPEDIENTE, destinoInstagram, huellaDeCaptura, huellaDeLoRevisado } from './marca.mjs'
 import { duracionEsperada } from './montar.mjs'
 import { parsearPieza, selloDeEntradas } from './tanda.mjs'
 import {
@@ -144,11 +144,11 @@ export function leerEntrada(entrada) {
  * solo se miraba que el archivo existiera, así que el revisor podía juzgar —y
  * aprobar— el ritmo de un video que ya no existe.
  *
- * `montar.mjs` sella en `video.json` la huella de la escena con la que montó y la
- * duración que montó: eso es lo que hay que comparar. Devuelve el aviso que va en el
+ * `montar.mjs` sella en `video.json` la huella de la escena con la que montó y la de la
+ * captura que consumió: eso es lo que hay que comparar. Devuelve el aviso que va en el
  * expediente, o `null` si lo que hay en disco es coherente.
  */
-export function desajusteDelReel({ huellaEsperada, vid, hayMp4, duracionTabla }) {
+export function desajusteDelReel({ huellaEsperada, vid, hayMp4, huellaCaptura }) {
   if (!hayMp4 || !vid)
     return (
       'El MP4 **no está montado** (falta el archivo o su `video.json`), así que el reel de esta ' +
@@ -160,13 +160,18 @@ export function desajusteDelReel({ huellaEsperada, vid, hayMp4, duracionTabla })
       `\`${vid.huella_escena ?? 'ausente'}\` y la escena ahora es \`${huellaEsperada}\`): se corrigió ` +
       'la escena después de montar. No hay nada que revisar hasta volver a capturar y a montar.'
     )
-  const montada = vid.duracion_declarada_s ?? vid.duracion_s
-  if (typeof montada === 'number' && Math.abs(montada - duracionTabla) > 0.2)
-    return (
-      `La captura que hay en disco dura **${duracionTabla.toFixed(1)} s** y el MP4 montado dura ` +
-      `**${montada.toFixed(1)} s**: la toma se repitió después de montar. La tabla describiría una ` +
-      'versión del reel y la que se subiría es otra, así que tampoco se puede revisar.'
-    )
+  // La captura, no la duración. Comparar segundos era un guard con la tolerancia del
+  // tamaño del error que buscaba: `rafaga` acota cada ventana por `ms`, así que dos tomas
+  // de la misma escena quedan casi siempre dentro de los 0,2 s de margen y el MP4 rancio
+  // pasaba. La huella de los fotogramas no tiene margen: o es esta toma, o no lo es.
+  if (vid.huella_captura !== huellaCaptura)
+    return vid.huella_captura == null
+      ? 'El MP4 que hay en disco se montó con una versión de `montar.mjs` que todavía no sellaba ' +
+        'qué captura consumió (falta `huella_captura` en su `video.json`), así que no hay forma de ' +
+        'saber si corresponde a la toma que hay en disco. Vuelve a montar.'
+      : 'El MP4 que hay en disco es de **otra toma** (se montó con la captura ' +
+        `\`${vid.huella_captura}\` y la que hay en disco es \`${huellaCaptura}\`): se recapturó ` +
+        'después de montar. La tabla describiría la toma nueva y lo que se subiría es la vieja.'
   return null
 }
 
@@ -227,7 +232,11 @@ function seccionDePieza(sello, n) {
         huellaEsperada: sello.escena,
         vid: existsSync(manifiesto) ? JSON.parse(readFileSync(manifiesto, 'utf8')) : null,
         hayMp4: existsSync(mp4),
-        duracionTabla: total,
+        // `sello.frames`, no `frames`: el de arriba ya lleva empujado el fotograma del
+        // cierre para pintar la tabla, y lo que `montar.mjs` sella es la captura tal
+        // como está en `frames.json`. Hashear listas distintas hace que el expediente
+        // declare "otra toma" SIEMPRE y la tabla no se pinte nunca.
+        huellaCaptura: huellaDeCaptura(sello.frames),
       })
       // Con desajuste la tabla NO se pinta. Una tabla con una advertencia arriba se
       // revisa igual —se mira la tabla, que es lo concreto— y el hallazgo terminaría
@@ -302,7 +311,7 @@ export function expedienteDeTanda(tandaOSlug) {
   const huella = huellaDeLoRevisado(sellos)
 
   const lineas = []
-  lineas.push(`# Revisión de la tanda ${tanda.slug ?? '(sin armar todavía)'}`)
+  lineas.push(`${ENCABEZADO_DE_EXPEDIENTE} ${tanda.slug ?? '(sin armar todavía)'}`)
   lineas.push('')
   lineas.push(`**La idea de la semana, según quien la produjo:** ${tanda.idea}`)
   lineas.push('')
@@ -320,7 +329,11 @@ export function expedienteDeTanda(tandaOSlug) {
   lineas.push('Tu respuesta tiene que traer estas dos líneas, cada una en una línea propia:')
   lineas.push('')
   lineas.push('```')
-  lineas.push('Veredicto: PUBLICAR')
+  // Los corchetes no son decoración: el portón acepta `Veredicto:` seguido de la palabra,
+  // y con `Veredicto: PUBLICAR` impreso acá ESTE archivo pasaba el portón tal cual. Queda
+  // en la carpeta vecina a la del veredicto y con un nombre parecido, así que alcanzaba un
+  // tab-complete para mandar la tanda al teléfono de Juanjo sin que nadie hubiera revisado.
+  lineas.push('Veredicto: <PUBLICAR o CORREGIR, una sola palabra, sin los corchetes>')
   lineas.push(`Huella: ${huella}`)
   lineas.push('```')
   lineas.push('')

@@ -43,6 +43,9 @@ Lee, en este orden y completo:
 - `docs/rrss/estrategia-viva.md` — qué está funcionando hoy. Es lo primero porque pisa al plan.
 - `docs/rrss/plan-lanzamiento.md` — la estrategia y los tres formatos en orden de valor.
 - `docs/rrss/guia-de-marca.md` — cómo se ve.
+- `docs/rrss/horizonte-de-marca.md` — hacia dónde va la cuenta y el filtro de tres palabras
+  (serio · chileno · de ahora). Es dirección, no dato: si la estrategia viva lo contradice,
+  manda la estrategia viva.
 
 Y la salida del PASO 0 (las referencias sin usar). **No leas** las fichas completas de referencias,
 ni métricas crudas, ni el histórico de tandas: eso es lo que hace caro el comando.

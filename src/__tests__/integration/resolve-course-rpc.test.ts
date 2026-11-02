@@ -8,7 +8,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const itIfDb = supabaseUrl && supabaseKey ? it : it.skip
 
-/** Prefijo de las canchas que crea este test en PROD. Nunca coincide con una cancha real. */
+/** Prefijo de las canchas que crea este test en la base de pruebas. Nunca coincide con una cancha real. */
 const PREFIJO_FIXTURE = 'Test Cancha Integ '
 /** Más viejo que esto = huérfano de un run cancelado (el afterAll no alcanzó a correr). */
 const EDAD_HUERFANA_MS = 15 * 60_000
@@ -47,7 +47,7 @@ describe('resolveCourse RPC integration', () => {
   }, 60_000)
 
   afterAll(async () => {
-    // Si falla, que el test falle: un fixture que no se pudo borrar es basura en prod.
+    // Si falla, que el test falle: un fixture que no se pudo borrar es basura en la base de pruebas.
     await borrarFixtures(supabase, { nombre: TEST_COURSE_NAME })
   }, 60_000)
 

@@ -14,9 +14,10 @@ describe('external priors readers against seeded tables', () => {
     async () => {
       const sb = createClient(url!, serviceKey!)
 
-      const { count } = await sb
+      const { count, error } = await sb
         .from('external_priors_amateur_benchmarks')
         .select('*', { count: 'exact', head: true })
+      expect(error, 'could not count external_priors_amateur_benchmarks').toBeNull()
 
       // With no seed there is nothing to guard (the static canary covers the wiring). With rows, the verified mean
       // interpolated at index 12 must resolve for the three seeded metrics, which catches a partial seed.
@@ -27,9 +28,10 @@ describe('external priors readers against seeded tables', () => {
         }
       }
 
-      const { count: distCount } = await sb
+      const { count: distCount, error: distError } = await sb
         .from('external_priors_handicap_dist')
         .select('*', { count: 'exact', head: true })
+      expect(distError, 'could not count external_priors_handicap_dist').toBeNull()
       if ((distCount ?? 0) > 0) {
         const pct = await getPopulationPercentile(sb, 12)
         expect(pct, 'layer B is seeded but the population percentile came back null (orphaned)').not.toBeNull()

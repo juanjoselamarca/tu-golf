@@ -37,6 +37,7 @@ export interface TarjetaGarminReimportada {
 export interface FilaGarminExistente {
   course_id: string | null
   tee_color: string | null
+  created_at: string | null
   /** `metadata.ajuste_whs` de la fila: el índice del DÍA de la ronda (WHS 3.1), no el de hoy. */
   ajuste_whs?: unknown
 }
@@ -55,15 +56,15 @@ export async function fetchFilasGarminExistentes(
   if (garminIds.length === 0) return filas
   const { data, error } = await supabase
     .from('historical_rounds')
-    .select('garmin_scorecard_id, course_id, tee_color, metadata')
+    .select('garmin_scorecard_id, course_id, tee_color, created_at, metadata')
     .eq('user_id', userId)
     .in('garmin_scorecard_id', garminIds)
   if (error) throw new Error(`No se pudo leer las tarjetas Garmin existentes: ${error.message}`)
-  type Leida = { garmin_scorecard_id: string | null; course_id: string | null; tee_color: string | null; metadata: Record<string, unknown> | null }
+  type Leida = { garmin_scorecard_id: string | null; course_id: string | null; tee_color: string | null; created_at: string | null; metadata: Record<string, unknown> | null }
   for (const f of (data ?? []) as Leida[]) {
     if (!f.garmin_scorecard_id) continue
     const ajuste = f.metadata?.ajuste_whs
-    filas.set(String(f.garmin_scorecard_id), { course_id: f.course_id, tee_color: f.tee_color, ...(ajuste != null ? { ajuste_whs: ajuste } : {}) })
+    filas.set(String(f.garmin_scorecard_id), { course_id: f.course_id, tee_color: f.tee_color, created_at: f.created_at, ...(ajuste != null ? { ajuste_whs: ajuste } : {}) })
   }
   return filas
 }
@@ -87,7 +88,7 @@ export async function actualizacionGarmin(
 ): Promise<Record<string, unknown>> {
   const holes = t.holes_played || t.scores.length
   // El índice del tope es el del día de la ronda: el `ajuste_whs` guardado en la FILA
-  // (nunca el del archivo/cliente, que `metadataDelImport` ya descartó). Sin él, el perfil.
+  // (nunca el del archivo/cliente, que `metadataDelImport` ya descartó). Sin él, el del día de la ronda.
   const metadata = existente?.ajuste_whs != null ? { ...t.metadata, ajuste_whs: existente.ajuste_whs } : t.metadata
   const r = await resolverTarjetaImportada(supabase, {
     userId,
@@ -101,6 +102,8 @@ export async function actualizacionGarmin(
     metadata,
     formatoJuego: t.formato_juego ?? 'stroke_play',
     source: t.import_source,
+    playedAt: t.played_at,
+    guardadaEn: existente?.created_at ?? null,
   }, perfil)
 
   return {

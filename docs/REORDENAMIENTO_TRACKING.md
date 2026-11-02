@@ -813,13 +813,13 @@ del mismo flujo; lo común quedó en UNA fuente.
 ## Diferencial fuera de la fuente única (detectado en revisión de #502, 04-oct-2026)
 
 `diferencialDeTarjeta` (src/lib/indice-golfers.ts) + `alcanzaMinimoDeHoyosJugados` (src/golf/core/ajuste-whs.ts) son la
-fuente única del diferencial (bola compartida → null, WHS 2.2 hoyos jugados). Siguen llamando `calcularDiferencial`
-directo y deben migrarse cuando se toque cada flujo:
-- [ ] `src/app/api/import/confirm/route.ts` (un scramble importado recibe diferencial)
-- [ ] `src/lib/import-round.ts`
-- [ ] `src/app/perfil/historial/hooks/useAddRoundForm.ts`
-- [ ] `src/app/api/game/actions.ts` (torneos)
-- [ ] `src/golf/stats/cpi.ts` (stat del coach, no índice)
+fuente única del diferencial (bola compartida → null, WHS 2.2 hoyos jugados). Resuelto en #550 (13-oct-2026): fuera de
+`indice-golfers.ts` nadie llama `calcularDiferencial` (verificado el 31-oct-2026).
+- [x] `src/app/api/import/confirm/route.ts`: delega en `importRound` / `actualizacionGarmin` → `resolverTarjetaImportada` → `diferencialDeTarjeta`
+- [x] `src/lib/import-round.ts`: `resolverTarjetaImportada`
+- [x] `src/app/perfil/historial/hooks/useAddRoundForm.ts`: delega en `importRound`
+- [x] `src/app/api/game/actions.ts` (torneos): ya no calcula diferencial
+- [x] `src/golf/stats/cpi.ts`: lee el diferencial persistido (`fetchRondasCPI`)
 
 ### Concepto "SQL por la Management API de Supabase" → `sqlEn()` / `lit()` / `qi()` en `scripts/lib/management-sql.mjs` (08-oct-2026)
 
@@ -828,7 +828,7 @@ Canónico desde el PR de la base de pruebas (#515): recibe el ref explícito, re
 - [x] `scripts/respaldo/respaldo-diario.mjs:48` (`sql()`) y `:61` (`lit()`) — resuelto: lee vía `exec_sql` en solo lectura (`scripts/lib/exec-sql.mjs`), sin token
 - [ ] `scripts/respaldo/restaurar.mjs:54` (`sql()`) y `:65` (`lit()`) — escribe con `--aplicar`: migrar SIN read_only en ese camino (hoy sqlEn lo forzaría contra prod; restaurar en prod es justo el caso que debe escribir → necesita una salida explícita y revisada)
 - [ ] `scripts/audit-handicap-calc.mjs:40` (endpoint propio)
-- [ ] `scripts/verify-db-schema.mjs:45` (endpoint propio)
+- [x] `scripts/verify-db-schema.mjs:45` — resuelto: ya no lee ninguna base, compara contra `supabase/schema.sql`
 - [x] `scripts/run-sql.mjs:59` — resuelto: lee vía `exec_sql` en solo lectura (`scripts/lib/exec-sql.mjs`); prod ya no se escribe por SQL directo
 
 ## Formato de score: dos nombres para "vs par" (detectado en revisión de #509, 09-oct-2026)

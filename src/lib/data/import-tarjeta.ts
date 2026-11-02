@@ -13,13 +13,13 @@
 // - CR/slope: SOLO del catálogo (`course_tees`, con el género del usuario). Sin
 //   cancha o sin tee resuelto no hay ratings y la ronda no aporta diferencial
 //   (nunca se inventa ni se toma del archivo);
-// - el tope (WHS 3.1) y el diferencial salen de los MISMOS ratings y de la MISMA
-//   fila que se guarda; si el tope falla se reporta y queda el bruto.
+// - el tope (WHS 3.1) usa el índice del día de la ronda (`indiceDelDia`), nunca el de
+//   hoy; tope y diferencial salen de los MISMOS ratings y de la MISMA fila que se
+//   guarda; si el tope falla se reporta y queda el bruto.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { resolveCourse } from '@/lib/resolve-course'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
-import { indiceParaTope } from '@/golf/core/ajuste-whs'
 import { hoyosConGolpes, hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
 import type { HoyoDeCatalogo } from '@/golf/courses/vueltas'
 import { isSharedBallFormat } from '@/golf/formats'
@@ -27,6 +27,7 @@ import { resolveTeeRatingsForCourse } from './course-tees'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import {
   catalogoPorHoyo,
+  fetchIndiceParaTope,
   grossAjustadoAlGuardar,
   ratingsDelDiferencial,
   type GrossAjustadoDeFila,
@@ -34,11 +35,10 @@ import {
 } from './ajuste-whs-fila'
 
 /** Columnas del perfil que necesita `resolverTarjetaImportada`. */
-export const COLS_PERFIL_IMPORT = 'indice, indice_golfers, default_tee_color, genero'
+export const COLS_PERFIL_IMPORT = 'indice, default_tee_color, genero'
 
 export interface PerfilDelImport {
   indice?: number | null
-  indice_golfers?: number | null
   default_tee_color?: string | null
   genero?: string | null
 }
@@ -58,6 +58,10 @@ export interface TarjetaAImportar {
   metadata: Record<string, unknown> & { hoyos?: number[]; recorridos?: string[] | null }
   formatoJuego: string
   source: string
+  /** Fecha de la ronda: el tope usa el índice de ese día. */
+  playedAt: string
+  /** Cuándo se guardó la fila que se re-escribe (re-importación); sin ella, ahora. */
+  guardadaEn?: string | null
 }
 
 export interface ResolucionDeImport {
@@ -147,7 +151,7 @@ export async function resolverTarjetaImportada(
     formato_juego: t.formatoJuego,
     import_source: t.source,
   }, {
-    indice: indiceParaTope({ perfil: perfil?.indice, golfersPlus: perfil?.indice_golfers }),
+    indice: () => fetchIndiceParaTope(supabase, t.userId, { playedAt: t.playedAt, guardadaEn: t.guardadaEn }),
     ratings: ratings ?? undefined,
   }, { context: 'import.tope-whs', meta: { userId: t.userId, courseId } })
 
