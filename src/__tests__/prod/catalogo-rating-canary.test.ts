@@ -9,12 +9,8 @@
 // que entra al catálogo (import automático, carga manual, sync FedeGolf) tiene
 // que romper el build ANTES de que alguien arme un torneo encima.
 //
-// Los `npm run test` de CI corren con credenciales placeholder → esto se
-// saltea ahí. Quien lo corre de verdad es `.github/workflows/prod-canarios.yml`
-// con los secrets reales, una vez al día; en cada PR y push lo corre `integracion.yml`.
-//
-// Correr local: node --env-file=.env.local ./node_modules/vitest/vitest.mjs run \
-//   src/__tests__/integration/catalogo-rating-canary.test.ts
+// Solo lo corre `.github/workflows/prod-canarios.yml`, con los secrets reales,
+// una vez al día: el proyecto prod de Vitest existe solo con VITEST_PROD=1.
 //
 // Read-only: no escribe nada.
 

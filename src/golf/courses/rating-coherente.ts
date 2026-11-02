@@ -40,20 +40,40 @@
 //     Tolerancia ±5: atrapa los 11 casos reales (delta 20 y 36) con 4× de
 //     margen y no toca ningún dato sano.
 //
-// MÁXIMO REAL MEDIDO — barrido del catálogo del 1-ago-2026
-// --------------------------------------------------------
-// Sobre las 186 canchas activas y sus 477 tees, mirando SÓLO los ratings que hoy
-// entran en tolerancia (o sea, el catálogo válido; la deuda conocida queda fuera
-// por definición), el |CR − par| más grande que existe es:
+// MÁXIMO REAL MEDIDO — barrido del catálogo del 30-oct-2026
+// ---------------------------------------------------------
+// El barrido se corrió contra prod: 186 canchas activas, sus 463 tees (480 en la
+// tabla, el resto de canchas inactivas) y los 362 ratings front/back de esas
+// activas. Mira SÓLO los ratings que hoy entran en tolerancia — o sea el
+// catálogo válido; la deuda conocida queda fuera por definición. Ahí el
+// |CR − par| más grande es 7.6 (C.G. La Serena VARONES, tee dorado, CR 64.4) a
+// 18 hoyos y 3.9 (Marbella, back_course_rating 32.1 contra par 36) a 9.
 //
-//   · 18 hoyos → 7.6   C.G. La Serena (VARONES), tee dorado: par 72, CR 64.4
-//   ·  9 hoyos → 3.9   Club de Golf Marbella, tee dorado_andes pro_pacifico
-//                      norte, back_course_rating 32.1 contra par 36
+// A eso hay que sumarle la cancha que entra con la migración
+// `20261030120000_cancha_the_lakes_barcelo.sql`, que todavía NO está en prod y
+// pasa a ser el peor caso de las dos escalas:
 //
-// O sea: la tolerancia de 18h tiene 2.4 golpes de aire sobre el peor caso real,
-// y la de 9h tiene 1.1. El dato roto más benigno del catálogo está en delta 20
-// (Río Blanco) — 2.6× por encima del techo de 9h. Hay margen para las dos cosas:
-// no marcar sano lo que es sano, y no dejar pasar lo que miente.
+//   · 18 hoyos → 9.0   The Lakes Barceló (Punta Cana), tee rojo: par 72, CR 63.0
+//   ·  9 hoyos → 4.5   The Lakes Barceló, tee rojo, DERIVADO: el resort no
+//                      publica rating de 9, así que `ratingsDe9DelTee` parte el
+//                      de 18 (63.0 / 2 = 31.5) contra par 36.
+//
+// O sea: la tolerancia de 18h tiene 1.0 golpe de aire sobre el peor caso real, y
+// la de 9h tiene 0.5. Antes eran 2.4 y 1.1: el margen se comió un resort con un
+// tee adelantado de varones (4.769 yds), y la próxima cancha así lo agota. El
+// dato roto más benigno del catálogo está en delta 20 (Río Blanco) — 4× por
+// encima del techo de 9h, así que el techo sigue atrapando lo que miente.
+//
+// ⚠️ LO QUE PASA CUANDO SE AGOTE: un tee legítimo de ~4.500 yds (CR ≈ 61.5, delta
+// 10.5) se marcaría ROTO y su jugador bajaría un eslabón sin que nada lo diga.
+// Ojo con qué eslabón: NO es el índice crudo, es el `course_rating` de la tabla
+// `courses` (el tee miente → se baja a `courses`, y sólo si esa también falla se
+// llega al camino seguro). O sea el jugador del tee adelantado recibiría el
+// course handicap del tee medio de la cancha: menos golpes de los que le
+// corresponden, con la fórmula WHS corriendo y ningún síntoma a la vista.
+// Ese es el día de subir la tolerancia acá, con el barrido del catálogo que lo
+// justifique. No se sube por adelantado: el techo de hoy todavía atrapa todos
+// los errores de escala conocidos.
 //
 // Si mañana el catálogo suma canchas con deltas legítimos mayores, se sube la
 // tolerancia ACÁ y en ningún otro lado.

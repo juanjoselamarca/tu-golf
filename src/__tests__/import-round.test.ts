@@ -164,9 +164,9 @@ describe('importRound — integración con resolveCourse', () => {
 
 // ─── #545 — diferencial desde el Adjusted Gross Score (WHS 3.1) ──────────────
 
-type Respuesta = { data?: unknown; error?: unknown; count?: number }
+type Respuesta = { data?: unknown; error?: unknown; count?: number; errorInsert?: unknown }
 
-/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await; captura los insert. */
+/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await; captura los insert (`errorInsert`: el error del insert). */
 function fakeConCatalogo(porTabla: Record<string, Respuesta>, insertados: Record<string, unknown>[]) {
   return {
     rpc: async () => ({ data: null, error: null }),
@@ -177,9 +177,13 @@ function fakeConCatalogo(porTabla: Record<string, Respuesta>, insertados: Record
             Promise.resolve({ data: null, error: null, ...(porTabla[tabla] ?? {}) }).then(ok, ko)
           if (prop === 'insert') return (payload: Record<string, unknown>) => {
             insertados.push(payload)
-            return new Proxy({}, { get: (_x, p) => p === 'then'
-              ? (ok: (v: unknown) => unknown) => Promise.resolve({ data: { id: 'nueva' }, error: null }).then(ok)
-              : () => proxy })
+            const errorInsert = porTabla[tabla]?.errorInsert
+            const insercion: Record<string, unknown> = new Proxy({}, { get: (_x, p) => p === 'then'
+              ? (ok: (v: unknown) => unknown) => Promise.resolve(errorInsert
+                ? { data: null, error: errorInsert }
+                : { data: { id: 'nueva' }, error: null }).then(ok)
+              : () => insercion })
+            return insercion
           }
           return () => proxy
         },
@@ -193,7 +197,7 @@ const PAR: Record<number, number> = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 
 const H18 = Array.from({ length: 18 }, (_, i) => i + 1)
 const CATALOGO = H18.map(n => ({ numero: n, par: PAR[n], stroke_index: n, recorrido: null }))
 const TEE_AZUL = { nombre: 'Azul', genero: 'M', rating: 71.3, slope: 128, front_course_rating: 35.6, front_slope_rating: 126, back_course_rating: 35.7, back_slope_rating: 130 }
-const PERFIL = { indice: 12, indice_golfers: null, default_tee_color: null, genero: 'M' }
+const PERFIL = { indice: 12, default_tee_color: null, genero: 'M' }
 const tablas = (extra: Record<string, Respuesta> = {}) => ({
   profiles: { data: PERFIL }, course_holes: { data: CATALOGO }, course_tees: { data: [TEE_AZUL] },
   historical_rounds: { count: 1 }, ...extra,
@@ -241,9 +245,12 @@ describe('importRound — Adjusted Gross Score (WHS 3.1, #545)', () => {
     expect(insertados[0].diferencial).toBe(dif(94))
   })
 
-  it('índice Golfers+ cuando el perfil no tiene índice oficial', async () => {
+  it('sin índice oficial: el Índice Golfers+ que daban las rondas anteriores al día de la ronda', async () => {
     const insertados: Record<string, unknown>[] = []
-    const sb = fakeConCatalogo(tablas({ profiles: { data: { ...PERFIL, indice: null, indice_golfers: 12 } } }), insertados)
+    // 3 diferenciales antes del 1-oct: el menor − 2 = 12. La del mismo día (2) no cuenta.
+    const previas = [['2026-09-01', 14], ['2026-09-10', 16], ['2026-09-20', 18], ['2026-10-01', 2]].map(([played_at, diferencial]) =>
+      ({ played_at, diferencial, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false, total_gross: 90, holes_played: 18 }))
+    const sb = fakeConCatalogo(tablas({ profiles: { data: { ...PERFIL, indice: null } }, historical_rounds: { count: 1, data: previas } }), insertados)
     await importRound(sb as never, {
       userId: 'u1', courseId: 'c1', courseName: 'Los Leones', teeColor: 'azul',
       scores: conUnOnce(), playedAt: '2026-10-01', source: 'photo_scan',
@@ -274,6 +281,35 @@ describe('importRound — Adjusted Gross Score (WHS 3.1, #545)', () => {
     const aj = (insertados[0].metadata as { ajuste_whs: { hoyos_topados: Array<{ hoyo: number }>; si_fuente: string } }).ajuste_whs
     expect(aj.si_fuente).toBe('catalogo')
     expect(aj.hoyos_topados.map(h => h.hoyo)).toEqual([17])
+  })
+})
+
+describe('importRound — tarjeta Garmin', () => {
+  const importar = (porTabla: Record<string, Respuesta>, insertados: Record<string, unknown>[], garminScorecardId?: string) =>
+    importRound(fakeConCatalogo(porTabla, insertados) as never, {
+      userId: 'u1', courseId: 'c1', courseName: 'Los Leones', teeColor: 'azul',
+      scores: conUnOnce(), playedAt: '2026-10-01', source: 'garmin', garminScorecardId,
+    })
+
+  it('guarda el id de Garmin en la columna que lee la re-importación', async () => {
+    const insertados: Record<string, unknown>[] = []
+    await importar(tablas(), insertados, 'g1')
+    await importar(tablas(), insertados)
+    expect(insertados.map(f => f.garmin_scorecard_id)).toEqual(['g1', null])
+  })
+
+  it('el índice único dice que la tarjeta ya está: la cuenta como duplicada, no como error', async () => {
+    const errorInsert = { code: '23505', message: 'duplicate key value violates unique constraint "ux_historical_rounds_garmin_scorecard"' }
+    const r = await importar(tablas({ historical_rounds: { count: 1, errorInsert } }), [], 'g1')
+    expect(r).toMatchObject({ success: false, duplicada: true })
+  })
+
+  it('un 23505 de otro índice sigue siendo un error', async () => {
+    const errorInsert = { code: '23505', message: 'duplicate key value violates unique constraint "uq_historical_user_date_course_gross"' }
+    const r = await importar(tablas({ historical_rounds: { count: 1, errorInsert } }), [], 'g1')
+    expect(r.success).toBe(false)
+    expect(r.duplicada).toBeUndefined()
+    expect(r.warnings.join()).toContain('Error al guardar')
   })
 })
 
@@ -328,6 +364,10 @@ describe('tarjetaDelImport — golpes por número real de hoyo (#545 revisión 2
     const cliente = { putts: 30, tee_box: 'Azul', ajuste_whs: { indice: 54 }, estimados: [{ hoyo: 1, motivo: 'no_jugado' }], ronda_libre_jugador_id: 'x' }
     expect(metadataDelImport(cliente, { hoyos: null })).toEqual({ putts: 30, tee_box: 'Azul' })
   })
+  it('metadataDelImport: la marca de duplicada de la revisión no queda guardada en la ronda', () => {
+    const cliente = { garmin_scorecard_id: '123', is_duplicate: true, existing_id: true }
+    expect(metadataDelImport(cliente, { hoyos: null })).toEqual({ garmin_scorecard_id: '123' })
+  })
   it('importRound con metadata armada por el cliente: el tope sale del índice del perfil, no del ajuste_whs del cliente', async () => {
     const armadoACrudo = { ajuste_whs: { indice: 54, course_hcp: 60 } }
     const limpio = await filaImportada({ metadata: metadataDelImport({}, { hoyos: null }) })
@@ -339,9 +379,24 @@ describe('tarjetaDelImport — golpes por número real de hoyo (#545 revisión 2
     expect(armado.diferencial).toBe(limpio.diferencial)
   })
   it('el confirm del import arma la tarjeta con tarjetaDelImport, no leyendo las claves 1..N', () => {
-    const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/import/confirm/route.ts'), 'utf-8')
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/lib/import/confirmar.ts'), 'utf-8')
     expect(src).toContain('tarjetaDelImport(round.scores, round.par_per_hole)')
     expect(src).toContain('metadataDelImport(round.metadata, tarjeta)')
     expect(src).not.toMatch(/for \(let h = 1; h <= holeCount/)
+  })
+  it('el confirm guarda el lote en orden de juego: cada ronda se topa con el índice que daban las anteriores', () => {
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/lib/import/confirmar.ts'), 'utf-8')
+    expect(src).toContain('for (const round of [...validRounds].sort((a, b) => a.played_at.localeCompare(b.played_at)))')
+    // La tarjeta Garmin re-importada se escribe dentro de ese orden, no después del lote.
+    const loop = src.slice(src.indexOf('for (const round of [...validRounds]'), src.indexOf('return { insertedIds'))
+    expect(loop).toContain(".update(update)")
+    expect(src).not.toContain('garminUpdates')
+  })
+  it('el confirm re-escribe una tarjeta Garmin si la base ya la tiene, no por la marca del parseo, y guarda su id al insertarla', () => {
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/lib/import/confirmar.ts'), 'utf-8')
+    expect(src).not.toMatch(/round\.metadata\?\.is_duplicate/)
+    expect(src).toContain('.filter(r => r.metadata?.garmin_scorecard_id)')
+    expect(src).toContain('garminScorecardId: garminId ? String(garminId) : null')
+    expect(src).toContain('if (importResult.duplicada)')
   })
 })

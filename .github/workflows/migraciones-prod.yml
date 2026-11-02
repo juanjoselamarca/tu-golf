@@ -90,7 +90,7 @@ jobs:
           supabase db push --linked --include-all --yes
           # La huella va antes que los canarios: si uno falla, la referencia igual queda con lo que se aplicó.
           huella=0; node scripts/ci/deriva-esquema.mjs --guardar huella-esquema.json || huella=$?
-          node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
+          VITEST_PROD=1 node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
           exit $huella
 
       - name: Subir la huella del esquema (referencia del chequeo nocturno de deriva)

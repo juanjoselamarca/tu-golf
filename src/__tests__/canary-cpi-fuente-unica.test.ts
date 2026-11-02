@@ -17,7 +17,7 @@ const leer = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8')
 const SUPERFICIES = [
   'app/api/cpi/route.ts',
   'app/coach/page.tsx',
-  'app/api/import/confirm/route.ts',
+  'lib/import/confirmar.ts',
   'lib/data/perfil.ts',
 ]
 
@@ -28,6 +28,8 @@ describe('CPI: una sola lectura de rondas', () => {
       expect(src).toMatch(/fetchRondasCPI\(supabase, (user\.id|userId)\)/)
       // calcularCPI sólo recibe las rondas de la fuente única.
       for (const m of src.matchAll(/calcularCPI\(([^)]*)\)/g)) expect(m[1].trim()).toMatch(/^rondas(CPI)?$/)
+      // El mínimo de rondas lo decide calcularCPI (MIN_RONDAS), no cada superficie.
+      expect(src).not.toMatch(/rondas(CPI)?\.length/)
     })
   }
 })
