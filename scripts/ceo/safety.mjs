@@ -13,6 +13,13 @@ import { removeWorktree, worktreesDir } from './worktree.mjs';
 import { flushNotifications } from './telegram.mjs';
 import { esRamaDeAgente } from '../lib/rama-nocturna.mjs';
 
+/** El PR nocturno más reciente que llegó a production (Vercel publica desde ahí): el único que puede haber tumbado prod. */
+export function sospechosoEnProduction(prs, enProduction) {
+  // PRs de agentes nocturnos: rama <prefijo>/ceo-<agente>-… (excluye los propios reverts).
+  const nocturnos = prs.filter(p => p.mergeCommit?.oid && esRamaDeAgente(p.headRefName)).sort((x, y) => Date.parse(y.mergedAt) - Date.parse(x.mergedAt));
+  return { nocturnos: nocturnos.length, pr: nocturnos.find(enProduction) };
+}
+
 export function createSafety({ repoRoot, log, now }) {
   async function prodDown() {
     for (let i = 0; i < 3; i++) {
@@ -39,15 +46,13 @@ export function createSafety({ repoRoot, log, now }) {
       prs = JSON.parse(gh(['pr', 'list', '--state', 'merged', '--search', `merged:>=${night.nightId.slice(0, 10)}`, '--json', 'number,mergeCommit,mergedAt,headRefName', '--limit', '30']) || '[]');
     } catch (e) { log(`⚠ Safety check: gh falló (${e.message.slice(0, 120)}). Sigo sin check.`); return; }
     night.revertedPrs = night.revertedPrs || [];
-    // PRs de agentes nocturnos: rama <prefijo>/ceo-<agente>-… (excluye los propios reverts).
-    const candidatos = prs.filter(p => p.mergeCommit?.oid && esRamaDeAgente(p.headRefName)).sort((x, y) => Date.parse(y.mergedAt) - Date.parse(x.mergedAt));
-    // Vercel publica desde production: el sospechoso es el más reciente que llegó ahí.
     const enProduction = p => ['ahead', 'identical'].includes(gh(['api', `repos/{owner}/{repo}/compare/${p.mergeCommit.oid}...production`, '--jq', '.status']));
-    let last;
-    try { last = candidatos.find(enProduction); }
+    let sospechoso;
+    try { sospechoso = sospechosoEnProduction(prs, enProduction); }
     catch (e) { log(`⚠ Safety check: no pude comparar con production (${e.message.slice(0, 120)}). Sigo sin check.`); return; }
+    const last = sospechoso.pr;
     if (!last) {
-      if (candidatos.length) log(`Safety check: ninguno de los ${candidatos.length} PRs nocturnos de hoy está en production.`);
+      if (sospechoso.nocturnos) log(`Safety check: ninguno de los ${sospechoso.nocturnos} PRs nocturnos de hoy está en production.`);
       return;
     }
     if (night.revertedPrs.includes(last.number)) return;
