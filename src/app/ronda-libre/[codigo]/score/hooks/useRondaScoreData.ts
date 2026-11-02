@@ -17,6 +17,7 @@ import {
 } from '@/lib/data/ronda-libre-scorer'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
+import { leerRespaldoPendiente } from '@/hooks/useScoreSync'
 import { captureError } from '@/lib/error-tracking'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { netoNoDisponibleSinSesion } from '@/golf/ronda-libre/permisos'
@@ -128,11 +129,13 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       }
       setRonda(r)
 
-      // BD manda; el respaldo local sólo aporta lo que la BD no tiene.
+      // BD manda; el respaldo local sólo aporta lo que la BD no tiene. Por encima de
+      // todo va la tarjeta que el servidor no confirmó: una corrección hecha sin señal
+      // no la pisa la BD (mismo criterio que el scorer de grupo).
       const db = tarjetasDesdeLaRonda(r)
       const initialScores: Record<string, Record<number, number>> = {}
       for (const j of r.ronda_libre_jugadores) {
-        initialScores[j.id] = { ...lsLoad(codigo, j.id), ...db[j.id] }
+        initialScores[j.id] = { ...lsLoad(codigo, j.id), ...db[j.id], ...leerRespaldoPendiente(codigo, j.id) }
       }
       setScores(initialScores)
 
