@@ -16,8 +16,8 @@ import { isSharedBallFormat } from '@/golf/formats'
 import { isImpossibleScore } from '@/golf/core/index-window'
 import {
   COLS_AJUSTE_WHS,
-  fetchIndiceParaTope,
   grossAjustadoDeFila,
+  indicesDelDia,
   metadataConAjusteWHS,
   type CacheAjusteWHS,
   type FilaParaAjuste,
@@ -26,18 +26,22 @@ import {
 } from './ajuste-whs-fila'
 
 /** Columnas que necesita el recálculo del diferencial; incluye course_id, tee_color y holes_played (no repetirlas en el select). */
-const COLS_DIFERENCIAL = `${COLS_AJUSTE_WHS}, adjusted_gross`
+const COLS_DIFERENCIAL = `${COLS_AJUSTE_WHS}, adjusted_gross, played_at, created_at`
 
 /**
- * Adjusted Gross Score de cada fila de un lote. El índice se lee una sola vez y
- * sólo si alguna fila tiene golpes por hoyo; el catálogo se memoiza por lote.
+ * Adjusted Gross Score de cada fila de un lote. Las fuentes del índice del día se
+ * leen una sola vez y sólo si alguna fila lo necesita; el catálogo se memoiza por lote.
  */
 function ajustadorDelLote(supabase: SupabaseClient, userId: string) {
-  let indice: Promise<number | null> | null = null
+  const indiceDelDia = indicesDelDia(supabase, userId)
   const cache: CacheAjusteWHS = new Map()
   // `ratings`: los del diferencial (con género): el CH del tope sale de la misma fila.
-  return (fila: FilaParaAjuste, ratings: RatingsResueltos): Promise<GrossAjustadoDeFila | null> =>
-    grossAjustadoDeFila(supabase, fila, { indice: () => (indice ??= fetchIndiceParaTope(supabase, userId)), cache, ratings })
+  return (fila: FilaParaAjuste & { played_at: string; created_at: string | null }, ratings: RatingsResueltos): Promise<GrossAjustadoDeFila | null> =>
+    grossAjustadoDeFila(supabase, fila, {
+      indice: () => indiceDelDia({ playedAt: fila.played_at, guardadaEn: fila.created_at }),
+      cache,
+      ratings,
+    })
 }
 
 /**

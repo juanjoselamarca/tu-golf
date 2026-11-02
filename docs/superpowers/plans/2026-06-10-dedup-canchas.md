@@ -633,6 +633,8 @@ Ver spec §11-§13. Cambios sobre las tareas v1 + tareas nuevas. Orden de implem
 
 ### T4' — Dry-run con cálculo "índice después" EXACTO (spec §13) + abort género null
 - El dry-run replica la ventana del RPC: rondas `excluded=false` con dif/slope/cr no-null, **ORDER BY played_at DESC LIMIT 20**, sustituye el dif de las rondas del cluster por el recomputado (con guard implausibilidad), ordena por dif ASC, best-N (`rondasUsadas`), ×0.96.
+
+> **Estado al 30-oct-2026.** Este cálculo describe la fórmula de junio. Hoy el índice sigue la Regla 5.2 del WHS (#557): sin × 0.96 y con el ajuste de la Tabla 5.2a. La ventana además descarta los scores imposibles y desempata por `created_at` e `id`. El dry-run arma la ventana con `buildIndexWindows` (`src/golf/courses/course-dedup.ts`, sobre `src/golf/core/index-window.ts`) y calcula el índice con `computeGolfersIndex` (`src/golf/core/whs-index.ts`). `rondasUsadas` y `calcularIndiceGolfersLocal` ya no existen.
 - [ ] **ABORT** si algún usuario afectado tiene `profiles.genero` null → listar y parar (spec §11 M2).
 - Backup a `docs/backups/dedup-<slug>-<commit>.json` (NO %TEMP%).
 

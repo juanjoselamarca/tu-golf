@@ -19,10 +19,7 @@
 // conserva el suyo (`grossAjustadoDeFila` lo reutiliza).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { indiceParaTope } from '@/golf/core/ajuste-whs'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
-import { computeGolfersIndex } from '@/golf/core/whs-index'
-import { indexWindowDifferentials, type IndexWindowRound } from '@/golf/core/index-window'
 import { fetchRatingsDelTee } from './ronda-libre-finalizar'
 import { diferencialRecalculado } from './recompute-tee-rounds'
 import {
@@ -36,59 +33,19 @@ import {
 } from './ajuste-whs-fila'
 
 /** Columnas que lee el backfill (incluye las del tope). */
-export const COLS_BACKFILL_TOPE = `id, user_id, played_at, total_gross, course_rating, slope_rating, diferencial, adjusted_gross, excluded_from_handicap, ${COLS_AJUSTE_WHS}`
+export const COLS_BACKFILL_TOPE = `id, user_id, played_at, created_at, total_gross, course_rating, slope_rating, diferencial, adjusted_gross, excluded_from_handicap, ${COLS_AJUSTE_WHS}`
 
 export interface FilaBackfillTope extends FilaParaAjuste {
   id: string
   user_id: string
   played_at: string
+  created_at: string | null
   total_gross: number | null
   course_rating: number | null
   slope_rating: number | null
   diferencial: number | null
   adjusted_gross: number | null
   excluded_from_handicap: boolean | null
-}
-
-export interface RegistroIndice { indice: number; fecha: string }
-
-/**
- * Índice con el que se topa una ronda vieja: el vigente ANTES de jugarla, con el
- * orden de `indiceParaTope` (federado primero, después Golfers+):
- * 1. federado: el registro de `indice_historial` más reciente con fecha ≤ played_at
- *    (anterior a todos → el primero); sin historial, el federado del perfil
- *    (simplificación documentada: error acotado a ±1 golpe por hoyo topado);
- * 2. Golfers+: el que daban las rondas ANTERIORES (`golfersAntes`, reconstruido);
- *    nunca el de hoy, que puede salir de esa misma ronda;
- * 3. ninguno → null (Regla 3.1a: par + 5).
- */
-export function indiceDelDia(p: {
-  historial: readonly RegistroIndice[]
-  playedAt: string
-  federadoActual: number | null
-  golfersAntes: number | null
-}): number | null {
-  const validos = p.historial.filter(h => Number.isFinite(Number(h.indice)) && h.fecha)
-    .map(h => ({ indice: Number(h.indice), t: Date.parse(h.fecha) }))
-    .filter(h => Number.isFinite(h.t))
-    .sort((a, b) => a.t - b.t)
-  if (validos.length > 0) {
-    // played_at es fecha (AAAA-MM-DD): vale el registro de cualquier hora de ese día.
-    const fin = Date.parse(`${p.playedAt.slice(0, 10)}T23:59:59.999Z`)
-    const previos = validos.filter(h => h.t <= fin)
-    return (previos.length > 0 ? previos[previos.length - 1] : validos[0]).indice
-  }
-  return indiceParaTope({ perfil: p.federadoActual, golfersPlus: p.golfersAntes })
-}
-
-/**
- * Índice Golfers+ que tenía el jugador ANTES del día `playedAt`: la fórmula de
- * `calcular_indice_golfers` sobre sus filas de fechas anteriores (las del mismo día
- * no cuentan: no se sabe el orden). `filas` con los diferenciales guardados (los que daban el índice de ese día).
- */
-export function indiceGolfersAntesDe(filas: ReadonlyArray<IndexWindowRound>, playedAt: string): number | null {
-  const dia = playedAt.slice(0, 10)
-  return computeGolfersIndex(indexWindowDifferentials(filas.filter(f => f.played_at.slice(0, 10) < dia)))
 }
 
 /** ¿La fila entra al backfill? FedeGolf (diferencial oficial), sin golpes por hoyo o excluida a mano: no. */
