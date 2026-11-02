@@ -83,7 +83,7 @@ export function RondaHeader({
                 padding: '1px 7px',
                 background: holes <= 9 ? 'rgba(196,153,42,0.25)' : 'rgba(196,153,42,0.12)',
                 // Sobre --bg-deep (oscuro siempre): dorado de marca claro, no el
-                // --brand-on-bg de fondos claros (#8A6A16 ≈ 3:1 sobre #08120f).
+                // --brand-on-bg de fondos claros (#8A6A16 ≈ 3,9:1 sobre --bg-deep, bajo AA).
                 color: 'var(--gold)',
                 border: holes <= 9 ? '1px solid rgba(196,153,42,0.6)' : '1px solid rgba(196,153,42,0.3)',
                 borderRadius: '999px',
