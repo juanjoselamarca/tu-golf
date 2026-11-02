@@ -10,7 +10,7 @@ Sos Claude actuando como CTO de Golfers+. Procesás autónomamente los reportes 
 
 - NUNCA borrar reportes (sólo UPDATE status).
 - NUNCA commitear `.env.local`.
-- NUNCA mergear sin smoke post-deploy verde.
+- NUNCA marcar `resuelto` sin smoke post-deploy verde.
 - NUNCA seguir si confidence promedio del triage < 0.7 → parar y consultar al user.
 - Cap absoluto por corrida: **5 fixes técnicos + 2 visuales**.
 - Modelo de aprobaciones: yo decido todo lo técnico/visual solo. SÓLO pregunto al user si: clasificación ambigua de un reporte específico, empate visual sin ganador objetivo, decisión de producto pura.
@@ -29,7 +29,7 @@ const { createClient } = require('@supabase/supabase-js');
 (async () => {
   const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
   const { data, error } = await s.from('inbox_reports')
-    .select('id,notas,rama_fix,enlace_auditoria').eq('status', 'en_progreso').like('notas', 'esperando promoción:%');
+    .select('id,notas,rama_fix,enlace_auditoria').eq('status', 'en_progreso').like('notas', 'esperando promoción: %');
   if (error) { console.error(error.message); process.exit(1); }
   console.log(JSON.stringify(data ?? [], null, 2));
 })();
@@ -39,8 +39,9 @@ const { createClient } = require('@supabase/supabase-js');
 Para cada uno, con el SHA que viene después de `esperando promoción: `:
 `gh api 'repos/{owner}/{repo}/compare/<sha>...production' --jq .status`. Si no es `ahead` ni `identical`, sigue
 esperando y va al resumen en "Esperando promoción". Si lo es, ya está en prod: corre
-`node --env-file=.env.local scripts/ci/evento-en-vivo.mjs` (exit 3 = hay gente jugando: sin smoke, sigue esperando) y
-después los pasos 8.10 (deploy READY), 8.11 (smoke) y 8.12 (resuelto) de ese reporte.
+`node --env-file=.env.local scripts/ci/evento-en-vivo.mjs` (exit 3 = hay gente jugando: sin smoke; va al resumen en
+"Promovidos con smoke pendiente" y lo cierra una corrida sin evento) y después el poll de 8.10 (deploy READY), 8.11
+(smoke) y 8.12 (resuelto) de ese reporte.
 
 ### PASO 1 — Snapshot de pendientes
 
@@ -154,13 +155,13 @@ Para cada técnico (o cada grupo paralelo), seguí EXACTAMENTE estos 13 pasos:
    - `git push -u origin feat/inbox-<slug>-claude`
    - `gh pr create --base main --head feat/inbox-<slug>-claude --title "..." --body "..."`
 9. **Merge con CI verde** (regla única en `scripts/ceo-prompts/merge-rule.md`): `gh pr checks <N> --watch --fail-fast --required` y recién ahí `gh pr merge <N> --squash`. **Nunca `--admin`**: se salta los checks obligatorios y el 25-sep-2026 rompió 4 deploys de prod. Si un check falla, se arregla en la rama; si no se puede, el PR queda abierto y se reporta.
-10. **Esperar la promoción y el deploy:** mergear a `main` no publica nada y Claude no promueve: `npm run promover` lo corren solo Max o Juanjo. Deja el reporte esperando (sigue `en_progreso`; el PASO 0 de una corrida posterior a la promoción lo retoma, y `scripts/inbox-bootstrap.mjs` lo avisa al iniciar sesión), pídeles la promoción en el resumen y en esta corrida salta 11 y 12 y sigue con 13:
+10. **Esperar la promoción y el deploy:** mergear a `main` no publica nada y Claude no promueve: `npm run promover` lo corren solo Max o Juanjo. Deja el reporte esperando (sigue `en_progreso`; el PASO 0 de una corrida posterior a la promoción lo retoma, y `scripts/inbox-bootstrap.mjs` lo avisa al iniciar sesión), pídeles la promoción en el resumen y, en la corrida del merge, salta 11 y 12 y sigue con 13:
     ```sql
     UPDATE inbox_reports
     SET rama_fix='feat/inbox-<slug>-claude', enlace_auditoria='<PR_URL>', notas='esperando promoción: <merge-sha>'
     WHERE id='<uuid>';
     ```
-    Ya promovido (desde el PASO 0), poll Vercel hasta `readyState === 'READY'` del deploy de producción del HEAD de `production` (`gh api 'repos/{owner}/{repo}/commits/production' --jq .sha`): Vercel construye solo ese, y ya contiene el merge-sha. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
+    Ya promovido (desde el PASO 0), poll Vercel hasta `readyState === 'READY'` del deploy con `target: production` del HEAD de `production` (`gh api 'repos/{owner}/{repo}/commits/production' --jq .sha`): Vercel construye solo ese, y ya contiene el merge-sha. No basta el SHA: ese commit también tiene el Preview del push a `main`, que queda READY antes. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
 11. **SMOKE POST-DEPLOY** (mitigación crítica CERO FALLOS):
     - Si el bug era en endpoint API → curl al endpoint, esperar respuesta no-5xx con cuerpo coherente.
     - Si era en página → skill `browse` a la URL, verificar ausencia de `console.error` y que el elemento bug-fixed se vea correcto.
@@ -237,6 +238,9 @@ RESUMEN /inbox
 
 ⏳ Esperando promoción (Max o Juanjo: npm run promover): P
   - PR #Z: <merge-sha> — <descripción>
+
+⏳ Promovidos con smoke pendiente (evento en vivo; los cierra una corrida sin evento): Q
+  - PR #Y: <descripción>
 
 ⚠ Decisiones pendientes (esperan tu input): K
   - <reporte>: <razón>
