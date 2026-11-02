@@ -26,19 +26,23 @@ type Op = { table: string; op: 'update' | 'delete'; values?: Record<string, unkn
 const ops: Op[] = []
 let linkError: { message: string; code?: string } | null
 let undoError: { message: string } | null
-// Respuestas sucesivas al lookup de players por guestId (1º: ¿ya inscrito?, 2º: tras un 23505).
+// Respuestas sucesivas al lookup de players por guestId EN ESTE torneo (1º: ¿ya inscrito?, 2º: tras un 23505).
 let lookups: Array<{ id: string } | null>
+// El lookup del guestId en cualquier torneo (sin filtro por tournament_id).
+let enOtroTorneo: { data: { id: string } | null; error: { message: string } | null }
 
 function builder(table: string) {
   const filtros: Array<[string, unknown]> = []
   let op: Op | null = null
   const b = {
     select: () => b,
+    limit: () => b,
     eq: (col: string, val: unknown) => { filtros.push([col, val]); return b },
     update: (values: Record<string, unknown>) => { op = { table, op: 'update', values, filtros }; return b },
     delete: () => { op = { table, op: 'delete', filtros }; return b },
     maybeSingle: async () => {
       if (table === 'tournaments') return { data: { id: 't1', status: 'open', organizer_id: 'o1' } }
+      if (table === 'players' && !filtros.some(([col]) => col === 'tournament_id')) return enOtroTorneo
       if (table === 'players') return { data: lookups.shift() ?? null }
       return { data: null }
     },
@@ -66,6 +70,7 @@ beforeEach(() => {
   linkError = null
   undoError = null
   lookups = []
+  enOtroTorneo = { data: null, error: null }
   captureError.mockReset()
   enrollPlayer.mockReset().mockResolvedValue({ ok: true, playerId: 'p-nuevo' })
 })
@@ -136,5 +141,37 @@ describe('POST /api/torneos/[slug]/guest-join', () => {
     expect(body.playerId).toBeUndefined()
     expect(enrollPlayer).not.toHaveBeenCalled()
     expect(ops).toEqual([])
+  })
+
+  // El token firma sólo el guestId: si inscribir el guestId ajeno en OTRO torneo abierto lo
+  // devolvía, con él se anotaba y reclamaba en el torneo original de la víctima.
+  it('guestId con jugador en otro torneo y sin su token: 403, no inscribe ni entrega token', async () => {
+    enOtroTorneo = { data: { id: 'p-de-otro-torneo' }, error: null }
+    const res = await POST(req(), params)
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('guest_token_required')
+    expect(body.guestToken).toBeUndefined()
+    expect(enrollPlayer).not.toHaveBeenCalled()
+    expect(ops).toEqual([])
+  })
+
+  it('guestId con jugador en otro torneo y con su token: inscribe (el mismo dispositivo en dos torneos)', async () => {
+    enOtroTorneo = { data: { id: 'p-de-otro-torneo' }, error: null }
+    const res = await POST(req(`tok-${GUEST}`), params)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, playerId: 'p-nuevo', guestToken: `tok-${GUEST}` })
+    expect(enrollPlayer).toHaveBeenCalledOnce()
+  })
+
+  it('si falla el lookup en otros torneos, no inscribe ni entrega token (falla cerrado)', async () => {
+    enOtroTorneo = { data: null, error: { message: 'timeout' } }
+    const res = await POST(req(), params)
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error).toBe('lookup_failed')
+    expect(body.guestToken).toBeUndefined()
+    expect(enrollPlayer).not.toHaveBeenCalled()
+    expect(captureError).toHaveBeenCalledWith(enOtroTorneo.error, expect.objectContaining({ context: 'guest-join.lookup' }))
   })
 })

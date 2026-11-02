@@ -94,6 +94,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   })
   if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
 
+  const tokenValido = !!guestTokenDelCliente && verifyGuestToken(guestId, guestTokenDelCliente)
+
   // Verificar si este guestId ya está inscrito en este torneo
   const { data: existing } = await admin
     .from('players')
@@ -109,21 +111,33 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     // (legible por anon en players.pending_user_id hasta la migración de #566) cualquiera
     // obtenía el token del invitado, anotaba sus golpes por /api/game y reclamaba su
     // jugador con una cuenta propia. El token sólo se firma de nuevo para quien ya lo tiene.
-    if (!guestTokenDelCliente || !verifyGuestToken(guestId, guestTokenDelCliente)) {
-      return NextResponse.json(
-        {
-          error: 'guest_token_required',
-          message: 'Esa inscripción es de otro dispositivo. Pide el enlace del torneo y entra como invitado nuevo.',
-        },
-        { status: 403 },
-      )
-    }
+    if (!tokenValido) return tokenRequerido()
     return NextResponse.json({
       ok: true,
       playerId: existing.id,
       guestToken: signGuestToken(guestId),
       alreadyRegistered: true,
     })
+  }
+
+  // El token firma sólo el guestId, no el torneo: inscribir un guestId ajeno en OTRO torneo
+  // abierto devolvía su token y con él se anotaba y reclamaba en el torneo original. Un
+  // guestId que ya tiene jugador en cualquier torneo exige el mismo token que la reemisión.
+  if (!tokenValido) {
+    const { data: enOtroTorneo, error: lookupError } = await admin
+      .from('players')
+      .select('id')
+      .eq('pending_user_id', guestId)
+      .limit(1)
+      .maybeSingle()
+    if (lookupError) {
+      void captureError(lookupError, { context: 'guest-join.lookup', level: 'error' })
+      return NextResponse.json(
+        { error: 'lookup_failed', message: 'No se pudo completar la inscripción. Intenta nuevamente.' },
+        { status: 500 },
+      )
+    }
+    if (enOtroTorneo) return tokenRequerido()
   }
 
   // Inscribir como invitado
@@ -197,4 +211,14 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
 
   const guestToken = signGuestToken(guestId)
   return NextResponse.json({ ok: true, playerId: result.playerId, guestToken })
+}
+
+function tokenRequerido() {
+  return NextResponse.json(
+    {
+      error: 'guest_token_required',
+      message: 'Esa inscripción es de otro dispositivo. Pide el enlace del torneo y entra como invitado nuevo.',
+    },
+    { status: 403 },
+  )
 }
