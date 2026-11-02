@@ -1,29 +1,29 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { CHECK_VERIFICACION, RAMA_PROD, decidirPromocion, faltasDeMain } from './promover-a-produccion.mjs'
+import { RAMA_PROD, WORKFLOW_CI, decidirPromocion, faltasDeMain } from './promover-a-produccion.mjs'
 
-const verificacion = { name: CHECK_VERIFICACION, status: 'completed', conclusion: 'success' }
+const ci = { name: WORKFLOW_CI, status: 'completed', conclusion: 'success' }
 const vercel = { context: 'Vercel', state: 'success' }
 const sinEvento = { evento: false, motivo: 'sin rondas reales en juego' }
 
 describe('faltasDeMain', () => {
   it('nada falta con todo terminado en verde, skipped incluido', () => {
-    const checkRuns = [verificacion, { name: 'Esquema', status: 'completed', conclusion: 'skipped' }]
-    expect(faltasDeMain({ checkRuns, statuses: [vercel] })).toEqual([])
+    const runs = [ci, { name: 'Esquema', status: 'completed', conclusion: 'skipped' }]
+    expect(faltasDeMain({ runs, statuses: [vercel] })).toEqual([])
   })
 
-  it('un check en curso, uno rojo y un estado pendiente de Vercel faltan', () => {
-    const checkRuns = [verificacion, { name: 'Integración', status: 'in_progress', conclusion: null }, { name: 'Scorer', status: 'completed', conclusion: 'failure' }]
-    expect(faltasDeMain({ checkRuns, statuses: [{ context: 'Vercel', state: 'pending' }] }))
+  it('una corrida en curso, una roja y un estado pendiente de Vercel faltan', () => {
+    const runs = [ci, { name: 'Integración', status: 'in_progress', conclusion: null }, { name: 'Scorer', status: 'completed', conclusion: 'failure' }]
+    expect(faltasDeMain({ runs, statuses: [{ context: 'Vercel', state: 'pending' }] }))
       .toEqual(['Integración: in_progress', 'Scorer: failure', 'Vercel: pending'])
   })
 
-  it('recién mergeado, sin la Verificación todavía, no está listo', () => {
-    expect(faltasDeMain({ checkRuns: [], statuses: [] })).toEqual([`${CHECK_VERIFICACION}: todavía no corre`])
+  it('recién mergeado, sin la corrida de CI todavía, no está listo', () => {
+    expect(faltasDeMain({ runs: [], statuses: [] })).toEqual([`${WORKFLOW_CI}: todavía no corre`])
   })
 
-  it('el nombre del check es el del job verify de ci.yml', () => {
-    expect(readFileSync('.github/workflows/ci.yml', 'utf8')).toContain(`name: ${CHECK_VERIFICACION}\n`)
+  it('el nombre es el del workflow de ci.yml', () => {
+    expect(readFileSync('.github/workflows/ci.yml', 'utf8')).toMatch(new RegExp(`^name: ${WORKFLOW_CI}\n`))
   })
 })
 

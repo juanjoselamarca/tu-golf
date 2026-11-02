@@ -3,9 +3,10 @@
  * scripts/promover-a-produccion.mjs — pasa a prod lo que hay en main. Vercel publica prod desde la rama `production`
  * y `migraciones-prod` aplica las migraciones en cada push a ella: mergear a main no toca prod.
  *
- * Avanza `production` al HEAD de main solo si no hay evento en vivo (sin credenciales de prod no promueve), si todos
- * los checks de ese commit terminaron en verde (la Verificación tsc + tests + build tiene que estar) y si el avance es
- * fast-forward. Si `production` no existe, la crea en ese commit.
+ * Avanza `production` al HEAD de main solo si no hay evento en vivo (sin credenciales de prod no promueve), si todas
+ * las corridas que disparó el push de ese commit a main y sus estados (Vercel) terminaron en verde (la de CI tiene que
+ * estar) y si el avance es fast-forward. Si `production` no existe, la crea en ese commit. Las corridas programadas
+ * (monitor, canarios, E2E semanales) también cuelgan del HEAD de main, pero no prueban ese commit: no cuentan.
  *
  * Mueve la rama con la API de GitHub y no con git push: el pre-push solo deja pushear el HEAD del checkout y repetiría
  * el verify de un commit que el CI de main ya verificó. Un cambio de ref por la API dispara los workflows y el deploy
@@ -17,16 +18,16 @@ import { execFileSync } from 'node:child_process'
 import { consultarEvento, credencialesEvento, EXIT_EVENTO, MENSAJE_CONGELADO } from './ci/evento-en-vivo.mjs'
 
 export const RAMA_PROD = 'production'
-/** Nombre del job `verify` de .github/workflows/ci.yml (lo compara el test). */
-export const CHECK_VERIFICACION = 'Verificación (tsc + tests + build)'
+/** `name:` de .github/workflows/ci.yml (lo compara el test). */
+export const WORKFLOW_CI = 'CI'
 const CONCLUSIONES_VERDES = new Set(['success', 'skipped', 'neutral'])
 
-/** Puro: lo que falta para que el commit esté en verde, vacío si está listo. */
-export function faltasDeMain({ checkRuns, statuses }) {
-  const faltas = checkRuns
+/** Puro: lo que falta para que el commit esté en verde, vacío si está listo. `runs`: corridas del push a main. */
+export function faltasDeMain({ runs, statuses }) {
+  const faltas = runs
     .filter(r => r.status !== 'completed' || !CONCLUSIONES_VERDES.has(r.conclusion))
     .map(r => `${r.name}: ${r.status === 'completed' ? r.conclusion : r.status}`)
-  if (!checkRuns.some(r => r.name === CHECK_VERIFICACION)) faltas.push(`${CHECK_VERIFICACION}: todavía no corre`)
+  if (!runs.some(r => r.name === WORKFLOW_CI)) faltas.push(`${WORKFLOW_CI}: todavía no corre`)
   return [...faltas, ...statuses.filter(s => s.state !== 'success').map(s => `${s.context}: ${s.state}`)]
 }
 
@@ -61,7 +62,7 @@ async function main() {
   }
   const sha = ghJson('repos/{owner}/{repo}/commits/main').sha
   const faltas = faltasDeMain({
-    checkRuns: ghJson(`repos/{owner}/{repo}/commits/${sha}/check-runs?per_page=100`).check_runs,
+    runs: ghJson(`repos/{owner}/{repo}/actions/runs?head_sha=${sha}&event=push&branch=main&per_page=100`).workflow_runs,
     statuses: ghJson(`repos/{owner}/{repo}/commits/${sha}/status`).statuses,
   })
   const comparacion = comparar(sha)
