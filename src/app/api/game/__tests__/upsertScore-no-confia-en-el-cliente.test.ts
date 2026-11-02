@@ -46,8 +46,12 @@ const CATALOGO = Array.from({ length: 18 }, (_, i) => ({
 const CATALOGO_9 = CATALOGO.slice(0, 9)
 
 let upserted: Record<string, unknown> | null
-/** Si está puesto, la lectura de `tournaments` revienta (derivación caída). */
-let tournamentsRevienta: Error | null
+/** Si está puesto, la lectura de `tournaments` devuelve ese error (derivación caída). */
+let tournamentsRevienta: { code: string; message: string } | null
+/** Si está puesto, la lectura de `course_holes` devuelve ese error. */
+let hoyosRevienta: { code: string; message: string } | null
+/** Las filas que lee el recálculo de totales de `rounds`. */
+let filasGuardadas: Array<{ gross_score: number; net_score: number | null; points: number | null }>
 /** Las filas que devuelve `course_holes` (9 ó 18). */
 let catalogo: typeof CATALOGO
 /** `players.handicap_at_registration` del jugador del mock. */
@@ -98,7 +102,8 @@ function svc() {
           select: () => ({
             eq: () => ({
               single: () => {
-                if (tournamentsRevienta) return Promise.reject(tournamentsRevienta)
+                // supabase-js no rechaza: el error vuelve en `error` con `data` null.
+                if (tournamentsRevienta) return Promise.resolve({ data: null, error: tournamentsRevienta })
                 return Promise.resolve({
                   data: {
                     id: TOURN,
@@ -121,7 +126,8 @@ function svc() {
         return {
           select: () => ({
             eq: () => ({
-              lte: () => Promise.resolve({ data: catalogo, error: null }),
+              lte: () =>
+                Promise.resolve(hoyosRevienta ? { data: null, error: hoyosRevienta } : { data: catalogo, error: null }),
             }),
           }),
         }
@@ -136,7 +142,7 @@ function svc() {
           },
           select: () => ({
             eq: () => ({
-              not: () => Promise.resolve({ data: [{ gross_score: 5, net_score: 4, points: 3 }], error: null }),
+              not: () => Promise.resolve({ data: filasGuardadas, error: null }),
             }),
           }),
         }
@@ -161,6 +167,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   upserted = null
   tournamentsRevienta = null
+  hoyosRevienta = null
+  filasGuardadas = [{ gross_score: 5, net_score: 4, points: 3 }]
   catalogo = CATALOGO
   handicapInscrito = 18
   rondaRevienta = null
@@ -235,7 +243,7 @@ describe('upsertScore · el neto y los puntos los firma el servidor', () => {
   })
 
   it('si la derivación se cae, el neto guardado NO se toca ni se cae al del cliente', async () => {
-    tournamentsRevienta = new TypeError('fetch failed')
+    tournamentsRevienta = { code: '57014', message: 'canceling statement due to statement timeout' }
     const res = await upsertScore(svc() as never, USER, golpeConMentira)
     // Sin 503: en un torneo real no se pierde un golpe por un fallo transitorio.
     expect(res.status).toBe(200)
@@ -252,6 +260,35 @@ describe('upsertScore · el neto y los puntos los firma el servidor', () => {
       tournamentsRevienta,
       expect.objectContaining({ context: 'game-engine.upsertScore.derivarNeto' }),
     )
+  })
+
+  it('un error de course_holes no firma un neto con SI y par inventados', async () => {
+    hoyosRevienta = { code: 'PGRST000', message: 'fetch failed' }
+    const res = await upsertScore(svc() as never, USER, golpeConMentira)
+    expect(res.status).toBe(200)
+    expect(upserted).toMatchObject({ gross_score: 5 })
+    expect(upserted).not.toHaveProperty('net_score')
+    expect(upserted).not.toHaveProperty('points')
+    expect(captureError).toHaveBeenCalledWith(
+      hoyosRevienta,
+      expect.objectContaining({ context: 'game-engine.upsertScore.derivarNeto' }),
+    )
+  })
+
+  it('un hoyo fuera de la vuelta (14 en una de 9) da 400 y no escribe', async () => {
+    fetchRoundPlayConfig.mockResolvedValue({ roundNumber: 1, courseId: COURSE, holeCount: 9 })
+    const res = await upsertScore(svc() as never, USER, { ...golpeConMentira, hole_number: 14 })
+    expect(res.status).toBe(400)
+    expect(upserted).toBeNull()
+  })
+
+  it('el total neto suma el bruto del hoyo que quedó sin neto, no un 0', async () => {
+    filasGuardadas = [
+      { gross_score: 5, net_score: 4, points: 3 },
+      { gross_score: 6, net_score: null, points: null },
+    ]
+    const res = await upsertScore(svc() as never, USER, golpeConMentira)
+    expect(await res.json()).toMatchObject({ totalGross: 11, totalNet: 10, totalPoints: 3 })
   })
 
   it('un error de la lectura de la ronda se reporta, no se traga en silencio', async () => {

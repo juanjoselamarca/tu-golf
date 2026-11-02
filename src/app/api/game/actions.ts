@@ -165,11 +165,15 @@ export async function upsertScore(
         // `@/golf/tournament-rounds`) y se le pasa ya resuelta al contexto de
         // handicap: en un torneo multi-ronda la ronda 2 puede jugarse en otra
         // cancha, con otro slope/CR/par.
-        const { data: chData } = await svc
+        // supabase-js no rechaza la promesa: un timeout o un fallo de red vuelven
+        // en `error` con `data` null, y sin mirarlo el servidor firmaba puntos con
+        // un formato y una cantidad de hoyos inventados.
+        const { data: chData, error: chErr } = await svc
           .from('tournaments')
           .select('id, hole_count, formato_juego, format, modo_juego, course_id, date_start, total_rounds')
           .eq('id', tournId)
           .single()
+        if (chErr) throw chErr
         const tournInfo = chData as unknown as {
           id: string
           hole_count: number | null
@@ -184,6 +188,11 @@ export async function upsertScore(
         const hcpCtx = await fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tournId, ronda)
         const courseId = ronda?.courseId ?? undefined
         const roundHoles = ronda?.holeCount ?? 18
+        // Ahora que el servidor firma el puntaje, un hoyo 14 en una vuelta de 9
+        // se firmaría con SI 14 y par 4: no es un hoyo de esta vuelta.
+        if ((hole_number as number) > roundHoles) {
+          return NextResponse.json({ error: `hole_number debe ser entero entre 1 y ${roundHoles}` }, { status: 400 })
+        }
 
         // SI normalizado (permutación 1..N) para ALOCAR golpes: se traen TODOS los
         // hoyos del recorrido (1..roundHoles) y se normaliza, en vez de leer el SI
@@ -193,11 +202,12 @@ export async function upsertScore(
         let strokeIndex = hole_number as number
         let courseHoles: Array<{ numero: number; par: number; stroke_index: number }> = []
         if (courseId) {
-          const { data: holeRows } = await svc
+          const { data: holeRows, error: holesErr } = await svc
             .from('course_holes')
             .select('numero, par, stroke_index')
             .eq('course_id', courseId)
             .lte('numero', roundHoles)
+          if (holesErr) throw holesErr
           const rows =
             (holeRows as Array<{ numero: number; par: number; stroke_index: number }> | null) ?? []
           if (rows.length > 0) {
@@ -316,7 +326,9 @@ export async function upsertScore(
     .not('gross_score', 'is', null)
 
   const totalGross = allScores?.reduce((s, h) => s + (h.gross_score ?? 0), 0) ?? 0
-  const totalNet = allScores?.reduce((s, h) => s + (h.net_score ?? 0), 0) ?? 0
+  // Un hoyo insertado con la derivación caída queda con neto NULL: se suma el
+  // bruto, que nunca da un neto mejor que el real (sumar 0 sí).
+  const totalNet = allScores?.reduce((s, h) => s + (h.net_score ?? h.gross_score ?? 0), 0) ?? 0
   const totalPoints = allScores?.reduce((s, h) => s + (h.points ?? 0), 0) ?? 0
 
   await svc
