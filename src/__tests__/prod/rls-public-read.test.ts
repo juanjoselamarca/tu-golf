@@ -10,9 +10,9 @@
  *    since 20261013000000, PR #542; perfil_sugerido_id since 20261026120000) are readable only by
  *    service_role. A private column that does not exist yet in prod is not required, so this passes
  *    before and after its migration is applied; telefono_invitado must exist.
- * And on each of those tables and on profiles anon reads exactly the columns of ANON_COLUMN_SELECT
- * (20261027120000_anon_columnas_vistas_publicas, 20261029200000_anon_restos_capa3): one fewer breaks the public
- * views, one more is readable without a session. authenticated keeps every other column of ronda_libre_jugadores.
+ * And on each of those tables, on historical_rounds and on profiles anon reads exactly the columns of ANON_COLUMN_SELECT
+ * (20261027120000_anon_columnas_vistas_publicas, 20261025000000_historical_rounds_anon_sin_notas,
+ * 20261029200000_anon_restos_capa3): one fewer breaks the public views, one more is readable without a session. authenticated keeps every other column of ronda_libre_jugadores.
  * And anon has no other privilege in public than ANON_TABLE_PRIVILEGES plus that column SELECT
  * (20261029120000_anon_sin_permisos_de_tabla), and none on a sequence (20261029200000_anon_restos_capa3).
  * Neither anon nor authenticated executes restamp_round_metrics_target (same migration; only the coach calls it,
