@@ -40,13 +40,17 @@ export function createSafety({ repoRoot, log, now }) {
     } catch (e) { log(`⚠ Safety check: gh falló (${e.message.slice(0, 120)}). Sigo sin check.`); return; }
     night.revertedPrs = night.revertedPrs || [];
     // PRs de agentes nocturnos: rama <prefijo>/ceo-<agente>-… (excluye los propios reverts).
-    const last = prs.filter(p => p.mergeCommit?.oid && esRamaDeAgente(p.headRefName)).sort((x, y) => Date.parse(y.mergedAt) - Date.parse(x.mergedAt))[0];
-    if (!last || night.revertedPrs.includes(last.number)) return;
-    // Vercel publica desde production: un PR que no llegó ahí no puede haber tumbado prod.
-    try {
-      const enProd = gh(['api', `repos/{owner}/{repo}/compare/${last.mergeCommit.oid}...production`, '--jq', '.status']);
-      if (enProd !== 'ahead' && enProd !== 'identical') return;
-    } catch (e) { log(`⚠ Safety check: no pude ver si #${last.number} está en production (${e.message.slice(0, 120)}). Sigo sin check.`); return; }
+    const candidatos = prs.filter(p => p.mergeCommit?.oid && esRamaDeAgente(p.headRefName)).sort((x, y) => Date.parse(y.mergedAt) - Date.parse(x.mergedAt));
+    // Vercel publica desde production: el sospechoso es el más reciente que llegó ahí.
+    const enProduction = p => ['ahead', 'identical'].includes(gh(['api', `repos/{owner}/{repo}/compare/${p.mergeCommit.oid}...production`, '--jq', '.status']));
+    let last;
+    try { last = candidatos.find(enProduction); }
+    catch (e) { log(`⚠ Safety check: no pude comparar con production (${e.message.slice(0, 120)}). Sigo sin check.`); return; }
+    if (!last) {
+      if (candidatos.length) log(`Safety check: ninguno de los ${candidatos.length} PRs nocturnos de hoy está en production.`);
+      return;
+    }
+    if (night.revertedPrs.includes(last.number)) return;
     const status = await prodDown();
     if (!status) return;
 
@@ -67,7 +71,7 @@ export function createSafety({ repoRoot, log, now }) {
       try { gh(['pr', 'checks', url, '--watch', '--required', '--fail-fast'], { timeout: 30 * 60 * 1000 }); }
       catch { throw new Error(`los checks del revert fallaron: ${url}`); }
       gh(['pr', 'merge', url, '--squash']);
-      notify(night, `✅ Revert de #${last.number} mergeado en main (${url}). Llega a prod con npm run promover.`, { now: now(), kind: 'p0' });
+      notify(night, `✅ Revert de #${last.number} mergeado en main (${url}). Llega a prod cuando Max o Juanjo corran npm run promover.`, { now: now(), kind: 'p0' });
     } catch (e) {
       notify(night, `🔴 CRÍTICO: no pude revertir el PR #${last.number} (prod ${status}). ${e.message.slice(0, 200)}. Revisar URGENTE.`, { now: now(), kind: 'p0' });
     } finally {
