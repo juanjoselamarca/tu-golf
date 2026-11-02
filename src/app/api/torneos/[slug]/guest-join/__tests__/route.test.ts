@@ -15,7 +15,8 @@ vi.mock('@/golf/billing/require-feature', async () => ({
 }))
 vi.mock('@/lib/guest-token', () => ({
   signGuestToken: (id: string) => `tok-${id}`,
-  verifyGuestToken: (id: string, tok: string) => tok === `tok-${id}`,
+  // Como el real, lee el token con charCodeAt: lo que no es string revienta.
+  verifyGuestToken: (id: string, tok: string) => tok.charCodeAt(0) >= 0 && tok === `tok-${id}`,
 }))
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
@@ -154,6 +155,13 @@ describe('POST /api/torneos/[slug]/guest-join', () => {
     expect(body.guestToken).toBeUndefined()
     expect(enrollPlayer).not.toHaveBeenCalled()
     expect(ops).toEqual([])
+  })
+
+  it('un guestToken que no es string se trata como sin token, no revienta', async () => {
+    lookups = [{ id: 'p-viejo' }]
+    const res = await POST(req(Array(64).fill('a') as unknown as string), params)
+    expect(res.status).toBe(403)
+    expect((await res.json()).error).toBe('guest_token_required')
   })
 
   it('guestId con jugador en otro torneo y con su token: inscribe (el mismo dispositivo en dos torneos)', async () => {

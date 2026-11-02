@@ -94,7 +94,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   })
   if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
 
-  const tokenValido = !!guestTokenDelCliente && verifyGuestToken(guestId, guestTokenDelCliente)
+  const tokenValido = typeof guestTokenDelCliente === 'string' && verifyGuestToken(guestId, guestTokenDelCliente)
 
   // Verificar si este guestId ya está inscrito en este torneo
   const { data: existing } = await admin
