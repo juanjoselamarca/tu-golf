@@ -14,9 +14,10 @@ no vuelve permitido lo que la regla prohíbe.
    el nombre de la carpeta y la regla 6b te detiene), déjalo escrito en el PR y deja el PR ABIERTO
    sin mergear.
 
-1b. 🏌️ **Evento en vivo = no se toca prod.** Antes de mergear, correr SQL o lanzar CI/smokes:
-   `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs`. Exit 3 = hay gente jugando → detente, deja el PR
-   abierto y anótalo en el resumen. (Incidente 04-oct-2026: deploys + CI en plena ronda tumbaron la API.)
+1b. 🏌️ **Evento en vivo = no se toca prod.** Mergear a `main` no toca prod (Vercel publica desde `production`).
+   Antes de promover a `production`, correr SQL o lanzar smokes contra prod:
+   `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs`. Exit 3 = hay gente jugando → detente y anótalo en el
+   resumen. (Incidente 04-oct-2026: deploys + CI en plena ronda tumbaron la API.)
 2. **Checks rojos = no se mergea.** Todos los checks del PR en verde, también los no
    obligatorios (el 01-oct, #460 se mergeó con 2 canarios en rojo). Si un check rojo ya fallaba
    en `main`, compruébalo y déjalo escrito en el PR, pero el PR queda ABIERTO:

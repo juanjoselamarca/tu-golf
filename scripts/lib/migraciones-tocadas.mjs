@@ -59,7 +59,7 @@ const ETIQUETA_PERMITIR_TOCAR = `${PREFIJO_ETIQUETA}<version>`
  * el commit viejo: aprobarla o re-correrla aplica la versión original. docs/CONVENCIONES_TECNICAS.md lo copia literal
  * (lo compara un test).
  */
-export const TEXTO_CORRIDAS_PERMITIR_TOCAR = 'rechaza las pendientes y no hagas Re-run de ninguna corrida anterior al merge, tampoco la que falló; tras el merge aprueba la corrida que dispara el merge (o Run workflow desde main)'
+export const TEXTO_CORRIDAS_PERMITIR_TOCAR = 'rechaza las pendientes y no hagas Re-run de ninguna corrida anterior a la promoción, tampoco la que falló; tras promover a production aprueba la corrida que dispara la promoción (o Run workflow desde production)'
 
 const valoresDe = valor => String(valor ?? '').split(',').map(v => v.trim()).filter(Boolean)
 

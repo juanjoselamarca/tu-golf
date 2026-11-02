@@ -13,7 +13,8 @@ gh pr merge <N> --squash                         # NUNCA --admin
 - Si `gh pr checks` falla: lee el log del check (`gh run view <run-id> --log-failed`),
   arregla en la misma rama, pushea y vuelve a esperar. Si no puedes arreglarlo, deja el PR
   abierto y repórtalo en tu resumen. Un PR abierto es mejor que `main` rota.
-- Después del merge, confirma que el deploy de Vercel en `main` terminó en `success`:
+- Mergear a `main` no publica nada: Vercel publica prod desde la rama `production` (`npm run promover`).
+  Después del merge, confirma que el build de Vercel del commit de `main` terminó en `success`:
   `gh api repos/juanjoselamarca/tu-golf/commits/<sha>/statuses --jq '.[0].state'`.
 
 ## REGLA DE BASE DE DATOS (01-oct-2026 — manda sobre cualquier otra instrucción de SQL)
@@ -23,7 +24,7 @@ Esto incluye `CREATE/ALTER/DROP`, `CREATE OR REPLACE FUNCTION`, `GRANT/REVOKE`, 
 triggers, por cualquier vía (`run-sql.mjs`, Supabase MCP `apply_migration`/`execute_sql`).
 
 - La migración va como archivo en `supabase/migrations/` dentro del PR. Se aplica a prod sólo
-  DESPUÉS del merge, por el workflow `migraciones-prod` y cuando Max o Juanjo aprueban el deploy; tú no la
+  DESPUÉS del merge, al promover a `production`, por el workflow `migraciones-prod` y cuando Max o Juanjo aprueban el deploy; tú no la
   aplicas. Anota en tu resumen la "migración pendiente de aplicar".
 - SQL de sólo lectura (`SELECT`/`WITH` con `scripts/run-sql.mjs`) contra prod está permitido.
 - `UPDATE`/`DELETE` de datos de usuarios reales: prohibido. Correcciones de catálogo (canchas,
