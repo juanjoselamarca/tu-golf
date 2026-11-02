@@ -122,8 +122,8 @@ Next.js 16 + TypeScript + Tailwind · Supabase `https://hoswfwhvcgqlqdmzpnce.sup
 
 Tras el incidente del 25-mar-2026 (refactor del Navbar tumbó prod): `src/components/Navbar.tsx`,
 `src/app/layout.tsx`, `src/proxy.ts`, `src/lib/supabase.ts`. Protocolo: explicar a Juanjo qué y por qué → cambio
-MÍNIMO, sin refactor → `npm run test` y `npm run build` antes del commit → commit individual → push y esperar que
-Juanjo confirme prod. **Prohibido en Navbar:** `onAuthStateChange(async ...)`, `async function` dentro de un
+MÍNIMO, sin refactor → `npm run test` y `npm run build` antes del commit → commit individual → push, merge, Max o
+Juanjo promueven y esperar que Juanjo confirme prod. **Prohibido en Navbar:** `onAuthStateChange(async ...)`, `async function` dentro de un
 `useEffect` de auth, cualquier `await` que bloquee el render inicial. Detalle: `docs/claude/proteccion-anti-caida.md`.
 
 ## SKILLS (detalle y routing por frase: `docs/claude/skill-routing.md`)

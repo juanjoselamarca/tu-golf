@@ -67,7 +67,7 @@ Ver CLAUDE.md sección "PROTECCION ANTI-CAIDA" para los patrones exactos que cau
 4. Fix
 5. `npm run test && npx tsc --noEmit && npm run build` local
 6. PR con reviewer obligatorio (Juanjo)
-7. Merge a main — esto dispara nuevo deploy
+7. Merge a main y `npm run promover` (Max o Juanjo): el deploy de prod sale de la rama `production`
 8. Verificar producción
 
 ## Paso 6 — Post-mortem
