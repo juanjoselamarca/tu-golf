@@ -1,17 +1,18 @@
 # Única vía para cambiar el esquema de prod (item 5 de docs/PLAN-MAX.md): aplica con la CLI de Supabase lo que está
-# en main y falta en supabase_migrations.schema_migrations. El environment migraciones-prod (solo main, aprobación de
-# Max o Juanjo) guarda el único token con permiso de escritura.
+# en production y falta en supabase_migrations.schema_migrations. Corre al promover main a production (npm run
+# promover), igual que el deploy de Vercel. El environment migraciones-prod (solo production, aprobación de Max o
+# Juanjo) guarda el único token con permiso de escritura.
 #
 # Tras el db push guarda la huella del esquema (scripts/ci/deriva-esquema.mjs) como artifact: es la referencia con la
 # que prod-canarios detecta cada noche cambios hechos por fuera de una migración. Re-correrlo a mano la renueva.
 #
-# Turno de prod + evento en vivo: wait-prod-turn.mjs FALLA si hay gente jugando; al terminar, Run workflow desde main, no Re-run.
+# Turno de prod + evento en vivo: wait-prod-turn.mjs FALLA si hay gente jugando; al terminar, Run workflow desde production, no Re-run.
 
 name: Migraciones a prod
 
 on:
   push:
-    branches: [main]
+    branches: [production]
     paths: ['supabase/migrations/*.sql']
   workflow_dispatch:
 

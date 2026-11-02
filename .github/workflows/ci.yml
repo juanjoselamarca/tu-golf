@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # production: solo para el smoke de prod, tras el deploy que dispara npm run promover.
+    branches: [main, production]
   pull_request:
     branches: [main]
     # edited: un PR al que le cambian la base a main (p. ej. tras mergear el PR del que colgaba) no dispara
@@ -131,7 +132,7 @@ jobs:
           fi
 
   e2e-smoke:
-    # Smoke e2e contra producción. Solo en push a main (post-deploy Vercel).
+    # Smoke e2e contra producción. Solo en push a production (post-deploy Vercel): un push a main no publica nada.
     # Detecta regresiones de runtime que tsc+tests unit no pueden capturar:
     # hydration mismatch, 5xx, crashes en rutas públicas, redirects de auth.
     name: E2E smoke (producción)
@@ -140,7 +141,7 @@ jobs:
       contents: read
       actions: read   # el turno de prod lee las corridas en curso
     timeout-minutes: 22   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref_name == 'production'
     needs: verify
 
     steps:
