@@ -67,8 +67,8 @@ workflow (`gh workflow run test-db-sync.yml`).
 Supabase, así que nunca toca una base aunque la terminal las tenga cargadas. `integration`
 (`src/__tests__/integration`) corre contra esta base vía `con-base-de-pruebas.mjs` y aborta si la URL es la de prod
 (`src/__tests__/setup/test-db-guard.ts`). `prod` (`src/__tests__/prod`) es lo de la sección de abajo. Un test que
-necesita base va en `integration` o en `prod`, nunca en `unit`. Cuidado: `npx vitest run` sin `--project` ni ruta corre
-los tres proyectos, y con las credenciales de prod cargadas el de `prod` le pega a prod.
+necesita base va en `integration` o en `prod`, nunca en `unit`. El proyecto `prod` solo existe con `VITEST_PROD=1`,
+que definen `prod-canarios.yml` y `migraciones-prod.yml`: sin ella, `npx vitest run` corre `unit` e `integration`.
 
 ## Workflows
 
@@ -85,7 +85,8 @@ los tres proyectos, y con las credenciales de prod cargadas el de `prod` le pega
 ## Lo que esta base NO cubre (vive en `src/__tests__/prod/`, corre en `prod-canarios.yml`)
 
 Lo que verifica el DATO de prod, no el código. Corre de noche (06:30 UTC) contra prod, con turno de prod y
-evento en vivo, y avisa por Telegram si falla. Reemplaza a `catalogo-canary.yml`.
+evento en vivo, y avisa por Telegram si falla. Reemplaza a `catalogo-canary.yml`. Nada local lo corre: el proyecto
+`prod` de Vitest necesita `VITEST_PROD=1`, que solo definen ese workflow y `migraciones-prod.yml`.
 
 - `catalogo-rating-canary`, `catalogo-escala-rating` y `catalogo-par-por-hoyo.canary`: el catálogo que entra por
   SQL/sync/admin (la base de pruebas tiene una copia fija).
