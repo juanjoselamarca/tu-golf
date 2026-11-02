@@ -12,6 +12,8 @@
  * el verify de un commit que el CI de main ya verificó. Un cambio de ref por la API dispara los workflows y el deploy
  * de Vercel igual que un push.
  *
+ * Lo corren solo Max o Juanjo. En una sesión nocturna (CEO_NIGHT) se niega antes de tocar nada.
+ *
  * Uso: npm run promover   → exit 0 promovido o nada que promover · exit 1 main no está lista · exit 3 evento en vivo
  */
 import { execFileSync } from 'node:child_process'
@@ -54,7 +56,13 @@ function comparar(sha) {
   }
 }
 
+export const MENSAJE_NOCHE = 'De noche no se promueve (night-rules 1b): el merge queda en main y lo promueven Max o Juanjo.'
+
 async function main() {
+  if (process.env.CEO_NIGHT) {
+    console.error(MENSAJE_NOCHE)
+    return 1
+  }
   const credenciales = credencialesEvento(process.env)
   if (!credenciales.url) {
     console.error('Sin credenciales de prod no se puede descartar un evento en vivo: corre `npm run promover` (usa .env.local).')

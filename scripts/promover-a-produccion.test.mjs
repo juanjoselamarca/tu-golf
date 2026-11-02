@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { RAMA_PROD, WORKFLOW_CI, decidirPromocion, faltasDeMain } from './promover-a-produccion.mjs'
+import { spawnSync } from 'node:child_process'
+import { MENSAJE_NOCHE, RAMA_PROD, WORKFLOW_CI, decidirPromocion, faltasDeMain } from './promover-a-produccion.mjs'
 
 const ci = { name: WORKFLOW_CI, status: 'completed', conclusion: 'success' }
 const vercel = { context: 'Vercel', state: 'success' }
@@ -52,5 +53,16 @@ describe('decidirPromocion', () => {
     for (const comparacion of ['diverged', 'behind']) {
       expect(decidirPromocion({ evento: sinEvento, faltas: [], comparacion })).toMatchObject({ promover: false, exit: 1 })
     }
+  })
+})
+
+describe('sesión nocturna', () => {
+  it('con CEO_NIGHT se niega sin llamar a GitHub ni a prod (exit 1)', () => {
+    const r = spawnSync(process.execPath, ['scripts/promover-a-produccion.mjs'], {
+      encoding: 'utf8',
+      env: { PATH: '', CEO_NIGHT: '1', NEXT_PUBLIC_SUPABASE_URL: 'https://hoswfwhvcgqlqdmzpnce.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'x' },
+    })
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain(MENSAJE_NOCHE)
   })
 })
