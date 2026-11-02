@@ -49,6 +49,9 @@ describe('InscripcionSinSesion', () => {
     const link = linkSesion()
     expect(link.textContent).toBe(COPY_SIN_INVITADOS.link)
     expect(decodeURIComponent(link.getAttribute('href') ?? '')).toContain('/torneo/copa/unirse')
+    // Es la única salida: con el contorno secundario (--surface-border) quedaba en ~1,2:1.
+    expect(link.className).toContain('border-[color:var(--brand-on-bg)]')
+    expect(link.className).toContain('focus-visible:ring-2')
   })
 
   it('plan del organizador sin verificar: ofrece reintentar (es un hipo, no un "no") y la sesión', () => {
@@ -57,7 +60,8 @@ describe('InscripcionSinSesion', () => {
     expect(screen.getByText(COPY_PLAN_SIN_VERIFICAR.titulo)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(onReintentar).toHaveBeenCalledTimes(1)
-    expect(linkSesion()).toBeTruthy()
+    // Bajo "Reintentar" la sesión es la salida secundaria: una sola acción con peso.
+    expect(linkSesion().className).not.toContain('border-[color:var(--brand-on-bg)]')
   })
 
   it('cupo lleno: "Torneo completo" con el cupo real, sin formulario', () => {

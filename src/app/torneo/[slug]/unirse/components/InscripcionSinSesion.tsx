@@ -72,7 +72,7 @@ export function InscripcionSinSesion({
     }
     return (
       <AvisoInscripcion titulo={COPY_SIN_INVITADOS.titulo} detalle={COPY_SIN_INVITADOS.detalle}>
-        <LinkIniciarSesion slug={slug} texto={COPY_SIN_INVITADOS.link} ayuda={COPY_SIN_INVITADOS.ayuda} />
+        <LinkIniciarSesion slug={slug} texto={COPY_SIN_INVITADOS.link} ayuda={COPY_SIN_INVITADOS.ayuda} destacado />
       </AvisoInscripcion>
     )
   }

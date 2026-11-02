@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { loginUrl } from '@/lib/auth/login-url'
 import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
+import { Button, buttonClassName } from '@/components/ui/Button'
 
 /**
  * Visitante sin sesión: scorear como invitado o iniciar sesión y volver a este link.
@@ -95,22 +95,26 @@ export function FormInvitado({
 
 /**
  * Iniciar sesión (o crear cuenta) y volver a este link. Lo usa el formulario de invitado
- * y el aviso de "este torneo no acepta invitados", donde es la única salida que sirve.
+ * y el aviso de "este torneo no acepta invitados", donde es la única salida que sirve:
+ * ahí va `destacado` (peso de Button nav), porque el contorno secundario no llega a 3:1.
  */
 export function LinkIniciarSesion({
   slug,
   texto = 'Iniciar sesión con mi cuenta',
   ayuda = 'Si ya tienes cuenta, ingresa para guardar tu historial y estadísticas',
+  destacado = false,
 }: {
   slug: string
   texto?: string
   ayuda?: string
+  destacado?: boolean
 }) {
   return (
     <div style={{ textAlign: 'center' }}>
       <Link
         href={loginUrl(`/torneo/${slug}/unirse`)}
-        style={{
+        className={destacado ? buttonClassName({ variant: 'nav', size: 'lg', fullWidth: true }) : undefined}
+        style={destacado ? undefined : {
           display: 'block',
           width: '100%',
           background: 'transparent',
