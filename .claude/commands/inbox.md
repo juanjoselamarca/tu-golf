@@ -19,6 +19,28 @@ Sos Claude actuando como CTO de Golfers+. Procesás autónomamente los reportes 
 
 ## Flujo principal
 
+### PASO 0 — Fixes que esperaban promoción
+
+Un fix mergeado queda en `main` hasta que Max o Juanjo corren `npm run promover` (paso 8.10). Retómalos primero:
+
+```bash
+node --env-file=.env.local -e "
+const { createClient } = require('@supabase/supabase-js');
+(async () => {
+  const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const { data, error } = await s.from('inbox_reports')
+    .select('id,notas,rama_fix,enlace_auditoria').eq('status', 'en_progreso').like('notas', 'esperando promoción:%');
+  if (error) { console.error(error.message); process.exit(1); }
+  console.log(JSON.stringify(data ?? [], null, 2));
+})();
+"
+```
+
+Para cada uno, con el SHA que viene después de `esperando promoción: `:
+`gh api 'repos/{owner}/{repo}/compare/<sha>...production' --jq .status`. Si es `ahead` o `identical`, ya está en
+prod: corre los pasos 8.10 (deploy READY), 8.11 (smoke) y 8.12 (resuelto) de ese reporte. Si no, sigue esperando y va
+al resumen en "Esperando promoción".
+
 ### PASO 1 — Snapshot de pendientes
 
 Ejecutá:
@@ -131,7 +153,13 @@ Para cada técnico (o cada grupo paralelo), seguí EXACTAMENTE estos 13 pasos:
    - `git push -u origin feat/inbox-<slug>-claude`
    - `gh pr create --base main --head feat/inbox-<slug>-claude --title "..." --body "..."`
 9. **Merge con CI verde** (regla única en `scripts/ceo-prompts/merge-rule.md`): `gh pr checks <N> --watch --fail-fast --required` y recién ahí `gh pr merge <N> --squash`. **Nunca `--admin`**: se salta los checks obligatorios y el 25-sep-2026 rompió 4 deploys de prod. Si un check falla, se arregla en la rama; si no se puede, el PR queda abierto y se reporta.
-10. **Esperar la promoción y el deploy:** mergear a `main` no publica nada y Claude no promueve: `npm run promover` lo corren solo Max o Juanjo. Pídeselo en el resumen con el SHA del merge commit; hasta entonces el reporte sigue `en_progreso` y los pasos 11 y 12 esperan. Ya promovido, poll Vercel hasta `readyState === 'READY'` del deploy de producción con ese SHA. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
+10. **Esperar la promoción y el deploy:** mergear a `main` no publica nada y Claude no promueve: `npm run promover` lo corren solo Max o Juanjo. Deja el reporte esperando (sigue `en_progreso`; el PASO 0 de la próxima corrida lo retoma) y pídeles la promoción en el resumen:
+    ```sql
+    UPDATE inbox_reports
+    SET rama_fix='feat/inbox-<slug>-claude', enlace_auditoria='<PR_URL>', notas='esperando promoción: <merge-sha>'
+    WHERE id='<uuid>';
+    ```
+    Ya promovido, poll Vercel hasta `readyState === 'READY'` del deploy de producción con ese SHA. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
 11. **SMOKE POST-DEPLOY** (mitigación crítica CERO FALLOS):
     - Si el bug era en endpoint API → curl al endpoint, esperar respuesta no-5xx con cuerpo coherente.
     - Si era en página → skill `browse` a la URL, verificar ausencia de `console.error` y que el elemento bug-fixed se vea correcto.
@@ -205,6 +233,9 @@ RESUMEN /inbox
 
 ✓ Visuales cerrados: M
   - PR #A: <descripción>
+
+⏳ Esperando promoción (Max o Juanjo: npm run promover): P
+  - PR #Z: <merge-sha> — <descripción>
 
 ⚠ Decisiones pendientes (esperan tu input): K
   - <reporte>: <razón>
