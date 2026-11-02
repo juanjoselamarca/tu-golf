@@ -42,7 +42,7 @@ Solo si la Opción A no está disponible (deploy anterior fue eliminado):
 Solo si las opciones A y B no están disponibles:
 
 1. PR con `git revert -m 1 <merge-commit-roto>` a `main`, merge con CI verde (`scripts/ceo-prompts/merge-rule.md`).
-2. `npm run promover`: Vercel publica prod desde la rama `production`, no desde `main`.
+2. `npm run promover` (solo Max o Juanjo): Vercel publica prod desde la rama `production`, no desde `main`.
 
 Respeta el CI (tests deben pasar). Si se usó la Opción A, el siguiente `npm run promover` vuelve a publicar lo que haya en `main`: el revert tiene que estar ahí antes.
 

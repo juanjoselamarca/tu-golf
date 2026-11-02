@@ -131,11 +131,11 @@ Para cada técnico (o cada grupo paralelo), seguí EXACTAMENTE estos 13 pasos:
    - `git push -u origin feat/inbox-<slug>-claude`
    - `gh pr create --base main --head feat/inbox-<slug>-claude --title "..." --body "..."`
 9. **Merge con CI verde** (regla única en `scripts/ceo-prompts/merge-rule.md`): `gh pr checks <N> --watch --fail-fast --required` y recién ahí `gh pr merge <N> --squash`. **Nunca `--admin`**: se salta los checks obligatorios y el 25-sep-2026 rompió 4 deploys de prod. Si un check falla, se arregla en la rama; si no se puede, el PR queda abierto y se reporta.
-10. **Promover y esperar el deploy:** mergear a `main` no publica nada. `npm run promover` (exit 3 = evento en vivo: el fix queda en `main`, el reporte sigue `en_progreso` y se promueve cuando termine la ronda). Después poll Vercel hasta `readyState === 'READY'` del deploy de producción con el SHA del merge commit. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
+10. **Esperar la promoción y el deploy:** mergear a `main` no publica nada y Claude no promueve: `npm run promover` lo corren solo Max o Juanjo. Pídeselo en el resumen con el SHA del merge commit; hasta entonces el reporte sigue `en_progreso` y los pasos 11 y 12 esperan. Ya promovido, poll Vercel hasta `readyState === 'READY'` del deploy de producción con ese SHA. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
 11. **SMOKE POST-DEPLOY** (mitigación crítica CERO FALLOS):
     - Si el bug era en endpoint API → curl al endpoint, esperar respuesta no-5xx con cuerpo coherente.
     - Si era en página → skill `browse` a la URL, verificar ausencia de `console.error` y que el elemento bug-fixed se vea correcto.
-    - Si smoke falla → PR con `git revert -m 1 <merge-sha>`, merge con CI verde, `npm run promover` + `UPDATE status='error', notas='post-deploy smoke failed: <detalle>'`.
+    - Si smoke falla → PR con `git revert -m 1 <merge-sha>`, merge con CI verde, pedirle a Max o Juanjo que promuevan + `UPDATE status='error', notas='post-deploy smoke failed: <detalle>'`.
 12. **UPDATE BD**:
     ```sql
     UPDATE inbox_reports
