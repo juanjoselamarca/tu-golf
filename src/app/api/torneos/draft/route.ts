@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createInitialConfig } from '@/lib/draft/initial-config'
 import { trackDraftEvent, DRAFT_EVENTS } from '@/lib/draft/telemetry'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,17 +38,32 @@ export async function POST(_req: NextRequest) {
       .single()
 
     if (dErr || !draft) {
-      console.error('[draft/create] error:', dErr)
+      await captureError(dErr ?? new Error('draft/create: insert sin fila'), {
+        context: 'draft/create',
+        userId: user.id,
+      })
       return NextResponse.json({ error: dErr?.message || 'Error creando draft' }, { status: 500 })
     }
 
-    // Owner como collaborator (simetría)
-    await supabase.from('tournament_draft_collaborators').insert({
-      draft_id: draft.id,
-      user_id: user.id,
-      role: 'owner',
-      added_by: user.id,
-    })
+    // Owner como collaborator (simetría). En la base lo garantiza el trigger
+    // trg_tournament_drafts_dueno_colaborador; acá se mantiene para que el borrador quede completo
+    // aunque el código se deploye antes de aplicar la migración, y el error ya no se traga: sin esta
+    // fila el dueño no puede transferir el borrador nunca más (pasaba en 6 de 268 borradores de prod).
+    const { error: colErr } = await supabase
+      .from('tournament_draft_collaborators')
+      .upsert(
+        { draft_id: draft.id, user_id: user.id, role: 'owner', added_by: user.id },
+        { onConflict: 'draft_id,user_id', ignoreDuplicates: true },
+      )
+
+    if (colErr) {
+      await captureError(colErr, {
+        context: 'draft/create: fila de colaborador del dueño',
+        userId: user.id,
+        meta: { draft_id: draft.id },
+      })
+      return NextResponse.json({ error: 'Error creando draft' }, { status: 500 })
+    }
 
     // Telemetria: draft creado desde cero (no duplicado).
     await trackDraftEvent(supabase, user.id, DRAFT_EVENTS.CREATED, {
@@ -58,7 +74,7 @@ export async function POST(_req: NextRequest) {
 
     return NextResponse.json({ ok: true, draft })
   } catch (err) {
-    console.error('[draft/create] internal:', err)
+    await captureError(err, { context: 'draft/create: error interno' })
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

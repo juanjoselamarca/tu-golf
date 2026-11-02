@@ -3,7 +3,7 @@
  * `indexWindow` and uses the same WHS 5.2a table as `computeGolfersIndex` (the one that shows it
  * and the one the cap backfill uses).
  *
- * Reads the function's definition in the latest migration that defines it: compares its WHERE and LIMIT with `indexWindow`
+ * Reads the function's definition in the latest migration that defines it: compares its WHERE, ORDER BY and LIMIT with `indexWindow`
  * and evaluates its `v_best` and `v_adjustment` CASE for 3 to 20 differentials. Fails if anything
  * differs or if the 0.96 factor returns.
  */
@@ -28,8 +28,10 @@ function evalCase(variable: string, n: number): number {
 }
 
 describe(`calcular_indice_golfers (${latest})`, () => {
-  it('picks rounds like indexWindow: same conditions, most recent first, up to 20', () => {
-    const select = sql.match(/from\s+historical_rounds\s+where([\s\S]*?)order\s+by\s+played_at\s+desc\s+limit\s+(\d+)/i)
+  it('picks rounds like indexWindow: same conditions, most recent first with the same tie-break, up to 20', () => {
+    const select = sql.match(
+      /from\s+historical_rounds\s+where([\s\S]*?)order\s+by\s+played_at\s+desc\s*,\s*created_at\s+desc\s+nulls\s+last\s*,\s*id\s+desc\s+limit\s+(\d+)/i,
+    )
     if (!select) throw new Error(`${latest}: cannot find the rounds SELECT`)
     const conditions = select[1].split(/\band\b/i).map(c => c.replace(/\s+/g, ' ').trim().toLowerCase()).sort()
     expect(conditions).toEqual([

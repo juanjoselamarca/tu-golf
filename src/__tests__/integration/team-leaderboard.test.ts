@@ -1,6 +1,6 @@
 /**
  * Integration — leaderboard de equipos: `fetchScrambleTeams` / `fetchBestBallTeams`
- * mapean correctamente desde `ronda_equipos` contra el SCHEMA REAL de producción.
+ * mapean correctamente desde `ronda_equipos` contra el schema real (la base de pruebas lo clona de prod).
  *
  * Por qué integration y no mock (CERO FALLOS): estas funciones son el ÚNICO seam
  * sin test del flujo de equipos. Los otros dos están cubiertos por unit tests

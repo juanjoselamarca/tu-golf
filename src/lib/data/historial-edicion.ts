@@ -22,6 +22,8 @@ type Estimado = { hoyo: number; motivo: string }
 
 interface FilaParaEditar {
   user_id: string
+  played_at: string
+  created_at: string | null
   import_source: string | null
   course_id: string | null
   tee_color: string | null
@@ -71,7 +73,7 @@ export async function actualizarScoresDeRonda(
 ): Promise<ResultadoEdicion> {
   const { data: fila, error: errLectura } = await supabase
     .from('historical_rounds')
-    .select('user_id, import_source, course_id, tee_color, slope_rating, course_rating, formato_juego, scores, par_per_hole, metadata')
+    .select('user_id, played_at, created_at, import_source, course_id, tee_color, slope_rating, course_rating, formato_juego, scores, par_per_hole, metadata')
     .eq('id', input.id)
     .single()
   if (errLectura || !fila) return { ok: false, reason: errLectura ? 'error' : 'noop', error: errLectura }
@@ -105,7 +107,7 @@ export async function actualizarScoresDeRonda(
     { ...f, scores, metadata: metadataBase, holes_played: jugados.length },
     // Con ratings del diferencial (del tee o los guardados), el CH sale de ELLOS: tope y
     // diferencial siempre de los mismos ratings. Sin ratings, se reutiliza el CH guardado.
-    { indice: () => fetchIndiceParaTope(supabase, f.user_id), reusarCourseHcp: true, ratings: resolved ?? undefined },
+    { indice: () => fetchIndiceParaTope(supabase, f.user_id, { playedAt: f.played_at, guardadaEn: f.created_at }), reusarCourseHcp: true, ratings: resolved ?? undefined },
   )
   const adjusted_gross = ajuste?.grossAjustado ?? null
   const metadata = metadataConAjusteWHS(metadataBase, ajuste) as FilaParaEditar['metadata']
