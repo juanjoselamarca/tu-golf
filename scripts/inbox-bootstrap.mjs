@@ -32,7 +32,7 @@ export function buildSummary(rows) {
   const pendientes = rows.filter(r => r.status !== 'en_progreso');
   const esperando = rows.length - pendientes.length;
   const lines = [];
-  if (esperando) lines.push(`⏳ ${esperando} fix${esperando === 1 ? '' : 'es'} del inbox esperando promoción a production: tras npm run promover (solo Max o Juanjo), /inbox ${esperando === 1 ? 'lo' : 'los'} cierra.`);
+  if (esperando) lines.push(`⏳ ${esperando} fix${esperando === 1 ? '' : 'es'} del inbox esperando promoción a production o su smoke: tras npm run promover (solo Max o Juanjo), /inbox ${esperando === 1 ? 'lo' : 'los'} cierra.`);
   if (!pendientes.length) return lines.join('\n');
   const n = pendientes.length;
   lines.push(`📥 ${n} pendiente${n === 1 ? '' : 's'} en inbox:`);

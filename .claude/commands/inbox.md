@@ -29,7 +29,7 @@ const { createClient } = require('@supabase/supabase-js');
 (async () => {
   const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
   const { data, error } = await s.from('inbox_reports')
-    .select('id,notas,rama_fix,enlace_auditoria').eq('status', 'en_progreso').like('notas', 'esperando promoción: %');
+    .select('id,texto,caption,categoria,notas,rama_fix,enlace_auditoria').eq('status', 'en_progreso').like('notas', 'esperando promoción: %');
   if (error) { console.error(error.message); process.exit(1); }
   console.log(JSON.stringify(data ?? [], null, 2));
 })();
@@ -158,10 +158,10 @@ Para cada técnico (o cada grupo paralelo), seguí EXACTAMENTE estos 13 pasos:
 10. **Esperar la promoción y el deploy:** mergear a `main` no publica nada y Claude no promueve: `npm run promover` lo corren solo Max o Juanjo. Deja el reporte esperando (sigue `en_progreso`; el PASO 0 de una corrida posterior a la promoción lo retoma, y `scripts/inbox-bootstrap.mjs` lo avisa al iniciar sesión), pídeles la promoción en el resumen y, en la corrida del merge, salta 11 y 12 y sigue con 13:
     ```sql
     UPDATE inbox_reports
-    SET rama_fix='feat/inbox-<slug>-claude', enlace_auditoria='<PR_URL>', notas='esperando promoción: <merge-sha>'
+    SET categoria='<tipo>', rama_fix='feat/inbox-<slug>-claude', enlace_auditoria='<PR_URL>', notas='esperando promoción: <merge-sha>'
     WHERE id='<uuid>';
     ```
-    Ya promovido (desde el PASO 0), poll Vercel hasta `readyState === 'READY'` del deploy con `target: production` del HEAD de `production` (`gh api 'repos/{owner}/{repo}/commits/production' --jq .sha`): Vercel construye solo ese, y ya contiene el merge-sha. No basta el SHA: ese commit también tiene el Preview del push a `main`, que queda READY antes. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
+    Ya promovido (desde el PASO 0), poll Vercel hasta `readyState === 'READY'` del deploy con `target: production` del HEAD de `production` (`gh api 'repos/{owner}/{repo}/commits/production' --jq .sha`): Vercel construye solo ese, y ya contiene el merge-sha. No basta el SHA: ese commit también tiene el Preview del push a `main`, que queda READY antes. Si el poll vence sin READY: sin smoke, sigue esperando. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
 11. **SMOKE POST-DEPLOY** (mitigación crítica CERO FALLOS):
     - Si el bug era en endpoint API → curl al endpoint, esperar respuesta no-5xx con cuerpo coherente.
     - Si era en página → skill `browse` a la URL, verificar ausencia de `console.error` y que el elemento bug-fixed se vea correcto.
@@ -203,7 +203,7 @@ Para cada reporte `visual`:
 8. `revisor-fable` sobre lo implementado: UNA revisión que junta código + screenshots (expediente con
    `--imagenes`). APROBADO / CAMBIOS; con CAMBIOS se corrige y la 2ª vuelta es un revisor NUEVO con
    `--desde <sha>` (solo el delta). Después skill `design-review` (visual QA + fix iterativo).
-9. Continuá con el sub-flujo técnico desde PASO 8.6 (verificaciones → commit → PR → merge → deploy → smoke).
+9. Continuá con el sub-flujo técnico desde PASO 8.6 (verificaciones → commit → PR → merge → 8.10, esperando promoción → 8.13).
 10. **Decision log**: copiá `docs/design-decisions/_template.md` a `docs/design-decisions/<YYYY-MM-DD>-<slug>.md` y llenálo (problema, variantes consideradas, elegida, razón).
 11. BD igual que en técnico: queda esperando promoción (8.10) y lo cierra el PASO 0.
 
@@ -245,8 +245,8 @@ RESUMEN /inbox
 ⚠ Decisiones pendientes (esperan tu input): K
   - <reporte>: <razón>
 
-❌ Errores de deploy auto-reverted: E
-  - <reporte>: <razón>
+❌ Smoke fallido, revert esperando promoción (Max o Juanjo: npm run promover): E
+  - PR #R: <revert-sha> — <reporte>: <razón>
 
 Costo estimado de la corrida: ~$X USD
 ═══════════════════════════════════════
