@@ -156,6 +156,14 @@ describe('canario: el body oscuro es navy, no oliva', () => {
     ).toEqual([])
   })
 
+  it('el body oscuro es navy plano: ningún degradado tiñe el hueco bajo la navbar', () => {
+    const regla = reglasDelBody('dark').join(';')
+    expect(
+      regla,
+      'un radial dorado al 10 % sobre el navy da gris rgb(23,25,26): la franja sigue, sólo cambia de color',
+    ).not.toMatch(/radial-gradient|linear-gradient/)
+  })
+
   it('el body oscuro no reintroduce los literales del palette legacy oliva', () => {
     const regla = reglasDelBody('dark').join(';').toLowerCase()
     for (const legacy of ['#08120f', '#0d1b17', '#12231e', '#173129']) {
