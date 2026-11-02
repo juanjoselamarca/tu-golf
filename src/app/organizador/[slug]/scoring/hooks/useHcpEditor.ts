@@ -7,9 +7,10 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import { updatePlayerHandicap, type ScoringCourse } from '@/lib/data/tournaments/scoring'
-import type { CourseData } from '@/golf/core/course-handicap'
 import {
+  courseDataDeInscripcion,
   esHandicapDeInscripcionValido,
+  formatearHandicap,
   mensajeHandicapFueraDeRango,
   parsearHandicap,
   rangoDeHandicapDeInscripcion,
@@ -23,29 +24,23 @@ interface UseHcpEditorArgs {
   course: ScoringCourse | null
 }
 
-/** `ScoringCourse` → `CourseData` del motor. Mismo armado que `/api/torneos/[slug]/players`. */
-function courseDataDe(c: ScoringCourse | null): CourseData | null {
-  if (!c || c.slope_rating == null || c.course_rating == null) return null
-  return { slope: c.slope_rating, courseRating: c.course_rating, par: c.par_total ?? 72 }
-}
-
 export function useHcpEditor({ onSaved, hcpCalcMode, course }: UseHcpEditorArgs) {
   const { showError, showSuccess, showWarning } = useToast()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
 
   // Rango desde la fuente única `@/golf/handicap-index-range`: índice (−10..54)
-  // en WHS; en raw, la imagen de ese rango por la fórmula de la cancha, porque
-  // ahí la columna guarda un course handicap que pasa de 54 legítimamente. La
-  // vista toma `min`/`max` de acá: el stepper del input baja a los plus.
+  // en WHS; en raw, también la imagen de ese rango por la fórmula de la cancha,
+  // porque ahí la columna guarda un course handicap que pasa de 54 legítimamente.
   const rango = useMemo(
-    () => rangoDeHandicapDeInscripcion(hcpCalcMode, courseDataDe(course)),
+    () => rangoDeHandicapDeInscripcion(hcpCalcMode, courseDataDeInscripcion(course)),
     [hcpCalcMode, course],
   )
 
   const startEdit = useCallback((playerId: string, current: number | null) => {
     setEditingId(playerId)
-    setEditValue(String(current ?? ''))
+    // Se precarga como se muestra ("+2"), no como lo guarda la base ("-2").
+    setEditValue(current == null ? '' : formatearHandicap(current))
   }, [])
 
   const cancel = useCallback(() => setEditingId(null), [])
@@ -72,7 +67,7 @@ export function useHcpEditor({ onSaved, hcpCalcMode, course }: UseHcpEditorArgs)
     [editValue, onSaved, rango, showError, showSuccess, showWarning],
   )
 
-  return { editingId, editValue, setEditValue, startEdit, cancel, save, rango }
+  return { editingId, editValue, setEditValue, startEdit, cancel, save }
 }
 
 export type UseHcpEditorReturn = ReturnType<typeof useHcpEditor>

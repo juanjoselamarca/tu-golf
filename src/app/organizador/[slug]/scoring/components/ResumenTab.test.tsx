@@ -3,13 +3,22 @@
 // plus 2 se mostraba "-2", invitando al organizador a "corregirlo" a 2.
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import type { Player } from '@/lib/golf-data'
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
-import { RANGO_INDICE, type RangoHandicap } from '@/golf/handicap-index-range'
-import type { UseHcpEditorReturn } from '../hooks/useHcpEditor'
+import { useHcpEditor, type UseHcpEditorReturn } from '../hooks/useHcpEditor'
 import type { UseResumenBoardReturn } from '../hooks/useResumenBoard'
 import { ResumenTab } from './ResumenTab'
+
+const updatePlayerHandicap = vi.fn(async (..._args: unknown[]) => {})
+vi.mock('@/lib/data/tournaments/scoring', () => ({
+  updatePlayerHandicap: (...args: unknown[]) => updatePlayerHandicap(...args),
+}))
+vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({ showWarning: vi.fn(), showError: vi.fn(), showSuccess: vi.fn() }),
+}))
+vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 
 function fila(id: string, name: string, hcpDisplay: number): Player {
   return { id, name, hcpDisplay, holes: 0, status: 'live', scores: [] } as unknown as Player
@@ -33,7 +42,6 @@ function editor(over: Partial<UseHcpEditorReturn> = {}): UseHcpEditorReturn {
     startEdit: vi.fn(),
     cancel: vi.fn(),
     save: vi.fn(),
-    rango: RANGO_INDICE,
     ...over,
   }
 }
@@ -67,28 +75,39 @@ describe('ResumenTab · handicap', () => {
     expect(screen.getByText('+3')).toBeTruthy()
   })
 
-  it('el input toma min/max del rango del hook: el stepper baja a los plus', () => {
+  it('el input es de texto: un type="number" descarta el "+2" y la coma de "18,5"', () => {
     render(
       <ResumenTab
         board={board([fila('p1', 'Ana', -2)])}
         roster={[jugador('p1', -2)]}
-        hcpEditor={editor({ editingId: 'p1', editValue: '-2' })}
+        hcpEditor={editor({ editingId: 'p1', editValue: '+2' })}
       />,
     )
-    const input = screen.getByRole('spinbutton')
-    expect(input.getAttribute('min')).toBe(String(RANGO_INDICE.min))
-    expect(input.getAttribute('max')).toBe(String(RANGO_INDICE.max))
+    const input = screen.getByRole('textbox', { name: 'Handicap de inscripción' })
+    expect(input.getAttribute('type')).toBe('text')
+    expect((input as HTMLInputElement).value).toBe('+2')
   })
+})
 
-  it('en un torneo raw el input toma el rango del course handicap, no el de índice', () => {
-    const raw: RangoHandicap = { min: -10, max: 64, guarda: 'course_handicap' }
-    render(
-      <ResumenTab
-        board={board([fila('p1', 'Ana', 60)])}
-        roster={[jugador('p1', 60)]}
-        hcpEditor={editor({ editingId: 'p1', editValue: '60', rango: raw })}
-      />,
-    )
-    expect(screen.getByRole('spinbutton').getAttribute('max')).toBe('64')
+// El hook real detrás de la vista: lo que se tipea en el input es lo que llega a la base.
+function ResumenConEditor({ roster }: { roster: ScoringPlayer[] }) {
+  const hcpEditor = useHcpEditor({ onSaved: vi.fn(), hcpCalcMode: 'whs', course: null })
+  return <ResumenTab board={board([fila('p1', 'Ana', -2)])} roster={roster} hcpEditor={hcpEditor} />
+}
+
+describe('ResumenTab · editar el handicap en el DOM', () => {
+  it.each([
+    ['+3', -3],
+    ['18,5', 18.5],
+  ])('tipear %s guarda %p', async (texto, valor) => {
+    updatePlayerHandicap.mockClear()
+    render(<ResumenConEditor roster={[jugador('p1', -2)]} />)
+    fireEvent.click(screen.getByRole('button', { name: '+2' }))
+    const input = screen.getByRole('textbox', { name: 'Handicap de inscripción' }) as HTMLInputElement
+    expect(input.value).toBe('+2')
+    fireEvent.change(input, { target: { value: texto } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await vi.waitFor(() => expect(updatePlayerHandicap).toHaveBeenCalled())
+    expect(updatePlayerHandicap.mock.calls[0][2]).toBe(valor)
   })
 })

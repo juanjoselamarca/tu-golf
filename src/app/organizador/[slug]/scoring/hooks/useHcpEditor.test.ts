@@ -121,9 +121,20 @@ describe('useHcpEditor', () => {
     })
   })
 
-  it('expone el rango para que el input tome min/max de la misma fuente', async () => {
-    const { result } = await editar('12', { hcpCalcMode: 'raw', course: CANCHA })
-    expect(result.current.rango).toEqual({ min: -10, max: 64, guarda: 'course_handicap' })
+  // A los invitados la ruta de players les guarda el índice sin convertir: en una
+  // cancha fácil la imagen del rango (−12..47) dejaba afuera a un índice 50.
+  it('torneo raw en cancha fácil: acepta el índice que la ruta de invitados guarda sin convertir', async () => {
+    const facil: ScoringCourse = { ...CANCHA, slope_rating: 105, course_rating: 69 }
+    const { onSaved } = await editar('50', { hcpCalcMode: 'raw', course: facil })
+    expect(onSaved).toHaveBeenCalledWith('p1', 50)
+  })
+
+  it('abre el editor con el plus como se muestra ("+2"), no como lo guarda la base', () => {
+    const { result } = renderHook(() => useHcpEditor({ onSaved: vi.fn(), hcpCalcMode: 'whs', course: null }))
+    act(() => result.current.startEdit('p1', -2))
+    expect(result.current.editValue).toBe('+2')
+    act(() => result.current.startEdit('p1', null))
+    expect(result.current.editValue).toBe('')
   })
 
   it('el mensaje del toast no promete un rango que la app no valida', async () => {

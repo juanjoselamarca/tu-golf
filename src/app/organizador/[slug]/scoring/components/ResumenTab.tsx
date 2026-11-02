@@ -118,10 +118,8 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       {isEditingThis && row.id ? (
                         <input
-                          type="number"
-                          step="0.1"
-                          min={hcpEditor.rango.min}
-                          max={hcpEditor.rango.max}
+                          type="text"
+                          aria-label="Handicap de inscripción"
                           autoFocus
                           value={hcpEditor.editValue}
                           onChange={(e) => hcpEditor.setEditValue(e.target.value)}
