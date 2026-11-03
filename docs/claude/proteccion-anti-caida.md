@@ -19,7 +19,7 @@ Después del incidente del 25-mar-2026 (refactor del Navbar tumbó la app entera
 4. `npm run build` ANTES del commit
 5. Si es Navbar: verificar que `onAuthStateChange` NO sea async
 6. Commit individual (no mezclar con otros cambios)
-7. Push y esperar confirmación de Juanjo de que prod funciona
+7. Push, merge y promoción (`npm run promover`, Max o Juanjo); esperar confirmación de Juanjo de que prod funciona
 
 ### Patrones PROHIBIDOS en Navbar
 

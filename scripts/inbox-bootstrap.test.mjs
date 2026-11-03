@@ -37,6 +37,21 @@ describe('inbox-bootstrap', () => {
       expect(out).not.toContain('1 pendientes');
     });
 
+    it('un fix esperando promoción se avisa aparte y no cuenta como pendiente', () => {
+      const out = buildSummary([
+        { id: '1', texto: 'bug en score', status: 'nuevo' },
+        { id: '2', texto: 'fix mergeado', status: 'en_progreso' },
+      ]);
+      expect(out.split('\n')[0]).toMatch(/^⏳ 1 fix del inbox esperando promoción/);
+      expect(out).toContain('📥 1 pendiente en inbox:');
+      expect(out).not.toContain('fix mergeado');
+    });
+
+    it('solo fixes esperando promoción: avisa sin bloque de pendientes', () => {
+      const out = buildSummary([{ id: '2', texto: 'x', status: 'en_progreso' }, { id: '3', texto: 'y', status: 'en_progreso' }]);
+      expect(out).toMatch(/^⏳ 2 fixes del inbox esperando promoción.*los cierra\.$/);
+    });
+
     it('inbox vacío produce output vacío', () => {
       expect(buildSummary([])).toBe('');
       expect(buildSummary(null)).toBe('');

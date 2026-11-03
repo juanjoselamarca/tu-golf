@@ -57,7 +57,7 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
   it('el aviso y docs/CONVENCIONES_TECNICAS.md dicen lo mismo sobre las corridas (texto único)', () => {
     const r = explicarMigracionesTocadas({ editadas: [X], borradas: [] }, { permitidas: versionesPermitidas('20261020000000') })
     expect(r.texto.endsWith(`Solo para una migración que FALLÓ al aplicarse: ${TEXTO_CORRIDAS_PERMITIR_TOCAR}`)).toBe(true)
-    expect(TEXTO_CORRIDAS_PERMITIR_TOCAR).toMatch(/no hagas Re-run de ninguna corrida anterior al merge, tampoco la que falló/)
+    expect(TEXTO_CORRIDAS_PERMITIR_TOCAR).toMatch(/no hagas Re-run de ninguna corrida anterior a la promoción, tampoco la que falló/)
     const doc = fs.readFileSync(path.resolve('docs/CONVENCIONES_TECNICAS.md'), 'utf8')
     expect(doc).toContain(TEXTO_CORRIDAS_PERMITIR_TOCAR)
   })

@@ -71,6 +71,8 @@ supabase/migrations/
 scripts/ci/migraciones-inmutables.mjs
 scripts/lib/nombre-migracion.mjs
 .github/workflows/ci.yml
+# Lo que publica en prod: la promoción de main a production
+scripts/promover-a-produccion.mjs
 # El check de evidencia de revisión de los PRs nocturnos
 .github/workflows/evidencia-pr-nocturno.yml
 scripts/ci/evidencia-pr-nocturno.mjs
