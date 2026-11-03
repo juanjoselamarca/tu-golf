@@ -1,6 +1,9 @@
 import { renderHook, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { useRondaScoreData } from '@/app/ronda-libre/[codigo]/score/hooks/useRondaScoreData'
+
+// Golpes que trae la BD para p1 (cada test los fija).
+let golpesEnLaBd: Record<string, number> = {}
 
 // Chainable query builder stub that supports .in(), .order(), .single()
 function makeQueryBuilder(table: string) {
@@ -44,7 +47,7 @@ function makeQueryBuilder(table: string) {
           hoyo_inicio: 1, admin_mode: false, admin_user_id: null, recorridos: null,
           ronda_libre_jugadores: [{
             id: 'p1', nombre: 'Juanjo', user_id: 'u1',
-            scores: {}, handicap: 11.1, tees: 'azul',
+            scores: golpesEnLaBd, handicap: 11.1, tees: 'azul',
           }],
         },
       }
@@ -90,6 +93,11 @@ vi.mock('@/golf/core/round-score', () => ({
   parTotalEstandar: (holes: number) => holes * 4,
 }))
 
+beforeEach(() => {
+  golpesEnLaBd = {}
+  localStorage.clear()
+})
+
 describe('useRondaScoreData', () => {
   it('carga ronda + jugadores y deja loading en false', async () => {
     const { result } = renderHook(() => useRondaScoreData('ABC123', null))
@@ -105,5 +113,28 @@ describe('useRondaScoreData', () => {
     const { result } = renderHook(() => useRondaScoreData('ABC123', null))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.activeJugadorId).toBe('p1')
+  })
+
+  // Revisión Fable del #684: corregir el hoyo 3 (6 → 4) sin señal deja la tarjeta pendiente en el
+  // respaldo; al recargar con señal la BD todavía tiene el 6. Si la pantalla mostrara el 6, el
+  // siguiente toque reenviaría la tarjeta con el 6 y la corrección se perdería.
+  it('la tarjeta que el servidor no confirmó gana sobre la BD al cargar', async () => {
+    golpesEnLaBd = { '1': 5, '2': 4, '3': 6 }
+    localStorage.setItem('golfers_score_ABC123_p1', JSON.stringify({
+      scores: { 1: 5, 2: 4, 3: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: 'p1',
+    }))
+    const { result } = renderHook(() => useRondaScoreData('ABC123', null))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.scores.p1).toEqual({ 1: 5, 2: 4, 3: 4 })
+  })
+
+  it('una tarjeta ya sincronizada no pisa a la BD', async () => {
+    golpesEnLaBd = { '1': 5, '2': 4, '3': 6 }
+    localStorage.setItem('golfers_score_ABC123_p1', JSON.stringify({
+      scores: { 1: 5, 2: 4, 3: 4 }, timestamp: Date.now(), sincronizado: true, codigoRonda: 'ABC123', jugadorId: 'p1',
+    }))
+    const { result } = renderHook(() => useRondaScoreData('ABC123', null))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.scores.p1).toEqual({ 1: 5, 2: 4, 3: 6 })
   })
 })

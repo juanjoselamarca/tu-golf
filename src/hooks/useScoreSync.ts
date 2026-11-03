@@ -12,6 +12,18 @@ interface ScoreEntry {
   jugadorId: string
 }
 
+const claveDelRespaldo = (codigoRonda: string, jugadorId: string) => `${STORAGE_PREFIX}${codigoRonda}_${jugadorId}`
+
+/** La tarjeta del respaldo que el servidor todavía no confirmó, o null si no hay nada pendiente. */
+export function leerRespaldoPendiente(codigoRonda: string, jugadorId: string): Record<number, number> | null {
+  try {
+    const raw = localStorage.getItem(claveDelRespaldo(codigoRonda, jugadorId))
+    if (!raw) return null
+    const data: ScoreEntry = JSON.parse(raw)
+    return !data.sincronizado && Object.keys(data.scores).length > 0 ? data.scores : null
+  } catch { return null }
+}
+
 /**
  * Hook para persistir scores en localStorage como respaldo offline.
  * - Guarda cada cambio de score localmente ANTES de enviar al servidor
@@ -20,7 +32,7 @@ interface ScoreEntry {
  * - Limpia entradas sincronizadas después de 7 días
  */
 export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
-  const key = jugadorId ? `${STORAGE_PREFIX}${codigoRonda}_${jugadorId}` : ''
+  const key = jugadorId ? claveDelRespaldo(codigoRonda, jugadorId) : ''
   const syncInProgressRef = useRef(false)
 
   const guardarLocal = useCallback((scores: Record<number, number>) => {
@@ -62,15 +74,10 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
     } catch { return null }
   }, [key])
 
-  const tienePendientes = useCallback((): boolean => {
-    if (!key) return false
-    try {
-      const raw = localStorage.getItem(key)
-      if (!raw) return false
-      const data: ScoreEntry = JSON.parse(raw)
-      return !data.sincronizado && Object.keys(data.scores).length > 0
-    } catch { return false }
-  }, [key])
+  const tienePendientes = useCallback(
+    (): boolean => !!jugadorId && leerRespaldoPendiente(codigoRonda, jugadorId) != null,
+    [codigoRonda, jugadorId],
+  )
 
   const obtenerTimestamp = useCallback((): number => {
     if (!key) return 0

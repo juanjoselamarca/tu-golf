@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { loginUrl } from '@/lib/auth/login-url'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { buttonClassName } from '@/components/ui/button-classes'
 
 /**
  * Visitante sin sesión: scorear como invitado o iniciar sesión y volver a este link.
@@ -88,30 +89,52 @@ export function FormInvitado({
         <div style={{ flex: 1, height: '1px', background: 'var(--surface-border)' }} />
       </div>
 
-      {/* Login option */}
-      <div style={{ textAlign: 'center' }}>
-        <Link
-          href={loginUrl(`/torneo/${slug}/unirse`)}
-          style={{
-            display: 'block',
-            width: '100%',
-            background: 'transparent',
-            color: 'var(--text)',
-            fontWeight: 600,
-            fontSize: '15px',
-            padding: '14px',
-            borderRadius: '10px',
-            border: '1px solid var(--surface-border)',
-            textDecoration: 'none',
-            textAlign: 'center',
-          }}
-        >
-          Iniciar sesión con mi cuenta
-        </Link>
-        <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
-          Si ya tienes cuenta, ingresa para guardar tu historial y estadísticas
-        </p>
-      </div>
+      <LinkIniciarSesion slug={slug} />
+    </div>
+  )
+}
+
+/**
+ * Iniciar sesión (o crear cuenta) y volver a este link. Lo usa el formulario de invitado
+ * y el aviso de "este torneo no acepta invitados", donde es la única salida que sirve:
+ * ahí va `destacado`, con peso de Button commit. El contorno secundario no llega a 3:1, y el
+ * texto `--brand-on-bg` de nav sobre `--surface-soft` da 4,43:1 en claro.
+ */
+export function LinkIniciarSesion({
+  slug,
+  texto = 'Iniciar sesión con mi cuenta',
+  ayuda = 'Si ya tienes cuenta, ingresa para guardar tu historial y estadísticas',
+  destacado = false,
+}: {
+  slug: string
+  texto?: string
+  ayuda?: string
+  destacado?: boolean
+}) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <Link
+        href={loginUrl(`/torneo/${slug}/unirse`)}
+        className={destacado ? buttonClassName({ variant: 'commit', size: 'lg', fullWidth: true }) : undefined}
+        style={destacado ? undefined : {
+          display: 'block',
+          width: '100%',
+          background: 'transparent',
+          color: 'var(--text)',
+          fontWeight: 600,
+          fontSize: '15px',
+          padding: '14px',
+          borderRadius: '10px',
+          border: '1px solid var(--surface-border)',
+          textDecoration: 'none',
+          textAlign: 'center',
+        }}
+      >
+        {texto}
+      </Link>
+      <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
+        {ayuda}
+      </p>
     </div>
   )
 }

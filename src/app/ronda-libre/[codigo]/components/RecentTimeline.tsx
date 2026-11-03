@@ -1,5 +1,8 @@
 // Timeline de momentos recientes (con contexto match play). Verbatim del monolito,
 // salvo que el MatchResult se calcula una sola vez (antes se recomputaba por evento).
+// Sin hora por evento: los golpes no guardan cuándo se anotaron, y el "ahora / hace N min"
+// que se mostraba era el índice de la fila (una ronda de ayer decía "ahora"). La única hora
+// real es `timeSinceUpdate` (último guardado), en el encabezado mientras la ronda está viva.
 import { Avatar } from '@/components/ui/Avatar'
 import { scoreCellStyle, scoreFgVar } from '@/lib/score-tokens'
 import { buildMatchResult } from '@/lib/ronda/match'
@@ -29,15 +32,13 @@ export function RecentTimeline({ ronda, timelineEvents, parMap, siMap, courseHcp
         )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {timelineEvents.map((event, idx) => {
+        {timelineEvents.map((event) => {
           const label = event.diff <= -2 ? 'Eagle' : event.diff === -1 ? 'Birdie' : event.diff === 0 ? 'Par' : event.diff === 1 ? 'Bogey' : `+${event.diff}`
           // Tokens theme-aware: la tarjeta va sobre --bg-surface (navy en oscuro), donde la paleta
           // de modo claro quedaba bajo AA. El resultado lo lleva el chip; la fila no se tiñe
           // (el birdie se teñía verde, contra la convención Garmin: birdie = celeste).
           const color = scoreFgVar(event.diff)
           const chipBg = event.diff === 0 ? 'transparent' : scoreCellStyle(event.score, event.score - event.diff).background
-          const approxMinAgo = idx === 0 ? 0 : idx
-          const timeLabel = approxMinAgo === 0 ? 'ahora' : approxMinAgo === 1 ? 'hace 1 min' : `hace ${approxMinAgo} min`
 
           // Match play context: find the match hole detail for this event
           let matchContext: string | null = null
@@ -63,10 +64,8 @@ export function RecentTimeline({ ronda, timelineEvents, parMap, siMap, courseHcp
               <Avatar name={event.jugador} size="md" />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 700 }}>{event.jugador}</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>Hoyo {event.hole} · {event.score} golpes</span>
-                  <span style={{ color: 'var(--text-3)' }}>·</span>
-                  <span style={{ fontStyle: 'italic' }}>{timeLabel}</span>
+                <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>
+                  Hoyo {event.hole} · {event.score} golpes
                 </div>
                 {/* Match play context line */}
                 {matchContext && (

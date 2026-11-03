@@ -15,6 +15,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { checkFeatureAccess, rechazoDeFeature, type RechazoFeature } from '@/golf/billing/require-feature'
+import { MENSAJE_PLAN_ORGANIZADOR_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import {
   enrollPlayer,
   isInscribibleStatus,
@@ -164,6 +166,59 @@ export async function fetchJoinInfo(
     alreadyRegistered: !!existing,
     capacity,
   }
+}
+
+/**
+ * ¿El torneo acepta invitados sin cuenta? Lo que el visitante ve ANTES de llenar el formulario.
+ * Solo el 503 trae mensaje (es reintentable y la UI lo muestra); el "necesita Pro" es del organizador,
+ * no del visitante anónimo, y la pantalla tiene su propio copy.
+ */
+export type InvitadosInfo =
+  | { permitido: true }
+  | { permitido: false; motivo: 'pro_required' }
+  | { permitido: false; motivo: 'plan_unavailable'; mensaje: string }
+
+export const MENSAJES_GATE_INVITADOS = {
+  proRequerido: 'El organizador necesita plan Pro para invitados.',
+  planNoVerificado: MENSAJE_PLAN_ORGANIZADOR_NO_VERIFICADO,
+} as const
+
+/**
+ * Gate Pro de la inscripción de invitados: fuente única para `guest-join` (que responde con
+ * él) y `join-info` (que lo adelanta a la pantalla). Antes solo lo aplicaba guest-join: el
+ * invitado llenaba nombre e índice y recién al enviar recibía el 403 (22-oct-2026).
+ */
+export async function rechazoInvitados(
+  admin: SupabaseClient,
+  organizerId: string,
+): Promise<RechazoFeature<'guest-tournament'> | null> {
+  const access = await checkFeatureAccess(admin, organizerId, 'guest-tournament')
+  return rechazoDeFeature(access, 'guest-tournament', MENSAJES_GATE_INVITADOS)
+}
+
+export function invitadosDesdeRechazo(rechazo: RechazoFeature | null): InvitadosInfo {
+  if (!rechazo) return { permitido: true }
+  if (rechazo.status === 503) return { permitido: false, motivo: 'plan_unavailable', mensaje: rechazo.body.message }
+  return { permitido: false, motivo: 'pro_required' }
+}
+
+/** Lo que un visitante sin sesión necesita saber antes de inscribirse: cupo y si se aceptan invitados. */
+export interface CondicionesInscripcionPublica {
+  capacity: CapacityInfo
+  invitados: InvitadosInfo
+}
+
+export async function condicionesInscripcionPublica(
+  admin: SupabaseClient,
+  tournament: Pick<JoinInfoTournament, 'id' | 'organizer_id' | 'status'>,
+): Promise<CondicionesInscripcionPublica> {
+  // Un torneo cerrado o en borrador no se inscribe: no se lee el plan del organizador por cada
+  // espectador que llega al link (y una lectura fallida no ensucia error_logs en pleno evento).
+  const [capacity, rechazo] = await Promise.all([
+    tournamentCapacity(admin, tournament.id),
+    esInscribible(tournament.status) ? rechazoInvitados(admin, tournament.organizer_id) : null,
+  ])
+  return { capacity, invitados: invitadosDesdeRechazo(rechazo) }
 }
 
 /** @deprecated Usar `EnrollResult` de `./enrollPlayer`. Alias por compatibilidad. */
