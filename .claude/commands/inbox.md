@@ -203,8 +203,8 @@ Para cada reporte `visual`:
 8. `revisor-fable` sobre lo implementado: UNA revisión que junta código + screenshots (expediente con
    `--imagenes`). APROBADO / CAMBIOS; con CAMBIOS se corrige y la 2ª vuelta es un revisor NUEVO con
    `--desde <sha>` (solo el delta). Después skill `design-review` (visual QA + fix iterativo).
-9. Continuá con el sub-flujo técnico desde PASO 8.6 (verificaciones → commit → PR → merge → 8.10, esperando promoción → 8.13).
-10. **Decision log**: copiá `docs/design-decisions/_template.md` a `docs/design-decisions/<YYYY-MM-DD>-<slug>.md` y llenálo (problema, variantes consideradas, elegida, razón).
+9. **Decision log**: copia `docs/design-decisions/_template.md` a `docs/design-decisions/<YYYY-MM-DD>-<slug>.md` y llénalo (problema, variantes consideradas, elegida, razón). Va en el mismo commit que el cambio visual.
+10. Continúa con el sub-flujo técnico desde PASO 8.6 (verificaciones → commit → PR → merge → 8.10, esperando promoción → 8.13).
 11. BD igual que en técnico: queda esperando promoción (8.10) y lo cierra el PASO 0.
 
 ### PASO 10 — Decisiones de producto pendientes
