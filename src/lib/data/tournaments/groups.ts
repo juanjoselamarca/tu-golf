@@ -80,6 +80,19 @@ export async function deleteGroup(supabase: SupabaseClient, groupId: string): Pr
   if (error) throw new Error(error.message)
 }
 
+/**
+ * Convierte la hora "HH:MM" que escribe el organizador (en la zona horaria de su navegador) al
+ * instante que se guarda en `tournament_groups.tee_time` (TIMESTAMPTZ): ISO con `Z`.
+ *
+ * Antes se mandaba `YYYY-MM-DDTHH:MM:00` sin zona y Postgres lo tomaba como UTC: un grupo creado
+ * a las 08:10 en Chile salía a las 05:10 en la hoja de salida y en la lista de grupos (03-nov-2026).
+ */
+export function teeTimeDesdeHoraLocal(fecha: string, hhmm: string): string {
+  const instante = new Date(`${fecha}T${hhmm}:00`)
+  if (Number.isNaN(instante.getTime())) throw new Error(`Hora de salida inválida: ${fecha} ${hhmm}`)
+  return instante.toISOString()
+}
+
 /** Fija el horario de salida (tee time) de un grupo. */
 export async function setGroupTeeTime(
   supabase: SupabaseClient,

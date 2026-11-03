@@ -24,7 +24,8 @@ describe('faltasDeMain', () => {
   })
 
   it('el nombre es el del workflow de ci.yml', () => {
-    expect(readFileSync('.github/workflows/ci.yml', 'utf8')).toMatch(new RegExp(`^name: ${WORKFLOW_CI}\n`))
+    // `\r?`: en Windows autocrlf entrega ci.yml con CRLF y el verify del pre-push fallaba (03-nov-2026).
+    expect(readFileSync('.github/workflows/ci.yml', 'utf8')).toMatch(new RegExp(`^name: ${WORKFLOW_CI}\r?\n`))
   })
 })
 
