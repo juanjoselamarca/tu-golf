@@ -8,4 +8,6 @@ GRANT SELECT (id, tournament_id, user_id, category_id, handicap_at_registration,
               pending_user_id, player_name, tee_id, genero)
   ON public.players TO anon;
 
+-- El REVOKE de tabla borra los 14 SELECT por columna que dejó la migración: sin él quedarían junto al de tabla.
+REVOKE SELECT ON public.players FROM authenticated;
 GRANT SELECT ON public.players TO authenticated;
