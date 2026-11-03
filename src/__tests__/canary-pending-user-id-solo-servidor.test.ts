@@ -2,7 +2,7 @@
 // Bug (16-oct-2026): esa columna es el `guestId` del invitado de torneo, su credencial —
 // con él, /guest-join entregaba su token (anotar golpes por él) y /guest-claim lo pasaba a
 // otra cuenta. La tabla players la exponía a cualquiera con la anon key. La migración
-// players_hide_pending_user_id le quita el SELECT a anon/authenticated: si algún código
+// 20261102230000_players_ocultar_pending_user_id le quita el SELECT a anon/authenticated: si algún código
 // con el cliente de la sesión la vuelve a pedir, esa pantalla recibe 42501 (el scorer del
 // torneo la pedía en su roster). Este canario lo frena antes.
 import { describe, it, expect } from 'vitest'

@@ -40,6 +40,9 @@ export const sqlAllInSchemaPublic = (kind: 'tables' | 'functions') => String.raw
  */
 export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil_sugerido_id', 'telefono_invitado']
 
+/** Same for players (20261102230000_players_ocultar_pending_user_id): the guest's credential. */
+export const PLAYERS_PRIVATE_COLUMNS: readonly string[] = ['pending_user_id']
+
 /**
  * The tables /torneo/[slug] and /api/ronda-libre/[codigo]/live read without a session, and the only columns
  * anon can SELECT on each (20261027120000_anon_columnas_vistas_publicas). A column a public view starts reading
@@ -48,9 +51,11 @@ export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil
  */
 export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   hole_scores: ['id', 'round_id', 'hole_number', 'par', 'gross_score', 'net_score', 'points', 'putts', 'fairway_hit', 'gir'],
+  // pending_user_id es la credencial del invitado de torneo: privada para los dos roles del cliente
+  // desde 20261102230000_players_ocultar_pending_user_id.
   players: [
     'id', 'tournament_id', 'user_id', 'category_id', 'handicap_at_registration', 'status', 'created_at', 'status_reason',
-    'pending_user_id', 'player_name', 'tee_id', 'genero',
+    'player_name', 'tee_id', 'genero',
   ],
   rounds: ['id', 'tournament_id', 'player_id', 'status', 'total_gross', 'total_net', 'total_points', 'closed_at', 'round_number'],
   tournament_groups: ['id', 'tournament_id', 'name', 'tee_time', 'ronda_libre_id', 'sort_order'],

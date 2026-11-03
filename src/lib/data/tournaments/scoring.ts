@@ -112,7 +112,7 @@ const SCORING_TOURNAMENT_SELECT =
   `course_id, date_start, tees, hcp_calc_mode, hcp_pct, es_demo, courses(${SCORING_COURSE_COLUMNS})`
 
 // Sin `pending_user_id`: es la credencial del invitado y la sesión ya no la lee
-// (migración players_hide_pending_user_id). El invitado ubica su fila con
+// (migración 20261102230000_players_ocultar_pending_user_id). El invitado ubica su fila con
 // `fetchMiJugadorInvitado` (src/lib/data/tournaments/guest-player.ts).
 // `categories(default_tee_color)`: eslabón "category" del fallback de tee.
 // Hasta la migración 20260925 la columna no existía en prod y este embed
