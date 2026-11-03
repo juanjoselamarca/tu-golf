@@ -122,3 +122,4 @@ screenshots-qa-visual/
 # Archivos de estado de agentes ingeniero (relevo entre agentes, no se versionan)
 .claude/estado/
 /.swc
+.audit/

@@ -19,7 +19,7 @@ import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
 import { captureError } from '@/lib/error-tracking'
 import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
-import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
+import { courseDataDeInscripcion, esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 
 export const dynamic = 'force-dynamic'
 
@@ -148,12 +148,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     const handicapValue = indice != null
       ? isWhs
         ? indice
-        : resolverCourseHandicap(
-            indice,
-            course && course.slope_rating != null && course.course_rating != null
-              ? { slope: course.slope_rating, courseRating: course.course_rating, par: course.par_total ?? 72 }
-              : null
-          )
+        : resolverCourseHandicap(indice, courseDataDeInscripcion(course))
       : null
     result = await enrollPlayer(admin, {
       tournamentId: tournament.id,

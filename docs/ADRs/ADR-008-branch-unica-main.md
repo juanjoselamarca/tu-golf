@@ -1,6 +1,6 @@
 # ADR-008 — Branch única `main` sin develop
 
-**Estado**: Aceptado
+**Estado**: Aceptado; enmendado el 02-nov-2026 (PR #724): prod se publica desde `production`
 **Fecha**: 2026-03-17 (inicio del proyecto)
 
 ## Contexto
@@ -18,7 +18,7 @@ Para un equipo de 1-2 personas (Juanjo + Claude como CTO IA), Git-flow es overki
 - Commit directo (para cambios de bajo riesgo: docs, pequeños fixes)
 - Branch `feature/*` o `fix/*` con PR (para cambios de alto riesgo: refactors, features grandes, archivos protegidos)
 
-**Vercel** hace deploy automático de `main` a producción. No hay staging separado.
+**Vercel** publica producción desde la rama `production`, que avanza solo con `npm run promover` (fast-forward desde `main`, sin evento en vivo y con `main` en verde). Hasta el 02-nov-2026 publicaba `main` directo; se separó para que un torneo en juego no frene los merges. No hay staging separado.
 
 **Preview deployments** de Vercel actúan como staging efímero por PR.
 
@@ -30,7 +30,7 @@ Para un equipo de 1-2 personas (Juanjo + Claude como CTO IA), Git-flow es overki
 - **PRs opcionales**: para un equipo chico, la mayoría de cambios son directos
 
 ### Negativas
-- **Main es siempre producción**: un error directo rompe producción hasta que se revierta
+- **`production` es siempre producción**: un error promovido rompe producción hasta que se revierta y se promueva el revert
 - **No hay staging persistente**: imposible testear integraciones con terceros en un entorno pre-prod estable
 - **Vercel previews son per-PR**: si no hay PR, no hay preview
 

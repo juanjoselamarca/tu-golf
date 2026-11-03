@@ -170,6 +170,8 @@ describe('scanViolations — candados de las reglas nocturnas', () => {
     ['git push --no-verify origin HEAD', 'no-verify'],
     ['git commit -m "x" --no-verify', 'no-verify'],
     ['gh pr merge 12 --squash --admin', 'merge-admin'],
+    ['npm run promover', 'promover'],
+    ['node --env-file=.env.local scripts/promover-a-produccion.mjs', 'promover'],
     ['gh pr edit 12 --add-label fable-reviewed', 'auto-label-fable'],
     ['gh api repos/x/y/branches/main/protection/required_status_checks -X PATCH -f strict=false', 'branch-protection'],
     ['cat "C:/Users/juanj/OneDrive/Escritorio/Proyectos IA/tu-golf/.env.local"', 'env-principal'],
@@ -190,6 +192,9 @@ describe('scanViolations — candados de las reglas nocturnas', () => {
     'gh pr list --label fable-reviewed',
     'gh api repos/x/y/branches/main/protection',
     'cat "C:/ceo-worktrees/2026-10-02-r1-qa-design/.env.local"',
+    'npx vitest run scripts/promover-a-produccion.test.mjs',
+    'node ./node_modules/vitest/vitest.mjs run scripts/promover-a-produccion.test.mjs',
+    'grep -n promover scripts/promover-a-produccion.mjs',
   ])('no es violación: %s', (cmd) => {
     expect(rules(bash(cmd))).toEqual([]);
   });

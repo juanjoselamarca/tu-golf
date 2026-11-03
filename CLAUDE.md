@@ -110,17 +110,20 @@ Next.js 16 + TypeScript + Tailwind · Supabase `https://hoswfwhvcgqlqdmzpnce.sup
    con FAIL no se pushea.
 4. Al cerrar un sprint: entrada en `docs/SPRINT_LOG.md`, `node scripts/update-docs.js`, `docs/` en el commit.
 5. Merge solo con checks verdes; nunca `--admin` (`scripts/ceo-prompts/merge-rule.md`).
-6. **Evento en vivo = prod congelada.** Antes de mergear, deployar, correr SQL o tests contra prod:
-   `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs` (exit 3 = hay gente jugando). Con evento: nada
-   de eso hasta que termine. Torneos agendados → `config/eventos-en-vivo.json`. Incidente 04-oct-2026: 5 deploys y
-   6 tandas de CI en plena ronda tumbaron la API ~25 min (`docs/INCIDENTE_TORNEO_LEONES_2026-10-04.md`).
+6. **Evento en vivo = prod congelada.** Vercel publica prod desde la rama `production`: mergear a `main` no toca
+   prod. Se pasa con `npm run promover`, que corren **solo Max o Juanjo** (Claude no promueve, ni de día ni de
+   noche): solo fast-forward, con los checks de `main` en verde, y chequea el evento solo. Antes de promover, correr
+   SQL o tests contra prod: `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs` (exit 3 = hay gente jugando).
+   Con evento: nada de eso hasta que termine. Torneos agendados → `config/eventos-en-vivo.json`. Incidente
+   04-oct-2026: 5 deploys y 6 tandas de CI en plena ronda tumbaron la API ~25 min
+   (`docs/INCIDENTE_TORNEO_LEONES_2026-10-04.md`).
 
 ## PROTECCIÓN ANTI-CAÍDA — archivos protegidos
 
 Tras el incidente del 25-mar-2026 (refactor del Navbar tumbó prod): `src/components/Navbar.tsx`,
 `src/app/layout.tsx`, `src/proxy.ts`, `src/lib/supabase.ts`. Protocolo: explicar a Juanjo qué y por qué → cambio
-MÍNIMO, sin refactor → `npm run test` y `npm run build` antes del commit → commit individual → push y esperar que
-Juanjo confirme prod. **Prohibido en Navbar:** `onAuthStateChange(async ...)`, `async function` dentro de un
+MÍNIMO, sin refactor → `npm run test` y `npm run build` antes del commit → commit individual → push, merge, Max o
+Juanjo promueven y esperar que Juanjo confirme prod. **Prohibido en Navbar:** `onAuthStateChange(async ...)`, `async function` dentro de un
 `useEffect` de auth, cualquier `await` que bloquee el render inicial. Detalle: `docs/claude/proteccion-anti-caida.md`.
 
 ## SKILLS (detalle y routing por frase: `docs/claude/skill-routing.md`)

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { fetchJoinInfo, registerPlayerAndRound } from '@/lib/data/tournaments/joinFlow'
 import { resolverCourseHandicap } from '@/golf/core/course-handicap'
 import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
+import { courseDataDeInscripcion } from '@/golf/handicap-index-range'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -63,12 +64,7 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ slug: s
   const handicapValue = indice != null
     ? isWhs
       ? indice
-      : resolverCourseHandicap(
-          indice,
-          course && course.slope_rating != null && course.course_rating != null
-            ? { slope: course.slope_rating, courseRating: course.course_rating, par: course.par_total ?? 72 }
-            : null
-        )
+      : resolverCourseHandicap(indice, courseDataDeInscripcion(course))
     : null
 
   const result = await registerPlayerAndRound(admin, {

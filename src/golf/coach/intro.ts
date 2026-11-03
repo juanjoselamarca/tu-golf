@@ -235,3 +235,12 @@ export function buildActivePlanSummary(
     appliedPct: total > 0 ? Math.round((applied / total) * 100) : 0,
   }
 }
+
+/**
+ * Bajada de la tarjeta Mental Index en /coach. La adherencia solo se muestra si hay
+ * plan con al menos una ronda medida: "Adherencia: 0%" sin plan se leía como fracaso.
+ */
+export function describeRecoveryStatus(activePatterns: number, plan: ActivePlanSummary | null): string {
+  const patrones = `Patrones activos: ${activePatterns}.`
+  return plan && plan.total > 0 ? `${patrones} Adherencia: ${plan.appliedPct}%.` : patrones
+}

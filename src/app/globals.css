@@ -50,15 +50,19 @@
   --bogey:  #C4992A;
   --double: #DC2626;
 
-  /* Legacy palette aliases (compat con .glass-card, .leader-row, etc.) */
-  --bg-deep: #08120f;
-  --bg-deep-2: #0d1b17;
+  /* Legacy palette aliases (compat con .glass-card, .leader-row, etc.)
+     --bg-deep / --bg-deep-2 son el fondo navy fijo de marca, igual en ambos temas
+     (RondaHeader en `/ronda-libre/<codigo>` y `/score`, TVMode): --bg-deep es
+     --brand-dark. Eran el oliva #08120f / #0d1b17; con el body oscuro en navy, dejarlos
+     oliva abría una costura de tono en pantalla de cancha. */
+  --bg-deep: var(--brand-dark);
+  --bg-deep-2: #0e1c2f;
   --bg-card: #12231e;
   --bg-card-2: #173129;
   --gold: #c8a55a;
   --gold-soft: rgba(200, 165, 90, 0.18);
   --ivory: #f3efe6;
-  /* Texto secundario sobre --bg-deep (oscuro en ambos temas): ~8:1 sobre #08120f. */
+  /* Texto secundario sobre --bg-deep (oscuro en ambos temas): ~8,8:1 sobre #070d18. */
   --ivory-muted: rgba(243, 239, 230, 0.72);
   --sage: #9fb4aa;
   --line: rgba(200, 165, 90, 0.18);
@@ -248,13 +252,15 @@
     min-width: 320px;
   }
 
+  /* Dark: el body es navy plano --bg (#070d18, DESIGN.md §3), sin degradados.
+     Como la navbar y las cards pintan navy, el body sólo asoma en los huecos (la franja
+     bajo la navbar en "Nuevo torneo") y cualquier tinte ahí lee como banda ajena: el
+     oliva legacy (#08120f / #0d1b17 con viñeta verde) se veía rgb(15,23,17), y el
+     radial dorado al 10 % sobre navy da gris neutro, rgb(23,25,26). */
   [data-theme="dark"] body {
-    background-color: #08120f;
-    background-image:
-      radial-gradient(circle at top, rgba(200, 165, 90, 0.10), transparent 30%),
-      radial-gradient(circle at bottom right, rgba(30, 70, 55, 0.35), transparent 28%),
-      linear-gradient(180deg, #08120f 0%, #0d1b17 100%);
-    color: #f3efe6;
+    background-color: var(--bg);
+    background-image: none;
+    color: var(--text);
   }
 
   [data-theme="light"] body {

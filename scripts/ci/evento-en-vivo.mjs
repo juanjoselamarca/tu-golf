@@ -7,9 +7,9 @@
  * durante la ronda, sesiones autónomas mergearon 3 PRs → 5 deploys y ~6 tandas de CI contra la BD
  * de PRODUCCIÓN (plan free, 0,5 GB). La base se saturó y la API cayó ~25 min en plena ronda.
  *
- * Regla: mientras haya evento en vivo NO se toca prod — ni tests contra la BD, ni merges, ni deploys,
- * ni SQL. El paso de turno de los jobs de prod (wait-prod-turn.mjs) falla con este mensaje → los
- * checks del PR quedan rojos → nadie mergea (merge sólo con checks verdes).
+ * Regla: mientras haya evento en vivo NO se toca prod — ni tests contra la BD, ni promociones a la rama
+ * `production` (de ahí publica Vercel; mergear a main no toca prod), ni SQL. El paso de turno de los jobs de
+ * prod (wait-prod-turn.mjs) falla con este mensaje y `npm run promover` no avanza `production`.
  *
  * Evento en vivo =
  *   (a) una ventana declarada en config/eventos-en-vivo.json (torneos agendados), o
@@ -94,7 +94,7 @@ export async function consultarEvento({ url, key, ahora = Date.now(), ventanas =
 
 export const MENSAJE_CONGELADO = (motivo) =>
   `Congelado por EVENTO EN VIVO (${motivo}). No se toca producción mientras hay gente jugando: ` +
-  'ni tests contra la BD, ni merges, ni deploys. Re-ejecuta este job cuando termine la ronda.'
+  'ni tests contra la BD, ni promociones a production, ni SQL. Vuelve a intentarlo cuando termine la ronda.'
 
 if (process.argv[1]?.endsWith('evento-en-vivo.mjs')) {
   const r = await consultarEvento(credencialesEvento(process.env))

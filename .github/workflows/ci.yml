@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # production: solo para el smoke de prod, tras el deploy que dispara npm run promover.
+    branches: [main, production]
   pull_request:
     branches: [main]
     # edited: un PR al que le cambian la base a main (p. ej. tras mergear el PR del que colgaba) no dispara
@@ -42,6 +43,9 @@ jobs:
 
       - name: Run tests
         run: npm run test -- --run
+
+      - name: Columnas del código contra supabase/schema.sql
+        run: node scripts/verify-db-schema.mjs --solo-columnas
 
       - name: Build
         run: npm run build
@@ -83,10 +87,14 @@ jobs:
           node-version: '24'
 
       - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
 
       - name: Check no new console.*
-        run: node scripts/check-no-new-console.mjs --base=origin/${{ github.base_ref }}
+        run: node scripts/check-no-new-console.mjs --base="origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
 
   audit:
     name: Auditoría de dependencias
@@ -94,34 +102,37 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Checkout
+      - name: Checkout (full history for diff)
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: '24'
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Fetch base branch
+        if: github.event_name == 'pull_request'
+        run: git fetch origin "$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
 
-      - name: npm audit (informativo — no bloquea)
-        # Reporta HIGH/CRITICAL como warnings/annotations pero NUNCA falla el job.
-        # Las vulnerabilidades vivas se trackean en docs/TECH_DEBT.md. El CRITICAL
-        # actual es Next.js 14 (requiere migración a 16, no un npm audit fix).
-        # Antes este step hacía exit 1 en CRITICAL, generando emails diarios de
-        # error en cada push+PR. Ahora es señal pura, no gate.
+      - name: npm audit
+        # Un PR que cambia package.json o package-lock.json falla con vulnerabilidades HIGH o CRITICAL (en 0 desde
+        # #675). En el resto solo avisa: una vulnerabilidad recién publicada no bloquea un hotfix en pleno torneo.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT: ${{ github.event_name }}
         run: |
-          if npm audit --audit-level=critical; then
-            echo "::notice::No hay vulnerabilidades CRITICAL"
+          if [ "$EVENT" = pull_request ] && ! git diff --quiet "origin/$BASE_REF...HEAD" -- package.json package-lock.json; then
+            npm audit --audit-level=high
           else
-            echo "::warning::Hay vulnerabilidades CRITICAL — ver npm audit y docs/TECH_DEBT.md"
+            npm audit --audit-level=high || echo "::warning::Hay vulnerabilidades HIGH o CRITICAL sin parchar, ver npm audit"
           fi
-          npm audit --audit-level=high || echo "::warning::Hay vulnerabilidades HIGH sin parchar — ver docs/TECH_DEBT.md"
 
   e2e-smoke:
-    # Smoke e2e contra producción. Solo en push a main (post-deploy Vercel).
+    # Smoke e2e contra producción. Solo en push a production (post-deploy Vercel): un push a main no publica nada.
     # Detecta regresiones de runtime que tsc+tests unit no pueden capturar:
     # hydration mismatch, 5xx, crashes en rutas públicas, redirects de auth.
     name: E2E smoke (producción)
@@ -130,7 +141,7 @@ jobs:
       contents: read
       actions: read   # el turno de prod lee las corridas en curso
     timeout-minutes: 22   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref_name == 'production'
     needs: verify
 
     steps:

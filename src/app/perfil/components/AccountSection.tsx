@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Check } from '@/components/icons'
 import { ProBadge } from '@/components/billing/ProBadge'
+import { NOMBRE_DE_PLAN, esPlanPago, tierDePerfil } from '@/golf/billing/nombre-de-plan'
 import { planesUrl } from '@/lib/planes-url'
 import type { Profile } from '@/lib/data/perfil'
 import type { useProfileEdit } from '../hooks/useProfileEdit'
@@ -23,6 +24,23 @@ interface Props {
   profile: Profile
   userEmail: string | null
   edit: ReturnType<typeof useProfileEdit>
+}
+
+/**
+ * Lo que dice la fila "Mi plan": el plan REAL del usuario.
+ *
+ * Antes era `<ProBadge tier="pro" />` fijo, así que a un free (los 48 de
+ * producción el 01-nov-2026) su propio perfil le decía que tenía PRO. El badge
+ * dorado es sólo para planes de pago; `free` va como texto.
+ */
+function PlanActual({ tier: raw }: { tier: string | null }) {
+  const tier = tierDePerfil(raw)
+  if (esPlanPago(tier)) return <ProBadge tier={tier} />
+  return (
+    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600 }}>
+      {NOMBRE_DE_PLAN[tier]}
+    </span>
+  )
 }
 
 export function AccountSection({ profile, userEmail, edit }: Props) {
@@ -118,7 +136,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
           >
             <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>Mi plan</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ProBadge tier="pro" />
+              <PlanActual tier={profile.subscription_tier} />
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-3)' }}>
                 <path d="M9 18l6-6-6-6" />
               </svg>

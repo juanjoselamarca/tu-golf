@@ -71,9 +71,9 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
           ))}
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: '11.5px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
-        <span>{footMeta}</span>
-        <span style={{ color: 'var(--text)', fontFamily: 'inherit', fontWeight: 600, fontSize: '12px' }}>ver →</span>
+      {/* Sin "ver →": no existe un detalle de patrón al que llevar (dead-end, 25-oct). */}
+      <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: '11.5px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
+        {footMeta}
       </div>
     </div>
   )

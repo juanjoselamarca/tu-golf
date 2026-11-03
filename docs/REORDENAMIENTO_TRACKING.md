@@ -384,14 +384,20 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
   `PartidaShotgun.tsx:35-37` (OFF `var(--border)`). Migrar a `src/components/ui/Toggle.tsx` (WCAG 1.4.11 medido).
 - [x] `FEATURE_MIN_TIER['coach-tracking' | 'coach-plan']` sin consumidor → PR #495: `canUseCoach` = beta O
   `canAccessServer('coach-plan')` (decisión Juanjo 03-oct, sólo con paywall encendido); `'coach-tracking'` borrada.
-- [ ] **`/api/coach/post-round-trigger` falla siempre en silencio** (hallado en review de PR #495): inserta
+- [x] **`/api/coach/post-round-trigger` falla siempre en silencio** (hallado en review de PR #495): insertaba
   `event_type: 'round_completed'` en `coach_events`, pero la columna es `type` con CHECK (`034_cerebro_foundation.sql:130`;
-  ninguna migración posterior agrega `event_type` ni `round_completed`). El insert nunca entra. Cerebro → review Fable.
+  ninguna migración posterior agrega `event_type` ni `round_completed`). El insert nunca entró → PR #627: ruta borrada y
+  el único aviso al coach queda en `/api/coach/plan-outcome`, con test de regresión (`scorer/avisar-al-coach.test.ts`).
+- [ ] **`historical_rounds.notes` sigue legible por cualquier usuario CON cuenta** (hallado en la review de
+  PR #644, que cerró el agujero de `anon`): `authenticated` tiene SELECT de tabla y la policy `public_rounds`
+  abre las filas `privacy='public'`, así que `?select=notes&privacy=eq.public` devuelve las notas de todos.
+  No se arregla con GRANT (los privilegios de columna no son por fila): pide mover `notes` a una tabla sólo
+  del dueño o leerlas por un RPC security definer. Zona crítica → review Fable.
 - [ ] **`/api/taiger/context` e `/api/taiger/intro` sin gate de coach ni rate limit** (sólo `getUser`). Pasarlos por
   `canUseCoach` + `checkRateLimit` (intro gasta IA).
 - [ ] **`trial_ends_at` lo lee `getSubscription` pero `canAccess` lo ignora**: un trial vencido sigue con acceso mientras
   `subscription_status` no cambie, y no hay webhook de pagos que lo cambie. Resolver al integrar el proveedor de pagos.
-- [x] Privilegios de tabla: TRUNCATE/TRIGGER/REFERENCES/MAINTAIN de `anon`/`authenticated` en las 68 tablas de `public` y tablas futuras + EXECUTE de las 3 funciones de trigger (PR #498, F1) — **aplicado en prod el 03-oct** (verificado: registro crea perfil, editar perfil, canarios privilegios-tablas y profiles-privilegios 16/16). Siguen F2 (anon) y F3 (authenticated) con Juanjo. INSERT/UPDATE/DELETE de anon y authenticated siguen abiertos: fases F2 y F3 del plan (con Juanjo presente).
+- [x] Privilegios de tabla: TRUNCATE/TRIGGER/REFERENCES/MAINTAIN de `anon`/`authenticated` en las 68 tablas de `public` y tablas futuras + EXECUTE de las 3 funciones de trigger (PR #498, F1) — **aplicado en prod el 03-oct** (verificado: registro crea perfil, editar perfil, canarios privilegios-tablas y profiles-privilegios 16/16). **F2 (anon) cerrada**: `20261029120000_anon_sin_permisos_de_tabla.sql` (PR #677) le saca a `anon` todo privilegio de tabla salvo los 8 que lee una página sin sesión, `20261029200000_anon_restos_capa3.sql` (PR #680) las secuencias y las columnas de `profiles` que nadie sin sesión lee, y este PR deja `historical_rounds` en SELECT por columna. Sigue **F3 (`authenticated`)** con Juanjo: de ella depende el ítem de `historical_rounds.notes` de más arriba.
 - [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
   estado final (validador con `-1`, GRANT con las 18 columnas) sin renombrarse; si se renombran con fecha
   posterior, `b` pisa a `c` y el `REVOKE` de tabla borra los GRANT de columna de `d`.
@@ -812,13 +818,13 @@ del mismo flujo; lo común quedó en UNA fuente.
 ## Diferencial fuera de la fuente única (detectado en revisión de #502, 04-oct-2026)
 
 `diferencialDeTarjeta` (src/lib/indice-golfers.ts) + `alcanzaMinimoDeHoyosJugados` (src/golf/core/ajuste-whs.ts) son la
-fuente única del diferencial (bola compartida → null, WHS 2.2 hoyos jugados). Siguen llamando `calcularDiferencial`
-directo y deben migrarse cuando se toque cada flujo:
-- [ ] `src/app/api/import/confirm/route.ts` (un scramble importado recibe diferencial)
-- [ ] `src/lib/import-round.ts`
-- [ ] `src/app/perfil/historial/hooks/useAddRoundForm.ts`
-- [ ] `src/app/api/game/actions.ts` (torneos)
-- [ ] `src/golf/stats/cpi.ts` (stat del coach, no índice)
+fuente única del diferencial (bola compartida → null, WHS 2.2 hoyos jugados). Resuelto en #550 (13-oct-2026): fuera de
+`indice-golfers.ts` nadie llama `calcularDiferencial` (verificado el 31-oct-2026).
+- [x] `src/app/api/import/confirm/route.ts`: delega en `importRound` / `actualizacionGarmin` → `resolverTarjetaImportada` → `diferencialDeTarjeta`
+- [x] `src/lib/import-round.ts`: `resolverTarjetaImportada`
+- [x] `src/app/perfil/historial/hooks/useAddRoundForm.ts`: delega en `importRound`
+- [x] `src/app/api/game/actions.ts` (torneos): ya no calcula diferencial
+- [x] `src/golf/stats/cpi.ts`: lee el diferencial persistido (`fetchRondasCPI`)
 
 ### Concepto "SQL por la Management API de Supabase" → `sqlEn()` / `lit()` / `qi()` en `scripts/lib/management-sql.mjs` (08-oct-2026)
 
@@ -827,7 +833,7 @@ Canónico desde el PR de la base de pruebas (#515): recibe el ref explícito, re
 - [x] `scripts/respaldo/respaldo-diario.mjs:48` (`sql()`) y `:61` (`lit()`) — resuelto: lee vía `exec_sql` en solo lectura (`scripts/lib/exec-sql.mjs`), sin token
 - [ ] `scripts/respaldo/restaurar.mjs:54` (`sql()`) y `:65` (`lit()`) — escribe con `--aplicar`: migrar SIN read_only en ese camino (hoy sqlEn lo forzaría contra prod; restaurar en prod es justo el caso que debe escribir → necesita una salida explícita y revisada)
 - [ ] `scripts/audit-handicap-calc.mjs:40` (endpoint propio)
-- [ ] `scripts/verify-db-schema.mjs:45` (endpoint propio)
+- [x] `scripts/verify-db-schema.mjs:45` — resuelto: ya no lee ninguna base, compara contra `supabase/schema.sql`
 - [x] `scripts/run-sql.mjs:59` — resuelto: lee vía `exec_sql` en solo lectura (`scripts/lib/exec-sql.mjs`); prod ya no se escribe por SQL directo
 
 ## Formato de score: dos nombres para "vs par" (detectado en revisión de #509, 09-oct-2026)

@@ -153,16 +153,20 @@ Ver `docs/RUNBOOKS/ops-health-check.md` para operación.
 ## Deploy pipeline
 
 ```
-git push origin main
+PR → merge a main
     ↓
 GitHub Actions CI (.github/workflows/ci.yml)
     ├── tsc --noEmit
     ├── vitest run
     └── next build (con env placeholders)
     ↓
-Vercel Build (parallel, con secrets reales)
+Vercel Build de main (Preview)
     ↓
-Deploy a production (instant alias swap)
+npm run promover (Max o Juanjo; sin evento en vivo y con main en verde)
+    ↓
+rama production → Vercel Build → Deploy a production (instant alias swap)
+    ├── migraciones-prod (si trae migraciones, con aprobación)
+    └── E2E smoke contra prod (ci.yml)
     ↓
 Post-deploy: cron health-check valida
 ```

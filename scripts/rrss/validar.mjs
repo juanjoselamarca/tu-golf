@@ -5,6 +5,7 @@ import {
   FORMATOS_LISTOS,
   SLUG_PIEZA,
   TOPE_PALABRAS,
+  TOPE_CAPTION,
   TOPE_GANCHO_CAPTION,
   HASHTAGS,
   CTA,
@@ -297,6 +298,10 @@ export function validarPieza(p) {
   const gancho = caption.split('\n')[0]
   if (gancho.length > TOPE_GANCHO_CAPTION)
     malo.push(`caption: el gancho tiene ${gancho.length} caracteres; Instagram corta en ${TOPE_GANCHO_CAPTION}`)
+  // El otro extremo del mismo campo: pasado el tope, Instagram no lo acepta y lo
+  // corta al pegar. Se descubre recién al subir, con el paquete ya aprobado.
+  if (caption.length > TOPE_CAPTION)
+    malo.push(`caption: tiene ${caption.length} caracteres y el tope de Instagram es ${TOPE_CAPTION}`)
   const emojiCaption = caption.match(EMOJI) ?? []
   if (emojiCaption.length > 1) malo.push(`caption: ${emojiCaption.length} emojis; va uno como máximo`)
   const voseoCaption = buscarVoseo(caption)

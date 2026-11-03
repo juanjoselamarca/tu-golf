@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { calcularCPI, type ResultadoCPI, type RondaCPI } from '@/golf/stats/cpi'
+import { indexWindow, INDEX_WINDOW_COLUMNS, type IndexWindowRound } from '@/golf/core/index-window'
 import { captureError } from '@/lib/error-tracking'
 
 export interface Profile {
@@ -13,12 +14,14 @@ export interface Profile {
   nivel: number | null
   nivel_updated_at: string | null
   nivel_expires_at: string | null
+  /** Plan del usuario. Lo muestra la fila "Mi plan"; `null` = sin valor en la base → free. */
+  subscription_tier: string | null
 }
 
 // Fuente ÚNICA de la lista de columnas del perfil. La importan también los hooks
 // client-side que re-fetchean el profile (evita que dos copias se desincronicen).
 export const PROFILE_COLS =
-  'id, name, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at'
+  'id, name, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at, subscription_tier'
 
 export type { ResultadoCPI }
 
@@ -114,24 +117,23 @@ export async function countTournaments(supabase: SupabaseClient, userId: string)
 /**
  * FUENTE ÚNICA de las rondas que lee el CPI. La usan /perfil (`fetchCpi`),
  * /api/cpi, /coach y el caché que escribe import-confirm, así que las cuatro
- * superficies muestran el mismo número. Las rondas que el índice no promedia
- * tampoco entran: las tarjetas FedeGolf (espejo score-only, `OR_EXCLUDE_FEDEGOLF`)
- * y las que el usuario excluyó (`excluded_from_handicap`). El diferencial es el
- * persistido (el del índice, con el tope WHS 3.1, #545). Últimas 50 por fecha
- * (el CPI usa hasta 20 con diferencial). `null` si la lectura falla.
+ * superficies muestran el mismo número. Son las rondas que promedia
+ * el índice (`indexWindow`), en su orden: sin las tarjetas FedeGolf (espejo
+ * score-only, `OR_EXCLUDE_FEDEGOLF`) ni las que el usuario excluyó. El diferencial es
+ * el persistido (el del índice, con el tope WHS 3.1, #545). Sin `limit`: cortaría
+ * antes del filtro de elegibilidad. El `order` queda: si PostgREST corta en su máximo
+ * de filas (1000), se quedan las más recientes. `null` si la lectura falla.
  */
 export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): Promise<RondaCPI[] | null> {
   const { data, error } = await supabase
     .from('historical_rounds')
-    .select('played_at, diferencial')
+    .select(INDEX_WINDOW_COLUMNS)
     .eq('user_id', userId)
     .or(OR_EXCLUDE_FEDEGOLF)
     .eq('excluded_from_handicap', false)
     .order('played_at', { ascending: false })
-    .limit(50)
   if (error) return null
-  return ((data ?? []) as Array<{ played_at: string; diferencial: number | null }>)
-    .map(r => ({ played_at: r.played_at, diferencial: r.diferencial ?? null }))
+  return indexWindow((data ?? []) as IndexWindowRound[]).map(r => ({ played_at: r.played_at, diferencial: r.diferencial }))
 }
 
 // CPI calculado server-side: misma lógica que /api/cpi pero SIN round-trip HTTP

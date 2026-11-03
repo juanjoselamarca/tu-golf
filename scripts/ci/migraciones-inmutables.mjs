@@ -21,7 +21,7 @@
  * Uso:
  *   --pr                      (pull_request_target) env GH_TOKEN, GITHUB_REPOSITORY, PR. Trae refs/pull/PR/merge
  *                             fresco: base = MERGE^1 (la base exacta del merge), head = MERGE, main = origin/main.
- *   --base=<ref> --head=<ref> (push a main, en migraciones-prod.yml) etiquetas de los PRs del commit COMMIT_SHA.
+ *   --base=<ref> --head=<ref> (push a production, en migraciones-prod.yml) etiquetas de los PRs del commit COMMIT_SHA.
  *   --arbol=<ref>             el árbol COMPLETO de <ref> no puede tener dos migraciones con la misma versión (la CLI
  *                             aplicaría una sola). Sin base: corre siempre en migraciones-prod.yml, también sin
  *                             `before` (Run workflow) y cuando la concurrencia cancela una corrida intermedia.

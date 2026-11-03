@@ -113,6 +113,12 @@ export const TOPE_PALABRAS = { portada: 7, lamina: 20 }
 /** Lo que Instagram muestra del caption antes del "... más". */
 export const TOPE_GANCHO_CAPTION = 125
 
+/**
+ * El tope duro del caption completo: Instagram no acepta más y corta al pegar.
+ * `TOPE_GANCHO_CAPTION` es el otro extremo: lo que se lee sin desplegar.
+ */
+export const TOPE_CAPTION = 2200
+
 export const HASHTAGS = { min: 3, max: 5 }
 
 /** Llamados a la acción por público (guía, sección 6). */
@@ -290,4 +296,79 @@ export function huellaTexto(pieza) {
     hashtags: pieza.hashtags ?? [],
   }
   return createHash('sha256').update(JSON.stringify(texto)).digest('hex').slice(0, 16)
+}
+
+/**
+ * La huella de los fotogramas de una toma, con el mismo encoding de campos que usa
+ * `huellaDeLoRevisado`.
+ *
+ * Existe para que `montar.mjs` pueda sellar en `video.json` QUÉ captura consumió, y para
+ * que los dos controles que miran ese manifiesto —el expediente y el empaquetado— lo
+ * recalculen contra lo que hay en disco. Sin eso, recapturar y olvidar montar deja un MP4
+ * de la toma anterior que ninguna huella delata: la de la escena no se mueve (el código es
+ * el mismo) y la duración apenas cambia.
+ */
+export function huellaDeCaptura(frames) {
+  const sello = (frames ?? []).map((f) => [f.archivo, f.ms, f.nota ?? ''].join(':'))
+  return createHash('sha256').update(JSON.stringify(sello)).digest('hex').slice(0, 12)
+}
+
+/**
+ * La primera línea del expediente, y lo que el portón usa para reconocerlo.
+ *
+ * Vive acá, y no en `expediente-pieza.mjs`, porque la necesitan los dos lados y
+ * `expediente-pieza.mjs` ya importa de `tanda.mjs`: al revés sería un ciclo. Es una
+ * fuente única a propósito — si el encabezado cambia en un lado y no en el otro, el
+ * portón deja de reconocer el expediente y vuelve a aceptarlo como veredicto.
+ */
+export const ENCABEZADO_DE_EXPEDIENTE = '# Revisión de la tanda'
+
+/**
+ * La huella de lo que el revisor tuvo delante: el texto y la parte visual de cada
+ * pieza de la tanda, en su orden, más los fotogramas del reel si lo hay.
+ *
+ * El veredicto de un revisor es un archivo de texto, y un archivo de texto no sabe
+ * de qué pieza habla. Sin esta huella el camino que se cuela no necesita mala fe:
+ * Juanjo pide un cambio, se corrige el caption, y el mismo archivo del PUBLICAR de
+ * ayer alcanza para mandar la tanda de hoy. Nadie mintió y nadie revisó lo que salió.
+ *
+ * Incluye los fotogramas y la huella de la escena porque es ahí donde un reel cambia
+ * sin que cambie el JSON de la pieza: tocar la escena —un golpe, el gesto, los tiempos—
+ * mueve la huella y obliga a revisar de nuevo.
+ *
+ * Volver a capturar SIEMPRE mueve la huella, aunque la escena sea la misma y el video se
+ * vea igual: `rafaga` (`capturar.mjs`) mide reloj real —`previo.ms = ahora - t`— y emite
+ * tantos cuadros como alcance la máquina, así que dos tomas de la misma escena dan otro
+ * número de archivos y otros `ms`. Es fricción real y es el lado correcto del error: una
+ * recaptura obliga a revisar de nuevo.
+ *
+ * Lo que NO sella son los píxeles, ni de las láminas (igual que `huellaVisual`) ni de los
+ * jpg; lo que se ve dentro de un cuadro puede cambiar por una razón ajena a la escena (la
+ * app cambió de aspecto) y eso lo caza el revisor mirando los jpg, que por eso van
+ * listados en el expediente. Tampoco sella el ENSAMBLADO: tocar los fps, el `scale` o el
+ * largo de la lámina de cierre en `montar.mjs`, o cómo dibujan `render.mjs` y las
+ * plantillas, da otro MP4 y otros PNG con las cinco huellas quietas. Eso es código y lo
+ * revisa el PR que lo cambia, no la tanda; pero quien lo toque tiene que volver a
+ * renderizar y a montar por su cuenta, porque el portón no se lo va a pedir.
+ */
+export function huellaDeLoRevisado(items) {
+  const sello = items.map((it) => ({
+    rol: it.rol ?? null,
+    slug: it.pieza?.slug ?? null,
+    texto: huellaTexto(it.pieza ?? {}),
+    visual: huellaVisual(it.pieza ?? {}),
+    frames: huellaDeCaptura(it.frames),
+    // El guion de la toma, no sus cuadros: los `ms` y las notas de `frames` salen de
+    // acá, así que una escena corregida y no recapturada deja `frames` igual. Sin este
+    // campo, cambiar el gesto de la escena no movía la huella y el PUBLICAR de la toma
+    // anterior seguía valiendo.
+    escena: it.escena ?? null,
+    // Los últimos segundos de un reel son la lámina de cierre, y sale de OTRA pieza
+    // que puede no estar en la tanda. Sin este campo se corrige ese titular, se
+    // renderiza, se monta, y el PUBLICAR de ayer sigue valiendo para un reel que
+    // termina distinto del que se revisó. Va la pieza además de la huella: apuntar
+    // el cierre a otra pieza también cambia el reel.
+    cierre: it.cierre ?? null,
+  }))
+  return createHash('sha256').update(JSON.stringify(sello)).digest('hex').slice(0, 12)
 }
