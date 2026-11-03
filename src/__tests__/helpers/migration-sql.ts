@@ -40,6 +40,9 @@ export const sqlAllInSchemaPublic = (kind: 'tables' | 'functions') => String.raw
  */
 export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil_sugerido_id', 'telefono_invitado']
 
+/** Same for players (20261102230000_players_ocultar_pending_user_id): the guest's credential. */
+export const PLAYERS_PRIVATE_COLUMNS: readonly string[] = ['pending_user_id']
+
 /**
  * The tables /torneo/[slug] and /api/ronda-libre/[codigo]/live read without a session, and the only columns
  * anon can SELECT on each (20261027120000_anon_columnas_vistas_publicas). A column a public view starts reading

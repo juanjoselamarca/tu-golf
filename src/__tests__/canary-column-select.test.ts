@@ -22,6 +22,7 @@ import { describe, it, expect } from 'vitest'
 import {
   BASELINE,
   CLIENT_ROLES,
+  PLAYERS_PRIVATE_COLUMNS,
   RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS,
   migrationFiles,
   readMigration,
@@ -229,15 +230,19 @@ describe('canary: column-level SELECT on ronda_libre_jugadores', () => {
 })
 
 describe('canary: column-level SELECT on players', () => {
-  // Until this migration authenticated had table-level SELECT on players, so only the ones from it onward are held to the rule.
-  const SINCE = '20261102230000_players_ocultar_pending_user_id.sql'
-  const fromSince = () => realMigrations().filter(m => m.file >= SINCE)
-  const later = (sql: string) => scan('players', [...fromSince(), { file: '20991231000000_later.sql', sql }])
+  // The only files that granted SELECT on players to a client role before pending_user_id went private. Every other
+  // migration is held to the rule, whatever its timestamp: one dated earlier can still be merged later (--include-all).
+  const BEFORE_PRIVATE = new Set([BASELINE, '20261027120000_anon_columnas_vistas_publicas.sql'])
+  const held = () => realMigrations().filter(m => !BEFORE_PRIVATE.has(m.file))
+  const later = (sql: string) => scan('players', [...held(), { file: '20991231000000_later.sql', sql }])
 
-  it('the baseline gives table-level SELECT, and the migration declares pending_user_id private', () => {
+  it('the baseline gives table-level SELECT, and a migration declares pending_user_id private', () => {
     expect(privateColumnsOf('players')).toEqual([])
-    expect(globalPrivateColumns('players')).toEqual(['pending_user_id'])
-    expect(fromSince().map(m => m.file)[0]).toBe(SINCE)
+    expect(globalPrivateColumns('players')).toEqual([...PLAYERS_PRIVATE_COLUMNS].sort())
+  })
+
+  it('the exempt files are exactly the ones that granted it before (detector guard)', () => {
+    expect(new Set(scan('players').map(e => e.split(': ')[0]))).toEqual(BEFORE_PRIVATE)
   })
 
   it('detects a column without GRANT, a reopened pending_user_id and a table-level GRANT (detector guard)', () => {
@@ -247,8 +252,8 @@ describe('canary: column-level SELECT on players', () => {
     expect(later('GRANT SELECT ON public.players TO authenticated;')).toHaveLength(1)
   })
 
-  it('every migration from the switch on keeps SELECT column-level', () => {
-    expect(scan('players', fromSince())).toEqual([])
+  it('every other migration keeps SELECT column-level', () => {
+    expect(scan('players', held())).toEqual([])
   })
 })
 
