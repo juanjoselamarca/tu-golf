@@ -3,7 +3,8 @@
 -- por el SELECT de tabla del baseline. Esta migración lo deja privado para los dos roles del cliente.
 --
 -- Escrita el 16-oct-2026 y renumerada al 27-oct: el baseline del esquema es 20261019200001 y el canario
--- src/__tests__/canary-migration-names.test.ts prohíbe migraciones anteriores a él. Reescrita además con GRANT
+-- src/__tests__/canary-migration-names.test.ts prohíbe migraciones anteriores a él. Renumerada otra vez al 02-nov para
+-- quedar después de 20261029120000 y 20261102120000, que ya están en prod y también tocan players. Reescrita además con GRANT
 -- estáticos (antes armaba la lista con format() desde information_schema, invisible para los canarios) y
 -- reconciliada con 20261027120000, que ya había acotado anon a 12 columnas: si volviera a GRANTear "todas menos
 -- pending_user_id" le devolvería a anon las 2 columnas que esa migración le quitó (flight_id, tees,
@@ -19,7 +20,7 @@
 -- REVOKE SELECT de tabla también quita los SELECT por columna, así que cada GRANT deja exactamente su lista.
 -- Idempotente.
 --
--- Rollback: supabase/migrations/rollback/20261027_players_ocultar_pending_user_id_rollback.sql
+-- Rollback: supabase/migrations/rollback/20261102_players_ocultar_pending_user_id_rollback.sql
 
 REVOKE SELECT ON public.players FROM anon;
 GRANT SELECT (id, tournament_id, user_id, category_id, handicap_at_registration, status, created_at, status_reason,
