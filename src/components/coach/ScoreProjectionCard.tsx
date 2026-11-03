@@ -60,7 +60,7 @@ export function ScoreProjectionCard({ projection }: Props) {
     >
       <div
         style={{
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 700,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',

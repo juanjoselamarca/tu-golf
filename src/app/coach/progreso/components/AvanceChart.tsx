@@ -106,11 +106,11 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-        <span style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600 }}>
+        <span style={{ fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600 }}>
           Diferencial por ronda · equiv. 18h
         </span>
         {mejorando != null && (
-          <span style={{ fontSize: '11px', fontWeight: 700, color: mejorando ? 'var(--coach-recovery-high)' : 'var(--text-3)' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: mejorando ? 'var(--coach-recovery-high)' : 'var(--text-3)' }}>
             {mejorando ? '↓ mejorando' : '→ estable'}
           </span>
         )}
@@ -169,7 +169,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
         </span>
       </div>
       {hay9 && (
-        <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '6px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+        <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '6px', display: 'flex', gap: '14px', alignItems: 'center' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
             <svg width="9" height="9"><circle cx="4.5" cy="4.5" r="3" fill="var(--brand)" opacity="0.6" /></svg>
             18 hoyos (tendencia)

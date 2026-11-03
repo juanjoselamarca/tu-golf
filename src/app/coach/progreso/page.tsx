@@ -91,7 +91,7 @@ export default function ProgresoPage() {
       <style>{`@keyframes progresoReveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}`}</style>
 
       <header style={{ ...reveal(0), marginBottom: '20px' }}>
-        <div style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700, marginBottom: '4px' }}>
+        <div style={{ fontSize: '12px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700, marginBottom: '4px' }}>
           tAIger+ · tu progreso
         </div>
         <h1 style={{ fontFamily: 'var(--font-playfair)', fontSize: '32px', lineHeight: 1.1, color: 'var(--text)', margin: 0, fontWeight: 600 }}>
