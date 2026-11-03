@@ -24,7 +24,8 @@ describe('faltasDeMain', () => {
   })
 
   it('el nombre es el del workflow de ci.yml', () => {
-    expect(readFileSync('.github/workflows/ci.yml', 'utf8')).toMatch(new RegExp(`^name: ${WORKFLOW_CI}\n`))
+    // `\r?`: en un checkout Windows con autocrlf el archivo llega con CRLF y el test no es sobre el EOL.
+    expect(readFileSync('.github/workflows/ci.yml', 'utf8')).toMatch(new RegExp(`^name: ${WORKFLOW_CI}\r?\n`))
   })
 })
 
