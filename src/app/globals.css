@@ -712,6 +712,18 @@ main {
   padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Barra fija de acciones del organizador (/organizador/[slug]/jugadores): en móvil sube sobre el
+   bottom nav; con bottom: 0 el nav tapaba el CTA "Iniciar torneo" (03-nov-2026). La holgura de la
+   página crece lo mismo. Misma altura que .has-bottom-nav. */
+@media (max-width: 767px) {
+  .organizador-barra-acciones {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .organizador-jugadores-panel {
+    padding-bottom: calc(var(--alto-barra, 0px) + 24px + 56px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
 /* â”€â”€ Toast: sube sobre bottom nav en mÃ³vil autenticado â”€â”€ */
 @media (max-width: 767px) {
   body:has(.bottom-nav-bar) .toast-container {

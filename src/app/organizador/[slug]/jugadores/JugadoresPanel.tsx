@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Flag } from '@/components/icons'
@@ -125,7 +125,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
   return (
     // Holgura inferior = altura medida de la barra fija de acciones, así no tapa la tabla.
-    <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: `${altoBarra + 24}px` }}>
+    <div className="organizador-jugadores-panel" style={{ '--alto-barra': `${altoBarra}px`, background: 'var(--bg)', minHeight: '100vh', paddingBottom: 'calc(var(--alto-barra) + 24px)' } as CSSProperties}>
 
       {/* Header */}
       <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '24px 32px' }}>

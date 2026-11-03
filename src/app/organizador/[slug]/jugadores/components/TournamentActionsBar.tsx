@@ -66,7 +66,7 @@ export function TournamentActionsBar({
   }
 
   return (
-    <div ref={barraRef} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', zIndex: 50 }}>
+    <div ref={barraRef} className="organizador-barra-acciones" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', zIndex: 50 }}>
       {(tournamentStatus === 'draft' || tournamentStatus === 'open') && motivoNoIniciar && (
         // El motivo se ve ANTES de apretar "Iniciar" (antes llegaba como toast
         // del 400 recién al apretarlo). Ocupa la fila completa sobre los botones.
