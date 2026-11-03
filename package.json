@@ -14,6 +14,7 @@
     "lint:strict": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "verify": "node scripts/verify.mjs",
+    "promover": "node --env-file=.env.local scripts/promover-a-produccion.mjs",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:integration": "node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- node node_modules/vitest/vitest.mjs run src/__tests__/integration --hookTimeout=60000 --no-file-parallelism",

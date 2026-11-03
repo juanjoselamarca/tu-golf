@@ -2,7 +2,13 @@
  * POST /api/torneos/[slug]/guest-claim
  *
  * Migra los datos de un jugador invitado a la cuenta recién creada.
- * Requiere autenticación (el usuario acaba de crear su cuenta) + guestId en el body.
+ * Requiere autenticación (el usuario acaba de crear su cuenta) + guestId Y guestToken en el body.
+ *
+ * El token (HMAC del guestId, lo entrega /guest-join al dispositivo del invitado) es la
+ * prueba de que el guestId es de quien reclama. Sin él, cualquier cuenta reclamaba a
+ * cualquier invitado de cualquier torneo: el guestId se podía leer de la tabla players
+ * con la anon key (16-oct-2026) y, una vez reclamado, la tarjeta del invitado quedaba en
+ * la cuenta ajena (podía anotarle golpes y cerrarla; el invitado ya no podía anotar).
  *
  * Lo que hace:
  *   1. Busca al player con pending_user_id === guestId en este torneo
@@ -10,13 +16,14 @@
  *   3. Actualiza user_id al usuario autenticado, limpia pending_user_id/player_name
  *   4. Actualiza el profiles.name si estaba vacío
  *
- * Body: { guestId: string }
+ * Body: { guestId: string, guestToken: string }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { verifyGuestToken } from '@/lib/guest-token'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,6 +52,10 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   const guestId = body?.guestId as string | undefined
   if (!guestId || !UUID_RE.test(guestId)) {
     return NextResponse.json({ error: 'missing_guest_id', message: 'ID de invitado inválido.' }, { status: 400 })
+  }
+  const guestToken = typeof body?.guestToken === 'string' ? body.guestToken : ''
+  if (!verifyGuestToken(guestId, guestToken)) {
+    return NextResponse.json({ error: 'invalid_guest_token', message: 'No pudimos verificar tu sesión de invitado.' }, { status: 403 })
   }
 
   const admin = createAdminClient()

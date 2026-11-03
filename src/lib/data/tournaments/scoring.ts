@@ -17,6 +17,11 @@ import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { CourseVariantRow } from '@/golf/courses/gender-variant'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import {
+  esHandicapDeInscripcionValido,
+  mensajeHandicapFueraDeRango,
+  type RangoHandicap,
+} from '@/golf/handicap-index-range'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
 import { fetchRoundPlayConfig } from './rounds'
@@ -45,8 +50,6 @@ export interface ScoringPlayer {
   categories: { default_tee_color: string | null; gender: string | null } | null
   /** user_id del jugador registrado. null para invitados. */
   user_id: string | null
-  /** pending_user_id del invitado. null para registrados. */
-  pending_user_id: string | null
   /** Nombre directo del invitado (tabla players). null para registrados. */
   player_name: string | null
   profiles: { name: string } | null
@@ -108,11 +111,14 @@ const SCORING_TOURNAMENT_SELECT =
   'id, name, slug, status, format, modo_juego, formato_juego, hole_count, total_rounds, ' +
   `course_id, date_start, tees, hcp_calc_mode, hcp_pct, es_demo, courses(${SCORING_COURSE_COLUMNS})`
 
+// Sin `pending_user_id`: es la credencial del invitado y la sesión ya no la lee
+// (migración players_hide_pending_user_id). El invitado ubica su fila con
+// `fetchMiJugadorInvitado` (src/lib/data/tournaments/guest-player.ts).
 // `categories(default_tee_color)`: eslabón "category" del fallback de tee.
 // Hasta la migración 20260925 la columna no existía en prod y este embed
 // devolvía 400 (pantalla vacía) — por eso estuvo fuera del SELECT.
 const SCORING_ROSTER_SELECT =
-  'id, handicap_at_registration, tee_id, user_id, pending_user_id, player_name, genero, profiles(name), ' +
+  'id, handicap_at_registration, tee_id, user_id, player_name, genero, profiles(name), ' +
   'categories(default_tee_color, gender), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number)'
 
@@ -312,11 +318,28 @@ export async function fetchRoundTotals(
   return (data as Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'> | null) ?? null
 }
 
+/**
+ * Handicap de inscripción de un jugador (lo edita el organizador desde el tab
+ * Resumen). Este número REPARTE GOLPES en el board y en el neto que persiste el
+ * scorer, así que se valida ACÁ y no sólo en el formulario: la validación del
+ * navegador no es una garantía — se la salta cualquier otro caller (un script,
+ * un endpoint futuro, la consola del organizador). Es la puerta por la que
+ * entraron a prod los 7 jugadores con handicap entre −59 y −38 del torneo "a"
+ * (12-may-2026, cerrado, 0 rondas).
+ *
+ * Rango: `rango` viene de la fuente única `@/golf/handicap-index-range`
+ * (`rangoDeHandicapDeInscripcion`): índice (−10..54, los plus incluidos) en
+ * WHS, la MISMA que validan `players` y `guest-join`; en raw, lo que la fórmula
+ * de la cancha produce para ese rango, porque ahí la columna guarda un course
+ * handicap que pasa de 54 legítimamente.
+ */
 export async function updatePlayerHandicap(
   supabase: SupabaseClient,
   playerId: string,
   value: number,
+  rango: RangoHandicap,
 ): Promise<void> {
+  if (!esHandicapDeInscripcionValido(value, rango)) throw new Error(mensajeHandicapFueraDeRango(rango))
   const { error } = await supabase
     .from('players')
     .update({ handicap_at_registration: value })

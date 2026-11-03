@@ -170,6 +170,7 @@ describe('canario · el handicap que puntúa en ronda libre sale de resolverHand
       'app/ronda-libre/nueva/hooks/useHandicapDeCancha.ts', // vista previa al crear una ronda libre (siempre 100 %)
       'app/api/torneos/[slug]/inscribirse/route.ts', // inscripción raw: guarda el CH; el gate aplica el %
       'app/api/torneos/[slug]/players/route.ts', // ídem, alta por el organizador
+      'golf/handicap-index-range.ts', // rango creíble del CH que guardan esos dos en raw: imagen del rango de índice por la MISMA fórmula; acota, no puntúa
     ]
     const usan = PRODUCTIVOS.filter((f) => /\bresolverCourseHandicap\(/.test(sinComentarios(readFileSync(f, 'utf8')))).map(rel)
     expect(usan.sort()).toEqual([...PERMITIDOS].sort())

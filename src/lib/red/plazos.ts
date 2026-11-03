@@ -8,6 +8,13 @@
  */
 export const TIMEOUT_EN_VIVO_MS = 8_000
 
+/**
+ * Auto-selección del jugador invitado al abrir el scorer del torneo (`/guest-player`). Es una
+ * comodidad, no un requisito: si no contesta, el invitado se elige de la lista. Corto a propósito
+ * — el wifi de un club puede aceptar la conexión y no contestar nunca (portal cautivo).
+ */
+export const PLAZO_AUTOSELECCION_INVITADO_MS = 5_000
+
 /** Chequeo de salud del banner de estado (`/api/health`). */
 export const PLAZO_SALUD_MS = 10_000
 

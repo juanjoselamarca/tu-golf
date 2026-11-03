@@ -2917,9 +2917,6 @@ create policy "read_ronda_equipos" on "public"."ronda_equipos" as permissive for
 create policy "gestionar_jugadores" on "public"."ronda_libre_jugadores" as permissive for all to public using ((EXISTS ( SELECT 1
    FROM public.rondas_libres r
   WHERE ((r.id = ronda_libre_jugadores.ronda_id) AND (r.creador_id = auth.uid())))));
-create policy "jugador_update_scores" on "public"."ronda_libre_jugadores" as permissive for update to public using (((user_id = auth.uid()) OR (EXISTS ( SELECT 1
-   FROM public.rondas_libres r
-  WHERE ((r.id = ronda_libre_jugadores.ronda_id) AND (r.creador_id = auth.uid()))))));
 create policy "rlj_demo_readonly_delete" on "public"."ronda_libre_jugadores" as restrictive for delete to public using ((NOT (EXISTS ( SELECT 1
    FROM public.rondas_libres r
   WHERE ((r.id = ronda_libre_jugadores.ronda_id) AND (r.es_demo = true))))));
@@ -3226,11 +3223,10 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."handicap_history" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."handicap_history" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."handicap_history" to service_role;
-grant SELECT on table public."historical_rounds" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."historical_rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."hole_scores" to authenticated;
+grant SELECT on table public."hole_scores" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."import_jobs" to authenticated;
@@ -3317,7 +3313,7 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."round_watchers" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_watchers" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_watchers" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."rounds" to authenticated;
+grant SELECT on table public."rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rounds" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."score_audit_log" to authenticated;
@@ -3367,6 +3363,7 @@ grant SELECT on table public."tournaments" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournaments" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournaments" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournaments" to service_role;
+grant SELECT ("course_id", "course_name", "formato_juego", "holes_played", "id", "modo_juego", "par_per_hole", "played_at", "privacy", "scores", "tee_color", "total_gross", "user_id") on table public."historical_rounds" to anon;
 grant SELECT ("fairway_hit", "gir", "gross_score", "hole_number", "id", "net_score", "par", "points", "putts", "round_id") on table public."hole_scores" to anon;
 grant SELECT ("category_id", "created_at", "genero", "handicap_at_registration", "id", "pending_user_id", "player_name", "status", "status_reason", "tee_id", "tournament_id", "user_id") on table public."players" to anon;
 grant SELECT ("analysis_level", "avatar_url", "cerebro_v3_enabled", "coach_access_enabled", "cpi_score", "cpi_status", "cpi_trend", "cpi_updated_at", "created_at", "default_tee_color", "founding_member_at", "genero", "golf_goals", "id", "indice", "indice_golfers", "indice_golfers_updated_at", "is_founding_member", "name", "nivel", "nivel_expires_at", "nivel_updated_at", "patterns_need_recalc", "role", "subscription_status", "subscription_tier", "target_deadline", "target_handicap", "target_set_at", "trial_ends_at", "trial_rounds_remaining", "updated_at") on table public."profiles" to authenticated;

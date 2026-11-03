@@ -120,7 +120,7 @@ export default function RecuperarPage() {
               />
 
               {error && (
-                <p style={{ fontSize: '13px', color: 'var(--double)', margin: 0 }}>{error}</p>
+                <p style={{ fontSize: '13px', color: 'var(--error-fg)', margin: 0 }}>{error}</p>
               )}
 
               <button
