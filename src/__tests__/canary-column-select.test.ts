@@ -4,7 +4,8 @@
  * Since 20261009000000_profiles_hide_private_columns.sql the session cannot read the private
  * columns of profiles (email, fecha_nacimiento), and since
  * 20261013000000_rls_match_pairings_telefono_invitado.sql those of ronda_libre_jugadores
- * (telefono_invitado). This setup broke once before: in September coach_access_enabled
+ * (telefono_invitado), and since 20261102230000_players_ocultar_pending_user_id.sql
+ * players.pending_user_id. This setup broke once before: in September coach_access_enabled
  * was created without a grant, the app got 42501 and the fix (#357) reopened SELECT on
  * the whole table, email included.
  *
@@ -110,6 +111,8 @@ const realMigrations = (): Migration[] => migrationFiles().map(file => ({ file, 
 
 function privateColumnsOf(table: string): string[] {
   const sql = readMigration(BASELINE)
+  // Table-level SELECT in the baseline (players): no column was private there; a later migration declares them.
+  if (new RegExp(String.raw`^grant [^(;\n]*\bselect\b[^(;\n]* on table public\."${table}" to authenticated;`, 'im').test(sql)) return []
   const columns = sql.match(new RegExp(String.raw`create table public\."${table}" \(\n([\s\S]*?)\n\);`))?.[1] ?? ''
   const granted = sql.match(new RegExp(String.raw`grant select \(([^)]*)\) on table public\."${table}" to authenticated;`, 'i'))?.[1] ?? ''
   return [...columns.matchAll(/^\s+"(\w+)"/gm)].map(m => m[1]).filter(c => !granted.includes(`"${c}"`)).sort()
@@ -222,6 +225,30 @@ describe('canary: column-level SELECT on ronda_libre_jugadores', () => {
     ])
     expect(later('GRANT ALL (perfil_sugerido_id) ON ronda_libre_jugadores TO anon;')).toHaveLength(1)
     expect(later('GRANT UPDATE (nombre) ON public.ronda_libre_jugadores TO authenticated;')).toEqual([])
+  })
+})
+
+describe('canary: column-level SELECT on players', () => {
+  // Until this migration authenticated had table-level SELECT on players, so only the ones from it onward are held to the rule.
+  const SINCE = '20261102230000_players_ocultar_pending_user_id.sql'
+  const fromSince = () => realMigrations().filter(m => m.file >= SINCE)
+  const later = (sql: string) => scan('players', [...fromSince(), { file: '20991231000000_later.sql', sql }])
+
+  it('the baseline gives table-level SELECT, and the migration declares pending_user_id private', () => {
+    expect(privateColumnsOf('players')).toEqual([])
+    expect(globalPrivateColumns('players')).toEqual(['pending_user_id'])
+    expect(fromSince().map(m => m.file)[0]).toBe(SINCE)
+  })
+
+  it('detects a column without GRANT, a reopened pending_user_id and a table-level GRANT (detector guard)', () => {
+    expect(later('ALTER TABLE public.players ADD COLUMN apodo text;')).toHaveLength(1)
+    expect(later('ALTER TABLE public.players ADD COLUMN apodo text;\nGRANT SELECT (apodo) ON public.players TO anon, authenticated;')).toEqual([])
+    expect(later('GRANT SELECT (pending_user_id) ON public.players TO authenticated;')).toHaveLength(1)
+    expect(later('GRANT SELECT ON public.players TO authenticated;')).toHaveLength(1)
+  })
+
+  it('every migration from the switch on keeps SELECT column-level', () => {
+    expect(scan('players', fromSince())).toEqual([])
   })
 })
 
