@@ -7,6 +7,7 @@ import { NOMBRE_DE_PLAN, esPlanPago, tierDePerfil } from '@/golf/billing/nombre-
 import { planesUrl } from '@/lib/planes-url'
 import type { Profile } from '@/lib/data/perfil'
 import type { useProfileEdit } from '../hooks/useProfileEdit'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const inputStyle: React.CSSProperties = {
   background: 'var(--bg-surface)',
@@ -47,7 +48,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
   return (
     <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.18)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: 0 }}>
+        <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, color: 'var(--text)', margin: 0 }}>
           Cuenta
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

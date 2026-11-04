@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Flag, Target, TrendingUp, BarChart3 } from '@/components/icons'
 import { WHS_TABLE_5_2 } from '@/golf/core/whs-index'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /* ── Design tokens ──────────────────────────────────── */
 const gold = '#C4992A'
@@ -36,7 +37,7 @@ function LabBadge() {
 function Section({ id, title, subtitle, children }: { id?: string; title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <div id={id} style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '24px 20px', marginBottom: '16px' }}>
-      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700, color: gold, margin: '0 0 4px', lineHeight: 1.2 }}>
+      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, fontWeight: 700, color: gold, margin: '0 0 4px', lineHeight: 1.2 }}>
         {title}
       </h2>
       {subtitle && <p style={{ fontSize: '12px', color: textFaint, margin: '0 0 16px', fontFamily: '"DM Mono", monospace', letterSpacing: '0.05em' }}>{subtitle}</p>}

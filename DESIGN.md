@@ -95,7 +95,8 @@ Cinco familias activas en producción:
 - hero marketing: 52–104 px Clash Display (clamp)
 - hero display app: 48–64 px Playfair Display (serif)
 - h1 page: 32 px Playfair Display (serif)
-- h2 section: 20 px Playfair Display (serif)
+- h2: 24 px Playfair Display (serif)
+- title section: 20 px Playfair Display (serif)
 - body: 16 px DM Sans
 - caption: 12 px DM Sans uppercase tracking-wider
 - code/data: 14–18 px DM Mono

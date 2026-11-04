@@ -46,7 +46,6 @@ export function HighlightsCarousel({ label, children }: Props) {
     textTransform: 'uppercase',
     color: 'var(--text-3)',
     fontWeight: 600,
-    fontFamily: '"DM Mono", monospace',
   }
   const trackStyle: CSSProperties = {
     display: 'flex',

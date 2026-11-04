@@ -55,7 +55,7 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
           <div style={{
             fontSize: FONT_SIZE.caption, letterSpacing: '0.14em', textTransform: 'uppercase',
             color: isLatent ? 'var(--coach-pattern-latente)' : CAT_COLOR[category],
-            fontWeight: 700, marginBottom: '4px', fontFamily: '"DM Mono", monospace',
+            fontWeight: 700, marginBottom: '4px',
           }}>
             {CAT_LABEL[category]} · {isLatent ? 'latente' : 'activo'}
           </div>

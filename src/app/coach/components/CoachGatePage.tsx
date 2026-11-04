@@ -246,7 +246,6 @@ export function CoachGatePage() {
                   padding: '14px 20px',
                   fontSize: FONT_SIZE.small,
                   fontWeight: 600,
-                  fontFamily: 'var(--font-dm-mono), monospace',
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase' as const,
                   cursor: loading ? 'wait' : 'pointer',

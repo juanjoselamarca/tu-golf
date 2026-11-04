@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /* ───────────────────────────────────────────────────────────
    Types
@@ -138,7 +139,7 @@ function Header({ title, subtitle, onBack }: { title: string; subtitle: string; 
       <BackButton onClick={onBack} />
       <div>
         <h2 style={{
-          fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0,
+          fontSize: FONT_SIZE.title, fontWeight: 700, color: 'var(--text)', margin: 0,
           fontFamily: 'var(--font-playfair)',
         }}>
           {title}

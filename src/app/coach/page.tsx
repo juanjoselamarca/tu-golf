@@ -380,7 +380,7 @@ export default async function CoachDashboard() {
 
       {sessions.filter(s => s.id !== primarySessionId).length > 0 && (
         <div style={{ padding: '0 20px', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text-3)', fontFamily: 'var(--font-dm-mono), monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>
+          <h2 style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>
             Sesiones anteriores
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
