@@ -22,6 +22,7 @@ import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
 import { indexWindow, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface RoundForBreakdown {
   id: string
@@ -148,7 +149,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             <h2
               id="indice-breakdown-title"
               style={{
-                fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700,
+                fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, fontWeight: 700,
                 color: 'var(--text)', margin: 0,
               }}
             >

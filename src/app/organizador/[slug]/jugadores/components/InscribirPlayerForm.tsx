@@ -5,6 +5,7 @@ import { inputStyle } from '../styles'
 import type { Profile } from '../hooks/useProfileSearch'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { UpsellCard } from '@/components/billing/UpsellCard'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export type InscribirMode = 'search' | 'guest' | 'batch'
 
@@ -133,7 +134,7 @@ export function InscribirPlayerForm({
         marginBottom: '32px',
       }}
     >
-      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: '0 0 16px' }}>
+      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, color: 'var(--text)', margin: '0 0 16px' }}>
         Inscribir jugador
       </h2>
 

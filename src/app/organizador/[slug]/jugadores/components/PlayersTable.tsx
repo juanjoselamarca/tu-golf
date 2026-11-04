@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { Users } from '@/components/icons'
 import { inputStyle } from '../styles'
 import type { Player, TournamentGroup } from '../types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 type StatusFilter = 'all' | 'approved' | 'withdrawn' | 'disqualified'
 
@@ -77,7 +78,7 @@ export function PlayersTable({
       }}
     >
       <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-        <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: '0 0 12px' }}>
+        <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, color: 'var(--text)', margin: '0 0 12px' }}>
           Jugadores inscritos ({players.length})
         </h2>
 

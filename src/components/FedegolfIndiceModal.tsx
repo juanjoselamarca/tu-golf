@@ -17,6 +17,7 @@ import { X, Trophy } from '@/components/icons'
 import type { FedegolfTarjeta } from '@/lib/fedegolf/types'
 import { formulaEsExplicable, filasDelCalculo } from '@/lib/fedegolf/tarjetas'
 import BreakdownRow, { BreakdownLista, BreakdownSeccion } from '@/components/indice/BreakdownRow'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface TarjetasResponse {
   ok: boolean
@@ -176,7 +177,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <h2
               id="fedegolf-indice-title"
-              style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0 }}
+              style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, fontWeight: 700, color: 'var(--text)', margin: 0 }}
             >
               Tu índice oficial, explicado
             </h2>

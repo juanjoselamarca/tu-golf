@@ -146,7 +146,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
 
         {/* Título */}
         <h2
-          className="mb-4 text-center font-display text-xl"
+          className="mb-4 text-center font-display text-title"
           style={{ color: '#eef2f8' }}
         >
           Compartir
