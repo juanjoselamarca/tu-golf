@@ -52,7 +52,7 @@ export function ExperiencePopup({ onSetup }: { onSetup: () => void }) {
 
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}><Flag size={36} strokeWidth={1.5} /></div>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h2, fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
             Personaliza tu experiencia
           </div>
           <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', lineHeight: 1.5 }}>
@@ -115,10 +115,10 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
     <div style={{ padding: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h2, fontWeight: 700, color: 'var(--text)' }}>
             Tu experiencia
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '2px' }}>
+          <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginTop: '2px' }}>
             Configura cómo Golfers+ te acompaña en la cancha
           </div>
         </div>
@@ -133,7 +133,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
       {!supported && (
         <div style={{
           background: 'var(--status-open-bg)', border: '1px solid var(--border)', borderRadius: '12px',
-          padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: 'var(--text)', lineHeight: 1.5,
+          padding: '14px 16px', marginBottom: '16px', fontSize: FONT_SIZE.small, color: 'var(--text)', lineHeight: 1.5,
         }}>
           Tu navegador no soporta notificaciones. Para la mejor experiencia, agrega Golfers+ a tu pantalla de inicio.
         </div>
@@ -142,7 +142,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
       {permState === 'denied' && (
         <div style={{
           background: 'var(--status-open-bg)', border: '1px solid var(--border)', borderRadius: '12px',
-          padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: 'var(--text)', lineHeight: 1.5,
+          padding: '14px 16px', marginBottom: '16px', fontSize: FONT_SIZE.small, color: 'var(--text)', lineHeight: 1.5,
         }}>
           Las notificaciones están bloqueadas en tu navegador. Ve a Configuración → Golfers+ → Permitir notificaciones.
         </div>
@@ -158,7 +158,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
           <Eye size={18} strokeWidth={1.5} style={{ color: prefs.spectator ? 'var(--brand-on-bg)' : 'var(--text-3)', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text)' }}>Alertas de espectador</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px', lineHeight: 1.4 }}>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginTop: '2px', lineHeight: 1.4 }}>
               Birdies, eagles y cambios de posición en vivo
             </div>
           </div>
@@ -178,7 +178,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
           <Flag size={18} strokeWidth={1.5} style={{ color: prefs.player ? 'var(--brand-on-bg)' : 'var(--text-3)', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text)' }}>Scorecard inteligente</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px', lineHeight: 1.4 }}>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginTop: '2px', lineHeight: 1.4 }}>
               Recordatorio si olvidas anotar un hoyo
             </div>
           </div>

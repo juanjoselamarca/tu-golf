@@ -12,7 +12,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <div style={{ textAlign: 'center', padding: '40px 20px' }} role="alert">
       <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><AlertTriangle size={32} strokeWidth={1.5} /></div>
-      <p style={{ color: 'var(--text)', marginBottom: '8px', fontSize: '15px' }}>{message}</p>
+      <p style={{ color: 'var(--text)', marginBottom: '8px', fontSize: FONT_SIZE.body }}>{message}</p>
       {onRetry && (
         <button
           onClick={onRetry}

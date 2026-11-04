@@ -203,19 +203,19 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
           </div>
 
           {loading && (
-            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '48px 0' }}>
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: FONT_SIZE.small, padding: '48px 0' }}>
               Leyendo tus tarjetas oficiales…
             </p>
           )}
 
           {!loading && notLinked && (
-            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: FONT_SIZE.small, padding: '32px 0', lineHeight: 1.6 }}>
               Vincula tu cuenta FedeGolf para ver cómo se compone tu índice oficial.
             </p>
           )}
 
           {!loading && failed && (
-            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: FONT_SIZE.small, padding: '32px 0', lineHeight: 1.6 }}>
               No pudimos leer tus tarjetas oficiales ahora.<br />
               Intenta de nuevo en un momento.
             </p>
@@ -230,7 +230,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
               <div style={{ textAlign: 'center', padding: '2px 0 0' }}>
                 <p
                   style={{
-                    fontSize: '10px',
+                    fontSize: FONT_SIZE.dataCaption,
                     fontWeight: 500,
                     letterSpacing: '0.14em',
                     textTransform: 'uppercase',
@@ -253,7 +253,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                 >
                   {hero != null ? hero.toFixed(1) : '—'}
                 </p>
-                <p style={{ fontSize: '12.5px', color: 'var(--text-2)', lineHeight: 1.55, maxWidth: '290px', margin: '12px auto 0' }}>
+                <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', lineHeight: 1.55, maxWidth: '290px', margin: '12px auto 0' }}>
                   {formulaCuadra ? (
                     <>El promedio de tus <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{diffsCuentan.length} mejores diferenciales</strong> de la ventana oficial FedeGolf.</>
                   ) : (
@@ -272,7 +272,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                             justifyContent: 'space-between',
                             alignItems: 'baseline',
                             gap: '12px',
-                            fontSize: '12.5px',
+                            fontSize: FONT_SIZE.caption,
                             color: 'var(--text-2)',
                             padding: '3.5px 0',
                           }}
@@ -288,7 +288,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                         promedio ya venía en 9.30, enunciar la regla sin mostrarla
                         operando es explicar algo que la pantalla no está haciendo. */}
                     {filasCalculo.some((f) => f.id === 'truncado') && (
-                      <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'left' }}>
+                      <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'left' }}>
                         La Federación trunca, no redondea.
                       </p>
                     )}
@@ -306,7 +306,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                 />
               )}
               {tarjetas.length === 0 && (
-                <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '24px 0', lineHeight: 1.6 }}>
+                <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: FONT_SIZE.small, padding: '24px 0', lineHeight: 1.6 }}>
                   Todavía no hay tarjetas en tu ventana oficial FedeGolf.
                 </p>
               )}
@@ -329,7 +329,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                             gap: '3px',
                             flexShrink: 0,
                             fontFamily: '"DM Mono", monospace',
-                            fontSize: '10px',
+                            fontSize: FONT_SIZE.dataCaption,
                             color: 'var(--brand-on-bg)',
                             whiteSpace: 'nowrap',
                           }}

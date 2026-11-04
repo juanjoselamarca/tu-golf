@@ -130,10 +130,10 @@ export function PWAInstallBanner() {
 
         {/* Content */}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>
+          <div style={{ fontSize: FONT_SIZE.body, fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>
             {reason ? 'Instala Golfers+ para seguir la ronda' : 'Golfers+ funciona mejor como app'}
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.4, marginBottom: '14px' }}>
+          <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', lineHeight: 1.4, marginBottom: '14px' }}>
             {reason ?? 'Acceso directo, pantalla completa y notificaciones en vivo.'}
           </div>
 

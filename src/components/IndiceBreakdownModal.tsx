@@ -189,20 +189,20 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
           )}
 
           {loading && (
-            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0' }}>
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: FONT_SIZE.small, padding: '40px 0' }}>
               Cargando…
             </p>
           )}
 
           {!loading && rounds && rounds.length === 0 && (
-            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: FONT_SIZE.small, padding: '40px 0', lineHeight: 1.6 }}>
               Aún no tienes rondas con diferencial calculado.<br />
               Importa tu historial desde FedeGolf, Garmin o un CSV.
             </p>
           )}
 
           {!loading && rounds && rounds.length > 0 && rounds.length < 3 && (
-            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '20px 0', lineHeight: 1.6 }}>
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: FONT_SIZE.small, padding: '20px 0', lineHeight: 1.6 }}>
               Faltan {3 - rounds.length} rondas para activar el índice (mínimo 3 con diferencial).
             </p>
           )}

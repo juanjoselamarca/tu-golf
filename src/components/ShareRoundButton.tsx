@@ -2,6 +2,7 @@
 
 import { SITE_URL, SITE_DOMAIN } from '@/lib/site-url'
 import { copyToClipboard } from '@/lib/clipboard'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   scoreGross: number
@@ -38,7 +39,7 @@ export default function ShareRoundButton({ scoreGross, scoreDiff, courseName, ro
         color: 'var(--brand-on-bg)',
         padding: '8px 16px',
         borderRadius: '10px',
-        fontSize: '13px',
+        fontSize: FONT_SIZE.small,
         fontWeight: 600,
         cursor: 'pointer',
         flexShrink: 0,

@@ -111,13 +111,13 @@ export default function InstallAppCard() {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: '13px', fontWeight: 700, color: 'var(--text)',
+          fontSize: FONT_SIZE.small, fontWeight: 700, color: 'var(--text)',
           fontFamily: '"DM Sans", system-ui, sans-serif',
           marginBottom: '2px',
         }}>
           Usar Golfers+ como app
         </div>
-        <div style={{ fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.4 }}>
+        <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', lineHeight: 1.4 }}>
           {showIosInstructions
             ? (isIOS
                 ? 'Toca ⎘ Compartir en Safari → "Agregar a inicio".'

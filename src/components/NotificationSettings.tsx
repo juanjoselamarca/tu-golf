@@ -136,7 +136,7 @@ export default function NotificationSettings() {
           <Bell size={20} />
           <span style={{ fontSize: FONT_SIZE.body, fontWeight: 700, color: 'var(--text)' }}>Notificaciones</span>
         </div>
-        <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
           {unsupportedReason}
         </p>
       </div>

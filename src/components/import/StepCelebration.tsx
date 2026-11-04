@@ -179,7 +179,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
         <h1
           style={{
             fontFamily: '"Playfair Display", serif',
-            fontSize: '28px',
+            fontSize: FONT_SIZE.h1,
             fontWeight: 700,
             color: 'var(--text)',
             margin: '0 0 10px',
@@ -196,7 +196,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
         {detalle && (
           <p
             style={{
-              fontSize: '13px',
+              fontSize: FONT_SIZE.small,
               color: 'var(--text-2)',
               margin: '0 0 6px',
               textAlign: 'center',
@@ -272,7 +272,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
             </div>
 
             {/* Color de tee habitual. */}
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 8px', textAlign: 'center' }}>
+            <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: '0 0 8px', textAlign: 'center' }}>
               ¿Desde qué color sales normalmente?
             </p>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -321,7 +321,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
                 border: 'none',
                 background: !genero || !selectedColor ? 'var(--border)' : 'var(--status-live-fg)',
                 color: '#fff',
-                fontSize: '15px',
+                fontSize: FONT_SIZE.body,
                 fontWeight: 700,
                 cursor: savingTee || !genero || !selectedColor ? 'default' : 'pointer',
                 opacity: savingTee || !genero || !selectedColor ? 0.6 : 1,
@@ -330,7 +330,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
               {savingTee ? 'Guardando…' : 'Guardar'}
             </button>
             {teeError && (
-              <p style={{ fontSize: '13px', color: 'var(--error-fg)', margin: '12px 0 0', textAlign: 'center' }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: 'var(--error-fg)', margin: '12px 0 0', textAlign: 'center' }}>
                 No pudimos guardar. Prueba de nuevo.
               </p>
             )}

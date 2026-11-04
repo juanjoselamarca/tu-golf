@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { copyToClipboard } from '@/lib/clipboard'
 import { SITE_URL } from '@/lib/site-url'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export default function InvitarAmigos({ userId }: { userId: string }) {
   const [copied, setCopied] = useState(false)
@@ -36,10 +37,10 @@ export default function InvitarAmigos({ userId }: { userId: string }) {
       display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap',
     }}>
       <div style={{ flex: 1, minWidth: '180px' }}>
-        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+        <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
           Invita a tus amigos de golf
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.4 }}>
+        <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', lineHeight: 1.4 }}>
           Comparte Golfers+ con tu grupo. Jugar juntos es mejor.
         </div>
       </div>
@@ -49,7 +50,7 @@ export default function InvitarAmigos({ userId }: { userId: string }) {
           background: copied ? '#16a34a' : 'rgba(196,153,42,0.12)',
           border: `1px solid ${copied ? '#16a34a' : 'rgba(196,153,42,0.3)'}`,
           color: copied ? '#ffffff' : 'var(--brand-on-bg)',
-          fontWeight: 600, fontSize: '13px',
+          fontWeight: 600, fontSize: FONT_SIZE.small,
           padding: '12px 20px', borderRadius: '10px',
           cursor: 'pointer', whiteSpace: 'nowrap',
           transition: 'all 200ms',

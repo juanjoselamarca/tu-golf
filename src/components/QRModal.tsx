@@ -22,7 +22,7 @@ export default function QRModal({ slug }: { slug: string }) {
           color: 'var(--brand-on-bg)',
           padding: '8px 16px',
           borderRadius: '10px',
-          fontSize: '13px',
+          fontSize: FONT_SIZE.small,
           cursor: 'pointer',
           fontWeight: 600,
         }}
@@ -51,7 +51,7 @@ export default function QRModal({ slug }: { slug: string }) {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '10px' }}>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '11px', color: '#9fb4aa', textTransform: 'uppercase', letterSpacing: '0.14em' }}>Compartir torneo</div>
+                  <div style={{ fontSize: FONT_SIZE.caption, color: '#9fb4aa', textTransform: 'uppercase', letterSpacing: '0.14em' }}>Compartir torneo</div>
                   <div style={{ color: 'var(--text)', fontSize: FONT_SIZE.lead, fontWeight: 700, marginTop: '4px' }}>Escanea y sigue en vivo</div>
                 </div>
                 <button
@@ -66,10 +66,10 @@ export default function QRModal({ slug }: { slug: string }) {
                 <QRCodeSVG value={url} size={200} />
               </div>
 
-              <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 14px' }}>
+              <p style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.small, margin: '0 0 14px' }}>
                 Usa este QR para abrir el leaderboard del torneo desde cualquier celular.
               </p>
-              <p style={{ color: '#9fb4aa', fontSize: '11px', margin: '0 0 16px', wordBreak: 'break-all' }}>{url}</p>
+              <p style={{ color: '#9fb4aa', fontSize: FONT_SIZE.caption, margin: '0 0 16px', wordBreak: 'break-all' }}>{url}</p>
 
               <button
                 onClick={() => setOpen(false)}

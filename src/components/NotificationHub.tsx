@@ -123,7 +123,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
               ×
             </button>
           </div>
-          <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '4px 0 0' }}>
+          <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-3)', margin: '4px 0 0' }}>
             Recibe alertas de tus rondas en tiempo real y cuando cambia tu índice
           </p>
         </div>
@@ -161,7 +161,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
               border: `1px solid ${subscribed ? '#86efac' : 'var(--border)'}`,
             }}>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
+                <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)' }}>
                   {subscribed ? 'Notificaciones activas' : 'Activar notificaciones'}
                 </div>
                 <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginTop: '2px' }}>
@@ -189,7 +189,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
         {/* Preferences (only if subscribed) */}
         {subscribed && (
           <div style={{ padding: '0 20px 20px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+            <div style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
               Tipos de notificación {savingPrefs && <span style={{ color: 'var(--brand-on-bg)' }}>· Guardando...</span>}
             </div>
             {PREF_ITEMS.map(item => (
@@ -228,7 +228,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
 
         {/* Footer */}
         <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
-          <p style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', margin: 0 }}>
+          <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', textAlign: 'center', margin: 0 }}>
             Golfers+ · Te avisamos durante tus rondas y cuando cambia tu índice
           </p>
         </div>

@@ -73,7 +73,7 @@ export default function HoleInOneCelebration({ playerName, holeNumber, onClose }
         </div>
 
         <div style={{
-          fontSize: '28px', fontWeight: 700, color: '#ffffff', marginTop: '16px',
+          fontSize: FONT_SIZE.h1, fontWeight: 700, color: '#ffffff', marginTop: '16px',
           fontFamily: '"Playfair Display", serif',
           animation: 'aceFadeIn 0.6s ease-out 0.5s both',
         }}>

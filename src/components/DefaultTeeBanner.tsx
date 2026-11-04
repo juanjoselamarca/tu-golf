@@ -100,10 +100,10 @@ export function DefaultTeeBanner() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '14px' }}>
             <Flag size={18} strokeWidth={2} style={{ color: 'var(--brand-on-bg)', flexShrink: 0, marginTop: '2px' }} />
             <div>
-              <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', margin: '0 0 3px', lineHeight: 1.35 }}>
+              <p style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)', margin: '0 0 3px', lineHeight: 1.35 }}>
                 Calcula tu índice
               </p>
-              <p style={{ fontSize: '13.5px', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
                 {recoverable > 0
                   ? `${recoverable} de tus ${recoverable === 1 ? 'rondas entró' : 'rondas entraron'} sin el tee de salida. Elige desde qué color juegas normalmente y calculamos tu índice al instante.`
                   : 'Elige desde qué tee juegas normalmente para calcular tu índice.'}
@@ -175,7 +175,7 @@ export function DefaultTeeBanner() {
             ))}
           </div>
           {error && (
-            <p style={{ fontSize: '13px', color: 'var(--error-fg)', margin: '12px 0 0' }}>
+            <p style={{ fontSize: FONT_SIZE.small, color: 'var(--error-fg)', margin: '12px 0 0' }}>
               No pudimos guardar. Prueba de nuevo.
             </p>
           )}

@@ -8,6 +8,7 @@
  */
 
 import type { Tier } from '@/golf/billing/plans'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface ProBadgeProps {
   tier: Extract<Tier, 'pro' | 'pro_plus'>
@@ -60,7 +61,7 @@ export function ProBadge({ tier, className, variant = 'subtle', size = 11 }: Pro
         borderRadius: '4px',
         background: 'rgba(196,153,42,0.12)',
         border: '1px solid rgba(196,153,42,0.20)',
-        fontSize: '10px',
+        fontSize: FONT_SIZE.caption,
         fontWeight: 700,
         letterSpacing: '0.06em',
         lineHeight: 1,

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 function contarHoyosPendientes(): number {
   try {
@@ -71,7 +72,7 @@ export function OfflineBanner() {
         color: '#fff',
         textAlign: 'center',
         padding: '8px 16px',
-        fontSize: 13,
+        fontSize: FONT_SIZE.small,
         fontWeight: 600,
         letterSpacing: '0.02em',
       }}

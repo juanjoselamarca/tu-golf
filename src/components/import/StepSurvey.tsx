@@ -162,7 +162,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <h2 style={{
                 fontFamily: "var(--font-playfair, 'Playfair Display', serif)",
-                fontSize: '22px',
+                fontSize: FONT_SIZE.h2,
                 fontWeight: 700,
                 color: 'var(--text)',
                 textAlign: 'center',
@@ -184,7 +184,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                       border: '1px solid var(--border)',
                       background: 'var(--bg-surface)',
                       color: 'var(--text)',
-                      fontSize: '15px',
+                      fontSize: FONT_SIZE.body,
                       fontWeight: 500,
                       fontFamily: "'DM Sans', sans-serif",
                       cursor: 'pointer',
@@ -215,7 +215,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <h2 style={{
                 fontFamily: "var(--font-playfair, 'Playfair Display', serif)",
-                fontSize: '22px',
+                fontSize: FONT_SIZE.h2,
                 fontWeight: 700,
                 color: 'var(--text)',
                 textAlign: 'center',
@@ -237,7 +237,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                       border: '1px solid var(--border)',
                       background: 'var(--bg-surface)',
                       color: 'var(--text)',
-                      fontSize: '15px',
+                      fontSize: FONT_SIZE.body,
                       fontWeight: 500,
                       fontFamily: "'DM Sans', sans-serif",
                       cursor: 'pointer',

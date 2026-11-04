@@ -128,7 +128,7 @@ export default function EagleCelebration({ playerName, holeNumber, onClose }: Pr
 
         {/* Info */}
         <div style={{
-          fontSize: 22,
+          fontSize: FONT_SIZE.h2,
           fontWeight: 700,
           color: 'var(--text)',
           fontFamily: '"Playfair Display", serif',
@@ -138,7 +138,7 @@ export default function EagleCelebration({ playerName, holeNumber, onClose }: Pr
           {playerName}
         </div>
         <div style={{
-          fontSize: 13,
+          fontSize: FONT_SIZE.small,
           color: 'var(--text-2)',
           marginTop: 4,
           animation: 'eagleFadeIn 0.5s ease-out 0.7s both',
