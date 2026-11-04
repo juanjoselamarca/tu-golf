@@ -1,5 +1,5 @@
 /**
- * Canario END-TO-END del pipeline de importación contra el schema REAL de prod.
+ * Canario END-TO-END del pipeline de importación contra el schema real (la base de pruebas lo clona de prod).
  *
  * Razón de existir: el 2026-06-08 se colaron a prod 3 bugs que los unit tests con
  * MOCK no agarraron porque mockeaban el insert sin tocar el schema real:
@@ -12,7 +12,7 @@
  * resuelto del catálogo + diferencial canónico. Si la columna cambia, si el tee
  * deja de resolver, o si la ronda no se guarda, ESTE TEST FALLA y bloquea el push.
  *
- * Corre contra prod con un usuario de prueba y limpia lo que inserta. Se saltea
+ * Corre contra la base de pruebas con un usuario de prueba y limpia lo que inserta. Se saltea
  * si no hay credenciales (CI sin secrets) — ver [[reference_vitest_describe_skipif]].
  *
  * AISLAMIENTO: cada run crea su propio usuario efímero con email único. Esto
@@ -64,9 +64,9 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
 
   afterAll(async () => {
     // Borrar el usuario efímero limpia todo: rondas via FK cascade en profiles,
-    // más la fila auth. No quedan huérfanos en la BD de prod.
+    // más la fila auth. No quedan huérfanos en la base de pruebas.
     const errs = userId ? await deleteEphemeralUser(userId) : []
-    // El barrido de prod borra lo que quede; se avisa para no esconder la fuga.
+    // El barrido de `npm run test:e2e:sweep` borra lo que quede; se avisa para no esconder la fuga.
     if (errs.length) console.warn(`[import-pipeline] cleanup parcial: ${errs.join(' | ')}`)
   }, 30000)
 
@@ -186,5 +186,31 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
     expect(Number(saved!.course_rating)).toBe(teeRating)
     expect(Number(saved!.slope_rating)).toBe(teeSlope)
     expect(saved!.diferencial).not.toBeNull()
+  })
+
+  it('la misma tarjeta Garmin importada dos veces: la segunda vuelve duplicada y queda una sola fila', async () => {
+    const garminScorecardId = `canary-${userId}`
+    const tarjeta = {
+      userId,
+      courseId: COURSE_ID,
+      courseName: 'Los Leones',
+      teeColor: 'azul',
+      scores: Array(18).fill(5),
+      source: 'garmin' as const,
+      totalGross: 90,
+      holesPlayed: 18,
+      garminScorecardId,
+    }
+    expect((await importRound(admin, { ...tarjeta, playedAt: '2026-01-05' })).success).toBe(true)
+    // Otra fecha: así la frena el índice único de Garmin y no el de (fecha, cancha, gross).
+    const segunda = await importRound(admin, { ...tarjeta, playedAt: '2026-01-06' })
+    expect(segunda).toMatchObject({ success: false, duplicada: true })
+
+    const { count } = await admin
+      .from('historical_rounds')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('garmin_scorecard_id', garminScorecardId)
+    expect(count).toBe(1)
   })
 })

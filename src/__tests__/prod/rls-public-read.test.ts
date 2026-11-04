@@ -9,10 +9,11 @@
  *  - the private columns of ronda_libre_jugadores (RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: telefono_invitado
  *    since 20261013000000, PR #542; perfil_sugerido_id since 20261026120000) are readable only by
  *    service_role. A private column that does not exist yet in prod is not required, so this passes
- *    before and after its migration is applied; telefono_invitado must exist.
- * And on each of those tables and on profiles anon reads exactly the columns of ANON_COLUMN_SELECT
- * (20261027120000_anon_columnas_vistas_publicas, 20261029200000_anon_restos_capa3): one fewer breaks the public
- * views, one more is readable without a session. authenticated keeps every other column of ronda_libre_jugadores.
+ *    before and after its migration is applied; telefono_invitado must exist. Same for players.pending_user_id
+ *    (PLAYERS_PRIVATE_COLUMNS, since 20261102230000_players_ocultar_pending_user_id).
+ * And on each of those tables, on historical_rounds and on profiles anon reads exactly the columns of ANON_COLUMN_SELECT
+ * (20261027120000_anon_columnas_vistas_publicas, 20261025000000_historical_rounds_anon_sin_notas,
+ * 20261029200000_anon_restos_capa3): one fewer breaks the public views, one more is readable without a session. authenticated keeps every other column of ronda_libre_jugadores.
  * And anon has no other privilege in public than ANON_TABLE_PRIVILEGES plus that column SELECT
  * (20261029120000_anon_sin_permisos_de_tabla), and none on a sequence (20261029200000_anon_restos_capa3).
  * Neither anon nor authenticated executes restamp_round_metrics_target (same migration; only the coach calls it,
@@ -24,7 +25,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { execSql } from '../helpers/prod-sql'
 import {
-  ANON_COLUMN_SELECT, ANON_COLUMNS, ANON_TABLE_PRIVILEGES, RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS,
+  ANON_COLUMN_SELECT, ANON_COLUMNS, ANON_TABLE_PRIVILEGES, PLAYERS_PRIVATE_COLUMNS, RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS,
 } from '../helpers/migration-sql'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -140,12 +141,17 @@ describe.skipIf(!url || !serviceKey)('RLS in public and unfiltered anon reads', 
     expect(rows).toEqual([])
   })
 
-  it.each(['authenticated', 'service_role'])(
-    `%s: ronda_libre_jugadores private columns only for service_role, every other column readable`,
-    async role => {
-      const columns = await columnPrivileges(service, role, 'ronda_libre_jugadores')
-      expect(columns.map(c => c.column)).toContain('telefono_invitado')
-      const expected = (column: string) => role === 'service_role' || !RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS.includes(column)
+  // `required`: the private column that must already exist in prod (a newer one may not be applied yet).
+  const PRIVATE_COLUMNS = [
+    { table: 'ronda_libre_jugadores', columns: RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS, required: 'telefono_invitado' },
+    { table: 'players', columns: PLAYERS_PRIVATE_COLUMNS, required: 'pending_user_id' },
+  ]
+  it.each(PRIVATE_COLUMNS.flatMap(t => ['authenticated', 'service_role'].map(role => ({ ...t, role }))))(
+    `$role: $table private columns only for service_role, every other column readable`,
+    async ({ table, columns: privateColumns, required, role }) => {
+      const columns = await columnPrivileges(service, role, table)
+      expect(columns.map(c => c.column)).toContain(required)
+      const expected = (column: string) => role === 'service_role' || !privateColumns.includes(column)
       expect(columns.filter(c => c.readable !== expected(c.column))).toEqual([])
     },
   )

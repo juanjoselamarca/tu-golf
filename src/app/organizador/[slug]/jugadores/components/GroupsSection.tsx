@@ -172,9 +172,9 @@ export function GroupsSection({
                     <span
                       title={g.players.length === teamSize ? 'Equipo completo' : `Debería tener ${teamSize} jugadores`}
                       style={{
-                        fontSize: '11px', fontWeight: 700, padding: '1px 7px', borderRadius: '10px',
+                        fontSize: '12px', fontWeight: 700, padding: '1px 7px', borderRadius: '10px',
                         background: g.players.length === teamSize ? 'rgba(34,197,94,0.15)' : 'rgba(196,153,42,0.15)',
-                        color: g.players.length === teamSize ? '#22c55e' : 'var(--brand-on-bg)',
+                        color: g.players.length === teamSize ? 'var(--status-live-fg)' : 'var(--brand-on-bg)',
                         border: `1px solid ${g.players.length === teamSize ? 'rgba(34,197,94,0.3)' : 'var(--border-md)'}`,
                       }}
                     >

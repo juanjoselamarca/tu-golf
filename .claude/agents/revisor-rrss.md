@@ -64,6 +64,11 @@ cabeza, ese es exactamente el hallazgo.
   Huella: <la que trae el expediente, copiada>
   ```
 
+  No encabeces tu respuesta con `# Revisión de la tanda ...`: ese es el título del expediente
+  que te pasaron, y el portón rechaza un archivo que empiece así para que nadie pueda mandar
+  la tanda pasándole el expediente en vez de tu veredicto. Cítalo en el cuerpo si lo
+  necesitas; como primera línea deja las dos de arriba.
+
   `CORREGIR` en vez de `PUBLICAR` si hay algo que arreglar. **La palabra `Veredicto:` va UNA
   sola vez en toda la respuesta**: no la pongas también como título (`## Veredicto`), no
   escribas las dos opciones en la misma línea y no la repitas al resumir. El portón lee esas

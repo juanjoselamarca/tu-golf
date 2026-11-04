@@ -11,6 +11,7 @@
 
 import Link from 'next/link'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
+import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 import { boardPublicoRondaLibre, etiquetaDelFormato, gwiDelBoardPublico, vistaPublica, type VistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { AvisoSoloBruto } from './components/AvisoSoloBruto'
 import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
@@ -205,8 +206,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       // cualquier visor. Excluido a propósito de la vista pública "solo bruto"
       // (P1 de la 4ª revisión Fable del #509). No aplicar `vistaPublica` acá.
       const [withdrawn, dbPlayers, hcp, rounds] = await Promise.all([
-        fetchWithdrawnPlayers(supabase, tournament.id),
-        fetchLegacyPlayers(supabase, tournament.id),
+        fetchWithdrawnPlayers(supabase, tournament.id, nombresDePerfil),
+        fetchLegacyPlayers(supabase, tournament.id, nombresDePerfil),
         fetchLegacyHcpContext(supabase, tournament.id),
         // Contexto propio de las rondas que se juegan en otra cancha que la 1
         // (vacío en un torneo de una ronda). Misma fuente que /tv, /en-vivo y
@@ -251,7 +252,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     if (isOpen || (players.length === 0 && teamStandings.length === 0 && !isClosed)) {
       const [count, names] = await Promise.all([
         fetchEnrolledPlayerCount(supabase, tournament.id),
-        fetchEnrolledPlayerNames(supabase, tournament.id),
+        fetchEnrolledPlayerNames(supabase, tournament.id, nombresDePerfil),
       ])
       enrolledCount = count
       enrolledNames = names

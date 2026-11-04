@@ -1,4 +1,4 @@
-// Seguir una ronda sin cuenta — RLS real en prod.
+// Seguir una ronda sin cuenta — RLS real en la base de pruebas.
 //
 // La identidad del espectador anónimo es su suscripción push (fila de
 // push_subscriptions con user_id NULL, referenciada por round_watchers).

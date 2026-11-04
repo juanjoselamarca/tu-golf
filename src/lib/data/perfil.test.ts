@@ -59,14 +59,31 @@ function lectura(resultado: { data: unknown; error: unknown }) {
   return { filtros, supabase: { from: () => b } }
 }
 
+const RONDA = {
+  id: 'r1', played_at: '2026-01-01', created_at: null as string | null, diferencial: 12.2, slope_rating: 130, course_rating: 71.5,
+  excluded_from_handicap: false, total_gross: 85, holes_played: 18,
+}
+
 describe('fetchRondasCPI — fuente única de las superficies del CPI', () => {
   it('excluye FedeGolf y las rondas excluidas del índice', async () => {
-    const { filtros, supabase } = lectura({ data: [{ played_at: '2026-01-01', diferencial: 12.2 }], error: null })
+    const { filtros, supabase } = lectura({ data: [RONDA], error: null })
     const rondas = await fetchRondasCPI(mockSupabase(supabase), 'u1')
     expect(rondas).toEqual([{ played_at: '2026-01-01', diferencial: 12.2 }])
     expect(filtros).toContainEqual(['or', OR_EXCLUDE_FEDEGOLF])
     expect(filtros).toContainEqual(['eq', 'excluded_from_handicap', false])
     expect(filtros).toContainEqual(['eq', 'user_id', 'u1'])
+    expect(filtros.map(([m]) => m)).not.toContain('limit')
+  })
+  it('solo las rondas que el índice cuenta', async () => {
+    const { supabase } = lectura({
+      data: [
+        { ...RONDA, played_at: '2026-01-03', total_gross: 53 },
+        { ...RONDA, played_at: '2026-01-02', slope_rating: null },
+        RONDA,
+      ],
+      error: null,
+    })
+    expect(await fetchRondasCPI(mockSupabase(supabase), 'u1')).toEqual([{ played_at: '2026-01-01', diferencial: 12.2 }])
   })
   it('null si la lectura falla', async () => {
     const { supabase } = lectura({ data: null, error: { message: 'boom' } })
@@ -76,12 +93,23 @@ describe('fetchRondasCPI — fuente única de las superficies del CPI', () => {
 
 describe('fetchCpi', () => {
   it('mapea rondas y delega en calcularCPI (shape ResultadoCPI)', async () => {
-    const { supabase } = lectura({ data: [{ played_at: '2026-01-01', diferencial: 12.2 }], error: null })
+    const { supabase } = lectura({ data: [RONDA], error: null })
     const cpi = await fetchCpi(mockSupabase(supabase), 'u1')
     expect(cpi).not.toBeNull()
     expect(typeof cpi?.score).toBe('number')
     expect(['insufficient_data', 'provisional', 'established']).toContain(cpi?.status)
     expect(typeof cpi?.rondas_usadas).toBe('number')
+  })
+
+  it('mismo día: el CPI pondera en el orden del índice (la guardada después, primero)', async () => {
+    const { supabase } = lectura({
+      data: [
+        { ...RONDA, id: 'a', created_at: '2026-01-01T10:00:00+00:00', diferencial: 10 },
+        { ...RONDA, id: 'b', created_at: '2026-01-01T15:00:00+00:00', diferencial: 20 },
+      ],
+      error: null,
+    })
+    expect((await fetchCpi(mockSupabase(supabase), 'u1'))?.diferenciales).toEqual([20, 10])
   })
 
   it('devuelve null si la query falla', async () => {

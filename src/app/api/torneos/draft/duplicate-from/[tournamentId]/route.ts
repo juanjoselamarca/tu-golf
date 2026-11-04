@@ -1,6 +1,7 @@
 // src/app/api/torneos/draft/duplicate-from/[tournamentId]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { configFromTournament, type SourceCategory } from '@/lib/draft/duplicate-config'
 import { fetchAllRoundPlayConfigs } from '@/lib/data/tournaments/rounds'
 import { captureError } from '@/lib/error-tracking'
@@ -12,6 +13,9 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ tournam
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  // Crea un borrador: comparte el cupo de 10/hora de POST /api/torneos/draft (misma clave).
+  const rl = checkRateLimit(`draft-create:${user.id}`, 10, 60 * 60 * 1000)
+  if (!rl.allowed) return NextResponse.json({ error: 'Demasiados intentos. Intenta más tarde.' }, { status: 429, headers: rateLimitHeaders(rl) })
 
   const { data: src, error: sErr } = await supabase
     .from('tournaments')

@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useScoreSync } from './useScoreSync'
+import { leerRespaldoPendiente, useScoreSync } from './useScoreSync'
 
 // jsdom tiene localStorage, pero limpiamos entre tests
 beforeEach(() => {
@@ -96,6 +96,24 @@ describe('useScoreSync', () => {
     it('sin entrada previa → no crashea', () => {
       const { result } = renderHook(() => useScoreSync(CODIGO, JUGADOR))
       expect(() => { result.current.marcarSincronizado() }).not.toThrow()
+    })
+  })
+
+  describe('leerRespaldoPendiente', () => {
+    it('devuelve la tarjeta que el servidor no confirmó y null una vez sincronizada', () => {
+      const { result } = renderHook(() => useScoreSync(CODIGO, JUGADOR))
+      act(() => { result.current.guardarLocal({ 3: 4 }) })
+      expect(leerRespaldoPendiente(CODIGO, JUGADOR)).toEqual({ 3: 4 })
+      act(() => { result.current.marcarSincronizado({ 3: 4 }) })
+      expect(leerRespaldoPendiente(CODIGO, JUGADOR)).toBeNull()
+    })
+
+    it('null sin entrada, con tarjeta vacía o con JSON corrupto', () => {
+      expect(leerRespaldoPendiente(CODIGO, JUGADOR)).toBeNull()
+      localStorage.setItem(KEY, JSON.stringify({ scores: {}, timestamp: 1, sincronizado: false, codigoRonda: CODIGO, jugadorId: JUGADOR }))
+      expect(leerRespaldoPendiente(CODIGO, JUGADOR)).toBeNull()
+      localStorage.setItem(KEY, '{no es json')
+      expect(leerRespaldoPendiente(CODIGO, JUGADOR)).toBeNull()
     })
   })
 

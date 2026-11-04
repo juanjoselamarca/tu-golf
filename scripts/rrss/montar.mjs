@@ -16,7 +16,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 import { ESCENAS, huellaEscena } from './escenas.mjs'
-import { MEDIDA as FORMATO, huellaVisual } from './marca.mjs'
+import { MEDIDA as FORMATO, huellaDeCaptura, huellaVisual } from './marca.mjs'
 import { dirSalida, rutaManifiestoFrames, rutaPiezaJson } from './publicar.mjs'
 
 const require = createRequire(import.meta.url)
@@ -143,11 +143,41 @@ async function fotogramaDeCierre(escena, dirFrames) {
   return { archivo, ms, nota: 'cierre', pieza, huella_visual: huellaVisual(piezaDelCierre) }
 }
 
+/**
+ * Los campos de `video.json` con los que se verifica que un MP4 es el de esta toma.
+ *
+ * Vive separado de `montar()` —y se exporta— porque es un contrato entre tres
+ * módulos: acá se sella y en `publicar.mjs` y `expediente-pieza.mjs` se recalcula.
+ * Mientras cada lado armaba su propia lista, dejaron de calzar sin que nada fallara:
+ * el expediente hasheaba la captura CON el fotograma del cierre empujado y acá se
+ * hashea la captura tal como está en `frames.json`, así que el expediente declaraba
+ * "otra toma" siempre y la tabla de momentos no se pintaba nunca. El síntoma de un
+ * sello mal calculado es que el revisor no ve nada que revisar.
+ *
+ * `captura` son los fotogramas de `frames.json`, SIN el del cierre: es lo único que
+ * el expediente y el empaquetado pueden releer de disco.
+ */
+export function selloDelVideo(slug, captura, cierre) {
+  return {
+    escena: slug,
+    huella_escena: huellaEscena(slug),
+    // Qué captura se consumió. La huella de la escena no alcanza: es el código, y
+    // recapturar sin volver a montar lo deja igual. Este campo es lo que delata un
+    // MP4 de la toma anterior.
+    huella_captura: huellaDeCaptura(captura),
+    cierre: cierre ? { pieza: cierre.pieza, huella_visual: cierre.huella_visual } : null,
+  }
+}
+
 export async function montar(slug) {
   const dirPieza = path.join(dirSalida(), slug)
   const dirFrames = path.join(dirPieza, 'frames')
   const { frames } = JSON.parse(await readFile(rutaManifiestoFrames(slug), 'utf8'))
   if (!frames?.length) throw new Error(`${slug} no tiene fotogramas: corre capturar.mjs primero`)
+  // La captura se copia ANTES de empujarle el fotograma del cierre: el sello tiene que
+  // ser comparable con lo que `frames.json` dice en disco, que es lo único que el
+  // expediente y el empaquetado pueden leer para saber si este MP4 es de esta toma.
+  const captura = [...frames]
 
   const cierre = await fotogramaDeCierre(ESCENAS[slug], dirFrames)
   if (cierre) frames.push(cierre)
@@ -209,9 +239,7 @@ export async function montar(slug) {
     manifiesto,
     `${JSON.stringify(
       {
-        escena: slug,
-        huella_escena: huellaEscena(slug),
-        cierre: cierre ? { pieza: cierre.pieza, huella_visual: cierre.huella_visual } : null,
+        ...selloDelVideo(slug, captura, cierre),
         montado: new Date().toISOString(),
         duracion: dur,
         duracion_s: Number(medida.toFixed(2)),

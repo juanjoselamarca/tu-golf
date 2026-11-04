@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import type { MentalState } from '@/golf/coach/mental-index'
 
@@ -12,6 +13,8 @@ interface Props {
   scores: Array<number | null>
   hole_pars: number[]
   espirales: number
+  /** Detalle de la ronda (tarjeta hoyo a hoyo completa). Sin él, no se ofrece el enlace. */
+  detalleHref?: string
 }
 
 const STATE_COLOR: Record<MentalState, string> = {
@@ -26,7 +29,7 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
   const gridCols: CSSProperties = { display: 'grid', gridTemplateColumns: `repeat(${n}, 1fr)`, gap: '2px' }
   return (
     <div style={{ marginBottom: '14px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '6px', padding: '0 1px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '6px', padding: '0 1px' }}>
         <span>{label}</span>
         <span style={{ color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', letterSpacing: 0 }}>{overParHalf >= 0 ? '+' : ''}{overParHalf}</span>
       </div>
@@ -45,14 +48,14 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
       </div>
       <div style={{ ...gridCols, marginTop: '4px' }}>
         {Array.from({ length: n }, (_, i) => (
-          <div key={`a-${startIdx + i}`} style={{ fontFamily: '"DM Mono", monospace', fontSize: '9.5px', color: 'var(--text-3)', textAlign: 'center' }}>{startIdx + i + 1}</div>
+          <div key={`a-${startIdx + i}`} style={{ fontFamily: '"DM Mono", monospace', fontSize: '12px', color: 'var(--text-3)', textAlign: 'center' }}>{startIdx + i + 1}</div>
         ))}
       </div>
     </div>
   )
 }
 
-export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, scores, hole_pars, espirales }: Props) {
+export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, scores, hole_pars, espirales, detalleHref }: Props) {
   const cardStyle: CSSProperties = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--line)',
@@ -82,22 +85,24 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
         <span style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '16px', fontWeight: 600 }}>Curva mental</span>
         <span style={{
-          fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, padding: '3px 8px',
+          fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, padding: '3px 8px',
           borderRadius: '2px', ...chipTone, fontFamily: '"DM Mono", monospace',
         }}>{espirales} espirales</span>
       </div>
-      <div style={{ fontSize: '11.5px', color: 'var(--text-2)', marginBottom: '18px' }}>
+      <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '18px' }}>
         {fecha} · {curso} · <span style={{ color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>{totalScore} ({overPar >= 0 ? '+' : ''}{overPar})</span>
       </div>
 
       {renderHalf('Front 9', f9Over, f9States, f9Scores, f9Pars, 0)}
       {renderHalf('Back 9', b9Over, b9States, b9Scores, b9Pars, 9)}
 
-      <div style={{ display: 'flex', gap: '12px', paddingTop: '14px', marginTop: '8px', borderTop: '1px solid var(--line)', fontSize: '11px', color: 'var(--text-2)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '12px', paddingTop: '14px', marginTop: '8px', borderTop: '1px solid var(--line)', fontSize: '12px', color: 'var(--text-2)', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-high)' }} aria-hidden />{calmCount} calmos</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-mid)' }} aria-hidden />{tenseCount} tensos</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-low)' }} aria-hidden />{tiltCount} tilt</div>
-        <span style={{ marginLeft: 'auto', color: 'var(--text)', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>hoyo a hoyo →</span>
+        {detalleHref && (
+          <Link href={detalleHref} style={{ color: 'var(--text)', fontWeight: 600, fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px', margin: '-14px 0 -14px auto' }}>hoyo a hoyo →</Link>
+        )}
       </div>
     </div>
   )

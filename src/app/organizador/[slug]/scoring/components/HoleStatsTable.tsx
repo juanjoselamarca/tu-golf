@@ -23,7 +23,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
         <thead>
           <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
             {['Hoyo', 'Gross', 'Putts (0-6)', 'Fairway hit', 'GIR'].map((h) => (
-              <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
+              <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '12px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -68,7 +68,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                             setHoleFairway((prev) => ({ ...prev, [h]: v }))
                             void saveHoleStat(h, { fairway_hit: v })
                           }}
-                          style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
+                          style={{ padding: '3px 7px', fontSize: '12px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                             background: holeFairway[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
                             borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--text-2)') : 'var(--surface-border)',
                             color: holeFairway[h] === v ? 'var(--text)' : 'var(--text-2)',
@@ -92,7 +92,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                           setHoleGir((prev) => ({ ...prev, [h]: v }))
                           void saveHoleStat(h, { gir: v })
                         }}
-                        style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
+                        style={{ padding: '3px 7px', fontSize: '12px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                           background: holeGir[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
                           borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--text-2)') : 'var(--surface-border)',
                           color: holeGir[h] === v ? 'var(--text)' : 'var(--text-2)',

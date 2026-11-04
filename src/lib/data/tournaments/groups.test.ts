@@ -6,6 +6,7 @@ import {
   deleteGroup,
   setGroupTeeTime,
   assignPlayerToGroup,
+  teeTimeDesdeHoraLocal,
 } from './groups'
 
 const mockFrom = vi.fn()
@@ -118,5 +119,30 @@ describe('assignPlayerToGroup', () => {
     mockFrom.mockReturnValue({ delete: del, insert })
     await expect(assignPlayerToGroup(mockSupabase, 'p1', 'g1')).rejects.toThrow('rls denied')
     expect(insert).not.toHaveBeenCalled()
+  })
+})
+
+describe('teeTimeDesdeHoraLocal', () => {
+  // Regresión 03-nov-2026: el organizador creaba un grupo a las 08:10 (Chile) y la hoja de salida
+  // decía 05:10. Se mandaba "YYYY-MM-DDTHH:MM:00" sin zona y Postgres lo tomaba como UTC.
+  it('devuelve un instante con zona explícita (Z), nunca un literal sin zona', () => {
+    expect(teeTimeDesdeHoraLocal('2026-12-20', '08:10')).toMatch(/Z$/)
+  })
+
+  it('representa la hora local del organizador: al leerla de vuelta sigue siendo 08:10', () => {
+    const guardado = new Date(teeTimeDesdeHoraLocal('2026-12-20', '08:10'))
+    expect([guardado.getHours(), guardado.getMinutes()]).toEqual([8, 10])
+    expect(guardado.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false })).toBe('08:10')
+  })
+
+  it('en una zona horaria distinta de UTC el instante guardado NO es la hora escrita en UTC', () => {
+    const offsetMin = new Date('2026-12-20T08:10:00').getTimezoneOffset()
+    const iso = teeTimeDesdeHoraLocal('2026-12-20', '08:10')
+    if (offsetMin === 0) expect(iso).toBe('2026-12-20T08:10:00.000Z')
+    else expect(iso).not.toBe('2026-12-20T08:10:00.000Z')
+  })
+
+  it('rechaza una hora inválida en vez de guardar basura', () => {
+    expect(() => teeTimeDesdeHoraLocal('2026-12-20', '25:99')).toThrow(/inválida/)
   })
 })

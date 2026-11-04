@@ -4,6 +4,7 @@
 // `hasPlayData`, los mismos porteros del podio.
 
 import { isFinishedCard, hasPlayData } from '@/golf/leaderboard'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import type { ResumenLider } from '@/golf/leaderboard/resumen-cards'
 import type { Player } from '@/lib/golf-data'
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
@@ -83,7 +84,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
         {statCards.map((c) => (
           <div key={c.label} style={CARD_STYLE}>
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
             <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>{c.value}</div>
             {c.sub && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>{c.sub}</div>}
           </div>
@@ -101,7 +102,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
                 {['Jugador', 'HCP', 'Gross', 'Neto', 'Pts', 'Estado'].map((h) => (
-                  <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '10px 12px', textAlign: h === 'Jugador' ? 'left' : 'center' }}>{h}</th>
+                  <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '12px', letterSpacing: '0.05em', padding: '10px 12px', textAlign: h === 'Jugador' ? 'left' : 'center' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -117,10 +118,8 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       {isEditingThis && row.id ? (
                         <input
-                          type="number"
-                          step="0.1"
-                          min={0}
-                          max={54}
+                          type="text"
+                          aria-label="Handicap de inscripción"
                           autoFocus
                           value={hcpEditor.editValue}
                           onChange={(e) => hcpEditor.setEditValue(e.target.value)}
@@ -137,7 +136,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                           style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--brand-on-bg)', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
                           title="Editar handicap"
                         >
-                          {rosterPlayer?.handicap_at_registration ?? row.hcpDisplay ?? '--'}
+                          {formatearHandicap(rosterPlayer?.handicap_at_registration ?? row.hcpDisplay)}
                         </button>
                       )}
                     </td>
@@ -152,7 +151,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       <span style={{
-                        fontSize: '11px',
+                        fontSize: '12px',
                         padding: '3px 8px',
                         borderRadius: '12px',
                         background: estado.done ? 'var(--status-live-bg)' : 'var(--surface-soft)',

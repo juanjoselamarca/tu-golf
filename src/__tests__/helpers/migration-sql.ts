@@ -40,6 +40,9 @@ export const sqlAllInSchemaPublic = (kind: 'tables' | 'functions') => String.raw
  */
 export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil_sugerido_id', 'telefono_invitado']
 
+/** Same for players (20261102230000_players_ocultar_pending_user_id): the guest's credential. */
+export const PLAYERS_PRIVATE_COLUMNS: readonly string[] = ['pending_user_id']
+
 /**
  * The tables /torneo/[slug] and /api/ronda-libre/[codigo]/live read without a session, and the only columns
  * anon can SELECT on each (20261027120000_anon_columnas_vistas_publicas). A column a public view starts reading
@@ -48,9 +51,11 @@ export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil
  */
 export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   hole_scores: ['id', 'round_id', 'hole_number', 'par', 'gross_score', 'net_score', 'points', 'putts', 'fairway_hit', 'gir'],
+  // pending_user_id es la credencial del invitado de torneo: privada para los dos roles del cliente
+  // desde 20261102230000_players_ocultar_pending_user_id.
   players: [
     'id', 'tournament_id', 'user_id', 'category_id', 'handicap_at_registration', 'status', 'created_at', 'status_reason',
-    'pending_user_id', 'player_name', 'tee_id', 'genero',
+    'player_name', 'tee_id', 'genero',
   ],
   rounds: ['id', 'tournament_id', 'player_id', 'status', 'total_gross', 'total_net', 'total_points', 'closed_at', 'round_number'],
   tournament_groups: ['id', 'tournament_id', 'name', 'tee_time', 'ronda_libre_id', 'sort_order'],
@@ -65,13 +70,18 @@ export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
 }
 
 /**
- * Every column anon can SELECT where it has no table-level SELECT: the public views (ANON_COLUMNS) and profiles
- * (20261029200000_anon_restos_capa3). No policy shows anon a profiles row, but PostgREST checks the column privilege
- * of what /ranking, /api/health and the tournament embeds (players -> profiles) select. Checked against
- * supabase/schema.sql by canary-anon-columns and in prod by prod/rls-public-read.
+ * Every column anon can SELECT where it has no table-level SELECT: the public views (ANON_COLUMNS), historical_rounds
+ * (20261025000000_historical_rounds_anon_sin_notas: the public scorecard, filtered by its `privacy = 'public'` policy,
+ * so not a public view) and profiles (20261029200000_anon_restos_capa3). No policy shows anon a profiles row, but
+ * PostgREST checks the column privilege of what /ranking, /api/health and the tournament embeds (players -> profiles)
+ * select. Checked against supabase/schema.sql by canary-anon-columns and in prod by prod/rls-public-read.
  */
 export const ANON_COLUMN_SELECT: Readonly<Record<string, readonly string[]>> = {
   ...ANON_COLUMNS,
+  historical_rounds: [
+    'id', 'user_id', 'privacy', 'course_name', 'course_id', 'total_gross', 'holes_played', 'played_at',
+    'tee_color', 'scores', 'par_per_hole', 'formato_juego', 'modo_juego',
+  ],
   profiles: ['avatar_url', 'id', 'indice', 'indice_golfers', 'name', 'nivel'],
 }
 
@@ -81,6 +91,9 @@ export const ANON_COLUMN_SELECT: Readonly<Record<string, readonly string[]>> = {
  * the column SELECT of ANON_COLUMN_SELECT and no sequence privilege. A table a page without a session starts
  * reading goes here and in its migration's GRANT ... TO anon. Checked against supabase/schema.sql by
  * canary-anon-table-privileges and in prod by prod/rls-public-read.
+ *
+ * historical_rounds is deliberately NOT here: since 20261025000000_historical_rounds_anon_sin_notas anon reads it
+ * by column only (ANON_COLUMN_SELECT), so that `notes` stays out. Putting the table-level SELECT back opens the notes.
  */
 export const ANON_TABLE_PRIVILEGES: Readonly<Record<string, readonly string[]>> = {
   analytics_events: ['INSERT'],
@@ -89,7 +102,6 @@ export const ANON_TABLE_PRIVILEGES: Readonly<Record<string, readonly string[]>> 
   course_tees: ['SELECT'],
   courses: ['SELECT'],
   error_logs: ['INSERT'],
-  historical_rounds: ['SELECT'],
   tournament_rounds: ['SELECT'],
   tournaments: ['SELECT'],
 }

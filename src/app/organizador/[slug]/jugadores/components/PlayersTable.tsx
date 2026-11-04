@@ -134,7 +134,7 @@ export function PlayersTable({
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {['#', 'Nombre', 'Índice', 'Course HCP', 'Categoría', 'Grupo', ''].map((h) => (
-                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                     {h}
                   </th>
                 ))}
@@ -159,14 +159,14 @@ export function PlayersTable({
                   <td style={{ padding: '12px 16px', color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>
                     {p.profiles?.name ?? p.player_name ?? '—'}
                     {p.status === 'withdrawn' && (
-                      <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(148,168,192,0.15)', color: 'var(--text-2)', letterSpacing: '0.05em' }}>WD</span>
+                      <span style={{ marginLeft: '8px', fontSize: '12px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(148,168,192,0.15)', color: 'var(--text-2)', letterSpacing: '0.05em' }}>WD</span>
                     )}
                     {p.status === 'disqualified' && (
-                      <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(220,38,38,0.2)', color: '#fca5a5', letterSpacing: '0.05em' }}>DQ</span>
+                      <span style={{ marginLeft: '8px', fontSize: '12px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'var(--error-bg)', color: 'var(--error-fg)', letterSpacing: '0.05em' }}>DQ</span>
                     )}
                   </td>
-                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px' }}>{p.profiles?.indice ?? '—'}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600 }}>{p.handicap_at_registration ?? '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px', fontFamily: '"DM Mono", monospace' }}>{p.profiles?.indice ?? '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{p.handicap_at_registration ?? '—'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     {groups.length > 0 ? (
@@ -210,8 +210,8 @@ export function PlayersTable({
                             title="Descalificar (DQ)"
                             aria-label="Descalificar jugador"
                             style={{
-                              background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)',
-                              color: '#fca5a5', borderRadius: '6px', padding: '8px 12px',
+                              background: 'var(--error-bg)', border: '1px solid var(--error-border)',
+                              color: 'var(--error-fg)', borderRadius: '6px', padding: '8px 12px',
                               fontSize: '12px', fontWeight: 600, minHeight: '44px',
                               cursor: loadingPlayerId === p.id ? 'not-allowed' : 'pointer',
                               opacity: loadingPlayerId === p.id ? 0.5 : 1,

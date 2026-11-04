@@ -52,7 +52,7 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px', marginBottom: '14px' }}>
         <div>
           <div style={{
-            fontSize: '9.5px', letterSpacing: '0.14em', textTransform: 'uppercase',
+            fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase',
             color: isLatent ? 'var(--coach-pattern-latente)' : CAT_COLOR[category],
             fontWeight: 700, marginBottom: '4px', fontFamily: '"DM Mono", monospace',
           }}>
@@ -71,9 +71,9 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
           ))}
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: '11.5px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
-        <span>{footMeta}</span>
-        <span style={{ color: 'var(--text)', fontFamily: 'inherit', fontWeight: 600, fontSize: '12px' }}>ver →</span>
+      {/* Sin "ver →": no existe un detalle de patrón al que llevar (dead-end, 25-oct). */}
+      <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: '12px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
+        {footMeta}
       </div>
     </div>
   )

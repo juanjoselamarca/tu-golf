@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { generateShareToken, SHARE_TOKEN_TTL_MS } from '@/lib/draft/share-token'
 
 export const dynamic = 'force-dynamic'
@@ -9,6 +10,9 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  // Cada llamada acuña un token nuevo en la base.
+  const rl = checkRateLimit(`draft-share-link:${user.id}`, 10, 60 * 60 * 1000)
+  if (!rl.allowed) return NextResponse.json({ error: 'Demasiados intentos. Intenta más tarde.' }, { status: 429, headers: rateLimitHeaders(rl) })
 
   const { data: d } = await supabase
     .from('tournament_drafts')

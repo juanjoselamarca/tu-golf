@@ -428,7 +428,9 @@ create table public."import_jobs" (
   "errors" jsonb,
   "created_at" timestamp with time zone default now(),
   "updated_at" timestamp with time zone default now(),
-  "completed_at" timestamp with time zone
+  "completed_at" timestamp with time zone,
+  "total_updated" integer,
+  "unsaved_rounds" jsonb
 );
 create table public."inbox_reports" (
   "id" uuid default gen_random_uuid() not null,
@@ -1022,7 +1024,7 @@ BEGIN
       AND  course_rating         IS NOT NULL
       AND  excluded_from_handicap = FALSE
       AND  (total_gross IS NULL OR holes_played IS NULL OR total_gross >= 3 * holes_played)
-    ORDER  BY played_at DESC
+    ORDER  BY played_at DESC, created_at DESC NULLS LAST, id DESC
     LIMIT  20
   ) sub;
 
@@ -2587,7 +2589,6 @@ CREATE INDEX idx_historical_rounds_formato ON public.historical_rounds USING btr
 CREATE INDEX idx_historical_rounds_user ON public.historical_rounds USING btree (user_id, played_at DESC);
 CREATE INDEX idx_historical_rounds_user_played ON public.historical_rounds USING btree (user_id, played_at DESC);
 CREATE INDEX idx_hole_scores_round ON public.hole_scores USING btree (round_id);
-CREATE INDEX idx_hr_garmin_id ON public.historical_rounds USING btree (user_id, garmin_scorecard_id) WHERE (garmin_scorecard_id IS NOT NULL);
 CREATE INDEX idx_import_jobs_user ON public.import_jobs USING btree (user_id);
 CREATE INDEX idx_inbox_media_group ON public.inbox_reports USING btree (telegram_media_group_id, telegram_msg_date DESC) WHERE (telegram_media_group_id IS NOT NULL);
 CREATE INDEX idx_inbox_msgid_chat ON public.inbox_reports USING btree (telegram_message_id, telegram_chat_id);
@@ -2666,6 +2667,7 @@ CREATE UNIQUE INDEX uq_course_tees_identity ON public.course_tees USING btree (c
 CREATE UNIQUE INDEX uq_courses_fedegolf_natural ON public.courses USING btree (fedegolf_club_id, fedegolf_cancha_id);
 CREATE UNIQUE INDEX uq_courses_user_added_nombre ON public.courses USING btree (lower(nombre)) WHERE (fuente = 'user_added'::text);
 CREATE UNIQUE INDEX uq_historical_user_date_course_gross ON public.historical_rounds USING btree (user_id, played_at, course_id, total_gross) WHERE ((course_id IS NOT NULL) AND (NOT COALESCE(((metadata ? 'ronda_libre_jugador_id'::text) OR (metadata ? 'tournament_round_id'::text)), false)));
+CREATE UNIQUE INDEX ux_historical_rounds_garmin_scorecard ON public.historical_rounds USING btree (user_id, garmin_scorecard_id) WHERE (garmin_scorecard_id IS NOT NULL);
 CREATE UNIQUE INDEX ux_historical_rounds_ronda_libre_jugador ON public.historical_rounds USING btree (((metadata ->> 'ronda_libre_jugador_id'::text))) WHERE (metadata ? 'ronda_libre_jugador_id'::text);
 CREATE UNIQUE INDEX ux_historical_rounds_tournament_round ON public.historical_rounds USING btree (((metadata ->> 'tournament_round_id'::text))) WHERE (metadata ? 'tournament_round_id'::text);
 CREATE UNIQUE INDEX ux_historical_rounds_user_ticket ON public.historical_rounds USING btree (user_id, fedegolf_ticket);
@@ -2915,9 +2917,6 @@ create policy "read_ronda_equipos" on "public"."ronda_equipos" as permissive for
 create policy "gestionar_jugadores" on "public"."ronda_libre_jugadores" as permissive for all to public using ((EXISTS ( SELECT 1
    FROM public.rondas_libres r
   WHERE ((r.id = ronda_libre_jugadores.ronda_id) AND (r.creador_id = auth.uid())))));
-create policy "jugador_update_scores" on "public"."ronda_libre_jugadores" as permissive for update to public using (((user_id = auth.uid()) OR (EXISTS ( SELECT 1
-   FROM public.rondas_libres r
-  WHERE ((r.id = ronda_libre_jugadores.ronda_id) AND (r.creador_id = auth.uid()))))));
 create policy "rlj_demo_readonly_delete" on "public"."ronda_libre_jugadores" as restrictive for delete to public using ((NOT (EXISTS ( SELECT 1
    FROM public.rondas_libres r
   WHERE ((r.id = ronda_libre_jugadores.ronda_id) AND (r.es_demo = true))))));
@@ -3224,11 +3223,10 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."handicap_history" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."handicap_history" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."handicap_history" to service_role;
-grant SELECT on table public."historical_rounds" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."historical_rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."hole_scores" to authenticated;
+grant SELECT on table public."hole_scores" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."import_jobs" to authenticated;
@@ -3273,7 +3271,7 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."player_psych_profile" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."player_psych_profile" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."player_psych_profile" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."players" to authenticated;
+grant DELETE, INSERT, UPDATE on table public."players" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."players" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."players" to service_role;
 grant DELETE, INSERT on table public."profiles" to authenticated;
@@ -3315,7 +3313,7 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."round_watchers" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_watchers" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_watchers" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."rounds" to authenticated;
+grant SELECT on table public."rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rounds" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."score_audit_log" to authenticated;
@@ -3365,8 +3363,10 @@ grant SELECT on table public."tournaments" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournaments" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournaments" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournaments" to service_role;
+grant SELECT ("course_id", "course_name", "formato_juego", "holes_played", "id", "modo_juego", "par_per_hole", "played_at", "privacy", "scores", "tee_color", "total_gross", "user_id") on table public."historical_rounds" to anon;
 grant SELECT ("fairway_hit", "gir", "gross_score", "hole_number", "id", "net_score", "par", "points", "putts", "round_id") on table public."hole_scores" to anon;
-grant SELECT ("category_id", "created_at", "genero", "handicap_at_registration", "id", "pending_user_id", "player_name", "status", "status_reason", "tee_id", "tournament_id", "user_id") on table public."players" to anon;
+grant SELECT ("category_id", "created_at", "genero", "handicap_at_registration", "id", "player_name", "status", "status_reason", "tee_id", "tournament_id", "user_id") on table public."players" to anon;
+grant SELECT ("category_id", "created_at", "flight_id", "genero", "handicap_at_registration", "id", "player_name", "status", "status_changed_at", "status_reason", "tee_id", "tees", "tournament_id", "user_id") on table public."players" to authenticated;
 grant SELECT ("analysis_level", "avatar_url", "cerebro_v3_enabled", "coach_access_enabled", "cpi_score", "cpi_status", "cpi_trend", "cpi_updated_at", "created_at", "default_tee_color", "founding_member_at", "genero", "golf_goals", "id", "indice", "indice_golfers", "indice_golfers_updated_at", "is_founding_member", "name", "nivel", "nivel_expires_at", "nivel_updated_at", "patterns_need_recalc", "role", "subscription_status", "subscription_tier", "target_deadline", "target_handicap", "target_set_at", "trial_ends_at", "trial_rounds_remaining", "updated_at") on table public."profiles" to authenticated;
 grant UPDATE ("analysis_level", "avatar_url", "default_tee_color", "fecha_nacimiento", "genero", "golf_goals", "indice", "name", "nivel", "nivel_expires_at", "nivel_updated_at", "patterns_need_recalc", "target_deadline", "target_handicap", "target_set_at", "updated_at") on table public."profiles" to authenticated;
 grant SELECT ("avatar_url", "id", "indice", "indice_golfers", "name", "nivel") on table public."profiles" to anon;

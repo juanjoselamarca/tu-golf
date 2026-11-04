@@ -53,7 +53,10 @@ jobs:
       # COACH_E2E_EMAIL: NO setear — coach-e2e necesita un usuario REAL con historial (default: la cuenta de Juanjo).
 
     steps:
+      # El código que está en prod: un canario de una migración mergeada y todavía no promovida fallaría contra prod.
       - uses: actions/checkout@v4
+        with:
+          ref: production
 
       # Sin secrets los tests se SALTEAN y el job quedaría verde: el centinela apagado sin que nadie se entere.
       - name: Verificar que hay credenciales reales
@@ -76,12 +79,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Solo corridas de main por push o a mano: las que pasaron por la aprobación del environment migraciones-prod.
+      # Solo corridas por push o a mano de production (y de main, antes de que existiera production): las que pasaron por la
+      # aprobación del environment migraciones-prod. Las de otra rama no pasan el environment y no dejan huella.
       - name: Bajar la huella del esquema de la última aplicación de migraciones
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for id in $(gh run list --workflow migraciones-prod.yml --branch main --limit 30 --json databaseId,event \
+          for id in $(gh run list --workflow migraciones-prod.yml --limit 30 --json databaseId,event \
               --jq '.[] | select(.event == "push" or .event == "workflow_dispatch") | .databaseId'); do
             gh run download "$id" --name huella-esquema --dir huella && echo "referencia: corrida $id" && break
           done
@@ -98,7 +102,7 @@ jobs:
       - name: Canarios de prod (catálogo, privilegios, coach) y deriva del esquema
         run: |
           deriva=0; node scripts/ci/deriva-esquema.mjs --comparar huella/huella-esquema.json || deriva=$?
-          node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
+          VITEST_PROD=1 node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
           exit $deriva
 
       - name: Barrer basura de los E2E de Playwright en prod (> 60 min)

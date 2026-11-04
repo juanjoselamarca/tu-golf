@@ -354,12 +354,20 @@ export default function EnVivoPage() {
                       .slice()
                       .sort((a, b) => {
                         // Jugadores sin hoyos jugados van al final
-                        if (a.holesCompleted === 0 && b.holesCompleted === 0) return 0
-                        if (a.holesCompleted === 0) return 1
-                        if (b.holesCompleted === 0) return -1
-                        // Stableford: mayor pts primero. Stroke/otros: menor vsPar primero.
-                        if (isStab) return (b.stablefordPts ?? 0) - (a.stablefordPts ?? 0)
-                        return a.vsPar - b.vsPar
+                        if (a.holesCompleted === 0) { if (b.holesCompleted !== 0) return 1 }
+                        else if (b.holesCompleted === 0) return -1
+                        else {
+                          // Stableford: mayor pts primero. Stroke/otros: menor vsPar primero.
+                          const porScore = isStab
+                            ? (b.stablefordPts ?? 0) - (a.stablefordPts ?? 0)
+                            : a.vsPar - b.vsPar
+                          if (porScore !== 0) return porScore
+                        }
+                        // Empatados (o todos sin empezar): desempate por nombre. Sin esto
+                        // `sort` es estable y el orden lo decidía el orden de llegada del
+                        // feed, que se mueve con cada guardado: al arrancar el torneo, con
+                        // todos en 0 hoyos, las filas y el "1." bailaban entre refrescos.
+                        return (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es', { sensitivity: 'base' })
                       })
                       .slice(0, 4)
                       .map((j: JugadorEnVivo, idx: number) => (

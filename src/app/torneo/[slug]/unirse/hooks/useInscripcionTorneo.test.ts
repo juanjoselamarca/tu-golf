@@ -10,9 +10,11 @@ vi.mock('@/lib/red/fetch-json-con-plazo', () => red)
 
 const guest = vi.hoisted(() => ({
   getOrCreateGuestId: vi.fn(() => 'guest-1'),
+  getGuestToken: vi.fn((): string | null => null),
   setGuestName: vi.fn(),
   setGuestHandicap: vi.fn(),
   setGuestToken: vi.fn(),
+  clearGuestSession: vi.fn(),
 }))
 vi.mock('@/lib/guest-session', () => guest)
 
@@ -40,6 +42,17 @@ beforeEach(() => {
 })
 
 describe('useInscripcionTorneo · carga', () => {
+  it('sin sesión expone el gate de invitados que adelanta join-info (y "permitido" si no viene)', async () => {
+    const sinInvitados = { permitido: false, motivo: 'pro_required' }
+    const { result } = await montar({ ...JOIN_INFO, profile: null, authenticated: false, capacity: { full: false, maxPlayers: null, approved: 3 }, invitados: sinInvitados })
+    expect(result.current.authenticated).toBe(false)
+    expect(result.current.invitados).toEqual(sinInvitados)
+    expect(result.current.capacity?.approved).toBe(3)
+
+    const viejo = await montar({ ...JOIN_INFO, profile: null, authenticated: false })
+    expect(viejo.result.current.invitados).toEqual({ permitido: true })
+  })
+
   it('con join-info OK expone torneo, perfil y sesión', async () => {
     const { result } = await montar()
     expect(red.fetchJsonConPlazo.mock.calls[0][0]).toBe('/api/torneos/copa/join-info')
@@ -126,6 +139,50 @@ describe('useInscripcionTorneo · invitado', () => {
     expect(guest.setGuestHandicap).toHaveBeenCalledWith(18.5)
     expect(guest.setGuestToken).toHaveBeenCalledWith('tok')
     expect(router.push).toHaveBeenCalledWith('/torneo/copa/score')
+  })
+
+  // El server sólo reemite el token a quien pruebe que ya lo tenía (403 guest_token_required):
+  // si este dispositivo lo tiene guardado, va en el body.
+  it('con token guardado → lo manda para que el server pueda reemitirlo', async () => {
+    guest.getGuestToken.mockReturnValueOnce('tok-guardado')
+    const { result } = await montar(ANON)
+    act(() => result.current.setGuestName('Pedro'))
+    red.fetchJsonConPlazo.mockResolvedValueOnce(respuesta(200, { guestToken: 'tok-nuevo' }))
+    await act(() => result.current.handleGuestJoin())
+    const [, init] = red.fetchJsonConPlazo.mock.calls[1]
+    expect(JSON.parse(init.body).guestToken).toBe('tok-guardado')
+  })
+
+  // La respuesta del primer POST se perdió (señal de cancha): el jugador quedó creado con un
+  // guestId cuyo token este dispositivo nunca guardó, y el server ya no lo reemite.
+  it('guest_token_required → entra con un invitado nuevo, una sola vez', async () => {
+    guest.getGuestToken.mockReturnValueOnce('tok-viejo')
+    guest.getOrCreateGuestId.mockReturnValueOnce('guest-1').mockReturnValueOnce('guest-2')
+    const { result } = await montar(ANON)
+    act(() => result.current.setGuestName('Pedro'))
+    red.fetchJsonConPlazo
+      .mockResolvedValueOnce(respuesta(403, { error: 'guest_token_required', message: 'Esa inscripción es de otro dispositivo.' }))
+      .mockResolvedValueOnce(respuesta(200, { guestToken: 'tok-guest-2' }))
+    await act(() => result.current.handleGuestJoin())
+    expect(guest.clearGuestSession).toHaveBeenCalledOnce()
+    expect(JSON.parse(red.fetchJsonConPlazo.mock.calls[1][1].body)).toMatchObject({ guestId: 'guest-1', guestToken: 'tok-viejo' })
+    const reintento = JSON.parse(red.fetchJsonConPlazo.mock.calls[2][1].body)
+    expect(reintento.guestId).toBe('guest-2')
+    expect(reintento.guestToken).toBeUndefined()
+    expect(guest.setGuestToken).toHaveBeenCalledWith('tok-guest-2')
+    expect(router.push).toHaveBeenCalledWith('/torneo/copa/score')
+  })
+
+  it('guest_token_required también en el reintento → muestra el mensaje, no reintenta más', async () => {
+    const { result } = await montar(ANON)
+    act(() => result.current.setGuestName('Pedro'))
+    const rechazo = respuesta(403, { error: 'guest_token_required', message: 'Esa inscripción es de otro dispositivo.' })
+    red.fetchJsonConPlazo.mockResolvedValueOnce(rechazo).mockResolvedValueOnce(rechazo)
+    await act(() => result.current.handleGuestJoin())
+    expect(red.fetchJsonConPlazo).toHaveBeenCalledTimes(3)
+    expect(result.current.error).toBe('Esa inscripción es de otro dispositivo.')
+    expect(result.current.guestJoining).toBe(false)
+    expect(router.push).not.toHaveBeenCalled()
   })
 
   it('error del servidor → muestra su mensaje y libera el botón', async () => {

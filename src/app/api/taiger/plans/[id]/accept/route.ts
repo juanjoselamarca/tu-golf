@@ -11,6 +11,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +22,9 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  // Cada llamada inserta un coach_event con service role.
+  const rl = checkRateLimit(`taiger-plan-accept:${user.id}`, 30, 60 * 60 * 1000)
+  if (!rl.allowed) return NextResponse.json({ error: 'Demasiados intentos. Intenta más tarde.' }, { status: 429, headers: rateLimitHeaders(rl) })
 
   const planId = params.id
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

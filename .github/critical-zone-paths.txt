@@ -20,6 +20,8 @@ src/lib/data/import-garmin.ts
 src/lib/data/backfill-tope-whs.ts
 src/lib/data/tournaments/historial-torneo.ts
 src/app/api/import/confirm/route.ts
+src/lib/import/confirmar.ts
+src/lib/data/import-jobs.ts
 src/app/api/game/
 src/app/perfil/historial/hooks/useAddRoundForm.ts
 # Pantallas de cancha (docs/claude/modelos.md): scorer, leaderboard/en vivo/TV, página del torneo e inscripción.
@@ -69,6 +71,8 @@ supabase/migrations/
 scripts/ci/migraciones-inmutables.mjs
 scripts/lib/nombre-migracion.mjs
 .github/workflows/ci.yml
+# Lo que publica en prod: la promoción de main a production
+scripts/promover-a-produccion.mjs
 # El check de evidencia de revisión de los PRs nocturnos
 .github/workflows/evidencia-pr-nocturno.yml
 scripts/ci/evidencia-pr-nocturno.mjs

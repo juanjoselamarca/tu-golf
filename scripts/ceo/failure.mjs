@@ -312,6 +312,9 @@ export function scanViolations(output, { repoRoot }) {
       if (git && /\bpush\b/.test(bare)) pushes++;
       if (git && /\b(push|commit)\b/.test(bare) && /(^|\s)--no-verify(\s|$)/.test(bare)) add('no-verify', cmd);
       if (/^gh\s+pr\s+merge\b/.test(bare) && /(^|\s)--admin(\s|$)/.test(bare)) add('merge-admin', cmd);
+      // Promover es publicar en prod: de noche no se hace (night-rules 1b).
+      if (/^(\w+=\S*\s+)*npm\s+run(-script)?\s+promover(\s|$)/.test(bare)
+        || (/^(\w+=\S*\s+)*node\s/.test(bare) && /promover-a-produccion\.mjs(\s|$)/.test(full))) add('promover', cmd);
       // Merge por API: se salta `gh pr merge` y sus flags.
       if (ghApi && (/pulls\/\d+\/merge/.test(full) || /\bmergepullrequest\b/.test(full))) add('merge-api', cmd);
       // El label lo pone un humano tras el review de Fable; si el agente se lo pone, anula el guard.

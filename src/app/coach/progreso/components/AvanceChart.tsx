@@ -1,5 +1,7 @@
 'use client'
 
+import type { CSSProperties } from 'react'
+
 /**
  * El héroe de la vista: los diferenciales de cada ronda 18h bajando (ojalá)
  * hacia la línea de meta. Lower = mejor. SVG hecho a mano (sin librería de
@@ -21,11 +23,23 @@ interface Props {
   targetHandicap: number | null
 }
 
-// viewBox ≈ ancho real en móvil (~320–360 px): así el texto del SVG se ve al tamaño
-// declarado. Con 600 se escalaba a ~0.53 y las etiquetas de 10 quedaban en ~5 px.
+// W ≈ the real mobile width (~320–360 px), but the SVG still scales with it: the labels are HTML
+// on top so they stay at 12 px (an 11 inside the viewBox rendered at 9.8 px on a 390 px screen).
 const W = 360
 const H = 150
 const PAD = { top: 18, right: 6, bottom: 22, left: 6 }
+
+const label = (baselineY: number, side: 'left' | 'right', color: string): CSSProperties => ({
+  position: 'absolute',
+  [side]: `${((side === 'left' ? PAD.left : PAD.right) / W) * 100}%`,
+  bottom: `${((H - baselineY) / H) * 100}%`,
+  fontFamily: 'var(--font-dm-mono)',
+  fontSize: '12px',
+  lineHeight: 1,
+  color,
+  whiteSpace: 'nowrap',
+  pointerEvents: 'none',
+})
 
 export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
   const puntos = serie
@@ -106,59 +120,58 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-        <span style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600 }}>
+        <span style={{ fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600 }}>
           Diferencial por ronda · equiv. 18h
         </span>
         {mejorando != null && (
-          <span style={{ fontSize: '11px', fontWeight: 700, color: mejorando ? 'var(--coach-recovery-high)' : 'var(--text-3)' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: mejorando ? 'var(--coach-recovery-high)' : 'var(--text-3)' }}>
             {mejorando ? '↓ mejorando' : '→ estable'}
           </span>
         )}
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Diferenciales por ronda hacia la meta" style={{ display: 'block', overflow: 'visible' }}>
-        <defs>
-          <linearGradient id="avance-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(196,153,42,0.16)" />
-            <stop offset="100%" stopColor="rgba(196,153,42,0)" />
-          </linearGradient>
-        </defs>
+      <div style={{ position: 'relative' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Diferenciales por ronda hacia la meta" style={{ display: 'block', overflow: 'visible' }}>
+          <defs>
+            <linearGradient id="avance-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(196,153,42,0.16)" />
+              <stop offset="100%" stopColor="rgba(196,153,42,0)" />
+            </linearGradient>
+          </defs>
 
-        {/* Línea de meta */}
-        {targetHandicap != null && (
+          {/* Línea de meta */}
+          {targetHandicap != null && (
+            <g>
+              <line x1={PAD.left} y1={y(targetHandicap)} x2={W - PAD.right} y2={y(targetHandicap)} stroke="var(--coach-recovery-high)" strokeWidth="1.5" strokeDasharray="5 4" />
+            </g>
+          )}
+          {/* Línea de hándicap actual */}
           <g>
-            <line x1={PAD.left} y1={y(targetHandicap)} x2={W - PAD.right} y2={y(targetHandicap)} stroke="var(--coach-recovery-high)" strokeWidth="1.5" strokeDasharray="5 4" />
-            <text x={PAD.left} y={y(targetHandicap) - 5} fontSize="11" fill="var(--coach-recovery-high)" style={{ fontFamily: 'var(--font-dm-mono)' }}>
-              meta {targetHandicap}
-            </text>
+            <line x1={PAD.left} y1={y(currentHandicap)} x2={W - PAD.right} y2={y(currentHandicap)} stroke="var(--text-3)" strokeWidth="1" strokeDasharray="2 3" opacity="0.6" />
           </g>
-        )}
-        {/* Línea de hándicap actual */}
-        <g>
-          <line x1={PAD.left} y1={y(currentHandicap)} x2={W - PAD.right} y2={y(currentHandicap)} stroke="var(--text-3)" strokeWidth="1" strokeDasharray="2 3" opacity="0.6" />
-          <text x={W - PAD.right} y={y(currentHandicap) - 5} fontSize="11" fill="var(--text-3)" textAnchor="end" style={{ fontFamily: 'var(--font-dm-mono)' }}>
-            hcp {currentHandicap}
-          </text>
-        </g>
 
-        <path d={areaPath} fill="url(#avance-fill)" />
-        {/* Rondas crudas: contexto tenue. 9h = punto hueco (más volátil). */}
-        <path d={rawPath} fill="none" stroke="var(--brand)" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" opacity="0.28" />
-        {puntos.map((p, i) =>
-          p.is9 ? (
-            <circle key={i} cx={x(i)} cy={y(p.dif)} r="2.4" fill="var(--bg-surface)" stroke="var(--brand)" strokeWidth="1" opacity="0.6" />
-          ) : (
-            <circle key={i} cx={x(i)} cy={y(p.dif)} r="1.8" fill="var(--brand)" opacity="0.35" />
-          ),
+          <path d={areaPath} fill="url(#avance-fill)" />
+          {/* Rondas crudas: contexto tenue. 9h = punto hueco (más volátil). */}
+          <path d={rawPath} fill="none" stroke="var(--brand)" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" opacity="0.28" />
+          {puntos.map((p, i) =>
+            p.is9 ? (
+              <circle key={i} cx={x(i)} cy={y(p.dif)} r="2.4" fill="var(--bg-surface)" stroke="var(--brand)" strokeWidth="1" opacity="0.6" />
+            ) : (
+              <circle key={i} cx={x(i)} cy={y(p.dif)} r="1.8" fill="var(--brand)" opacity="0.35" />
+            ),
+          )}
+          {/* Tendencia (media móvil 5 sobre 18h): la bajada */}
+          <path d={maPath} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+          <circle cx={lastTx} cy={y(ma[ma.length - 1])} r="4.5" fill="var(--brand)" stroke="var(--bg-surface)" strokeWidth="1.5" />
+        </svg>
+        {targetHandicap != null && (
+          <span style={label(y(targetHandicap) - 5, 'left', 'var(--coach-recovery-high)')}>meta {targetHandicap}</span>
         )}
-        {/* Tendencia (media móvil 5 sobre 18h): la bajada */}
-        <path d={maPath} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={lastTx} cy={y(ma[ma.length - 1])} r="4.5" fill="var(--brand)" stroke="var(--bg-surface)" strokeWidth="1.5" />
-
+        <span style={label(y(currentHandicap) - 5, 'right', 'var(--text-3)')}>hcp {currentHandicap}</span>
         {/* Orientación temporal */}
-        <text x={PAD.left} y={H - 6} fontSize="11" fill="var(--text-3)" style={{ fontFamily: 'var(--font-dm-mono)' }}>{fmtMes(puntos[0].played_at)}</text>
-        <text x={W - PAD.right} y={H - 6} fontSize="11" fill="var(--text-3)" textAnchor="end" style={{ fontFamily: 'var(--font-dm-mono)' }}>{fmtMes(puntos[puntos.length - 1].played_at)}</text>
-      </svg>
+        <span style={label(H - 6, 'left', 'var(--text-3)')}>{fmtMes(puntos[0].played_at)}</span>
+        <span style={label(H - 6, 'right', 'var(--text-3)')}>{fmtMes(puntos[puntos.length - 1].played_at)}</span>
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
         <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
@@ -169,7 +182,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
         </span>
       </div>
       {hay9 && (
-        <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '6px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+        <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '6px', display: 'flex', gap: '14px', alignItems: 'center' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
             <svg width="9" height="9"><circle cx="4.5" cy="4.5" r="3" fill="var(--brand)" opacity="0.6" /></svg>
             18 hoyos (tendencia)

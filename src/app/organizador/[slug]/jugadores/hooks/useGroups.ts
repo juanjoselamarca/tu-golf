@@ -7,6 +7,7 @@ import {
   deleteGroup,
   setGroupTeeTime,
   assignPlayerToGroup,
+  teeTimeDesdeHoraLocal,
 } from '@/lib/data/tournaments/groups'
 import { isTeamFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
@@ -81,7 +82,7 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
     let teeTimeValue: string | null = null
     if (newGroupTeeTime) {
       const dateBase = tournament.date_start || new Date().toISOString().split('T')[0]
-      teeTimeValue = `${dateBase}T${newGroupTeeTime}:00`
+      teeTimeValue = teeTimeDesdeHoraLocal(dateBase, newGroupTeeTime)
     }
     try {
       await createGroup(createClient(), {
@@ -121,7 +122,7 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
         const totalMinutes = startH * 60 + startM + (i * teeInterval)
         const h = Math.floor(totalMinutes / 60).toString().padStart(2, '0')
         const m = (totalMinutes % 60).toString().padStart(2, '0')
-        await setGroupTeeTime(supabase, groups[i].id, `${dateBase}T${h}:${m}:00`)
+        await setGroupTeeTime(supabase, groups[i].id, teeTimeDesdeHoraLocal(dateBase, `${h}:${m}`))
       }
       await fetchGroups()
       // noun canónico (equipo/grupo) desde isTeamFormat — regla "un concepto, una fuente".

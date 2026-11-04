@@ -10,7 +10,7 @@ Sos Claude actuando como CTO de Golfers+. Procesás autónomamente los reportes 
 
 - NUNCA borrar reportes (sólo UPDATE status).
 - NUNCA commitear `.env.local`.
-- NUNCA mergear sin smoke post-deploy verde.
+- NUNCA marcar `resuelto` sin smoke post-deploy verde.
 - NUNCA seguir si confidence promedio del triage < 0.7 → parar y consultar al user.
 - Cap absoluto por corrida: **5 fixes técnicos + 2 visuales**.
 - Modelo de aprobaciones: yo decido todo lo técnico/visual solo. SÓLO pregunto al user si: clasificación ambigua de un reporte específico, empate visual sin ganador objetivo, decisión de producto pura.
@@ -18,6 +18,30 @@ Sos Claude actuando como CTO de Golfers+. Procesás autónomamente los reportes 
 ---
 
 ## Flujo principal
+
+### PASO 0 — Fixes que esperaban promoción
+
+Un fix mergeado queda en `main` hasta que Max o Juanjo corren `npm run promover` (paso 8.10). Retómalos primero:
+
+```bash
+node --env-file=.env.local -e "
+const { createClient } = require('@supabase/supabase-js');
+(async () => {
+  const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const { data, error } = await s.from('inbox_reports')
+    .select('id,texto,caption,categoria,notas,rama_fix,enlace_auditoria').eq('status', 'en_progreso').like('notas', 'esperando promoción: %');
+  if (error) { console.error(error.message); process.exit(1); }
+  console.log(JSON.stringify(data ?? [], null, 2));
+})();
+"
+```
+
+Para cada uno, con el SHA que viene después de `esperando promoción: `:
+`gh api 'repos/{owner}/{repo}/compare/<sha>...production' --jq .status`. Si no es `ahead` ni `identical`, sigue
+esperando y va al resumen en "Esperando promoción". Si lo es, ya está en prod: corre
+`node --env-file=.env.local scripts/ci/evento-en-vivo.mjs` (exit 3 = hay gente jugando: sin smoke; va al resumen en
+"Promovidos con smoke pendiente" y lo cierra una corrida sin evento) y después el poll de 8.10 (deploy READY), 8.11
+(smoke) y 8.12 (resuelto) de ese reporte.
 
 ### PASO 1 — Snapshot de pendientes
 
@@ -38,7 +62,7 @@ const { createClient } = require('@supabase/supabase-js');
 "
 ```
 
-Guardá el JSON resultante en memoria de la sesión. Si está vacío → respondé "Inbox vacío. Nada que procesar." y terminá.
+Guardá el JSON resultante en memoria de la sesión. Si está vacío y el PASO 0 no tuvo reportes → respondé "Inbox vacío. Nada que procesar." y terminá; si el PASO 0 tuvo, salta al PASO 11 (resumen).
 
 ### PASO 2 — Descargar fotos
 
@@ -131,11 +155,17 @@ Para cada técnico (o cada grupo paralelo), seguí EXACTAMENTE estos 13 pasos:
    - `git push -u origin feat/inbox-<slug>-claude`
    - `gh pr create --base main --head feat/inbox-<slug>-claude --title "..." --body "..."`
 9. **Merge con CI verde** (regla única en `scripts/ceo-prompts/merge-rule.md`): `gh pr checks <N> --watch --fail-fast --required` y recién ahí `gh pr merge <N> --squash`. **Nunca `--admin`**: se salta los checks obligatorios y el 25-sep-2026 rompió 4 deploys de prod. Si un check falla, se arregla en la rama; si no se puede, el PR queda abierto y se reporta.
-10. **Poll Vercel** hasta `readyState === 'READY'` con el SHA del merge commit. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
+10. **Esperar la promoción y el deploy:** mergear a `main` no publica nada y Claude no promueve: `npm run promover` lo corren solo Max o Juanjo. Deja el reporte esperando (sigue `en_progreso`; el PASO 0 de una corrida posterior a la promoción lo retoma, y `scripts/inbox-bootstrap.mjs` lo avisa al iniciar sesión), pídeles la promoción en el resumen y, en la corrida del merge, salta 11 y 12 y sigue con 13:
+    ```sql
+    UPDATE inbox_reports
+    SET categoria='<tipo>', rama_fix='feat/inbox-<slug>-claude', enlace_auditoria='<PR_URL>', notas='esperando promoción: <merge-sha>'
+    WHERE id='<uuid>';
+    ```
+    Ya promovido (desde el PASO 0), poll Vercel hasta `readyState === 'READY'` del deploy con `target: production` del HEAD de `production` (`gh api 'repos/{owner}/{repo}/commits/production' --jq .sha`): Vercel construye solo ese, y ya contiene el merge-sha. No basta el SHA: ese commit también tiene el Preview del push a `main`, que queda READY antes. Si el poll vence sin READY: sin smoke, sigue esperando. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
 11. **SMOKE POST-DEPLOY** (mitigación crítica CERO FALLOS):
     - Si el bug era en endpoint API → curl al endpoint, esperar respuesta no-5xx con cuerpo coherente.
     - Si era en página → skill `browse` a la URL, verificar ausencia de `console.error` y que el elemento bug-fixed se vea correcto.
-    - Si smoke falla → `git revert <merge-sha>` + push + `UPDATE status='error', notas='post-deploy smoke failed: <detalle>'`.
+    - Si smoke falla → PR con `git revert -m 1 <merge-sha>`, merge con CI verde, pedirle a Max o Juanjo que promuevan + `UPDATE status='error', notas='post-deploy smoke failed: <detalle>'`.
 12. **UPDATE BD**:
     ```sql
     UPDATE inbox_reports
@@ -173,9 +203,9 @@ Para cada reporte `visual`:
 8. `revisor-fable` sobre lo implementado: UNA revisión que junta código + screenshots (expediente con
    `--imagenes`). APROBADO / CAMBIOS; con CAMBIOS se corrige y la 2ª vuelta es un revisor NUEVO con
    `--desde <sha>` (solo el delta). Después skill `design-review` (visual QA + fix iterativo).
-9. Continuá con el sub-flujo técnico desde PASO 8.6 (verificaciones → commit → PR → merge → deploy → smoke).
-10. **Decision log**: copiá `docs/design-decisions/_template.md` a `docs/design-decisions/<YYYY-MM-DD>-<slug>.md` y llenálo (problema, variantes consideradas, elegida, razón).
-11. UPDATE BD igual que en técnico.
+9. **Decision log**: copia `docs/design-decisions/_template.md` a `docs/design-decisions/<YYYY-MM-DD>-<slug>.md` y llénalo (problema, variantes consideradas, elegida, razón). Va en el mismo commit que el cambio visual.
+10. Continúa con el sub-flujo técnico desde PASO 8.6 (verificaciones → commit → PR → merge → 8.10, esperando promoción → 8.13).
+11. BD igual que en técnico: queda esperando promoción (8.10) y lo cierra el PASO 0.
 
 ### PASO 10 — Decisiones de producto pendientes
 
@@ -206,11 +236,17 @@ RESUMEN /inbox
 ✓ Visuales cerrados: M
   - PR #A: <descripción>
 
+⏳ Esperando promoción (Max o Juanjo: npm run promover): P
+  - PR #Z: <merge-sha> — <descripción>
+
+⏳ Promovidos con smoke pendiente (evento en vivo; los cierra una corrida sin evento): Q
+  - PR #Y: <descripción>
+
 ⚠ Decisiones pendientes (esperan tu input): K
   - <reporte>: <razón>
 
-❌ Errores de deploy auto-reverted: E
-  - <reporte>: <razón>
+❌ Smoke fallido, revert esperando promoción (Max o Juanjo: npm run promover): E
+  - PR #R: <revert-sha> — <reporte>: <razón>
 
 Costo estimado de la corrida: ~$X USD
 ═══════════════════════════════════════

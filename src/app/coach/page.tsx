@@ -19,9 +19,10 @@ import {
   type MentalIndexResult,
   type MentalState,
 } from '@/golf/coach/mental-index'
-import { buildActivePlanSummary } from '@/golf/coach/intro'
+import { buildActivePlanSummary, describeRecoveryStatus } from '@/golf/coach/intro'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { fetchRondasCPI } from '@/lib/data/perfil'
+import { rondasDelCoach } from '@/lib/data/historical-rounds-filters'
 import { parPerHoleArray } from '@/golf/core/compare'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
@@ -135,7 +136,7 @@ export default async function CoachDashboard() {
   const [sessionsRes, primaryRes, roundsRes, patternsRes, planRes, totalRes, rondasCPI] = await Promise.all([
     supabase.from('taiger_sessions').select('id, session_type, created_at, next_focus').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('taiger_sessions').select('id').eq('user_id', user.id).eq('is_primary', true).maybeSingle(),
-    supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at').eq('user_id', user.id).order('played_at', { ascending: false }).order('created_at', { ascending: false }).limit(10),
+    rondasDelCoach(supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at').eq('user_id', user.id)).limit(10),
     supabase.from('player_patterns').select('id, pattern_type, confidence, data_points, status, first_detected').eq('user_id', user.id).in('status', ['active', 'monitoring']),
     supabase.from('coach_plans').select('id, pattern_id, hypothesis, rule, status, created_at, duration_days').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
     supabase.from('historical_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -187,7 +188,7 @@ export default async function CoachDashboard() {
     )
   }
 
-  const cpi: ResultadoCPI | null = rondasCPI && rondasCPI.length >= 3 ? calcularCPI(rondasCPI) : null
+  const cpi: ResultadoCPI | null = rondasCPI ? calcularCPI(rondasCPI) : null
 
   const mentalIndex: MentalIndexResult = calcularMentalIndex({
     activePatterns: patterns.filter(p => p.status === 'active').map(p => ({ pattern_type: p.pattern_type, confidence: p.confidence })),
@@ -215,7 +216,7 @@ export default async function CoachDashboard() {
     : null
 
   const recoveryTitle = mentalIndex.band === 'high' ? 'Tu cabeza está equilibrada' : mentalIndex.band === 'mid' ? 'Tu cabeza está bajo presión' : 'Tu cabeza necesita reset'
-  const recoveryDesc = `Patrones activos: ${patterns.filter(p => p.status === 'active').length}. Adherencia: ${outcomes.length > 0 ? Math.round(outcomes.filter(o => o.target_reached).length / outcomes.length * 100) : 0}%.`
+  const recoveryDesc = describeRecoveryStatus(patterns.filter(p => p.status === 'active').length, planSummary)
 
   const ctaHref = `/coach/sesion/${primarySessionId ?? 'nueva'}`
   const ctaLabel = primarySessionId ? 'Conversar con tAIger+' : 'Iniciar conversación con tAIger+'
@@ -267,7 +268,7 @@ export default async function CoachDashboard() {
           }}
         >
           <span>
-            <span style={{ display: 'block', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700 }}>
+            <span style={{ display: 'block', fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700 }}>
               Tu progreso
             </span>
             <span style={{ display: 'block', fontSize: '14px', color: 'var(--text)', fontWeight: 600, marginTop: '2px' }}>
@@ -330,12 +331,13 @@ export default async function CoachDashboard() {
           scores={lastRound.scores}
           hole_pars={lastRoundParArr}
           espirales={tiltCount}
+          detalleHref={`/perfil/historial/${lastRound.id}`}
         />
       )}
 
       {patterns.length > 0 && (
         <div style={{ padding: '0 20px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '14px' }}>Patrones detectados</div>
+          <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '14px' }}>Patrones detectados</div>
           {patterns.map(p => {
             const isActive = p.status === 'active'
             return (
@@ -387,7 +389,7 @@ export default async function CoachDashboard() {
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{SESSION_LABELS[s.session_type] ?? s.session_type}</div>
                   {s.next_focus && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Foco: {s.next_focus}</div>}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{new Date(s.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', timeZone: 'America/Santiago' })}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{new Date(s.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', timeZone: 'America/Santiago' })}</div>
               </Link>
             ))}
           </div>

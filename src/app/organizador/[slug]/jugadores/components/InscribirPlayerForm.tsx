@@ -174,7 +174,7 @@ export function InscribirPlayerForm({
               onFocus={() => search && setShowResults(true)}
             />
             {selectedProfile && (
-              <div style={{ fontSize: '11px', color: 'var(--brand-on-bg)', marginTop: '3px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '3px' }}>
                 {selectedProfile.name}{selectedProfile.indice != null ? ` — Hcp ${Number(selectedProfile.indice).toFixed(1)}` : ''}
               </div>
             )}
@@ -194,7 +194,7 @@ export function InscribirPlayerForm({
                     onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}
                   >
                     <div style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 500 }}>{p.name}</div>
-                    <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>
+                    <div style={{ color: 'var(--text-2)', fontSize: '12px' }}>
                       {p.email}
                       {p.indice != null && <span> · Indice {p.indice}</span>}
                     </div>
@@ -284,7 +284,7 @@ export function InscribirPlayerForm({
           <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>
             Pega una lista de nombres (uno por linea)
           </label>
-          <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '8px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px' }}>
             Formato: Nombre o Nombre, Handicap (ej: Juan Perez, 18.4)
           </div>
           <textarea
@@ -412,7 +412,7 @@ export function InscribirPlayerForm({
               border: '1px solid rgba(34,197,94,0.3)',
               borderRadius: '8px',
               fontSize: '13px',
-              color: '#22c55e',
+              color: 'var(--status-live-fg)',
               fontWeight: 600,
             }}>
               {batchResult.added} de {batchResult.total} jugadores agregados exitosamente
@@ -420,7 +420,7 @@ export function InscribirPlayerForm({
           )}
 
           {parsedBatch.length === 0 && batchText.trim() !== '' && (
-            <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--double)' }}>
+            <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--error-fg)' }}>
               No se encontraron nombres validos. Escribe un nombre por linea.
             </div>
           )}

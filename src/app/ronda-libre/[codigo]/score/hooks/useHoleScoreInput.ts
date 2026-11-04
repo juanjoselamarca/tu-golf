@@ -10,8 +10,11 @@ import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
 /**
  * Entrada de golpes del scorer individual: +/- en el hoyo actual (con
  * respaldo local inmediato y vibración de birdie), y conceder el hoyo en
- * match play (CONCEDE = -1). Cada cambio marca la tarjeta como sin guardar;
- * el envío al servidor lo hace `goToNextHole` / `useScoreSave`.
+ * match play (CONCEDE = -1). Cada cambio marca la tarjeta como sin guardar y
+ * agenda su envío al servidor (`enviar` = `saveScores`, con debounce), igual que
+ * el scorer de grupo. Antes sólo "Siguiente" la enviaba: un hoyo corregido desde
+ * la barra de hoyos quedaba sólo en el teléfono y, al recargar, la BD (que manda)
+ * lo pisaba con el valor viejo (reproducido en prod el 22-oct, ronda 2W1R32).
  *
  * `bloqueado` (Finalizar en curso): no se acepta ningún golpe. Finalizar ya
  * leyó la tarjeta; un toque tardío no entraría al historial pero sí a la
@@ -26,9 +29,11 @@ export function useHoleScoreInput(input: {
   parMap: Record<number, number>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
+  /** Agenda el envío de la tarjeta completa al servidor (debounced). */
+  enviar: (jugadorId: string, tarjeta: Record<number, number>) => void
   bloqueado: boolean
 }) {
-  const { codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved, bloqueado } = input
+  const { codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved, enviar, bloqueado } = input
   const [scoreAnimating, setScoreAnimating] = useState(false)
 
   const handleScoreChange = useCallback((hole: number, value: number) => {
@@ -43,11 +48,12 @@ export function useHoleScoreInput(input: {
       setHasUnsaved(true)
       // Save to localStorage immediately for backup
       lsSave(codigo, activeJugadorId, next[activeJugadorId])
+      enviar(activeJugadorId, next[activeJugadorId])
       const holePar = parMap[hole] ?? 4
       if (clamped - holePar <= -1) haptic([15, 30, 15])
       return next
     })
-  }, [activeJugadorId, bloqueado, parMap, codigo, setScores, setHasUnsaved])
+  }, [activeJugadorId, bloqueado, parMap, codigo, setScores, setHasUnsaved, enviar])
 
   /** Match Play: conceder el hoyo actual (score = CONCEDE = -1) */
   const handleConcedeHole = useCallback(() => {
@@ -57,9 +63,10 @@ export function useHoleScoreInput(input: {
       const next = { ...prev, [activeJugadorId]: { ...(prev[activeJugadorId] ?? {}), [currentHole]: CONCEDE } }
       setHasUnsaved(true)
       lsSave(codigo, activeJugadorId, next[activeJugadorId])
+      enviar(activeJugadorId, next[activeJugadorId])
       return next
     })
-  }, [activeJugadorId, isMatchPlay, bloqueado, currentHole, codigo, setScores, setHasUnsaved])
+  }, [activeJugadorId, isMatchPlay, bloqueado, currentHole, codigo, setScores, setHasUnsaved, enviar])
 
   return { scoreAnimating, handleScoreChange, handleConcedeHole }
 }

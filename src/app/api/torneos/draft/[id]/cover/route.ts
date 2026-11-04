@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
 
@@ -46,6 +47,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   if (!user) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   }
+  // Cada subida deja un archivo nuevo en Storage (upsert: false): sin tope, una sesión llena el bucket.
+  const rl = checkRateLimit(`draft-cover:${user.id}`, 10, 60 * 60 * 1000)
+  if (!rl.allowed) return NextResponse.json({ error: 'Demasiados intentos. Intenta más tarde.' }, { status: 429, headers: rateLimitHeaders(rl) })
 
   // Validar que el usuario es owner o collaborator del draft.
   const { data: draft, error: dErr } = await supabase

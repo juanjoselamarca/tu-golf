@@ -15,8 +15,8 @@ name: Zona crítica
 
 # pull_request_target: el workflow que corre es SIEMPRE el de main, no el de la rama del PR.
 # Con pull_request, un PR podía editar este archivo para que su propio check pasara.
-# Es seguro: no se hace checkout ni se ejecuta código del PR; solo se lee su lista de
-# archivos por la API (permisos de solo lectura).
+# Es seguro: no se hace checkout ni se ejecuta código del PR; solo se leen su lista de
+# archivos y sus labels por la API (permisos de solo lectura).
 on:
   pull_request_target:
     branches: [main]
@@ -52,7 +52,10 @@ jobs:
           fi
           grep -v '^\s*#' .github/critical-zone-paths.txt | sed '/^\s*$/d' > /tmp/prefixes.txt
           # Nombre actual y anterior: renombrar un archivo para sacarlo de la zona no lo saca del check.
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --jq '.[] | .filename, (.previous_filename // empty)' > /tmp/files.txt
+          if ! gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --jq '.[] | .filename, (.previous_filename // empty)' > /tmp/files.txt; then
+            echo "::error::No pude leer los archivos del PR por la API de GitHub. Re-ejecuta el check."
+            exit 1
+          fi
           hits=""
           while IFS= read -r f; do
             while IFS= read -r p; do
@@ -66,8 +69,11 @@ jobs:
           echo "Archivos en zona crítica:"
           printf '%s' "$hits"
           # From the API, not the event: `gh pr create --label` adds the labels after the PR opens.
-          LABELS=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '[.labels[].name] | join(",")')
-          if [[ ",${LABELS}," == *",fable-reviewed,"* ]]; then
+          if ! REVISADO=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq 'any(.labels[]; .name == "fable-reviewed")'); then
+            echo "::error::No pude leer los labels del PR por la API de GitHub. Re-ejecuta el check."
+            exit 1
+          fi
+          if [ "$REVISADO" = "true" ]; then
             echo "Tiene el label fable-reviewed: OK."
             exit 0
           fi

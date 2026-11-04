@@ -13,13 +13,13 @@
 // 1080x1920 reales, con su duración medida, y `montar.mjs` los pega respetando
 // esos tiempos. El movimiento que se ve es el que pasó de verdad.
 import { chromium } from 'playwright'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { ESCENAS } from './escenas.mjs'
 import { PROD_REF, projectRefDe, esLoopback } from '../lib/supabase-ref.mjs'
 import { MEDIDA as FORMATO } from './marca.mjs'
-import { dirSalida, rutaManifiestoFrames } from './publicar.mjs'
+import { limpiarTomaAnterior, rutaManifiestoFrames } from './publicar.mjs'
 
 /**
  * El teléfono simulado. Mide el 9:16 de la guía dividido por la escala, así que
@@ -281,9 +281,8 @@ export async function grabar(slug) {
     )
 
   const { default: guion } = await import(`./guiones/${slug}.mjs`)
-  const dir = path.join(dirSalida(), slug, 'frames')
-  await rm(dir, { recursive: true, force: true })
-  await mkdir(dir, { recursive: true })
+  // Deja la carpeta lista y, sobre todo, se lleva el manifiesto de la toma anterior.
+  const dir = limpiarTomaAnterior(slug)
 
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage(TELEFONO)

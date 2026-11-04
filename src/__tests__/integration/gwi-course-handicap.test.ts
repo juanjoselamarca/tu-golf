@@ -1,6 +1,6 @@
 /**
  * El GWI reparte golpes con el COURSE HANDICAP, no con el índice crudo (01-oct-2026).
- * Data real de prod: ronda demo GATEB2BN (Los Leones, 9 hoyos desde el 10). Antes,
+ * Data sembrada en la base de pruebas: ronda demo GATEB2BN (Los Leones, 9 hoyos desde el 10). Antes,
  * Tomás Demo (índice 12) recibía 12 golpes en 9 hoyos → neto -12 con un back 9 en par.
  * Discrimina: con el índice crudo el neto daría gross − índice; con el CH, gross − CH.
  */
