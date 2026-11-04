@@ -21,6 +21,7 @@ import { captureError } from '@/lib/error-tracking'
 import AssistantMessages from './AssistantMessages'
 import AssistantInput from './AssistantInput'
 import { UndoToast } from './UndoToast'
+import { FONT_SIZE } from '@/lib/font-size'
 import type {
   AssistantApiError,
   AssistantApiResponse,
@@ -204,7 +205,7 @@ export default function AssistantPanel({
           padding: '12px 16px',
           borderBottom: '1px solid var(--border)',
           fontFamily: '"DM Sans", sans-serif',
-          fontSize: '13px',
+          fontSize: FONT_SIZE.small,
           color: 'var(--text-secondary)',
           fontWeight: 600,
           letterSpacing: '0.04em',

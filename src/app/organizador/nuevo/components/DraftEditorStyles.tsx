@@ -29,7 +29,7 @@ export function DraftEditorStyles() {
       border-color: var(--border-md) !important;
     }
     .draft-editor-form section h2 {
-      font-size: 17px !important;
+      font-size: var(--fs-lead) !important;
       font-weight: 600 !important;
       letter-spacing: -0.01em;
       color: var(--text) !important;

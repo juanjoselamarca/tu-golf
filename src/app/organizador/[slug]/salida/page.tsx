@@ -106,12 +106,12 @@ export default function HojaSalidaPage() {
         )}
       </div>
 
-      <Link href={`/organizador/${slug}/jugadores`} data-no-print="" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', marginBottom: '16px', display: 'inline-block' }}>&larr; Volver</Link>
+      <Link href={`/organizador/${slug}/jugadores`} data-no-print="" style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.small, textDecoration: 'none', marginBottom: '16px', display: 'inline-block' }}>&larr; Volver</Link>
 
       {/* Header */}
       <div style={{ marginBottom: '24px' }} data-no-print="">
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>{tournament.name}</h1>
-        <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: 0 }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h2, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>{tournament.name}</h1>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: 0 }}>
           {lineaCanchaHojaSalida(tournament)}
         </p>
         {tournament.date_start && (
@@ -149,9 +149,9 @@ export default function HojaSalidaPage() {
       {groups.map((g, i) => (
         <div key={i} data-print-group="" style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '14px', padding: '16px', marginBottom: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{g.name}</span>
+            <span style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)' }}>{g.name}</span>
             {g.tee_time && (
-              <span style={{ fontSize: '13px', color: 'var(--brand-on-bg)', fontFamily: 'var(--font-dm-mono, "DM Mono", monospace)' }}>
+              <span style={{ fontSize: FONT_SIZE.dataSm, color: 'var(--brand-on-bg)', fontFamily: 'var(--font-dm-mono, "DM Mono", monospace)' }}>
                 {new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -159,7 +159,7 @@ export default function HojaSalidaPage() {
           {g.players.map((p, j) => (
             <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: j > 0 ? '1px solid var(--border)' : 'none' }}>
               <span style={{ fontSize: FONT_SIZE.small, color: 'var(--text)' }}>{p.name}</span>
-              <span style={{ fontSize: '13px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
+              <span style={{ fontSize: FONT_SIZE.dataSm, color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
                 {p.handicap != null ? handicapHojaSalida(p.handicap) : '—'}
               </span>
             </div>

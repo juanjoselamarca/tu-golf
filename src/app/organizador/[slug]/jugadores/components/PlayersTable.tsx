@@ -127,7 +127,7 @@ export function PlayersTable({
         <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
           <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Users size={40} strokeWidth={1.5} /></div>
           <div style={{ fontSize: FONT_SIZE.body, marginBottom: '6px', color: 'var(--text)' }}>Sin jugadores aún</div>
-          <div style={{ fontSize: '13px' }}>Busca y añade jugadores usando el formulario de arriba.</div>
+          <div style={{ fontSize: FONT_SIZE.small }}>Busca y añade jugadores usando el formulario de arriba.</div>
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
@@ -135,7 +135,7 @@ export function PlayersTable({
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {['#', 'Nombre', 'Índice', 'Course HCP', 'Categoría', 'Grupo', ''].map((h) => (
-                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                     {h}
                   </th>
                 ))}
@@ -160,15 +160,15 @@ export function PlayersTable({
                   <td style={{ padding: '12px 16px', color: 'var(--text)', fontSize: FONT_SIZE.small, fontWeight: 500 }}>
                     {p.profiles?.name ?? p.player_name ?? '—'}
                     {p.status === 'withdrawn' && (
-                      <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(148,168,192,0.15)', color: 'var(--text-2)', letterSpacing: '0.05em' }}>WD</span>
+                      <span style={{ marginLeft: '8px', fontSize: FONT_SIZE.caption, fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(148,168,192,0.15)', color: 'var(--text-2)', letterSpacing: '0.05em' }}>WD</span>
                     )}
                     {p.status === 'disqualified' && (
-                      <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(220,38,38,0.2)', color: '#fca5a5', letterSpacing: '0.05em' }}>DQ</span>
+                      <span style={{ marginLeft: '8px', fontSize: FONT_SIZE.caption, fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(220,38,38,0.2)', color: '#fca5a5', letterSpacing: '0.05em' }}>DQ</span>
                     )}
                   </td>
                   <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: FONT_SIZE.small }}>{p.profiles?.indice ?? '—'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: FONT_SIZE.small, fontWeight: 600 }}>{p.handicap_at_registration ?? '—'}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: FONT_SIZE.small }}>{p.categories?.name || '—'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     {groups.length > 0 ? (
                       <select

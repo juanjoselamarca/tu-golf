@@ -52,7 +52,7 @@ export function GroupsSection({
         {isTeam ? `Equipos (${groups.length})` : `Grupos de salida (${groups.length})`}
       </h2>
       {isTeam && (
-        <div style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 20px' }}>
+        <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: '0 0 20px' }}>
           Cada grupo es un equipo. Arma equipos de {teamSize} jugador{teamSize !== 1 ? 'es' : ''} y asigna cada jugador desde la tabla de abajo.
         </div>
       )}
@@ -135,7 +135,7 @@ export function GroupsSection({
               border: '1px solid var(--border-md)',
               color: 'var(--brand-on-bg)',
               fontWeight: 600,
-              fontSize: '13px',
+              fontSize: FONT_SIZE.small,
               padding: '10px 16px',
               minHeight: '44px',
               borderRadius: '8px',
@@ -151,7 +151,7 @@ export function GroupsSection({
 
       {/* Group cards */}
       {groups.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-2)', fontSize: '13px' }}>
+        <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-2)', fontSize: FONT_SIZE.small }}>
           {isTeam ? `Sin equipos aún. Crea equipos de ${teamSize} y asigna jugadores.` : 'Sin grupos aún. Crea grupos y asigna jugadores.'}
         </div>
       ) : (
@@ -167,13 +167,13 @@ export function GroupsSection({
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)' }}>
                   {g.name}
                   {isTeam && (
                     <span
                       title={g.players.length === teamSize ? 'Equipo completo' : `Debería tener ${teamSize} jugadores`}
                       style={{
-                        fontSize: '11px', fontWeight: 700, padding: '1px 7px', borderRadius: '10px',
+                        fontSize: FONT_SIZE.caption, fontWeight: 700, padding: '1px 7px', borderRadius: '10px',
                         background: g.players.length === teamSize ? 'rgba(34,197,94,0.15)' : 'rgba(196,153,42,0.15)',
                         color: g.players.length === teamSize ? '#22c55e' : 'var(--brand-on-bg)',
                         border: `1px solid ${g.players.length === teamSize ? 'rgba(34,197,94,0.3)' : 'var(--border-md)'}`,
@@ -210,7 +210,7 @@ export function GroupsSection({
                 <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', fontStyle: 'italic' }}>Sin jugadores</div>
               ) : (
                 g.players.map((gp) => (
-                  <div key={gp.id} style={{ fontSize: '13px', color: 'var(--text)', padding: '4px 0', borderTop: '1px solid var(--border)' }}>
+                  <div key={gp.id} style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', padding: '4px 0', borderTop: '1px solid var(--border)' }}>
                     {gp.playerName}
                   </div>
                 ))

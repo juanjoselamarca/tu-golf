@@ -140,7 +140,7 @@ function CollaboratorAvatars({ collaborators }: { collaborators: CollaboratorInf
         </div>
       ))}
       {extra > 0 && (
-        <div style={{ ...avatarStyle, marginLeft: -8, background: 'var(--text-3)', fontSize: 11 }}>
+        <div style={{ ...avatarStyle, marginLeft: -8, background: 'var(--text-3)', fontSize: FONT_SIZE.caption }}>
           +{extra}
         </div>
       )}
@@ -178,7 +178,7 @@ const rightStyle: React.CSSProperties = {
 }
 
 const badgeStyle: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 700,
   letterSpacing: 0.6,
   textTransform: 'uppercase',
@@ -195,7 +195,7 @@ const nameButtonStyle: React.CSSProperties = {
   border: 'none',
   padding: '4px 6px',
   margin: 0,
-  fontSize: 22,
+  fontSize: FONT_SIZE.h2,
   fontWeight: 700,
   fontFamily: 'inherit',
   cursor: 'pointer',
@@ -208,7 +208,7 @@ const nameButtonStyle: React.CSSProperties = {
 }
 
 const inputStyle: React.CSSProperties = {
-  fontSize: 22,
+  fontSize: FONT_SIZE.h2,
   fontWeight: 700,
   fontFamily: 'inherit',
   padding: '4px 8px',

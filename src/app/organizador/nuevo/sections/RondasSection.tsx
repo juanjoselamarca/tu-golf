@@ -191,7 +191,7 @@ const titleStyle: React.CSSProperties = {
 
 const emptyStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontStyle: 'italic',
   color: 'var(--text-secondary)',
 }
@@ -291,7 +291,7 @@ const avisoIconStyle: React.CSSProperties = {
   background: '#d97706',
   color: '#fff',
   fontWeight: 700,
-  fontSize: 11,
+  fontSize: FONT_SIZE.caption,
   lineHeight: '16px',
   textAlign: 'center',
 }
@@ -304,7 +304,7 @@ const addBtnStyle: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--brand-gold)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   cursor: 'pointer',
 }

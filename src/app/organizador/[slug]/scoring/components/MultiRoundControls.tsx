@@ -34,7 +34,7 @@ export function MultiRoundControls({
             style={{
               padding: '8px 16px',
               borderRadius: '8px',
-              fontSize: '13px',
+              fontSize: FONT_SIZE.small,
               fontWeight: activeRoundNum === rn ? 700 : 400,
               border: activeRoundNum === rn ? '2px solid var(--brand-on-bg)' : '1px solid var(--surface-border)',
               background: activeRoundNum === rn ? 'var(--status-open-bg)' : 'transparent',

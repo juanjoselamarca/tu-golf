@@ -57,7 +57,7 @@ function bubbleStyle(role: AssistantMessage['role'], severity?: AssistantMessage
       padding: '10px 14px',
       borderRadius: '12px',
       fontFamily: '"DM Sans", sans-serif',
-      fontSize: '13px',
+      fontSize: FONT_SIZE.small,
       color: palette.color,
       whiteSpace: 'pre-wrap',
       lineHeight: 1.5,

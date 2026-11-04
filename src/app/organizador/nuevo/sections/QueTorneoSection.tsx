@@ -17,6 +17,7 @@ import { CoverUploader } from '@/components/tournament-draft/CoverUploader'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
 import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 import { DESCRIPCION_MAX } from '@/lib/draft/schema'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface CourseOption {
   id: string
@@ -99,7 +100,7 @@ export function QueTorneoSection({
           onChange={(e) => applyChange({ description: e.target.value })}
         />
         <InlineFieldError state={descError} />
-        <span style={{ fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right' as const }}>
+        <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-secondary)', textAlign: 'right' as const }}>
           {(config.description ?? '').length}/{DESCRIPCION_MAX}
         </span>
       </div>

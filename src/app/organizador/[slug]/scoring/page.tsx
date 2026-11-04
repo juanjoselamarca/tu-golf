@@ -107,15 +107,15 @@ export default function ScoringPage() {
       <CenteredScreen>
         <div style={{ textAlign: 'center', padding: '40px 20px' }}>
           <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}><PersonStanding size={56} strokeWidth={1.5} /></div>
-          <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '10px' }}>
+          <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h2, color: 'var(--text)', marginBottom: '10px' }}>
             Sin jugadores inscritos
           </h3>
-          <p style={{ color: 'var(--text-2)', marginBottom: '24px', fontSize: '15px' }}>
+          <p style={{ color: 'var(--text-2)', marginBottom: '24px', fontSize: FONT_SIZE.body }}>
             Inscribe jugadores antes de ingresar scores
           </p>
           <button
             onClick={() => (window.location.href = `/organizador/${slug}/jugadores`)}
-            style={{ background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer' }}
+            style={{ background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: FONT_SIZE.body, padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer' }}
           >
             Inscribir jugadores →
           </button>
@@ -237,7 +237,7 @@ export default function ScoringPage() {
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
                 <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={36} strokeWidth={1.5} /></div>
                 <div style={{ fontSize: FONT_SIZE.body, color: 'var(--text)', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
-                <div style={{ fontSize: '13px' }}>Luego ingresa los scores hoyo a hoyo.</div>
+                <div style={{ fontSize: FONT_SIZE.small }}>Luego ingresa los scores hoyo a hoyo.</div>
               </div>
             )}
           </>

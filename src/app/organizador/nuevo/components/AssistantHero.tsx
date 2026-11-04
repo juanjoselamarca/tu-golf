@@ -13,6 +13,7 @@ import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
 import { UpsellCardSkeleton } from '@/components/billing/UpsellCardSkeleton'
 import type { ApplyAssistantConfig } from '../hooks/useDraftActions'
+import { FONT_SIZE } from '@/lib/font-size'
 
 // Import dinámico con ssr:false y placeholder si falla la carga.
 const AssistantPanel = dynamic(
@@ -99,6 +100,6 @@ const heroStyle = {
 
 const placeholderStyle: React.CSSProperties = {
   padding: 20,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-secondary)',
 }

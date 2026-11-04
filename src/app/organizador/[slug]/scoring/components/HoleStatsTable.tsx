@@ -20,11 +20,11 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
 
   return (
     <div style={{ padding: '0 20px 20px', overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '480px' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FONT_SIZE.small, minWidth: '480px' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
             {['Hoyo', 'Gross', 'Putts (0-6)', 'Fairway hit', 'GIR'].map((h) => (
-              <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
+              <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: FONT_SIZE.caption, letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -38,7 +38,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
             return (
               <tr key={h} style={{ borderBottom: '1px solid var(--surface-soft)', opacity: disabled ? 0.4 : 1 }}>
                 <td style={{ textAlign: 'center', color: 'var(--text-2)', padding: '6px 8px', fontSize: FONT_SIZE.caption }}>H{h} P{par}</td>
-                <td style={{ textAlign: 'center', color: 'var(--text)', padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}>{gross ?? '—'}</td>
+                <td style={{ textAlign: 'center', color: 'var(--text)', padding: '6px 8px', fontSize: FONT_SIZE.small, fontWeight: 600 }}>{gross ?? '—'}</td>
 
                 {/* Putts */}
                 <td style={{ textAlign: 'center', padding: '4px 6px' }}>
@@ -69,7 +69,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                             setHoleFairway((prev) => ({ ...prev, [h]: v }))
                             void saveHoleStat(h, { fairway_hit: v })
                           }}
-                          style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
+                          style={{ padding: '3px 7px', fontSize: FONT_SIZE.caption, borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                             background: holeFairway[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
                             borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--text-2)') : 'var(--surface-border)',
                             color: holeFairway[h] === v ? 'var(--text)' : 'var(--text-2)',
@@ -93,7 +93,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                           setHoleGir((prev) => ({ ...prev, [h]: v }))
                           void saveHoleStat(h, { gir: v })
                         }}
-                        style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
+                        style={{ padding: '3px 7px', fontSize: FONT_SIZE.caption, borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                           background: holeGir[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
                           borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--text-2)') : 'var(--surface-border)',
                           color: holeGir[h] === v ? 'var(--text)' : 'var(--text-2)',
