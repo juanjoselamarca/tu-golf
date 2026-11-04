@@ -142,7 +142,7 @@ export default function PlanesPage() {
           </h1>
           <p
             style={{
-              fontSize: 15,
+              fontSize: FONT_SIZE.body,
               fontWeight: 300,
               color: TEXT_SECONDARY,
               margin: 0,
@@ -243,7 +243,7 @@ export default function PlanesPage() {
             <h2
               style={{
                 fontFamily: PLAYFAIR,
-                fontSize: 22,
+                fontSize: FONT_SIZE.h2,
                 fontWeight: 400,
                 letterSpacing: '-0.03em',
                 margin: 0,
@@ -255,7 +255,7 @@ export default function PlanesPage() {
             <span
               style={{
                 fontFamily: DM_MONO,
-                fontSize: 22,
+                fontSize: FONT_SIZE.dataH2,
                 fontWeight: 400,
                 color: TEXT_PRIMARY,
               }}
@@ -315,7 +315,7 @@ export default function PlanesPage() {
               background: 'transparent',
               color: TEXT_SECONDARY,
               fontFamily: DM_SANS,
-              fontSize: 15,
+              fontSize: FONT_SIZE.body,
               fontWeight: 400,
               cursor: 'default',
               letterSpacing: '0.01em',
@@ -347,7 +347,7 @@ export default function PlanesPage() {
             <h2
               style={{
                 fontFamily: PLAYFAIR,
-                fontSize: 22,
+                fontSize: FONT_SIZE.h2,
                 fontWeight: 400,
                 letterSpacing: '-0.03em',
                 margin: 0,
@@ -360,7 +360,7 @@ export default function PlanesPage() {
               <span
                 style={{
                   fontFamily: DM_MONO,
-                  fontSize: 22,
+                  fontSize: FONT_SIZE.dataH2,
                   fontWeight: 400,
                   color: TEXT_PRIMARY,
                 }}
@@ -369,7 +369,7 @@ export default function PlanesPage() {
               </span>
               <span
                 style={{
-                  fontSize: 13,
+                  fontSize: FONT_SIZE.small,
                   color: TEXT_SECONDARY,
                   marginLeft: 4,
                 }}
@@ -381,7 +381,7 @@ export default function PlanesPage() {
           {yearly && (
             <p
               style={{
-                fontSize: 13,
+                fontSize: FONT_SIZE.dataSm,
                 color: TEXT_SECONDARY,
                 margin: 0,
                 marginBottom: 4,
@@ -479,7 +479,7 @@ export default function PlanesPage() {
           <p
             style={{
               fontFamily: DM_MONO,
-              fontSize: 48,
+              fontSize: FONT_SIZE.dataLg,
               fontWeight: 400,
               color: TEXT_PRIMARY,
               margin: 0,
@@ -527,7 +527,7 @@ export default function PlanesPage() {
             <p
               key={line}
               style={{
-                fontSize: 13,
+                fontSize: FONT_SIZE.small,
                 color: TEXT_TERTIARY,
                 margin: 0,
                 lineHeight: 2.2,
