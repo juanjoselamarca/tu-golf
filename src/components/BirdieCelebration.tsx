@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Z_OVERLAY } from '@/components/ui/Portal'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   playerName: string
@@ -83,7 +84,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
           animation: 'birdieRing 0.5s ease-out forwards',
         }}>
           <span style={{
-            fontSize: 32,
+            fontSize: FONT_SIZE.h1,
             fontWeight: 900,
             color: 'var(--status-live-fg)',
             animation: 'birdieScale 0.4s ease-out forwards',
@@ -94,7 +95,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
 
         {/* Label */}
         <div style={{
-          fontSize: 14,
+          fontSize: FONT_SIZE.small,
           fontWeight: 700,
           color: 'var(--status-live-fg)',
           letterSpacing: '3px',
@@ -107,7 +108,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
 
         {/* Info */}
         <div style={{
-          fontSize: 18,
+          fontSize: FONT_SIZE.lead,
           fontWeight: 600,
           color: 'var(--text)',
           animation: 'birdieText 0.4s ease-out 0.3s both',

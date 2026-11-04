@@ -23,6 +23,7 @@ import { InlineEditScores } from './InlineEditScores'
 import { TEE_COLORS } from '../lib/constants'
 import { computeStats, formatDateShort, formatOv, scoreColor } from '../lib/helpers'
 import type { HistoricalRound } from '../lib/types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   round:           HistoricalRound
@@ -113,7 +114,7 @@ export function RoundCard({
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', flex: '1 1 auto', minWidth: 0, lineHeight: 1.25, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+            <span style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text)', flex: '1 1 auto', minWidth: 0, lineHeight: 1.25, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
               {r.course_name}
             </span>
             {r.formato_juego && r.formato_juego !== 'stroke_play' && (
@@ -153,7 +154,7 @@ export function RoundCard({
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>{dateStr}</span>
+            <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>{dateStr}</span>
             {teeHex && (
               <span style={{
                 width: '8px', height: '8px', borderRadius: '50%',
@@ -163,12 +164,12 @@ export function RoundCard({
               }} />
             )}
             {r.match_result && (
-              <span style={{ fontSize: '12px', color: 'var(--brand-on-bg)', fontWeight: 600 }}>
+              <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', fontWeight: 600 }}>
                 {r.match_result}
               </span>
             )}
             {r.team_name && (
-              <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+              <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
                 Equipo: {r.team_name}
               </span>
             )}
@@ -310,7 +311,7 @@ export function RoundCard({
                   onClick={(e) => { e.stopPropagation(); onStartEdit() }}
                   style={{
                     background: 'none', border: '1px solid var(--border)', borderRadius: '8px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--brand-on-bg)', fontWeight: 600,
+                    padding: '6px 14px', fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', fontWeight: 600,
                     cursor: 'pointer',
                   }}
                 >
@@ -322,7 +323,7 @@ export function RoundCard({
                 disabled={deleting}
                 style={{
                   background: 'none', border: '1px solid rgba(220,38,38,0.35)', borderRadius: '8px',
-                  padding: '6px 14px', fontSize: '12px', color: 'var(--error-fg)', fontWeight: 500,
+                  padding: '6px 14px', fontSize: FONT_SIZE.caption, color: 'var(--error-fg)', fontWeight: 500,
                   cursor: 'pointer', opacity: deleting ? 0.5 : 1,
                 }}
               >

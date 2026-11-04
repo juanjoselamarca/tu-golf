@@ -15,6 +15,7 @@ import { useTeamConfig, type TamanoEquipo } from '../hooks/useTeamConfig'
 import { HandicapEquipoScramble } from '../components/HandicapEquipoScramble'
 import { HandicapEquipoFoursome } from '../components/HandicapEquipoFoursome'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle, helperStyle, addBtnStyle } from '../styles'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface EquiposSectionProps {
   config: TournamentConfig
@@ -77,7 +78,7 @@ export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
         />
       )}
       {config.format === 'best_ball' && config.modo === 'neto' && (
-        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+        <p style={{ margin: 0, fontSize: FONT_SIZE.caption, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
           En best ball cada jugador juega con su propio handicap. El porcentaje se elige en Cómo juegan, en Handicap de juego.
         </p>
       )}

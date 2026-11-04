@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface BrainResponse {
   profile: { id: string; name: string; indice: number | null; nivel: number | null; created_at: string } | null
@@ -88,7 +89,7 @@ export default function AdminBrainPage() {
 
   return (
     <div style={pageStyle}>
-      <h1 style={{ ...adminFonts.sectionTitle, fontSize: '1.5rem', marginBottom: 24 }}>
+      <h1 style={{ ...adminFonts.sectionTitle, fontSize: FONT_SIZE.h2, marginBottom: 24 }}>
         Cerebro de tAIger+ — {data.profile?.name ?? params.userId}
       </h1>
 
@@ -220,7 +221,7 @@ const pageStyle: React.CSSProperties = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ ...adminCard, marginBottom: 20, padding: 20 }}>
-      <h2 style={{ ...adminFonts.sectionTitle, fontSize: '1rem', marginBottom: 12 }}>{title}</h2>
+      <h2 style={{ ...adminFonts.sectionTitle, fontSize: FONT_SIZE.body, marginBottom: 12 }}>{title}</h2>
       {children}
     </section>
   )

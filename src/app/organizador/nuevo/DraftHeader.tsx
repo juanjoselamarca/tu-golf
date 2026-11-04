@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
 import type { SyncStatus, CollaboratorInfo } from '@/lib/draft/store'
 import { SessionExpiredRow, SyncChip, SyncProblemRow } from './components/DraftSyncStatus'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface DraftHeaderProps {
   draftId: string
@@ -233,7 +234,7 @@ const avatarStyle: React.CSSProperties = {
   borderRadius: '50%',
   background: 'var(--text-3)',
   color: 'var(--bg)',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 700,
   display: 'inline-flex',
   alignItems: 'center',

@@ -20,6 +20,7 @@ import { AccountSection } from './AccountSection'
 import { DeleteAccountModal } from './DeleteAccountModal'
 import { GapNote, NivelBadge, SyncHistorialBlock } from './EditorialBlocks'
 import NotificationSettings from '@/components/NotificationSettings'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   initialProfile: Profile
@@ -112,7 +113,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
         {/* P18: link explicativo — "¿Cuándo uso cuál?" */}
         <div style={{ marginBottom: '12px', textAlign: 'center', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '180ms' }}>
           <Link href="/indices" style={{
-            fontSize: '12px', color: 'var(--brand-on-bg)', textDecoration: 'none',
+            fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', textDecoration: 'none',
             fontFamily: '"DM Sans", system-ui, sans-serif', fontWeight: 600,
             padding: '6px 10px', borderRadius: '8px',
             display: 'inline-flex', alignItems: 'center', gap: '4px',

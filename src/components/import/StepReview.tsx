@@ -70,7 +70,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {resumen.garmin > 0 && (
             <span style={{
-              padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+              padding: '4px 12px', borderRadius: '12px', fontSize: FONT_SIZE.caption, fontWeight: 600,
               background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--status-live-fg)',
             }}>
               {resumen.garmin} Garmin
@@ -78,7 +78,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           )}
           {resumen.listas > 0 && (
             <span style={{
-              padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+              padding: '4px 12px', borderRadius: '12px', fontSize: FONT_SIZE.caption, fontWeight: 600,
               background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--status-live-fg)',
             }}>
               {resumen.listas} {resumen.listas === 1 ? 'lista' : 'listas'}
@@ -86,7 +86,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           )}
           {resumen.porRevisar > 0 && (
             <span style={{
-              padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+              padding: '4px 12px', borderRadius: '12px', fontSize: FONT_SIZE.caption, fontWeight: 600,
               background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--status-open-fg)',
             }}>
               {resumen.porRevisar} revisar
@@ -94,7 +94,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           )}
           {resumen.incompletas > 0 && (
             <span style={{
-              padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+              padding: '4px 12px', borderRadius: '12px', fontSize: FONT_SIZE.caption, fontWeight: 600,
               background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--status-closed-fg)',
             }}>
               {resumen.incompletas} {resumen.incompletas === 1 ? 'incompleta' : 'incompletas'}
@@ -102,7 +102,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           )}
           {resumen.descartadas > 0 && (
             <span style={{
-              padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+              padding: '4px 12px', borderRadius: '12px', fontSize: FONT_SIZE.caption, fontWeight: 600,
               background: 'transparent', color: 'var(--text-2)',
               border: '1px solid var(--border-md)',
             }}>
@@ -124,7 +124,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
               style={{
                 margin: 0, padding: '10px 12px', borderRadius: '10px',
                 background: 'var(--error-bg)', border: '1px solid var(--error-border)',
-                color: 'var(--error-fg)', fontSize: '14px', lineHeight: 1.45,
+                color: 'var(--error-fg)', fontSize: FONT_SIZE.small, lineHeight: 1.45,
               }}
             >
               {aviso}
@@ -231,7 +231,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
             style={{
               width: '100%', padding: '16px', borderRadius: '14px',
               background: confirmando ? 'rgba(196,153,42,0.4)' : 'linear-gradient(135deg, var(--brand), #e8c06a)',
-              color: 'var(--brand-dark)', fontSize: '16px', fontWeight: 700,
+              color: 'var(--brand-dark)', fontSize: FONT_SIZE.body, fontWeight: 700,
               border: 'none',
               cursor: confirmando ? 'wait' : 'pointer',
               minHeight: '52px',

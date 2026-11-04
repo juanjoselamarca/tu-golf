@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import type { AnySimulationResult } from '@/lib/draft/simulators'
 import { SimulationView, subtitleStyle } from './components/SimulationView'
 import { avisoHcpPctPorJugar } from '@/golf/core/playing-handicap'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface DraftPreviewModalProps {
   draftId: string
@@ -206,7 +207,7 @@ const headerStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 700,
   color: 'var(--text-primary)',
 }
@@ -236,7 +237,7 @@ const loadingStyle: React.CSSProperties = {
 }
 
 const loadingTextStyle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-secondary)',
 }
 
@@ -244,5 +245,5 @@ const noticeStyle: React.CSSProperties = {
   padding: 16,
   borderRadius: 10,
   border: '1px solid',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
 }

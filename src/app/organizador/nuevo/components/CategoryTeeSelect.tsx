@@ -14,6 +14,7 @@ import {
   type CategoryGender,
 } from '@/golf/courses/category-tee-options'
 import type { CourseTeeNamesState } from '../hooks/useCourseTeeNames'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface CategoryTeeSelectProps {
   id: string
@@ -25,7 +26,7 @@ export interface CategoryTeeSelectProps {
 }
 
 const hintStyle = (error: boolean): React.CSSProperties => ({
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   lineHeight: 1.35,
   color: error ? 'var(--error-fg)' : 'var(--text-secondary)',
   marginTop: 2,
@@ -38,7 +39,7 @@ const retryBtnStyle: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--brand-on-bg)',
   fontFamily: 'inherit',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 600,
   textDecoration: 'underline',
   cursor: 'pointer',

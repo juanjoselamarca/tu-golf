@@ -15,7 +15,7 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text)',
   borderRadius: '8px',
   padding: '10px 12px',
-  fontSize: '16px',
+  fontSize: FONT_SIZE.body,
   outline: 'none',
   width: '100%',
   boxSizing: 'border-box',
@@ -38,7 +38,7 @@ function PlanActual({ tier: raw }: { tier: string | null }) {
   const tier = tierDePerfil(raw)
   if (esPlanPago(tier)) return <ProBadge tier={tier} />
   return (
-    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600 }}>
+    <span style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', fontWeight: 600 }}>
       {NOMBRE_DE_PLAN[tier]}
     </span>
   )
@@ -68,7 +68,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
       {edit.editing ? (
         <div id="edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre</label>
+            <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>Nombre</label>
             <input
               type="text"
               value={edit.editName}
@@ -79,7 +79,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice Federación</label>
+            <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>Índice Federación</label>
             <input
               type="text"
               inputMode="decimal"
@@ -121,7 +121,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
           ].map(([label, value], idx, arr) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border)', gap: '12px' }}>
               <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{label}</span>
-              <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
+              <span style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
             </div>
           ))}
           <Link

@@ -10,6 +10,7 @@ import { useFormErrors } from '@/hooks/useFormErrors'
 import { Zap, Check, Mail, ArrowLeft, Loader2 } from '@/components/icons'
 import { sanitizeNext, DEFAULT_NEXT, loginUrl } from '@/lib/auth/login-url'
 import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT, translateRegisterError } from '@/lib/auth/register-errors'
+import { FONT_SIZE } from '@/lib/font-size'
 
 function GoogleIcon() {
   return (
@@ -61,7 +62,7 @@ const baseInput: React.CSSProperties = {
 
 function FieldErr({ msg }: { msg: string | null }) {
   if (!msg) return null
-  return <p style={{ color: theme.danger, fontSize: '12px', marginTop: '6px' }}>{msg}</p>
+  return <p style={{ color: theme.danger, fontSize: FONT_SIZE.caption, marginTop: '6px' }}>{msg}</p>
 }
 
 function RegisterContent() {
@@ -216,7 +217,7 @@ function RegisterContent() {
               border: `1px solid ${theme.gold}`,
               borderRadius: '10px',
               padding: '13px 24px',
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               fontWeight: 600,
               cursor: resending ? 'not-allowed' : 'pointer',
               opacity: resending ? 0.7 : 1,
@@ -233,7 +234,7 @@ function RegisterContent() {
           </button>
 
           {resent && (
-            <p style={{ fontSize: '12px', color: 'var(--status-live-fg)', marginTop: '10px' }}>
+            <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--status-live-fg)', marginTop: '10px' }}>
               Revisa tu bandeja de entrada nuevamente.
             </p>
           )}
@@ -245,7 +246,7 @@ function RegisterContent() {
               alignItems: 'center',
               gap: '6px',
               color: theme.textMuted,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               textDecoration: 'none',
               marginTop: '28px',
               transition: 'color 200ms',
@@ -325,11 +326,11 @@ function RegisterContent() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Zap size={18} color={theme.gold} strokeWidth={1.5} />
             <div style={{ textAlign: 'left' }}>
-              <div style={{ color: theme.text, fontSize: '14px', fontWeight: 600 }}>Registro con email y contraseña</div>
+              <div style={{ color: theme.text, fontSize: FONT_SIZE.small, fontWeight: 600 }}>Registro con email y contraseña</div>
               <div style={{ color: theme.textMuted, fontSize: '11px', marginTop: '2px' }}>Nombre, email, contraseña e índice (opcional)</div>
             </div>
           </div>
-          <span style={{ color: theme.textMuted, fontSize: '14px', transition: 'transform 200ms', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
+          <span style={{ color: theme.textMuted, fontSize: FONT_SIZE.small, transition: 'transform 200ms', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
         </button>
 
         {/* Accordion content */}
@@ -397,7 +398,7 @@ function RegisterContent() {
                 style={{ marginTop: '2px', flexShrink: 0, width: '16px', height: '16px', accentColor: theme.gold, cursor: 'pointer' }}
               />
               <label htmlFor="acepta-terminos" style={{
-                fontSize: '12px', color: theme.textMuted, lineHeight: 1.5, cursor: 'pointer',
+                fontSize: FONT_SIZE.caption, color: theme.textMuted, lineHeight: 1.5, cursor: 'pointer',
               }}>
                 Acepto los{' '}
                 <a href="/terminos" target="_blank" rel="noopener" style={{ color: theme.goldText, textDecoration: 'underline', fontWeight: 500 }}>
@@ -426,7 +427,7 @@ function RegisterContent() {
           </form>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: '14px', color: theme.textMuted, marginTop: '28px' }}>
+        <p style={{ textAlign: 'center', fontSize: FONT_SIZE.small, color: theme.textMuted, marginTop: '28px' }}>
           ¿Ya tienes cuenta?{' '}
           <Link href={loginUrl(redirectTo)} style={{ color: theme.goldText, textDecoration: 'none', fontWeight: 600 }}>Inicia sesión →</Link>
         </p>

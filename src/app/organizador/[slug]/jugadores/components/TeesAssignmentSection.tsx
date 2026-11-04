@@ -12,6 +12,7 @@ import { ChevronDown, Loader2, Users } from '@/components/icons'
 import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { inscritoAprobado } from '@/golf/tournament-status'
 import type { PlayerRow } from '@/lib/data/tournaments/players'
+import { FONT_SIZE } from '@/lib/font-size'
 
 // Mapa nombre tee → color hex (no canónicamente exportado del módulo de colors —
 // estos son los colores estándar de tees chilenos. Si no matchea cae a neutro gris).
@@ -132,7 +133,7 @@ export function TeesAssignmentSection({
                 <span
                   style={{
                     fontFamily: 'var(--font-dm-mono), monospace',
-                    fontSize: 14,
+                    fontSize: FONT_SIZE.dataSm,
                     color: 'var(--text-3)',
                     paddingRight: 12,
                     fontVariantNumeric: 'tabular-nums',
@@ -155,7 +156,7 @@ export function TeesAssignmentSection({
                     // claro y "Negras" desaparece en oscuro.
                     color: isAssigned ? 'var(--text)' : 'var(--text-2)',
                     fontFamily: 'var(--font-dm-sans), sans-serif',
-                    fontSize: 14,
+                    fontSize: FONT_SIZE.small,
                     fontWeight: 500,
                     cursor: isLoading ? 'wait' : 'pointer',
                     minHeight: 44,
@@ -188,7 +189,7 @@ export function TeesAssignmentSection({
                       opacity: 0,
                       cursor: 'pointer',
                       appearance: 'none',
-                      fontSize: 16,
+                      fontSize: FONT_SIZE.body,
                     }}
                     aria-label={`Tee de ${p.profiles?.name || 'jugador'}`}
                   >
@@ -221,7 +222,7 @@ const captionStyle: React.CSSProperties = {
   margin: 0,
   marginBottom: 16,
   fontFamily: 'var(--font-dm-sans), sans-serif',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 600,
   textTransform: 'uppercase',
   letterSpacing: '0.08em',
@@ -230,7 +231,7 @@ const captionStyle: React.CSSProperties = {
 
 const emptyStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-3)',
   textAlign: 'center',
   padding: 20,

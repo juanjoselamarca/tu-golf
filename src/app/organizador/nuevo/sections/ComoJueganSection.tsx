@@ -29,6 +29,7 @@ import {
   formatoAdmiteHcpPct,
   hcpPctEfectivo,
 } from '@/golf/core/playing-handicap'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface ComoJueganSectionProps {
   config: TournamentConfig
@@ -190,7 +191,7 @@ function hcpPctTrasCambio(
 }
 
 const hintStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   color: 'var(--text-secondary)',
 }
 
@@ -207,7 +208,7 @@ const cardStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 600,
   color: 'var(--text-primary)',
 }

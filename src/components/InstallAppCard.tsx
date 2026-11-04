@@ -25,6 +25,7 @@
 import { useEffect, useState } from 'react'
 import { Smartphone, Check } from '@/components/icons'
 import { esIOS } from '@/lib/platform'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -135,7 +136,7 @@ export default function InstallAppCard() {
           border: 'none',
           borderRadius: '10px',
           padding: '10px 14px',
-          fontSize: '12px',
+          fontSize: FONT_SIZE.caption,
           fontWeight: 700,
           fontFamily: '"DM Sans", system-ui, sans-serif',
           cursor: 'pointer',

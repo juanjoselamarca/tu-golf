@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { copyToClipboard } from '@/lib/clipboard'
 import { loginUrl } from '@/lib/auth/login-url'
 import { SITE_URL } from '@/lib/site-url'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export default function CopyLinkButton({ slug }: { slug: string }) {
   const url = `${SITE_URL}${loginUrl(`/organizador/${slug}/jugadores`)}`
@@ -28,7 +29,7 @@ export default function CopyLinkButton({ slug }: { slug: string }) {
           minHeight: '44px',
           minWidth: '44px',
           borderRadius: '10px',
-          fontSize: '14px',
+          fontSize: FONT_SIZE.small,
           cursor: 'pointer',
           fontWeight: 600,
           transition: 'all 200ms ease',

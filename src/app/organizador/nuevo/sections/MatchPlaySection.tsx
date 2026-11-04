@@ -7,6 +7,7 @@
 
 import type { TournamentConfig, MatchPlayConfig } from '@/lib/draft/types'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface MatchPlaySectionProps {
   config: TournamentConfig
@@ -67,7 +68,7 @@ const toggleLabelStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-primary)',
   cursor: 'pointer',
 }

@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
 import type { NarratorOutput } from '@/lib/coach-event-narrator'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface FeedItem {
   id: number
@@ -108,10 +109,10 @@ export default function LiveFeedPage() {
 
       <div style={headerRow}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h1 style={{ ...adminFonts.sectionTitle, fontSize: '1.5rem', margin: 0 }}>
+          <h1 style={{ ...adminFonts.sectionTitle, fontSize: FONT_SIZE.h2, margin: 0 }}>
             Cerebro de tAIger+ — En vivo
           </h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: paused ? adminColors.gray : adminColors.green, fontSize: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: paused ? adminColors.gray : adminColors.green, fontSize: FONT_SIZE.caption }}>
             <span className={paused ? '' : 'live-dot'} style={{
               width: 8, height: 8, borderRadius: 4,
               background: paused ? adminColors.gray : adminColors.green,
@@ -132,11 +133,11 @@ export default function LiveFeedPage() {
         </div>
       </div>
 
-      <div style={{ color: adminColors.gray, fontSize: 12, marginBottom: 16 }}>
+      <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.caption, marginBottom: 16 }}>
         Polling cada 3 segundos · {visible.length} de {items.length} eventos · {serverTime ? `servidor ${new Date(serverTime).toLocaleTimeString('es-CL')}` : ''}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, fontSize: 12, color: adminColors.gray }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, fontSize: FONT_SIZE.caption, color: adminColors.gray }}>
         <Link href="/admin/sistema/taiger" style={navLink}>← Resumen agregado</Link>
         <span>·</span>
         <Link href="/admin/sistema/taiger/dashboard" style={navLink}>Efectividad de planes →</Link>
@@ -181,9 +182,9 @@ function FeedCard({ item }: { item: FeedItem }) {
           <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 22, lineHeight: 1 }}>{narration.icon}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, color: adminColors.ivory, fontWeight: 600 }}>{narration.title}</div>
+              <div style={{ fontSize: FONT_SIZE.small, color: adminColors.ivory, fontWeight: 600 }}>{narration.title}</div>
               {narration.subtitle && (
-                <div style={{ fontSize: 12, color: adminColors.gray, marginTop: 4 }}>{narration.subtitle}</div>
+                <div style={{ fontSize: FONT_SIZE.caption, color: adminColors.gray, marginTop: 4 }}>{narration.subtitle}</div>
               )}
               <div style={{ marginTop: 8, display: 'flex', gap: 12, fontSize: 11, color: adminColors.gray }}>
                 <Link href={`/admin/sistema/taiger/${item.user_id}`} style={navLink}>{item.user_name}</Link>
@@ -201,7 +202,7 @@ function FeedCard({ item }: { item: FeedItem }) {
     <li className="feed-item" style={{
       padding: '6px 12px',
       borderBottom: `1px solid ${adminColors.border}`,
-      fontSize: 12,
+      fontSize: FONT_SIZE.caption,
       display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
       color: adminColors.gray,
     }}>
@@ -256,7 +257,7 @@ const navLinkMuted: React.CSSProperties = { color: adminColors.gray, textDecorat
 function filterBtn(active: boolean): React.CSSProperties {
   return {
     padding: '6px 12px',
-    fontSize: 12,
+    fontSize: FONT_SIZE.caption,
     border: `1px solid ${active ? adminColors.gold : adminColors.border}`,
     background: active ? adminColors.goldDim : 'transparent',
     color: active ? adminColors.gold : adminColors.gray,
@@ -267,6 +268,6 @@ function filterBtn(active: boolean): React.CSSProperties {
 }
 
 const pauseBtn: React.CSSProperties = {
-  padding: '6px 12px', fontSize: 12, border: `1px solid ${adminColors.border}`,
+  padding: '6px 12px', fontSize: FONT_SIZE.caption, border: `1px solid ${adminColors.border}`,
   background: 'transparent', color: adminColors.ivory, borderRadius: 4, cursor: 'pointer',
 }

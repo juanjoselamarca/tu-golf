@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Portal } from '@/components/ui/Portal'
 import { Pencil, Trash2 } from '@/components/icons'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   open:                  boolean
@@ -287,14 +288,14 @@ export function ConfirmDeleteSheet({
             id="confirm-delete-title"
             style={{
               fontFamily: '"Playfair Display", serif',
-              fontSize: '18px', fontWeight: 700,
+              fontSize: FONT_SIZE.lead, fontWeight: 700,
               color: 'var(--text)', margin: '0 0 8px',
             }}
           >
             ¿Eliminar esta ronda?
           </h3>
           <p style={{
-            fontSize: '14px', color: 'var(--text-2)',
+            fontSize: FONT_SIZE.small, color: 'var(--text-2)',
             margin: '0 0 4px', lineHeight: 1.5,
           }}>
             <strong style={{ color: 'var(--text)' }}>{courseLabel}</strong>
@@ -316,7 +317,7 @@ export function ConfirmDeleteSheet({
                 flex: 1, height: '48px',
                 background: 'transparent',
                 color: 'var(--text-2)',
-                fontWeight: 600, fontSize: '14px',
+                fontWeight: 600, fontSize: FONT_SIZE.small,
                 border: '1px solid var(--border)',
                 borderRadius: '10px',
                 cursor: deleting ? 'not-allowed' : 'pointer',
@@ -333,7 +334,7 @@ export function ConfirmDeleteSheet({
                 flex: 1, height: '48px',
                 background: 'var(--double)',
                 color: '#ffffff',
-                fontWeight: 700, fontSize: '14px',
+                fontWeight: 700, fontSize: FONT_SIZE.small,
                 border: 'none', borderRadius: '10px',
                 cursor: deleting ? 'not-allowed' : 'pointer',
                 opacity: deleting ? 0.7 : 1,

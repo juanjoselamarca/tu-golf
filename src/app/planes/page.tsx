@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { MasterCodeActivator } from '@/components/billing/MasterCodeActivator'
 import { addToast } from '@/hooks/useToast'
 import { destinoDeVolverDePlanes } from '@/lib/planes-url'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /* ─── constants ─── */
 
@@ -55,7 +56,7 @@ const BG = '#070d18'
 const VOLVER_STYLE: CSSProperties = {
   color: TEXT_SECONDARY,
   textDecoration: 'none',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   fontWeight: 400,
   letterSpacing: '0.01em',
   display: 'inline-flex',
@@ -164,7 +165,7 @@ export default function PlanesPage() {
         >
           <span
             style={{
-              fontSize: 14,
+              fontSize: FONT_SIZE.small,
               fontWeight: 400,
               color: !yearly ? TEXT_PRIMARY : TEXT_SECONDARY,
               transition: 'color 0.2s',
@@ -207,7 +208,7 @@ export default function PlanesPage() {
           </button>
           <span
             style={{
-              fontSize: 14,
+              fontSize: FONT_SIZE.small,
               fontWeight: 400,
               color: yearly ? TEXT_PRIMARY : TEXT_SECONDARY,
               transition: 'color 0.2s',
@@ -218,7 +219,7 @@ export default function PlanesPage() {
           {yearly && (
             <span
               style={{
-                fontSize: 12,
+                fontSize: FONT_SIZE.caption,
                 fontWeight: 500,
                 color: GOLD,
                 letterSpacing: '0.02em',
@@ -264,7 +265,7 @@ export default function PlanesPage() {
           </div>
           <p
             style={{
-              fontSize: 14,
+              fontSize: FONT_SIZE.small,
               color: TEXT_SECONDARY,
               margin: 0,
               marginBottom: 24,
@@ -282,7 +283,7 @@ export default function PlanesPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12,
-                  fontSize: 14,
+                  fontSize: FONT_SIZE.small,
                   fontWeight: 300,
                   color: 'rgba(237,234,228,0.6)',
                   paddingTop: 10,
@@ -393,7 +394,7 @@ export default function PlanesPage() {
           )}
           <p
             style={{
-              fontSize: 14,
+              fontSize: FONT_SIZE.small,
               color: TEXT_SECONDARY,
               margin: 0,
               marginBottom: 24,
@@ -411,7 +412,7 @@ export default function PlanesPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12,
-                  fontSize: 14,
+                  fontSize: FONT_SIZE.small,
                   fontWeight: 300,
                   color: 'rgba(237,234,228,0.6)',
                   paddingTop: 10,
@@ -443,7 +444,7 @@ export default function PlanesPage() {
               background: GOLD,
               color: '#070d18',
               fontFamily: DM_SANS,
-              fontSize: 16,
+              fontSize: FONT_SIZE.body,
               fontWeight: 500,
               cursor: 'pointer',
               letterSpacing: '0.01em',
@@ -454,7 +455,7 @@ export default function PlanesPage() {
           </button>
           <p
             style={{
-              fontSize: 12,
+              fontSize: FONT_SIZE.caption,
               color: TEXT_SECONDARY,
               textAlign: 'center',
               margin: 0,
@@ -489,7 +490,7 @@ export default function PlanesPage() {
           </p>
           <p
             style={{
-              fontSize: 14,
+              fontSize: FONT_SIZE.small,
               color: TEXT_SECONDARY,
               margin: 0,
               marginTop: 8,
@@ -500,7 +501,7 @@ export default function PlanesPage() {
           </p>
           <p
             style={{
-              fontSize: 14,
+              fontSize: FONT_SIZE.small,
               color: TEXT_SECONDARY,
               margin: 0,
               marginTop: 16,

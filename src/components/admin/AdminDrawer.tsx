@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from 'react'
 import { adminColors, adminFonts } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface AdminDrawerProps {
   open: boolean
@@ -88,7 +89,7 @@ export default function AdminDrawer({
               background: 'none',
               border: 'none',
               color: adminColors.gray,
-              fontSize: '1.5rem',
+              fontSize: FONT_SIZE.h2,
               cursor: 'pointer',
               lineHeight: 1,
               padding: '4px 8px',

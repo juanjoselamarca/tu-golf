@@ -23,6 +23,7 @@ import { createClient } from '@/lib/supabase'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import { Check } from '@/components/icons'
 import { TEE_COLOR_OPTIONS } from '@/golf/courses/tee-colors'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface StepCelebrationProps {
   /** Puede ser null: el CPI solo se calcula con ≥3 rondas. Prop conservado por
@@ -211,7 +212,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
         {/* Resumen "tienes N tarjetas en total". */}
         <p
           style={{
-            fontSize: '14px',
+            fontSize: FONT_SIZE.small,
             color: 'var(--text-2)',
             margin: '0 0 36px',
             textAlign: 'center',
@@ -242,7 +243,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
               animation: 'celebFadeIn 480ms ease 220ms forwards',
             }}
           >
-            <p style={{ fontSize: '14px', color: 'var(--text)', margin: '0 0 14px', lineHeight: 1.5, textAlign: 'center' }}>
+            <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', margin: '0 0 14px', lineHeight: 1.5, textAlign: 'center' }}>
               Algunas tarjetas no traían el tee de salida. Para calcular bien tu hándicap, cuéntanos cómo juegas.
             </p>
 
@@ -260,7 +261,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
                     border: `1px solid ${genero === g ? 'var(--status-live-fg)' : 'var(--border)'}`,
                     background: genero === g ? 'rgba(34,197,94,0.10)' : 'transparent',
                     color: 'var(--text)',
-                    fontSize: '14px',
+                    fontSize: FONT_SIZE.small,
                     fontWeight: 600,
                     cursor: savingTee ? 'default' : 'pointer',
                   }}
@@ -289,7 +290,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
                     border: `1px solid ${selectedColor === t.color ? 'var(--status-live-fg)' : 'var(--border)'}`,
                     background: selectedColor === t.color ? 'rgba(34,197,94,0.10)' : 'transparent',
                     color: 'var(--text)',
-                    fontSize: '14px',
+                    fontSize: FONT_SIZE.small,
                     fontWeight: 600,
                     cursor: savingTee ? 'default' : 'pointer',
                   }}
@@ -340,7 +341,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
         {teeResult && (
           <p
             style={{
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               color: 'var(--text-2)',
               margin: '0 0 24px',
               textAlign: 'center',
@@ -361,7 +362,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
             width: '100%',
             padding: '16px 24px',
             borderRadius: '14px',
-            fontSize: '16px',
+            fontSize: FONT_SIZE.body,
             fontWeight: 700,
             background: 'linear-gradient(135deg, var(--brand) 0%, #d4a94a 100%)',
             color: 'var(--brand-dark)',
@@ -385,7 +386,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
             width: '100%',
             padding: '14px 24px',
             borderRadius: '14px',
-            fontSize: '14px',
+            fontSize: FONT_SIZE.small,
             fontWeight: 600,
             background: 'transparent',
             color: 'var(--text-2)',

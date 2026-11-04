@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { ShieldCheck, Lock, Check, X } from '@/components/icons'
 import { formatRelativeTime } from '@/lib/format'
 import type { FedegolfStatus } from '@/lib/data/perfil'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const inputStyle: React.CSSProperties = {
   background: 'var(--bg-surface)',
@@ -12,7 +13,7 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text)',
   borderRadius: '10px',
   padding: '12px 14px',
-  fontSize: '16px', // 16px evita el zoom automático de iOS al enfocar
+  fontSize: FONT_SIZE.body, // 16px evita el zoom automático de iOS al enfocar
   outline: 'none',
   width: '100%',
   boxSizing: 'border-box',
@@ -170,7 +171,7 @@ export function FedegolfVincularModal({
                     {status.ultimoIndice != null ? status.ultimoIndice.toFixed(1) : '—'}
                   </p>
                 </div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--status-live-fg)', fontWeight: 600 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: FONT_SIZE.caption, color: 'var(--status-live-fg)', fontWeight: 600 }}>
                   <Check size={15} strokeWidth={2.5} /> Vinculada
                 </span>
               </div>
@@ -206,7 +207,7 @@ export function FedegolfVincularModal({
                   <button
                     type="button"
                     onClick={() => setConfirmUnlink(true)}
-                    style={{ background: 'transparent', border: 'none', padding: '8px 12px', fontSize: '12px', color: 'var(--text-3)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '3px', fontFamily: '"DM Sans", system-ui, sans-serif' }}
+                    style={{ background: 'transparent', border: 'none', padding: '8px 12px', fontSize: FONT_SIZE.caption, color: 'var(--text-3)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '3px', fontFamily: '"DM Sans", system-ui, sans-serif' }}
                   >
                     Desvincular cuenta
                   </button>
@@ -226,7 +227,7 @@ export function FedegolfVincularModal({
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div>
-                  <label htmlFor="fedegolf-rut" style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px', fontWeight: 500 }}>RUT</label>
+                  <label htmlFor="fedegolf-rut" style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px', fontWeight: 500 }}>RUT</label>
                   <input
                     ref={firstFieldRef}
                     id="fedegolf-rut"
@@ -242,7 +243,7 @@ export function FedegolfVincularModal({
                   />
                 </div>
                 <div>
-                  <label htmlFor="fedegolf-pass" style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px', fontWeight: 500 }}>Clave de FedeGolf</label>
+                  <label htmlFor="fedegolf-pass" style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px', fontWeight: 500 }}>Clave de FedeGolf</label>
                   <input
                     id="fedegolf-pass"
                     type="password"

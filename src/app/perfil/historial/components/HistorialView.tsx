@@ -34,6 +34,7 @@ import { cardStyle } from '../lib/constants'
 import { useToast } from '@/hooks/useToast'
 import type { HistoricalRound, Pill } from '../lib/types'
 import { fechaDeCalendario } from '@/lib/format'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /* ── Style for filter selects ── */
 const filterSelectStyle: React.CSSProperties = {
@@ -266,7 +267,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
             </select>
 
             {(filterCourse || filterFormat || filterDateRange !== 'all') && (
-              <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>
+              <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>
                 {filteredRounds.length} de {rounds.length} rondas
               </span>
             )}
@@ -288,7 +289,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
               <div key={group.key} style={{ marginBottom: '24px' }}>
                 <h2 style={{
                   fontFamily: '"Playfair Display", serif',
-                  fontSize: '18px', fontWeight: 700, color: 'var(--text)',
+                  fontSize: FONT_SIZE.lead, fontWeight: 700, color: 'var(--text)',
                   margin: '0 0 10px 4px',
                 }}>
                   {group.label}
@@ -319,7 +320,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
                 </div>
               </div>
             ))}
-            <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-3)', marginTop: '20px' }}>
+            <p style={{ textAlign: 'center', fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginTop: '20px' }}>
               {filteredRounds.length === rounds.length
                 ? `${rounds.length} tarjetas guardadas`
                 : `${filteredRounds.length} de ${rounds.length} tarjetas`}
@@ -334,7 +335,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
                 data-testid="historial-bulk-delete-open"
                 style={{
                   background: 'none', border: 'none',
-                  color: 'var(--error-fg)', fontSize: '12px', fontWeight: 600,
+                  color: 'var(--error-fg)', fontSize: FONT_SIZE.caption, fontWeight: 600,
                   cursor: deletingAll ? 'not-allowed' : 'pointer',
                   padding: '8px 12px', opacity: deletingAll ? 0.5 : 1,
                   textDecoration: 'underline', textUnderlineOffset: '2px',
@@ -367,7 +368,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
           color: showForm ? '#ffffff' : 'var(--brand-dark)',
           border: 'none', cursor: 'pointer',
           boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
-          fontSize: '24px', fontWeight: 700,
+          fontSize: FONT_SIZE.h2, fontWeight: 700,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 50,
           transition: 'background 0.2s, transform 0.2s',

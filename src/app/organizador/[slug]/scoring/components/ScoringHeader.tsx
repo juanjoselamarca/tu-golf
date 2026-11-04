@@ -7,6 +7,7 @@
 import Link from 'next/link'
 import { tournamentStatusBadge, torneoAceptaScores } from '@/golf/tournament-status'
 import type { LastAction } from '../hooks/useScoreEntry'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface ScoringHeaderProps {
   name: string
@@ -37,30 +38,30 @@ export function ScoringHeader({
   return (
     <div style={{ background: 'var(--card-bg)', borderBottom: '1px solid var(--border-md)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
       <div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: 'var(--text)', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h2, color: 'var(--text)', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           {name}
-          <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: badge.bg, color: badge.fg, border: '1px solid currentColor', padding: '3px 10px', borderRadius: '20px', animation: enCurso ? 'pulse 2s infinite' : undefined }}>
+          <span style={{ fontSize: FONT_SIZE.caption, fontFamily: 'DM Sans, sans-serif', background: badge.bg, color: badge.fg, border: '1px solid currentColor', padding: '3px 10px', borderRadius: '20px', animation: enCurso ? 'pulse 2s infinite' : undefined }}>
             {enCurso ? '● ' : ''}{badge.label}
           </span>
           {isMultiRound && (
-            <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '3px 10px', borderRadius: '20px' }}>
+            <span style={{ fontSize: FONT_SIZE.caption, fontFamily: 'DM Sans, sans-serif', background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '3px 10px', borderRadius: '20px' }}>
               R{activeRoundNum}/{totalRounds}
             </span>
           )}
-          {saving && <span style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
+          {saving && <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
           {lastAction && !saving && (
             <button
               onClick={onUndo}
-              style={{ fontSize: '12px', color: 'var(--brand-on-bg)', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
+              style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
             >
               Deshacer hoyo {lastAction.holeNumber}
             </button>
           )}
         </h1>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
-          <Link href={`/organizador/${slug}/jugadores`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>Jugadores</Link>
-          <Link href={`/organizador/${slug}/salida`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>Salida</Link>
+          <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.caption, textDecoration: 'none' }}>← Dashboard</Link>
+          <Link href={`/organizador/${slug}/jugadores`} style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.caption, textDecoration: 'none' }}>Jugadores</Link>
+          <Link href={`/organizador/${slug}/salida`} style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.caption, textDecoration: 'none' }}>Salida</Link>
         </div>
       </div>
       <Link

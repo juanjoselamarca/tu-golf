@@ -11,6 +11,7 @@ import type { TournamentConfig, CategoryConfig } from '@/lib/draft/types'
 import { useCourseTeeNames } from '../hooks/useCourseTeeNames'
 import { CategoryTeeSelect } from '../components/CategoryTeeSelect'
 import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface CategoriasSectionProps {
   config: TournamentConfig
@@ -126,7 +127,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                 />
                 <InlineFieldError state={fieldError(`categories.${idx}.handicap_max`)} />
                 {hcpRangeInvalid && (
-                  <span style={{ fontSize: 12, color: 'var(--error-fg)', marginTop: 2 }}>
+                  <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--error-fg)', marginTop: 2 }}>
                     El mínimo debe ser menor al máximo
                   </span>
                 )}
@@ -196,7 +197,7 @@ const cardStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 600,
   color: 'var(--text-primary)',
 }
@@ -237,7 +238,7 @@ const fieldStyle: React.CSSProperties = {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 500,
   color: 'var(--text-secondary)',
 }
@@ -264,7 +265,7 @@ const removeBtnStyle: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--text-secondary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   cursor: 'pointer',
 }
 

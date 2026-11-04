@@ -7,6 +7,7 @@
 // `inputProps` + `borderStyle` al input.
 
 import { createContext, useContext } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /** dot-path ("prizes.0.description") → motivo en humano ("Obligatorio"). */
 export const DraftFieldErrorsContext = createContext<Record<string, string>>({})
@@ -48,7 +49,7 @@ export function InlineFieldError({ state }: { state: FieldErrorState }) {
 }
 
 const messageStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   lineHeight: 1.35,
   color: 'var(--error-fg)',
   marginTop: 2,

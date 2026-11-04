@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export type ToastType = 'error' | 'success' | 'warning' | 'info'
 
@@ -79,7 +80,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
 
           {/* Text */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, lineHeight: 1.3, marginBottom: message ? '4px' : 0 }}>
+            <div style={{ color: 'var(--text)', fontSize: FONT_SIZE.small, fontWeight: 600, lineHeight: 1.3, marginBottom: message ? '4px' : 0 }}>
               {title}
             </div>
             {message && (
@@ -98,7 +99,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
               border:     'none',
               color:      'var(--text-3)',
               cursor:     'pointer',
-              fontSize:   '18px',
+              fontSize:   FONT_SIZE.lead,
               padding:    '0 0 0 6px',
               flexShrink: 0,
               lineHeight:  1,

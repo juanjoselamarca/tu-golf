@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import CopyLinkButton from '@/components/CopyLinkButton'
 import QRModal from '@/components/QRModal'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   slug: string
@@ -30,7 +31,7 @@ export default function TournamentCardMenu({ slug, isActive }: Props) {
           En el menu "..." de abajo agregamos tambien Ver torneo para parity. */}
       <Link href={`/torneo/${slug}`} className="hidden sm:inline-flex" style={{
         background: 'var(--brand)', color: 'var(--brand-dark)', borderRadius: '10px',
-        padding: '10px 18px', fontWeight: 600, fontSize: '14px',
+        padding: '10px 18px', fontWeight: 600, fontSize: FONT_SIZE.small,
         textDecoration: 'none', whiteSpace: 'nowrap',
       }}>
         Ver torneo →
@@ -42,7 +43,7 @@ export default function TournamentCardMenu({ slug, isActive }: Props) {
           style={{
             width: '44px', height: '44px', borderRadius: '10px',
             border: '1px solid var(--border-md)', background: 'var(--bg-card-light)',
-            cursor: 'pointer', fontSize: '18px', color: 'var(--text-2)',
+            cursor: 'pointer', fontSize: FONT_SIZE.lead, color: 'var(--text-2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             minHeight: 0, minWidth: 0,
           }}
@@ -60,20 +61,20 @@ export default function TournamentCardMenu({ slug, isActive }: Props) {
           }}>
             <Link href={`/torneo/${slug}`} onClick={() => setOpen(false)}
               className="sm:hidden"
-              style={{ display: 'block', padding: '12px 16px', fontSize: '14px', color: 'var(--brand)', fontWeight: 600, textDecoration: 'none', borderBottom: '1px solid var(--border)' }}>
+              style={{ display: 'block', padding: '12px 16px', fontSize: FONT_SIZE.small, color: 'var(--brand)', fontWeight: 600, textDecoration: 'none', borderBottom: '1px solid var(--border)' }}>
               Ver torneo →
             </Link>
             <Link href={`/organizador/${slug}/editar`} onClick={() => setOpen(false)}
-              style={{ display: 'block', padding: '12px 16px', fontSize: '14px', color: 'var(--text)', textDecoration: 'none' }}>
+              style={{ display: 'block', padding: '12px 16px', fontSize: FONT_SIZE.small, color: 'var(--text)', textDecoration: 'none' }}>
               Editar
             </Link>
             <Link href={`/organizador/${slug}/jugadores`} onClick={() => setOpen(false)}
-              style={{ display: 'block', padding: '12px 16px', fontSize: '14px', color: 'var(--text)', textDecoration: 'none', borderTop: '1px solid var(--border)' }}>
+              style={{ display: 'block', padding: '12px 16px', fontSize: FONT_SIZE.small, color: 'var(--text)', textDecoration: 'none', borderTop: '1px solid var(--border)' }}>
               Jugadores
             </Link>
             {isActive && (
               <Link href={`/organizador/${slug}/scoring`} onClick={() => setOpen(false)}
-                style={{ display: 'block', padding: '12px 16px', fontSize: '14px', color: 'var(--brand)', fontWeight: 600, textDecoration: 'none', borderTop: '1px solid var(--border)' }}>
+                style={{ display: 'block', padding: '12px 16px', fontSize: FONT_SIZE.small, color: 'var(--brand)', fontWeight: 600, textDecoration: 'none', borderTop: '1px solid var(--border)' }}>
                 Scoring
               </Link>
             )}

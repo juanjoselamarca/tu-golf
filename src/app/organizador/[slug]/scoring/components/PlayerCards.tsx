@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ScoringPlayer, ScoringRound } from '@/lib/data/tournaments/scoring'
 import { isClosedRoundStatus } from '../hooks/useScoringData'
+import { FONT_SIZE } from '@/lib/font-size'
 
 function getInitials(name: string) {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
@@ -102,7 +103,7 @@ export function PlayerCards({
               <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? 'var(--brand-on-bg)' : 'var(--surface-border-strong)', color: isSelected ? 'var(--brand-dark)' : 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', margin: '0 auto 8px' }}>
                 {getInitials(p.profiles?.name || '?')}
               </div>
-              <div style={{ color: 'var(--text)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, marginBottom: '4px' }}>
+              <div style={{ color: 'var(--text)', fontSize: FONT_SIZE.caption, fontWeight: 500, lineHeight: 1.2, marginBottom: '4px' }}>
                 {p.profiles?.name?.split(' ')[0] || '—'}
               </div>
               <div style={{ fontSize: '11px', color: isDone ? 'var(--status-live-fg)' : 'var(--text-2)' }}>

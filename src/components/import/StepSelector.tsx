@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ImportSource } from './ImportWizard'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface StepSelectorProps {
   onSelect: (source: ImportSource) => void
@@ -129,7 +130,7 @@ function SourceCard({ icon, title, badge, description, chip, time, recommended, 
       </div>
       <div style={{ flex: 1, padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-          <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
+          <span style={{ fontWeight: 700, fontSize: FONT_SIZE.body, color: 'var(--text)' }}>
             {title}
           </span>
           <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--brand-on-bg)', letterSpacing: '0.04em' }}>
@@ -145,7 +146,7 @@ function SourceCard({ icon, title, badge, description, chip, time, recommended, 
           border: '1px solid rgba(196,153,42,0.12)',
           marginBottom: '6px',
         }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>
+          <span style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: 'var(--brand-on-bg)' }}>
             {chip}
           </span>
         </div>
@@ -154,7 +155,7 @@ function SourceCard({ icon, title, badge, description, chip, time, recommended, 
           <span style={{ fontSize: '11px' }}>{time}</span>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'var(--text-2)', fontSize: '18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'var(--text-2)', fontSize: FONT_SIZE.lead }}>
         {'\u203A'}
       </div>
     </button>
@@ -183,14 +184,14 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
 
       <h1 style={{
         fontFamily: "var(--font-playfair, 'Playfair Display', serif)",
-        fontSize: '24px', fontWeight: 700, color: 'var(--text)',
+        fontSize: FONT_SIZE.h2, fontWeight: 700, color: 'var(--text)',
         marginBottom: '6px', lineHeight: 1.2,
         animation: 'selectorFadeIn 0.4s ease-out both',
       }}>
         Importa tu historial de golf
       </h1>
       <p style={{
-        color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.5,
+        color: 'var(--text-2)', fontSize: FONT_SIZE.small, lineHeight: 1.5,
         marginBottom: '28px',
         animation: 'selectorFadeIn 0.4s ease-out 0.08s both',
       }}>
@@ -277,7 +278,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
 
           <div style={{ flex: 1, padding: '14px 14px 14px 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2px' }}>
-              <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-2)' }}>
+              <span style={{ fontWeight: 600, fontSize: FONT_SIZE.small, color: 'var(--text-2)' }}>
                 Agregar ronda manual
               </span>
               <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>
@@ -292,7 +293,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
 
           <div style={{
             display: 'flex', alignItems: 'center', paddingRight: '14px',
-            color: 'var(--text-2)', fontSize: '16px',
+            color: 'var(--text-2)', fontSize: FONT_SIZE.body,
           }}>
             {'\u203A'}
           </div>

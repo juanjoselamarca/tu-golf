@@ -10,6 +10,7 @@ import ScoreSymbol from '@/components/ScoreSymbol'
 import HoleBar from '@/components/HoleBar'
 import { Check, CheckCircle, Flag, ChevronDown } from '@/components/icons'
 import { formatDate } from '@/lib/format'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   round: ImportRoundData
@@ -170,14 +171,14 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
               )}
             </>
           ) : (
-            <div style={{ fontSize: '24px', color: 'var(--text-3)' }}>—</div>
+            <div style={{ fontSize: FONT_SIZE.h2, color: 'var(--text-3)' }}>—</div>
           )}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontFamily: "'Playfair Display', serif",
-            fontSize: '16px', fontWeight: 700,
+            fontSize: FONT_SIZE.body, fontWeight: 700,
             color: isRejected ? 'var(--text-3)' : 'var(--text)',
             marginBottom: '2px',
             lineHeight: 1.2,
@@ -189,7 +190,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
             </span>
           </div>
           <div style={{
-            fontSize: '12px', color: 'var(--text-3)',
+            fontSize: FONT_SIZE.caption, color: 'var(--text-3)',
             display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
           }}>
             <span style={{ fontFamily: '"DM Mono", monospace' }}>{formatDate(round.played_at, 'short') || round.played_at}</span>
@@ -266,7 +267,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
                 marginTop: '10px',
                 paddingTop: '10px',
                 borderTop: '1px solid var(--border)',
-                fontSize: '12px',
+                fontSize: FONT_SIZE.caption,
                 color: 'var(--text-2)',
                 textAlign: 'center',
                 fontWeight: 500,
@@ -289,7 +290,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
               <span style={{
                 flex: 1, display: 'flex', alignItems: 'center',
                 gap: '6px',
-                color: 'var(--status-live-fg)', fontSize: '14px', fontWeight: 600,
+                color: 'var(--status-live-fg)', fontSize: FONT_SIZE.small, fontWeight: 600,
                 minHeight: '44px',
               }}>
                 <Check size={16} strokeWidth={2} aria-hidden /> Aceptada
@@ -314,7 +315,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
                 flex: 1, padding: '10px',
                 background: 'transparent',
                 border: 'none',
-                color: 'var(--status-live-fg)', fontSize: '14px', fontWeight: 600,
+                color: 'var(--status-live-fg)', fontSize: FONT_SIZE.small, fontWeight: 600,
                 cursor: 'pointer', minHeight: '44px',
                 textAlign: 'left',
                 display: 'flex', alignItems: 'center', gap: '6px',

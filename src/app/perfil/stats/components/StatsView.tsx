@@ -13,6 +13,7 @@ import { C, cardStyle } from './tokens'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
 import { UpsellCardSkeleton } from '@/components/billing/UpsellCardSkeleton'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /**
  * recharts lazy: los charts se bajan en un chunk aparte DESPUÉS del primer
@@ -77,7 +78,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
 
         {/* ── Header ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <Link href="/perfil" style={{ color: C.muted, fontSize: 14, textDecoration: 'none' }}>
+          <Link href="/perfil" style={{ color: C.muted, fontSize: FONT_SIZE.small, textDecoration: 'none' }}>
             ← Perfil
           </Link>
         </div>
@@ -95,23 +96,23 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             background: 'rgba(196,153,42,0.04)', border: '1px solid rgba(196,153,42,0.2)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><BarChart3 size={56} strokeWidth={1.5} /></div>
-            <p style={{ color: C.ivory, fontSize: 20, fontWeight: 600, margin: '0 0 8px' }}>
+            <p style={{ color: C.ivory, fontSize: FONT_SIZE.title, fontWeight: 600, margin: '0 0 8px' }}>
               Aún no tienes rondas registradas
             </p>
-            <p style={{ color: C.muted, fontSize: 14, margin: '0 auto 20px', maxWidth: 360, lineHeight: 1.5 }}>
+            <p style={{ color: C.muted, fontSize: FONT_SIZE.small, margin: '0 auto 20px', maxWidth: 360, lineHeight: 1.5 }}>
               Registra 3+ rondas para ver tus estadísticas: tendencia de scoring, GWI, birdies, eagles y más.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/ronda-libre/nueva" style={{
                 display: 'inline-block', background: 'var(--brand)', color: 'var(--brand-dark)',
-                fontWeight: 700, fontSize: 14, padding: '12px 24px', borderRadius: 10,
+                fontWeight: 700, fontSize: FONT_SIZE.small, padding: '12px 24px', borderRadius: 10,
                 textDecoration: 'none',
               }}>
                 Crear ronda
               </Link>
               <Link href="/perfil/historial" style={{
                 display: 'inline-block', background: 'transparent', color: 'var(--brand-on-bg)',
-                fontWeight: 600, fontSize: 14, padding: '12px 24px', borderRadius: 10,
+                fontWeight: 600, fontSize: FONT_SIZE.small, padding: '12px 24px', borderRadius: 10,
                 textDecoration: 'none', border: '1px solid rgba(196,153,42,0.4)',
               }}>
                 Importar historial
@@ -148,7 +149,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.muted, margin: '0 0 6px' }}>
               Federación
             </p>
-            <p style={{ fontSize: 32, fontWeight: 700, color: C.ivory, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
+            <p style={{ fontSize: FONT_SIZE.h1, fontWeight: 700, color: C.ivory, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
               {profileIndex.indice != null ? profileIndex.indice.toFixed(1) : '—'}
             </p>
             <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>Oficial</p>
@@ -160,7 +161,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.gold, margin: '0 0 6px' }}>
               Golfers+
             </p>
-            <p style={{ fontSize: 32, fontWeight: 700, color: profileIndex.indice_golfers != null ? C.gold : C.muted, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
+            <p style={{ fontSize: FONT_SIZE.h1, fontWeight: 700, color: profileIndex.indice_golfers != null ? C.gold : C.muted, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
               {profileIndex.indice_golfers != null ? profileIndex.indice_golfers.toFixed(1) : '—'}
             </p>
             <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>
@@ -195,7 +196,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
 
         {/* ── GWI Hero ── */}
         <div style={{ ...cardStyle, marginBottom: 16, textAlign: 'center' }}>
-          <p style={{ color: C.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 12px' }}>
+          <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 12px' }}>
             Golf Wellness Index
           </p>
           <div style={{ position: 'relative', width: 160, height: 160, margin: '0 auto' }}>
@@ -220,7 +221,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 width: '100%', height: '100%',
                 border: `3px solid ${C.cardBorder}`, borderRadius: '50%',
               }}>
-                <span style={{ color: C.muted, fontSize: 32, fontWeight: 700 }}>--</span>
+                <span style={{ color: C.muted, fontSize: FONT_SIZE.h1, fontWeight: 700 }}>--</span>
               </div>
             )}
           </div>
@@ -233,7 +234,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
 
         {/* ── Handicap evolution ── */}
         <div style={{ ...cardStyle, marginBottom: 16 }}>
-          <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 12px' }}>
+          <p style={{ color: C.ivory, fontSize: FONT_SIZE.small, fontWeight: 600, margin: '0 0 12px' }}>
             Evolución de score
           </p>
           {hasRounds ? (
@@ -249,7 +250,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
 
         {/* ── Scoring trend ── */}
         <div style={{ ...cardStyle, marginBottom: 16 }}>
-          <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 12px' }}>
+          <p style={{ color: C.ivory, fontSize: FONT_SIZE.small, fontWeight: 600, margin: '0 0 12px' }}>
             Tendencia de scoring
           </p>
           {hasRounds ? (
@@ -305,7 +306,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
         {/* ── Scoring Trend Indicator ── */}
         {trendData && (
           <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 12px' }}>
+            <p style={{ color: C.ivory, fontSize: FONT_SIZE.small, fontWeight: 600, margin: '0 0 12px' }}>
               Tendencia reciente
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -324,7 +325,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 }}>
                   {trendData.improving ? 'Mejorando' : trendData.declining ? 'En declive' : 'Estable'}
                 </p>
-                <p style={{ color: C.muted, fontSize: 12, margin: 0 }}>
+                <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, margin: 0 }}>
                   Últimas 5 ({trendData.bucketHoles}h): <strong style={{ color: C.ivory }}>{trendData.avgLast}</strong>
                   {' · '}
                   Anteriores {trendData.prevCount}: <strong style={{ color: C.ivory }}>{trendData.avgPrev}</strong>
@@ -341,7 +342,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
         {/* ── Scoring Distribution ── */}
         {hasRounds && scoringTotal > 0 && (
           <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 14px' }}>
+            <p style={{ color: C.ivory, fontSize: FONT_SIZE.small, fontWeight: 600, margin: '0 0 14px' }}>
               Distribución de scoring
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -353,7 +354,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 { label: 'Doble+', count: scoringCounts.doubles, color: SCORE_STYLES.double_or_worse.textColor, bg: SCORE_STYLES.double_or_worse.bg },
               ].map(({ label, count, color, bg }) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ color, fontSize: 12, fontWeight: 600, width: 50, textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{ color, fontSize: FONT_SIZE.caption, fontWeight: 600, width: 50, textAlign: 'right', flexShrink: 0 }}>
                     {label}
                   </span>
                   <div style={{ flex: 1, height: 20, background: 'var(--surface-soft)', borderRadius: 6, overflow: 'hidden' }}>
@@ -421,10 +422,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
         {/* ── Front 9 vs Back 9 ── */}
         {nineHoleData && (
           <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 12px' }}>
+            <p style={{ color: C.ivory, fontSize: FONT_SIZE.small, fontWeight: 600, margin: '0 0 12px' }}>
               Front 9 vs Back 9
             </p>
-            <p style={{ color: C.muted, fontSize: 12, margin: '0 0 12px' }}>
+            <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, margin: '0 0 12px' }}>
               Basado en {nineHoleData.count} rondas de 18 hoyos
             </p>
             <div style={{ display: 'flex', gap: 12 }}>
@@ -433,14 +434,14 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 background: C.greenDim, borderRadius: 12,
               }}>
                 <p style={{ color: C.muted, fontSize: 11, margin: '0 0 4px' }}>Front 9</p>
-                <p style={{ color: C.ivory, fontSize: 24, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.front}</p>
+                <p style={{ color: C.ivory, fontSize: FONT_SIZE.h2, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.front}</p>
               </div>
               <div style={{
                 flex: 1, textAlign: 'center', padding: 16,
                 background: C.greenDim, borderRadius: 12,
               }}>
                 <p style={{ color: C.muted, fontSize: 11, margin: '0 0 4px' }}>Back 9</p>
-                <p style={{ color: C.ivory, fontSize: 24, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.back}</p>
+                <p style={{ color: C.ivory, fontSize: FONT_SIZE.h2, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.back}</p>
               </div>
             </div>
           </div>
@@ -448,7 +449,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
 
         {/* ── Top 5 rounds ── */}
         <div style={{ ...cardStyle }}>
-          <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 12px' }}>
+          <p style={{ color: C.ivory, fontSize: FONT_SIZE.small, fontWeight: 600, margin: '0 0 12px' }}>
             Mejores 5 rondas
           </p>
           {topRounds.length > 0 ? (
@@ -464,7 +465,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{
                       color: i === 0 ? C.gold : C.muted,
-                      fontSize: 14, fontWeight: 700, width: 20,
+                      fontSize: FONT_SIZE.small, fontWeight: 700, width: 20,
                     }}>
                       #{i + 1}
                     </span>
@@ -479,7 +480,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                   </div>
                   <span style={{
                     color: i === 0 ? C.gold : C.ivory,
-                    fontSize: 20, fontWeight: 700, fontFamily: '"DM Mono", monospace',
+                    fontSize: FONT_SIZE.title, fontWeight: 700, fontFamily: '"DM Mono", monospace',
                   }}>
                     {r.total_gross}
                   </span>

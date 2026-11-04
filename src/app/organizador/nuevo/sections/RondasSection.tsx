@@ -19,6 +19,7 @@ import { limitesFechaTorneo } from '@/golf/tournament-fechas'
 
 import type { CourseOption } from '../types'
 import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export type { CourseOption }
 
@@ -183,7 +184,7 @@ const cardStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 600,
   color: 'var(--text-primary)',
 }
@@ -222,7 +223,7 @@ const roundBadgeStyle: React.CSSProperties = {
   borderRadius: 999,
   background: 'var(--brand-gold)',
   color: '#070d18',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 600,
 }
 
@@ -239,7 +240,7 @@ const fieldStyle: React.CSSProperties = {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 500,
   color: 'var(--text-secondary)',
 }
@@ -262,7 +263,7 @@ const removeBtnStyle: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--text-secondary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   cursor: 'pointer',
 }
 
@@ -278,7 +279,7 @@ const avisoCanchaStyle: React.CSSProperties = {
   background: 'rgba(217, 119, 6, 0.10)',
   border: '1px solid rgba(217, 119, 6, 0.35)',
   color: 'var(--text-primary)',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   lineHeight: 1.4,
 }
 

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { esRutaDeScoring } from '@/lib/rutas'
 import { esIOS } from '@/lib/platform'
 import { BOTTOM_ANCHOR_ATTR } from '@/hooks/useBottomAnchors'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -124,7 +125,7 @@ export function PWAInstallBanner() {
           width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0,
           background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <span style={{ color: 'var(--brand-on-bg)', fontSize: '20px', fontWeight: 700, fontFamily: 'Georgia, serif' }}>G+</span>
+          <span style={{ color: 'var(--brand-on-bg)', fontSize: FONT_SIZE.title, fontWeight: 700, fontFamily: 'Georgia, serif' }}>G+</span>
         </div>
 
         {/* Content */}
@@ -138,7 +139,7 @@ export function PWAInstallBanner() {
 
           {isIOS ? (
             <div style={{
-              fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5,
+              fontSize: FONT_SIZE.caption, color: 'var(--text-2)', lineHeight: 1.5,
               background: 'var(--bg-surface)', borderRadius: '10px', padding: '10px 12px',
               border: '1px solid var(--border)',
             }}>
@@ -152,14 +153,14 @@ export function PWAInstallBanner() {
               <button onClick={handleInstall} style={{
                 flex: 1, padding: '10px 16px', borderRadius: '10px',
                 background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
-                fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                fontSize: FONT_SIZE.small, fontWeight: 700, cursor: 'pointer',
               }}>
                 Instalar Golfers+
               </button>
               <button onClick={handleDismiss} style={{
                 padding: '10px 16px', borderRadius: '10px',
                 background: 'transparent', color: 'var(--text-3)', border: '1px solid var(--border)',
-                fontSize: '14px', cursor: 'pointer',
+                fontSize: FONT_SIZE.small, cursor: 'pointer',
               }}>
                 Ahora no
               </button>
@@ -169,7 +170,7 @@ export function PWAInstallBanner() {
 
         {/* Close */}
         <button onClick={handleDismiss} aria-label="Cerrar banner de instalación" style={{
-          background: 'none', border: 'none', color: 'var(--text-3)', fontSize: '20px',
+          background: 'none', border: 'none', color: 'var(--text-3)', fontSize: FONT_SIZE.title,
           cursor: 'pointer', padding: '0', lineHeight: 1, flexShrink: 0,
         }}>×</button>
       </div>

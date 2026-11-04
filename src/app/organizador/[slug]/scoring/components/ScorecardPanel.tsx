@@ -9,6 +9,7 @@ import { isClosedRoundStatus } from '../hooks/useScoringData'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { HoleStatsTable } from './HoleStatsTable'
+import { FONT_SIZE } from '@/lib/font-size'
 
 // Paleta del scorer del organizador — usa colores Garmin canónicos (T1 resuelta).
 function scoreBackground(gross: number, par: number) {
@@ -46,7 +47,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
     <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', overflow: 'hidden' }}>
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <div>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)' }}>{selectedPlayer.profiles?.name}</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.lead, color: 'var(--text)' }}>{selectedPlayer.profiles?.name}</span>
           <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
@@ -57,17 +58,17 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
           )}
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>GROSS</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>{grossTotal || '—'}</div>
+            <div style={{ fontSize: FONT_SIZE.dataMd, fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>{grossTotal || '—'}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>NET</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: '"DM Mono", monospace', color: netTotal < 0 ? 'var(--status-live-fg)' : netTotal > 0 ? 'var(--status-closed-fg)' : 'var(--text)' }}>
+            <div style={{ fontSize: FONT_SIZE.dataMd, fontWeight: 700, fontFamily: '"DM Mono", monospace', color: netTotal < 0 ? 'var(--status-live-fg)' : netTotal > 0 ? 'var(--status-closed-fg)' : 'var(--text)' }}>
               {grossTotal ? (netTotal <= 0 ? netTotal : `+${netTotal}`) : '—'}
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>vs PAR</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: '"DM Mono", monospace', color: 'var(--text-2)' }}>
+            <div style={{ fontSize: FONT_SIZE.dataMd, fontWeight: 700, fontFamily: '"DM Mono", monospace', color: 'var(--text-2)' }}>
               {grossTotal ? (() => {
                 const vp = grossTotal - parJugado
                 return vp <= 0 ? String(vp) : `+${vp}`
@@ -120,7 +121,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
                   outline: 'none',
                   color: 'var(--text)',
                   textAlign: 'center',
-                  fontSize: '18px',
+                  fontSize: FONT_SIZE.lead,
                   fontWeight: 700,
                   padding: '4px 0',
                   minHeight: '28px',
@@ -183,7 +184,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         </div>
       )}
       {roundClosed && (
-        <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(22,163,74,0.2)', background: 'var(--status-live-bg)', textAlign: 'center', color: 'var(--status-live-fg)', fontSize: '14px' }}>
+        <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(22,163,74,0.2)', background: 'var(--status-live-bg)', textAlign: 'center', color: 'var(--status-live-fg)', fontSize: FONT_SIZE.small }}>
           ✓ Ronda finalizada
         </div>
       )}

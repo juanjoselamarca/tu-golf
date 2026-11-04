@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { adminColors, adminFonts } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface LiveStatus {
   supabaseOk: boolean
@@ -71,12 +72,12 @@ export function AdminTopBar({ compact }: { compact?: boolean } = {}) {
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ fontSize: '12px' }}>{'\uD83D\uDC64'}</span>
+          <span style={{ fontSize: FONT_SIZE.caption }}>{'\uD83D\uDC64'}</span>
           <span style={{ ...adminFonts.mono, fontSize: '11px', color: adminColors.ivory }}>{status.activeUsers}</span>
           <span style={{ ...adminFonts.mono, fontSize: '11px' }}>activos</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ fontSize: '12px' }}>{'\u26F3'}</span>
+          <span style={{ fontSize: FONT_SIZE.caption }}>{'\u26F3'}</span>
           <span style={{ ...adminFonts.mono, fontSize: '11px', color: adminColors.ivory }}>{status.liveRounds}</span>
           <span style={{ ...adminFonts.mono, fontSize: '11px' }}>rondas en vivo</span>
         </div>

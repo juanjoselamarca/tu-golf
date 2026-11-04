@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
 import { PLAZO_SALUD_MS } from '@/lib/red/plazos'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const DISMISSED_KEY = 'system-status-banner-dismissed'
 // 5 min (antes 60 s). Incidente 02-oct-2026: este polling, multiplicado por cada pestaña abierta,
@@ -89,7 +90,7 @@ export function SystemStatusBanner() {
         alignItems: 'center',
         justifyContent: 'center',
         gap: '12px',
-        fontSize: '14px',
+        fontSize: FONT_SIZE.small,
         fontWeight: 500,
       }}
     >
@@ -104,7 +105,7 @@ export function SystemStatusBanner() {
           border: 'none',
           color: 'var(--brand-dark)',
           cursor: 'pointer',
-          fontSize: '18px',
+          fontSize: FONT_SIZE.lead,
           lineHeight: 1,
           padding: '2px 6px',
           flexShrink: 0,

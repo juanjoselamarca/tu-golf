@@ -1,3 +1,5 @@
+import { FONT_SIZE } from '@/lib/font-size'
+
 /**
  * FoundingMemberBadge — inline chip for founding members.
  *
@@ -24,7 +26,7 @@ export function FoundingMemberBadge({ lockedPrice, className }: FoundingMemberBa
         borderRadius: '6px',
         background: 'linear-gradient(135deg, rgba(245,183,50,0.15) 0%, rgba(196,153,42,0.10) 100%)',
         border: '1px solid rgba(196,153,42,0.25)',
-        fontSize: '12px',
+        fontSize: FONT_SIZE.caption,
         fontWeight: 600,
         letterSpacing: '0.02em',
         lineHeight: '16px',

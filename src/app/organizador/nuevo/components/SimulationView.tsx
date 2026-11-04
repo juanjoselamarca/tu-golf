@@ -5,6 +5,7 @@
 // al pasar las 600 líneas (regla "el que toca, ordena").
 
 import type { AnySimulationResult } from '@/lib/draft/simulators'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export function SimulationView({ result }: { result: AnySimulationResult }) {
   if (result.kind === 'individual') {
@@ -134,7 +135,7 @@ function TeamLeaderboard({
             <tr key={r.name} style={i % 2 === 0 ? undefined : trAltStyle}>
               <td style={tdStyle}>{i + 1}</td>
               <td style={tdStyle}>{r.name}</td>
-              <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>
+              <td style={{ ...tdStyle, fontSize: FONT_SIZE.caption, color: 'var(--text-secondary)' }}>
                 {r.players}
               </td>
               <td style={tdStyleRight}>{r.total}</td>
@@ -277,14 +278,14 @@ export const subtitleStyle: React.CSSProperties = {
 const tableStyle: React.CSSProperties = {
   width: '100%',
   borderCollapse: 'collapse',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
 }
 
 const thStyle: React.CSSProperties = {
   textAlign: 'left',
   padding: '8px 10px',
   fontWeight: 600,
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   textTransform: 'uppercase',
   letterSpacing: 0.4,
   color: 'var(--text-secondary)',
@@ -319,7 +320,7 @@ const bracketGroupStyle: React.CSSProperties = {
 
 const bracketGroupTitleStyle: React.CSSProperties = {
   margin: '0 0 8px 0',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   fontWeight: 700,
   color: 'var(--text-primary)',
   textTransform: 'uppercase',
@@ -355,7 +356,7 @@ const vsStyle: React.CSSProperties = {
 }
 
 const resultStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 700,
   color: 'var(--brand-gold)',
   padding: '2px 8px',

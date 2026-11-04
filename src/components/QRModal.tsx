@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { useState } from 'react'
 import { SITE_URL } from '@/lib/site-url'
 import { Portal } from '@/components/ui/Portal'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export default function QRModal({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)
@@ -51,11 +52,11 @@ export default function QRModal({ slug }: { slug: string }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '10px' }}>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '11px', color: '#9fb4aa', textTransform: 'uppercase', letterSpacing: '0.14em' }}>Compartir torneo</div>
-                  <div style={{ color: 'var(--text)', fontSize: '18px', fontWeight: 700, marginTop: '4px' }}>Escanea y sigue en vivo</div>
+                  <div style={{ color: 'var(--text)', fontSize: FONT_SIZE.lead, fontWeight: 700, marginTop: '4px' }}>Escanea y sigue en vivo</div>
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: FONT_SIZE.title, lineHeight: 1 }}
                 >
                   ×
                 </button>
@@ -72,7 +73,7 @@ export default function QRModal({ slug }: { slug: string }) {
 
               <button
                 onClick={() => setOpen(false)}
-                style={{ background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none', borderRadius: '10px', padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', width: '100%' }}
+                style={{ background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none', borderRadius: '10px', padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: FONT_SIZE.small, width: '100%' }}
               >
                 Cerrar
               </button>

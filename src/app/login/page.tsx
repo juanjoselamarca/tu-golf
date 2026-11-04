@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { sanitizeNext, DEFAULT_NEXT, registerUrl } from '@/lib/auth/login-url'
 import { Eye, EyeOff, Loader2 } from '@/components/icons'
+import { FONT_SIZE } from '@/lib/font-size'
 
 function GoogleIcon() {
   return (
@@ -27,7 +28,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: '8px',
   padding:      '12px',
   width:        '100%',
-  fontSize:     '16px',
+  fontSize:     FONT_SIZE.body,
   outline:      'none',
   transition:   'border-color 200ms',
 }
@@ -125,13 +126,13 @@ function LoginContent() {
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>
           Bienvenido a Golfers+
         </h1>
-        <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: isTournamentJoin ? '12px' : '28px' }}>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginBottom: isTournamentJoin ? '12px' : '28px' }}>
           {isTournamentJoin
             ? 'Para anotar tu score en el torneo, inicia sesión'
             : 'Inicia sesión para continuar mejorando tu golf'}
         </p>
         {isTournamentJoin && (
-          <p style={{ fontSize: '12px', color: 'rgba(196,153,42,0.7)', textAlign: 'center', marginBottom: '28px' }}>
+          <p style={{ fontSize: FONT_SIZE.caption, color: 'rgba(196,153,42,0.7)', textAlign: 'center', marginBottom: '28px' }}>
             Vuelves automáticamente al torneo después
           </p>
         )}
@@ -201,7 +202,7 @@ function LoginContent() {
           </button>
         </form>
 
-        <p style={{ fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginTop: '24px' }}>
           ¿No tienes cuenta?{' '}
           <Link href={registerUrl(redirectTo)} style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontWeight: 600, padding: '12px 0', display: 'inline-block' }}>
             Regístrate gratis →

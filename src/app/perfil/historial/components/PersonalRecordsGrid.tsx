@@ -8,6 +8,7 @@ import { Trophy } from '@/components/icons'
 import { cardStyle } from '../lib/constants'
 import { formatDateShort, formatOv, scoreColor } from '../lib/helpers'
 import type { BestRound } from '../lib/types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   bestRound18: BestRound | null
@@ -92,7 +93,7 @@ export function PersonalRecordsGrid({ bestRound18, bestRound9 }: Props) {
               </span>
               <span style={{
                 fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
-                fontSize: '12px', fontWeight: 600,
+                fontSize: FONT_SIZE.caption, fontWeight: 600,
                 color: scoreColor(d.vsPar),
                 fontVariantNumeric: 'tabular-nums',
               }}>

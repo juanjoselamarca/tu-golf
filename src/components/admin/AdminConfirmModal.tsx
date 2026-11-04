@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { adminColors, adminFonts } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface AdminConfirmModalProps {
   open: boolean
@@ -117,7 +118,7 @@ export default function AdminConfirmModal({
             borderRadius: '8px',
             color: adminColors.ivory,
             fontFamily: "'DM Mono', monospace",
-            fontSize: '0.875rem',
+            fontSize: FONT_SIZE.dataSm,
             outline: 'none',
             boxSizing: 'border-box',
             marginBottom: '24px',
@@ -136,7 +137,7 @@ export default function AdminConfirmModal({
               background: 'transparent',
               color: adminColors.gray,
               fontFamily: "'DM Sans', sans-serif",
-              fontSize: '0.875rem',
+              fontSize: FONT_SIZE.small,
               fontWeight: 500,
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
@@ -153,7 +154,7 @@ export default function AdminConfirmModal({
               background: matched ? accentColor : accentDim,
               color: matched ? '#fff' : adminColors.grayDim,
               fontFamily: "'DM Sans', sans-serif",
-              fontSize: '0.875rem',
+              fontSize: FONT_SIZE.small,
               fontWeight: 600,
               cursor: matched && !loading ? 'pointer' : 'not-allowed',
               opacity: loading ? 0.7 : 1,

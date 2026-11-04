@@ -22,6 +22,7 @@ import { tournamentStatusBadge } from '@/golf/tournament-status'
 
 import type { Tournament, Category, Player } from './types'
 import { isTeamFormat } from './types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export type { Player } from './types'
 
@@ -147,7 +148,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         </h1>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           {tournament.courses && (
-            <span style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid var(--border-md)', padding: '3px 10px', borderRadius: '20px', fontSize: '12px' }}>
+            <span style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid var(--border-md)', padding: '3px 10px', borderRadius: '20px', fontSize: FONT_SIZE.caption }}>
               <Flag size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />{(tournament.courses as unknown as { nombre: string }).nombre || 'Cancha'}
             </span>
           )}
@@ -155,7 +156,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
             background: statusBadge.bg,
             color: statusBadge.fg,
             border: `1px solid ${statusBadge.bg}`,
-            padding: '3px 10px', borderRadius: '20px', fontSize: '12px',
+            padding: '3px 10px', borderRadius: '20px', fontSize: FONT_SIZE.caption,
           }}>
             {statusBadge.label}
           </span>

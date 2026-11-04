@@ -40,7 +40,7 @@ function Section({ id, title, subtitle, children }: { id?: string; title: string
       <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, fontWeight: 700, color: gold, margin: '0 0 4px', lineHeight: 1.2 }}>
         {title}
       </h2>
-      {subtitle && <p style={{ fontSize: '12px', color: textFaint, margin: '0 0 16px', fontFamily: '"DM Mono", monospace', letterSpacing: '0.05em' }}>{subtitle}</p>}
+      {subtitle && <p style={{ fontSize: FONT_SIZE.caption, color: textFaint, margin: '0 0 16px', fontFamily: '"DM Mono", monospace', letterSpacing: '0.05em' }}>{subtitle}</p>}
       {!subtitle && <div style={{ marginBottom: '16px' }} />}
       {children}
     </div>
@@ -79,13 +79,13 @@ function GwiScenarioStep({ hole, event, gwi, delta }: { hole: number; event: str
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
       <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(196,153,42,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '12px', fontWeight: 700, color: gold }}>H{hole}</span>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.caption, fontWeight: 700, color: gold }}>H{hole}</span>
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: '13px', color: ivory }}>{event}</div>
       </div>
       <div style={{ textAlign: 'right', minWidth: '60px' }}>
-        <div style={{ fontSize: '18px', fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace' }}>{gwi}%</div>
+        <div style={{ fontSize: FONT_SIZE.dataMd, fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace' }}>{gwi}%</div>
         <div style={{ fontSize: '11px', color: deltaColor, fontWeight: 600 }}>{delta > 0 ? `+${delta}` : delta}%</div>
       </div>
     </div>
@@ -109,7 +109,7 @@ export default function IndicesPage() {
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', fontWeight: 700, color: ivory, margin: '16px 0 10px', lineHeight: 1.1 }}>
           Golf Intelligence
         </h1>
-        <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, maxWidth: '400px', margin: '0 auto' }}>
+        <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.6, maxWidth: '400px', margin: '0 auto' }}>
           La ciencia que usan los profesionales, aplicada a tu juego amateur. Tres sistemas propietarios que transforman datos en ventaja competitiva.
         </p>
       </div>
@@ -143,10 +143,10 @@ export default function IndicesPage() {
         {activeTab === 'cpi' && (
           <>
             <Section title="Current Performance Index" subtitle="TU MOMENTUM EN UN NÚMERO">
-              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
                 El CPI no mide tu potencial — mide <strong style={{ color: ivory }}>cómo estás jugando ahora mismo</strong>. Es la diferencia entre &quot;soy handicap 12&quot; y &quot;esta semana estoy jugando como un 8&quot;.
               </p>
-              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0' }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.6, margin: '0' }}>
                 Un número entre 0 y 100 que sube cuando mejoras y baja cuando no. Calculado en tiempo real con tus últimas 20 rondas.
               </p>
             </Section>
@@ -194,10 +194,10 @@ export default function IndicesPage() {
                   { pts: '×1', label: 'Volumen', desc: 'Multiplicador de 0 a 1. Con 10+ rondas se desbloquea el 100%.', icon: <BarChart3 size={16} /> },
                 ].map(f => (
                   <div key={f.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
-                    <div style={{ fontSize: '20px', marginBottom: '6px', color: gold }}>{f.icon}</div>
+                    <div style={{ fontSize: FONT_SIZE.title, marginBottom: '6px', color: gold }}>{f.icon}</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
                       <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '22px', fontWeight: 700, color: gold }}>{f.pts}</span>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: ivory }}>{f.label}</span>
+                      <span style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: ivory }}>{f.label}</span>
                     </div>
                     <div style={{ fontSize: '11px', color: textMuted, lineHeight: 1.4 }}>{f.desc}</div>
                   </div>
@@ -215,12 +215,12 @@ export default function IndicesPage() {
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
                   <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>ÍNDICE</div>
                   <div style={{ fontSize: '36px', fontWeight: 700, color: textMuted, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>12</div>
-                  <div style={{ fontSize: '12px', color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>potencial</strong>. Usa tus mejores rondas. Lo que puedes hacer en un buen día.</div>
+                  <div style={{ fontSize: FONT_SIZE.caption, color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>potencial</strong>. Usa tus mejores rondas. Lo que puedes hacer en un buen día.</div>
                 </div>
                 <div style={{ background: 'rgba(196,153,42,0.06)', borderRadius: '10px', padding: '14px', border: `1px solid ${border}`, textAlign: 'center' }}>
                   <div style={{ fontSize: '11px', color: gold, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>CPI™</div>
                   <div style={{ fontSize: '36px', fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>67</div>
-                  <div style={{ fontSize: '12px', color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>realidad hoy</strong>. Usa todas tus rondas recientes. Cómo estás jugando <em>ahora</em>.</div>
+                  <div style={{ fontSize: FONT_SIZE.caption, color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>realidad hoy</strong>. Usa todas tus rondas recientes. Cómo estás jugando <em>ahora</em>.</div>
                 </div>
               </div>
               <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5, margin: 0 }}>
@@ -236,10 +236,10 @@ export default function IndicesPage() {
         {activeTab === 'gwi' && (
           <>
             <Section title="Golf Win Index" subtitle="PROBABILIDAD DE GANAR EN TIEMPO REAL">
-              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
                 El GWI responde una sola pregunta: <strong style={{ color: ivory }}>&quot;¿cuánta chance tengo de ganar esta ronda?&quot;</strong> Cambia hoyo a hoyo. Cuando la ronda termina, desaparece. Es pura tensión en tiempo real.
               </p>
-              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0' }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.6, margin: '0' }}>
                 Funciona con 2 jugadores o con 100. El modelo matemático es el mismo que usan las casas de apuestas para el PGA Tour, adaptado al golf amateur.
               </p>
             </Section>
@@ -256,7 +256,7 @@ export default function IndicesPage() {
               <GwiScenarioStep hole={14} event="Birdie. Se recupera." gwi={41} delta={13} />
               <GwiScenarioStep hole={17} event="Par. Segundo lugar a 1 golpe." gwi={35} delta={-6} />
               <GwiScenarioStep hole={18} event="Birdie en el 18. GANA por 1." gwi={100} delta={65} />
-              <p style={{ fontSize: '12px', color: gold, fontWeight: 600, textAlign: 'center', marginTop: '12px' }}>
+              <p style={{ fontSize: FONT_SIZE.caption, color: gold, fontWeight: 600, textAlign: 'center', marginTop: '12px' }}>
                 De 25% a 100% en 18 hoyos. Esa es la historia que el GWI cuenta.
               </p>
             </Section>
@@ -279,7 +279,7 @@ export default function IndicesPage() {
             </Section>
 
             <Section title="¿Por qué desaparece?" subtitle="DISEÑO INTENCIONAL">
-              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0' }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.6, margin: '0' }}>
                 El GWI solo existe mientras la ronda está activa. No se guarda, no se acumula, no aparece en tu perfil. Es <strong style={{ color: ivory }}>tensión pura del momento</strong> — como el latido del corazón durante una competencia. Cuando termina, lo único que queda es el resultado. Y la historia que vas a contar.
               </p>
             </Section>
@@ -292,10 +292,10 @@ export default function IndicesPage() {
         {activeTab === 'indice' && (
           <>
             <Section title="Índice Golfers+" subtitle="TU ÍNDICE CALCULADO CON FÓRMULA USGA">
-              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
                 La misma fórmula que usa la USGA para calcular el World Handicap System, aplicada a tus rondas reales en Golfers+. Coexiste con tu índice de Federación — la app nunca toca tu número oficial.
               </p>
-              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0' }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.6, margin: '0' }}>
                 Si tu Federación dice 15.4 (calculado hace 6 meses) pero tu Índice Golfers+ dice 12.1, significa que <strong style={{ color: ivory }}>estás jugando mejor de lo que tu número oficial refleja</strong>. El tAIger+ usa esa diferencia para calibrar tu coaching.
               </p>
             </Section>
@@ -313,8 +313,8 @@ export default function IndicesPage() {
                   usar: `${t.best} ${t.best === 1 ? 'mejor' : 'mejores'}${t.adjustment ? ` − ${Math.abs(t.adjustment).toFixed(1)}` : ''}`,
                 })).map(row => (
                   <div key={row.rondas} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                    <span style={{ fontSize: '12px', color: textMuted }}>{row.rondas} rondas</span>
-                    <span style={{ fontSize: '12px', color: gold, fontWeight: 600 }}>{row.usar}</span>
+                    <span style={{ fontSize: FONT_SIZE.caption, color: textMuted }}>{row.rondas} rondas</span>
+                    <span style={{ fontSize: FONT_SIZE.caption, color: gold, fontWeight: 600 }}>{row.usar}</span>
                   </div>
                 ))}
               </div>
@@ -331,7 +331,7 @@ export default function IndicesPage() {
                   <strong style={{ color: gold }}>12 rondas → usar 4 mejores diferenciales</strong><br/>
                   Diferenciales ordenados: <span style={{ fontFamily: '"DM Mono", monospace', color: green }}>11.2, 12.8, 13.1, 14.0</span><span style={{ color: textFaint }}>, 15.3, 16.1, 17.4, 18.2, 19.0, 20.1, 21.5, 23.8</span><br/><br/>
                   Promedio mejores 4: (11.2 + 12.8 + 13.1 + 14.0) / 4 = <strong style={{ color: gold }}>12.78</strong><br/>
-                  Índice: 12.78 redondeado a un decimal = <strong style={{ color: gold, fontSize: '16px' }}>12.8</strong>
+                  Índice: 12.78 redondeado a un decimal = <strong style={{ color: gold, fontSize: FONT_SIZE.body }}>12.8</strong>
                 </div>
               </div>
               <p style={{ fontSize: '13px', color: textFaint, lineHeight: 1.5, margin: 0 }}>

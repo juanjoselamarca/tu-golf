@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import type { RondaConScores } from '@/lib/mi-golf/ultima-ronda'
 import { textoVsPar } from '@/lib/mi-golf/par'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const GOLD = 'var(--brand-on-bg)'
 const GOLD_BORDER = 'var(--brand)'
@@ -76,7 +77,7 @@ export function UltimaRondaHero({ ronda }: { ronda: RondaConScores }) {
         </div>
         <div
           style={{
-            fontSize: '12px',
+            fontSize: FONT_SIZE.caption,
             color: TEXT_2,
             marginTop: '4px',
             fontFamily: 'var(--font-dm-mono)',
@@ -112,7 +113,7 @@ export function UltimaRondaHero({ ronda }: { ronda: RondaConScores }) {
         <div
           style={{
             fontFamily: 'var(--font-playfair)',
-            fontSize: '32px',
+            fontSize: FONT_SIZE.h1,
             fontWeight: 700,
             lineHeight: 1,
             color: TEXT,

@@ -7,6 +7,7 @@
 import { CANCHAS_CHILE, MONTHS, TEES, YEARS, cardStyle, inputBase } from '../lib/constants'
 import { cellBg, computeStats, formatOv } from '../lib/helpers'
 import type { UseAddRoundFormResult } from '../hooks/useAddRoundForm'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   form: UseAddRoundFormResult
@@ -51,18 +52,18 @@ export function AddRoundForm({ form }: Props) {
       }}>
         <div style={{
           fontFamily: '"Playfair Display", serif',
-          fontSize: '16px',
+          fontSize: FONT_SIZE.body,
           color: 'var(--text)',
           marginBottom: '4px',
         }}>
           {courseName || 'Tu cancha'}
-          {teeColor && <span style={{ fontSize: '12px', color: 'var(--text-2)', marginLeft: '8px' }}>&#183; Tee {teeColor}</span>}
+          {teeColor && <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginLeft: '8px' }}>&#183; Tee {teeColor}</span>}
         </div>
         {formStats && totalGross != null ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
             <span style={{
               fontFamily: '"Playfair Display", serif',
-              fontSize: '2rem',
+              fontSize: FONT_SIZE.h1,
               color: 'var(--text)',
               fontWeight: 700,
             }}>
@@ -76,17 +77,17 @@ export function AddRoundForm({ form }: Props) {
             }}>
               {formatOv(formStats.overUnder)} par
             </span>
-            <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+            <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
               {formStats.birdies > 0 && `🐦 ${formStats.birdies} `}
               {formStats.bogeys  > 0 && `📌 ${formStats.bogeys} `}
               {formStats.doubles > 0 && `🔴 ${formStats.doubles}`}
             </span>
           </div>
         ) : (
-          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>Ingresa tus scores hoyo a hoyo...</div>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginTop: '4px' }}>Ingresa tus scores hoyo a hoyo...</div>
         )}
         {formStats && (
-          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginTop: '6px' }}>
             Total: {formStats.total} &#183; {formatOv(formStats.overUnder)} &#183; {formStats.birdies} birdies &#183; {formStats.pars} pares &#183; {formStats.bogeys} bogeys
           </div>
         )}
@@ -95,7 +96,7 @@ export function AddRoundForm({ form }: Props) {
       {/* Cancha + Tee */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', marginBottom: '14px' }}>
         <div>
-          <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '5px' }}>Cancha *</label>
+          <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '5px' }}>Cancha *</label>
           <select required value={courseName} onChange={e => setCourseName(e.target.value)}
             style={{ ...inputBase, cursor: 'pointer' }}>
             <option value="">— Seleccionar cancha —</option>
@@ -103,7 +104,7 @@ export function AddRoundForm({ form }: Props) {
           </select>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '5px' }}>Tees</label>
+          <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '5px' }}>Tees</label>
           <select value={teeColor} onChange={e => setTeeColor(e.target.value)}
             style={{ ...inputBase, cursor: 'pointer', width: '110px' }}>
             <option value="">—</option>
@@ -114,7 +115,7 @@ export function AddRoundForm({ form }: Props) {
 
       {/* Fecha */}
       <div style={{ marginBottom: '18px' }}>
-        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '5px' }}>Fecha *</label>
+        <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '5px' }}>Fecha *</label>
         <div style={{ display: 'flex', gap: '8px' }}>
           <select value={day} onChange={e => setDay(e.target.value)} style={{ ...inputBase, width: '70px', cursor: 'pointer' }}>
             {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
@@ -130,7 +131,7 @@ export function AddRoundForm({ form }: Props) {
 
       {/* Scores por hoyo */}
       <div style={{ marginBottom: '18px' }}>
-        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px' }}>
+        <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '8px' }}>
           Scores por hoyo (par 4 asumido)
         </label>
         {(['Front 9', 'Back 9'] as const).map((half, halfIdx) => (
@@ -159,7 +160,7 @@ export function AddRoundForm({ form }: Props) {
                         width: '100%', ...cellBg(val),
                         border: '1px solid rgba(122,143,168,0.15)',
                         borderRadius: '6px', padding: '7px 2px',
-                        fontSize: '16px', fontWeight: 600, textAlign: 'center',
+                        fontSize: FONT_SIZE.body, fontWeight: 600, textAlign: 'center',
                         outline: 'none', appearance: 'textfield' as const,
                         boxSizing: 'border-box' as const, minHeight: '44px',
                       }}
@@ -176,7 +177,7 @@ export function AddRoundForm({ form }: Props) {
 
       {/* Notas */}
       <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '5px' }}>Notas (opcional)</label>
+        <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '5px' }}>Notas (opcional)</label>
         <textarea
           placeholder="¿Algo memorable de esta ronda?"
           value={notes} onChange={e => setNotes(e.target.value)} rows={2}
@@ -195,7 +196,7 @@ export function AddRoundForm({ form }: Props) {
             width: '100%', height: '54px',
             background: saving || !canSave ? 'rgba(196,153,42,0.4)' : 'var(--brand)',
             color: 'var(--brand-dark)',
-            fontWeight: 700, fontSize: '16px',
+            fontWeight: 700, fontSize: FONT_SIZE.body,
             borderRadius: '10px', border: 'none',
             cursor: saving || !canSave ? 'not-allowed' : 'pointer',
           }}
@@ -203,12 +204,12 @@ export function AddRoundForm({ form }: Props) {
           {saving ? 'Guardando...' : 'Guardar y ver mi análisis →'}
         </button>
         {!canSave && courseName && (
-          <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-3)', marginTop: '8px' }}>
+          <div style={{ textAlign: 'center', fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginTop: '8px' }}>
             Ingresa los 9 o los 18 hoyos para guardar
           </div>
         )}
         {canSave && (
-          <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
+          <div style={{ textAlign: 'center', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginTop: '8px' }}>
             tAIger+ analizará esta ronda automáticamente
           </div>
         )}

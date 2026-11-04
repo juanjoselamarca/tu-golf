@@ -154,7 +154,7 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
       <p
         style={{
           color: 'var(--text-2)',
-          fontSize: '14px',
+          fontSize: FONT_SIZE.small,
           marginBottom: '32px',
           minHeight: '20px',
           transition: 'opacity 0.3s',
@@ -186,7 +186,7 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
         />
       </div>
 
-      <p style={{ color: 'var(--text-3)', fontSize: '12px' }}>
+      <p style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.caption }}>
         {state.rounds.length > 0
           ? `${state.rounds.length} rondas detectadas`
           : 'Esto puede tomar unos segundos'}

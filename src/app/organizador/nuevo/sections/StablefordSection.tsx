@@ -6,6 +6,7 @@
 // Edita la tabla de puntos en config.stableford_config.points_table.
 
 import type { TournamentConfig, StablefordConfig } from '@/lib/draft/types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface StablefordSectionProps {
   config: TournamentConfig
@@ -93,7 +94,7 @@ const cardStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 600,
   color: 'var(--text-primary)',
 }
@@ -118,7 +119,7 @@ const rowStyle: React.CSSProperties = {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-primary)',
 }
 
@@ -129,7 +130,7 @@ const numInputStyle: React.CSSProperties = {
   background: 'var(--input-bg)',
   color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   textAlign: 'right',
   outline: 'none',
 }

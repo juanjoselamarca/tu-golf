@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { adminColors, adminFonts, adminCard } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Column<T> {
   key: string
@@ -118,13 +119,13 @@ export function AdminTable<T extends Record<string, unknown>>({
           <button disabled={safeP <= 1} onClick={() => setPage(p => p - 1)} style={{
             background: adminColors.bg, border: `1px solid ${adminColors.border}`,
             borderRadius: '6px', padding: '6px 14px', color: safeP <= 1 ? adminColors.grayDim : adminColors.ivory,
-            cursor: safeP <= 1 ? 'not-allowed' : 'pointer', fontSize: '12px',
+            cursor: safeP <= 1 ? 'not-allowed' : 'pointer', fontSize: FONT_SIZE.caption,
           }}>{'\u2190'}</button>
           <span style={{ ...adminFonts.mono, fontSize: '11px' }}>{safeP} / {totalPages}</span>
           <button disabled={safeP >= totalPages} onClick={() => setPage(p => p + 1)} style={{
             background: adminColors.bg, border: `1px solid ${adminColors.border}`,
             borderRadius: '6px', padding: '6px 14px', color: safeP >= totalPages ? adminColors.grayDim : adminColors.ivory,
-            cursor: safeP >= totalPages ? 'not-allowed' : 'pointer', fontSize: '12px',
+            cursor: safeP >= totalPages ? 'not-allowed' : 'pointer', fontSize: FONT_SIZE.caption,
           }}>{'\u2192'}</button>
         </div>
       )}

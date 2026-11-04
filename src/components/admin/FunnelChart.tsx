@@ -1,5 +1,6 @@
 'use client'
 import { adminColors, adminFonts } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface FunnelStep {
   label: string
@@ -16,7 +17,7 @@ export function FunnelChart({ steps }: { steps: FunnelStep[] }) {
           <div key={i}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
               <span style={{ ...adminFonts.body, fontSize: '13px' }}>{step.label}</span>
-              <span style={{ ...adminFonts.mono, fontSize: '12px', color: adminColors.gold }}>
+              <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.caption, color: adminColors.gold }}>
                 {step.value} ({pct.toFixed(0)}%)
               </span>
             </div>

@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface UserOption {
   id: string
@@ -129,7 +130,7 @@ export default function PlaygroundPage() {
           <h1 style={{ ...adminFonts.sectionTitle, fontSize: '1.6rem', color: adminColors.gold, margin: 0 }}>
             Playground · tAIger+
           </h1>
-          <Link href="/admin/sistema/taiger" style={{ color: adminColors.gray, fontSize: 14, textDecoration: 'none' }}>
+          <Link href="/admin/sistema/taiger" style={{ color: adminColors.gray, fontSize: FONT_SIZE.small, textDecoration: 'none' }}>
             ← volver al cerebro
           </Link>
         </div>
@@ -144,7 +145,7 @@ export default function PlaygroundPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: 13, color: adminColors.gray, marginBottom: 4 }}>Modo</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: sendToUser ? adminColors.red : adminColors.green }}>
+              <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: sendToUser ? adminColors.red : adminColors.green }}>
                 {sendToUser ? 'ENVIAR AL USUARIO REAL' : 'SANDBOX (no persiste nada)'}
               </div>
             </div>
@@ -190,7 +191,7 @@ export default function PlaygroundPage() {
               border: `1px solid ${adminColors.border}`,
               color: adminColors.ivory,
               borderRadius: 6,
-              fontSize: 14,
+              fontSize: FONT_SIZE.small,
               marginBottom: 8,
             }}
           />
@@ -205,7 +206,7 @@ export default function PlaygroundPage() {
               border: `1px solid ${adminColors.border}`,
               color: adminColors.ivory,
               borderRadius: 6,
-              fontSize: 14,
+              fontSize: FONT_SIZE.small,
             }}
           >
             <option value="">— sin seleccionar —</option>
@@ -236,7 +237,7 @@ export default function PlaygroundPage() {
                       padding: 10,
                       background: m.role === 'user' ? adminColors.bg : adminColors.cardHover,
                       borderRadius: 6,
-                      fontSize: 14,
+                      fontSize: FONT_SIZE.small,
                       whiteSpace: 'pre-wrap',
                       lineHeight: 1.5,
                     }}>
@@ -253,7 +254,7 @@ export default function PlaygroundPage() {
                     color: adminColors.gray,
                     border: `1px solid ${adminColors.border}`,
                     borderRadius: 4,
-                    fontSize: 12,
+                    fontSize: FONT_SIZE.caption,
                     cursor: 'pointer',
                   }}
                 >
@@ -274,7 +275,7 @@ export default function PlaygroundPage() {
                 border: `1px solid ${adminColors.border}`,
                 color: adminColors.ivory,
                 borderRadius: 6,
-                fontSize: 14,
+                fontSize: FONT_SIZE.small,
                 resize: 'vertical',
                 marginBottom: 8,
               }}
@@ -288,7 +289,7 @@ export default function PlaygroundPage() {
                 color: adminColors.bg,
                 border: 'none',
                 borderRadius: 6,
-                fontSize: 14,
+                fontSize: FONT_SIZE.small,
                 fontWeight: 600,
                 cursor: loading || !message.trim() ? 'not-allowed' : 'pointer',
                 opacity: loading || !message.trim() ? 0.5 : 1,
@@ -308,7 +309,7 @@ export default function PlaygroundPage() {
           <div style={{ ...adminCard, padding: 16, marginBottom: 16 }}>
             <div style={{ fontSize: 13, color: adminColors.gray, marginBottom: 8 }}>3. Respuesta del coach</div>
 
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, fontSize: 12 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, fontSize: FONT_SIZE.caption }}>
               <span style={{ padding: '2px 8px', background: result.persisted ? adminColors.greenDim : adminColors.grayDim, color: result.persisted ? adminColors.green : adminColors.gray, borderRadius: 4 }}>
                 {result.persisted ? 'persistido en sesion real' : 'sandbox · no persistido'}
               </span>
@@ -320,15 +321,15 @@ export default function PlaygroundPage() {
               </span>
             </div>
 
-            <div style={{ padding: 12, background: adminColors.bg, borderRadius: 6, fontSize: 14, whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: 12 }}>
+            <div style={{ padding: 12, background: adminColors.bg, borderRadius: 6, fontSize: FONT_SIZE.small, whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: 12 }}>
               {result.response}
             </div>
 
             {result.toolCalls.length > 0 && (
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 12, color: adminColors.gray, marginBottom: 6 }}>tool calls</div>
+                <div style={{ fontSize: FONT_SIZE.caption, color: adminColors.gray, marginBottom: 6 }}>tool calls</div>
                 {result.toolCalls.map((t, i) => (
-                  <details key={i} style={{ marginBottom: 6, padding: 8, background: adminColors.bg, borderRadius: 4, fontSize: 12 }}>
+                  <details key={i} style={{ marginBottom: 6, padding: 8, background: adminColors.bg, borderRadius: 4, fontSize: FONT_SIZE.caption }}>
                     <summary style={{ cursor: 'pointer', color: t.ok ? adminColors.green : adminColors.red }}>
                       {t.tool} · {t.ms}ms · {t.ok ? 'ok' : 'fail'}
                     </summary>
@@ -344,14 +345,14 @@ export default function PlaygroundPage() {
             )}
 
             <details open={showContext} onToggle={e => setShowContext((e.target as HTMLDetailsElement).open)} style={{ marginBottom: 8 }}>
-              <summary style={{ cursor: 'pointer', fontSize: 12, color: adminColors.gray }}>contexto del jugador (PLAYER_CONTEXT)</summary>
+              <summary style={{ cursor: 'pointer', fontSize: FONT_SIZE.caption, color: adminColors.gray }}>contexto del jugador (PLAYER_CONTEXT)</summary>
               <pre style={{ marginTop: 6, padding: 10, background: adminColors.bg, borderRadius: 4, fontSize: 11, fontFamily: 'monospace', color: adminColors.ivory, whiteSpace: 'pre-wrap', maxHeight: 300, overflow: 'auto' }}>
                 {result.contextString}
               </pre>
             </details>
 
             <details open={showSystem} onToggle={e => setShowSystem((e.target as HTMLDetailsElement).open)}>
-              <summary style={{ cursor: 'pointer', fontSize: 12, color: adminColors.gray }}>system prompt completo enviado a Anthropic</summary>
+              <summary style={{ cursor: 'pointer', fontSize: FONT_SIZE.caption, color: adminColors.gray }}>system prompt completo enviado a Anthropic</summary>
               <pre style={{ marginTop: 6, padding: 10, background: adminColors.bg, borderRadius: 4, fontSize: 11, fontFamily: 'monospace', color: adminColors.ivory, whiteSpace: 'pre-wrap', maxHeight: 400, overflow: 'auto' }}>
                 {result.systemPrompt}
               </pre>

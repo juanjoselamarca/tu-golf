@@ -12,6 +12,7 @@ import { UltimaRondaHero } from '@/components/mi-golf/UltimaRondaHero'
 import { getUltimaRondaReciente, type RondaConScores } from '@/lib/mi-golf/ultima-ronda'
 import { HeroActiva, HeroProximo, HeroVacio, Acciones } from './CompetenciaHero'
 import { GOLD, TEXT, TEXT_2, TEXT_3, BORDER_SOFT, BG_SOFT, GREEN } from './competencia-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 type Props = {
   userName: string
@@ -52,9 +53,9 @@ export function CompetenciaTab(props: Props) {
           Hola, {userName}
         </div>
         {hcpDisplay && (
-          <div style={{ fontSize: '12px', color: TEXT_2, fontWeight: 500 }}>
+          <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2, fontWeight: 500 }}>
             HCP{' '}
-            <span style={{ fontFamily: '"DM Mono", monospace', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '14px' }}>
+            <span style={{ fontFamily: '"DM Mono", monospace', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: FONT_SIZE.dataSm }}>
               {hcpDisplay}
             </span>
           </div>
@@ -171,7 +172,7 @@ function TorneoRowPlaying({ t }: { t: Tournament & { horaSalida: string | null; 
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {t.name}
         </div>
         <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -208,7 +209,7 @@ function TorneoRowOrganizing({ t }: { t: Tournament & { inscritos: number; hoyoA
           color: TEXT,
         }}
       >
-        <div style={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {t.name}
         </div>
         <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -246,7 +247,7 @@ function TorneoRowFinished({
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {t.name}
         </div>
         <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -257,7 +258,7 @@ function TorneoRowFinished({
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         {t.posicionFinal && (
           <>
-            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '16px', fontWeight: 700, color: GOLD }}>
+            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.body, fontWeight: 700, color: GOLD }}>
               {t.posicionFinal}
             </div>
             {t.totalJugadores && (
@@ -331,7 +332,7 @@ function Rondas({
             }}
           >
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '14px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: FONT_SIZE.small, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {r.course_name}
               </div>
               <div style={{ fontSize: '11px', color: TEXT_3, marginTop: '3px' }}>{fechaContextual}</div>
@@ -339,7 +340,7 @@ function Rondas({
             <div style={{ textAlign: 'right' }}>
               {r.total_gross != null && (
                 <>
-                  <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '16px', fontWeight: 700, color: TEXT }}>
+                  <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.body, fontWeight: 700, color: TEXT }}>
                     {r.total_gross}
                   </div>
                   {esMejor ? (
@@ -393,8 +394,8 @@ function Comunidad({ comunidad }: { comunidad: NonNullable<ComunidadMensaje> }) 
         color: TEXT,
       }}
     >
-      <div style={{ fontSize: '12px' }} dangerouslySetInnerHTML={{ __html: comunidad.texto }} />
-      <div style={{ fontSize: '14px', color: GOLD, fontWeight: 700 }}>→</div>
+      <div style={{ fontSize: FONT_SIZE.caption }} dangerouslySetInnerHTML={{ __html: comunidad.texto }} />
+      <div style={{ fontSize: FONT_SIZE.small, color: GOLD, fontWeight: 700 }}>→</div>
     </Link>
   )
 }

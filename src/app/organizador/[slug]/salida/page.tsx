@@ -19,6 +19,7 @@ import {
   type GrupoHojaSalida,
   type TorneoHojaSalida,
 } from '@/lib/data/tournaments/hoja-salida'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export default function HojaSalidaPage() {
   const params = useParams()
@@ -114,7 +115,7 @@ export default function HojaSalidaPage() {
           {lineaCanchaHojaSalida(tournament)}
         </p>
         {tournament.date_start && (
-          <p style={{ fontSize: '12px', margin: '4px 0 0', color: 'var(--text-3)' }}>
+          <p style={{ fontSize: FONT_SIZE.caption, margin: '4px 0 0', color: 'var(--text-3)' }}>
             {fechaHojaSalida(tournament.date_start, false)}
           </p>
         )}
@@ -123,21 +124,21 @@ export default function HojaSalidaPage() {
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }} data-no-print="">
         <button onClick={handleCopy} style={{
-          flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', border: 'none',
+          flex: 1, padding: '12px', borderRadius: '10px', fontSize: FONT_SIZE.small, fontWeight: 600, cursor: 'pointer', border: 'none',
           background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(196,153,42,0.12)',
           color: copied ? 'var(--status-live-fg)' : 'var(--brand-on-bg)',
         }}>
           {copied ? '✓ Copiado' : 'Copiar texto'}
         </button>
         <button onClick={handlePrint} style={{
-          flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', border: 'none',
+          flex: 1, padding: '12px', borderRadius: '10px', fontSize: FONT_SIZE.small, fontWeight: 600, cursor: 'pointer', border: 'none',
           background: 'rgba(196,153,42,0.12)',
           color: 'var(--brand-on-bg)',
         }}>
           Imprimir
         </button>
         <button onClick={handleShare} style={{
-          flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', border: 'none',
+          flex: 1, padding: '12px', borderRadius: '10px', fontSize: FONT_SIZE.small, fontWeight: 600, cursor: 'pointer', border: 'none',
           background: 'var(--brand)', color: '#070d18',
         }}>
           Compartir
@@ -157,7 +158,7 @@ export default function HojaSalidaPage() {
           </div>
           {g.players.map((p, j) => (
             <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: j > 0 ? '1px solid var(--border)' : 'none' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text)' }}>{p.name}</span>
+              <span style={{ fontSize: FONT_SIZE.small, color: 'var(--text)' }}>{p.name}</span>
               <span style={{ fontSize: '13px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
                 {p.handicap != null ? handicapHojaSalida(p.handicap) : '—'}
               </span>

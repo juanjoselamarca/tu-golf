@@ -10,6 +10,7 @@ import { asignacionOficialScramble, avisoSumaScramble } from '@/golf/formats/tea
 import type { ModoHandicapEquipo, TamanoEquipo } from '../hooks/useTeamConfig'
 import { fieldStyle, helperStyle, labelStyle } from '../styles'
 import { NOTA_WHS, OpcionHandicap, PorcentajeInput } from './HandicapEquipoCampos'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /** "2 jugadores: 35 % del de menor handicap + 15 % del de mayor" (y 3-4 jugadores). */
 export function describirAsignacionScramble(size: TamanoEquipo): string {
@@ -77,13 +78,13 @@ export function HandicapEquipoScramble({
             />
           ))}
           {aviso && (
-            <p role="status" style={{ fontSize: 12, lineHeight: 1.4, margin: 0, fontWeight: 500, color: 'var(--brand-on-bg)' }}>
+            <p role="status" style={{ fontSize: FONT_SIZE.caption, lineHeight: 1.4, margin: 0, fontWeight: 500, color: 'var(--brand-on-bg)' }}>
               {aviso}
             </p>
           )}
         </div>
       )}
-      <p style={{ ...helperStyle, fontSize: 12, lineHeight: 1.4, marginTop: 4 }}>{NOTA_WHS}</p>
+      <p style={{ ...helperStyle, fontSize: FONT_SIZE.caption, lineHeight: 1.4, marginTop: 4 }}>{NOTA_WHS}</p>
     </fieldset>
   )
 }

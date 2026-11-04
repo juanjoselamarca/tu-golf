@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface StepSurveyProps {
   onComplete: (recommendation: 'photos' | 'garmin_zip' | null) => void
@@ -111,7 +112,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
       <div style={{
         position: 'absolute',
         top: '0px',
-        fontSize: '12px',
+        fontSize: FONT_SIZE.caption,
         color: 'var(--text-2)',
         fontFamily: "'DM Mono', monospace",
         letterSpacing: '0.05em',
@@ -136,7 +137,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
           </svg>
           <span style={{
             fontFamily: "var(--font-playfair, 'Playfair Display', serif)",
-            fontSize: '20px',
+            fontSize: FONT_SIZE.title,
             fontWeight: 700,
             color: 'var(--text)',
           }}>

@@ -1,6 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export default function LogoutButton() {
   const handleLogout = async () => {
@@ -17,7 +18,7 @@ export default function LogoutButton() {
         border: 'none',
         cursor: 'pointer',
         color: 'var(--text-2)',
-        fontSize: '14px',
+        fontSize: FONT_SIZE.small,
         padding: '6px 12px',
         borderRadius: '6px',
         transition: 'color 200ms',

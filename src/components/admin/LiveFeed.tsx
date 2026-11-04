@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { adminColors, adminFonts, adminCard } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface FeedEvent {
   id: string
@@ -66,14 +67,14 @@ export function LiveFeed() {
             <div key={e.id} style={{
               display: 'flex', gap: '10px', padding: '6px 8px',
               borderRadius: '6px', alignItems: 'flex-start',
-              fontSize: '12px',
+              fontSize: FONT_SIZE.caption,
             }}>
               <span style={{ ...adminFonts.mono, fontSize: '10px', color: adminColors.grayDim, flexShrink: 0, marginTop: '2px' }}>
                 {e.time}
               </span>
-              <span style={{ fontSize: '14px', flexShrink: 0 }}>{e.icon}</span>
+              <span style={{ fontSize: FONT_SIZE.small, flexShrink: 0 }}>{e.icon}</span>
               <span style={{
-                color: adminColors.ivory, fontSize: '12px', lineHeight: 1.4,
+                color: adminColors.ivory, fontSize: FONT_SIZE.caption, lineHeight: 1.4,
                 borderLeft: `2px solid ${typeColors[e.type] || adminColors.gray}`,
                 paddingLeft: '8px',
               }}>

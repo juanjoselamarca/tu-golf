@@ -5,6 +5,7 @@ import { AdminCard } from '@/components/admin/AdminCard'
 import { ProjectionSlider } from '@/components/admin/ProjectionSlider'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
 import { DollarSign, ChevronUp, Users, Wrench } from '@/components/icons'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface CostEntry {
   plan: string
@@ -98,7 +99,7 @@ export default function FinanzasPage() {
                 <span style={{ ...adminFonts.body, fontSize: '13px', textTransform: 'capitalize' }}>{service}</span>
                 <span style={{ ...adminFonts.mono, fontSize: '11px' }}>{info.plan}</span>
                 <span style={{
-                  ...adminFonts.mono, fontSize: '12px',
+                  ...adminFonts.mono, fontSize: FONT_SIZE.caption,
                   color: info.cost > 0 ? adminColors.yellow : adminColors.green,
                 }}>
                   ${info.cost.toFixed(2)}
