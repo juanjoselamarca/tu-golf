@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { isUuid } from '@/lib/uuid'
 
@@ -10,6 +11,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  const rl = checkRateLimit(`draft-collab:${user.id}`, 20, 60 * 60 * 1000)
+  if (!rl.allowed) return NextResponse.json({ error: 'Demasiados intentos. Intenta más tarde.' }, { status: 429, headers: rateLimitHeaders(rl) })
 
   // Gate Pro: colaboradores requiere plan Pro
   const access = await checkFeatureAccess(supabase, user.id, 'tournament-collab')
