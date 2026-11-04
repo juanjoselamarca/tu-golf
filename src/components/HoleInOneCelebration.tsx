@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   playerName: string
@@ -64,7 +65,7 @@ export default function HoleInOneCelebration({ playerName, holeNumber, onClose }
         </div>
 
         <div style={{
-          fontSize: '14px', fontWeight: 700, color: 'var(--brand-on-bg)',
+          fontSize: FONT_SIZE.small, fontWeight: 700, color: 'var(--brand-on-bg)',
           textTransform: 'uppercase', letterSpacing: '4px', marginTop: '8px',
           animation: 'aceFadeIn 0.6s ease-out 0.3s both',
         }}>
@@ -80,14 +81,14 @@ export default function HoleInOneCelebration({ playerName, holeNumber, onClose }
         </div>
 
         <div style={{
-          fontSize: '14px', color: 'var(--text-2)', marginTop: '6px',
+          fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginTop: '6px',
           animation: 'aceFadeIn 0.6s ease-out 0.7s both',
         }}>
           Hoyo {holeNumber}
         </div>
 
         <div style={{
-          fontSize: '12px', color: 'var(--text-3)', marginTop: '24px',
+          fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginTop: '24px',
           animation: 'aceFadeIn 0.6s ease-out 1s both',
         }}>
           Toca para continuar

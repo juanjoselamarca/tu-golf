@@ -9,6 +9,7 @@ import { AdminBadge } from '@/components/admin/AdminBadge'
 import { adminColors, adminFonts } from '@/components/admin/admin-tokens'
 import { Users, Sparkles, Flag, Trophy, CheckCircle } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
+import { FONT_SIZE } from '@/lib/font-size'
 
 // ── Types ──
 interface OverviewData {
@@ -137,7 +138,7 @@ export default function CommandCenterPage() {
     <div style={{ color: adminColors.ivory, fontFamily: "'DM Sans', sans-serif" }}>
       {/* Page header */}
       <h1 style={{
-        ...adminFonts.sectionTitle, fontSize: '1.5rem',
+        ...adminFonts.sectionTitle, fontSize: FONT_SIZE.h2,
         marginBottom: '24px', color: adminColors.gold,
         fontFamily: "'Playfair Display', serif",
       }}>

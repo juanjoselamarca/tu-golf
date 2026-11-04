@@ -162,7 +162,7 @@ export function InscribirPlayerForm({
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           {/* Search */}
           <div ref={dropdownRef} style={{ flex: '1 1 220px', position: 'relative' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Jugador</label>
+            <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>Jugador</label>
             <input
               type="text"
               placeholder="Buscar por nombre o email..."
@@ -214,7 +214,7 @@ export function InscribirPlayerForm({
               background: 'var(--brand)',
               color: '#1a1a2e',
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '10px 20px',
               minHeight: '44px',
               borderRadius: '8px',
@@ -232,7 +232,7 @@ export function InscribirPlayerForm({
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           {/* Nombre del invitado */}
           <div style={{ flex: '1 1 200px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre del invitado</label>
+            <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>Nombre del invitado</label>
             <input
               type="text"
               placeholder="Ej: Juan Perez"
@@ -244,7 +244,7 @@ export function InscribirPlayerForm({
 
           {/* Handicap (indice) */}
           <div style={{ flex: '0 1 130px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (opcional)</label>
+            <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (opcional)</label>
             <input
               type="number"
               inputMode="decimal"
@@ -265,7 +265,7 @@ export function InscribirPlayerForm({
               background: 'var(--brand)',
               color: '#1a1a2e',
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '10px 20px',
               minHeight: '44px',
               borderRadius: '8px',
@@ -282,7 +282,7 @@ export function InscribirPlayerForm({
       ) : (
         /* Batch mode */
         <div>
-          <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>
+          <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>
             Pega una lista de nombres (uno por linea)
           </label>
           <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '8px' }}>
@@ -320,7 +320,7 @@ export function InscribirPlayerForm({
                 }}
               >
                 {parsedBatch.map((entry, i) => (
-                  <div key={i} style={{ fontSize: '12px', color: 'var(--text)', padding: '3px 0', borderBottom: i < parsedBatch.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div key={i} style={{ fontSize: FONT_SIZE.caption, color: 'var(--text)', padding: '3px 0', borderBottom: i < parsedBatch.length - 1 ? '1px solid var(--border)' : 'none' }}>
                     {entry.name}
                     {entry.hcp != null && (
                       <span style={{ color: 'var(--text-2)', marginLeft: '8px' }}>Hcp {entry.hcp}</span>
@@ -351,7 +351,7 @@ export function InscribirPlayerForm({
                   background: 'var(--brand)',
                   color: '#070d18',
                   fontWeight: 700,
-                  fontSize: '14px',
+                  fontSize: FONT_SIZE.small,
                   padding: '10px 24px',
                   minHeight: '44px',
                   borderRadius: '8px',
@@ -374,7 +374,7 @@ export function InscribirPlayerForm({
                   background: '#1a4fd6',
                   color: 'white',
                   fontWeight: 600,
-                  fontSize: '14px',
+                  fontSize: FONT_SIZE.small,
                   padding: '10px 24px',
                   minHeight: '44px',
                   borderRadius: '8px',
@@ -421,7 +421,7 @@ export function InscribirPlayerForm({
           )}
 
           {parsedBatch.length === 0 && batchText.trim() !== '' && (
-            <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--error-fg)' }}>
+            <div style={{ marginTop: '8px', fontSize: FONT_SIZE.caption, color: 'var(--error-fg)' }}>
               No se encontraron nombres validos. Escribe un nombre por linea.
             </div>
           )}

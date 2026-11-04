@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface KPIs {
   total_plans: number
@@ -51,10 +52,10 @@ export default function EffectivenessDashboard() {
 
   return (
     <div style={pageStyle}>
-      <h1 style={{ ...adminFonts.sectionTitle, fontSize: '1.5rem', marginBottom: 8 }}>
+      <h1 style={{ ...adminFonts.sectionTitle, fontSize: FONT_SIZE.h2, marginBottom: 8 }}>
         ¿Funcionan los planes que asigna el coach?
       </h1>
-      <div style={{ color: adminColors.gray, fontSize: 12, marginBottom: 20 }}>
+      <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.caption, marginBottom: 20 }}>
         Generado {new Date(data.generated_at).toLocaleString('es-CL')}
       </div>
 
@@ -156,7 +157,7 @@ function KpiCard({ label, value, accent = 'gold' }: { label: string; value: numb
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ ...adminCard, marginBottom: 20, padding: 20 }}>
-      <h2 style={{ ...adminFonts.sectionTitle, fontSize: '1rem', marginBottom: 12 }}>{title}</h2>
+      <h2 style={{ ...adminFonts.sectionTitle, fontSize: FONT_SIZE.body, marginBottom: 12 }}>{title}</h2>
       {children}
     </section>
   )

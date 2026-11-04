@@ -3,6 +3,7 @@ import { nivelCPI } from '@/golf/stats/cpi'
 import { ChevronUp, ChevronDown } from '@/components/icons'
 import type { ResultadoCPI } from '@/lib/data/perfil'
 import { getCpiColor, getCpiLabel, getCpiTextColor } from '../perfilFormat'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props { cpiData: ResultadoCPI | null }
 
@@ -24,10 +25,10 @@ export function CpiCard({ cpiData }: Props) {
         padding: '20px',
         marginBottom: '16px',
       }}>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '8px' }}>
+        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.lead, color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '8px' }}>
           Activa tu CPI&trade;
         </div>
-        <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
           Necesitas 5+ rondas para activar tu CPI&trade;. Importa tus rondas hist&oacute;ricas para calcular tu &iacute;ndice de rendimiento.
         </p>
         <Link href="/importar" style={{
@@ -35,7 +36,7 @@ export function CpiCard({ cpiData }: Props) {
           background: 'transparent', color: 'var(--brand-on-bg)',
           border: '1px solid rgba(196,153,42,0.35)',
           padding: '10px 20px', borderRadius: '12px',
-          fontSize: '14px', fontWeight: 700,
+          fontSize: FONT_SIZE.small, fontWeight: 700,
           textDecoration: 'none',
         }}>
           Importar historial &rarr;
@@ -55,8 +56,8 @@ export function CpiCard({ cpiData }: Props) {
       marginBottom: '16px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <span style={{ fontSize: '12px', color: 'var(--brand-on-bg)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>CPI&trade;</span>
-        <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+        <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>CPI&trade;</span>
+        <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
           {nivelCPI(cpiData.score)}
         </span>
       </div>
@@ -70,13 +71,13 @@ export function CpiCard({ cpiData }: Props) {
           color: getCpiTextColor(cpiData.score),
           padding: '3px 10px',
           borderRadius: '999px',
-          fontSize: '12px',
+          fontSize: FONT_SIZE.caption,
           fontWeight: 600,
         }}>
           {getCpiLabel(cpiData.score)}
         </span>
         {cpiData.trend !== 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '14px', fontWeight: 600, fontFamily: '"DM Mono", monospace', color: cpiData.trend > 0 ? 'var(--status-live-fg)' : 'var(--score-double-fg)' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: FONT_SIZE.dataSm, fontWeight: 600, fontFamily: '"DM Mono", monospace', color: cpiData.trend > 0 ? 'var(--status-live-fg)' : 'var(--score-double-fg)' }}>
             {cpiData.trend > 0 ? <ChevronUp size={16} strokeWidth={1.5} /> : <ChevronDown size={16} strokeWidth={1.5} />}
             {cpiData.trend > 0 ? '+' : ''}{cpiData.trend.toFixed(1)}
           </span>
@@ -88,7 +89,7 @@ export function CpiCard({ cpiData }: Props) {
         <div style={{ flex: 1, height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
           <div style={{ width: `${Math.min(100, Math.max(0, cpiData.score))}%`, height: '100%', background: `linear-gradient(90deg, ${getCpiColor(cpiData.score)}cc, ${getCpiColor(cpiData.score)})`, borderRadius: '3px', transition: 'width 0.6s ease' }} />
         </div>
-        <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap', fontFamily: '"DM Mono", monospace' }}>
+        <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', whiteSpace: 'nowrap', fontFamily: '"DM Mono", monospace' }}>
           {cpiData.rondas_usadas} rondas{isProvisional ? ' · provisional' : ''}
         </span>
       </div>

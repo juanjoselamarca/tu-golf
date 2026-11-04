@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Flag, Check } from '@/components/icons'
 import { TEE_COLOR_OPTIONS } from '@/golf/courses/tee-colors'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /**
  * Banner persistente para fijar el tee por defecto.
@@ -87,7 +88,7 @@ export function DefaultTeeBanner() {
       {done ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Check size={18} strokeWidth={2.2} style={{ color: 'var(--status-live-fg)', flexShrink: 0 }} />
-          <p style={{ fontSize: '14px', color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
             Listo: usamos <strong>{done.color}</strong> para tus tarjetas sin tee
             {done.recomputed > 0
               ? ` — recalculamos tu índice sobre ${done.recomputed} ${done.recomputed === 1 ? 'ronda' : 'rondas'}.`
@@ -125,7 +126,7 @@ export function DefaultTeeBanner() {
                   border: `1px solid ${genero === g ? 'var(--status-live-fg)' : 'var(--border)'}`,
                   background: genero === g ? 'rgba(34,197,94,0.10)' : 'transparent',
                   color: 'var(--text)',
-                  fontSize: '14px',
+                  fontSize: FONT_SIZE.small,
                   fontWeight: 600,
                   cursor: saving ? 'default' : 'pointer',
                   minHeight: '40px',
@@ -151,7 +152,7 @@ export function DefaultTeeBanner() {
                   border: '1px solid var(--border)',
                   background: 'transparent',
                   color: 'var(--text)',
-                  fontSize: '14px',
+                  fontSize: FONT_SIZE.small,
                   fontWeight: 600,
                   cursor: saving || !genero ? 'default' : 'pointer',
                   opacity: saving || !genero ? 0.5 : 1,

@@ -5,6 +5,7 @@ import type { PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 import Link from 'next/link'
 import type { Tournament, RondaLibre } from '@/lib/mi-golf/types'
 import { GOLD, TEXT, TEXT_2, BORDER, BG_SOFT } from './competencia-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export function HeroActiva({
   ronda,
@@ -58,7 +59,7 @@ export function HeroActiva({
         </div>
         <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{ronda.course_name}</div>
         {/* Sin posición conocida (bola compartida, error) no se afirma un hoyo, pero la acción se ve igual. */}
-        <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '4px' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, opacity: 0.85, marginTop: '4px' }}>
           {summary && (
             <>
               {summary.siguienteHoyo != null ? `Hoyo ${summary.siguienteHoyo} · ` : ''}
@@ -70,7 +71,7 @@ export function HeroActiva({
       </div>
       {summary?.scoreParcial != null && (
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '32px', fontWeight: 700, lineHeight: 1 }}>
+          <div style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h1, fontWeight: 700, lineHeight: 1 }}>
             {summary.scoreParcial >= 0 ? '+' : ''}{summary.scoreParcial}
           </div>
           <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, opacity: 0.85 }}>
@@ -115,10 +116,10 @@ export function HeroProximo({
           Próximo compromiso
         </div>
         <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{torneo.name}</div>
-        <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>{sub}</div>
+        <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2, marginTop: '4px' }}>{sub}</div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '32px', fontWeight: 700, lineHeight: 1, color: GOLD }}>
+        <div style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h1, fontWeight: 700, lineHeight: 1, color: GOLD }}>
           {countdown}
         </div>
         <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, color: TEXT_2 }}>
@@ -140,10 +141,10 @@ export function HeroVacio() {
         textAlign: 'center',
       }}
     >
-      <div style={{ fontSize: '14px', color: TEXT, fontWeight: 500, marginBottom: '6px' }}>
+      <div style={{ fontSize: FONT_SIZE.small, color: TEXT, fontWeight: 500, marginBottom: '6px' }}>
         Sin torneos ni rondas en curso
       </div>
-      <div style={{ fontSize: '12px', color: TEXT_2 }}>¿Quieres jugar hoy?</div>
+      <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2 }}>¿Quieres jugar hoy?</div>
     </div>
   )
 }
@@ -170,7 +171,7 @@ export function Acciones() {
           marginBottom: '12px',
         }}
       >
-        <span style={{ fontSize: '20px', fontWeight: 300, lineHeight: 1 }}>+</span>
+        <span style={{ fontSize: FONT_SIZE.title, fontWeight: 300, lineHeight: 1 }}>+</span>
         Nueva ronda
       </Link>
       <div
@@ -178,7 +179,7 @@ export function Acciones() {
           display: 'flex',
           justifyContent: 'center',
           gap: '20px',
-          fontSize: '12px',
+          fontSize: FONT_SIZE.caption,
         }}
       >
         <Link

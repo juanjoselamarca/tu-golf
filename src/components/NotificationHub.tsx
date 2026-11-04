@@ -119,7 +119,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
             <h2 style={{ fontSize: FONT_SIZE.title, fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: '"Playfair Display", serif' }}>
               Notificaciones
             </h2>
-            <button onClick={onClose} aria-label="Cerrar notificaciones" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--text-3)', cursor: 'pointer', padding: '8px' }}>
+            <button onClick={onClose} aria-label="Cerrar notificaciones" style={{ background: 'none', border: 'none', fontSize: FONT_SIZE.title, color: 'var(--text-3)', cursor: 'pointer', padding: '8px' }}>
               ×
             </button>
           </div>
@@ -142,14 +142,14 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
               'Instala Golfers+ como app desde tu navegador para recibir notificaciones'
             return (
               <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#92400e', marginBottom: '4px' }}>{title}</div>
-                <div style={{ fontSize: '12px', color: '#b45309', lineHeight: 1.5 }}>{body}</div>
+                <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: '#92400e', marginBottom: '4px' }}>{title}</div>
+                <div style={{ fontSize: FONT_SIZE.caption, color: '#b45309', lineHeight: 1.5 }}>{body}</div>
               </div>
             )
           })() : permission === 'denied' ? (
             <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#991b1b', marginBottom: '4px' }}>Notificaciones bloqueadas</div>
-              <div style={{ fontSize: '12px', color: '#b91c1c' }}>
+              <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: '#991b1b', marginBottom: '4px' }}>Notificaciones bloqueadas</div>
+              <div style={{ fontSize: FONT_SIZE.caption, color: '#b91c1c' }}>
                 Ve a la configuración de tu navegador y permite notificaciones para golfersplus.vercel.app
               </div>
             </div>
@@ -164,7 +164,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
                 <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
                   {subscribed ? 'Notificaciones activas' : 'Activar notificaciones'}
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>
+                <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginTop: '2px' }}>
                   {subscribed ? 'Recibes alertas en tu telefono' : 'Recibe alertas aunque cierres la app'}
                 </div>
               </div>
@@ -174,7 +174,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
                 aria-label={subscribed ? 'Desactivar notificaciones' : 'Activar notificaciones'}
                 style={{
                   padding: '10px 20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-                  fontSize: '14px', fontWeight: 600,
+                  fontSize: FONT_SIZE.small, fontWeight: 600,
                   background: subscribed ? 'var(--double)' : 'var(--brand)',
                   color: subscribed ? 'var(--bg-surface)' : 'var(--brand-dark)',
                   opacity: loading ? 0.6 : 1,
@@ -205,8 +205,8 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text)' }}>{item.label}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>{item.desc}</div>
+                  <div style={{ fontSize: FONT_SIZE.small, fontWeight: 500, color: 'var(--text)' }}>{item.label}</div>
+                  <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>{item.desc}</div>
                 </div>
                 {/* Toggle switch */}
                 <div style={{

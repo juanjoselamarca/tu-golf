@@ -16,6 +16,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { AssistantMessage } from './types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface AssistantMessagesProps {
   messages: AssistantMessage[]
@@ -33,7 +34,7 @@ function bubbleStyle(role: AssistantMessage['role'], severity?: AssistantMessage
       padding: '10px 14px',
       borderRadius: '12px',
       fontFamily: '"DM Sans", sans-serif',
-      fontSize: '14px',
+      fontSize: FONT_SIZE.small,
       color: 'var(--text-primary)',
       whiteSpace: 'pre-wrap',
       lineHeight: 1.5,
@@ -72,7 +73,7 @@ function bubbleStyle(role: AssistantMessage['role'], severity?: AssistantMessage
     padding: '10px 14px',
     borderRadius: '12px',
     fontFamily: '"DM Sans", sans-serif',
-    fontSize: '14px',
+    fontSize: FONT_SIZE.small,
     color: 'var(--text-primary)',
     whiteSpace: 'pre-wrap',
     lineHeight: 1.5,
@@ -107,7 +108,7 @@ export default function AssistantMessages({ messages, loading }: AssistantMessag
                 padding: '8px 10px',
                 background: 'rgba(196,153,42,0.08)',
                 borderRadius: '8px',
-                fontSize: '12px',
+                fontSize: FONT_SIZE.caption,
                 color: 'var(--text-secondary)',
                 fontFamily: '"DM Sans", sans-serif',
               }}
@@ -126,7 +127,7 @@ export default function AssistantMessages({ messages, loading }: AssistantMessag
             padding: '10px 14px',
             borderRadius: '12px',
             fontFamily: '"DM Sans", sans-serif',
-            fontSize: '14px',
+            fontSize: FONT_SIZE.small,
             color: 'var(--text-secondary)',
             fontStyle: 'italic',
           }}

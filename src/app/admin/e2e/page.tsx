@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface RunSummary {
   id: string
@@ -62,7 +63,7 @@ function StatusPill({ status }: { status: RunSummary['status'] }) {
       display: 'inline-block',
       padding: '4px 10px',
       borderRadius: 999,
-      fontSize: 12,
+      fontSize: FONT_SIZE.caption,
       fontWeight: 600,
       background: s.bg,
       color: s.fg,
@@ -153,8 +154,8 @@ export default function E2EAdminPage() {
     <div style={{ padding: '32px 24px', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ ...adminFonts.kpi, fontSize: '2rem', marginBottom: 6 }}>Tests E2E</h1>
-          <p style={{ color: adminColors.gray, fontSize: 14, margin: 0 }}>
+          <h1 style={{ ...adminFonts.kpi, fontSize: FONT_SIZE.h1, marginBottom: 6 }}>Tests E2E</h1>
+          <p style={{ color: adminColors.gray, fontSize: FONT_SIZE.small, margin: 0 }}>
             Robots que prueban la app como un usuario real. Aprieta &quot;Probar ahora&quot;
             para correr los 7 tests contra producción.
           </p>
@@ -168,7 +169,7 @@ export default function E2EAdminPage() {
             border: 'none',
             padding: '12px 24px',
             borderRadius: 8,
-            fontSize: 14,
+            fontSize: FONT_SIZE.small,
             fontWeight: 600,
             cursor: triggering ? 'wait' : 'pointer',
             minHeight: 44,
@@ -187,7 +188,7 @@ export default function E2EAdminPage() {
           borderRadius: 8,
           padding: 14,
           marginBottom: 24,
-          fontSize: 14,
+          fontSize: FONT_SIZE.small,
         }}>{error}</div>
       )}
 
@@ -219,14 +220,14 @@ export default function E2EAdminPage() {
                   >
                     <StatusPill status={run.status} />
                     <div style={{ flex: 1, minWidth: 200 }}>
-                      <div style={{ color: adminColors.ivory, fontSize: 14, fontWeight: 600 }}>
+                      <div style={{ color: adminColors.ivory, fontSize: FONT_SIZE.small, fontWeight: 600 }}>
                         {run.summary.total > 0
                           ? `${run.summary.passed}/${run.summary.total} pasaron · ${run.summary.failed} fallaron · ${run.summary.skipped} skipeados`
                           : run.status === 'queued' ? 'Esperando que arranque GitHub…'
                           : run.status === 'running' ? 'Corriendo en GitHub Actions…'
                           : 'Sin resultados'}
                       </div>
-                      <div style={{ color: adminColors.gray, fontSize: 12, marginTop: 4 }}>
+                      <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.caption, marginTop: 4 }}>
                         {formatRelative(run.created_at)} · {run.branch ?? 'main'}
                         {run.commit_sha && ` · ${run.commit_sha.slice(0, 7)}`}
                       </div>
@@ -237,7 +238,7 @@ export default function E2EAdminPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={e => e.stopPropagation()}
-                        style={{ color: adminColors.gold, fontSize: 12, textDecoration: 'none' }}
+                        style={{ color: adminColors.gold, fontSize: FONT_SIZE.caption, textDecoration: 'none' }}
                       >Ver en GitHub →</a>
                     )}
                   </div>
@@ -272,7 +273,7 @@ function RunDetailView({ run }: { run: RunDetail }) {
         <div style={{ color: adminColors.red, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Error de la corrida</div>
         <pre style={{
           color: adminColors.gray,
-          fontSize: 12,
+          fontSize: FONT_SIZE.caption,
           fontFamily: "'DM Mono', monospace",
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
@@ -349,7 +350,7 @@ function RunDetailView({ run }: { run: RunDetail }) {
         </div>
       )}
       {skipped.length > 0 && (
-        <div style={{ color: adminColors.gray, fontSize: 12 }}>
+        <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.caption }}>
           {skipped.length} test{skipped.length === 1 ? '' : 's'} skipeado{skipped.length === 1 ? '' : 's'}
         </div>
       )}

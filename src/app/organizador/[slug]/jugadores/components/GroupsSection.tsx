@@ -62,7 +62,7 @@ export function GroupsSection({
       {tournamentStatus !== 'closed' && (
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px' }}>
           <div style={{ flex: '1 1 180px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre del {noun}</label>
+            <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>Nombre del {noun}</label>
             <input
               type="text"
               placeholder={isTeam ? 'Ej: Equipo 1' : 'Ej: Grupo 1'}
@@ -72,7 +72,7 @@ export function GroupsSection({
             />
           </div>
           <div style={{ flex: '0 1 160px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Hora de salida (opc.)</label>
+            <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>Hora de salida (opc.)</label>
             <input
               type="time"
               value={newGroupTeeTime}
@@ -88,7 +88,7 @@ export function GroupsSection({
               background: 'var(--brand)',
               color: 'var(--brand-dark)',
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '10px 20px',
               minHeight: '44px',
               borderRadius: '8px',
@@ -107,7 +107,7 @@ export function GroupsSection({
       {tournamentStatus !== 'closed' && groups.length > 0 && (
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px', padding: '16px', background: 'var(--bg)', borderRadius: '10px', border: '1px solid var(--border)' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Hora inicio</label>
+            <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>Hora inicio</label>
             <input
               type="time"
               value={teeStartTime}
@@ -116,7 +116,7 @@ export function GroupsSection({
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Intervalo (min)</label>
+            <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>Intervalo (min)</label>
             <input
               type="number"
               value={teeInterval}
@@ -185,7 +185,7 @@ export function GroupsSection({
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {g.tee_time && (
-                    <span style={{ fontSize: '12px', color: 'var(--brand-on-bg)', fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', fontFamily: 'monospace' }}>
                       {g.tee_time.includes('T') ? new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : g.tee_time}
                     </span>
                   )}
@@ -199,7 +199,7 @@ export function GroupsSection({
                           : `¿Eliminar "${g.name}"?`
                         if (window.confirm(msg)) onDeleteGroup(g.id)
                       }}
-                      style={{ background: 'var(--error-bg)', border: '1px solid var(--error-border)', color: 'var(--error-fg)', borderRadius: '8px', minWidth: '44px', minHeight: '44px', padding: '0 12px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+                      style={{ background: 'var(--error-bg)', border: '1px solid var(--error-border)', color: 'var(--error-fg)', borderRadius: '8px', minWidth: '44px', minHeight: '44px', padding: '0 12px', fontSize: FONT_SIZE.small, fontWeight: 600, cursor: 'pointer' }}
                     >
                       X
                     </button>
@@ -207,7 +207,7 @@ export function GroupsSection({
                 </div>
               </div>
               {g.players.length === 0 ? (
-                <div style={{ fontSize: '12px', color: 'var(--text-2)', fontStyle: 'italic' }}>Sin jugadores</div>
+                <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', fontStyle: 'italic' }}>Sin jugadores</div>
               ) : (
                 g.players.map((gp) => (
                   <div key={gp.id} style={{ fontSize: '13px', color: 'var(--text)', padding: '4px 0', borderTop: '1px solid var(--border)' }}>

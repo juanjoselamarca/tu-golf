@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const inputStyle: React.CSSProperties = {
   background:   'var(--input-bg)',
@@ -11,7 +12,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: '8px',
   padding:      '12px',
   width:        '100%',
-  fontSize:     '16px',
+  fontSize:     FONT_SIZE.body,
   outline:      'none',
   transition:   'border-color 200ms',
 }
@@ -81,10 +82,10 @@ export default function RecuperarPage() {
         {sent ? (
           <div style={{ textAlign: 'center', marginTop: '24px' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>📧</div>
-            <p style={{ fontSize: '16px', color: 'var(--text)', marginBottom: '8px', fontWeight: 500 }}>
+            <p style={{ fontSize: FONT_SIZE.body, color: 'var(--text)', marginBottom: '8px', fontWeight: 500 }}>
               Revisa tu email
             </p>
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '24px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginBottom: '24px', lineHeight: 1.5 }}>
               Enviamos un enlace de recuperación a <strong style={{ color: 'var(--text)' }}>{email}</strong>.
               Revisa tu bandeja de entrada y spam.
             </p>
@@ -93,7 +94,7 @@ export default function RecuperarPage() {
               style={{
                 display:      'inline-block',
                 color:        '#8A6A16',
-                fontSize:     '14px',
+                fontSize:     FONT_SIZE.small,
                 textDecoration: 'none',
                 fontWeight:   600,
               }}
@@ -103,7 +104,7 @@ export default function RecuperarPage() {
           </div>
         ) : (
           <>
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '24px' }}>
+            <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', textAlign: 'center', marginBottom: '24px' }}>
               Ingresa tu email y te enviaremos un enlace para crear una nueva contraseña.
             </p>
 
@@ -146,7 +147,7 @@ export default function RecuperarPage() {
               </button>
             </form>
 
-            <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
+            <p style={{ textAlign: 'center', fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginTop: '24px' }}>
               <Link href="/login" style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontWeight: 600 }}>
                 ← Volver al login
               </Link>

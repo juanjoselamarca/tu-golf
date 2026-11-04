@@ -8,6 +8,7 @@ import { LIST_ITEM_KEY, listPatchFrom } from '@/lib/draft/list-markers'
 import type { ApplyChangeManual } from '../hooks/useDraftActions'
 import type { TournamentConfig, PrizeConfig, PrizeKind } from '@/lib/draft/types'
 import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface PremiosSectionProps {
   config: TournamentConfig
@@ -248,7 +249,7 @@ const cardStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 600,
   color: 'var(--text-primary)',
 }
@@ -289,7 +290,7 @@ const fieldStyle: React.CSSProperties = {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 500,
   color: 'var(--text-secondary)',
 }
@@ -313,7 +314,7 @@ const removeBtnStyle: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--text-secondary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   cursor: 'pointer',
 }
 
@@ -352,7 +353,7 @@ function kindChipStyle(active: boolean): React.CSSProperties {
       : 'var(--input-bg)',
     color: active ? '#fff' : 'var(--text-primary)',
     fontFamily: '"DM Sans", sans-serif',
-    fontSize: 12,
+    fontSize: FONT_SIZE.caption,
     fontWeight: 500,
     cursor: 'pointer',
     transition: 'background 120ms ease, border-color 120ms ease, color 120ms ease',

@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { esPorcentajeDeEquipo } from '@/golf/formats/team-handicap'
 import type { ModoHandicapEquipo } from '../hooks/useTeamConfig'
 import { helperStyle, inputStyle, labelStyle } from '../styles'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export const NOTA_WHS = 'Se calcula sobre el handicap de cancha de cada jugador, con un solo redondeo final (WHS).'
 
@@ -50,8 +51,8 @@ export function OpcionHandicap({
         }}
       />
       <div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{titulo}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+        <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text-primary)' }}>{titulo}</div>
+        <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
           {descripcion}
         </div>
       </div>
@@ -118,14 +119,14 @@ export function PorcentajeInput({
             if (leerPorcentaje(texto) === null) setTexto(textoDe(valor))
           }}
           style={{
-            ...inputStyle, width: 88, minHeight: 44, boxSizing: 'border-box', fontSize: 16,
+            ...inputStyle, width: 88, minHeight: 44, boxSizing: 'border-box', fontSize: FONT_SIZE.body,
             ...(invalido ? { border: '1px solid var(--error-border)' } : {}),
           }}
         />
-        <span aria-hidden style={{ ...helperStyle, fontSize: 14 }}>%</span>
+        <span aria-hidden style={{ ...helperStyle, fontSize: FONT_SIZE.small }}>%</span>
       </div>
       {invalido && (
-        <span id={errorId} style={{ fontSize: 12, color: 'var(--error-fg)' }}>
+        <span id={errorId} style={{ fontSize: FONT_SIZE.caption, color: 'var(--error-fg)' }}>
           Escribe un número entero entre 0 y 100
         </span>
       )}

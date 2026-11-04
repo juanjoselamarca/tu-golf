@@ -1,6 +1,7 @@
 'use client'
 
 import { AlertTriangle } from '@/components/icons'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface ErrorStateProps {
   message:  string
@@ -24,7 +25,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
             borderRadius: '8px',
             cursor:       'pointer',
             fontWeight:   700,
-            fontSize:     '14px',
+            fontSize:     FONT_SIZE.small,
           }}
         >
           Reintentar

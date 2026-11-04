@@ -18,6 +18,7 @@ import ImportGuide from './ImportGuide'
 import StepProcessing from './StepProcessing'
 import StepReview from './StepReview'
 import StepCelebration from './StepCelebration'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export type ImportSource = 'photos' | 'csv' | 'garmin_zip' | null
 export type WizardStep =
@@ -375,7 +376,7 @@ export default function ImportWizard() {
             border: '1px solid var(--border)',
             borderRadius: '12px',
             color: 'var(--text-2)',
-            fontSize: '20px',
+            fontSize: FONT_SIZE.title,
             cursor: 'pointer',
             zIndex: 40,
           }}

@@ -1,6 +1,7 @@
 // Selector de ronda + botón "Iniciar Ronda N+1" para torneos multi-ronda.
 
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface MultiRoundControlsProps {
   totalRounds: number
@@ -52,7 +53,7 @@ export function MultiRoundControls({
           style={{
             padding: '10px 20px',
             borderRadius: '8px',
-            fontSize: '14px',
+            fontSize: FONT_SIZE.small,
             fontWeight: 700,
             border: '2px solid var(--brand-on-bg)',
             background: 'var(--brand-on-bg)',

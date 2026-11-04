@@ -3,6 +3,7 @@
 
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface HoleStatsTableProps {
   courseHoles: CourseHole[]
@@ -36,7 +37,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
 
             return (
               <tr key={h} style={{ borderBottom: '1px solid var(--surface-soft)', opacity: disabled ? 0.4 : 1 }}>
-                <td style={{ textAlign: 'center', color: 'var(--text-2)', padding: '6px 8px', fontSize: '12px' }}>H{h} P{par}</td>
+                <td style={{ textAlign: 'center', color: 'var(--text-2)', padding: '6px 8px', fontSize: FONT_SIZE.caption }}>H{h} P{par}</td>
                 <td style={{ textAlign: 'center', color: 'var(--text)', padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}>{gross ?? '—'}</td>
 
                 {/* Putts */}
@@ -78,7 +79,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                       ))}
                     </div>
                   ) : (
-                    <span style={{ color: 'var(--text-2)', fontSize: '12px' }}>N/A</span>
+                    <span style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.caption }}>N/A</span>
                   )}
                 </td>
 

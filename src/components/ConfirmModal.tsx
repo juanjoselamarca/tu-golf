@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { Portal } from '@/components/ui/Portal'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface ConfirmModalProps {
   isOpen: boolean
@@ -133,7 +134,7 @@ export function ConfirmModal({
             id="confirm-modal-title"
             style={{
               fontFamily: '"Playfair Display", serif',
-              fontSize: '18px',
+              fontSize: FONT_SIZE.lead,
               fontWeight: 700,
               color: 'var(--text)',
               textAlign: 'center',
@@ -146,7 +147,7 @@ export function ConfirmModal({
           {/* Description */}
           <p
             style={{
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               lineHeight: '1.5',
               color: 'var(--text-2)',
               textAlign: 'center',
@@ -167,7 +168,7 @@ export function ConfirmModal({
                 border: '1px solid var(--border)',
                 background: 'transparent',
                 color: 'var(--text-2)',
-                fontSize: '14px',
+                fontSize: FONT_SIZE.small,
                 fontWeight: 500,
                 cursor: 'pointer',
                 transition: 'background 150ms',
@@ -185,7 +186,7 @@ export function ConfirmModal({
                 border: 'none',
                 background: isDanger ? '#dc2626' : 'var(--brand)',
                 color: isDanger ? '#ffffff' : 'var(--brand-dark)',
-                fontSize: '14px',
+                fontSize: FONT_SIZE.small,
                 fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'filter 150ms',

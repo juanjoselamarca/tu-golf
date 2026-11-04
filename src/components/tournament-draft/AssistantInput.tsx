@@ -9,6 +9,7 @@
 
 import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface AssistantInputProps {
   onSend: (message: string) => void
@@ -86,7 +87,7 @@ export default function AssistantInput({
           border: '1px solid var(--border)',
           borderRadius: '12px',
           fontFamily: '"DM Sans", sans-serif',
-          fontSize: '14px',
+          fontSize: FONT_SIZE.small,
           lineHeight: 1.4,
           outline: 'none',
           minHeight: '40px',
@@ -107,7 +108,7 @@ export default function AssistantInput({
           borderRadius: '12px',
           padding: '10px 16px',
           fontWeight: 600,
-          fontSize: '14px',
+          fontSize: FONT_SIZE.small,
           cursor: canSend ? 'pointer' : 'not-allowed',
           fontFamily: '"DM Sans", sans-serif',
           letterSpacing: '0.02em',

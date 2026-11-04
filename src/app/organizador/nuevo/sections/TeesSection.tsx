@@ -6,6 +6,7 @@
 // Sincroniza el modo en TODAS las rondas a la vez.
 
 import type { TournamentConfig, RoundConfig } from '@/lib/draft/types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface TeesSectionProps {
   config: TournamentConfig
@@ -109,7 +110,7 @@ const cardStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 600,
   color: 'var(--text-primary)',
 }
@@ -126,7 +127,7 @@ const warnStyle: React.CSSProperties = {
   borderRadius: 8,
   background: 'rgba(196, 153, 42, 0.14)',
   border: '1px solid rgba(196, 153, 42, 0.4)',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   color: 'var(--text-primary)',
 }
 
@@ -158,12 +159,12 @@ const radioTextStyle: React.CSSProperties = {
 }
 
 const radioTitleStyle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   fontWeight: 600,
   color: 'var(--text-primary)',
 }
 
 const radioDescStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   color: 'var(--text-secondary)',
 }

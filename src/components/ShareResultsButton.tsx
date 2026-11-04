@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { SITE_DOMAIN, SITE_URL } from '@/lib/site-url'
 import { useShare } from '@/components/share/useShare'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface ShareResultsProps {
   tournamentName: string
@@ -59,7 +60,7 @@ export default function ShareResultsButton({
         color: copied ? 'var(--status-live-fg)' : 'var(--brand-on-bg)',
         padding: '10px 20px',
         borderRadius: '8px',
-        fontSize: '14px',
+        fontSize: FONT_SIZE.small,
         fontWeight: 600,
         cursor: 'pointer',
         display: 'inline-flex',

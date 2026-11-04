@@ -5,6 +5,7 @@ import { AdminCard } from '@/components/admin/AdminCard'
 import { AdminTable } from '@/components/admin/AdminTable'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
 import { DollarSign, Users, Target, BarChart3 } from '@/components/icons'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface CostSummary {
   periodDays: number
@@ -86,7 +87,7 @@ export default function CostosPage() {
                 color: d === days ? adminColors.bgDeep : adminColors.gray,
                 border: `1px solid ${d === days ? adminColors.gold : adminColors.border}`,
                 borderRadius: '8px', padding: '7px 14px', cursor: 'pointer',
-                fontSize: '12px', fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+                fontSize: FONT_SIZE.caption, fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
               }}
             >
               {d}d

@@ -2,6 +2,7 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { adminColors } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const NAV_ITEMS = [
   { href: '/admin',           icon: '\u26A1', label: 'Command Center' },
@@ -40,7 +41,7 @@ export function AdminSidebar({ collapsed, onToggle }: {
       }}>
         <button onClick={onToggle} style={{
           background: 'none', border: 'none', color: adminColors.gray,
-          cursor: 'pointer', fontSize: '18px', padding: '4px',
+          cursor: 'pointer', fontSize: FONT_SIZE.lead, padding: '4px',
           display: 'flex', alignItems: 'center',
         }}>
           {collapsed ? '\u2630' : '\u2715'}
@@ -71,12 +72,12 @@ export function AdminSidebar({ collapsed, onToggle }: {
               borderRadius: '8px', textDecoration: 'none',
               background: active ? adminColors.goldDim : 'transparent',
               color: active ? adminColors.gold : adminColors.gray,
-              fontSize: '14px', fontWeight: active ? 600 : 400,
+              fontSize: FONT_SIZE.small, fontWeight: active ? 600 : 400,
               transition: 'background 0.15s, color 0.15s',
               justifyContent: collapsed ? 'center' : 'flex-start',
               whiteSpace: 'nowrap', overflow: 'hidden',
             }}>
-              <span style={{ fontSize: '18px', flexShrink: 0 }}>{item.icon}</span>
+              <span style={{ fontSize: FONT_SIZE.lead, flexShrink: 0 }}>{item.icon}</span>
               {!collapsed && <span>{item.label}</span>}
             </Link>
           )

@@ -12,6 +12,7 @@ import { useProfileSearch, type Profile } from '@/app/organizador/[slug]/jugador
 import { captureError } from '@/lib/error-tracking'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface Collaborator {
   user_id: string
@@ -208,7 +209,7 @@ const cardStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 600,
   color: 'var(--text-primary)',
 }
@@ -252,7 +253,7 @@ const avatarStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   fontWeight: 600,
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   flexShrink: 0,
 }
 
@@ -265,7 +266,7 @@ const infoStyle: React.CSSProperties = {
 }
 
 const nameStyle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   color: 'var(--text-primary)',
   whiteSpace: 'nowrap',
@@ -274,7 +275,7 @@ const nameStyle: React.CSSProperties = {
 }
 
 const emailStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   color: 'var(--text-secondary)',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
@@ -332,7 +333,7 @@ const modalStyle: React.CSSProperties = {
 
 const modalTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 600,
   color: 'var(--text-primary)',
 }
@@ -349,7 +350,7 @@ const searchInputStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
   background: 'var(--input-bg)',
   color: 'var(--text-primary)',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   fontFamily: '"DM Sans", sans-serif',
   outline: 'none',
   width: '100%',
@@ -389,7 +390,7 @@ function inviteBtnStyle(isIn: boolean): React.CSSProperties {
     background: 'transparent',
     color: isIn ? 'var(--text-secondary)' : 'var(--brand-gold)',
     fontFamily: '"DM Sans", sans-serif',
-    fontSize: 12,
+    fontSize: FONT_SIZE.caption,
     fontWeight: 500,
     cursor: isIn ? 'default' : 'pointer',
     flexShrink: 0,

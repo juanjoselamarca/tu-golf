@@ -19,6 +19,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { buildRoundShare } from '@/golf/share/payload'
 import { SITE_URL } from '@/lib/site-url'
 import { useTarjetaGuardada } from '@/hooks/useTarjetaGuardada'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export default function TarjetaPublicaPage() {
   const params = useParams()
@@ -34,7 +35,7 @@ export default function TarjetaPublicaPage() {
   if (carga === null) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif' }}>
-        <div style={{ color: 'var(--text-3)', fontSize: 14 }}>Cargando tarjeta...</div>
+        <div style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.small }}>Cargando tarjeta...</div>
       </div>
     )
   }
@@ -53,11 +54,11 @@ export default function TarjetaPublicaPage() {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif', padding: 24 }}>
         <div style={{ marginBottom: 16, color: 'var(--brand-on-bg)' }}><Flag size={48} strokeWidth={1.5} /></div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 24, color: 'var(--text)', marginBottom: 8 }}>Tarjeta no encontrada</h1>
-        <p style={{ color: 'var(--text-3)', fontSize: 14, textAlign: 'center', maxWidth: 300 }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h2, color: 'var(--text)', marginBottom: 8 }}>Tarjeta no encontrada</h1>
+        <p style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.small, textAlign: 'center', maxWidth: 300 }}>
           Esta tarjeta no existe o fue eliminada.
         </p>
-        <Link href="/" style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontSize: 14, marginTop: 16, fontWeight: 600 }}>
+        <Link href="/" style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontSize: FONT_SIZE.small, marginTop: 16, fontWeight: 600 }}>
           Ir a Golfers+
         </Link>
       </div>
@@ -88,7 +89,7 @@ export default function TarjetaPublicaPage() {
             <ArrowLeft size={16} />
             {isLoggedIn ? 'Mi historial' : 'Golfers+'}
           </Link>
-          <button onClick={() => void compartir()} disabled={publicando} aria-busy={publicando} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', minHeight: '44px', color: 'var(--text-3)', fontSize: 12, fontWeight: 600, cursor: publicando ? 'wait' : 'pointer', opacity: publicando ? 0.7 : 1 }}>
+          <button onClick={() => void compartir()} disabled={publicando} aria-busy={publicando} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', minHeight: '44px', color: 'var(--text-3)', fontSize: FONT_SIZE.caption, fontWeight: 600, cursor: publicando ? 'wait' : 'pointer', opacity: publicando ? 0.7 : 1 }}>
             <Share2 size={14} />
             Compartir
           </button>
@@ -135,12 +136,12 @@ export default function TarjetaPublicaPage() {
             <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
               Registra tu propio score
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 14, lineHeight: 1.5 }}>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginBottom: 14, lineHeight: 1.5 }}>
               Crea tu cuenta gratis y juega con Golfers+
             </div>
             <Link href="/register" style={{
               display: 'inline-block', padding: '10px 24px', background: 'var(--brand)',
-              color: 'var(--brand-dark)', fontWeight: 700, fontSize: 14, borderRadius: 10,
+              color: 'var(--brand-dark)', fontWeight: 700, fontSize: FONT_SIZE.small, borderRadius: 10,
               textDecoration: 'none',
             }}>
               Unirme gratis

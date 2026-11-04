@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   playerName: string
@@ -114,7 +115,7 @@ export default function EagleCelebration({ playerName, holeNumber, onClose }: Pr
 
         {/* Label */}
         <div style={{
-          fontSize: 16,
+          fontSize: FONT_SIZE.body,
           fontWeight: 700,
           color: '#fbbf24',
           letterSpacing: '4px',

@@ -107,7 +107,7 @@ export function PlayersTable({
                     key={f.value}
                     onClick={() => setStatusFilter(f.value)}
                     style={{
-                      padding: '5px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 500,
+                      padding: '5px 12px', borderRadius: '16px', fontSize: FONT_SIZE.caption, fontWeight: 500,
                       border: active ? '1px solid var(--brand)' : '1px solid var(--border)',
                       background: active ? 'rgba(196,153,42,0.12)' : 'transparent',
                       color: active ? 'var(--brand-on-bg)' : 'var(--text-2)',
@@ -126,7 +126,7 @@ export function PlayersTable({
       {players.length === 0 ? (
         <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
           <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Users size={40} strokeWidth={1.5} /></div>
-          <div style={{ fontSize: '16px', marginBottom: '6px', color: 'var(--text)' }}>Sin jugadores aún</div>
+          <div style={{ fontSize: FONT_SIZE.body, marginBottom: '6px', color: 'var(--text)' }}>Sin jugadores aún</div>
           <div style={{ fontSize: '13px' }}>Busca y añade jugadores usando el formulario de arriba.</div>
         </div>
       ) : (
@@ -144,7 +144,7 @@ export function PlayersTable({
             <tbody>
               {filteredPlayers.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: '14px' }}>
+                  <td colSpan={7} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: FONT_SIZE.small }}>
                     No se encontraron jugadores{searchQuery ? ` con "${searchQuery}"` : ''}
                   </td>
                 </tr>
@@ -156,8 +156,8 @@ export function PlayersTable({
                   onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'rgba(var(--text-2-rgb), 0.04)')}
                   onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'transparent')}
                 >
-                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px' }}>{i + 1}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>
+                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: FONT_SIZE.small }}>{i + 1}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--text)', fontSize: FONT_SIZE.small, fontWeight: 500 }}>
                     {p.profiles?.name ?? p.player_name ?? '—'}
                     {p.status === 'withdrawn' && (
                       <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(148,168,192,0.15)', color: 'var(--text-2)', letterSpacing: '0.05em' }}>WD</span>
@@ -166,8 +166,8 @@ export function PlayersTable({
                       <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(220,38,38,0.2)', color: '#fca5a5', letterSpacing: '0.05em' }}>DQ</span>
                     )}
                   </td>
-                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px' }}>{p.profiles?.indice ?? '—'}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600 }}>{p.handicap_at_registration ?? '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: FONT_SIZE.small }}>{p.profiles?.indice ?? '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: FONT_SIZE.small, fontWeight: 600 }}>{p.handicap_at_registration ?? '—'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     {groups.length > 0 ? (
@@ -182,7 +182,7 @@ export function PlayersTable({
                         ))}
                       </select>
                     ) : (
-                      <span style={{ color: 'var(--text-2)', fontSize: '12px' }}>—</span>
+                      <span style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.caption }}>—</span>
                     )}
                   </td>
                   <td style={{ padding: '12px 16px', display: 'flex', gap: '6px' }}>
@@ -196,7 +196,7 @@ export function PlayersTable({
                           style={{
                             background: 'rgba(148,168,192,0.12)', border: '1px solid rgba(148,168,192,0.3)',
                             color: 'var(--text-2)', borderRadius: '6px', padding: '8px 12px',
-                            fontSize: '12px', fontWeight: 600, minHeight: '44px',
+                            fontSize: FONT_SIZE.caption, fontWeight: 600, minHeight: '44px',
                             cursor: loadingPlayerId === p.id ? 'not-allowed' : 'pointer',
                             opacity: loadingPlayerId === p.id ? 0.5 : 1,
                             transition: 'opacity 150ms',
@@ -213,7 +213,7 @@ export function PlayersTable({
                             style={{
                               background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)',
                               color: '#fca5a5', borderRadius: '6px', padding: '8px 12px',
-                              fontSize: '12px', fontWeight: 600, minHeight: '44px',
+                              fontSize: FONT_SIZE.caption, fontWeight: 600, minHeight: '44px',
                               cursor: loadingPlayerId === p.id ? 'not-allowed' : 'pointer',
                               opacity: loadingPlayerId === p.id ? 0.5 : 1,
                               transition: 'opacity 150ms',

@@ -9,6 +9,7 @@ import { FOURSOME_PCT_SUMA_OFICIAL } from '@/golf/formats/team-handicap'
 import type { ModoHandicapEquipo } from '../hooks/useTeamConfig'
 import { fieldStyle, helperStyle, labelStyle } from '../styles'
 import { NOTA_WHS, OpcionHandicap, PorcentajeInput } from './HandicapEquipoCampos'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export function HandicapEquipoFoursome({
   modo, porcentajeSuma, onModo, onPorcentajeSuma,
@@ -51,7 +52,7 @@ export function HandicapEquipoFoursome({
           />
         </div>
       )}
-      <p style={{ ...helperStyle, fontSize: 12, lineHeight: 1.4, marginTop: 4 }}>{NOTA_WHS}</p>
+      <p style={{ ...helperStyle, fontSize: FONT_SIZE.caption, lineHeight: 1.4, marginTop: 4 }}>{NOTA_WHS}</p>
     </fieldset>
   )
 }

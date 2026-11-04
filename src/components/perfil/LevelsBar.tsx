@@ -2,6 +2,7 @@
 
 import { NIVELES_ORDEN } from '@/lib/mi-golf/niveles'
 import type { Nivel } from '@/lib/mi-golf/types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /**
  * LevelsBar — Carta de membresía Golfers+
@@ -79,7 +80,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
           <span
             style={{
               fontFamily: '"DM Mono", monospace',
-              fontSize: '18px',
+              fontSize: FONT_SIZE.dataMd,
               fontWeight: 700,
               color: GOLD,
               letterSpacing: '-0.01em',

@@ -10,6 +10,7 @@ import type { Player } from '@/lib/golf-data'
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
 import type { UseResumenBoardReturn } from '../hooks/useResumenBoard'
 import type { UseHcpEditorReturn } from '../hooks/useHcpEditor'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface ResumenTabProps {
   board: UseResumenBoardReturn
@@ -85,8 +86,8 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
         {statCards.map((c) => (
           <div key={c.label} style={CARD_STYLE}>
             <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>{c.value}</div>
-            {c.sub && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>{c.sub}</div>}
+            <div style={{ fontSize: FONT_SIZE.h2, fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>{c.value}</div>
+            {c.sub && <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginTop: '4px' }}>{c.sub}</div>}
           </div>
         ))}
       </div>
@@ -94,8 +95,8 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
       {/* Tabla de jugadores (orden del ranking del board) con handicap editable */}
       <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '12px', overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--surface-border)' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: 'var(--text)' }}>Jugadores</span>
-          <span style={{ fontSize: '12px', color: 'var(--text-2)', marginLeft: '8px' }}>Toca el handicap para editar</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.body, color: 'var(--text)' }}>Jugadores</span>
+          <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginLeft: '8px' }}>Toca el handicap para editar</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>

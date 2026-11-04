@@ -14,6 +14,7 @@
 import { useState } from 'react'
 import type { SyncStatus } from '@/lib/draft/store'
 import { loginUrl } from '@/lib/auth/login-url'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export function SyncChip({ status, pendingCount }: { status: SyncStatus; pendingCount: number }) {
   const { label, tone } = chipFor(status, pendingCount)
@@ -135,7 +136,7 @@ const chipStyle: React.CSSProperties = {
   gap: 6,
   padding: '4px 10px',
   borderRadius: 999,
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 600,
 }
 
@@ -154,7 +155,7 @@ const rowStyle: React.CSSProperties = {
   flexWrap: 'wrap',
   padding: '10px 12px',
   borderRadius: 10,
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   lineHeight: 1.4,
 }
 
@@ -176,7 +177,7 @@ const outlineButtonStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   fontFamily: 'inherit',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   fontWeight: 600,
   padding: '10px 14px',
   minHeight: 44,
@@ -191,7 +192,7 @@ const outlineButtonStyle: React.CSSProperties = {
 const textButtonStyle: React.CSSProperties = {
   appearance: 'none',
   fontFamily: 'inherit',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   padding: '10px 10px',
   minHeight: 44,

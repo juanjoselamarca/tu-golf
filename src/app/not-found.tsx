@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Flag } from '@/components/icons'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export default function NotFound() {
   return (
@@ -18,12 +19,12 @@ export default function NotFound() {
       }}>
         Página no encontrada
       </h1>
-      <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '24px', maxWidth: '320px' }}>
+      <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginBottom: '24px', maxWidth: '320px' }}>
         Esta página no existe. El link puede haber cambiado o expirado.
       </p>
       <Link href="/" style={{
         background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
-        fontSize: '14px', padding: '12px 24px', borderRadius: '10px',
+        fontSize: FONT_SIZE.small, padding: '12px 24px', borderRadius: '10px',
         textDecoration: 'none', minHeight: '44px', display: 'inline-flex', alignItems: 'center',
       }}>
         Ir al inicio

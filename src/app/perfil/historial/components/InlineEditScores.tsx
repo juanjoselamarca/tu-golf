@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { formatOv } from '../lib/helpers'
 import { GOLPES_MAX_POR_HOYO, GOLPES_MIN_POR_HOYO } from '@/golf/ronda-libre/golpes-por-hoyo'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   initialScores: (number | null)[]
@@ -57,7 +58,7 @@ export function InlineEditScores({ initialScores, hoyos, estimados, saving, onSa
       }}>
         <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>Editar scores ({GOLPES_MIN_POR_HOYO}-{GOLPES_MAX_POR_HOYO})</div>
         {total > 0 && (
-          <div style={{ fontSize: '12px', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
             Total: <strong style={{ color: 'var(--text)' }}>{total}</strong>{' '}
             <span style={{ color: 'var(--text-3)' }}>· {formatOv(total - (filled.length <= 9 ? 36 : 72))}</span>
           </div>
@@ -78,7 +79,7 @@ export function InlineEditScores({ initialScores, hoyos, estimados, saving, onSa
                 onChange={(e) => handleEditScore(i + offset, e.target.value)}
                 style={{
                   width: '100%', textAlign: 'center',
-                  fontSize: '14px', fontWeight: 600,
+                  fontSize: FONT_SIZE.small, fontWeight: 600,
                   minHeight: '44px',
                   padding: '6px 0',
                   // Estimado: borde punteado (la marca es la forma, no sólo el color).
@@ -97,7 +98,7 @@ export function InlineEditScores({ initialScores, hoyos, estimados, saving, onSa
         </div>
       ))}
       {esEstimado.size > 0 && (
-        <p style={{ margin: '0 0 10px', fontSize: '12px', lineHeight: 1.4, color: 'var(--text-2)' }}>
+        <p style={{ margin: '0 0 10px', fontSize: FONT_SIZE.caption, lineHeight: 1.4, color: 'var(--text-2)' }}>
           Borde punteado: hoyo estimado con la regla WHS. Si lo jugaste, anota tu score real.
         </p>
       )}
@@ -109,7 +110,7 @@ export function InlineEditScores({ initialScores, hoyos, estimados, saving, onSa
             flex: 1, padding: '10px',
             background: 'var(--brand)',
             color: 'var(--brand-dark)',
-            fontWeight: 700, fontSize: '14px',
+            fontWeight: 700, fontSize: FONT_SIZE.small,
             border: 'none', borderRadius: '8px',
             cursor: saving ? 'not-allowed' : 'pointer',
             opacity: saving ? 0.7 : 1,
@@ -124,7 +125,7 @@ export function InlineEditScores({ initialScores, hoyos, estimados, saving, onSa
             padding: '10px 16px',
             background: 'transparent',
             color: 'var(--text-2)',
-            fontWeight: 600, fontSize: '14px',
+            fontWeight: 600, fontSize: FONT_SIZE.small,
             border: '1px solid var(--border)',
             borderRadius: '8px',
             cursor: saving ? 'not-allowed' : 'pointer',

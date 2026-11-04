@@ -1,6 +1,7 @@
 'use client'
 
 import { GWISparkline } from './GWISparkline'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface GWIDisplayProps {
   gwi: number
@@ -82,7 +83,7 @@ export function GWIDisplay({ gwi, delta, series, level, totalRounds, bestRound, 
           </div>
           {gwi > 0 && (
             <div style={{
-              fontFamily: 'var(--font-dm-mono), monospace', fontSize: '12px', color: deltaColor,
+              fontFamily: 'var(--font-dm-mono), monospace', fontSize: FONT_SIZE.caption, color: deltaColor,
               marginTop: '4px',
             }}>
               {deltaIcon} {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
@@ -138,7 +139,7 @@ export function GWIDisplay({ gwi, delta, series, level, totalRounds, bestRound, 
               {m.label}
             </div>
             <div style={{
-              fontFamily: 'var(--font-mono), monospace', fontSize: '24px', fontWeight: 300,
+              fontFamily: 'var(--font-mono), monospace', fontSize: FONT_SIZE.h2, fontWeight: 300,
               color: m.color ?? 'rgba(255,255,255,0.85)', lineHeight: 1,
             }}>
               {m.value}

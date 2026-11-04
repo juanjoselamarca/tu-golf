@@ -11,6 +11,7 @@ import { ShareToast } from '@/components/share/ShareToast'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { buildRoundShare } from '@/golf/share/payload'
 import { useTarjetaGuardada } from '@/hooks/useTarjetaGuardada'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /* ─── Helpers ──────────────────────────────────────────── */
 function formatDateLong(dateStr: string): string {
@@ -51,7 +52,7 @@ export default function HistorialDetallePage() {
     return (
       <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
         <ErrorState message="No pudimos cargar la ronda. Revisa tu conexión." onRetry={reintentar} />
-        <Link href="/perfil/historial" style={{ color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px', textDecoration: 'none' }}>
+        <Link href="/perfil/historial" style={{ color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: FONT_SIZE.small, textDecoration: 'none' }}>
           Volver al historial
         </Link>
       </div>
@@ -65,13 +66,13 @@ export default function HistorialDetallePage() {
         alignItems: 'center', justifyContent: 'center',
         padding: '24px', textAlign: 'center', background: 'var(--bg)',
       }}>
-        <p style={{ fontSize: '16px', color: 'var(--text-2)', marginBottom: '16px' }}>
+        <p style={{ fontSize: FONT_SIZE.body, color: 'var(--text-2)', marginBottom: '16px' }}>
           No se encontró la ronda
         </p>
         <Link
           href="/perfil/historial"
           style={{
-            color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px',
+            color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: FONT_SIZE.small,
             textDecoration: 'none',
           }}
         >
@@ -112,11 +113,11 @@ export default function HistorialDetallePage() {
           href="/perfil/historial"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
-            color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px',
+            color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: FONT_SIZE.small,
             textDecoration: 'none', marginBottom: '20px',
           }}
         >
-          <span style={{ fontSize: '18px', lineHeight: 1 }}>&larr;</span>
+          <span style={{ fontSize: FONT_SIZE.lead, lineHeight: 1 }}>&larr;</span>
           Volver al historial
         </Link>
 
@@ -131,7 +132,7 @@ export default function HistorialDetallePage() {
             {round.course_name}
           </h1>
           <p style={{
-            fontSize: '14px', color: 'var(--text-2)', margin: 0,
+            fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: 0,
             display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
           }}>
             <span>{dateStr}</span>
@@ -181,13 +182,13 @@ export default function HistorialDetallePage() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
           }}>
             <p style={{
-              fontSize: '12px', fontWeight: 600, color: 'var(--text-3)',
+              fontSize: FONT_SIZE.caption, fontWeight: 600, color: 'var(--text-3)',
               margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.5px',
             }}>
               Notas
             </p>
             <p style={{
-              fontSize: '14px', color: 'var(--text-2)', margin: 0,
+              fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: 0,
               lineHeight: 1.5, whiteSpace: 'pre-wrap',
             }}>
               {round.notes}
@@ -206,7 +207,7 @@ export default function HistorialDetallePage() {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               background: 'var(--brand)',
-              color: 'var(--brand-dark)', fontWeight: 700, fontSize: '14px',
+              color: 'var(--brand-dark)', fontWeight: 700, fontSize: FONT_SIZE.small,
               padding: '12px 28px', borderRadius: '10px',
               border: 'none', cursor: publicando ? 'wait' : 'pointer',
               minHeight: '44px', opacity: publicando ? 0.7 : 1,

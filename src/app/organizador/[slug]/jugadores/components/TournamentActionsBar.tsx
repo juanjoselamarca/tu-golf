@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /** id del texto con el motivo para no iniciar (lo referencia el botón con aria-describedby). */
 const MOTIVO_ID = 'motivo-no-iniciar'
@@ -83,7 +84,7 @@ export function TournamentActionsBar({
             borderLeft: '3px solid var(--brand-on-bg)',
             borderRadius: '8px',
             color: 'var(--text)',
-            fontSize: '14px',
+            fontSize: FONT_SIZE.small,
             lineHeight: 1.45,
           }}
         >
@@ -100,7 +101,7 @@ export function TournamentActionsBar({
               background: 'rgba(220,38,38,0.1)',
               color: '#fca5a5',
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '14px 24px',
               borderRadius: '8px',
               border: '1px solid rgba(220,38,38,0.25)',
@@ -119,7 +120,7 @@ export function TournamentActionsBar({
               background: 'rgba(196,153,42,0.12)',
               color: 'var(--brand-on-bg)',
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '14px 24px',
               borderRadius: '8px',
               border: '1px solid rgba(196,153,42,0.3)',
@@ -148,7 +149,7 @@ export function TournamentActionsBar({
               background: 'rgba(122,143,168,0.12)',
               color: 'var(--text-2)',
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '14px 20px',
               borderRadius: '8px',
               border: '1px solid var(--border-md)',
@@ -168,7 +169,7 @@ export function TournamentActionsBar({
               background: 'transparent',
               color: 'var(--brand-on-bg)',
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '14px 24px',
               borderRadius: '8px',
               border: '1px solid var(--brand-on-bg)',
@@ -192,7 +193,7 @@ export function TournamentActionsBar({
               background: 'rgba(196,153,42,0.12)',
               color: 'var(--brand-on-bg)',
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '14px 20px',
               borderRadius: '8px',
               border: '1px solid var(--border-md)',
@@ -210,7 +211,7 @@ export function TournamentActionsBar({
               background: 'var(--brand)',
               color: '#1a1a2e',
               fontWeight: 700,
-              fontSize: '16px',
+              fontSize: FONT_SIZE.body,
               padding: '14px 30px',
               borderRadius: '8px',
               border: 'none',
@@ -230,7 +231,7 @@ export function TournamentActionsBar({
                 background: 'rgba(220,38,38,0.15)',
                 color: '#fca5a5',
                 fontWeight: 700,
-                fontSize: '16px',
+                fontSize: FONT_SIZE.body,
                 padding: '14px 30px',
                 borderRadius: '8px',
                 border: '1px solid rgba(220,38,38,0.3)',
@@ -255,7 +256,7 @@ export function TournamentActionsBar({
               background: 'rgba(220,38,38,0.1)',
               color: '#fca5a5',
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '12px 20px',
               borderRadius: '8px',
               border: '1px solid rgba(220,38,38,0.25)',
@@ -273,7 +274,7 @@ export function TournamentActionsBar({
               background: 'var(--brand)',
               color: '#070d18',
               fontWeight: 700,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '12px 24px',
               borderRadius: '8px',
               border: 'none',
@@ -311,7 +312,7 @@ function BotonIniciar({ playersCount, motivo, starting, onStart }: {
         background: !motivo ? 'var(--brand)' : 'rgba(122,143,168,0.2)',
         color: !motivo ? '#070d18' : 'var(--text-2)',
         fontWeight: 700,
-        fontSize: '16px',
+        fontSize: FONT_SIZE.body,
         padding: '14px 40px',
         minHeight: '48px',
         borderRadius: '8px',

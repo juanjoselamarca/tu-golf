@@ -20,6 +20,7 @@ import {
   getNotifPrefs,
   setNotifPrefs,
 } from '@/lib/push-notifications'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface NotifToggleProps {
   label: string
@@ -50,11 +51,11 @@ function NotifToggle({ label, description, checked, onChange, disabled }: NotifT
           Nada de opacity sobre el texto: con 0.4 la descripción medía 1,7:1, ilegible en cancha (DESIGN.md §1). */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: '14px', fontWeight: 600, color: disabled ? 'var(--text-3)' : 'var(--text)',
+          fontSize: FONT_SIZE.small, fontWeight: 600, color: disabled ? 'var(--text-3)' : 'var(--text)',
           fontFamily: 'var(--font-dm-sans)',
         }}>{label}</div>
         <div style={{
-          fontSize: '12px', color: 'var(--text-3)', marginTop: '2px',
+          fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginTop: '2px',
           fontFamily: 'var(--font-dm-sans)', lineHeight: 1.4,
         }}>{description}</div>
       </div>
@@ -133,7 +134,7 @@ export default function NotificationSettings() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
           <Bell size={20} />
-          <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>Notificaciones</span>
+          <span style={{ fontSize: FONT_SIZE.body, fontWeight: 700, color: 'var(--text)' }}>Notificaciones</span>
         </div>
         <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
           {unsupportedReason}
@@ -150,7 +151,7 @@ export default function NotificationSettings() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
         <Bell size={20} />
         <span style={{
-          fontSize: '16px', fontWeight: 700, color: 'var(--text)',
+          fontSize: FONT_SIZE.body, fontWeight: 700, color: 'var(--text)',
           fontFamily: 'var(--font-playfair)',
         }}>Notificaciones</span>
       </div>

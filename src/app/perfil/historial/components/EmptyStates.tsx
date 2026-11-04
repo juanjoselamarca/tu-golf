@@ -11,6 +11,7 @@
 
 import Link from 'next/link'
 import { AlertTriangle, ClipboardList, Radio } from '@/components/icons'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export function LoadingScreen() {
   return (
@@ -27,7 +28,7 @@ export function LoadingScreen() {
           animation: 'spin 0.8s linear infinite',
           margin: '0 auto 12px',
         }} />
-        <div style={{ fontSize: '14px' }}>Cargando historial...</div>
+        <div style={{ fontSize: FONT_SIZE.small }}>Cargando historial...</div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     </div>
@@ -49,7 +50,7 @@ export function FatalErrorScreen({ onRetry }: FatalErrorScreenProps) {
       <div style={{ color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <AlertTriangle size={48} strokeWidth={1.5} />
       </div>
-      <p style={{ color: 'var(--text)', fontSize: '16px', textAlign: 'center', margin: 0 }}>
+      <p style={{ color: 'var(--text)', fontSize: FONT_SIZE.body, textAlign: 'center', margin: 0 }}>
         No se pudieron cargar las tarjetas
       </p>
       <p style={{ color: 'var(--text-3)', fontSize: '13px', textAlign: 'center', margin: 0 }}>
@@ -60,7 +61,7 @@ export function FatalErrorScreen({ onRetry }: FatalErrorScreenProps) {
         style={{
           background: 'var(--brand)',
           color: 'var(--brand-dark)',
-          fontWeight: 700, fontSize: '14px',
+          fontWeight: 700, fontSize: FONT_SIZE.small,
           padding: '12px 28px', borderRadius: '10px',
           border: 'none', cursor: 'pointer', marginTop: '8px',
         }}
@@ -99,7 +100,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
           La carga tardó más de lo esperado
         </div>
         <div style={{
-          fontSize: '14px', color: 'var(--text-3)',
+          fontSize: FONT_SIZE.small, color: 'var(--text-3)',
           marginBottom: '28px', maxWidth: '320px',
           margin: '0 auto 28px',
         }}>
@@ -109,7 +110,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
           onClick={() => window.location.reload()}
           style={{
             background: 'var(--brand)', color: 'var(--brand-dark)',
-            fontWeight: 700, fontSize: '14px',
+            fontWeight: 700, fontSize: FONT_SIZE.small,
             padding: '12px 24px', borderRadius: '10px',
             border: 'none', cursor: 'pointer',
           }}
@@ -132,7 +133,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
         Tu historial está vacío
       </div>
       <div style={{
-        fontSize: '14px', color: 'var(--text-2)',
+        fontSize: FONT_SIZE.small, color: 'var(--text-2)',
         marginBottom: '28px', maxWidth: '360px',
         margin: '0 auto 28px', lineHeight: 1.6,
       }}>
@@ -143,7 +144,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
           onClick={onAddRound}
           style={{
             background: 'var(--brand)', color: 'var(--brand-dark)',
-            fontWeight: 700, fontSize: '14px',
+            fontWeight: 700, fontSize: FONT_SIZE.small,
             padding: '12px 24px', borderRadius: '10px',
             border: 'none', cursor: 'pointer',
           }}
@@ -155,7 +156,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
           style={{
             display: 'inline-flex', alignItems: 'center',
             background: 'transparent', color: 'var(--brand-on-bg)',
-            fontWeight: 600, fontSize: '14px',
+            fontWeight: 600, fontSize: FONT_SIZE.small,
             padding: '12px 24px', borderRadius: '10px',
             border: '1px solid rgba(196,153,42,0.4)',
             textDecoration: 'none',
@@ -165,7 +166,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
         </a>
       </div>
       <div style={{
-        fontSize: '12px', color: 'rgba(196,153,42,0.6)',
+        fontSize: FONT_SIZE.caption, color: 'rgba(196,153,42,0.6)',
         padding: '10px 16px',
         background: 'rgba(196,153,42,0.06)',
         borderRadius: '8px',

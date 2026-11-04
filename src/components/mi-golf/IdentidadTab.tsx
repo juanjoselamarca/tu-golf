@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Trophy, MapPin, Flag, BarChart3 } from '@/components/icons'
 import type { Nivel, StatsForma, TaigerLine } from '@/lib/mi-golf/types'
 import { NIVELES_ORDEN } from '@/lib/mi-golf/niveles'
+import { FONT_SIZE } from '@/lib/font-size'
 
 type Props = {
   userName: string
@@ -105,7 +106,7 @@ function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null })
         <div
           style={{
             fontFamily: 'var(--font-playfair)',
-            fontSize: '20px',
+            fontSize: FONT_SIZE.title,
             color: TEXT,
             fontWeight: 600,
             marginTop: '20px',
@@ -113,7 +114,7 @@ function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null })
         >
           Sin calibrar
         </div>
-        <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2, marginTop: '4px' }}>
           Juega 3 rondas en canchas con slope/rating para desbloquear
         </div>
       </div>
@@ -171,7 +172,7 @@ function LevelsBar({ nivel }: { nivel: Nivel }) {
           {nivel.nombre}
         </div>
         {nivel.nombre_siguiente && nivel.golpes_hasta_siguiente != null && (
-          <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>
+          <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2, marginTop: '4px' }}>
             <span style={{ fontFamily: 'var(--font-dm-mono)', fontWeight: 700, color: GOLD }}>
               {nivel.golpes_hasta_siguiente.toFixed(1)}
             </span>{' '}
@@ -257,7 +258,7 @@ function Progreso({ label, actual, total }: { label: string; actual: number; tot
         <span
           style={{
             fontFamily: 'var(--font-playfair)',
-            fontSize: '14px',
+            fontSize: FONT_SIZE.small,
             fontWeight: 700,
             color: GOLD,
           }}
@@ -530,7 +531,7 @@ function TaigerCard({
             background: GOLD,
             color: '#fff',
             borderRadius: '20px',
-            fontSize: '12px',
+            fontSize: FONT_SIZE.caption,
             fontWeight: 700,
             textDecoration: 'none',
           }}
@@ -541,7 +542,7 @@ function TaigerCard({
           <Link
             href="/coach/sesion/nueva"
             style={{
-              fontSize: '12px',
+              fontSize: FONT_SIZE.caption,
               color: TEXT_2,
               fontWeight: 500,
               textDecoration: 'none',

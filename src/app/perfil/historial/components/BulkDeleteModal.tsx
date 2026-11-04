@@ -11,6 +11,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface BulkDeleteModalProps {
   open:     boolean
@@ -69,13 +70,13 @@ export function BulkDeleteModal({ open, count, deleting, onConfirm, onCancel }: 
           id="bulk-delete-title"
           style={{
             fontFamily: '"Playfair Display", serif',
-            fontSize: '18px', fontWeight: 700,
+            fontSize: FONT_SIZE.lead, fontWeight: 700,
             color: 'var(--text)', margin: '0 0 8px',
           }}
         >
           ¿Eliminar todas tus rondas?
         </h3>
-        <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 6px', lineHeight: 1.5 }}>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: '0 0 6px', lineHeight: 1.5 }}>
           Vas a borrar <strong style={{ color: 'var(--error-fg)' }}>{count} {count === 1 ? 'ronda' : 'rondas'}</strong> de tu historial.
         </p>
         <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '0 0 16px', lineHeight: 1.5 }}>
@@ -114,7 +115,7 @@ export function BulkDeleteModal({ open, count, deleting, onConfirm, onCancel }: 
             style={{
               flex: 1, height: '48px',
               background: 'transparent', color: 'var(--text-2)',
-              fontWeight: 600, fontSize: '14px',
+              fontWeight: 600, fontSize: FONT_SIZE.small,
               border: '1px solid var(--border)', borderRadius: '10px',
               cursor: deleting ? 'not-allowed' : 'pointer',
             }}
@@ -129,7 +130,7 @@ export function BulkDeleteModal({ open, count, deleting, onConfirm, onCancel }: 
             style={{
               flex: 1, height: '48px',
               background: (deleting || !understood) ? 'rgba(220,38,38,0.4)' : 'var(--double)',
-              color: '#ffffff', fontWeight: 700, fontSize: '14px',
+              color: '#ffffff', fontWeight: 700, fontSize: FONT_SIZE.small,
               border: 'none', borderRadius: '10px',
               cursor: (deleting || !understood) ? 'not-allowed' : 'pointer',
               transition: 'background 150ms',

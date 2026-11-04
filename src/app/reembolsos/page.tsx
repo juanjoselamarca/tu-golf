@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { SOPORTE_EMAIL } from '@/lib/constants'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const S = {
   page: {
@@ -39,7 +40,7 @@ const S = {
   } as React.CSSProperties,
   body: {
     fontFamily: 'var(--font-dm-sans)',
-    fontSize: 14,
+    fontSize: FONT_SIZE.small,
     fontWeight: 400,
     color: 'var(--text)',
     lineHeight: 1.7,
@@ -55,7 +56,7 @@ const S = {
   } as React.CSSProperties,
   list: {
     fontFamily: 'var(--font-dm-sans)',
-    fontSize: 14,
+    fontSize: FONT_SIZE.small,
     fontWeight: 400,
     color: 'var(--text)',
     lineHeight: 1.7,

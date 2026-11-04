@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button'
 import { pageStyle } from '../styles'
 import type { DraftSummary, TournamentSummary } from '../types'
 import { TOURNAMENT_TEMPLATES, type TournamentTemplate } from '../tournament-templates'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface StartModalProps {
   recentTournaments: TournamentSummary[]
@@ -189,14 +190,14 @@ const containerStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   margin: 0,
   fontFamily: 'var(--font-playfair), "Playfair Display", serif',
-  fontSize: 32,
+  fontSize: FONT_SIZE.h1,
   fontWeight: 700,
   lineHeight: 1.15,
 }
 
 const subtitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-secondary)',
 }
 
@@ -219,7 +220,7 @@ const sectionStyle: React.CSSProperties = {
 
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 700,
   color: 'var(--text-3)',
   textTransform: 'uppercase',
@@ -252,7 +253,7 @@ const listButtonStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
   background: 'var(--bg-surface)',
   fontFamily: 'inherit',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-primary)',
   cursor: 'pointer',
   textAlign: 'left',
@@ -260,7 +261,7 @@ const listButtonStyle: React.CSSProperties = {
 }
 
 const listMetaStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   color: 'var(--text-secondary)',
 }
 
@@ -281,7 +282,7 @@ const templateCardStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
   background: 'var(--bg-surface)',
   fontFamily: 'inherit',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-primary)',
   cursor: 'pointer',
   textAlign: 'left',
@@ -290,11 +291,11 @@ const templateCardStyle: React.CSSProperties = {
 
 const templateNameStyle: React.CSSProperties = {
   fontWeight: 600,
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
 }
 
 const templateDescStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   color: 'var(--text-secondary)',
   lineHeight: 1.3,
 }

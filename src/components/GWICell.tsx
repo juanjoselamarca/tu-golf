@@ -1,6 +1,7 @@
 'use client'
 
 import { GWISparkline } from './GWISparkline'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface GWICellProps {
   gwi: number
@@ -34,7 +35,7 @@ export function GWICell({ gwi, delta, series, level, compact }: GWICellProps) {
       <GWISparkline series={series} delta={delta} />
       <span style={{
         fontFamily: 'var(--font-mono), monospace',
-        fontSize: '18px', fontWeight: 300, color: numberColor,
+        fontSize: FONT_SIZE.dataMd, fontWeight: 300, color: numberColor,
         lineHeight: 1, fontVariantNumeric: 'tabular-nums',
       }}>
         {gwi.toFixed(1)}

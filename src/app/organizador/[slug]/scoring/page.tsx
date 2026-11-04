@@ -22,6 +22,7 @@ import { ResumenTab } from './components/ResumenTab'
 import { PlayerCards } from './components/PlayerCards'
 import { ScorecardPanel } from './components/ScorecardPanel'
 import { AvisoSinScores } from './components/AvisoSinScores'
+import { FONT_SIZE } from '@/lib/font-size'
 
 function CenteredScreen({ children }: { children: React.ReactNode }) {
   return (
@@ -85,7 +86,7 @@ export default function ScoringPage() {
           <div style={{ color: 'var(--status-closed-fg)', marginBottom: '16px' }}>No pudimos cargar el torneo.</div>
           <button
             onClick={retryLoad}
-            style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}
+            style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: FONT_SIZE.small, cursor: 'pointer' }}
           >
             Reintentar
           </button>
@@ -153,7 +154,7 @@ export default function ScoringPage() {
                 // La pestaña activa se marca con el tinte y el borde dorados; el texto en oro
                 // sobre ese tinte quedaba en 4,2:1 (claro y oscuro).
                 color: activeTab === tab ? 'var(--text)' : 'var(--text-2)',
-                fontSize: '14px',
+                fontSize: FONT_SIZE.small,
                 fontWeight: activeTab === tab ? 600 : 400,
                 cursor: 'pointer',
                 transition: 'all 180ms',
@@ -223,7 +224,7 @@ export default function ScoringPage() {
                     <button
                       type="button"
                       onClick={retryRondaActiva}
-                      style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer', minHeight: '44px' }}
+                      style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: FONT_SIZE.small, cursor: 'pointer', minHeight: '44px' }}
                     >
                       Reintentar
                     </button>
@@ -235,7 +236,7 @@ export default function ScoringPage() {
             ) : (
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
                 <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={36} strokeWidth={1.5} /></div>
-                <div style={{ fontSize: '16px', color: 'var(--text)', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
+                <div style={{ fontSize: FONT_SIZE.body, color: 'var(--text)', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
                 <div style={{ fontSize: '13px' }}>Luego ingresa los scores hoyo a hoyo.</div>
               </div>
             )}

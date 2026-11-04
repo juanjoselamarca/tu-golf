@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { FONT_SIZE } from '@/lib/font-size'
 
 // Oculta el footer en rutas full-screen donde estorba la UX
 // (chat del coach: input fijo en bottom + scroll de mensajes).
@@ -19,17 +20,17 @@ export default function GlobalFooter() {
           <span style={{ color: 'var(--text)' }}>Golfers</span>
           <span style={{ color: 'var(--brand-on-bg)' }}>+</span>
         </p>
-        <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
+        <p style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.small }}>
           © {new Date().getFullYear()} Golfers+ · Diseñado para el golf amateur en Latinoamérica
         </p>
         <nav style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <Link href="/terminos" style={{ color: 'var(--text-3)', fontSize: 12, textDecoration: 'none' }}>
+          <Link href="/terminos" style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.caption, textDecoration: 'none' }}>
             Términos y Condiciones
           </Link>
-          <Link href="/privacidad" style={{ color: 'var(--text-3)', fontSize: 12, textDecoration: 'none' }}>
+          <Link href="/privacidad" style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.caption, textDecoration: 'none' }}>
             Privacidad
           </Link>
-          <Link href="/reembolsos" style={{ color: 'var(--text-3)', fontSize: 12, textDecoration: 'none' }}>
+          <Link href="/reembolsos" style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.caption, textDecoration: 'none' }}>
             Reembolsos
           </Link>
         </nav>

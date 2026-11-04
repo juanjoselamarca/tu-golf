@@ -177,7 +177,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
               borderRadius: '12px',
               padding: '12px 14px',
               marginBottom: '14px',
-              fontSize: '12px',
+              fontSize: FONT_SIZE.caption,
               color: 'var(--text-2)',
               lineHeight: 1.6,
             }}>

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { addToast } from '@/hooks/useToast'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export function DeleteAccountModal() {
   const [deleteStep, setDeleteStep] = useState(0) // 0=idle, 1=first confirm, 2=deleting
@@ -16,7 +17,7 @@ export function DeleteAccountModal() {
           onClick={() => setDeleteStep(1)}
           style={{
             background: 'transparent', border: 'none', padding: '8px 12px',
-            fontSize: '12px', color: 'var(--text-3)', cursor: 'pointer',
+            fontSize: FONT_SIZE.caption, color: 'var(--text-3)', cursor: 'pointer',
             textDecoration: 'underline', textUnderlineOffset: '3px',
             fontFamily: '"DM Sans", system-ui, sans-serif',
           }}
@@ -54,7 +55,7 @@ export function DeleteAccountModal() {
               id="delete-account-title"
               style={{
                 fontFamily: '"Playfair Display", serif',
-                fontSize: '20px', fontWeight: 600,
+                fontSize: FONT_SIZE.title, fontWeight: 600,
                 color: 'var(--text)', margin: '0 0 8px',
                 letterSpacing: '-0.01em',
               }}
@@ -100,7 +101,7 @@ export function DeleteAccountModal() {
               </div>
             )}
             {deleteStep === 2 && (
-              <p style={{ fontSize: '14px', color: 'var(--error-fg)', fontWeight: 500, margin: 0 }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: 'var(--error-fg)', fontWeight: 500, margin: 0 }}>
                 Eliminando tu cuenta...
               </p>
             )}

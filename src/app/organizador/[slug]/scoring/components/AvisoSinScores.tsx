@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { tournamentStatusLabel, type MotivoSinScores } from '@/golf/tournament-status'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /**
  * Por qué el organizador no puede anotar en este torneo, y qué hacer. Sólo ofrece reabrir cuando se puede: el
@@ -28,11 +29,11 @@ export function AvisoSinScores({ motivo, status, slug }: {
       padding: noEmpezo ? '40px 24px' : '20px 24px', marginBottom: noEmpezo ? 0 : '16px',
       textAlign: 'center', color: 'var(--text-2)',
     }}>
-      <div style={{ fontSize: '16px', color: 'var(--text)', marginBottom: '6px' }}>{titulo}</div>
+      <div style={{ fontSize: FONT_SIZE.body, color: 'var(--text)', marginBottom: '6px' }}>{titulo}</div>
       <div style={{ fontSize: '13px', marginBottom: conAccion ? '20px' : 0 }}>{detalle}</div>
       {conAccion && (
         <Link href={`/organizador/${slug}/jugadores`}
-          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: '44px', padding: '10px 24px', borderRadius: '8px', background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', fontSize: '14px', fontWeight: 600, textDecoration: 'none' }}>
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: '44px', padding: '10px 24px', borderRadius: '8px', background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', fontSize: FONT_SIZE.small, fontWeight: 600, textDecoration: 'none' }}>
           Ir a Jugadores
         </Link>
       )}

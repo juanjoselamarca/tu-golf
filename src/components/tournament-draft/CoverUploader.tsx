@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { resizeImage } from '@/lib/images/resize-image'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface CoverUploaderProps {
   draftId: string
@@ -151,7 +152,7 @@ const overlayStyle: React.CSSProperties = {
   justifyContent: 'center',
   background: 'rgba(0,0,0,0.45)',
   color: '#fff',
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   fontWeight: 600,
 }
 
@@ -161,7 +162,7 @@ const changeBtnStyle: React.CSSProperties = {
   right: 10,
   appearance: 'none',
   fontFamily: 'inherit',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 600,
   padding: '8px 12px',
   borderRadius: 8,
@@ -195,17 +196,17 @@ function dropzoneStyle(busy: boolean): React.CSSProperties {
 }
 
 const dropzoneMainStyle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   fontWeight: 600,
 }
 
 const dropzoneHintStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   color: 'var(--text-secondary)',
 }
 
 const errorStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   color: '#b91c1c',
   background: 'rgba(220,38,38,0.08)',
   border: '1px solid rgba(220,38,38,0.25)',

@@ -1,6 +1,7 @@
 'use client'
 import { CSSProperties, ReactNode } from 'react'
 import { adminColors, adminFonts, adminCard } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface AdminCardProps {
   icon?: ReactNode
@@ -16,7 +17,7 @@ interface AdminCardProps {
 export function AdminCard({ icon, label, value, delta, loading, sparkline, children, style }: AdminCardProps) {
   return (
     <div style={{ ...adminCard, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0, ...style }}>
-      {icon && <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center' }}>{icon}</span>}
+      {icon && <span style={{ fontSize: FONT_SIZE.title, display: 'flex', alignItems: 'center' }}>{icon}</span>}
       {loading ? (
         <div style={{
           height: '32px', width: '80px', borderRadius: '8px',

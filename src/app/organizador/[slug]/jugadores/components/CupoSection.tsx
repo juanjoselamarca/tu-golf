@@ -5,6 +5,7 @@ import { inputStyle } from '../styles'
 import { useCupo } from '../hooks/useCupo'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   slug: string
@@ -67,10 +68,10 @@ export function CupoSection({ slug, initialMax, approvedCount }: Props) {
       }}
     >
       <div>
-        <div style={{ fontSize: '12px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
           Cupo del torneo
         </div>
-        <div style={{ fontSize: '18px', color: 'var(--text)', fontWeight: 600 }}>
+        <div style={{ fontSize: FONT_SIZE.lead, color: 'var(--text)', fontWeight: 600 }}>
           {approvedCount} {approvedCount === 1 ? 'inscrito' : 'inscritos'}
           {maxPlayers != null ? (
             <span style={{ color: 'var(--text-2)', fontWeight: 500 }}> {' / '} cupo {maxPlayers}</span>
@@ -79,7 +80,7 @@ export function CupoSection({ slug, initialMax, approvedCount }: Props) {
           )}
         </div>
         {full && (
-          <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '4px' }}>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', marginTop: '4px' }}>
             Cupo lleno — amplíalo para inscribir más jugadores.
           </div>
         )}

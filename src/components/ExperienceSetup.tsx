@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { isPushSupported, getPermissionState, requestPermission, getNotifPrefs, setNotifPrefs } from '@/lib/push-notifications'
 import { Flag, Eye } from '@/components/icons'
 import { Toggle } from '@/components/ui/Toggle'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /**
  * Pop-up de primera vez: invita al usuario a personalizar su experiencia.
@@ -54,7 +55,7 @@ export function ExperiencePopup({ onSetup }: { onSetup: () => void }) {
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
             Personaliza tu experiencia
           </div>
-          <div style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.5 }}>
+          <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', lineHeight: 1.5 }}>
             Configura alertas en vivo y optimiza cómo usas Golfers+ en la cancha.
           </div>
         </div>
@@ -63,14 +64,14 @@ export function ExperiencePopup({ onSetup }: { onSetup: () => void }) {
           <button onClick={handleSetup} style={{
             width: '100%', padding: '14px', borderRadius: '12px',
             background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
-            fontSize: '16px', fontWeight: 700, cursor: 'pointer',
+            fontSize: FONT_SIZE.body, fontWeight: 700, cursor: 'pointer',
           }}>
             Personalizar ahora
           </button>
           <button onClick={handleDismiss} style={{
             width: '100%', padding: '12px', borderRadius: '12px',
             background: 'transparent', color: 'var(--text-3)', border: '1px solid var(--border)',
-            fontSize: '14px', cursor: 'pointer',
+            fontSize: FONT_SIZE.small, cursor: 'pointer',
           }}>
             Más tarde
           </button>
@@ -124,7 +125,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
         {onClose && (
           <button onClick={onClose} style={{
             background: 'none', border: 'none', color: 'var(--text-3)',
-            fontSize: '24px', cursor: 'pointer', padding: '4px',
+            fontSize: FONT_SIZE.h2, cursor: 'pointer', padding: '4px',
           }}>×</button>
         )}
       </div>
@@ -156,7 +157,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
         }}>
           <Eye size={18} strokeWidth={1.5} style={{ color: prefs.spectator ? 'var(--brand-on-bg)' : 'var(--text-3)', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>Alertas de espectador</div>
+            <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text)' }}>Alertas de espectador</div>
             <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px', lineHeight: 1.4 }}>
               Birdies, eagles y cambios de posición en vivo
             </div>
@@ -176,7 +177,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
         }}>
           <Flag size={18} strokeWidth={1.5} style={{ color: prefs.player ? 'var(--brand-on-bg)' : 'var(--text-3)', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>Scorecard inteligente</div>
+            <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text)' }}>Scorecard inteligente</div>
             <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px', lineHeight: 1.4 }}>
               Recordatorio si olvidas anotar un hoyo
             </div>
@@ -190,7 +191,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
 
-      <div style={{ marginTop: '20px', fontSize: '12px', color: 'var(--text-3)', textAlign: 'center' }}>
+      <div style={{ marginTop: '20px', fontSize: FONT_SIZE.caption, color: 'var(--text-3)', textAlign: 'center' }}>
         Las alertas de espectador se desactivan automáticamente al terminar la ronda
       </div>
     </div>

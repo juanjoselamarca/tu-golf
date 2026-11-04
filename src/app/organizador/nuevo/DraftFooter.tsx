@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
 import { validateGolfRules, type ValidationError } from '@/golf/tournament-config-validator'
 import type { CourseOption } from './types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface DraftFooterProps {
   draftId: string
@@ -172,7 +173,7 @@ const previewButtonStyle: React.CSSProperties = {
   appearance: 'none',
   fontFamily: 'inherit',
   fontWeight: 600,
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   padding: '10px 16px',
   borderRadius: 10,
   border: '1px solid var(--border)',
@@ -185,7 +186,7 @@ const createButtonStyle = (ready: boolean, submitting: boolean): React.CSSProper
   appearance: 'none',
   fontFamily: 'inherit',
   fontWeight: 700,
-  fontSize: 14,
+  fontSize: FONT_SIZE.small,
   padding: '10px 20px',
   borderRadius: 10,
   border: 'none',
@@ -207,7 +208,7 @@ const blockersPanelStyle: React.CSSProperties = {
   background: 'rgba(196, 153, 42, 0.10)',
   border: '1px solid rgba(196, 153, 42, 0.35)',
   color: 'var(--text-primary)',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   lineHeight: 1.35,
 }
 
@@ -226,7 +227,7 @@ const blockersListStyle: React.CSSProperties = {
 }
 
 const blockersItemStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   lineHeight: 1.35,
 }
 
