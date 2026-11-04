@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { FONT_SIZE } from '@/lib/font-size'
 
 // Chrome del coach (header + fondo). SIN auth: el middleware ya protege
 // /coach (protectedRoutes en src/proxy.ts) y redirige a /login server-side
@@ -14,12 +15,12 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         position: 'sticky', top: 0, zIndex: 40,
       }}>
-        <span style={{ fontFamily: 'var(--font-playfair)', fontSize: '18px', color: 'var(--brand-on-bg)', fontWeight: 700 }}>
+        <span style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.lead, color: 'var(--brand-on-bg)', fontWeight: 700 }}>
           tAIger+
         </span>
         {/* inline-flex + center: con el min-height global de 44px el texto quedaba arriba de la caja,
             desalineado del logo. */}
-        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
+        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.small, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
           ← Volver a Golfers+
         </Link>
       </header>

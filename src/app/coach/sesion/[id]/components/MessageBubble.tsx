@@ -8,6 +8,7 @@ import type { ScoreProjection } from '@/components/coach/ScoreProjectionCard'
 import type { ChatMessage, MessageVote } from '@/lib/data/taiger'
 import { AssistantCards } from './AssistantCard'
 import { MessageFeedback } from './MessageFeedback'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface MessageBubbleProps {
   msg: ChatMessage
@@ -52,7 +53,7 @@ export function MessageBubble({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 18,
+            fontSize: FONT_SIZE.lead,
             flexShrink: 0,
             marginTop: 2,
           }}>
@@ -70,7 +71,7 @@ export function MessageBubble({
             background: msg.role === 'user' ? 'rgba(196,153,42,0.08)' : 'var(--bg-surface)',
             border: msg.role === 'user' ? '1px solid rgba(196,153,42,0.30)' : '1px solid var(--line)',
             color: 'var(--text)',
-            fontSize: 14,
+            fontSize: FONT_SIZE.small,
             lineHeight: 1.6,
             whiteSpace: msg.role === 'user' ? 'pre-wrap' : 'normal',
             wordBreak: 'break-word',

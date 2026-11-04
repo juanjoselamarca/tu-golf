@@ -6,6 +6,7 @@ import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { FocusHero, type FocoData } from './components/FocusHero'
 import { AvanceChart, type PuntoSerie } from './components/AvanceChart'
 import { MetaResumen } from './components/MetaResumen'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface DashboardData {
   focus: FocoData
@@ -56,7 +57,7 @@ export default function ProgresoPage() {
       <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', color: 'var(--coach-brass)', animation: 'tpulse 1.5s ease infinite' }}>
           <TaigerIcon size={44} />
-          <div style={{ color: 'var(--text-2)', fontSize: '13px', fontWeight: 600, marginTop: '10px' }}>Leyendo tu progreso…</div>
+          <div style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.small, fontWeight: 600, marginTop: '10px' }}>Leyendo tu progreso…</div>
         </div>
       </div>
     )
@@ -67,14 +68,14 @@ export default function ProgresoPage() {
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '32px 16px' }}>
         <div style={{ background: 'var(--coach-recovery-low-soft)', border: '1px solid var(--coach-recovery-low)', borderRadius: '8px', padding: '20px', textAlign: 'center' }}>
           <div style={{ color: 'var(--coach-recovery-low)', fontWeight: 600, marginBottom: '6px' }}>No pude cargar tu progreso</div>
-          <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>{state.msg}</div>
+          <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)' }}>{state.msg}</div>
           {/* Sin esto la pantalla quedaba en el error: ni reintento ni salida. */}
           <button
             type="button"
             onClick={() => { setState({ phase: 'loading' }); setIntento((n) => n + 1) }}
             style={{
               marginTop: '14px', minHeight: '44px', padding: '0 24px', borderRadius: '10px', border: 'none',
-              background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+              background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: FONT_SIZE.small, cursor: 'pointer',
             }}
           >
             Reintentar
@@ -91,10 +92,10 @@ export default function ProgresoPage() {
       <style>{`@keyframes progresoReveal{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}`}</style>
 
       <header style={{ ...reveal(0), marginBottom: '20px' }}>
-        <div style={{ fontSize: '12px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700, marginBottom: '4px' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700, marginBottom: '4px' }}>
           tAIger+ · tu progreso
         </div>
-        <h1 style={{ fontFamily: 'var(--font-playfair)', fontSize: '32px', lineHeight: 1.1, color: 'var(--text)', margin: 0, fontWeight: 600 }}>
+        <h1 style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h1, lineHeight: 1.1, color: 'var(--text)', margin: 0, fontWeight: 600 }}>
           La bajada hacia tu meta
         </h1>
       </header>
@@ -126,7 +127,7 @@ export default function ProgresoPage() {
               background: 'var(--brand)',
               color: 'var(--brand-dark)',
               fontWeight: 700,
-              fontSize: '14px',
+              fontSize: FONT_SIZE.small,
               padding: '12px 24px',
               borderRadius: '10px',
               textDecoration: 'none',

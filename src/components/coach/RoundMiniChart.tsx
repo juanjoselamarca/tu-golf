@@ -11,6 +11,7 @@
  * analiza una ronda específica.
  */
 import { fechaDeCalendario } from '@/lib/format'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface RoundSummary {
   course_name: string | null
@@ -67,7 +68,7 @@ export function RoundMiniChart({ summary }: Props) {
         justifyContent: 'space-between',
         alignItems: 'baseline',
         marginBottom: 10,
-        fontSize: 12,
+        fontSize: FONT_SIZE.caption,
       }}>
         <div>
           <span style={{ color: 'var(--text)', fontWeight: 600 }}>
@@ -132,7 +133,7 @@ export function RoundMiniChart({ summary }: Props) {
         padding: `0 ${(padX / width) * 100}%`,
         marginTop: 4,
         fontFamily: 'ui-monospace, monospace',
-        fontSize: 12,
+        fontSize: FONT_SIZE.caption,
         lineHeight: 1,
         color: 'var(--text-2)',
       }}>
@@ -145,7 +146,7 @@ export function RoundMiniChart({ summary }: Props) {
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
-          fontSize: 12,
+          fontSize: FONT_SIZE.caption,
           color: 'var(--text-2)',
           marginTop: 6,
           paddingTop: 6,
@@ -162,7 +163,7 @@ export function RoundMiniChart({ summary }: Props) {
       <div style={{
         display: 'flex',
         gap: 10,
-        fontSize: 12,
+        fontSize: FONT_SIZE.caption,
         color: 'var(--text-2)',
         marginTop: 8,
         flexWrap: 'wrap',

@@ -1,6 +1,7 @@
 'use client'
 
 import { Children, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   label: string
@@ -40,7 +41,7 @@ export function HighlightsCarousel({ label, children }: Props) {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    fontSize: '12px',
+    fontSize: FONT_SIZE.caption,
     letterSpacing: '0.18em',
     textTransform: 'uppercase',
     color: 'var(--text-3)',

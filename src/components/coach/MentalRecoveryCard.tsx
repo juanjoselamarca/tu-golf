@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   score: number
@@ -46,22 +47,22 @@ export function MentalRecoveryCard({ score, band, delta, title, description }: P
   return (
     <div style={cardStyle}>
       <div style={accentStripStyle} aria-hidden />
-      <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color, fontWeight: 700, marginBottom: '12px', fontFamily: '"DM Mono", monospace' }}>
+      <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color, fontWeight: 700, marginBottom: '12px', fontFamily: '"DM Mono", monospace' }}>
         Mental Index
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '56px', fontWeight: 500, lineHeight: 0.95, color, letterSpacing: '-0.02em' }}>{score}</span>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '16px', color: 'var(--text-3)' }}>/ 100</span>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataXl, fontWeight: 500, lineHeight: 0.95, color, letterSpacing: '-0.02em' }}>{score}</span>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.body, color: 'var(--text-3)' }}>/ 100</span>
         {deltaText && (
-          <span style={{ marginLeft: 'auto', fontFamily: '"DM Mono", monospace', fontSize: '12px', color: 'var(--text-2)' }}>
+          <span style={{ marginLeft: 'auto', fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
             {deltaText}
           </span>
         )}
       </div>
-      <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '18px', fontWeight: 600, lineHeight: 1.25, margin: '4px 0 8px', color: 'var(--text)' }}>
+      <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: FONT_SIZE.lead, fontWeight: 600, lineHeight: 1.25, margin: '4px 0 8px', color: 'var(--text)' }}>
         {title}
       </div>
-      <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.5, marginBottom: '14px' }}>
+      <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', lineHeight: 1.5, marginBottom: '14px' }}>
         {description}
       </div>
       <div style={{ display: 'flex', height: '4px', borderRadius: '2px', overflow: 'hidden', position: 'relative' }} aria-hidden>

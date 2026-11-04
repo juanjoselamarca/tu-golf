@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /**
  * El héroe de la vista: los diferenciales de cada ronda 18h bajando (ojalá)
@@ -34,7 +35,7 @@ const label = (baselineY: number, side: 'left' | 'right', color: string): CSSPro
   [side]: `${((side === 'left' ? PAD.left : PAD.right) / W) * 100}%`,
   bottom: `${((H - baselineY) / H) * 100}%`,
   fontFamily: 'var(--font-dm-mono)',
-  fontSize: '12px',
+  fontSize: FONT_SIZE.caption,
   lineHeight: 1,
   color,
   whiteSpace: 'nowrap',
@@ -56,7 +57,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
           padding: '28px 22px',
           textAlign: 'center',
           color: 'var(--text-3)',
-          fontSize: '13px',
+          fontSize: FONT_SIZE.small,
           lineHeight: 1.6,
         }}
       >
@@ -120,11 +121,11 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-        <span style={{ fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600 }}>
+        <span style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600 }}>
           Diferencial por ronda · equiv. 18h
         </span>
         {mejorando != null && (
-          <span style={{ fontSize: '12px', fontWeight: 700, color: mejorando ? 'var(--coach-recovery-high)' : 'var(--text-3)' }}>
+          <span style={{ fontSize: FONT_SIZE.caption, fontWeight: 700, color: mejorando ? 'var(--coach-recovery-high)' : 'var(--text-3)' }}>
             {mejorando ? '↓ mejorando' : '→ estable'}
           </span>
         )}
@@ -174,15 +175,15 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
-        <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+        <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
           Última ronda{last.is9 ? ' · 9 hoyos' : ''}
         </span>
-        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
+        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)' }}>
           dif {last.dif.toFixed(1)}
         </span>
       </div>
       {hay9 && (
-        <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '6px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginTop: '6px', display: 'flex', gap: '14px', alignItems: 'center' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
             <svg width="9" height="9"><circle cx="4.5" cy="4.5" r="3" fill="var(--brand)" opacity="0.6" /></svg>
             18 hoyos (tendencia)

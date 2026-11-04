@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface SuggestionChipsProps {
   /** Preguntas a mostrar como píldoras. Vacío → no se renderiza nada. */
@@ -41,7 +42,7 @@ export function SuggestionChips({ items, onPick, ariaLabel, containerStyle, disa
             border: '1px solid rgba(196,153,42,0.35)',
             borderRadius: 999,
             color: 'var(--text)',
-            fontSize: 13,
+            fontSize: FONT_SIZE.small,
             fontWeight: 500,
             cursor: disabled ? 'default' : 'pointer',
             opacity: disabled ? 0.5 : 1,

@@ -1,3 +1,5 @@
+import { FONT_SIZE } from '@/lib/font-size'
+
 /**
  * Nota de acceso anticipado para beta testers.
  * Integrada al contenido, no un banner flotante.
@@ -11,7 +13,7 @@ export function CoachBetaBanner() {
       // Tokens theme-aware: el navy fijo de antes quedaba gris sobre gris en claro (1.4:1).
       background: 'var(--surface-soft)',
       border: '1px solid var(--border)',
-      fontSize: 12,
+      fontSize: FONT_SIZE.caption,
       lineHeight: 1.5,
       color: 'var(--text-2)',
     }}>

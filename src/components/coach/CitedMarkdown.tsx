@@ -20,6 +20,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { RoundSummary } from './RoundMiniChart'
 import { fechaDeCalendario } from '@/lib/format'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   text: string
@@ -44,7 +45,7 @@ const TABLE: React.CSSProperties = {
   borderCollapse: 'collapse',
   width: 'auto',
   minWidth: '100%',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
 }
 const TH: React.CSSProperties = {
   whiteSpace: 'nowrap',
@@ -54,7 +55,7 @@ const TH: React.CSSProperties = {
   background: 'var(--bg-elevated)',
   color: 'var(--text-3, var(--text-2))',
   fontFamily: '"DM Mono", monospace',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 600,
   letterSpacing: '0.04em',
   textTransform: 'uppercase',
@@ -165,7 +166,7 @@ function CitedNumber({ number, source }: { number: number; source: string }) {
         style={{
           marginLeft: 1,
           padding: '0 3px',
-          fontSize: 12,
+          fontSize: FONT_SIZE.caption,
           fontWeight: 600,
           verticalAlign: 'super',
           color: 'var(--brand-on-bg)',
@@ -191,7 +192,7 @@ function CitedNumber({ number, source }: { number: number; source: string }) {
             border: '1px solid rgba(196,153,42,0.35)',
             borderRadius: 6,
             padding: '6px 10px',
-            fontSize: 12,
+            fontSize: FONT_SIZE.caption,
             fontWeight: 500,
             whiteSpace: 'nowrap',
             boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
