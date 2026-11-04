@@ -27,7 +27,7 @@ const S = {
     fontFamily: 'var(--font-playfair), serif',
     fontSize: FONT_SIZE.h1,
     fontWeight: 700,
-    color: 'var(--ivory)',
+    color: 'var(--text)',
     marginBottom: 32,
     lineHeight: 1.3,
   } as React.CSSProperties,
