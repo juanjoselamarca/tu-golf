@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Calendar, PersonStanding } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const SESSION_TYPE_LABELS: Record<string, string> = {
   continuous: 'Conversación continua',
@@ -32,7 +33,7 @@ export function SessionHeader({ sessionType, sessionDate }: SessionHeaderProps) 
   return (
     <>
       <Link href="/coach" style={{
-        color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none',
+        color: 'var(--text-2)', fontSize: FONT_SIZE.small, textDecoration: 'none',
         display: 'inline-flex', alignItems: 'center', gap: '4px',
         marginBottom: '16px', minHeight: '44px',
       }}>
@@ -46,7 +47,7 @@ export function SessionHeader({ sessionType, sessionDate }: SessionHeaderProps) 
           borderRadius: 20,
           padding: '4px 14px',
           color: 'var(--brand-on-bg)',
-          fontSize: 12,
+          fontSize: FONT_SIZE.caption,
           fontWeight: 500,
         }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -54,7 +55,7 @@ export function SessionHeader({ sessionType, sessionDate }: SessionHeaderProps) 
             {SESSION_TYPE_LABELS[sessionType || ''] || sessionType}
           </span>
         </span>
-        <span style={{ color: 'var(--text-2)', fontSize: 12 }}>
+        <span style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.caption }}>
           {sessionDate}
         </span>
       </div>

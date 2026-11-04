@@ -69,6 +69,24 @@ export default [
     },
   },
   {
+    files: ['src/components/coach/**/*.{ts,tsx}', 'src/app/coach/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...[
+          "Property[key.name='fontSize'] :matches(Literal, TemplateLiteral)",
+          "JSXAttribute[name.name=/^font-?[sS]ize$/]",
+          "Literal[value=/font-size:\\s*\\d|\\btext-\\[\\d/]",
+          "TemplateElement[value.raw=/font-size:\\s*\\d|\\btext-\\[\\d/]",
+        ].map((selector) => ({
+          selector,
+          message: 'Font sizes come from the scale: FONT_SIZE (@/lib/font-size) or var(--fs-*), never a literal. DESIGN.md §4.',
+        })),
+      ],
+    },
+  },
+  {
     files: archivosSobreLimite,
     rules: { 'max-lines': 'off' },
   },

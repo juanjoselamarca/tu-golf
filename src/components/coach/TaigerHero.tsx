@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const SLIDES = [
   { src: '/images/taiger/taiger-domingo.png', pos: '50% 10%', label: 'Coach' },
@@ -108,7 +109,7 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
         }}>
           <h2 style={{
             fontFamily: 'var(--font-playfair)',
-            fontSize: 28, fontWeight: 700, letterSpacing: '1px',
+            fontSize: FONT_SIZE.h2, fontWeight: 700, letterSpacing: '1px',
             color: 'var(--text)', margin: 0,
             animation: mounted ? 'textUp 0.6s ease-out 0.4s both' : 'none',
           }}>
@@ -116,7 +117,7 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
           </h2>
           {subtitle && (
             <p style={{
-              color: 'var(--text-2)', fontSize: 13, margin: '6px 0 0',
+              color: 'var(--text-2)', fontSize: FONT_SIZE.small, margin: '6px 0 0',
               animation: mounted ? 'textUp 0.6s ease-out 0.6s both' : 'none',
             }}>
               {subtitle}

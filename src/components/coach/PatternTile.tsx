@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export type PatternState = 'active' | 'latente'
 export type PatternCategory = 'mental' | 'cancha' | 'tecnico'
@@ -52,16 +53,16 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px', marginBottom: '14px' }}>
         <div>
           <div style={{
-            fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase',
+            fontSize: FONT_SIZE.caption, letterSpacing: '0.14em', textTransform: 'uppercase',
             color: isLatent ? 'var(--coach-pattern-latente)' : CAT_COLOR[category],
             fontWeight: 700, marginBottom: '4px', fontFamily: '"DM Mono", monospace',
           }}>
             {CAT_LABEL[category]} · {isLatent ? 'latente' : 'activo'}
           </div>
-          <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: 1.2, color: isLatent ? 'var(--text-2)' : 'var(--text)' }}>{name}</div>
+          <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: FONT_SIZE.body, fontWeight: 600, lineHeight: 1.2, color: isLatent ? 'var(--text-2)' : 'var(--text)' }}>{name}</div>
         </div>
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '28px', fontWeight: 500, color: scoreColor, lineHeight: 1, flexShrink: 0 }}>
-          {score}{scoreSuffix && <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>{scoreSuffix}</span>}
+        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.h2, fontWeight: 500, color: scoreColor, lineHeight: 1, flexShrink: 0 }}>
+          {score}{scoreSuffix && <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>{scoreSuffix}</span>}
         </div>
       </div>
       {!isLatent && spark.length > 0 && (
@@ -72,7 +73,7 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
         </div>
       )}
       {/* Sin "ver →": no existe un detalle de patrón al que llevar (dead-end, 25-oct). */}
-      <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: '12px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
+      <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
         {footMeta}
       </div>
     </div>

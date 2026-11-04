@@ -100,6 +100,12 @@ Cinco familias activas en producción:
 - caption: 12 px DM Sans uppercase tracking-wider
 - code/data: 14–18 px DM Mono
 
+**Tokens de tamaño:** la escala vive solo en `src/app/globals.css` como `--fs-*`: caption 12, small 14, body 16,
+lead 18, title 20, h2 24, h1 32, hero 40–64 (clamp), dataSm 14, dataMd 18, dataLg 40, dataXl 64–96 (clamp). Tailwind
+la lee (`text-caption`, `text-small`, …) y los estilos en línea usan `FONT_SIZE` de `src/lib/font-size.ts`. El piso
+es caption (12 px). En el coach (`src/components/coach`, `src/app/coach`) un tamaño escrito a mano hace fallar
+`npm run lint`.
+
 ---
 
 ## 5. Jerarquía de acciones — Button variants

@@ -1,5 +1,7 @@
 'use client'
 
+import { FONT_SIZE } from '@/lib/font-size'
+
 /**
  * Línea de actividad mientras el coach piensa/llama tools (idéntico al original
  * page.tsx:559-582). El caller decide cuándo mostrarla.
@@ -16,7 +18,7 @@ export function ActivityLine({ activity }: { activity: string | null }) {
       background: 'rgba(196,153,42,0.08)',
       border: '1px solid rgba(196,153,42,0.20)',
       borderRadius: 20,
-      fontSize: 13,
+      fontSize: FONT_SIZE.small,
       color: 'var(--brand-on-bg)',
       fontWeight: 500,
     }}>

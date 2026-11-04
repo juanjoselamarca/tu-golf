@@ -29,6 +29,21 @@
   --font-dm-mono:  'DM Mono', 'DM Mono Fallback';
   --font-cormorant: 'Cormorant Garamond', 'Cormorant Garamond Fallback';
 
+  /* Type scale (DESIGN.md §4), defined only here: tailwind.config.ts and src/lib/font-size.ts read it.
+     The floor is --fs-caption (12 px). */
+  --fs-caption: 0.75rem;   /* 12 */
+  --fs-small:   0.875rem;  /* 14 */
+  --fs-body:    1rem;      /* 16 */
+  --fs-lead:    1.125rem;  /* 18 */
+  --fs-title:   1.25rem;   /* 20 */
+  --fs-h2:      1.5rem;    /* 24 */
+  --fs-h1:      2rem;      /* 32 */
+  --fs-hero:    clamp(2.5rem, 7vw, 4rem);
+  --fs-data-sm: 0.875rem;  /* 14 */
+  --fs-data-md: 1.125rem;  /* 18 */
+  --fs-data-lg: 2.5rem;    /* 40 */
+  --fs-data-xl: clamp(4rem, 14vw, 6rem);
+
   /* Brand tokens (mismo en ambos modos) */
   --brand:       #C4992A;
   --brand-hover: #A67D1E;

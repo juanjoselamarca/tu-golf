@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { FONT_SIZE } from '@/lib/font-size'
 export function CoachGatePage() {
   const [open, setOpen] = useState(false)
   const [code, setCode] = useState('')
@@ -148,7 +149,7 @@ export function CoachGatePage() {
           {/* Brand mark */}
           <h2 style={{
             fontFamily: 'var(--font-playfair)',
-            fontSize: 38,
+            fontSize: FONT_SIZE.hero,
             fontWeight: 700,
             color: 'var(--text)',
             lineHeight: 1.1,
@@ -161,7 +162,7 @@ export function CoachGatePage() {
           <div className="gate-divider" />
 
           <p style={{
-            fontSize: 16,
+            fontSize: FONT_SIZE.body,
             lineHeight: 1.7,
             color: 'var(--text)',
             margin: '0 0 6px',
@@ -171,7 +172,7 @@ export function CoachGatePage() {
           </p>
 
           <p style={{
-            fontSize: 13,
+            fontSize: FONT_SIZE.small,
             lineHeight: 1.7,
             color: 'var(--text-3)',
             margin: '0 0 40px',
@@ -191,7 +192,7 @@ export function CoachGatePage() {
                 borderRadius: 10,
                 padding: '13px 28px',
                 cursor: 'pointer',
-                fontSize: 13,
+                fontSize: FONT_SIZE.small,
                 fontWeight: 600,
                 color: 'var(--brand-on-bg)',
                 letterSpacing: '0.06em',
@@ -225,7 +226,7 @@ export function CoachGatePage() {
                   background: 'transparent',
                   border: 'none',
                   padding: '14px 16px',
-                  fontSize: 15,
+                  fontSize: FONT_SIZE.body,
                   color: 'var(--text)',
                   fontFamily: 'var(--font-dm-mono), monospace',
                   letterSpacing: '0.12em',
@@ -243,7 +244,7 @@ export function CoachGatePage() {
                   border: 'none',
                   borderLeft: '1px solid rgba(196,153,42,0.2)',
                   padding: '14px 20px',
-                  fontSize: 13,
+                  fontSize: FONT_SIZE.small,
                   fontWeight: 600,
                   fontFamily: 'var(--font-dm-mono), monospace',
                   letterSpacing: '0.08em',
@@ -261,7 +262,7 @@ export function CoachGatePage() {
           )}
 
           {error && (
-            <p style={{ fontSize: 13, color: 'var(--error-fg)', marginTop: 12, textAlign: 'center' }}>
+            <p style={{ fontSize: FONT_SIZE.small, color: 'var(--error-fg)', marginTop: 12, textAlign: 'center' }}>
               {error}
             </p>
           )}

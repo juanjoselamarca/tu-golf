@@ -4,6 +4,7 @@ import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { PlanActiveCard } from '@/components/coach/PlanActiveCard'
 import { SuggestionChips } from './SuggestionChips'
 import type { ActivePlanSummary } from '@/golf/coach/intro'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface EmptyStateProps {
   opener: string
@@ -37,7 +38,7 @@ export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProp
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 18,
+          fontSize: FONT_SIZE.lead,
           flexShrink: 0,
           marginTop: 2,
         }}>
@@ -51,7 +52,7 @@ export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProp
             borderRadius: '14px 14px 14px 4px',
             background: 'var(--bg-surface)',
             color: 'var(--text)',
-            fontSize: 14,
+            fontSize: FONT_SIZE.small,
             lineHeight: 1.6,
             wordBreak: 'break-word',
           }}
@@ -64,7 +65,7 @@ export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProp
       {activePlan && (
         <div style={{ marginTop: 16 }} data-testid="taiger-active-plan">
           <div style={{
-            fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)',
+            fontSize: FONT_SIZE.caption, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)',
             fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace', marginLeft: 40, marginBottom: 8,
           }}>
             Tu plan activo

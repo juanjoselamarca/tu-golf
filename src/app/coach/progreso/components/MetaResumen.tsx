@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   currentHandicap: number | null
@@ -24,12 +25,12 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
     return (
       <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '8px', padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px' }}>
         <div>
-          <div style={{ fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>
+          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>
             Hándicap actual
           </div>
-          <div style={{ ...mono, fontSize: '28px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{hcp}</div>
+          <div style={{ ...mono, fontSize: FONT_SIZE.h2, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{hcp}</div>
         </div>
-        <Link href="/coach" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-on-bg)', textDecoration: 'none', textAlign: 'right', lineHeight: 1.4, maxWidth: '150px' }}>
+        <Link href="/coach" style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: 'var(--brand-on-bg)', textDecoration: 'none', textAlign: 'right', lineHeight: 1.4, maxWidth: '150px' }}>
           Fija tu meta con el coach para medir el avance →
         </Link>
       </div>
@@ -45,17 +46,17 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '8px', padding: '18px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '8px' }}>
         <div>
-          <div style={{ fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>Hoy</div>
-          <div style={{ ...mono, fontSize: '28px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{hcp}</div>
+          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>Hoy</div>
+          <div style={{ ...mono, fontSize: FONT_SIZE.h2, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{hcp}</div>
         </div>
-        <div style={{ color: 'var(--text-3)', fontSize: '20px', paddingBottom: '2px' }}>→</div>
+        <div style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.title, paddingBottom: '2px' }}>→</div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-recovery-high)', fontWeight: 700, marginBottom: '4px' }}>Meta</div>
-          <div style={{ ...mono, fontSize: '28px', fontWeight: 600, color: 'var(--coach-recovery-high)', lineHeight: 1 }}>{meta}</div>
+          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-recovery-high)', fontWeight: 700, marginBottom: '4px' }}>Meta</div>
+          <div style={{ ...mono, fontSize: FONT_SIZE.h2, fontWeight: 600, color: 'var(--coach-recovery-high)', lineHeight: 1 }}>{meta}</div>
         </div>
       </div>
       {(delta != null || deadline) && (
-        <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-2)' }}>
+        <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
           {/* Sin hándicap actual no hay distancia a la meta: no se afirma nada. */}
           <span>
             {delta != null && delta > 0 && (

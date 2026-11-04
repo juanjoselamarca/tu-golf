@@ -1,5 +1,7 @@
 'use client'
 
+import { FONT_SIZE } from '@/lib/font-size'
+
 interface RetryBarProps {
   error: string
   streaming: boolean
@@ -18,7 +20,7 @@ export function RetryBar({ error, streaming, onRetry }: RetryBarProps) {
       padding: 16,
       marginTop: 12,
       color: 'var(--error-fg)',
-      fontSize: 14,
+      fontSize: FONT_SIZE.small,
       display: 'flex',
       alignItems: 'center',
       gap: 12,
@@ -32,7 +34,7 @@ export function RetryBar({ error, streaming, onRetry }: RetryBarProps) {
           background: 'transparent',
           border: '1px solid rgba(220,38,38,0.5)',
           color: 'var(--error-fg)',
-          fontSize: 13,
+          fontSize: FONT_SIZE.small,
           fontWeight: 600,
           padding: '8px 14px',
           borderRadius: 8,
