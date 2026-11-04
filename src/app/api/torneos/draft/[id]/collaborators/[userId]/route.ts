@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,8 @@ export async function DELETE(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  const rl = checkRateLimit(`draft-collab-remove:${user.id}`, 20, 60 * 60 * 1000)
+  if (!rl.allowed) return NextResponse.json({ error: 'Demasiados intentos. Intenta más tarde.' }, { status: 429, headers: rateLimitHeaders(rl) })
 
   const { data: d } = await supabase
     .from('tournament_drafts')

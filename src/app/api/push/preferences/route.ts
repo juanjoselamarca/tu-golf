@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { z } from 'zod'
 import { captureError } from '@/lib/error-tracking'
 import { CLAVES_PREFERENCIA, preferenciasDeFila, type ClavePreferencia } from '@/lib/push/preferencias'
@@ -34,6 +35,8 @@ export async function PUT(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  const rl = checkRateLimit(`push-preferences:${user.id}`, 30, 60 * 1000)
+  if (!rl.allowed) return NextResponse.json({ error: 'Demasiados intentos. Intenta más tarde.' }, { status: 429, headers: rateLimitHeaders(rl) })
 
   const raw = await request.json().catch(() => null)
   const parsed = preferencesSchema.safeParse(raw)
