@@ -38,7 +38,7 @@ const theme = {
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
-  fontSize: '11px',
+  fontSize: FONT_SIZE.dataCaption,
   color: theme.textMuted,
   marginBottom: '8px',
   fontFamily: 'var(--font-dm-mono), ui-monospace, monospace',
@@ -311,7 +311,7 @@ function RegisterContent() {
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '24px 0' }}>
           <div style={{ flex: 1, height: '1px', background: theme.borderSoft }} />
-          <span style={{ fontSize: '11px', color: theme.textFaint, whiteSpace: 'nowrap', fontFamily: '"DM Mono", ui-monospace, monospace', letterSpacing: '0.08em', textTransform: 'uppercase' }}>o con email</span>
+          <span style={{ fontSize: FONT_SIZE.dataCaption, color: theme.textFaint, whiteSpace: 'nowrap', fontFamily: '"DM Mono", ui-monospace, monospace', letterSpacing: '0.08em', textTransform: 'uppercase' }}>o con email</span>
           <div style={{ flex: 1, height: '1px', background: theme.borderSoft }} />
         </div>
 
@@ -327,7 +327,7 @@ function RegisterContent() {
             <Zap size={18} color={theme.gold} strokeWidth={1.5} />
             <div style={{ textAlign: 'left' }}>
               <div style={{ color: theme.text, fontSize: FONT_SIZE.small, fontWeight: 600 }}>Registro con email y contraseña</div>
-              <div style={{ color: theme.textMuted, fontSize: '11px', marginTop: '2px' }}>Nombre, email, contraseña e índice (opcional)</div>
+              <div style={{ color: theme.textMuted, fontSize: FONT_SIZE.caption, marginTop: '2px' }}>Nombre, email, contraseña e índice (opcional)</div>
             </div>
           </div>
           <span style={{ color: theme.textMuted, fontSize: FONT_SIZE.small, transition: 'transform 200ms', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
@@ -421,7 +421,7 @@ function RegisterContent() {
               {loading && <Loader2 size={18} className="animate-spin" />}
               {loading ? 'Creando cuenta...' : 'Crear mi cuenta →'}
             </button>
-            <p style={{ fontSize: '11px', color: theme.textFaint, textAlign: 'center', margin: '6px 0 0', fontFamily: '"DM Mono", ui-monospace, monospace', letterSpacing: '0.05em' }}>
+            <p style={{ fontSize: FONT_SIZE.dataCaption, color: theme.textFaint, textAlign: 'center', margin: '6px 0 0', fontFamily: '"DM Mono", ui-monospace, monospace', letterSpacing: '0.05em' }}>
               <Check size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> GRATIS &nbsp;·&nbsp; <Check size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> SIN TARJETA &nbsp;·&nbsp; <Check size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> SIN SPAM
             </p>
           </form>

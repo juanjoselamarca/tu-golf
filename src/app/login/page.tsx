@@ -151,7 +151,7 @@ function LoginContent() {
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '24px 0' }}>
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(196,153,42,0.3))' }} />
-          <span style={{ fontSize: '11px', color: 'var(--brand-on-bg)', whiteSpace: 'nowrap', letterSpacing: '0.05em', fontWeight: 500, textTransform: 'uppercase' }}>o continúa con email</span>
+          <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', whiteSpace: 'nowrap', letterSpacing: '0.05em', fontWeight: 500, textTransform: 'uppercase' }}>o continúa con email</span>
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.3), transparent)' }} />
         </div>
 

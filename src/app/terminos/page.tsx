@@ -17,7 +17,7 @@ const S = {
   } as React.CSSProperties,
   date: {
     fontFamily: 'var(--font-dm-mono), monospace',
-    fontSize: 11,
+    fontSize: FONT_SIZE.dataCaption,
     color: 'var(--text-3)',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.08em',

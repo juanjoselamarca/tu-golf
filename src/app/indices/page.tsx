@@ -25,7 +25,7 @@ function LabBadge() {
       display: 'inline-flex', alignItems: 'center', gap: '6px',
       background: 'rgba(196,153,42,0.1)', border: `1px solid rgba(196,153,42,0.25)`,
       borderRadius: '20px', padding: '4px 12px',
-      fontFamily: '"DM Mono", monospace', fontSize: '10px', fontWeight: 700,
+      fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataCaption, fontWeight: 700,
       color: gold, letterSpacing: '0.15em', textTransform: 'uppercase' as const,
     }}>
       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: gold, animation: 'labPulse 2s ease infinite' }} />
@@ -62,11 +62,11 @@ function PgaCard({ player, moment, cpiEstimate, description, color }: { player: 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
         <div>
           <div style={{ fontSize: '15px', fontWeight: 700, color: ivory }}>{player}</div>
-          <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace' }}>{moment}</div>
+          <div style={{ fontSize: FONT_SIZE.dataCaption, color: textFaint, fontFamily: '"DM Mono", monospace' }}>{moment}</div>
         </div>
-        <div style={{ textAlign: 'right' }}>
+        <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
           <div style={{ fontSize: '28px', fontWeight: 700, color, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>{cpiEstimate}</div>
-          <div style={{ fontSize: '9px', color: textFaint, fontFamily: '"DM Mono", monospace' }}>CPI EST.</div>
+          <div style={{ fontSize: FONT_SIZE.dataCaption, color: textFaint, fontFamily: '"DM Mono", monospace' }}>CPI EST.</div>
         </div>
       </div>
       <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5, margin: 0 }}>{description}</p>
@@ -86,7 +86,7 @@ function GwiScenarioStep({ hole, event, gwi, delta }: { hole: number; event: str
       </div>
       <div style={{ textAlign: 'right', minWidth: '60px' }}>
         <div style={{ fontSize: FONT_SIZE.dataMd, fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace' }}>{gwi}%</div>
-        <div style={{ fontSize: '11px', color: deltaColor, fontWeight: 600 }}>{delta > 0 ? `+${delta}` : delta}%</div>
+        <div style={{ fontSize: FONT_SIZE.caption, color: deltaColor, fontWeight: 600 }}>{delta > 0 ? `+${delta}` : delta}%</div>
       </div>
     </div>
   )
@@ -180,7 +180,7 @@ export default function IndicesPage() {
                 color={gold}
                 description="Juega 1-2 veces por semana, tira entre 85 y 95. Buena consistencia pero diferencial alto. Con más rondas y mejor tendencia, puede subir a 55+."
               />
-              <p style={{ fontSize: '11px', color: textFaint, fontStyle: 'italic', marginTop: '8px' }}>
+              <p style={{ fontSize: FONT_SIZE.caption, color: textFaint, fontStyle: 'italic', marginTop: '8px' }}>
                 * Estimaciones ilustrativas basadas en datos públicos de torneos. El CPI™ es propietario de Golfers+.
               </p>
             </Section>
@@ -199,7 +199,7 @@ export default function IndicesPage() {
                       <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '22px', fontWeight: 700, color: gold }}>{f.pts}</span>
                       <span style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: ivory }}>{f.label}</span>
                     </div>
-                    <div style={{ fontSize: '11px', color: textMuted, lineHeight: 1.4 }}>{f.desc}</div>
+                    <div style={{ fontSize: FONT_SIZE.caption, color: textMuted, lineHeight: 1.4 }}>{f.desc}</div>
                   </div>
                 ))}
               </div>
@@ -213,12 +213,12 @@ export default function IndicesPage() {
             <Section title="CPI vs Índice" subtitle="¿CUÁL ES LA DIFERENCIA?">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>ÍNDICE</div>
+                  <div style={{ fontSize: FONT_SIZE.dataCaption, color: textFaint, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>ÍNDICE</div>
                   <div style={{ fontSize: '36px', fontWeight: 700, color: textMuted, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>12</div>
                   <div style={{ fontSize: FONT_SIZE.caption, color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>potencial</strong>. Usa tus mejores rondas. Lo que puedes hacer en un buen día.</div>
                 </div>
                 <div style={{ background: 'rgba(196,153,42,0.06)', borderRadius: '10px', padding: '14px', border: `1px solid ${border}`, textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: gold, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>CPI™</div>
+                  <div style={{ fontSize: FONT_SIZE.dataCaption, color: gold, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>CPI™</div>
                   <div style={{ fontSize: '36px', fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>67</div>
                   <div style={{ fontSize: FONT_SIZE.caption, color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>realidad hoy</strong>. Usa todas tus rondas recientes. Cómo estás jugando <em>ahora</em>.</div>
                 </div>

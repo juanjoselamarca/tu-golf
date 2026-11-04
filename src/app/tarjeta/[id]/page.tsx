@@ -125,7 +125,7 @@ export default function TarjetaPublicaPage() {
         {/* Notes */}
         {isOwner && round.notes && (
           <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 4 }}>Notas</div>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 4 }}>Notas</div>
             <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{round.notes}</div>
           </div>
         )}
