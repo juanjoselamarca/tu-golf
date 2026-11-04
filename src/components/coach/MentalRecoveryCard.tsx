@@ -52,9 +52,9 @@ export function MentalRecoveryCard({ score, band, delta, title, description }: P
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
         <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataXl, fontWeight: 500, lineHeight: 0.95, color, letterSpacing: '-0.02em' }}>{score}</span>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.body, color: 'var(--text-3)' }}>/ 100</span>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataBody, color: 'var(--text-3)' }}>/ 100</span>
         {deltaText && (
-          <span style={{ marginLeft: 'auto', fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
+          <span style={{ marginLeft: 'auto', fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataCaption, color: 'var(--text-2)' }}>
             {deltaText}
           </span>
         )}

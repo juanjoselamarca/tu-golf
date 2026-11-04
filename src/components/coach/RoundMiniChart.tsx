@@ -133,7 +133,7 @@ export function RoundMiniChart({ summary }: Props) {
         padding: `0 ${(padX / width) * 100}%`,
         marginTop: 4,
         fontFamily: 'ui-monospace, monospace',
-        fontSize: FONT_SIZE.caption,
+        fontSize: FONT_SIZE.dataCaption,
         lineHeight: 1,
         color: 'var(--text-2)',
       }}>

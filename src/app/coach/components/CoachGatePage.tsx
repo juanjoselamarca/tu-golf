@@ -226,7 +226,7 @@ export function CoachGatePage() {
                   background: 'transparent',
                   border: 'none',
                   padding: '14px 16px',
-                  fontSize: FONT_SIZE.body,
+                  fontSize: FONT_SIZE.dataBody,
                   color: 'var(--text)',
                   fontFamily: 'var(--font-dm-mono), monospace',
                   letterSpacing: '0.12em',

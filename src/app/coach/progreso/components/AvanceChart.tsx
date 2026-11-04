@@ -35,7 +35,7 @@ const label = (baselineY: number, side: 'left' | 'right', color: string): CSSPro
   [side]: `${((side === 'left' ? PAD.left : PAD.right) / W) * 100}%`,
   bottom: `${((H - baselineY) / H) * 100}%`,
   fontFamily: 'var(--font-dm-mono)',
-  fontSize: FONT_SIZE.caption,
+  fontSize: FONT_SIZE.dataCaption,
   lineHeight: 1,
   color,
   whiteSpace: 'nowrap',
@@ -178,7 +178,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
         <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
           Última ronda{last.is9 ? ' · 9 hoyos' : ''}
         </span>
-        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)' }}>
+        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.dataBody, fontWeight: 600, color: 'var(--text)' }}>
           dif {last.dif.toFixed(1)}
         </span>
       </div>

@@ -58,10 +58,10 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
         Tu yo contenido · última ronda
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.h1, fontWeight: 500, color: 'var(--text-3)', textDecoration: 'line-through', textDecorationColor: 'var(--line)', letterSpacing: '-0.02em', lineHeight: 1 }}>{realScore}</span>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataH1, fontWeight: 500, color: 'var(--text-3)', textDecoration: 'line-through', textDecorationColor: 'var(--line)', letterSpacing: '-0.02em', lineHeight: 1 }}>{realScore}</span>
         <span style={{ fontSize: FONT_SIZE.lead, color: 'var(--text-3)' }}>→</span>
         <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataLg, fontWeight: 500, color: 'var(--coach-brass)', letterSpacing: '-0.02em', lineHeight: 1 }}>{ghostScore}</span>
-        <span style={{ marginLeft: 'auto', fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.small, color: 'var(--coach-brass)', fontWeight: 600, padding: '4px 9px', background: 'var(--coach-brass-soft)', borderRadius: '2px' }}>−{delta}</span>
+        <span style={{ marginLeft: 'auto', fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataSm, color: 'var(--coach-brass)', fontWeight: 600, padding: '4px 9px', background: 'var(--coach-brass-soft)', borderRadius: '2px' }}>−{delta}</span>
       </div>
       <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', lineHeight: 1.55 }}>
         Conteniendo {holesAffected.length === 1 ? (

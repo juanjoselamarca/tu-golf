@@ -49,7 +49,7 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
       </div>
       <div style={{ ...gridCols, marginTop: '4px' }}>
         {Array.from({ length: n }, (_, i) => (
-          <div key={`a-${startIdx + i}`} style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.caption, color: 'var(--text-3)', textAlign: 'center' }}>{startIdx + i + 1}</div>
+          <div key={`a-${startIdx + i}`} style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataCaption, color: 'var(--text-3)', textAlign: 'center' }}>{startIdx + i + 1}</div>
         ))}
       </div>
     </div>

@@ -28,7 +28,7 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
           <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>
             Hándicap actual
           </div>
-          <div style={{ ...mono, fontSize: FONT_SIZE.h2, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{hcp}</div>
+          <div style={{ ...mono, fontSize: FONT_SIZE.dataH2, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{hcp}</div>
         </div>
         <Link href="/coach" style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: 'var(--brand-on-bg)', textDecoration: 'none', textAlign: 'right', lineHeight: 1.4, maxWidth: '150px' }}>
           Fija tu meta con el coach para medir el avance →
@@ -47,12 +47,12 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '8px' }}>
         <div>
           <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>Hoy</div>
-          <div style={{ ...mono, fontSize: FONT_SIZE.h2, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{hcp}</div>
+          <div style={{ ...mono, fontSize: FONT_SIZE.dataH2, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{hcp}</div>
         </div>
         <div style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.title, paddingBottom: '2px' }}>→</div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-recovery-high)', fontWeight: 700, marginBottom: '4px' }}>Meta</div>
-          <div style={{ ...mono, fontSize: FONT_SIZE.h2, fontWeight: 600, color: 'var(--coach-recovery-high)', lineHeight: 1 }}>{meta}</div>
+          <div style={{ ...mono, fontSize: FONT_SIZE.dataH2, fontWeight: 600, color: 'var(--coach-recovery-high)', lineHeight: 1 }}>{meta}</div>
         </div>
       </div>
       {(delta != null || deadline) && (
