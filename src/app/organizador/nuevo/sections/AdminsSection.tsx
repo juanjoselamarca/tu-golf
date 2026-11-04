@@ -350,7 +350,7 @@ const searchInputStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
   background: 'var(--input-bg)',
   color: 'var(--text-primary)',
-  fontSize: FONT_SIZE.small,
+  fontSize: FONT_SIZE.body,
   fontFamily: '"DM Sans", sans-serif',
   outline: 'none',
   width: '100%',

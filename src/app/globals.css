@@ -531,7 +531,7 @@
 
 /* Prevenir zoom en inputs en iOS */
 input, select, textarea {
-  font-size: 16px !important;
+  font-size: 16px;
 }
 
 /* Touch targets mÃ­nimos 44Ã—44px (Apple HIG) */

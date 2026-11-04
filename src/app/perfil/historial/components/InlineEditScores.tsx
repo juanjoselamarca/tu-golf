@@ -79,7 +79,7 @@ export function InlineEditScores({ initialScores, hoyos, estimados, saving, onSa
                 onChange={(e) => handleEditScore(i + offset, e.target.value)}
                 style={{
                   width: '100%', textAlign: 'center',
-                  fontSize: FONT_SIZE.small, fontWeight: 600,
+                  fontSize: FONT_SIZE.body, fontWeight: 600,
                   minHeight: '44px',
                   padding: '6px 0',
                   // Estimado: borde punteado (la marca es la forma, no sólo el color).

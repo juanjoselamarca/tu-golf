@@ -1,3 +1,5 @@
+import { FONT_SIZE } from '@/lib/font-size'
+
 /**
  * Tokens del asistente de nueva ronda.
  *
@@ -54,7 +56,7 @@ export const input = {
   color: colores.texto,
   borderRadius: '10px',
   padding: '10px 12px',
-  fontSize: '15px',
+  fontSize: FONT_SIZE.body,
   outline: 'none',
   boxSizing: 'border-box' as const,
   minHeight: '44px',

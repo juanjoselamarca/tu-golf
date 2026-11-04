@@ -299,7 +299,7 @@ export function InscribirPlayerForm({
               resize: 'vertical',
               minHeight: '120px',
               fontFamily: 'monospace',
-              fontSize: '13px',
+              fontSize: FONT_SIZE.dataBody,
             }}
           />
 

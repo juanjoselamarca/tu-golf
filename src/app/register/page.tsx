@@ -53,7 +53,7 @@ const baseInput: React.CSSProperties = {
   borderRadius: '10px',
   padding:      '13px 14px',
   width:        '100%',
-  fontSize:     '15px',
+  fontSize:     FONT_SIZE.body,
   outline:      'none',
   transition:   'border-color 200ms, box-shadow 200ms',
   boxSizing:    'border-box' as const,

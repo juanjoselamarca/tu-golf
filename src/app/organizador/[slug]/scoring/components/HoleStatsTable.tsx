@@ -53,7 +53,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                     onBlur={() => {
                       if (!disabled) void saveHoleStat(h, { putts: holePutts[h] ?? null })
                     }}
-                    style={{ width: '48px', background: 'var(--bg)', border: '1px solid var(--surface-border)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
+                    style={{ width: '48px', background: 'var(--bg)', border: '1px solid var(--surface-border)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: FONT_SIZE.body, padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
                     placeholder="—"
                   />
                 </td>

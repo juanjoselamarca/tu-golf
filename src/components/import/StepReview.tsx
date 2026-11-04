@@ -168,7 +168,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
                 onChange={e => setFormato(e.target.value as FormatoImportacion)}
                 style={{
                   background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.25)',
-                  color: 'var(--text)', fontSize: '13px', padding: '8px 10px', minHeight: '44px',
+                  color: 'var(--text)', fontSize: FONT_SIZE.dataBody, padding: '8px 10px', minHeight: '44px',
                   borderRadius: '8px', outline: 'none', cursor: 'pointer',
                 }}
               >
@@ -190,7 +190,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
                 style={{
                   background: modoForzado ? 'var(--surface-soft)' : 'var(--bg-surface)', minHeight: '44px',
                   border: '1px solid rgba(196,153,42,0.25)',
-                  color: modoForzado ? 'var(--text-2)' : 'var(--text)', fontSize: '13px', padding: '8px 10px',
+                  color: modoForzado ? 'var(--text-2)' : 'var(--text)', fontSize: FONT_SIZE.body, padding: '8px 10px',
                   borderRadius: '8px', outline: 'none', cursor: modoForzado ? 'not-allowed' : 'pointer',
                 }}
               >

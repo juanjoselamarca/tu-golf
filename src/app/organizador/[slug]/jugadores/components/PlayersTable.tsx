@@ -94,7 +94,7 @@ export function PlayersTable({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar jugador..."
-                style={{ ...inputStyle, paddingLeft: '32px', fontSize: '13px', width: '100%', boxSizing: 'border-box' as const }}
+                style={{ ...inputStyle, paddingLeft: '32px', fontSize: FONT_SIZE.body, width: '100%', boxSizing: 'border-box' as const }}
               />
             </div>
 

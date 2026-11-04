@@ -6,6 +6,7 @@ import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tok
 import { HealthGrid } from '@/components/admin/HealthGrid'
 import { AdminCard } from '@/components/admin/AdminCard'
 import { AdminBadge } from '@/components/admin/AdminBadge'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface HealthData {
   services: {
@@ -737,7 +738,7 @@ export default function SistemaPage() {
             style={{
               width: '100%',
               fontFamily: "'DM Mono', monospace",
-              fontSize: '13px',
+              fontSize: FONT_SIZE.dataBody,
               background: adminColors.bg,
               border: `1px solid ${adminColors.border}`,
               borderRadius: '8px',

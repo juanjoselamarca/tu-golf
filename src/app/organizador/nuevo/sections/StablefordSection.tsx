@@ -130,7 +130,7 @@ const numInputStyle: React.CSSProperties = {
   background: 'var(--input-bg)',
   color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: FONT_SIZE.small,
+  fontSize: FONT_SIZE.body,
   textAlign: 'right',
   outline: 'none',
 }

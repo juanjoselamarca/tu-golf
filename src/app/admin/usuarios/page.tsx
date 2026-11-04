@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { adminColors, adminCard, adminFonts } from '@/components/admin/admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface UserRow {
   id: string
@@ -139,7 +140,7 @@ export default function UsuariosPage() {
             borderRadius: '8px',
             padding: '10px 16px',
             color: adminColors.ivory,
-            fontSize: '14px',
+            fontSize: FONT_SIZE.body,
             outline: 'none',
             width: '280px',
             maxWidth: '100%',
