@@ -99,13 +99,13 @@ export function PlayerCards({
                 flexShrink: 0,
               }}
             >
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? 'var(--brand-on-bg)' : 'var(--surface-border-strong)', color: isSelected ? 'var(--brand-dark)' : 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', margin: '0 auto 8px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? 'var(--brand-on-bg)' : 'var(--surface-border-strong)', color: isSelected ? 'var(--brand-dark)' : 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', margin: '0 auto 8px' }}>
                 {getInitials(p.profiles?.name || '?')}
               </div>
               <div style={{ color: 'var(--text)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, marginBottom: '4px' }}>
                 {p.profiles?.name?.split(' ')[0] || '—'}
               </div>
-              <div style={{ fontSize: '11px', color: isDone ? 'var(--status-live-fg)' : 'var(--text-2)' }}>
+              <div style={{ fontSize: '12px', color: isDone ? 'var(--status-live-fg)' : 'var(--text-2)' }}>
                 {isDone
                   ? '✓ Completo'
                   : `${isSelected && hasScoresLoaded ? filledCount : (round ? (roundHoleCounts.get(round.id) ?? 0) : 0)}/${holeCount}`}

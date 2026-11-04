@@ -58,16 +58,16 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
           {holeCount === 18 && grossTotal > 0 && (
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', alignSelf: 'center' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', alignSelf: 'center' }}>
               {outGross}+{inGross}
             </div>
           )}
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>GROSS</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '2px' }}>GROSS</div>
             <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>{grossTotal || '—'}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>NET</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '2px' }}>NET</div>
             {/* netTotal son GOLPES netos (gross − golpes recibidos), igual que GROSS:
                 se muestra como golpes. Antes se formateaba como vs par ("+30" para
                 38 gross con 8 golpes recibidos). El color sí compara contra el par
@@ -77,7 +77,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>vs PAR</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '2px' }}>vs PAR</div>
             <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: '"DM Mono", monospace', color: 'var(--text-2)' }}>
               {grossTotal ? (() => {
                 const vp = grossTotal - parJugado
@@ -113,8 +113,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
                 animation: hasErr ? 'pulse 1s ease-in-out 3' : 'none',
               }}
             >
-              <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '2px' }}>H{holeNum}</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px' }}>P{par}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '2px' }}>H{holeNum}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '4px' }}>P{par}</div>
               <input
                 type="number"
                 min={1}
@@ -143,7 +143,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
               {haScore && isStablefordFormat(resolveFormatoJuego(tournament)) && (() => {
                 const pts = stablefordPtsAt(holeNum, gross)
                 return (
-                  <div style={{ fontSize: '10px', color: pts >= 2 ? 'var(--status-live-fg)' : pts === 1 ? 'var(--brand-on-bg)' : 'var(--text-2)', fontWeight: 600, marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: pts >= 2 ? 'var(--status-live-fg)' : pts === 1 ? 'var(--brand-on-bg)' : 'var(--text-2)', fontWeight: 600, marginTop: '2px' }}>
                     {pts} pt{pts !== 1 ? 's' : ''}
                   </div>
                 )
