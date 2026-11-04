@@ -115,7 +115,7 @@ export default function CostosPage() {
           style={{
             background: adminColors.card, border: `1px solid ${adminColors.border}`,
             borderRadius: '8px', padding: '8px 16px', color: adminColors.gold,
-            cursor: loading ? 'not-allowed' : 'pointer', fontSize: '13px',
+            cursor: loading ? 'not-allowed' : 'pointer', fontSize: FONT_SIZE.small,
             fontFamily: "'DM Sans', sans-serif", fontWeight: 600, opacity: loading ? 0.6 : 1,
           }}
         >
@@ -128,7 +128,7 @@ export default function CostosPage() {
         <h2 style={{ ...adminFonts.sectionTitle, marginBottom: '16px' }}>¿Hay margen? (últimos {days}d)</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
           <AdminCard icon={<Users size={20} />} label="Costo IA / usuario activo" value={usd(data?.costPerActiveUser ?? 0)} loading={loading}>
-            <span style={{ ...adminFonts.label, textTransform: 'none', fontSize: '11px' }}>
+            <span style={{ ...adminFonts.label, textTransform: 'none', fontSize: FONT_SIZE.caption }}>
               {data?.activeUsers ?? 0} usuarios · prod {usd(data?.prodCostUsd ?? 0)}
             </span>
           </AdminCard>
@@ -140,19 +140,19 @@ export default function CostosPage() {
             loading={loading}
             style={{ borderColor: marginPositive ? adminColors.green : adminColors.red }}
           >
-            <span style={{ ...adminFonts.label, textTransform: 'none', fontSize: '11px', color: marginPositive ? adminColors.green : adminColors.red, fontWeight: 600 }}>
+            <span style={{ ...adminFonts.label, textTransform: 'none', fontSize: FONT_SIZE.caption, color: marginPositive ? adminColors.green : adminColors.red, fontWeight: 600 }}>
               {marginPositive ? 'Rentable' : 'En pérdida'} por usuario
             </span>
           </AdminCard>
 
           <AdminCard icon={<Target size={20} />} label="Costo / conversación coach" value={usd(data?.costPerCoachConversation ?? 0)} loading={loading}>
-            <span style={{ ...adminFonts.label, textTransform: 'none', fontSize: '11px' }}>
+            <span style={{ ...adminFonts.label, textTransform: 'none', fontSize: FONT_SIZE.caption }}>
               {data?.coachConversations ?? 0} conversaciones · {usd(data?.coachCostUsd ?? 0)}
             </span>
           </AdminCard>
 
           <AdminCard icon={<BarChart3 size={20} />} label="Input del coach por caché" value={pct(data?.coachCacheHitPct ?? 0)} loading={loading}>
-            <span style={{ ...adminFonts.label, textTransform: 'none', fontSize: '11px' }}>
+            <span style={{ ...adminFonts.label, textTransform: 'none', fontSize: FONT_SIZE.caption }}>
               cuánto más alto, más barato el coach
             </span>
           </AdminCard>
@@ -212,18 +212,18 @@ export default function CostosPage() {
         <h2 style={{ ...adminFonts.sectionTitle, marginBottom: '12px' }}>Costo prod por día</h2>
         <div style={{ ...adminCard }}>
           {loading ? (
-            <div style={{ padding: '20px 0', textAlign: 'center', color: adminColors.grayDim, fontSize: '13px' }}>Cargando...</div>
+            <div style={{ padding: '20px 0', textAlign: 'center', color: adminColors.grayDim, fontSize: FONT_SIZE.small }}>Cargando...</div>
           ) : (data?.byDay.length ?? 0) === 0 ? (
-            <div style={{ padding: '20px 0', textAlign: 'center', color: adminColors.grayDim, fontSize: '13px' }}>Sin datos en el período.</div>
+            <div style={{ padding: '20px 0', textAlign: 'center', color: adminColors.grayDim, fontSize: FONT_SIZE.small }}>Sin datos en el período.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {data?.byDay.map((d) => (
                 <div key={d.day} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ ...adminFonts.mono, fontSize: '11px', width: '78px', color: adminColors.grayDim }}>{d.day.slice(5)}</span>
+                  <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, width: '78px', color: adminColors.grayDim }}>{d.day.slice(5)}</span>
                   <div style={{ flex: 1, background: adminColors.border, borderRadius: '4px', height: '14px', overflow: 'hidden' }}>
                     <div style={{ width: `${Math.min(100, (d.costUsd / maxDayCost) * 100)}%`, height: '100%', background: adminColors.gold, borderRadius: '4px' }} />
                   </div>
-                  <span style={{ ...adminFonts.mono, fontSize: '11px', width: '78px', textAlign: 'right' }}>{usd(d.costUsd)}</span>
+                  <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, width: '78px', textAlign: 'right' }}>{usd(d.costUsd)}</span>
                 </div>
               ))}
             </div>

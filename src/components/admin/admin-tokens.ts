@@ -1,4 +1,5 @@
 // src/components/admin/admin-tokens.ts
+import { FONT_SIZE } from '@/lib/font-size'
 export const adminColors = {
   bg: '#050b14',
   bgDeep: '#070d18',
@@ -23,27 +24,27 @@ export const adminColors = {
 export const adminFonts = {
   kpi: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: '2rem',
+    fontSize: FONT_SIZE.h1,
     color: adminColors.gold,
     fontWeight: 700 as const,
     lineHeight: 1.1,
   },
   kpiSmall: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: '1.5rem',
+    fontSize: FONT_SIZE.h2,
     color: adminColors.gold,
     fontWeight: 700 as const,
     lineHeight: 1.1,
   },
   sectionTitle: {
     fontFamily: "'DM Sans', sans-serif",
-    fontSize: '1.1rem',
+    fontSize: FONT_SIZE.lead,
     color: adminColors.ivory,
     fontWeight: 600 as const,
   },
   label: {
     fontFamily: "'DM Sans', sans-serif",
-    fontSize: '0.75rem',
+    fontSize: FONT_SIZE.caption,
     color: adminColors.gray,
     fontWeight: 500 as const,
     textTransform: 'uppercase' as const,
@@ -51,12 +52,12 @@ export const adminFonts = {
   },
   body: {
     fontFamily: "'DM Sans', sans-serif",
-    fontSize: '0.875rem',
+    fontSize: FONT_SIZE.small,
     color: adminColors.ivory,
   },
   mono: {
     fontFamily: "'DM Mono', monospace",
-    fontSize: '0.8rem',
+    fontSize: FONT_SIZE.dataCaption,
     color: adminColors.gray,
   },
 }

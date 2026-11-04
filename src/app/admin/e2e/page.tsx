@@ -250,7 +250,7 @@ export default function E2EAdminPage() {
                       borderBottom: !isLast ? `1px solid ${adminColors.border}` : 'none',
                     }}>
                       {!detail ? (
-                        <p style={{ color: adminColors.gray, fontSize: 13 }}>Cargando detalle…</p>
+                        <p style={{ color: adminColors.gray, fontSize: FONT_SIZE.small }}>Cargando detalle…</p>
                       ) : (
                         <RunDetailView run={detail} />
                       )}
@@ -270,7 +270,7 @@ function RunDetailView({ run }: { run: RunDetail }) {
   if (run.error_message) {
     return (
       <div>
-        <div style={{ color: adminColors.red, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Error de la corrida</div>
+        <div style={{ color: adminColors.red, fontSize: FONT_SIZE.small, fontWeight: 600, marginBottom: 6 }}>Error de la corrida</div>
         <pre style={{
           color: adminColors.gray,
           fontSize: FONT_SIZE.dataCaption,
@@ -287,13 +287,13 @@ function RunDetailView({ run }: { run: RunDetail }) {
     // del payload (truncated=true) para evitar el límite de WAF de Vercel.
     if (run.summary.truncated && run.summary.failed === 0) {
       return (
-        <p style={{ color: adminColors.gray, fontSize: 13 }}>
+        <p style={{ color: adminColors.gray, fontSize: FONT_SIZE.small }}>
           Todos los tests pasaron o se skipearon — los detalles individuales
           están en el run de GitHub Actions.
         </p>
       )
     }
-    return <p style={{ color: adminColors.gray, fontSize: 13 }}>Todavía no hay resultados de tests individuales.</p>
+    return <p style={{ color: adminColors.gray, fontSize: FONT_SIZE.small }}>Todavía no hay resultados de tests individuales.</p>
   }
   const failed = run.results.filter(r => r.status === 'failed' || r.status === 'timedOut' || r.status === 'interrupted')
   const passed = run.results.filter(r => r.status === 'passed')
@@ -303,7 +303,7 @@ function RunDetailView({ run }: { run: RunDetail }) {
     <div style={{ display: 'grid', gap: 16 }}>
       {failed.length > 0 && (
         <div>
-          <div style={{ color: adminColors.red, fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+          <div style={{ color: adminColors.red, fontSize: FONT_SIZE.small, fontWeight: 600, marginBottom: 8 }}>
             Tests que fallaron ({failed.length})
           </div>
           {failed.map((t, i) => (
@@ -314,12 +314,12 @@ function RunDetailView({ run }: { run: RunDetail }) {
               padding: 12,
               marginBottom: 8,
             }}>
-              <div style={{ color: adminColors.ivory, fontSize: 13, fontWeight: 600 }}>{t.name}</div>
-              {t.file && <div style={{ color: adminColors.gray, fontSize: 11, marginTop: 2 }}>{t.file}</div>}
+              <div style={{ color: adminColors.ivory, fontSize: FONT_SIZE.small, fontWeight: 600 }}>{t.name}</div>
+              {t.file && <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.caption, marginTop: 2 }}>{t.file}</div>}
               {t.error && (
                 <pre style={{
                   color: adminColors.gray,
-                  fontSize: 11,
+                  fontSize: FONT_SIZE.dataCaption,
                   fontFamily: "'DM Mono', monospace",
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
@@ -333,7 +333,7 @@ function RunDetailView({ run }: { run: RunDetail }) {
       )}
       {passed.length > 0 && (
         <div>
-          <div style={{ color: adminColors.green, fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+          <div style={{ color: adminColors.green, fontSize: FONT_SIZE.small, fontWeight: 600, marginBottom: 8 }}>
             Tests que pasaron ({passed.length})
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -341,7 +341,7 @@ function RunDetailView({ run }: { run: RunDetail }) {
               <span key={i} style={{
                 background: adminColors.greenDim,
                 color: adminColors.green,
-                fontSize: 11,
+                fontSize: FONT_SIZE.caption,
                 padding: '4px 8px',
                 borderRadius: 4,
               }}>{t.name} ({formatDuration(t.duration_ms)})</span>

@@ -1,6 +1,7 @@
 'use client'
 import dynamic from 'next/dynamic'
 import { adminColors, adminFonts, adminCard } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const AreaChart = dynamic(() => import('recharts').then(m => m.AreaChart), { ssr: false })
 const Area = dynamic(() => import('recharts').then(m => m.Area), { ssr: false })
@@ -34,14 +35,14 @@ export function AdminChart({
     return (
       <div style={{ ...adminCard, height, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         {title && <span style={{ ...adminFonts.label, marginBottom: '12px' }}>{title}</span>}
-        <span style={{ color: adminColors.grayDim, fontSize: '13px' }}>{emptyMessage}</span>
+        <span style={{ color: adminColors.grayDim, fontSize: FONT_SIZE.small }}>{emptyMessage}</span>
       </div>
     )
   }
 
   const tooltipStyle = {
     background: adminColors.card, border: `1px solid ${adminColors.border}`,
-    borderRadius: '8px', color: adminColors.ivory, fontSize: '12px',
+    borderRadius: '8px', color: adminColors.ivory, fontSize: FONT_SIZE.caption,
   }
 
   const Chart = type === 'bar' ? BarChart : AreaChart
@@ -51,8 +52,8 @@ export function AdminChart({
       {title && <span style={{ ...adminFonts.label, display: 'block', marginBottom: '12px' }}>{title}</span>}
       <ResponsiveContainer width="100%" height={height}>
         <Chart data={data}>
-          <XAxis dataKey={xAxisKey} stroke={adminColors.grayDim} tick={{ fontSize: 10, fill: adminColors.gray }} />
-          <YAxis stroke={adminColors.grayDim} tick={{ fontSize: 10, fill: adminColors.gray }} width={35} />
+          <XAxis dataKey={xAxisKey} stroke={adminColors.grayDim} tick={{ fontSize: FONT_SIZE.caption, fill: adminColors.gray }} />
+          <YAxis stroke={adminColors.grayDim} tick={{ fontSize: FONT_SIZE.caption, fill: adminColors.gray }} width={35} />
           <Tooltip contentStyle={tooltipStyle} />
           {dataKeys.map(dk =>
             type === 'bar' ? (

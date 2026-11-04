@@ -55,11 +55,11 @@ export function LiveFeed() {
         display: 'flex', flexDirection: 'column', gap: '2px',
       }}>
         {loading ? (
-          <div style={{ color: adminColors.grayDim, fontSize: '13px', textAlign: 'center', padding: '32px 0' }}>
+          <div style={{ color: adminColors.grayDim, fontSize: FONT_SIZE.small, textAlign: 'center', padding: '32px 0' }}>
             Cargando feed...
           </div>
         ) : events.length === 0 ? (
-          <div style={{ color: adminColors.grayDim, fontSize: '13px', textAlign: 'center', padding: '32px 0' }}>
+          <div style={{ color: adminColors.grayDim, fontSize: FONT_SIZE.small, textAlign: 'center', padding: '32px 0' }}>
             Sin actividad reciente
           </div>
         ) : (
@@ -69,7 +69,7 @@ export function LiveFeed() {
               borderRadius: '6px', alignItems: 'flex-start',
               fontSize: FONT_SIZE.caption,
             }}>
-              <span style={{ ...adminFonts.mono, fontSize: '10px', color: adminColors.grayDim, flexShrink: 0, marginTop: '2px' }}>
+              <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, color: adminColors.grayDim, flexShrink: 0, marginTop: '2px' }}>
                 {e.time}
               </span>
               <span style={{ fontSize: FONT_SIZE.small, flexShrink: 0 }}>{e.icon}</span>

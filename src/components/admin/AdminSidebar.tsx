@@ -49,12 +49,12 @@ export function AdminSidebar({ collapsed, onToggle }: {
         {!collapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{
-              fontFamily: "'Playfair Display', serif", fontSize: '15px',
+              fontFamily: "'Playfair Display', serif", fontSize: FONT_SIZE.body,
               color: adminColors.ivory, fontWeight: 700,
             }}>Golfers+</span>
             <span style={{
               background: adminColors.gold, color: adminColors.bgDeep,
-              fontSize: '8px', fontWeight: 800, padding: '2px 6px',
+              fontSize: FONT_SIZE.caption, fontWeight: 800, padding: '2px 6px',
               borderRadius: '4px', letterSpacing: '0.1em',
             }}>ADMIN</span>
           </div>
@@ -91,7 +91,7 @@ export function AdminSidebar({ collapsed, onToggle }: {
       }}>
         <Link href="/dashboard" style={{
           display: 'flex', alignItems: 'center', gap: '8px',
-          color: adminColors.grayDim, fontSize: '13px', textDecoration: 'none',
+          color: adminColors.grayDim, fontSize: FONT_SIZE.small, textDecoration: 'none',
           justifyContent: collapsed ? 'center' : 'flex-start',
         }}>
           <span>{'\u2190'}</span>

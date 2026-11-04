@@ -144,7 +144,7 @@ export default function LiveFeedPage() {
       </div>
 
       {error && (
-        <div style={{ ...adminCard, padding: 12, marginBottom: 12, borderColor: adminColors.red, color: adminColors.red, fontSize: 13 }}>
+        <div style={{ ...adminCard, padding: 12, marginBottom: 12, borderColor: adminColors.red, color: adminColors.red, fontSize: FONT_SIZE.small }}>
           Error: {error}
         </div>
       )}
@@ -180,13 +180,13 @@ function FeedCard({ item }: { item: FeedItem }) {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 22, lineHeight: 1 }}>{narration.icon}</div>
+            <div style={{ fontSize: FONT_SIZE.h2, lineHeight: 1 }}>{narration.icon}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: FONT_SIZE.small, color: adminColors.ivory, fontWeight: 600 }}>{narration.title}</div>
               {narration.subtitle && (
                 <div style={{ fontSize: FONT_SIZE.caption, color: adminColors.gray, marginTop: 4 }}>{narration.subtitle}</div>
               )}
-              <div style={{ marginTop: 8, display: 'flex', gap: 12, fontSize: 11, color: adminColors.gray }}>
+              <div style={{ marginTop: 8, display: 'flex', gap: 12, fontSize: FONT_SIZE.caption, color: adminColors.gray }}>
                 <Link href={`/admin/sistema/taiger/${item.user_id}`} style={navLink}>{item.user_name}</Link>
                 <span>· {timeStr}</span>
                 <span>· {ago}</span>

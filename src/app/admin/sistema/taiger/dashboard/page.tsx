@@ -69,18 +69,18 @@ export default function EffectivenessDashboard() {
       </div>
 
       <Section title="¿Qué % de planes que terminaron lograron la meta?">
-        <div style={{ fontSize: 28, color: adminColors.gold, fontFamily: "'Playfair Display', serif", fontWeight: 700 }}>
+        <div style={{ fontSize: FONT_SIZE.h1, color: adminColors.gold, fontFamily: "'Playfair Display', serif", fontWeight: 700 }}>
           {data.resolved_by_target_rate != null
             ? `${Math.round(data.resolved_by_target_rate * 100)}%`
             : '—'}
         </div>
-        <div style={{ color: adminColors.gray, fontSize: 13 }}>
+        <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.small }}>
           Un plan se considera logrado cuando el jugador llegó a la meta 3 rondas seguidas. Si esto está alto, los planes funcionan.
         </div>
       </Section>
 
       <Section title={`¿Cómo cumplen los jugadores cuando juegan? (${adhTotal} rondas medidas)`}>
-        <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+        <div style={{ display: 'flex', gap: 16, fontSize: FONT_SIZE.small }}>
           <Adh label="cumplió la meta" count={data.adherence_distribution.full} pct={adhPct(data.adherence_distribution.full)} color={adminColors.green} />
           <Adh label="mejoró sin llegar" count={data.adherence_distribution.partial} pct={adhPct(data.adherence_distribution.partial)} color={adminColors.yellow} />
           <Adh label="no mejoró" count={data.adherence_distribution.none} pct={adhPct(data.adherence_distribution.none)} color={adminColors.red} />
@@ -89,19 +89,19 @@ export default function EffectivenessDashboard() {
       </Section>
 
       <Section title="¿Cuánto tarda un plan en cumplirse?">
-        <div style={{ fontSize: 28, color: adminColors.gold, fontFamily: "'Playfair Display', serif", fontWeight: 700 }}>
+        <div style={{ fontSize: FONT_SIZE.h1, color: adminColors.gold, fontFamily: "'Playfair Display', serif", fontWeight: 700 }}>
           {data.avg_days_to_resolution != null
             ? `${data.avg_days_to_resolution.toFixed(1)} días en promedio`
             : '—'}
         </div>
-        <div style={{ color: adminColors.gray, fontSize: 13, marginTop: 4 }}>
+        <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.small, marginTop: 4 }}>
           Desde que el coach asigna el plan hasta que el jugador llega a la meta o el plan se cierra.
         </div>
       </Section>
 
       <Section title={`¿Qué problemas del juego responden mejor al coaching? (${data.per_pattern.length} tipos)`}>
         {data.per_pattern.length === 0 ? (
-          <div style={{ color: adminColors.gray, fontSize: 13, fontStyle: 'italic' }}>Sin datos aún</div>
+          <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.small, fontStyle: 'italic' }}>Sin datos aún</div>
         ) : (
           <table style={tableStyle}>
             <thead><tr>
@@ -146,8 +146,8 @@ function KpiCard({ label, value, accent = 'gold' }: { label: string; value: numb
   const accentColor = accent === 'green' ? adminColors.green : accent === 'yellow' ? adminColors.yellow : accent === 'gray' ? adminColors.gray : accent === 'red' ? adminColors.red : adminColors.gold
   return (
     <div style={{ ...adminCard, padding: 16 }}>
-      <div style={{ color: adminColors.gray, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 26, color: accentColor, fontFamily: "'Playfair Display', serif", fontWeight: 700, lineHeight: 1 }}>
+      <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.caption, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{label}</div>
+      <div style={{ fontSize: FONT_SIZE.h2, color: accentColor, fontFamily: "'Playfair Display', serif", fontWeight: 700, lineHeight: 1 }}>
         {value.toLocaleString()}
       </div>
     </div>
@@ -166,14 +166,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Adh({ label, count, pct, color }: { label: string; count: number; pct: number; color: string }) {
   return (
     <div style={{ flex: 1, padding: 12, border: `1px solid ${adminColors.border}`, borderRadius: 6 }}>
-      <div style={{ color: adminColors.gray, fontSize: 11, marginBottom: 4 }}>{label}</div>
-      <div style={{ color, fontSize: 22, fontWeight: 700 }}>{pct}%</div>
-      <div style={{ color: adminColors.gray, fontSize: 11 }}>n={count}</div>
+      <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.caption, marginBottom: 4 }}>{label}</div>
+      <div style={{ color, fontSize: FONT_SIZE.h2, fontWeight: 700 }}>{pct}%</div>
+      <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.caption }}>n={count}</div>
     </div>
   )
 }
 
-const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 }
+const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: FONT_SIZE.small }
 function Th({ children }: { children: React.ReactNode }) {
   return <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: `1px solid ${adminColors.border}`, color: adminColors.gray, fontWeight: 500 }}>{children}</th>
 }

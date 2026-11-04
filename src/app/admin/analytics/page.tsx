@@ -7,6 +7,7 @@ import { AdminTable } from '@/components/admin/AdminTable'
 import { FunnelChart } from '@/components/admin/FunnelChart'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
 import { Users, ChevronUp, BarChart3, ChevronDown, PersonStanding, Target } from '@/components/icons'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface AnalyticsData {
   growth: {
@@ -125,7 +126,7 @@ export default function AnalyticsPage() {
             {data ? (
               <FunnelChart steps={funnelSteps} />
             ) : (
-              <span style={{ color: adminColors.grayDim, fontSize: '13px' }}>Cargando...</span>
+              <span style={{ color: adminColors.grayDim, fontSize: FONT_SIZE.small }}>Cargando...</span>
             )}
           </div>
           <AdminTable<{ rank: number; name: string; events: number }>
