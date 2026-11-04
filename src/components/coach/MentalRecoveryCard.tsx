@@ -47,7 +47,7 @@ export function MentalRecoveryCard({ score, band, delta, title, description }: P
   return (
     <div style={cardStyle}>
       <div style={accentStripStyle} aria-hidden />
-      <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color, fontWeight: 700, marginBottom: '12px', fontFamily: '"DM Mono", monospace' }}>
+      <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color, fontWeight: 700, marginBottom: '12px' }}>
         Mental Index
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>

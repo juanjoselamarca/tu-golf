@@ -41,7 +41,7 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
   return (
     <div style={cardStyle}>
       <div style={accent} aria-hidden />
-      <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-recovery-low)', fontWeight: 700, marginBottom: '14px', fontFamily: '"DM Mono", monospace' }}>
+      <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-recovery-low)', fontWeight: 700, marginBottom: '14px' }}>
         Costo psicológico · {windowLabel}
       </div>
       <div style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataXl, fontWeight: 700, lineHeight: 0.92, color: 'var(--coach-recovery-low)', letterSpacing: '-0.03em', marginBottom: '4px' }}>
@@ -54,7 +54,7 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
         Si hubieras contenido las espirales post-bogey en tus {windowLabel}, tu promedio hubiera bajado de <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioReal.toFixed(1)}</b> a <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioContenido.toFixed(1)}</b>. La cabeza paga, no el swing.
       </div>
 
-      <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700, marginBottom: '8px', fontFamily: '"DM Mono", monospace' }}>
+      <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700, marginBottom: '8px' }}>
         Tu yo contenido · última ronda
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>

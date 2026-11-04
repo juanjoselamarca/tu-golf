@@ -66,7 +66,7 @@ export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProp
         <div style={{ marginTop: 16 }} data-testid="taiger-active-plan">
           <div style={{
             fontSize: FONT_SIZE.caption, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)',
-            fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace', marginLeft: 40, marginBottom: 8,
+            fontWeight: 600, marginLeft: 40, marginBottom: 8,
           }}>
             Tu plan activo
           </div>
