@@ -34,6 +34,7 @@ import { resolverDestino } from './proyectos.mjs'
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..', '..')
 const DOMINIO_PRUEBAS = '@golfersplus-test.local'
+export const TEST_E2E_EMAIL = `e2e-test${DOMINIO_PRUEBAS}`
 const LOTE_BYTES = 600_000 // la Management API rechaza cuerpos grandes (413): mismo margen que respaldo/restaurar.mjs
 
 export const manifiesto = JSON.parse(readFileSync(join(AQUI, 'seed-manifest.json'), 'utf8'))
@@ -233,7 +234,7 @@ async function main() {
   const antes = existentes.size
   const cuentas = {}
   for (const [rol, u] of Object.entries(manifiesto.usuarios)) cuentas[rol] = await asegurarCuenta(admin, existentes, u.email, u.nombre)
-  const e2eEmail = process.env.TEST_E2E_USER_EMAIL || `e2e-test${DOMINIO_PRUEBAS}`
+  const e2eEmail = process.env.TEST_E2E_USER_EMAIL || TEST_E2E_EMAIL
   if (existentes.has(e2eEmail)) await asegurarCuenta(admin, existentes, e2eEmail, null, e2ePassword)
   console.log(`cuentas: ${antes} conservadas, ${existentes.size - antes} creadas; perfiles repuestos: ${await reponerPerfiles(sql)}`)
 

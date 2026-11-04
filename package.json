@@ -8,6 +8,7 @@
   "scripts": {
     "prepare": "git config core.hooksPath scripts/git-hooks || exit 0",
     "dev": "next dev",
+    "db:local": "node scripts/local-db.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src",
