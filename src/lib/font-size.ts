@@ -8,8 +8,13 @@ export const FONT_SIZE = {
   h2: 'var(--fs-h2)',
   h1: 'var(--fs-h1)',
   hero: 'var(--fs-hero)',
+  dataCaption: 'var(--fs-data-caption)',
   dataSm: 'var(--fs-data-sm)',
+  dataBody: 'var(--fs-data-body)',
   dataMd: 'var(--fs-data-md)',
+  dataTitle: 'var(--fs-data-title)',
+  dataH2: 'var(--fs-data-h2)',
+  dataH1: 'var(--fs-data-h1)',
   dataLg: 'var(--fs-data-lg)',
   dataXl: 'var(--fs-data-xl)',
 } as const

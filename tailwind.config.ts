@@ -66,13 +66,18 @@ const config: Config = {
         h2:      ['var(--fs-h2)',      { lineHeight: '1.2',  letterSpacing: '-0.01em' }],
         h1:      ['var(--fs-h1)',      { lineHeight: '1.15', letterSpacing: '-0.02em' }],
         hero:    ['var(--fs-hero)',    { lineHeight: '1.05' }],
-        // Data tabular — combinar con font-mono + tabular-nums.
-        // dataSm 14px → hcp, ratings, slope. dataMd 18px → score por hoyo, yardaje.
-        // dataLg/Xl → score gigante de ronda.
-        dataSm:  ['var(--fs-data-sm)', { lineHeight: '1.1' }],
-        dataMd:  ['var(--fs-data-md)', { lineHeight: '1.1' }],
-        dataLg:  ['var(--fs-data-lg)', { lineHeight: '1'   }],
-        dataXl:  ['var(--fs-data-xl)', { lineHeight: '0.95' }],
+        // Tabular data: pair with font-mono + tabular-nums. All DM Mono text uses these steps.
+        // dataCaption…dataH1 match caption…h1 in size only, not in line height or tracking.
+        // dataSm 14px → hcp, ratings, slope. dataMd 18px → hole score, yardage. dataLg/Xl → big round score.
+        dataCaption: ['var(--fs-data-caption)', { lineHeight: '1.1' }],
+        dataSm:      ['var(--fs-data-sm)',      { lineHeight: '1.1' }],
+        dataBody:    ['var(--fs-data-body)',    { lineHeight: '1.1' }],
+        dataMd:      ['var(--fs-data-md)',      { lineHeight: '1.1' }],
+        dataTitle:   ['var(--fs-data-title)',   { lineHeight: '1.1' }],
+        dataH2:      ['var(--fs-data-h2)',      { lineHeight: '1.1' }],
+        dataH1:      ['var(--fs-data-h1)',      { lineHeight: '1'   }],
+        dataLg:      ['var(--fs-data-lg)',      { lineHeight: '1'   }],
+        dataXl:      ['var(--fs-data-xl)',      { lineHeight: '0.95' }],
       },
       transitionDuration: {
         '2000': '2000ms',

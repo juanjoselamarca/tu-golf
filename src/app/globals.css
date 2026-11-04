@@ -39,10 +39,15 @@
   --fs-h2:      1.5rem;    /* 24 */
   --fs-h1:      2rem;      /* 32 */
   --fs-hero:    clamp(2.5rem, 7vw, 4rem);
-  --fs-data-sm: 0.875rem;  /* 14 */
-  --fs-data-md: 1.125rem;  /* 18 */
-  --fs-data-lg: 2.5rem;    /* 40 */
-  --fs-data-xl: clamp(4rem, 14vw, 6rem);
+  --fs-data-caption: 0.75rem;   /* 12 */
+  --fs-data-sm:      0.875rem;  /* 14 */
+  --fs-data-body:    1rem;      /* 16 */
+  --fs-data-md:      1.125rem;  /* 18 */
+  --fs-data-title:   1.25rem;   /* 20 */
+  --fs-data-h2:      1.5rem;    /* 24 */
+  --fs-data-h1:      2rem;      /* 32 */
+  --fs-data-lg:      2.5rem;    /* 40 */
+  --fs-data-xl:      clamp(4rem, 14vw, 6rem);
 
   /* Brand tokens (mismo en ambos modos) */
   --brand:       #C4992A;
