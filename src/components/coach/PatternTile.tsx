@@ -61,8 +61,8 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
           </div>
           <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: FONT_SIZE.body, fontWeight: 600, lineHeight: 1.2, color: isLatent ? 'var(--text-2)' : 'var(--text)' }}>{name}</div>
         </div>
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.h2, fontWeight: 500, color: scoreColor, lineHeight: 1, flexShrink: 0 }}>
-          {score}{scoreSuffix && <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>{scoreSuffix}</span>}
+        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataH2, fontWeight: 500, color: scoreColor, lineHeight: 1, flexShrink: 0 }}>
+          {score}{scoreSuffix && <span style={{ fontSize: FONT_SIZE.dataCaption, color: 'var(--text-3)' }}>{scoreSuffix}</span>}
         </div>
       </div>
       {!isLatent && spark.length > 0 && (
@@ -73,7 +73,7 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
         </div>
       )}
       {/* Sin "ver →": no existe un detalle de patrón al que llevar (dead-end, 25-oct). */}
-      <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
+      <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)', fontSize: FONT_SIZE.dataCaption, color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
         {footMeta}
       </div>
     </div>

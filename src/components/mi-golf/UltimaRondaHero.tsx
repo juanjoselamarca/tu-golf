@@ -77,7 +77,7 @@ export function UltimaRondaHero({ ronda }: { ronda: RondaConScores }) {
         </div>
         <div
           style={{
-            fontSize: FONT_SIZE.caption,
+            fontSize: FONT_SIZE.dataCaption,
             color: TEXT_2,
             marginTop: '4px',
             fontFamily: 'var(--font-dm-mono)',

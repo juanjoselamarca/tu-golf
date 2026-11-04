@@ -99,10 +99,11 @@ Cinco familias activas en producción:
 - title section: 20 px Playfair Display (serif)
 - body: 16 px DM Sans
 - caption: 12 px DM Sans uppercase tracking-wider
-- code/data: 14–18 px DM Mono
+- code/data: DM Mono, con su propia escala de 12 a 96 px (de caption a h1, cada paso de texto tiene su par `data*`)
 
 **Tokens de tamaño:** la escala vive solo en `src/app/globals.css` como `--fs-*`: caption 12, small 14, body 16,
-lead 18, title 20, h2 24, h1 32, hero 40–64 (clamp), dataSm 14, dataMd 18, dataLg 40, dataXl 64–96 (clamp). Tailwind
+lead 18, title 20, h2 24, h1 32, hero 40–64 (clamp) y, para todo texto en DM Mono aunque sea una etiqueta, dataCaption 12, dataSm 14, dataBody 16,
+dataMd 18, dataTitle 20, dataH2 24, dataH1 32, dataLg 40, dataXl 64–96 (clamp). Tailwind
 la lee (`text-caption`, `text-small`, …) y los estilos en línea usan `FONT_SIZE` de `src/lib/font-size.ts`. El piso
 es caption (12 px). En el coach (`src/components/coach`, `src/app/coach`) un tamaño escrito a mano hace fallar
 `npm run lint`.

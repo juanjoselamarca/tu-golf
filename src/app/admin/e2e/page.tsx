@@ -273,7 +273,7 @@ function RunDetailView({ run }: { run: RunDetail }) {
         <div style={{ color: adminColors.red, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Error de la corrida</div>
         <pre style={{
           color: adminColors.gray,
-          fontSize: FONT_SIZE.caption,
+          fontSize: FONT_SIZE.dataCaption,
           fontFamily: "'DM Mono', monospace",
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',

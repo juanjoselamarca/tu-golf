@@ -52,7 +52,7 @@ export function HighlightCard({ narrative, spark, pill }: Props) {
           ))}
         </div>
         <span style={{
-          fontSize: FONT_SIZE.caption,
+          fontSize: FONT_SIZE.dataCaption,
           fontWeight: 600,
           letterSpacing: '0.06em',
           textTransform: 'uppercase' as const,

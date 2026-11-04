@@ -93,7 +93,7 @@ export function PersonalRecordsGrid({ bestRound18, bestRound9 }: Props) {
               </span>
               <span style={{
                 fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
-                fontSize: FONT_SIZE.caption, fontWeight: 600,
+                fontSize: FONT_SIZE.dataCaption, fontWeight: 600,
                 color: scoreColor(d.vsPar),
                 fontVariantNumeric: 'tabular-nums',
               }}>

@@ -220,7 +220,7 @@ const sectionStyle: React.CSSProperties = {
 
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: FONT_SIZE.caption,
+  fontSize: FONT_SIZE.dataCaption,
   fontWeight: 700,
   color: 'var(--text-3)',
   textTransform: 'uppercase',

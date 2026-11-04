@@ -40,7 +40,7 @@ function Section({ id, title, subtitle, children }: { id?: string; title: string
       <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, fontWeight: 700, color: gold, margin: '0 0 4px', lineHeight: 1.2 }}>
         {title}
       </h2>
-      {subtitle && <p style={{ fontSize: FONT_SIZE.caption, color: textFaint, margin: '0 0 16px', fontFamily: '"DM Mono", monospace', letterSpacing: '0.05em' }}>{subtitle}</p>}
+      {subtitle && <p style={{ fontSize: FONT_SIZE.dataCaption, color: textFaint, margin: '0 0 16px', fontFamily: '"DM Mono", monospace', letterSpacing: '0.05em' }}>{subtitle}</p>}
       {!subtitle && <div style={{ marginBottom: '16px' }} />}
       {children}
     </div>
@@ -79,7 +79,7 @@ function GwiScenarioStep({ hole, event, gwi, delta }: { hole: number; event: str
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
       <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(196,153,42,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.caption, fontWeight: 700, color: gold }}>H{hole}</span>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataCaption, fontWeight: 700, color: gold }}>H{hole}</span>
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: '13px', color: ivory }}>{event}</div>

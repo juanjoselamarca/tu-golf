@@ -149,7 +149,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.muted, margin: '0 0 6px' }}>
               Federación
             </p>
-            <p style={{ fontSize: FONT_SIZE.h1, fontWeight: 700, color: C.ivory, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
+            <p style={{ fontSize: FONT_SIZE.dataH1, fontWeight: 700, color: C.ivory, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
               {profileIndex.indice != null ? profileIndex.indice.toFixed(1) : '—'}
             </p>
             <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>Oficial</p>
@@ -161,7 +161,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.gold, margin: '0 0 6px' }}>
               Golfers+
             </p>
-            <p style={{ fontSize: FONT_SIZE.h1, fontWeight: 700, color: profileIndex.indice_golfers != null ? C.gold : C.muted, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
+            <p style={{ fontSize: FONT_SIZE.dataH1, fontWeight: 700, color: profileIndex.indice_golfers != null ? C.gold : C.muted, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
               {profileIndex.indice_golfers != null ? profileIndex.indice_golfers.toFixed(1) : '—'}
             </p>
             <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>
@@ -434,14 +434,14 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 background: C.greenDim, borderRadius: 12,
               }}>
                 <p style={{ color: C.muted, fontSize: 11, margin: '0 0 4px' }}>Front 9</p>
-                <p style={{ color: C.ivory, fontSize: FONT_SIZE.h2, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.front}</p>
+                <p style={{ color: C.ivory, fontSize: FONT_SIZE.dataH2, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.front}</p>
               </div>
               <div style={{
                 flex: 1, textAlign: 'center', padding: 16,
                 background: C.greenDim, borderRadius: 12,
               }}>
                 <p style={{ color: C.muted, fontSize: 11, margin: '0 0 4px' }}>Back 9</p>
-                <p style={{ color: C.ivory, fontSize: FONT_SIZE.h2, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.back}</p>
+                <p style={{ color: C.ivory, fontSize: FONT_SIZE.dataH2, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.back}</p>
               </div>
             </div>
           </div>
@@ -480,7 +480,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                   </div>
                   <span style={{
                     color: i === 0 ? C.gold : C.ivory,
-                    fontSize: FONT_SIZE.title, fontWeight: 700, fontFamily: '"DM Mono", monospace',
+                    fontSize: FONT_SIZE.dataTitle, fontWeight: 700, fontFamily: '"DM Mono", monospace',
                   }}>
                     {r.total_gross}
                   </span>

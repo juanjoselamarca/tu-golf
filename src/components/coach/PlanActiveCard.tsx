@@ -71,7 +71,7 @@ export function PlanActiveCard({ title, description, status, dots, correlationLi
           <div style={{ display: 'flex', justifyContent: dots.length >= 5 ? 'space-between' : 'flex-start', gap: dots.length >= 5 ? 0 : '14px', padding: '0 0 14px' }} role="list" aria-label="Adherencia por ronda">
             {dots.map((d, i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }} role="listitem">
-                <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', fontFamily: '"DM Mono", monospace' }}>
+                <span style={{ fontSize: FONT_SIZE.dataCaption, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', fontFamily: '"DM Mono", monospace' }}>
                   {d.label}
                 </span>
                 {d.state === 'on' ? (
