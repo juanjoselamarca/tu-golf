@@ -71,12 +71,6 @@ export const fieldStyleCompact: React.CSSProperties = {
   gap: 4,
 }
 
-export const labelStyleCompact: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 500,
-  color: 'var(--text-secondary, #4b5563)',
-}
-
 // ── Helpers compartidos ──────────────────────────────────────────────
 
 export const helperStyle: React.CSSProperties = {
