@@ -422,7 +422,7 @@ function RegisterContent() {
               {loading ? 'Creando cuenta...' : 'Crear mi cuenta →'}
             </button>
             <p style={{ fontSize: FONT_SIZE.dataCaption, color: theme.textFaint, textAlign: 'center', margin: '6px 0 0', fontFamily: '"DM Mono", ui-monospace, monospace', letterSpacing: '0.05em' }}>
-              <Check size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> GRATIS &nbsp;·&nbsp; <Check size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> SIN TARJETA &nbsp;·&nbsp; <Check size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> SIN SPAM
+              <span style={{ whiteSpace: 'nowrap' }}><Check size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> GRATIS</span>&nbsp;&nbsp;·&nbsp; <span style={{ whiteSpace: 'nowrap' }}><Check size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> SIN TARJETA</span>&nbsp;&nbsp;·&nbsp; <span style={{ whiteSpace: 'nowrap' }}><Check size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> SIN SPAM</span>
             </p>
           </form>
         </div>
