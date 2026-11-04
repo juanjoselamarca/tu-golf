@@ -166,8 +166,9 @@ test.describe('Score Grupo — /ronda-libre/[codigo]/score-grupo', () => {
     expect(bodyText).toContain('HOYO')
     expect(bodyText).toContain('PAR')
 
-    // Shows both players (exact match to avoid annotator label duplicate)
-    await expect(page.getByText('E2E Admin', { exact: true })).toBeVisible()
+    // El anotador sale dos veces: como rótulo "Anotador de la ronda" y como jugador. Se afirman las dos.
+    await expect(page.getByLabel('Anotador de la ronda: E2E Admin')).toBeVisible()
+    await expect(page.getByText('E2E Admin', { exact: true }).and(page.locator('div'))).toBeVisible()
     await expect(page.getByText('Invitado E2E', { exact: true })).toBeVisible()
 
     expect(pageErrors).toEqual([])

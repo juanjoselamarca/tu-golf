@@ -98,8 +98,11 @@ test.describe('Thursday — Historial + Handicap', () => {
     // No redirect to login
     expect(page.url()).not.toContain('/login')
 
-    // Profile name visible (use heading role to avoid strict mode violation)
-    await expect(page.getByRole('heading', { name: 'E2E Test' })).toBeVisible({ timeout: 15_000 })
+    // El nombre del perfil (h1) es el que tiene la base de pruebas, no un literal: el seed lo cambió de "E2E Test"
+    // a "Juan Pérez" y el spec quedó en rojo sin que la app hiciera nada mal.
+    const { data: perfil } = await adminClient().from('profiles').select('name').eq('id', testUserId).single()
+    expect(perfil?.name, 'el perfil E2E tiene nombre').toBeTruthy()
+    await expect(page.getByRole('heading', { level: 1, name: perfil!.name })).toBeVisible({ timeout: 15_000 })
 
     // At least one index card visible (Federación or Golfers+)
     const federacionCard = page.getByText('Federación', { exact: true })

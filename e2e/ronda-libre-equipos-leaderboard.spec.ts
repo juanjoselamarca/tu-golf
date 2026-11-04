@@ -199,16 +199,23 @@ test.describe('Ronda libre por equipos — clasificación', () => {
       ],
     )
 
-    // Hándicap de equipo de calcularHandicapScramble, 2 jugadores: 35 % del menor + 15 % del mayor (sobre el hándicap
-    // guardado; si debe partir del course handicap WHS es una pregunta del motor, no de este test).
-    //   Halcones 0,35×10 + 0,15×20 = 6,5 · Zorzales 0,35×4 + 0,15×30 = 5,9
+    // Hándicap de equipo scramble (#638): parte del COURSE HANDICAP WHS de cada jugador en el tee de la ronda,
+    // 35 % del menor + 15 % del mayor SIN redondear y un solo redondeo WHS (`handicapEquipoScramble`).
+    // Tee blanco de Los Leones en la base de pruebas: slope 129, CR 71,6, par 72 → CH = índice × 129/113 − 0,4.
+    //   Halcones 0,35 × 11,02 + 0,15 × 22,43 = 7,22 → 7 · Zorzales 0,35 × 4,17 + 0,15 × 33,85 = 6,54 → 7
+    // Si el tee del fixture cambia, los números de abajo dejan de ser ciertos: fallar acá, no en un número raro.
+    const tee = await sinError(
+      'tee blanco de Los Leones',
+      adminClient().from('course_tees').select('slope, rating').eq('course_id', DEFAULT_COURSE_ID).eq('nombre', 'blanco').single(),
+    )
+    expect([tee?.slope, Number(tee?.rating)], 'slope y CR del tee blanco').toEqual([129, 71.6])
     const equipos = await sinError(
       'equipos de la ronda',
       adminClient().from('ronda_equipos').select('nombre, handicap_equipo').eq('ronda_id', id).order('nombre'),
     )
     expect((equipos ?? []).map(e => [e.nombre, Number(e.handicap_equipo)])).toEqual([
-      ['Los Halcones', 6.5],
-      ['Los Zorzales', 5.9],
+      ['Los Halcones', 7],
+      ['Los Zorzales', 7],
     ])
 
     // Halcones 5, 4, 3 = 12 contra par 11 → +1 · Zorzales 4, 4, 3 = 11 → E. Ambos Thru 3.
