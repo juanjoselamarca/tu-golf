@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+import { FONT_SIZE } from '@/lib/font-size'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -965,7 +966,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
             style={{
               width: '100%',
               padding: '12px 14px 12px 40px',
-              fontSize: 15,
+              fontSize: FONT_SIZE.body,
               color: C.ivory,
               background: C.inputBg,
               border: `2px solid var(--text-3)`,

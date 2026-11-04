@@ -302,7 +302,7 @@ const inputStyle: React.CSSProperties = {
   background: 'var(--input-bg)',
   color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 13,
+  fontSize: FONT_SIZE.body,
   outline: 'none',
 }
 

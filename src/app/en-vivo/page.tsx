@@ -13,6 +13,7 @@ import { trackPageView } from '@/lib/analytics'
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { cleanupFollowedRounds } from '@/lib/round-notifications'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /** Fila de la tarjeta: un jugador, o un equipo en scramble/foursome (el puntaje es del equipo). */
 interface JugadorEnVivo {
@@ -161,7 +162,7 @@ export default function EnVivoPage() {
             style={{
               width: '100%', padding: '10px 14px',
               background: 'var(--input-bg)', border: '1px solid var(--input-border)',
-              borderRadius: '10px', color: 'var(--text)', fontSize: '14px',
+              borderRadius: '10px', color: 'var(--text)', fontSize: FONT_SIZE.body,
               fontFamily: 'var(--font-dm-sans)', outline: 'none',
             }}
           />

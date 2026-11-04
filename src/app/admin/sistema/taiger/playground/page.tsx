@@ -191,7 +191,7 @@ export default function PlaygroundPage() {
               border: `1px solid ${adminColors.border}`,
               color: adminColors.ivory,
               borderRadius: 6,
-              fontSize: FONT_SIZE.small,
+              fontSize: FONT_SIZE.body,
               marginBottom: 8,
             }}
           />
@@ -206,7 +206,7 @@ export default function PlaygroundPage() {
               border: `1px solid ${adminColors.border}`,
               color: adminColors.ivory,
               borderRadius: 6,
-              fontSize: FONT_SIZE.small,
+              fontSize: FONT_SIZE.body,
             }}
           >
             <option value="">— sin seleccionar —</option>
@@ -275,7 +275,7 @@ export default function PlaygroundPage() {
                 border: `1px solid ${adminColors.border}`,
                 color: adminColors.ivory,
                 borderRadius: 6,
-                fontSize: FONT_SIZE.small,
+                fontSize: FONT_SIZE.body,
                 resize: 'vertical',
                 marginBottom: 8,
               }}

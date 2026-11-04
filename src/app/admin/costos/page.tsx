@@ -104,7 +104,7 @@ export default function CostosPage() {
               style={{
                 width: '72px', background: adminColors.card, color: adminColors.ivory,
                 border: `1px solid ${adminColors.border}`, borderRadius: '8px',
-                padding: '6px 10px', fontSize: '13px', fontFamily: "'DM Mono', monospace",
+                padding: '6px 10px', fontSize: FONT_SIZE.dataBody, fontFamily: "'DM Mono', monospace",
               }}
             />
           </label>

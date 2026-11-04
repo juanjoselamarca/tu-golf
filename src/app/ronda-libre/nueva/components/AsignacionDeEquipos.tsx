@@ -6,6 +6,7 @@ import type { EquipoDeLaRonda } from '../hooks/useFormularioDeRonda'
 import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
 import { colores, etiqueta, tarjeta } from './estilos'
 import { LEYENDAS } from './leyendas-de-formato'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   formato: FormatoJuego
@@ -68,7 +69,7 @@ export function AsignacionDeEquipos({ formato, jugadores, equipos, onEquipos }: 
             aria-label={`Nombre del equipo ${eIdx + 1}`}
             style={{
               width: '100%', border: 'none', background: 'transparent',
-              fontSize: '14px', fontWeight: 600, color: colores.texto,
+              fontSize: FONT_SIZE.body, fontWeight: 600, color: colores.texto,
               marginBottom: '8px', outline: 'none',
               fontFamily: '"DM Sans", sans-serif',
             }}

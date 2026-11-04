@@ -3,6 +3,8 @@
 // src/app/torneo/[slug]/en-vivo/LiveFilterBar.tsx
 // Barra de filtros: categoria, grupo, "solo mi grupo", boton TV mode.
 
+import { FONT_SIZE } from '@/lib/font-size'
+
 export interface LiveFilterBarProps {
   categories: Array<{ id: string; name: string }>
   groups: Array<{ id: string; name: string }>
@@ -31,7 +33,7 @@ const selectStyle: React.CSSProperties = {
   background: 'var(--bg-surface)',
   color: 'var(--text)',
   fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
-  fontSize: '14px',
+  fontSize: FONT_SIZE.body,
   fontWeight: 500,
   cursor: 'pointer',
   minWidth: '160px',

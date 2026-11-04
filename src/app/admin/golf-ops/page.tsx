@@ -9,6 +9,7 @@ import AdminConfirmModal from '@/components/admin/AdminConfirmModal'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
 import { Trophy, Flag, Radio, CheckCircle, FileText, RefreshCw, Target } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /* ─── types ─── */
 
@@ -55,7 +56,7 @@ const tabs: { key: Tab; label: string }[] = [
 const inputStyle: React.CSSProperties = {
   background: adminColors.bg, border: `1px solid ${adminColors.border}`,
   borderRadius: '8px', padding: '8px 14px', color: adminColors.ivory,
-  fontSize: '13px', outline: 'none', width: '100%',
+  fontSize: FONT_SIZE.body, outline: 'none', width: '100%',
   fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box' as const,
 }
 
@@ -433,7 +434,7 @@ export default function GolfOpsPage() {
                           }}
                           style={{
                             ...inputStyle, width: '40px', padding: '4px 2px', textAlign: 'center' as const,
-                            fontSize: '12px',
+                            fontSize: FONT_SIZE.body,
                           }}
                         />
                       ))}
@@ -903,7 +904,7 @@ export default function GolfOpsPage() {
               style={{
                 background: adminColors.bg, border: `1px solid ${adminColors.border}`,
                 borderRadius: '8px', padding: '8px 14px', color: adminColors.ivory,
-                fontSize: '13px', outline: 'none', width: '100%', maxWidth: '360px',
+                fontSize: FONT_SIZE.body, outline: 'none', width: '100%', maxWidth: '360px',
                 fontFamily: "'DM Sans', sans-serif",
               }}
             />

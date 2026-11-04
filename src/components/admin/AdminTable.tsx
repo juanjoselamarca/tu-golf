@@ -50,7 +50,7 @@ export function AdminTable<T extends Record<string, unknown>>({
             style={{
               background: adminColors.bg, border: `1px solid ${adminColors.border}`,
               borderRadius: '8px', padding: '8px 14px', color: adminColors.ivory,
-              fontSize: '13px', outline: 'none', width: '100%', maxWidth: '360px',
+              fontSize: FONT_SIZE.body, outline: 'none', width: '100%', maxWidth: '360px',
               fontFamily: "'DM Sans', sans-serif",
             }}
           />

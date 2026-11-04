@@ -87,7 +87,7 @@ export default function AssistantInput({
           border: '1px solid var(--border)',
           borderRadius: '12px',
           fontFamily: '"DM Sans", sans-serif',
-          fontSize: FONT_SIZE.small,
+          fontSize: FONT_SIZE.body,
           lineHeight: 1.4,
           outline: 'none',
           minHeight: '40px',

@@ -129,7 +129,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                             if (e.key === 'Enter') hcpEditor.save(row.id!)
                             if (e.key === 'Escape') hcpEditor.cancel()
                           }}
-                          style={{ width: '56px', background: 'var(--bg)', border: '1px solid var(--brand-on-bg)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none' }}
+                          style={{ width: '56px', background: 'var(--bg)', border: '1px solid var(--brand-on-bg)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: FONT_SIZE.body, padding: '4px', outline: 'none' }}
                         />
                       ) : (
                         <button

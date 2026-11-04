@@ -9,6 +9,7 @@ import { useFormErrors } from '@/hooks/useFormErrors'
 import type { CourseOption } from './page'
 import { FORMAT_META } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface TournamentData {
   id: string; name: string; slug: string; format: string; hole_count: number
@@ -77,7 +78,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   const inputStyle = (field: string): React.CSSProperties => ({
     background: 'var(--input-bg)', border: `1px solid ${fieldError(field) ? 'var(--error-border)' : 'var(--input-border)'}`,
     color: 'var(--text)', borderRadius: '8px', padding: '12px', width: '100%',
-    fontSize: '15px', outline: 'none', transition: 'border-color 200ms', boxSizing: 'border-box' as const,
+    fontSize: FONT_SIZE.body, outline: 'none', transition: 'border-color 200ms', boxSizing: 'border-box' as const,
   })
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }
 
@@ -246,7 +247,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
           <div>
             <label style={labelStyle}>Foto de portada (opcional)</label>
             <input type="url" placeholder="URL de imagen" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)}
-              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--text)', borderRadius: '8px', padding: '12px', width: '100%', fontSize: '15px', outline: 'none', boxSizing: 'border-box' }}
+              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--text)', borderRadius: '8px', padding: '12px', width: '100%', fontSize: FONT_SIZE.body, outline: 'none', boxSizing: 'border-box' }}
               onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')} />
           </div>

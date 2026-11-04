@@ -118,7 +118,7 @@ export default function AdminConfirmModal({
             borderRadius: '8px',
             color: adminColors.ivory,
             fontFamily: "'DM Mono', monospace",
-            fontSize: FONT_SIZE.dataSm,
+            fontSize: FONT_SIZE.dataBody,
             outline: 'none',
             boxSizing: 'border-box',
             marginBottom: '24px',

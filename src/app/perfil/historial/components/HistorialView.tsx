@@ -44,7 +44,7 @@ const filterSelectStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
   background: 'var(--bg-surface)',
   color: 'var(--text)',
-  fontSize: '13px',
+  fontSize: FONT_SIZE.body,
 }
 
 /* ── Lazy-loaded chart to avoid bundle bloat on initial load ── */
