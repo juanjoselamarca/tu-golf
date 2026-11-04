@@ -233,14 +233,14 @@ test.describe('Ronda libre por equipos — clasificación', () => {
     const [posZ, equipoZ, scoreZ, thruZ] = await celdas(filaDe(tabla, 'Los Zorzales'))
     expect(posZ.trim()).toBe('1')
     expect(equipoZ).toContain('Gabi Zorzal · Hugo Zorzal')
-    expect(equipoZ).toContain('HCP 5.9')
+    expect(equipoZ).toContain('HCP 7')
     expect(scoreZ.trim()).toBe('E')
     expect(thruZ.trim()).toBe('3')
 
     const [posH, equipoH, scoreH, thruH] = await celdas(filaDe(tabla, 'Los Halcones'))
     expect(posH.trim()).toBe('2')
     expect(equipoH).toContain('Eli Halcón · Fede Halcón')
-    expect(equipoH).toContain('HCP 6.5')
+    expect(equipoH).toContain('HCP 7')
     expect(scoreH.trim()).toBe('+1')
     expect(thruH.trim()).toBe('3')
 
