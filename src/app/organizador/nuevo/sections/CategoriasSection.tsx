@@ -8,7 +8,7 @@
 import { LIST_ITEM_KEY, listPatchFrom } from '@/lib/draft/list-markers'
 import type { ApplyChangeManual } from '../hooks/useDraftActions'
 import type { TournamentConfig, CategoryConfig } from '@/lib/draft/types'
-import { useCourseTeeNames } from '../hooks/useCourseTeeNames'
+import { useCourseTeeNames } from '@/hooks/useCourseTeeNames'
 import { CategoryTeeSelect } from '../components/CategoryTeeSelect'
 import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 

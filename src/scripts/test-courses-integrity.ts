@@ -4,6 +4,7 @@
  * con el total_yards del tee, y los pars suman el par_total.
  */
 import { createClient } from '@supabase/supabase-js'
+import { columnaDeYardaje } from '../golf/courses/tee-yardage-column'
 import { config } from 'dotenv'
 import { resolve } from 'path'
 
@@ -48,15 +49,6 @@ async function main() {
     holesByCourse.get(h.course_id)!.push(h)
   }
 
-  const teeColumnMap: Record<string, keyof typeof holes[0]> = {
-    'azul': 'yardaje_azul',
-    'blanco': 'yardaje_blanco',
-    'rojo': 'yardaje_rojo',
-    'campeonato': 'yardaje_negras',
-    'negro': 'yardaje_negras',
-    'dorado': 'yardaje_blanco',
-  }
-
   const issues: IntegrityIssue[] = []
   let okCount = 0
   let checkedCount = 0
@@ -66,12 +58,12 @@ async function main() {
     const courseHoles = holesByCourse.get(tee.course_id) || []
     if (courseHoles.length === 0) continue
 
-    // Determinar qué columna de yardaje consultar
-    const teeNameLower = tee.nombre.toLowerCase()
-    let col: string | null = null
-    for (const [key, column] of Object.entries(teeColumnMap)) {
-      if (teeNameLower.includes(key)) { col = column; break }
-    }
+    // Qué columna de yardaje consultar, desde la fuente única. Este script
+    // tenía su propio mapeo con 'dorado' → 'yardaje_blanco': o sea bendecía
+    // como correcto justo el dato que la ingesta estaba corrompiendo. Los tees
+    // sin columna propia (dorado, amarillo…) se saltan: no hay nada que
+    // comparar, y compararlos contra la columna de otro color es el bug.
+    const col = columnaDeYardaje(tee.nombre)
     if (!col) continue
 
     const yardages = courseHoles.map(h => (h as unknown as Record<string, number | null>)[col!]).filter(v => v != null) as number[]

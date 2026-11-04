@@ -13,6 +13,7 @@
  *   npx tsx src/scripts/sync-courses-unified.ts --course "Prince of Wales"  # una cancha
  */
 
+import { columnaDeYardaje, type ColumnaDeYardaje } from '@/golf/courses/tee-yardage-column'
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 import { resolve } from 'path'
@@ -141,13 +142,21 @@ function similarity(a: string, b: string): number {
 
 // ─── Tee name mapping: API → BD column ──────────────────────────────────
 // La BD solo tiene: yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo
-function mapTeeToBdColumn(apiTeeName: string): 'yardaje_negras' | 'yardaje_azul' | 'yardaje_blanco' | 'yardaje_rojo' | null {
+function mapTeeToBdColumn(apiTeeName: string): ColumnaDeYardaje | null {
   const n = apiTeeName.toLowerCase()
+  // Los tees SIN columna propia se descartan acá, antes que las heurísticas de
+  // substring: mandar el dorado (y el amarillo) a `yardaje_blanco` escribió las
+  // yardas del dorado en la columna del blanco en 10 canchas activas —
+  // Hacienda Chicureo, Marbella, Cachagua, Las Brisas— que la migración
+  // 20261030180000 limpia. `course_holes` tiene cuatro columnas y el catálogo
+  // diez colores: para los otros seis no hay dónde guardar, y eso se dice.
+  if (n.includes('gold') || n.includes('dorad') || n.includes('yellow') || n.includes('amarill')) return null
   if (n.includes('champ') || n.includes('tiger') || n.includes('black') || n.includes('negr') || n.includes('campe')) return 'yardaje_negras'
   if (n.includes('blue') || n.includes('azul')) return 'yardaje_azul'
-  if (n.includes('white') || n.includes('blanco') || n.includes('yellow') || n.includes('amarillo') || n.includes('gold') || n.includes('dorado')) return 'yardaje_blanco'
+  if (n.includes('white') || n.includes('blanco')) return 'yardaje_blanco'
   if (n.includes('red') || n.includes('rojo') || n.includes('ladies')) return 'yardaje_rojo'
-  return null
+  // Nombres que no son un color conocido: la fuente canónica decide.
+  return columnaDeYardaje(apiTeeName)
 }
 
 // ─── Match tee BD by nombre against API tee_name ────────────────────────

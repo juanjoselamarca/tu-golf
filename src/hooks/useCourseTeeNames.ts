@@ -1,6 +1,6 @@
 'use client'
 
-// src/app/organizador/nuevo/hooks/useCourseTeeNames.ts
+// src/hooks/useCourseTeeNames.ts
 //
 // Carga los nombres de tee de las canchas elegidas en las rondas del borrador.
 // Recarga solo cuando cambia el conjunto de canchas, no en cada tecla. El estado

@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getCourseDisplayName } from '@/golf/courses/data'
+import { etiquetaDeTeesDelTorneo } from '@/golf/tournament-tees-mode'
 
 export interface TorneoHojaSalida {
   name: string
@@ -24,23 +25,12 @@ export interface GrupoHojaSalida {
   players: Array<{ name: string; handicap: number | null }>
 }
 
-/** Traduce el valor crudo de tournaments.tees a etiqueta legible. */
-function displayTees(tees: string): string {
-  const LABELS: Record<string, string> = {
-    per_player: 'por jugador',
-    per_category: 'por categoría',
-    manual: 'asignación manual',
-    mixed: 'mixtos',
-  }
-  return LABELS[tees] ?? tees.charAt(0).toUpperCase() + tees.slice(1)
-}
-
 /** "Cancha · 9H · Tees Azul", omitiendo las partes vacías. */
 export function lineaCanchaHojaSalida(t: TorneoHojaSalida): string {
   return [
     t.course_name?.trim(),
     t.hole_count ? `${t.hole_count}H` : null,
-    t.tees ? `Tees ${displayTees(t.tees)}` : null,
+    t.tees ? `Tees ${etiquetaDeTeesDelTorneo(t.tees)}` : null,
   ].filter(Boolean).join(' · ')
 }
 

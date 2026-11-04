@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   generarOrdenHoyos,
-  getTeeYardageColumn,
   getChipLabel,
   getVsPar,
   getVsParNeto,
@@ -37,36 +36,6 @@ describe('generarOrdenHoyos', () => {
   it('cancha de ≤9 hoyos con shotgun: courseHoles explícito evita hoyos inexistentes', () => {
     // Único caso donde el default 18 no sirve — el caller pasa el tamaño real.
     expect(generarOrdenHoyos(5, 9, 9)).toEqual([5, 6, 7, 8, 9, 1, 2, 3, 4])
-  })
-})
-
-describe('getTeeYardageColumn', () => {
-  it('mapea tees negras + aliases (campeonato/black/negro) → yardaje_negras', () => {
-    expect(getTeeYardageColumn('negras')).toBe('yardaje_negras')
-    expect(getTeeYardageColumn('black')).toBe('yardaje_negras')
-    expect(getTeeYardageColumn('campeonato')).toBe('yardaje_negras')
-    expect(getTeeYardageColumn('negro')).toBe('yardaje_negras')
-  })
-  it('mapea tees azules → yardaje_azul', () => {
-    expect(getTeeYardageColumn('blue')).toBe('yardaje_azul')
-    expect(getTeeYardageColumn('azul')).toBe('yardaje_azul')
-  })
-  it('mapea tees blancos → yardaje_blanco', () => {
-    expect(getTeeYardageColumn('white')).toBe('yardaje_blanco')
-    expect(getTeeYardageColumn('blanco')).toBe('yardaje_blanco')
-  })
-  it('mapea tees rojos → yardaje_rojo', () => {
-    expect(getTeeYardageColumn('red')).toBe('yardaje_rojo')
-    expect(getTeeYardageColumn('rojo')).toBe('yardaje_rojo')
-  })
-  it('es case-insensitive', () => {
-    expect(getTeeYardageColumn('BLUE')).toBe('yardaje_azul')
-    expect(getTeeYardageColumn('Blanco')).toBe('yardaje_blanco')
-  })
-  it('default → yardaje_azul para tees desconocidos', () => {
-    expect(getTeeYardageColumn('amarillo')).toBe('yardaje_azul')
-    expect(getTeeYardageColumn('gold')).toBe('yardaje_azul')
-    expect(getTeeYardageColumn('')).toBe('yardaje_azul')
   })
 })
 

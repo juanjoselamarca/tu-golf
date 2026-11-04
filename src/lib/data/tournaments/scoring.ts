@@ -23,6 +23,7 @@ import {
   type RangoHandicap,
 } from '@/golf/handicap-index-range'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import { JUGADOR_EN_TORNEO_STATUSES } from '@/golf/tournament-status'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
 import { fetchRoundPlayConfig } from './rounds'
 import {
@@ -369,7 +370,7 @@ export async function fetchResumenBoardInputs(
       .from('players')
       .select(LEGACY_PLAYER_SELECT)
       .eq('tournament_id', tournament.id)
-      .in('status', ['pending', 'approved', 'waitlist']),
+      .in('status', [...JUGADOR_EN_TORNEO_STATUSES]),
     fetchLegacyHcpContext(supabase as unknown as Client, tournament.id),
     // Rondas en otra cancha que la 1: el Resumen puntúa cada ronda con SU
     // cancha, igual que el board público.

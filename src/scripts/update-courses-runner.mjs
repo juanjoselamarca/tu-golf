@@ -42,6 +42,11 @@ function estimateSI(holes) {
   return si
 }
 
+// OJO: este runner es .mjs y corre con node pelado, así que no puede importar
+// la fuente única `columnaDeYardaje` (TypeScript). El criterio de acá tiene que
+// seguir espejando `src/golf/courses/tee-yardage-column.ts`: un color sin
+// columna propia (dorado, amarillo…) devuelve null y NO se escribe en la
+// columna de otro color.
 function mapTee(name) {
   const l = name.toLowerCase()
   if (['negras','negro','negra','black','championship','campeonato'].includes(l)) return 'negras'
