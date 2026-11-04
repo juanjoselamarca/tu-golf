@@ -25,7 +25,7 @@ const S = {
   } as React.CSSProperties,
   h1: {
     fontFamily: 'var(--font-playfair), serif',
-    fontSize: 28,
+    fontSize: FONT_SIZE.h1,
     fontWeight: 700,
     color: 'var(--ivory)',
     marginBottom: 32,
@@ -33,7 +33,7 @@ const S = {
   } as React.CSSProperties,
   h2: {
     fontFamily: 'var(--font-dm-sans)',
-    fontSize: 17,
+    fontSize: FONT_SIZE.lead,
     fontWeight: 600,
     color: 'var(--gold)',
     marginTop: 36,

@@ -85,7 +85,7 @@ export default function TarjetaPublicaPage() {
       {/* Header */}
       <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '12px 16px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href={isLoggedIn ? '/perfil/historial' : '/'} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>
+          <Link href={isLoggedIn ? '/perfil/historial' : '/'} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', textDecoration: 'none', fontSize: FONT_SIZE.small, fontWeight: 500 }}>
             <ArrowLeft size={16} />
             {isLoggedIn ? 'Mi historial' : 'Golfers+'}
           </Link>
@@ -100,10 +100,10 @@ export default function TarjetaPublicaPage() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 60px' }}>
         {/* Course header */}
         <div style={{ marginBottom: 16, textAlign: 'center' }}>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h2, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
             {round.course_name}
           </h1>
-          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
+          <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-3)' }}>
             {dateStr}
             {round.tee_color && ` · ${round.tee_color}`}
             {` · ${totalHoles} hoyos`}
@@ -126,14 +126,14 @@ export default function TarjetaPublicaPage() {
         {isOwner && round.notes && (
           <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
             <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 4 }}>Notas</div>
-            <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{round.notes}</div>
+            <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', lineHeight: 1.5 }}>{round.notes}</div>
           </div>
         )}
 
         {/* CTA para usuarios no logueados */}
         {!isLoggedIn && (
           <div style={{ marginTop: 24, padding: '20px', background: 'var(--bg-surface)', borderRadius: 12, border: '1px solid var(--border)', textAlign: 'center' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
+            <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
               Registra tu propio score
             </div>
             <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginBottom: 14, lineHeight: 1.5 }}>

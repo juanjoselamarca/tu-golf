@@ -189,7 +189,7 @@ function RegisterContent() {
 
           <h1 style={{
             fontFamily: '"Playfair Display", serif',
-            fontSize: '30px',
+            fontSize: FONT_SIZE.h1,
             color: theme.text,
             margin: '0 0 12px',
             letterSpacing: '-0.01em',
@@ -199,7 +199,7 @@ function RegisterContent() {
           </h1>
 
           <p style={{
-            fontSize: '15px',
+            fontSize: FONT_SIZE.body,
             color: theme.textMuted,
             lineHeight: 1.6,
             margin: '0 0 28px',
@@ -294,13 +294,13 @@ function RegisterContent() {
         <div style={{ textAlign: 'center', marginBottom: '4px' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: theme.text, fontWeight: 700, letterSpacing: '-0.01em' }}>Golfers<span style={{ color: theme.goldText }}>+</span></span>
         </div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '30px', color: theme.text, textAlign: 'center', margin: '14px 0 6px', letterSpacing: '-0.015em', lineHeight: 1.15, fontWeight: 600 }}>Crea tu cuenta</h1>
-        <p style={{ fontSize: '15px', color: theme.textMuted, textAlign: 'center', marginBottom: '32px', lineHeight: 1.5 }}>Únete a la comunidad de golfistas</p>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h1, color: theme.text, textAlign: 'center', margin: '14px 0 6px', letterSpacing: '-0.015em', lineHeight: 1.15, fontWeight: 600 }}>Crea tu cuenta</h1>
+        <p style={{ fontSize: FONT_SIZE.body, color: theme.textMuted, textAlign: 'center', marginBottom: '32px', lineHeight: 1.5 }}>Únete a la comunidad de golfistas</p>
 
         {/* Google */}
         <button
           onClick={handleGoogle}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'var(--bg-surface)', color: theme.text, borderRadius: '10px', padding: '13px 16px', width: '100%', fontSize: '15px', fontWeight: 500, border: `1px solid ${theme.border}`, cursor: 'pointer', transition: 'box-shadow 200ms, border-color 200ms' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'var(--bg-surface)', color: theme.text, borderRadius: '10px', padding: '13px 16px', width: '100%', fontSize: FONT_SIZE.body, fontWeight: 500, border: `1px solid ${theme.border}`, cursor: 'pointer', transition: 'box-shadow 200ms, border-color 200ms' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(15,23,42,0.08)'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e0' }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; (e.currentTarget as HTMLButtonElement).style.borderColor = theme.border }}
         >
@@ -414,7 +414,7 @@ function RegisterContent() {
             <button
               type="submit"
               disabled={loading}
-              style={{ background: theme.gold, color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', width: '100%', borderRadius: '12px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms, box-shadow 200ms', marginTop: '6px', boxShadow: '0 2px 10px rgba(196,153,42,0.25)' }}
+              style={{ background: theme.gold, color: 'var(--brand-dark)', fontWeight: 700, fontSize: FONT_SIZE.body, width: '100%', borderRadius: '12px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms, box-shadow 200ms', marginTop: '6px', boxShadow: '0 2px 10px rgba(196,153,42,0.25)' }}
               onMouseEnter={(e) => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.05)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(196,153,42,0.35)' } }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 10px rgba(196,153,42,0.25)' }}
             >

@@ -14,7 +14,7 @@ export default function NotFound() {
       <Flag size={44} strokeWidth={1.5} aria-hidden style={{ color: 'var(--brand-on-bg)', marginBottom: '16px' }} />
       <h1 style={{
         fontFamily: '"Playfair Display", serif',
-        fontSize: '28px', fontWeight: 700, color: 'var(--text)',
+        fontSize: FONT_SIZE.h1, fontWeight: 700, color: 'var(--text)',
         marginBottom: '8px',
       }}>
         Página no encontrada

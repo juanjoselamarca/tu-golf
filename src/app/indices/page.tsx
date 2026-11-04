@@ -50,8 +50,8 @@ function Section({ id, title, subtitle, children }: { id?: string; title: string
 function FormulaBlock({ formula, explanation }: { formula: string; explanation: string }) {
   return (
     <div style={{ background: 'rgba(196,153,42,0.06)', border: `1px solid ${border}`, borderRadius: '10px', padding: '14px 16px', margin: '12px 0' }}>
-      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '13px', fontWeight: 600, color: gold, marginBottom: '6px' }}>{formula}</div>
-      <div style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5 }}>{explanation}</div>
+      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataSm, fontWeight: 600, color: gold, marginBottom: '6px' }}>{formula}</div>
+      <div style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.5 }}>{explanation}</div>
     </div>
   )
 }
@@ -61,15 +61,15 @@ function PgaCard({ player, moment, cpiEstimate, description, color }: { player: 
     <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}`, borderRadius: '12px', padding: '16px', marginBottom: '10px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
         <div>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: ivory }}>{player}</div>
+          <div style={{ fontSize: FONT_SIZE.body, fontWeight: 700, color: ivory }}>{player}</div>
           <div style={{ fontSize: FONT_SIZE.dataCaption, color: textFaint, fontFamily: '"DM Mono", monospace' }}>{moment}</div>
         </div>
         <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-          <div style={{ fontSize: '28px', fontWeight: 700, color, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>{cpiEstimate}</div>
+          <div style={{ fontSize: FONT_SIZE.dataH1, fontWeight: 700, color, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>{cpiEstimate}</div>
           <div style={{ fontSize: FONT_SIZE.dataCaption, color: textFaint, fontFamily: '"DM Mono", monospace' }}>CPI EST.</div>
         </div>
       </div>
-      <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5, margin: 0 }}>{description}</p>
+      <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.5, margin: 0 }}>{description}</p>
     </div>
   )
 }
@@ -82,7 +82,7 @@ function GwiScenarioStep({ hole, event, gwi, delta }: { hole: number; event: str
         <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataCaption, fontWeight: 700, color: gold }}>H{hole}</span>
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '13px', color: ivory }}>{event}</div>
+        <div style={{ fontSize: FONT_SIZE.small, color: ivory }}>{event}</div>
       </div>
       <div style={{ textAlign: 'right', minWidth: '60px' }}>
         <div style={{ fontSize: FONT_SIZE.dataMd, fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace' }}>{gwi}%</div>
@@ -106,7 +106,7 @@ export default function IndicesPage() {
       {/* ═══ HERO ═══ */}
       <div style={{ padding: '40px 20px 24px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
         <LabBadge />
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', fontWeight: 700, color: ivory, margin: '16px 0 10px', lineHeight: 1.1 }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h1, fontWeight: 700, color: ivory, margin: '16px 0 10px', lineHeight: 1.1 }}>
           Golf Intelligence
         </h1>
         <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.6, maxWidth: '400px', margin: '0 auto' }}>
@@ -123,7 +123,7 @@ export default function IndicesPage() {
             { key: 'indice' as const, label: 'Índice G+' },
           ]).map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-              flex: 1, padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
+              flex: 1, padding: '10px', borderRadius: '10px', fontSize: FONT_SIZE.dataSm, fontWeight: 600,
               border: 'none', cursor: 'pointer', fontFamily: '"DM Mono", monospace',
               background: activeTab === tab.key ? gold : 'transparent',
               color: activeTab === tab.key ? bg : textFaint,
@@ -196,7 +196,7 @@ export default function IndicesPage() {
                   <div key={f.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
                     <div style={{ fontSize: FONT_SIZE.title, marginBottom: '6px', color: gold }}>{f.icon}</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
-                      <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '22px', fontWeight: 700, color: gold }}>{f.pts}</span>
+                      <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataH2, fontWeight: 700, color: gold }}>{f.pts}</span>
                       <span style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: ivory }}>{f.label}</span>
                     </div>
                     <div style={{ fontSize: FONT_SIZE.caption, color: textMuted, lineHeight: 1.4 }}>{f.desc}</div>
@@ -214,16 +214,16 @@ export default function IndicesPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
                   <div style={{ fontSize: FONT_SIZE.dataCaption, color: textFaint, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>ÍNDICE</div>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: textMuted, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>12</div>
+                  <div style={{ fontSize: FONT_SIZE.dataLg, fontWeight: 700, color: textMuted, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>12</div>
                   <div style={{ fontSize: FONT_SIZE.caption, color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>potencial</strong>. Usa tus mejores rondas. Lo que puedes hacer en un buen día.</div>
                 </div>
                 <div style={{ background: 'rgba(196,153,42,0.06)', borderRadius: '10px', padding: '14px', border: `1px solid ${border}`, textAlign: 'center' }}>
                   <div style={{ fontSize: FONT_SIZE.dataCaption, color: gold, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>CPI™</div>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>67</div>
+                  <div style={{ fontSize: FONT_SIZE.dataLg, fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>67</div>
                   <div style={{ fontSize: FONT_SIZE.caption, color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>realidad hoy</strong>. Usa todas tus rondas recientes. Cómo estás jugando <em>ahora</em>.</div>
                 </div>
               </div>
-              <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5, margin: 0 }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.5, margin: 0 }}>
                 Puedes tener handicap 12 y CPI 35 (mal momento). O handicap 15 y CPI 72 (estás en racha). tAIger+ usa ambos para entender dónde estás parado.
               </p>
             </Section>
@@ -245,7 +245,7 @@ export default function IndicesPage() {
             </Section>
 
             <Section title="Una ronda entre amigos — hoyo a hoyo" subtitle="ESCENARIO: 4 JUGADORES, LOS LEONES, PAR 72">
-              <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5, margin: '0 0 12px' }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textMuted, lineHeight: 1.5, margin: '0 0 12px' }}>
                 Sigue el GWI de <strong style={{ color: gold }}>Martín (HCP 14)</strong> durante una ronda real:
               </p>
               <GwiScenarioStep hole={1} event="Par. Todos pares. Arranca parejo." gwi={25} delta={0} />
@@ -271,7 +271,7 @@ export default function IndicesPage() {
                 explanation="La incertidumbre crece con la raíz cuadrada de los hoyos que faltan. Con 9 por jugar: mucho puede pasar. Con 2: el líder casi siempre gana."
               />
               <div style={{ margin: '16px 0', padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
-                <div style={{ fontSize: '13px', color: ivory, lineHeight: 1.8 }}>
+                <div style={{ fontSize: FONT_SIZE.small, color: ivory, lineHeight: 1.8 }}>
                   <strong style={{ color: gold }}>En la práctica:</strong> Si vas -2 después de 9 hoyos contra 3 amigos HCP 15, tu GWI es ~55%. Parece poco, pero quedan 9 hoyos de incertidumbre. Un triple bogey cambia todo.<br/><br/>
                   <strong style={{ color: gold }}>Dato PGA:</strong> En el Masters 2023, los líderes después del hoyo 9 del domingo ganaron solo el 61% de las veces. El back nine de Augusta es otro torneo.
                 </div>
@@ -306,7 +306,7 @@ export default function IndicesPage() {
                 explanation="Cada ronda se convierte en un diferencial que normaliza la dificultad de la cancha. 113 es el slope estándar. Así un 82 en Los Leones (slope 113) y un 85 en Santo Domingo (slope 128) son comparables."
               />
 
-              <div style={{ margin: '16px 0 8px', fontSize: '13px', fontWeight: 600, color: ivory }}>Tabla WHS: cuántos diferenciales usar</div>
+              <div style={{ margin: '16px 0 8px', fontSize: FONT_SIZE.small, fontWeight: 600, color: ivory }}>Tabla WHS: cuántos diferenciales usar</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '16px' }}>
                 {WHS_TABLE_5_2.map(t => ({
                   rondas: t.from === t.to ? `${t.from}` : `${t.from}-${t.to}`,
@@ -327,14 +327,14 @@ export default function IndicesPage() {
 
             <Section title="Ejemplo real" subtitle="JUGADOR HCP 14 — 12 RONDAS">
               <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', marginBottom: '12px' }}>
-                <div style={{ fontSize: '13px', color: ivory, lineHeight: 1.8 }}>
+                <div style={{ fontSize: FONT_SIZE.small, color: ivory, lineHeight: 1.8 }}>
                   <strong style={{ color: gold }}>12 rondas → usar 4 mejores diferenciales</strong><br/>
                   Diferenciales ordenados: <span style={{ fontFamily: '"DM Mono", monospace', color: green }}>11.2, 12.8, 13.1, 14.0</span><span style={{ color: textFaint }}>, 15.3, 16.1, 17.4, 18.2, 19.0, 20.1, 21.5, 23.8</span><br/><br/>
                   Promedio mejores 4: (11.2 + 12.8 + 13.1 + 14.0) / 4 = <strong style={{ color: gold }}>12.78</strong><br/>
                   Índice: 12.78 redondeado a un decimal = <strong style={{ color: gold, fontSize: FONT_SIZE.body }}>12.8</strong>
                 </div>
               </div>
-              <p style={{ fontSize: '13px', color: textFaint, lineHeight: 1.5, margin: 0 }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: textFaint, lineHeight: 1.5, margin: 0 }}>
                 Necesitas mínimo 3 rondas de 18 hoyos con datos de cancha (slope y rating) para activar tu Índice Golfers+. Se recalcula automáticamente cada vez que registras una ronda.
               </p>
             </Section>
@@ -345,14 +345,14 @@ export default function IndicesPage() {
         <div style={{ textAlign: 'center', marginTop: '24px' }}>
           <Link href="/perfil" style={{
             display: 'inline-block', background: gold, color: bg,
-            padding: '14px 32px', borderRadius: '12px', fontSize: '15px', fontWeight: 700,
+            padding: '14px 32px', borderRadius: '12px', fontSize: FONT_SIZE.body, fontWeight: 700,
             textDecoration: 'none',
           }}>
             Ver mis índices
           </Link>
           <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '16px' }}>
-            <Link href="/demo" style={{ fontSize: '13px', color: textFaint, textDecoration: 'none' }}>Ver perfil demo</Link>
-            <Link href="/register" style={{ fontSize: '13px', color: gold, textDecoration: 'none', fontWeight: 600 }}>Crear cuenta gratis</Link>
+            <Link href="/demo" style={{ fontSize: FONT_SIZE.small, color: textFaint, textDecoration: 'none' }}>Ver perfil demo</Link>
+            <Link href="/register" style={{ fontSize: FONT_SIZE.small, color: gold, textDecoration: 'none', fontWeight: 600 }}>Crear cuenta gratis</Link>
           </div>
         </div>
       </div>

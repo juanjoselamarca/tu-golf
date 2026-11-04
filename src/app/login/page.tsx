@@ -123,7 +123,7 @@ function LoginContent() {
           </span>
         </div>
 
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h2, color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>
           Bienvenido a Golfers+
         </h1>
         <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginBottom: isTournamentJoin ? '12px' : '28px' }}>
@@ -140,7 +140,7 @@ function LoginContent() {
         {/* Google */}
         <button
           onClick={handleGoogle}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'white', color: '#1a1a1a', borderRadius: '8px', padding: '12px 16px', width: '100%', fontSize: '15px', fontWeight: 500, border: 'none', cursor: 'pointer', transition: 'box-shadow 200ms' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'white', color: '#1a1a1a', borderRadius: '8px', padding: '12px 16px', width: '100%', fontSize: FONT_SIZE.body, fontWeight: 500, border: 'none', cursor: 'pointer', transition: 'box-shadow 200ms' }}
           onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 0 2px rgba(196,153,42,0.5)')}
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.boxShadow = 'none')}
         >
@@ -185,7 +185,7 @@ function LoginContent() {
           </div>
 
           <div style={{ textAlign: 'right', marginTop: '-6px' }}>
-            <Link href="/recuperar" style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'none', padding: '12px 0', display: 'inline-block' }}>
+            <Link href="/recuperar" style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', textDecoration: 'none', padding: '12px 0', display: 'inline-block' }}>
               ¿Olvidaste tu contraseña?
             </Link>
           </div>
@@ -193,7 +193,7 @@ function LoginContent() {
           <button
             type="submit"
             disabled={loading}
-            style={{ background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 600, width: '100%', borderRadius: '10px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
+            style={{ background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 600, width: '100%', borderRadius: '10px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: FONT_SIZE.body, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
             onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)' }}
           >

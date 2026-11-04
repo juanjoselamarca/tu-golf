@@ -1,5 +1,6 @@
 import { HOME } from '@/content/home'
 import CTAButton from './CTAButton'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /**
  * CTA final — fórmula CRO (titular + 3 pasos + doble CTA + proofbar).
@@ -43,7 +44,7 @@ export default function FinalCta() {
       <div className="proofbar">
         <div className="pi"><span className="n mono">+180</span><span className="t">{c.proof.coursesLabel}</span></div>
         <div className="pi"><span className="n mono">100%</span><span className="t">{c.proof.freeLabel}</span></div>
-        <div className="pi"><span className="t" style={{ fontSize: 13, color: 'var(--gold-ant)' }}>{c.proof.madeIn}</span></div>
+        <div className="pi"><span className="t" style={{ fontSize: FONT_SIZE.small, color: 'var(--gold-ant)' }}>{c.proof.madeIn}</span></div>
       </div>
     </section>
   )

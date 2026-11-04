@@ -75,7 +75,7 @@ export default function RecuperarPage() {
           </span>
         </div>
 
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h2, color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>
           Recuperar contraseña
         </h1>
 
@@ -121,7 +121,7 @@ export default function RecuperarPage() {
               />
 
               {error && (
-                <p style={{ fontSize: '13px', color: 'var(--error-fg)', margin: 0 }}>{error}</p>
+                <p style={{ fontSize: FONT_SIZE.small, color: 'var(--error-fg)', margin: 0 }}>{error}</p>
               )}
 
               <button
@@ -136,7 +136,7 @@ export default function RecuperarPage() {
                   padding:      '14px',
                   border:       'none',
                   cursor:       loading ? 'not-allowed' : 'pointer',
-                  fontSize:     '15px',
+                  fontSize:     FONT_SIZE.body,
                   opacity:      loading ? 0.8 : 1,
                   transition:   'filter 200ms',
                 }}
