@@ -70,7 +70,7 @@ export default function RecuperarPage() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: 'var(--text)', fontWeight: 700 }}>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h1, color: 'var(--text)', fontWeight: 700 }}>
             Golfers<span style={{ color: 'var(--brand-on-bg)' }}>+</span>
           </span>
         </div>

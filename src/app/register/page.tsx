@@ -292,7 +292,7 @@ function RegisterContent() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: theme.text, fontWeight: 700, letterSpacing: '-0.01em' }}>Golfers<span style={{ color: theme.goldText }}>+</span></span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h1, color: theme.text, fontWeight: 700, letterSpacing: '-0.01em' }}>Golfers<span style={{ color: theme.goldText }}>+</span></span>
         </div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.h1, color: theme.text, textAlign: 'center', margin: '14px 0 6px', letterSpacing: '-0.015em', lineHeight: 1.15, fontWeight: 600 }}>Crea tu cuenta</h1>
         <p style={{ fontSize: FONT_SIZE.body, color: theme.textMuted, textAlign: 'center', marginBottom: '32px', lineHeight: 1.5 }}>Únete a la comunidad de golfistas</p>
