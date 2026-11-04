@@ -77,7 +77,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
         display: 'flex',
         alignItems: 'center',
         gap: 8,
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 700,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
@@ -200,7 +200,7 @@ function Field({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: 600,
         textTransform: 'uppercase',
         letterSpacing: '0.06em',

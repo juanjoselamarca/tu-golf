@@ -46,14 +46,14 @@ export function MentalRecoveryCard({ score, band, delta, title, description }: P
   return (
     <div style={cardStyle}>
       <div style={accentStripStyle} aria-hidden />
-      <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color, fontWeight: 700, marginBottom: '12px', fontFamily: '"DM Mono", monospace' }}>
+      <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color, fontWeight: 700, marginBottom: '12px', fontFamily: '"DM Mono", monospace' }}>
         Mental Index
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
         <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '56px', fontWeight: 500, lineHeight: 0.95, color, letterSpacing: '-0.02em' }}>{score}</span>
         <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '16px', color: 'var(--text-3)' }}>/ 100</span>
         {deltaText && (
-          <span style={{ marginLeft: 'auto', fontFamily: '"DM Mono", monospace', fontSize: '11.5px', color: 'var(--text-2)' }}>
+          <span style={{ marginLeft: 'auto', fontFamily: '"DM Mono", monospace', fontSize: '12px', color: 'var(--text-2)' }}>
             {deltaText}
           </span>
         )}

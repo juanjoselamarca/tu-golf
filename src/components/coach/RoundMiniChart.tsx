@@ -119,7 +119,7 @@ export function RoundMiniChart({ summary }: Props) {
                 x={x + barW / 2}
                 y={height - 8}
                 textAnchor="middle"
-                fontSize="9"
+                fontSize="12"
                 fill="var(--text-2)"
                 fontFamily="ui-monospace, monospace"
               >
@@ -134,7 +134,7 @@ export function RoundMiniChart({ summary }: Props) {
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
-          fontSize: 11,
+          fontSize: 12,
           color: 'var(--text-2)',
           marginTop: 6,
           paddingTop: 6,
@@ -151,7 +151,7 @@ export function RoundMiniChart({ summary }: Props) {
       <div style={{
         display: 'flex',
         gap: 10,
-        fontSize: 10,
+        fontSize: 12,
         color: 'var(--text-2)',
         marginTop: 8,
         flexWrap: 'wrap',

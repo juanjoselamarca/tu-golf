@@ -54,7 +54,7 @@ const TH: React.CSSProperties = {
   background: 'var(--bg-elevated)',
   color: 'var(--text-3, var(--text-2))',
   fontFamily: '"DM Mono", monospace',
-  fontSize: 11,
+  fontSize: 12,
   fontWeight: 600,
   letterSpacing: '0.04em',
   textTransform: 'uppercase',
@@ -165,7 +165,7 @@ function CitedNumber({ number, source }: { number: number; source: string }) {
         style={{
           marginLeft: 1,
           padding: '0 3px',
-          fontSize: '0.65em',
+          fontSize: 12,
           fontWeight: 600,
           verticalAlign: 'super',
           color: 'var(--brand-on-bg)',

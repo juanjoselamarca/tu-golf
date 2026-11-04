@@ -40,7 +40,7 @@ export function HighlightsCarousel({ label, children }: Props) {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    fontSize: '10.5px',
+    fontSize: '12px',
     letterSpacing: '0.18em',
     textTransform: 'uppercase',
     color: 'var(--text-3)',
