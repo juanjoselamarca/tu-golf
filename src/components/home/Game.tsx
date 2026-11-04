@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { usePostHog } from 'posthog-js/react'
 import { HOME } from '@/content/home'
 import CTAButton from './CTAButton'
+import Eyebrow from './Eyebrow'
 
 /**
  * Mini-juego "Pega tu tiro" — barra de potencia oscilante, 3 tiros, tracer SVG,
@@ -144,7 +145,7 @@ export default function Game() {
       <div className="grid" />
       <div className="ginner">
         <div className="ghead rv">
-          <span className="eyebrow"><span className="d" />{g.eyebrow}</span>
+          <Eyebrow text={g.eyebrow} />
           <h2 className="display">{g.titleLine1} <span className="g">{g.titleLine2}</span></h2>
           <p>{g.desc}</p>
         </div>

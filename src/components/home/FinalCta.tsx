@@ -1,6 +1,7 @@
 import { HOME } from '@/content/home'
 import CTAButton from './CTAButton'
 import { FONT_SIZE } from '@/lib/font-size'
+import Eyebrow from './Eyebrow'
 
 /**
  * CTA final — fórmula CRO (titular + 3 pasos + doble CTA + proofbar).
@@ -18,7 +19,7 @@ export default function FinalCta() {
 
   return (
     <section className="cta" id="cta">
-      <span className="eyebrow"><span className="d" />{c.eyebrow}</span>
+      <Eyebrow text={c.eyebrow} />
       <h2 className="display">
         {c.titleLine1} <span className="g">{c.titleLine2}</span>
       </h2>

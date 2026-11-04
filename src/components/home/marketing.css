@@ -23,8 +23,10 @@
 @keyframes mkt-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
 
 /* shared */
-.home-mkt .eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:999px;padding:7px 15px;font-size:var(--fs-caption);letter-spacing:.24em;text-transform:uppercase;color:var(--gold-ant);font-weight:600}
+.home-mkt .eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:999px;padding:7px 15px;font-size:var(--fs-caption);--eb-track:.24em;letter-spacing:var(--eb-track);text-transform:uppercase;color:var(--gold-ant);font-weight:600}
 .home-mkt .eyebrow .d{width:5px;height:5px;border-radius:50%;background:var(--gold)}
+.home-mkt .eyebrow .eb-part{display:inline-block}
+.home-mkt .eyebrow .eb-sep{word-spacing:1.1em;margin-left:calc(-1*var(--eb-track));background:radial-gradient(circle,currentColor 1.2px,transparent 1.7px) center/100% 100% no-repeat}
 .home-mkt .commit{display:inline-flex;align-items:center;gap:10px;background:var(--gold);color:#0b1424;font-weight:700;font-size:var(--fs-body);padding:14px 14px 14px 24px;border-radius:13px;text-decoration:none;border:0;cursor:pointer;transition:.5s var(--ease)}
 .home-mkt .commit:hover{filter:brightness(1.08)}.home-mkt .commit:active{transform:scale(.98)}
 .home-mkt .commit .c{width:28px;height:28px;border-radius:50%;background:rgba(11,20,36,0.15);display:grid;place-items:center}
