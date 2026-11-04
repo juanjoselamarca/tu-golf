@@ -77,16 +77,6 @@ export const labelStyleCompact: React.CSSProperties = {
   color: 'var(--text-secondary, #4b5563)',
 }
 
-export const inputStyleCompact: React.CSSProperties = {
-  padding: '8px 10px',
-  borderRadius: 8,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--input-bg, #ffffff)',
-  color: 'var(--text-primary, #111827)',
-  fontSize: 13,
-  outline: 'none',
-}
-
 // ── Helpers compartidos ──────────────────────────────────────────────
 
 export const helperStyle: React.CSSProperties = {
