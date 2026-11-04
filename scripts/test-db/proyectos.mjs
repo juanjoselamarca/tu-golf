@@ -1,12 +1,12 @@
 /**
  * Origen (prod) y destino (base de pruebas) de scripts/test-db/. Fuente única de la guarda que impide
  * escribir en producción: TODO script de esta carpeta que escribe pasa por `resolverPruebas()` (directo o vía
- * `resolverProyectos()`).
+ * `resolverProyectos()` o `resolverDestino()`, que sin la API solo deja pasar un Supabase local).
  *
  * La base de pruebas es un 2º proyecto Supabase Free (`golfersplus-test`, creado el 08-oct-2026 tras el
  * incidente del torneo Los Leones: el CI le pegaba a la BD de prod). Ver docs/claude/base-de-pruebas.md.
  */
-import { projectRefDe, PROD_REF } from '../lib/supabase-ref.mjs'
+import { esLoopback, projectRefDe, PROD_REF } from '../lib/supabase-ref.mjs'
 import { apiGet } from '../lib/management-sql.mjs'
 
 export const NOMBRE_PROYECTO_PRUEBAS = 'golfersplus-test'
@@ -45,6 +45,15 @@ export async function resolverPruebas(env = process.env) {
     throw new Error(`la base de pruebas está ${t.status} (¿pausada por inactividad? restaurarla desde el dashboard o POST /v1/projects/${pruebas}/restore)`)
   }
   return pruebas
+}
+
+/**
+ * Seed destination: a local `supabase start` (loopback, no Management API) or the test project via resolverPruebas.
+ * → { local: true, url } | { local: false, ref }
+ */
+export async function resolverDestino(env = process.env) {
+  if (esLoopback(env.TEST_SUPABASE_URL)) return { local: true, url: env.TEST_SUPABASE_URL }
+  return { local: false, ref: await resolverPruebas(env) }
 }
 
 /** Guardas del destino que no necesitan la red. */

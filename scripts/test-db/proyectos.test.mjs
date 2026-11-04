@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest'
 const apiGet = vi.fn(async () => { throw new Error('no debía llamar a la API') })
 vi.mock('../lib/management-sql.mjs', () => ({ apiGet }))
 
-const { resolverProyectos, resolverPruebas } = await import('./proyectos.mjs')
+const { resolverProyectos, resolverPruebas, resolverDestino } = await import('./proyectos.mjs')
 const { PROD_REF } = await import('../lib/supabase-ref.mjs')
 
 const url = ref => `https://${ref}.supabase.co`
@@ -40,6 +40,11 @@ describe('resolverProyectos — guardas antes de tocar la API', () => {
   it('resolverPruebas: falta el destino o el access token', async () => {
     await expect(resolverPruebas({ SUPABASE_ACCESS_TOKEN: 't' })).rejects.toThrow(/TEST_SUPABASE_URL/)
     await expect(resolverPruebas({ TEST_SUPABASE_URL: url(PRUEBAS) })).rejects.toThrow(/SUPABASE_ACCESS_TOKEN/)
+  })
+
+  it('resolverDestino: a local Supabase skips the Management API, a remote one keeps the guards', async () => {
+    await expect(resolverDestino({ TEST_SUPABASE_URL: 'http://127.0.0.1:54321' })).resolves.toEqual({ local: true, url: 'http://127.0.0.1:54321' })
+    await expect(resolverDestino({ TEST_SUPABASE_URL: url(PROD_REF), SUPABASE_ACCESS_TOKEN: 't' })).rejects.toThrow(/PRODUCCIÓN/)
   })
 
   it('ninguno llegó a la API', () => {

@@ -17,8 +17,10 @@
  *   - Idempotente: upsert por llave primaria.
  *
  * Uso:  node --env-file=.env.local scripts/test-db/seed.mjs
+ *       Con TEST_SUPABASE_URL local (http://127.0.0.1:…) siembra el `supabase start` local por su Postgres
+ *       (TEST_SUPABASE_DB_URL): lo hace `npm run db:local`.
  * Env:  TEST_SUPABASE_URL · TEST_SUPABASE_SERVICE_ROLE_KEY · SUPABASE_ACCESS_TOKEN ·
- *       TEST_E2E_USER_PASSWORD (contraseña del usuario E2E de la base de pruebas)
+ *       TEST_E2E_USER_PASSWORD (contraseña del usuario E2E de la base de pruebas) · TEST_SUPABASE_DB_URL (solo local)
  */
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
@@ -26,7 +28,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import { sqlEn, lit, qi } from '../lib/management-sql.mjs'
-import { resolverPruebas } from './proyectos.mjs'
+import { localSql } from '../lib/local-sql.mjs'
+import { resolverDestino } from './proyectos.mjs'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..', '..')
@@ -54,14 +57,14 @@ export function verificarMismasColumnas(tabla, filas) {
 }
 
 /** Columnas escribibles (no generadas), llave primaria, identity y FK a sí misma de una tabla en la base de pruebas. */
-async function estructura(pruebas, tabla) {
-  const columnas = await sqlEn(pruebas, `select column_name c, is_generated g, identity_generation i from information_schema.columns
+async function estructura(sql, tabla) {
+  const columnas = await sql(`select column_name c, is_generated g, identity_generation i from information_schema.columns
     where table_schema='public' and table_name=${lit(tabla)} order by ordinal_position`)
   if (!columnas.length) throw new Error(`public.${tabla} no existe en la base de pruebas (¿falta correr sync-schema.mjs?)`)
-  const pk = (await sqlEn(pruebas, `select a.attname c from pg_index x join pg_attribute a on a.attrelid=x.indrelid and a.attnum=any(x.indkey)
+  const pk = (await sql(`select a.attname c from pg_index x join pg_attribute a on a.attrelid=x.indrelid and a.attnum=any(x.indkey)
     where x.indrelid=${lit(`public.${tabla}`)}::regclass and x.indisprimary`)).map(r => r.c)
   if (!pk.length) throw new Error(`public.${tabla} no tiene llave primaria: no se puede sembrar idempotente`)
-  const selfFk = (await sqlEn(pruebas, `select count(*)::int n from pg_constraint where contype='f' and conrelid=confrelid
+  const selfFk = (await sql(`select count(*)::int n from pg_constraint where contype='f' and conrelid=confrelid
     and conrelid=${lit(`public.${tabla}`)}::regclass`))[0].n > 0
   return { columnas, pk, selfFk }
 }
@@ -74,9 +77,9 @@ export function columnasASembrar(tabla, columnas, filas) {
   return columnas.filter(c => c.g !== 'ALWAYS' && presentes.has(c.c)).map(c => c.c)
 }
 
-async function upsert(pruebas, tabla, filas) {
+async function upsert(sql, tabla, filas) {
   if (!filas.length) return 0
-  const { columnas, pk, selfFk } = await estructura(pruebas, tabla)
+  const { columnas, pk, selfFk } = await estructura(sql, tabla)
   const cols = columnasASembrar(tabla, columnas, filas)
   const identity = columnas.some(c => c.i === 'ALWAYS')
   const lotes = []
@@ -92,20 +95,20 @@ async function upsert(pruebas, tabla, filas) {
   const lista = cols.map(qi).join(', ')
   const actualizar = cols.filter(c => !pk.includes(c)).map(c => `${qi(c)} = excluded.${qi(c)}`).join(', ')
   for (const lote of lotes) {
-    await sqlEn(pruebas, `insert into public.${qi(tabla)} (${lista})${identity ? ' overriding system value' : ''}
+    await sql(`insert into public.${qi(tabla)} (${lista})${identity ? ' overriding system value' : ''}
       select ${cols.map(c => `r.${qi(c)}`).join(', ')} from json_populate_recordset(null::public.${qi(tabla)}, ${lit(JSON.stringify(lote))}::json) r
       on conflict (${pk.map(qi).join(', ')}) do ${actualizar ? `update set ${actualizar}` : 'nothing'}`)
   }
   // Secuencias (serial/identity) al máximo sembrado: los inserts de los tests no chocan con ids copiados.
-  await sqlEn(pruebas, `select setval(s.seq, greatest((select coalesce(max(v), 0) from (select (to_jsonb(t)->>s.col)::bigint v from public.${qi(tabla)} t) m), 1))
+  await sql(`select setval(s.seq, greatest((select coalesce(max(v), 0) from (select (to_jsonb(t)->>s.col)::bigint v from public.${qi(tabla)} t) m), 1))
     from (select a.attname col, pg_get_serial_sequence(${lit(`public.${tabla}`)}, a.attname) seq from pg_attribute a
       where a.attrelid=${lit(`public.${tabla}`)}::regclass and a.attnum>0 and not a.attisdropped) s where s.seq is not null`)
   return filas.length
 }
 
 /** Cuentas de la base de pruebas: todas sintéticas. Aborta si hay alguna fuera del dominio de pruebas. → Map email→id */
-async function cuentasExistentes(pruebas) {
-  const filas = await sqlEn(pruebas, 'select id::text id, email from auth.users')
+async function cuentasExistentes(sql) {
+  const filas = await sql('select id::text id, email from auth.users')
   const ajenas = filas.filter(u => !esEmailDePruebas(u.email))
   if (ajenas.length) throw new Error(`la base de pruebas tiene ${ajenas.length} cuenta(s) fuera de ${DOMINIO_PRUEBAS}: revisar a mano`)
   return new Map(filas.map(u => [u.email, u.id]))
@@ -171,17 +174,17 @@ export function derivaHandleNewUser(def) {
   return actual === esperado ? null : { esperado, actual }
 }
 
-async function reponerPerfiles(pruebas) {
+async function reponerPerfiles(sql) {
   // La función viene de prod (sync-schema). Si cambió, esto ya no replica el trigger: mejor romper el seed que
   // sembrar perfiles distintos a los que crea la app.
-  const [{ def }] = await sqlEn(pruebas, "select pg_get_functiondef('public.handle_new_user'::regproc) def")
+  const [{ def }] = await sql("select pg_get_functiondef('public.handle_new_user'::regproc) def")
   const deriva = derivaHandleNewUser(def)
   if (deriva) {
     throw new Error(`public.handle_new_user cambió y reponerPerfiles ya no la replica. Actualizar CUERPO_HANDLE_NEW_USER y el insert de seed.mjs.
   esperado: ${deriva.esperado}
   actual:   ${deriva.actual}`)
   }
-  const [{ n }] = await sqlEn(pruebas, `with i as (insert into public.profiles (id, email, name, role)
+  const [{ n }] = await sql(`with i as (insert into public.profiles (id, email, name, role)
     select u.id, u.email, coalesce(u.raw_user_meta_data->>'name', split_part(u.email, '@', 1)), 'player' from auth.users u
     on conflict (id) do nothing returning 1) select count(*)::int n from i`)
   return n
@@ -211,26 +214,28 @@ export function verificarSinDatosPersonales(tabla, fila, usuarios) {
 }
 
 async function main() {
-  const pruebas = await resolverPruebas()
   const url = process.env.TEST_SUPABASE_URL
   const key = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY
   const e2ePassword = process.env.TEST_E2E_USER_PASSWORD
   if (!key) throw new Error('falta TEST_SUPABASE_SERVICE_ROLE_KEY')
   if (!e2ePassword) throw new Error('falta TEST_E2E_USER_PASSWORD (contraseña del usuario E2E en la base de pruebas)')
-  console.log(`destino (pruebas): ${pruebas}`)
+  const destino = await resolverDestino()
+  if (destino.local && !process.env.TEST_SUPABASE_DB_URL) throw new Error('falta TEST_SUPABASE_DB_URL (Postgres del Supabase local)')
+  const sql = destino.local ? q => localSql(process.env.TEST_SUPABASE_DB_URL, q) : q => sqlEn(destino.ref, q)
+  console.log(`destino (pruebas): ${destino.local ? url : destino.ref}`)
 
   // 1) Leer y verificar todo seed-data antes de escribir nada.
   const lecturas = leerSeedData()
 
   // 2) Cuentas sintéticas.
   const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-  const existentes = await cuentasExistentes(pruebas)
+  const existentes = await cuentasExistentes(sql)
   const antes = existentes.size
   const cuentas = {}
   for (const [rol, u] of Object.entries(manifiesto.usuarios)) cuentas[rol] = await asegurarCuenta(admin, existentes, u.email, u.nombre)
   const e2eEmail = process.env.TEST_E2E_USER_EMAIL || `e2e-test${DOMINIO_PRUEBAS}`
   if (existentes.has(e2eEmail)) await asegurarCuenta(admin, existentes, e2eEmail, null, e2ePassword)
-  console.log(`cuentas: ${antes} conservadas, ${existentes.size - antes} creadas; perfiles repuestos: ${await reponerPerfiles(pruebas)}`)
+  console.log(`cuentas: ${antes} conservadas, ${existentes.size - antes} creadas; perfiles repuestos: ${await reponerPerfiles(sql)}`)
 
   // 3) Cada rol pasa a ser el id de su cuenta.
   for (const l of lecturas) {
@@ -244,7 +249,7 @@ async function main() {
   // 4) Escribir en orden (catálogo → fixtures, cada tabla después de las que referencia).
   const resumen = []
   for (const l of lecturas) {
-    resumen.push(`${l.tabla} ${await upsert(pruebas, l.tabla, l.filas)}`)
+    resumen.push(`${l.tabla} ${await upsert(sql, l.tabla, l.filas)}`)
   }
   console.log(`sembrado: ${resumen.join(' · ')}`)
 
@@ -256,7 +261,7 @@ async function main() {
   process.stdout.write(r.stdout ?? '')
   if (r.status !== 0) throw new Error(`setup-e2e-user.mjs falló (exit ${r.status}): ${(r.stderr ?? '').slice(0, 500)}`)
 
-  await sqlEn(pruebas, `notify pgrst, 'reload schema'`)
+  await sql(`notify pgrst, 'reload schema'`)
   console.log('✔ seed de la base de pruebas completo')
 }
 
