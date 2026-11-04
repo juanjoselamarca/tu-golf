@@ -119,7 +119,7 @@ export function RoundMiniChart({ summary }: Props) {
                 x={x + barW / 2}
                 y={height - 8}
                 textAnchor="middle"
-                fontSize="9"
+                fontSize="12"
                 fill="var(--text-2)"
                 fontFamily="ui-monospace, monospace"
               >
