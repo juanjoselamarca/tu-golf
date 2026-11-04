@@ -60,7 +60,7 @@ function SoloLeeCallout() {
       }}
     >
       <ShieldCheck size={18} strokeWidth={2} color="var(--brand-on-bg)" style={{ flexShrink: 0, marginTop: '1px' }} />
-      <p style={{ fontSize: '12.5px', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
+      <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
         Golfers+ <strong style={{ color: 'var(--text)' }}>solo lee tu índice</strong> y lo mantiene al día.
         Nunca modifica nada en tu cuenta de FedeGolf.
       </p>
@@ -134,12 +134,12 @@ export function FedegolfVincularModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
             <FedegolfBadge />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', margin: '0 0 3px' }}>
+              <p style={{ fontSize: FONT_SIZE.dataCaption, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', margin: '0 0 3px' }}>
                 Federación
               </p>
               <h3
                 id="fedegolf-modal-title"
-                style={{ fontFamily: '"Playfair Display", serif', fontSize: '19px', fontWeight: 600, color: 'var(--text)', margin: 0, letterSpacing: '-0.01em' }}
+                style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, fontWeight: 600, color: 'var(--text)', margin: 0, letterSpacing: '-0.01em' }}
               >
                 {status.vinculado ? 'Cuenta FedeGolf vinculada' : status.requiereReconexion ? 'Reconectar FedeGolf' : 'Vincular con FedeGolf'}
               </h3>
@@ -166,8 +166,8 @@ export function FedegolfVincularModal({
                 }}
               >
                 <div>
-                  <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '0 0 2px' }}>Índice oficial</p>
-                  <p style={{ fontSize: '26px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: 0 }}>
+                  <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', margin: '0 0 2px' }}>Índice oficial</p>
+                  <p style={{ fontSize: FONT_SIZE.dataH2, fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: 0 }}>
                     {status.ultimoIndice != null ? status.ultimoIndice.toFixed(1) : '—'}
                   </p>
                 </div>
@@ -177,7 +177,7 @@ export function FedegolfVincularModal({
               </div>
 
               {status.ultimoSync && (
-                <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '0 0 18px', fontFamily: '"DM Mono", monospace', letterSpacing: '0.02em' }}>
+                <p style={{ fontSize: FONT_SIZE.dataCaption, color: 'var(--text-3)', margin: '0 0 18px', fontFamily: '"DM Mono", monospace', letterSpacing: '0.02em' }}>
                   Última sincronización {formatRelativeTime(status.ultimoSync)}
                 </p>
               )}
@@ -185,12 +185,12 @@ export function FedegolfVincularModal({
               <SoloLeeCallout />
 
               {error && (
-                <p role="status" style={{ fontSize: '12.5px', color: 'var(--error-fg)', margin: '0 0 14px', lineHeight: 1.45 }}>{error}</p>
+                <p role="status" style={{ fontSize: FONT_SIZE.caption, color: 'var(--error-fg)', margin: '0 0 14px', lineHeight: 1.45 }}>{error}</p>
               )}
 
               {confirmUnlink ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
+                  <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
                     Al desvincular, tu índice deja de sincronizarse solo. Puedes volver a vincular cuando quieras.
                   </p>
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -217,7 +217,7 @@ export function FedegolfVincularModal({
           ) : (
             /* ─── Vista: vincular (formulario) ───────────────────────── */
             <>
-              <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 18px', lineHeight: 1.55 }}>
+              <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: '0 0 18px', lineHeight: 1.55 }}>
                 {status.requiereReconexion
                   ? 'Cambiaste tu clave en fedegolf.cl. Ingrésala de nuevo para seguir trayendo tus tarjetas oficiales; tu índice se sigue actualizando igual.'
                   : 'Conecta tu cuenta de la Federación para traer tu índice oficial y mantenerlo al día automáticamente.'}
@@ -260,7 +260,7 @@ export function FedegolfVincularModal({
               </div>
 
               {error && (
-                <p role="status" aria-live="polite" style={{ fontSize: '12.5px', color: 'var(--error-fg)', margin: '12px 0 0', lineHeight: 1.45 }}>{error}</p>
+                <p role="status" aria-live="polite" style={{ fontSize: FONT_SIZE.caption, color: 'var(--error-fg)', margin: '12px 0 0', lineHeight: 1.45 }}>{error}</p>
               )}
 
               <div style={{ marginTop: '20px' }}>
@@ -271,7 +271,7 @@ export function FedegolfVincularModal({
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '14px' }}>
                 <Lock size={12} strokeWidth={2} color="var(--text-3)" />
-                <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: 0, textAlign: 'center', lineHeight: 1.4 }}>
+                <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', margin: 0, textAlign: 'center', lineHeight: 1.4 }}>
                   Tu clave se guarda cifrada. Puedes desvincular cuando quieras.
                 </p>
               </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 type TabKey = 'competencia' | 'identidad'
 
@@ -74,7 +75,7 @@ function TabButton({
         background: 'transparent',
         border: 'none',
         padding: '8px 0 10px',
-        fontSize: '15px',
+        fontSize: FONT_SIZE.body,
         fontWeight: isActive ? 700 : 500,
         color: isActive ? 'var(--text)' : 'var(--text-2)',
         cursor: 'pointer',

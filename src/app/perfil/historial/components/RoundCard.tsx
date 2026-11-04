@@ -91,7 +91,7 @@ export function RoundCard({
         <div style={{ flexShrink: 0, textAlign: 'center', width: '50px' }}>
           <div style={{
             fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
-            fontSize: '26px', fontWeight: 700, lineHeight: 1,
+            fontSize: FONT_SIZE.dataH2, fontWeight: 700, lineHeight: 1,
             color: scoreColor(ov),
             fontVariantNumeric: 'tabular-nums',
           }}>
@@ -100,7 +100,7 @@ export function RoundCard({
           {ov != null && (
             <div style={{
               fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
-              fontSize: '11px', fontWeight: 600, marginTop: '3px',
+              fontSize: FONT_SIZE.dataCaption, fontWeight: 600, marginTop: '3px',
               color: scoreColor(ov),
             }}>
               {formatOv(ov)}
@@ -124,7 +124,7 @@ export function RoundCard({
                 borderRadius: '6px',
                 background: 'rgba(196,153,42,0.12)',
                 color: 'var(--score-bogey-fg)',
-                fontSize: '10px',
+                fontSize: FONT_SIZE.dataCaption,
                 fontWeight: 600,
                 fontFamily: '"DM Mono", monospace',
                 letterSpacing: '0.02em',
@@ -142,7 +142,7 @@ export function RoundCard({
                 background: 'rgba(196,153,42,0.08)',
                 color: 'var(--score-bogey-fg)',
                 border: '1px solid rgba(196,153,42,0.25)',
-                fontSize: '10px',
+                fontSize: FONT_SIZE.dataCaption,
                 fontWeight: 600,
                 fontFamily: '"DM Mono", monospace',
                 letterSpacing: '0.02em',
@@ -250,7 +250,7 @@ export function RoundCard({
               title={razon}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '4px',
-                fontSize: '11px', fontWeight: 600,
+                fontSize: FONT_SIZE.dataCaption, fontWeight: 600,
                 padding: '3px 8px',
                 borderRadius: '6px',
                 background: cuenta ? 'var(--status-live-bg)' : 'var(--surface-soft)',
@@ -264,7 +264,7 @@ export function RoundCard({
               {cuenta ? 'cuenta para índice' : 'no cuenta'}
             </span>
             {!cuenta && (
-              <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{razon}</span>
+              <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>{razon}</span>
             )}
           </div>
         )

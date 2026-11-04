@@ -53,7 +53,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {edit.saved && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: 'var(--status-live-fg)' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: FONT_SIZE.small, color: 'var(--status-live-fg)' }}>
               <Check size={14} strokeWidth={2.5} /> Guardado
             </span>
           )}
@@ -96,7 +96,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
                 if (!isNaN(n) && n >= 0 && n <= 54) edit.setEditIndice(String(n))
               }}
             />
-            <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '4px', margin: '4px 0 0' }}>
+            <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginTop: '4px', margin: '4px 0 0' }}>
               Golfers+ calcula su propio índice automáticamente basado en tus rondas.
             </p>
           </div>
@@ -120,7 +120,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
             ['Email', userEmail || '—'],
           ].map(([label, value], idx, arr) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border)', gap: '12px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{label}</span>
+              <span style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)' }}>{label}</span>
               <span style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
             </div>
           ))}
@@ -135,7 +135,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
               textDecoration: 'none',
             }}
           >
-            <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>Mi plan</span>
+            <span style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)' }}>Mi plan</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <PlanActual tier={profile.subscription_tier} />
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-3)' }}>

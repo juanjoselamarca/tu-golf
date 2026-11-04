@@ -46,7 +46,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
       {/* Eyebrow */}
       <div
         style={{
-          fontSize: '10px',
+          fontSize: FONT_SIZE.dataCaption,
           fontFamily: '"DM Mono", monospace',
           fontWeight: 700,
           color: TEXT_3,
@@ -62,7 +62,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
       <div
         style={{
           fontFamily: '"Playfair Display", serif',
-          fontSize: '28px',
+          fontSize: FONT_SIZE.h1,
           fontWeight: 600,
           color: TEXT,
           lineHeight: 1.05,
@@ -75,7 +75,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
 
       {/* Subtítulo editorial */}
       {nivel.nombre_siguiente && nivel.golpes_hasta_siguiente != null ? (
-        <div style={{ fontSize: '13px', color: TEXT_2, marginBottom: '28px', lineHeight: 1.5 }}>
+        <div style={{ fontSize: FONT_SIZE.small, color: TEXT_2, marginBottom: '28px', lineHeight: 1.5 }}>
           Faltan{' '}
           <span
             style={{
@@ -91,7 +91,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
           golpes para pasar a <strong style={{ color: TEXT }}>{nivel.nombre_siguiente}</strong>
         </div>
       ) : (
-        <div style={{ fontSize: '13px', color: TEXT_2, marginBottom: '28px', lineHeight: 1.5 }}>
+        <div style={{ fontSize: FONT_SIZE.small, color: TEXT_2, marginBottom: '28px', lineHeight: 1.5 }}>
           Estás en el nivel más alto de Golfers+.
         </div>
       )}
@@ -179,7 +179,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
                     transform: 'translateX(-50%)',
                     fontFamily: '"Playfair Display", serif',
                     fontStyle: 'italic',
-                    fontSize: '11px',
+                    fontSize: FONT_SIZE.caption,
                     color: TEXT_2,
                     whiteSpace: 'nowrap',
                     pointerEvents: 'none',
@@ -197,15 +197,12 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
       {/* Labels alineados con los markers */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${total}, 1fr)`,
+          display: 'flex',
+          justifyContent: 'space-between',
           gap: '4px',
           marginTop: '6px',
-          fontSize: '9px',
-          fontFamily: '"DM Mono", monospace',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          textAlign: 'center',
+          fontSize: FONT_SIZE.caption,
+          fontFamily: 'var(--font-dm-sans)',
         }}
       >
         {NIVELES_ORDEN.map((n, i) => {

@@ -70,7 +70,7 @@ export function AddRoundForm({ form }: Props) {
               {totalGross}
             </span>
             <span style={{
-              fontSize: '13px', fontWeight: 700,
+              fontSize: FONT_SIZE.small, fontWeight: 700,
               padding: '3px 10px', borderRadius: '12px',
               background: formStats.overUnder <= 0 ? 'rgba(196,153,42,0.2)' : 'rgba(220,38,38,0.15)',
               color: formStats.overUnder <= 0 ? 'var(--brand-on-bg)' : 'var(--double)',
@@ -136,14 +136,14 @@ export function AddRoundForm({ form }: Props) {
         </label>
         {(['Front 9', 'Back 9'] as const).map((half, halfIdx) => (
           <div key={half} style={{ marginBottom: '10px' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '5px' }}>{half}</div>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '5px' }}>{half}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '5px' }}>
               {Array.from({ length: 9 }, (_, j) => {
                 const idx = halfIdx * 9 + j
                 const val = scores[idx]
                 return (
                   <div key={idx} style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '9px', color: 'var(--text-2)', marginBottom: '3px' }}>H{idx + 1}</div>
+                    <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '3px' }}>H{idx + 1}</div>
                     <input
                       type="number" min={1} max={19} inputMode="numeric"
                       placeholder="—"

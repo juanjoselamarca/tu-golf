@@ -48,7 +48,7 @@ export function HeroActiva({
           <span
             style={{
               fontFamily: 'var(--font-dm-mono)',
-              fontSize: '10px',
+              fontSize: FONT_SIZE.dataCaption,
               textTransform: 'uppercase',
               letterSpacing: '0.12em',
               fontWeight: 700,
@@ -57,7 +57,7 @@ export function HeroActiva({
             En vivo
           </span>
         </div>
-        <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{ronda.course_name}</div>
+        <div style={{ fontSize: FONT_SIZE.lead, fontWeight: 700, lineHeight: 1.2 }}>{ronda.course_name}</div>
         {/* Sin posición conocida (bola compartida, error) no se afirma un hoyo, pero la acción se ve igual. */}
         <div style={{ fontSize: FONT_SIZE.caption, opacity: 0.85, marginTop: '4px' }}>
           {summary && (
@@ -74,7 +74,7 @@ export function HeroActiva({
           <div style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h1, fontWeight: 700, lineHeight: 1 }}>
             {summary.scoreParcial >= 0 ? '+' : ''}{summary.scoreParcial}
           </div>
-          <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, opacity: 0.85 }}>
+          <div style={{ fontSize: FONT_SIZE.dataCaption, fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, opacity: 0.85 }}>
             vs par
           </div>
         </div>
@@ -112,17 +112,17 @@ export function HeroProximo({
       }}
     >
       <div>
-        <div style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, color: GOLD, marginBottom: '6px' }}>
+        <div style={{ fontSize: FONT_SIZE.dataCaption, fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, color: GOLD, marginBottom: '6px' }}>
           Próximo compromiso
         </div>
-        <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{torneo.name}</div>
+        <div style={{ fontSize: FONT_SIZE.lead, fontWeight: 700, lineHeight: 1.2 }}>{torneo.name}</div>
         <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2, marginTop: '4px' }}>{sub}</div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <div style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h1, fontWeight: 700, lineHeight: 1, color: GOLD }}>
           {countdown}
         </div>
-        <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, color: TEXT_2 }}>
+        <div style={{ fontSize: FONT_SIZE.dataCaption, fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, color: TEXT_2 }}>
           restantes
         </div>
       </div>
@@ -163,7 +163,7 @@ export function Acciones() {
           color: 'var(--bg)',
           borderRadius: '14px',
           padding: '16px 20px',
-          fontSize: '15px',
+          fontSize: FONT_SIZE.body,
           fontWeight: 700,
           textDecoration: 'none',
           minHeight: '56px',
