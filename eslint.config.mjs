@@ -19,6 +19,20 @@ const archivosSobreLimite = [
   'src/app/api/torneos/draft/*/assistant/route.ts',
 ]
 
+// iOS zooms in when a form field under 16px gets focus.
+const formFieldTag = 'JSXOpeningElement[name.name=/^(input|select|textarea|Input)$/]'
+const smallTextClass = '/(^|[\\s:])text-(xs|sm|caption|small|dataCaption|dataSm|\\[(\\d|1[0-5])px\\])(\\s|$)/'
+const formFieldFontSizeRules = [
+  `${formFieldTag} JSXAttribute[name.name='style'] Property[key.name='fontSize'] Literal[value<16]`,
+  `${formFieldTag} JSXAttribute[name.name='style'] Property[key.name='fontSize'] Literal[value=/^(\\d|1[0-5])(\\.\\d+)?px$|^0?\\.\\d+r?em$/]`,
+  `${formFieldTag} JSXAttribute[name.name='style'] Property[key.name='fontSize'] MemberExpression[object.name='FONT_SIZE'][property.name=/^(caption|small|dataCaption|dataSm)$/]`,
+  `${formFieldTag} JSXAttribute[name.name='className'] Literal[value=${smallTextClass}]`,
+  `${formFieldTag} JSXAttribute[name.name='className'] TemplateElement[value.raw=${smallTextClass}]`,
+].map((selector) => ({
+  selector,
+  message: 'Inputs, selects and textareas need a font size of at least 16px (FONT_SIZE.body or dataBody), or iOS zooms in on focus.',
+}))
+
 export default [
   ...nextCoreWebVitals,
   {
@@ -38,6 +52,7 @@ export default [
         { functions: false, classes: true, variables: true, allowNamedExports: false },
       ],
       'max-lines': ['error', { max: 800, skipBlankLines: true, skipComments: true }],
+      'no-restricted-syntax': ['error', ...formFieldFontSizeRules],
     },
   },
   {
@@ -83,6 +98,7 @@ export default [
           selector,
           message: 'Font sizes come from the scale: FONT_SIZE (@/lib/font-size) or var(--fs-*), never a literal. DESIGN.md §4.',
         })),
+        ...formFieldFontSizeRules,
       ],
     },
   },
