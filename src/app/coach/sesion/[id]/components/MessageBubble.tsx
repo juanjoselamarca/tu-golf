@@ -83,16 +83,16 @@ export function MessageBubble({
             msg.content
           )}
         </div>
-        {msg.role === 'assistant' && (
-          <AssistantCards
-            content={msg.content}
-            round={round}
-            projection={projection}
-            plan={plan}
-            onChangeFocus={onChangeFocus}
-          />
-        )}
       </div>
+      {msg.role === 'assistant' && (
+        <AssistantCards
+          content={msg.content}
+          round={round}
+          projection={projection}
+          plan={plan}
+          onChangeFocus={onChangeFocus}
+        />
+      )}
       {showFeedback && onVote && <MessageFeedback vote={vote} onVote={onVote} />}
     </div>
   )
