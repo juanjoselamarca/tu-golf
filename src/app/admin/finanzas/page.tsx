@@ -99,7 +99,7 @@ export default function FinanzasPage() {
                 <span style={{ ...adminFonts.body, fontSize: '13px', textTransform: 'capitalize' }}>{service}</span>
                 <span style={{ ...adminFonts.mono, fontSize: '11px' }}>{info.plan}</span>
                 <span style={{
-                  ...adminFonts.mono, fontSize: FONT_SIZE.caption,
+                  ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption,
                   color: info.cost > 0 ? adminColors.yellow : adminColors.green,
                 }}>
                   ${info.cost.toFixed(2)}

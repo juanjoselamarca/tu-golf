@@ -112,7 +112,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
       <div style={{
         position: 'absolute',
         top: '0px',
-        fontSize: FONT_SIZE.caption,
+        fontSize: FONT_SIZE.dataCaption,
         color: 'var(--text-2)',
         fontFamily: "'DM Mono', monospace",
         letterSpacing: '0.05em',

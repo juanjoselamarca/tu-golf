@@ -89,7 +89,7 @@ export function CpiCard({ cpiData }: Props) {
         <div style={{ flex: 1, height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
           <div style={{ width: `${Math.min(100, Math.max(0, cpiData.score))}%`, height: '100%', background: `linear-gradient(90deg, ${getCpiColor(cpiData.score)}cc, ${getCpiColor(cpiData.score)})`, borderRadius: '3px', transition: 'width 0.6s ease' }} />
         </div>
-        <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', whiteSpace: 'nowrap', fontFamily: '"DM Mono", monospace' }}>
+        <span style={{ fontSize: FONT_SIZE.dataCaption, color: 'var(--text-2)', whiteSpace: 'nowrap', fontFamily: '"DM Mono", monospace' }}>
           {cpiData.rondas_usadas} rondas{isProvisional ? ' · provisional' : ''}
         </span>
       </div>

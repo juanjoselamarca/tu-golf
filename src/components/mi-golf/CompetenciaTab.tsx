@@ -258,7 +258,7 @@ function TorneoRowFinished({
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         {t.posicionFinal && (
           <>
-            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.body, fontWeight: 700, color: GOLD }}>
+            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.dataBody, fontWeight: 700, color: GOLD }}>
               {t.posicionFinal}
             </div>
             {t.totalJugadores && (
@@ -340,7 +340,7 @@ function Rondas({
             <div style={{ textAlign: 'right' }}>
               {r.total_gross != null && (
                 <>
-                  <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.body, fontWeight: 700, color: TEXT }}>
+                  <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.dataBody, fontWeight: 700, color: TEXT }}>
                     {r.total_gross}
                   </div>
                   {esMejor ? (

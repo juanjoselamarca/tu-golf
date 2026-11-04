@@ -185,7 +185,7 @@ export function GroupsSection({
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {g.tee_time && (
-                    <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: FONT_SIZE.dataCaption, color: 'var(--brand-on-bg)', fontFamily: 'monospace' }}>
                       {g.tee_time.includes('T') ? new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : g.tee_time}
                     </span>
                   )}
