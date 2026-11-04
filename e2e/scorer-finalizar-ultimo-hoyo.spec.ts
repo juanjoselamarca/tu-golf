@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test'
+import { marcarAvisoNoMolestarVisto } from './helpers/aviso-no-molestar'
 import {
   adminClient,
   createRondaFixture,
@@ -83,6 +84,7 @@ function totalDe(r: Ronda, sobrePar: number): number {
 
 /** Abre el scorer y confirma que quedó parado en el último hoyo de la ronda, sin golpe todavía. */
 async function abrirEnElUltimoHoyo(page: Page, r: Ronda) {
+  await marcarAvisoNoMolestarVisto(page, r.codigo)
   await page.goto(`/ronda-libre/${r.codigo}/score`)
   expect(page.url(), 'el scorer no manda al login').not.toContain('/login')
   await expect(page.getByRole('button', { name: 'Aumentar score' })).toBeVisible({ timeout: 20_000 })
@@ -246,6 +248,7 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     const cierres: number[] = []
     await page.route(RPC_CERRAR, async route => { cierres.push(Date.now()); await route.continue() })
 
+    await marcarAvisoNoMolestarVisto(page, r.codigo)
     await page.goto(`/ronda-libre/${r.codigo}/score`)
     const mas = page.getByRole('button', { name: 'Aumentar score' })
     await expect(mas).toBeVisible({ timeout: 20_000 })

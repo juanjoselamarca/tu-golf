@@ -13,6 +13,7 @@
  * Fixture: ronda admin_mode con 1 jugador, limpia en afterAll.
  */
 import { test, expect } from '@playwright/test'
+import { marcarAvisoNoMolestarVisto } from './helpers/aviso-no-molestar'
 import { adminClient, getTestUserId, cleanupRondaFixture } from './helpers/ronda-fixture'
 
 const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
@@ -153,6 +154,7 @@ test.describe('Score Grupo — /ronda-libre/[codigo]/score-grupo', () => {
     const ronda = await createAdminRonda({ userId: testUserId, holes: 9 })
     createdRondaIds.push(ronda.id)
 
+    await marcarAvisoNoMolestarVisto(page, ronda.codigo)
     await page.goto(`/ronda-libre/${ronda.codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
@@ -178,6 +180,7 @@ test.describe('Score Grupo — /ronda-libre/[codigo]/score-grupo', () => {
     const ronda = await createAdminRonda({ userId: testUserId, holes: 9 })
     createdRondaIds.push(ronda.id)
 
+    await marcarAvisoNoMolestarVisto(page, ronda.codigo)
     await page.goto(`/ronda-libre/${ronda.codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
@@ -205,6 +208,7 @@ test.describe('Score Grupo — /ronda-libre/[codigo]/score-grupo', () => {
     const ronda = await createAdminRonda({ userId: testUserId, holes: 9 })
     createdRondaIds.push(ronda.id)
 
+    await marcarAvisoNoMolestarVisto(page, ronda.codigo)
     await page.goto(`/ronda-libre/${ronda.codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
@@ -230,6 +234,7 @@ test.describe('Score Grupo — /ronda-libre/[codigo]/score-grupo', () => {
     const ronda = await createAdminRonda({ userId: testUserId, holes: 9 })
     createdRondaIds.push(ronda.id)
 
+    await marcarAvisoNoMolestarVisto(page, ronda.codigo)
     await page.goto(`/ronda-libre/${ronda.codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
@@ -255,6 +260,7 @@ test.describe('Score Grupo — /ronda-libre/[codigo]/score-grupo', () => {
     const ronda = await createAdminRonda({ userId: testUserId, holes: 9 })
     createdRondaIds.push(ronda.id)
 
+    await marcarAvisoNoMolestarVisto(page, ronda.codigo)
     await page.goto(`/ronda-libre/${ronda.codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
@@ -291,6 +297,7 @@ test.describe('Score Grupo — /ronda-libre/[codigo]/score-grupo', () => {
     const ronda = await createAdminRonda({ userId: testUserId, holes: 9 })
     createdRondaIds.push(ronda.id)
 
+    await marcarAvisoNoMolestarVisto(page, ronda.codigo)
     await page.goto(`/ronda-libre/${ronda.codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 

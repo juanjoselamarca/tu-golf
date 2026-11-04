@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { marcarAvisoNoMolestarVisto } from './helpers/aviso-no-molestar'
 import { adminClient, cleanupRondaFixture, createRondaFixture, getTestUserId, sinError } from './helpers/ronda-fixture'
 
 /**
@@ -92,6 +93,7 @@ function erroresDePagina(page: Page): string[] {
 
 /** Abre el scorer y espera la tarjeta head-to-head (sólo existe con 2 jugadores en match play). */
 async function abrirScorer(page: Page, codigo: string, hoyoEsperado: number) {
+  await marcarAvisoNoMolestarVisto(page, codigo)
   await page.goto(`/ronda-libre/${codigo}/score`)
   expect(page.url()).not.toContain('/login')
   // El scorer elige solo al jugador del usuario: no debe aparecer el selector de jugadores.

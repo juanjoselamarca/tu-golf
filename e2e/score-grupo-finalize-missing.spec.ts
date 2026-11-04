@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { marcarAvisoNoMolestarVisto } from './helpers/aviso-no-molestar'
 import { adminClient, cleanupRondaFixture, getTestUserId } from './helpers/ronda-fixture'
 
 /**
@@ -105,6 +106,7 @@ async function createAdminRonda(holes: 9 | 18): Promise<{ id: string; codigo: st
 test('finalize en grupo con hoyos sin marcar pide confirmar auto-fill con par', async ({ page }) => {
   const { codigo } = await createAdminRonda(9)
 
+  await marcarAvisoNoMolestarVisto(page, codigo)
   await page.goto(`/ronda-libre/${codigo}/score-grupo`, { waitUntil: 'networkidle' })
   expect(page.url(), 'no debería redirigir a /login').not.toContain('/login')
 

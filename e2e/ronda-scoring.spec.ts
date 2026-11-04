@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import { hojaAvisoNoMolestar, marcarAvisoNoMolestarVisto } from './helpers/aviso-no-molestar'
+import { RETRASO_AVISO_MS } from '../src/hooks/ronda/useAvisoNoMolestar'
 import {
   adminClient,
   createRondaFixture,
@@ -75,6 +77,7 @@ test('scoring: tap "+" registra score y se persiste en BD', async ({ page }) => 
   createdRondas.push(ronda.id)
 
   // 2. Abrir scoring
+  await marcarAvisoNoMolestarVisto(page, ronda.codigo)
   await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
   expect(page.url()).not.toContain('/login')
 
@@ -109,6 +112,7 @@ test('scoring: tap "+" varias veces incrementa el score correctamente', async ({
   const ronda = await createRondaFixture({ creadorUserId: testUserId })
   createdRondas.push(ronda.id)
 
+  await marcarAvisoNoMolestarVisto(page, ronda.codigo)
   await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
 
   const btnAumentar = page.getByRole('button', { name: 'Aumentar score' })
@@ -141,6 +145,7 @@ test('scoring: tap "-" y "+" ajustan score bidireccional', async ({ page }) => {
   const ronda = await createRondaFixture({ creadorUserId: testUserId })
   createdRondas.push(ronda.id)
 
+  await marcarAvisoNoMolestarVisto(page, ronda.codigo)
   await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
 
   const btnAumentar = page.getByRole('button', { name: 'Aumentar score' })
@@ -173,6 +178,7 @@ test('scoring: navegar "Siguiente hoyo" después de scorear, luego scorear otro'
   const ronda = await createRondaFixture({ creadorUserId: testUserId })
   createdRondas.push(ronda.id)
 
+  await marcarAvisoNoMolestarVisto(page, ronda.codigo)
   await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
 
   // Score hoyo 1
@@ -209,6 +215,7 @@ test('scoring: scores persisten al recargar la página', async ({ page }) => {
   createdRondas.push(ronda.id)
 
   // Primera visita: tap + (par+1) + navegar para gatillar save a BD
+  await marcarAvisoNoMolestarVisto(page, ronda.codigo)
   await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
   const btnAumentar = page.getByRole('button', { name: 'Aumentar score' })
   await expect(btnAumentar).toBeVisible({ timeout: 10_000 })
@@ -229,4 +236,39 @@ test('scoring: scores persisten al recargar la página', async ({ page }) => {
   const scoresPostReload = await getPlayerScores(ronda.id)
   expect(Object.keys(scoresPostReload ?? {}).length).toBe(holesScoredPre)
   expect(scoresPostReload).toEqual(scoresPrePullRefresh)
+})
+
+/**
+ * El aviso de cancha "Activa No molestar" (#654) sale UNA vez por ronda al abrir el scorer y "Ahora no" lo cierra.
+ * Es la contraparte de `marcarAvisoNoMolestarVisto`: los demás tests lo dan por visto para poder anotar; este
+ * verifica que el aviso existe, que no bloquea al jugador una vez cerrado y que no vuelve al recargar.
+ */
+test('el aviso "Activa No molestar" sale una vez al abrir el scorer y "Ahora no" lo cierra', async ({ page }) => {
+  const pageErrors: string[] = []
+  page.on('pageerror', err => pageErrors.push(err.message))
+
+  const ronda = await createRondaFixture({ creadorUserId: testUserId })
+  createdRondas.push(ronda.id)
+
+  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
+  const hoja = hojaAvisoNoMolestar(page)
+  await expect(hoja).toBeVisible({ timeout: 15_000 })
+  await expect(hoja.getByRole('heading', { name: /No molestar/ })).toBeVisible()
+  await expect(hoja.getByRole('button', { name: 'Activar' })).toBeVisible()
+
+  await hoja.getByRole('button', { name: 'Ahora no' }).click()
+  await expect(hoja).toHaveCount(0)
+
+  // Con la hoja cerrada, el primer tap en "+" entra: par + 1 (bogey por defecto).
+  const btnAumentar = page.getByRole('button', { name: 'Aumentar score' })
+  await btnAumentar.click()
+  await expect(page.getByRole('button', { name: 'Disminuir score' })).toBeEnabled()
+
+  // Una vez por ronda: al recargar, pasado el retraso con que entra, no vuelve a salir.
+  await page.reload({ waitUntil: 'networkidle' })
+  await expect(btnAumentar).toBeVisible({ timeout: 10_000 })
+  await page.waitForTimeout(RETRASO_AVISO_MS * 3)
+  await expect(hoja).toHaveCount(0)
+
+  expect(pageErrors).toEqual([])
 })
