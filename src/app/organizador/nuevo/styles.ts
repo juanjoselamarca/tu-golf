@@ -62,15 +62,6 @@ export const inputStyle: React.CSSProperties = {
   outline: 'none',
 }
 
-// ── Variante compacta ────────────────────────────────────────────────
-// Usada por: Categorias, Premios, Rondas (grids densos con muchos campos)
-
-export const fieldStyleCompact: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-}
-
 // ── Helpers compartidos ──────────────────────────────────────────────
 
 export const helperStyle: React.CSSProperties = {
