@@ -37,12 +37,14 @@ export function RoundMiniChart({ summary }: Props) {
   const minScore = Math.min(...scores.map(s => s ?? Infinity).filter(s => s !== Infinity), 1)
 
   const width = 320
-  const height = 110
   const padX = 4
   const padTop = 18
-  const padBottom = 22
-  const innerH = height - padTop - padBottom
+  const barsBottom = 88
+  const innerH = barsBottom - padTop
   const barW = (width - padX * 2) / validHoles
+  // 18 two-digit numbers at 12 px don't fit under bars ~14 px wide (360 px screen): label the odd
+  // front-nine holes and the even back-nine ones, so 1, 9, 10 and 18 always show.
+  const showHoleNumber = (hole: number) => validHoles <= 9 || (hole <= 9 ? hole % 2 === 1 : hole % 2 === 0)
   const yScale = (v: number) => padTop + innerH - ((v - Math.max(0, minScore - 1)) / (maxScore - Math.max(0, minScore - 1))) * innerH
 
   const front9 = scores.slice(0, 9)
@@ -84,7 +86,14 @@ export function RoundMiniChart({ summary }: Props) {
         )}
       </div>
 
-      <svg width={width} height={height} style={{ display: 'block', maxWidth: '100%' }}>
+      {/* Stretches to the real width instead of clipping the last holes; the hole numbers are HTML so they stay at 12 px. */}
+      <svg
+        viewBox={`0 0 ${width} ${barsBottom}`}
+        width="100%"
+        height={barsBottom}
+        preserveAspectRatio="none"
+        style={{ display: 'block' }}
+      >
         {scores.map((s, i) => {
           if (s == null) return null
           const par = pars[i]
@@ -114,21 +123,23 @@ export function RoundMiniChart({ summary }: Props) {
                   strokeDasharray="2 2"
                 />
               )}
-              {/* hole number */}
-              <text
-                x={x + barW / 2}
-                y={height - 8}
-                textAnchor="middle"
-                fontSize="12"
-                fill="var(--text-2)"
-                fontFamily="ui-monospace, monospace"
-              >
-                {i + 1}
-              </text>
             </g>
           )
         })}
       </svg>
+      <div style={{
+        display: 'flex',
+        padding: `0 ${(padX / width) * 100}%`,
+        marginTop: 4,
+        fontFamily: 'ui-monospace, monospace',
+        fontSize: 12,
+        lineHeight: 1,
+        color: 'var(--text-2)',
+      }}>
+        {scores.map((s, i) => (
+          <span key={i} style={{ flex: 1, textAlign: 'center' }}>{s != null && showHoleNumber(i + 1) ? i + 1 : ''}</span>
+        ))}
+      </div>
 
       {showSplit && (
         <div style={{
