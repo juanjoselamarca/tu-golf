@@ -33,7 +33,9 @@ const ROUND = { id: 'r1', status: 'in_progress', total_gross: 0, total_net: 0, t
 const TOURNAMENT = { id: 't1' } as ScoringTournament
 const PLAYERS = [{ id: 'p1' }, { id: 'p2' }] as ScoringPlayer[]
 const VACIO: never[] = []
-const getActiveRound = () => ROUND
+const ROUND_2 = { ...ROUND, id: 'r2', round_number: 2 } as ScoringRound
+let rondaActiva = ROUND
+const getActiveRound = () => rondaActiva
 const applyRoundTotals = vi.fn()
 const reloadRoster = vi.fn(async () => {})
 
@@ -72,6 +74,7 @@ async function montarConJugador() {
 }
 
 beforeEach(() => {
+  rondaActiva = ROUND
   showError.mockClear()
   showWarning.mockClear()
   showSuccess.mockClear()
@@ -121,6 +124,62 @@ describe('useScoreEntry · deshacer', () => {
   })
 })
 
+describe('useScoreEntry · el deshacer no sale de su tarjeta', () => {
+  it('multi-ronda: deshacer escribe en la ronda donde se anotó, no en la activa al momento del tap', async () => {
+    const { enviados } = servidor(200)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(18, '5'))
+    rondaActiva = ROUND_2
+
+    await act(() => result.current.undoLast())
+
+    expect(enviados[1]).toMatchObject({ round_id: 'r1', hole_number: 18, gross_score: null })
+  })
+
+  it('cerrar la tarjeta (cambio de ronda) descarta el deshacer pendiente', async () => {
+    const { fn } = servidor(200)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(18, '5'))
+    act(() => result.current.clearSelection())
+
+    expect(result.current.lastAction).toBeNull()
+    await act(() => result.current.undoLast())
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+
+  it('una respuesta que llega después de cambiar de jugador no toca la tarjeta del nuevo', async () => {
+    // Gesto real: vaciar la celda de A y salir de ella tocando la tarjeta de B.
+    const { result } = await montarConJugador()
+    servidor(200)
+    await act(() => result.current.saveScore(7, '4'))
+
+    let responder: (r: Response) => void = () => {}
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((ok) => { responder = ok })))
+    let borrado: Promise<void> = Promise.resolve()
+    act(() => { borrado = result.current.saveScore(7, '') })
+    await act(async () => result.current.selectPlayer('p2'))
+    await act(async () => { responder(new Response('{}', { status: 500 })); await borrado })
+
+    expect(result.current.selectedId).toBe('p2')
+    expect(result.current.lastAction).toBeNull()
+    expect(result.current.errorHoles.size).toBe(0)
+    // El aviso sí sale: el borrado de A no entró.
+    expect(showError).toHaveBeenCalledWith('No se borró', expect.any(String))
+  })
+
+  it('tras un guardado que falló y se reintentó, deshacer vuelve a lo que había en la base', async () => {
+    const { enviados } = servidor(200, 500, 200, 200)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(2, '4')) // entra
+    await act(() => result.current.saveScore(2, '6')) // falla: la base sigue en 4
+    await act(() => result.current.saveScore(2, '6')) // reintento, entra
+    await act(() => result.current.undoLast())
+
+    expect(enviados[3]).toMatchObject({ hole_number: 2, gross_score: 4 })
+    expect(result.current.currentScores[2]).toBe(4)
+  })
+})
+
 describe('useScoreEntry · vaciar una celda', () => {
   it('vaciar una celda con score lo borra en el servidor y deja el deshacer armado', async () => {
     const { enviados } = servidor(200)
@@ -131,7 +190,7 @@ describe('useScoreEntry · vaciar una celda', () => {
 
     expect(enviados[1]).toMatchObject({ hole_number: 3, gross_score: null })
     expect(result.current.currentScores[3]).toBeUndefined()
-    expect(result.current.lastAction).toEqual({ holeNumber: 3, previousScore: 4, playerId: 'p1' })
+    expect(result.current.lastAction).toEqual({ holeNumber: 3, previousScore: 4, playerId: 'p1', roundId: 'r1' })
 
     // Y el deshacer lo repone.
     await act(() => result.current.undoLast())

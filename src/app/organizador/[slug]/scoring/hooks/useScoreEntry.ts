@@ -38,8 +38,13 @@ interface UseScoreEntryArgs {
 
 export interface LastAction {
   holeNumber: number
+  /** Lo que había en la BASE antes de la acción (undefined = hoyo vacío). */
   previousScore: number | undefined
   playerId: string
+  /** Ronda en la que se anotó. El deshacer escribe ACÁ, no en la ronda activa
+   *  al momento del tap: en multi-ronda, deshacer tras cambiar a R2 borraba el
+   *  hoyo de R2. */
+  roundId: string
 }
 
 export type HoleStatPatch = Partial<{
@@ -91,6 +96,17 @@ export function useScoreEntry({
    *  de B. El dedupe se comía un aviso legítimo de pérdida de datos, que es
    *  justo lo que el aviso existe para evitar. */
   const statWarnedHolesRef = useRef<Set<string>>(new Set())
+  /** Cambia cada vez que cambia la tarjeta en pantalla (otro jugador, otra
+   *  ronda, cerrar). Un guardado captura el valor al partir y, cuando vuelve la
+   *  respuesta, solo toca la tarjeta si sigue siendo la misma: el gesto normal
+   *  es salir de la celda tocando al siguiente jugador, y la respuesta tardía
+   *  de A pintaba su error (o su deshacer) sobre la tarjeta de B. */
+  const tarjetaRef = useRef(0)
+  /** Hoyos de la tarjeta en pantalla cuyo último guardado NO entró → lo que
+   *  sigue habiendo en la base (undefined = vacío). Mientras un hoyo está acá,
+   *  `currentScores` muestra el valor que no entró; el deshacer y el reintento
+   *  parten de este, no del optimista. */
+  const sinGuardarRef = useRef<Map<number, number | undefined>>(new Map())
   const [holePutts, setHolePutts] = useState<Record<number, number | null>>({})
   const [holeFairway, setHoleFairway] = useState<Record<number, boolean | null>>({})
   const [holeGir, setHoleGir] = useState<Record<number, boolean | null>>({})
@@ -124,6 +140,8 @@ export function useScoreEntry({
       // Los hoyos en error son de la tarjeta que se estaba mirando: sin esto el
       // hoyo 5 de A seguía en rojo en la tarjeta de B.
       setErrorHoles(new Set())
+      tarjetaRef.current += 1
+      sinGuardarRef.current = new Map()
     },
     [],
   )
@@ -132,6 +150,10 @@ export function useScoreEntry({
     setSelectedId(null)
     resetHoleState()
     setErrorHoles(new Set())
+    // El deshacer es de la tarjeta que se cierra (también al cambiar de ronda).
+    setLastAction(null)
+    tarjetaRef.current += 1
+    sinGuardarRef.current = new Map()
   }, [resetHoleState])
 
   const loadScores = useCallback(
@@ -261,12 +283,27 @@ export function useScoreEntry({
       const hole = holeByNumero.get(holeNumber)
       const par = hole?.par ?? 4
       const previo = currentScores[holeNumber]
+      // Lo que hay en la BASE: si el último guardado del hoyo no entró, la
+      // tarjeta muestra el valor que falló y la base sigue con el anterior.
+      const sinGuardar = sinGuardarRef.current
+      const enBase = sinGuardar.has(holeNumber) ? sinGuardar.get(holeNumber) : previo
       const crudo = value.trim()
+      const tarjeta = tarjetaRef.current
+      const sigueEnPantalla = () => tarjetaRef.current === tarjeta
+      const quitarDeLaTarjeta = () =>
+        setCurrentScores((prev) => {
+          const next = { ...prev }
+          delete next[holeNumber]
+          return next
+        })
 
       // Celda vacía: si el hoyo tenía score, el organizador lo borró (lo anotó
       // en el hoyo equivocado) y se borra también en el servidor. Se puede deshacer.
       if (crudo === '') {
-        if (previo == null) {
+        if (enBase == null) {
+          // Nada que borrar en el servidor; si se veía un valor que nunca entró, se quita.
+          if (previo != null) quitarDeLaTarjeta()
+          sinGuardar.delete(holeNumber)
           limpiarError(holeNumber)
           return
         }
@@ -276,18 +313,17 @@ export function useScoreEntry({
         })
         setSaving(false)
         if (!res?.ok) {
-          showError('No se borró', `El hoyo ${holeNumber} sigue con ${previo} en el servidor. Intenta nuevamente.`)
-          marcarError(holeNumber)
+          showError('No se borró', `El hoyo ${holeNumber} sigue con ${enBase} en el servidor. Intenta nuevamente.`)
+          if (sigueEnPantalla()) marcarError(holeNumber)
           return
         }
-        setLastAction({ holeNumber, previousScore: previo, playerId: selectedId })
-        setCurrentScores((prev) => {
-          const next = { ...prev }
-          delete next[holeNumber]
-          return next
-        })
-        limpiarError(holeNumber)
         showSuccess('Score borrado', `Hoyo ${holeNumber}`, { duration: 1500 })
+        if (sigueEnPantalla()) {
+          sinGuardar.delete(holeNumber)
+          setLastAction({ holeNumber, previousScore: enBase, playerId: selectedId, roundId: round.id })
+          quitarDeLaTarjeta()
+          limpiarError(holeNumber)
+        }
         await refrescarTotales(selectedId, round.id)
         return
       }
@@ -317,7 +353,7 @@ export function useScoreEntry({
         modo: tournament.modo_juego,
       })
 
-      setLastAction({ holeNumber, previousScore: previo, playerId: selectedId })
+      setLastAction({ holeNumber, previousScore: enBase, playerId: selectedId, roundId: round.id })
       setCurrentScores((prev) => ({ ...prev, [holeNumber]: gross }))
       limpiarError(holeNumber)
 
@@ -338,9 +374,14 @@ export function useScoreEntry({
 
       if (!res?.ok) {
         showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber}. Intenta nuevamente.`)
-        marcarError(holeNumber)
+        if (sigueEnPantalla()) {
+          // Si ya venía fallando, la base sigue con el valor del primer intento.
+          if (!sinGuardar.has(holeNumber)) sinGuardar.set(holeNumber, enBase)
+          marcarError(holeNumber)
+        }
         return
       }
+      if (sigueEnPantalla()) sinGuardar.delete(holeNumber)
       showSuccess('Score guardado', '', { duration: 1500 })
       await refrescarTotales(selectedId, round.id)
     },
@@ -353,10 +394,8 @@ export function useScoreEntry({
 
   const undoLast = useCallback(async () => {
     if (!lastAction || !tournament) return
-    const player = players.find((p) => p.id === lastAction.playerId)
-    const round = getActiveRound(player)
-    if (!round) return
-    const { holeNumber, previousScore } = lastAction
+    const { holeNumber, previousScore, playerId, roundId } = lastAction
+    const tarjeta = tarjetaRef.current
     // Deshacer SIEMPRE pasa por el servidor. Con score previo, lo repone; sin
     // score previo (el hoyo estaba vacío), BORRA el golpe (`gross_score: null`).
     // Antes ese segundo caso solo quitaba el número de la pantalla y decía
@@ -371,7 +410,7 @@ export function useScoreEntry({
     setSaving(true)
     const res = await postHoyo({
       tournament_id: tournament.id,
-      round_id: round.id,
+      round_id: roundId,
       hole_number: holeNumber,
       par: holeByNumero.get(holeNumber)?.par ?? 4,
       gross_score: previousScore ?? null,
@@ -383,20 +422,22 @@ export function useScoreEntry({
       showWarning('No pudimos deshacer', `El hoyo ${holeNumber} sigue como estaba en el servidor. Reintenta.`)
       return
     }
-    setCurrentScores((prev) => {
-      const next = { ...prev }
-      if (previousScore !== undefined) next[holeNumber] = previousScore
-      else delete next[holeNumber]
-      return next
-    })
-    limpiarError(holeNumber)
     showSuccess('Deshacer', `Hoyo ${holeNumber} restaurado`, { duration: 1500 })
-    setLastAction(null)
-    await refrescarTotales(lastAction.playerId, round.id)
-  }, [
-    lastAction, tournament, players, getActiveRound, holeByNumero, refrescarTotales, limpiarError,
-    showSuccess, showWarning,
-  ])
+    // Si mientras tanto se abrió otra tarjeta, el deshacer ya quedó en la base
+    // y esa tarjeta no se toca (al cambiar de tarjeta `lastAction` ya se limpió).
+    if (tarjetaRef.current === tarjeta) {
+      sinGuardarRef.current.delete(holeNumber)
+      setCurrentScores((prev) => {
+        const next = { ...prev }
+        if (previousScore !== undefined) next[holeNumber] = previousScore
+        else delete next[holeNumber]
+        return next
+      })
+      limpiarError(holeNumber)
+      setLastAction(null)
+    }
+    await refrescarTotales(playerId, roundId)
+  }, [lastAction, tournament, holeByNumero, refrescarTotales, limpiarError, showSuccess, showWarning])
 
   /** Persiste una stat opcional del hoyo (putts / fairway / GIR) contra la ronda
    *  ACTIVA — antes las stats escribían siempre contra `rounds[0]`, así que en
