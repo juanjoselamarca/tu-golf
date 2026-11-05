@@ -206,7 +206,34 @@ describe('useScoreEntry · vaciar una celda', () => {
 
     expect(result.current.currentScores[3]).toBe(4)
     expect(result.current.errorHoles.has(3)).toBe(true)
-    expect(showError).toHaveBeenCalledWith('No se borró', expect.stringContaining('sigue con 4'))
+    expect(showError).toHaveBeenCalledWith('No se borró', expect.stringContaining('hoyo 3'))
+  })
+
+  it('vaciar una celda cuyo guardado quedó sin respuesta manda el borrado igual (el golpe pudo entrar)', async () => {
+    // Sin señal el POST puede llegar y perderse solo la respuesta: el golpe está en la base.
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(7, '4'))
+    expect(result.current.errorHoles.has(7)).toBe(true)
+
+    const { enviados } = servidor(200)
+    await act(() => result.current.saveScore(7, ''))
+
+    expect(enviados[0]).toMatchObject({ hole_number: 7, gross_score: null })
+    expect(result.current.currentScores[7]).toBeUndefined()
+    expect(result.current.errorHoles.has(7)).toBe(false)
+    // La base estaba vacía antes del intento: no queda nada que deshacer.
+    expect(result.current.lastAction).toBeNull()
+  })
+
+  it('tocar la ficha del jugador que ya está abierto no vacía su tarjeta', async () => {
+    servidor(200)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(3, '4'))
+    await act(async () => result.current.selectPlayer('p1'))
+
+    expect(result.current.currentScores[3]).toBe(4)
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 3 })
   })
 
   it('salir de una celda vacía que nunca tuvo score no llama al servidor', async () => {

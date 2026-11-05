@@ -102,6 +102,8 @@ export function useScoreEntry({
    *  es salir de la celda tocando al siguiente jugador, y la respuesta tardía
    *  de A pintaba su error (o su deshacer) sobre la tarjeta de B. */
   const tarjetaRef = useRef(0)
+  /** Jugador abierto, legible desde `selectPlayer` sin depender del render. */
+  const selectedIdRef = useRef<string | null>(null)
   /** Hoyos de la tarjeta en pantalla cuyo último guardado NO entró → lo que
    *  sigue habiendo en la base (undefined = vacío). Mientras un hoyo está acá,
    *  `currentScores` muestra el valor que no entró; el deshacer y el reintento
@@ -134,6 +136,12 @@ export function useScoreEntry({
 
   const selectPlayer = useCallback(
     (playerId: string) => {
+      // Tocar la ficha del jugador que ya está abierto no hace nada. Antes
+      // vaciaba la tarjeta sin recargarla (`selectedId` no cambia y el efecto
+      // no corre): todo en blanco, "Finalizar" imposible y un deshacer que
+      // borraba en vez de reponer.
+      if (playerId === selectedIdRef.current) return
+      selectedIdRef.current = playerId
       setSelectedId(playerId)
       setCurrentScores({})
       setLastAction(null)
@@ -147,6 +155,7 @@ export function useScoreEntry({
   )
 
   const clearSelection = useCallback(() => {
+    selectedIdRef.current = null
     setSelectedId(null)
     resetHoleState()
     setErrorHoles(new Set())
@@ -164,8 +173,12 @@ export function useScoreEntry({
         resetHoleState()
         return
       }
+      // Tocar A y enseguida B lanza dos lecturas; en 3G la de A puede volver
+      // después y pintaba los scores de A en la tarjeta de B.
+      const tarjeta = tarjetaRef.current
       try {
         const rows = await fetchRoundHoleScores(createClient(), roundId)
+        if (tarjetaRef.current !== tarjeta) return
         const scores: Record<number, number> = {}
         const putts: Record<number, number | null> = {}
         const fairway: Record<number, boolean | null> = {}
@@ -300,9 +313,12 @@ export function useScoreEntry({
       // Celda vacía: si el hoyo tenía score, el organizador lo borró (lo anotó
       // en el hoyo equivocado) y se borra también en el servidor. Se puede deshacer.
       if (crudo === '') {
-        if (enBase == null) {
-          // Nada que borrar en el servidor; si se veía un valor que nunca entró, se quita.
-          if (previo != null) quitarDeLaTarjeta()
+        // Solo se salta el servidor si no hay nada ni en la tarjeta ni en la base.
+        // Si la tarjeta muestra un valor cuyo guardado "falló", el borrado se
+        // manda igual: sin señal, el POST pudo llegar y perderse solo la
+        // respuesta, y entonces el golpe SÍ está en la base. Borrar un hoyo
+        // vacío es inocuo (el mismo upsert del deshacer).
+        if (previo == null && enBase == null) {
           sinGuardar.delete(holeNumber)
           limpiarError(holeNumber)
           return
@@ -313,14 +329,19 @@ export function useScoreEntry({
         })
         setSaving(false)
         if (!res?.ok) {
-          showError('No se borró', `El hoyo ${holeNumber} sigue con ${enBase} en el servidor. Intenta nuevamente.`)
+          showError('No se borró', `No pudimos borrar el score del hoyo ${holeNumber}. Intenta nuevamente.`)
           if (sigueEnPantalla()) marcarError(holeNumber)
           return
         }
         showSuccess('Score borrado', `Hoyo ${holeNumber}`, { duration: 1500 })
         if (sigueEnPantalla()) {
           sinGuardar.delete(holeNumber)
-          setLastAction({ holeNumber, previousScore: enBase, playerId: selectedId, roundId: round.id })
+          // Deshacer repone lo que había en la base; si no había nada, no hay qué deshacer.
+          setLastAction(
+            enBase != null
+              ? { holeNumber, previousScore: enBase, playerId: selectedId, roundId: round.id }
+              : null,
+          )
           quitarDeLaTarjeta()
           limpiarError(holeNumber)
         }
