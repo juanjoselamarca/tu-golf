@@ -9,15 +9,20 @@
 // (solo redirige páginas). Este canario lo frena en el PR.
 //
 // Qué mira, por cada handler exportado (GET/POST/PUT/PATCH/DELETE):
-//   - `api/admin/**` → guard de ADMIN (`isAdmin(` o `isCerebroAdmin(`).
-//   - `api/cron/**`  → `CRON_SECRET`.
-//   - el resto       → guard de sesión o de secreto compartido,
-//                      o estar en `SIN_GUARD` con su motivo.
-// El guard cuenta si está en el cuerpo del handler o en un helper del mismo
-// archivo que el handler llama (ej. `getAuthUser()` en `/api/game`).
+//   - `api/admin/**` → guard de ADMIN (`isAdmin(` o `isCerebroAdmin(`) y un rechazo 401/403.
+//   - `api/cron/**`  → `CRON_SECRET` y un rechazo 401/403.
+//   - el resto       → guard de sesión o de secreto compartido y un rechazo 401/403.
+//                      Sin guard: fila en `SIN_GUARD`. Con guard pero sin rechazo
+//                      (lee la sesión y atiende igual al anónimo): fila en
+//                      `SESION_OPCIONAL`. Las dos listas llevan el motivo.
+// El guard y el rechazo cuentan en el cuerpo del handler o en un helper del mismo
+// archivo que el handler llama (ej. `getAuthUser()` en `/api/game`). Los
+// comentarios no cuentan: se quitan antes de analizar.
 //
-// Qué NO mira: que el resultado del guard se use bien (una sesión leída y después
-// ignorada pasa). Eso lo cubren los tests de cada ruta y la sonda contra prod.
+// Qué NO mira: que el rechazo dependa del guard. Un handler que lee la sesión,
+// responde 401 por otra cosa y atiende al anónimo pasa (hoy: `push/round-update`,
+// que sin sesión acepta el `jugadorId` del invitado). Eso lo cubren los tests de
+// cada ruta y la sonda sin sesión contra prod.
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'fs'
 import { join, relative, sep } from 'path'
@@ -31,6 +36,10 @@ const GUARD_ADMIN = /\bisAdmin\(|\bisCerebroAdmin\(/
 /** Secretos compartidos de máquina a máquina (cron de Vercel, callback del E2E, bot de Telegram). */
 const GUARD_SECRETO = /process\.env\.(CRON_SECRET|E2E_CALLBACK_SECRET|TELEGRAM_WEBHOOK_SECRET|INBOX_SETUP_SECRET)\b/
 const GUARD_CRON = /process\.env\.CRON_SECRET\b/
+/** El handler le dice que no a alguien: sin esto, leer la sesión no protege nada. */
+const RECHAZO = /status:\s*40[13]\b/
+/** Comentarios de bloque y de línea (sin comerse el `//` de una URL dentro de un string). */
+const COMENTARIOS = /\/\*[\s\S]*?\*\/|(?<![:'"`])\/\/.*$/gm
 
 /**
  * Handlers sin ningún guard, con el motivo. Clave: `<MÉTODO> <ruta sin /api>`.
@@ -48,7 +57,8 @@ const SIN_GUARD: Record<string, string> = {
   'POST push/resubscribe':
     'lo llama el service worker, sin cookies; la prueba de posesión es el endpoint + auth de la suscripción vieja',
   'GET ronda-libre/[codigo]/live':
-    'board público de la ronda para quien tiene el código; no lee perfiles (el course handicap va por /hcp, con sesión)',
+    'board público de la ronda para quien tiene el código; no lee perfiles: el handicap sale del índice anotado en la tarjeta, ' +
+    'el de jugadores con cuenta sin índice en la tarjeta va por /hcp (con sesión), y en ronda neta va solo el bruto',
   'GET torneo/[slug]/live':
     'board público del torneo; en un torneo neto el visor sin sesión ve solo el bruto (el neto va por /neto, con sesión)',
   'GET tarjeta/[id]/jugador': 'nombre del dueño de una tarjeta que él mismo hizo pública',
@@ -58,13 +68,32 @@ const SIN_GUARD: Record<string, string> = {
   'GET torneos/[slug]/guest-player': 'el invitado sin cuenta se identifica con su guest token (403 sin él)',
 }
 
+/**
+ * Handlers que leen la sesión pero atienden igual a quien no la tiene. Misma
+ * regla que `SIN_GUARD`: el motivo dice qué recibe el anónimo.
+ */
+const SESION_OPCIONAL: Record<string, string> = {
+  'GET gwi/ronda-libre/[codigo]':
+    'el GWI de la ronda ya calculado; el anónimo recibe las filas enmascaradas por visor (publicarResultadoGWI)',
+  'GET gwi/torneo/[slug]':
+    'el GWI del torneo ya calculado; el anónimo recibe las filas enmascaradas por visor (publicarResultadoGWI)',
+  'GET perfil/tee-prompt-status': 'sin sesión responde { show: false } fijo, sin leer la base',
+  'POST push/follow':
+    'seguir una ronda sin cuenta (decisión de producto 29-sep-2026): el watcher es la suscripción push del dispositivo, ' +
+    'con prueba de posesión, tope de seguidores por ronda y rate limit por IP',
+  'DELETE push/follow':
+    'dejar de seguir sin cuenta: solo borra el watcher de la suscripción que prueba posesión (endpoint + auth)',
+  'GET torneos/[slug]/join-info':
+    'sin sesión entrega solo la info pública del torneo, el cupo y si admite invitados, para pintar la pantalla de unirse',
+}
+
 /** Rutas bajo `admin/` que no usan guard de admin, con el motivo. */
 const ADMIN_POR_SECRETO: Record<string, string> = {
   'POST admin/e2e/runs/[id]/callback':
     'lo llama GitHub Actions, sin sesión: autentica con el header x-e2e-callback-secret (E2E_CALLBACK_SECRET)',
 }
 
-type Ofensa = { handler: string; falta: 'sesion' | 'admin' | 'cron' }
+type Ofensa = { handler: string; falta: 'sesion' | 'rechazo' | 'admin' | 'cron' }
 
 const RE_HANDLER = /^export\s+(?:async\s+function|function|const)\s+(GET|POST|PUT|PATCH|DELETE)\b/gm
 /** Declaraciones de primer nivel: cortan el cuerpo de un handler o de un helper. */
@@ -74,7 +103,8 @@ const RE_TOP = /^(?:export\s+)?(?:async\s+function|function|const|let|type|inter
  * Handlers de un `route.ts` que no cumplen la regla de su zona.
  * `ruta` va sin `/api` y sin `/route.ts` (ej. `torneos/[slug]/start`).
  */
-export function ofensasDeRuta(ruta: string, src: string): Ofensa[] {
+export function ofensasDeRuta(ruta: string, fuente: string): Ofensa[] {
+  const src = fuente.replace(COMENTARIOS, '')
   const cortes = [...src.matchAll(RE_TOP)].map((m) => ({ nombre: m[1], inicio: m.index ?? 0 }))
   const cuerpo = (inicio: number) => {
     const sig = cortes.find((c) => c.inicio > inicio)
@@ -91,13 +121,16 @@ export function ofensasDeRuta(ruta: string, src: string): Ofensa[] {
   for (const m of src.matchAll(RE_HANDLER)) {
     const handler = `${m[1]} ${ruta}`
     const texto = cuerpo(m.index ?? 0)
+    const rechaza = cumple(texto, RECHAZO)
     if (ruta.startsWith('admin/')) {
       const ok = handler in ADMIN_POR_SECRETO ? cumple(texto, GUARD_SECRETO) : cumple(texto, GUARD_ADMIN)
-      if (!ok) ofensas.push({ handler, falta: 'admin' })
+      if (!ok || !rechaza) ofensas.push({ handler, falta: 'admin' })
     } else if (ruta.startsWith('cron/')) {
-      if (!cumple(texto, GUARD_CRON)) ofensas.push({ handler, falta: 'cron' })
+      if (!cumple(texto, GUARD_CRON) || !rechaza) ofensas.push({ handler, falta: 'cron' })
     } else if (!cumple(texto, GUARD_SESION) && !cumple(texto, GUARD_ADMIN) && !cumple(texto, GUARD_SECRETO)) {
       ofensas.push({ handler, falta: 'sesion' })
+    } else if (!rechaza) {
+      ofensas.push({ handler, falta: 'rechazo' })
     }
   }
   return ofensas
@@ -125,6 +158,8 @@ describe('canario — cada ruta de API autentica o está declarada pública', ()
     // Todo `route.ts` exporta al menos un handler que el canario reconoce.
     const sinHandler = archivos.filter((a) => ![...a.src.matchAll(RE_HANDLER)].length).map((a) => a.ruta)
     expect(sinHandler).toEqual([])
+    // Un handler re-exportado (`export { x as POST }`, `export * from`) no lo ve RE_HANDLER: hoy no hay ninguno.
+    expect(archivos.filter((a) => /^export\s*(\{|\*)/m.test(a.src)).map((a) => a.ruta)).toEqual([])
   })
 
   it('todo handler de api/admin exige admin (o su secreto declarado)', () => {
@@ -140,12 +175,19 @@ describe('canario — cada ruta de API autentica o está declarada pública', ()
     expect(sinGuard.filter((h) => !(h in SIN_GUARD))).toEqual([])
   })
 
-  it('SIN_GUARD y ADMIN_POR_SECRETO no tienen filas viejas ni de más', () => {
+  it('un handler que lee la sesión pero no rechaza a nadie tiene que estar en SESION_OPCIONAL con su motivo', () => {
+    const sinRechazo = ofensas.filter((o) => o.falta === 'rechazo').map((o) => o.handler)
+    expect(sinRechazo.filter((h) => !(h in SESION_OPCIONAL))).toEqual([])
+  })
+
+  it('SIN_GUARD, SESION_OPCIONAL y ADMIN_POR_SECRETO no tienen filas viejas ni de más', () => {
     const sinGuard = new Set(ofensas.filter((o) => o.falta === 'sesion').map((o) => o.handler))
+    const sinRechazo = new Set(ofensas.filter((o) => o.falta === 'rechazo').map((o) => o.handler))
+    expect(Object.keys(SESION_OPCIONAL).filter((h) => !sinRechazo.has(h))).toEqual([])
     // Una fila que ya no existe, o cuya ruta ahora sí autentica, se borra: la lista es el inventario exacto.
     expect(Object.keys(SIN_GUARD).filter((h) => !sinGuard.has(h))).toEqual([])
     expect(Object.keys(ADMIN_POR_SECRETO).filter((h) => !handlers.includes(h))).toEqual([])
-    for (const motivo of [...Object.values(SIN_GUARD), ...Object.values(ADMIN_POR_SECRETO)]) {
+    for (const motivo of [...Object.values(SIN_GUARD), ...Object.values(SESION_OPCIONAL), ...Object.values(ADMIN_POR_SECRETO)]) {
       expect(motivo.length).toBeGreaterThanOrEqual(20)
     }
   })
@@ -171,7 +213,7 @@ describe('ofensasDeRuta — el analizador distingue lo que tiene que distinguir'
 
   it('el guard en un helper del archivo cuenta solo si el handler lo llama', () => {
     const helper = `async function getAuthUser() {\n  const supabase = await createClient()\n  return supabase.auth.getUser()\n}\n\n`
-    const llama = `${helper}export async function PATCH() {\n  const user = await getAuthUser()\n  return NextResponse.json({ user })\n}\n`
+    const llama = `${helper}export async function PATCH() {\n  const user = await getAuthUser()\n  if (!user) return NextResponse.json({}, { status: 401 })\n  return NextResponse.json({ user })\n}\n`
     const noLlama = `${helper}export async function PATCH() {\n  return NextResponse.json({})\n}\n`
     expect(ofensasDeRuta('game', llama)).toEqual([])
     expect(ofensasDeRuta('game', noLlama)).toEqual([{ handler: 'PATCH game', falta: 'sesion' }])
@@ -189,6 +231,19 @@ describe('ofensasDeRuta — el analizador distingue lo que tiene que distinguir'
     const conSecreto = `export async function GET(req: Request) {\n  if (!esCronAutorizado(req.headers.get('authorization'), process.env.CRON_SECRET)) return new Response(null, { status: 401 })\n  return NextResponse.json({})\n}\n`
     expect(ofensasDeRuta('cron/limpieza', soloSesion)).toEqual([{ handler: 'GET cron/limpieza', falta: 'cron' }])
     expect(ofensasDeRuta('cron/limpieza', conSecreto)).toEqual([])
+  })
+
+  it('leer la sesión sin rechazar a nadie no es un guard: falta el rechazo', () => {
+    const src = `export async function GET() {\n  const { data: { user } } = await supabase.auth.getUser()\n  return NextResponse.json(await leer(user?.id ?? null))\n}\n`
+    expect(ofensasDeRuta('gwi/x', src)).toEqual([{ handler: 'GET gwi/x', falta: 'rechazo' }])
+  })
+
+  it('un comentario que nombra el guard no cuenta, ni el JSDoc del helper que viene después', () => {
+    const src = `// valida con supabase.auth.getUser() y responde { status: 401 }\nexport async function POST() {\n  return NextResponse.json({})\n}\n\n/** Usa process.env.CRON_SECRET y auth.getUser( para autenticar. */\nfunction otro() {}\n`
+    expect(ofensasDeRuta('x', src)).toEqual([{ handler: 'POST x', falta: 'sesion' }])
+    // …y quitar comentarios no se come una URL dentro de un string.
+    const conUrl = `export async function GET() {\n  const r = await fetch('https://ejemplo.cl/api')\n  ${SESION}\n  return NextResponse.json(r)\n}\n`
+    expect(ofensasDeRuta('x', conUrl)).toEqual([])
   })
 
   it('reconoce las tres formas de exportar un handler y archivos con CRLF', () => {
