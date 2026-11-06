@@ -130,6 +130,51 @@ describe('useScoreEntry · deshacer', () => {
     expect(showWarning).toHaveBeenCalledWith('No pudimos deshacer', expect.stringContaining('hoyo 11'))
   })
 
+  it('deshacer un guardado que FALLÓ no manda nada al servidor: no puede borrar un golpe que no puso', async () => {
+    // El hoyo "estaba vacío" sólo en la foto local de la tarjeta. Si el guardado
+    // falló, en la base puede haber un golpe del propio jugador: un borrado se lo llevaría.
+    const { fn, enviados } = servidor(500)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(10, '6'))
+    expect(result.current.errorHoles.has(10)).toBe(true)
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 10, guardado: false })
+
+    await act(() => result.current.undoLast())
+
+    expect(fn).toHaveBeenCalledTimes(1)
+    expect(enviados[0]).toMatchObject({ gross_score: 6 })
+    expect(result.current.currentScores[10]).toBeUndefined()
+    expect(result.current.errorHoles.has(10)).toBe(false)
+    expect(result.current.lastAction).toBeNull()
+  })
+
+  it('el deshacer queda marcado como guardado sólo cuando el servidor confirma', async () => {
+    servidor(200)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(10, '6'))
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 10, newScore: 6, guardado: true })
+  })
+
+  it('si se escribe otro valor en el hoyo con el deshacer en vuelo, la celda se queda con el valor nuevo', async () => {
+    let responder: (r: Response) => void = () => {}
+    const lenta = new Promise<Response>((resolve) => { responder = resolve })
+    // 1º guardar 5 · 2º deshacer (queda en vuelo) · 3º guardar 6
+    servidor(200, lenta, 200)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(11, '5'))
+
+    let deshacer: Promise<void> = Promise.resolve()
+    act(() => { deshacer = result.current.undoLast() })
+    await act(() => result.current.saveScore(11, '6'))
+    await act(async () => {
+      responder(new Response('{}', { status: 200 }))
+      await deshacer
+    })
+
+    expect(result.current.currentScores[11]).toBe(6)
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 11, newScore: 6 })
+  })
+
   it('deshacer una corrección repone el score anterior', async () => {
     const { enviados } = servidor(200)
     const { result } = await montarConJugador()
@@ -163,6 +208,32 @@ describe('useScoreEntry · el deshacer no sale de su tarjeta', () => {
     expect(result.current.lastAction).toBeNull()
     await act(() => result.current.undoLast())
     expect(fn).toHaveBeenCalledTimes(1)
+  })
+
+  it('una respuesta que llega después de reabrir al MISMO jugador en otra ronda no toca esa tarjeta', async () => {
+    let responder: (r: Response) => void = () => {}
+    const lenta = new Promise<Response>((resolve) => { responder = resolve })
+    // 1º guardar R1 · 2º deshacer R1 (queda en vuelo) · 3º guardar R2
+    const { enviados } = servidor(200, lenta, 200)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(18, '5'))
+
+    let deshacer: Promise<void> = Promise.resolve()
+    act(() => { deshacer = result.current.undoLast() })
+    rondaActiva = ROUND_2
+    act(() => result.current.clearSelection())
+    await act(async () => result.current.selectPlayer('p1'))
+    await act(() => result.current.saveScore(18, '5'))
+
+    await act(async () => {
+      responder(new Response('{}', { status: 200 }))
+      await deshacer
+    })
+
+    expect(enviados[1]).toMatchObject({ round_id: 'r1', hole_number: 18, gross_score: null })
+    expect(enviados[2]).toMatchObject({ round_id: 'r2', hole_number: 18, gross_score: 5 })
+    // Mismo jugador, mismo hoyo, mismo número: es la tarjeta de la R2 y no se toca.
+    expect(result.current.currentScores[18]).toBe(5)
   })
 
   it('una respuesta que llega después de abrir otro jugador no toca su tarjeta ni su deshacer', async () => {
