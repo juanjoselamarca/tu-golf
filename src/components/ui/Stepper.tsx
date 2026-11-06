@@ -17,6 +17,10 @@ interface StepperProps {
  *
  * Ejemplo para "Nueva Ronda":
  *   <Stepper steps={4} current={2} labels={['Formato', 'Cancha', 'Jugadores', 'Confirmar']} />
+ *
+ * Etiquetas: caption de DESIGN.md §4 (12 px, uppercase, tracking-wider). 12 px es el piso: el ancho se
+ * ajusta con el conector y el tracking, nunca achicando la letra (jurisprudencia P5). Bajo 360 px (fuera
+ * de la base 360–430 de §7) el tracking baja un paso para que las 4 etiquetas quepan sin cortarse.
  */
 export function Stepper({ steps, current, labels, className = '' }: StepperProps) {
   const items = Array.from({ length: steps }, (_, i) => i + 1)
@@ -37,7 +41,9 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
         const label = labels?.[idx]
 
         return (
-          <div key={n} className="flex items-center flex-1 last:flex-none">
+          // flex-auto (no flex-1): el espacio libre se reparte entre los conectores, que quedan del mismo largo
+          // aunque las etiquetas midan distinto.
+          <div key={n} className="flex items-start flex-auto last:flex-none">
             <div className="flex flex-col items-center gap-1">
               <div
                 className={
@@ -61,7 +67,7 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
               {label && (
                 <span
                   className={
-                    'text-[10px] uppercase tracking-wider font-medium ' +
+                    'text-xs uppercase tracking-wide min-[360px]:tracking-wider font-medium whitespace-nowrap ' +
                     (isActive ? 'text-gold-text' : '')
                   }
                   style={
@@ -77,7 +83,8 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
             {idx < steps - 1 && (
               <div
                 className={
-                  'flex-1 h-px mx-2 transition-colors ' +
+                  // mt-4 = centro del disco (h-8): la línea une los discos, no el bloque disco+etiqueta.
+                  'flex-1 h-px mx-1 mt-4 transition-colors ' +
                   (isDone ? 'bg-gold/50' : '')
                 }
                 style={!isDone ? { background: 'var(--border-md)' } : undefined}
