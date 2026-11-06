@@ -3,11 +3,12 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
 import { z } from 'zod'
+import { TOURNAMENT_STATUSES } from '@/lib/data/tournaments/status'
 export const dynamic = 'force-dynamic'
 
 const tournamentPatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  status: z.enum(['draft', 'active', 'in_progress', 'closed', 'cancelled']).optional(),
+  status: z.enum(TOURNAMENT_STATUSES).optional(),
   format: z.enum(['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome']).optional(),
   hole_count: z.union([z.literal(9), z.literal(18)]).optional(),
 }).strict()
@@ -52,7 +53,7 @@ export async function PATCH(
 
   const admin = createAdminClient()
   const { id } = await params
-  const raw = await request.json()
+  const raw = await request.json().catch(() => null)
   const parsed = tournamentPatchSchema.safeParse(raw)
   if (!parsed.success) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors }, { status: 400 })
