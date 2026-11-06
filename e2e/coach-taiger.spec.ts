@@ -282,21 +282,27 @@ test.describe('Coach tAIger+ — Progreso con datos controlados', () => {
     const grafico = page.getByRole('img', { name: 'Diferenciales por ronda hacia la meta' })
     await expect(grafico).toBeVisible()
     await expect(page.getByText('↓ mejorando', { exact: true })).toBeVisible()
-    await expect(grafico.getByText('meta 12', { exact: true })).toBeAttached()
-    await expect(grafico.getByText('hcp 15.4', { exact: true })).toBeAttached()
+    // Desde #727 las etiquetas del gráfico son texto HTML encima del SVG (antes eran <text> dentro del SVG, que se
+    // achicaba con el viewBox). Viven en el mismo marco que el SVG y se tienen que VER, no sólo existir.
+    const marco = grafico.locator('xpath=..')
+    const etiquetaMeta = marco.getByText('meta 12', { exact: true })
+    const etiquetaHcp = marco.getByText('hcp 15.4', { exact: true })
+    await expect(etiquetaMeta).toBeVisible()
+    await expect(etiquetaHcp).toBeVisible()
     await expect(page.getByText('Última ronda · 9 hoyos', { exact: true })).toBeVisible()
     await expect(page.getByText('dif 13.4', { exact: true })).toBeVisible()
     await expect(page.getByText('9 hoyos (equiv. 18h, más volátil)')).toBeVisible()
 
-    // #573: las etiquetas del SVG se veían a ~5 px (viewBox 600 escalado al celular).
-    // Tamaño en pantalla = font-size declarado × (ancho dibujado / ancho del viewBox).
-    const px = await grafico.evaluate(svg => {
-      const s = svg as SVGSVGElement
-      const t = s.querySelector('text')
-      const declarado = Number(t?.getAttribute('font-size') ?? 0)
-      return declarado * (s.getBoundingClientRect().width / s.viewBox.baseVal.width)
-    })
-    expect(px, `etiquetas del gráfico a ${px.toFixed(1)} px en pantalla`).toBeGreaterThanOrEqual(9.5)
+    // #573 / #727: las etiquetas se veían a ~5 px (texto dentro de un SVG de viewBox 600 escalado al celular).
+    // Piso de DESIGN.md §4: 12 px EN PANTALLA. Se mide lo que pinta el navegador, y que al SVG no vuelva texto escalado.
+    for (const etiqueta of [etiquetaMeta, etiquetaHcp]) {
+      const px = await etiqueta.evaluate(el => Number.parseFloat(getComputedStyle(el).fontSize))
+      expect(px, `etiqueta del gráfico a ${px} px en pantalla`).toBeGreaterThanOrEqual(12)
+    }
+    await expect(grafico.locator('text'), 'texto dentro del SVG (se escala con el viewBox)').toHaveCount(0)
+    // La meta (12) queda dibujada más abajo que el hándicap de hoy (15.4): el eje baja hacia la meta.
+    const [yMeta, yHcp] = await Promise.all([etiquetaMeta, etiquetaHcp].map(async e => (await e.boundingBox())?.y ?? NaN))
+    expect(yMeta, `meta en y=${yMeta}, hcp en y=${yHcp}`).toBeGreaterThan(yHcp)
 
     const cta = page.getByRole('link', { name: /Trabajar esto con el coach/ })
     await expect(cta).toHaveAttribute('href', '/coach')

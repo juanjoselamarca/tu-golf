@@ -105,6 +105,10 @@ test.describe('Perfil Stats — /perfil/stats', () => {
   test('range toggles visibles y funcionales', async ({ page }) => {
     await page.goto('/perfil/stats', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Mis estadísticas' })).toBeVisible({ timeout: 15_000 })
+    // Con la suite completa en paralelo el título ya se ve mientras el resto del segmento sigue llegando: por un
+    // instante hay dos copias del mismo texto y getByText corta por strict mode (06-nov-2026, un test distinto
+    // en cada corrida). Se espera a que la página se asiente antes de buscar por texto.
+    await esperarStreaming(page)
 
     // Los 4 toggles deben estar visibles
     for (const label of ['5R', '10R', '20R', 'Todo']) {
@@ -127,6 +131,7 @@ test.describe('Perfil Stats — /perfil/stats', () => {
   test('sección GWI visible con valor numérico', async ({ page }) => {
     await page.goto('/perfil/stats', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Mis estadísticas' })).toBeVisible({ timeout: 15_000 })
+    await esperarStreaming(page)
 
     // GWI text should be visible
     const gwiLabel = page.getByText('GWI', { exact: true }).first()
@@ -136,6 +141,7 @@ test.describe('Perfil Stats — /perfil/stats', () => {
   test('evolución de score y tendencia visibles', async ({ page }) => {
     await page.goto('/perfil/stats', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Mis estadísticas' })).toBeVisible({ timeout: 15_000 })
+    await esperarStreaming(page)
 
     // "Evolución de score" section header
     await expect(page.getByText('Evolución de score')).toBeVisible({ timeout: 10_000 })
@@ -147,6 +153,7 @@ test.describe('Perfil Stats — /perfil/stats', () => {
   test('resumen cards muestran datos reales (no --)', async ({ page }) => {
     await page.goto('/perfil/stats', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Mis estadísticas' })).toBeVisible({ timeout: 15_000 })
+    await esperarStreaming(page)
 
     // Wait for data to load
     await page.waitForTimeout(2000)
@@ -169,6 +176,7 @@ test.describe('Perfil Stats — /perfil/stats', () => {
   test('link "← Perfil" navega a /perfil', async ({ page }) => {
     await page.goto('/perfil/stats', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Mis estadísticas' })).toBeVisible({ timeout: 15_000 })
+    await esperarStreaming(page)
 
     const backLink = page.getByText('← Perfil')
     await expect(backLink).toBeVisible({ timeout: 5_000 })
