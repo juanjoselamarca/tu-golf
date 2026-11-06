@@ -46,12 +46,16 @@ export interface LastAction {
   roundId: string
   /** Lo que se anotó. Al deshacer, la celda sólo se revierte si sigue mostrando esto. */
   newScore: number
-  /** true cuando el servidor confirmó el guardado. Un guardado que falló no dejó
-   *  nada en la base: deshacerlo es sólo limpiar la pantalla. Mandar un borrado
-   *  ahí se llevaría un golpe que no puso este organizador (el jugador anotando
-   *  desde su teléfono, por ejemplo), porque "el hoyo estaba vacío" es una foto
-   *  local de la tarjeta, no la base. */
-  guardado: boolean
+  /** Qué pasó con el guardado que este deshacer revierte:
+   *  - 'enviando': todavía sin respuesta. No se puede deshacer aún (`saving` no
+   *    alcanza para saberlo: es uno solo para todo el hook y lo baja el primer
+   *    guardado que responde aunque haya otro en vuelo).
+   *  - 'guardado': el servidor confirmó. Deshacer llega al servidor.
+   *  - 'fallo': no dejó nada en la base. Deshacer es sólo limpiar la pantalla;
+   *    mandar un borrado se llevaría un golpe que no puso este organizador (el
+   *    jugador anotando desde su teléfono), porque "el hoyo estaba vacío" es una
+   *    foto local de la tarjeta, no la base. */
+  estado: 'enviando' | 'guardado' | 'fallo'
 }
 
 export type HoleStatPatch = Partial<{
@@ -249,8 +253,10 @@ export function useScoreEntry({
 
       const accion: LastAction = {
         holeNumber, previousScore: currentScores[holeNumber], newScore: gross,
-        playerId: selectedId, roundId: round.id, guardado: false,
+        playerId: selectedId, roundId: round.id, estado: 'enviando',
       }
+      const marcar = (estado: LastAction['estado']) =>
+        setLastAction((actual) => (actual === accion ? { ...accion, estado } : actual))
       setLastAction(accion)
       setCurrentScores((prev) => ({ ...prev, [holeNumber]: gross }))
       setErrorHoles((prev) => {
@@ -260,31 +266,39 @@ export function useScoreEntry({
       })
 
       setSaving(true)
-      const res = await fetch('/api/game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'upsert_score',
-          tournament_id: tournament.id,
-          round_id: round.id,
-          hole_number: holeNumber,
-          par,
-          gross_score: gross,
-          net_score: netScore,
-          points,
-          putts: holePutts[holeNumber] ?? null,
-          fairway_hit: holeFairway[holeNumber] ?? null,
-          gir: holeGir[holeNumber] ?? null,
-        }),
-      })
+      let res: Response | null = null
+      try {
+        res = await fetch('/api/game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'upsert_score',
+            tournament_id: tournament.id,
+            round_id: round.id,
+            hole_number: holeNumber,
+            par,
+            gross_score: gross,
+            net_score: netScore,
+            points,
+            putts: holePutts[holeNumber] ?? null,
+            fairway_hit: holeFairway[holeNumber] ?? null,
+            gir: holeGir[holeNumber] ?? null,
+          }),
+        })
+      } catch {
+        // Sin señal `fetch` rechaza: cuenta como guardado fallido. Sin el catch
+        // quedaba "Guardando…" pegado y el hoyo sin marca.
+        res = null
+      }
       setSaving(false)
 
-      if (!res.ok) {
+      if (!res?.ok) {
+        marcar('fallo')
         showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber}. Intenta nuevamente.`)
         setErrorHoles((prev) => new Set(prev).add(holeNumber))
         return
       }
-      setLastAction((actual) => (actual === accion ? { ...accion, guardado: true } : actual))
+      marcar('guardado')
       showSuccess('Score guardado', '', { duration: 1500 })
 
       // Refrescar los totales denormalizados de la ficha (no los usa el Resumen).
@@ -304,7 +318,13 @@ export function useScoreEntry({
 
   const undoLast = useCallback(async () => {
     if (!lastAction || !tournament || saving) return
-    const { holeNumber, previousScore, newScore, playerId, roundId, guardado } = lastAction
+    const { holeNumber, previousScore, newScore, playerId, roundId, estado } = lastAction
+    if (estado === 'enviando') {
+      // El guardado sigue en vuelo (otro que respondió antes bajó `saving`).
+      // Deshacer ahora limpiaría la pantalla y el golpe llegaría igual a la base.
+      showWarning('Espera un momento', `El hoyo ${holeNumber} todavía se está guardando.`)
+      return
+    }
     const tarjeta = tarjetaRef.current
     /** Revierte la celda, sólo si la tarjeta a la vista sigue siendo la misma y
      *  la celda sigue mostrando lo que se está deshaciendo (si mientras tanto se
@@ -319,7 +339,7 @@ export function useScoreEntry({
         return next
       })
     }
-    if (!guardado) {
+    if (estado === 'fallo') {
       // El guardado no llegó a la base: no hay nada que deshacer allá.
       setLastAction((actual) => (actual === lastAction ? null : actual))
       revertirPantalla()

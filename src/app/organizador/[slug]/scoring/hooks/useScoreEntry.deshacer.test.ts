@@ -137,7 +137,7 @@ describe('useScoreEntry · deshacer', () => {
     const { result } = await montarConJugador()
     await act(() => result.current.saveScore(10, '6'))
     expect(result.current.errorHoles.has(10)).toBe(true)
-    expect(result.current.lastAction).toMatchObject({ holeNumber: 10, guardado: false })
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 10, estado: 'fallo' })
 
     await act(() => result.current.undoLast())
 
@@ -152,7 +152,63 @@ describe('useScoreEntry · deshacer', () => {
     servidor(200)
     const { result } = await montarConJugador()
     await act(() => result.current.saveScore(10, '6'))
-    expect(result.current.lastAction).toMatchObject({ holeNumber: 10, newScore: 6, guardado: true })
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 10, newScore: 6, estado: 'guardado' })
+  })
+
+  it('guardar sin señal (fetch rechaza) cuenta como guardado fallido: marca roja, sin "Guardando…" pegado, y su deshacer no llama al servidor', async () => {
+    const { fn } = servidor('sin-senal')
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(10, '6'))
+
+    expect(result.current.saving).toBe(false)
+    expect(result.current.errorHoles.has(10)).toBe(true)
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 10, estado: 'fallo' })
+    expect(showError).toHaveBeenCalledWith('Error al guardar', expect.stringContaining('hoyo 10'))
+
+    await act(() => result.current.undoLast())
+    expect(fn).toHaveBeenCalledTimes(1)
+    expect(result.current.currentScores[10]).toBeUndefined()
+  })
+
+  it('dos guardados solapados: el que sigue en vuelo no se puede deshacer hasta que el servidor responde', async () => {
+    // Con 3G: se anota el 5 y, sin esperar, el 6. Responde el 5 y baja `saving`
+    // con el 6 todavía en vuelo: el botón "Deshacer hoyo 6" vuelve a estar vivo.
+    let responderA: (r: Response) => void = () => {}
+    let responderB: (r: Response) => void = () => {}
+    const lentaA = new Promise<Response>((resolve) => { responderA = resolve })
+    const lentaB = new Promise<Response>((resolve) => { responderB = resolve })
+    const { fn, enviados } = servidor(lentaA, lentaB, 200)
+    const { result } = await montarConJugador()
+
+    let a: Promise<void> = Promise.resolve()
+    let b: Promise<void> = Promise.resolve()
+    act(() => { a = result.current.saveScore(5, '4') })
+    act(() => { b = result.current.saveScore(6, '5') })
+    await act(async () => {
+      responderA(new Response('{}', { status: 200 }))
+      await a
+    })
+    expect(result.current.saving).toBe(false)
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 6, estado: 'enviando' })
+
+    await act(() => result.current.undoLast())
+
+    // Ni un borrado al servidor ni una celda vacía con el golpe camino a la base.
+    expect(fn).toHaveBeenCalledTimes(2)
+    expect(result.current.currentScores[6]).toBe(5)
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 6 })
+    expect(showWarning).toHaveBeenCalledWith('Espera un momento', expect.stringContaining('hoyo 6'))
+
+    await act(async () => {
+      responderB(new Response('{}', { status: 200 }))
+      await b
+    })
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 6, estado: 'guardado' })
+
+    await act(() => result.current.undoLast())
+    expect(enviados[2]).toMatchObject({ round_id: 'r1', hole_number: 6, gross_score: null })
+    expect(result.current.currentScores[6]).toBeUndefined()
+    expect(result.current.currentScores[5]).toBe(4)
   })
 
   it('si se escribe otro valor en el hoyo con el deshacer en vuelo, la celda se queda con el valor nuevo', async () => {
