@@ -112,7 +112,7 @@ function ipUnica(): string {
 /** POST /guest-join SIN sesión: así entra el invitado de verdad. */
 async function guestJoin(
   t: Torneo,
-  data: { guestId?: unknown; name?: unknown; handicap?: unknown },
+  data: { guestId?: unknown; name?: unknown; handicap?: unknown; guestToken?: unknown },
   ip: string = ipUnica(),
 ) {
   const res = await anon.post(`/api/torneos/${t.slug}/guest-join`, {
@@ -274,14 +274,31 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
     expect(await jugadoresEnBase(torneo), 'ningún rechazo creó un jugador').toHaveLength(1)
   })
 
-  test('reintentar con el MISMO guestId no duplica el nombre en el leaderboard', async () => {
-    // El cliente reintenta (volvió a abrir el link, se le cortó la red): tiene que recuperar SU jugador.
-    const r = await guestJoin(torneo, { guestId, name: NOMBRE_INVITADO, handicap: INDICE_INVITADO })
-    expect(r.status).toBe(200)
+  test('reintentar con el MISMO guestId no duplica el nombre en el leaderboard, y sin el token no reemite nada', async () => {
+    // El cliente reintenta (volvió a abrir el link, se le cortó la red) con el token que ya guardó en
+    // localStorage: tiene que recuperar SU jugador, no inscribirse de nuevo.
+    const r = await guestJoin(torneo, { guestId, name: NOMBRE_INVITADO, handicap: INDICE_INVITADO, guestToken })
+    expect(r.status, r.body.error ?? '').toBe(200)
     expect(r.body.alreadyRegistered, 'lo reconoce como ya inscrito').toBe(true)
     expect(r.body.playerId, 'el MISMO jugador, no uno nuevo').toBe(playerId)
     expect(r.body.guestToken, 'y el mismo token firmado').toBe(guestToken)
     expect(await jugadoresEnBase(torneo), 'sigue un solo jugador').toHaveLength(1)
+
+    // Otro dispositivo que sólo sabe el guestId (sin token) no obtiene el token: antes el endpoint era un
+    // oráculo y con eso se anotaban golpes ajenos y se reclamaba el jugador (P0 #565).
+    const sinToken = await guestJoin(torneo, { guestId, name: NOMBRE_INVITADO, handicap: INDICE_INVITADO })
+    expect(sinToken.status, 'sin token: no se reemite').toBe(403)
+    expect(sinToken.body.error).toBe('guest_token_required')
+    expect(sinToken.body.guestToken, 'ni asoma el token').toBeUndefined()
+    expect(await jugadoresEnBase(torneo), 'y no se inscribió una segunda fila').toHaveLength(1)
+
+    // Tampoco sirve inscribir ese guestId en OTRO torneo abierto para que el server firme el token igual
+    // (el token firma sólo el guestId, no el torneo).
+    const otroTorneo = await crearTorneo({ status: 'open' })
+    const enOtro = await guestJoin(otroTorneo, { guestId, name: 'E2E Invitado Clon' })
+    expect(enOtro.status, 'un guestId con jugador en cualquier torneo exige su token').toBe(403)
+    expect(enOtro.body.error).toBe('guest_token_required')
+    expect(await jugadoresEnBase(otroTorneo), 'el otro torneo quedó vacío').toHaveLength(0)
   })
 
   test('con el torneo abierto (no activo) el invitado no puede anotar todavía', async () => {
