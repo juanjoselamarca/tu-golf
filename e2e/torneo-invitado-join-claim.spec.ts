@@ -33,7 +33,7 @@ import {
  *
  * Cómo correrlo (el spec inscribe y anota con la service key):
  *   node --env-file=.env.local scripts/test-db/e2e-local.mjs -- torneo-invitado-join-claim.spec.ts --project=mobile-chromium-auth
- * Contra prod se corta en beforeAll (lo exige `exigirBaseDePruebas` del global-setup). Todo lo creado se
+ * Contra prod se corta en el globalSetup, antes de cualquier test (`exigirBaseDePruebas`). Todo lo creado se
  * borra en afterAll.
  */
 
@@ -74,7 +74,7 @@ async function crearTorneo(opts: { status: string; maxPlayers?: number | null })
 
 async function activarTorneo(t: Torneo) {
   // 'in_progress' es el estado en juego que acepta `tournaments_status_check` (draft|open|in_progress|closed|
-  // published). `/api/game` tambien lista 'active', pero ese valor no existe en la base.
+  // published). `/api/game` también lista 'active', pero ese valor no existe en la base.
   await sinError('update tournaments status', adminClient().from('tournaments')
     .update({ status: 'in_progress' }).eq('id', t.id).select('id').single())
 }
@@ -141,10 +141,17 @@ async function parDelHoyo(hole: number): Promise<number> {
   return par!
 }
 
+/** Un par válido (3-5) pero DISTINTO al del catálogo: si el server lo copiara, el assert lo caza. */
+function parMentiroso(parDelCatalogo: number): number {
+  return parDelCatalogo === 3 ? 5 : 3
+}
+const NETO_MENTIROSO = 1
+const PUNTOS_MENTIROSOS = 99
+
 /**
- * POST /api/game upsert_score con los headers del invitado y el MISMO body que manda /torneo/[slug]/score
- * (incluido el par del hoyo). El server deriva neto y puntos y toma el par del catálogo: el del body sólo
- * sobrevive si la derivación cae.
+ * POST /api/game upsert_score con los headers del invitado y los MISMOS campos que manda /torneo/[slug]/score
+ * (par, neto y puntos incluidos), pero con par, neto y puntos falsos a propósito: el server toma el par del
+ * catálogo y deriva neto y puntos él mismo, así que nada de lo que "dice" el cliente puede quedar guardado.
  */
 async function anotarComoInvitado(opts: {
   torneo: Torneo; roundId: string; guestId: string; guestToken: string; hole: number; gross: number
@@ -156,8 +163,10 @@ async function anotarComoInvitado(opts: {
       tournament_id: opts.torneo.id,
       round_id: opts.roundId,
       hole_number: opts.hole,
-      par: await parDelHoyo(opts.hole),
+      par: parMentiroso(await parDelHoyo(opts.hole)),
       gross_score: opts.gross,
+      net_score: NETO_MENTIROSO,
+      points: PUNTOS_MENTIROSOS,
     },
   })
   return {
@@ -168,8 +177,11 @@ async function anotarComoInvitado(opts: {
 
 async function holeScores(roundId: string) {
   const filas = await sinError('select hole_scores', adminClient().from('hole_scores')
-    .select('hole_number, gross_score, par').eq('round_id', roundId).order('hole_number', { ascending: true }))
-  return (filas ?? []) as Array<{ hole_number: number; gross_score: number | null; par: number | null }>
+    .select('hole_number, gross_score, par, net_score, points').eq('round_id', roundId)
+    .order('hole_number', { ascending: true }))
+  return (filas ?? []) as Array<{
+    hole_number: number; gross_score: number | null; par: number | null; net_score: number | null; points: number | null
+  }>
 }
 
 /**
@@ -209,7 +221,7 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
     })
     page = await ctx.newPage()
 
-    // El socio entra por la pantalla de login real: su sesion la usan los tests de claim.
+    // El socio entra por la pantalla de login real: su sesión la usan los tests de claim.
     await page.goto('/login')
     await page.locator('input[type="email"]').first().fill(socio.email)
     await page.locator('input[placeholder="Tu contraseña"]').first().fill(socio.password)
@@ -252,7 +264,7 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
     expect(filas[0].user_id, 'invitado: todavía sin cuenta').toBeNull()
     expect(filas[0].player_name).toBe(NOMBRE_INVITADO)
     // El route pasa el handicap al RPC sin convertir, sea cual sea el `hcp_calc_mode`: lo que se afirma es que
-    // se guarda el numero que mando el invitado, no un course handicap ya calculado.
+    // se guarda el número que mandó el invitado, no un course handicap ya calculado.
     expect(Number(filas[0].handicap_at_registration), 'se guarda crudo, sin convertir').toBe(INDICE_INVITADO)
     expect(filas[0].rounds, 'su ronda del torneo quedó creada').toHaveLength(1)
     roundId = filas[0].rounds[0].id
@@ -330,8 +342,14 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
     expect(guardados.map(({ hole_number, gross_score }) => ({ hole_number, gross_score })), 'quedaron los 3 hoyos anotados')
       .toEqual(golpes.map(([hole_number, gross_score]) => ({ hole_number, gross_score })))
     for (const g of guardados) {
-      // El par guardado es el del catálogo de la cancha, no un número del cliente.
-      expect(g.par, `par del hoyo ${g.hole_number}`).toBe(await parDelHoyo(g.hole_number))
+      // El par guardado es el del catálogo aunque el cliente mandó otro válido: un par inflado desde el
+      // cliente subía solo los puntos stableford.
+      expect(g.par, `par del hoyo ${g.hole_number}: el del catálogo, no el del cliente`).toBe(await parDelHoyo(g.hole_number))
+      // El neto lo deriva el server del bruto y el course handicap: el "1" del cliente no puede quedar.
+      expect(g.net_score, `neto del hoyo ${g.hole_number} derivado por el server`).not.toBeNull()
+      expect(g.net_score, `neto del hoyo ${g.hole_number}: no el del cliente`).not.toBe(NETO_MENTIROSO)
+      expect(g.net_score!, `neto del hoyo ${g.hole_number} ≤ bruto`).toBeLessThanOrEqual(g.gross_score!)
+      expect(g.points, `puntos del hoyo ${g.hole_number}: no los del cliente`).not.toBe(PUNTOS_MENTIROSOS)
     }
 
     // Un token firmado para OTRO guestId: el HMAC es válido pero no es dueño de esta ronda.
