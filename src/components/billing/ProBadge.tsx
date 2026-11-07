@@ -2,12 +2,18 @@
  * ProBadge — inline chip showing PRO or PRO+.
  *
  * Two visual variants:
- * - `subtle` (default): 18px chip with translucent gold bg, used in profile/listing contexts.
+ * - `subtle` (default): 20px chip with translucent gold bg, used in profile/listing contexts.
  * - `filled`: solid gold badge, dark text, DM Mono — for gate overlays and locked chips.
  *   Designed for visibility under sunlight with gloves.
+ *
+ * Piso tipográfico: 12 px (caption de DESIGN.md §4). `size` no baja de ahí aunque el
+ * consumidor pida menos: el ancho se ajusta con padding, nunca achicando la letra.
  */
 
 import type { Tier } from '@/golf/billing/plans'
+
+/** Caption de DESIGN.md §4: ningún texto de la app baja de 12 px. */
+const FONT_SIZE_MIN = 12
 
 interface ProBadgeProps {
   tier: Extract<Tier, 'pro' | 'pro_plus'>
@@ -19,12 +25,13 @@ interface ProBadgeProps {
    * - `filled`: solid gold, dark text, DM Mono — for gate overlays.
    */
   variant?: 'subtle' | 'filled'
-  /** Font size override for filled variant (default 11px). */
+  /** Font size for the filled variant (default 12px; values below 12 are raised to 12). */
   size?: number
 }
 
-export function ProBadge({ tier, className, variant = 'subtle', size = 11 }: ProBadgeProps) {
+export function ProBadge({ tier, className, variant = 'subtle', size = FONT_SIZE_MIN }: ProBadgeProps) {
   const label = tier === 'pro_plus' ? 'PRO+' : 'PRO'
+  const fontSize = Math.max(size, FONT_SIZE_MIN)
 
   if (variant === 'filled') {
     return (
@@ -35,7 +42,7 @@ export function ProBadge({ tier, className, variant = 'subtle', size = 11 }: Pro
           background: 'var(--brand)',
           color: 'var(--brand-dark)',
           fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
-          fontSize: `${size}px`,
+          fontSize: `${fontSize}px`,
           fontWeight: 600,
           letterSpacing: '0.06em',
           padding: '3px 10px',
@@ -55,12 +62,12 @@ export function ProBadge({ tier, className, variant = 'subtle', size = 11 }: Pro
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        height: '18px',
+        height: '20px',
         padding: '0 6px',
         borderRadius: '4px',
         background: 'rgba(196,153,42,0.12)',
         border: '1px solid rgba(196,153,42,0.20)',
-        fontSize: '10px',
+        fontSize: `${FONT_SIZE_MIN}px`,
         fontWeight: 700,
         letterSpacing: '0.06em',
         lineHeight: 1,

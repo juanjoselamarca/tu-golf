@@ -59,21 +59,31 @@ export function LiveBadge() {
   if (isInRonda || isScoring) return null
 
   // Wrapper incluido aquí (no en layout.tsx) para que, cuando no hay ronda
-  // activa, no quede una franja vacía bajo la navbar.
+  // activa, no quede una franja vacía bajo la navbar. La franja mide 44 px
+  // (py-1.5 + píldora de 32) y el área de toque del link la cubre entera
+  // (before: -inset-y-1.5) sin pisar el contenido que viene debajo (§1: ≥44 px).
+  // Colores: tokens --status-live-* (los mismos badges de LiveHeader), compuestos
+  // sobre --bg-surface para que el verde se lea ≥4,5:1 también en claro
+  // (antes text-emerald-500 sobre emerald-500/10 daba 2,21:1).
   return (
-    <div className="flex justify-end px-3 pt-1">
+    <div className="flex justify-end px-3 py-1.5">
       <Link
         href={`/ronda-libre/${active.codigo}`}
-        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors"
+        className="relative inline-flex items-center gap-1.5 h-8 px-3 rounded-full border transition-opacity hover:opacity-80 before:absolute before:-inset-y-1.5 before:-inset-x-2 before:content-['']"
         aria-label={`Volver a ronda en ${active.courseName}`}
-        style={{ fontFamily: 'var(--font-dm-mono), ui-monospace, monospace' }}
+        style={{
+          fontFamily: 'var(--font-dm-mono), ui-monospace, monospace',
+          color: 'var(--status-live-fg)',
+          background: 'linear-gradient(var(--status-live-bg), var(--status-live-bg)), var(--bg-surface)',
+          borderColor: 'color-mix(in srgb, var(--status-live-fg) 30%, transparent)',
+        }}
       >
         <span className="relative inline-flex">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping opacity-75" />
+          <span className="w-1.5 h-1.5 rounded-full bg-current" />
+          <span className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-current animate-ping opacity-75" />
         </span>
-        <span className="text-[10px] font-bold text-emerald-500 tracking-wider">EN VIVO</span>
-        <Radio className="w-3 h-3 text-emerald-500 sr-only" aria-hidden />
+        <span className="text-xs font-bold tracking-wider">EN VIVO</span>
+        <Radio className="w-3 h-3 sr-only" aria-hidden />
       </Link>
     </div>
   )
