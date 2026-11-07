@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
+import { captureError } from '@/lib/error-tracking'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
@@ -36,6 +37,8 @@ export async function GET() {
       isAdmin: profile?.role === 'admin',
     })
   } catch (err) {
-    return NextResponse.json({ step: 'crash', error: String(err) }, { status: 500 })
+    // El detalle va al tracking, no al cliente: acá puede haber llegado alguien sin sesión.
+    void captureError(err, { context: 'api.admin.debug-auth' })
+    return NextResponse.json({ step: 'crash' }, { status: 500 })
   }
 }

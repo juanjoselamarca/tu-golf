@@ -95,7 +95,7 @@ const ADMIN_POR_SECRETO: Record<string, string> = {
 
 type Ofensa = { handler: string; falta: 'sesion' | 'rechazo' | 'admin' | 'cron' }
 
-const RE_HANDLER = /^export\s+(?:async\s+function|function|const)\s+(GET|POST|PUT|PATCH|DELETE)\b/gm
+const RE_HANDLER = /^export\s+(?:async\s+function|function|const)\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/gm
 /** Declaraciones de primer nivel: cortan el cuerpo de un handler o de un helper. */
 const RE_TOP = /^(?:export\s+)?(?:async\s+function|function|const|let|type|interface|class)\s+(\w+)/gm
 
@@ -112,10 +112,12 @@ export function ofensasDeRuta(ruta: string, fuente: string): Ofensa[] {
   }
   // Helpers del archivo (no handlers), con su cuerpo: el guard puede vivir ahí.
   const helpers = cortes
-    .filter((c) => !/^(GET|POST|PUT|PATCH|DELETE)$/.test(c.nombre))
+    .filter((c) => !/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/.test(c.nombre))
     .map((c) => ({ nombre: c.nombre, cuerpo: cuerpo(c.inicio) }))
+  // `(?<![.\w$])`: la llamada al helper local, no un método de otro objeto (`req.headers.get(` no es `get()`).
   const cumple = (texto: string, guard: RegExp) =>
-    guard.test(texto) || helpers.some((h) => new RegExp(`\\b${h.nombre}\\(`).test(texto) && guard.test(h.cuerpo))
+    guard.test(texto) ||
+    helpers.some((h) => new RegExp(`(?<![.\\w$])${h.nombre}\\(`).test(texto) && guard.test(h.cuerpo))
 
   const ofensas: Ofensa[] = []
   for (const m of src.matchAll(RE_HANDLER)) {
@@ -158,35 +160,41 @@ describe('canario — cada ruta de API autentica o está declarada pública', ()
     // Todo `route.ts` exporta al menos un handler que el canario reconoce.
     const sinHandler = archivos.filter((a) => ![...a.src.matchAll(RE_HANDLER)].length).map((a) => a.ruta)
     expect(sinHandler).toEqual([])
+    // El analizador quita comentarios antes de mirar: si un `/*` dentro de un string (`'image/*'`) se comiera un
+    // handler entero, quedaría sin revisar. Los handlers del texto limpio tienen que ser los del texto crudo.
+    const ciegos = archivos.filter((a) => [...a.src.replace(COMENTARIOS, '').matchAll(RE_HANDLER)].length !== [...a.src.matchAll(RE_HANDLER)].length)
+    expect(ciegos.map((a) => a.ruta), 'quitar comentarios borra un handler: hay un /* dentro de un string').toEqual([])
     // Un handler re-exportado (`export { x as POST }`, `export * from`) no lo ve RE_HANDLER: hoy no hay ninguno.
     expect(archivos.filter((a) => /^export\s*(\{|\*)/m.test(a.src)).map((a) => a.ruta)).toEqual([])
   })
 
   it('todo handler de api/admin exige admin (o su secreto declarado)', () => {
-    expect(ofensas.filter((o) => o.falta === 'admin').map((o) => o.handler)).toEqual([])
+    expect(ofensas.filter((o) => o.falta === 'admin').map((o) => o.handler), 'agrega isAdmin()/isCerebroAdmin() + un rechazo 401/403, o una fila en ADMIN_POR_SECRETO con motivo').toEqual([])
   })
 
   it('todo handler de api/cron exige CRON_SECRET', () => {
-    expect(ofensas.filter((o) => o.falta === 'cron').map((o) => o.handler)).toEqual([])
+    expect(ofensas.filter((o) => o.falta === 'cron').map((o) => o.handler), 'agrega el chequeo de CRON_SECRET + un rechazo 401/403').toEqual([])
   })
 
   it('fuera de admin y cron, un handler sin guard tiene que estar en SIN_GUARD con su motivo', () => {
     const sinGuard = ofensas.filter((o) => o.falta === 'sesion').map((o) => o.handler)
-    expect(sinGuard.filter((h) => !(h in SIN_GUARD))).toEqual([])
+    expect(sinGuard.filter((h) => !(h in SIN_GUARD)), 'agrega auth.getUser() + un rechazo 401/403, o una fila en SIN_GUARD con el motivo').toEqual([])
   })
 
   it('un handler que lee la sesión pero no rechaza a nadie tiene que estar en SESION_OPCIONAL con su motivo', () => {
     const sinRechazo = ofensas.filter((o) => o.falta === 'rechazo').map((o) => o.handler)
-    expect(sinRechazo.filter((h) => !(h in SESION_OPCIONAL))).toEqual([])
+    expect(sinRechazo.filter((h) => !(h in SESION_OPCIONAL)), 'rechaza al anónimo con 401/403, o agrega una fila en SESION_OPCIONAL con el motivo').toEqual([])
   })
 
   it('SIN_GUARD, SESION_OPCIONAL y ADMIN_POR_SECRETO no tienen filas viejas ni de más', () => {
     const sinGuard = new Set(ofensas.filter((o) => o.falta === 'sesion').map((o) => o.handler))
     const sinRechazo = new Set(ofensas.filter((o) => o.falta === 'rechazo').map((o) => o.handler))
-    expect(Object.keys(SESION_OPCIONAL).filter((h) => !sinRechazo.has(h))).toEqual([])
+    expect(Object.keys(SESION_OPCIONAL).filter((h) => !sinRechazo.has(h)), 'buena noticia: estas rutas ya rechazan al anónimo (o no existen); borra su fila de SESION_OPCIONAL').toEqual([])
     // Una fila que ya no existe, o cuya ruta ahora sí autentica, se borra: la lista es el inventario exacto.
-    expect(Object.keys(SIN_GUARD).filter((h) => !sinGuard.has(h))).toEqual([])
-    expect(Object.keys(ADMIN_POR_SECRETO).filter((h) => !handlers.includes(h))).toEqual([])
+    expect(Object.keys(SIN_GUARD).filter((h) => !sinGuard.has(h)), 'buena noticia: estas rutas ya autentican (o no existen); borra su fila de SIN_GUARD').toEqual([])
+    // La fila de secreto sobra si el handler no existe o si ya exige admin.
+    const conAdmin = (h: string) => archivos.some((a) => h.endsWith(` ${a.ruta}`) && GUARD_ADMIN.test(a.src.replace(COMENTARIOS, '')))
+    expect(Object.keys(ADMIN_POR_SECRETO).filter((h) => !handlers.includes(h) || conAdmin(h)), 'estas rutas ya no existen o ya exigen admin; borra su fila de ADMIN_POR_SECRETO').toEqual([])
     for (const motivo of [...Object.values(SIN_GUARD), ...Object.values(SESION_OPCIONAL), ...Object.values(ADMIN_POR_SECRETO)]) {
       expect(motivo.length).toBeGreaterThanOrEqual(20)
     }
