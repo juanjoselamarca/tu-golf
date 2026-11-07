@@ -70,6 +70,8 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
     totalHoles,
     hoyosJugados,
   )
+  // Con hándicap el conteo es neto y la etiqueta lo dice (un par con golpe recibido no es un birdie).
+  const sufijoNeto = (n: number) => (isNeto ? (n > 1 ? ' netos' : ' neto') : '')
   let birdieCount = 0, eagleCount = 0
   Object.entries(playerScores).forEach(([h, s]) => {
     const p = parMap[parseInt(h)] ?? 4
@@ -174,11 +176,12 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
         <div style={{ fontSize: '16px', fontWeight: 600, color: diffColor, marginBottom: '4px' }}>{diffLabel}</div>
         <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '20px' }}>{ronda?.course_name}</div>
 
-        {/* Stats pills */}
+        {/* Stats pills. En modo neto el conteo lleva los golpes recibidos y la etiqueta lo dice: el historial,
+            la tarjeta pública y el board cuentan birdies brutos y el jugador vería dos cifras distintas. */}
         {(eagleCount > 0 || birdieCount > 0) && (
           <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', fontSize: '14px' }}>
-            {eagleCount > 0 && <span style={{ color: 'var(--eagle)' }}>{eagleCount} eagle{eagleCount > 1 ? 's' : ''}</span>}
-            {birdieCount > 0 && <span style={{ color: 'var(--birdie)' }}>{birdieCount} birdie{birdieCount > 1 ? 's' : ''}</span>}
+            {eagleCount > 0 && <span style={{ color: 'var(--eagle)' }}>{eagleCount} eagle{eagleCount > 1 ? 's' : ''}{sufijoNeto(eagleCount)}</span>}
+            {birdieCount > 0 && <span style={{ color: 'var(--birdie)' }}>{birdieCount} birdie{birdieCount > 1 ? 's' : ''}{sufijoNeto(birdieCount)}</span>}
           </div>
         )}
 

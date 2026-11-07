@@ -27,7 +27,7 @@ describe('FinishedRoundView — 9 hoyos desde el 10', () => {
         isMatchPlay={false} matchResult={null} onContinueScoring={() => {}}
       />,
     )
-    expect(screen.getByText('5 birdies')).toBeTruthy() // 4 en par 4 − 1 golpe en 5 hoyos
+    expect(screen.getByText('5 birdies netos')).toBeTruthy() // 4 en par 4 − 1 golpe en 5 hoyos; en neto la etiqueta lo dice
     expect(screen.getAllByText('IN').length).toBeGreaterThan(0)
     expect(screen.queryByText('OUT')).toBeNull()
     expect(screen.getAllByText('18').length).toBeGreaterThan(0)
