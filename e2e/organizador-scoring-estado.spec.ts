@@ -16,7 +16,9 @@ import {
  *  - el badge es el estado real (`tournamentStatusBadge`): Borrador / Inscripciones abiertas / ● En curso / Cerrado / Publicado;
  *  - sin empezar: "El torneo todavía no empieza", sin tarjetas, y lleva a Jugadores (donde se inicia);
  *  - cerrado: las tarjetas se siguen leyendo (revisarlas antes de publicar) pero no se editan, y ofrece reabrir;
- *  - publicado: sólo lectura y NO promete reabrir (`reopenTournamentAction` sólo acepta 'closed').
+ *  - publicado: sólo lectura y NO promete reabrir (`reopenTournamentAction` sólo acepta 'closed');
+ *  - "Deshacer hoyo N" (#743, hunter 05-nov) llega SIEMPRE al servidor: borra el golpe (NULL) si el hoyo estaba vacío y
+ *    repone el anterior si fue una corrección; la pantalla y la base dicen lo mismo también después de recargar.
  *
  * El organizador es el usuario E2E (sesión del global-setup); la jugadora es un usuario efímero con nombre propio.
  * SOLO base de pruebas (`scripts/test-db/e2e-local.mjs`): un torneo en curso público se vería en /en-vivo de prod.
@@ -144,7 +146,7 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
     })
   }
 
-  test('en curso: "● En curso", sin aviso, y el golpe del organizador se guarda en la tarjeta de la jugadora', async ({ page }) => {
+  test('en curso: "● En curso", sin aviso, el golpe del organizador se guarda en la tarjeta de la jugadora y "Deshacer hoyo" lo borra o repone en la base (#743)', async ({ page }) => {
     const r = await sinError('insert rounds', adminClient().from('rounds').insert({
       tournament_id: tournamentId, player_id: playerId, round_number: 1, status: 'in_progress',
     }).select('id').single())
@@ -173,6 +175,63 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
       const { data } = await adminClient().from('hole_scores').select('hole_number, gross_score, par').eq('round_id', roundId)
       return data
     }, { timeout: 15_000 }).toEqual([{ hole_number: 1, gross_score: golpes, par: parHoyo1 }])
+
+    // #743: "Deshacer hoyo 1" sobre un hoyo que estaba VACÍO borra el golpe en la base (gross, neto y puntos a NULL),
+    // en la tarjeta donde se anotó, y no sólo en la pantalla. Antes limpiaba la celda, decía "restaurado" y el golpe
+    // seguía contando en el leaderboard y reaparecía al recargar.
+    const deshacer = page.getByRole('button', { name: 'Deshacer hoyo 1', exact: true })
+    await expect(deshacer).toBeVisible()
+    const undo1 = page.waitForResponse(res => res.url().includes('/api/game') && res.request().method() === 'POST')
+    await deshacer.click()
+    const undo1Res = await undo1
+    expect(undo1Res.status(), 'el servidor acepta el deshacer').toBe(200)
+    expect(undo1Res.request().postDataJSON(), 'el deshacer manda gross NULL a la ronda donde se anotó').toMatchObject({
+      action: 'upsert_score', round_id: roundId, hole_number: 1, gross_score: null,
+    })
+    await expect(page.getByText('Hoyo 1 restaurado')).toBeVisible()
+    await expect(deshacer, 'el deshacer se consume: no hay un segundo "Deshacer" fantasma').toHaveCount(0)
+    await expect(inputsDeHoyos(page).first()).toHaveValue('')
+    await expect.poll(async () => {
+      const { data } = await adminClient().from('hole_scores')
+        .select('hole_number, gross_score, net_score, points').eq('round_id', roundId)
+      return data
+    }, { timeout: 15_000 }).toEqual([{ hole_number: 1, gross_score: null, net_score: null, points: null }])
+    // Al recargar el hoyo sigue vacío: el bug original era que el golpe "deshecho" volvía desde la base.
+    await abrirScoring(page)
+    await tarjetaJugadora(page).click()
+    await expect(inputsDeHoyos(page)).toHaveCount(18)
+    await expect(inputsDeHoyos(page).first()).toHaveValue('')
+
+    // #743, corrección: anotar, corregir y deshacer vuelve al golpe ANTERIOR (no borra el hoyo).
+    const h1b = inputsDeHoyos(page).first()
+    const save1 = page.waitForResponse(res => res.url().includes('/api/game') && res.request().method() === 'POST')
+    await h1b.fill(String(golpes))
+    await h1b.blur()
+    expect((await save1).status()).toBe(200)
+    // La celda se remonta al guardar (su `key` incluye el gross): se espera el valor antes de corregirlo, si no el
+    // blur podría caer en la celda nueva vacía y mandar un NULL que no es el que se prueba.
+    await expect(inputsDeHoyos(page).first()).toHaveValue(String(golpes))
+    const save2 = page.waitForResponse(res => res.url().includes('/api/game') && res.request().method() === 'POST')
+    await inputsDeHoyos(page).first().fill(String(golpes + 1))
+    await inputsDeHoyos(page).first().blur()
+    expect((await save2).status()).toBe(200)
+    await expect.poll(async () => {
+      const { data } = await adminClient().from('hole_scores').select('gross_score').eq('round_id', roundId).eq('hole_number', 1).single()
+      return data?.gross_score
+    }, { timeout: 15_000 }).toBe(golpes + 1)
+    const undo2 = page.waitForResponse(res => res.url().includes('/api/game') && res.request().method() === 'POST')
+    await page.getByRole('button', { name: 'Deshacer hoyo 1', exact: true }).click()
+    const undo2Res = await undo2
+    expect(undo2Res.status()).toBe(200)
+    expect(undo2Res.request().postDataJSON(), 'deshacer una corrección repone el golpe anterior').toMatchObject({
+      round_id: roundId, hole_number: 1, gross_score: golpes,
+    })
+    await expect(inputsDeHoyos(page).first()).toHaveValue(String(golpes))
+    await expect.poll(async () => {
+      const { data } = await adminClient().from('hole_scores')
+        .select('hole_number, gross_score, net_score, par').eq('round_id', roundId)
+      return data
+    }, { timeout: 15_000 }).toEqual([{ hole_number: 1, gross_score: golpes, net_score: expect.any(Number), par: parHoyo1 }])
     // El total de la tarjeta lo refleja (GROSS = el único golpe anotado).
     await expect(page.getByText('GROSS', { exact: true }).locator('..')).toContainText(String(golpes))
 
