@@ -50,9 +50,19 @@ describe('GrupoHoleInfoRow', () => {
     expect(tieneDivisor('SI')).toBe(false)
   })
 
-  it('con la columna GOLPES detrás, SI mantiene su divisor', () => {
+  it('con la columna GOLPES GRUPO detrás, SI mantiene su divisor', () => {
     renderFila(null, true)
     expect(tieneDivisor('SI')).toBe(true)
-    expect(tieneDivisor('GOLPES')).toBe(false)
+    expect(tieneDivisor('GOLPES GRUPO')).toBe(false)
+  })
+
+  // El número es el máximo del GRUPO, no los golpes del que mira: sin el "MÁX",
+  // el que recibe 1 en un grupo donde otro recibe 2 leia "GOLPES +2" al lado de
+  // PAR y SI —que sí son iguales para todos— y cree que la app se equivocó.
+  it('la columna de golpes dice que el número es el máximo del grupo', () => {
+    renderFila(null, true)
+    expect(screen.queryByText('GOLPES')).toBeNull()
+    expect(screen.getByText('GOLPES GRUPO')).toBeTruthy()
+    expect(screen.getByText('+1')).toBeTruthy()
   })
 })

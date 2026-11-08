@@ -102,7 +102,14 @@ export function PlayerScoreCard({
               </div>
               {muestraTotales && (
                 <span style={{ fontSize: '10px', color: formatoJuego === 'stableford' ? 'var(--brand-on-bg)' : '#60A5FA' }}>
-                  {formatoJuego === 'stableford' ? `${runningStableford} pts` : `Net: ${runningNetVsPar >= 0 ? '+' : ''}${runningNetVsPar}`}
+                  {/*
+                    El neto se escribe con el MISMO formateador que el bruto de dos
+                    líneas más arriba (`formatVsPar`). El signo a mano de antes daba
+                    "Net: +0" en par, y en golf el par se escribe "E": el marcador en
+                    vivo de la misma ronda ya lo escribe así, así que la app se
+                    contradecía a sí misma entre dos pantallas de la misma vuelta.
+                  */}
+                  {formatoJuego === 'stableford' ? `${runningStableford} pts` : `Net: ${formatVsPar(runningNetVsPar)}`}
                 </span>
               )}
             </>
@@ -190,7 +197,7 @@ export function PlayerScoreCard({
               }}>
                 {formatoJuego === 'stableford'
                   ? `${stablefordPts} pts`
-                  : `Net: ${netScoreThisHole != null ? netScoreThisHole - par >= 0 ? '+' + (netScoreThisHole - par) : String(netScoreThisHole - par) : '—'}`}
+                  : `Net: ${netScoreThisHole != null ? formatVsPar(netScoreThisHole - par) : '—'}`}
               </div>
             )}
           </div>
