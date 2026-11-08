@@ -104,12 +104,15 @@ export default async function OrganizadorPage() {
       <div className="mx-auto max-w-[640px] px-4 pt-6">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+          <h1
+            className="whitespace-nowrap text-2xl font-bold leading-tight min-[360px]:text-[28px] min-[390px]:text-[32px]"
+            style={{ fontFamily: 'var(--font-playfair)', color: 'var(--text)' }}
+          >
             Mis Torneos
           </h1>
           <Link
             href="/organizador/nuevo"
-            className="inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold text-bg-deep transition-opacity hover:opacity-90"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-bg-deep transition-opacity hover:opacity-90 min-[360px]:px-5"
             style={{ background: 'var(--brand)' }}
           >
             <Plus size={16} strokeWidth={2.5} />
@@ -235,8 +238,8 @@ function EmptyState() {
         <Trophy size={32} strokeWidth={1.5} style={{ color: 'var(--brand-on-bg)' }} />
       </div>
       <h2
-        className="mb-2 text-lg font-semibold"
-        style={{ color: 'var(--text)' }}
+        className="mb-2 text-xl font-semibold"
+        style={{ fontFamily: 'var(--font-playfair)', color: 'var(--text)' }}
       >
         Sin torneos todavía
       </h2>
