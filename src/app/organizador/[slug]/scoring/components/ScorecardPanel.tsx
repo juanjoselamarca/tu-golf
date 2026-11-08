@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import type { CourseHole } from '@/golf/leaderboard/types'
+import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
 import type { ScoringTournament } from '@/lib/data/tournaments/scoring'
 import { isClosedRoundStatus } from '../hooks/useScoringData'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
@@ -53,7 +54,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
     <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', overflow: 'hidden' }}>
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <div>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)' }}>{selectedPlayer.profiles?.name}</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)' }}>{resolveLegacyPlayerName(selectedPlayer)}</span>
           <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
