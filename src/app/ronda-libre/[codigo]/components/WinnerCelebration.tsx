@@ -3,7 +3,12 @@
 // La clasificación vive UNA sola vez en la tabla de abajo (Team/IndividualLeaderboard).
 import type { ReactNode } from 'react'
 import { Trophy, Handshake, Flag } from '@/components/icons'
-import { etiquetaDelResultadoDeEquipos, juegaContraElPar } from '@/golf/ronda-libre/resultado-de-equipos'
+import {
+  equiposEnElPrimerLugar,
+  etiquetaDelResultadoDeEquipos,
+  hayEmpateDeEquipos,
+  juegaContraElPar,
+} from '@/golf/ronda-libre/resultado-de-equipos'
 import { Button } from '@/components/ui/Button'
 import { formatOverUnder } from '@/constants/golf'
 import { scoreFgVar } from '@/lib/score-tokens'
@@ -107,8 +112,9 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
   // Un solo equipo (09-nov-2026, R4794T) juega contra el par: no le gana a nadie.
   if (teams && teams.length > 0) {
     const winnerDiff = teams[0].diff
-    const isTie = teams.length > 1 && teams[1].diff === winnerDiff
-    const winners = teams.filter(t => t.diff === winnerDiff)
+    // Mismo criterio que la imagen para compartir (`tarjetaDeEquipos`).
+    const isTie = hayEmpateDeEquipos(teams)
+    const winners = equiposEnElPrimerLugar(teams)
     return (
       <HeroCard
         ronda={ronda}

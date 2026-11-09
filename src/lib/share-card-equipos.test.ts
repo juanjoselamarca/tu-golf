@@ -3,7 +3,7 @@
 // se comparte por WhatsApp seguía titulando "EQUIPO GANADOR" con trofeo. Ahora las
 // dos salen de `etiquetaDelResultadoDeEquipos`.
 import { describe, it, expect } from 'vitest'
-import { encabezadoDeRondaLibre, tarjetaDeEquipos, type LeaderboardShareData } from './share-card'
+import { encabezadoDeRondaLibre, nombreDeRondaLibre, tarjetaDeEquipos, type LeaderboardShareData } from './share-card'
 
 const base = (teams: LeaderboardShareData['teams']): LeaderboardShareData => ({
   players: [],
@@ -43,6 +43,23 @@ describe('tarjetaDeEquipos', () => {
     expect(tarjeta?.esEmpate).toBe(true)
     expect(tarjeta?.jugadores).toEqual(['Uno', 'Dos'])
     expect(encabezadoDeRondaLibre(tarjeta!)).toEqual({ emoji: '🤝', titulo: 'EMPATE' })
+    // El nombre grande nombra a los dos, como el cuadro de la pantalla; no al primero solo.
+    expect(nombreDeRondaLibre(tarjeta!)).toBe('Uno y Dos')
+  })
+
+  it('el empate se decide por diff (vs par), igual que en la pantalla, no por golpes', () => {
+    const tarjeta = tarjetaDeEquipos(base([
+      { nombre: 'Uno', jugadores: ['A', 'B'], score: 70, diff: -2 },
+      { nombre: 'Dos', jugadores: ['C', 'D'], score: 68, diff: -2 },
+    ]))
+    expect(tarjeta?.esEmpate).toBe(true)
+    expect(nombreDeRondaLibre(tarjeta!)).toBe('Uno y Dos')
+  })
+
+  it('sin empate el nombre es el del equipo; en individual, los nombres de pila empatados', () => {
+    expect(nombreDeRondaLibre({ ganador: 'Equipo 1', esEmpate: false, teamNombre: 'Equipo 1' })).toBe('Equipo 1')
+    expect(nombreDeRondaLibre({ ganador: 'Juan Pérez', esEmpate: true, jugadores: ['Juan Pérez', 'Max Undurraga'] })).toBe('Juan · Max')
+    expect(nombreDeRondaLibre({ ganador: 'Juan Pérez', esEmpate: false })).toBe('Juan Pérez')
   })
 
   it('sin equipos o fuera de un formato por equipos no hay tarjeta', () => {

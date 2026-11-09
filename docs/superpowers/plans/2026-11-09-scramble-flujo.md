@@ -49,9 +49,15 @@ que nunca finalizó. Investigación: memoria `project_cristian_ross_investigacio
   recorridos de una cancha de 27 hoyos y la mitad de un 9 hoyos, que `RondaReciente` no guarda.
 - Copy: con cero rivales en un formato que anota uno solo (Stableford solo) dice "Anotas desde tu
   celular", no "por el grupo". "Quitar equipo" no se parte en dos líneas a 390 px.
-- Tests: 33 del hook, 24 de equipos/plantilla, validador, 3 del cuadro ganador, 5 de la imagen por equipos,
-  2 de la etiqueta; e2e `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble → Equipo 1 →
-  Revisar habilitado → volver a Stroke Play).
+- Empate entre equipos (revisión Opus, 2ª vuelta): `hayEmpateDeEquipos` / `equiposEnElPrimerLugar` en la
+  misma fuente única, por `diff` (la imagen lo decidía por `score` y la pantalla por `diff`: en neto con
+  distinta cantidad de hoyos anotados podían discrepar). En la imagen el nombre grande dice "Equipo 1 y
+  Equipo 2" (`nombreDeRondaLibre`) y no se dibujan integrantes; antes salía el primer equipo como ganador.
+  `moverAlEquipo` calcula y aplica el movimiento dentro del mismo `setEquipos(prev => …)`, y
+  `moverEntreEquipos` saca antes de agregar (idempotente). "Seguila en vivo" → "Síguela" en `share.ts`.
+- Tests: 33 del hook, 39 de equipos/plantilla, validador, 3 del cuadro ganador, 7 de la imagen por equipos,
+  4 del resultado por equipos; e2e `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble →
+  Equipo 1 → Revisar habilitado → volver a Stroke Play).
 
 ## PR B — scorer de grupo
 

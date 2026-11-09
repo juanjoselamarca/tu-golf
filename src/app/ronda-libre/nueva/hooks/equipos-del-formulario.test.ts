@@ -122,6 +122,17 @@ describe('destinoParaMover / moverEntreEquipos', () => {
     ])
   })
 
+  it('aplicar el mismo movimiento simple dos veces no deja a nadie repetido', () => {
+    const equipos: EquipoDeLaRonda[] = [
+      { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1', 'r2'] },
+      { nombre: 'Equipo 2', miembros: ['r3', 'r4'] },
+    ]
+    const movimiento = { equipoIdx: 1, intercambiaCon: null }
+    const unaVez = moverEntreEquipos(equipos, 'r2', movimiento)
+    expect(moverEntreEquipos(unaVez, 'r2', movimiento)).toEqual(unaVez)
+    expect(unaVez[1].miembros.filter(m => m === 'r2')).toHaveLength(1)
+  })
+
   it('un movimiento simple que vacía un equipo rival lo hace desaparecer; el primero se queda', () => {
     const equipos: EquipoDeLaRonda[] = [
       { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1', 'r2'] },

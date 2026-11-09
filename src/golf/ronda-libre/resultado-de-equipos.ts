@@ -19,3 +19,18 @@ export function etiquetaDelResultadoDeEquipos(cantidadDeEquipos: number, empate:
 export function juegaContraElPar(cantidadDeEquipos: number): boolean {
   return cantidadDeEquipos < EQUIPOS_PARA_COMPETIR
 }
+
+/**
+ * Empate entre equipos, sobre el ranking YA ordenado: los dos primeros con el
+ * mismo `diff` (vs par, el criterio con que se ordena). La imagen para
+ * compartir lo decidía por `score` y la pantalla por `diff`: en neto, con
+ * distinta cantidad de hoyos anotados, podían decir cosas distintas.
+ */
+export function hayEmpateDeEquipos(ranking: readonly { diff: number }[]): boolean {
+  return ranking.length > 1 && ranking[1].diff === ranking[0].diff
+}
+
+/** Los equipos que comparten el primer lugar (uno solo si no hay empate). */
+export function equiposEnElPrimerLugar<T extends { diff: number }>(ranking: readonly T[]): T[] {
+  return ranking.length === 0 ? [] : ranking.filter(t => t.diff === ranking[0].diff)
+}

@@ -3,7 +3,12 @@
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
-import { etiquetaDelResultadoDeEquipos, juegaContraElPar } from '@/golf/ronda-libre/resultado-de-equipos'
+import {
+  equiposEnElPrimerLugar,
+  etiquetaDelResultadoDeEquipos,
+  hayEmpateDeEquipos,
+  juegaContraElPar,
+} from '@/golf/ronda-libre/resultado-de-equipos'
 import { captureError } from '@/lib/error-tracking'
 import { SITE_URL } from '@/lib/site-url'
 import { hoyosDesdeElUno, hoyosPorNumero, etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
@@ -382,6 +387,19 @@ export function encabezadoDeRondaLibre(data: Pick<ShareCardRondaLibre, 'esEmpate
   return data.esEmpate ? { emoji: '🤝', titulo: 'EMPATE ÉPICO' } : { emoji: '🏆', titulo: 'GANADOR DE LA RONDA' }
 }
 
+/**
+ * El nombre grande de la imagen. Con empate van los empatados: por equipos
+ * "Equipo 1 y Equipo 2" (igual que el cuadro de la pantalla), individual los
+ * nombres de pila. Antes por equipos salía siempre el primero, como si el
+ * empate fuera de un solo equipo.
+ */
+export function nombreDeRondaLibre(data: Pick<ShareCardRondaLibre, 'ganador' | 'esEmpate' | 'jugadores' | 'teamNombre'>): string {
+  if (data.teamNombre) {
+    return data.esEmpate && data.jugadores?.length ? data.jugadores.join(' y ') : data.teamNombre
+  }
+  return data.esEmpate && data.jugadores ? data.jugadores.map(n => n.split(' ')[0]).join(' · ') : data.ganador
+}
+
 function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLibre, W: number, H: number) {
   ctx.textAlign = 'center'
   const encabezado = encabezadoDeRondaLibre(data)
@@ -394,11 +412,11 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
   ctx.fillText(encabezado.titulo, W / 2, 470)
   ;(ctx as any).letterSpacing = '0px'
 
-  const name = isTeam ? data.teamNombre! : (data.esEmpate && data.jugadores ? data.jugadores.map(n => n.split(' ')[0]).join(' · ') : data.ganador)
+  const name = nombreDeRondaLibre(data)
   ctx.font = 'bold 68px Georgia, serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(name, W / 2, 560)
 
-  // Team members subtitle
-  if (isTeam && data.teamJugadores && data.teamJugadores.length > 0) {
+  // Team members subtitle (con empate el nombre ya ocupa los dos equipos)
+  if (isTeam && !data.esEmpate && data.teamJugadores && data.teamJugadores.length > 0) {
     ctx.font = '28px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.55)'
     ctx.fillText(data.teamJugadores.join(' \u00B7 '), W / 2, 600)
   }
@@ -574,12 +592,13 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
 export function tarjetaDeEquipos(data: LeaderboardShareData): ShareCardRondaLibre | null {
   if (!isTeamFormat(data.formato_juego) || !data.teams || data.teams.length === 0) return null
   const winTeam = data.teams[0]
-  const isTie = data.teams.length > 1 && data.teams[1].score === winTeam.score
+  // El mismo criterio que el cuadro ganador de la pantalla: por `diff`.
+  const isTie = hayEmpateDeEquipos(data.teams)
   return {
     tipo: 'ronda_libre',
     ganador: winTeam.nombre,
     esEmpate: isTie,
-    jugadores: isTie ? data.teams.filter(t => t.score === winTeam.score).map(t => t.nombre) : undefined,
+    jugadores: isTie ? equiposEnElPrimerLugar(data.teams).map(t => t.nombre) : undefined,
     scoreGross: winTeam.score,
     scoreDiff: winTeam.diff,
     courseName: data.courseName,

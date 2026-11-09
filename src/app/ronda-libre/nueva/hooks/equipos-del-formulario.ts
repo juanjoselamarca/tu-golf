@@ -130,7 +130,8 @@ export function moverEntreEquipos(
   return equipos
     .map((e, i) => ({
       ...e,
-      miembros: i === equipoIdx ? [...e.miembros, id] : e.miembros.filter(m => m !== id),
+      // Se saca antes de agregar: aplicar el mismo movimiento dos veces no duplica a nadie.
+      miembros: i === equipoIdx ? [...e.miembros.filter(m => m !== id), id] : e.miembros.filter(m => m !== id),
     }))
     .filter((e, i) => i === 0 || e.miembros.length > 0)
 }

@@ -282,9 +282,12 @@ export function useFormularioDeRonda() {
    * con alguien del otro equipo (`destinoParaMover`): nunca deja un equipo cojo.
    */
   const moverAlEquipo = (id: string) => {
-    const movimiento = destinoParaMover(formato, equipos, id)
-    if (!movimiento) return
-    setEquipos(prev => moverEntreEquipos(prev, id, movimiento))
+    // Se calcula y se aplica sobre el MISMO estado: dos toques seguidos antes de
+    // un render no pueden dejar a alguien dos veces en un equipo.
+    setEquipos(prev => {
+      const movimiento = destinoParaMover(formato, prev, id)
+      return movimiento ? moverEntreEquipos(prev, id, movimiento) : prev
+    })
   }
 
   /**
