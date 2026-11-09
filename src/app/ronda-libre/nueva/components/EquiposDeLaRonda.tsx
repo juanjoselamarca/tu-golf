@@ -3,11 +3,11 @@
 import type { FormatoJuego } from '@/golf/core/rules'
 import {
   EQUIPOS_PARA_COMPETIR,
-  jugadoresPorEquipo,
   puedeSumarCompanero,
   puedeSumarEquipo,
 } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
+import { destinoParaMover } from '../hooks/equipos-del-formulario'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { colores, input } from './estilos'
 import { TarjetaDelCreador } from './TarjetaDelCreador'
@@ -29,7 +29,7 @@ interface Props {
   onAgregarEquipo: () => void
   onQuitarEquipo: (equipoIdx: number) => void
   onRenombrarEquipo: (equipoIdx: number, nombre: string) => void
-  onMoverAlEquipo: (id: string, equipoIdx: number) => void
+  onMoverAlEquipo: (id: string) => void
 }
 
 const botonPunteado = {
@@ -55,10 +55,18 @@ const botonTexto = {
 export function EquiposDeLaRonda(props: Props) {
   const totalJugadores = 1 + props.rivales.length
   const posicionDeRival = new Map(props.rivales.map((r, i) => [r.id, i]))
-  const topePorEquipo = jugadoresPorEquipo(props.formato)?.max ?? 0
-  // El otro equipo al que se puede mover a alguien: existe y le queda cupo.
-  const equipoDestinoDesde = (equipoIdx: number) =>
-    props.equipos.findIndex((e, i) => i !== equipoIdx && e.miembros.length < topePorEquipo)
+  const nombreDe = (id: string) => {
+    if (id === ID_DEL_CREADOR) return props.creador.nombre.trim() || 'ti'
+    const idx = posicionDeRival.get(id)
+    return (idx != null && props.rivales[idx]?.nombre.trim()) || `el jugador ${(idx ?? 0) + 1}`
+  }
+  // Qué dice el botón de corregir el reparto: mover al otro equipo o cambiar de lugar con alguien.
+  const textoDelMovimiento = (id: string) => {
+    const movimiento = destinoParaMover(props.formato, props.equipos, id)
+    if (!movimiento) return null
+    const equipo = props.equipos[movimiento.equipoIdx].nombre.trim() || `Equipo ${movimiento.equipoIdx + 1}`
+    return movimiento.intercambiaCon ? `Cambiar con ${nombreDe(movimiento.intercambiaCon)} ⇄` : `Mover a ${equipo} →`
+  }
 
   return (
     <div>
@@ -83,7 +91,7 @@ export function EquiposDeLaRonda(props: Props) {
               <button
                 type="button"
                 onClick={() => props.onQuitarEquipo(equipoIdx)}
-                style={{ ...botonTexto, color: colores.peligro }}
+                style={{ ...botonTexto, color: colores.peligro, whiteSpace: 'nowrap' }}
               >
                 Quitar equipo
               </button>
@@ -108,7 +116,7 @@ export function EquiposDeLaRonda(props: Props) {
             const idx = posicionDeRival.get(id)
             if (idx == null) return null
             const rival = props.rivales[idx]
-            const otroEquipo = equipoDestinoDesde(equipoIdx)
+            const movimiento = textoDelMovimiento(id)
             return (
               <div key={id}>
                 <TarjetaDeRival
@@ -120,14 +128,14 @@ export function EquiposDeLaRonda(props: Props) {
                   onCampo={(campo, valor) => props.onCampoRival(idx, campo, valor)}
                   onQuitar={() => props.onQuitarRival(idx)}
                 />
-                {otroEquipo >= 0 && (
+                {movimiento && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-6px', marginBottom: '6px' }}>
                     <button
                       type="button"
-                      onClick={() => props.onMoverAlEquipo(id, otroEquipo)}
+                      onClick={() => props.onMoverAlEquipo(id)}
                       style={{ ...botonTexto, color: colores.oroTexto }}
                     >
-                      Mover a {props.equipos[otroEquipo].nombre.trim() || `Equipo ${otroEquipo + 1}`} →
+                      {movimiento}
                     </button>
                   </div>
                 )}

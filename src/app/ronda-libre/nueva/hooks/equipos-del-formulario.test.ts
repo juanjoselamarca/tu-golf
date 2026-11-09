@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { equiposSirvenPara, repartirEnEquipos } from './equipos-del-formulario'
+import {
+  destinoParaMover,
+  equiposSirvenPara,
+  ID_DEL_CREADOR,
+  moverEntreEquipos,
+  repartirEnEquipos,
+  type EquipoDeLaRonda,
+} from './equipos-del-formulario'
 
 describe('repartirEnEquipos', () => {
   it('dos personas son un equipo contra el par', () => {
@@ -70,5 +77,58 @@ describe('equiposSirvenPara', () => {
   it('sin equipos o en formato individual no sirven', () => {
     expect(equiposSirvenPara('scramble', [], ['creador', 'r1'])).toBe(false)
     expect(equiposSirvenPara('stroke_play', dosYDos, ['creador', 'r1', 'r2', 'r3'])).toBe(false)
+  })
+})
+
+describe('destinoParaMover / moverEntreEquipos', () => {
+  const dosYDos: EquipoDeLaRonda[] = [
+    { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1'] },
+    { nombre: 'Equipo 2', miembros: ['r2', 'r3'] },
+  ]
+
+  it('con un solo equipo no hay destino', () => {
+    expect(destinoParaMover('scramble', [{ nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1'] }], 'r1')).toBeNull()
+  })
+
+  it('Foursome 2+2: los dos equipos están llenos, así que se intercambia con el último del otro equipo', () => {
+    expect(destinoParaMover('foursome', dosYDos, 'r1')).toEqual({ equipoIdx: 1, intercambiaCon: 'r3' })
+    expect(moverEntreEquipos(dosYDos, 'r1', { equipoIdx: 1, intercambiaCon: 'r3' })).toEqual([
+      { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r3'] },
+      { nombre: 'Equipo 2', miembros: ['r2', 'r1'] },
+    ])
+  })
+
+  it('Scramble 2+2: cabe en el otro equipo, pero el suyo quedaría bajo el mínimo → intercambio', () => {
+    expect(destinoParaMover('scramble', dosYDos, 'r1')).toEqual({ equipoIdx: 1, intercambiaCon: 'r3' })
+  })
+
+  it('el intercambio evita al creador mientras haya otro integrante', () => {
+    const equipos: EquipoDeLaRonda[] = [
+      { nombre: 'Equipo 1', miembros: ['r1', 'r2'] },
+      { nombre: 'Equipo 2', miembros: ['r3', ID_DEL_CREADOR] },
+    ]
+    expect(destinoParaMover('foursome', equipos, 'r1')).toEqual({ equipoIdx: 1, intercambiaCon: 'r3' })
+  })
+
+  it('se mueve solo cuando cabe y su equipo sigue completo', () => {
+    const tresYDos: EquipoDeLaRonda[] = [
+      { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1', 'r2'] },
+      { nombre: 'Equipo 2', miembros: ['r3', 'r4'] },
+    ]
+    expect(destinoParaMover('scramble', tresYDos, 'r2')).toEqual({ equipoIdx: 1, intercambiaCon: null })
+    expect(moverEntreEquipos(tresYDos, 'r2', { equipoIdx: 1, intercambiaCon: null })).toEqual([
+      { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1'] },
+      { nombre: 'Equipo 2', miembros: ['r3', 'r4', 'r2'] },
+    ])
+  })
+
+  it('un movimiento simple que vacía un equipo rival lo hace desaparecer; el primero se queda', () => {
+    const equipos: EquipoDeLaRonda[] = [
+      { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1', 'r2'] },
+      { nombre: 'Equipo 2', miembros: ['r3'] },
+    ]
+    expect(moverEntreEquipos(equipos, 'r3', { equipoIdx: 0, intercambiaCon: null })).toEqual([
+      { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1', 'r2', 'r3'] },
+    ])
   })
 })

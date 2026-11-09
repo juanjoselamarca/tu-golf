@@ -37,10 +37,21 @@ que nunca finalizó. Investigación: memoria `project_cristian_ross_investigacio
   `AsignacionDeEquipos`). `PasoConfirmar` agrupa por equipo y muestra la fila "Anota".
 - `problemaDelFormulario`: una tarjeta sin nombre dentro de un equipo pide el nombre bajo "Revisar"
   (el validador sólo ve a la gente con nombre y decía "asigna a un equipo").
-- `WinnerCelebration`: con un solo equipo la ronda finalizada dice "Contra el par", no "Equipo ganador".
-- Tests: 32 del hook, 18 de equipos/plantilla, validador, 3 del cuadro ganador; e2e
-  `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble → Equipo 1 → Revisar habilitado →
-  volver a Stroke Play).
+- `src/golf/ronda-libre/resultado-de-equipos.ts`: fuente única del título del resultado por equipos
+  ("Contra el par" / "Empate" / "Equipo ganador"). La usan el cuadro ganador (`WinnerCelebration`, con
+  bandera en vez de trofeo) y la imagen para compartir (`share-card.ts`: `tarjetaDeEquipos` +
+  `encabezadoDeRondaLibre`, campo `contraElPar`). Antes la imagen decía "EQUIPO GANADOR" con un solo
+  equipo, y también con empate (revisión Opus, 1ª vuelta).
+- `destinoParaMover` / `moverEntreEquipos`: "Mover a" pasa a intercambiar cuando el otro equipo está
+  lleno (Foursome 2+2 no tenía cómo cambiar las parejas) o cuando el equipo de origen quedaría bajo el
+  mínimo (Scramble 2+2 dejaba al creador solo). El botón dice "Cambiar con <nombre> ⇄" en ese caso.
+- `repetirRonda` deja al usuario en el paso Cancha (como en `main`): ahí se eligen la fecha, los
+  recorridos de una cancha de 27 hoyos y la mitad de un 9 hoyos, que `RondaReciente` no guarda.
+- Copy: con cero rivales en un formato que anota uno solo (Stableford solo) dice "Anotas desde tu
+  celular", no "por el grupo". "Quitar equipo" no se parte en dos líneas a 390 px.
+- Tests: 33 del hook, 24 de equipos/plantilla, validador, 3 del cuadro ganador, 5 de la imagen por equipos,
+  2 de la etiqueta; e2e `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble → Equipo 1 →
+  Revisar habilitado → volver a Stroke Play).
 
 ## PR B — scorer de grupo
 

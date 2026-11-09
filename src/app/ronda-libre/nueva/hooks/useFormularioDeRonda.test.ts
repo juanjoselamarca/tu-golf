@@ -228,53 +228,52 @@ describe('useFormularioDeRonda — formatos por equipo (R4794T, 07-nov-2026)', (
     expect(result.current.rivales).toHaveLength(1)
   })
 
-  it('mover a un jugador lo saca de un equipo y lo pone en el otro; renombrar sólo toca el nombre', () => {
+  it('mover al compañero en un Scramble 2+2 lo intercambia: el creador no queda solo; renombrar sólo toca el nombre', () => {
     const { result } = renderHook(() => useFormularioDeRonda())
     act(() => result.current.elegirFormato('scramble'))
     act(() => result.current.agregarEquipoRival())
-    const compañero = result.current.rivales[0].id
-    act(() => result.current.moverAlEquipo(compañero, 1))
-    expect(result.current.equipos[0].miembros).toEqual([ID_DEL_CREADOR])
-    expect(result.current.equipos[1].miembros).toContain(compañero)
-    expect(result.current.equipos[1].miembros).toHaveLength(3)
+    const [compañero, rival1, rival2] = result.current.rivales.map(r => r.id)
+    act(() => result.current.moverAlEquipo(compañero))
+    expect(result.current.equipos[0].miembros).toEqual([ID_DEL_CREADOR, rival2])
+    expect(result.current.equipos[1].miembros).toEqual([rival1, compañero])
 
     act(() => result.current.renombrarEquipo(1, 'Los Cóndores'))
     expect(result.current.equipos[1].nombre).toBe('Los Cóndores')
-    expect(result.current.equipos[1].miembros).toHaveLength(3)
+    expect(result.current.equipos[1].miembros).toHaveLength(2)
   })
 
-  it('mover al último integrante de un equipo rival lo deja vacío y el equipo desaparece', () => {
-    const { result } = renderHook(() => useFormularioDeRonda())
-    act(() => result.current.elegirFormato('scramble'))
-    act(() => result.current.agregarEquipoRival())
-    const [, rival1, rival2] = result.current.rivales.map(r => r.id)
-    act(() => result.current.moverAlEquipo(rival1, 0))
-    act(() => result.current.moverAlEquipo(rival2, 0))
-    expect(result.current.equipos).toHaveLength(1)
-    expect(result.current.equipos[0].miembros).toHaveLength(4)
-    expect(result.current.rivales).toHaveLength(3)
-  })
-
-  it('mover a un equipo que ya está lleno no hace nada', () => {
+  it('Foursome 2+2 (los dos equipos llenos): mover cambia las parejas en vez de no hacer nada', () => {
     const { result } = renderHook(() => useFormularioDeRonda())
     act(() => result.current.elegirFormato('foursome'))
     act(() => result.current.agregarEquipoRival())
-    const compañero = result.current.rivales[0].id
-    act(() => result.current.moverAlEquipo(compañero, 1))
-    expect(result.current.equipos.map(e => e.miembros.length)).toEqual([2, 2])
+    const [compañero, rival1, rival2] = result.current.rivales.map(r => r.id)
+    act(() => result.current.moverAlEquipo(compañero))
+    expect(result.current.equipos.map(e => e.miembros)).toEqual([[ID_DEL_CREADOR, rival2], [rival1, compañero]])
+    act(() => result.current.moverAlEquipo(rival1))
+    expect(result.current.equipos.map(e => e.miembros)).toEqual([[ID_DEL_CREADOR, rival1], [rival2, compañero]])
+  })
+
+  it('con un solo equipo no hay a dónde mover a nadie', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    const antes = result.current.equipos
+    act(() => result.current.moverAlEquipo(result.current.rivales[0].id))
+    expect(result.current.equipos).toEqual(antes)
   })
 
   it('quitar el equipo al que se movió el creador lo devuelve al primero en vez de sacarlo de la ronda', () => {
     const { result } = renderHook(() => useFormularioDeRonda())
     act(() => result.current.elegirFormato('scramble'))
     act(() => result.current.agregarEquipoRival())
-    act(() => result.current.moverAlEquipo(ID_DEL_CREADOR, 1))
+    const [compañero, , rival2] = result.current.rivales.map(r => r.id)
+    act(() => result.current.moverAlEquipo(ID_DEL_CREADOR))
     expect(result.current.equipos[1].miembros).toContain(ID_DEL_CREADOR)
+    expect(result.current.equipos[0].miembros).toEqual([rival2, compañero])
 
     act(() => result.current.quitarEquipo(1))
     expect(result.current.equipos).toHaveLength(1)
-    expect(result.current.equipos[0].miembros).toEqual([ID_DEL_CREADOR, result.current.rivales[0].id])
-    expect(result.current.rivales).toHaveLength(1)
+    expect(result.current.equipos[0].miembros).toEqual([ID_DEL_CREADOR, rival2, compañero])
+    expect(result.current.rivales.map(r => r.id)).toEqual([compañero, rival2])
   })
 
   it('cambiar de Scramble a Best Ball conserva los equipos armados; a Foursome con 3 los rearma', () => {
@@ -293,7 +292,7 @@ describe('useFormularioDeRonda — formatos por equipo (R4794T, 07-nov-2026)', (
     expect(result.current.equipos[0].nombre).toBe('Nosotros')
   })
 
-  it('repetir una ronda de 4 en Scramble reparte 2+2 y salta a los jugadores', () => {
+  it('repetir una ronda de 4 en Scramble reparte 2+2 y deja al usuario en la cancha, con todo cargado', () => {
     const { result } = renderHook(() => useFormularioDeRonda())
     act(() => result.current.repetirRonda(rondaVieja({
       formato_juego: 'scramble', modo_juego: 'gross',
@@ -304,7 +303,8 @@ describe('useFormularioDeRonda — formatos por equipo (R4794T, 07-nov-2026)', (
         { nombre: 'Max', handicap: 5, tees: null, esCreador: false },
       ],
     })))
-    expect(result.current.paso).toBe(3)
+    // En la cancha: la fecha, los recorridos y la mitad de un 9 hoyos se eligen ahí.
+    expect(result.current.paso).toBe(1)
     expect(result.current.llevaElScoreDelGrupo).toBe(true)
     const [nico, pedro, max] = result.current.rivales.map(r => r.id)
     expect(result.current.equipos).toEqual([
@@ -359,7 +359,7 @@ describe('useFormularioDeRonda — jugadores recientes', () => {
       ['Pedro', null, null],
     ])
     expect(result.current.llevaElScoreDelGrupo).toBe(true)
-    expect(result.current.paso).toBe(3)
+    expect(result.current.paso).toBe(1)
   })
 
   it('repetir una ronda que jugó solo queda en "cada uno en su celular"', () => {

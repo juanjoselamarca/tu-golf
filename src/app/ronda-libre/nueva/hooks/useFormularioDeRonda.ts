@@ -18,19 +18,20 @@ import { modoPermitidoPorPlan, netoBloqueadoPorPlan } from '@/golf/billing/modo-
 import type { NetoFeature } from '@/golf/billing/plans'
 import { useAccesoNeto } from '@/hooks/useAccesoNeto'
 import {
+  destinoParaMover,
   equiposSirvenPara,
+  ID_DEL_CREADOR,
+  moverEntreEquipos,
   nombreDeEquipo,
   repartirEnEquipos,
   type EquipoDeLaRonda,
 } from './equipos-del-formulario'
 
+export { ID_DEL_CREADOR } from './equipos-del-formulario'
 export type { EquipoDeLaRonda } from './equipos-del-formulario'
 
 /** 1 Cancha · 2 Formato · 3 Jugadores · 4 Confirmar. */
 export type PasoDelAsistente = 1 | 2 | 3 | 4
-
-/** Identidad del creador dentro de un equipo. Nunca cambia. */
-export const ID_DEL_CREADOR = 'creador'
 
 export interface RivalDelCreador {
   /**
@@ -275,23 +276,15 @@ export function useFormularioDeRonda() {
   }
 
   /**
-   * Cambia a un jugador de equipo (corregir el reparto automático). El creador
-   * también se puede mover: la identidad del equipo no depende de quién esté.
-   * No entra a un equipo que ya está en su tope, y un equipo rival que queda
-   * vacío desaparece (igual que al quitar a su último integrante).
+   * Pasa a un jugador al otro equipo (corregir el reparto automático). El
+   * creador también se puede mover: la identidad del equipo no depende de quién
+   * esté. Si allá no cabe o acá quedaría un equipo bajo el mínimo, se intercambia
+   * con alguien del otro equipo (`destinoParaMover`): nunca deja un equipo cojo.
    */
-  const moverAlEquipo = (id: string, equipoIdx: number) => {
-    const destino = equipos[equipoIdx]
-    const porEquipo = jugadoresPorEquipo(formato)
-    if (!destino || !porEquipo || destino.miembros.includes(id) || destino.miembros.length >= porEquipo.max) return
-    setEquipos(prev =>
-      prev
-        .map((e, i) => ({
-          ...e,
-          miembros: i === equipoIdx ? [...e.miembros, id] : e.miembros.filter(m => m !== id),
-        }))
-        .filter((e, i) => i === 0 || e.miembros.length > 0),
-    )
+  const moverAlEquipo = (id: string) => {
+    const movimiento = destinoParaMover(formato, equipos, id)
+    if (!movimiento) return
+    setEquipos(prev => moverEntreEquipos(prev, id, movimiento))
   }
 
   /**
@@ -345,7 +338,10 @@ export function useFormularioDeRonda() {
 
   /**
    * Repite la configuración de una ronda anterior (cancha, tees, hoyos, formato,
-   * modo y gente) y salta a los jugadores: ahí se revisan índices y tees.
+   * modo y gente) y deja al usuario en el paso de la cancha, con todo cargado:
+   * ahí se eligen la fecha, los recorridos de una cancha de 27 hoyos y la mitad
+   * de un 9 hoyos, que la ronda anterior no guarda. Saltar más adelante los
+   * dejaba en su valor por defecto sin que nadie los viera.
    */
   const repetirRonda = (r: RondaReciente) => {
     setCancha(r.course_name)
@@ -363,7 +359,7 @@ export function useFormularioDeRonda() {
       .map(j => rivalVacio({ nombre: j.nombre, handicap: j.handicap, tees: j.tees }))
     setAnotaPorTodos(traidos.length > 0)
     acomodarAlFormato(formatoRepetido, traidos, formato)
-    setPaso(3)
+    setPaso(1)
   }
 
   /** Rivales con nombre cargado — los únicos que llegan a la ronda. */

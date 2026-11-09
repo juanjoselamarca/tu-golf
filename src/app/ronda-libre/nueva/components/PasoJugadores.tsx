@@ -42,7 +42,7 @@ interface Props {
   onAgregarEquipo: () => void
   onQuitarEquipo: (equipoIdx: number) => void
   onRenombrarEquipo: (equipoIdx: number, nombre: string) => void
-  onMoverAlEquipo: (id: string, equipoIdx: number) => void
+  onMoverAlEquipo: (id: string) => void
   golpesDe: (indice: number | null | undefined, tee: string | null | undefined) => number | null
   rondasRecientes: RondaReciente[]
   /** Problema que impide crear la ronda, si lo hay. */
@@ -100,7 +100,7 @@ export function PasoJugadores(props: Props) {
         ) : (
           <div style={{ fontSize: '12px', color: colores.texto2, marginBottom: '12px', lineHeight: 1.4 }}>
             {/* El formato lo decide: con más de una persona por tarjeta, anota uno. */}
-            Tú anotas por el grupo desde tu celular.
+            {props.rivales.length > 0 ? 'Tú anotas por el grupo desde tu celular.' : 'Anotas desde tu celular.'}
           </div>
         )}
 
