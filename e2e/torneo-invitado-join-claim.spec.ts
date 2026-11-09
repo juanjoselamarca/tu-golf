@@ -50,7 +50,7 @@ const INDICE_INVITADO = 14.2
 
 /**
  * Torneo del organizador efímero en la cancha de pruebas. `status` decide si se puede entrar ('open') y si se
- * puede anotar ('active'). El organizador es Pro: `guest-tournament` es feature Pro y el gate lee
+ * puede anotar ('in_progress', que pone `activarTorneo`). El organizador es Pro: `guest-tournament` es feature Pro y el gate lee
  * `profiles.subscription_tier`, así que el test no depende de si el paywall está prendido.
  */
 async function crearTorneo(opts: { status: string; maxPlayers?: number | null }): Promise<Torneo> {
@@ -349,7 +349,9 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
       expect(g.net_score, `neto del hoyo ${g.hole_number} derivado por el server`).not.toBeNull()
       expect(g.net_score, `neto del hoyo ${g.hole_number}: no el del cliente`).not.toBe(NETO_MENTIROSO)
       expect(g.net_score!, `neto del hoyo ${g.hole_number} ≤ bruto`).toBeLessThanOrEqual(g.gross_score!)
-      expect(g.points, `puntos del hoyo ${g.hole_number}: no los del cliente`).not.toBe(PUNTOS_MENTIROSOS)
+      // El torneo es stroke play: `puntajeDeHoyo` firma `puntos: 0` fuera de stableford. Afirmar el valor exacto;
+      // `not.toBe(99)` pasaba en vacío (también con los puntos en NULL o con cualquier otro número del cliente).
+      expect(g.points, `puntos del hoyo ${g.hole_number}: 0 en stroke play, no los del cliente`).toBe(0)
     }
 
     // Un token firmado para OTRO guestId: el HMAC es válido pero no es dueño de esta ronda.
