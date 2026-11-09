@@ -178,10 +178,12 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     await abrir(page)
     const card = tarjeta(page, 'E2ESG4')
     await expect(card).toBeVisible({ timeout: 15_000 })
+    // Primero las filas CON score (la sesión llega después del fetch mockeado: antes de eso
+    // la tarjeta dice "Ver →" y un conteo de "Gross" daría 0 sin probar nada).
+    await expect(card.getByText(formatVsPar(2), { exact: true })).toBeVisible({ timeout: 15_000 })
     await expect(card.getByText('Stroke Play', { exact: true })).toBeVisible()
     await expect(card.getByText('Stroke Play · bruto')).toHaveCount(0)
     await expect(card.getByText('Gross', { exact: true })).toHaveCount(0)
-    await expect(card.getByText(formatVsPar(2), { exact: true })).toBeVisible()
     expect(await ordenVisible(page, 'E2ESG4')).toEqual(['Gabi Núñez', 'Hugo Vera'])
   })
 

@@ -50,9 +50,8 @@ import { SaveStatusBadge } from './components/SaveStatusBadge'
 import { ScorerCelebrations } from './components/ScorerCelebrations'
 import { ScorerViewTabs } from './components/ScorerViewTabs'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
-import { vistaPublica } from '@/lib/data/tournaments/vista-publica'
+import { vistaPublicaDeRondaLibre } from '@/lib/data/tournaments/vista-publica'
 import { AvisoSoloBruto } from '@/app/torneo/[slug]/components/AvisoSoloBruto'
-import type { FormatoJuego } from '@/golf/core/rules'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -68,13 +67,13 @@ function ScorePageContent() {
 
   // #511 — Ronda neto sin sesión con jugadores cuyo índice está en su perfil: aquí no
   // se puede leer y su neto (o el match) saldría como gross. Regla canónica
-  // `vistaPublica`: TODO lo que se muestra se arma en bruto (`rondaVista`) y se pide
+  // `vistaPublicaDeRondaLibre`: TODO lo que se muestra se arma en bruto (`rondaVista`) y se pide
   // iniciar sesión para ver el neto. Los golpes se anotan igual; guardar y cerrar
   // usan la ronda real (`ronda`).
   // La etiqueta del header sale de `rondaVista` (ya en bruto); "Clasificación bruta"
   // lo dice el aviso bajo el header: en el header de 48 px no cabe sin partirse.
   const vistaBruta = useMemo(() => (ronda && netoNoDisponible
-    ? vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: ronda.modo_juego, formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego })
+    ? vistaPublicaDeRondaLibre(ronda)
     : null), [ronda, netoNoDisponible])
   const rondaVista = useMemo(() => (ronda && vistaBruta
     ? { ...ronda, modo_juego: vistaBruta.modo, formato_juego: vistaBruta.formato }

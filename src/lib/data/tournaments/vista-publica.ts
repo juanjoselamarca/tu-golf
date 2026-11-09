@@ -20,7 +20,7 @@
 
 import type { Player } from '@/lib/golf-data'
 import type { HcpConSesion } from '@/lib/data/ronda-libre-live-api'
-import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
+import { formatLabel, modoDeJuego, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
 import {
@@ -179,6 +179,22 @@ export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJue
 }
 
 /**
+ * La vista pública de UNA ronda libre a partir de su fila: lo que ve un visor SIN
+ * sesión. La usan las respuestas cacheadas (`/api/ronda-libre/[codigo]/live`,
+ * `/api/en-vivo`) y el scorer cuando no puede leer el neto (`netoNoDisponible`).
+ * Una fila sin `modo_juego` es gross (`modoDeJuego`), y sin `formato_juego`, stroke play.
+ * Única fuente de cómo se lee la fila: si cambia, cambia en todos a la vez.
+ */
+export function vistaPublicaDeRondaLibre(ronda: { modo_juego?: string | null; formato_juego?: string | null }): VistaPublica {
+  return vistaPublica({
+    visorConSesion: false,
+    caminoRondaLibre: true,
+    modoJuego: modoDeJuego(ronda.modo_juego),
+    formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
+  })
+}
+
+/**
  * La vista en vivo de una RONDA LIBRE (`/ronda-libre/[codigo]`, ruta pública
  * cacheada `/api/ronda-libre/[codigo]/live`) viaja como datos CRUDOS (golpes +
  * handicap de tarjeta) y el navegador arma el ranking. Misma regla que el board de
@@ -194,21 +210,6 @@ export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJue
  * `vista` le dice al navegador qué puede mostrar (sin neto; clasificación bruta en
  * `vista.modo`/`vista.formato`). El visor con sesión completa con su ruta privada.
  */
-/**
- * La vista pública de UNA ronda libre a partir de su fila: la respuesta cacheada
- * (`/api/ronda-libre/[codigo]/live`, `/api/en-vivo`) es la de un visor SIN sesión.
- * Una fila sin `modo_juego` es gross (`normalizarModo`), y sin `formato_juego`, stroke play.
- * Única fuente: si cambia cómo se lee la fila, cambia en los dos feeds a la vez.
- */
-export function vistaPublicaDeRondaLibre(ronda: { modo_juego?: string | null; formato_juego?: string | null }): VistaPublica {
-  return vistaPublica({
-    visorConSesion: false,
-    caminoRondaLibre: true,
-    modoJuego: ronda.modo_juego === 'neto' ? 'neto' : 'gross',
-    formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
-  })
-}
-
 export function datosRondaLibrePublicos<B extends {
   ronda: { modo_juego?: string | null; formato_juego?: string | null; ronda_libre_jugadores: Array<{ handicap?: number | null }> }
   courseHcpMap: Record<string, number>
