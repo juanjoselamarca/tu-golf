@@ -176,9 +176,10 @@ function RondaLibrePageContent() {
       })
     : []
   // Fuente única "¿hay puntajes para mostrar?" — cubre scores individuales
-  // (individual/best_ball) y scores de equipo (scramble/foursome). Antes vivía
-  // como 3 predicados inconsistentes inline. No depende del orden del leaderboard.
-  const hayDatos = hasPlayData(leaderboard, equipos)
+  // (individual/best_ball) y de equipo (scramble/foursome) con la misma cuenta de
+  // hoyos de la ronda que usan el cuadro ganador y la imagen (`teamRanking`).
+  // Antes vivía como 3 predicados inconsistentes inline. No depende del orden.
+  const hayDatos = hasPlayData(leaderboard, teamRanking)
 
   // Highlights del jugador autenticado (null si no jugó o no está en la ronda).
   const myHighlights = currentUserId

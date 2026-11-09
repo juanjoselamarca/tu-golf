@@ -6,11 +6,10 @@ import { isTeamFormat } from '@/golf/formats'
 import {
   equiposEnElPrimerLugar,
   etiquetaDelResultadoDeEquipos,
-  hayEmpateDeEquipos,
   juegaContraElPar,
   nombrarEquipos,
 } from '@/golf/ronda-libre/resultado-de-equipos'
-import { formatOverUnder } from '@/constants/golf'
+import { formatOverUnder, relacionConElPar, vsParEnPalabras } from '@/constants/golf'
 import { captureError } from '@/lib/error-tracking'
 import { SITE_URL } from '@/lib/site-url'
 import { hoyosDesdeElUno, hoyosPorNumero, etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
@@ -496,9 +495,7 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
     if (isStableford) {
       ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('puntos', W / 2, 848)
     } else {
-      const diffTxt = empateVsPar
-        ? (data.scoreDiff === 0 ? 'en el par' : data.scoreDiff > 0 ? 'sobre el par' : 'bajo el par')
-        : (data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`)
+      const diffTxt = empateVsPar ? relacionConElPar(data.scoreDiff) : vsParEnPalabras(data.scoreDiff)
       ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
     }
   }
@@ -570,8 +567,7 @@ function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: 
   ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 30
   ctx.font = 'bold 200px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(String(data.scoreGross), W / 2, 760); ctx.restore()
 
-  const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
-  ctx.font = 'bold 40px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 815)
+  ctx.font = 'bold 40px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(vsParEnPalabras(data.scoreDiff), W / 2, 815)
   ctx.font = '30px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 862)
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillText(`${data.totalJugadores} jugadores`, W / 2, 898)
   if (data.formato_juego) {
@@ -624,7 +620,7 @@ export function scoreDelTextoParaCompartir(data: ShareCardData): string {
   if (data.tipo !== 'ronda_libre') return String(data.scoreGross)
   if (data.formato_juego === 'stableford') return `${data.scoreGross} pts`
   if (data.esEmpate) {
-    return data.scoreDiff === 0 ? 'en el par' : `${formatOverUnder(data.scoreDiff)} ${data.scoreDiff > 0 ? 'sobre' : 'bajo'} el par`
+    return data.scoreDiff === 0 ? relacionConElPar(0) : `${formatOverUnder(data.scoreDiff)} ${relacionConElPar(data.scoreDiff)}`
   }
   return `${data.scoreGross} (${formatOverUnder(data.scoreDiff)})`
 }
@@ -726,7 +722,7 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
   // Cierra en origen el crash de `winner` undefined en el branch stroke-play
   // (ej: formato por equipos sin parMap → teams vacío → fallthrough acá).
   if (!winner) {
-    void captureError(new Error('compartirLeaderboard sin ganador ni ranking de equipos'), {
+    void captureError(new Error('compartirLeaderboard sin jugador con score ni equipo con hoyos anotados'), {
       context: 'share-card.compartirLeaderboard',
       meta: { formato: data.formato_juego },
     })

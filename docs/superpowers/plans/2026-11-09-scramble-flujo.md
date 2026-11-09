@@ -70,6 +70,10 @@ que nunca finalizó. Investigación: memoria `project_cristian_ross_investigacio
   van a 620 px y se achican hasta caber; el test de paridad con la tabla compara también los números y tiene
   un caso en neto con `handicap_equipo`. Además, si ningún equipo anotó un hoyo de la ronda, `equiposEnElPrimerLugar`
   devuelve vacío y ni el cuadro ganador ni la imagen inventan un "ganador" sin score.
+- Cierre de la 5ª vuelta (Opus, APROBADO con P3): `hasPlayData` cuenta los equipos con el `holesPlayed` del ranking
+  (hoyos de la ronda), la misma cuenta del cuadro ganador, así el botón de compartir no aparece sin resultado;
+  el vs par en palabras vive en `relacionConElPar` y `vsParEnPalabras` (`src/constants/golf.ts`), antes copiado
+  cuatro veces entre la imagen, el texto y la vista de ronda terminada.
 - Tests: 33 del hook, 39 de equipos/plantilla, validador, 6 del cuadro ganador, 15 de la imagen por equipos,
   6 del resultado por equipos, 4 del desempate con equipos sin hoyos, 16 de `rankTeams`; e2e
   `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble → Equipo 1 → Revisar habilitado →

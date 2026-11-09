@@ -103,13 +103,15 @@ describe('hasPlayData — fuente única de "¿hay puntajes para mostrar?"', () =
     expect(hasPlayData([{ holesPlayed: 0 }, { holesPlayed: 3 }], [])).toBe(true)
   })
 
-  it('true si algún equipo tiene scores aunque ningún jugador tenga hoyos individuales (scramble/foursome)', () => {
+  it('true si algún equipo anotó un hoyo de la ronda aunque ningún jugador tenga hoyos individuales (scramble/foursome)', () => {
     // En scramble/foursome el puntaje vive en el equipo, no en el jugador.
-    expect(hasPlayData([{ holesPlayed: 0 }], [{ scores: { '1': 4 } }])).toBe(true)
+    expect(hasPlayData([{ holesPlayed: 0 }], [{ holesPlayed: 1 }])).toBe(true)
   })
 
-  it('false si los equipos existen pero sin ningún score cargado', () => {
-    expect(hasPlayData([{ holesPlayed: 0 }], [{ scores: {} }])).toBe(false)
+  it('false si los equipos existen pero ninguno anotó un hoyo de la ronda', () => {
+    // Misma cuenta que el cuadro ganador (`equiposEnElPrimerLugar`): un score de un
+    // hoyo fuera de la ronda no cuenta, así el botón de compartir no aparece sin resultado.
+    expect(hasPlayData([{ holesPlayed: 0 }], [{ holesPlayed: 0 }])).toBe(false)
   })
 
   it('no depende del orden del leaderboard (no usa [0])', () => {
