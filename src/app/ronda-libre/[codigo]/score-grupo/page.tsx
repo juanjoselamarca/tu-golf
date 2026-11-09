@@ -5,6 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
 import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
+import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
+import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
+import { tarjetaCompleta, textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
+import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
 import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
@@ -39,6 +43,7 @@ export default function ScoreGrupoPage() {
   const params = useParams()
   const router = useRouter()
   const codigo = params.codigo as string
+  useScorerPageView('/score-grupo', codigo)
 
   const {
     ronda, loading, loadError, currentHole, setCurrentHole,
@@ -78,9 +83,9 @@ export default function ScoreGrupoPage() {
     useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio })
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
-  const { finalizeRound, finalizing, confirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
+  const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
     useFinalizeGrupo({
-      ronda, codigo, currentHole, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
+      ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores,
     })
   useBeforeUnloadWarning(hasUnsaved)
@@ -98,6 +103,8 @@ export default function ScoreGrupoPage() {
     siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, totalMissingScores, getPlayerTotal, maxStrokesOnHole,
     hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
   } = board
+
+  const progresoDeLaTarjeta = { missingCount: totalMissingScores, holesPlayed: maxThru, totalHoles }
 
   const goToNextHole = async () => {
     if (!ronda) return
@@ -283,20 +290,26 @@ export default function ScoreGrupoPage() {
         </div>
       </div>
 
+      {canFinalize && !finalizing && tarjetaCompleta(progresoDeLaTarjeta) && <AvisoTarjetaCompleta />}
+
       <GrupoNavBar
         currentHoleIdx={currentHoleIdx}
         isLastHole={isLastHole}
         canFinalize={canFinalize}
-        confirmFinalize={confirmFinalize}
         finalizing={finalizing}
-        totalMissingScores={totalMissingScores}
-        maxThru={maxThru}
-        totalHoles={totalHoles}
         onPrev={nav.goToPrevHole}
         onNext={goToNextHole}
         onFinalize={finalizeRound}
         theme={theme}
       />
+
+      {confirmFinalize && (
+        <ConfirmarFinalizarHoja
+          titulo={textoConfirmarFinalizar(progresoDeLaTarjeta)}
+          onConfirmar={finalizeRound}
+          onCancelar={() => setConfirmFinalize(false)}
+        />
+      )}
 
       {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. */}
       {puedeDescartarRonda(ronda, authUserId) && (

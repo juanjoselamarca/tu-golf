@@ -1,10 +1,4 @@
 /**
- * Copy del botón "Finalizar ronda" cuando pide confirmación — el mismo en el
- * scorer individual y en el de grupo. Avisa cuántos hoyos se marcarán como
- * par, o que la ronda queda parcial. `completa` es el texto del caso sin
- * faltantes (difiere entre los dos scorers).
- */
-/**
  * Aviso cuando Finalizar no llega al servidor — el mismo en los dos scorers. Los
  * golpes ya están en el teléfono; la ronda no se cierra a medias y se reintenta.
  */
@@ -23,14 +17,24 @@ export const AVISO_FINALIZAR_MATCH_SIN_SESION = {
   message: 'Si no tienes cuenta, el jugador con cuenta lo finaliza desde su teléfono. Tus golpes siguen anotados.',
 } as const
 
-export function textoConfirmarFinalizar(input: {
+interface ProgresoDeLaTarjeta {
   missingCount: number
   holesPlayed: number
   totalHoles: number
-  completa: string
-}): string {
-  const { missingCount, holesPlayed, totalHoles, completa } = input
+}
+
+/** ¿Están anotados todos los hoyos de la ronda? Decide el aviso "Tarjeta completa". */
+export function tarjetaCompleta({ missingCount, holesPlayed, totalHoles }: ProgresoDeLaTarjeta): boolean {
+  return missingCount === 0 && holesPlayed >= totalHoles
+}
+
+/**
+ * La pregunta de la hoja de confirmación de "Finalizar ronda", la misma en los dos
+ * scorers: avisa cuántos hoyos se marcarán como par, o que la ronda queda parcial.
+ */
+export function textoConfirmarFinalizar(input: ProgresoDeLaTarjeta): string {
+  const { missingCount, holesPlayed, totalHoles } = input
   if (missingCount > 0) return `¿Marcar ${missingCount} hoyo${missingCount > 1 ? 's' : ''} como par y finalizar?`
   if (holesPlayed < totalHoles) return `¿Guardar ronda parcial (${holesPlayed}/${totalHoles} hoyos)?`
-  return completa
+  return '¿Finalizar ronda?'
 }

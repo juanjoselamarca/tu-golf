@@ -1,17 +1,12 @@
 'use client'
 
-import { textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 
 interface GrupoNavBarProps {
   currentHoleIdx: number
   isLastHole: boolean
   canFinalize: boolean
-  confirmFinalize: boolean
   finalizing: boolean
-  totalMissingScores: number
-  maxThru: number
-  totalHoles: number
   onPrev: () => void
   onNext: () => void
   onFinalize: () => void
@@ -20,7 +15,7 @@ interface GrupoNavBarProps {
 
 /** Barra inferior del scorer de grupo: Anterior / Siguiente / Finalizar. */
 export function GrupoNavBar({
-  currentHoleIdx, isLastHole, canFinalize, confirmFinalize, finalizing, totalMissingScores, maxThru, totalHoles,
+  currentHoleIdx, isLastHole, canFinalize, finalizing,
   onPrev, onNext, onFinalize, theme,
 }: GrupoNavBarProps) {
   return (
@@ -65,8 +60,8 @@ export function GrupoNavBar({
           disabled={finalizing}
           style={{
             flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
-            background: finalizing ? '#9ca3af' : confirmFinalize ? '#d97706' : isLastHole ? theme.gold : 'transparent',
-            color: finalizing ? '#ffffff' : confirmFinalize ? '#ffffff' : isLastHole ? '#ffffff' : theme.gold,
+            background: finalizing ? '#9ca3af' : isLastHole ? theme.gold : 'transparent',
+            color: finalizing || isLastHole ? 'var(--brand-dark)' : theme.gold,
             border: isLastHole ? 'none' : `1px solid rgba(196,153,42,0.4)`,
             borderRadius: '12px',
             fontSize: isLastHole ? '16px' : '13px',
@@ -77,11 +72,7 @@ export function GrupoNavBar({
             opacity: finalizing ? 0.7 : 1,
           }}
         >
-          {finalizing
-            ? 'Finalizando...'
-            : confirmFinalize
-              ? textoConfirmarFinalizar({ missingCount: totalMissingScores, holesPlayed: maxThru, totalHoles, completa: '¿Finalizar ronda?' })
-              : 'Finalizar ronda ✓'}
+          {finalizing ? 'Finalizando...' : 'Finalizar ronda ✓'}
         </button>
       )}
     </div>

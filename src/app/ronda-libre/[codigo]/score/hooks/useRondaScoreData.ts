@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { RondaLibre, HoleData } from '@/types/ronda'
 import { isTeamFormat } from '@/golf/formats'
-import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { hoyoParaRetomar, hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import {
   fetchRondaLibreParaScorer,
   cargarHoyosDelScorer,
@@ -165,9 +165,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         setActiveJugadorId(preselect)
         const ex = initialScores[preselect] ?? {}
         const orden = hoyosDeLaRonda(r.hoyo_inicio ?? 1, r.holes)
-        const firstEmpty = orden.find(h => ex[h] == null)
-        if (firstEmpty != null) setCurrentHole(firstEmpty)
-        else setCurrentHole(orden[0])
+        setCurrentHole(hoyoParaRetomar(orden, h => ex[h] != null))
       } else {
         // Multi-player, no auto-match: show player selection screen
         // Set activeJugadorId to first player so data is loaded, but don't lock

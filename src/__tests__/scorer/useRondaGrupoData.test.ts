@@ -175,6 +175,10 @@ describe('hoyoInicial', () => {
     const r = { ...base, formato_juego: 'stroke_play' } as never
     expect(hoyoInicial(r, { p1: { 1: 4, 2: 5 } })).toBe(3)
   })
+  it('con la tarjeta llena abre en el último hoyo, donde está Finalizar', () => {
+    const r = { ...base, holes: 3, formato_juego: 'stroke_play' } as never
+    expect(hoyoInicial(r, { p1: { 1: 4, 2: 5, 3: 4 } })).toBe(3)
+  })
   it('scramble (bola compartida): mira la tarjeta del primer EQUIPO, no la del jugador (vacía)', () => {
     const r = { ...base, formato_juego: 'scramble' } as never
     expect(hoyoInicial(r, { p1: {} }, [{ scores: { '1': 4, '2': 3, '3': 5 } }])).toBe(4)

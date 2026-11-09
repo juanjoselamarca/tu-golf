@@ -102,3 +102,12 @@ export function hoyosConGolpes(
     return typeof s === 'number' && Number.isFinite(s) && s >= 1
   })
 }
+
+/**
+ * El hoyo en que se retoma una tarjeta: el primero sin anotar en orden de juego o, con
+ * todo anotado, el último, que es donde está "Finalizar". Antes volvía al primero y una
+ * tarjeta llena parecía recién empezada (la ronda R4794T quedó sin cerrar con 18 hoyos).
+ */
+export function hoyoParaRetomar(orden: readonly number[], estaAnotado: (hoyo: number) => boolean): number {
+  return orden.find(h => !estaAnotado(h)) ?? orden[orden.length - 1]
+}

@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
+import { useState, useCallback, useMemo, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
-import { createClient } from '@/lib/supabase'
-import { trackPageView } from '@/lib/analytics'
+import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
+import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
+import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
+import { tarjetaCompleta, textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
 import { getYardajeForTee } from '@/types/ronda'
 import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
@@ -141,13 +143,7 @@ function ScorePageContent() {
     }
   }, [hasUnsaved, finalizando, activeJugadorId, scores, saveScores]))
 
-  // Track page view
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data }) => {
-      trackPageView(supabase, data.session?.user?.id ?? null, '/score', { codigo })
-    })
-  }, [codigo])
+  useScorerPageView('/score', codigo)
 
   // Con el cierre en pantalla tampoco: la tarjeta ya está en el historial y la ronda puede estar cerrada.
   useOfflineResync({ isOnline, activeJugadorId, finalizando: finalizando || roundDone, scoreSync, saveImmediately })
@@ -444,20 +440,26 @@ function ScorePageContent() {
         />
       )}
 
+      {canFinalize && !finalizando && tarjetaCompleta({ missingCount, holesPlayed, totalHoles }) && <AvisoTarjetaCompleta />}
+
       <ScorerNavBar
         currentHoleIdx={currentHoleIdx}
         isLastHole={isLastHole}
         canFinalize={canFinalize}
-        confirmFinalize={confirmFinalize}
         finalizando={finalizando}
-        missingCount={missingCount}
-        holesPlayed={holesPlayed}
-        totalHoles={totalHoles}
         onPrev={nav.goToPrevHole}
-        onNext={() => { setConfirmFinalize(false); goToNextHole() }}
+        onNext={goToNextHole}
         onFinalize={finalizeRound}
         theme={theme}
       />
+
+      {confirmFinalize && (
+        <ConfirmarFinalizarHoja
+          titulo={textoConfirmarFinalizar({ missingCount, holesPlayed, totalHoles })}
+          onConfirmar={finalizeRound}
+          onCancelar={() => setConfirmFinalize(false)}
+        />
+      )}
 
       {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. */}
       {puedeDescartarRonda(ronda, authUserId) && (

@@ -8,8 +8,7 @@ function renderBar(finalizando: boolean) {
   const onNext = vi.fn()
   render(
     <ScorerNavBar
-      currentHoleIdx={9} isLastHole={false} canFinalize confirmFinalize={false} finalizando={finalizando}
-      missingCount={8} holesPlayed={10} totalHoles={18}
+      currentHoleIdx={9} isLastHole={false} canFinalize finalizando={finalizando}
       onPrev={onPrev} onNext={onNext} onFinalize={() => {}} theme={SCORER_THEME}
     />,
   )

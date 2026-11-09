@@ -73,9 +73,8 @@ function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record
   const r = opts.ronda ?? rondaBase
   return renderHook(() => {
     const [scores, setScores] = useState(opts.scores ?? { p1: { 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5 }, p2: { 10: 5 } })
-    const [currentHole] = useState(18)
     const fin = useFinalizeGrupo({
-      ronda: r as never, codigo: 'ABC', currentHole, hoyos: back9, scores, setScores, parMap: PAR,
+      ronda: r as never, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR,
       teamEquipos: (opts.teamEquipos ?? []) as never, completarEquiposConPar: completarEquiposConPar as never, matchResult: null,
       authUserId: opts.authUserId === undefined ? 'u1' : opts.authUserId, enviarPendientes,
     })
@@ -98,6 +97,38 @@ describe('useFinalizeGrupo', () => {
     expect(result.current.fin.confirmFinalize).toBe(true)
     expect(result.current.fin.finalizing).toBe(false)
     expect(fetchEstadoRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('la confirmación no se desarma sola: queda abierta hasta que se decide (la ronda R4794T quedó sin cerrar)', async () => {
+    vi.useFakeTimers()
+    try {
+      const { result } = montar()
+      await act(async () => { await result.current.fin.finalizeRound() })
+      await act(async () => { vi.advanceTimersByTime(600_000) })
+      expect(result.current.fin.confirmFinalize).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancelar cierra la confirmación sin finalizar', async () => {
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { result.current.fin.setConfirmFinalize(false) })
+    expect(result.current.fin.confirmFinalize).toBe(false)
+    expect(fetchEstadoRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('al confirmar se cierra la hoja: sin servidor no reaparece sola y Finalizar vuelve a preguntar', async () => {
+    fetchEstadoRondaLibre.mockRejectedValueOnce(new Error('sin red'))
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.fin.confirmFinalize).toBe(false)
+    expect(result.current.fin.finalizing).toBe(false)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.fin.confirmFinalize).toBe(true)
   })
 
   it('segundo tap: rellena con par SÓLO los hoyos de la ronda, guarda a todos, historial por jugador con cuenta, cierra y navega', async () => {

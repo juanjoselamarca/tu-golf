@@ -1,19 +1,14 @@
 'use client'
 
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
-import { textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
 
 interface ScorerNavBarProps {
   currentHoleIdx: number
   isLastHole: boolean
   canFinalize: boolean
-  confirmFinalize: boolean
   /** Finalizar en curso: el botón dice "Finalizando..." y ningún botón acepta toques
    *  (Siguiente auto-llena el par y guarda: saldría después de que Finalizar leyó la tarjeta). */
   finalizando: boolean
-  missingCount: number
-  holesPlayed: number
-  totalHoles: number
   onPrev: () => void
   onNext: () => void
   onFinalize: () => void
@@ -22,7 +17,7 @@ interface ScorerNavBarProps {
 
 /** Barra inferior: Anterior / Siguiente / Finalizar (secundario desde el 9, primario en el último). */
 export function ScorerNavBar({
-  currentHoleIdx, isLastHole, canFinalize, confirmFinalize, finalizando, missingCount, holesPlayed, totalHoles,
+  currentHoleIdx, isLastHole, canFinalize, finalizando,
   onPrev, onNext, onFinalize, theme,
 }: ScorerNavBarProps) {
   return (
@@ -69,11 +64,11 @@ export function ScorerNavBar({
           onClick={onFinalize}
           disabled={finalizando}
           aria-busy={finalizando}
-          aria-label={finalizando ? 'Finalizando ronda' : confirmFinalize ? 'Confirmar finalizacion' : 'Finalizar ronda'}
+          aria-label={finalizando ? 'Finalizando ronda' : 'Finalizar ronda'}
           style={{
             flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
-            background: confirmFinalize ? '#d97706' : isLastHole ? 'var(--brand)' : 'transparent',
-            color: confirmFinalize || isLastHole ? 'var(--brand-dark)' : 'var(--brand-on-bg)',
+            background: isLastHole ? 'var(--brand)' : 'transparent',
+            color: isLastHole ? 'var(--brand-dark)' : 'var(--brand-on-bg)',
             border: isLastHole ? 'none' : '1px solid rgba(196,153,42,0.4)',
             borderRadius: '12px',
             fontSize: isLastHole ? '16px' : '13px',
@@ -83,11 +78,7 @@ export function ScorerNavBar({
             touchAction: 'manipulation', letterSpacing: '0.01em',
             transition: 'background 0.3s ease',
           }}
-        >{finalizando
-            ? 'Finalizando...'
-            : confirmFinalize
-            ? textoConfirmarFinalizar({ missingCount, holesPlayed, totalHoles, completa: 'Confirmar finalizacion' })
-            : 'Finalizar ronda ✓'}</button>
+        >{finalizando ? 'Finalizando...' : 'Finalizar ronda ✓'}</button>
       )}
     </div>
   )

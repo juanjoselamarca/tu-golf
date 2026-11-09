@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -29,13 +29,12 @@ import type { MatchResult } from '@/golf/formats/match-play'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { RondaLibre } from '@/types/ronda'
 
-/** Cuánto queda armado el "¿Finalizar?" antes de volver solo a "Finalizar ronda". */
-export const CONFIRM_FINALIZE_MS = 5000
-
 export interface FinalizeGrupo {
   finalizeRound: () => Promise<void>
   finalizing: boolean
+  /** Hoja de confirmación abierta: queda así hasta que la persona decide. */
   confirmFinalize: boolean
+  setConfirmFinalize: React.Dispatch<React.SetStateAction<boolean>>
   discardRound: () => Promise<void>
   discarding: boolean
   showDiscardConfirm: boolean
@@ -53,7 +52,6 @@ export interface FinalizeGrupo {
 export function useFinalizeGrupo(input: {
   ronda: RondaLibre | null
   codigo: string
-  currentHole: number
   /** Hoyos de la ronda en orden de juego — la misma lista que navega la página. */
   hoyos: readonly number[]
   scores: Record<string, Record<number, number>>
@@ -72,20 +70,13 @@ export function useFinalizeGrupo(input: {
   /** Envía todo lo pendiente (jugadores y equipos) — `useGrupoScoreSave.saveAllScores`. */
   enviarPendientes: () => Promise<void>
 }): FinalizeGrupo {
-  const { ronda, codigo, currentHole, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes } = input
+  const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes } = input
   const router = useRouter()
 
   const [finalizing, setFinalizing] = useState(false)
   const [confirmFinalize, setConfirmFinalize] = useState(false)
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discarding, setDiscarding] = useState(false)
-  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  /* ── Reset confirmation when changing holes ── */
-  useEffect(() => {
-    setConfirmFinalize(false)
-    if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
-  }, [currentHole])
 
   const discardRound = useCallback(async () => {
     if (!ronda || discarding) return
@@ -107,12 +98,10 @@ export function useFinalizeGrupo(input: {
     if (!confirmFinalize) {
       setConfirmFinalize(true)
       haptic([20, 50, 20])
-      // Auto-reset after 5 seconds
-      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current)
-      confirmTimeoutRef.current = setTimeout(() => setConfirmFinalize(false), CONFIRM_FINALIZE_MS)
       return
     }
-    if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
+    // Se cierra la hoja: si no hay servidor, el aviso pide volver a tocar Finalizar.
+    setConfirmFinalize(false)
     setFinalizing(true)
     haptic(30)
 
@@ -252,5 +241,5 @@ export function useFinalizeGrupo(input: {
     router.push(`/ronda-libre/${codigo}?finished=true`)
   }
 
-  return { finalizeRound, finalizing, confirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm }
+  return { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm }
 }

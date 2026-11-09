@@ -319,7 +319,7 @@ test.describe('Score Grupo — /ronda-libre/[codigo]/score-grupo', () => {
 
     // Second state: "Marcar N hoyos como par y finalizar?" should appear
     // (since no holes have been scored)
-    const confirmBtn = page.getByRole('button', { name: /marcar.*como par.*finalizar/i }).first()
+    const confirmBtn = page.getByRole('dialog', { name: /marcar.*como par.*finalizar/i })
     await expect(confirmBtn).toBeVisible({ timeout: 5_000 })
 
     // Don't actually finalize — just verify the UI state

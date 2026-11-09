@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
-import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { hoyoParaRetomar, hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import {
   fetchRondaLibreParaScorer,
   cargarHoyosDelScorer,
@@ -79,8 +79,8 @@ function numerico(golpes: Record<string, number> | undefined): Record<number, nu
 }
 
 /**
- * Primer hoyo sin anotar, en orden de juego: del primer jugador o, en bola compartida
- * (scramble/foursome, donde los jugadores no tienen golpes propios), del primer equipo.
+ * Hoyo en que se abre el scorer (`hoyoParaRetomar`), según la tarjeta del primer jugador
+ * o, en bola compartida (scramble/foursome, sin golpes propios), la del primer equipo.
  */
 export function hoyoInicial(
   r: RondaLibre,
@@ -92,7 +92,7 @@ export function hoyoInicial(
     ? equipos[0]?.scores
     : scores[r.ronda_libre_jugadores[0]?.id ?? '']
   if (!tarjeta) return orden[0] ?? 1
-  return orden.find(h => tarjeta[String(h)] == null) ?? orden[0]
+  return hoyoParaRetomar(orden, h => tarjeta[String(h)] != null)
 }
 
 /**
