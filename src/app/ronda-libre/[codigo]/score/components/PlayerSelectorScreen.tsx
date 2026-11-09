@@ -1,6 +1,7 @@
 'use client'
 
 import { generarOrdenHoyos } from '@/lib/ronda/helpers'
+import { hoyoParaRetomar } from '@/golf/core/hoyos-jugados'
 import type { Jugador } from '@/types/ronda'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
@@ -26,12 +27,9 @@ export function PlayerSelectorScreen({ jugadores, hcpAMostrar, scores, hoyoInici
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '360px' }}>
         {jugadores.map(j => (
           <button key={j.id} onClick={() => {
-            // Jump to first empty hole for this player
+            // Primer hoyo sin anotar de este jugador; con la tarjeta llena, el último (ahí está Finalizar).
             const ex = scores[j.id] ?? {}
-            const orden = generarOrdenHoyos(hoyoInicio, holes)
-            const firstEmpty = orden.find(h => ex[h] == null)
-            const firstHole = firstEmpty != null ? firstEmpty : orden[0]
-            onSelect(j.id, firstHole)
+            onSelect(j.id, hoyoParaRetomar(generarOrdenHoyos(hoyoInicio, holes), h => ex[h] != null))
           }} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '16px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border)',

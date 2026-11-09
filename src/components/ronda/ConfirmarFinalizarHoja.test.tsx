@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ConfirmarFinalizarHoja } from './ConfirmarFinalizarHoja'
 
 afterEach(cleanup)
@@ -40,9 +40,18 @@ describe('ConfirmarFinalizarHoja', () => {
     expect(onCancelar).not.toHaveBeenCalled()
   })
 
-  it('Cancelar queda bajo Finalizar: un doble toque desde la barra inferior no cierra la ronda', () => {
-    montar()
-    const botones = screen.getAllByRole('button').map(b => b.textContent)
-    expect(botones).toEqual(['Finalizar', 'Cancelar'])
+  it('Finalizar no recibe toques hasta pasado el doble toque que abrió la hoja', () => {
+    vi.useFakeTimers()
+    try {
+      montar()
+      const finalizar = screen.getByRole('button', { name: 'Finalizar' })
+      expect(finalizar.style.pointerEvents).toBe('none')
+      act(() => { vi.advanceTimersByTime(399) })
+      expect(finalizar.style.pointerEvents).toBe('none')
+      act(() => { vi.advanceTimersByTime(1) })
+      expect(finalizar.style.pointerEvents).toBe('auto')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

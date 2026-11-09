@@ -1,6 +1,10 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useFinalizeRonda } from '@/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda'
+import { finalizarRondaLibre, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
+import { fetchRondaParaCierre } from '@/lib/data/ronda-libre-finalizar'
+import { addToast } from '@/hooks/useToast'
+import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
 
 // Chainable builder that resolves when awaited (then/catch)
 const makeChainable = (resolved: unknown = { error: null }): unknown => {
@@ -47,7 +51,11 @@ vi.mock('@/hooks/useToast', () => ({ addToast: vi.fn() }))
 // finalizador aborta ("Sin conexión") antes de tocar nada.
 vi.mock('@/lib/data/ronda-libre-finalizar', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-finalizar')>()),
-  fetchRondaParaCierre: async () => ({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] }),
+  fetchRondaParaCierre: vi.fn(async () => ({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] })),
+}))
+vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data/ronda-libre-scores')>()),
+  finalizarRondaLibre: vi.fn(async () => ({ finalizada: true, error: null })),
 }))
 vi.mock('@/lib/ronda/helpers', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/ronda/helpers')>()
@@ -142,6 +150,36 @@ describe('useFinalizeRonda', () => {
     await act(async () => { await result.current.finalizeRound() })
     expect(result.current.roundDone).toBe(true)
     expect(result.current.finalScore.gross).toBeGreaterThan(0)
+  })
+
+  const finalizarConDosToques = async (result: { current: { finalizeRound: () => Promise<void> } }) => {
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+  }
+  const avisoSinServidor = expect.objectContaining({ title: AVISO_FINALIZAR_SIN_SERVIDOR.title, type: 'error' })
+
+  it('el cierre sin respuesta del servidor avisa, no da la ronda por terminada y deja reintentar', async () => {
+    vi.mocked(finalizarRondaLibre).mockResolvedValueOnce({ finalizada: false, error: { code: ERRCODE_SIN_RESPUESTA } as never })
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await finalizarConDosToques(result)
+    expect(result.current.roundDone).toBe(false)
+    expect(result.current.finalizando).toBe(false)
+    expect(addToast).toHaveBeenCalledWith(avisoSinServidor)
+    // Reintento con señal: ahora sí termina.
+    await finalizarConDosToques(result)
+    expect(result.current.roundDone).toBe(true)
+  })
+
+  it('si no se pudo leer la ronda antes de cerrarla avisa y no la da por terminada', async () => {
+    const abierta = { estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4 } }] }
+    vi.mocked(fetchRondaParaCierre)
+      .mockResolvedValueOnce(abierta as never) // la lectura del inicio
+      .mockResolvedValueOnce(null as never)    // la de justo antes de cerrar
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await finalizarConDosToques(result)
+    expect(result.current.roundDone).toBe(false)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(avisoSinServidor)
   })
 
   it('roundDone=true cuando no hay hoyos jugados (early-exit del finalize)', async () => {

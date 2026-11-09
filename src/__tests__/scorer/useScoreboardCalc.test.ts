@@ -27,6 +27,7 @@ describe('useScoreboardCalc', () => {
     currentHole: 1,
     currentHoleIdx: 0,
     hoyos: Array.from({ length: 18 }, (_, i) => i + 1),
+    matchResult: null,
   }
 
   it('totalGross suma solo los hoyos con score', () => {

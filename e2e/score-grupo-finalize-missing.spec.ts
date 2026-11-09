@@ -129,4 +129,12 @@ test('finalize en grupo con hoyos sin marcar pide confirmar auto-fill con par', 
   await expect(hoja).toBeVisible()
   await hoja.getByRole('button', { name: 'Cancelar' }).click()
   await expect(hoja).toBeHidden()
+
+  // Doble toque sobre "Finalizar ronda": el segundo cae donde aparece la hoja y no puede
+  // cerrar la ronda. Quien la creó tiene "Descartar ronda" debajo, y por eso la barra sube.
+  await finalizarBtn.dblclick()
+  await page.waitForTimeout(800)
+  await expect(hoja).toBeVisible()
+  const { data: ronda } = await adminClient().from('rondas_libres').select('estado').eq('codigo', codigo).single()
+  expect(ronda?.estado).toBe('en_curso')
 })

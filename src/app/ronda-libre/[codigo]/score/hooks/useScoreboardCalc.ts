@@ -22,7 +22,9 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { Jugador, RondaLibre, HoleData } from '@/types/ronda'
-import { getMissingHoles } from '@/lib/ronda/helpers'
+import { hoyosPorMarcarAlFinalizar } from '@/golf/ronda-libre/tarjeta-historica'
+import { hoyosSinTerminarDeJugador } from '@/golf/ronda-libre/match-de-la-ronda'
+import type { MatchResult } from '@/golf/formats/match-play'
 import { puedeFinalizar } from '@/golf/ronda-libre/progreso-de-ronda'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
 
@@ -44,6 +46,8 @@ export interface ScoreboardCalcInput {
   currentHoleIdx: number
   /** Hoyos de la ronda en orden de juego (`hoyosDeLaRonda`). Misma lista que usa la página. */
   hoyos: readonly number[]
+  /** Match play: define los hoyos que esta tarjeta no tiene que anotar. */
+  matchResult: MatchResult | null
 }
 
 export interface ScoreboardCalc {
@@ -93,7 +97,8 @@ export interface ScoreboardCalc {
     totalNetOverUnder: number
   }
   flags: {
-    missingCount: number
+    /** Hoyos que el cierre marcará como par en la tarjeta activa (`hoyosPorMarcarAlFinalizar`). */
+    hoyosPorMarcar: number
     canFinalize: boolean
     isAboveDoubleBogey: boolean
     showStrokeIndexWarning: boolean
@@ -118,6 +123,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     currentHole,
     currentHoleIdx,
     hoyos,
+    matchResult,
   } = input
 
   const playerScores = scores[activeJugadorId]
@@ -147,8 +153,11 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     const holesPlayed = Object.keys(playerScores ?? {}).length
     const canFinalize = puedeFinalizar(holesPlayed, isLastHole)
 
-    const missingCount = activeJugadorId
-      ? getMissingHoles(playerScores ?? {}, totalHoles, hoyos).length
+    const hoyosPorMarcar = activeJugadorId
+      ? hoyosPorMarcarAlFinalizar([{
+          scores: playerScores,
+          noRellenar: hoyosSinTerminarDeJugador(matchResult, rondaJugadores ?? jugadores, activeJugadorId),
+        }], hoyos).length
       : 0
 
     let f9Gross = 0, f9Par = 0, f9Count = 0
@@ -225,13 +234,14 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
       totals: { totalGross, totalParPlayed, totalOverUnder, holesPlayed },
       nines: { f9Gross, f9Par, f9Count, b9Gross, b9Par, b9Count },
       neto: { totalNet, totalStableford, totalNetOverUnder },
-      flags: { missingCount, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning },
+      flags: { hoyosPorMarcar, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning },
       display: { displayOverUnder, displayTotal },
       strokeAdvantageOn,
     }
   }, [
     ronda.holes,
     hoyos,
+    matchResult,
     ronda.modo_juego,
     ronda.formato_juego,
     ronda.hcp_pct,

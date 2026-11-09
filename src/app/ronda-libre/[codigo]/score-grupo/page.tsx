@@ -7,7 +7,7 @@ import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
 import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
 import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
-import { tarjetaCompleta, textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
+import { textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
 import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
 import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
@@ -96,15 +96,14 @@ export default function ScoreGrupoPage() {
 
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
   const board = useGrupoScoreboard({
-    ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole,
+    ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
-    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, totalMissingScores, getPlayerTotal, maxStrokesOnHole,
+    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, getPlayerTotal, maxStrokesOnHole,
     hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
   } = board
 
-  const progresoDeLaTarjeta = { missingCount: totalMissingScores, holesPlayed: maxThru, totalHoles }
 
   const goToNextHole = async () => {
     if (!ronda) return
@@ -290,7 +289,7 @@ export default function ScoreGrupoPage() {
         </div>
       </div>
 
-      {canFinalize && !finalizing && tarjetaCompleta(progresoDeLaTarjeta) && <AvisoTarjetaCompleta />}
+      {canFinalize && <AvisoTarjetaCompleta completa={hoyosPorMarcar === 0 && !finalizing} enUltimoHoyo={isLastHole} />}
 
       <GrupoNavBar
         currentHoleIdx={currentHoleIdx}
@@ -305,7 +304,7 @@ export default function ScoreGrupoPage() {
 
       {confirmFinalize && (
         <ConfirmarFinalizarHoja
-          titulo={textoConfirmarFinalizar(progresoDeLaTarjeta)}
+          titulo={textoConfirmarFinalizar(hoyosPorMarcar)}
           onConfirmar={finalizeRound}
           onCancelar={() => setConfirmFinalize(false)}
         />

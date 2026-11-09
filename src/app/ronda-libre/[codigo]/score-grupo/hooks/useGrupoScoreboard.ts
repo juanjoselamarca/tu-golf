@@ -3,7 +3,9 @@
 import { useMemo } from 'react'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
-import { getMissingHoles } from '@/lib/ronda/helpers'
+import { hoyosPorMarcarAlFinalizar } from '@/golf/ronda-libre/tarjeta-historica'
+import { hoyosSinTerminarDeJugador } from '@/golf/ronda-libre/match-de-la-ronda'
+import type { MatchResult } from '@/golf/formats/match-play'
 import { hoyosAnotados, puedeFinalizar, totalesDeTarjeta, type TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
 import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida, type TotalesBolaCompartida } from '@/golf/formats'
@@ -35,8 +37,8 @@ export interface GrupoScoreboard {
   /** Hoyos anotados de la tarjeta que más lleva (THRU del header): jugador, o equipo en bola compartida. */
   maxThru: number
   canFinalize: boolean
-  /** Hoyos sin marcar entre TODAS las tarjetas (de equipo en bola compartida): si > 0, finalizar pide confirmar el relleno con par. */
-  totalMissingScores: number
+  /** Hoyos distintos que el cierre marcará como par (`hoyosPorMarcarAlFinalizar`); en 0 no falta nada. */
+  hoyosPorMarcar: number
   getPlayerTotal: (jugadorId: string) => TotalesDeTarjeta
   /** Golpes que recibe el jugador en el hoyo actual. */
   strokesOnHole: (jugadorId: string) => number
@@ -74,8 +76,10 @@ export function useGrupoScoreboard(input: {
   ordenHoyos: readonly number[]
   currentHole: number
   isLastHole: boolean
+  /** Match play: define los hoyos que cada tarjeta no tiene que anotar. */
+  matchResult: MatchResult | null
 }): GrupoScoreboard {
-  const { ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole } = input
+  const { ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult } = input
   const holes = ronda?.holes
   const modo = ronda?.modo_juego
   const formato = ronda?.formato_juego
@@ -123,9 +127,12 @@ export function useGrupoScoreboard(input: {
 
     const maxThru = Math.max(...tarjetas.map(t => hoyosAnotados(t.scores, ordenHoyos)), 0)
     const canFinalize = puedeFinalizar(maxThru, isLastHole)
-    const totalMissingScores = tarjetas.reduce(
-      (sum, t) => sum + getMissingHoles(t.scores ?? {}, totalHoles, ordenHoyos).length, 0,
-    )
+    const hoyosPorMarcar = hoyosPorMarcarAlFinalizar(
+      bolaCompartida
+        ? tarjetas
+        : jugadores.map(j => ({ scores: scores[j.id], noRellenar: hoyosSinTerminarDeJugador(matchResult, jugadores, j.id) })),
+      ordenHoyos,
+    ).length
     const maxStrokesOnHole = Math.max(...tarjetas.map(t => t.golpesEnHoyo(currentHole)), 0)
     const hoyoCompleto = (h: number) => tarjetas.length > 0 && tarjetas.every(t => t.scores?.[h] != null)
     const hoyoConGolpe = (h: number) => showNetStableford && tarjetas.some(t => t.golpesEnHoyo(h) > 0)
@@ -133,8 +140,8 @@ export function useGrupoScoreboard(input: {
 
     return {
       totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford, isMatchPlay,
-      siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, totalMissingScores, getPlayerTotal,
+      siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, getPlayerTotal,
       strokesOnHole, maxStrokesOnHole, hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
     }
-  }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole])
+  }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult])
 }

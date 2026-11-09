@@ -6,7 +6,7 @@ import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
 import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
-import { tarjetaCompleta, textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
+import { textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
 import { getYardajeForTee } from '@/types/ronda'
 import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
@@ -174,6 +174,7 @@ function ScorePageContent() {
     jugadores, scores, parMap, holeDataMap, playerHcp, currentHole,
     currentHoleIdx,
     hoyos: ordenHoyos,
+    matchResult,
   })
   const {
     mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
@@ -184,7 +185,7 @@ function ScorePageContent() {
     },
     totals: { totalGross, totalOverUnder, holesPlayed },
     neto: { totalNet, totalStableford },
-    flags: { missingCount, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning },
+    flags: { hoyosPorMarcar, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning },
     display: { displayOverUnder },
     strokeAdvantageOn,
   } = calc
@@ -440,7 +441,7 @@ function ScorePageContent() {
         />
       )}
 
-      {canFinalize && !finalizando && tarjetaCompleta({ missingCount, holesPlayed, totalHoles }) && <AvisoTarjetaCompleta />}
+      {canFinalize && <AvisoTarjetaCompleta completa={hoyosPorMarcar === 0 && !finalizando} enUltimoHoyo={isLastHole} />}
 
       <ScorerNavBar
         currentHoleIdx={currentHoleIdx}
@@ -455,7 +456,7 @@ function ScorePageContent() {
 
       {confirmFinalize && (
         <ConfirmarFinalizarHoja
-          titulo={textoConfirmarFinalizar({ missingCount, holesPlayed, totalHoles })}
+          titulo={textoConfirmarFinalizar(hoyosPorMarcar)}
           onConfirmar={finalizeRound}
           onCancelar={() => setConfirmFinalize(false)}
         />

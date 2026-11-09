@@ -44,7 +44,7 @@ export function GrupoNavBar({
           onClick={onNext}
           style={{
             flex: 2, padding: '14px',
-            background: theme.gold, color: '#ffffff',
+            background: theme.gold, color: 'var(--brand-dark)',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: 'pointer', minHeight: '48px',
             touchAction: 'manipulation', letterSpacing: '0.01em',
@@ -61,7 +61,7 @@ export function GrupoNavBar({
           style={{
             flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
             background: finalizing ? '#9ca3af' : isLastHole ? theme.gold : 'transparent',
-            color: finalizing || isLastHole ? 'var(--brand-dark)' : theme.gold,
+            color: finalizing || isLastHole ? 'var(--brand-dark)' : 'var(--brand-on-bg)',
             border: isLastHole ? 'none' : `1px solid rgba(196,153,42,0.4)`,
             borderRadius: '12px',
             fontSize: isLastHole ? '16px' : '13px',

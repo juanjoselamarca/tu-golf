@@ -19,7 +19,7 @@ import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
-import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
+import { finalizarRondaLibre, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
 import {
   fetchRondaParaCierre,
   RONDA_NO_EXISTE,
@@ -340,7 +340,11 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     const freshRonda = yaFinalizada ? { estado: 'finalizada', jugadores: [] } : await fetchRondaParaCierre(supabase, codigo)
     if (!freshRonda) {
       // Lectura fallida: NO se cierra la ronda para todos (`[].every` daba true).
+      // Se avisa y se sale: si seguía a la pantalla final, la ronda quedaba abierta sin
+      // que nadie lo supiera. Reintentar es seguro: el historial es idempotente.
       void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.cierre', level: 'warning', meta: { codigo } })
+      addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
+      return
     } else if (freshRonda.estado === 'finalizada') {
       // Otro jugador ya finalizo — no duplicar
       setRoundDone(true)
@@ -356,6 +360,12 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         // RPC: cierra solo si sigue en_curso (sin carrera), valida quién puede y,
         // si ESTA llamada la cerró, manda el "Resultado final" a los seguidores.
         const { error: finErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: activeJugadorId ?? undefined })
+        // El cierre no llegó (o no sabemos si llegó): no se pasa a "terminada" en falso.
+        // Reintentar es seguro: el cierre devuelve P0002 si ya había cerrado.
+        if (finErr?.code === ERRCODE_SIN_RESPUESTA) {
+          addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
+          return
+        }
         if (finErr) void captureError(finErr, { context: 'finalize-ronda.finalizar_ronda_libre', meta: { codigo } })
       }
     }

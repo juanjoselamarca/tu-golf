@@ -79,8 +79,9 @@ function numerico(golpes: Record<string, number> | undefined): Record<number, nu
 }
 
 /**
- * Hoyo en que se abre el scorer (`hoyoParaRetomar`), según la tarjeta del primer jugador
- * o, en bola compartida (scramble/foursome, sin golpes propios), la del primer equipo.
+ * Hoyo en que se abre el scorer (`hoyoParaRetomar`): el primero que le falte a alguna
+ * tarjeta, las de los jugadores o, en bola compartida (scramble/foursome, sin golpes
+ * propios), las de los equipos. Con todas llenas, el último, donde está Finalizar.
  */
 export function hoyoInicial(
   r: RondaLibre,
@@ -88,11 +89,11 @@ export function hoyoInicial(
   equipos: ReadonlyArray<{ scores: Record<string, number> }> = [],
 ): number {
   const orden = hoyosDeLaRonda(r.hoyo_inicio ?? 1, r.holes)
-  const tarjeta: Record<string | number, number> | undefined = isSharedBallFormat(r.formato_juego)
-    ? equipos[0]?.scores
-    : scores[r.ronda_libre_jugadores[0]?.id ?? '']
-  if (!tarjeta) return orden[0] ?? 1
-  return hoyoParaRetomar(orden, h => tarjeta[String(h)] != null)
+  const tarjetas: ReadonlyArray<Record<string | number, number>> = isSharedBallFormat(r.formato_juego)
+    ? equipos.map(e => e.scores)
+    : r.ronda_libre_jugadores.map(j => scores[j.id] ?? {})
+  if (tarjetas.length === 0) return orden[0] ?? 1
+  return hoyoParaRetomar(orden, h => tarjetas.every(t => t[String(h)] != null))
 }
 
 /**
