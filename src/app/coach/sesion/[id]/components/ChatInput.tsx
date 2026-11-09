@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface ChatInputProps {
   value: string
@@ -85,7 +86,7 @@ export function ChatInput({ value, onChange, onSend, streaming, keyboardInset }:
           borderRadius: 10,
           padding: '13px 16px',
           color: 'var(--text)',
-          fontSize: 16,
+          fontSize: FONT_SIZE.body,
           lineHeight: 1.4,
           fontFamily: 'inherit',
           outline: 'none',
@@ -104,7 +105,7 @@ export function ChatInput({ value, onChange, onSend, streaming, keyboardInset }:
           background: inputDisabled || !value.trim() ? 'rgba(196,153,42,0.15)' : 'var(--brand)',
           border: 'none',
           color: inputDisabled || !value.trim() ? 'var(--text-2)' : 'var(--brand-dark)',
-          fontSize: 18,
+          fontSize: FONT_SIZE.lead,
           cursor: inputDisabled ? 'not-allowed' : 'pointer',
           display: 'flex',
           alignItems: 'center',

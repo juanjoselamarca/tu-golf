@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface FocoData {
   kind: 'focus' | 'fallback'
@@ -53,13 +54,13 @@ export function FocusHero({ foco }: { foco: FocoData }) {
   if (foco.kind === 'fallback') {
     return (
       <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px' }}>
-        <div style={{ fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px' }}>
           Tu foco
         </div>
-        <p style={{ fontFamily: 'var(--font-playfair)', fontSize: '21px', lineHeight: 1.3, color: 'var(--text)', margin: '0 0 8px' }}>
+        <p style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.title, lineHeight: 1.3, color: 'var(--text)', margin: '0 0 8px' }}>
           Todavía no tengo un foco claro para darte.
         </p>
-        <p style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>
           {foco.reason === 'cold_start'
             ? 'Me faltan rondas para leer un patrón real. Suma algunas vueltas de 18 y vuelvo con tu palanca de mayor impacto — sin inventar nada.'
             : 'Tus números no muestran una fuga clara ahora mismo. Buena señal: estás parejo. Sigue jugando y aviso si aparece algo que mueva la aguja.'}
@@ -71,21 +72,21 @@ export function FocusHero({ foco }: { foco: FocoData }) {
   const frase = frasesEvidencia(foco.evidencia)
   return (
     <div style={card}>
-      <div style={{ fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '10px' }}>
+      <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '10px' }}>
         Tu foco ahora
       </div>
-      <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '26px', lineHeight: 1.15, color: 'var(--text)', margin: '0 0 12px', fontWeight: 600 }}>
+      <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h2, lineHeight: 1.15, color: 'var(--text)', margin: '0 0 12px', fontWeight: 600 }}>
         {foco.label}
       </h2>
       {frase && (
-        <p style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 16px' }}>{frase}</p>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 16px' }}>{frase}</p>
       )}
       {foco.accion && (
         <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', paddingTop: '14px', borderTop: '1px solid var(--line)' }}>
-          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brand-on-bg)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, marginTop: '2px' }}>
+          <span style={{ fontSize: FONT_SIZE.caption, fontWeight: 700, color: 'var(--brand-on-bg)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, marginTop: '2px' }}>
             Esta semana
           </span>
-          <p style={{ fontSize: '14px', color: 'var(--text)', lineHeight: 1.55, margin: 0, fontWeight: 500 }}>{foco.accion}</p>
+          <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', lineHeight: 1.55, margin: 0, fontWeight: 500 }}>{foco.accion}</p>
         </div>
       )}
     </div>
