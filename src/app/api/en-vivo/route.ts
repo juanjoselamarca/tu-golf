@@ -6,7 +6,7 @@ import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida } from
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { cargarHoyosDelScorer, type HoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { fetchEquiposDeRondas } from '@/lib/data/ronda-libre'
-import { vistaPublica } from '@/lib/data/tournaments/vista-publica'
+import { vistaPublicaDeRondaLibre } from '@/lib/data/tournaments/vista-publica'
 import { ordenarJugadoresDeLaRonda } from '@/lib/ronda/orden-jugadores'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import { captureError } from '@/lib/error-tracking'
@@ -108,12 +108,7 @@ function filasDeEquipos(formato: 'scramble' | 'foursome', hoyos: readonly number
  *    se muestra con golpes brutos. `vistaPublica` la pasa a stroke_play.
  */
 function vistaDelFeed(ronda: RondaRow): { clasificacionBruta: boolean; muestraPuntos: boolean } {
-  const vista = vistaPublica({
-    visorConSesion: false,
-    caminoRondaLibre: true,
-    modoJuego: ronda.modo_juego === 'neto' ? 'neto' : 'gross',
-    formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
-  })
+  const vista = vistaPublicaDeRondaLibre(ronda)
   return { clasificacionBruta: vista.soloBruto, muestraPuntos: vista.formato === 'stableford' }
 }
 

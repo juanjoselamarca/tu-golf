@@ -127,7 +127,9 @@ describe('GET /api/en-vivo — solo bruto', () => {
     expect(json.rondas[0].clasificacion_bruta).toBe(true)
     expect(json.rondas[0].jugadores[0].stablefordPts).toBeNull()
     expect(json.rondas[0].jugadores[0].vsPar).toBe(0)
-    // Que la ronda sea neto no hace viajar nada neto: ni el modo, ni handicaps, ni user_id.
+    // El MODO sí viaja (es `clasificacion_bruta`, como el "· Clasificación bruta" del board):
+    // lo que no viaja es nada NETO ni nada que lo deje deducir: handicaps y user_id. La clave
+    // `modo_juego` tampoco, para que el payload no crezca sin querer.
     expect(texto).not.toMatch(/modo_juego|"handicap|u1/)
   })
 

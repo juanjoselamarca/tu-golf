@@ -162,6 +162,29 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     expect(pageErrors).toEqual([])
   })
 
+  test('stroke play GROSS: chip "Stroke Play" a secas y ningún "Gross" (el vs par ES la clasificación)', async ({ page }) => {
+    // Mock propio de UNA ronda: el fixture compartido ya no tiene stroke play gross y los
+    // conteos ("3 ACTIVAS", "2 rondas") no se tocan. Si alguien cablea el chip o la etiqueta
+    // con `muestra_puntos === false` (false en TODO stroke play), este test se pone rojo.
+    await mockFeed(page, () => ({
+      status: 200,
+      rondas: [{
+        id: 'r-e2e-gross', codigo: 'E2ESG4', course_name: CANCHA_A, tees: 'Blancas', holes: 18,
+        fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 1, formato_juego: 'stroke_play', muestra_puntos: false, clasificacion_bruta: false,
+        jugadores: [jugador('g1', 'Gabi Núñez', 7, 2, 18), jugador('g2', 'Hugo Vera', 7, 5, 18)],
+        maxHolesCompleted: 7, totalJugadores: 2,
+      }],
+    }))
+    await abrir(page)
+    const card = tarjeta(page, 'E2ESG4')
+    await expect(card).toBeVisible({ timeout: 15_000 })
+    await expect(card.getByText('Stroke Play', { exact: true })).toBeVisible()
+    await expect(card.getByText('Stroke Play · bruto')).toHaveCount(0)
+    await expect(card.getByText('Gross', { exact: true })).toHaveCount(0)
+    await expect(card.getByText(formatVsPar(2), { exact: true })).toBeVisible()
+    expect(await ordenVisible(page, 'E2ESG4')).toEqual(['Gabi Núñez', 'Hugo Vera'])
+  })
+
   test('Stableford gross de 9 hoyos: ordena por puntos, muestra "pts" y Thru F', async ({ page }) => {
     await mockFeed(page, () => ({ status: 200, rondas: feed() }))
     await abrir(page)

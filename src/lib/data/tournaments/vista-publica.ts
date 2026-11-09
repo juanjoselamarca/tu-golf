@@ -194,6 +194,21 @@ export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJue
  * `vista` le dice al navegador qué puede mostrar (sin neto; clasificación bruta en
  * `vista.modo`/`vista.formato`). El visor con sesión completa con su ruta privada.
  */
+/**
+ * La vista pública de UNA ronda libre a partir de su fila: la respuesta cacheada
+ * (`/api/ronda-libre/[codigo]/live`, `/api/en-vivo`) es la de un visor SIN sesión.
+ * Una fila sin `modo_juego` es gross (`normalizarModo`), y sin `formato_juego`, stroke play.
+ * Única fuente: si cambia cómo se lee la fila, cambia en los dos feeds a la vez.
+ */
+export function vistaPublicaDeRondaLibre(ronda: { modo_juego?: string | null; formato_juego?: string | null }): VistaPublica {
+  return vistaPublica({
+    visorConSesion: false,
+    caminoRondaLibre: true,
+    modoJuego: ronda.modo_juego === 'neto' ? 'neto' : 'gross',
+    formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
+  })
+}
+
 export function datosRondaLibrePublicos<B extends {
   ronda: { modo_juego?: string | null; formato_juego?: string | null; ronda_libre_jugadores: Array<{ handicap?: number | null }> }
   courseHcpMap: Record<string, number>
@@ -202,12 +217,7 @@ export function datosRondaLibrePublicos<B extends {
   sinIndice: string[]
   equipos: Array<{ handicap_equipo: number | null; handicap_equipo_juego?: number | null }>
 }>(b: B): B & { vista: VistaPublica } {
-  const vista = vistaPublica({
-    visorConSesion: false,
-    caminoRondaLibre: true,
-    modoJuego: b.ronda.modo_juego === 'neto' ? 'neto' : 'gross',
-    formatoJuego: (b.ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
-  })
+  const vista = vistaPublicaDeRondaLibre(b.ronda)
   if (!vista.soloBruto && !esFormatoPersonalizado(b.ronda.formato_juego)) return { ...b, vista }
   return {
     ...b,
