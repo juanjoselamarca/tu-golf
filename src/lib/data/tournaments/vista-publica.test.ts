@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { idsConHandicapOculto, vistaPublica, filaPublica, datosRondaLibrePublicos, handicapsVisiblesParaElVisor } from './vista-publica'
+import { idsConHandicapOculto, vistaPublica, filaPublica, datosRondaLibrePublicos, handicapsVisiblesParaElVisor, vistaPublicaDeRondaLibre } from './vista-publica'
 import type { Player } from '@/lib/golf-data'
 
 const jugadores = [
@@ -81,6 +81,25 @@ describe('datosRondaLibrePublicos (vista en vivo de ronda libre, respuesta públ
   })
   it('match play neto: se ve el match en bruto (como el board de torneo), no se cambia de juego', () => {
     expect(datosRondaLibrePublicos(datos('neto', 'match_play')).vista).toMatchObject({ modo: 'gross', formato: 'match_play' })
+  })
+})
+
+describe('vistaPublicaDeRondaLibre (la fila de la ronda → qué publica un feed cacheado)', () => {
+  it('ronda neto: sólo bruto; Stableford neto se publica como stroke play', () => {
+    expect(vistaPublicaDeRondaLibre({ modo_juego: 'neto', formato_juego: 'stroke_play' })).toMatchObject({ soloBruto: true, modo: 'gross', formato: 'stroke_play' })
+    expect(vistaPublicaDeRondaLibre({ modo_juego: 'neto', formato_juego: 'stableford' })).toMatchObject({ soloBruto: true, formato: 'stroke_play' })
+  })
+  it('ronda gross: el vs par ES la clasificación; Stableford gross conserva sus puntos', () => {
+    expect(vistaPublicaDeRondaLibre({ modo_juego: 'gross', formato_juego: 'stableford' })).toMatchObject({ soloBruto: false, formato: 'stableford' })
+  })
+  it('fila sin modo ni formato (rondas viejas): gross y stroke play, sin marcar bruto', () => {
+    expect(vistaPublicaDeRondaLibre({})).toMatchObject({ soloBruto: false, modo: 'gross', formato: 'stroke_play' })
+    expect(vistaPublicaDeRondaLibre({ modo_juego: null, formato_juego: null })).toMatchObject({ soloBruto: false, formato: 'stroke_play' })
+  })
+  it('es la misma regla que usa la vista en vivo de la ronda (datosRondaLibrePublicos)', () => {
+    const fila = { modo_juego: 'neto', formato_juego: 'stableford', ronda_libre_jugadores: [] }
+    const r = datosRondaLibrePublicos({ ronda: fila, courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], equipos: [] })
+    expect(r.vista).toEqual(vistaPublicaDeRondaLibre(fila))
   })
 })
 

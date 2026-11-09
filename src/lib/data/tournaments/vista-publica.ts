@@ -20,7 +20,7 @@
 
 import type { Player } from '@/lib/golf-data'
 import type { HcpConSesion } from '@/lib/data/ronda-libre-live-api'
-import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
+import { formatLabel, modoDeJuego, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
 import {
@@ -179,6 +179,22 @@ export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJue
 }
 
 /**
+ * La vista pública de UNA ronda libre a partir de su fila: lo que ve un visor SIN
+ * sesión. La usan las respuestas cacheadas (`/api/ronda-libre/[codigo]/live`,
+ * `/api/en-vivo`) y el scorer cuando no puede leer el neto (`netoNoDisponible`).
+ * Una fila sin `modo_juego` es gross (`modoDeJuego`), y sin `formato_juego`, stroke play.
+ * Única fuente de cómo se lee la fila: si cambia, cambia en todos a la vez.
+ */
+export function vistaPublicaDeRondaLibre(ronda: { modo_juego?: string | null; formato_juego?: string | null }): VistaPublica {
+  return vistaPublica({
+    visorConSesion: false,
+    caminoRondaLibre: true,
+    modoJuego: modoDeJuego(ronda.modo_juego),
+    formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
+  })
+}
+
+/**
  * La vista en vivo de una RONDA LIBRE (`/ronda-libre/[codigo]`, ruta pública
  * cacheada `/api/ronda-libre/[codigo]/live`) viaja como datos CRUDOS (golpes +
  * handicap de tarjeta) y el navegador arma el ranking. Misma regla que el board de
@@ -202,12 +218,7 @@ export function datosRondaLibrePublicos<B extends {
   sinIndice: string[]
   equipos: Array<{ handicap_equipo: number | null; handicap_equipo_juego?: number | null }>
 }>(b: B): B & { vista: VistaPublica } {
-  const vista = vistaPublica({
-    visorConSesion: false,
-    caminoRondaLibre: true,
-    modoJuego: b.ronda.modo_juego === 'neto' ? 'neto' : 'gross',
-    formatoJuego: (b.ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
-  })
+  const vista = vistaPublicaDeRondaLibre(b.ronda)
   if (!vista.soloBruto && !esFormatoPersonalizado(b.ronda.formato_juego)) return { ...b, vista }
   return {
     ...b,

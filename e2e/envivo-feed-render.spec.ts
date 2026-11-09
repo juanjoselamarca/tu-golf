@@ -11,6 +11,7 @@ import { formatPuntosStableford } from '../src/golf/leaderboard/formato-score'
  * ejercita siempre:
  *   - orden: menor vs par primero, Stableford por puntos, sin hoyos jugados al final
  *   - Stableford neto llega "solo bruto" (decisión 08-oct): nunca se muestran puntos
+ *   - ronda NETO (`clasificacion_bruta`): chip "· bruto" y "Gross" delante de cada vs par
  *   - chip de hoyos (9 vs 18), Thru, formato, "+N más", agrupado por cancha
  *   - anónimo: sin scores, "Ver →" y CTA de registro
  *   - búsqueda (3+ rondas) manda ?cancha=, error con Reintentar, estado vacío
@@ -40,9 +41,10 @@ const CANCHA_B = 'Club de Golf La Dehesa'
 function feed() {
   return [
     {
-      // Stroke play 18h, 6 jugadores (solo se ven 4), uno sin hoyos jugados y uno que ya terminó.
+      // Stroke play NETO 18h, 6 jugadores (solo se ven 4), uno sin hoyos jugados y uno que ya terminó.
+      // El feed público lo publica en bruto (`clasificacion_bruta`): la tarjeta tiene que decirlo.
       id: 'r-e2e-stroke', codigo: 'E2EST1', course_name: CANCHA_A, tees: 'Azules', holes: 18,
-      fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 1, formato_juego: 'stroke_play', muestra_puntos: false,
+      fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 1, formato_juego: 'stroke_play', muestra_puntos: false, clasificacion_bruta: true,
       jugadores: [
         jugador('j1', 'Ana Pérez', 9, 3, 18),
         jugador('j2', 'Beto Rojas', 12, -1, 18),
@@ -58,7 +60,7 @@ function feed() {
       // puntos y vs par den órdenes DISTINTOS (Hugo: 3 birdies, 5 pares y un +7 = 19 pts
       // con +4; Gabi: 16 pts con +2): si la vista ordenara por vs par, el test falla.
       id: 'r-e2e-stab', codigo: 'E2ESB2', course_name: CANCHA_A, tees: 'Blancas', holes: 9,
-      fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 10, formato_juego: 'stableford', muestra_puntos: true,
+      fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 10, formato_juego: 'stableford', muestra_puntos: true, clasificacion_bruta: false,
       jugadores: [
         jugador('k1', 'Gabi Núñez', 9, 2, 9, 16),
         jugador('k2', 'Hugo Vera', 9, 4, 9, 19),
@@ -68,7 +70,7 @@ function feed() {
     {
       // Stableford NETO: el feed público es solo bruto → sin puntos, orden por vs par.
       id: 'r-e2e-neto', codigo: 'E2ESN3', course_name: CANCHA_B, tees: 'Azules', holes: 18,
-      fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 1, formato_juego: 'stableford', muestra_puntos: false,
+      fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 1, formato_juego: 'stableford', muestra_puntos: false, clasificacion_bruta: true,
       jugadores: [
         jugador('m1', 'Iván Lagos', 5, 4, 18, null),
         jugador('m2', 'Juana Ríos', 5, 2, 18, null),
@@ -120,7 +122,7 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     }
   })
 
-  test('stroke play: menor vs par primero, sin hoyos al final, máximo 4 filas y "+2 más"', async ({ page }) => {
+  test('stroke play neto: menor vs par primero, sin hoyos al final, máximo 4 filas, "+2 más", y dice que es gross', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', e => pageErrors.push(e.message))
     await mockFeed(page, () => ({ status: 200, rondas: feed() }))
@@ -146,6 +148,11 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     await expect(card.getByText('(72)', { exact: true })).toBeVisible()
     await expect(card.getByText('en 18 hoyos')).toHaveCount(0)
 
+    // Ronda neto publicada en bruto: el chip lo dice y cada score lleva "Gross" delante
+    // (4 filas visibles con hoyos jugados). Sin eso, "+3 en 9 hoyos" se lee como el neto.
+    await expect(card.getByText('Stroke Play · bruto')).toBeVisible()
+    await expect(card.getByText('Gross', { exact: true })).toHaveCount(4)
+
     // Cabecera de la tarjeta.
     await expect(card.getByText('18 HOYOS')).toBeVisible()
     // Thru = hoyos terminados del más avanzado; con la ronda completa, "F".
@@ -153,6 +160,31 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     await expect(card.getByText('6 jugadores · Hace 2h')).toBeVisible()
 
     expect(pageErrors).toEqual([])
+  })
+
+  test('stroke play GROSS: chip "Stroke Play" a secas y ningún "Gross" (el vs par ES la clasificación)', async ({ page }) => {
+    // Mock propio de UNA ronda: el fixture compartido ya no tiene stroke play gross y los
+    // conteos ("3 ACTIVAS", "2 rondas") no se tocan. Si alguien cablea el chip o la etiqueta
+    // con `muestra_puntos === false` (false en TODO stroke play), este test se pone rojo.
+    await mockFeed(page, () => ({
+      status: 200,
+      rondas: [{
+        id: 'r-e2e-gross', codigo: 'E2ESG4', course_name: CANCHA_A, tees: 'Blancas', holes: 18,
+        fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 1, formato_juego: 'stroke_play', muestra_puntos: false, clasificacion_bruta: false,
+        jugadores: [jugador('g1', 'Gabi Núñez', 7, 2, 18), jugador('g2', 'Hugo Vera', 7, 5, 18)],
+        maxHolesCompleted: 7, totalJugadores: 2,
+      }],
+    }))
+    await abrir(page)
+    const card = tarjeta(page, 'E2ESG4')
+    await expect(card).toBeVisible({ timeout: 15_000 })
+    // Primero las filas CON score (la sesión llega después del fetch mockeado: antes de eso
+    // la tarjeta dice "Ver →" y un conteo de "Gross" daría 0 sin probar nada).
+    await expect(card.getByText(formatVsPar(2), { exact: true })).toBeVisible({ timeout: 15_000 })
+    await expect(card.getByText('Stroke Play', { exact: true })).toBeVisible()
+    await expect(card.getByText('Stroke Play · bruto')).toHaveCount(0)
+    await expect(card.getByText('Gross', { exact: true })).toHaveCount(0)
+    expect(await ordenVisible(page, 'E2ESG4')).toEqual(['Gabi Núñez', 'Hugo Vera'])
   })
 
   test('Stableford gross de 9 hoyos: ordena por puntos, muestra "pts" y Thru F', async ({ page }) => {
@@ -167,6 +199,8 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     await expect(card.getByText('9 HOYOS')).toBeVisible()
     await expect(card.getByText('Thru F', { exact: true })).toBeVisible()
     await expect(card.getByText('Stableford', { exact: true })).toBeVisible()
+    // Gross de verdad: nada que aclarar.
+    await expect(card.getByText('Gross', { exact: true })).toHaveCount(0)
   })
 
   test('Stableford neto: "solo bruto" — sin puntos, chip "· bruto" y orden por vs par', async ({ page }) => {
@@ -176,6 +210,7 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     const card = tarjeta(page, 'E2ESN3')
     await expect(card.getByText(formatVsPar(2), { exact: true })).toBeVisible({ timeout: 15_000 })
     await expect(card.getByText('Stableford · bruto')).toBeVisible()
+    await expect(card.getByText('Gross', { exact: true })).toHaveCount(2)
     expect(await ordenVisible(page, 'E2ESN3')).toEqual(['Juana Ríos', 'Iván Lagos'])
     await expect(card.getByText(/\bpts\b/)).toHaveCount(0)
     await expect(card.getByText('Thru 5', { exact: true })).toBeVisible()
