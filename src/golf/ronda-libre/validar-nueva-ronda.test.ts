@@ -67,11 +67,56 @@ describe('match play', () => {
 })
 
 describe('formatos por equipo', () => {
-  it('con menos de cuatro jugadores no se puede', () => {
+  // Un usuario real jugando scramble de a dos no pudo crear la ronda: la regla
+  // exigía dos equipos (4 jugadores). Un equipo juega contra el par.
+  it('un solo equipo de dos contra el par se puede crear', () => {
+    expect(
+      validarNuevaRonda(
+        ronda({
+          formato: 'scramble',
+          jugadores: CUATRO.slice(0, 2),
+          equipos: [{ nombre: 'Equipo 1', jugadorIndices: [0, 1] }],
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('un solo equipo de cuatro contra el par se puede crear en scramble y best ball', () => {
+    for (const formato of ['scramble', 'best_ball'] as const) {
+      expect(
+        validarNuevaRonda(
+          ronda({ formato, jugadores: CUATRO, equipos: [{ nombre: 'Equipo 1', jugadorIndices: [0, 1, 2, 3] }] }),
+        ),
+        formato,
+      ).toBeNull()
+    }
+  })
+
+  it('el creador solo no es un equipo: le falta el compañero', () => {
     const problema = validarNuevaRonda(
-      ronda({ formato: 'best_ball', jugadores: CUATRO.slice(0, 3), equipos: DOS_EQUIPOS }),
+      ronda({ formato: 'scramble', jugadores: CUATRO.slice(0, 1), equipos: [{ nombre: 'Equipo 1', jugadorIndices: [0] }] }),
     )
-    expect(problema?.titulo).toBe('Faltan jugadores')
+    expect(problema?.titulo).toBe('Falta un compañero')
+    expect(problema?.detalle).toContain('compañero')
+  })
+
+  it('tres jugadores en dos equipos dejan uno solo: equipos incompletos', () => {
+    const problema = validarNuevaRonda(
+      ronda({
+        formato: 'best_ball',
+        jugadores: CUATRO.slice(0, 3),
+        equipos: [
+          { nombre: 'Equipo 1', jugadorIndices: [0, 1] },
+          { nombre: 'Equipo 2', jugadorIndices: [2] },
+        ],
+      }),
+    )
+    expect(problema?.titulo).toBe('Equipos incompletos')
+  })
+
+  it('sin equipos armados no pasa aunque haya jugadores', () => {
+    const problema = validarNuevaRonda(ronda({ formato: 'scramble', jugadores: CUATRO.slice(0, 2), equipos: [] }))
+    expect(problema?.titulo).toBe('Equipos incompletos')
   })
 
   it('cuatro jugadores en dos equipos de dos pasa', () => {

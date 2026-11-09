@@ -249,8 +249,9 @@ export async function POST(req: NextRequest) {
           }))),
         )
       : []
-    // Un equipo de bola compartida sin handicap jugaría con 0. Hoy el validador
-    // sólo deja equipos de 2 (todos con tabla); si eso cambia, se rechaza acá.
+    // Un equipo de bola compartida sin handicap jugaría con 0. El validador deja
+    // equipos de 2 a 4 en scramble y best ball (todos con tabla) y de 2 exactos
+    // en foursome; si eso cambia sin tabla nueva, se rechaza acá.
     if (isSharedBallFormat(body.formato_juego) && handicaps.some(h => h.juego == null)) {
       return NextResponse.json({ error: 'No hay handicap de equipo para equipos de ese tamaño. Arma equipos de un tamaño permitido para este formato.' }, { status: 400 })
     }

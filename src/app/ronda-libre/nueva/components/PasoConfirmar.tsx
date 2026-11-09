@@ -4,6 +4,7 @@ import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rule
 import type { FormaDeLaRonda, MitadDeCancha } from '@/golf/ronda-libre/forma-de-la-ronda'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
+import type { EquipoDeLaRonda } from '../hooks/useFormularioDeRonda'
 import { nombreVisibleDeTee } from './SelectorTees'
 import { colores, primario, secundario, tarjeta } from './estilos'
 
@@ -17,6 +18,10 @@ interface Props {
   teeGlobal: string
   fecha: string
   jugadores: JugadorDeLaRonda[]
+  /** Equipos de la ronda (vacío en formatos individuales). Referencian a `jugadores` por id. */
+  equipos: EquipoDeLaRonda[]
+  /** Quién anota: tú por todos (scorer de grupo) o cada uno en su celular. */
+  llevaElScoreDelGrupo: boolean
   golpesDe: (indice: number | null | undefined, tee: string | null | undefined) => number | null
   /** Más de un tee disponible: recién ahí el tee por jugador aporta información. */
   hayVariosTees: boolean
@@ -56,6 +61,56 @@ export function PasoConfirmar(props: Props) {
       ? `(${props.mitad === 'front' ? 'Front' : 'Back'})`
       : null
 
+  // Los jugadores agrupados como van a competir. Un jugador que no esté en
+  // ningún equipo igual se muestra: que falte de la lista sería peor que verlo
+  // sin equipo (y la validación ya frena el botón en ese caso).
+  const porId = new Map(props.jugadores.map(j => [j.id, j]))
+  const enAlgunEquipo = new Set(props.equipos.flatMap(e => e.miembros))
+  const grupos: Array<{ titulo: string | null; jugadores: JugadorDeLaRonda[] }> = props.equipos.length > 0
+    ? [
+        ...props.equipos.map((e, i) => ({
+          titulo: e.nombre.trim() || `Equipo ${i + 1}`,
+          jugadores: e.miembros.map(id => porId.get(id)).filter((j): j is JugadorDeLaRonda => j != null),
+        })),
+        { titulo: null, jugadores: props.jugadores.filter(j => !enAlgunEquipo.has(j.id)) },
+      ].filter(g => g.jugadores.length > 0)
+    : [{ titulo: null, jugadores: props.jugadores }]
+
+  const filaDeJugador = (j: JugadorDeLaRonda) => {
+    const golpes = props.golpesDe(j.indice, j.tees)
+    return (
+      <div key={j.id} style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+        padding: '8px 12px', borderRadius: '10px',
+        background: j.esCreador ? 'rgba(196,153,42,0.12)' : 'rgba(196,153,42,0.05)',
+        border: `1px solid ${j.esCreador ? colores.oroBorde : 'transparent'}`,
+      }}>
+        <span style={{
+          fontSize: '13px', fontWeight: 500,
+          color: j.esCreador ? colores.oroTexto : colores.texto,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {j.nombre}
+          {j.indice != null ? ` · idx ${j.indice}` : ''}
+          {/* Los golpes que va a repartir la ronda. En una vuelta de 9
+              no son los mismos que el índice sugiere, y verlos acá
+              evita la sorpresa en el hoyo 1. */}
+          {golpes != null ? ` · ${golpes} golpes` : ''}
+        </span>
+        {props.hayVariosTees && j.tees && (
+          <span style={{
+            fontSize: '11px', color: colores.texto2, flexShrink: 0,
+            padding: '2px 8px', borderRadius: '8px',
+            background: colores.tarjeta, border: `1px solid ${colores.borde}`,
+            fontFamily: '"DM Mono", monospace',
+          }}>
+            Tee {nombreVisibleDeTee(j.tees, props.recorridosElegidos.length === 2)}
+          </span>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
       <div style={{ ...tarjeta, padding: '20px' }}>
@@ -84,46 +139,24 @@ export function PasoConfirmar(props: Props) {
           })}
         </Fila>
 
+        <Fila etiqueta="Anota">{props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'}</Fila>
+
         <div style={{ padding: '10px 0' }}>
           <span style={{ fontSize: '13px', color: colores.texto2, display: 'block', marginBottom: '8px' }}>
             Jugadores ({props.jugadores.length})
           </span>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {props.jugadores.map((j, i) => {
-              const golpes = props.golpesDe(j.indice, j.tees)
-              return (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
-                  padding: '8px 12px', borderRadius: '10px',
-                  background: j.esCreador ? 'rgba(196,153,42,0.12)' : 'rgba(196,153,42,0.05)',
-                  border: `1px solid ${j.esCreador ? colores.oroBorde : 'transparent'}`,
-                }}>
-                  <span style={{
-                    fontSize: '13px', fontWeight: 500,
-                    color: j.esCreador ? colores.oroTexto : colores.texto,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {j.nombre}
-                    {j.indice != null ? ` · idx ${j.indice}` : ''}
-                    {/* Los golpes que va a repartir la ronda. En una vuelta de 9
-                        no son los mismos que el índice sugiere, y verlos acá
-                        evita la sorpresa en el hoyo 1. */}
-                    {golpes != null ? ` · ${golpes} golpes` : ''}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {grupos.map((grupo, i) => (
+              <div key={grupo.titulo ?? `sin-equipo-${i}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {grupo.titulo && (
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: colores.texto, padding: '0 2px' }}>
+                    {grupo.titulo}
                   </span>
-                  {props.hayVariosTees && j.tees && (
-                    <span style={{
-                      fontSize: '11px', color: colores.texto2, flexShrink: 0,
-                      padding: '2px 8px', borderRadius: '8px',
-                      background: colores.tarjeta, border: `1px solid ${colores.borde}`,
-                      fontFamily: '"DM Mono", monospace',
-                    }}>
-                      Tee {nombreVisibleDeTee(j.tees, props.recorridosElegidos.length === 2)}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
+                )}
+                {grupo.jugadores.map(filaDeJugador)}
+              </div>
+            ))}
           </div>
         </div>
       </div>

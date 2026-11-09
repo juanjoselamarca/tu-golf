@@ -101,14 +101,16 @@ function HeroCard({
 
 export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, teams, shareVariant = 'commit' }: WinnerCelebrationProps) {
   // Fix 128: en modalidades por equipos el cuadro ganador muestra el EQUIPO ganador.
+  // Un solo equipo (09-nov-2026, R4794T) juega contra el par: no le gana a nadie.
   if (teams && teams.length > 0) {
     const winnerDiff = teams[0].diff
     const isTie = teams.length > 1 && teams[1].diff === winnerDiff
     const winners = teams.filter(t => t.diff === winnerDiff)
+    const contraElPar = teams.length === 1
     return (
       <HeroCard
         ronda={ronda}
-        etiqueta={isTie ? 'Empate' : 'Equipo ganador'}
+        etiqueta={contraElPar ? 'Contra el par' : isTie ? 'Empate' : 'Equipo ganador'}
         nombre={winners.map(t => t.nombre).join(' y ')}
         integrantes={!isTie && teams[0].jugadores.length > 0 ? teams[0].jugadores.join(' · ') : undefined}
         scoreNode={formatOverUnder(winnerDiff)}

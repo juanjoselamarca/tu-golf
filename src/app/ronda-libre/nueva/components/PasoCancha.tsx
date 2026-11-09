@@ -1,17 +1,19 @@
 'use client'
 
 import CourseSelector from '@/components/CourseSelector'
-import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import type { MitadDeCancha } from '@/golf/ronda-libre/forma-de-la-ronda'
+import type { RondaReciente } from '@/lib/data/ronda-libre-nueva'
 import type { EstadoDeCancha } from '../hooks/useSetupDeCancha'
-import { colores, etiqueta, input, primario, secundario, tarjeta } from './estilos'
+import { colores, etiqueta, input, primario, tarjeta } from './estilos'
 import { PartidaShotgun } from './PartidaShotgun'
-import { SelectorFormato } from './SelectorFormato'
+import { RondasRecientes } from './RondasRecientes'
 import { SelectorHoyos } from './SelectorHoyos'
 import { SelectorRecorridos } from './SelectorRecorridos'
 import { SelectorTees } from './SelectorTees'
 
 interface Props {
+  rondasRecientes: RondaReciente[]
+  onRepetir: (ronda: RondaReciente) => void
   cancha: string
   onElegirCancha: (c: { id: string | null; nombre: string }) => void
   onLimpiarCancha: () => void
@@ -21,11 +23,6 @@ interface Props {
   onHoyos: (n: 9 | 18) => void
   mitad: MitadDeCancha
   onMitad: (m: MitadDeCancha) => void
-  formato: FormatoJuego
-  onFormato: (f: FormatoJuego) => void
-  modo: ModoJuego
-  onModo: (m: ModoJuego) => void
-  netoBloqueado: boolean
   tees: string
   onTees: (t: string) => void
   fecha: string
@@ -34,7 +31,6 @@ interface Props {
   onAlternarShotgun: () => void
   hoyoShotgun: number
   onHoyoShotgun: (h: number) => void
-  onAtras: () => void
   onSiguiente: () => void
 }
 
@@ -47,13 +43,15 @@ function rangoDeFechas(): { min: string; max: string } {
   return { min: desde.toISOString().split('T')[0], max: hasta.toISOString().split('T')[0] }
 }
 
-/** Paso 2: dónde, cuántos hoyos, con qué formato y desde qué tee. */
+/** Paso 1: dónde, cuántos hoyos y desde qué tee; con atajo para repetir una ronda. */
 export function PasoCancha(props: Props) {
   const { setup, esMultiRecorrido } = props
   const { min, max } = rangoDeFechas()
 
   return (
     <div>
+      <RondasRecientes rondas={props.rondasRecientes} onRepetir={props.onRepetir} />
+
       <div style={tarjeta}>
         <label style={etiqueta}>Cancha *</label>
 
@@ -128,8 +126,6 @@ export function PasoCancha(props: Props) {
         <SelectorHoyos hoyos={props.hoyos} onHoyos={props.onHoyos} mitad={props.mitad} onMitad={props.onMitad} />
       )}
 
-      <SelectorFormato formato={props.formato} onFormato={props.onFormato} modo={props.modo} onModo={props.onModo} netoBloqueado={props.netoBloqueado} />
-
       <div style={tarjeta}>
         <div style={{ marginBottom: '20px' }}>
           <SelectorTees
@@ -168,19 +164,14 @@ export function PasoCancha(props: Props) {
         />
       )}
 
-      <div style={{ display: 'flex', gap: '10px' }}>
-        <button type="button" onClick={props.onAtras} style={secundario}>
-          ← Atrás
-        </button>
-        <button
-          type="button"
-          disabled={!props.cancha}
-          onClick={props.onSiguiente}
-          style={{ ...primario(!props.cancha), flex: 2 }}
-        >
-          Siguiente →
-        </button>
-      </div>
+      <button
+        type="button"
+        disabled={!props.cancha}
+        onClick={props.onSiguiente}
+        style={{ ...primario(!props.cancha), width: '100%' }}
+      >
+        Siguiente →
+      </button>
     </div>
   )
 }

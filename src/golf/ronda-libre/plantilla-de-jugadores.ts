@@ -24,21 +24,29 @@ import { isTeamFormat } from '@/golf/formats'
  */
 export const MAX_JUGADORES_POR_RONDA = 4
 
-/** Equipos que arma la app por defecto en un formato por equipos. */
-export const EQUIPOS_MINIMOS = 2
+/**
+ * Equipos que necesita una ronda por equipos: uno. Un equipo solo juega contra
+ * el par de la cancha (el scramble de dos amigos un martes); con un rival hay
+ * ganador. Antes eran dos obligatorios, así que elegir Scramble exigía 4
+ * jugadores y un usuario que jugaba de a dos no podía crear la ronda (09-nov-2026).
+ */
+export const EQUIPOS_MINIMOS = 1
+
+/** Equipos a partir de los cuales hay un ganador: uno contra otro. */
+export const EQUIPOS_PARA_COMPETIR = 2
 
 /**
  * Equipos que se pueden llegar a armar en una ronda libre.
  *
  * Con 4 jugadores como techo y 2 por equipo como mínimo, no entra un tercer
- * equipo: la única repartición válida es 2+2. El asistente ofrecía "+ Agregar
- * equipo" hasta 4, y cualquier equipo extra dejaba la ronda sin poder crearse
- * porque la validación exige mínimo 2 jugadores en cada uno.
+ * equipo: la única repartición válida con rival es 2+2. El asistente ofrecía
+ * "+ Agregar equipo" hasta 4, y cualquier equipo extra dejaba la ronda sin
+ * poder crearse porque la validación exige mínimo 2 jugadores en cada uno.
  */
 export function maxEquipos(formato: FormatoJuego): number {
   const porEquipo = jugadoresPorEquipo(formato)
-  if (!porEquipo) return EQUIPOS_MINIMOS
-  return Math.max(EQUIPOS_MINIMOS, Math.floor(MAX_JUGADORES_POR_RONDA / porEquipo.min))
+  if (!porEquipo) return EQUIPOS_PARA_COMPETIR
+  return Math.max(EQUIPOS_PARA_COMPETIR, Math.floor(MAX_JUGADORES_POR_RONDA / porEquipo.min))
 }
 
 /** Rivales que el creador puede agregar además de sí mismo. */
@@ -51,17 +59,18 @@ export function maxRivales(formato: FormatoJuego): number {
 /** Jugadores que el formato necesita como mínimo para ser jugable. */
 export function jugadoresMinimos(formato: FormatoJuego): number {
   if (FORMAT_META[formato]?.requiereParejas) return 2
-  const porEquipo = FORMAT_META[formato]?.jugadoresPorEquipo
-  if (isTeamFormat(formato) && porEquipo) return porEquipo.min * EQUIPOS_MINIMOS
+  const porEquipo = jugadoresPorEquipo(formato)
+  if (porEquipo) return porEquipo.min * EQUIPOS_MINIMOS
   return 1
 }
 
 /**
  * Rivales que hay que crear de entrada al elegir el formato, porque sin ellos
- * la ronda no puede existir.
+ * la ronda no puede existir: el rival de Match Play, el compañero de un
+ * formato por equipos.
  *
  * Stableford entra acá aunque el motor no lo exija: sus puntos se calculan
- * contra el handicap de cada jugador, y sólo el modo "yo llevo el score" pide
+ * contra el handicap de cada jugador, y sólo el modo "yo anoto por todos" pide
  * los índices. Sin eso la ronda arranca sin handicaps y los puntos salen mal.
  */
 export function rivalesIniciales(formato: FormatoJuego): number {
@@ -71,9 +80,10 @@ export function rivalesIniciales(formato: FormatoJuego): number {
 }
 
 /**
- * True si elegir este formato obliga al modo "yo llevo el score del grupo".
+ * True si este formato se anota desde un solo celular ("yo anoto por todos").
  * Todo formato que necesite más de un jugador desde el arranque lo obliga: el
- * modo "cada uno marca" crea la ronda con una sola tarjeta.
+ * modo "cada uno en su celular" crea la ronda con una sola tarjeta. El
+ * asistente no lo pregunta: lo deriva de acá.
  */
 export function exigeLlevarElScoreDelGrupo(formato: FormatoJuego): boolean {
   return rivalesIniciales(formato) > 0
@@ -81,14 +91,36 @@ export function exigeLlevarElScoreDelGrupo(formato: FormatoJuego): boolean {
 
 /**
  * Jugadores por equipo que acepta el formato, acotado a lo que cabe en una
- * ronda libre. Best Ball admite equipos de 4 en torneos, pero acá dos equipos
- * de 4 serían 8 jugadores y la ronda tope en 4.
+ * ronda libre. Un solo equipo puede ocupar la ronda entera (un scramble de 4
+ * contra el par, que tiene su tabla oficial de handicap); con dos equipos el
+ * techo de 4 jugadores los reparte solo en 2+2.
  */
 export function jugadoresPorEquipo(formato: FormatoJuego): { min: number; max: number } | null {
-  const meta = FORMAT_META[formato]?.jugadoresPorEquipo
+  const meta = isTeamFormat(formato) ? FORMAT_META[formato]?.jugadoresPorEquipo : null
   if (!meta) return null
   return {
     min: meta.min,
-    max: Math.min(meta.max, Math.floor(MAX_JUGADORES_POR_RONDA / EQUIPOS_MINIMOS)),
+    max: Math.min(meta.max, MAX_JUGADORES_POR_RONDA),
   }
+}
+
+/**
+ * Se puede sumar un compañero a un equipo que ya tiene `tamañoDelEquipo`
+ * jugadores, con `totalJugadores` en toda la ronda.
+ */
+export function puedeSumarCompanero(formato: FormatoJuego, tamañoDelEquipo: number, totalJugadores: number): boolean {
+  const porEquipo = jugadoresPorEquipo(formato)
+  if (!porEquipo) return false
+  return tamañoDelEquipo < porEquipo.max && totalJugadores < MAX_JUGADORES_POR_RONDA
+}
+
+/**
+ * Se puede abrir un equipo rival: todavía no se llegó al tope de equipos y en
+ * la ronda caben sus `min` jugadores. Con un equipo de 3 en un scramble no
+ * cabe un rival (3 + 2 > 4): hay que sacar a alguien o jugar contra el par.
+ */
+export function puedeSumarEquipo(formato: FormatoJuego, cantidadDeEquipos: number, totalJugadores: number): boolean {
+  const porEquipo = jugadoresPorEquipo(formato)
+  if (!porEquipo) return false
+  return cantidadDeEquipos < maxEquipos(formato) && totalJugadores + porEquipo.min <= MAX_JUGADORES_POR_RONDA
 }

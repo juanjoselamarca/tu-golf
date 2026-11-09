@@ -9,7 +9,7 @@ vi.mock('@/hooks/useAccesoNeto', () => ({
   useAccesoNeto: () => ({ loading: acceso.loading, puedeUsar: () => acceso.pro }),
 }))
 
-import { useFormularioDeRonda } from './useFormularioDeRonda'
+import { ID_DEL_CREADOR, useFormularioDeRonda } from './useFormularioDeRonda'
 
 const rondaVieja = (over: Partial<RondaReciente> = {}): RondaReciente => ({
   course_name: 'Club de Golf Los Leones', course_id: null, tees: 'blanco', holes: 18,
@@ -92,8 +92,258 @@ describe('useFormularioDeRonda — modo según plan', () => {
   })
 })
 
+describe('useFormularioDeRonda — quién anota se deriva del formato', () => {
+  it('Stroke Play solo: nadie que anotar por nadie, se pregunta y por defecto cada uno en su celular', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    expect(result.current.preguntaQuienAnota).toBe(true)
+    expect(result.current.llevaElScoreDelGrupo).toBe(false)
+    expect(result.current.rivales).toEqual([])
+    expect(result.current.rivalesEnJuego).toEqual([])
+  })
+
+  it('"Yo anoto por todos" abre la primera tarjeta; "cada uno" la cierra si sigue en blanco', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirQuienAnota(true))
+    expect(result.current.llevaElScoreDelGrupo).toBe(true)
+    expect(result.current.rivales).toHaveLength(1)
+
+    act(() => result.current.elegirQuienAnota(false))
+    expect(result.current.llevaElScoreDelGrupo).toBe(false)
+    expect(result.current.rivales).toEqual([])
+  })
+
+  it('"cada uno en su celular" guarda a los rivales escritos pero no los manda a la ronda', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirQuienAnota(true))
+    act(() => result.current.actualizarRival(0, 'nombre', 'Nico'))
+    act(() => result.current.elegirQuienAnota(false))
+    expect(result.current.rivales.map(r => r.nombre)).toEqual(['Nico'])
+    expect(result.current.rivalesEnJuego).toEqual([])
+    expect(result.current.rivalesConNombre).toEqual([])
+
+    act(() => result.current.elegirQuienAnota(true))
+    expect(result.current.rivalesEnJuego.map(r => r.nombre)).toEqual(['Nico'])
+  })
+
+  it('Match Play y Stableford no preguntan: anota uno y el rival ya está abierto', () => {
+    for (const formato of ['match_play', 'stableford'] as const) {
+      const { result } = renderHook(() => useFormularioDeRonda())
+      act(() => result.current.elegirFormato(formato))
+      expect(result.current.preguntaQuienAnota).toBe(false)
+      expect(result.current.llevaElScoreDelGrupo).toBe(true)
+      expect(result.current.rivales).toHaveLength(1)
+      expect(result.current.equipos).toEqual([])
+    }
+  })
+})
+
+describe('useFormularioDeRonda — formatos por equipo (R4794T, 07-nov-2026)', () => {
+  it('elegir Scramble arma Equipo 1 con el creador y UN compañero en blanco, sin preguntar nada', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    expect(result.current.preguntaQuienAnota).toBe(false)
+    expect(result.current.llevaElScoreDelGrupo).toBe(true)
+    expect(result.current.rivales).toHaveLength(1)
+    expect(result.current.equipos).toEqual([
+      { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, result.current.rivales[0].id] },
+    ])
+  })
+
+  it('volver de Scramble a Stroke Play apaga el modo de grupo y borra el compañero en blanco', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.elegirFormato('stroke_play'))
+    expect(result.current.llevaElScoreDelGrupo).toBe(false)
+    expect(result.current.rivales).toEqual([])
+    expect(result.current.equipos).toEqual([])
+  })
+
+  it('volver a Stroke Play con un compañero escrito lo conserva y deja "yo anoto por todos"', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.actualizarRival(0, 'nombre', 'Nico'))
+    act(() => result.current.elegirFormato('stroke_play'))
+    expect(result.current.anotaPorTodos).toBe(true)
+    expect(result.current.llevaElScoreDelGrupo).toBe(true)
+    expect(result.current.rivales.map(r => r.nombre)).toEqual(['Nico'])
+    expect(result.current.equipos).toEqual([])
+  })
+
+  it('"+ Agregar equipo rival" abre un segundo equipo con dos tarjetas en blanco', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.agregarEquipoRival())
+    expect(result.current.rivales).toHaveLength(3)
+    expect(result.current.equipos.map(e => e.miembros.length)).toEqual([2, 2])
+    expect(result.current.equipos[1].nombre).toBe('Equipo 2')
+    expect(result.current.equipos[1].miembros).toEqual(result.current.rivales.slice(1).map(r => r.id))
+  })
+
+  it('"+ Agregar compañero" suma al equipo pedido; con 4 en un solo equipo no cabe el rival', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.agregarRival(undefined, 0))
+    act(() => result.current.agregarRival(undefined, 0))
+    expect(result.current.rivales).toHaveLength(3)
+    expect(result.current.equipos).toHaveLength(1)
+    expect(result.current.equipos[0].miembros).toHaveLength(4)
+
+    act(() => result.current.agregarEquipoRival())
+    expect(result.current.equipos).toHaveLength(1)
+    act(() => result.current.agregarRival(undefined, 0))
+    expect(result.current.rivales).toHaveLength(3)
+  })
+
+  it('un jugador reciente ocupa la tarjeta en blanco del equipo en vez de sumar otra', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    const idEnBlanco = result.current.rivales[0].id
+    act(() => result.current.agregarRival({ nombre: 'Nico', handicap: 8.1, tees: 'azul' }))
+    expect(result.current.rivales).toHaveLength(1)
+    expect(result.current.rivales[0]).toMatchObject({ id: idEnBlanco, nombre: 'Nico' })
+    expect(result.current.equipos[0].miembros).toEqual([ID_DEL_CREADOR, idEnBlanco])
+  })
+
+  it('quitar al único compañero deja al creador solo en Equipo 1; quitar el último del rival borra el equipo', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.agregarEquipoRival())
+    act(() => result.current.quitarRival(0))
+    expect(result.current.equipos[0].miembros).toEqual([ID_DEL_CREADOR])
+
+    act(() => result.current.quitarRival(0))
+    act(() => result.current.quitarRival(0))
+    expect(result.current.rivales).toEqual([])
+    expect(result.current.equipos).toEqual([{ nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR] }])
+  })
+
+  it('quitar un equipo se lleva a su gente; el equipo del creador no se quita', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.agregarEquipoRival())
+    act(() => result.current.quitarEquipo(0))
+    expect(result.current.equipos).toHaveLength(2)
+    act(() => result.current.quitarEquipo(1))
+    expect(result.current.equipos).toHaveLength(1)
+    expect(result.current.rivales).toHaveLength(1)
+  })
+
+  it('mover a un jugador lo saca de un equipo y lo pone en el otro; renombrar sólo toca el nombre', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.agregarEquipoRival())
+    const compañero = result.current.rivales[0].id
+    act(() => result.current.moverAlEquipo(compañero, 1))
+    expect(result.current.equipos[0].miembros).toEqual([ID_DEL_CREADOR])
+    expect(result.current.equipos[1].miembros).toContain(compañero)
+    expect(result.current.equipos[1].miembros).toHaveLength(3)
+
+    act(() => result.current.renombrarEquipo(1, 'Los Cóndores'))
+    expect(result.current.equipos[1].nombre).toBe('Los Cóndores')
+    expect(result.current.equipos[1].miembros).toHaveLength(3)
+  })
+
+  it('mover al último integrante de un equipo rival lo deja vacío y el equipo desaparece', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.agregarEquipoRival())
+    const [, rival1, rival2] = result.current.rivales.map(r => r.id)
+    act(() => result.current.moverAlEquipo(rival1, 0))
+    act(() => result.current.moverAlEquipo(rival2, 0))
+    expect(result.current.equipos).toHaveLength(1)
+    expect(result.current.equipos[0].miembros).toHaveLength(4)
+    expect(result.current.rivales).toHaveLength(3)
+  })
+
+  it('mover a un equipo que ya está lleno no hace nada', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('foursome'))
+    act(() => result.current.agregarEquipoRival())
+    const compañero = result.current.rivales[0].id
+    act(() => result.current.moverAlEquipo(compañero, 1))
+    expect(result.current.equipos.map(e => e.miembros.length)).toEqual([2, 2])
+  })
+
+  it('quitar el equipo al que se movió el creador lo devuelve al primero en vez de sacarlo de la ronda', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.agregarEquipoRival())
+    act(() => result.current.moverAlEquipo(ID_DEL_CREADOR, 1))
+    expect(result.current.equipos[1].miembros).toContain(ID_DEL_CREADOR)
+
+    act(() => result.current.quitarEquipo(1))
+    expect(result.current.equipos).toHaveLength(1)
+    expect(result.current.equipos[0].miembros).toEqual([ID_DEL_CREADOR, result.current.rivales[0].id])
+    expect(result.current.rivales).toHaveLength(1)
+  })
+
+  it('cambiar de Scramble a Best Ball conserva los equipos armados; a Foursome con 3 los rearma', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    act(() => result.current.agregarEquipoRival())
+    act(() => result.current.renombrarEquipo(0, 'Nosotros'))
+    const antes = result.current.equipos
+    act(() => result.current.elegirFormato('best_ball'))
+    expect(result.current.equipos).toEqual(antes)
+
+    act(() => result.current.quitarRival(2))
+    expect(result.current.equipos.map(e => e.miembros.length)).toEqual([2, 1])
+    act(() => result.current.elegirFormato('foursome'))
+    expect(result.current.equipos.map(e => e.miembros.length)).toEqual([2, 1])
+    expect(result.current.equipos[0].nombre).toBe('Nosotros')
+  })
+
+  it('repetir una ronda de 4 en Scramble reparte 2+2 y salta a los jugadores', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.repetirRonda(rondaVieja({
+      formato_juego: 'scramble', modo_juego: 'gross',
+      jugadores: [
+        { nombre: 'Juanjo', handicap: 12.4, tees: null, esCreador: true },
+        { nombre: 'Nico', handicap: 8.1, tees: 'azul', esCreador: false },
+        { nombre: 'Pedro', handicap: 20, tees: null, esCreador: false },
+        { nombre: 'Max', handicap: 5, tees: null, esCreador: false },
+      ],
+    })))
+    expect(result.current.paso).toBe(3)
+    expect(result.current.llevaElScoreDelGrupo).toBe(true)
+    const [nico, pedro, max] = result.current.rivales.map(r => r.id)
+    expect(result.current.equipos).toEqual([
+      { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, nico] },
+      { nombre: 'Equipo 2', miembros: [pedro, max] },
+    ])
+  })
+
+  it('una tarjeta sin nombre dentro de un equipo pide el nombre, no "asignar a un equipo"', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirFormato('scramble'))
+    expect(result.current.problemaDelFormulario?.detalle).toBe('Escribe el nombre del jugador que falta.')
+
+    act(() => result.current.agregarEquipoRival())
+    expect(result.current.problemaDelFormulario?.detalle).toBe('Escribe el nombre de los 3 jugadores que faltan.')
+
+    act(() => result.current.rivales.forEach((r, i) => result.current.actualizarRival(i, 'nombre', `Rival ${i}`)))
+    expect(result.current.problemaDelFormulario).toBeNull()
+  })
+
+  it('en Stroke Play una tarjeta en blanco no pide nombre: no hay equipos que la esperen', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.elegirQuienAnota(true))
+    expect(result.current.rivalesEnJuego.some(r => !r.nombre.trim())).toBe(true)
+    expect(result.current.problemaDelFormulario).toBeNull()
+  })
+
+  it('repetir una ronda de 2 en Scramble arma un solo equipo', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.repetirRonda(rondaVieja({ formato_juego: 'scramble', modo_juego: 'gross' })))
+    expect(result.current.rivales.map(r => r.nombre)).toEqual(['Nico'])
+    expect(result.current.equipos).toEqual([
+      { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, result.current.rivales[0].id] },
+    ])
+  })
+})
+
 describe('useFormularioDeRonda — jugadores recientes', () => {
-  it('repetir una ronda trae a los rivales con su índice y su tee, sin el creador', () => {
+  it('repetir una ronda trae a los rivales con su índice y su tee, sin el creador, anotando por todos', () => {
     const { result } = renderHook(() => useFormularioDeRonda())
     // El creador viene SEGUNDO: la base no garantiza el orden de los jugadores.
     act(() => result.current.repetirRonda(rondaVieja({
@@ -108,11 +358,23 @@ describe('useFormularioDeRonda — jugadores recientes', () => {
       ['Nico', 8.1, 'azul'],
       ['Pedro', null, null],
     ])
+    expect(result.current.llevaElScoreDelGrupo).toBe(true)
+    expect(result.current.paso).toBe(3)
+  })
+
+  it('repetir una ronda que jugó solo queda en "cada uno en su celular"', () => {
+    const { result } = renderHook(() => useFormularioDeRonda())
+    act(() => result.current.repetirRonda(rondaVieja({
+      formato_juego: 'stroke_play',
+      jugadores: [{ nombre: 'Juanjo', handicap: 12.4, tees: null, esCreador: true }],
+    })))
+    expect(result.current.llevaElScoreDelGrupo).toBe(false)
+    expect(result.current.rivales).toEqual([])
   })
 
   it('un jugador reciente ocupa la tarjeta en blanco en vez de sumar otra', () => {
     const { result } = renderHook(() => useFormularioDeRonda())
-    act(() => result.current.elegirModoDeScore(true))
+    act(() => result.current.elegirQuienAnota(true))
     expect(result.current.rivales).toHaveLength(1)
     const idEnBlanco = result.current.rivales[0].id
 
@@ -124,10 +386,13 @@ describe('useFormularioDeRonda — jugadores recientes', () => {
     expect(result.current.rivales.map(r => r.nombre)).toEqual(['Nico', 'Pedro'])
   })
 
-  it('"+ Agregar jugador" siempre suma una tarjeta nueva', () => {
+  it('"+ Agregar jugador" siempre suma una tarjeta nueva, hasta el tope del formato', () => {
     const { result } = renderHook(() => useFormularioDeRonda())
-    act(() => result.current.elegirModoDeScore(true))
+    act(() => result.current.elegirQuienAnota(true))
     act(() => result.current.agregarRival())
     expect(result.current.rivales).toHaveLength(2)
+    act(() => result.current.agregarRival())
+    act(() => result.current.agregarRival())
+    expect(result.current.rivales).toHaveLength(3)
   })
 })
