@@ -10,8 +10,8 @@ import { colores } from './components/estilos'
 import { PantallaCompartir } from './components/PantallaCompartir'
 import { PasoCancha } from './components/PasoCancha'
 import { PasoConfirmar } from './components/PasoConfirmar'
+import { PasoFormato } from './components/PasoFormato'
 import { PasoJugadores } from './components/PasoJugadores'
-import { PasoModo } from './components/PasoModo'
 import { useCreadorDeRonda, recordarUltimaCancha } from './hooks/useCreadorDeRonda'
 import { useCrearRonda, jugadoresDeLaRonda } from './hooks/useCrearRonda'
 import { useFormularioDeRonda } from './hooks/useFormularioDeRonda'
@@ -19,11 +19,14 @@ import { useHandicapDeCancha } from './hooks/useHandicapDeCancha'
 import { useSetupDeCancha } from './hooks/useSetupDeCancha'
 import { useTeesCoherentes } from './hooks/useTeesCoherentes'
 
-const PASOS = ['Formato', 'Cancha', 'Jugadores', 'Confirmar']
+// Cancha → formato → jugadores. El formato va antes que la gente porque decide
+// cuánta hace falta y quién anota; antes el asistente abría preguntando "¿quién
+// anota?" sin saber todavía qué se iba a jugar.
+const PASOS = ['Cancha', 'Formato', 'Jugadores', 'Confirmar']
 
 const SUBTITULOS: Record<number, string> = {
-  1: '¿Cómo quieres jugar?',
-  2: '¿Dónde juegas?',
+  1: '¿Dónde juegas?',
+  2: '¿Cómo quieres jugar?',
   3: '¿Con quién juegas?',
   4: 'Confirmar ronda',
 }
@@ -35,12 +38,14 @@ export default function NuevaRondaLibrePage() {
 
   const setup = useSetupDeCancha({ courseId: form.courseId })
 
+  // Sólo los rivales que van a la ronda: en "cada uno en su celular" los que el
+  // usuario haya escrito quedan guardados pero no viajan ni se validan.
   useTeesCoherentes({
     tees: setup.tees,
     recorridos: setup.recorridosElegidos,
     teeGlobal: form.tees,
     onTeeGlobal: form.setTees,
-    rivales: form.rivales,
+    rivales: form.rivalesEnJuego,
     onTeeDeRival: (idx, tee) => form.actualizarRival(idx, 'tees', tee),
   })
 
@@ -69,7 +74,7 @@ export default function NuevaRondaLibrePage() {
   const jugadores = jugadoresDeLaRonda({
     creador: { nombre: creador.nombre, indice: creador.indice },
     teeGlobal: form.tees,
-    rivales: form.rivales,
+    rivales: form.rivalesEnJuego,
   })
 
   const { golpesDe } = useHandicapDeCancha({
@@ -141,16 +146,9 @@ export default function NuevaRondaLibrePage() {
         </div>
 
         {form.paso === 1 && (
-          <PasoModo
+          <PasoCancha
             rondasRecientes={creador.rondasRecientes}
             onRepetir={form.repetirRonda}
-            llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
-            onElegirModo={grupo => { form.elegirModoDeScore(grupo); form.setPaso(2) }}
-          />
-        )}
-
-        {form.paso === 2 && (
-          <PasoCancha
             cancha={form.cancha}
             onElegirCancha={c => { form.elegirCancha(c); recordarUltimaCancha(c) }}
             onLimpiarCancha={form.limpiarCancha}
@@ -160,11 +158,6 @@ export default function NuevaRondaLibrePage() {
             onHoyos={form.elegirHoyos}
             mitad={form.mitad}
             onMitad={form.elegirMitad}
-            formato={form.formato}
-            onFormato={form.elegirFormato}
-            modo={form.modo}
-            onModo={form.setModo}
-            netoBloqueado={form.netoBloqueado}
             tees={form.tees}
             onTees={form.setTees}
             fecha={form.fecha}
@@ -173,6 +166,17 @@ export default function NuevaRondaLibrePage() {
             onAlternarShotgun={form.alternarShotgun}
             hoyoShotgun={form.hoyoShotgun}
             onHoyoShotgun={form.setHoyoShotgun}
+            onSiguiente={() => form.setPaso(2)}
+          />
+        )}
+
+        {form.paso === 2 && (
+          <PasoFormato
+            formato={form.formato}
+            onFormato={form.elegirFormato}
+            modo={form.modo}
+            onModo={form.setModo}
+            netoBloqueado={form.netoBloqueado}
             onAtras={() => form.setPaso(1)}
             onSiguiente={() => form.setPaso(3)}
           />
@@ -188,17 +192,22 @@ export default function NuevaRondaLibrePage() {
             formato={form.formato}
             modo={form.modo}
             esFormatoDeEquipo={form.esFormatoDeEquipo}
+            preguntaQuienAnota={form.preguntaQuienAnota}
+            anotaPorTodos={form.anotaPorTodos}
+            onQuienAnota={form.elegirQuienAnota}
             llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
             rivales={form.rivales}
             onCampoRival={form.actualizarRival}
             onQuitarRival={form.quitarRival}
             onAgregarRival={form.agregarRival}
             equipos={form.equipos}
-            onEquipos={form.setEquipos}
-            jugadores={jugadores}
+            onAgregarEquipo={form.agregarEquipoRival}
+            onQuitarEquipo={form.quitarEquipo}
+            onRenombrarEquipo={form.renombrarEquipo}
+            onMoverAlEquipo={form.moverAlEquipo}
             golpesDe={golpesDe}
             rondasRecientes={creador.rondasRecientes}
-            problema={problema}
+            problema={form.problemaDelFormulario ?? problema}
             onAtras={() => form.setPaso(2)}
             onSiguiente={() => form.setPaso(4)}
           />
@@ -215,9 +224,11 @@ export default function NuevaRondaLibrePage() {
             teeGlobal={form.tees}
             fecha={form.fecha}
             jugadores={jugadores}
+            equipos={form.esFormatoDeEquipo ? form.equipos : []}
+            llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
             golpesDe={golpesDe}
             hayVariosTees={setup.tees.length > 1}
-            problema={problema}
+            problema={form.problemaDelFormulario ?? problema}
             creando={creando}
             onEditar={() => form.setPaso(3)}
             onCrear={crear}

@@ -178,6 +178,7 @@ export function ordenarEquiposScramble(
   return rankTeamsWithCountback(teams, {
     mode: stableford ? 'higher_wins' : 'lower_wins',
     primaryScore: (t) => scorePrimarioScramble(t, formato, modo),
+    holesPlayed: (t) => t.holesPlayed,
     holeScores: (t) => t.holes.map((h) => (stableford ? h.stableford : modo === 'neto' ? h.neto : h.gross) ?? 0),
   })
 }

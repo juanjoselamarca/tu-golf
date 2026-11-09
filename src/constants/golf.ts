@@ -36,3 +36,15 @@ export function formatOverUnder(overUnder: number): string {
   if (overUnder > 0)   return `+${overUnder}`
   return String(overUnder)
 }
+
+/** "en el par" / "sobre el par" / "bajo el par": la relación con el par, sin el número. */
+export function relacionConElPar(overUnder: number): 'en el par' | 'sobre el par' | 'bajo el par' {
+  if (overUnder === 0) return 'en el par'
+  return overUnder > 0 ? 'sobre el par' : 'bajo el par'
+}
+
+/** "Par" / "+3 sobre par" / "-2 bajo par": el vs par con el número, para leer de un vistazo. */
+export function vsParEnPalabras(overUnder: number): string {
+  if (overUnder === 0) return 'Par'
+  return `${formatOverUnder(overUnder)} ${overUnder > 0 ? 'sobre' : 'bajo'} par`
+}

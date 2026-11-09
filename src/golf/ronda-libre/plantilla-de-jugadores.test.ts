@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest'
 import {
   MAX_JUGADORES_POR_RONDA,
   EQUIPOS_MINIMOS,
+  EQUIPOS_PARA_COMPETIR,
   maxRivales,
   maxEquipos,
   jugadoresMinimos,
   jugadoresPorEquipo,
+  puedeSumarCompanero,
+  puedeSumarEquipo,
   rivalesIniciales,
   exigeLlevarElScoreDelGrupo,
 } from './plantilla-de-jugadores'
@@ -13,6 +16,7 @@ import { KNOWN_FORMAT_KEYS, TEAM_FORMAT_KEYS } from '@/golf/formats'
 import type { FormatoJuego } from '@/golf/core/rules'
 
 const FORMATOS = KNOWN_FORMAT_KEYS as ReadonlyArray<FormatoJuego>
+const DE_EQUIPO = TEAM_FORMAT_KEYS as ReadonlyArray<FormatoJuego>
 
 describe('maxRivales', () => {
   it('match play admite exactamente un rival', () => {
@@ -28,7 +32,7 @@ describe('maxRivales', () => {
   })
 
   it('los formatos por equipo permiten llegar a su mínimo jugable', () => {
-    for (const formato of TEAM_FORMAT_KEYS as ReadonlyArray<FormatoJuego>) {
+    for (const formato of DE_EQUIPO) {
       expect(1 + maxRivales(formato)).toBeGreaterThanOrEqual(jugadoresMinimos(formato))
     }
   })
@@ -39,10 +43,14 @@ describe('jugadoresMinimos', () => {
     expect(jugadoresMinimos('match_play')).toBe(2)
   })
 
-  it('los formatos por equipo son dos equipos completos', () => {
-    expect(jugadoresMinimos('best_ball')).toBe(4)
-    expect(jugadoresMinimos('scramble')).toBe(4)
-    expect(jugadoresMinimos('foursome')).toBe(4)
+  // Un equipo solo juega contra el par. Antes eran dos equipos obligatorios
+  // (4 jugadores): un usuario que jugaba scramble de a dos no podía crear la
+  // ronda, y al volver a stroke play el formulario quedaba en modo grupo.
+  it('los formatos por equipo son UN equipo completo: se puede jugar contra el par', () => {
+    expect(EQUIPOS_MINIMOS).toBe(1)
+    expect(jugadoresMinimos('best_ball')).toBe(2)
+    expect(jugadoresMinimos('scramble')).toBe(2)
+    expect(jugadoresMinimos('foursome')).toBe(2)
   })
 
   it('stroke play se puede jugar solo', () => {
@@ -51,13 +59,22 @@ describe('jugadoresMinimos', () => {
 })
 
 describe('jugadoresPorEquipo', () => {
-  it('no propone equipos más grandes de lo que la ronda permite', () => {
-    for (const formato of TEAM_FORMAT_KEYS as ReadonlyArray<FormatoJuego>) {
+  it('un equipo nunca propone más jugadores de los que admite la ronda', () => {
+    for (const formato of DE_EQUIPO) {
       const porEquipo = jugadoresPorEquipo(formato)
       expect(porEquipo).not.toBeNull()
-      expect(porEquipo!.max * EQUIPOS_MINIMOS).toBeLessThanOrEqual(MAX_JUGADORES_POR_RONDA)
+      expect(porEquipo!.max).toBeLessThanOrEqual(MAX_JUGADORES_POR_RONDA)
       expect(porEquipo!.min).toBeLessThanOrEqual(porEquipo!.max)
     }
+  })
+
+  it('un scramble de 4 contra el par cabe en un solo equipo (tiene tabla oficial de handicap)', () => {
+    expect(jugadoresPorEquipo('scramble')).toEqual({ min: 2, max: 4 })
+    expect(jugadoresPorEquipo('best_ball')).toEqual({ min: 2, max: 4 })
+  })
+
+  it('foursome es exactamente de a dos', () => {
+    expect(jugadoresPorEquipo('foursome')).toEqual({ min: 2, max: 2 })
   })
 
   it('los formatos individuales no tienen equipos', () => {
@@ -70,16 +87,42 @@ describe('maxEquipos', () => {
   it('no ofrece un equipo que nunca se podría completar', () => {
     // Cada equipo extra exige `min` jugadores más. Ofrecer uno que no entra
     // deja la ronda sin poder crearse: la validación exige el mínimo en TODOS.
-    for (const formato of TEAM_FORMAT_KEYS as ReadonlyArray<FormatoJuego>) {
+    for (const formato of DE_EQUIPO) {
       const porEquipo = jugadoresPorEquipo(formato)!
       expect(maxEquipos(formato) * porEquipo.min).toBeLessThanOrEqual(MAX_JUGADORES_POR_RONDA)
     }
   })
 
-  it('siempre deja armar al menos dos equipos', () => {
+  it('siempre deja armar un rival: con un rival hay ganador', () => {
     for (const formato of FORMATOS) {
-      expect(maxEquipos(formato)).toBeGreaterThanOrEqual(EQUIPOS_MINIMOS)
+      expect(maxEquipos(formato)).toBeGreaterThanOrEqual(EQUIPOS_PARA_COMPETIR)
     }
+  })
+})
+
+describe('puedeSumarCompanero / puedeSumarEquipo', () => {
+  it('a un equipo de dos en scramble se le suma un tercero mientras la ronda tenga cupo', () => {
+    expect(puedeSumarCompanero('scramble', 2, 2)).toBe(true)
+    expect(puedeSumarCompanero('scramble', 4, 4)).toBe(false)
+    // 2+2: ningún equipo puede crecer aunque le quede tabla (3, 4), la ronda está llena.
+    expect(puedeSumarCompanero('scramble', 2, 4)).toBe(false)
+  })
+
+  it('foursome no admite un tercero en la pareja', () => {
+    expect(puedeSumarCompanero('foursome', 2, 2)).toBe(false)
+  })
+
+  it('un rival se abre sólo si caben sus dos jugadores', () => {
+    expect(puedeSumarEquipo('scramble', 1, 2)).toBe(true)
+    // Equipo de 3 contra el par: 3 + 2 > 4, no entra un rival.
+    expect(puedeSumarEquipo('scramble', 1, 3)).toBe(false)
+    // Ya hay dos equipos: no hay un tercero.
+    expect(puedeSumarEquipo('scramble', 2, 4)).toBe(false)
+  })
+
+  it('los formatos individuales no suman compañeros ni equipos', () => {
+    expect(puedeSumarCompanero('stroke_play', 1, 1)).toBe(false)
+    expect(puedeSumarEquipo('match_play', 0, 1)).toBe(false)
   })
 })
 
@@ -88,9 +131,9 @@ describe('rivalesIniciales', () => {
     expect(rivalesIniciales('match_play')).toBe(1)
   })
 
-  it('los formatos por equipo crean los tres rivales que faltan', () => {
-    for (const formato of TEAM_FORMAT_KEYS as ReadonlyArray<FormatoJuego>) {
-      expect(rivalesIniciales(formato)).toBe(3)
+  it('los formatos por equipo crean al compañero que falta, no a tres rivales', () => {
+    for (const formato of DE_EQUIPO) {
+      expect(rivalesIniciales(formato)).toBe(1)
     }
   })
 
@@ -110,10 +153,10 @@ describe('rivalesIniciales', () => {
 })
 
 describe('exigeLlevarElScoreDelGrupo', () => {
-  it('todo formato que arranca con rivales obliga el modo grupo', () => {
+  it('todo formato que arranca con rivales se anota desde un solo celular', () => {
     expect(exigeLlevarElScoreDelGrupo('match_play')).toBe(true)
     expect(exigeLlevarElScoreDelGrupo('stableford')).toBe(true)
-    expect(exigeLlevarElScoreDelGrupo('best_ball')).toBe(true)
+    for (const formato of DE_EQUIPO) expect(exigeLlevarElScoreDelGrupo(formato)).toBe(true)
     expect(exigeLlevarElScoreDelGrupo('stroke_play')).toBe(false)
   })
 })

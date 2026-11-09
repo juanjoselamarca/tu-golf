@@ -7,6 +7,7 @@ import { puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import type { Jugador, ModoJuego, FormatoJuego } from '@/types/ronda'
 
 /** Entrada del leaderboard: jugador + métricas derivadas. */
@@ -92,18 +93,36 @@ export function buildLeaderboard({
  *
  * El puntaje puede vivir en DOS lugares según la modalidad:
  *  - individual / best_ball → en cada jugador (`holesPlayed > 0`)
- *  - scramble / foursome    → en el equipo (`equipos[].scores`), no en el jugador
+ *  - scramble / foursome    → en el equipo, no en el jugador
+ *
+ * Los equipos llegan como el ranking de `rankTeams` (`holesPlayed` = hoyos DE LA
+ * RONDA con score), la misma cuenta con que el cuadro ganador y la imagen deciden
+ * si hay resultado. Antes se miraban las claves crudas de `scores`: un score de un
+ * hoyo fuera de la ronda (una ronda recortada de 18 a 9 después de anotar) mostraba
+ * el botón de compartir y después no había nada que compartir (PR #757, 5ª vuelta).
+ *
+ * Salvedad: `rankTeams` devuelve `[]` sin pares de la cancha (cancha escrita a mano),
+ * y en bola compartida el leaderboard no tiene hoyos: ahí da false aunque el equipo
+ * haya anotado, porque no hay resultado que mostrar. Por eso "Copiar link" tiene su
+ * propia regla: `mostrarCopiarLink`.
  *
  * Reemplaza los 3 predicados inconsistentes que vivían inline en la pantalla
  * de resultados (uno miraba `leaderboard[0]`, otro `leaderboard.some(...)`).
  * NO depende del orden del leaderboard.
  */
-export function hasPlayData(
+export function rondaTieneDatos(
   leaderboard: ReadonlyArray<{ holesPlayed: number }>,
-  equipos: ReadonlyArray<{ scores: Record<string, number> }>,
+  equipos: ReadonlyArray<{ holesPlayed: number }>,
 ): boolean {
-  return (
-    leaderboard.some(j => j.holesPlayed > 0) ||
-    equipos.some(e => Object.keys(e.scores).length > 0)
-  )
+  return leaderboard.some(j => hasPlayData(j)) || equipos.some(e => hasPlayData(e))
+}
+
+/**
+ * ¿La pantalla de la ronda ofrece "Copiar link"? Con cancha, solo cuando hay datos.
+ * Sin pares (cancha escrita a mano) no se puede saber si hay resultado, porque el
+ * ranking de equipos sale vacío: ahí se ofrece siempre, para no perder el link de
+ * una ronda por equipos que sí anotó.
+ */
+export function mostrarCopiarLink(hayDatos: boolean, tieneCancha: boolean): boolean {
+  return hayDatos || !tieneCancha
 }

@@ -19,6 +19,7 @@ import {
   MAX_JUGADORES_POR_RONDA,
   jugadoresMinimos,
   jugadoresPorEquipo,
+  maxEquipos,
 } from './plantilla-de-jugadores'
 
 export interface JugadorAValidar {
@@ -106,11 +107,16 @@ function problemaDeCantidad({ formato, jugadores }: RondaAValidar): ProblemaDeLa
     }
   }
 
+  // Un formato por equipos se puede jugar con un solo equipo contra el par, pero
+  // un equipo es de dos para arriba: el handicap de equipo no existe para uno.
   const minimo = jugadoresMinimos(formato)
   if (jugadores.length < minimo) {
+    const porEquipo = jugadoresPorEquipo(formato)
     return {
-      titulo: 'Faltan jugadores',
-      detalle: `${label} necesita al menos ${minimo} jugadores (2 equipos de ${minimo / 2}).`,
+      titulo: 'Falta un compañero',
+      detalle: porEquipo
+        ? `${label} se juega en equipos de al menos ${porEquipo.min}: agrega un compañero.`
+        : `${label} necesita al menos ${minimo} jugadores.`,
     }
   }
 
@@ -158,8 +164,10 @@ function problemaDeEquipos({ formato, jugadores, equipos }: RondaAValidar): Prob
     posiciones.every(i => Number.isInteger(i) && i >= 0 && i < jugadores.length) &&
     new Set(posiciones).size === posiciones.length
 
+  // Entre uno (contra el par) y el tope de equipos que caben en la ronda.
   if (
     equipos.length >= EQUIPOS_MINIMOS &&
+    equipos.length <= maxEquipos(formato) &&
     tamañoValido &&
     posicionesValidas &&
     posiciones.length === jugadores.length

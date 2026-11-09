@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { rankTeams, type RankTeamsInput } from './team-ranking'
+import { rankTeams, type Equipo, type RankTeamsInput } from './team-ranking'
+import { computeScrambleStandings } from '@/golf/leaderboard/team-standings'
 
 // parMap + siMap mínimos para una "ronda" de 9 hoyos par-4
 const parMap = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [i + 1, 4]))
@@ -44,11 +45,77 @@ describe('rankTeams', () => {
     expect(rankTeams({ ...baseInput, parMap: {} })).toEqual([])
   })
 
-  it('scramble gross: ordena por totalGross ascendente', () => {
+  it('scramble gross: ordena por vs par ascendente', () => {
     const rows = rankTeams({ ...baseInput, formato: 'scramble', modo: 'gross' })
     expect(rows).toHaveLength(2)
-    expect(rows[0].nombre).toBe('Team A') // 31 strokes < 45
+    expect(rows[0].nombre).toBe('Team A') // 31 (-5) < 45 (+9)
     expect(rows[1].nombre).toBe('Team B')
+    expect(rows[0].holesPlayed).toBe(9)
+  })
+
+  // Revisión del PR #757 (09-nov-2026): ordenaba por golpes brutos en gross, y la
+  // tabla de abajo por vs par. Con un hoyo sin anotar nombraban a distinto primero.
+  it('scramble gross con distinta cantidad de hoyos anotados: manda el vs par, no los golpes', () => {
+    const rows = rankTeams({
+      ...baseInput, formato: 'scramble', modo: 'gross',
+      equipos: [
+        // 9 hoyos, 40 golpes: +4
+        { ...baseEquipos[0], nombre: 'Completo', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 5, 7: 5, 8: 5, 9: 5 } },
+        // 8 hoyos (olvidó el 9), 37 golpes sobre par 32: +5
+        { ...baseEquipos[1], nombre: 'Le falta uno', scores: { 1: 5, 2: 5, 3: 5, 4: 5, 5: 4, 6: 4, 7: 4, 8: 5 } },
+      ],
+    })
+    expect(rows.map(r => r.nombre)).toEqual(['Completo', 'Le falta uno'])
+    expect(rows[0]).toMatchObject({ score: 40, diff: 4, holesPlayed: 9 })
+    expect(rows[1]).toMatchObject({ score: 37, diff: 5, holesPlayed: 8 })
+  })
+
+  it('un equipo que no anotó ningún hoyo va al final, no gana con "E"', () => {
+    const rows = rankTeams({
+      ...baseInput, formato: 'scramble', modo: 'gross',
+      equipos: [
+        { ...baseEquipos[0], nombre: 'Vacío', scores: {} },
+        { ...baseEquipos[1], nombre: 'Jugó', scores: { 1: 5, 2: 5, 3: 5, 4: 5, 5: 5, 6: 5, 7: 5, 8: 5, 9: 5 } },
+      ],
+    })
+    expect(rows.map(r => r.nombre)).toEqual(['Jugó', 'Vacío'])
+    expect(rows[1]).toMatchObject({ score: 0, diff: 0, holesPlayed: 0 })
+  })
+
+  it('nombra al mismo primero que la tabla de equipos (team-standings)', () => {
+    const equipos: Equipo[] = [
+      { ...baseEquipos[0], id: 'a', nombre: 'A', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 5, 7: 5, 8: 5, 9: 5 } },
+      { ...baseEquipos[1], id: 'b', nombre: 'B', scores: { 1: 5, 2: 5, 3: 5, 4: 5, 5: 4, 6: 4, 7: 4, 8: 5 } },
+      { ...baseEquipos[1], id: 'c', nombre: 'C', scores: {} },
+    ]
+    const rows = rankTeams({ ...baseInput, formato: 'scramble', modo: 'gross', equipos })
+    const holes = Object.keys(parMap).map(n => ({ numero: Number(n), par: parMap[Number(n)], stroke_index: siMap[Number(n)] }))
+    const tabla = computeScrambleStandings(
+      equipos.map(e => ({ id: e.id, nombre: e.nombre, scores: e.scores, teamHandicap: e.handicap_equipo, teamHandicapJuego: e.handicap_equipo_juego })),
+      holes, 36, 'scramble', 'gross',
+    )
+    expect(rows.map(r => r.nombre)).toEqual(tabla.map(t => t.teamNombre))
+    // No solo el orden: los mismos números (vs par y hoyos anotados) fila a fila.
+    expect(rows.map(r => ({ diff: r.diff, holesPlayed: r.holesPlayed })))
+      .toEqual(tabla.map(t => ({ diff: t.overUnderGross, holesPlayed: t.holesPlayed })))
+  })
+
+  it('en neto con handicap_equipo nombra al mismo primero y con los mismos números que la tabla', () => {
+    // Igual bruto (9 hoyos, 40 golpes); el handicap de equipo que puntúa decide.
+    const equipos: Equipo[] = [
+      { ...baseEquipos[0], id: 'a', nombre: 'A', handicap_equipo: 8, handicap_equipo_juego: 4, scores: { 1: 5, 2: 5, 3: 4, 4: 4, 5: 5, 6: 4, 7: 4, 8: 5, 9: 4 } },
+      { ...baseEquipos[1], id: 'b', nombre: 'B', handicap_equipo: 16, handicap_equipo_juego: 8, scores: { 1: 4, 2: 4, 3: 5, 4: 5, 5: 4, 6: 5, 7: 5, 8: 4, 9: 4 } },
+    ]
+    const rows = rankTeams({ ...baseInput, formato: 'scramble', modo: 'neto', equipos })
+    const holes = Object.keys(parMap).map(n => ({ numero: Number(n), par: parMap[Number(n)], stroke_index: siMap[Number(n)] }))
+    const tabla = computeScrambleStandings(
+      equipos.map(e => ({ id: e.id, nombre: e.nombre, scores: e.scores, teamHandicap: e.handicap_equipo, teamHandicapJuego: e.handicap_equipo_juego })),
+      holes, 36, 'scramble', 'neto',
+    )
+    expect(rows.map(r => r.nombre)).toEqual(['B', 'A'])
+    expect(rows.map(r => r.nombre)).toEqual(tabla.map(t => t.teamNombre))
+    expect(rows.map(r => ({ score: r.score, diff: r.diff })))
+      .toEqual(tabla.map(t => ({ score: t.totalNeto, diff: t.overUnderNeto })))
   })
 
   it('scramble neto: ordena por overUnderNeto ascendente (bug fix Apr-18)', () => {

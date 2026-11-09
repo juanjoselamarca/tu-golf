@@ -2,7 +2,14 @@
 // Dirección A "Editorial": UN héroe (ganador + score), sin tabla embebida.
 // La clasificación vive UNA sola vez en la tabla de abajo (Team/IndividualLeaderboard).
 import type { ReactNode } from 'react'
-import { Trophy, Handshake } from '@/components/icons'
+import { Trophy, Handshake, Flag } from '@/components/icons'
+import {
+  equiposEnElPrimerLugar,
+  etiquetaDelResultadoDeEquipos,
+  hayEmpateDeEquipos,
+  juegaContraElPar,
+  nombrarEquipos,
+} from '@/golf/ronda-libre/resultado-de-equipos'
 import { Button } from '@/components/ui/Button'
 import { formatOverUnder } from '@/constants/golf'
 import { scoreFgVar } from '@/lib/score-tokens'
@@ -42,7 +49,7 @@ function formatoLabel(ronda: RondaLibre): string {
  * Sin tabla de posiciones embebida (vive una sola vez abajo).
  */
 function HeroCard({
-  ronda, etiqueta, nombre, integrantes, scoreNode, scoreColor, isTie, onShare, fechaDisplay, shareVariant,
+  ronda, etiqueta, nombre, integrantes, scoreNode, scoreColor, isTie, contraElPar = false, onShare, fechaDisplay, shareVariant,
 }: {
   ronda: RondaLibre
   etiqueta: string
@@ -51,6 +58,8 @@ function HeroCard({
   scoreNode: ReactNode
   scoreColor: string
   isTie: boolean
+  /** Un solo equipo, sin rival: bandera en vez de trofeo. */
+  contraElPar?: boolean
   onShare: () => void
   fechaDisplay: string
   shareVariant: 'commit' | 'nav'
@@ -73,7 +82,7 @@ function HeroCard({
         </div>
         <div style={{ padding: '18px 20px 20px', textAlign: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--brand-on-bg)', marginBottom: '8px' }}>
-            {isTie ? <Handshake size={34} /> : <Trophy size={34} />}
+            {contraElPar ? <Flag size={34} /> : isTie ? <Handshake size={34} /> : <Trophy size={34} />}
           </div>
           <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '6px' }}>
             {etiqueta}
@@ -101,15 +110,20 @@ function HeroCard({
 
 export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, teams, shareVariant = 'commit' }: WinnerCelebrationProps) {
   // Fix 128: en modalidades por equipos el cuadro ganador muestra el EQUIPO ganador.
+  // Un solo equipo (09-nov-2026, R4794T) juega contra el par: no le gana a nadie.
   if (teams && teams.length > 0) {
     const winnerDiff = teams[0].diff
-    const isTie = teams.length > 1 && teams[1].diff === winnerDiff
-    const winners = teams.filter(t => t.diff === winnerDiff)
+    // Mismo criterio que la imagen para compartir (`tarjetaDeEquipos`).
+    const isTie = hayEmpateDeEquipos(teams)
+    const winners = equiposEnElPrimerLugar(teams)
+    // Ningún equipo anotó un hoyo de la ronda: no hay resultado que coronar.
+    if (winners.length === 0) return null
     return (
       <HeroCard
         ronda={ronda}
-        etiqueta={isTie ? 'Empate' : 'Equipo ganador'}
-        nombre={winners.map(t => t.nombre).join(' y ')}
+        etiqueta={etiquetaDelResultadoDeEquipos(teams.length, isTie)}
+        contraElPar={juegaContraElPar(teams.length)}
+        nombre={nombrarEquipos(winners.map(t => t.nombre))}
         integrantes={!isTie && teams[0].jugadores.length > 0 ? teams[0].jugadores.join(' · ') : undefined}
         scoreNode={formatOverUnder(winnerDiff)}
         scoreColor={scoreFgVar(winnerDiff)}

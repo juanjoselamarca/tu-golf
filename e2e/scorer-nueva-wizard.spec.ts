@@ -1,16 +1,17 @@
 /**
- * Scorer — /ronda-libre/nueva (wizard para crear ronda)
+ * Scorer — /ronda-libre/nueva (asistente para crear una ronda)
  *
- * Verifica el wizard de creación de ronda libre paso a paso:
- * 1. Paso 1 (Modo): muestra opciones de scoring
- * 2. Paso 2 (Cancha): selector de cancha, hoyos, formato
- * 3. Paso 3 (Jugadores): jugador creador con índice
- * 4. Paso 4 (Confirmar): resumen con datos correctos
- * 5. Navegación atrás/siguiente funciona
- * 6. Sin errores JS ni 5xx
+ * Flujo: Cancha → Formato → Jugadores → Confirmar. Quién anota se deriva del
+ * formato: los formatos de equipo (y match play / stableford) los anota uno
+ * por el grupo; sólo stroke play con compañía lo pregunta.
+ *
+ * Regresión R4794T (Cristián Ross, 07-nov-2026): elegir Scramble forzaba "llevo
+ * el score del grupo" sin avisar, abría tres rivales en blanco y bloqueaba
+ * "Revisar" con "Scramble necesita al menos 4 jugadores"; volver a Stroke Play
+ * no lo revertía. Hoy Scramble arma "Equipo 1" (tú + un compañero), se puede
+ * jugar contra el par, y Stroke Play vuelve a preguntar quién anota.
  *
  * NO crea rondas reales (no presiona "Crear ronda ✓").
- * Solo verifica que el wizard navega y muestra datos correctamente.
  */
 import { test, expect, type Page } from '@playwright/test'
 
@@ -28,14 +29,52 @@ async function gotoNueva(page: Page): Promise<boolean> {
   return true
 }
 
-test.describe('Scorer — Wizard /ronda-libre/nueva', () => {
+/**
+ * Paso 1 → paso 2. Si la cancha de la ronda anterior vino precargada, basta con
+ * "Siguiente"; si no, se busca una y se elige el primer resultado.
+ */
+async function llegarAFormato(page: Page): Promise<void> {
+  const siguiente = page.getByRole('button', { name: /siguiente/i })
+  await expect(siguiente).toBeVisible()
+  if (await siguiente.isDisabled()) {
+    await page.getByLabel('Buscar cancha').fill('Leones')
+    // Los resultados se agrupan por club (encabezado de 60 px). Tocarlo elige la cancha
+    // si el club tiene una sola; si tiene varias, las despliega (tarjetas de 56 px).
+    const club = page.locator('div[style*="min-height: 60px"]', { hasText: /leones/i }).first()
+    await expect(club).toBeVisible({ timeout: 15_000 })
+    await club.click()
+    await expect(siguiente).toBeEnabled({ timeout: 3_000 }).catch(async () => {
+      await page.locator('div[style*="min-height: 56px"]', { hasText: /leones/i }).first().click()
+      await expect(siguiente).toBeEnabled()
+    })
+  }
+  await siguiente.click()
+  await expect(subtitulo(page, /cómo quieres jugar/i)).toBeVisible()
+}
+
+/**
+ * El subtítulo del paso. Es un <p>: el menú Jugar del Navbar tiene un <h3> oculto con
+ * el mismo texto "¿Cómo quieres jugar?" y getByText los confunde.
+ */
+function subtitulo(page: Page, texto: RegExp) {
+  return page.locator('p', { hasText: texto })
+}
+
+/** Paso 2 → paso 3 con el formato pedido. */
+async function elegirFormatoYSeguir(page: Page, formato: RegExp): Promise<void> {
+  await page.getByRole('button', { name: formato }).first().click()
+  await page.getByRole('button', { name: /siguiente/i }).click()
+  await expect(subtitulo(page, /con quién juegas/i)).toBeVisible()
+}
+
+test.describe('Scorer — Asistente /ronda-libre/nueva', () => {
   test.beforeEach(async () => {
     if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
       test.skip(true, 'E2E_TEST_USER_EMAIL/PASSWORD no configurados')
     }
   })
 
-  test('wizard carga sin errores y muestra paso 1 (modo)', async ({ page }) => {
+  test('carga sin errores y parte por la cancha, sin preguntar quién anota', async ({ page }) => {
     const pageErrors: string[] = []
     const serverErrors: string[] = []
     page.on('pageerror', err => pageErrors.push(err.message))
@@ -48,10 +87,14 @@ test.describe('Scorer — Wizard /ronda-libre/nueva', () => {
 
     expect(page.url()).not.toContain('/login')
 
-    // Paso 1 muestra opciones de modo de scoring
     const bodyText = await page.locator('body').innerText()
-    const hasScoreMode = /cada uno marca|yo llevo.*score.*grupo|cómo quieres jugar/i.test(bodyText)
-    expect(hasScoreMode, 'Paso 1 debe mostrar opciones de modo de scoring').toBe(true)
+    expect(bodyText, 'Paso 1 pregunta dónde juegas').toMatch(/dónde juegas/i)
+    expect(bodyText, 'Paso 1 ya no pregunta quién anota').not.toMatch(/quién anota|cada uno marca|yo llevo/i)
+
+    // El stepper muestra los nombres en UPPERCASE (CSS text-transform; innerText lo respeta).
+    for (const paso of ['CANCHA', 'FORMATO', 'JUGADORES', 'CONFIRMAR']) {
+      expect(bodyText, `el stepper muestra ${paso}`).toContain(paso)
+    }
 
     const appErrors = pageErrors.filter(
       e => !e.includes('Lock broken by another request') && !e.includes('ResizeObserver'),
@@ -60,100 +103,98 @@ test.describe('Scorer — Wizard /ronda-libre/nueva', () => {
     expect(serverErrors, '5xx en /ronda-libre/nueva').toEqual([])
   })
 
-  test('paso 1 → paso 2: seleccionar modo individual navega a cancha', async ({ page }) => {
+  test('cancha → formato → jugadores; atrás vuelve a la cancha', async ({ page }) => {
     const loaded = await gotoNueva(page)
     test.fixme(!loaded, 'Vercel Security Checkpoint bloqueó el headless browser')
 
-    // Click "Cada uno marca su score" (modo individual)
-    const individualBtn = page.getByText(/cada uno marca/i)
-    if (await individualBtn.isVisible()) {
-      await individualBtn.click()
-    } else {
-      // Puede que el stepper ya avanzó si hay rondas recientes — intentar click "Siguiente"
-      const nextBtn = page.getByText(/siguiente/i)
-      if (await nextBtn.isVisible()) await nextBtn.click()
-    }
+    await llegarAFormato(page)
+    const formato = await page.locator('body').innerText()
+    expect(formato).toMatch(/formato de juego/i)
+    expect(formato).toMatch(/stroke play/i)
+    expect(formato).toMatch(/scramble/i)
 
-    // Esperar a que aparezcan elementos del paso 2 (cancha)
-    await page.waitForTimeout(1000)
-    const bodyText = await page.locator('body').innerText()
-    const hasCanchaStep = /dónde juegas|cancha/i.test(bodyText)
-    expect(hasCanchaStep, 'Paso 2 debe mostrar selector de cancha').toBe(true)
+    await page.getByRole('button', { name: /atrás/i }).click()
+    await expect(subtitulo(page, /dónde juegas/i)).toBeVisible()
+    await expect(page.getByLabel('Fecha')).toBeVisible()
   })
 
-  test('paso 2: selector de cancha funcional y muestra opciones de hoyos', async ({ page }) => {
+  test('Scramble: Equipo 1 con un compañero, se puede jugar contra el par y Revisar se habilita (R4794T)', async ({ page }) => {
     const loaded = await gotoNueva(page)
     test.fixme(!loaded, 'Vercel Security Checkpoint bloqueó el headless browser')
 
-    // Avanzar a paso 2
-    const individualBtn = page.getByText(/cada uno marca/i)
-    if (await individualBtn.isVisible()) {
-      await individualBtn.click()
-    }
-    await page.waitForTimeout(1000)
+    await llegarAFormato(page)
+    await elegirFormatoYSeguir(page, /^scramble\b/i)
 
-    // Verificar que hay opciones de hoyos (9 o 18)
-    const bodyText = await page.locator('body').innerText()
-    const hasHolesOption = /\b9\b.*\b18\b|\bhoyos\b|holes/i.test(bodyText)
-    expect(hasHolesOption, 'Paso 2 debe mostrar opciones de 9/18 hoyos').toBe(true)
+    // El nombre del equipo es un <input> editable: se lee por valor, no por texto.
+    await expect(page.getByLabel('Nombre del equipo 1')).toHaveValue('Equipo 1')
+    await expect(page.getByLabel(/nombre del equipo/i)).toHaveCount(1)
+    const jugadores = await page.locator('body').innerText()
+    expect(jugadores).toMatch(/contra el par/i)
+    expect(jugadores).toMatch(/agregar equipo rival/i)
+    expect(jugadores).toMatch(/tú anotas por el grupo/i)
+    expect(jugadores, 'el mensaje que frenó a Cristián ya no existe').not.toMatch(/al menos 4 jugadores/i)
+    expect(jugadores).not.toMatch(/quién anota/i)
 
-    // Verificar que hay selector de formato (stroke_play, stableford, etc.)
-    const hasFormato = /formato|stroke.play|stableford|match.play/i.test(bodyText)
-    expect(hasFormato, 'Paso 2 debe mostrar opciones de formato').toBe(true)
+    // Un solo compañero en blanco: Revisar espera a que tenga nombre.
+    const revisar = page.getByRole('button', { name: /revisar/i })
+    await expect(revisar).toBeDisabled()
+    await expect(page.getByLabel(/nombre del jugador 1/i)).toHaveCount(1)
+    await page.getByLabel(/nombre del jugador 1/i).fill('Compañero E2E')
+    await expect(revisar).toBeEnabled()
+
+    await revisar.click()
+    const confirmar = await page.locator('body').innerText()
+    expect(confirmar).toMatch(/confirmar ronda/i)
+    expect(confirmar).toContain('Equipo 1')
+    expect(confirmar).toContain('Compañero E2E')
+    expect(confirmar).toMatch(/anota\s+tú, por todos/i)
+    expect(confirmar).toMatch(/jugadores \(2\)/i)
   })
 
-  test('navegación atrás funciona en paso 2', async ({ page }) => {
+  test('Scramble → Stroke Play vuelve a preguntar quién anota y conserva al compañero', async ({ page }) => {
     const loaded = await gotoNueva(page)
     test.fixme(!loaded, 'Vercel Security Checkpoint bloqueó el headless browser')
 
-    // Avanzar a paso 2
-    const individualBtn = page.getByText(/cada uno marca/i)
-    if (await individualBtn.isVisible()) {
-      await individualBtn.click()
-    }
-    await page.waitForTimeout(1000)
+    await llegarAFormato(page)
+    await elegirFormatoYSeguir(page, /^scramble\b/i)
+    await page.getByLabel(/nombre del jugador 1/i).fill('Compañero E2E')
 
-    // Click atrás
-    const backBtn = page.getByText(/atrás/i)
-    if (await backBtn.isVisible()) {
-      await backBtn.click()
-      await page.waitForTimeout(500)
+    await page.getByRole('button', { name: /atrás/i }).click()
+    await elegirFormatoYSeguir(page, /^stroke play\b/i)
 
-      // Debería estar de vuelta en paso 1
-      const bodyText = await page.locator('body').innerText()
-      const hasStep1 = /cada uno marca|yo llevo|cómo quieres jugar/i.test(bodyText)
-      expect(hasStep1, 'Botón atrás debe volver al paso 1').toBe(true)
-    }
+    await expect(page.getByText('¿Quién anota?')).toBeVisible()
+    await expect(page.getByRole('button', { name: /yo anoto por todos/i })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByLabel(/nombre del jugador 1/i)).toHaveValue('Compañero E2E')
+    await expect(page.getByLabel(/nombre del equipo/i), 'Stroke Play no arma equipos').toHaveCount(0)
+    await expect(page.getByRole('button', { name: /revisar/i })).toBeEnabled()
+
+    await page.getByRole('button', { name: /cada uno en su celular/i }).click()
+    await expect(page.getByText(/unirse compartiendo el enlace/i)).toBeVisible()
+    await expect(page.getByRole('button', { name: /revisar/i })).toBeEnabled()
   })
 
-  test('wizard muestra rondas recientes como atajo', async ({ page }) => {
+  test('Scramble: "+ Agregar equipo rival" abre un segundo equipo con dos tarjetas', async ({ page }) => {
+    const loaded = await gotoNueva(page)
+    test.fixme(!loaded, 'Vercel Security Checkpoint bloqueó el headless browser')
+
+    await llegarAFormato(page)
+    await elegirFormatoYSeguir(page, /^scramble\b/i)
+    await page.getByRole('button', { name: /agregar equipo rival/i }).click()
+
+    await expect(page.getByLabel('Nombre del equipo 2')).toBeVisible()
+    await expect(page.getByLabel(/nombre del jugador \d/i)).toHaveCount(3)
+    expect(await page.locator('body').innerText()).not.toMatch(/contra el par/i)
+  })
+
+  test('muestra rondas recientes como atajo (si las hay)', async ({ page }) => {
     const loaded = await gotoNueva(page)
     test.fixme(!loaded, 'Vercel Security Checkpoint bloqueó el headless browser')
 
     const bodyText = await page.locator('body').innerText()
-    // Si el user tiene rondas previas, debe mostrar atajos
-    const hasRecent = /últimas rondas|rondas recientes|repetir/i.test(bodyText)
-    // Es OK si no tiene rondas — en ese caso simplemente no aparece la sección
-    if (hasRecent) {
-      // Si hay recientes, deben tener nombre de cancha
-      expect(bodyText).toMatch(/[A-Z][a-záéíóúñ]+/i)
+    // Si el usuario tiene rondas previas, el atajo vive en el paso 1 junto a la cancha.
+    if (/últimas rondas/i.test(bodyText)) {
+      await expect(subtitulo(page, /dónde juegas/i)).toBeVisible()
+      expect(bodyText).toMatch(/repetir/i)
     }
-    // Este test pasa siempre — documenta el comportamiento
-    expect(true).toBe(true)
-  })
-
-  test('stepper visual muestra pasos', async ({ page }) => {
-    const loaded = await gotoNueva(page)
-    test.fixme(!loaded, 'Vercel Security Checkpoint bloqueó el headless browser')
-
-    const bodyText = await page.locator('body').innerText()
-    // El stepper muestra los nombres en UPPERCASE (CSS text-transform)
-    // innerText devuelve el texto transformado por CSS
-    const stepNames = ['FORMATO', 'CANCHA', 'JUGADORES', 'CONFIRMAR']
-    let stepsFound = 0
-    for (const step of stepNames) {
-      if (bodyText.includes(step)) stepsFound++
-    }
-    expect(stepsFound, 'Los 4 pasos del stepper deben ser visibles').toBeGreaterThanOrEqual(4)
   })
 })

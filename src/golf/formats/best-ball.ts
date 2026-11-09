@@ -228,6 +228,7 @@ export function ordenarEquiposBestBall(
   return rankTeamsWithCountback(teams, {
     mode: stableford ? 'higher_wins' : 'lower_wins',
     primaryScore: (t) => scorePrimarioBestBall(t, formato, modo),
+    holesPlayed: (t) => t.holesPlayed,
     holeScores: (t) => t.holes.map((h) => (stableford ? h.teamStableford : modo === 'neto' ? h.teamNeto : h.teamGross) ?? 0),
   })
 }

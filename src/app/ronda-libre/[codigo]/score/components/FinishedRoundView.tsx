@@ -8,6 +8,7 @@ import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { hoyosDeLaRonda, hoyosPorNumero, etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
 import { generarShareCard } from '@/lib/share-card'
+import { vsParEnPalabras } from '@/constants/golf'
 import type { ShareCardData } from '@/lib/share-card'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { RondaLibre, Jugador, HoleData } from '@/types/ronda'
@@ -51,7 +52,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
   const [pendingPayload, setPendingPayload] = useState<SharePayload | null>(null)
 
   const diff = finalScore.gross - finalScore.totalPar
-  const diffLabel = diff === 0 ? 'Par' : diff > 0 ? `+${diff} sobre par` : `${diff} bajo par`
+  const diffLabel = vsParEnPalabras(diff)
   const diffColor = diff < 0 ? 'var(--birdie)' : diff === 0 ? 'var(--par)' : 'var(--double)'
 
   // Count birdies/eagles — usa scores netos cuando el modo es neto
