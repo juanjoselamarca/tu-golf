@@ -18,7 +18,7 @@ import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
 import { motivoSinScores } from '@/golf/tournament-status'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
-import { avisoSinAcceso, clasificarRespuestaScore, type AvisoSinAcceso, type ResultadoGuardadoTorneo } from './hooks/acceso-guardado'
+import { avisoSinAcceso, clasificarRespuestaScore, esSinAcceso, type AvisoSinAcceso, type ResultadoGuardadoTorneo } from './hooks/acceso-guardado'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import {
   fetchScoringTournament,
@@ -142,6 +142,7 @@ export default function PlayerScoringPage() {
   // la tarjeta anterior.
   useEffect(() => {
     setSavedHoles(new Set())
+    setSinAcceso(null)
   }, [roundIdForSync])
 
   // El torneo dejó de aceptar scores (cerrado/cancelado): tarjeta deshabilitada
@@ -372,19 +373,19 @@ export default function PlayerScoringPage() {
       }
       return
     }
-    if (resultado === 'sin_acceso') {
-      // Sin sesión o sin token válido nadie va a poder enviar la cola: se vacía para que
-      // ni esta pantalla ni el OfflineBanner prometan "sincronizando". El golpe sigue a la
-      // vista en la tarjeta y el aviso dice cómo volver a entrar.
-      scoreSync.marcarSincronizado()
+    if (esSinAcceso(resultado)) {
+      // El servidor no reconoce al jugador: reintentar ahora no sirve, pero el 401/403 puede
+      // ser pasajero (Supabase caído), así que la cola local se CONSERVA: loadScores la vuelve
+      // a mostrar y el auto-sync la reenvía solo cuando vuelva a entrar. El aviso dice eso.
       setSaveStatus('sin_acceso')
       setSaving(false)
-      setSinAcceso(avisoSinAcceso({ esInvitado: isGuest, slug }))
+      setSinAcceso(avisoSinAcceso({ esInvitado: isGuest, slug, motivo: resultado }))
       return
     }
     if (resultado === 'ok') {
       setSavedHoles(prev => new Set(prev).add(holeNumber))
       setSaveStatus('saved')
+      setSinAcceso(null)
       scoreSync.marcarSincronizado()
 
       // Si el invitado completó todos los hoyos, mostrar el modal de registro
@@ -441,10 +442,10 @@ export default function PlayerScoringPage() {
               addToast({ type: 'error', title: 'Torneo cerrado', message: 'El torneo ya no acepta scores. Los scores pendientes no se guardaron.', duration: 6000 })
               return
             }
-            if (resultado === 'sin_acceso') {
-              scoreSync.marcarSincronizado()
+            if (esSinAcceso(resultado)) {
+              // La cola se conserva (ver handleScoreChange): se reenvía al volver con acceso.
               setSaveStatus('sin_acceso')
-              setSinAcceso(avisoSinAcceso({ esInvitado: isGuest, slug }))
+              setSinAcceso(avisoSinAcceso({ esInvitado: isGuest, slug, motivo: resultado }))
               return
             }
             if (resultado !== 'ok') failed++
@@ -452,6 +453,7 @@ export default function PlayerScoringPage() {
           }
           if (failed === 0) {
             scoreSync.marcarSincronizado()
+            setSinAcceso(null)
             setSaveStatus('saved')
             addToast({ type: 'success', title: 'Sincronizado', message: `${Object.keys(pending).length} hoyos guardados`, duration: 3000 })
           } else {
@@ -463,7 +465,10 @@ export default function PlayerScoringPage() {
       })()
     }
     const down = () => { setIsOnline(false); setSaveStatus('offline') }
-    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true)
+    // Con conexión y cola pendiente (p. ej. golpes que quedaron en el teléfono tras un 401 y el
+    // jugador volvió a entrar), se reenvía al abrir la tarjeta: el evento `online` no va a llegar.
+    if (typeof navigator === 'undefined' || navigator.onLine) up()
+    else setIsOnline(false)
     window.addEventListener('online', up)
     window.addEventListener('offline', down)
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }

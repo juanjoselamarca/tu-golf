@@ -1,46 +1,67 @@
-import { describe, it, expect } from 'vitest'
-import { avisoSinAcceso, clasificarRespuestaScore } from './acceso-guardado'
+import { describe, expect, it } from 'vitest'
+import { avisoSinAcceso, clasificarRespuestaScore, esSinAcceso } from './acceso-guardado'
 
-describe('clasificarRespuestaScore — la respuesta de /api/game leída por el scorer del torneo', () => {
-  it('2xx guarda; 409 distingue tarjeta cerrada de torneo inactivo', () => {
+const PROMESA_VACIA = /sincroniz|guardado localmente|reintent|anótalos de nuevo/i
+
+describe('clasificarRespuestaScore (scorer del torneo)', () => {
+  it('2xx es ok', () => {
     expect(clasificarRespuestaScore(200)).toBe('ok')
+    expect(clasificarRespuestaScore(201)).toBe('ok')
+  })
+
+  it('409 distingue ronda cerrada de torneo inactivo', () => {
     expect(clasificarRespuestaScore(409, 'round_closed')).toBe('closed')
     expect(clasificarRespuestaScore(409, 'tournament_inactive')).toBe('inactive')
     expect(clasificarRespuestaScore(409)).toBe('inactive')
   })
 
-  // Hunter 09-nov-2026 (prod): sin sesión, cada golpe daba 3 × 401 y la pantalla prometía
-  // "se sincronizará al recuperar la conexión". Un 401/403 no se reintenta ni se encola.
-  it('401 (sin sesión) y 403 (invitado inválido o retirado) son "sin_acceso", nunca un reintento', () => {
-    expect(clasificarRespuestaScore(401)).toBe('sin_acceso')
-    expect(clasificarRespuestaScore(403)).toBe('sin_acceso')
+  it('401 es sin sesión y 403 sin permiso: ninguno se reintenta', () => {
+    expect(clasificarRespuestaScore(401)).toBe('sin_sesion')
+    expect(clasificarRespuestaScore(403)).toBe('sin_permiso')
+    expect(esSinAcceso(clasificarRespuestaScore(401))).toBe(true)
+    expect(esSinAcceso(clasificarRespuestaScore(403))).toBe(true)
   })
 
-  it('5xx y respuestas raras siguen siendo transitorias: se reintenta y se encola', () => {
-    expect(clasificarRespuestaScore(500)).toBe('reintentar')
-    expect(clasificarRespuestaScore(502)).toBe('reintentar')
-    expect(clasificarRespuestaScore(429)).toBe('reintentar')
+  it('red, 5xx y 429 siguen siendo transitorios (cola local)', () => {
+    for (const s of [500, 502, 503, 429, 0]) expect(clasificarRespuestaScore(s)).toBe('reintentar')
+    expect(esSinAcceso('reintentar')).toBe(false)
+    expect(esSinAcceso('ok')).toBe(false)
   })
 })
 
-describe('avisoSinAcceso — lo que lee el jugador cuando el servidor no lo reconoce', () => {
-  it('con cuenta: sesión cerrada, dice que NO se guardó y manda a iniciar sesión volviendo a esta tarjeta', () => {
-    const aviso = avisoSinAcceso({ esInvitado: false, slug: 'copa-abc' })
-    expect(aviso.titulo).toBe('Tu sesión se cerró')
-    expect(aviso.detalle).toMatch(/no se guardaron/)
-    expect(aviso.href).toBe(`/login?next=${encodeURIComponent('/torneo/copa-abc/score')}`)
+describe('avisoSinAcceso', () => {
+  it('con cuenta y sin sesión: vuelve a esta misma tarjeta tras el login', () => {
+    const a = avisoSinAcceso({ esInvitado: false, slug: 'copa-abc', motivo: 'sin_sesion' })
+    expect(a.href).toBe(`/login?next=${encodeURIComponent('/torneo/copa-abc/score')}`)
+    expect(a.titulo).toMatch(/sesión/i)
+    expect(a.detalle).toMatch(/quedaron en este teléfono/)
   })
 
-  it('invitado: token inválido, dice que NO se guardó y manda al link de inscripción del torneo', () => {
-    const aviso = avisoSinAcceso({ esInvitado: true, slug: 'copa-abc' })
-    expect(aviso.detalle).toMatch(/no se guardaron/)
-    expect(aviso.href).toBe('/torneo/copa-abc/unirse')
+  it('con cuenta y sin permiso: no habla de la sesión y manda al torneo', () => {
+    const a = avisoSinAcceso({ esInvitado: false, slug: 'copa-abc', motivo: 'sin_permiso' })
+    expect(a.href).toBe('/torneo/copa-abc')
+    expect(a.titulo).not.toMatch(/sesión/i)
+    expect(a.detalle).toMatch(/Cambiar jugador|organizador/)
   })
 
-  it('ninguno de los dos promete que "se sincronizará"', () => {
-    for (const esInvitado of [true, false]) {
-      const { titulo, detalle, cta } = avisoSinAcceso({ esInvitado, slug: 's' })
-      expect(`${titulo} ${detalle} ${cta}`).not.toMatch(/sincroniz|guardado localmente|reintent/i)
+  it('invitado: vuelve a la inscripción, con cualquier motivo', () => {
+    for (const motivo of ['sin_sesion', 'sin_permiso'] as const) {
+      const a = avisoSinAcceso({ esInvitado: true, slug: 'copa-abc', motivo })
+      expect(a.href).toBe('/torneo/copa-abc/unirse')
+      expect(a.detalle).toMatch(/organizador/)
+    }
+  })
+
+  it('ningún aviso promete sincronizar ni pide anotar de nuevo (los golpes siguen en el teléfono)', () => {
+    const avisos = [
+      avisoSinAcceso({ esInvitado: false, slug: 'x', motivo: 'sin_sesion' }),
+      avisoSinAcceso({ esInvitado: false, slug: 'x', motivo: 'sin_permiso' }),
+      avisoSinAcceso({ esInvitado: true, slug: 'x', motivo: 'sin_sesion' }),
+    ]
+    for (const a of avisos) {
+      expect(`${a.titulo} ${a.detalle} ${a.cta}`).not.toMatch(PROMESA_VACIA)
+      expect(a.detalle).toMatch(/en este teléfono, no en el torneo/)
+      expect(a.detalle).not.toMatch(/\b(anotá|ingresá|vos)\b/i)
     }
   })
 })
