@@ -18,6 +18,7 @@ import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
 import { motivoSinScores } from '@/golf/tournament-status'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
+import { avisoSinAcceso, clasificarRespuestaScore, esSinAcceso, type AvisoSinAcceso, type ResultadoGuardadoTorneo } from './hooks/acceso-guardado'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import {
   fetchScoringTournament,
@@ -84,8 +85,10 @@ export default function PlayerScoringPage() {
   const [loadNonce,     setLoadNonce]     = useState(0)
   const [savedHoles,    setSavedHoles]    = useState<Set<number>>(new Set())
   const [isOnline,      setIsOnline]      = useState(true)
-  type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error'
+  type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error' | 'sin_acceso'
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  /** El servidor no reconoce a quien anota (401/403): aviso honesto con salida, sin "reintentando". */
+  const [sinAcceso, setSinAcceso] = useState<AvisoSinAcceso | null>(null)
   const retryCountRef = useRef(0)
   // Modal de registro post-ronda para invitados
   const [showRegisterModal, setShowRegisterModal] = useState(false)
@@ -139,6 +142,7 @@ export default function PlayerScoringPage() {
   // la tarjeta anterior.
   useEffect(() => {
     setSavedHoles(new Set())
+    setSinAcceso(null)
   }, [roundIdForSync])
 
   // El torneo dejó de aceptar scores (cerrado/cancelado): tarjeta deshabilitada
@@ -287,7 +291,7 @@ export default function PlayerScoringPage() {
     par: number,
     netScore: number,
     points: number,
-  ): Promise<'ok' | 'closed' | 'inactive' | 'error'> => {
+  ): Promise<ResultadoGuardadoTorneo> => {
     // Headers base + headers de invitado si aplica
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (isGuest && guestId && guestTokenValue) {
@@ -302,14 +306,12 @@ export default function PlayerScoringPage() {
           method: 'POST', headers,
           body: JSON.stringify({ action: 'upsert_score', tournament_id: tourneyId, round_id: roundId, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }),
         })
-        if (res.ok) return 'ok'
-        // 409 = no se puede escribir, y no va a cambiar reintentando. El
-        // `code` del cuerpo distingue la tarjeta cerrada (el organizador cerró
-        // la ronda: puede venir otra) del torneo inactivo (cerrado/cancelado).
-        if (res.status === 409) {
-          const body = (await res.json().catch(() => ({}))) as { code?: string }
-          return body.code === 'round_closed' ? 'closed' : 'inactive'
-        }
+        // 409 (tarjeta cerrada / torneo inactivo) y 401/403 (sin sesión, invitado
+        // inválido) no cambian reintentando: se devuelven al tiro. El `code` del
+        // cuerpo del 409 distingue la ronda cerrada (puede venir otra) del torneo inactivo.
+        const code = res.status === 409 ? ((await res.json().catch(() => ({}))) as { code?: string }).code : undefined
+        const resultado = clasificarRespuestaScore(res.status, code)
+        if (resultado !== 'reintentar') return resultado
       } catch {
         // network error — retry
       }
@@ -371,9 +373,19 @@ export default function PlayerScoringPage() {
       }
       return
     }
+    if (esSinAcceso(resultado)) {
+      // El servidor no reconoce al jugador: reintentar ahora no sirve, pero el 401/403 puede
+      // ser pasajero (Supabase caído), así que la cola local se CONSERVA: loadScores la vuelve
+      // a mostrar y el auto-sync la reenvía solo cuando vuelva a entrar. El aviso dice eso.
+      setSaveStatus('sin_acceso')
+      setSaving(false)
+      setSinAcceso(avisoSinAcceso({ esInvitado: isGuest, slug, motivo: resultado }))
+      return
+    }
     if (resultado === 'ok') {
       setSavedHoles(prev => new Set(prev).add(holeNumber))
       setSaveStatus('saved')
+      setSinAcceso(null)
       scoreSync.marcarSincronizado()
 
       // Si el invitado completó todos los hoyos, mostrar el modal de registro
@@ -430,11 +442,18 @@ export default function PlayerScoringPage() {
               addToast({ type: 'error', title: 'Torneo cerrado', message: 'El torneo ya no acepta scores. Los scores pendientes no se guardaron.', duration: 6000 })
               return
             }
+            if (esSinAcceso(resultado)) {
+              // La cola se conserva (ver handleScoreChange): se reenvía al volver con acceso.
+              setSaveStatus('sin_acceso')
+              setSinAcceso(avisoSinAcceso({ esInvitado: isGuest, slug, motivo: resultado }))
+              return
+            }
             if (resultado !== 'ok') failed++
             else setSavedHoles(prev => new Set(prev).add(holeNumber))
           }
           if (failed === 0) {
             scoreSync.marcarSincronizado()
+            setSinAcceso(null)
             setSaveStatus('saved')
             addToast({ type: 'success', title: 'Sincronizado', message: `${Object.keys(pending).length} hoyos guardados`, duration: 3000 })
           } else {
@@ -446,11 +465,14 @@ export default function PlayerScoringPage() {
       })()
     }
     const down = () => { setIsOnline(false); setSaveStatus('offline') }
-    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true)
+    // Con conexión y cola pendiente (p. ej. golpes que quedaron en el teléfono tras un 401 y el
+    // jugador volvió a entrar), se reenvía al abrir la tarjeta: el evento `online` no va a llegar.
+    if (typeof navigator === 'undefined' || navigator.onLine) up()
+    else setIsOnline(false)
     window.addEventListener('online', up)
     window.addEventListener('offline', down)
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
-  }, [tournament, roundIdForSync, selectedPlayerEarly, rondaCtx, hoyosRonda, holeCountRonda, scoreSync, submitHoleScore, courseHcpDe])
+  }, [tournament, roundIdForSync, selectedPlayerEarly, rondaCtx, hoyosRonda, holeCountRonda, scoreSync, submitHoleScore, courseHcpDe, isGuest, slug])
 
   if (loading) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Cargando...</div>
   if (loadError) return (
@@ -487,6 +509,7 @@ export default function PlayerScoringPage() {
               saved:   { bg: 'rgba(0,230,118,0.15)',  fg: 'var(--status-live-fg)', label: '✓ Guardado' },
               offline: { bg: 'rgba(252,211,77,0.15)', fg: 'var(--bogey)', label: pendingCount > 0 ? `Offline — ${pendingCount} en cola` : 'Sin conexión' },
               error:   { bg: 'rgba(239,68,68,0.15)',  fg: 'var(--double)', label: pendingCount > 0 ? `Reintentando (${pendingCount})` : 'Error' },
+              sin_acceso: { bg: 'rgba(239,68,68,0.15)', fg: 'var(--double)', label: 'No guardado' },
               idle:    { bg: 'transparent', fg: 'transparent', label: '' },
             } as const
             const s = colors[saveStatus]
@@ -569,6 +592,14 @@ export default function PlayerScoringPage() {
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
               ← Cambiar jugador
             </button>
+            {sinAcceso && (
+              <div role="alert" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
+                <strong>{sinAcceso.titulo}.</strong> {sinAcceso.detalle}
+                <Link href={sinAcceso.href} style={{ display: 'flex', width: 'fit-content', alignItems: 'center', minHeight: '44px', marginTop: '2px', color: 'var(--brand-on-bg)', fontWeight: 700, textDecoration: 'none' }}>
+                  {sinAcceso.cta} →
+                </Link>
+              </div>
+            )}
             {sinScores === 'no_empezo' && !rondaCerrada && (
               <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
                 <strong>El torneo todavía no empieza.</strong> Podrás anotar tu score cuando el organizador lo inicie.
