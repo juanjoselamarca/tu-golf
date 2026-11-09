@@ -109,6 +109,29 @@ export function resolvePlayerTee(input: ResolvePlayerTeeInput): ResolvePlayerTee
   return { tee: null, source: 'none' }
 }
 
+/**
+ * ¿Con ESTE tee el motor puede calcular el course handicap?
+ *
+ * Es el SEGUNDO portón de los tres que aplica `ratingsDeLaRondaDelJugador`
+ * (`src/golf/core/compute-player-course-hcp.ts`): resolver el tee, que publique slope y rating
+ * —esto— y que ese rating sea creíble contra el par a la misma escala (`ratingEsCreible`). Un tee
+ * que no pase cualquiera de los tres no se usa y el motor cae al rating general de la CANCHA.
+ *
+ * Vive acá, exportado, porque es el predicado del tee y lo lee el propio motor. Quien quiera
+ * ANTICIPAR la cadena COMPLETA —la pantalla de editar torneo cuenta cuántos inscritos van a caer
+ * al rating de la cancha— no lo usa suelto: le pregunta al motor por su `eslabon`. Espejar la
+ * cadena se desfasa en silencio, y ya pasó dos veces: primero contando `tee_id != null`, después
+ * quedándose en este portón sin el guardarrail.
+ *
+ * El 0 cuenta como dato faltante a propósito (es un `&&` de valores y no un `!= null`): un slope
+ * 0 o un rating 0 no son ratings, son una fila a medio cargar.
+ */
+export function teeCalculaHandicap(
+  tee: CourseTeeRow | null | undefined,
+): tee is CourseTeeRow & { slope: number; rating: number } {
+  return Boolean(tee?.slope && tee?.rating)
+}
+
 /** Lo que un jugador de torneo trae sobre su género, en el orden de confianza. */
 export interface PlayerGenderSources {
   /** `players.genero` ('M' | 'F' | null): congelado al inscribirse. */

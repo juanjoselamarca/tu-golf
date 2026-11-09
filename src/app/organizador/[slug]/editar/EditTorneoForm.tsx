@@ -9,13 +9,39 @@ import { useFormErrors } from '@/hooks/useFormErrors'
 import type { CourseOption } from './page'
 import { FORMAT_META } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
+import { opcionesDeTeeDelTorneo } from '@/golf/courses/tee-options-torneo'
+import {
+  esModoDeTees,
+  esModoDeTeesAsignadoAMano,
+  etiquetaDeTeesDelTorneo,
+  origenDelTeeDelTorneo,
+  hayJugadorSinTeeResoluble,
+  type TeeDeCadaJugador,
+} from '@/golf/tournament-tees-mode'
+import type {
+  CandadosDeConfiguracion,
+  ColumnaDeConfiguracion,
+  MotivoDelCandado,
+} from '@/golf/tournament-config-locks'
+import { guardarConfiguracionDelTorneo, type ColumnaBloqueada } from '@/lib/data/tournaments/tournament-config'
+import { useCourseTeeNames } from '@/hooks/useCourseTeeNames'
 
 interface TournamentData {
   id: string; name: string; slug: string; format: string; hole_count: number
   tees: string; use_handicap: boolean; date_start: string | null
   cover_image_url: string | null; courses: { id: string; nombre: string } | null
-  has_scores?: boolean
+  /**
+   * `tournaments.course_id` crudo. Va aparte del embed `courses` porque responden cosas distintas:
+   * el embed puede venir vacío con la columna puesta, y sin esta columna la pantalla no sabe
+   * distinguir "este torneo no tiene cancha" de "no pudimos cargar la que tiene".
+   */
+  course_id: string | null
   status?: string
+  /** Qué columna está bloqueada y por qué. Lo decide `candadosDeConfiguracion`, el MISMO predicado
+   *  que vuelve a correr el guardado: acá solo se apagan los controles y se dice el motivo. */
+  candados: CandadosDeConfiguracion
+  /** De dónde sale el tee de cada jugador (jugadores sin tee resoluble y categorías con tee). */
+  tee_de_cada_jugador: TeeDeCadaJugador
 }
 
 interface Props { tournament: TournamentData; courses: CourseOption[] }
@@ -24,12 +50,97 @@ interface Props { tournament: TournamentData; courses: CourseOption[] }
 const FORMATS = (Object.entries(FORMAT_META) as [FormatoJuego, typeof FORMAT_META[FormatoJuego]][]).map(
   ([key, meta]) => ({ value: key, label: meta.label, desc: meta.description }),
 )
-const TEES = [
-  { value: 'negras', label: 'Negras' },
-  { value: 'azul',       label: 'Azul' },
-  { value: 'blanco',     label: 'Blanco' },
-  { value: 'rojo',       label: 'Rojo' },
-]
+/**
+ * La copy del candado se arma de DOS fuentes: la CAUSA (por qué el torneo está congelado, que la
+ * elige el motivo) y el RIESGO (qué rompería cambiar esa columna). Así el aviso del campo y el
+ * aviso de "guardamos el resto" dicen lo mismo sin repetir ninguna frase.
+ *
+ * La causa la elige el MOTIVO y no un booleano: con la consulta de scores caída el candado cierra
+ * igual, pero afirmarle "ya empezaron a scorear" sobre un torneo con 0 scores es decirle algo que
+ * no miramos. Y el toast afirmaba "el torneo ya está en juego" para cualquier candado, incluido el
+ * de un torneo publicado sin un solo score.
+ */
+const CAUSA_DEL_CANDADO: Record<MotivoDelCandado, string> = {
+  scores: 'Este torneo ya tiene scores anotados',
+  publicado: 'Este torneo ya fue publicado',
+  'tarjeta-compartida': 'Este torneo ya tiene una tarjeta compartida',
+  indeterminado: 'No pudimos verificar si este torneo ya está en juego',
+}
+
+/**
+ * El RIESGO va en presente del MECANISMO y nunca en pasado. El mismo texto se compone con los
+ * cuatro motivos y tres de ellos no saben nada de lo que ya se jugó: con la tarjeta compartida
+ * recién creada (0 scores) o con el conteo caído, "de los hoyos que ya se jugaron" afirmaba un daño
+ * consumado que nadie leyó — el mismo pecado que la CAUSA dejó de cometer, movido a la otra mitad
+ * de la frase.
+ */
+const RIESGO_DE_LA_COLUMNA: Record<ColumnaDeConfiguracion, string> = {
+  cancha: 'de ahí salen el rating, el par y los stroke index con los que se calcula cada score',
+  hoyos: 'las tarjetas se arman con esos hoyos',
+  formato: 'los grupos y los equipos se arman con el formato elegido',
+  tee: 'el tee entra al calcular el neto, así que movería el hándicap con el que se puntúa',
+}
+
+/** El nombre de cada columna en una frase: "el tee", "el formato y los hoyos". */
+const NOMBRE_DE_COLUMNA: Record<ColumnaDeConfiguracion, string> = {
+  cancha: 'la cancha',
+  hoyos: 'el número de hoyos',
+  formato: 'el formato',
+  tee: 'el tee',
+}
+
+/** "Recarga para reintentar" solo cuando el candado es por un dato que no se pudo leer. */
+const REINTENTAR = ' Recarga la página para intentarlo de nuevo.'
+
+function avisoDelCandado(columna: ColumnaDeConfiguracion, motivo: MotivoDelCandado | null): string | null {
+  if (motivo == null) return null
+  const nombre = NOMBRE_DE_COLUMNA[columna]
+  const extra = motivo === 'indeterminado' ? REINTENTAR : ''
+  return `${CAUSA_DEL_CANDADO[motivo]}, así que ${nombre} no se puede cambiar: ${RIESGO_DE_LA_COLUMNA[columna]}.${extra}`
+}
+
+function listaDeColumnas(columnas: ColumnaDeConfiguracion[]): string {
+  const nombres = columnas.map((c) => NOMBRE_DE_COLUMNA[c])
+  if (nombres.length === 1) return nombres[0]
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+}
+
+/**
+ * Lo que el guardado no escribió, en una frase por MOTIVO. Agrupa por motivo porque es lo que
+ * cambia la verdad de la frase: dos columnas bloqueadas por los scores comparten causa, pero una
+ * bloqueada por la publicación y otra por la tarjeta compartida no.
+ */
+function avisoDeLoQueNoSeGuardo(bloqueadas: ColumnaBloqueada[]): string {
+  const porMotivo = new Map<MotivoDelCandado, ColumnaDeConfiguracion[]>()
+  for (const { columna, motivo } of bloqueadas) {
+    porMotivo.set(motivo, [...(porMotivo.get(motivo) ?? []), columna])
+  }
+  return [...porMotivo]
+    .map(([motivo, columnas]) => {
+      const verbo = columnas.length === 1 ? 'quedó' : 'quedaron'
+      const extra = motivo === 'indeterminado' ? REINTENTAR : ''
+      return `${CAUSA_DEL_CANDADO[motivo]}, así que ${listaDeColumnas(columnas)} ${verbo} como estaba${columnas.length === 1 ? '' : 'n'}.${extra}`
+    })
+    .join(' ')
+}
+
+/**
+ * Qué decirle al organizador cuando el buscador de cancha quedó vacío.
+ *
+ * `selectedCourse` sale del embed `courses(...)` de la fila, así que vacío NO significa "este
+ * torneo no tiene cancha": puede ser que la columna `course_id` esté puesta y el embed no haya
+ * traído la fila. Con el candado encima el campo además está apagado, y sin esta línea la pantalla
+ * le muestra "sin cancha" —en gris, sin explicación— a un torneo en juego que tiene una.
+ *
+ * Con la cancha bloqueada no se le pide hacer nada, porque no puede: el guardado escribe el
+ * `course_id` que releyó de la base. Sin candado sí, porque ahí la validación le va a exigir una.
+ */
+export function avisoDeCanchaSinResolver(courseId: string | null, bloqueada: boolean): string | null {
+  if (courseId == null) return bloqueada ? 'Este torneo no tiene una cancha guardada.' : null
+  return bloqueada
+    ? 'No pudimos cargar la cancha de este torneo, pero está guardada y el guardado la deja como está.'
+    : 'No pudimos cargar la cancha de este torneo. Vuelve a elegirla para guardar.'
+}
 
 function FieldErr({ msg }: { msg: string | null }) {
   if (!msg) return null
@@ -38,7 +149,7 @@ function FieldErr({ msg }: { msg: string | null }) {
 
 export default function EditTorneoForm({ tournament, courses }: Props) {
   const router = useRouter()
-  const { showError, showSuccess } = useToast()
+  const { showError, showSuccess, showWarning } = useToast()
   const { fieldError, setFieldError, clearAll } = useFormErrors()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -56,6 +167,45 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   const [dateValue,      setDateValue]      = useState(tournament.date_start ?? '')
   const [coverUrl,       setCoverUrl]       = useState(tournament.cover_image_url || '')
   const [loading,        setLoading]        = useState(false)
+
+  // Los tees que se ofrecen son los de la cancha elegida (regla "un concepto,
+  // una fuente"): `tournaments.tees` se matchea contra `course_tees.nombre`.
+  const teeNames = useCourseTeeNames([selectedCourse?.id])
+  const teeOptions = opcionesDeTeeDelTorneo(
+    teeNames.status === 'ready' ? teeNames.courses : [],
+    tees,
+  )
+  // Si la columna guarda un MODO de asignación, no hay un tee del torneo que
+  // editar acá: el de cada jugador vive en `players.tee_id`.
+  const teesEsModo = esModoDeTees(tees)
+  const teesSeAsignanAMano = esModoDeTeesAsignadoAMano(tees)
+  const teesCargando = teeNames.status === 'loading'
+  // Los tres candados los decide `candadosDeConfiguracion` en el server component; acá solo se
+  // apagan los controles y se dice el motivo. El guardado NO confía en esto: `tournament-config.ts`
+  // vuelve a leer las señales y vuelve a correr el mismo predicado, porque entre que esta pantalla
+  // se cargó y el organizador toca Guardar pueden pasar minutos y alguien puede haber iniciado el
+  // torneo en el medio.
+  const candadoDeCancha = tournament.candados.cancha
+  const avisoCanchaSinResolver = selectedCourse
+    ? null
+    : avisoDeCanchaSinResolver(tournament.course_id, candadoDeCancha != null)
+  const candadoDeHoyos = tournament.candados.hoyos
+  const candadoDeFormato = tournament.candados.formato
+  const candadoDelTee = tournament.candados.tee
+
+  // De dónde sale el tee de cada jugador. Un torneo en un modo que resuelve por categoría con algún
+  // jugador sin tee resoluble deja a ese jugador sin de dónde sacarlo: el hándicap le sale del
+  // rating de la cancha. Medido en prod el 31-oct-2026: 9 torneos en un modo por categoría sin
+  // ninguna categoría con tee (6 son fixtures `gate-scorer-*`; los de usuarios son 2 borradores y 1
+  // abierto, todos con 0 scores) y hasta acá no tenían salida — el modo no se puede cambiar desde
+  // esta pantalla y las categorías solo se crean en el wizard. Elegir un tee para todo el torneo es
+  // el único arreglo que existe hoy, así que se le ofrece justo donde se le avisa el problema: ese
+  // tee es el ÚLTIMO eslabón de la cadena, así que rescata al que no tiene y no le toca el suyo al
+  // que ya lo tiene.
+  const teeDeCadaJugador = tournament.tee_de_cada_jugador
+  const [eligiendoTeeGlobal, setEligiendoTeeGlobal] = useState(false)
+  const sinTeeDeDondeSacar =
+    teesEsModo && !teesSeAsignanAMano && candadoDelTee == null && hayJugadorSinTeeResoluble(teeDeCadaJugador)
 
   const filteredCourses = courses.filter(
     (c) => courseSearch === '' ||
@@ -86,27 +236,48 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     clearAll()
     let hasErrors = false
     if (!name.trim()) { setFieldError('name', 'El nombre es obligatorio.'); hasErrors = true }
-    if (!selectedCourse) { setFieldError('course', 'Debes seleccionar una cancha.'); hasErrors = true }
+    // Con la cancha bajo candado no se pide elegir una: el input está apagado y el guardado escribe
+    // la cancha vieja igual. Exigirla dejaba la pantalla MUERTA —error sobre un campo que no se
+    // puede tocar, y ni el nombre se podía guardar— en los dos casos en que `selectedCourse` llega
+    // null: un torneo sin `course_id`, o un torneo con la columna puesta cuyo embed `courses(...)`
+    // no trajo la fila. `selectedCourse` se inicializa de ESE embed, no de la lista `courses`, así
+    // que la lista de opciones no tiene nada que ver.
+    if (!selectedCourse && candadoDeCancha == null) { setFieldError('course', 'Debes seleccionar una cancha.'); hasErrors = true }
     if (!dateISO) { setFieldError('date', 'La fecha es obligatoria.'); hasErrors = true }
     if (hasErrors) return
 
     setLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('tournaments')
-      .update({
-        name: name.trim(),
-        course_id: selectedCourse!.id,
-        format, hole_count: holeCount, tees,
-        use_handicap: useHandicap,
-        cover_image_url: coverUrl.trim() || null,
-        date_start: dateISO,
-      })
-      .eq('id', tournament.id)
+    // El guardado vuelve a leer los candados y escribe el valor VIEJO de lo que esté bloqueado: el
+    // candado no puede vivir en el `disabled` de un botón si el UPDATE sale del mismo cliente, y
+    // las props de esta pantalla pueden tener minutos de antigüedad.
+    const resultado = await guardarConfiguracionDelTorneo(createClient(), tournament.id, {
+      name: name.trim(),
+      // Con el candado puesto este valor lo ignora el guardado (escribe el `course_id` de la base);
+      // sin candado, la validación de arriba ya garantizó que hay cancha elegida.
+      // Vacío cuando la cancha no se pudo resolver (el embed vino sin ella). No se cae a
+      // `tournament.courses?.id` porque `selectedCourse` sale de ESE mismo embed: sería un fallback
+      // que nada puede observar. Lo que protege la columna es `guardarConfiguracion`, que nunca
+      // escribe un `course_id` vacío y, con el candado puesto, escribe el de la fila que releyó.
+      course_id: selectedCourse?.id ?? '',
+      format,
+      hole_count: holeCount,
+      tees,
+      use_handicap: useHandicap,
+      cover_image_url: coverUrl.trim() || null,
+      date_start: dateISO,
+    })
 
-    if (error) {
+    if (!resultado.ok) {
       showError('Error al guardar', 'No pudimos guardar los cambios. Intenta nuevamente.')
       setLoading(false)
+      return
+    }
+
+    // Lo que el candado no dejó cambiar se dice con SU motivo, en vez de fingir que se guardó todo
+    // o de afirmar que el torneo está en juego cuando el candado era por otra cosa.
+    if (resultado.bloqueadas.length > 0) {
+      showWarning('Guardamos el resto', avisoDeLoQueNoSeGuardo(resultado.bloqueadas))
+      router.push(`/organizador/${tournament.slug}/jugadores`)
       return
     }
 
@@ -140,16 +311,25 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <FieldErr msg={fieldError('name')} />
           </div>
 
-          {/* Cancha */}
+          {/* Cancha: con el torneo en juego NO se cambia. El rating, el par y los stroke index de
+              los hoyos ya jugados salen de la cancha, y `players.tee_id` apunta a los tees de ESTA
+              — cambiarla los deja huérfanos y el hándicap cae al rating general. El scorer además
+              se copió la cancha al crear la tarjeta compartida (`rondas_libres.course_id`). */}
           <div ref={dropdownRef} style={{ position: 'relative' }}>
             <label style={labelStyle}>Cancha</label>
-            <input type="text" placeholder="Buscar cancha..." value={courseSearch}
+            <input type="text" placeholder="Buscar cancha..." value={courseSearch} disabled={candadoDeCancha != null}
               onChange={(e) => { setCourseSearch(e.target.value); setSelectedCourse(null); setShowCourses(true) }}
-              onFocus={() => setShowCourses(true)}
-              style={{ ...inputStyle('course'), borderColor: fieldError('course') ? 'var(--error-border)' : selectedCourse ? 'var(--brand)' : 'rgba(122,143,168,0.3)' }} />
+              onFocus={() => { if (candadoDeCancha == null) setShowCourses(true) }}
+              style={{ ...inputStyle('course'), borderColor: fieldError('course') ? 'var(--error-border)' : selectedCourse ? 'var(--brand)' : 'rgba(122,143,168,0.3)', opacity: candadoDeCancha != null ? 0.5 : 1, cursor: candadoDeCancha != null ? 'not-allowed' : 'text' }} />
             {selectedCourse && <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '4px' }}>✓ {selectedCourse.nombre}</div>}
+            {avisoCanchaSinResolver && (
+              <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>{avisoCanchaSinResolver}</p>
+            )}
             <FieldErr msg={fieldError('course')} />
-            {showCourses && filteredCourses.length > 0 && (
+            {candadoDeCancha && (
+              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>{avisoDelCandado('cancha', candadoDeCancha)}</p>
+            )}
+            {candadoDeCancha == null && showCourses && filteredCourses.length > 0 && (
               <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-surface)', border: '1px solid var(--border-md)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 50 }}>
                 {filteredCourses.slice(0, 15).map((c) => (
                   <button key={c.id} type="button"
@@ -169,7 +349,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <label style={labelStyle}>Formato</label>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               {FORMATS.map((f) => {
-                const formatLocked = !!tournament.has_scores || (tournament.status != null && tournament.status !== 'draft')
+                const formatLocked = candadoDeFormato != null
                 return (
                   <button key={f.value} type="button" onClick={() => setFormat(f.value)} disabled={formatLocked}
                     style={{ flex: '1 1 calc(50% - 6px)', minWidth: '140px', padding: '14px', border: format === f.value ? '2px solid var(--brand)' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: formatLocked ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 200ms', opacity: formatLocked ? 0.5 : 1 }}>
@@ -179,40 +359,113 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                 )
               })}
             </div>
-            {tournament.has_scores && (
-              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>No se puede cambiar el formato después de que los jugadores comenzaron a scorear.</p>
-            )}
-            {!tournament.has_scores && tournament.status != null && tournament.status !== 'draft' && (
-              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>No se puede cambiar el formato una vez que el torneo fue publicado.</p>
+            {candadoDeFormato && (
+              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>{avisoDelCandado('formato', candadoDeFormato)}</p>
             )}
           </div>
 
-          {/* Hoyos + Tees */}
-          <div style={{ display: 'flex', gap: '20px' }}>
-            <div style={{ flex: 1 }}>
+          {/* Hoyos + Tees: en una fila cuando caben los dos a 200px y apilados si no. Medido a 390px
+              con la pantalla real, la columna del tee quedaba de 122px y la prosa del modo se
+              partía en siete líneas. */}
+          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 200px' }}>
               <label style={labelStyle}>Hoyos</label>
               <div style={{ display: 'flex', gap: '10px' }}>
                 {[18, 9].map((n) => (
-                  <button key={n} type="button" onClick={() => setHoleCount(n)} disabled={tournament.has_scores}
-                    style={{ flex: 1, padding: '10px', border: holeCount === n ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: holeCount === n ? 'var(--text)' : 'var(--text-2)', cursor: tournament.has_scores ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400, opacity: tournament.has_scores ? 0.5 : 1 }}>
+                  <button key={n} type="button" onClick={() => setHoleCount(n)} disabled={candadoDeHoyos != null}
+                    style={{ flex: 1, padding: '10px', minHeight: '44px', border: holeCount === n ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: holeCount === n ? 'var(--text)' : 'var(--text-2)', cursor: candadoDeHoyos != null ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400, opacity: candadoDeHoyos != null ? 0.5 : 1 }}>
                     {n} hoyos
                   </button>
                 ))}
               </div>
-              {tournament.has_scores && (
-                <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>No se puede cambiar el número de hoyos después de que los jugadores comenzaron a scorear.</p>
+              {candadoDeHoyos && (
+                <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>{avisoDelCandado('hoyos', candadoDeHoyos)}</p>
               )}
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: '1 1 200px' }}>
               <label style={labelStyle}>Tee</label>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {TEES.map((t) => (
-                  <button key={t.value} type="button" onClick={() => setTees(t.value)}
-                    style={{ padding: '8px 12px', border: tees === t.value ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
+              {teesEsModo && !eligiendoTeeGlobal ? (
+                <div style={{ padding: '10px 12px', background: 'rgba(7,13,24,0.4)', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0 }}>
+                    Tees <strong>{etiquetaDeTeesDelTorneo(tees)}</strong> —{' '}
+                    {origenDelTeeDelTorneo(tees, teeDeCadaJugador)}.
+                  </p>
+                  {/* El link solo en 'manual': es el único modo con asignador de tees en el panel
+                      de jugadores. En los otros, mandarlo allá era prometerle un control que no existe. */}
+                  {teesSeAsignanAMano && (
+                    <Link href={`/organizador/${tournament.slug}/jugadores`} style={{ fontSize: '13px', color: 'var(--brand-on-bg)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
+                      Asignarlos en el panel de jugadores →
+                    </Link>
+                  )}
+                  {/* Sin categoría con tee no hay nada que resolver: se le ofrece el único arreglo
+                      que existe hoy, en vez de dejarlo mirando el problema sin salida. */}
+                  {sinTeeDeDondeSacar && (
+                    <button type="button" onClick={() => setEligiendoTeeGlobal(true)}
+                      style={{ background: 'none', border: 'none', padding: '12px 0', minHeight: '44px', color: 'var(--brand-on-bg)', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline', display: 'block', textAlign: 'left' }}>
+                      Elegir un tee para todo el torneo →
+                    </button>
+                  )}
+                  {/* Con el torneo en juego no se ofrece la salida y se dice por qué: elegir un tee
+                      ahora movería el hándicap con que se está puntuando. */}
+                  {candadoDelTee && !teesSeAsignanAMano && (
+                    <p style={{ fontSize: '12px', color: 'var(--error-fg)', margin: '6px 0 0' }}>{avisoDelCandado('tee', candadoDelTee)}</p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* La condición es `eligiendoTeeGlobal` SOLO: al tocar un color, `tees` deja de
+                      guardar el modo y `teesEsModo` pasa a false, así que un `teesEsModo &&` acá
+                      borraba el aviso y la vuelta atrás justo en el paso donde hacen falta —con el
+                      tee elegido y sin guardar todavía. El modo original se lee de `tournament.tees`,
+                      que no cambia con el estado. */}
+                  {eligiendoTeeGlobal && (
+                    <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>
+                      {/* Con alguna categoría CON tee, "todos juegan desde este" sería falso: la
+                          categoría le gana al tee del torneo en la cadena de `resolvePlayerTee`. */}
+                      {(teeDeCadaJugador.categoriasConTee ?? 0) > 0
+                        ? <>Los jugadores de las categorías sin tee juegan desde este; las que ya tienen tee mantienen el suyo.</>
+                        : <>Todos juegan desde este tee.</>}{' '}
+                      Reemplaza el modo <strong>{etiquetaDeTeesDelTorneo(tournament.tees)}</strong> al guardar.
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {teeOptions.map((t) => (
+                      <button key={t.value} type="button" onClick={() => setTees(t.value)} disabled={teesCargando || candadoDelTee != null}
+                        title={t.delCatalogo ? undefined : 'Esta cancha no publica este tee: los jugadores caerán al rating de la cancha.'}
+                        style={{ padding: '10px 14px', minHeight: '44px', border: tees === t.value ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: candadoDelTee != null ? 'not-allowed' : teesCargando ? 'wait' : 'pointer', opacity: teesCargando || candadoDelTee != null ? 0.5 : 1, fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* El torneo guarda un COLOR y ya está en juego: el selector se muestra (es lo que
+                      hay guardado) pero no se toca. Sin esto, cambiarlo movía los netos de los
+                      hoyos ya jugados —es el camino que de verdad existe en prod, porque 27 de los
+                      45 torneos guardan un color. */}
+                  {candadoDelTee && (
+                    <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '6px' }}>{avisoDelCandado('tee', candadoDelTee)}</p>
+                  )}
+                  {teesCargando && (
+                    <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>Cargando los tees de la cancha…</p>
+                  )}
+                  {teeNames.status === 'ready' && !teeOptions.some(t => t.delCatalogo) && (
+                    <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>
+                      Esta cancha todavía no tiene tees cargados: el hándicap sale del rating de la cancha.
+                    </p>
+                  )}
+                  {teeNames.status === 'error' && (
+                    <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '6px' }}>
+                      No pudimos cargar los tees de la cancha.{' '}
+                      <button type="button" onClick={teeNames.retry} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--brand-on-bg)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Reintentar</button>
+                    </p>
+                  )}
+                  {eligiendoTeeGlobal && (
+                    <button type="button" onClick={() => { setEligiendoTeeGlobal(false); setTees(tournament.tees) }}
+                      style={{ background: 'none', border: 'none', padding: '12px 0', minHeight: '44px', color: 'var(--text-2)', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline', display: 'block', textAlign: 'left' }}>
+                      Dejar el modo como está
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
 

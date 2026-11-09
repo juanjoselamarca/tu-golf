@@ -107,7 +107,11 @@ export interface RondaLibre {
   creador_id:     string
   course_id:      string | null
   course_name:    string
-  tees:           'blanco' | 'azul' | 'negras' | 'rojo'
+  // El nombre del tee como lo escribe `course_tees.nombre`: hay 10 colores en
+  // el catálogo (dorado, gris, amarillo…) y en canchas multi-recorrido llega
+  // con los loops ("azul_norte_sur"). La unión de 4 colores que había acá era
+  // una promesa falsa del tipo, no una restricción de la columna.
+  tees:           string
   holes:          number
   fecha:          string
   estado:         'en_curso' | 'finalizada'

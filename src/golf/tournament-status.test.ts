@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   tournamentStatusLabel, tournamentStatusTone, tournamentStatusBadge, torneoAceptaScores, jugadorFueraDelTorneo, visorPuedeAnotar, motivoSinScores,
+  PLAYER_STATUSES, JUGADOR_FUERA_STATUSES, JUGADOR_EN_TORNEO_STATUSES, torneoFueraDelBorrador, TORNEO_BORRADOR_STATUS,
 } from './tournament-status'
 
 describe('tournamentStatusLabel', () => {
@@ -134,5 +135,65 @@ describe('motivoSinScores', () => {
     for (const s of ['draft', 'open', 'in_progress', 'active', 'closed', 'published', null]) {
       expect(motivoSinScores(s) === null).toBe(torneoAceptaScores(s))
     }
+  })
+})
+
+describe('los estados del JUGADOR, repartidos desde una sola lista', () => {
+  // Que `PLAYER_STATUSES` espeje el CHECK `players_status_check` lo comprueba
+  // `src/__tests__/canary-player-statuses-check.test.ts` contra el SQL de las migraciones, no una
+  // copia del literal acá: dos literales iguales no prueban nada sobre la base.
+  it('no tiene repetidos', () => {
+    expect(new Set(PLAYER_STATUSES).size).toBe(PLAYER_STATUSES.length)
+  })
+
+  // El canario que de verdad discrimina: un estado nuevo en el CHECK —un 'rejected', un
+  // 'no_show'— no queda en ninguna de las dos listas y esto se pone ROJO. Mientras
+  // `JUGADOR_EN_TORNEO_STATUSES` se derivaba, el estado nuevo entraba solo al leaderboard, a los
+  // grupos y al scoring, y este test seguía verde.
+  it('los que siguen dentro son EXACTAMENTE el complemento de los que quedan fuera', () => {
+    const fuera = new Set<string>(JUGADOR_FUERA_STATUSES)
+    expect([...JUGADOR_EN_TORNEO_STATUSES]).toEqual(PLAYER_STATUSES.filter((e) => !fuera.has(e)))
+    // Ninguno en los dos lados, y entre los dos cubren todos: un estado no puede quedarse sin bando.
+    for (const e of PLAYER_STATUSES) {
+      expect(fuera.has(e) !== (JUGADOR_EN_TORNEO_STATUSES as readonly string[]).includes(e), e).toBe(true)
+    }
+    expect(JUGADOR_FUERA_STATUSES.length + JUGADOR_EN_TORNEO_STATUSES.length).toBe(PLAYER_STATUSES.length)
+  })
+
+  // Lo único que los dos de arriba NO pueden cazar: MOVER un estado de bando. Pasar 'waitlist' a
+  // `JUGADOR_FUERA_STATUSES` deja la partición perfecta —sigue siendo el complemento exacto— y saca
+  // del leaderboard, de los grupos y del scoring a todos los que esperan cupo. Este literal es esa
+  // decisión de producto escrita: hoy el que está en lista de espera SÍ cuenta como del torneo.
+  it('hoy son pending, approved y waitlist', () => {
+    expect([...JUGADOR_EN_TORNEO_STATUSES]).toEqual(['pending', 'approved', 'waitlist'])
+  })
+
+  it('jugadorFueraDelTorneo coincide con las listas', () => {
+    for (const e of PLAYER_STATUSES) {
+      expect(jugadorFueraDelTorneo(e), e).toBe((JUGADOR_FUERA_STATUSES as readonly string[]).includes(e))
+    }
+    // Un estado que no existe no deja a nadie fuera: no se descalifica a alguien por un dato raro.
+    expect(jugadorFueraDelTorneo('inventado')).toBe(false)
+    expect(jugadorFueraDelTorneo(null)).toBe(false)
+  })
+})
+
+describe('torneoFueraDelBorrador', () => {
+  // Decide el candado del formato (`tournament-config-locks.ts`): desde que el torneo sale del
+  // borrador ya hay inscritos, grupos y equipos armados con el formato elegido.
+  it('solo el borrador está dentro del borrador', () => {
+    expect(torneoFueraDelBorrador(TORNEO_BORRADOR_STATUS)).toBe(false)
+    for (const s of ['open', 'in_progress', 'active', 'closed', 'published']) {
+      expect(torneoFueraDelBorrador(s), s).toBe(true)
+    }
+  })
+
+  it('un status desconocido cuenta como fuera: no se afirma que sigue privado sin saberlo', () => {
+    expect(torneoFueraDelBorrador('archivado_2027')).toBe(true)
+  })
+
+  it('el borrador es el status real de la base', () => {
+    expect(TORNEO_BORRADOR_STATUS).toBe('draft')
+    expect(tournamentStatusLabel(TORNEO_BORRADOR_STATUS, 'organizer')).toBe('Borrador')
   })
 })

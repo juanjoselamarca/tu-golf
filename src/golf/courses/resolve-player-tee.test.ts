@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { playerGenderOf, resolvePlayerTee } from './resolve-player-tee'
+import { playerGenderOf, resolvePlayerTee, teeCalculaHandicap } from './resolve-player-tee'
 
 const courseTees = [
   { id: 't-azul',   nombre: 'Azul',   rating: 70.3, slope: 129, yardaje_total: 6573, genero: 'M' },
@@ -195,5 +195,44 @@ describe('playerGenderOf — el género congelado en players primero, categoría
   it('acepta las formas del catálogo ("f", "Femenino") vía el normalizador único', () => {
     expect(playerGenderOf({ genero: 'femenino' })).toBe('F')
     expect(playerGenderOf({ genero: 'm' })).toBe('M')
+  })
+})
+/**
+ * El SEGUNDO portón de los tres que aplica `ratingsDeLaRondaDelJugador`. Tiene test propio porque
+ * el tercero (`ratingEsCreible`, que también rechaza un rating nulo) lo TAPA dentro del motor: una
+ * versión aflojada de este predicado no cambiaba ningún resultado del motor, así que nada se ponía
+ * en rojo. Y es el predicado que importan los demás: si se afloja, el type guard deja de estrechar
+ * y el próximo caller se come un `null` como si fuera un rating.
+ */
+describe('teeCalculaHandicap', () => {
+  /** La fila como la publica `course_tees`: el nombre y el yardaje siempre están; el rating no. */
+  const fila = (ratings: { rating: number | null; slope: number | null }) => ({
+    id: 't-x',
+    nombre: 'Blanco',
+    yardaje_total: 5950,
+    ...ratings,
+  })
+
+  it('un tee con slope y rating sí calcula', () => {
+    expect(teeCalculaHandicap(fila({ slope: 120, rating: 67.9 }))).toBe(true)
+  })
+
+  it('sin tee, no', () => {
+    expect(teeCalculaHandicap(null)).toBe(false)
+    expect(teeCalculaHandicap(undefined)).toBe(false)
+  })
+
+  // El caso real: `course_tees` publica el nombre y el yardaje de un tee cuyo rating nunca se
+  // cargó. El tee RESUELVE —tiene nombre y lo elige la categoría— y el motor no puede usarlo.
+  it('a medio cargar (falta el slope o falta el rating), no', () => {
+    expect(teeCalculaHandicap(fila({ slope: 120, rating: null }))).toBe(false)
+    expect(teeCalculaHandicap(fila({ slope: null, rating: 67.9 }))).toBe(false)
+    expect(teeCalculaHandicap(fila({ slope: null, rating: null }))).toBe(false)
+  })
+
+  // Un 0 es una fila a medio cargar, no un rating: con slope 0 la fórmula WHS divide por cero.
+  it('un 0 no es un rating', () => {
+    expect(teeCalculaHandicap(fila({ slope: 0, rating: 67.9 }))).toBe(false)
+    expect(teeCalculaHandicap(fila({ slope: 120, rating: 0 }))).toBe(false)
   })
 })

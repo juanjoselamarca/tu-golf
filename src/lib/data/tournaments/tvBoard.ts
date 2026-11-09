@@ -11,7 +11,7 @@ import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { captureError } from '@/lib/error-tracking'
-import { JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
+import { JUGADOR_EN_TORNEO_STATUSES, JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
 import { fetchLegacyHcpContext, fetchRoundContexts, LEGACY_PLAYER_SELECT, type Client } from './leaderboard'
 
 export interface TVWithdrawnEntry {
@@ -92,7 +92,7 @@ export async function fetchTVBoardData(
       .from('players')
       .select(LEGACY_PLAYER_SELECT)
       .eq('tournament_id', t.id)
-      .in('status', ['pending', 'approved', 'waitlist']),
+      .in('status', [...JUGADOR_EN_TORNEO_STATUSES]),
     supabase
       .from('players')
       .select('status, status_reason, player_name, profiles(name)')

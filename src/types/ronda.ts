@@ -9,6 +9,8 @@
 //   - src/app/ronda-libre/[codigo]/score/page.tsx
 //   - src/app/ronda-libre/[codigo]/score-grupo/page.tsx
 
+import { claveDeYardaje } from '@/golf/courses/tee-yardage-column'
+
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 
 export type { ModoJuego, FormatoJuego }
@@ -54,13 +56,7 @@ export interface HoleData {
 export function getYardajeForTee(hole: HoleData | undefined | null, tee: string | null | undefined): number | null {
   if (!hole) return null
   if (!hole.yardajes) return null
-  const t = (tee || '').toLowerCase()
-  let key: keyof NonNullable<HoleData['yardajes']> | null = null
-  // Aliases defensivos para datos externos / snapshots viejos.
-  if (t === 'negras' || t === 'black' || t === 'campeonato' || t === 'negro') key = 'negras'
-  else if (t === 'blue' || t === 'azul') key = 'azul'
-  else if (t === 'white' || t === 'blanco') key = 'blanco'
-  else if (t === 'red' || t === 'rojo') key = 'rojo'
+  const key = claveDeYardaje(tee)
   return key ? (hole.yardajes[key] ?? null) : null
 }
 
