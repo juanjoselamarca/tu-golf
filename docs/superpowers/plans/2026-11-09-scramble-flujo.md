@@ -77,6 +77,8 @@ que nunca finalizó. Investigación: memoria `project_cristian_ross_investigacio
 - Cierre de la 6ª vuelta (Opus, CAMBIOS con un P2): "Copiar link" no cuelga del ranking (en una cancha escrita a
   mano no hay pares y `rankTeams` da vacío); el predicado se llama `rondaTieneDatos` y compone el `hasPlayData`
   canónico de `board-rules`.
+- Cierre de la 7ª vuelta (Opus, APROBADO con P3): la regla del link vive en `mostrarCopiarLink`, con test. Queda para
+  el PR de la decisión de producto: best ball con cancha a mano nombra a un jugador en la imagen.
 - Tests: 33 del hook, 39 de equipos/plantilla, validador, 6 del cuadro ganador, 15 de la imagen por equipos,
   6 del resultado por equipos, 4 del desempate con equipos sin hoyos, 16 de `rankTeams`; e2e
   `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble → Equipo 1 → Revisar habilitado →

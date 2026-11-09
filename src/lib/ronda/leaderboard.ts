@@ -103,8 +103,8 @@ export function buildLeaderboard({
  *
  * Salvedad: `rankTeams` devuelve `[]` sin pares de la cancha (cancha escrita a mano),
  * y en bola compartida el leaderboard no tiene hoyos: ahí da false aunque el equipo
- * haya anotado, porque no hay resultado que mostrar. Lo que no dependa del resultado
- * (copiar el link) no debe colgar solo de esto.
+ * haya anotado, porque no hay resultado que mostrar. Por eso "Copiar link" tiene su
+ * propia regla: `mostrarCopiarLink`.
  *
  * Reemplaza los 3 predicados inconsistentes que vivían inline en la pantalla
  * de resultados (uno miraba `leaderboard[0]`, otro `leaderboard.some(...)`).
@@ -115,4 +115,14 @@ export function rondaTieneDatos(
   equipos: ReadonlyArray<{ holesPlayed: number }>,
 ): boolean {
   return leaderboard.some(j => hasPlayData(j)) || equipos.some(e => hasPlayData(e))
+}
+
+/**
+ * ¿La pantalla de la ronda ofrece "Copiar link"? Con cancha, solo cuando hay datos.
+ * Sin pares (cancha escrita a mano) no se puede saber si hay resultado, porque el
+ * ranking de equipos sale vacío: ahí se ofrece siempre, para no perder el link de
+ * una ronda por equipos que sí anotó.
+ */
+export function mostrarCopiarLink(hayDatos: boolean, tieneCancha: boolean): boolean {
+  return hayDatos || !tieneCancha
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildLeaderboard, rondaTieneDatos } from './leaderboard'
+import { buildLeaderboard, mostrarCopiarLink, rondaTieneDatos } from './leaderboard'
 import type { Jugador } from '@/types/ronda'
 
 const parMap = { 1: 4, 2: 4 }
@@ -159,5 +159,17 @@ describe('buildLeaderboard — ronda de 9 desde el 10', () => {
       modoJuego: 'gross', formatoJuego: 'stroke_play',
     })
     expect(j.holesPlayed).toBe(0)
+  })
+})
+
+describe('mostrarCopiarLink', () => {
+  it('con cancha, solo si hay datos', () => {
+    expect(mostrarCopiarLink(true, true)).toBe(true)
+    expect(mostrarCopiarLink(false, true)).toBe(false)
+  })
+
+  it('sin pares (cancha escrita a mano) siempre: el ranking de equipos sale vacío aunque se haya anotado', () => {
+    expect(mostrarCopiarLink(false, false)).toBe(true)
+    expect(mostrarCopiarLink(true, false)).toBe(true)
   })
 })

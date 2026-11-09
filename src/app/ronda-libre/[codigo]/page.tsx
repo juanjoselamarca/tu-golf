@@ -15,7 +15,7 @@ import { buildTimelineEvents } from '@/lib/ronda/helpers'
 import { buildMyHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
 import { captureError } from '@/lib/error-tracking'
-import { buildLeaderboard, rondaTieneDatos } from '@/lib/ronda/leaderboard'
+import { buildLeaderboard, mostrarCopiarLink, rondaTieneDatos } from '@/lib/ronda/leaderboard'
 import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { rankTeams } from '@/lib/ronda/team-ranking'
@@ -374,9 +374,7 @@ function RondaLibrePageContent() {
           <ShareLeaderboardButton isFinished={isFinished} onShare={() => shareLeaderboard(isFinished)} />
         )}
 
-        {/* El link no depende del resultado: en una cancha escrita a mano no hay pares,
-            el ranking de equipos sale vacío y `hayDatos` es false aunque se haya anotado. */}
-        {(hayDatos || !hasCourse) && (
+        {mostrarCopiarLink(hayDatos, hasCourse) && (
           <button
             onClick={handleCopy}
             aria-label="Copiar enlace de la ronda"
