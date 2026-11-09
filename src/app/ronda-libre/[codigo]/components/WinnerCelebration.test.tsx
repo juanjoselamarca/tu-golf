@@ -12,7 +12,8 @@ const ronda = {
   fecha: '2026-11-07', estado: 'finalizada', modo_juego: 'gross', formato_juego: 'scramble', ronda_libre_jugadores: [],
 } as unknown as RondaLibre
 
-const equipo = (nombre: string, diff: number, jugadores: string[]): TeamShareRow => ({ nombre, jugadores, score: 72 + diff, diff })
+const equipo = (nombre: string, diff: number, jugadores: string[], holesPlayed = 18): TeamShareRow =>
+  ({ nombre, jugadores, score: holesPlayed === 0 ? 0 : 72 + diff, diff, holesPlayed })
 
 function pintar(teams: TeamShareRow[]) {
   render(<WinnerCelebration ronda={ronda} leaderboard={[]} fechaDisplay="7 nov" onShare={() => {}} teams={teams} />)
@@ -39,5 +40,19 @@ describe('WinnerCelebration — formatos por equipo', () => {
     pintar([equipo('Uno', 0, ['A', 'B']), equipo('Dos', 0, ['C', 'D'])])
     expect(screen.getByText('Empate')).toBeTruthy()
     expect(screen.getByText('Uno y Dos')).toBeTruthy()
+  })
+})
+
+describe('WinnerCelebration — equipo que no anotó nada', () => {
+  it('no empata con el líder aunque los dos digan E, y no es el ganador', () => {
+    pintar([equipo('Jugó', 0, ['A', 'B']), equipo('Vacío', 0, ['C', 'D'], 0)])
+    expect(screen.getByText('Equipo ganador')).toBeTruthy()
+    expect(screen.getByText('Jugó')).toBeTruthy()
+    expect(screen.queryByText('Empate')).toBeNull()
+  })
+
+  it('tres equipos empatados se nombran con comas y una "y"', () => {
+    pintar([equipo('Uno', 0, ['A']), equipo('Dos', 0, ['B']), equipo('Tres', 0, ['C'])])
+    expect(screen.getByText('Uno, Dos y Tres')).toBeTruthy()
   })
 })

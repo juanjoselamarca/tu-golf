@@ -15,6 +15,8 @@ export interface TeamCountbackAccessors<T> {
   holeScores: (t: T) => number[]
   /** Dirección del desempate: 'lower_wins' (gross/neto) o 'higher_wins' (stableford). */
   mode: CountbackMode
+  /** Hoyos con score del equipo. Con 0 el equipo no compite: va al final, fuera del countback. */
+  holesPlayed: (t: T) => number
 }
 
 /**
@@ -28,11 +30,19 @@ export function rankTeamsWithCountback<T>(
 ): T[] {
   if (teams.length <= 1) return [...teams]
 
+  // 0) Un equipo sin ningún hoyo anotado no compite: va al final, en su orden
+  //    de llegada y fuera del countback. Misma regla que el path individual
+  //    (`rank-entries.ts`, NO_DATA_SORT). Antes su score primario era 0 y
+  //    quedaba primero, "E", delante de equipos que sí jugaron (09-nov-2026).
+  const sinDatos = teams.filter((t) => acc.holesPlayed(t) === 0)
+  const conDatos = teams.filter((t) => acc.holesPlayed(t) > 0)
+  if (conDatos.length <= 1) return [...conDatos, ...sinDatos]
+
   // 1) Orden primario (asc con lower_wins, desc con higher_wins). Deja los
   //    empatados en posiciones consecutivas para que resolveLeaderboardTies
   //    los agrupe.
   const sign = acc.mode === 'higher_wins' ? -1 : 1
-  const ordered = [...teams].sort((a, b) => (acc.primaryScore(a) - acc.primaryScore(b)) * sign)
+  const ordered = [...conDatos].sort((a, b) => (acc.primaryScore(a) - acc.primaryScore(b)) * sign)
 
   // 2) Countback dentro de cada grupo de empatados. holeCount = nº de hoyos del
   //    card (9 o 18) → los segmentos de back-count se calculan solos.
@@ -45,5 +55,5 @@ export function rankTeamsWithCountback<T>(
   }))
   const resolved = resolveLeaderboardTies(cbPlayers, acc.mode, holeCount)
 
-  return resolved.map((r) => ordered[parseInt(r.id, 10)])
+  return [...resolved.map((r) => ordered[parseInt(r.id, 10)]), ...sinDatos]
 }

@@ -8,7 +8,9 @@ import {
   etiquetaDelResultadoDeEquipos,
   hayEmpateDeEquipos,
   juegaContraElPar,
+  nombrarEquipos,
 } from '@/golf/ronda-libre/resultado-de-equipos'
+import { formatOverUnder } from '@/constants/golf'
 import { captureError } from '@/lib/error-tracking'
 import { SITE_URL } from '@/lib/site-url'
 import { hoyosDesdeElUno, hoyosPorNumero, etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
@@ -33,7 +35,7 @@ export interface ShareCardRondaLibre {
   hoyos?: readonly number[]
   formato_juego?: FormatoJuego | string
   modo_juego?: ModoJuego | string | null
-  ranking?: Array<{ nombre: string; score: number; diff: number }>
+  ranking?: Array<{ nombre: string; score: number; diff: number; holesPlayed?: number }>
   /** Resultado Match Play (ej: "3&2", "All Square", "1 UP"). Si viene y formato es match_play,
    * se muestra prominente en lugar de score + vs-par. */
   matchResult?: string
@@ -96,6 +98,8 @@ export interface LeaderboardShareData {
     jugadores: string[]
     score: number
     diff: number
+    /** Hoyos con score. 0 = no anotó nada: va al final y no compite. */
+    holesPlayed: number
   }>
 }
 
@@ -395,9 +399,31 @@ export function encabezadoDeRondaLibre(data: Pick<ShareCardRondaLibre, 'esEmpate
  */
 export function nombreDeRondaLibre(data: Pick<ShareCardRondaLibre, 'ganador' | 'esEmpate' | 'jugadores' | 'teamNombre'>): string {
   if (data.teamNombre) {
-    return data.esEmpate && data.jugadores?.length ? data.jugadores.join(' y ') : data.teamNombre
+    return data.esEmpate && data.jugadores?.length ? nombrarEquipos(data.jugadores) : data.teamNombre
   }
   return data.esEmpate && data.jugadores ? data.jugadores.map(n => n.split(' ')[0]).join(' · ') : data.ganador
+}
+
+/**
+ * El tamaño de fuente (px) más grande, de `max` hacia abajo, con el que el texto
+ * cabe en `anchoMax`; `min` si ni así cabe. `medir` devuelve el ancho del texto a
+ * un tamaño dado (en el lienzo, `ctx.measureText` con esa fuente).
+ */
+export function tamanoQueCabe(medir: (px: number) => number, max: number, min: number, anchoMax: number): number {
+  for (let px = max; px > min; px -= 2) {
+    if (medir(px) <= anchoMax) return px
+  }
+  return min
+}
+
+/** Parte un texto en dos líneas por el espacio más cercano al medio (una sola línea si no hay espacios). */
+export function partirEnDosLineas(texto: string): [string, string] {
+  const medio = texto.length / 2
+  let corte = -1
+  for (let i = 0; i < texto.length; i++) {
+    if (texto[i] === ' ' && (corte < 0 || Math.abs(i - medio) < Math.abs(corte - medio))) corte = i
+  }
+  return corte < 0 ? [texto, ''] : [texto.slice(0, corte), texto.slice(corte + 1)]
 }
 
 function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLibre, W: number, H: number) {
@@ -412,13 +438,31 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
   ctx.fillText(encabezado.titulo, W / 2, 470)
   ;(ctx as any).letterSpacing = '0px'
 
+  // El nombre grande se achica hasta caber; los nombres de equipo se escriben
+  // libres ("Los Cóndores de Chicureo y Las Águilas del Sur" no cabe a 68px) y
+  // antes se salía del lienzo por los dos lados.
   const name = nombreDeRondaLibre(data)
-  ctx.font = 'bold 68px Georgia, serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(name, W / 2, 560)
+  const anchoDelNombre = W - 120
+  const fuenteDelNombre = (px: number) => `bold ${px}px Georgia, serif`
+  const medir = (texto: string) => (px: number) => { ctx.font = fuenteDelNombre(px); return ctx.measureText(texto).width }
+  ctx.fillStyle = '#ffffff'
+  let yIntegrantes = 600
+  const px = tamanoQueCabe(medir(name), 68, 40, anchoDelNombre)
+  if (medir(name)(px) <= anchoDelNombre) {
+    ctx.font = fuenteDelNombre(px); ctx.fillText(name, W / 2, 560)
+  } else {
+    // Ni a 40px cabe: dos líneas, partidas en el espacio más cercano al medio.
+    const [linea1, linea2] = partirEnDosLineas(name)
+    const px2 = Math.min(tamanoQueCabe(medir(linea1), 48, 32, anchoDelNombre), tamanoQueCabe(medir(linea2), 48, 32, anchoDelNombre))
+    ctx.font = fuenteDelNombre(px2)
+    ctx.fillText(linea1, W / 2, 530); ctx.fillText(linea2, W / 2, 586)
+    yIntegrantes = 628
+  }
 
   // Team members subtitle (con empate el nombre ya ocupa los dos equipos)
   if (isTeam && !data.esEmpate && data.teamJugadores && data.teamJugadores.length > 0) {
     ctx.font = '28px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.55)'
-    ctx.fillText(data.teamJugadores.join(' \u00B7 '), W / 2, 600)
+    ctx.fillText(data.teamJugadores.join(' \u00B7 '), W / 2, yIntegrantes)
   }
 
   const isStableford = data.formato_juego === 'stableford'
@@ -435,13 +479,20 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
     ctx.restore()
     ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('Match Play', W / 2, 848)
   } else {
+    // El empate se decide por vs par; los golpes brutos de los empatados pueden
+    // diferir (neto, o distinta cantidad de hoyos anotados). Con empate el número
+    // grande es el vs par, como en el cuadro ganador de la pantalla.
+    const empateVsPar = data.esEmpate && !isStableford
     ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 35
-    ctx.font = 'bold 210px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(String(data.scoreGross), W / 2, 790)
+    ctx.font = 'bold 210px Arial, sans-serif'; ctx.fillStyle = clr
+    ctx.fillText(empateVsPar ? formatOverUnder(data.scoreDiff) : String(data.scoreGross), W / 2, 790)
     ctx.restore()
     if (isStableford) {
       ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('puntos', W / 2, 848)
     } else {
-      const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
+      const diffTxt = empateVsPar
+        ? (data.scoreDiff === 0 ? 'en el par' : data.scoreDiff > 0 ? 'sobre el par' : 'bajo el par')
+        : (data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`)
       ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
     }
   }
@@ -478,7 +529,11 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
       ctx.textAlign = 'left'; ctx.font = `${i === 0 ? 'bold ' : ''}28px Arial, sans-serif`
       ctx.fillStyle = i === 0 ? '#ffffff' : 'rgba(255,255,255,0.45)'; ctx.fillText(`${i + 1}. ${j.nombre}`, 110, ly + 36)
       ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'
-      if (isStableford) {
+      if (j.holesPlayed === 0) {
+        // Equipo que no anotó ningún hoyo: va al final y no tiene score que mostrar.
+        ctx.fillStyle = 'rgba(255,255,255,0.3)'
+        ctx.fillText('sin score', W - 110, ly + 36)
+      } else if (isStableford) {
         ctx.fillStyle = '#c9a84c'
         ctx.fillText(`${j.score} pts`, W - 110, ly + 36)
       } else {
@@ -612,7 +667,7 @@ export function tarjetaDeEquipos(data: LeaderboardShareData): ShareCardRondaLibr
     teamJugadores: winTeam.jugadores,
     teamFormato: data.formato_juego as 'best_ball' | 'scramble' | 'foursome',
     contraElPar: juegaContraElPar(data.teams.length),
-    ranking: data.teams.map(t => ({ nombre: t.nombre, score: t.score, diff: t.diff })),
+    ranking: data.teams.map(t => ({ nombre: t.nombre, score: t.score, diff: t.diff, holesPlayed: t.holesPlayed })),
   }
 }
 

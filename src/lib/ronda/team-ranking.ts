@@ -1,4 +1,10 @@
-import { calcularBestBall, calcularScramble, calcularFoursome, isTeamFormat, hoyosDelMotor } from '@/golf/formats'
+import {
+  calcularBestBall, ordenarEquiposBestBall,
+  calcularScramble, ordenarEquiposScramble,
+  calcularFoursome, ordenarEquiposFoursome,
+  isTeamFormat, hoyosDelMotor,
+} from '@/golf/formats'
+import type { ScrambleTeamResult } from '@/golf/formats'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { FormatoJuego, ModoJuego, Jugador } from '@/types/ronda'
 
@@ -48,7 +54,13 @@ export interface TeamShareRow {
   jugadores: string[]
   score: number
   diff: number
+  /** Hoyos con score del equipo. 0 = no anotó nada: va al final y no compite. */
+  holesPlayed: number
 }
+
+/** Lo que los tres motores de equipo tienen en común y este ranking necesita. */
+type ResultadoDeEquipo = Pick<ScrambleTeamResult,
+  'teamId' | 'teamNombre' | 'totalGross' | 'totalNeto' | 'totalStableford' | 'overUnderGross' | 'overUnderNeto' | 'holesPlayed'>
 
 export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
   const { equipos, jugadores, parMap, siMap, courseHcpMap, holes, hoyoInicio, formato, modo } = input
@@ -59,30 +71,37 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
   const holeData = hoyosDelMotor(hoyosDeLaRonda(hoyoInicio, holes), h => parMap[h], h => siMap[h])
   const parTotal = holeData.reduce((s, h) => s + h.par, 0)
 
-  const teamResults = equipos.map(eq => {
-    if (formato === 'best_ball') {
-      const players = eq.jugadorIds.map(jid => {
-        const j = jugadores.find(jj => jj.id === jid)
-        return j ? { id: j.id, nombre: j.nombre, handicapIndex: courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0), scores: j.scores || {} } : null
-      }).filter(Boolean) as Array<{ id: string; nombre: string; handicapIndex: number; scores: Record<string, number> }>
-      return calcularBestBall({ id: eq.id, nombre: eq.nombre, jugadores: players }, holeData, parTotal)
-    } else if (formato === 'scramble') {
+  // El MISMO orden que la tabla de equipos (`TeamLeaderboards`, `team-standings`):
+  // vs par según el modo, countback USGA en los empates y los equipos sin hoyos al
+  // final. Antes ordenaba por golpes brutos en gross: con distinta cantidad de hoyos
+  // anotados, el cuadro ganador y la tabla de abajo nombraban a distinto primero
+  // (revisión del PR #757, 09-nov-2026).
+  const sorted: ResultadoDeEquipo[] = formato === 'best_ball'
+    ? ordenarEquiposBestBall(equipos.map(eq => {
+        const players = eq.jugadorIds.map(jid => {
+          const j = jugadores.find(jj => jj.id === jid)
+          return j ? { id: j.id, nombre: j.nombre, handicapIndex: courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0), scores: j.scores || {} } : null
+        }).filter(Boolean) as Array<{ id: string; nombre: string; handicapIndex: number; scores: Record<string, number> }>
+        return calcularBestBall({ id: eq.id, nombre: eq.nombre, jugadores: players }, holeData, parTotal)
+      }), formato, modo)
+    : formato === 'scramble'
       // Handicap de equipo ALMACENADO: el mismo que juega el scorer y el board (#602).
-      return calcularScramble({ id: eq.id, nombre: eq.nombre, scores: eq.scores, teamHandicap: eq.handicap_equipo, teamHandicapJuego: eq.handicap_equipo_juego }, holeData, parTotal)
-    } else {
-      const members = eq.jugadorIds.map(jid => {
-        const j = jugadores.find(jj => jj.id === jid)
-        return { nombre: j?.nombre ?? '' }
-      })
-      return calcularFoursome({
-        id: eq.id, nombre: eq.nombre,
-        nombreA: members[0]?.nombre ?? '', nombreB: members[1]?.nombre ?? '',
-        scores: eq.scores,
-        teamHandicap: eq.handicap_equipo,
-        teamHandicapJuego: eq.handicap_equipo_juego,
-      }, holeData, parTotal)
-    }
-  })
+      ? ordenarEquiposScramble(equipos.map(eq =>
+          calcularScramble({ id: eq.id, nombre: eq.nombre, scores: eq.scores, teamHandicap: eq.handicap_equipo, teamHandicapJuego: eq.handicap_equipo_juego }, holeData, parTotal),
+        ), formato, modo)
+      : ordenarEquiposFoursome(equipos.map(eq => {
+          const members = eq.jugadorIds.map(jid => {
+            const j = jugadores.find(jj => jj.id === jid)
+            return { nombre: j?.nombre ?? '' }
+          })
+          return calcularFoursome({
+            id: eq.id, nombre: eq.nombre,
+            nombreA: members[0]?.nombre ?? '', nombreB: members[1]?.nombre ?? '',
+            scores: eq.scores,
+            teamHandicap: eq.handicap_equipo,
+            teamHandicapJuego: eq.handicap_equipo_juego,
+          }, holeData, parTotal)
+        }), formato, modo)
 
   // Bug fix Apr-18: isStab SOLO por formato (nunca por modo_juego).
   // stableford no es formato de equipo según la guarda inicial (línea ~47),
@@ -91,18 +110,12 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
   const isStab: boolean = formato === 'stableford'
   const isNeto = modo === 'neto'
 
-  const sorted = [...teamResults].sort((a, b) => isStab
-    ? (b.totalStableford ?? 0) - (a.totalStableford ?? 0)
-    : isNeto
-      ? (a.overUnderNeto ?? 999) - (b.overUnderNeto ?? 999)
-      : (a.totalGross ?? 999) - (b.totalGross ?? 999)
-  )
-
   return sorted.map(r => ({
     nombre: r.teamNombre,
     jugadores: equipos.find(e => e.id === r.teamId)?.jugadorIds
       .map(jid => jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean) || [],
-    score: isStab ? (r.totalStableford ?? 0) : isNeto ? (r.totalNeto ?? r.totalGross) : r.totalGross,
-    diff: isStab ? 0 : isNeto ? (r.overUnderNeto ?? 0) : (r.overUnderGross ?? 0),
+    score: isStab ? r.totalStableford : isNeto ? r.totalNeto : r.totalGross,
+    diff: isStab ? 0 : isNeto ? r.overUnderNeto : r.overUnderGross,
+    holesPlayed: r.holesPlayed,
   }))
 }

@@ -8,6 +8,7 @@ import {
   etiquetaDelResultadoDeEquipos,
   hayEmpateDeEquipos,
   juegaContraElPar,
+  nombrarEquipos,
 } from '@/golf/ronda-libre/resultado-de-equipos'
 import { Button } from '@/components/ui/Button'
 import { formatOverUnder } from '@/constants/golf'
@@ -120,7 +121,7 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
         ronda={ronda}
         etiqueta={etiquetaDelResultadoDeEquipos(teams.length, isTie)}
         contraElPar={juegaContraElPar(teams.length)}
-        nombre={winners.map(t => t.nombre).join(' y ')}
+        nombre={nombrarEquipos(winners.map(t => t.nombre))}
         integrantes={!isTie && teams[0].jugadores.length > 0 ? teams[0].jugadores.join(' · ') : undefined}
         scoreNode={formatOverUnder(winnerDiff)}
         scoreColor={scoreFgVar(winnerDiff)}

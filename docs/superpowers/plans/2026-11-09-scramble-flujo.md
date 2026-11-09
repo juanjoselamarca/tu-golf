@@ -55,9 +55,20 @@ que nunca finalizó. Investigación: memoria `project_cristian_ross_investigacio
   Equipo 2" (`nombreDeRondaLibre`) y no se dibujan integrantes; antes salía el primer equipo como ganador.
   `moverAlEquipo` calcula y aplica el movimiento dentro del mismo `setEquipos(prev => …)`, y
   `moverEntreEquipos` saca antes de agregar (idempotente). "Seguila en vivo" → "Síguela" en `share.ts`.
-- Tests: 33 del hook, 39 de equipos/plantilla, validador, 3 del cuadro ganador, 7 de la imagen por equipos,
-  4 del resultado por equipos; e2e `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble →
-  Equipo 1 → Revisar habilitado → volver a Stroke Play).
+- Orden de equipos, UNA fuente (revisión Opus, 3ª vuelta): `rankTeams` (cuadro ganador e imagen) ordenaba
+  por golpes brutos en gross y la tabla de abajo por vs par con countback (`ordenarEquipos*`): con un hoyo
+  sin anotar nombraban a distinto primero. Ahora `rankTeams` llama a `ordenarEquipos*`. Además
+  `rankTeamsWithCountback` (`team-tiebreak.ts`) manda al final, fuera del countback, a los equipos sin
+  ningún hoyo anotado (misma regla que `rank-entries.ts`): con score 0 quedaban primeros con "E". Vale
+  también para los boards de torneo. `TeamShareRow` lleva `holesPlayed`; `equiposEnElPrimerLugar` ignora a
+  los que no anotaron; `nombrarEquipos` escribe "Uno, Dos y Tres".
+- Imagen para compartir: el nombre grande se achica hasta caber (`tamanoQueCabe`, dos líneas si ni a 40 px
+  cabe); con empate el número grande es el vs par (los brutos de los empatados pueden diferir); un equipo
+  sin score sale "sin score" en el ranking de abajo.
+- Tests: 33 del hook, 39 de equipos/plantilla, validador, 5 del cuadro ganador, 12 de la imagen por equipos,
+  6 del resultado por equipos, 4 del desempate con equipos sin hoyos, 16 de `rankTeams`; e2e
+  `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble → Equipo 1 → Revisar habilitado →
+  volver a Stroke Play).
 
 ## PR B — scorer de grupo
 

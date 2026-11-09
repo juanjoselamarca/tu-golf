@@ -20,17 +20,38 @@ export function juegaContraElPar(cantidadDeEquipos: number): boolean {
   return cantidadDeEquipos < EQUIPOS_PARA_COMPETIR
 }
 
-/**
- * Empate entre equipos, sobre el ranking YA ordenado: los dos primeros con el
- * mismo `diff` (vs par, el criterio con que se ordena). La imagen para
- * compartir lo decidía por `score` y la pantalla por `diff`: en neto, con
- * distinta cantidad de hoyos anotados, podían decir cosas distintas.
- */
-export function hayEmpateDeEquipos(ranking: readonly { diff: number }[]): boolean {
-  return ranking.length > 1 && ranking[1].diff === ranking[0].diff
+/** Lo que el resultado necesita de cada fila del ranking de equipos. */
+export interface FilaDelRankingDeEquipos {
+  /** Vs par (gross o neto según el modo): el criterio con que `ordenarEquipos*` ordena. */
+  diff: number
+  /** Hoyos con score. Con 0 el equipo no compite y el ranking lo deja al final. */
+  holesPlayed: number
 }
 
-/** Los equipos que comparten el primer lugar (uno solo si no hay empate). */
-export function equiposEnElPrimerLugar<T extends { diff: number }>(ranking: readonly T[]): T[] {
-  return ranking.length === 0 ? [] : ranking.filter(t => t.diff === ranking[0].diff)
+/**
+ * Los equipos que comparten el primer lugar, sobre el ranking YA ordenado por
+ * `ordenarEquipos*` (vs par, countback en los empates, sin hoyos al final):
+ * el líder y todos los que tengan su mismo `diff` y hayan anotado algo. Uno
+ * solo si no hay empate; el primero si nadie anotó.
+ *
+ * La imagen para compartir decidía el empate por `score` (golpes brutos) y la
+ * pantalla por `diff`: con distinta cantidad de hoyos anotados, o en neto,
+ * podían decir cosas distintas. Acá se decide una vez para los dos.
+ */
+export function equiposEnElPrimerLugar<T extends FilaDelRankingDeEquipos>(ranking: readonly T[]): T[] {
+  const lider = ranking[0]
+  if (!lider) return []
+  if (lider.holesPlayed === 0) return [lider]
+  return ranking.filter(t => t.holesPlayed > 0 && t.diff === lider.diff)
+}
+
+/** Dos o más equipos comparten el primer lugar. */
+export function hayEmpateDeEquipos(ranking: readonly FilaDelRankingDeEquipos[]): boolean {
+  return equiposEnElPrimerLugar(ranking).length > 1
+}
+
+/** "Equipo 1" · "Equipo 1 y Equipo 2" · "Uno, Dos y Tres": el nombre del cuadro ganador y de la imagen. */
+export function nombrarEquipos(nombres: readonly string[]): string {
+  if (nombres.length <= 1) return nombres[0] ?? ''
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
 }

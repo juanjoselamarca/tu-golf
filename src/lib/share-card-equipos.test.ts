@@ -3,7 +3,10 @@
 // se comparte por WhatsApp seguía titulando "EQUIPO GANADOR" con trofeo. Ahora las
 // dos salen de `etiquetaDelResultadoDeEquipos`.
 import { describe, it, expect } from 'vitest'
-import { encabezadoDeRondaLibre, nombreDeRondaLibre, tarjetaDeEquipos, type LeaderboardShareData } from './share-card'
+import {
+  encabezadoDeRondaLibre, nombreDeRondaLibre, partirEnDosLineas, tamanoQueCabe, tarjetaDeEquipos,
+  type LeaderboardShareData,
+} from './share-card'
 
 const base = (teams: LeaderboardShareData['teams']): LeaderboardShareData => ({
   players: [],
@@ -19,7 +22,7 @@ const base = (teams: LeaderboardShareData['teams']): LeaderboardShareData => ({
 
 describe('tarjetaDeEquipos', () => {
   it('un solo equipo: la tarjeta sale contra el par, sin "ganador"', () => {
-    const tarjeta = tarjetaDeEquipos(base([{ nombre: 'Equipo 1', jugadores: ['Cristián', 'Pedro'], score: 76, diff: 4 }]))
+    const tarjeta = tarjetaDeEquipos(base([{ nombre: 'Equipo 1', jugadores: ['Cristián', 'Pedro'], score: 76, diff: 4, holesPlayed: 18 }]))
     expect(tarjeta?.contraElPar).toBe(true)
     expect(tarjeta?.esEmpate).toBe(false)
     expect(tarjeta?.teamNombre).toBe('Equipo 1')
@@ -28,8 +31,8 @@ describe('tarjetaDeEquipos', () => {
 
   it('dos equipos: hay equipo ganador con trofeo', () => {
     const tarjeta = tarjetaDeEquipos(base([
-      { nombre: 'Los Cóndores', jugadores: ['A', 'B'], score: 70, diff: -2 },
-      { nombre: 'Equipo 2', jugadores: ['C', 'D'], score: 74, diff: 2 },
+      { nombre: 'Los Cóndores', jugadores: ['A', 'B'], score: 70, diff: -2, holesPlayed: 18 },
+      { nombre: 'Equipo 2', jugadores: ['C', 'D'], score: 74, diff: 2, holesPlayed: 18 },
     ]))
     expect(tarjeta?.contraElPar).toBe(false)
     expect(encabezadoDeRondaLibre(tarjeta!)).toEqual({ emoji: '🏆', titulo: 'EQUIPO GANADOR' })
@@ -37,8 +40,8 @@ describe('tarjetaDeEquipos', () => {
 
   it('dos equipos empatados: el título dice empate (antes decía "equipo ganador" igual)', () => {
     const tarjeta = tarjetaDeEquipos(base([
-      { nombre: 'Uno', jugadores: ['A', 'B'], score: 72, diff: 0 },
-      { nombre: 'Dos', jugadores: ['C', 'D'], score: 72, diff: 0 },
+      { nombre: 'Uno', jugadores: ['A', 'B'], score: 72, diff: 0, holesPlayed: 18 },
+      { nombre: 'Dos', jugadores: ['C', 'D'], score: 72, diff: 0, holesPlayed: 18 },
     ]))
     expect(tarjeta?.esEmpate).toBe(true)
     expect(tarjeta?.jugadores).toEqual(['Uno', 'Dos'])
@@ -49,11 +52,30 @@ describe('tarjetaDeEquipos', () => {
 
   it('el empate se decide por diff (vs par), igual que en la pantalla, no por golpes', () => {
     const tarjeta = tarjetaDeEquipos(base([
-      { nombre: 'Uno', jugadores: ['A', 'B'], score: 70, diff: -2 },
-      { nombre: 'Dos', jugadores: ['C', 'D'], score: 68, diff: -2 },
+      { nombre: 'Uno', jugadores: ['A', 'B'], score: 70, diff: -2, holesPlayed: 18 },
+      { nombre: 'Dos', jugadores: ['C', 'D'], score: 68, diff: -2, holesPlayed: 17 },
     ]))
     expect(tarjeta?.esEmpate).toBe(true)
     expect(nombreDeRondaLibre(tarjeta!)).toBe('Uno y Dos')
+  })
+
+  it('un equipo que no anotó nada no empata con el líder aunque los dos digan E', () => {
+    const tarjeta = tarjetaDeEquipos(base([
+      { nombre: 'Jugó', jugadores: ['A', 'B'], score: 72, diff: 0, holesPlayed: 18 },
+      { nombre: 'Vacío', jugadores: ['C', 'D'], score: 0, diff: 0, holesPlayed: 0 },
+    ]))
+    expect(tarjeta?.esEmpate).toBe(false)
+    expect(tarjeta?.teamNombre).toBe('Jugó')
+    expect(tarjeta?.ranking?.[1]).toMatchObject({ nombre: 'Vacío', holesPlayed: 0 })
+  })
+
+  it('tres equipos empatados se nombran "Uno, Dos y Tres"', () => {
+    const tarjeta = tarjetaDeEquipos(base([
+      { nombre: 'Uno', jugadores: ['A'], score: 72, diff: 0, holesPlayed: 18 },
+      { nombre: 'Dos', jugadores: ['B'], score: 72, diff: 0, holesPlayed: 18 },
+      { nombre: 'Tres', jugadores: ['C'], score: 72, diff: 0, holesPlayed: 18 },
+    ]))
+    expect(nombreDeRondaLibre(tarjeta!)).toBe('Uno, Dos y Tres')
   })
 
   it('sin empate el nombre es el del equipo; en individual, los nombres de pila empatados', () => {
@@ -64,7 +86,7 @@ describe('tarjetaDeEquipos', () => {
 
   it('sin equipos o fuera de un formato por equipos no hay tarjeta', () => {
     expect(tarjetaDeEquipos(base([]))).toBeNull()
-    expect(tarjetaDeEquipos({ ...base([{ nombre: 'X', jugadores: [], score: 72, diff: 0 }]), formato_juego: 'stroke_play' })).toBeNull()
+    expect(tarjetaDeEquipos({ ...base([{ nombre: 'X', jugadores: [], score: 72, diff: 0, holesPlayed: 18 }]), formato_juego: 'stroke_play' })).toBeNull()
   })
 })
 
@@ -72,5 +94,26 @@ describe('encabezadoDeRondaLibre — individual', () => {
   it('ganador y empate como siempre', () => {
     expect(encabezadoDeRondaLibre({ esEmpate: false })).toEqual({ emoji: '🏆', titulo: 'GANADOR DE LA RONDA' })
     expect(encabezadoDeRondaLibre({ esEmpate: true })).toEqual({ emoji: '🤝', titulo: 'EMPATE ÉPICO' })
+  })
+})
+
+describe('el nombre grande cabe en el lienzo', () => {
+  // Ancho simulado: 15 px por carácter a 68px, proporcional al tamaño.
+  const medir = (texto: string) => (px: number) => texto.length * 15 * (px / 68)
+
+  it('un nombre corto se queda en 68px', () => {
+    expect(tamanoQueCabe(medir('Equipo 1'), 68, 40, 960)).toBe(68)
+  })
+
+  it('un nombre largo baja hasta caber, y no baja del mínimo', () => {
+    const largo = 'Los Cóndores de Chicureo y Las Águilas del Sur' // 46 caracteres: 690 px a 68px → cabe a 68 en 960
+    expect(tamanoQueCabe(medir(largo), 68, 40, 960)).toBe(68)
+    expect(tamanoQueCabe(medir(largo), 68, 40, 600)).toBe(58) // 46·15·58/68 = 588 ≤ 600
+    expect(tamanoQueCabe(medir(largo), 68, 40, 100)).toBe(40)
+  })
+
+  it('se parte en dos líneas por el espacio más cercano al medio', () => {
+    expect(partirEnDosLineas('Los Cóndores de Chicureo y Las Águilas del Sur')).toEqual(['Los Cóndores de Chicureo', 'y Las Águilas del Sur'])
+    expect(partirEnDosLineas('Equipo1yEquipo2')).toEqual(['Equipo1yEquipo2', ''])
   })
 })
