@@ -46,9 +46,10 @@ describe('hayEmpateDeEquipos / equiposEnElPrimerLugar', () => {
     expect(hayEmpateDeEquipos(alFinal)).toBe(false)
     expect(equiposEnElPrimerLugar(alFinal).map(t => t.nombre)).toEqual(['Jugó'])
 
+    // Si nadie anotó no hay primer lugar: ni cuadro ganador ni imagen.
     const nadieAnoto = [{ nombre: 'Vacío 1', diff: 0, holesPlayed: 0 }, { nombre: 'Vacío 2', diff: 0, holesPlayed: 0 }]
     expect(hayEmpateDeEquipos(nadieAnoto)).toBe(false)
-    expect(equiposEnElPrimerLugar(nadieAnoto).map(t => t.nombre)).toEqual(['Vacío 1'])
+    expect(equiposEnElPrimerLugar(nadieAnoto)).toEqual([])
   })
 })
 

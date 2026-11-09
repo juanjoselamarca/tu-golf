@@ -51,6 +51,14 @@ describe('WinnerCelebration — equipo que no anotó nada', () => {
     expect(screen.queryByText('Empate')).toBeNull()
   })
 
+  it('si ningún equipo anotó un hoyo no hay cuadro: ni "ganador" ni "contra el par"', () => {
+    const { container } = render(
+      <WinnerCelebration ronda={ronda} leaderboard={[]} fechaDisplay="7 nov" onShare={() => {}}
+        teams={[equipo('Uno', 0, ['A', 'B'], 0), equipo('Dos', 0, ['C', 'D'], 0)]} />,
+    )
+    expect(container.firstChild).toBeNull()
+  })
+
   it('tres equipos empatados se nombran con comas y una "y"', () => {
     pintar([equipo('Uno', 0, ['A']), equipo('Dos', 0, ['B']), equipo('Tres', 0, ['C'])])
     expect(screen.getByText('Uno, Dos y Tres')).toBeTruthy()

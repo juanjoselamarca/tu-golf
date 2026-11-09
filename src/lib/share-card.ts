@@ -456,13 +456,19 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
     const px2 = Math.min(tamanoQueCabe(medir(linea1), 48, 32, anchoDelNombre), tamanoQueCabe(medir(linea2), 48, 32, anchoDelNombre))
     ctx.font = fuenteDelNombre(px2)
     ctx.fillText(linea1, W / 2, 530); ctx.fillText(linea2, W / 2, 586)
-    yIntegrantes = 628
+    // El número grande (210px, brillo 35) arranca cerca de y=640: los integrantes
+    // van a 620 para no quedar bajo el brillo.
+    yIntegrantes = 620
   }
 
-  // Team members subtitle (con empate el nombre ya ocupa los dos equipos)
+  // Team members subtitle (con empate el nombre ya ocupa los dos equipos). Se
+  // achica hasta caber: cuatro nombres completos no entran a 28px.
   if (isTeam && !data.esEmpate && data.teamJugadores && data.teamJugadores.length > 0) {
-    ctx.font = '28px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.55)'
-    ctx.fillText(data.teamJugadores.join(' \u00B7 '), W / 2, yIntegrantes)
+    const integrantes = data.teamJugadores.join(' \u00B7 ')
+    const fuenteDeIntegrantes = (px: number) => `${px}px Arial, sans-serif`
+    const medirIntegrantes = (px: number) => { ctx.font = fuenteDeIntegrantes(px); return ctx.measureText(integrantes).width }
+    ctx.font = fuenteDeIntegrantes(tamanoQueCabe(medirIntegrantes, 28, 20, anchoDelNombre)); ctx.fillStyle = 'rgba(255,255,255,0.55)'
+    ctx.fillText(integrantes, W / 2, yIntegrantes)
   }
 
   const isStableford = data.formato_juego === 'stableford'
@@ -609,21 +615,32 @@ export async function generarShareCard(data: ShareCardData): Promise<Blob> {
 
 // ── Compartir con fallbacks ──────────────────────────────────────
 
+/**
+ * El score del texto que acompaña la imagen. Con empate (fuera de stableford) es el
+ * vs par: los golpes brutos de los empatados pueden diferir y la imagen ya muestra
+ * el vs par; antes decía el bruto del primer equipo.
+ */
+export function scoreDelTextoParaCompartir(data: ShareCardData): string {
+  if (data.tipo !== 'ronda_libre') return String(data.scoreGross)
+  if (data.formato_juego === 'stableford') return `${data.scoreGross} pts`
+  if (data.esEmpate) {
+    return data.scoreDiff === 0 ? 'en el par' : `${formatOverUnder(data.scoreDiff)} ${data.scoreDiff > 0 ? 'sobre' : 'bajo'} el par`
+  }
+  return `${data.scoreGross} (${formatOverUnder(data.scoreDiff)})`
+}
+
 export async function compartirResultado(data: ShareCardData): Promise<{ success: boolean; method: 'share' | 'download' }> {
   const blob = await generarShareCard(data)
   const nombre = data.tipo === 'ronda_libre' ? (data.esEmpate ? 'empate' : data.ganador.split(' ')[0].toLowerCase()) : (data as ShareCardTorneo).jugadorNombre.split(' ')[0].toLowerCase()
   const fileName = `golfers-${nombre}-${Date.now()}.png`
   const file = new File([blob], fileName, { type: 'image/png' })
 
-  const isStab = data.tipo === 'ronda_libre' && data.formato_juego === 'stableford'
-  const scoreText = isStab
-    ? `${data.scoreGross} pts`
-    : `${data.scoreGross} (${(data as ShareCardRondaLibre).scoreDiff >= 0 ? '+' : ''}${(data as ShareCardRondaLibre).scoreDiff})`
+  const scoreText = scoreDelTextoParaCompartir(data)
   const resultadoDeRondaLibre = (r: ShareCardRondaLibre) =>
     r.contraElPar ? `${r.ganador} jugó contra el par` : r.esEmpate ? 'Empate épico' : `${r.ganador} gano`
   const texto = data.tipo === 'ronda_libre'
     ? `${resultadoDeRondaLibre(data)} en ${data.courseName}! Score: ${scoreText}. Golfers+ golfersplus.vercel.app`
-    : `${(data as ShareCardTorneo).jugadorNombre} quedo #${(data as ShareCardTorneo).posicion} en ${(data as ShareCardTorneo).torneoNombre}. Score: ${data.scoreGross}. Golfers+ golfersplus.vercel.app`
+    : `${(data as ShareCardTorneo).jugadorNombre} quedo #${(data as ShareCardTorneo).posicion} en ${(data as ShareCardTorneo).torneoNombre}. Score: ${scoreText}. Golfers+ golfersplus.vercel.app`
 
   if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: 'Resultado — Golfers+', text: texto }); return { success: true, method: 'share' } } catch (e) { if ((e as Error).name === 'AbortError') return { success: false, method: 'share' } }
@@ -646,14 +663,17 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
  */
 export function tarjetaDeEquipos(data: LeaderboardShareData): ShareCardRondaLibre | null {
   if (!isTeamFormat(data.formato_juego) || !data.teams || data.teams.length === 0) return null
+  // El mismo criterio que el cuadro ganador de la pantalla: por `diff`; y si
+  // ningún equipo anotó un hoyo, no hay resultado que compartir.
+  const primeros = equiposEnElPrimerLugar(data.teams)
+  if (primeros.length === 0) return null
   const winTeam = data.teams[0]
-  // El mismo criterio que el cuadro ganador de la pantalla: por `diff`.
-  const isTie = hayEmpateDeEquipos(data.teams)
+  const isTie = primeros.length > 1
   return {
     tipo: 'ronda_libre',
     ganador: winTeam.nombre,
     esEmpate: isTie,
-    jugadores: isTie ? equiposEnElPrimerLugar(data.teams).map(t => t.nombre) : undefined,
+    jugadores: isTie ? primeros.map(t => t.nombre) : undefined,
     scoreGross: winTeam.score,
     scoreDiff: winTeam.diff,
     courseName: data.courseName,

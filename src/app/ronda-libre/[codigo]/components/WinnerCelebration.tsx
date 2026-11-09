@@ -116,6 +116,8 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
     // Mismo criterio que la imagen para compartir (`tarjetaDeEquipos`).
     const isTie = hayEmpateDeEquipos(teams)
     const winners = equiposEnElPrimerLugar(teams)
+    // Ningún equipo anotó un hoyo de la ronda: no hay resultado que coronar.
+    if (winners.length === 0) return null
     return (
       <HeroCard
         ronda={ronda}

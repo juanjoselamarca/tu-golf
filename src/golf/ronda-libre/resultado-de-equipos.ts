@@ -32,7 +32,7 @@ export interface FilaDelRankingDeEquipos {
  * Los equipos que comparten el primer lugar, sobre el ranking YA ordenado por
  * `ordenarEquipos*` (vs par, countback en los empates, sin hoyos al final):
  * el líder y todos los que tengan su mismo `diff` y hayan anotado algo. Uno
- * solo si no hay empate; el primero si nadie anotó.
+ * solo si no hay empate; ninguno si nadie anotó (no hay resultado que mostrar).
  *
  * La imagen para compartir decidía el empate por `score` (golpes brutos) y la
  * pantalla por `diff`: con distinta cantidad de hoyos anotados, o en neto,
@@ -41,7 +41,7 @@ export interface FilaDelRankingDeEquipos {
 export function equiposEnElPrimerLugar<T extends FilaDelRankingDeEquipos>(ranking: readonly T[]): T[] {
   const lider = ranking[0]
   if (!lider) return []
-  if (lider.holesPlayed === 0) return [lider]
+  if (lider.holesPlayed === 0) return []
   return ranking.filter(t => t.holesPlayed > 0 && t.diff === lider.diff)
 }
 

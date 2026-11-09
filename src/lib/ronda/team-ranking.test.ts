@@ -95,6 +95,27 @@ describe('rankTeams', () => {
       holes, 36, 'scramble', 'gross',
     )
     expect(rows.map(r => r.nombre)).toEqual(tabla.map(t => t.teamNombre))
+    // No solo el orden: los mismos números (vs par y hoyos anotados) fila a fila.
+    expect(rows.map(r => ({ diff: r.diff, holesPlayed: r.holesPlayed })))
+      .toEqual(tabla.map(t => ({ diff: t.overUnderGross, holesPlayed: t.holesPlayed })))
+  })
+
+  it('en neto con handicap_equipo nombra al mismo primero y con los mismos números que la tabla', () => {
+    // Igual bruto (9 hoyos, 40 golpes); el handicap de equipo que puntúa decide.
+    const equipos: Equipo[] = [
+      { ...baseEquipos[0], id: 'a', nombre: 'A', handicap_equipo: 8, handicap_equipo_juego: 4, scores: { 1: 5, 2: 5, 3: 4, 4: 4, 5: 5, 6: 4, 7: 4, 8: 5, 9: 4 } },
+      { ...baseEquipos[1], id: 'b', nombre: 'B', handicap_equipo: 16, handicap_equipo_juego: 8, scores: { 1: 4, 2: 4, 3: 5, 4: 5, 5: 4, 6: 5, 7: 5, 8: 4, 9: 4 } },
+    ]
+    const rows = rankTeams({ ...baseInput, formato: 'scramble', modo: 'neto', equipos })
+    const holes = Object.keys(parMap).map(n => ({ numero: Number(n), par: parMap[Number(n)], stroke_index: siMap[Number(n)] }))
+    const tabla = computeScrambleStandings(
+      equipos.map(e => ({ id: e.id, nombre: e.nombre, scores: e.scores, teamHandicap: e.handicap_equipo, teamHandicapJuego: e.handicap_equipo_juego })),
+      holes, 36, 'scramble', 'neto',
+    )
+    expect(rows.map(r => r.nombre)).toEqual(['B', 'A'])
+    expect(rows.map(r => r.nombre)).toEqual(tabla.map(t => t.teamNombre))
+    expect(rows.map(r => ({ score: r.score, diff: r.diff })))
+      .toEqual(tabla.map(t => ({ score: t.totalNeto, diff: t.overUnderNeto })))
   })
 
   it('scramble neto: ordena por overUnderNeto ascendente (bug fix Apr-18)', () => {

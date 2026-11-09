@@ -65,7 +65,12 @@ que nunca finalizó. Investigación: memoria `project_cristian_ross_investigacio
 - Imagen para compartir: el nombre grande se achica hasta caber (`tamanoQueCabe`, dos líneas si ni a 40 px
   cabe); con empate el número grande es el vs par (los brutos de los empatados pueden diferir); un equipo
   sin score sale "sin score" en el ranking de abajo.
-- Tests: 33 del hook, 39 de equipos/plantilla, validador, 5 del cuadro ganador, 12 de la imagen por equipos,
+- Cierre de la 4ª vuelta (Opus, APROBADO con P3): el texto que acompaña la imagen con empate dice el vs par
+  (`scoreDelTextoParaCompartir`), no el bruto del primer equipo; los integrantes bajo un nombre en dos líneas
+  van a 620 px y se achican hasta caber; el test de paridad con la tabla compara también los números y tiene
+  un caso en neto con `handicap_equipo`. Además, si ningún equipo anotó un hoyo de la ronda, `equiposEnElPrimerLugar`
+  devuelve vacío y ni el cuadro ganador ni la imagen inventan un "ganador" sin score.
+- Tests: 33 del hook, 39 de equipos/plantilla, validador, 6 del cuadro ganador, 15 de la imagen por equipos,
   6 del resultado por equipos, 4 del desempate con equipos sin hoyos, 16 de `rankTeams`; e2e
   `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble → Equipo 1 → Revisar habilitado →
   volver a Stroke Play).

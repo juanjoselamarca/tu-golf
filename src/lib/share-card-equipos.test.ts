@@ -4,7 +4,7 @@
 // dos salen de `etiquetaDelResultadoDeEquipos`.
 import { describe, it, expect } from 'vitest'
 import {
-  encabezadoDeRondaLibre, nombreDeRondaLibre, partirEnDosLineas, tamanoQueCabe, tarjetaDeEquipos,
+  encabezadoDeRondaLibre, nombreDeRondaLibre, partirEnDosLineas, scoreDelTextoParaCompartir, tamanoQueCabe, tarjetaDeEquipos,
   type LeaderboardShareData,
 } from './share-card'
 
@@ -86,6 +86,8 @@ describe('tarjetaDeEquipos', () => {
 
   it('sin equipos o fuera de un formato por equipos no hay tarjeta', () => {
     expect(tarjetaDeEquipos(base([]))).toBeNull()
+    // Ningún equipo anotó un hoyo: tampoco (sería un "ganador" sin score).
+    expect(tarjetaDeEquipos(base([{ nombre: 'X', jugadores: [], score: 0, diff: 0, holesPlayed: 0 }]))).toBeNull()
     expect(tarjetaDeEquipos({ ...base([{ nombre: 'X', jugadores: [], score: 72, diff: 0, holesPlayed: 18 }]), formato_juego: 'stroke_play' })).toBeNull()
   })
 })
@@ -94,6 +96,24 @@ describe('encabezadoDeRondaLibre — individual', () => {
   it('ganador y empate como siempre', () => {
     expect(encabezadoDeRondaLibre({ esEmpate: false })).toEqual({ emoji: '🏆', titulo: 'GANADOR DE LA RONDA' })
     expect(encabezadoDeRondaLibre({ esEmpate: true })).toEqual({ emoji: '🤝', titulo: 'EMPATE ÉPICO' })
+  })
+})
+
+describe('scoreDelTextoParaCompartir', () => {
+  const base = {
+    tipo: 'ronda_libre' as const, ganador: 'A', esEmpate: false, courseName: 'C', fecha: '', jugadores: [],
+    scoreGross: 37, scoreDiff: 5, formato_juego: 'scramble',
+  }
+  it('sin empate dice el bruto y el vs par', () => {
+    expect(scoreDelTextoParaCompartir(base as never)).toBe('37 (+5)')
+  })
+  it('con empate dice el vs par, igual que la imagen: los brutos de los empatados pueden diferir', () => {
+    expect(scoreDelTextoParaCompartir({ ...base, esEmpate: true } as never)).toBe('+5 sobre el par')
+    expect(scoreDelTextoParaCompartir({ ...base, esEmpate: true, scoreDiff: 0 } as never)).toBe('en el par')
+    expect(scoreDelTextoParaCompartir({ ...base, esEmpate: true, scoreDiff: -2 } as never)).toBe('-2 bajo el par')
+  })
+  it('stableford dice puntos, con o sin empate', () => {
+    expect(scoreDelTextoParaCompartir({ ...base, esEmpate: true, formato_juego: 'stableford', scoreGross: 36 } as never)).toBe('36 pts')
   })
 })
 
