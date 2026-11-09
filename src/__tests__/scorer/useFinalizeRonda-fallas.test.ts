@@ -21,7 +21,6 @@ vi.mock('@/lib/supabase', () => ({
       delete: () => makeChainable({ error: null }),
       select: () => makeChainable({ data: null, count: 0, error: null }),
     }),
-    auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
     rpc: () => Promise.resolve({}),
   }),
 }))
@@ -64,6 +63,7 @@ const baseOpts = () => ({
   parMap: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 },
   holeDataMap: {},
   codigo: 'ABC123',
+  authUserId: 'u1' as string | null,
   guardarAhora: vi.fn(async () => 'guardado' as const),
   marcarFinalizando: vi.fn(),
   setScores: vi.fn(),

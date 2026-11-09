@@ -13,13 +13,10 @@
  * NO MODIFICAR sin verificar los dos call sites arriba.
  */
 
-import type { CSSProperties } from 'react'
-import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult } from '@/golf/core/colors'
 import { calcularScoreRonda } from '@/golf/core/round-score'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaRonda, hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
-import { hoyosSinMarcar } from '@/golf/ronda-libre/tarjeta-historica'
 import type { Jugador, TimelineEvent } from '@/types/ronda'
 
 /* ── score/page.tsx helpers ──────────────────────────────────────────── */
@@ -45,13 +42,6 @@ export function generarOrdenHoyos(hoyoInicio: number, totalHoles: number, course
 
 export function haptic(p: number | number[]) {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(p)
-}
-
-export function getChipStyle(gross: number, par: number, isDark: boolean): CSSProperties {
-  const result = getScoreResult(gross, par)
-  const styles = isDark ? SCORE_STYLES : SCORE_STYLES_LIGHT
-  const s = styles[result]
-  return { background: s.bg, color: s.textColor, border: `${s.borderWidth} solid ${s.border}` }
 }
 
 export function getChipLabel(gross: number, par: number): string {
@@ -121,20 +111,6 @@ export function getHolesPlayed(scores: Record<string, number>, holes: number, ho
 export function tarjetaCompleta(scores: Record<string, number> | null | undefined, holes: number): boolean {
   const anotados = Object.keys(scores ?? {}).filter(k => /^[0-9]+$/.test(k) && Number(k) >= 1).length
   return anotados >= holes
-}
-
-/**
- * Hoyos de la ronda que NO tienen score registrado (delegado a `hoyosSinMarcar`,
- * fuente única en `@/golf/ronda-libre/tarjeta-historica`). Sin `hoyos` mira
- * 1..totalHoles; una ronda de 9 desde el 10 DEBE pasar `hoyosDeLaRonda(10, 9)`
- * o recibe como "faltantes" nueve hoyos que no se juegan.
- */
-export function getMissingHoles(
-  scores: Record<string | number, number>,
-  totalHoles: number,
-  hoyos?: readonly number[],
-): number[] {
-  return hoyosSinMarcar(scores, hoyos ?? hoyosDesdeElUno(totalHoles))
 }
 
 export function buildTimelineEvents(

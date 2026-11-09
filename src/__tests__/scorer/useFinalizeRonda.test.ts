@@ -26,7 +26,6 @@ vi.mock('@/lib/supabase', () => ({
       delete: () => makeChainable({ error: null }),
       select: () => makeChainable({ data: null, count: 0, error: null }),
     }),
-    auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
     rpc: () => Promise.resolve({}),
   }),
 }))
@@ -79,6 +78,7 @@ const baseOpts = () => ({
   parMap: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 },
   holeDataMap: {},
   codigo: 'ABC123',
+  authUserId: 'u1' as string | null,
   guardarAhora: vi.fn(async () => 'guardado' as const),
   marcarFinalizando: vi.fn(),
   setScores: vi.fn(),
@@ -111,6 +111,24 @@ describe('useFinalizeRonda', () => {
     await act(async () => { await result.current.discardRound() })
     expect(result.current.confirmDiscard).toBe(true)
     expect(result.current.discarding).toBe(false)
+  })
+
+  it('discardRound: un doble toque no borra la ronda; pasado el plazo, confirmar sí', async () => {
+    const onDiscardSuccess = vi.fn()
+    const ahora = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
+    try {
+      const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), onDiscardSuccess }))
+      await act(async () => { await result.current.discardRound() })
+      ahora.mockReturnValue(1_000_100)
+      await act(async () => { await result.current.discardRound() })
+      expect(result.current.discarding).toBe(false)
+      expect(onDiscardSuccess).not.toHaveBeenCalled()
+      ahora.mockReturnValue(1_000_500)
+      await act(async () => { await result.current.discardRound() })
+      expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
+    } finally {
+      ahora.mockRestore()
+    }
   })
 
   // #511 — match play NETO sin sesión con un jugador cuyo índice está en su perfil:
@@ -158,14 +176,22 @@ describe('useFinalizeRonda', () => {
   }
   const avisoSinServidor = expect.objectContaining({ title: AVISO_FINALIZAR_SIN_SERVIDOR.title, type: 'error' })
 
-  it('el cierre sin respuesta del servidor avisa, no da la ronda por terminada y deja reintentar', async () => {
-    vi.mocked(finalizarRondaLibre).mockResolvedValueOnce({ finalizada: false, error: { code: ERRCODE_SIN_RESPUESTA } as never })
+  // postgrest-js no lanza sin red: devuelve `code: ''`. Un 5xx trae su propio código.
+  it.each([ERRCODE_SIN_RESPUESTA, '', '503'])('el cierre sin respuesta firme (code "%s") avisa, no da la ronda por terminada y deja reintentar', async (code) => {
+    vi.mocked(finalizarRondaLibre).mockResolvedValueOnce({ finalizada: false, error: { code } as never })
     const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
     await finalizarConDosToques(result)
     expect(result.current.roundDone).toBe(false)
     expect(result.current.finalizando).toBe(false)
     expect(addToast).toHaveBeenCalledWith(avisoSinServidor)
     // Reintento con señal: ahora sí termina.
+    await finalizarConDosToques(result)
+    expect(result.current.roundDone).toBe(true)
+  })
+
+  it('el servidor rechaza con respuesta firme (ya cerrada): la ronda queda terminada', async () => {
+    vi.mocked(finalizarRondaLibre).mockResolvedValueOnce({ finalizada: false, error: { code: 'P0002' } as never })
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
     await finalizarConDosToques(result)
     expect(result.current.roundDone).toBe(true)
   })

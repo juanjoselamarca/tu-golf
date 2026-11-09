@@ -66,6 +66,9 @@ describe('completarHoyosSinMarcarConPar — ronda de 9 desde el 10', () => {
 
 describe('hoyosPorMarcarAlFinalizar', () => {
   const hoyos = [1, 2, 3, 4]
+  it('sin tarjetas faltan todos: unos equipos que no cargaron no son una tarjeta completa', () => {
+    expect(hoyosPorMarcarAlFinalizar([], hoyos)).toEqual(hoyos)
+  })
   it('un hoyo que falta en dos tarjetas se cuenta una vez', () => {
     expect(hoyosPorMarcarAlFinalizar([{ scores: { 1: 4, 2: 4 } }, { scores: { 1: 4 } }], hoyos)).toEqual([2, 3, 4])
   })

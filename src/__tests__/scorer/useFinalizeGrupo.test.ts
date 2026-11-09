@@ -33,9 +33,9 @@ vi.mock('@/lib/data/ronda-libre-scores', () => ({
   ERRCODE_SIN_RESPUESTA: 'SIN_RESPUESTA',
 }))
 const descartarRondaLibre = vi.fn(async () => ({ error: null as string | null }))
-vi.mock('@/lib/data/ronda-libre-cierre', () => ({
+vi.mock('@/lib/data/ronda-libre-cierre', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data/ronda-libre-cierre')>()),
   descartarRondaLibre: (...a: unknown[]) => descartarRondaLibre(...(a as [])),
-  RONDA_ERRCODE: { NOT_FOUND: 'P0001', FINALIZED: 'P0002', FORBIDDEN: 'P0003', INVALID_DELTA: 'P0004' },
 }))
 
 const fetchEstadoRondaLibre = vi.fn(async () => 'en_curso' as string | null)
@@ -238,8 +238,19 @@ describe('useFinalizeGrupo', () => {
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
-  it('el cierre no llega (SIN_RESPUESTA): no navega a "terminada" en falso y deja reintentar', async () => {
-    finalizarRondaLibre.mockResolvedValue({ finalizada: false, error: { code: 'SIN_RESPUESTA' } })
+  it('scramble sin equipos cargados: no cierra ni guarda historial, avisa y deja reintentar', async () => {
+    const { result } = montar({ ronda: { ...rondaBase, formato_juego: 'scramble' }, teamEquipos: [] })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+    expect(result.current.fin.finalizing).toBe(false)
+  })
+
+  // postgrest-js no lanza sin red: devuelve `code: ''`. Un 5xx trae su propio código.
+  it.each(['SIN_RESPUESTA', '', '503'])('el cierre sin respuesta firme (code "%s"): no navega a "terminada" en falso y deja reintentar', async (code) => {
+    finalizarRondaLibre.mockResolvedValue({ finalizada: false, error: { code } })
     const { result } = montar()
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })

@@ -7,7 +7,6 @@ import {
   getVsParNeto,
   getHolesPlayed,
   buildTimelineEvents,
-  getMissingHoles,
   tarjetaCompleta,
 } from './helpers'
 import type { Jugador } from '@/types/ronda'
@@ -173,53 +172,6 @@ describe('buildTimelineEvents', () => {
     expect(events[2].hole).toBeGreaterThanOrEqual(events[3].hole)
   })
 })
-
-/* ── getMissingHoles ─────────────────────────────────────────────────── */
-describe('getMissingHoles', () => {
-  it('retorna [] cuando todos los hoyos tienen score', () => {
-    const scores = { 1: 4, 2: 5, 3: 4, 4: 5, 5: 5, 6: 3, 7: 3, 8: 4, 9: 5 }
-    expect(getMissingHoles(scores, 9)).toEqual([])
-  })
-
-  // Regression: bug del 30-abr-2026 que reportó Juanjo.
-  // Score=par en último hoyo de 9 → goToNextHole no rellena (no hay siguiente)
-  // → finalizar guarda 8/9 y el handicap calc descarta la ronda.
-  it('detecta el último hoyo faltante (regresión bug 30-abr Juanjo)', () => {
-    const scores = { 1: 4, 2: 5, 3: 4, 4: 5, 5: 5, 6: 3, 7: 3, 8: 4 }
-    expect(getMissingHoles(scores, 9)).toEqual([9])
-  })
-
-  it('detecta múltiples hoyos faltantes', () => {
-    const scores = { 1: 4, 5: 5, 9: 4 }
-    expect(getMissingHoles(scores, 9)).toEqual([2, 3, 4, 6, 7, 8])
-  })
-
-  it('soporta ronda 18h con varios huecos', () => {
-    const scores = { 1: 4, 18: 5 }
-    expect(getMissingHoles(scores, 18)).toHaveLength(16)
-  })
-
-  it('tolera keys string y number', () => {
-    const scores = { 1: 4, '2': 5, 3: 4 } as Record<string | number, number>
-    expect(getMissingHoles(scores, 3)).toEqual([])
-  })
-
-  it('ronda de 9 desde el 10: sólo mira 10..18, nunca 1..9', () => {
-    const back = [10, 11, 12, 13, 14, 15, 16, 17, 18]
-    const scores = { 10: 4, 11: 4, 12: 4, 13: 5, 14: 3, 15: 4, 16: 5, 17: 4 }
-    expect(getMissingHoles(scores, 9, back)).toEqual([18])
-  })
-
-  it('retorna 1..N para objeto vacío', () => {
-    expect(getMissingHoles({}, 9)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
-  })
-
-  it('cuenta score=0 como presente (no missing)', () => {
-    // 0 es valor válido en algunos formatos (Match Play "Pickup"), no es null
-    expect(getMissingHoles({ 1: 0, 2: 4 }, 2)).toEqual([])
-  })
-})
-
 
 describe('tarjetaCompleta (espejo de finalizar_ronda_libre en SQL)', () => {
   const back9 = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(10 + i), 4]))

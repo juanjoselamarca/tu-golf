@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { saveRondaLibreScores, finalizarRondaLibre, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
+import { saveRondaLibreScores, finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
-import { descartarRondaLibre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
+import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import {
   fetchEstadoRondaLibre,
   guardarTarjetaEnHistorial,
@@ -113,6 +113,9 @@ export function useFinalizeGrupo(input: {
       setFinalizing(false)
     }
     if (!authUserId) { avisarSinServidor(); return }
+    // Scramble / foursome siempre tienen equipos: si no están, no cargaron. Cerrar
+    // dejaría el historial sin hoyos.
+    if (isSharedBallFormat(ronda.formato_juego) && teamEquipos.length === 0) { avisarSinServidor(); return }
     let estado: string | null
     try {
       estado = await conTimeout(fetchEstadoRondaLibre(supabase, codigo), PLAZO_CARGA_SCORER_MS)
@@ -224,18 +227,17 @@ export function useFinalizeGrupo(input: {
 
     // Finalizar ronda
     const { error: updateErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: ronda.ronda_libre_jugadores[0]?.id })
-    if (updateErr?.code === ERRCODE_SIN_RESPUESTA) {
-      // El cierre no llegó (o no sabemos si llegó): no se navega a "terminada" en falso.
-      // Reintentar es seguro: el historial es idempotente y el cierre devuelve P0002 si ya cerró.
+    if (updateErr && !esRechazoDelCierre(updateErr)) {
+      // Sin una respuesta firme (sin red, plazo vencido, 5xx) no sabemos si cerró: no se
+      // navega a "terminada" en falso. Reintentar es seguro: el historial es idempotente
+      // y el cierre devuelve P0002 si ya cerró.
+      captureError(updateErr, { context: 'score_grupo_finalize_update_estado', level: 'warning' })
       avisarSinServidor()
       return
     }
     if (!updateErr) limpiarCopiaLocalDelGrupo(codigo)
     if (updateErr) {
-      // No se reintenta acá: las filas de historical_rounds ya se crearon arriba
-      // (idempotentes por ux_historical_rounds_ronda_libre_jugador, con o sin
-      // course_id). La ronda queda en_curso hasta el cierre automático; cierre
-      // transaccional = follow-up en REORDENAMIENTO_TRACKING.
+      // Respuesta firme del servidor (ya cerrada, sin permiso): no hay nada que reintentar.
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
     }
     router.push(`/ronda-libre/${codigo}?finished=true`)

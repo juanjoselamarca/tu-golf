@@ -42,11 +42,13 @@ export function hoyosSinMarcar(scores: Scores, hoyos: readonly number[]): number
  * Hoyos de la ronda que el cierre va a marcar como par: los que alguna tarjeta tiene
  * vacíos, cada uno una vez aunque falte en varias. `noRellenar` son los que esa tarjeta
  * no tiene que anotar (match play: concedidos o posteriores a decidirse el match).
+ * Sin tarjetas (equipos que no cargaron) faltan todos: nada está completo todavía.
  */
 export function hoyosPorMarcarAlFinalizar(
   tarjetas: ReadonlyArray<{ scores: Scores | undefined; noRellenar?: readonly number[] }>,
   hoyos: readonly number[],
 ): number[] {
+  if (tarjetas.length === 0) return [...hoyos]
   return hoyos.filter(h => tarjetas.some(t => scoreDe(t.scores ?? {}, h) === undefined && !t.noRellenar?.includes(h)))
 }
 

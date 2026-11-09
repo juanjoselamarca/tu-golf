@@ -9,7 +9,8 @@ interface AvisoTarjetaCompletaProps {
 /**
  * Aviso fijo sobre la barra inferior del scorer: ya no falta ningún hoyo, solo cerrar la
  * ronda. En el último hoyo reserva su alto aunque todavía no se muestre: si apareciera al
- * anotar, los controles de +/- saltarían bajo el dedo.
+ * anotar, los controles de +/- saltarían bajo el dedo. La región `status` queda montada y
+ * cambia su texto: pasar de oculta a visible no lo anuncian todos los lectores de pantalla.
  */
 export function AvisoTarjetaCompleta({ completa, enUltimoHoyo }: AvisoTarjetaCompletaProps) {
   if (!completa && !enUltimoHoyo) return null
@@ -17,13 +18,13 @@ export function AvisoTarjetaCompleta({ completa, enUltimoHoyo }: AvisoTarjetaCom
     <div
       role="status"
       style={{
-        visibility: completa ? 'visible' : 'hidden',
         flexShrink: 0, padding: '10px 16px', textAlign: 'center',
-        background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
+        background: completa ? 'var(--bg-surface)' : 'transparent',
+        borderTop: `1px solid ${completa ? 'var(--border)' : 'transparent'}`,
         color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600,
       }}
     >
-      Tarjeta completa · Finalizar ronda
+      {completa ? 'Tarjeta completa · Finalizar ronda' : <>&nbsp;</>}
     </div>
   )
 }

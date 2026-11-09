@@ -11,7 +11,7 @@ interface ConfirmarFinalizarHojaProps {
 }
 
 /** Más que el intervalo de un doble toque y menos de lo que tarda alguien en leer la pregunta. */
-const MS_ANTES_DE_ARMAR = 400
+export const MS_ANTES_DE_ARMAR = 400
 
 /**
  * Confirmación de "Finalizar ronda", la misma en los dos scorers. Queda abierta hasta

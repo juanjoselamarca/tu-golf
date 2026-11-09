@@ -19,6 +19,15 @@ export const RONDA_ERRCODE = {
   INVALID_DELTA: 'P0004',
 } as const
 
+/**
+ * Respuesta firme de `finalizar_ronda_libre`: el servidor decidió (ya estaba cerrada, sin permiso, no existe).
+ * Cualquier otro error deja sin saber si cerró (sin red: `{ code: '' }`; plazo vencido; 5xx; sesión caída), y
+ * quien finaliza tiene que poder reintentar. No es `esRechazoDefinitivo`: esa considera reintentable a P0003.
+ */
+export function esRechazoDelCierre(error: { code?: string | null } | null | undefined): boolean {
+  return !!error?.code && (Object.values(RONDA_ERRCODE) as string[]).includes(error.code)
+}
+
 /** Errcode de Postgres de un parámetro inválido (p. ej. un punto especial que no está en las reglas de la Timba). */
 const PARAMETRO_INVALIDO = '22023'
 

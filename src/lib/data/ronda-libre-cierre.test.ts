@@ -5,6 +5,7 @@ import {
   RONDA_ERRCODE,
   esRechazoDefinitivo,
   esRechazoDefinitivoDeTimba,
+  esRechazoDelCierre,
 } from './ronda-libre-cierre'
 
 function cliente(respuesta: { data?: unknown; error?: unknown }) {
@@ -57,5 +58,15 @@ describe('esRechazoDefinitivoDeTimba — marcas y retiros (RPC sin grant para an
   it('sesión caída (42501, PGRST301/303), sin red, plazo vencido y 5xx: se reintenta', () => {
     for (const code of ['42501', 'PGRST301', 'PGRST303', '', 'SIN_RESPUESTA', '503']) expect(esRechazoDefinitivoDeTimba({ code })).toBe(false)
     expect(esRechazoDefinitivoDeTimba(null)).toBe(false)
+  })
+})
+
+describe('esRechazoDelCierre', () => {
+  it('los errcodes de la RPC son respuesta firme, también P0003', () => {
+    for (const code of Object.values(RONDA_ERRCODE)) expect(esRechazoDelCierre({ code })).toBe(true)
+  })
+  it('sin red, plazo vencido, 5xx y sesión caída no dicen si cerró: se reintenta', () => {
+    for (const code of ['', 'SIN_RESPUESTA', '503', '42501', 'PGRST301']) expect(esRechazoDelCierre({ code })).toBe(false)
+    expect(esRechazoDelCierre(null)).toBe(false)
   })
 })

@@ -14,7 +14,7 @@
 
 import type { PostgrestError } from '@supabase/supabase-js'
 import { triggerRoundUpdatePush } from '@/lib/round-notifications'
-import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
+import { esRechazoDelCierre } from '@/lib/data/ronda-libre-cierre'
 import { conTimeout } from '@/lib/red/con-timeout'
 
 /**
@@ -46,7 +46,7 @@ export function nuevaSecuencia(): number {
   return ++ultimaSecuencia
 }
 
-/** Código del error sintético de "el servidor no respondió a tiempo / no hay red". */
+/** Código del error sintético de "venció el plazo". Sin red postgrest-js no lanza: devuelve `code: ''`. */
 export const ERRCODE_SIN_RESPUESTA = 'SIN_RESPUESTA'
 
 /** Corre la RPC con plazo; red caída o timeout vuelven como error (nunca lanza). */
@@ -163,7 +163,7 @@ export async function finalizarRondaLibre(
   opts: { jugadorId?: string } = {},
 ): Promise<{ finalizada: boolean; error: PostgrestError | null }> {
   const { data, error } = await rpcConPlazo(() => supabase.rpc('finalizar_ronda_libre', { p_codigo: codigo }))
-  const rechazado = !!error && (Object.values(RONDA_ERRCODE) as string[]).includes(error.code)
+  const rechazado = esRechazoDelCierre(error)
   const finalizada = !error && data === true
   if (finalizada || (error && !rechazado)) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })
   return { finalizada, error: error ?? null }
