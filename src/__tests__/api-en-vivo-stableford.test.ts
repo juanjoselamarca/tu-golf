@@ -90,11 +90,12 @@ beforeEach(() => {
 const CLAVES_JUGADOR = ['holesCompleted', 'id', 'nombre', 'stablefordPts', 'totalGross', 'totalHoles', 'vsPar']
 
 describe('GET /api/en-vivo — solo bruto', () => {
-  it('Stableford NETO: sin puntos (null), muestra_puntos=false y score vs par BRUTO', async () => {
+  it('Stableford NETO: sin puntos (null), muestra_puntos=false, clasificacion_bruta=true y score vs par BRUTO', async () => {
     rondas = [ronda({ modo_juego: 'neto' })]
     const { json, texto } = await feed()
     const r = json.rondas[0]
     expect(r.muestra_puntos).toBe(false)
+    expect(r.clasificacion_bruta).toBe(true)
     for (const j of r.jugadores) {
       expect(Object.keys(j).sort()).toEqual(CLAVES_JUGADOR)
       expect(j.stablefordPts).toBeNull()
@@ -115,15 +116,32 @@ describe('GET /api/en-vivo — solo bruto', () => {
   it('Stableford GROSS: publica puntos contra el par (par en los 9 = 18), sin golpes', async () => {
     const { json } = await feed()
     expect(json.rondas[0].muestra_puntos).toBe(true)
+    expect(json.rondas[0].clasificacion_bruta).toBe(false)
     expect(json.rondas[0].jugadores.map((j: { stablefordPts: number }) => j.stablefordPts)).toEqual([18, 18])
   })
 
-  it('stroke play (gross o neto): sin puntos, score vs par bruto', async () => {
+  it('stroke play NETO: sin puntos, score vs par bruto, y clasificacion_bruta=true para que la tarjeta diga que es gross', async () => {
     rondas = [ronda({ formato_juego: 'stroke_play', modo_juego: 'neto' })]
-    const { json } = await feed()
+    const { json, texto } = await feed()
     expect(json.rondas[0].muestra_puntos).toBe(false)
+    expect(json.rondas[0].clasificacion_bruta).toBe(true)
     expect(json.rondas[0].jugadores[0].stablefordPts).toBeNull()
     expect(json.rondas[0].jugadores[0].vsPar).toBe(0)
+    // Que la ronda sea neto no hace viajar nada neto: ni el modo, ni handicaps, ni user_id.
+    expect(texto).not.toMatch(/modo_juego|"handicap|u1/)
+  })
+
+  it('stroke play GROSS: clasificacion_bruta=false (el vs par ES la clasificación de la ronda)', async () => {
+    rondas = [ronda({ formato_juego: 'stroke_play', modo_juego: 'gross' })]
+    const { json } = await feed()
+    expect(json.rondas[0].muestra_puntos).toBe(false)
+    expect(json.rondas[0].clasificacion_bruta).toBe(false)
+  })
+
+  it('ronda sin modo_juego (filas viejas): se publica como gross, sin marcar bruto', async () => {
+    rondas = [ronda({ formato_juego: 'stroke_play', modo_juego: null as unknown as string })]
+    const { json } = await feed()
+    expect(json.rondas[0].clasificacion_bruta).toBe(false)
   })
 })
 

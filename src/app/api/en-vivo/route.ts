@@ -6,6 +6,7 @@ import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida } from
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { cargarHoyosDelScorer, type HoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { fetchEquiposDeRondas } from '@/lib/data/ronda-libre'
+import { vistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { ordenarJugadoresDeLaRonda } from '@/lib/ronda/orden-jugadores'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import { captureError } from '@/lib/error-tracking'
@@ -95,15 +96,25 @@ function filasDeEquipos(formato: 'scramble' | 'foursome', hoyos: readonly number
 }
 
 /**
- * ¿Se publican los puntos Stableford de esta ronda? SÓLO en gross.
- *
- * Decisión de producto (Juanjo, 08-oct-2026), "solo bruto": este feed es público y
- * el CDN lo cachea igual para todos, así que nunca lleva nada neto. En Stableford
- * NETO los puntos no se publican (con ellos y el bruto se deduce el handicap del
- * jugador, y de ahí su índice): la ronda se muestra con golpes brutos.
+ * Qué se publica de esta ronda: lo que ve un visor SIN sesión (`vistaPublica`, la
+ * misma regla del board de torneo y de la vista en vivo de la ronda), porque este
+ * feed es público y el CDN lo cachea igual para todos. Decisión de producto
+ * (Juanjo, 08-oct-2026), "solo bruto": nunca lleva nada neto.
+ *  - Ronda NETO → `clasificacionBruta`: se publica la clasificación bruta y la
+ *    tarjeta lo dice ("· bruto", "Gross +7"). Antes el feed mostraba el vs par
+ *    bruto de un stroke play neto sin aclararlo, y se leía como el neto.
+ *  - Puntos Stableford SÓLO en gross: en Stableford neto no se publican (con ellos
+ *    y el bruto se deduce el handicap del jugador, y de ahí su índice); la ronda
+ *    se muestra con golpes brutos. `vistaPublica` la pasa a stroke_play.
  */
-function publicaPuntos(ronda: RondaRow): boolean {
-  return ronda.formato_juego === 'stableford' && ronda.modo_juego !== 'neto'
+function vistaDelFeed(ronda: RondaRow): { clasificacionBruta: boolean; muestraPuntos: boolean } {
+  const vista = vistaPublica({
+    visorConSesion: false,
+    caminoRondaLibre: true,
+    modoJuego: ronda.modo_juego === 'neto' ? 'neto' : 'gross',
+    formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
+  })
+  return { clasificacionBruta: vista.soloBruto, muestraPuntos: vista.formato === 'stableford' }
 }
 
 function rondaParaElScorer(ronda: RondaRow, totalHoles: number): RondaLibre {
@@ -164,7 +175,7 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
   const totalHoles = ronda.holes ?? 18
   const rondaScorer = rondaParaElScorer(ronda, totalHoles)
   const hoyosRonda = await hoyosDe(supabase, rondaScorer, memos)
-  const muestraPuntos = publicaPuntos(ronda)
+  const { clasificacionBruta, muestraPuntos } = vistaDelFeed(ronda)
   const puntos = muestraPuntos ? puntosStablefordGross(ronda, rondaScorer, hoyosRonda) : {}
 
   // Hoyos DE ESTA RONDA: una de 9 desde el 10 juega 10..18, no 1..9.
@@ -210,6 +221,8 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
     formato_juego: ronda.formato_juego ?? 'stroke_play',
     /** false en Stableford neto: la ronda se muestra con golpes brutos, sin puntos. */
     muestra_puntos: muestraPuntos,
+    /** true en una ronda NETO: lo que viaja es la clasificación bruta y la tarjeta lo dice. */
+    clasificacion_bruta: clasificacionBruta,
     /** Una fila por jugador; en scramble/foursome una por equipo (el puntaje es del equipo). */
     jugadores,
     maxHolesCompleted: jugadores.reduce((m, j) => Math.max(m, j.holesCompleted), 0),

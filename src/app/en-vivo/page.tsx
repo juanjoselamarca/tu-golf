@@ -5,14 +5,12 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
-import { formatLabel } from '@/golf/core/rules'
 import { Radio, Flag } from '@/components/icons'
-import { formatVsPar } from '@/golf/share/vs-par'
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { trackPageView } from '@/lib/analytics'
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { cleanupFollowedRounds } from '@/lib/round-notifications'
-import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
+import { chipDeFormato, publicaPuntos, scoreDeLaFila } from '@/lib/ronda/feed-en-vivo'
 
 /** Fila de la tarjeta: un jugador, o un equipo en scramble/foursome (el puntaje es del equipo). */
 interface JugadorEnVivo {
@@ -39,6 +37,8 @@ interface RondaEnVivo {
   formato_juego: string
   /** false en Stableford neto: el feed público es "solo bruto" (decisión 08-oct). */
   muestra_puntos?: boolean
+  /** true en una ronda NETO: lo que llega es la clasificación bruta, y la tarjeta lo dice (chip "· bruto", "Gross +7"). */
+  clasificacion_bruta?: boolean
   jugadores: JugadorEnVivo[]
   maxHolesCompleted: number
   /** Personas en la ronda (no filas): en un scramble de 2 equipos sigue siendo 4. */
@@ -296,7 +296,7 @@ export default function EnVivoPage() {
                           textTransform: 'uppercase',
                           whiteSpace: 'nowrap',
                         }}>{ronda.holes} HOYOS</span>
-                        {/* Badge de formato — el espectador siempre sabe qué modalidad se juega */}
+                        {/* Badge de formato — el espectador siempre sabe qué modalidad se juega, y si lo que ve es la clasificación bruta */}
                         {ronda.formato_juego && (
                           <span style={{
                             display: 'inline-block',
@@ -311,7 +311,7 @@ export default function EnVivoPage() {
                             fontFamily: 'var(--font-dm-mono), monospace',
                             textTransform: 'uppercase',
                             whiteSpace: 'nowrap',
-                          }}>{formatLabel(ronda.formato_juego)}{ronda.formato_juego === 'stableford' && ronda.muestra_puntos === false ? ' · bruto' : ''}</span>
+                          }}>{chipDeFormato(ronda)}</span>
                         )}
                       </div>
                       <div style={{
@@ -349,7 +349,7 @@ export default function EnVivoPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {(() => {
                       // Stableford neto llega sin puntos ("solo bruto"): se ordena y muestra por golpes brutos.
-                      const isStab = ronda.formato_juego === 'stableford' && ronda.muestra_puntos !== false
+                      const isStab = publicaPuntos(ronda)
                       return ronda.jugadores
                       .slice()
                       .sort((a, b) => {
@@ -370,7 +370,10 @@ export default function EnVivoPage() {
                         return (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es', { sensitivity: 'base' })
                       })
                       .slice(0, 4)
-                      .map((j: JugadorEnVivo, idx: number) => (
+                      .map((j: JugadorEnVivo, idx: number) => {
+                        // Mismo criterio que el orden: puntos, o vs par (con "Gross" delante si la ronda es neto).
+                        const score = scoreDeLaFila(ronda, j)
+                        return (
                         <div key={j.id} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           padding: '4px 8px', borderRadius: '6px',
@@ -388,9 +391,10 @@ export default function EnVivoPage() {
                               color: 'var(--text-2)',
                               display: 'flex', alignItems: 'baseline', gap: '6px',
                             }}>
-                              <span style={{ color: 'var(--text)' }}>
-                                {isStab && j.stablefordPts != null ? formatPuntosStableford(j.stablefordPts, { conUnidad: true }) : formatVsPar(j.vsPar)}
-                              </span>
+                              {score.etiqueta && (
+                                <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-3)' }}>{score.etiqueta}</span>
+                              )}
+                              <span style={{ color: 'var(--text)' }}>{score.valor}</span>
                               {j.holesCompleted < j.totalHoles ? (
                                 <span style={{
                                   fontSize: '10px', fontWeight: 500, color: 'var(--text-3)',
@@ -413,7 +417,8 @@ export default function EnVivoPage() {
                             }}>Ver →</span>
                           )}
                         </div>
-                      )) })()}
+                        )
+                      }) })()}
                     {ronda.jugadores.length > 4 && (
                       <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '2px 8px' }}>
                         +{ronda.jugadores.length - 4} más
