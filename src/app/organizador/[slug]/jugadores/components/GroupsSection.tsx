@@ -2,6 +2,7 @@
 
 import { inputStyle } from '../styles'
 import type { TournamentGroup } from '../types'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   tournamentStatus: string
@@ -47,7 +48,7 @@ export function GroupsSection({
         marginBottom: '32px',
       }}
     >
-      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: isTeam ? '0 0 6px' : '0 0 20px' }}>
+      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.title, color: 'var(--text)', margin: isTeam ? '0 0 6px' : '0 0 20px' }}>
         {isTeam ? `Equipos (${groups.length})` : `Grupos de salida (${groups.length})`}
       </h2>
       {isTeam && (

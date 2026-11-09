@@ -6,6 +6,7 @@ import type { ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
 import { useRevisionImportacion, type FormatoImportacion, type ModoImportacion } from '@/hooks/useRevisionImportacion'
 import TarjetaRevision from './TarjetaRevision'
 import { ArrowLeft } from '@/components/icons'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface StepReviewProps {
   rounds: ImportRoundData[]
@@ -57,7 +58,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           <div style={{ flex: 1 }}>
             <h2 style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: '20px', fontWeight: 700, color: 'var(--text)',
+              fontSize: FONT_SIZE.title, fontWeight: 700, color: 'var(--text)',
               margin: 0, lineHeight: 1.2,
             }}>
               {`Revisar ${rounds.length} ${rounds.length === 1 ? 'ronda' : 'rondas'}`}

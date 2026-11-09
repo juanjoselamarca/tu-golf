@@ -15,6 +15,7 @@ import {
   preferenciasDeFila,
   type PreferenciasNotificacion as NotifPrefs,
 } from '@/lib/push/preferencias'
+import { FONT_SIZE } from '@/lib/font-size'
 
 const PREF_ITEMS: { key: keyof NotifPrefs; label: string; desc: string }[] = [
   { key: 'indice_cambios', label: 'Cambios en tu índice', desc: 'Cuando FedeGolf actualiza tu índice' },
@@ -115,7 +116,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div style={{ padding: '0 20px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: '"Playfair Display", serif' }}>
+            <h2 style={{ fontSize: FONT_SIZE.title, fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: '"Playfair Display", serif' }}>
               Notificaciones
             </h2>
             <button onClick={onClose} aria-label="Cerrar notificaciones" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--text-3)', cursor: 'pointer', padding: '8px' }}>

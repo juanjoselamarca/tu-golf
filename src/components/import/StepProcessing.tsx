@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import type { ImportRoundData } from '@/lib/import-types'
 import type { ImportState } from './ImportWizard'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface StepProcessingProps {
   state: ImportState
@@ -141,7 +142,7 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
 
       <h2
         style={{
-          fontSize: '20px',
+          fontSize: FONT_SIZE.title,
           fontWeight: 700,
           color: 'var(--text)',
           marginBottom: '8px',

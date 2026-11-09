@@ -87,7 +87,7 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
         <span style={{ fontFamily: '"DM Sans", sans-serif', fontSize: FONT_SIZE.body, fontWeight: 600 }}>Curva mental</span>
         <span style={{
           fontSize: FONT_SIZE.caption, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, padding: '3px 8px',
-          borderRadius: '2px', ...chipTone, fontFamily: '"DM Mono", monospace',
+          borderRadius: '2px', ...chipTone,
         }}>{espirales} espirales</span>
       </div>
       <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '18px' }}>
