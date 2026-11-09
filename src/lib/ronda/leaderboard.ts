@@ -7,6 +7,7 @@ import { puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import type { Jugador, ModoJuego, FormatoJuego } from '@/types/ronda'
 
 /** Entrada del leaderboard: jugador + métricas derivadas. */
@@ -100,16 +101,18 @@ export function buildLeaderboard({
  * hoyo fuera de la ronda (una ronda recortada de 18 a 9 después de anotar) mostraba
  * el botón de compartir y después no había nada que compartir (PR #757, 5ª vuelta).
  *
+ * Salvedad: `rankTeams` devuelve `[]` sin pares de la cancha (cancha escrita a mano),
+ * y en bola compartida el leaderboard no tiene hoyos: ahí da false aunque el equipo
+ * haya anotado, porque no hay resultado que mostrar. Lo que no dependa del resultado
+ * (copiar el link) no debe colgar solo de esto.
+ *
  * Reemplaza los 3 predicados inconsistentes que vivían inline en la pantalla
  * de resultados (uno miraba `leaderboard[0]`, otro `leaderboard.some(...)`).
  * NO depende del orden del leaderboard.
  */
-export function hasPlayData(
+export function rondaTieneDatos(
   leaderboard: ReadonlyArray<{ holesPlayed: number }>,
   equipos: ReadonlyArray<{ holesPlayed: number }>,
 ): boolean {
-  return (
-    leaderboard.some(j => j.holesPlayed > 0) ||
-    equipos.some(e => e.holesPlayed > 0)
-  )
+  return leaderboard.some(j => hasPlayData(j)) || equipos.some(e => hasPlayData(e))
 }

@@ -14,6 +14,7 @@ import type { RondaLibre } from '@/types/ronda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { formatOverUnder } from '@/constants/golf'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
 
 export interface BuildShareDataArgs {
@@ -120,6 +121,5 @@ export function buildShareText(
   if (isStab) {
     return `${leader.nombre} lleva ${leader.stabPts} pts en ${ronda.course_name} — Síguela en vivo`
   }
-  const vsParStr = leader.vsPar > 0 ? `+${leader.vsPar}` : leader.vsPar === 0 ? 'E' : String(leader.vsPar)
-  return `${leader.nombre} va ${leader.gross} (${vsParStr}) en ${ronda.course_name} — Síguela en vivo`
+  return `${leader.nombre} va ${leader.gross} (${formatOverUnder(leader.vsPar)}) en ${ronda.course_name} — Síguela en vivo`
 }

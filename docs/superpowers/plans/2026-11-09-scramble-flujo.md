@@ -74,6 +74,9 @@ que nunca finalizó. Investigación: memoria `project_cristian_ross_investigacio
   (hoyos de la ronda), la misma cuenta del cuadro ganador, así el botón de compartir no aparece sin resultado;
   el vs par en palabras vive en `relacionConElPar` y `vsParEnPalabras` (`src/constants/golf.ts`), antes copiado
   cuatro veces entre la imagen, el texto y la vista de ronda terminada.
+- Cierre de la 6ª vuelta (Opus, CAMBIOS con un P2): "Copiar link" no cuelga del ranking (en una cancha escrita a
+  mano no hay pares y `rankTeams` da vacío); el predicado se llama `rondaTieneDatos` y compone el `hasPlayData`
+  canónico de `board-rules`.
 - Tests: 33 del hook, 39 de equipos/plantilla, validador, 6 del cuadro ganador, 15 de la imagen por equipos,
   6 del resultado por equipos, 4 del desempate con equipos sin hoyos, 16 de `rankTeams`; e2e
   `scorer-nueva-wizard.spec.ts` con la regresión de Cristián (Scramble → Equipo 1 → Revisar habilitado →

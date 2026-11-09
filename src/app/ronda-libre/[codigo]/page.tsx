@@ -15,7 +15,7 @@ import { buildTimelineEvents } from '@/lib/ronda/helpers'
 import { buildMyHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
 import { captureError } from '@/lib/error-tracking'
-import { buildLeaderboard, hasPlayData } from '@/lib/ronda/leaderboard'
+import { buildLeaderboard, rondaTieneDatos } from '@/lib/ronda/leaderboard'
 import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { rankTeams } from '@/lib/ronda/team-ranking'
@@ -179,7 +179,7 @@ function RondaLibrePageContent() {
   // (individual/best_ball) y de equipo (scramble/foursome) con la misma cuenta de
   // hoyos de la ronda que usan el cuadro ganador y la imagen (`teamRanking`).
   // Antes vivía como 3 predicados inconsistentes inline. No depende del orden.
-  const hayDatos = hasPlayData(leaderboard, teamRanking)
+  const hayDatos = rondaTieneDatos(leaderboard, teamRanking)
 
   // Highlights del jugador autenticado (null si no jugó o no está en la ronda).
   const myHighlights = currentUserId
@@ -374,7 +374,9 @@ function RondaLibrePageContent() {
           <ShareLeaderboardButton isFinished={isFinished} onShare={() => shareLeaderboard(isFinished)} />
         )}
 
-        {hayDatos && (
+        {/* El link no depende del resultado: en una cancha escrita a mano no hay pares,
+            el ranking de equipos sale vacío y `hayDatos` es false aunque se haya anotado. */}
+        {(hayDatos || !hasCourse) && (
           <button
             onClick={handleCopy}
             aria-label="Copiar enlace de la ronda"
