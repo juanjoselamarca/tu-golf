@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   leerCampoHandicap,
+  avisoCampoIndice,
+  campoIndiceGuardable,
   textoCampoHandicap,
   HANDICAP_INDEX_MAX,
   formatearIndice,
@@ -201,5 +203,17 @@ describe('textoCampoHandicap — precarga del campo', () => {
     expect(textoCampoHandicap(12.3)).toBe('12.3')
     expect(textoCampoHandicap(null)).toBe('')
     expect(textoCampoHandicap(undefined)).toBe('')
+  })
+})
+
+describe('avisoCampoIndice / campoIndiceGuardable — campo de índice WHS', () => {
+  it.each([
+    ['', null, true], ['+', null, false], ['abc', 'Escribe un número: 12.4, o +2 si es plus.', false],
+    ['+2', null, true], ['18,5', null, true], ['54', null, true], ['60', 'rango', false], ['+11', 'rango', false],
+  ])('%j → aviso %s, guardable %s', (texto, aviso, guardable) => {
+    const a = avisoCampoIndice(texto)
+    if (aviso === 'rango') expect(a).toMatch(/^Revisa el índice de handicap/)
+    else expect(a).toBe(aviso)
+    expect(campoIndiceGuardable(texto)).toBe(guardable)
   })
 })

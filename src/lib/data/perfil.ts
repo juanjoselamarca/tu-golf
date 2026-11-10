@@ -123,6 +123,12 @@ export async function actualizarNombreEIndice(
   return (data as Pick<Profile, 'id' | 'name' | 'indice' | 'avatar_url'> | null) ?? null
 }
 
+/** Guarda solo el índice federado (onboarding). Devuelve false si el UPDATE falló. */
+export async function actualizarIndice(supabase: SupabaseClient, userId: string, indice: number | null): Promise<boolean> {
+  const { error } = await supabase.from('profiles').update({ indice }).eq('id', userId)
+  return !error
+}
+
 export async function countTournaments(supabase: SupabaseClient, userId: string): Promise<number> {
   const { count } = await supabase.from('players').select('id', { count: 'exact', head: true }).eq('user_id', userId)
   return count ?? 0

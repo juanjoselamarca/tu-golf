@@ -160,3 +160,22 @@ export function esHandicapDeInscripcionValido(v: unknown, rango: RangoHandicap):
 export function esIndiceDeHandicapValido(v: unknown): v is number {
   return esHandicapDeInscripcionValido(v, RANGO_INDICE)
 }
+
+/**
+ * Aviso de un campo de ÍNDICE (perfil, registro, onboarding) para lo que hay tipeado, o null si no hay nada
+ * que avisar. Texto que no es número → MENSAJE_HANDICAP_NO_ES_NUMERO; número fuera del rango WHS →
+ * MENSAJE_INDICE_FUERA_DE_RANGO. Vacío o a medio escribir no avisa.
+ */
+export function avisoCampoIndice(texto: string): string | null {
+  const campo = leerCampoHandicap(texto)
+  if (campo.estado === 'invalido') return MENSAJE_HANDICAP_NO_ES_NUMERO
+  if (campo.estado === 'ok' && !esIndiceDeHandicapValido(campo.valor)) return MENSAJE_INDICE_FUERA_DE_RANGO
+  return null
+}
+
+/** true si el campo de índice se puede guardar tal cual: vacío (sin índice) o un número dentro del rango WHS. */
+export function campoIndiceGuardable(texto: string): boolean {
+  const campo = leerCampoHandicap(texto)
+  return campo.estado === 'vacio' || (campo.estado === 'ok' && esIndiceDeHandicapValido(campo.valor))
+}
+

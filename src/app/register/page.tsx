@@ -1,6 +1,8 @@
 'use client'
 
 import { Suspense, useState } from 'react'
+import { avisoCampoIndice, campoIndiceGuardable, leerCampoHandicap } from '@/golf/handicap-index-range'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
@@ -98,11 +100,15 @@ function RegisterContent() {
     })
   }
 
+  const indiceAviso = avisoCampoIndice(indice)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearAll()
 
     // Client validation
+    // El botón ya viene bloqueado con un índice que no se puede guardar; esto es la red de seguridad.
+    if (!campoIndiceGuardable(indice)) return
     if (password.length < PASSWORD_MIN_LENGTH) {
       setFieldError('password', `Mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
       showError(PASSWORD_TOO_SHORT.title, PASSWORD_TOO_SHORT.body)
@@ -117,7 +123,8 @@ function RegisterContent() {
       options: {
         data: {
           name,
-          indice: indice ? parseFloat(indice) : null,
+          // "+2" es un plus (−2) y "18,5" lleva coma: parseFloat("+2") daba 2.
+          indice: leerCampoHandicap(indice).valor,
         },
       },
     })
@@ -381,11 +388,16 @@ function RegisterContent() {
 
             {/* Índice */}
             <div>
-              <label style={labelStyle}>Índice de hándicap <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: theme.textFaint }}>(opcional)</span></label>
-              <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ej: 12.4 — si no lo sabes, déjalo vacío" value={indice} onChange={(e) => setIndice(e.target.value)}
+              <label htmlFor="registro-indice" style={labelStyle}>Índice de hándicap <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: theme.textFaint }}>(opcional)</span></label>
+              {/* inputMode "text": el teclado decimal del iPhone no tiene signo y un plus se escribe "+2". Ya no se
+                  "normaliza" al salir: parseFloat("+2") lo dejaba en 2 (un plus se registraba como hándicap 2). */}
+              <input id="registro-indice" type="text" inputMode="text" autoComplete="off" placeholder="ej: 12.4 — si no lo sabes, déjalo vacío" value={indice} onChange={(e) => setIndice(e.target.value)}
+                aria-invalid={indiceAviso != null}
+                aria-describedby={indiceAviso != null ? 'registro-indice-error' : undefined}
                 style={{ ...baseInput, border: `1px solid ${theme.border}` }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = theme.gold; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(196,153,42,0.12)' }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.boxShadow = 'none'; const v = e.target.value.replace(',', '.'); const n = parseFloat(v); if (!isNaN(n) && n >= 0 && n <= 54) setIndice(String(n)) }} />
+                onBlur={(e) => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.boxShadow = 'none' }} />
+              {indiceAviso != null && <AvisoCampo id="registro-indice-error">{indiceAviso}</AvisoCampo>}
             </div>
 
             {/* Aceptación de términos */}
@@ -412,7 +424,7 @@ function RegisterContent() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !campoIndiceGuardable(indice)}
               style={{ background: theme.gold, color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', width: '100%', borderRadius: '12px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms, box-shadow 200ms', marginTop: '6px', boxShadow: '0 2px 10px rgba(196,153,42,0.25)' }}
               onMouseEnter={(e) => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.05)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(196,153,42,0.35)' } }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 10px rgba(196,153,42,0.25)' }}

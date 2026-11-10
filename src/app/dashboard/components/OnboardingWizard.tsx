@@ -3,6 +3,9 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { actualizarIndice } from '@/lib/data/perfil'
+import { avisoCampoIndice, leerCampoHandicap } from '@/golf/handicap-index-range'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { Flag } from '@/components/icons'
 
 type Step = 1 | 2 | 3
@@ -131,16 +134,19 @@ export function OnboardingWizard({ userId, userName }: Props) {
   const handleSaveHandicap = useCallback(async () => {
     setSaving(true)
     try {
-      const supabase = createClient()
-      const indice = noHandicap ? null : parseFloat(handicap)
-      await supabase.from('profiles').update({ indice }).eq('id', userId)
+      // "+2" es un plus (−2) y "18,5" lleva coma: parseFloat("+2") guardaba 2.
+      const indice = noHandicap ? null : leerCampoHandicap(handicap).valor
+      await actualizarIndice(createClient(), userId, indice)
       setStep(2)
     } finally {
       setSaving(false)
     }
   }, [handicap, noHandicap, userId])
 
-  const canAdvanceStep1 = noHandicap || (handicap !== '' && !isNaN(parseFloat(handicap)) && parseFloat(handicap) >= 0 && parseFloat(handicap) <= 54)
+  // Sin "No tengo / No sé" el índice es obligatorio: un número dentro del rango WHS (plus incluido).
+  const campoHandicap = leerCampoHandicap(handicap)
+  const canAdvanceStep1 = noHandicap || (campoHandicap.estado === 'ok' && avisoCampoIndice(handicap) == null)
+  const avisoHandicap = noHandicap ? null : avisoCampoIndice(handicap)
 
   // ── Step 2: course search ──
   const handleSearch = useCallback(async (q: string) => {
@@ -186,24 +192,27 @@ export function OnboardingWizard({ userId, userName }: Props) {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%' }}>
-              <label style={{ fontSize: '0.8125rem', color: 'var(--text-2)', fontWeight: 500 }}>
+              <label htmlFor="onboarding-indice" style={{ fontSize: '0.8125rem', color: 'var(--text-2)', fontWeight: 500 }}>
                 Handicap Index
               </label>
+              {/* type="text": un type="number" con min=0 no deja escribir un plus ("+2") ni "18,5". */}
               <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                max={54}
-                step={0.1}
+                id="onboarding-indice"
+                type="text"
+                inputMode="text"
+                autoComplete="off"
                 placeholder="18.4"
                 value={noHandicap ? '' : handicap}
                 disabled={noHandicap}
                 onChange={(e) => setHandicap(e.target.value)}
+                aria-invalid={avisoHandicap != null}
+                aria-describedby={avisoHandicap != null ? 'onboarding-indice-error' : undefined}
                 style={{
                   ...INPUT,
                   opacity: noHandicap ? 0.4 : 1,
                 }}
               />
+              {avisoHandicap != null && <AvisoCampo id="onboarding-indice-error">{avisoHandicap}</AvisoCampo>}
 
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.875rem', color: 'var(--text-2)' }}>
                 <input
