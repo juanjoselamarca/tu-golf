@@ -21,7 +21,7 @@ const scores = Array.from({ length: 18 }, () => 4)
 const jugador = (over: Partial<Player>): Player => ({
   pos: 1, id: 'j1', name: 'Ana', country: 'CL', cat: 'General', hcp: -1.5, hcpDisplay: -1.5,
   today: 0, total: 74, holes: 18, grossTotal: 72, netTotal: 74, stablefordTotal: 34,
-  status: 'F', scores, ...over,
+  status: 'F', scores, claveEmpate: null, ...over,
 })
 
 function pintar(players: Player[]) {
