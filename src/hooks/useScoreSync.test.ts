@@ -9,7 +9,8 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { borrarRespaldosDeRonda, leerRespaldoPendiente, useScoreSync } from './useScoreSync'
+import { useScoreSync } from './useScoreSync'
+import { borrarRespaldosDeRonda, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
 
 // jsdom tiene localStorage, pero limpiamos entre tests
 beforeEach(() => {

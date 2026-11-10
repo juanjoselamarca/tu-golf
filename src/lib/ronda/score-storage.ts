@@ -10,6 +10,7 @@
 // - load devuelve {} si no hay nada o si el JSON está corrupto
 
 import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
+import { borrarRespaldosDeRonda } from '@/lib/ronda/respaldo-local'
 
 const KEY = (codigo: string, jugadorId: string) => `ronda_${codigo}_${jugadorId}`
 
@@ -253,10 +254,15 @@ export function hayPendientes(codigo: string): boolean {
 export const PUNTITOS_PEND_KEY = (codigo: string) => `ronda_puntitos_pendientes_${codigo}`
 
 /**
- * La ronda terminó (finalizada o descartada) en este teléfono: se borra TODA su copia
- * local del scorer de grupo — snapshot, golpes por jugador, golpes de equipo y pendientes.
+ * La ronda terminó (finalizada, descartada o ya no existe): se borra TODA su copia local en este
+ * teléfono, de los dos scorers — tarjetas y respaldos del individual (de todos los jugadores) y
+ * snapshot, golpes por jugador, golpes de equipo y pendientes (golpes y puntitos) del de grupo.
+ * Una sola función: el creador puede pasar de un scorer al otro en la misma ronda.
+ * Sólo con respuesta firme del servidor; nunca por una lectura sin señal o una sesión vencida.
  */
-export function limpiarCopiaLocalDelGrupo(codigo: string): void {
+export function limpiarCopiaLocalDeRonda(codigo: string): void {
+  clearScoresDeRonda(codigo)
+  borrarRespaldosDeRonda(codigo)
   clearScorerGrupoSnapshot(codigo)
   try {
     localStorage.removeItem(GROUP_KEY(codigo))

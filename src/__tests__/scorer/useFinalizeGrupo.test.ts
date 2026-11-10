@@ -16,13 +16,13 @@ vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => capt
 vi.mock('@/lib/ronda/helpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/ronda/helpers')>()), haptic: vi.fn() }))
 const saveGroupScores = vi.fn()
 const pendientes = { hay: false }
-const limpiarCopiaLocalDelGrupo = vi.fn()
+const limpiarCopiaLocalDeRonda = vi.fn()
 vi.mock('@/lib/ronda/score-storage', () => ({
   saveGroupScores: (...a: unknown[]) => saveGroupScores(...a),
   loadGroupScores: () => ({}),
   confirmarPendientes: vi.fn(),
   hayPendientes: () => pendientes.hay,
-  limpiarCopiaLocalDelGrupo: (...a: unknown[]) => limpiarCopiaLocalDelGrupo(...a),
+  limpiarCopiaLocalDeRonda: (...a: unknown[]) => limpiarCopiaLocalDeRonda(...a),
 }))
 
 const saveRondaLibreScores = vi.fn(async () => ({ error: null }))
@@ -250,7 +250,7 @@ describe('useFinalizeGrupo', () => {
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo finalizar todavía' }))
     expect(push).toHaveBeenCalledWith('/dashboard')
-    expect(limpiarCopiaLocalDelGrupo).toHaveBeenCalledWith('ABC')
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC')
     expect(saveGroupScores).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
@@ -262,7 +262,7 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     expect(result.current.scores.p1[18]).toBeUndefined()
     expect(saveGroupScores).not.toHaveBeenCalled()
-    expect(limpiarCopiaLocalDelGrupo).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
     expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
@@ -287,14 +287,14 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     expect(push).not.toHaveBeenCalled()
     expect(result.current.fin.finalizing).toBe(false)
-    expect(limpiarCopiaLocalDelGrupo).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
   })
 
   it('cierre exitoso borra la copia local del scorer', async () => {
     const { result } = montar()
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
-    expect(limpiarCopiaLocalDelGrupo).toHaveBeenCalledWith('ABC')
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC')
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
   })
 
@@ -384,7 +384,7 @@ describe('useFinalizeGrupo', () => {
     descartarRondaLibre.mockResolvedValueOnce({ error: 'Esta ronda ya no existe.', noExiste: true })
     const { result } = montar()
     await act(async () => { await result.current.fin.discardRound() })
-    expect(limpiarCopiaLocalDelGrupo).toHaveBeenCalledWith('ABC')
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC')
     expect(push).toHaveBeenCalledWith('/dashboard?discarded=1')
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
   })
@@ -393,7 +393,7 @@ describe('useFinalizeGrupo', () => {
     descartarRondaLibre.mockResolvedValueOnce({ error: 'No se pudo descartar la ronda. Intenta de nuevo.', noExiste: false })
     const { result } = montar()
     await act(async () => { await result.current.fin.discardRound() })
-    expect(limpiarCopiaLocalDelGrupo).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
   })
 })

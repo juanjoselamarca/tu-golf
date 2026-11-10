@@ -14,7 +14,9 @@ import {
   confirmarPendientes,
   leerPendientes,
   hayPendientes,
+  limpiarCopiaLocalDeRonda,
 } from '@/lib/ronda/score-storage'
+import { AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
 import type { RondaLibre } from '@/types/ronda'
 import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
 
@@ -67,6 +69,8 @@ export interface GrupoScoreSave {
   pendienteDeEnvio: boolean
   /** El servidor rechazó un envío porque la ronda ya se cerró (en otro dispositivo). */
   rondaCerrada: boolean
+  /** La ronda ya no existe (P0001): las copias locales se borraron y se avisó; hay que salir. */
+  rondaNoExiste: boolean
 }
 
 /**
@@ -114,6 +118,9 @@ export function useGrupoScoreSave(input: {
   /** Ciclo de envío en curso (incluye la vuelta extra que pidió quien llegó mientras viajaba). */
   const cicloRef = useRef<Promise<void> | null>(null)
   const [rondaCerrada, setRondaCerrada] = useState(false)
+  const [rondaNoExiste, setRondaNoExiste] = useState(false)
+  // Con la ronda borrada y su copia local limpia, nada vuelve a escribirla (un toque la recrearía).
+  const rondaBorradaRef = useRef(false)
 
   /* ── Cleanup de timers al desmontar ── */
   useEffect(() => {
@@ -144,7 +151,7 @@ export function useGrupoScoreSave(input: {
 
   /* ── Envía TODO lo pendiente (jugadores y equipos) ── */
   const saveAllScores = useCallback(async (overrideScores?: Record<string, Record<number, number>>) => {
-    if (!ronda) return
+    if (!ronda || rondaBorradaRef.current) return
     if (overrideScores) {
       // Respaldo local SIEMPRE primero — sobrevive offline y reload — y quedan pendientes.
       saveGroupScores(codigo, overrideScores)
@@ -171,12 +178,15 @@ export function useGrupoScoreSave(input: {
       let ok = false
       let attempts = 0
       let rechazoDefinitivo: string | null = null
+      let noExiste = false as boolean
       while (!ok && attempts < SAVE_RETRIES) {
         const envios = Object.entries(leerPendientes(codigo)).map(async ([id, golpes]) => {
           const r = id.startsWith('eq:')
             ? await saveRondaEquiposScores(supabase, { codigo, equipoId: id.slice(3), delta: golpes })
             : await saveRondaLibreScores(supabase, { codigo, jugadorId: id, delta: golpes })
           if (!r.error) confirmarPendientes(codigo, id, golpes)
+          // La ronda se borró (quien la creó la descartó): ni se reintenta ni es un golpe rechazado.
+          else if (r.error.code === RONDA_ERRCODE.NOT_FOUND) { noExiste = true; return { error: null } }
           else if (esRechazoDefinitivo(r.error)) {
             // La ronda se cerró en otro dispositivo / golpe fuera de rango: no se reintenta
             // (sale de pendientes), pero tampoco se informa como guardado.
@@ -198,6 +208,7 @@ export function useGrupoScoreSave(input: {
           return r
         })
         const results = await Promise.all(envios)
+        if (noExiste) break
         ok = !results.some(r => r.error)
         attempts++
         // Sin respuesta / sin red: el servidor está caído, reintentar a los 400 ms no
@@ -206,7 +217,16 @@ export function useGrupoScoreSave(input: {
         if (!ok && attempts < SAVE_RETRIES) await new Promise(r => setTimeout(r, 400 * attempts))
       }
 
-      if (rechazoDefinitivo) {
+      if (noExiste) {
+        // Igual que el scorer individual: se borra toda la copia local de la ronda, se avisa y se sale.
+        rondaBorradaRef.current = true
+        limpiarCopiaLocalDeRonda(codigo)
+        marcarSinEnviar(false)
+        setHasUnsaved(false)
+        setSaveStatus('error')
+        addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info', duration: 8000 })
+        setRondaNoExiste(true)
+      } else if (rechazoDefinitivo) {
         // Otro jugador del mismo envío puede haber quedado sin respuesta: sigue "sin enviar".
         marcarSinEnviar(hayPendientes(codigo))
         setSaveStatus('error')
@@ -260,6 +280,7 @@ export function useGrupoScoreSave(input: {
 
   /* ── Score change ── */
   const handleScoreChange = useCallback((jugadorId: string, hole: number, delta: number) => {
+    if (rondaBorradaRef.current) return
     setScores(prev => {
       const existingScore = prev[jugadorId]?.[hole]
       const hasExisting = existingScore != null && existingScore > 0
@@ -328,6 +349,6 @@ export function useGrupoScoreSave(input: {
 
   return {
     saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm,
-    handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada,
+    handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste,
   }
 }

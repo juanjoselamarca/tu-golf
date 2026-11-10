@@ -21,7 +21,7 @@ import {
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
-import { saveGroupScores, confirmarPendientes, hayPendientes, limpiarCopiaLocalDelGrupo } from '@/lib/ronda/score-storage'
+import { saveGroupScores, confirmarPendientes, hayPendientes, limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
@@ -91,7 +91,7 @@ export function useFinalizeGrupo(input: {
       addToast({ type: 'error', title: 'No se descartó la ronda', message: error, duration: 5000 })
       return
     }
-    limpiarCopiaLocalDelGrupo(codigo)
+    limpiarCopiaLocalDeRonda(codigo)
     router.push('/dashboard?discarded=1')
   }, [ronda, discarding, codigo, router])
 
@@ -127,7 +127,7 @@ export function useFinalizeGrupo(input: {
     }
     if (estado === RONDA_NO_EXISTE) {
       addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
-      limpiarCopiaLocalDelGrupo(codigo)
+      limpiarCopiaLocalDeRonda(codigo)
       setFinalizing(false)
       router.push('/dashboard')
       return
@@ -247,7 +247,7 @@ export function useFinalizeGrupo(input: {
       avisarSinServidor()
       return
     }
-    if (!updateErr) limpiarCopiaLocalDelGrupo(codigo)
+    if (!updateErr) limpiarCopiaLocalDeRonda(codigo)
     if (updateErr) {
       // Respuesta firme del servidor (ya cerrada, sin permiso): no hay nada que reintentar.
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })

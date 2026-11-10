@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDelGrupo, clearScoresDeRonda } from './score-storage'
+import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda } from './score-storage'
 
 beforeEach(() => localStorage.clear())
 
@@ -109,14 +109,14 @@ describe('pendientes de confirmar (revisión Fable, caída 04-oct)', () => {
   })
 })
 
-describe('limpiarCopiaLocalDelGrupo', () => {
+describe('limpiarCopiaLocalDeRonda', () => {
   it('borra snapshot, golpes por jugador, golpes de equipo y pendientes de ESA ronda (no de otra)', () => {
     saveScorerGrupoSnapshot('ABC', { at: Date.now(), authUserId: 'u1', anotadorNombre: 'A', ronda: { id: 'r' }, parMap: {}, holeDataMap: {}, playerHcp: {}, playerDisplayHcp: {}, teamEquipos: [] })
     saveGroupScores('ABC', { p1: { 1: 4 } })
     saveGroupTeamScores('ABC', { e1: { '1': 3 } })
     marcarPendientes('ABC', 'p1', { 2: 5 })
     saveGroupScores('XYZ', { p9: { 1: 4 } })
-    limpiarCopiaLocalDelGrupo('ABC')
+    limpiarCopiaLocalDeRonda('ABC')
     const claves = Object.keys(localStorage)
     expect(claves.filter(k => k.includes('ABC'))).toEqual([])
     expect(claves).toContain('ronda_grupo_XYZ')

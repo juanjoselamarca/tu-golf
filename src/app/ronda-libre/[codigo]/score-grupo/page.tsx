@@ -65,13 +65,17 @@ export default function ScoreGrupoPage() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
-  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada } =
+  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos })
   // La ronda se cerró en otro dispositivo (el servidor rechazó un envío): al resultado,
   // igual que Finalizar cuando la encuentra cerrada.
   useEffect(() => {
     if (rondaCerrada) router.push(`/ronda-libre/${codigo}?finished=true`)
   }, [rondaCerrada, router, codigo])
+  // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
+  useEffect(() => {
+    if (rondaNoExiste) router.push('/dashboard')
+  }, [rondaNoExiste, router])
   // Con servidor (al abrir o al reconectar), enviar lo que quedó sólo en el teléfono.
   const saveAllRef = useRef(saveAllScores)
   useEffect(() => { saveAllRef.current = saveAllScores }, [saveAllScores])

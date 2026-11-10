@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { hayMarcasPendientes, marcarPuntitoConRespaldo, marcasPendientes, reenviarPuntitosPendientes } from './puntitos-pendientes'
-import { hayPendientes, limpiarCopiaLocalDelGrupo } from './score-storage'
+import { hayPendientes, limpiarCopiaLocalDeRonda } from './score-storage'
 import { ERRCODE_SIN_RESPUESTA, type RondaLibreWriteClient } from '@/lib/data/ronda-libre-scores'
 
 const COD = 'ABC123'
@@ -149,7 +149,7 @@ describe('marcas de Timba con respaldo offline', () => {
     await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
     expect(hayPendientes(COD)).toBe(false)
     expect(hayMarcasPendientes(COD)).toBe(true)
-    limpiarCopiaLocalDelGrupo(COD)
+    limpiarCopiaLocalDeRonda(COD)
     expect(hayMarcasPendientes(COD)).toBe(false)
   })
 

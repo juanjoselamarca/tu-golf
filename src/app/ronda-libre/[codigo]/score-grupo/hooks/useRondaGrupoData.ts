@@ -26,6 +26,7 @@ import {
   saveScorerGrupoSnapshot,
   loadScorerGrupoSnapshot,
   type ScorerGrupoSnapshot,
+  limpiarCopiaLocalDeRonda,
 } from '@/lib/ronda/score-storage'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import type { HoleData, RondaLibre } from '@/types/ronda'
@@ -108,7 +109,8 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
   const userId = sesion.userId
 
   const carga = await fetchRondaLibreParaScorer(supabase, codigo)
-  if (carga.estado === 'no_existe') return { tipo: 'redirigir', a: '/dashboard', reemplazar: false }
+  // Ronda borrada (PGRST116, confirmado por el servidor): su copia local ya no tiene dónde subirse.
+  if (carga.estado === 'no_existe') { limpiarCopiaLocalDeRonda(codigo); return { tipo: 'redirigir', a: '/dashboard', reemplazar: false } }
   if (carga.estado === 'sin_conexion') return { tipo: 'sin_conexion', userId }
   const r = carga.ronda
 

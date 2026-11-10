@@ -1,38 +1,14 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
+import {
+  PREFIJO_RESPALDO,
+  claveDelRespaldo,
+  leerRespaldoPendiente,
+  marcarRespaldoSincronizado,
+  type RespaldoLocal,
+} from '@/lib/ronda/respaldo-local'
 
-const STORAGE_PREFIX = 'golfers_score_'
 const DIAS_PARA_LIMPIAR = 7
-
-interface ScoreEntry {
-  scores: Record<number, number>
-  timestamp: number
-  sincronizado: boolean
-  codigoRonda: string
-  jugadorId: string
-}
-
-const claveDelRespaldo = (codigoRonda: string, jugadorId: string) => `${STORAGE_PREFIX}${codigoRonda}_${jugadorId}`
-
-/** La tarjeta del respaldo que el servidor todavía no confirmó, o null si no hay nada pendiente. */
-export function leerRespaldoPendiente(codigoRonda: string, jugadorId: string): Record<number, number> | null {
-  try {
-    const raw = localStorage.getItem(claveDelRespaldo(codigoRonda, jugadorId))
-    if (!raw) return null
-    const data: ScoreEntry = JSON.parse(raw)
-    return !data.sincronizado && Object.keys(data.scores).length > 0 ? data.scores : null
-  } catch { return null }
-}
-
-/**
- * Borra los respaldos de TODOS los jugadores de una ronda (los que anotó este teléfono). Sólo con
- * la ronda confirmada como borrada (P0001 / PGRST116): nunca por una lectura sin señal o una sesión
- * vencida. El `_` final del prefijo evita tocar otra ronda cuyo código empiece igual (ABC vs ABCD).
- */
-export function borrarRespaldosDeRonda(codigoRonda: string): void {
-  borrarClavesConPrefijo(claveDelRespaldo(codigoRonda, ''))
-}
 
 /**
  * Hook para persistir scores en localStorage como respaldo offline.
@@ -54,7 +30,7 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
         sincronizado: false,
         codigoRonda,
         jugadorId: jugadorId!,
-      } satisfies ScoreEntry))
+      } satisfies RespaldoLocal))
     } catch {
       // Falla silenciosamente en modo privado de Safari
     }
@@ -62,24 +38,15 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
 
   /** Con `enviados`, marca sólo si el respaldo sigue siendo esa tarjeta: una más nueva queda pendiente. */
   const marcarSincronizado = useCallback((enviados?: Record<number, number>) => {
-    if (!key) return
-    try {
-      const raw = localStorage.getItem(key)
-      if (!raw) return
-      const data: ScoreEntry = JSON.parse(raw)
-      // Las claves son hoyos (enteros): JSON.stringify las ordena igual en las dos.
-      if (enviados && JSON.stringify(data.scores) !== JSON.stringify(enviados)) return
-      data.sincronizado = true
-      localStorage.setItem(key, JSON.stringify(data))
-    } catch { /* silencioso */ }
-  }, [key])
+    if (jugadorId) marcarRespaldoSincronizado(codigoRonda, jugadorId, enviados)
+  }, [codigoRonda, jugadorId])
 
   const obtenerLocal = useCallback((): Record<number, number> | null => {
     if (!key) return null
     try {
       const raw = localStorage.getItem(key)
       if (!raw) return null
-      const data: ScoreEntry = JSON.parse(raw)
+      const data: RespaldoLocal = JSON.parse(raw)
       return data.scores
     } catch { return null }
   }, [key])
@@ -94,7 +61,7 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
     try {
       const raw = localStorage.getItem(key)
       if (!raw) return 0
-      const data: ScoreEntry = JSON.parse(raw)
+      const data: RespaldoLocal = JSON.parse(raw)
       return data.timestamp
     } catch { return 0 }
   }, [key])
@@ -105,10 +72,10 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
       const ahora = Date.now()
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i)
-        if (!k || !k.startsWith(STORAGE_PREFIX)) continue
+        if (!k || !k.startsWith(PREFIJO_RESPALDO)) continue
         const raw = localStorage.getItem(k)
         if (!raw) continue
-        const data: ScoreEntry = JSON.parse(raw)
+        const data: RespaldoLocal = JSON.parse(raw)
         const diasTranscurridos = (ahora - data.timestamp) / (1000 * 60 * 60 * 24)
         if (data.sincronizado && diasTranscurridos > DIAS_PARA_LIMPIAR) {
           localStorage.removeItem(k)

@@ -17,6 +17,15 @@ export const AVISO_RONDA_NO_EXISTE = {
 } as const
 
 /**
+ * El servidor rechazó en firme la tarjeta (golpe fuera de rango, parámetro inválido): reintentar
+ * no cambia nada. Aprobado por Juanjo (09-nov-2026).
+ */
+export const AVISO_TARJETA_RECHAZADA = {
+  title: 'No pudimos guardar tu tarjeta',
+  message: 'Revisa los golpes anotados; tus scores siguen en tu teléfono.',
+} as const
+
+/**
  * Match play NETO sin sesión con un jugador cuyo índice está en su perfil (#511):
  * sin ese índice el match (y qué hoyos quedaron sin jugar) saldría como gross. No
  * se cierra a su nombre; los golpes siguen anotados.
