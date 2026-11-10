@@ -14,7 +14,7 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { AvisoHcpPct } from '@/components/AvisoHcpPct'
 import { GruposDelTorneo } from '@/components/torneo/GruposDelTorneo'
 import { T, hcpAMostrar, scoreColor, thruLabel } from '@/components/torneo/tablero-torneo'
-import { etiquetasPorClaveDeEmpate } from '@/golf/core/posiciones'
+import { esPrimerLugar, etiquetasPorClaveDeEmpate } from '@/golf/core/posiciones'
 
 /* ── Types ────────────────────────────────────────────────── */
 export interface GroupData {
@@ -225,7 +225,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
 
             {/* Player rows */}
             {activePlayers.map((p, idx) => {
-              const isLeader = idx === 0 && hasPlayData({ holesPlayed: p.holes })
+              const isLeader = esPrimerLugar(positions[idx])
               const isExpanded = expandedIdx === idx
               const hasScores = hasPlayData({ holesPlayed: p.holes })
 

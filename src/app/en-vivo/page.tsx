@@ -11,6 +11,7 @@ import { trackPageView } from '@/lib/analytics'
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { cleanupFollowedRounds } from '@/lib/round-notifications'
 import { chipDeFormato, filasDeLaTarjeta, publicaPuntos, scoreDeLaFila } from '@/lib/ronda/feed-en-vivo'
+import { esPrimerLugar } from '@/golf/core/posiciones'
 
 /** Fila de la tarjeta: un jugador, o un equipo en scramble/foursome (el puntaje es del equipo). */
 interface JugadorEnVivo {
@@ -357,7 +358,7 @@ export default function EnVivoPage() {
                         // Mismo criterio que el orden: puntos, o vs par (con "Gross" delante si la ronda es neto).
                         const score = scoreDeLaFila(ronda, j)
                         // Líder = primer lugar (solo o empatado), no la primera fila por nombre.
-                        const lider = posicion === '1' || posicion === 'T1'
+                        const lider = esPrimerLugar(posicion)
                         return (
                         <div key={j.id} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',

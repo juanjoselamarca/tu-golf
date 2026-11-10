@@ -12,7 +12,7 @@ import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
-import { etiquetasPorClaveDeEmpate } from '@/golf/core/posiciones'
+import { esPrimerLugar, etiquetasPorClaveDeEmpate } from '@/golf/core/posiciones'
 import { captureError } from '@/lib/error-tracking'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import {
@@ -253,7 +253,7 @@ export default function TVBoard() {
               const secundario = played && tournament ? secondaryScoreText(p, tournament) : null
               const posicion = posiciones[offset + idx]
               // Líder = primer lugar del field (solo o empatado), no la primera fila de cada página.
-              const highlight = posicion === '1' || posicion === 'T1'
+              const highlight = esPrimerLugar(posicion)
               return (
                 <div
                   key={p.id}

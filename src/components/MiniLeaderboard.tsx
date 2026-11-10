@@ -6,7 +6,7 @@ import { segundosDesdeElDato, textoActualizadoHace } from '@/lib/ronda/actualiza
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
-import { etiquetasDePosicion } from '@/golf/core/posiciones'
+import { esPrimerLugar, etiquetasDePosicion } from '@/golf/core/posiciones'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 
 interface JugadorLB {
@@ -148,7 +148,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
           // Invitados: user_id null === currentUserId null NO es "yo".
           const esYo = currentUserId != null && j.user_id === currentUserId
           const posicion = posiciones[idx]
-          const isLeading = posicion === '1' || posicion === 'T1'
+          const isLeading = esPrimerLugar(posicion)
           const thruText = j.lastHole != null ? `H.${j.lastHole}` : '—'
 
           return (
