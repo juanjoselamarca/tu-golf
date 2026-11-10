@@ -5,7 +5,9 @@ import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { usePlayerSearch, type SearchResult } from '../hooks/usePlayerSearch'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
-import { formatearHandicap, formatearIndice } from '@/golf/handicap-index-range'
+import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
+import { useCampoHandicap } from '@/hooks/useCampoHandicap'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 
 interface Props {
   rival: RivalDelCreador
@@ -21,6 +23,9 @@ interface Props {
 export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, onCampo, onQuitar }: Props) {
   const idNombre = `rival-${indiceEnLista}-nombre`
   const idIndice = `rival-${indiceEnLista}-indice`
+  // Texto local (#773): con type=number, "+1.5" quedaba en '' → 0 y un plus se veía "-2". El índice que llega
+  // de un perfil elegido (handleSelect) reemplaza el texto.
+  const campoIndice = useCampoHandicap(rival.handicap, v => onCampo('handicap', v))
 
   // Search only active when tipo === 'cuenta' and no profile selected yet.
   const searchActive = rival.tipo === 'cuenta' && !rival.profileId
@@ -194,11 +199,14 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
         </label>
         <input
           id={idIndice}
-          type="number"
-          step="0.1"
+          type="text"
+          inputMode="text"
+          autoComplete="off"
           placeholder="Ej: 10.5"
-          value={rival.handicap ?? ''}
-          onChange={e => onCampo('handicap', e.target.value ? Number(e.target.value) : null)}
+          value={campoIndice.texto}
+          onChange={e => campoIndice.onTexto(e.target.value)}
+          aria-invalid={campoIndice.invalido}
+          aria-describedby={campoIndice.invalido ? `${idIndice}-error` : undefined}
           style={{ ...input, ...inputNumerico }}
         />
         <SelectorDeTeeDelJugador
@@ -213,6 +221,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           </span>
         )}
       </div>
+      {campoIndice.invalido && <AvisoCampo id={`${idIndice}-error`}>{MENSAJE_HANDICAP_NO_ES_NUMERO}</AvisoCampo>}
 
       {rival.tipo === 'invitado' && (
         <input
