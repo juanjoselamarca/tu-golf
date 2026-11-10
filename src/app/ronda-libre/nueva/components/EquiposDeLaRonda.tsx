@@ -8,7 +8,8 @@ import {
   puedeSumarEquipo,
 } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
-import { destinoParaMover, nombreDeEquipo } from '../hooks/equipos-del-formulario'
+import { destinoParaMover } from '../hooks/equipos-del-formulario'
+import { NOMBRE_EQUIPO_MAX, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { colores, input } from './estilos'
 import { TarjetaDelCreador } from './TarjetaDelCreador'
@@ -61,7 +62,7 @@ export function EquiposDeLaRonda(props: Props) {
   const totalJugadores = 1 + props.rivales.length
   const posicionDeRival = new Map(props.rivales.map((r, i) => [r.id, i]))
   const nombreDe = (id: string) => {
-    if (id === ID_DEL_CREADOR) return props.creador.nombre.trim() || 'ti'
+    if (id === ID_DEL_CREADOR) return nombreOJugadorN(props.creador.nombre, props.numeroDe(id))
     const idx = posicionDeRival.get(id)
     return nombreOJugadorN(idx != null ? props.rivales[idx]?.nombre : null, props.numeroDe(id))
   }
@@ -69,7 +70,7 @@ export function EquiposDeLaRonda(props: Props) {
   const textoDelMovimiento = (id: string) => {
     const movimiento = destinoParaMover(props.formato, props.equipos, id)
     if (!movimiento) return null
-    const equipo = props.equipos[movimiento.equipoIdx].nombre.trim() || nombreDeEquipo(movimiento.equipoIdx)
+    const equipo = nombreVisibleDeEquipo(props.equipos[movimiento.equipoIdx].nombre, movimiento.equipoIdx)
     return movimiento.intercambiaCon ? `Cambiar con ${nombreDe(movimiento.intercambiaCon)} ⇄` : `Mover a ${equipo} →`
   }
 
@@ -78,7 +79,7 @@ export function EquiposDeLaRonda(props: Props) {
       {props.equipos.map((equipo, equipoIdx) => (
         <section
           key={equipoIdx}
-          aria-label={equipo.nombre}
+          aria-label={nombreVisibleDeEquipo(equipo.nombre, equipoIdx)}
           style={{
             padding: '12px', marginBottom: '12px', borderRadius: '14px',
             border: `1px solid ${colores.borde}`, background: 'rgba(196,153,42,0.02)',
@@ -89,6 +90,7 @@ export function EquiposDeLaRonda(props: Props) {
               type="text"
               aria-label={`Nombre del equipo ${equipoIdx + 1}`}
               value={equipo.nombre}
+              maxLength={NOMBRE_EQUIPO_MAX}
               onChange={e => props.onRenombrarEquipo(equipoIdx, e.target.value)}
               style={{ ...input, flex: 1, fontWeight: 600, background: 'transparent', border: 'none', padding: '8px 4px' }}
             />

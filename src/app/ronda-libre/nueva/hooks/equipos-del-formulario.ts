@@ -1,5 +1,6 @@
 import type { FormatoJuego } from '@/golf/core/rules'
 import { EQUIPOS_PARA_COMPETIR, jugadoresPorEquipo } from '@/golf/ronda-libre/plantilla-de-jugadores'
+import { nombreDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 
 /** Identidad del creador dentro de un equipo. Nunca cambia. */
 export const ID_DEL_CREADOR = 'creador'
@@ -25,10 +26,6 @@ export function numerosEnPantalla(
   const orden = equipos ? equipos.flatMap(e => e.miembros) : [ID_DEL_CREADOR]
   for (const id of idsDeRivales) if (!orden.includes(id)) orden.push(id)
   return new Map(orden.map((id, i) => [id, i + 1]))
-}
-
-export function nombreDeEquipo(posicion: number): string {
-  return `Equipo ${posicion + 1}`
 }
 
 /**

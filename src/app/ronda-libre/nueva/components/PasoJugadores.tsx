@@ -224,9 +224,9 @@ export function PasoJugadores(props: Props) {
 
         {/* Sólo en neto: en Match Play Gross nadie recibe golpes, y anunciarlos
             prometía una ventaja que el marcador no da. */}
-        {esMatchPlay && props.modo === 'neto' && props.rivales.length === 1 && (
+        {esMatchPlay && props.modo === 'neto' && props.llevaElScoreDelGrupo && props.rivales.length === 1 && (
           <DiferenciaDeHandicap
-            jugadorA={{ nombre: props.creador.nombre, golpes: golpesCreador }}
+            jugadorA={{ nombre: nombreOJugadorN(props.creador.nombre, numeroDe(ID_DEL_CREADOR)), golpes: golpesCreador }}
             jugadorB={{
               nombre: nombreOJugadorN(props.rivales[0].nombre, numeroDe(props.rivales[0].id)),
               golpes: props.golpesDe(props.rivales[0].handicap, props.rivales[0].tees ?? props.teeGlobal),

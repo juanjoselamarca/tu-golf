@@ -22,10 +22,10 @@ import {
   equiposSirvenPara,
   ID_DEL_CREADOR,
   moverEntreEquipos,
-  nombreDeEquipo,
   repartirEnEquipos,
   type EquipoDeLaRonda,
 } from './equipos-del-formulario'
+import { nombreDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 
 export { ID_DEL_CREADOR } from './equipos-del-formulario'
 export type { EquipoDeLaRonda } from './equipos-del-formulario'
