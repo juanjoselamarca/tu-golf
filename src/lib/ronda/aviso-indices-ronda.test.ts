@@ -30,12 +30,12 @@ describe('avisoDeIndicesAlFinalizar: los dos índices, cada uno con su etiqueta'
   it('menos de 3 rondas: dice cuándo se activa el Golfers+, nunca muestra el de la Federación como si se hubiera movido', () => {
     const a = avisoDeIndicesAlFinalizar(i(18, null), i(18, null), true)
     expect(a.title).toBe('Ronda guardada')
-    expect(a.message).toBe('Federación 18.0 · Golfers+ se activa con 3 rondas')
+    expect(a.message).toBe('Federación 18.0 · Golfers+ se activa con 3 rondas válidas')
   })
 
   it('sin índice de la Federación: solo el Golfers+', () => {
     expect(avisoDeIndicesAlFinalizar(i(null, 20), i(null, 19.5), true).message).toBe('Venías de 20.0')
-    expect(avisoDeIndicesAlFinalizar(i(null, null), i(null, null), true).message).toBe('Golfers+ se activa con 3 rondas')
+    expect(avisoDeIndicesAlFinalizar(i(null, null), i(null, null), true).message).toBe('Golfers+ se activa con 3 rondas válidas')
   })
 
   it('el recálculo falló o la lectura venció: avisa que se actualizará, con el de la Federación si se conoce', () => {
@@ -43,6 +43,12 @@ describe('avisoDeIndicesAlFinalizar: los dos índices, cada uno con su etiqueta'
       type: 'info', title: 'Ronda guardada', message: 'Tu índice Golfers+ se actualizará pronto · Federación 18.0',
     })
     expect(avisoDeIndicesAlFinalizar(null, null, true).message).toBe('Tu índice Golfers+ se actualizará pronto')
+  })
+
+  it('índices plus se muestran con "+", nunca en negativo; bajar a un plus es mejorar', () => {
+    expect(avisoDeIndicesAlFinalizar(i(-0.5, 0.4), i(-0.5, -1), true)).toEqual({
+      type: 'success', title: 'Bajaste tu índice Golfers+ a +1.0', message: 'Venías de 0.4 · Federación +0.5',
+    })
   })
 
   it('el de la Federación nunca se narra como cambio aunque difiera entre lecturas', () => {

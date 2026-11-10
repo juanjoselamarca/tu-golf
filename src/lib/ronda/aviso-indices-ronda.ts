@@ -12,6 +12,8 @@
  * neutro (mismo criterio que `construirAvisoIndice` de FedeGolf).
  */
 import type { AvisoIndice } from '@/lib/fedegolf/aviso-indice'
+import { MIN_DIFERENCIALES_INDICE } from '@/golf/core/whs-index'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 export interface IndicesDelJugador {
   /** `profiles.indice`: el de la Federación (FedeGolf o ingresado a mano). */
@@ -20,10 +22,7 @@ export interface IndicesDelJugador {
   golfers: number | null
 }
 
-/** Mínimo de rondas con diferencial para que exista índice Golfers+ (`calcular_indice_golfers`). */
-export const RONDAS_PARA_INDICE_GOLFERS = 3
-
-const txt = (v: number) => v.toFixed(1)
+const txt = formatearIndice
 
 function conFederacion(base: string, federacion: number | null): string {
   return federacion == null ? base : `${base} · Federación ${txt(federacion)}`
@@ -46,7 +45,9 @@ export function avisoDeIndicesAlFinalizar(
 
   const nuevo = despues.golfers
   if (nuevo == null) {
-    const activa = `Golfers+ se activa con ${RONDAS_PARA_INDICE_GOLFERS} rondas`
+    // "válidas": cuentan solo las rondas con diferencial (tee con rating, tarjeta
+    // completa), no todas las jugadas.
+    const activa = `Golfers+ se activa con ${MIN_DIFERENCIALES_INDICE} rondas válidas`
     return {
       type: 'success',
       title: 'Ronda guardada',

@@ -413,8 +413,11 @@ describe('finalizar y después corregir un hoyo: el ajuste de los demás no camb
 
 describe('fetchIndicesDeUsuario', () => {
   it('los dos índices del perfil: Federación y Golfers+', async () => {
-    expect(await fetchIndicesDeUsuario(fakeSupabase({ profiles: { data: { indice: 18, indice_golfers: 17.2 } } }) as never, 'u1'))
-      .toEqual({ federacion: 18, golfers: 17.2 })
+    const sb = fakeSupabase({ profiles: { data: { indice: 18, indice_golfers: 17.2 } } })
+    expect(await fetchIndicesDeUsuario(sb as never, 'u1')).toEqual({ federacion: 18, golfers: 17.2 })
+    // El cliente falso devuelve lo que se le da: se afirma que se PIDEN las dos columnas.
+    expect(sb.llamadas[0]).toMatchObject({ tabla: 'profiles' })
+    expect(sb.llamadas[0].cadena).toContainEqual(['select', ['indice, indice_golfers']])
     expect(await fetchIndicesDeUsuario(fakeSupabase({ profiles: { data: { indice: 18, indice_golfers: null } } }) as never, 'u1'))
       .toEqual({ federacion: 18, golfers: null })
   })
