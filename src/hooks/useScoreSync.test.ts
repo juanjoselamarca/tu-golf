@@ -9,12 +9,23 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { leerRespaldoPendiente, useScoreSync } from './useScoreSync'
+import { borrarRespaldo, leerRespaldoPendiente, useScoreSync } from './useScoreSync'
 
 // jsdom tiene localStorage, pero limpiamos entre tests
 beforeEach(() => {
   localStorage.clear()
   vi.useRealTimers()
+})
+
+describe('borrarRespaldo', () => {
+  it('borra sólo el respaldo de ese jugador en esa ronda', () => {
+    localStorage.setItem('golfers_score_ABC_p1', '{}')
+    localStorage.setItem('golfers_score_ABC_p2', '{}')
+    borrarRespaldo('ABC', 'p1')
+    expect(localStorage.getItem('golfers_score_ABC_p1')).toBeNull()
+    expect(localStorage.getItem('golfers_score_ABC_p2')).not.toBeNull()
+    localStorage.clear()
+  })
 })
 
 describe('useScoreSync', () => {

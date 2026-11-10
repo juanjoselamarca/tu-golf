@@ -25,6 +25,14 @@ export function leerRespaldoPendiente(codigoRonda: string, jugadorId: string): R
 }
 
 /**
+ * Borra el respaldo de un jugador. Sólo cuando la ronda ya no existe o se descartó:
+ * nadie podría sincronizarlo y el banner de "Sincronizando…" quedaría para siempre.
+ */
+export function borrarRespaldo(codigoRonda: string, jugadorId: string): void {
+  try { localStorage.removeItem(claveDelRespaldo(codigoRonda, jugadorId)) } catch { /* modo privado */ }
+}
+
+/**
  * Hook para persistir scores en localStorage como respaldo offline.
  * - Guarda cada cambio de score localmente ANTES de enviar al servidor
  * - Si el servidor falla, el score NO se pierde

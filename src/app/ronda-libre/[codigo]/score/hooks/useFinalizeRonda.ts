@@ -22,6 +22,7 @@ import { addToast } from '@/hooks/useToast'
 import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import { conTimeout } from '@/lib/red/con-timeout'
+import { borrarRespaldo } from '@/hooks/useScoreSync'
 import {
   fetchRondaParaCierre,
   PLAZO_GUARDAR_TARJETA_MS,
@@ -53,7 +54,9 @@ function leerRondaParaCierre(supabase: ReturnType<typeof createClient>, codigo: 
 
 function limpiarCopiaLocal(codigo: string, ronda: Pick<RondaLibre, 'ronda_libre_jugadores'>) {
   try {
-    for (const j of ronda.ronda_libre_jugadores) lsClear(codigo, j.id)
+    // Las dos copias: la tarjeta y el respaldo sin sincronizar (si quedara, el banner
+    // "Sincronizando…" seguiría en todas las pantallas sin ronda donde subirlo).
+    for (const j of ronda.ronda_libre_jugadores) { lsClear(codigo, j.id); borrarRespaldo(codigo, j.id) }
   } catch { /* no bloquear */ }
 }
 

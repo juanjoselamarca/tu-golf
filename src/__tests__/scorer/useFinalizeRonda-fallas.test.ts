@@ -332,9 +332,19 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     expect(result.current.roundDone).toBe(false)
   })
 
+  it('sin señal (lectura null): el respaldo sin sincronizar queda intacto', async () => {
+    localStorage.setItem('golfers_score_ABC123_p1', JSON.stringify({ scores: { 1: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: 'p1' }))
+    fetchRondaParaCierre.mockResolvedValue(null)
+    await finalizar()
+    expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
+    expect(clearScores).not.toHaveBeenCalled()
+    localStorage.clear()
+  })
+
   it('ronda descartada por su creador: dice que ya no existe (no "Sin conexión"), limpia lo local y sale', async () => {
     const onDiscardSuccess = vi.fn()
     const o = { ...opts(), onDiscardSuccess }
+    localStorage.setItem('golfers_score_ABC123_p1', JSON.stringify({ scores: { 1: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: 'p1' }))
     fetchRondaParaCierre.mockResolvedValue({ estado: 'no_existe', jugadores: [] })
     await finalizar(o)
     expect(o.guardarAhora).not.toHaveBeenCalled()
@@ -344,6 +354,8 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     expect(titulos).not.toContain('Sin conexión')
     expect(clearScores).toHaveBeenCalledWith('ABC123', 'p1')
     expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
+    // El respaldo también: si no, el banner "Sincronizando…" queda en toda la app.
+    expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
   })
 })
 
