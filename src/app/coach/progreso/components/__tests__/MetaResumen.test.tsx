@@ -30,4 +30,27 @@ describe('MetaResumen — distancia a la meta', () => {
     const { container } = render(<MetaResumen currentHandicap={12.36} targetHandicap={12.24} targetDeadline={null} />)
     expect(container.textContent).toContain('0.2 puntos para tu objetivo')
   })
+
+  it('plus: se muestra con "+" y la distancia mantiene el signo (+1.0 hoy, meta +2.0 → falta 1.0)', () => {
+    const { container } = render(<MetaResumen currentHandicap={-1} targetHandicap={-2} targetDeadline={null} />)
+    expect(container.textContent).toContain('+1.0')
+    expect(container.textContent).toContain('+2.0')
+    expect(container.textContent).toContain('1.0 puntos para tu objetivo')
+    expect(container.textContent).not.toContain('-1.0')
+  })
+
+  it('plus mejor que la meta: está en la meta (+2.0 hoy, meta +1.0)', () => {
+    const { container } = render(<MetaResumen currentHandicap={-2} targetHandicap={-1} targetDeadline={null} />)
+    expect(container.textContent).toContain('Estás en tu meta.')
+  })
+
+  it('cruza el cero: +0.5 hoy y meta 1.0 → ya está en la meta', () => {
+    const { container } = render(<MetaResumen currentHandicap={-0.5} targetHandicap={1} targetDeadline={null} />)
+    expect(container.textContent).toContain('Estás en tu meta.')
+  })
+
+  it('sin meta: el hándicap actual plus lleva "+"', () => {
+    const { container } = render(<MetaResumen currentHandicap={-0.4} targetHandicap={null} targetDeadline={null} />)
+    expect(container.textContent).toContain('+0.4')
+  })
 })

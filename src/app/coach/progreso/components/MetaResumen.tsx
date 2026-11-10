@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { formatearIndice, parsearHandicap } from '@/golf/handicap-index-range'
 
 interface Props {
   currentHandicap: number | null
@@ -18,7 +19,9 @@ function fmtDeadline(d: string | null): string | null {
 const mono = { fontFamily: 'var(--font-dm-mono)' } as const
 
 export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }: Props) {
-  const hcp = currentHandicap != null ? currentHandicap.toFixed(1) : '—'
+  // Se muestra con formatearIndice (un plus es "+1.0") y se cuenta con el número que se muestra,
+  // leído de vuelta con parsearHandicap ("+1.0" → −1): Number("+1.0") daría 1 y la distancia cambiaría de signo.
+  const hcp = currentHandicap != null ? formatearIndice(currentHandicap) : '—'
 
   if (targetHandicap == null) {
     return (
@@ -36,9 +39,9 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
     )
   }
 
-  const meta = targetHandicap.toFixed(1)
+  const meta = formatearIndice(targetHandicap)
   // Con los decimales que se muestran: 12.34 contra 12.3 no es "0.0 puntos para tu objetivo".
-  const delta = currentHandicap != null ? Math.round((Number(hcp) - Number(meta)) * 10) / 10 : null
+  const delta = currentHandicap != null ? Math.round((parsearHandicap(hcp) - parsearHandicap(meta)) * 10) / 10 : null
   const deadline = fmtDeadline(targetDeadline)
 
   return (

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { NIVEL_LABELS } from '@/lib/indice-golfers'
+import { formatearIndice } from '@/golf/handicap-index-range'
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { loginUrl } from '@/lib/auth/login-url'
 
@@ -231,7 +232,7 @@ export default function RankingPage() {
                     letterSpacing: '-0.02em',
                     textAlign: 'right',
                   }}>
-                    {idx_ != null ? idx_.toFixed(1) : '—'}
+                    {idx_ != null ? formatearIndice(idx_) : '—'}
                   </div>
                 </li>
               )
