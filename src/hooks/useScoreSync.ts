@@ -1,21 +1,19 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
-  PREFIJO_RESPALDO,
+  barrerRespaldosViejos,
   claveDelRespaldo,
   leerRespaldoPendiente,
   marcarRespaldoSincronizado,
   type RespaldoLocal,
 } from '@/lib/ronda/respaldo-local'
 
-const DIAS_PARA_LIMPIAR = 7
-
 /**
  * Hook para persistir scores en localStorage como respaldo offline.
  * - Guarda cada cambio de score localmente ANTES de enviar al servidor
  * - Si el servidor falla, el score NO se pierde
  * - Al reconectar, sincroniza automáticamente los scores pendientes
- * - Limpia entradas sincronizadas después de 7 días
+ * - Barre los respaldos que ya no sirven (`barrerRespaldosViejos`)
  */
 export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
   const key = jugadorId ? claveDelRespaldo(codigoRonda, jugadorId) : ''
@@ -66,23 +64,8 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
     } catch { return 0 }
   }, [key])
 
-  // Limpiar entradas antiguas ya sincronizadas (todas las del prefix)
-  useEffect(() => {
-    try {
-      const ahora = Date.now()
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i)
-        if (!k || !k.startsWith(PREFIJO_RESPALDO)) continue
-        const raw = localStorage.getItem(k)
-        if (!raw) continue
-        const data: RespaldoLocal = JSON.parse(raw)
-        const diasTranscurridos = (ahora - data.timestamp) / (1000 * 60 * 60 * 24)
-        if (data.sincronizado && diasTranscurridos > DIAS_PARA_LIMPIAR) {
-          localStorage.removeItem(k)
-        }
-      }
-    } catch { /* silencioso */ }
-  }, [])
+  // Barre lo sincronizado hace más de 7 días y lo de rondas vistas cerradas hace más de 30.
+  useEffect(() => { barrerRespaldosViejos() }, [])
 
   // Misma identidad entre renders: un efecto que depende de este objeto (el reenvío del respaldo) no corre en cada render.
   return useMemo(() => ({

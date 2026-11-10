@@ -9,7 +9,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 
 type Resp = { data: unknown; error: unknown }
 const { respuestas, consultas } = vi.hoisted(() => ({
-  respuestas: new Map<string, Resp | 'lanza'>(),
+  respuestas: new Map<string, Resp | 'lanza' | 'tarda15s'>(),
   consultas: [] as string[],
 }))
 vi.mock('@/lib/supabase', () => ({
@@ -21,6 +21,7 @@ vi.mock('@/lib/supabase', () => ({
             consultas.push(codigo)
             const r = respuestas.get(codigo)
             if (r === 'lanza') throw new TypeError('Failed to fetch')
+            if (r === 'tarda15s') return new Promise<Resp>(res => setTimeout(() => res({ data: null, error: { code: 'PGRST116', message: '0 rows' } }), 15_000))
             return r ?? { data: { estado: 'en_curso' }, error: null }
           },
         }),
@@ -30,6 +31,7 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 import { conciliarRespaldos, useConciliarRespaldos } from './useConciliarRespaldos'
+import { contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
 
 const respaldo = (codigo: string, jugador: string, sincronizado = false) => localStorage.setItem(
   `golfers_score_${codigo}_${jugador}`,
@@ -57,11 +59,50 @@ describe('conciliarRespaldos', () => {
     }
   })
 
-  it('ronda finalizada: el servidor ya no acepta esos golpes, también limpia', async () => {
+  it('ronda finalizada (se puede reabrir: cerrar un torneo cierra sus rondas): NO borra; el banner deja de contarla', async () => {
     respaldo('FIN999', 'p1')
+    localStorage.setItem('ronda_FIN999_p1', '{"1":4}')
     respuestas.set('FIN999', { data: { estado: 'finalizada' }, error: null })
     expect(await conciliarRespaldos()).toEqual(['FIN999'])
+    expect(contarHoyosPendientes()).toBe(0)
+    expect(hay('golfers_score_FIN999_p1')).toBe(true)
+    expect(hay('ronda_FIN999_p1')).toBe(true)
+    // El scorer sigue viendo la tarjeta sin enviar (la mezcla y la reenvía si la ronda se reabre).
+    expect(leerRespaldoPendiente('FIN999', 'p1')).toEqual({ 1: 4 })
+  })
+
+  it('la ronda se reabre (vuelve a en_curso): quita la marca y el banner vuelve a contarla', async () => {
+    respaldo('FIN999', 'p1')
+    respuestas.set('FIN999', { data: { estado: 'finalizada' }, error: null })
+    await conciliarRespaldos()
+    expect(contarHoyosPendientes()).toBe(0)
+    respuestas.set('FIN999', { data: { estado: 'en_curso' }, error: null })
+    expect(await conciliarRespaldos()).toEqual(['FIN999'])
+    expect(contarHoyosPendientes()).toBe(1)
+    expect(leerRespaldoPendiente('FIN999', 'p1')).toEqual({ 1: 4 })
+  })
+
+  it('una ronda cerrada que después se borra: ahí sí limpia', async () => {
+    respaldo('FIN999', 'p1')
+    respuestas.set('FIN999', { data: { estado: 'finalizada' }, error: null })
+    await conciliarRespaldos()
+    respuestas.set('FIN999', { data: null, error: { code: 'PGRST116', message: '0 rows' } })
+    expect(await conciliarRespaldos()).toEqual(['FIN999'])
     expect(hay('golfers_score_FIN999_p1')).toBe(false)
+  })
+
+  it('consulta que no responde: a los 10 s se rinde sin tocar nada, y la respuesta tardía tampoco borra', async () => {
+    vi.useFakeTimers()
+    try {
+      respaldo('LENTA1', 'p1')
+      respuestas.set('LENTA1', 'tarda15s')
+      const p = conciliarRespaldos()
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(await p).toEqual([])
+      expect(hay('golfers_score_LENTA1_p1')).toBe(true)
+      await vi.advanceTimersByTimeAsync(6_000)
+      expect(hay('golfers_score_LENTA1_p1')).toBe(true)
+    } finally { vi.useRealTimers() }
   })
 
   it('una sola consulta por código aunque tenga varios jugadores', async () => {

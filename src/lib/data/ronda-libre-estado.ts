@@ -5,8 +5,12 @@
 // que va en todas las páginas.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { conTimeout } from '@/lib/red/con-timeout'
 
 type Client = Pick<SupabaseClient, 'from'>
+
+/** Plazo de una lectura de estado que decide si se borra algo: sin respuesta, no se borra. */
+export const TIMEOUT_ESTADO_RONDA_MS = 10_000
 
 /** `estado` de una ronda que ya no existe (el creador la descartó: se borra). */
 export const RONDA_NO_EXISTE = 'no_existe'
@@ -20,4 +24,25 @@ export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): P
   const { data, error } = await supabase.from('rondas_libres').select('estado').eq('codigo', codigo).single()
   if (error?.code === 'PGRST116') return RONDA_NO_EXISTE
   return (data?.estado as string | undefined) ?? null
+}
+
+/**
+ * Qué significa un P0001 (RONDA_NOT_FOUND) del guardado. El RPC lo lanza cuando el JOIN
+ * ronda+jugador (o ronda+equipo) no encuentra fila: con la ronda borrada, pero también con la
+ * ronda viva si falta ese jugador o equipo. Antes de limpiar nada se pregunta por la ronda:
+ *  - 'ronda_borrada': el servidor confirma que no existe (PGRST116) → limpiar y salir;
+ *  - 'ronda_viva':    existe → rechazo definitivo de ESA tarjeta, nada se limpia;
+ *  - 'sin_senal':     no se pudo confirmar (red, timeout, sesión) → no limpiar, se reintenta.
+ */
+export type VeredictoRondaNoEncontrada = 'ronda_borrada' | 'ronda_viva' | 'sin_senal'
+
+export async function confirmarRondaBorrada(supabase: Client, codigo: string): Promise<VeredictoRondaNoEncontrada> {
+  let estado: string | null
+  try {
+    estado = await conTimeout(fetchEstadoRondaLibre(supabase, codigo), TIMEOUT_ESTADO_RONDA_MS)
+  } catch {
+    return 'sin_senal'
+  }
+  if (estado === RONDA_NO_EXISTE) return 'ronda_borrada'
+  return estado == null ? 'sin_senal' : 'ronda_viva'
 }

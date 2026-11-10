@@ -29,6 +29,14 @@ describe('OfflineBanner', () => {
     expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
   })
 
+  it('ronda cerrada (se puede reabrir): el aviso se va, pero los golpes quedan en el teléfono', async () => {
+    respaldo('ABC123')
+    respuesta.actual = { data: { estado: 'finalizada' }, error: null }
+    render(<OfflineBanner />)
+    await waitFor(() => expect(screen.queryByText(/Sincronizando/)).toBeNull())
+    expect(JSON.parse(localStorage.getItem('golfers_score_ABC123_p1')!).scores).toEqual({ 1: 4, 2: 5 })
+  })
+
   it('inverso: ronda en curso, el aviso sigue con sus hoyos pendientes', async () => {
     respaldo('ABC123')
     respuesta.actual = { data: { estado: 'en_curso' }, error: null }

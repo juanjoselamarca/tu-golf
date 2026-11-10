@@ -7,7 +7,7 @@ import { useConciliarRespaldos } from '@/hooks/useConciliarRespaldos'
 export function OfflineBanner() {
   const [offline, setOffline] = useState(false)
   const [pendientes, setPendientes] = useState(0)
-  // Respaldos de una ronda que el servidor ya no acepta (borrada o cerrada) se limpian aquí;
+  // Los respaldos de una ronda borrada se limpian y los de una cerrada dejan de contarse;
   // si no, el aviso de "Sincronizando…" quedaba pegado en todas las páginas (PR #763).
   const recontar = useCallback(() => setPendientes(contarHoyosPendientes()), [])
   useConciliarRespaldos(recontar)
