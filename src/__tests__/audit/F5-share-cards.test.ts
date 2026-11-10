@@ -105,8 +105,8 @@ describe('Score by format [CRITICAL peso 3]', () => {
       // scoreGross = winner.vsPar (the points value)
       const data: LeaderboardShareData = {
         players: [
-          { nombre: 'Carlos Ruiz', vsPar: 34, holesPlayed: 18, totalHoles: 18 },
-          { nombre: 'Diego Mora', vsPar: 30, holesPlayed: 18, totalHoles: 18 },
+          { nombre: 'Carlos Ruiz', vsPar: 34, holesPlayed: 18, totalHoles: 18, posicion: '1' },
+          { nombre: 'Diego Mora', vsPar: 30, holesPlayed: 18, totalHoles: 18, posicion: '2' },
         ],
         courseName: COURSE_NAME,
         fecha: '12 abr 2026',
@@ -128,7 +128,7 @@ describe('Score by format [CRITICAL peso 3]', () => {
     })
 
     it('scoreDiff = 0 for stableford (not applicable)', () => {
-      const winner = { nombre: 'Carlos Ruiz', vsPar: 34, holesPlayed: 18, totalHoles: 18 }
+      const winner = { nombre: 'Carlos Ruiz', vsPar: 34, holesPlayed: 18, totalHoles: 18, posicion: '1' }
       const isStableford = true
       const scoreDiff = isStableford ? 0 : winner.vsPar
 
@@ -191,8 +191,8 @@ describe('Score by format [CRITICAL peso 3]', () => {
       // by replicating its cardData construction
       const data: LeaderboardShareData = {
         players: [
-          { nombre: 'Player A', vsPar: -2, holesPlayed: 18, totalHoles: 18 },
-          { nombre: 'Player B', vsPar: 1, holesPlayed: 18, totalHoles: 18 },
+          { nombre: 'Player A', vsPar: -2, holesPlayed: 18, totalHoles: 18, posicion: '1' },
+          { nombre: 'Player B', vsPar: 1, holesPlayed: 18, totalHoles: 18, posicion: '2' },
         ],
         courseName: COURSE_NAME,
         fecha: '12 abr 2026',
@@ -549,7 +549,7 @@ describe('compartirLeaderboard [CRITICAL peso 3]', () => {
   it('passes formato_juego through to card data', () => {
     // Replicate the cardData construction from compartirLeaderboard
     const data: LeaderboardShareData = {
-      players: [{ nombre: 'Test', vsPar: -2, holesPlayed: 18, totalHoles: 18 }],
+      players: [{ nombre: 'Test', vsPar: -2, holesPlayed: 18, totalHoles: 18, posicion: '1' }],
       courseName: COURSE_NAME,
       fecha: '12 abr 2026',
       rondaCodigo: 'XYZ',

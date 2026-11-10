@@ -21,7 +21,7 @@
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { handicapDeEquipoParaHoyos } from './team-handicap'
 import { normalizedStrokeIndexByHole } from '../core/stroke-index'
-import { rankTeamsWithCountback, type EquipoConClaveDeEmpate } from '../leaderboard/team-tiebreak'
+import { rankTeamsWithCountback, type EquipoConClaveDeEmpate, scorePrimarioDeEquipo } from '../leaderboard/team-tiebreak'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -196,9 +196,7 @@ export function scorePrimarioFoursome(
   formato: FormatoJuego,
   modo: ModoJuego
 ): number {
-  if (formato === 'stableford') return result.totalStableford
-  if (modo === 'neto') return result.overUnderNeto
-  return result.overUnderGross
+  return scorePrimarioDeEquipo(result, formato, modo)
 }
 
 /**

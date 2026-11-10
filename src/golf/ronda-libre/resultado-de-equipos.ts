@@ -1,3 +1,4 @@
+import { esPrimerLugar, etiquetasDePosicion } from '@/golf/core/posiciones'
 import { EQUIPOS_PARA_COMPETIR } from './plantilla-de-jugadores'
 
 export type EtiquetaDelResultadoDeEquipos = 'Contra el par' | 'Empate' | 'Equipo ganador'
@@ -29,20 +30,26 @@ export interface FilaDelRankingDeEquipos {
 }
 
 /**
- * Los equipos que comparten el primer lugar, sobre el ranking YA ordenado por
- * `ordenarEquipos*` (vs par, countback en los empates, sin hoyos al final):
- * el líder y todos los que tengan su mismo `diff` y hayan anotado algo. Uno
- * solo si no hay empate; ninguno si nadie anotó (no hay resultado que mostrar).
+ * FUENTE ÚNICA del lugar de cada equipo en una ronda libre, sobre el ranking YA ordenado por `ordenarEquipos*`
+ * (vs par, countback en los empates, sin hoyos al final): mismo `diff` = mismo lugar ("T2", "T2", "4"), sin
+ * countback; el que no anotó nada, sin lugar (null). La usan la tabla de equipos, la imagen para compartir y
+ * `equiposEnElPrimerLugar` (cuadro ganador): las tres dicen lo mismo.
+ */
+export function posicionesDeEquipos(ranking: readonly FilaDelRankingDeEquipos[]): (string | null)[] {
+  return etiquetasDePosicion(ranking, (a, b) => a.diff === b.diff, { sinPosicion: (t) => t.holesPlayed === 0 })
+}
+
+/**
+ * Los equipos que comparten el primer lugar ("1" o "T1" en `posicionesDeEquipos`). Uno solo si no hay empate;
+ * ninguno si nadie anotó (no hay resultado que mostrar).
  *
  * La imagen para compartir decidía el empate por `score` (golpes brutos) y la
  * pantalla por `diff`: con distinta cantidad de hoyos anotados, o en neto,
  * podían decir cosas distintas. Acá se decide una vez para los dos.
  */
 export function equiposEnElPrimerLugar<T extends FilaDelRankingDeEquipos>(ranking: readonly T[]): T[] {
-  const lider = ranking[0]
-  if (!lider) return []
-  if (lider.holesPlayed === 0) return []
-  return ranking.filter(t => t.holesPlayed > 0 && t.diff === lider.diff)
+  const posiciones = posicionesDeEquipos(ranking)
+  return ranking.filter((_, i) => esPrimerLugar(posiciones[i]))
 }
 
 /** Dos o más equipos comparten el primer lugar. */

@@ -3,9 +3,10 @@
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
-import { esPrimerLugar, etiquetasDePosicion } from '@/golf/core/posiciones'
+import { esPrimerLugar } from '@/golf/core/posiciones'
 import {
   equiposEnElPrimerLugar,
+  posicionesDeEquipos,
   etiquetaDelResultadoDeEquipos,
   juegaContraElPar,
   nombrarEquipos,
@@ -73,7 +74,14 @@ export interface ShareCardTorneo {
 export type ShareCardData = ShareCardRondaLibre | ShareCardTorneo
 
 // Keep backwards compat
-export interface LeaderboardPlayer { nombre: string; vsPar: number; holesPlayed: number; totalHoles: number }
+export interface LeaderboardPlayer {
+  nombre: string
+  vsPar: number
+  holesPlayed: number
+  totalHoles: number
+  /** Lugar de la tabla (`posicionesDelLeaderboard`): la imagen dice lo mismo que la pantalla. */
+  posicion: string | null
+}
 export interface LeaderboardShareData {
   players: LeaderboardPlayer[]
   courseName: string
@@ -663,7 +671,7 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
  */
 /** Ranking de la imagen con la misma etiqueta que la tabla: mismo vs par = "T" (sin countback en la ronda libre). */
 function rankingDeEquipos(teams: NonNullable<LeaderboardShareData['teams']>): NonNullable<ShareCardRondaLibre['ranking']> {
-  const posiciones = etiquetasDePosicion(teams, (a, b) => a.diff === b.diff, { sinPosicion: t => t.holesPlayed === 0 })
+  const posiciones = posicionesDeEquipos(teams)
   return teams.map((t, i) => ({ nombre: t.nombre, score: t.score, diff: t.diff, holesPlayed: t.holesPlayed, posicion: posiciones[i] }))
 }
 
@@ -740,13 +748,13 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
   }
 
   // Stroke Play / Stableford: ranking por vsPar
-  const isTie = data.players.length > 1 && data.players[1].vsPar === winner.vsPar
+  // El lugar viene de la tabla (posicionesDelLeaderboard): empate = los que comparten el primer lugar.
+  const primeros = data.players.filter(p => esPrimerLugar(p.posicion))
+  const isTie = primeros.length > 1
   const parTotal = parTotalEstandar(winner.totalHoles)
-  // Misma etiqueta que la tabla (posicionesDelLeaderboard): mismo vs par (o puntos) = "T"; sin hoyos, sin posición.
-  const posicionesJugadores = etiquetasDePosicion(data.players, (a, b) => a.vsPar === b.vsPar, { sinPosicion: p => p.holesPlayed === 0 })
   const cardData: ShareCardRondaLibre = {
     tipo: 'ronda_libre', ganador: winner.nombre, esEmpate: isTie,
-    jugadores: isTie ? data.players.filter(p => p.vsPar === winner.vsPar).map(p => p.nombre) : undefined,
+    jugadores: isTie ? primeros.map(p => p.nombre) : undefined,
     // Stableford: scoreGross = puntos, scoreDiff = 0 (no aplica vs-par)
     scoreGross: isStableford ? winner.vsPar : parTotal + winner.vsPar,
     scoreDiff: isStableford ? 0 : winner.vsPar,
@@ -754,11 +762,11 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
     scoresByHole: {}, parsByHole: {}, holesPlayed: winner.totalHoles,
     formato_juego: data.formato_juego,
     modo_juego: data.modo_juego,
-    ranking: data.players.map((p, i) => ({
+    ranking: data.players.map(p => ({
       nombre: p.nombre,
       score: isStableford ? p.vsPar : parTotalEstandar(p.totalHoles) + p.vsPar,
       diff: isStableford ? 0 : p.vsPar,
-      posicion: posicionesJugadores[i],
+      posicion: p.posicion,
     })),
   }
   return compartirResultado(cardData)

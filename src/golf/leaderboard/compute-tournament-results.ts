@@ -7,6 +7,7 @@
 import { isFinishedCard } from './board-rules'
 import { formatPuntosStableford } from './formato-score'
 import { formatVsPar } from '@/golf/share/vs-par'
+import { scorePrimarioDeEquipo } from './team-tiebreak'
 import { dentroDelCorte, etiquetasConRespaldo, lugarDeEtiqueta } from '@/golf/core/posiciones'
 import type { Player } from '@/lib/golf-data'
 import type { TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
@@ -102,8 +103,7 @@ export function buildTeamPodium(
   const isStableford = formato === 'stableford'
   // Lugar con empates estilo golf, sobre el field completo y con la misma clave que
   // la tabla: si el countback no separó a dos equipos, el podio dice T1 y T1.
-  const primario = (t: TeamStandingForPodium) =>
-    isStableford ? t.totalStableford : modo === 'neto' ? t.overUnderNeto : t.overUnderGross
+  const primario = (t: TeamStandingForPodium) => scorePrimarioDeEquipo(t, formato, modo)
   const etiquetas = etiquetasConRespaldo(
     orderedTeams,
     (t) => t.claveEmpate,

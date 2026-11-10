@@ -7,6 +7,7 @@
 // (scramble/foursome/best_ball) llaman acá.
 
 import { applyCountback, type CountbackMode } from '@/golf/core/countback'
+import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
 export interface TeamCountbackAccessors<T> {
   /** Score primario que define el empate. Menor gana con 'lower_wins', mayor con 'higher_wins'. */
@@ -93,4 +94,21 @@ export function rankTeamsWithCountback<T>(
   }
 
   return [...salida, ...sinDatos.map((t) => ({ ...t, claveEmpate: null }))]
+}
+
+/** Lo que cualquier resultado de equipo (scramble, foursome, best ball) trae para su score primario. */
+export interface ScoresDeEquipo {
+  totalStableford: number
+  overUnderNeto: number
+  overUnderGross: number
+}
+
+/**
+ * FUENTE ÚNICA del score con que se ordena y se compara un equipo según formato y modo: puntos en stableford, vs
+ * par neto o gross en el resto. La usan los tres formatos (`scorePrimario*`), el podio y la tabla de la ronda libre.
+ */
+export function scorePrimarioDeEquipo(equipo: ScoresDeEquipo, formato: FormatoJuego, modo: ModoJuego): number {
+  if (formato === 'stableford') return equipo.totalStableford
+  if (modo === 'neto') return equipo.overUnderNeto
+  return equipo.overUnderGross
 }

@@ -5,6 +5,7 @@ import {
   hayEmpateDeEquipos,
   juegaContraElPar,
   nombrarEquipos,
+  posicionesDeEquipos,
 } from './resultado-de-equipos'
 
 describe('etiquetaDelResultadoDeEquipos', () => {
@@ -59,5 +60,21 @@ describe('nombrarEquipos', () => {
     expect(nombrarEquipos(['Equipo 1', 'Equipo 2'])).toBe('Equipo 1 y Equipo 2')
     expect(nombrarEquipos(['Uno', 'Dos', 'Tres'])).toBe('Uno, Dos y Tres')
     expect(nombrarEquipos([])).toBe('')
+  })
+})
+
+describe('posicionesDeEquipos — una sola cuenta para tabla, imagen y cuadro ganador', () => {
+  const ranking = [
+    { diff: -2, holesPlayed: 18 }, { diff: 0, holesPlayed: 18 }, { diff: 0, holesPlayed: 18 },
+    { diff: 3, holesPlayed: 18 }, { diff: 0, holesPlayed: 0 },
+  ]
+  it('mismo vs par = mismo lugar; el que no anotó, sin lugar', () => {
+    expect(posicionesDeEquipos(ranking)).toEqual(['1', 'T2', 'T2', '4', null])
+  })
+  it('equiposEnElPrimerLugar son exactamente los "1"/"T1" de posicionesDeEquipos', () => {
+    const empatados = [{ diff: -1, holesPlayed: 9 }, { diff: -1, holesPlayed: 18 }, { diff: 2, holesPlayed: 18 }]
+    expect(posicionesDeEquipos(empatados).slice(0, 2)).toEqual(['T1', 'T1'])
+    expect(equiposEnElPrimerLugar(empatados)).toHaveLength(2)
+    expect(equiposEnElPrimerLugar(ranking)).toHaveLength(1)
   })
 })

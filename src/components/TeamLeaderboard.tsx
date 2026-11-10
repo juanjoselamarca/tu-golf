@@ -13,7 +13,9 @@ import { formatOverUnder } from '@/golf/core/rules'
 import { getScoreColor } from '@/golf/core/colors'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
-import { esPrimerLugar, etiquetasDePosicion } from '@/golf/core/posiciones'
+import { esPrimerLugar } from '@/golf/core/posiciones'
+import { scorePrimarioDeEquipo } from '@/golf/leaderboard/team-tiebreak'
+import { posicionesDeEquipos } from '@/golf/ronda-libre/resultado-de-equipos'
 
 interface TeamEntry {
   teamId: string
@@ -51,9 +53,7 @@ const FORMATO_LABEL: Record<string, string> = {
 }
 
 function primaryScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego): number {
-  if (formato === 'stableford') return team.totalStableford
-  if (modo === 'neto') return team.overUnderNeto
-  return team.overUnderGross
+  return scorePrimarioDeEquipo(team, formato, modo)
 }
 
 function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string {
@@ -68,13 +68,10 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
   // El orden lo decide el motor (`ordenarEquipos*` → countback, sin hoyos al final).
   // Re-ordenar acá por score perdía el countback y subía al equipo que no ha salido.
   const sorted = teams
-  // Empates estilo golf (T2, T2, 4) por mismo score, sin countback: en la ronda libre
-  // el cuadro ganador y la imagen para compartir declaran "Empate" con el mismo vs par
-  // (`equiposEnElPrimerLugar`), y la tabla individual tampoco desempata. Sin hoyos: "—".
-  const posiciones = etiquetasDePosicion(
-    sorted,
-    (a, b) => primaryScore(a, modoJuego, formatoJuego) === primaryScore(b, modoJuego, formatoJuego),
-    { sinPosicion: (t) => t.holesPlayed === 0 },
+  // Empates estilo golf (T2, T2, 4) con la MISMA cuenta que el cuadro ganador y la imagen
+  // (`posicionesDeEquipos`): mismo score = mismo lugar, sin countback. Sin hoyos: "—".
+  const posiciones = posicionesDeEquipos(
+    sorted.map((t) => ({ diff: primaryScore(t, modoJuego, formatoJuego), holesPlayed: t.holesPlayed })),
   )
 
   return (
