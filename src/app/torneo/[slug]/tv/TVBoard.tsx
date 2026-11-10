@@ -12,6 +12,7 @@ import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
+import { etiquetasPorClaveDeEmpate } from '@/golf/core/posiciones'
 import { captureError } from '@/lib/error-tracking'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import {
@@ -33,6 +34,8 @@ interface TVPlayer {
   grossTotal: number
   netTotal: number
   stablefordTotal: number
+  /** Clave de empate del motor (`Player.claveEmpate`): misma clave = "T". */
+  claveEmpate: string | null
 }
 
 const TV_KEYFRAMES = `
@@ -108,6 +111,7 @@ export default function TVBoard() {
         grossTotal: p.grossTotal ?? 0,
         netTotal: p.netTotal ?? 0,
         stablefordTotal: p.stablefordTotal ?? 0,
+        claveEmpate: p.claveEmpate,
       })),
     )
     setLastUpdate(new Date())
@@ -161,6 +165,10 @@ export default function TVBoard() {
   const PAGE_SIZE = 10
   const totalPages = Math.max(1, Math.ceil(allPlayers.length / PAGE_SIZE))
   const players = allPlayers.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
+  // Posiciones sobre el field ENTERO (no sobre la página): antes la página 2
+  // volvía a numerar desde 1 con trofeo. Empates estilo golf con la clave del motor.
+  const posiciones = etiquetasPorClaveDeEmpate(allPlayers, (p) => p.claveEmpate)
+  const offset = currentPage * PAGE_SIZE
 
   useEffect(() => {
     if (totalPages <= 1) return
@@ -243,7 +251,9 @@ export default function TVBoard() {
                 ? primaryScoreColor(p, tournament)
                 : 'var(--text-3)'
               const secundario = played && tournament ? secondaryScoreText(p, tournament) : null
-              const highlight = idx === 0
+              const posicion = posiciones[offset + idx]
+              // Líder = primer lugar del field (solo o empatado), no la primera fila de cada página.
+              const highlight = posicion === '1' || posicion === 'T1'
               return (
                 <div
                   key={p.id}
@@ -257,7 +267,7 @@ export default function TVBoard() {
                   }}
                 >
                   <div style={{ fontSize: highlight ? '28px' : '22px', color: highlight ? 'var(--brand-on-bg)' : '#94a8c0', fontWeight: 700, fontFamily: '"Playfair Display", serif' }}>
-                    {idx === 0 ? <Trophy size={22} strokeWidth={1.5} /> : idx + 1}
+                    {posicion === '1' ? <Trophy size={22} strokeWidth={1.5} aria-label="1" /> : (posicion ?? '—')}
                   </div>
                   <div>
                     <div style={{ fontFamily: '"Playfair Display", serif', fontSize: highlight ? '26px' : '20px', color: 'var(--text)', fontWeight: 600, lineHeight: 1.2 }}>
