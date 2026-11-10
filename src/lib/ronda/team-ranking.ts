@@ -6,6 +6,7 @@ import {
 } from '@/golf/formats'
 import type { ScrambleTeamResult } from '@/golf/formats'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { scorePrimarioDeEquipo } from '@/golf/leaderboard/team-tiebreak'
 import type { FormatoJuego, ModoJuego, Jugador } from '@/types/ronda'
 
 /**
@@ -53,6 +54,7 @@ export interface TeamShareRow {
   nombre: string
   jugadores: string[]
   score: number
+  /** Score primario del equipo (`scorePrimarioDeEquipo`): vs par gross o neto según el modo. */
   diff: number
   /** Hoyos con score del equipo. 0 = no anotó nada: va al final y no compite. */
   holesPlayed: number
@@ -115,7 +117,9 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
     jugadores: equipos.find(e => e.id === r.teamId)?.jugadorIds
       .map(jid => jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean) || [],
     score: isStab ? r.totalStableford : isNeto ? r.totalNeto : r.totalGross,
-    diff: isStab ? 0 : isNeto ? r.overUnderNeto : r.overUnderGross,
+    // El mismo score primario con que la tabla de equipos da el lugar (`scorePrimarioDeEquipo`):
+    // imagen, cuadro ganador y tabla comparan lo mismo.
+    diff: scorePrimarioDeEquipo(r, formato, modo),
     holesPlayed: r.holesPlayed,
   }))
 }
