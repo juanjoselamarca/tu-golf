@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
 
+import { cortarPorGrupoDeLugar } from '@/golf/core/posiciones'
 import type { PodiumEntry } from '../types'
 
 interface ResultsShareCardProps {
@@ -15,7 +16,8 @@ interface ResultsShareCardProps {
 }
 
 /** Filas del podio que caben en la imagen. El corte es por lugar (top 5 con empates): si un empate pasa de 5
- *  filas, la imagen crece hacia abajo; este tope solo evita una imagen interminable con un empate masivo. */
+ *  filas, la imagen crece hacia abajo. Con más de 8, se corta en el último grupo de lugar que cabe entero y una
+ *  fila avisa el resto ("+5 empatados en T5"): nunca desaparece un empatado sin decirlo. */
 const FILAS_MAXIMAS_DE_LA_IMAGEN = 8
 const FILAS_EN_600 = 5
 const ALTO_DE_FILA = 52
@@ -30,9 +32,9 @@ function drawResultsCard(
   props: Omit<ResultsShareCardProps, 'totalPlayers'> & { totalPlayers: number },
 ) {
   const { tournamentName, courseName, dateDisplay, topPlayers, totalPlayers } = props
-  const top = topPlayers.slice(0, FILAS_MAXIMAS_DE_LA_IMAGEN)
+  const { filas: top, resto } = cortarPorGrupoDeLugar(topPlayers, FILAS_MAXIMAS_DE_LA_IMAGEN)
   const W = 600
-  const H = 600 + Math.max(0, top.length - FILAS_EN_600) * ALTO_DE_FILA
+  const H = 600 + Math.max(0, top.length + (resto ? 1 : 0) - FILAS_EN_600) * ALTO_DE_FILA
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')!
@@ -168,6 +170,13 @@ function drawResultsCard(
     ctx.textAlign = 'right'
     ctx.fillText(entry.score, W - 80, y)
   })
+
+  if (resto) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'
+    ctx.font = '500 15px system-ui, -apple-system, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText(resto.texto, 80, startY + top.length * entryH)
+  }
 
   // Footer
   const footerY = H - 40

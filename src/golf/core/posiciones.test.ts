@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { dentroDelCorte, esPrimerLugar, etiquetasConRespaldo, lugarConOrdinal, etiquetasDePosicion, etiquetasPorClaveDeEmpate, lugarDeEtiqueta } from './posiciones'
+import { cortarPorGrupoDeLugar, dentroDelCorte, esPrimerLugar, etiquetasConRespaldo, lugarConOrdinal, etiquetasDePosicion, etiquetasPorClaveDeEmpate, lugarDeEtiqueta } from './posiciones'
 
 interface Fila { nombre: string; vsPar: number; hoyos: number; pts?: number }
 const mismoVsPar = (a: Fila, b: Fila) => a.vsPar === b.vsPar
@@ -110,5 +110,27 @@ describe('dentroDelCorte / lugarConOrdinal', () => {
   it('"1°" sin empate y "T1" con empate', () => {
     expect(lugarConOrdinal('1')).toBe('1°')
     expect(lugarConOrdinal('T1')).toBe('T1')
+  })
+})
+
+describe('cortarPorGrupoDeLugar', () => {
+  const filas = (etiquetas: string[]) => etiquetas.map((etiqueta, i) => ({ etiqueta, i }))
+  it('si cabe todo, no corta', () => {
+    expect(cortarPorGrupoDeLugar(filas(['1', '2', 'T3', 'T3']), 8)).toEqual({ filas: filas(['1', '2', 'T3', 'T3']), resto: null })
+  })
+  it('1, 2, 3, 4 + cinco T5 en 8 filas: no parte el T5, lo avisa entero', () => {
+    const r = cortarPorGrupoDeLugar(filas(['1', '2', '3', '4', 'T5', 'T5', 'T5', 'T5', 'T5']), 8)
+    expect(r.filas.map((f) => f.etiqueta)).toEqual(['1', '2', '3', '4'])
+    expect(r.resto).toEqual({ cantidad: 5, texto: '+5 empatados en T5' })
+  })
+  it('un empate en el primer lugar más grande que la imagen: las filas que caben y el resto avisado', () => {
+    const r = cortarPorGrupoDeLugar(filas(Array.from({ length: 10 }, () => 'T1')), 8)
+    expect(r.filas).toHaveLength(7)
+    expect(r.resto).toEqual({ cantidad: 3, texto: '+3 empatados en T1' })
+  })
+  it('si lo que queda no comparte lugar: "+N más"', () => {
+    const r = cortarPorGrupoDeLugar(filas(['1', '2', '3', '4', '5', '6', 'T7', 'T7', '9']), 8)
+    expect(r.filas.map((f) => f.etiqueta)).toEqual(['1', '2', '3', '4', '5', '6'])
+    expect(r.resto!.texto).toBe('+3 más')
   })
 })

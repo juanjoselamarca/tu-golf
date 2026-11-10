@@ -115,3 +115,42 @@ export function dentroDelCorte(etiqueta: string | null | undefined, limite: numb
 export function lugarConOrdinal(etiqueta: string): string {
   return etiqueta.startsWith('T') ? etiqueta : `${etiqueta}°`
 }
+
+/** Lo que no cupo de una lista cortada por grupos de lugar. */
+export interface RestoDelCorte {
+  cantidad: number
+  /** "+3 empatados en T5" si los que quedan comparten lugar; "+3 más" si no. */
+  texto: string
+}
+
+/**
+ * Corta filas YA ordenadas con lugar (`etiqueta`) para que quepan en `maxFilas` sin partir un empate: entra cada grupo
+ * de lugar completo mientras quepa, dejando una fila para avisar el resto ("+N empatados en T5"). Si ni el primer
+ * grupo cabe entero, muestra las filas que quepan de él. Para superficies de alto fijo (imagen para compartir).
+ */
+export function cortarPorGrupoDeLugar<T extends { etiqueta: string }>(
+  filas: readonly T[],
+  maxFilas: number,
+): { filas: T[]; resto: RestoDelCorte | null } {
+  if (filas.length <= maxFilas) return { filas: [...filas], resto: null }
+  const disponibles = maxFilas - 1 // una fila para el aviso del resto
+  let corte = 0
+  while (corte < filas.length) {
+    let fin = corte + 1
+    while (fin < filas.length && filas[fin].etiqueta === filas[corte].etiqueta) fin++
+    if (fin > disponibles) break
+    corte = fin
+  }
+  if (corte === 0) corte = disponibles
+  const quedan = filas.slice(corte)
+  const mismoLugar = quedan.every((f) => f.etiqueta === quedan[0].etiqueta)
+  return {
+    filas: filas.slice(0, corte),
+    resto: {
+      cantidad: quedan.length,
+      texto: mismoLugar && quedan[0].etiqueta.startsWith('T')
+        ? `+${quedan.length} empatados en ${quedan[0].etiqueta}`
+        : `+${quedan.length} más`,
+    },
+  }
+}
