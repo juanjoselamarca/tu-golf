@@ -15,6 +15,10 @@ import {
   leerPendientes,
   hayPendientes,
   limpiarCopiaLocalDeRonda,
+  apartarRechazados,
+  leerRechazados,
+  confirmarRechazados,
+  olvidarRechazado,
 } from '@/lib/ronda/score-storage'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
@@ -63,8 +67,12 @@ export interface GrupoScoreSave {
    * Envía al servidor todo lo pendiente. Con `overrideScores` (p.ej. pares autocompletados
    * al avanzar) primero los respalda y los marca como pendientes. Dice si el servidor contestó que la
    * ronda está cerrada (P0002): lo pendiente queda en el teléfono y Finalizar no lo toma por falta de señal.
+   * Con `reintentarRechazados` (Finalizar) también reenvía las tarjetas que el servidor rechazó en firme.
    */
-  saveAllScores: (overrideScores?: Record<string, Record<number, number>>) => Promise<EstadoTrasEnvio>
+  saveAllScores: (
+    overrideScores?: Record<string, Record<number, number>>,
+    opciones?: { reintentarRechazados?: boolean },
+  ) => Promise<ResultadoEnvio>
   /** Agenda un envío de lo pendiente (debounced). Lo usa también el score de equipos. */
   programarEnvio: () => void
   /** Hay golpes en el teléfono que el servidor todavía no tiene (se reintenta solo). */
@@ -80,6 +88,16 @@ export interface GrupoScoreSave {
  * una cerrada); 'ronda_borrada' si se confirmó borrada (el guardado ya avisó, limpió y saca al marcador).
  */
 export type EstadoTrasEnvio = 'ronda_cerrada' | 'ronda_abierta' | 'ronda_borrada'
+
+/**
+ * Resultado de un envío: cómo quedó la ronda y qué tarjetas (jugador, o `eq:<id>` de equipo) el servidor
+ * rechazó en firme y siguen rechazadas (P0004/22023, o P0001 con la ronda viva). Sus golpes están apartados
+ * en el teléfono (`apartarRechazados`): Finalizar no cierra con ellas y nombra a cada una.
+ */
+export interface ResultadoEnvio {
+  estado: EstadoTrasEnvio
+  rechazadas: { id: string; code: string }[]
+}
 
 /**
  * Entrada y guardado de golpes del scorer de GRUPO (un anotador, varias
@@ -123,6 +141,8 @@ export function useGrupoScoreSave(input: {
   const otraVueltaRef = useRef(false)
   const confirmacionesRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const avisoDefinitivoRef = useRef(false)
+  /** Tarjetas rechazadas en firme en esta sesión y todavía no aceptadas (id → código del rechazo). */
+  const rechazadasRef = useRef(new Map<string, string>())
   /** Ciclo de envío en curso (incluye la vuelta extra que pidió quien llegó mientras viajaba). */
   const cicloRef = useRef<Promise<void> | null>(null)
   const [rondaCerrada, setRondaCerrada] = useState(false)
@@ -195,7 +215,12 @@ export function useGrupoScoreSave(input: {
       // la ronda cerrada (P0002) los golpes se quedan en el teléfono, porque se puede reabrir (reabrir un
       // torneo devuelve sus rondas a 'en_curso') y al volver al scorer se reenvían.
       const rechazar = (id: string, golpes: Record<number, number>, code: string) => {
-        if (esRechazoQueDescarta({ code })) confirmarPendientes(codigo, id, golpes)
+        // Rechazo firme: sale de pendientes (no se reintenta solo) pero los golpes quedan apartados en el
+        // teléfono; Finalizar no cierra con esta tarjeta y la nombra.
+        if (esRechazoQueDescarta({ code })) {
+          apartarRechazados(codigo, id, golpes)
+          rechazadasRef.current.set(id, code)
+        }
         rechazoDefinitivo = code
         // Aunque otra tarjeta del mismo envío tenga otro rechazo: con un P0002 la ronda está cerrada.
         if (code === RONDA_ERRCODE.FINALIZED) vioRondaCerrada = true
@@ -218,7 +243,11 @@ export function useGrupoScoreSave(input: {
           const r = id.startsWith('eq:')
             ? await saveRondaEquiposScores(supabase, { codigo, equipoId: id.slice(3), delta: golpes })
             : await saveRondaLibreScores(supabase, { codigo, jugadorId: id, delta: golpes })
-          if (!r.error) confirmarPendientes(codigo, id, golpes)
+          if (!r.error) {
+            confirmarPendientes(codigo, id, golpes)
+            confirmarRechazados(codigo, id, golpes)
+            if (!leerRechazados(codigo)[id]) rechazadasRef.current.delete(id)
+          }
           // No encontró ronda+jugador (o equipo): se decide abajo, con UNA lectura de la ronda.
           else if (r.error.code === RONDA_ERRCODE.NOT_FOUND) { noEncontrados.push([id, golpes]); return { error: null } }
           else if (esNoReintentable(r.error)) { rechazar(id, golpes, r.error.code); return { error: null } }
@@ -261,6 +290,8 @@ export function useGrupoScoreSave(input: {
       } else if (ok && !hayPendientes(codigo)) {
         // Entró todo: la ronda está abierta (se reabrió, si un envío anterior la vio cerrada).
         rondaCerradaRef.current = false
+        // El próximo rechazo firme vuelve a avisar.
+        avisoDefinitivoRef.current = false
         const veniaDeCaida = sinEnviarRef.current
         marcarSinEnviar(false)
         setSaveStatus('saved')
@@ -293,11 +324,26 @@ export function useGrupoScoreSave(input: {
     }
   }, [ronda, codigo, marcarSinEnviar])
 
-  const saveAllScores = useCallback(async (overrideScores?: Record<string, Record<number, number>>): Promise<EstadoTrasEnvio> => {
+  const saveAllScores = useCallback(async (
+    overrideScores?: Record<string, Record<number, number>>,
+    opciones?: { reintentarRechazados?: boolean },
+  ): Promise<ResultadoEnvio> => {
+    if (opciones?.reintentarRechazados && ronda && !rondaBorradaRef.current) {
+      // Antes que `overrideScores` (lo más nuevo en pantalla gana) y sólo de quienes siguen en la ronda:
+      // si el organizador sacó a un jugador, su tarjeta apartada no bloquea Finalizar para siempre.
+      const vigentes = new Set([
+        ...ronda.ronda_libre_jugadores.map(j => j.id),
+        ...equiposRef.current.map(eq => ID_PENDIENTE_EQUIPO(eq.id)),
+      ])
+      for (const [id, golpes] of Object.entries(leerRechazados(codigo))) {
+        if (vigentes.has(id)) marcarPendientes(codigo, id, golpes)
+      }
+    }
     await enviarTodo(overrideScores)
-    if (rondaBorradaRef.current) return 'ronda_borrada'
-    return rondaCerradaRef.current ? 'ronda_cerrada' : 'ronda_abierta'
-  }, [enviarTodo])
+    const rechazadas = [...rechazadasRef.current].map(([id, code]) => ({ id, code }))
+    if (rondaBorradaRef.current) return { estado: 'ronda_borrada', rechazadas: [] }
+    return { estado: rondaCerradaRef.current ? 'ronda_cerrada' : 'ronda_abierta', rechazadas }
+  }, [enviarTodo, ronda, codigo])
 
   useEffect(() => {
     saveAllRef.current = saveAllScores
@@ -366,6 +412,7 @@ export function useGrupoScoreSave(input: {
       setHasUnsaved(true)
       saveGroupScores(codigo, next)
       marcarPendientes(codigo, jugadorId, { [hole]: newScore })
+      olvidarRechazado(codigo, jugadorId, hole)
       haptic(10)
       programarEnvio()
       return next

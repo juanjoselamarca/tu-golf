@@ -23,6 +23,7 @@ import {
   loadGroupScores,
   loadGroupTeamScores,
   leerPendientes,
+  leerRechazados,
   ID_PENDIENTE_EQUIPO,
   saveScorerGrupoSnapshot,
   loadScorerGrupoSnapshot,
@@ -217,13 +218,15 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const pintarPrimeraVez = useCallback((r: RondaLibre, localGana: boolean, equipos: EquipoDelScorer[]) => {
     const cached = loadGroupScores(codigo)
     const pend = leerPendientes(codigo)
+    // Tarjetas que el servidor rechazó en firme: sus golpes se muestran (para revisarlos) por encima de la BD.
+    const rech = leerRechazados(codigo)
     const db = tarjetasDesdeLaRonda(r)
     const initialScores: Record<string, Record<number, number>> = {}
     for (const j of r.ronda_libre_jugadores) {
       const base = localGana
         ? { ...db[j.id], ...(cached[j.id] ?? {}) }
         : { ...(cached[j.id] ?? {}), ...db[j.id] } // online: BD manda; lo local aporta lo que falta
-      initialScores[j.id] = { ...base, ...numerico(pend[j.id]) }
+      initialScores[j.id] = { ...base, ...numerico(rech[j.id]), ...numerico(pend[j.id]) }
     }
     setScores(initialScores)
     // Equipos (scramble/foursome): respaldo local + pendientes por encima del servidor/copia.
@@ -233,6 +236,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       scores: {
         ...eq.scores,
         ...(localGana ? cachedEq[eq.id] ?? {} : {}),
+        ...(rech[ID_PENDIENTE_EQUIPO(eq.id)] ?? {}),
         ...(pend[ID_PENDIENTE_EQUIPO(eq.id)] ?? {}),
       },
     }))

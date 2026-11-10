@@ -21,13 +21,13 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_RONDA_NO_EXISTE, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
-import type { EstadoTrasEnvio } from './useGrupoScoreSave'
+import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
-import { completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
+import { completarHoyosSinMarcarConPar, completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import { hoyosSinTerminarDeJugador } from '@/golf/ronda-libre/match-de-la-ronda'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
@@ -53,6 +53,12 @@ export interface FinalizeGrupo {
  * datos. El acceso a datos es el MISMO que usa el scorer individual
  * (`@/lib/data/ronda-libre-finalizar`).
  */
+/** Nombre de una tarjeta del envío: el jugador, o el equipo (`eq:<id>`) en scramble / foursome. */
+function nombreDeTarjeta(ronda: RondaLibre, equipos: readonly EquipoDelScorer[], id: string): string {
+  if (id.startsWith('eq:')) return equipos.find(eq => eq.id === id.slice(3))?.nombre || 'un equipo'
+  return ronda.ronda_libre_jugadores.find(j => j.id === id)?.nombre || 'un jugador'
+}
+
 export function useFinalizeGrupo(input: {
   ronda: RondaLibre | null
   codigo: string
@@ -76,7 +82,10 @@ export function useFinalizeGrupo(input: {
    * Finalizar no clasifica errores por su cuenta: usa los de este envío (P0001 confirmado con la
    * ronda, rechazos que descartan, P0002, sin respuesta).
    */
-  enviarPendientes: (overrideScores?: Record<string, Record<number, number>>) => Promise<EstadoTrasEnvio>
+  enviarPendientes: (
+    overrideScores?: Record<string, Record<number, number>>,
+    opciones?: { reintentarRechazados?: boolean },
+  ) => Promise<ResultadoEnvio>
 }): FinalizeGrupo {
   const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes } = input
   const router = useRouter()
@@ -113,18 +122,33 @@ export function useFinalizeGrupo(input: {
     setConfirmFinalize(false)
     setFinalizing(true)
     haptic(30)
+    // Mientras navega al resultado el botón sigue en "Finalizando" (no se toca dos veces). Cualquier otra
+    // salida, incluida una excepción, lo libera: la pantalla nunca queda en "Finalizando" para siempre (y
+    // la redirección de ronda cerrada de la página, que espera a Finalizar, puede seguir).
+    const nav = { navegando: false }
+    try {
+      await finalizarUnaVez(ronda, nav)
+    } catch (e) {
+      void captureError(e instanceof Error ? e : new Error(String(e)), { context: 'score_grupo_finalize.excepcion', meta: { codigo } })
+      addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
+    } finally {
+      if (!nav.navegando) setFinalizing(false)
+    }
+  }
 
-    // Guard: verificar que la ronda no fue finalizada por otro dispositivo/organizador
+  const finalizarUnaVez = async (ronda: RondaLibre, nav: { navegando: boolean }): Promise<void> => {
+    const irA = (destino: string) => {
+      nav.navegando = true
+      router.push(destino)
+    }
     const supabase = createClient()
     // Sin identidad o sin servidor no se cierra nada (caída 04-oct-2026): se avisa y se reintenta.
-    const avisarSinServidor = () => {
-      addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
-      setFinalizing(false)
-    }
+    const avisarSinServidor = () => addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
     if (!authUserId) { avisarSinServidor(); return }
     // Scramble / foursome siempre tienen equipos: si no están, no cargaron. Cerrar
     // dejaría el historial sin hoyos.
     if (isSharedBallFormat(ronda.formato_juego) && teamEquipos.length === 0) { avisarSinServidor(); return }
+    // Guard: verificar que la ronda no fue finalizada por otro dispositivo/organizador
     let estado: string | null
     try {
       estado = await conTimeout(fetchEstadoRondaLibre(supabase, codigo), PLAZO_CARGA_SCORER_MS)
@@ -135,8 +159,7 @@ export function useFinalizeGrupo(input: {
     if (estado === RONDA_NO_EXISTE) {
       addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
       limpiarCopiaLocalDeRonda(codigo)
-      setFinalizing(false)
-      router.push('/dashboard')
+      irA('/dashboard')
       return
     }
     // Sin estado no hay respuesta del servidor: más abajo se rellenan hoyos con par,
@@ -145,8 +168,12 @@ export function useFinalizeGrupo(input: {
     // Ya cerrada (otro dispositivo, el organizador o el ganador del match): igual que el individual,
     // no se reescriben golpes ni se vuelve a cerrar, pero la tarjeta propia SÍ va al historial
     // (idempotente) y se recalcula el índice: el mismo camino que si se cierra entre la lectura y el envío.
+    // Lo que no subió sale del banner YA (no después del historial, que puede fallar o tardar) y se guarda.
     let rondaYaCerrada = esRondaCerrada(estado)
-    if (rondaYaCerrada) addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+    if (rondaYaCerrada) {
+      addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+      marcarRespaldosDeRondaCerrada(codigo)
+    }
 
     // Bug fix 30-abr-2026: si el último hoyo se jugó en par y el usuario no
     // tap +/-, el state queda undefined (la UI mostraba par como placeholder
@@ -172,20 +199,34 @@ export function useFinalizeGrupo(input: {
     if (rondaYaCerrada) {
       // Cerrada: el relleno con par es sólo para la tarjeta del historial; no se respalda ni se envía
       // (quedaría como pendiente y subiría con par si la ronda se reabre).
-      if (bolaCompartida) equiposFinales = teamEquipos.map(eq => ({ ...eq, scores: completarHoyosSinMarcarConPar(eq.scores, hoyos, parMap).scores }))
+      if (bolaCompartida) equiposFinales = completarEquiposSinMarcarConPar(teamEquipos, hoyos, parMap).equipos
     } else {
       if (bolaCompartida) equiposFinales = completarEquiposConPar(teamEquipos, hoyos)
       else setScores(filledScores)
-      // UN envío con la clasificación del scorer: respalda y marca pendiente todo, y P0001 se confirma
-      // con la ronda. Sin servidor (o sesión vencida) lo pendiente sigue: no se cierra a medias (caída
-      // 04-oct-2026). Un rechazo firme (P0004, el jugador ya no está) sale de pendientes y ya avisó.
-      const trasEnvio = await enviarPendientes(bolaCompartida ? undefined : filledScores)
+      // UN envío con la clasificación del scorer: respalda y marca pendiente todo (también las tarjetas
+      // que el servidor rechazó antes), y P0001 se confirma con la ronda. Sin servidor (o sesión vencida)
+      // lo pendiente sigue: no se cierra a medias (caída 04-oct-2026).
+      const envio = await enviarPendientes(bolaCompartida ? undefined : filledScores, { reintentarRechazados: true })
       // Borrada: el envío ya avisó, limpió la copia local y saca al marcador.
-      if (trasEnvio === 'ronda_borrada') { setFinalizing(false); return }
+      if (envio.estado === 'ronda_borrada') return
       // Cerrada mientras tanto (P0002): lo pendiente se queda en el teléfono a propósito (se puede
       // reabrir); no es falta de señal, y la tarjeta sigue al historial.
-      rondaYaCerrada = trasEnvio === 'ronda_cerrada'
-      if (!rondaYaCerrada && hayPendientes(codigo)) { avisarSinServidor(); return }
+      rondaYaCerrada = envio.estado === 'ronda_cerrada'
+      if (rondaYaCerrada) {
+        marcarRespaldosDeRondaCerrada(codigo)
+      } else if (envio.rechazadas.length > 0) {
+        // Rechazo firme de una tarjeta (P0004/22023 = INVALID_DELTA: golpe u hoyo inválido; P0001 con la
+        // ronda viva: el jugador ya no está). NO se cierra: cerrar borraría la copia del grupo, el único
+        // lugar con esos golpes. Quedan en el teléfono, el marcador sigue en la pantalla para revisarlos y
+        // el aviso nombra a cada uno (sale siempre, aunque el envío ya haya avisado otro rechazo antes).
+        const nombres = envio.rechazadas.map(({ id }) => nombreDeTarjeta(ronda, teamEquipos, id))
+        addToast({ ...avisoTarjetasNoGuardadas(nombres), type: 'error', duration: 10000 })
+        haptic([30, 60, 30])
+        return
+      } else if (hayPendientes(codigo)) {
+        avisarSinServidor()
+        return
+      }
     }
 
     // Historial: SÓLO la tarjeta de quien anota (`esMiTarjeta`, P0 01-oct-2026).
@@ -215,11 +256,11 @@ export function useFinalizeGrupo(input: {
           void captureError(new Error('historical_rounds duplicada'), { context: 'score_grupo_finalize_historical.duplicada', level: 'info', meta: { codigo, jugadorId: j.id } })
         }
         if (guardado.status === 'error') {
-          // Sólo puede fallar la tarjeta PROPIA (las ajenas ya no se insertan).
+          // Sólo puede fallar la tarjeta PROPIA (las ajenas ya no se insertan). El botón se libera para
+          // reintentar; con la ronda cerrada también se puede desde la ronda terminada ("Guardar en mi
+          // historial"), adonde lleva la redirección de ronda cerrada de la página.
           captureError(guardado.error, { context: 'score_grupo_finalize_historical' })
           addToast({ type: 'error', title: 'Error guardando tu tarjeta', message: 'Tus scores están seguros. Intenta de nuevo.', duration: 5000 })
-          // El toast invita a reintentar: el botón no puede quedar deshabilitado.
-          setFinalizing(false)
           return
         }
 
@@ -238,13 +279,9 @@ export function useFinalizeGrupo(input: {
       } catch { /* no bloquear finalización si falla un jugador */ }
     }
 
-    // Cerrada por otro: no se vuelve a cerrar. Si la reabrieron entre medio, se cerraría con golpes
-    // que no subieron (y se borrarían). Lo que no subió sale del banner y se guarda.
-    if (rondaYaCerrada) {
-      marcarRespaldosDeRondaCerrada(codigo)
-      router.push(`/ronda-libre/${codigo}?finished=true`)
-      return
-    }
+    // Cerrada por otro: no se vuelve a cerrar (si la reabrieron entre medio, se cerraría con golpes que no
+    // subieron y se borrarían). Los respaldos ya se marcaron arriba.
+    if (rondaYaCerrada) { irA(`/ronda-libre/${codigo}?finished=true`); return }
 
     // Finalizar ronda
     const { error: updateErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: ronda.ronda_libre_jugadores[0]?.id })
@@ -264,7 +301,7 @@ export function useFinalizeGrupo(input: {
       // Respuesta firme del servidor (ya cerrada, sin permiso): no hay nada que reintentar.
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
     }
-    router.push(`/ronda-libre/${codigo}?finished=true`)
+    irA(`/ronda-libre/${codigo}?finished=true`)
   }
 
   return { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm }

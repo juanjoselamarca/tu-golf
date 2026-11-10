@@ -26,6 +26,22 @@ export const AVISO_TARJETA_RECHAZADA = {
 } as const
 
 /**
+ * Finalizar del scorer de grupo con tarjetas que el servidor rechazó en firme (golpe inválido, o el jugador
+ * ya no está en la ronda): la ronda NO se cierra y los golpes siguen en el teléfono. Nombra a cada jugador
+ * (o equipo) para que el marcador revise. Copy de Juanjo (10-nov-2026): "No pudimos guardar la tarjeta de
+ * {nombre}. Revisa sus golpes y vuelve a finalizar." / "…las tarjetas de {A} y {B}…".
+ */
+export function avisoTarjetasNoGuardadas(nombres: readonly string[]): { title: string; message: string } {
+  const lista = nombres.length <= 1
+    ? (nombres[0] ?? '')
+    : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+  return {
+    title: nombres.length > 1 ? `No pudimos guardar las tarjetas de ${lista}.` : `No pudimos guardar la tarjeta de ${lista}.`,
+    message: 'Revisa sus golpes y vuelve a finalizar.',
+  }
+}
+
+/**
  * Match play NETO sin sesión con un jugador cuyo índice está en su perfil (#511):
  * sin ese índice el match (y qué hoyos quedaron sin jugar) saldría como gross. No
  * se cierra a su nombre; los golpes siguen anotados.

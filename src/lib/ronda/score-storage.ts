@@ -250,6 +250,39 @@ export function hayPendientes(codigo: string): boolean {
   return golpesPendientes.hay(codigo)
 }
 
+const RECH_KEY = (codigo: string) => `ronda_grupo_rechazados_${codigo}`
+const golpesRechazados = crearColaDePendientes(RECH_KEY)
+
+/**
+ * El servidor rechazó en firme una tarjeta (P0004/22023: golpe o hoyo inválido; P0001 con la ronda viva: el
+ * jugador ya no está). Sus golpes salen de pendientes (reenviarlos solos daría el mismo rechazo cada 15 s y
+ * el aviso "sin enviar" quedaría pegado) pero NO se pierden: quedan apartados en el teléfono, se pintan al
+ * abrir el scorer y Finalizar los reenvía (`saveAllScores` con `reintentarRechazados`). Viven y se borran
+ * con la copia del grupo.
+ */
+export function apartarRechazados(codigo: string, id: string, golpes: Record<string | number, number>): void {
+  golpesPendientes.confirmar(codigo, id, golpes)
+  golpesRechazados.marcar(codigo, id, golpes)
+}
+
+export function leerRechazados(codigo: string): PendientesGrupo {
+  return golpesRechazados.leer(codigo)
+}
+
+/** El servidor aceptó `enviados` para `id`: esos hoyos (con ese valor exacto) dejan de estar rechazados. */
+export function confirmarRechazados(codigo: string, id: string, enviados: Record<string | number, number>): void {
+  golpesRechazados.confirmar(codigo, id, enviados)
+}
+
+/** El marcador corrigió un hoyo de una tarjeta rechazada: el valor rechazado de ese hoyo ya no vale. */
+export function olvidarRechazado(codigo: string, id: string, hoyo: number): void {
+  const r = golpesRechazados.leer(codigo)
+  if (!r[id] || r[id][String(hoyo)] == null) return
+  const { [String(hoyo)]: _corregido, ...resto } = r[id]
+  void _corregido
+  golpesRechazados.escribir(codigo, { ...r, [id]: resto })
+}
+
 /** Marcas de puntos especiales de Timba libre pendientes de confirmar (ver `puntitos-pendientes.ts`). */
 export const PUNTITOS_PEND_KEY = (codigo: string) => `ronda_puntitos_pendientes_${codigo}`
 
@@ -264,6 +297,7 @@ function borrarCopiaDelGrupo(codigo: string, conservarPuntitosSinSubir = false):
     localStorage.removeItem(GROUP_KEY(codigo))
     localStorage.removeItem(TEAM_KEY(codigo))
     localStorage.removeItem(PEND_KEY(codigo))
+    localStorage.removeItem(RECH_KEY(codigo))
     if (!(conservarPuntitosSinSubir && crearColaDePendientes(PUNTITOS_PEND_KEY).hay(codigo))) localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
   } catch {
     // noop

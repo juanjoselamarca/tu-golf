@@ -32,6 +32,7 @@ import { useRondaGrupoData } from './hooks/useRondaGrupoData'
 import { useGrupoScoreSave } from './hooks/useGrupoScoreSave'
 import { useTeamScoreSave } from './hooks/useTeamScoreSave'
 import { useFinalizeGrupo } from './hooks/useFinalizeGrupo'
+import { useIrAlResultadoSiCerrada } from './hooks/useIrAlResultadoSiCerrada'
 import { useMatchPlayState } from '../hooks/useMatchPlayState'
 import { useGrupoScoreboard } from './hooks/useGrupoScoreboard'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
@@ -87,12 +88,7 @@ export default function ScoreGrupoPage() {
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores,
     })
-  // La ronda se cerró en otro dispositivo (el servidor rechazó un envío): al resultado,
-  // igual que Finalizar cuando la encuentra cerrada. Con Finalizar en curso no: Finalizar
-  // sigue (historial e índice) y navega él; si se detiene, `finalizing` vuelve a false y salta acá.
-  useEffect(() => {
-    if (rondaCerrada && !finalizing) router.push(`/ronda-libre/${codigo}?finished=true`)
-  }, [rondaCerrada, finalizing, router, codigo])
+  useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
   useBeforeUnloadWarning(hasUnsaved)
   // Mientras se finaliza no se aceptan golpes: un tap tardío llegaría después del cierre
   // (P0002), no entraría al historial y mostraría "se cerró desde otro dispositivo".
