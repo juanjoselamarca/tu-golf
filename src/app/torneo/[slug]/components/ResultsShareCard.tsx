@@ -4,11 +4,8 @@ import { useCallback } from 'react'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
 
-interface PodiumEntry {
-  pos: number
-  name: string
-  score: string
-}
+import { cortarPorGrupoDeLugar } from '@/golf/core/posiciones'
+import type { PodiumEntry } from '../types'
 
 interface ResultsShareCardProps {
   tournamentName: string
@@ -18,8 +15,15 @@ interface ResultsShareCardProps {
   totalPlayers: number
 }
 
+/** Filas del podio que caben en la imagen. El corte es por lugar (top 5 con empates): si un empate pasa de 5
+ *  filas, la imagen crece hacia abajo. Con más de 8, se corta en el último grupo de lugar que cabe entero y una
+ *  fila avisa el resto ("+5 empatados en T5"): nunca desaparece un empatado sin decirlo. */
+const FILAS_MAXIMAS_DE_LA_IMAGEN = 8
+const FILAS_EN_600 = 5
+const ALTO_DE_FILA = 52
+
 /**
- * Genera una imagen PNG 600x600 con los resultados del torneo usando Canvas API.
+ * Genera una imagen PNG 600x600 (más alta si un empate trae más de 5 filas) con los resultados del torneo usando Canvas API.
  * Diseño: fondo oscuro navy, branding dorado, podio top 3.
  * Sin dependencias externas.
  */
@@ -28,8 +32,9 @@ function drawResultsCard(
   props: Omit<ResultsShareCardProps, 'totalPlayers'> & { totalPlayers: number },
 ) {
   const { tournamentName, courseName, dateDisplay, topPlayers, totalPlayers } = props
+  const { filas: top, resto } = cortarPorGrupoDeLugar(topPlayers, FILAS_MAXIMAS_DE_LA_IMAGEN)
   const W = 600
-  const H = 600
+  const H = 600 + Math.max(0, top.length + (resto ? 1 : 0) - FILAS_EN_600) * ALTO_DE_FILA
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')!
@@ -108,8 +113,7 @@ function drawResultsCard(
 
   // Podio
   const startY = sepY + 50
-  const entryH = 52
-  const top = topPlayers.slice(0, 5)
+  const entryH = ALTO_DE_FILA
 
   top.forEach((entry, i) => {
     const y = startY + i * entryH
@@ -145,7 +149,7 @@ function drawResultsCard(
     ctx.fillStyle = posColors[entry.pos] ?? 'rgba(255, 255, 255, 0.4)'
     ctx.font = '700 16px system-ui, -apple-system, sans-serif'
     ctx.textAlign = 'left'
-    ctx.fillText(`${entry.pos}.`, 80, y)
+    ctx.fillText(`${entry.etiqueta}.`, 80, y)
 
     // Nombre
     ctx.fillStyle = entry.pos === 1 ? '#c4992a' : '#ffffff'
@@ -166,6 +170,13 @@ function drawResultsCard(
     ctx.textAlign = 'right'
     ctx.fillText(entry.score, W - 80, y)
   })
+
+  if (resto) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'
+    ctx.font = '500 15px system-ui, -apple-system, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText(resto.texto, 80, startY + top.length * entryH)
+  }
 
   // Footer
   const footerY = H - 40

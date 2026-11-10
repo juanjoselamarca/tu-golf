@@ -6,7 +6,9 @@
 
 import type { LivePlayer } from '../types'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
-import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-format'
+import { formatVsPar, formatThru, vsParColor } from './golf-format'
+import { esPrimerLugar } from '@/golf/core/posiciones'
+import { posicionesDeJugadores, type PosicionesPorId } from '../posiciones-en-vivo'
 
 /** Celda sin dato. Em dash, el mismo que usa `formatThru`. */
 const EMPTY = '—'
@@ -30,6 +32,9 @@ export interface IndividualLeaderboardProps {
   soloBruto?: boolean
   /** Visor sin el neto (`vistaPublica.sinNeto`): sin columna Neto. */
   sinNeto?: boolean
+  /** Posiciones dentro de la competencia (field o categoría), por id. Un filtro de vista
+   *  (grupo de salida) no las cambia: LiveView las calcula antes de filtrar. Sin esto, sobre `players`. */
+  posiciones?: PosicionesPorId
 }
 
 export default function IndividualLeaderboard({
@@ -40,6 +45,7 @@ export default function IndividualLeaderboard({
   holeCount = 18,
   soloBruto = false,
   sinNeto = soloBruto,
+  posiciones,
 }: IndividualLeaderboardProps) {
   // El orden lo decide el motor (`buildLeaderboardFromLegacy` → `rankEntries`),
   // que ya aplicó countback y dejó a los que no scorearon al final. Re-ordenar
@@ -48,15 +54,10 @@ export default function IndividualLeaderboard({
   const sorted = players
   const isStableford = format === 'stableford'
 
-  // Empates estilo golf sobre la MISMA métrica que ordenó: puntos en
-  // stableford, "a par" en el resto. Quien no jugó no empata con quien está en
-  // par — va aparte, al final.
-  const positions = computePositions(
-    sorted.map((p) => {
-      if (!hasPlayData({ holesPlayed: p.thru })) return Number.POSITIVE_INFINITY
-      return isStableford ? (p.points_total ?? 0) : p.vs_par
-    }),
-  )
+  // Empates estilo golf ("T2") con la clave que emitió el motor: mismo score y,
+  // si el countback ya los separó (tarjetas terminadas), ya no empatan. Quien no
+  // jugó no tiene posición.
+  const positions = posiciones ?? posicionesDeJugadores(sorted, isStableford)
 
   // Si TODAS las filas tienen categoría vacía, ocultar la columna CAT para no
   // desperdiciar espacio horizontal (frecuente en torneos sin categorías).
@@ -173,7 +174,8 @@ export default function IndividualLeaderboard({
             // Sin hoyos jugados no hay score: se muestra "—", nunca un número
             // derivado de totales en cero (así aparecía un líder a −60).
             const played = hasPlayData({ holesPlayed: p.thru })
-            const isLeader = idx === 0 && played
+            const posicion = positions.get(p.id) ?? null
+            const isLeader = played && esPrimerLugar(posicion)
             const isEvenRow = idx % 2 === 1
             const isFinished = p.thru >= holeCount
             const notStarted = p.thru <= 0
@@ -192,7 +194,7 @@ export default function IndividualLeaderboard({
 
             return (
               <tr key={p.id} style={rowStyle}>
-                <td style={tdNumStyle}>{played ? positions[idx] : EMPTY}</td>
+                <td style={tdNumStyle}>{posicion ?? EMPTY}</td>
                 <td style={{ ...tdStyle, fontWeight: isLeader ? 700 : isFinished ? 600 : 400 }}>
                   {/* Desktop: nombre completo con marcador. Mobile: sin "(M)"/"(F)" */}
                   <span className="leaderboard-name-full">{p.name}</span>

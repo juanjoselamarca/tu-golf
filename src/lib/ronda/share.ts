@@ -11,7 +11,7 @@ import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { isTeamFormat } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
-import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
+import { posicionesDelLeaderboard, type LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { formatOverUnder } from '@/constants/golf'
@@ -34,13 +34,16 @@ export function buildLeaderboardShareData({
   ronda, leaderboard, equipos, parMap, siMap, courseHcpMap, fechaDisplay, codigo, isFinished,
 }: BuildShareDataArgs): LeaderboardShareData {
   const isStableford = ronda.formato_juego === 'stableford'
+  // El lugar de cada jugador es el de la tabla: una sola cuenta para pantalla e imagen.
+  const posiciones = posicionesDelLeaderboard(leaderboard, ronda.formato_juego)
   const shareData: LeaderboardShareData = {
-    players: leaderboard.filter(j => j.holesPlayed > 0).map(j => ({
+    players: leaderboard.flatMap((j, i) => j.holesPlayed > 0 ? [{
       nombre: j.nombre,
       vsPar: isStableford ? j.stablefordPts : j.vsPar,
       holesPlayed: j.holesPlayed,
       totalHoles: ronda.holes,
-    })),
+      posicion: posiciones[i],
+    }] : []),
     courseName: ronda.course_name,
     fecha: fechaDisplay,
     rondaCodigo: codigo,

@@ -9,7 +9,7 @@ const jugadores = [
 ]
 const p = (id: string): Player => ({
   pos: 1, id, name: id, country: 'CL', cat: 'General', hcp: 18, hcpDisplay: 20,
-  today: 0, total: 0, holes: 18, status: 'F', scores: [],
+  today: 0, total: 0, holes: 18, status: 'F', scores: [], claveEmpate: null,
 })
 
 describe('ocultar handicap en el board público', () => {

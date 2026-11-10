@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chipDeFormato, esClasificacionBruta, publicaPuntos, scoreDeLaFila } from './feed-en-vivo'
+import { chipDeFormato, esClasificacionBruta, filasDeLaTarjeta, publicaPuntos, scoreDeLaFila } from './feed-en-vivo'
 import { COPY_CHIP_BRUTO, COPY_CLASIFICACION_BRUTA, COPY_SCORE_BRUTO } from '@/lib/vista-publica-copy'
 
 const strokeGross = { formato_juego: 'stroke_play', muestra_puntos: false, clasificacion_bruta: false }
@@ -69,5 +69,32 @@ describe('feed /en-vivo — respuesta cacheada de antes de `clasificacion_bruta`
   it('el campo del servidor manda sobre la deducción', () => {
     expect(esClasificacionBruta({ formato_juego: 'stableford', muestra_puntos: false, clasificacion_bruta: false })).toBe(false)
     expect(esClasificacionBruta({ formato_juego: 'stroke_play', clasificacion_bruta: true })).toBe(true)
+  })
+})
+
+describe('filasDeLaTarjeta — orden y posiciones con empate', () => {
+  const j = (nombre: string, vsPar: number, holesCompleted = 9, stablefordPts: number | null = null) =>
+    ({ nombre, vsPar, holesCompleted, stablefordPts })
+  const ver = (filas: { jugador: { nombre: string }; posicion: string | null }[]) =>
+    filas.map((f) => `${f.posicion ?? '—'} ${f.jugador.nombre}`)
+
+  it('el caso que lo destapó: Diego y María en Gross +14 son T2 y T2 (no 2 y 3 por el nombre)', () => {
+    const filas = filasDeLaTarjeta(strokeGross, [j('María', 14), j('Pedro', 17), j('Ana', 10), j('Diego', 14)])
+    expect(ver(filas)).toEqual(['1 Ana', 'T2 Diego', 'T2 María', '4 Pedro'])
+  })
+
+  it('sin hoyos jugados: al final y sin posición; con nadie empezado, nadie tiene posición', () => {
+    expect(ver(filasDeLaTarjeta(strokeGross, [j('Zoe', 0, 0), j('Beto', 2)]))).toEqual(['1 Beto', '— Zoe'])
+    expect(ver(filasDeLaTarjeta(strokeGross, [j('Beto', 0, 0), j('Ana', 0, 0)]))).toEqual(['— Ana', '— Beto'])
+  })
+
+  it('todos empatados: T1 para todos, ordenados por nombre', () => {
+    expect(ver(filasDeLaTarjeta(strokeGross, [j('Carla', 3), j('Ana', 3), j('Beto', 3)]))).toEqual(['T1 Ana', 'T1 Beto', 'T1 Carla'])
+  })
+
+  it('Stableford con puntos: más puntos primero y empate por puntos (el vs par no cuenta)', () => {
+    const stab = { formato_juego: 'stableford', muestra_puntos: true }
+    const filas = filasDeLaTarjeta(stab, [j('Ana', 5, 9, 18), j('Beto', 1, 9, 20), j('Carla', 9, 9, 18)])
+    expect(ver(filas)).toEqual(['1 Beto', 'T2 Ana', 'T2 Carla'])
   })
 })

@@ -57,61 +57,15 @@ export interface Player {
   /** `round_number` de la ronda de `scores` (multi-ronda: la última jugada).
    *  La UI elige los hoyos/par de ESA ronda para pintar la tarjeta. */
   latestRound?: number
+  /**
+   * Con quién empata este jugador según el criterio de golf del ranking: dos
+   * filas con la misma clave están empatadas ("T2"), con claves distintas no.
+   * La emite el motor (`rankEntries`): mismo score y, si el countback ya separó
+   * a los empatados, distinto subgrupo. `null` = no compite todavía (0 hoyos):
+   * sin posición. La UI la pasa a `etiquetasDePosicion` (src/golf/core/posiciones.ts).
+   */
+  claveEmpate: string | null
 }
-
-// ── Mock data (verified scores) ────────────────────────────
-export const PLAYERS: Player[] = [
-  {
-    pos: 1, name: 'Carlos Méndez',   country: 'CL', cat: 'Cat. A', hcp: 2, today: -8, total: -8,
-    holes: 18, status: 'F',
-    scores: [3,5,3,3,2,4,3,3,5, 4,4,4,3,4,3,5,2,4],   // 31+33=64 (-8)
-  },
-  {
-    pos: 2, name: 'Roberto Silva',   country: 'AR', cat: 'Cat. A', hcp: 4, today: -5, total: -5,
-    holes: 18, status: 'F',
-    scores: [3,5,3,4,2,4,4,3,5, 4,4,4,3,4,4,4,3,4],   // 33+34=67 (-5)
-  },
-  {
-    pos: 3, name: 'Andrés Torres',   country: 'CO', cat: 'Cat. A', hcp: 1, today: -3, total: -3,
-    holes: 18, status: 'F',
-    scores: [3,5,3,4,3,4,4,3,5, 4,5,4,2,5,4,4,3,4],   // 34+35=69 (-3)
-  },
-  {
-    pos: 4, name: 'Felipe García',   country: 'CL', cat: 'Cat. B', hcp: 6, today: -2, total: -2,
-    holes: 18, status: 'F',
-    scores: [4,5,3,3,3,4,4,3,5, 4,5,4,3,5,3,4,3,5],   // 34+36=70 (-2)
-  },
-  {
-    pos: 5, name: 'Miguel Ríos',     country: 'PE', cat: 'Cat. A', hcp: 3, today: -1, total: -1,
-    holes: 14, status: 'live',
-    scores: [4,5,3,3,3,4,4,3,5, 4,5,4,3,5, null,null,null,null],
-  },
-  {
-    pos: 6, name: 'Sebastián López', country: 'UY', cat: 'Cat. B', hcp: 5, today:  0, total:  0,
-    holes: 12, status: 'live',
-    scores: [4,5,3,4,3,4,4,3,5, 4,5,4, null,null,null,null,null,null],
-  },
-  {
-    pos: 7, name: 'Diego Vargas',    country: 'CL', cat: 'Cat. B', hcp: 7, today:  2, total:  2,
-    holes: 18, status: 'F',
-    scores: [5,5,3,4,3,4,4,4,5, 4,5,4,3,5,4,5,3,4],   // 37+37=74 (+2)
-  },
-  {
-    pos: 8, name: 'Martín Pérez',    country: 'AR', cat: 'Cat. B', hcp: 8, today:  4, total:  4,
-    holes: 16, status: 'live',
-    scores: [4,5,3,4,3,4,5,3,5, 4,6,4,3,6,4,6, null,null],
-  },
-  {
-    pos: 9, name: 'Alejandro Cruz',  country: 'CO', cat: 'Cat. A', hcp: 9, today:  6, total:  6,
-    holes: 18, status: 'F',
-    scores: [4,6,3,5,3,5,4,3,6, 4,5,4,3,5,4,5,4,5],   // 39+39=78 (+6)
-  },
-  {
-    pos: 10, name: 'Patricio Vega',  country: 'CL', cat: 'Cat. B', hcp: 10, today: 8, total:  8,
-    holes: 18, status: 'F',
-    scores: [5,6,4,5,3,4,4,4,5, 4,5,4,3,5,4,5,4,6],   // 40+40=80 (+8)
-  },
-]
 
 // ── Helpers ────────────────────────────────────────────────
 export function getInitials(name: string) {

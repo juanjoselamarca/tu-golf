@@ -68,8 +68,8 @@ describe('useMiniRanking', () => {
     const scores = { a: { 10: 5, 11: 4 }, b: { 10: 3, 11: 3, 1: 99 }, c: {} }
     const { result } = renderHook(() => useMiniRanking(ronda, scores, PAR))
     expect(result.current).toEqual([
-      { id: 'b', nombre: 'Beto', vsPar: -1, holesPlayed: 2, gross: 6 },
-      { id: 'a', nombre: 'Ana', vsPar: 2, holesPlayed: 2, gross: 9 },
+      { id: 'b', nombre: 'Beto', vsPar: -1, holesPlayed: 2, gross: 6, posicion: '1' },
+      { id: 'a', nombre: 'Ana', vsPar: 2, holesPlayed: 2, gross: 9, posicion: '2' },
     ])
   })
   it('sin ronda: []', () => {

@@ -4,6 +4,9 @@ import type { LiveTeam, LivePlayer } from './types'
 /** Nombres de jugadores por teamId (para la columna "Jugadores"). */
 export type TeamMemberNames = Record<string, string[]>
 
+/** Clave de empate que agrega `rankTeamsWithCountback` (ausente en resultados sin ordenar). */
+type ConClave = { claveEmpate?: string | null }
+
 function nameToLivePlayer(name: string, i: number): LivePlayer {
   return {
     id: `member-${i}`,
@@ -13,6 +16,7 @@ function nameToLivePlayer(name: string, i: number): LivePlayer {
     gross_total: 0,
     vs_par: 0,
     thru: 0,
+    clave_empate: null, // miembro de equipo: no tiene posición propia
   }
 }
 
@@ -21,7 +25,7 @@ function nameToLivePlayer(name: string, i: number): LivePlayer {
  * `team_total` y `vs_par` se eligen por modo (neto/gross).
  */
 export function scrambleResultsToLiveTeams(
-  results: ScrambleTeamResult[],
+  results: (ScrambleTeamResult & ConClave)[],
   memberNames: TeamMemberNames,
   modo: 'gross' | 'neto',
 ): LiveTeam[] {
@@ -33,6 +37,7 @@ export function scrambleResultsToLiveTeams(
     team_total: modo === 'neto' ? r.totalNeto : r.totalGross,
     vs_par: modo === 'neto' ? r.overUnderNeto : r.overUnderGross,
     thru: r.holesPlayed,
+    clave_empate: r.claveEmpate,
   }))
 }
 
@@ -42,7 +47,7 @@ export function scrambleResultsToLiveTeams(
  * total y vs_par se eligen por modo, igual que scramble/foursome.
  */
 export function bestBallResultsToLiveTeams(
-  results: BestBallTeamResult[],
+  results: (BestBallTeamResult & ConClave)[],
   memberNames: TeamMemberNames,
   modo: 'gross' | 'neto',
 ): LiveTeam[] {
@@ -54,5 +59,6 @@ export function bestBallResultsToLiveTeams(
     team_total: modo === 'neto' ? r.totalNeto : r.totalGross,
     vs_par: modo === 'neto' ? r.overUnderNeto : r.overUnderGross,
     thru: r.holesPlayed,
+    clave_empate: r.claveEmpate,
   }))
 }

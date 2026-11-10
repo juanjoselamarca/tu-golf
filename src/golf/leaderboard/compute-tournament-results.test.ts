@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 import type { Player } from '@/lib/golf-data'
-import { computeTournamentResults, computeTeamTournamentResults, type TeamStandingForPodium } from './compute-tournament-results'
+import { computeTournamentResults, computeTeamTournamentResults, podioIndividual, type TeamStandingForPodium } from './compute-tournament-results'
 
 // Player mínimo para el podio. `scores` es un array cuyo SUM = strokes gross
 // (computeTournamentResults usa grossOf = suma de scores). `total` = vs-par
@@ -23,6 +23,7 @@ function mk(name: string, total: number, grossStrokes: number, over: Partial<Pla
     holes: 18,
     status: 'F',
     scores: [grossStrokes],
+    claveEmpate: null,
     ...over,
   }
 }
@@ -39,11 +40,19 @@ describe('computeTournamentResults — podio gross/neto independiente', () => {
 
     expect(r).not.toBeNull()
     // Gross: A gana con 70 strokes; B segundo con 75.
-    expect(r!.grossWinner).toEqual({ name: 'A', score: 70 })
-    expect(r!.grossSecond).toEqual({ name: 'B', score: 75 })
+    expect(r!.grossWinner).toEqual({ name: 'A', score: 70, etiqueta: '1' })
+    expect(r!.grossSecond).toEqual({ name: 'B', score: 75, etiqueta: '2' })
     // Neto: B gana (NO A — ese era el bug). score = net-vs-par(-5) + par(72) = 67.
-    expect(r!.netoWinner).toEqual({ name: 'B', score: 67 })
-    expect(r!.netoSecond).toEqual({ name: 'A', score: 71 })
+    expect(r!.netoWinner).toEqual({ name: 'B', score: 67, etiqueta: '1' })
+    expect(r!.netoSecond).toEqual({ name: 'A', score: 71, etiqueta: '2' })
+  })
+
+  it('empate que el countback no separó: 1° y 2° dicen T1 los dos (como el podio), no "1° Juan / 2° Pedro"', () => {
+    const gross = [mk('Juan', 0, 72, { claveEmpate: '0#0' }), mk('Pedro', 0, 72, { claveEmpate: '0#0' })]
+    const neto = [mk('Pedro', -3, 72, { claveEmpate: '0#0' }), mk('Juan', -1, 72, { claveEmpate: '1#0' })]
+    const r = computeTournamentResults(gross, neto, 72, null)!
+    expect([r.grossWinner!.etiqueta, r.grossSecond!.etiqueta]).toEqual(['T1', 'T1'])
+    expect([r.netoWinner!.etiqueta, r.netoSecond!.etiqueta]).toEqual(['1', '2'])
   })
 
   it('devuelve null si ningún jugador terminó', () => {
@@ -78,12 +87,40 @@ describe('computeTeamTournamentResults — podio de parejas', () => {
     const r = computeTeamTournamentResults(ordered, members, 'neto', 'scramble')
     expect(r).not.toBeNull()
     expect(r!.teamPodium).toHaveLength(3)
-    expect(r!.teamPodium![0]).toEqual({ pos: 1, name: 'Águilas', members: 'Juan / Pedro', score: '-3' })
-    expect(r!.teamPodium![1]).toEqual({ pos: 2, name: 'Cóndores', members: 'Ana / Luis', score: '-1' })
-    expect(r!.teamPodium![2]).toEqual({ pos: 3, name: 'Halcones', members: 'Nico / Tomás', score: 'E' })
+    expect(r!.teamPodium![0]).toEqual({ pos: 1, etiqueta: '1', name: 'Águilas', members: 'Juan / Pedro', score: '-3' })
+    expect(r!.teamPodium![1]).toEqual({ pos: 2, etiqueta: '2', name: 'Cóndores', members: 'Ana / Luis', score: '-1' })
+    expect(r!.teamPodium![2]).toEqual({ pos: 3, etiqueta: '3', name: 'Halcones', members: 'Nico / Tomás', score: 'E' })
     // En torneo por equipos el podio individual va nulo.
     expect(r!.grossWinner).toBeNull()
     expect(r!.netoWinner).toBeNull()
+  })
+
+  it('empate que el countback no separó: el podio dice T1 y T1 (como la tabla), el siguiente 3', () => {
+    const ordered = [
+      mkTeam('a', 'A', -3, { claveEmpate: '0#0' }),
+      mkTeam('b', 'B', -3, { claveEmpate: '0#0' }),
+      mkTeam('c', 'C', 1, { claveEmpate: '1#0' }),
+    ]
+    const r = computeTeamTournamentResults(ordered, { a: [], b: [], c: [] }, 'neto', 'scramble')
+    expect(r!.teamPodium!.map((t) => [t.pos, t.etiqueta])).toEqual([[1, 'T1'], [1, 'T1'], [3, '3']])
+  })
+
+  it('el corte es por lugar: con 1, 2, T3, T3 el top 3 trae a los dos T3 (no deja fuera al segundo)', () => {
+    const ordered = [
+      mkTeam('a', 'A', -4, { claveEmpate: '0#0' }),
+      mkTeam('b', 'B', -2, { claveEmpate: '1#0' }),
+      mkTeam('c', 'C', 0, { claveEmpate: '2#0' }),
+      mkTeam('d', 'D', 0, { claveEmpate: '2#0' }),
+      mkTeam('e', 'E', 3, { claveEmpate: '3#0' }),
+    ]
+    const r = computeTeamTournamentResults(ordered, { a: [], b: [], c: [], d: [], e: [] }, 'neto', 'scramble')
+    expect(r!.teamPodium!.map((t) => [t.name, t.etiqueta])).toEqual([['A', '1'], ['B', '2'], ['C', 'T3'], ['D', 'T3']])
+  })
+
+  it('si el countback los separó (claves distintas), 1 y 2 aunque el vs par sea igual', () => {
+    const ordered = [mkTeam('a', 'A', -3, { claveEmpate: '0#0' }), mkTeam('b', 'B', -3, { claveEmpate: '0#1' })]
+    const r = computeTeamTournamentResults(ordered, { a: [], b: [] }, 'neto', 'scramble')
+    expect(r!.teamPodium!.map((t) => t.etiqueta)).toEqual(['1', '2'])
   })
 
   it('modo gross usa el vs-par gross', () => {
@@ -101,5 +138,25 @@ describe('computeTeamTournamentResults — podio de parejas', () => {
   it('devuelve null si ningún equipo jugó', () => {
     const ordered = [mkTeam('a', 'A', -2, { holesPlayed: 0 })]
     expect(computeTeamTournamentResults(ordered, { a: [] }, 'neto', 'scramble')).toBeNull()
+  })
+})
+
+describe('podioIndividual — lugar de la tabla y corte por lugar', () => {
+  it('con 1, 2, T3, T3, 5 el top 3 trae a los dos T3', () => {
+    const players = [
+      mk('A', -4, 68, { claveEmpate: '0#0' }), mk('B', -2, 70, { claveEmpate: '1#0' }),
+      mk('C', 0, 72, { claveEmpate: '2#0' }), mk('D', 0, 72, { claveEmpate: '2#0' }),
+      mk('E', 3, 75, { claveEmpate: '3#0' }),
+    ]
+    expect(podioIndividual(players, 3, false)).toEqual([
+      { pos: 1, etiqueta: '1', name: 'A', score: '-4' },
+      { pos: 2, etiqueta: '2', name: 'B', score: '-2' },
+      { pos: 3, etiqueta: 'T3', name: 'C', score: 'E' },
+      { pos: 3, etiqueta: 'T3', name: 'D', score: 'E' },
+    ])
+  })
+  it('las filas sin clave de empate (no jugaron) no tienen lugar y no entran', () => {
+    const players = [mk('A', -1, 71, { claveEmpate: '0#0' }), mk('B', 0, 0, { claveEmpate: null, holes: 0 })]
+    expect(podioIndividual(players, 3, false).map((p) => p.name)).toEqual(['A'])
   })
 })

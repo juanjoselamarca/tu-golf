@@ -119,6 +119,7 @@ export function filaPublica(p: Player, vista: VistaPublica, ocultos: ReadonlySet
     status: p.status,
     scores: p.scores,
     latestRound: p.latestRound,
+    claveEmpate: p.claveEmpate,
   }
 }
 

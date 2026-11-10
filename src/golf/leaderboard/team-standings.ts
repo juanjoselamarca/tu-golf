@@ -8,6 +8,7 @@ import type {
   BestBallTeam, BestBallTeamResult,
 } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
+import type { EquipoConClaveDeEmpate } from './team-tiebreak'
 
 type Hole = { numero: number; par: number; stroke_index: number }
 
@@ -46,7 +47,7 @@ export function computeScrambleStandings(
   formato: FormatoJuego,
   modo: ModoJuego,
   roundHoles?: number,
-): ScrambleTeamResult[] {
+): EquipoConClaveDeEmpate<ScrambleTeamResult>[] {
   const hs = holesDelRound(holes, roundHoles)
   const results = teams.map((t) => calcularScramble(t, hs, parTotal))
   return ordenarEquiposScramble(results, formato, modo)
@@ -71,7 +72,7 @@ export function computeFoursomeStandings(
   formato: FormatoJuego,
   modo: ModoJuego,
   roundHoles?: number,
-): FoursomeTeamResult[] {
+): EquipoConClaveDeEmpate<FoursomeTeamResult>[] {
   const hs = holesDelRound(holes, roundHoles)
   const results = teams.map((t) => {
     const names = memberNames[t.id] ?? []
@@ -117,7 +118,7 @@ export function computeBestBallStandings(
   formato: FormatoJuego,
   modo: ModoJuego,
   roundHoles?: number,
-): BestBallTeamResult[] {
+): EquipoConClaveDeEmpate<BestBallTeamResult>[] {
   const hs = holesDelRound(holes, roundHoles)
   const results = teams.map((t) => calcularBestBall(t, hs, parTotal))
   return ordenarEquiposBestBall(results, formato, modo)

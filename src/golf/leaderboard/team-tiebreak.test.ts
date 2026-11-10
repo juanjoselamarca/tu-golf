@@ -46,3 +46,30 @@ describe('rankTeamsWithCountback — equipos sin hoyos', () => {
     expect(ordenar(filas)).toEqual(['b', 'a', 'vacio'])
   })
 })
+
+describe('rankTeamsWithCountback — clave de empate (posiciones "T" de la tabla)', () => {
+  const clasificar = (filas: Fila[]) => rankTeamsWithCountback(filas, {
+    mode: 'lower_wins',
+    primaryScore: (t) => t.vsPar,
+    holeScores: (t) => t.hoyos,
+    holesPlayed: (t) => t.hoyos.filter((h) => h > 0).length,
+  }).map((t) => `${t.id}:${t.claveEmpate}`)
+
+  // 9 hoyos, par 4 todos: -12 no cabe, se usa el mismo empate a escala (−3 cada uno).
+  const A = { id: 'A', vsPar: -3, hoyos: [4, 4, 4, 4, 4, 4, 3, 3, 3] } // back 3 mejor
+  const B = { id: 'B', vsPar: -3, hoyos: [3, 3, 3, 4, 4, 4, 4, 4, 4] }
+
+  it('scramble cerrado con dos equipos empatados: el countback separa (A 1°, B 2°), como el podio', () => {
+    const out = clasificar([B, A, { id: 'C', vsPar: 1, hoyos: new Array(9).fill(4).map((v, i) => (i === 0 ? 5 : v)) }])
+    expect(out).toEqual(['A:0#0', 'B:0#1', 'C:1#0'])
+  })
+
+  it('a mitad de vuelta no corre el countback: mismo vs par = misma clave (T), arriba el de más hoyos', () => {
+    const enCancha = { id: 'B', vsPar: -3, hoyos: [3, 3, 3, 4, 4, 4, 0, 0, 0] }
+    expect(clasificar([enCancha, A])).toEqual(['A:0#0', 'B:0#0'])
+  })
+
+  it('un equipo sin hoyos queda con clave null (sin posición)', () => {
+    expect(clasificar([{ id: 'V', vsPar: 0, hoyos: [0, 0, 0] }, A])).toEqual(['A:0#0', 'V:null'])
+  })
+})

@@ -5,10 +5,12 @@
 // o 'published' y hay al menos 1 jugador con ronda terminada.
 
 import { isFinishedCard } from './board-rules'
-import { formatPuntosStableford } from './formato-score'
+import { formatPuntosStableford, formatScoreDelRanking } from './formato-score'
 import { formatVsPar } from '@/golf/share/vs-par'
+import { scorePrimarioDeEquipo } from './team-tiebreak'
+import { dentroDelCorte, etiquetasConRespaldo, etiquetasPorClaveDeEmpate, lugarDeEtiqueta } from '@/golf/core/posiciones'
 import type { Player } from '@/lib/golf-data'
-import type { TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
+import type { PodiumEntry, TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import type { TourneyStats } from './types'
 
@@ -54,11 +56,19 @@ export function computeTournamentResults(
 
   const avgGross = byGross.reduce((sum, p) => sum + grossOf(p), 0) / byGross.length
 
+  // Lugar con empates estilo golf, con la clave de empate de CADA ranking (gross y neto
+  // vienen de su propio rankEntries): si el countback no separó al 1° del 2°, los dos
+  // dicen T1, igual que el podio. Antes numeraba por fila: "1° Juan / 2° Pedro".
+  const lugares = (ranking: Player[], score: (p: Player) => number) =>
+    etiquetasConRespaldo(ranking, (p) => p.claveEmpate, (a, b) => score(a) === score(b), () => false)
+  const lugaresGross = lugares(byGross, grossOf)
+  const lugaresNeto = lugares(byNeto, netoStrokesOf)
+
   return {
-    grossWinner: byGross[0] ? { name: byGross[0].name, score: grossScore1 } : null,
-    netoWinner:  byNeto[0]  ? { name: byNeto[0].name,  score: netoScore1 }  : null,
-    grossSecond: byGross[1] ? { name: byGross[1].name, score: grossScore2 } : null,
-    netoSecond:  byNeto[1]  ? { name: byNeto[1].name,  score: netoScore2 }  : null,
+    grossWinner: byGross[0] ? { name: byGross[0].name, score: grossScore1, etiqueta: lugaresGross[0] ?? '1' } : null,
+    netoWinner:  byNeto[0]  ? { name: byNeto[0].name,  score: netoScore1, etiqueta: lugaresNeto[0] ?? '1' }  : null,
+    grossSecond: byGross[1] ? { name: byGross[1].name, score: grossScore2, etiqueta: lugaresGross[1] ?? '2' } : null,
+    netoSecond:  byNeto[1]  ? { name: byNeto[1].name,  score: netoScore2, etiqueta: lugaresNeto[1] ?? '2' }  : null,
     avgField: avgGross,
     totalEagles:  stats?.eagles  ?? 0,
     totalBirdies: stats?.birdies ?? 0,
@@ -74,6 +84,8 @@ export interface TeamStandingForPodium {
   overUnderNeto: number
   totalStableford: number
   holesPlayed: number
+  /** Clave de empate de `rankTeamsWithCountback`. Sin ella (standings sin ordenar por el motor), por score. */
+  claveEmpate?: string | null
 }
 
 /**
@@ -89,17 +101,47 @@ export function buildTeamPodium(
   limit: number = 3,
 ): TeamPodiumEntry[] {
   const isStableford = formato === 'stableford'
+  // Lugar con empates estilo golf, sobre el field completo y con la misma clave que
+  // la tabla: si el countback no separó a dos equipos, el podio dice T1 y T1.
+  const primario = (t: TeamStandingForPodium) => scorePrimarioDeEquipo(t, formato, modo)
+  const etiquetas = etiquetasConRespaldo(
+    orderedTeams,
+    (t) => t.claveEmpate,
+    (a, b) => primario(a) === primario(b),
+    (t) => t.holesPlayed === 0,
+  )
   return orderedTeams
-    .filter((t) => t.holesPlayed > 0)
-    .slice(0, limit)
-    .map((t, i) => ({
-      pos: i + 1,
+    .map((t, i) => ({ t, etiqueta: etiquetas[i] }))
+    // Corte por LUGAR, no por filas: con 1, 2, T3, T3 entran los dos T3.
+    .filter(({ t, etiqueta }) => t.holesPlayed > 0 && dentroDelCorte(etiqueta, limit))
+    .map(({ t, etiqueta }) => ({
+      pos: lugarDeEtiqueta(etiqueta) as number,
+      etiqueta: etiqueta as string,
       name: t.teamNombre,
       members: (memberNames[t.teamId] ?? []).join(' / '),
       score: isStableford
         ? formatPuntosStableford(t.totalStableford, { conUnidad: true })
         : formatVsPar(modo === 'neto' ? t.overUnderNeto : t.overUnderGross),
     }))
+}
+
+/**
+ * Podio individual desde el ranking PRIMARIO ya ordenado con countback: el lugar sale de la misma clave de empate
+ * que la tabla (T1 y T1 si el countback no los separó) y el corte es por LUGAR (con 1, 2, T3, T3 entran los dos
+ * T3). Quien no jugó (clave null) no tiene lugar y no entra. Fuente única del podio, el WhatsApp y la imagen.
+ */
+export function podioIndividual(players: readonly Player[], limite: number, rankingPorPuntos: boolean): PodiumEntry[] {
+  const etiquetas = etiquetasPorClaveDeEmpate(players, (p) => p.claveEmpate)
+  return players.flatMap((p, i) => {
+    const etiqueta = etiquetas[i]
+    if (etiqueta == null || !dentroDelCorte(etiqueta, limite)) return []
+    return [{
+      pos: lugarDeEtiqueta(etiqueta) as number,
+      etiqueta,
+      name: p.name,
+      score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),
+    }]
+  })
 }
 
 /**

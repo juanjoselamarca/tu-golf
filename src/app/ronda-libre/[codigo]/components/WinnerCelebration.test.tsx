@@ -6,6 +6,11 @@ import { render, screen } from '@testing-library/react'
 import { WinnerCelebration } from './WinnerCelebration'
 import type { RondaLibre } from '@/types/ronda'
 import type { TeamShareRow } from '@/lib/ronda/team-ranking'
+import { buildLeaderboard } from '@/lib/ronda/leaderboard'
+import { afterEach } from 'vitest'
+import { cleanup } from '@testing-library/react'
+
+afterEach(cleanup)
 
 const ronda = {
   id: 'r1', codigo: 'SCR1', course_name: 'Los Leones', course_id: 'c1', tees: 'blanco', holes: 18, hoyo_inicio: 1,
@@ -62,5 +67,41 @@ describe('WinnerCelebration — equipo que no anotó nada', () => {
   it('tres equipos empatados se nombran con comas y una "y"', () => {
     pintar([equipo('Uno', 0, ['A']), equipo('Dos', 0, ['B']), equipo('Tres', 0, ['C'])])
     expect(screen.getByText('Uno, Dos y Tres')).toBeTruthy()
+  })
+})
+
+describe('WinnerCelebration — individual: el empate es el de la tabla', () => {
+  const strokePlay = { ...ronda, formato_juego: 'stroke_play' } as unknown as RondaLibre
+  const parMap = { 1: 4, 2: 4 }
+  const siMap = { 1: 1, 2: 2 }
+  const jugador = (id: string, nombre: string, scores: Record<string, number>) => ({ id, nombre, scores, handicap: 0 })
+  const tabla = (jugadores: ReturnType<typeof jugador>[]) => buildLeaderboard({
+    jugadores, holes: 2, parMap, siMap, courseHcpMap: {}, modoJuego: 'gross', formatoJuego: 'stroke_play',
+  } as unknown as Parameters<typeof buildLeaderboard>[0])
+
+  it('premisa: un inscrito sin hoyos tiene vs par 0, igual que un líder en E', () => {
+    const lb = tabla([jugador('a', 'Juan Pérez', { 1: 4, 2: 4 }), jugador('b', 'Diego Soto', {})])
+    expect(lb.map(j => [j.vsPar, j.holesPlayed])).toEqual([[0, 2], [0, 0]])
+  })
+
+  it('líder en E y un inscrito sin hoyos: "Ganador · Juan", no "Empate · Juan y Diego"', () => {
+    const lb = tabla([jugador('a', 'Juan Pérez', { 1: 4, 2: 4 }), jugador('b', 'Diego Soto', {})])
+    render(<WinnerCelebration ronda={strokePlay} leaderboard={lb} fechaDisplay="7 nov" onShare={() => {}} />)
+    expect(screen.getByText('Ganador')).toBeTruthy()
+    expect(screen.getByText('Juan Pérez')).toBeTruthy()
+    expect(screen.queryByText('Empate')).toBeNull()
+  })
+
+  it('dos en E con hoyos y uno sin hoyos: empate de los dos que anotaron', () => {
+    const lb = tabla([jugador('a', 'Juan Pérez', { 1: 4, 2: 4 }), jugador('b', 'Pedro Lagos', { 1: 5, 2: 3 }), jugador('c', 'Diego Soto', {})])
+    render(<WinnerCelebration ronda={strokePlay} leaderboard={lb} fechaDisplay="7 nov" onShare={() => {}} />)
+    expect(screen.getByText('Empate')).toBeTruthy()
+    expect(screen.getByText('Juan y Pedro')).toBeTruthy()
+  })
+
+  it('nadie anotó: no hay cuadro', () => {
+    const lb = tabla([jugador('a', 'Juan Pérez', {}), jugador('b', 'Diego Soto', {})])
+    const { container } = render(<WinnerCelebration ronda={strokePlay} leaderboard={lb} fechaDisplay="7 nov" onShare={() => {}} />)
+    expect(container.textContent).toBe('')
   })
 })

@@ -13,6 +13,7 @@ import { formatLabel } from '@/golf/core/rules'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 import { COPY_CHIP_BRUTO, COPY_SCORE_BRUTO } from '@/lib/vista-publica-copy'
+import { etiquetasDePosicion } from '@/golf/core/posiciones'
 
 /** Lo que la tarjeta necesita saber de una ronda del feed. */
 export interface RondaDelFeed {
@@ -56,4 +57,41 @@ export function scoreDeLaFila(ronda: RondaDelFeed, fila: { vsPar: number; stable
     return { etiqueta: null, valor: formatPuntosStableford(fila.stablefordPts, { conUnidad: true }) }
   }
   return { etiqueta: esClasificacionBruta(ronda) ? COPY_SCORE_BRUTO : null, valor: formatVsPar(fila.vsPar) }
+}
+
+/** Lo que la tarjeta necesita de cada jugador para ordenarlo y numerarlo. */
+export interface JugadorDelFeed {
+  nombre: string
+  holesCompleted: number
+  vsPar: number
+  stablefordPts: number | null
+}
+
+/**
+ * Filas de la tarjeta en orden, cada una con su posición estilo golf ("1", "T2",
+ * "T2", "4"; `null` = sin hoyos jugados, sin posición).
+ *
+ * Orden: los que jugaron primero, por puntos (Stableford que publica puntos) o
+ * por vs par; dentro de un mismo score, por NOMBRE. El nombre sólo estabiliza el
+ * orden entre refrescos (sin él, el orden de llegada del feed hacía bailar las
+ * filas): NO desempata. Dos jugadores con el mismo score comparten posición. En
+ * vivo no hay countback: las tarjetas no están terminadas.
+ */
+export function filasDeLaTarjeta<J extends JugadorDelFeed>(
+  ronda: RondaDelFeed,
+  jugadores: readonly J[],
+): { jugador: J; posicion: string | null }[] {
+  const porPuntos = publicaPuntos(ronda)
+  const score = (j: J) => (porPuntos ? -(j.stablefordPts ?? 0) : j.vsPar) // menor = mejor
+  const sinHoyos = (j: J) => j.holesCompleted === 0
+  const ordenados = [...jugadores].sort((a, b) => {
+    if (sinHoyos(a) !== sinHoyos(b)) return sinHoyos(a) ? 1 : -1
+    if (!sinHoyos(a)) {
+      const porScore = score(a) - score(b)
+      if (porScore !== 0) return porScore
+    }
+    return (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es', { sensitivity: 'base' })
+  })
+  const posiciones = etiquetasDePosicion(ordenados, (a, b) => score(a) === score(b), { sinPosicion: sinHoyos })
+  return ordenados.map((jugador, i) => ({ jugador, posicion: posiciones[i] }))
 }

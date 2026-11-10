@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import { SITE_DOMAIN, SITE_URL } from '@/lib/site-url'
 import { useShare } from '@/components/share/useShare'
+import type { PodiumEntry } from '@/app/torneo/[slug]/types'
 
 interface ShareResultsProps {
   tournamentName: string
   courseName: string
   dateDisplay: string
   parTotal: number
-  topPlayers: { pos: number; name: string; score: string }[]
+  topPlayers: PodiumEntry[]
 }
 
 export default function ShareResultsButton({
@@ -28,7 +29,7 @@ export default function ShareResultsButton({
     text += `Resultados finales:\n`
     topPlayers.forEach((p) => {
       // Share text — emoji OK for external platforms
-      const medal = p.pos === 1 ? '🏆' : p.pos === 2 ? '🥈' : p.pos === 3 ? '🥉' : `${p.pos}.`
+      const medal = p.pos === 1 ? '🏆' : p.pos === 2 ? '🥈' : p.pos === 3 ? '🥉' : `${p.etiqueta}.`
       text += `${medal} ${p.name} — ${p.score}\n`
     })
     text += `\nVer leaderboard completo en ${SITE_DOMAIN}`

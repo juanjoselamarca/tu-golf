@@ -14,7 +14,6 @@ import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 import { boardPublicoRondaLibre, etiquetaDelFormato, gwiDelBoardPublico, vistaPublica, type VistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { AvisoSoloBruto } from './components/AvisoSoloBruto'
-import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
@@ -50,6 +49,7 @@ import {
   computeTournamentResults,
   computeTeamTournamentResults,
   buildTeamPodium,
+  podioIndividual,
   type CourseHole,
   type TourneyStats,
   type TournamentLeaderboardContext,
@@ -69,7 +69,7 @@ import { TournamentEmptyState } from './components/TournamentEmptyState'
 import { TournamentFooter } from './components/TournamentFooter'
 import { DuplicateTournamentButton } from './components/DuplicateTournamentButton'
 import { ResultsShareCard } from './components/ResultsShareCard'
-import type { TournamentResultados, WithdrawnEntry } from './types'
+import type { PodiumEntry, TournamentResultados, WithdrawnEntry } from './types'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { Suspense } from 'react'
@@ -272,22 +272,18 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   // es stroke play y `p.total` es vs par bruto.
   const rankingPorPuntos = vista.formato === 'stableford'
 
-  // ── Podio top 3 para torneos cerrados ──────────────────────────────
-  const podiumEntries = (() => {
-    if (!isClosed) return []
+  // ── Podio y resultados para compartir (torneos cerrados) ─────────────
+  // Fuente única para el podio (top 3), el texto de WhatsApp y la imagen (top 5).
+  // El lugar sale de la misma clave de empate que la tabla: T1 y T1 si el countback
+  // no los separó; la medalla va por el número del lugar.
+  const podio = (limite: number): PodiumEntry[] => {
     if (isTeamFormat(formatoJuego) && orderedTeams.length > 0) {
-      return buildTeamPodium(orderedTeams, teamMemberNames, vista.modo, formatoJuego, 3)
-        .map((t) => ({ pos: t.pos, name: t.name, score: t.score }))
+      return buildTeamPodium(orderedTeams, teamMemberNames, vista.modo, formatoJuego, limite)
+        .map((t) => ({ pos: t.pos, etiqueta: t.etiqueta, name: t.name, score: t.score }))
     }
-    if (players.length > 0) {
-      return players.slice(0, 3).map((p, i) => ({
-        pos: i + 1,
-        name: p.name,
-        score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),
-      }))
-    }
-    return []
-  })()
+    return podioIndividual(players, limite, rankingPorPuntos)
+  }
+  const podiumEntries = isClosed ? podio(3) : []
 
   const hasData = players.length > 0 || teamStandings.length > 0
   const showEventCard = isOpen || (!hasData && !isClosed)
@@ -524,31 +520,13 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             courseName={tournament?.courses?.nombre ?? 'Cancha'}
             dateDisplay={dateDisplay}
             parTotal={parTotal}
-            topPlayers={
-              isTeamFormat(formatoJuego) && orderedTeams.length > 0
-                ? buildTeamPodium(orderedTeams, teamMemberNames, vista.modo, formatoJuego, 5)
-                    .map((t) => ({ pos: t.pos, name: t.name, score: t.score }))
-                : players.slice(0, 5).map((p, i) => ({
-                    pos: i + 1,
-                    name: p.name,
-                    score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),
-                  }))
-            }
+            topPlayers={podio(5)}
           />
           <ResultsShareCard
             tournamentName={tournamentName}
             courseName={tournament?.courses?.nombre ?? 'Cancha'}
             dateDisplay={dateDisplay}
-            topPlayers={
-              isTeamFormat(formatoJuego) && orderedTeams.length > 0
-                ? buildTeamPodium(orderedTeams, teamMemberNames, vista.modo, formatoJuego, 5)
-                    .map((t) => ({ pos: t.pos, name: t.name, score: t.score }))
-                : players.slice(0, 5).map((p, i) => ({
-                    pos: i + 1,
-                    name: p.name,
-                    score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),
-                  }))
-            }
+            topPlayers={podio(5)}
             totalPlayers={
               isTeamFormat(formatoJuego) ? orderedTeams.length : players.length
             }

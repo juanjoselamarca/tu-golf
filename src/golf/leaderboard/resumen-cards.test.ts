@@ -172,7 +172,7 @@ describe('computeResumenCards — porteros canónicos', () => {
     ])
     const podio = computeTournamentResults(out.playersByGross, out.playersByNeto, CTX.parTotal, null)
     // Con tarjetas terminadas, el Resumen muestra LITERALMENTE el podio público.
-    expect(cards.mejorGross).toMatchObject({ ...podio!.grossWinner!, enCurso: false })
-    expect(cards.mejorNeto).toMatchObject({ ...podio!.netoWinner!, enCurso: false })
+    expect(cards.mejorGross).toMatchObject({ name: podio!.grossWinner!.name, score: podio!.grossWinner!.score, enCurso: false })
+    expect(cards.mejorNeto).toMatchObject({ name: podio!.netoWinner!.name, score: podio!.netoWinner!.score, enCurso: false })
   })
 })

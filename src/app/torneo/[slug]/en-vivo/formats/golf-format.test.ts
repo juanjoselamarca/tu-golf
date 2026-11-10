@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatVsPar, vsParColor, computePositions } from './golf-format'
+import { formatVsPar, vsParColor } from './golf-format'
 
 describe('formatVsPar', () => {
   it('par es "E"', () => expect(formatVsPar(0)).toBe('E'))
@@ -17,27 +17,5 @@ describe('vsParColor', () => {
   it('par y over par → sin color (neutro)', () => {
     expect(vsParColor(0)).toBeUndefined()
     expect(vsParColor(4)).toBeUndefined()
-  })
-})
-
-describe('computePositions — empates estilo golf', () => {
-  it('sin empates → posiciones secuenciales', () => {
-    expect(computePositions([-1, 3, 6])).toEqual(['1', '2', '3'])
-  })
-  it('un empate en 2do → comparten "T2" y se salta el 3', () => {
-    expect(computePositions([-1, 3, 3, 6])).toEqual(['1', 'T2', 'T2', '4'])
-  })
-  it('empate en el liderato → "T1", "T1", luego 3', () => {
-    expect(computePositions([-5, -5, 2])).toEqual(['T1', 'T1', '3'])
-  })
-  it('triple empate', () => {
-    expect(computePositions([0, 0, 0, 5])).toEqual(['T1', 'T1', 'T1', '4'])
-  })
-  it('métrica "más es mejor" (stableford, orden desc) también empata por igualdad', () => {
-    expect(computePositions([40, 38, 38, 30])).toEqual(['1', 'T2', 'T2', '4'])
-  })
-  it('lista vacía y singleton', () => {
-    expect(computePositions([])).toEqual([])
-    expect(computePositions([3])).toEqual(['1'])
   })
 })

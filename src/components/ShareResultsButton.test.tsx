@@ -10,8 +10,8 @@ const props = {
   dateDisplay: '12 ene 2026',
   parTotal: 72,
   topPlayers: [
-    { pos: 1, name: 'Pedro', score: '-2' },
-    { pos: 2, name: 'Ana', score: '+1' },
+    { pos: 1, etiqueta: '1', name: 'Pedro', score: '-2' },
+    { pos: 2, etiqueta: '2', name: 'Ana', score: '+1' },
   ],
 }
 

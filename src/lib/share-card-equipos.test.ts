@@ -137,3 +137,15 @@ describe('el nombre grande cabe en el lienzo', () => {
     expect(partirEnDosLineas('Equipo1yEquipo2')).toEqual(['Equipo1yEquipo2', ''])
   })
 })
+
+describe('tarjetaDeEquipos — posición del ranking de la imagen', () => {
+  it('mismo vs par = T1 y T1 (como la tabla), no "1." y "2."; quien no anotó, sin número', () => {
+    const tarjeta = tarjetaDeEquipos(base([
+      { nombre: 'Uno', jugadores: ['A', 'B'], score: 70, diff: -2, holesPlayed: 18 },
+      { nombre: 'Dos', jugadores: ['C', 'D'], score: 70, diff: -2, holesPlayed: 18 },
+      { nombre: 'Tres', jugadores: ['E', 'F'], score: 75, diff: 3, holesPlayed: 18 },
+      { nombre: 'Cuatro', jugadores: ['G', 'H'], score: 0, diff: 0, holesPlayed: 0 },
+    ]))
+    expect(tarjeta?.ranking?.map((r) => r.posicion)).toEqual(['T1', 'T1', '3', null])
+  })
+})

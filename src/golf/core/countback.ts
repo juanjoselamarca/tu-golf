@@ -30,6 +30,14 @@ export interface CountbackResult {
   resolvedByCountback: boolean
   /** Etiqueta para mostrar en leaderboard, ej: "(countback)" */
   annotation: string
+  /**
+   * Subgrupo de empate DENTRO del grupo que llegó empatado: 0, 1, 2… en el orden
+   * final. Dos resultados consecutivos con el mismo `primaryScore` y el mismo
+   * `subgrupo` siguen empatados después del countback (tarjetas idénticas en
+   * todos los segmentos); si el countback los separó, el subgrupo cambia. Es lo
+   * que lee una tabla para decidir si va "T" (`etiquetasDePosicion`).
+   */
+  subgrupo: number
 }
 
 /** Suma un rango de scores (hoyos 1-indexed: from y to inclusive) */
@@ -106,12 +114,15 @@ export function applyCountback(
       primaryScore: p.primaryScore,
       resolvedByCountback: false,
       annotation: '',
+      subgrupo: 0,
     }))
   }
 
   const sorted = [...players].sort((a, b) => compareCountback(a, b, mode, holeCount))
 
+  let subgrupo = 0
   return sorted.map((p, idx) => {
+    if (idx > 0 && compareCountback(sorted[idx - 1], p, mode, holeCount) !== 0) subgrupo++
     // Verificar si realmente se separó de los demás
     const stillTied =
       (idx > 0 && compareCountback(sorted[idx - 1], p, mode, holeCount) === 0) ||
@@ -125,6 +136,7 @@ export function applyCountback(
       primaryScore: p.primaryScore,
       resolvedByCountback: wasResolved,
       annotation: wasResolved ? '(desempate)' : stillTied ? '(empate)' : '',
+      subgrupo,
     }
   })
 }
@@ -160,6 +172,7 @@ export function resolveLeaderboardTies(
         primaryScore: tiedGroup[0].primaryScore,
         resolvedByCountback: false,
         annotation: '',
+        subgrupo: 0,
       })
     } else {
       results.push(...applyCountback(tiedGroup, mode, holeCount))
