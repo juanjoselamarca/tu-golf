@@ -13,6 +13,7 @@ import { formatOverUnder } from '@/golf/core/rules'
 import { getScoreColor } from '@/golf/core/colors'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
+import { esPrimerLugar, etiquetasDePosicion } from '@/golf/core/posiciones'
 
 interface TeamEntry {
   teamId: string
@@ -64,12 +65,17 @@ function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, h
 export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stroke_play', totalHoles, formato, expandedTeamId, onToggleTeam, renderTeamDetail }: Props) {
   const hasCourse = teams.some(t => t.overUnderGross !== t.totalGross)
   const isStableford = formatoJuego === 'stableford'
-  const sorted = [...teams].sort((a, b) => {
-    const sa = primaryScore(a, modoJuego, formatoJuego)
-    const sb = primaryScore(b, modoJuego, formatoJuego)
-    if (isStableford) return sb - sa
-    return sa - sb
-  })
+  // El orden lo decide el motor (`ordenarEquipos*` → countback, sin hoyos al final).
+  // Re-ordenar acá por score perdía el countback y subía al equipo que no ha salido.
+  const sorted = teams
+  // Empates estilo golf (T2, T2, 4) por mismo score, sin countback: en la ronda libre
+  // el cuadro ganador y la imagen para compartir declaran "Empate" con el mismo vs par
+  // (`equiposEnElPrimerLugar`), y la tabla individual tampoco desempata. Sin hoyos: "—".
+  const posiciones = etiquetasDePosicion(
+    sorted,
+    (a, b) => primaryScore(a, modoJuego, formatoJuego) === primaryScore(b, modoJuego, formatoJuego),
+    { sinPosicion: (t) => t.holesPlayed === 0 },
+  )
 
   return (
     <div style={{
@@ -96,7 +102,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
 
       {/* Table header */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px',
+        display: 'grid', gridTemplateColumns: '36px 1fr 72px 60px',
         padding: '10px 16px', borderBottom: '1px solid var(--border)',
       }}>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>#</span>
@@ -113,6 +119,8 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
           Esperando scores...
         </div>
       ) : sorted.map((team, idx) => {
+        const posicion = posiciones[idx]
+        const lider = esPrimerLugar(posicion)
         const score = primaryScore(team, modoJuego, formatoJuego)
         const isEven = score === 0 && !isStableford
         const isGood = isStableford ? score > 0 : score < 0
@@ -123,17 +131,17 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
             role={onToggleTeam ? 'button' : undefined}
             onClick={onToggleTeam ? () => onToggleTeam(team.teamId) : undefined}
             style={{
-            display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px',
+            display: 'grid', gridTemplateColumns: '36px 1fr 72px 60px',
             padding: '12px 16px',
-            background: idx === 0 ? 'rgba(196,153,42,0.03)' : 'transparent',
+            background: lider ? 'rgba(196,153,42,0.03)' : 'transparent',
             cursor: onToggleTeam ? 'pointer' : 'default',
           }}>
             {/* Position */}
             <span style={{
-              fontSize: '14px', fontWeight: 700, fontFamily: '"DM Mono", monospace',
-              color: idx === 0 ? 'var(--brand-on-bg)' : 'var(--text-2)',
+              fontSize: '14px', fontWeight: 700, fontFamily: '"DM Mono", monospace', whiteSpace: 'nowrap',
+              color: lider ? 'var(--brand-on-bg)' : 'var(--text-2)',
             }}>
-              {idx + 1}
+              {posicion ?? '—'}
             </span>
 
             {/* Team info */}

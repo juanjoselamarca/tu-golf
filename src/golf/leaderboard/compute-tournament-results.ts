@@ -7,6 +7,7 @@
 import { isFinishedCard } from './board-rules'
 import { formatPuntosStableford } from './formato-score'
 import { formatVsPar } from '@/golf/share/vs-par'
+import { etiquetasConRespaldo, lugarDeEtiqueta } from '@/golf/core/posiciones'
 import type { Player } from '@/lib/golf-data'
 import type { TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
@@ -74,6 +75,8 @@ export interface TeamStandingForPodium {
   overUnderNeto: number
   totalStableford: number
   holesPlayed: number
+  /** Clave de empate de `rankTeamsWithCountback`. Sin ella (standings sin ordenar por el motor), por score. */
+  claveEmpate?: string | null
 }
 
 /**
@@ -89,11 +92,23 @@ export function buildTeamPodium(
   limit: number = 3,
 ): TeamPodiumEntry[] {
   const isStableford = formato === 'stableford'
+  // Lugar con empates estilo golf, sobre el field completo y con la misma clave que
+  // la tabla: si el countback no separó a dos equipos, el podio dice T1 y T1.
+  const primario = (t: TeamStandingForPodium) =>
+    isStableford ? t.totalStableford : modo === 'neto' ? t.overUnderNeto : t.overUnderGross
+  const etiquetas = etiquetasConRespaldo(
+    orderedTeams,
+    (t) => t.claveEmpate,
+    (a, b) => primario(a) === primario(b),
+    (t) => t.holesPlayed === 0,
+  )
   return orderedTeams
-    .filter((t) => t.holesPlayed > 0)
+    .map((t, i) => ({ t, etiqueta: etiquetas[i] }))
+    .filter(({ t }) => t.holesPlayed > 0)
     .slice(0, limit)
-    .map((t, i) => ({
-      pos: i + 1,
+    .map(({ t, etiqueta }, i) => ({
+      pos: lugarDeEtiqueta(etiqueta) ?? i + 1,
+      etiqueta: etiqueta ?? String(i + 1),
       name: t.teamNombre,
       members: (memberNames[t.teamId] ?? []).join(' / '),
       score: isStableford

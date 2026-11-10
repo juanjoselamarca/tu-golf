@@ -4,11 +4,7 @@ import { useCallback } from 'react'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
 
-interface PodiumEntry {
-  pos: number
-  name: string
-  score: string
-}
+import type { PodiumEntry } from '../types'
 
 interface ResultsShareCardProps {
   tournamentName: string
@@ -145,7 +141,7 @@ function drawResultsCard(
     ctx.fillStyle = posColors[entry.pos] ?? 'rgba(255, 255, 255, 0.4)'
     ctx.font = '700 16px system-ui, -apple-system, sans-serif'
     ctx.textAlign = 'left'
-    ctx.fillText(`${entry.pos}.`, 80, y)
+    ctx.fillText(`${entry.etiqueta}.`, 80, y)
 
     // Nombre
     ctx.fillStyle = entry.pos === 1 ? '#c4992a' : '#ffffff'

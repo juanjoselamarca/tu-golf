@@ -3,6 +3,7 @@
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
+import { esPrimerLugar, etiquetasDePosicion } from '@/golf/core/posiciones'
 import {
   equiposEnElPrimerLugar,
   etiquetaDelResultadoDeEquipos,
@@ -34,7 +35,8 @@ export interface ShareCardRondaLibre {
   hoyos?: readonly number[]
   formato_juego?: FormatoJuego | string
   modo_juego?: ModoJuego | string | null
-  ranking?: Array<{ nombre: string; score: number; diff: number; holesPlayed?: number }>
+  /** `posicion`: etiqueta con empates estilo golf ("T1"), la misma que la tabla. Sin ella, i + 1. */
+  ranking?: Array<{ nombre: string; score: number; diff: number; holesPlayed?: number; posicion?: string | null }>
   /** Resultado Match Play (ej: "3&2", "All Square", "1 UP"). Si viene y formato es match_play,
    * se muestra prominente en lugar de score + vs-par. */
   matchResult?: string
@@ -529,8 +531,10 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
     ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.stroke()
     data.ranking.forEach((j, i) => {
       const ly = rkY + 16 + i * 56
-      ctx.textAlign = 'left'; ctx.font = `${i === 0 ? 'bold ' : ''}28px Arial, sans-serif`
-      ctx.fillStyle = i === 0 ? '#ffffff' : 'rgba(255,255,255,0.45)'; ctx.fillText(`${i + 1}. ${j.nombre}`, 110, ly + 36)
+      const posicion = j.posicion === undefined ? String(i + 1) : j.posicion
+      const lider = j.posicion === undefined ? i === 0 : esPrimerLugar(posicion)
+      ctx.textAlign = 'left'; ctx.font = `${lider ? 'bold ' : ''}28px Arial, sans-serif`
+      ctx.fillStyle = lider ? '#ffffff' : 'rgba(255,255,255,0.45)'; ctx.fillText(posicion ? `${posicion}. ${j.nombre}` : j.nombre, 110, ly + 36)
       ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'
       if (j.holesPlayed === 0) {
         // Equipo que no anotó ningún hoyo: va al final y no tiene score que mostrar.
@@ -657,6 +661,12 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
  * si el formato no es por equipos o no hay ranking. Con un solo equipo
  * (`contraElPar`) el título dice "Contra el par" y no hay trofeo.
  */
+/** Ranking de la imagen con la misma etiqueta que la tabla: mismo vs par = "T" (sin countback en la ronda libre). */
+function rankingDeEquipos(teams: NonNullable<LeaderboardShareData['teams']>): NonNullable<ShareCardRondaLibre['ranking']> {
+  const posiciones = etiquetasDePosicion(teams, (a, b) => a.diff === b.diff, { sinPosicion: t => t.holesPlayed === 0 })
+  return teams.map((t, i) => ({ nombre: t.nombre, score: t.score, diff: t.diff, holesPlayed: t.holesPlayed, posicion: posiciones[i] }))
+}
+
 export function tarjetaDeEquipos(data: LeaderboardShareData): ShareCardRondaLibre | null {
   if (!isTeamFormat(data.formato_juego) || !data.teams || data.teams.length === 0) return null
   // El mismo criterio que el cuadro ganador de la pantalla: por `diff`; y si
@@ -683,7 +693,7 @@ export function tarjetaDeEquipos(data: LeaderboardShareData): ShareCardRondaLibr
     teamJugadores: winTeam.jugadores,
     teamFormato: data.formato_juego as 'best_ball' | 'scramble' | 'foursome',
     contraElPar: juegaContraElPar(data.teams.length),
-    ranking: data.teams.map(t => ({ nombre: t.nombre, score: t.score, diff: t.diff, holesPlayed: t.holesPlayed })),
+    ranking: rankingDeEquipos(data.teams),
   }
 }
 
@@ -732,6 +742,8 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
   // Stroke Play / Stableford: ranking por vsPar
   const isTie = data.players.length > 1 && data.players[1].vsPar === winner.vsPar
   const parTotal = parTotalEstandar(winner.totalHoles)
+  // Misma etiqueta que la tabla (posicionesDelLeaderboard): mismo vs par (o puntos) = "T"; sin hoyos, sin posición.
+  const posicionesJugadores = etiquetasDePosicion(data.players, (a, b) => a.vsPar === b.vsPar, { sinPosicion: p => p.holesPlayed === 0 })
   const cardData: ShareCardRondaLibre = {
     tipo: 'ronda_libre', ganador: winner.nombre, esEmpate: isTie,
     jugadores: isTie ? data.players.filter(p => p.vsPar === winner.vsPar).map(p => p.nombre) : undefined,
@@ -742,10 +754,11 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
     scoresByHole: {}, parsByHole: {}, holesPlayed: winner.totalHoles,
     formato_juego: data.formato_juego,
     modo_juego: data.modo_juego,
-    ranking: data.players.map(p => ({
+    ranking: data.players.map((p, i) => ({
       nombre: p.nombre,
       score: isStableford ? p.vsPar : parTotalEstandar(p.totalHoles) + p.vsPar,
       diff: isStableford ? 0 : p.vsPar,
+      posicion: posicionesJugadores[i],
     })),
   }
   return compartirResultado(cardData)

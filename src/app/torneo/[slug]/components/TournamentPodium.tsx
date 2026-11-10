@@ -5,11 +5,8 @@
 
 import type { Player } from '@/lib/golf-data'
 
-export interface PodiumEntry {
-  pos: number
-  name: string
-  score: string
-}
+import type { PodiumEntry } from '../types'
+export type { PodiumEntry }
 
 export interface TournamentPodiumProps {
   entries: PodiumEntry[]
@@ -21,7 +18,7 @@ const POSITION_STYLES: Record<number, { fontSize: string; iconSize: string; meda
   3: { fontSize: '15px', iconSize: '22px', medal: '3' },
 }
 
-function MedalIcon({ pos }: { pos: number }) {
+function MedalIcon({ pos, etiqueta }: { pos: number; etiqueta: string }) {
   const colors: Record<number, string> = {
     1: '#c4992a', // oro
     2: '#94a3b8', // plata
@@ -46,7 +43,7 @@ function MedalIcon({ pos }: { pos: number }) {
         flexShrink: 0,
       }}
     >
-      {pos}
+      {etiqueta}
     </div>
   )
 }
@@ -76,11 +73,11 @@ export function TournamentPodium({ entries }: TournamentPodiumProps) {
         Podio
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {entries.map((entry) => {
+        {entries.map((entry, i) => {
           const isFirst = entry.pos === 1
           return (
             <div
-              key={entry.pos}
+              key={`${i}-${entry.name}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -93,7 +90,7 @@ export function TournamentPodium({ entries }: TournamentPodiumProps) {
                 border: `1px solid ${isFirst ? 'rgba(196,153,42,0.25)' : 'var(--border)'}`,
               }}
             >
-              <MedalIcon pos={entry.pos} />
+              <MedalIcon pos={entry.pos} etiqueta={entry.etiqueta} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{

@@ -131,8 +131,24 @@ export interface WithdrawnEntry {
   reason: string | null
 }
 
-export interface TeamPodiumEntry {
+/**
+ * Fila de podio / resultados para compartir (individual o equipo). Fuente única del tipo:
+ * la usan TournamentPodium, ResultsShareCard y ShareResultsButton.
+ */
+export interface PodiumEntry {
+  /** Número del lugar (medalla, color). Con empate, el mismo para los empatados. */
   pos: number
+  /** Lo que se muestra: "1", "T2". */
+  etiqueta: string
+  name: string
+  score: string
+}
+
+export interface TeamPodiumEntry {
+  /** Número del lugar (medalla, color). Con empate, el mismo para los empatados. */
+  pos: number
+  /** Lo que se muestra: "1", "T2". */
+  etiqueta: string
   name: string
   /** Integrantes del equipo formateados ("Juan / Pedro"). Vacío si no hay nombres. */
   members: string

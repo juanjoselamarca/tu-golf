@@ -79,12 +79,28 @@ describe('computeTeamTournamentResults — podio de parejas', () => {
     const r = computeTeamTournamentResults(ordered, members, 'neto', 'scramble')
     expect(r).not.toBeNull()
     expect(r!.teamPodium).toHaveLength(3)
-    expect(r!.teamPodium![0]).toEqual({ pos: 1, name: 'Águilas', members: 'Juan / Pedro', score: '-3' })
-    expect(r!.teamPodium![1]).toEqual({ pos: 2, name: 'Cóndores', members: 'Ana / Luis', score: '-1' })
-    expect(r!.teamPodium![2]).toEqual({ pos: 3, name: 'Halcones', members: 'Nico / Tomás', score: 'E' })
+    expect(r!.teamPodium![0]).toEqual({ pos: 1, etiqueta: '1', name: 'Águilas', members: 'Juan / Pedro', score: '-3' })
+    expect(r!.teamPodium![1]).toEqual({ pos: 2, etiqueta: '2', name: 'Cóndores', members: 'Ana / Luis', score: '-1' })
+    expect(r!.teamPodium![2]).toEqual({ pos: 3, etiqueta: '3', name: 'Halcones', members: 'Nico / Tomás', score: 'E' })
     // En torneo por equipos el podio individual va nulo.
     expect(r!.grossWinner).toBeNull()
     expect(r!.netoWinner).toBeNull()
+  })
+
+  it('empate que el countback no separó: el podio dice T1 y T1 (como la tabla), el siguiente 3', () => {
+    const ordered = [
+      mkTeam('a', 'A', -3, { claveEmpate: '0#0' }),
+      mkTeam('b', 'B', -3, { claveEmpate: '0#0' }),
+      mkTeam('c', 'C', 1, { claveEmpate: '1#0' }),
+    ]
+    const r = computeTeamTournamentResults(ordered, { a: [], b: [], c: [] }, 'neto', 'scramble')
+    expect(r!.teamPodium!.map((t) => [t.pos, t.etiqueta])).toEqual([[1, 'T1'], [1, 'T1'], [3, '3']])
+  })
+
+  it('si el countback los separó (claves distintas), 1 y 2 aunque el vs par sea igual', () => {
+    const ordered = [mkTeam('a', 'A', -3, { claveEmpate: '0#0' }), mkTeam('b', 'B', -3, { claveEmpate: '0#1' })]
+    const r = computeTeamTournamentResults(ordered, { a: [], b: [] }, 'neto', 'scramble')
+    expect(r!.teamPodium!.map((t) => t.etiqueta)).toEqual(['1', '2'])
   })
 
   it('modo gross usa el vs-par gross', () => {
