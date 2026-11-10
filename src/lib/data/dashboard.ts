@@ -15,6 +15,7 @@ import type { Tournament, RondaLibre, HistoricalRound } from '@/lib/mi-golf/type
 import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 import { normalizeScores } from '@/lib/data/focus'
 import { captureError } from '@/lib/error-tracking'
+import { indexWindow, INDEX_WINDOW_COLUMNS, type IndexWindowRound } from '@/golf/core/index-window'
 
 // Campos slim de historical_rounds: lo necesario para stats/tendencia/listado.
 // `scores`/`par_per_hole` se omiten a propósito (se traen aparte solo para la
@@ -166,10 +167,38 @@ export async function isNewUser(
 
 // ─────────────────────────── IDENTIDAD ───────────────────────────
 
+/**
+ * Rondas que cuentan hoy para el Índice Golfers+ (tope: la ventana de 20). Mismo predicado que el RPC
+ * `calcular_indice_golfers` vía `indexWindow` (diferencial, slope y CR, no excluida, gross posible):
+ * así la barra "Calibración" y el "Sin calibrar" de Mi Golf dicen lo mismo que el índice que se calcula.
+ * Las tarjetas FedeGolf no se filtran aparte: el RPC tampoco lo hace (llegan con
+ * `excluded_from_handicap = TRUE`). Los filtros del query solo achican la respuesta; decide `indexWindow`.
+ * null = no se pudo leer: Mi Golf no muestra una barra inventada.
+ */
+export async function loadRondasValidasIndice(supabase: SupabaseClient, userId: string): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('historical_rounds')
+    .select(INDEX_WINDOW_COLUMNS)
+    .eq('user_id', userId)
+    .not('diferencial', 'is', null)
+    .not('slope_rating', 'is', null)
+    .not('course_rating', 'is', null)
+    .eq('excluded_from_handicap', false)
+    .order('played_at', { ascending: false })
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
+  if (error) {
+    void captureError(error, { context: 'mi-golf.rondas-validas-indice', level: 'warning' })
+    return null
+  }
+  return indexWindow((data as unknown as IndexWindowRound[]) ?? []).length
+}
+
 export type IdentidadData = {
   indiceGolfers: number | null
   totalRounds: number
-  rondasConDiferencial: number
+  /** Rondas que cuentan para el índice (`loadRondasValidasIndice`), no las que solo tienen diferencial. */
+  rondasValidasIndice: number | null
   taigerSessionCount: number
   historico: HistoricalRound[]
 }
@@ -181,13 +210,13 @@ export async function loadIdentidadData(
   const [
     { data: profile },
     { count: totalRounds },
-    { count: rondasConDiferencial },
+    rondasValidasIndice,
     { count: taigerSessionCount },
     { data: historicoRaw },
   ] = await Promise.all([
     supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
     supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF),
-    supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).not('diferencial', 'is', null),
+    loadRondasValidasIndice(supabase, userId),
     supabase.from('taiger_sessions').select('*', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).limit(50),
   ])
@@ -195,7 +224,7 @@ export async function loadIdentidadData(
   return {
     indiceGolfers: (profile?.indice_golfers as number | null) ?? null,
     totalRounds: totalRounds ?? 0,
-    rondasConDiferencial: rondasConDiferencial ?? 0,
+    rondasValidasIndice,
     taigerSessionCount: taigerSessionCount ?? 0,
     historico: mapHistoricoSlim(historicoRaw),
   }

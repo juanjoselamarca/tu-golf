@@ -4,12 +4,14 @@ import { Trophy, MapPin, Flag, BarChart3 } from '@/components/icons'
 import type { Nivel, StatsForma, TaigerLine } from '@/lib/mi-golf/types'
 import { NIVELES_ORDEN } from '@/lib/mi-golf/niveles'
 import { MIN_DIFERENCIALES_INDICE } from '@/golf/core/whs-index'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 type Props = {
   userName: string
   indiceGolfers: number | null
   nivel: Nivel | null
-  rondasConDiferencial: number
+  /** Rondas que cuentan para el índice (mismo predicado que el RPC); null = no se pudo leer. */
+  rondasValidasIndice: number | null
   totalRounds: number
   taigerSessionCount: number
   stats: StatsForma
@@ -30,7 +32,7 @@ export function IdentidadTab(props: Props) {
     userName,
     indiceGolfers,
     nivel,
-    rondasConDiferencial,
+    rondasValidasIndice,
     totalRounds,
     taigerSessionCount,
     stats,
@@ -39,7 +41,7 @@ export function IdentidadTab(props: Props) {
   } = props
   void userName
 
-  const mostrarBarraCalibracion = rondasConDiferencial < 3
+  const mostrarBarraCalibracion = rondasValidasIndice != null && rondasValidasIndice < MIN_DIFERENCIALES_INDICE
   const mostrarBarraTaiger = totalRounds < 5 || taigerSessionCount === 0
   const mostrarSeccionProgresos = mostrarBarraCalibracion || mostrarBarraTaiger
 
@@ -59,7 +61,7 @@ export function IdentidadTab(props: Props) {
         <div style={{ margin: '40px 0 0' }}>
           <SectionLabel>Progresos</SectionLabel>
           {mostrarBarraCalibracion && (
-            <Progreso label="Calibración del índice" actual={rondasConDiferencial} total={3} />
+            <Progreso label="Calibración del índice" actual={rondasValidasIndice} total={MIN_DIFERENCIALES_INDICE} />
           )}
           {mostrarBarraTaiger && (
             <Progreso label="Desbloqueo tAIger+" actual={Math.min(totalRounds, 5)} total={5} />
@@ -133,7 +135,7 @@ function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null })
           letterSpacing: '-0.02em',
         }}
       >
-        {indice.toFixed(1)}
+        {formatearIndice(indice)}
       </div>
       <div
         style={{
