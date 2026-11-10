@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildLeaderboard, mostrarCopiarLink, rondaTieneDatos } from './leaderboard'
+import { buildLeaderboard, mostrarCopiarLink, posicionesDelLeaderboard, rondaTieneDatos } from './leaderboard'
 import type { Jugador } from '@/types/ronda'
 
 const parMap = { 1: 4, 2: 4 }
@@ -171,5 +171,39 @@ describe('mostrarCopiarLink', () => {
   it('sin pares (cancha escrita a mano) siempre: el ranking de equipos sale vacío aunque se haya anotado', () => {
     expect(mostrarCopiarLink(false, false)).toBe(true)
     expect(mostrarCopiarLink(true, false)).toBe(true)
+  })
+})
+
+describe('posicionesDelLeaderboard — empates estilo golf', () => {
+  const base = { holes: 2, parMap, siMap, courseHcpMap: {}, modoJuego: 'gross' as const }
+
+  it('stroke play: mismo vs par = T2 y T2 aunque el orden los separe por nombre; sin hoyos = null', () => {
+    const lb = buildLeaderboard({
+      ...base,
+      formatoJuego: 'stroke_play',
+      jugadores: [
+        jugador('m', 'María', { '1': 5, '2': 4 }), // +1
+        jugador('c', 'Carlos', { '1': 3, '2': 4 }), // -1
+        jugador('d', 'Diego', { '1': 4, '2': 5 }), // +1
+        jugador('p', 'Pedro', { '1': 6, '2': 6 }), // +4
+        jugador('s', 'Sin hoyos', {}),
+      ],
+    })
+    expect(lb.map(j => j.id)).toEqual(['c', 'm', 'd', 'p', 's'])
+    expect(posicionesDelLeaderboard(lb, 'stroke_play')).toEqual(['1', 'T2', 'T2', '4', null])
+  })
+
+  it('stableford: el empate es por puntos, no por vs par', () => {
+    const lb = buildLeaderboard({
+      ...base,
+      courseHcpMap: { a: 0, b: 0, c: 0 },
+      formatoJuego: 'stableford',
+      jugadores: [
+        jugador('a', 'Ana', { '1': 3, '2': 4 }), // 5 pts
+        jugador('b', 'Beto', { '1': 4, '2': 3 }), // 5 pts
+        jugador('c', 'Cata', { '1': 4, '2': 4 }), // 4 pts
+      ],
+    })
+    expect(posicionesDelLeaderboard(lb, 'stableford')).toEqual(['T1', 'T1', '3'])
   })
 })

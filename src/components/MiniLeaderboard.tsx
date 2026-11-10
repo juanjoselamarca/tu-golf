@@ -6,6 +6,7 @@ import { segundosDesdeElDato, textoActualizadoHace } from '@/lib/ronda/actualiza
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
+import { etiquetasDePosicion } from '@/golf/core/posiciones'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 
 interface JugadorLB {
@@ -133,13 +134,21 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
 
   if (jugadores.length < 2) return null
 
+  // Empates estilo golf con el mismo criterio del orden (sin countback): "T2" y "T2", el siguiente "4".
+  const scoreDeOrden = (j: JugadorLB) =>
+    formatoJuego === 'stableford' ? j.totalStableford : modoJuego === 'neto' ? (j.totalNetVsPar ?? 0) : (j.totalVsPar ?? 0)
+  const posiciones = etiquetasDePosicion(jugadores, (a, b) => scoreDeOrden(a) === scoreDeOrden(b), {
+    sinPosicion: j => j.holesCompleted === 0,
+  })
+
   return (
     <div style={{ width: '100%', padding: '0 16px 16px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {jugadores.map((j, idx) => {
           // Invitados: user_id null === currentUserId null NO es "yo".
           const esYo = currentUserId != null && j.user_id === currentUserId
-          const isLeading = idx === 0 && j.totalGross > 0
+          const posicion = posiciones[idx]
+          const isLeading = posicion === '1' || posicion === 'T1'
           const thruText = j.lastHole != null ? `H.${j.lastHole}` : '—'
 
           return (
@@ -155,9 +164,9 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{
-                  fontSize: '12px', fontWeight: 700, width: '16px', textAlign: 'center',
+                  fontSize: '12px', fontWeight: 700, minWidth: '24px', textAlign: 'center', whiteSpace: 'nowrap',
                   color: isLeading ? 'var(--brand-on-bg)' : 'var(--text-2)',
-                }}>{idx + 1}</span>
+                }}>{posicion ?? '—'}</span>
                 <div>
                   <div style={{
                     fontSize: '13px', fontWeight: isLeading ? 600 : 400, lineHeight: 1.2,

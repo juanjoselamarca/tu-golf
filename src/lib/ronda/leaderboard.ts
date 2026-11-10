@@ -8,6 +8,7 @@ import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
+import { etiquetasDePosicion } from '@/golf/core/posiciones'
 import type { Jugador, ModoJuego, FormatoJuego } from '@/types/ronda'
 
 /** Entrada del leaderboard: jugador + métricas derivadas. */
@@ -86,6 +87,23 @@ export function buildLeaderboard({
       if (isStableford) return b.stablefordPts - a.stablefordPts
       return a.vsPar - b.vsPar
     })
+}
+
+/**
+ * Posición de cada fila de buildLeaderboard con empates estilo golf ("1", "T2", "T2", "4").
+ * Mismo criterio que el orden: puntos en stableford, vsPar del modo en el resto. La ronda libre no
+ * tiene countback, así que el mismo score es empate aunque el orden los separe. Sin hoyos = null.
+ */
+export function posicionesDelLeaderboard(
+  entries: readonly LeaderboardEntry[],
+  formatoJuego: FormatoJuego,
+): (string | null)[] {
+  const isStableford = formatoJuego === 'stableford'
+  return etiquetasDePosicion(
+    entries,
+    (a, b) => (isStableford ? a.stablefordPts === b.stablefordPts : a.vsPar === b.vsPar),
+    { sinPosicion: e => e.holesPlayed === 0 },
+  )
 }
 
 /**

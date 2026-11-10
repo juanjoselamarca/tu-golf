@@ -2,14 +2,7 @@
 
 import type React from 'react'
 import type { MatchResult } from '@/golf/formats/match-play'
-
-interface RankingEntry {
-  id: string
-  nombre: string
-  vsPar: number
-  holesPlayed: number
-  gross: number
-}
+import type { RankingEntry } from '../hooks/useMiniRanking'
 
 interface RankingSheetProps {
   ranking: RankingEntry[]
@@ -98,7 +91,7 @@ export function RankingSheet({
                     borderBottom: idx < ranking.length - 1 ? '1px solid var(--border)' : 'none',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', width: '20px' }}>{idx + 1}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', minWidth: '24px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{r.posicion}</span>
                       <span style={{ fontSize: '14px', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--brand-on-bg)' : 'var(--text)' }}>
                         {r.nombre}{isMe ? ' ←' : ''}
                       </span>
