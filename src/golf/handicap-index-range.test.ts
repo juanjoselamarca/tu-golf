@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  parsearHandicapOpcional,
+  leerCampoHandicap,
+  textoCampoHandicap,
   HANDICAP_INDEX_MAX,
   formatearIndice,
   HANDICAP_INDEX_MIN,
@@ -151,18 +152,6 @@ describe('parsearHandicap', () => {
   })
 })
 
-describe('parsearHandicapOpcional', () => {
-  it('vacío → null; "+2" → −2; "18,5" → 18.5; lo que no es número → NaN', () => {
-    expect(parsearHandicapOpcional('')).toBeNull()
-    expect(parsearHandicapOpcional('   ')).toBeNull()
-    expect(parsearHandicapOpcional('+2')).toBe(-2)
-    expect(parsearHandicapOpcional('-2')).toBe(-2)
-    expect(parsearHandicapOpcional('18,5')).toBe(18.5)
-    expect(parsearHandicapOpcional('12.4')).toBe(12.4)
-    expect(parsearHandicapOpcional('abc')).toBeNaN()
-  })
-})
-
 describe('courseDataDeInscripcion', () => {
   it('arma la cancha del motor desde las columnas de courses, con par 72 si falta', () => {
     expect(courseDataDeInscripcion({ slope_rating: 130, course_rating: 73.5, par_total: 71 })).toEqual({ slope: 130, courseRating: 73.5, par: 71 })
@@ -194,3 +183,23 @@ describe('formatearIndice — plus que redondea a cero', () => {
   })
 })
 
+
+describe('leerCampoHandicap — estado del campo mientras se tipea', () => {
+  it.each([
+    ['', 'vacio', null], ['  ', 'vacio', null],
+    ['+', 'incompleto', null], ['-', 'incompleto', null], ['.', 'incompleto', null], ['+,', 'incompleto', null],
+    ['abc', 'invalido', null], ['1a', 'invalido', null], ['++2', 'invalido', null],
+    ['+1.5', 'ok', -1.5], ['18,5', 'ok', 18.5], ['-2', 'ok', -2], ['12.', 'ok', 12], ['0', 'ok', 0],
+  ])('%j → %s (%s)', (texto, estado, valor) => {
+    expect(leerCampoHandicap(texto)).toEqual({ estado, valor })
+  })
+})
+
+describe('textoCampoHandicap — precarga del campo', () => {
+  it('un plus guardado (−2) se precarga "+2"; null → vacío', () => {
+    expect(textoCampoHandicap(-2)).toBe('+2')
+    expect(textoCampoHandicap(12.3)).toBe('12.3')
+    expect(textoCampoHandicap(null)).toBe('')
+    expect(textoCampoHandicap(undefined)).toBe('')
+  })
+})

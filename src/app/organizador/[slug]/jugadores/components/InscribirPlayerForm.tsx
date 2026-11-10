@@ -5,12 +5,17 @@ import { inputStyle } from '../styles'
 import type { Profile } from '../hooks/useProfileSearch'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { UpsellCard } from '@/components/billing/UpsellCard'
-import { formatearHandicap, formatearIndice, parsearHandicap, parsearHandicapOpcional } from '@/golf/handicap-index-range'
+import { formatearHandicap, formatearIndice, leerCampoHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO, parsearHandicap } from '@/golf/handicap-index-range'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 
 export type InscribirMode = 'search' | 'guest' | 'batch'
 
-/** Al final de la línea, tras un separador: el hándicap (con signo y coma o punto decimal). */
-const HCP_AL_FINAL = /[\s,;\t]+([+-]?\d+(?:[.,]\d+)?)$/
+/** Al final de la línea: el hándicap (con signo y coma o punto decimal). Tras coma, punto y coma o tab
+ *  cualquier número; tras un ESPACIO solo uno con signo o decimal ("Ana +2", "Juan Pérez 18,5"), porque
+ *  "Invitado 1" es un nombre, no "Invitado" con hándicap 1. */
+const HCP_AL_FINAL = /(?:[,;\t]\s*|\s+(?=[+-]|\d+[.,]\d))([+-]?\d+(?:[.,]\d+)?)$/
+/** Separadores sobrantes al final ("Juan;18,5;" de una planilla). */
+const SEPARADORES_AL_FINAL = /[\s,;\t]+$/
 
 /** Parsea una línea de texto en {nombre, handicap}.
  *  Acepta "Nombre", "Nombre, 18.4", "Nombre 18,5", "Nombre<TAB>18,5" (Excel chileno),
@@ -18,7 +23,7 @@ const HCP_AL_FINAL = /[\s,;\t]+([+-]?\d+(?:[.,]\d+)?)$/
  *  El hándicap se saca del FINAL antes de partir por comas: si no, "18,5" quedaba en 18.
  *  Es opcional; si la línea no termina en un número, queda null. */
 export function parseBatchLine(line: string): { name: string; hcp: number | null } | null {
-  const trimmed = line.trim()
+  const trimmed = line.trim().replace(SEPARADORES_AL_FINAL, '')
   if (!trimmed) return null
 
   const m = HCP_AL_FINAL.exec(trimmed)
@@ -63,8 +68,10 @@ export function InscribirPlayerForm({
 
   // Handicap es opcional: si está vacío se inscribe con null. Si tiene valor se lee como en el
   // resto de la app ("+2" plus, "18,5" con coma); lo que no es número se avisa, no se pierde.
-  const guestHcpValid = !Number.isNaN(parsearHandicapOpcional(guestHcp) ?? 0)
-  const guestReady = guestName.trim() !== '' && guestHcpValid
+  // A medio escribir ("+", "-") no deja agregar pero tampoco avisa: el aviso es para texto que no es número.
+  const guestHcpCampo = leerCampoHandicap(guestHcp)
+  const guestHcpInvalido = guestHcpCampo.estado === 'invalido'
+  const guestReady = guestName.trim() !== '' && (guestHcpCampo.estado === 'vacio' || guestHcpCampo.estado === 'ok')
 
   // Batch state
   const [batchText, setBatchText] = useState('')
@@ -240,7 +247,7 @@ export function InscribirPlayerForm({
 
           {/* Handicap (indice) */}
           <div style={{ flex: '0 1 130px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (opcional)</label>
+            <label htmlFor="guest-hcp" style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (opcional)</label>
             {/* type="text": un type="number" deja el valor en '' con "+2" (y se inscribía sin
                 hándicap sin avisar); inputMode "text" porque el teclado decimal del iPhone no tiene signo. */}
             <input
@@ -251,15 +258,11 @@ export function InscribirPlayerForm({
               placeholder="Ej: 12.4 o +2"
               value={guestHcp}
               onChange={(e) => setGuestHcp(e.target.value)}
-              aria-invalid={!guestHcpValid}
-              aria-describedby={guestHcpValid ? undefined : 'guest-hcp-error'}
+              aria-invalid={guestHcpInvalido}
+              aria-describedby={guestHcpInvalido ? 'guest-hcp-error' : undefined}
               style={{ ...inputStyle, width: '100%' }}
             />
-            {!guestHcpValid && (
-              <p id="guest-hcp-error" role="alert" style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--error-fg)' }}>
-                Escribe un número: 12.4, o +2 si es plus.
-              </p>
-            )}
+            {guestHcpInvalido && <AvisoCampo id="guest-hcp-error">{MENSAJE_HANDICAP_NO_ES_NUMERO}</AvisoCampo>}
           </div>
 
           {/* Button */}

@@ -32,3 +32,17 @@ describe('parseBatchLine', () => {
     expect(parseBatchLine(', 12')).toBeNull()
   })
 })
+
+describe('parseBatchLine — el espacio separa el hándicap solo si trae signo o decimal', () => {
+  it.each([
+    ['Invitado 1', 'Invitado 1', null],
+    ['Juan Pérez 18,5', 'Juan Pérez', 18.5],
+    ['Juan;18,5;', 'Juan', 18.5],
+    ['Juan, 18,5,', 'Juan', 18.5],
+    ['Ana +2', 'Ana', -2],
+    ['Ana 12', 'Ana 12', null],
+    ['Ana, 12', 'Ana', 12],
+  ])('%j → %s, %s', (linea, name, hcp) => {
+    expect(parseBatchLine(linea)).toEqual({ name, hcp })
+  })
+})

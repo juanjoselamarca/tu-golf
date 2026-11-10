@@ -112,12 +112,33 @@ export function parsearHandicap(texto: string): number {
   return conSigno && n !== 0 ? -n : n
 }
 
+/** Aviso de un campo de hándicap con texto que no es un número. Uno solo para todos los formularios. */
+export const MENSAJE_HANDICAP_NO_ES_NUMERO = 'Escribe un número: 12.4, o +2 si es plus.'
+
 /**
- * Campo OPCIONAL de hándicap tipeado (invitado del organizador, pegado masivo): vacío → `null`; si no,
- * `parsearHandicap` ("+2" → −2, "18,5" → 18.5). NaN = no es un número: el caller avisa.
+ * Estado de un campo de hándicap mientras se tipea. "incompleto" = va a medio escribir ("+", "-", ".",
+ * "+,"): el formulario no deja enviar, pero tampoco avisa (avisar al primer "+" es regañar antes de tiempo).
+ * "invalido" = hay texto que no es un número: se avisa con MENSAJE_HANDICAP_NO_ES_NUMERO. El RANGO lo
+ * decide cada caller (índice WHS, hándicap de cancha), con `esIndiceDeHandicapValido` o
+ * `esHandicapDeInscripcionValido`.
  */
-export function parsearHandicapOpcional(texto: string): number | null {
-  return texto.trim() === '' ? null : parsearHandicap(texto)
+export type CampoHandicap =
+  | { estado: 'vacio'; valor: null }
+  | { estado: 'incompleto'; valor: null }
+  | { estado: 'invalido'; valor: null }
+  | { estado: 'ok'; valor: number }
+
+export function leerCampoHandicap(texto: string): CampoHandicap {
+  const t = texto.trim()
+  if (t === '') return { estado: 'vacio', valor: null }
+  if (/^[+-]?[.,]?$/.test(t)) return { estado: 'incompleto', valor: null }
+  const valor = parsearHandicap(t)
+  return Number.isNaN(valor) ? { estado: 'invalido', valor: null } : { estado: 'ok', valor }
+}
+
+/** Texto inicial de un campo de hándicap a partir del valor guardado: un plus (−2) se ve "+2". */
+export function textoCampoHandicap(v: number | null | undefined): string {
+  return v == null ? '' : formatearHandicap(v)
 }
 
 /** Mensaje para el usuario cuando el índice está fuera de rango. */
