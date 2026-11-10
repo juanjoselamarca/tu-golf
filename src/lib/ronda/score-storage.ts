@@ -253,14 +253,18 @@ export function hayPendientes(codigo: string): boolean {
 /** Marcas de puntos especiales de Timba libre pendientes de confirmar (ver `puntitos-pendientes.ts`). */
 export const PUNTITOS_PEND_KEY = (codigo: string) => `ronda_puntitos_pendientes_${codigo}`
 
-/** Snapshot, golpes por jugador, golpes de equipo y pendientes (golpes y puntitos) del scorer de grupo. */
-function borrarCopiaDelGrupo(codigo: string): void {
+/**
+ * Snapshot, golpes por jugador, golpes de equipo y pendientes (golpes y puntitos) del scorer de grupo.
+ * Con `conservarPuntitosSinSubir`, las marcas de puntos especiales que el servidor no confirmó se quedan
+ * (una ronda finalizada se puede reabrir; Finalizar sólo espera los golpes, no las marcas).
+ */
+function borrarCopiaDelGrupo(codigo: string, conservarPuntitosSinSubir = false): void {
   clearScorerGrupoSnapshot(codigo)
   try {
     localStorage.removeItem(GROUP_KEY(codigo))
     localStorage.removeItem(TEAM_KEY(codigo))
     localStorage.removeItem(PEND_KEY(codigo))
-    localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
+    if (!(conservarPuntitosSinSubir && crearColaDePendientes(PUNTITOS_PEND_KEY).hay(codigo))) localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
   } catch {
     // noop
   }
@@ -286,6 +290,6 @@ export function limpiarCopiaLocalDeRonda(codigo: string): void {
  * (reabrir un torneo devuelve sus rondas a 'en_curso') son lo único que hay.
  */
 export function cerrarCopiaLocalAlFinalizar(codigo: string): void {
-  borrarCopiaDelGrupo(codigo)
+  borrarCopiaDelGrupo(codigo, true)
   marcarRespaldosDeRondaCerrada(codigo)
 }

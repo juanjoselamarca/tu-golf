@@ -51,7 +51,7 @@ type Client = Pick<SupabaseClient, 'from' | 'rpc'>
 export const PLAZO_GUARDAR_TARJETA_MS = 20_000
 
 // Viven en un módulo liviano: también los usa el banner de "Sincronizando…", que va en todas las páginas.
-export { RONDA_NO_EXISTE, fetchEstadoRondaLibre } from '@/lib/data/ronda-libre-estado'
+export { RONDA_NO_EXISTE, esRondaCerrada, fetchEstadoRondaLibre } from '@/lib/data/ronda-libre-estado'
 
 /**
  * Estado + tarjetas frescas de todos los jugadores (¿terminaron todos?). `null` =

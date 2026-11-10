@@ -16,6 +16,15 @@ export const TIMEOUT_ESTADO_RONDA_MS = 10_000
 export const RONDA_NO_EXISTE = 'no_existe'
 
 /**
+ * La ronda existe y no acepta golpes: la misma regla que el RPC de guardado (`estado <> 'en_curso'`
+ * → P0002). Una sola definición de "cerrada" para los scorers, Finalizar y el conciliador del banner.
+ * Sin lectura (`null`) o con la ronda borrada (`RONDA_NO_EXISTE`) NO está cerrada: es otro caso.
+ */
+export function esRondaCerrada(estado: string | null | undefined): boolean {
+  return estado != null && estado !== RONDA_NO_EXISTE && estado !== 'en_curso'
+}
+
+/**
  * Estado actual de la ronda (guard contra un cierre desde otro dispositivo). `null` =
  * la lectura falló (red); una ronda borrada vuelve como `RONDA_NO_EXISTE`, para no
  * decirle "sin conexión" a quien tiene señal perfecta.
@@ -52,5 +61,5 @@ export async function confirmarRondaBorrada(supabase: Client, codigo: string): P
   }
   if (estado === RONDA_NO_EXISTE) return 'ronda_borrada'
   if (estado == null) return 'sin_senal'
-  return estado === 'en_curso' ? 'ronda_viva' : 'ronda_cerrada'
+  return esRondaCerrada(estado) ? 'ronda_cerrada' : 'ronda_viva'
 }

@@ -67,11 +67,6 @@ export default function ScoreGrupoPage() {
 
   const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos })
-  // La ronda se cerró en otro dispositivo (el servidor rechazó un envío): al resultado,
-  // igual que Finalizar cuando la encuentra cerrada.
-  useEffect(() => {
-    if (rondaCerrada) router.push(`/ronda-libre/${codigo}?finished=true`)
-  }, [rondaCerrada, router, codigo])
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
     if (rondaNoExiste) router.push('/dashboard')
@@ -92,6 +87,12 @@ export default function ScoreGrupoPage() {
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores,
     })
+  // La ronda se cerró en otro dispositivo (el servidor rechazó un envío): al resultado,
+  // igual que Finalizar cuando la encuentra cerrada. Con Finalizar en curso no: Finalizar
+  // sigue (historial e índice) y navega él; si se detiene, `finalizing` vuelve a false y salta acá.
+  useEffect(() => {
+    if (rondaCerrada && !finalizing) router.push(`/ronda-libre/${codigo}?finished=true`)
+  }, [rondaCerrada, finalizing, router, codigo])
   useBeforeUnloadWarning(hasUnsaved)
   // Mientras se finaliza no se aceptan golpes: un tap tardío llegaría después del cierre
   // (P0002), no entraría al historial y mostraría "se cerró desde otro dispositivo".

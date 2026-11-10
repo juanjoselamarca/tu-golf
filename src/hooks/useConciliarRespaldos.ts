@@ -17,7 +17,7 @@
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { conTimeout } from '@/lib/red/con-timeout'
-import { fetchEstadoRondaLibre, RONDA_NO_EXISTE, TIMEOUT_ESTADO_RONDA_MS } from '@/lib/data/ronda-libre-estado'
+import { esRondaCerrada, fetchEstadoRondaLibre, RONDA_NO_EXISTE, TIMEOUT_ESTADO_RONDA_MS } from '@/lib/data/ronda-libre-estado'
 import {
   barrerRespaldosDeRondaCerrada,
   codigosConRespaldoDeRondaCerrada,
@@ -43,7 +43,7 @@ export async function conciliarRespaldos(): Promise<string[]> {
     }
     let cambio = false
     if (estado === RONDA_NO_EXISTE) { limpiarCopiaLocalDeRonda(codigo); cambio = true }
-    else if (estado === 'finalizada') {
+    else if (esRondaCerrada(estado)) {
       cambio = marcarRespaldosDeRondaCerrada(codigo)
       // Recién confirmada cerrada: lo marcado hace más de 30 días se barre (una reabierta nunca llega acá).
       barrerRespaldosDeRondaCerrada(codigo)

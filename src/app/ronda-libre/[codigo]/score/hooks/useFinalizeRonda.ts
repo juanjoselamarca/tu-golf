@@ -26,6 +26,7 @@ import {
   fetchRondaParaCierre,
   PLAZO_GUARDAR_TARJETA_MS,
   RONDA_NO_EXISTE,
+  esRondaCerrada,
   avisarAlCoachRondaNueva,
   fetchIndicesDeUsuario,
   guardarTarjetaEnHistorial,
@@ -41,7 +42,8 @@ import { armarTarjetaHistorica, completarHoyosSinMarcarConPar, hoyosSinMarcar } 
 import { hoyosSinTerminarDeJugador, matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
 import { saveScores as lsSave, limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
-import { descartarRondaLibre, esRechazoDelCierre } from '@/lib/data/ronda-libre-cierre'
+import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
+import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/ConfirmarFinalizarHoja'
 import type { ResultadoGuardado } from './useScoreSave'
@@ -189,8 +191,13 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       return
     }
     if (fresca.estado === RONDA_NO_EXISTE) { salirPorRondaBorrada(); return }
-    const yaFinalizada = fresca.estado === 'finalizada'
-    if (yaFinalizada) addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+    const yaFinalizada = esRondaCerrada(fresca.estado)
+    // Lo que no subió (un guardado que falló con señal) sale del banner y se guarda: este camino no
+    // pasa por `guardarAhora`, y sin la marca quedaba "Sincronizando N hoyos…" en toda la app.
+    if (yaFinalizada) {
+      addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+      marcarRespaldosDeRondaCerrada(codigo)
+    }
 
     // Bug fix 30-abr-2026: el ultimo hoyo en par no se persistia. La UI mostraba
     // par como placeholder visual (sensacion de registrado), pero el state era
@@ -349,8 +356,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.cierre', level: 'warning', meta: { codigo } })
       addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
       return
-    } else if (freshRonda.estado === 'finalizada') {
+    } else if (esRondaCerrada(freshRonda.estado)) {
       // Otro jugador ya finalizo — no duplicar
+      marcarRespaldosDeRondaCerrada(codigo)
       setRoundDone(true)
     } else {
       // Completa = todos los hoyos de la ronda anotados, salvo los que el match no exige.
@@ -372,6 +380,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
           return
         }
         if (finErr) void captureError(finErr, { context: 'finalize-ronda.finalizar_ronda_libre', meta: { codigo } })
+        // Cerrada (por este cierre o por otro, P0002): lo que no subió sale del banner y se guarda.
+        if (!finErr || finErr.code === RONDA_ERRCODE.FINALIZED) marcarRespaldosDeRondaCerrada(codigo)
       }
     }
 

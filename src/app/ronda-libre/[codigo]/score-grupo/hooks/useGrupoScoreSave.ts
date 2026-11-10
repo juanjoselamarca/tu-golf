@@ -75,8 +75,11 @@ export interface GrupoScoreSave {
   rondaNoExiste: boolean
 }
 
-/** Cómo quedó la ronda según el último envío: 'ronda_cerrada' si el servidor respondió P0002 (o P0001 de una cerrada). */
-export type EstadoTrasEnvio = 'ronda_cerrada' | 'ronda_abierta'
+/**
+ * Cómo quedó la ronda según el último envío: 'ronda_cerrada' si el servidor respondió P0002 (o P0001 de
+ * una cerrada); 'ronda_borrada' si se confirmó borrada (el guardado ya avisó, limpió y saca al marcador).
+ */
+export type EstadoTrasEnvio = 'ronda_cerrada' | 'ronda_abierta' | 'ronda_borrada'
 
 /**
  * Entrada y guardado de golpes del scorer de GRUPO (un anotador, varias
@@ -256,6 +259,8 @@ export function useGrupoScoreSave(input: {
         setSaveStatus('error')
         if (vioRondaCerrada) { rondaCerradaRef.current = true; setRondaCerrada(true) }
       } else if (ok && !hayPendientes(codigo)) {
+        // Entró todo: la ronda está abierta (se reabrió, si un envío anterior la vio cerrada).
+        rondaCerradaRef.current = false
         const veniaDeCaida = sinEnviarRef.current
         marcarSinEnviar(false)
         setSaveStatus('saved')
@@ -290,6 +295,7 @@ export function useGrupoScoreSave(input: {
 
   const saveAllScores = useCallback(async (overrideScores?: Record<string, Record<number, number>>): Promise<EstadoTrasEnvio> => {
     await enviarTodo(overrideScores)
+    if (rondaBorradaRef.current) return 'ronda_borrada'
     return rondaCerradaRef.current ? 'ronda_cerrada' : 'ronda_abierta'
   }, [enviarTodo])
 

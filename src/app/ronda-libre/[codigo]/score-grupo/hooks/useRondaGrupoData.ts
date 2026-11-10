@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { esRondaCerrada } from '@/lib/data/ronda-libre-estado'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -124,7 +125,7 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
     return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
   }
   // Demo rondas son spectator-only (misma regla que /score); finalizada → vista de resultados.
-  if (r.es_demo || r.estado === 'finalizada') {
+  if (r.es_demo || esRondaCerrada(r.estado)) {
     return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
   }
 

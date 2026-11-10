@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { esRondaCerrada } from '@/lib/data/ronda-libre-estado'
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -108,7 +109,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       if (sesion.estado === 'sin_conexion') { sinConexion(); return }
       const authUser = sesion.estado === 'ok' ? { id: sesion.userId } : null
       // If ronda was closed (by admin or player), redirect to detail view (read-only)
-      if (r.estado === 'finalizada') { router.replace(`/ronda-libre/${codigo}`); return }
+      if (esRondaCerrada(r.estado)) { router.replace(`/ronda-libre/${codigo}`); return }
       // Demo rondas son spectator-only: cualquier usuario es redirigido al leaderboard.
       // El scoring usa la UI real en /score, no queremos que toquen demo data.
       if (r.es_demo) { router.replace(`/ronda-libre/${codigo}`); return }
