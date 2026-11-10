@@ -23,6 +23,7 @@ import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
 import { rondasParaActivar, textoRondasParaActivar } from '@/lib/indice-golfers'
 import { indexWindow, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 interface RoundForBreakdown {
   id: string
@@ -169,8 +170,8 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             </button>
           </div>
 
-          {/* Resumen */}
-          {!loading && rounds && rounds.length > 0 && (
+          {/* Resumen: solo con índice (sin fila de la tabla WHS diría "mejores 0 … = —") */}
+          {!loading && rounds && tableRow && (
             <div style={{
               background: 'var(--bg)',
               border: '1px solid var(--border)',
@@ -181,10 +182,10 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
               color: 'var(--text-2)',
               lineHeight: 1.6,
             }}>
-              De tus últimas <strong style={{ color: 'var(--text)' }}>{rounds.length}</strong> rondas con diferencial,
+              De tus últimas <strong style={{ color: 'var(--text)' }}>{rounds.length}</strong> rondas válidas,
               las mejores <strong style={{ color: 'var(--text)' }}>{usedIds.size}</strong> entran al cálculo:
-              {tableRow && tableRow.adjustment !== 0 ? `promedio − ${Math.abs(tableRow.adjustment).toFixed(1)} (ajuste WHS con ${rounds.length} rondas)` : 'promedio'}{' '}
-              = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice ?? '—'}</strong>.
+              {tableRow.adjustment !== 0 ? `promedio − ${Math.abs(tableRow.adjustment).toFixed(1)} (ajuste WHS con ${rounds.length} rondas)` : 'promedio'}{' '}
+              = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice != null ? formatearIndice(indice) : '—'}</strong>.
             </div>
           )}
 
