@@ -1,13 +1,8 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import {
-  avisoCampoIndice,
-  campoIndiceGuardable,
-  leerCampoHandicap,
-  MENSAJE_HANDICAP_NO_ES_NUMERO,
-  PLACEHOLDER_CAMPO_HANDICAP,
-} from '@/golf/handicap-index-range'
+import { leerCampoHandicap, PLACEHOLDER_CAMPO_HANDICAP } from '@/golf/handicap-index-range'
+import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -86,9 +81,6 @@ function RegisterContent() {
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [indice,   setIndice]   = useState('')
-  // Aviso que deja "Crear cuenta" cuando el índice va a medio escribir ("+", "-", ","): mientras se tipea no se
-  // regaña, pero al enviar sí se explica por qué no pasa. Se borra al volver a escribir.
-  const [indiceAvisoAlEnviar, setIndiceAvisoAlEnviar] = useState<string | null>(null)
   const [showPwd,  setShowPwd]  = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [pendingConfirmation, setPendingConfirmation] = useState(false)
@@ -109,20 +101,15 @@ function RegisterContent() {
     })
   }
 
-  const indiceAviso = avisoCampoIndice(indice) ?? indiceAvisoAlEnviar
+  // Opcional y con rango WHS. El botón no se apaga por el índice: al enviar se avisa en el campo y se enfoca.
+  const campoIndice = useAvisoIndiceAlEnviar(indice, 'registro-indice', { opcional: true, rango: 'indice' })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearAll()
 
     // Client validation
-    // El botón NO se bloquea por el índice (un botón apagado sin aviso no dice qué falta): al enviar con un
-    // índice que no se puede guardar, se avisa en el campo y se lleva el foco ahí.
-    if (!campoIndiceGuardable(indice)) {
-      setIndiceAvisoAlEnviar(avisoCampoIndice(indice) ?? MENSAJE_HANDICAP_NO_ES_NUMERO)
-      document.getElementById('registro-indice')?.focus()
-      return
-    }
+    if (!campoIndice.validarAlEnviar()) return
     if (password.length < PASSWORD_MIN_LENGTH) {
       setFieldError('password', `Mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
       showError(PASSWORD_TOO_SHORT.title, PASSWORD_TOO_SHORT.body)
@@ -407,13 +394,12 @@ function RegisterContent() {
               <label htmlFor="registro-indice" style={labelStyle}>Índice de hándicap <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: theme.textFaint }}>(opcional)</span></label>
               {/* inputMode "text": el teclado decimal del iPhone no tiene signo y un plus se escribe "+2". Ya no se
                   "normaliza" al salir: parseFloat("+2") lo dejaba en 2 (un plus se registraba como hándicap 2). */}
-              <input id="registro-indice" type="text" inputMode="text" autoComplete="off" placeholder={PLACEHOLDER_CAMPO_HANDICAP} value={indice} onChange={(e) => { setIndice(e.target.value); setIndiceAvisoAlEnviar(null) }}
-                aria-invalid={indiceAviso != null}
-                aria-describedby={indiceAviso != null ? 'registro-indice-error' : undefined}
+              <input id="registro-indice" type="text" inputMode="text" autoComplete="off" placeholder={PLACEHOLDER_CAMPO_HANDICAP} value={indice} onChange={(e) => setIndice(e.target.value)}
+                {...campoIndice.propsDelCampo}
                 style={{ ...baseInput, border: `1px solid ${theme.border}` }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = theme.gold; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(196,153,42,0.12)' }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.boxShadow = 'none' }} />
-              {indiceAviso != null && <AvisoCampo id="registro-indice-error">{indiceAviso}</AvisoCampo>}
+              {campoIndice.aviso != null && <AvisoCampo id={campoIndice.idAviso}>{campoIndice.aviso}</AvisoCampo>}
             </div>
 
             {/* Aceptación de términos */}

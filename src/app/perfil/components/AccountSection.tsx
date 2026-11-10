@@ -91,19 +91,18 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
               placeholder={PLACEHOLDER_CAMPO_HANDICAP}
               value={edit.editIndice}
               onChange={(e) => edit.setEditIndice(e.target.value)}
-              aria-invalid={edit.indiceAviso != null}
-              aria-describedby={edit.indiceAviso != null ? 'perfil-indice-error' : undefined}
+              {...edit.campoIndice.propsDelCampo}
               style={inputStyle}
               onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-on-bg)')}
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
             />
-            {edit.indiceAviso != null && <AvisoCampo id="perfil-indice-error">{edit.indiceAviso}</AvisoCampo>}
+            {edit.campoIndice.aviso != null && <AvisoCampo id={edit.campoIndice.idAviso}>{edit.campoIndice.aviso}</AvisoCampo>}
             <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '4px', margin: '4px 0 0' }}>
               Golfers+ calcula su propio índice automáticamente basado en tus rondas.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
-            <Button variant="commit" size="md" onClick={edit.save} loading={edit.saving} disabled={edit.saving || !edit.indiceGuardable}>
+            <Button variant="commit" size="md" onClick={edit.save} loading={edit.saving} disabled={edit.saving}>
               {edit.saving ? 'Guardando...' : 'Guardar cambios'}
             </Button>
             <Button

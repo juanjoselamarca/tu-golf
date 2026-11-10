@@ -1,10 +1,6 @@
 import Link from 'next/link'
-import {
-  campoHandicapEnviable,
-  leerCampoHandicap,
-  MENSAJE_HANDICAP_NO_ES_NUMERO,
-  PLACEHOLDER_CAMPO_HANDICAP,
-} from '@/golf/handicap-index-range'
+import { PLACEHOLDER_CAMPO_HANDICAP } from '@/golf/handicap-index-range'
+import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { loginUrl } from '@/lib/auth/login-url'
 import { Input } from '@/components/ui/Input'
@@ -33,10 +29,10 @@ export function FormInvitado({
   guestJoining: boolean
   onJoin: () => void
 }) {
-  // El hándicap a medio escribir ("+", "-") bloquea sin avisar; el aviso es para texto que no es número.
-  const hcpInvalido = leerCampoHandicap(guestHandicap).estado === 'invalido'
-  const bloqueado =
-    guestJoining || guestName.trim().length < 2 || !campoHandicapEnviable(guestHandicap)
+  // Opcional; el rango lo valida el servidor (depende de lo que guarda el torneo). El botón no se apaga por el
+  // hándicap: con "+" o "-" a medio escribir se avisa en el campo al tocarlo, y se le da el foco.
+  const campoHcp = useAvisoIndiceAlEnviar(guestHandicap, 'guest-handicap', { opcional: true, rango: null })
+  const bloqueado = guestJoining || guestName.trim().length < 2
   return (
     <div>
       {/* Guest form */}
@@ -82,16 +78,15 @@ export function FormInvitado({
             value={guestHandicap}
             onChange={(e) => onGuestHandicap(e.target.value)}
             placeholder={PLACEHOLDER_CAMPO_HANDICAP}
-            error={hcpInvalido}
-            aria-invalid={hcpInvalido}
-            aria-describedby={hcpInvalido ? 'guest-handicap-error' : undefined}
+            error={campoHcp.aviso != null}
+            {...campoHcp.propsDelCampo}
             // `style` reemplaza el del input interno de ui/Input: se repite el color.
             style={{ color: 'var(--text)', fontFamily: 'var(--font-dm-mono), monospace' }}
           />
-          {hcpInvalido && <AvisoCampo id="guest-handicap-error">{MENSAJE_HANDICAP_NO_ES_NUMERO}</AvisoCampo>}
+          {campoHcp.aviso != null && <AvisoCampo id={campoHcp.idAviso}>{campoHcp.aviso}</AvisoCampo>}
         </div>
 
-        <Button type="button" variant="commit" size="lg" fullWidth onClick={onJoin} disabled={bloqueado}>
+        <Button type="button" variant="commit" size="lg" fullWidth onClick={() => { if (campoHcp.validarAlEnviar()) onJoin() }} disabled={bloqueado}>
           {guestJoining ? 'Inscribiendo...' : 'Scorear como invitado'}
         </Button>
       </div>

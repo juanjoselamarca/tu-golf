@@ -61,27 +61,25 @@ describe('useProfileEdit — índice federado', () => {
   it.each([['+2', -2], ['18,5', 18.5], ['-1.5', -1.5], ['', null]])('guardar "%s" escribe %s', async (texto, indice) => {
     const result = await guardar(texto)
     expect(update).toHaveBeenCalledWith({ name: 'Ana', indice })
-    expect(result.current.indiceAviso).toBeNull()
+    expect(result.current.campoIndice.aviso).toBeNull()
   })
 
   it('"abc" no escribe y avisa', async () => {
     const result = await guardar('abc')
     expect(update).not.toHaveBeenCalled()
-    expect(result.current.indiceAviso).toBe('Escribe un número: 12.4, o +2 si es plus.')
-    expect(result.current.indiceGuardable).toBe(false)
+    expect(result.current.campoIndice.aviso).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
   })
 
   it('fuera del rango WHS ("60") no escribe y avisa el rango', async () => {
     const result = await guardar('60')
     expect(update).not.toHaveBeenCalled()
-    expect(result.current.indiceAviso).toMatch(/^Revisa el índice de handicap/)
+    expect(result.current.campoIndice.aviso).toMatch(/^Revisa el índice de handicap/)
   })
 
-  it('"+" a medio escribir no escribe ni avisa', async () => {
+  it('"+" a medio escribir: al guardar no escribe y avisa en el campo', async () => {
     const result = await guardar('+')
     expect(update).not.toHaveBeenCalled()
-    expect(result.current.indiceAviso).toBeNull()
-    expect(result.current.indiceGuardable).toBe(false)
+    expect(result.current.campoIndice.aviso).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
   })
 
   it('cancelar vuelve a la precarga con "+"', () => {

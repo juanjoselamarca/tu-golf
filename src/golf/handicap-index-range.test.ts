@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   leerCampoHandicap,
   campoHandicapEnviable,
-  avisoCampoIndice,
+  avisoCampoHandicap,
+  campoHandicapSePuedeEnviar,
   campoIndiceGuardable,
+  mensajeIndiceQueBloquea,
   textoCampoHandicap,
   HANDICAP_INDEX_MAX,
   formatearIndice,
@@ -205,6 +207,10 @@ describe('textoCampoHandicap — precarga del campo', () => {
     expect(textoCampoHandicap(null)).toBe('')
     expect(textoCampoHandicap(undefined)).toBe('')
   })
+
+  it.each([NaN, Infinity, -Infinity])('un valor no finito (%s) da el campo vacío, no "NaN"', v => {
+    expect(textoCampoHandicap(v)).toBe('')
+  })
 })
 
 describe('campoHandicapEnviable — vacío o número, sin mirar el rango', () => {
@@ -216,14 +222,30 @@ describe('campoHandicapEnviable — vacío o número, sin mirar el rango', () =>
   })
 })
 
-describe('avisoCampoIndice / campoIndiceGuardable — campo de índice WHS', () => {
+describe('avisoCampoHandicap / campoIndiceGuardable — campo de índice WHS (opcional)', () => {
+  const REGLA = { opcional: true, rango: 'indice' as const }
   it.each([
-    ['', null, true], ['+', null, false], ['abc', 'Escribe un número: 12.4, o +2 si es plus.', false],
+    ['', null, true], ['+', null, false], ['abc', 'Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.', false],
     ['+2', null, true], ['18,5', null, true], ['54', null, true], ['60', 'rango', false], ['+11', 'rango', false],
   ])('%j → aviso %s, guardable %s', (texto, aviso, guardable) => {
-    const a = avisoCampoIndice(texto)
+    const a = avisoCampoHandicap(texto, REGLA)
     if (aviso === 'rango') expect(a).toMatch(/^Revisa el índice de handicap/)
     else expect(a).toBe(aviso)
     expect(campoIndiceGuardable(texto)).toBe(guardable)
+    expect(campoHandicapSePuedeEnviar(texto, REGLA)).toBe(guardable)
+  })
+
+  it('obligatorio: sin "o déjalo vacío"; sin rango: "60" no avisa y se envía', () => {
+    expect(avisoCampoHandicap('abc', { opcional: false, rango: 'indice' })).toBe('Escribe un número: 12.4, o +2 si es plus.')
+    expect(avisoCampoHandicap('60', { opcional: true, rango: null })).toBeNull()
+    expect(campoHandicapSePuedeEnviar('60', { opcional: true, rango: null })).toBe(true)
+    expect(campoHandicapSePuedeEnviar('+', { opcional: true, rango: null })).toBe(false)
+  })
+})
+
+describe('mensajeIndiceQueBloquea — aviso bajo "Revisar" en ronda libre', () => {
+  it('nombra al creador como "tu índice" y a un rival por su nombre', () => {
+    expect(mensajeIndiceQueBloquea(null)).toBe('Revisa tu índice: escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
+    expect(mensajeIndiceQueBloquea('Pedro')).toBe('Revisa el índice de Pedro: escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
   })
 })

@@ -24,17 +24,34 @@ describe('OnboardingWizard — índice', () => {
     expect(actualizarIndice).toHaveBeenCalledWith({}, 'u1', indice)
   })
 
-  it('"abc" avisa y no deja seguir', () => {
+  it('placeholder angosto y pista fija del plus bajo el campo, enlazada', () => {
     render(<OnboardingWizard userId="u1" userName="Ana Soto" />)
-    fireEvent.change(campo(), { target: { value: 'abc' } })
-    expect(siguiente().disabled).toBe(true)
-    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus.')
+    expect(campo().placeholder).toBe('ej. 18')
+    const pista = screen.getByText('Si eres plus, escribe +2.')
+    expect(campo().getAttribute('aria-describedby')).toBe(pista.id)
   })
 
-  it('"+" a medio escribir no deja seguir ni avisa', () => {
+  it('vacío (obligatorio sin "No tengo / No sé") no deja seguir', () => {
     render(<OnboardingWizard userId="u1" userName="Ana Soto" />)
-    fireEvent.change(campo(), { target: { value: '+' } })
     expect(siguiente().disabled).toBe(true)
+  })
+
+  it('"abc" avisa en vivo (sin "o déjalo vacío": aquí es obligatorio) y no guarda', async () => {
+    render(<OnboardingWizard userId="u1" userName="Ana Soto" />)
+    fireEvent.change(campo(), { target: { value: 'abc' } })
+    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus.')
+    await act(async () => { fireEvent.click(siguiente()) })
+    expect(actualizarIndice).not.toHaveBeenCalled()
+  })
+
+  it.each(['+', '-'])('"%s" a medio escribir: "Siguiente" sigue activo; al tocarlo avisa, enfoca el campo y no guarda', async v => {
+    render(<OnboardingWizard userId="u1" userName="Ana Soto" />)
+    fireEvent.change(campo(), { target: { value: v } })
     expect(screen.queryByRole('alert')).toBeNull()
+    expect(siguiente().disabled).toBe(false)
+    await act(async () => { fireEvent.click(siguiente()) })
+    expect(actualizarIndice).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus.')
+    expect(document.activeElement).toBe(campo())
   })
 })

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { campoHandicapEnviable, leerCampoHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
+import { campoHandicapEnviable, leerCampoHandicap } from '@/golf/handicap-index-range'
 import { useRouter } from 'next/navigation'
 import type {
   JoinInfoTournament,
@@ -155,11 +155,9 @@ export function useInscripcionTorneo(slug: string) {
       return
     }
     // "+2" es un plus (−2) y "18,5" lleva coma: se lee como en el resto de la app. parseFloat("+2") daba 2.
-    // El botón ya viene bloqueado con texto inválido o a medio escribir; esto es la red de seguridad.
-    if (!campoHandicapEnviable(guestHandicap)) {
-      setError(MENSAJE_HANDICAP_NO_ES_NUMERO)
-      return
-    }
+    // FormInvitado ya avisó en el campo (useAvisoIndiceAlEnviar) y no llama aquí; esto es la red de seguridad.
+    // Sin setError: el aviso va en el campo, no en el banner genérico.
+    if (!campoHandicapEnviable(guestHandicap)) return
     setGuestJoining(true)
     setError(null)
 

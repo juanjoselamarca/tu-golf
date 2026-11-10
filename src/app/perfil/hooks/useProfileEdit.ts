@@ -2,12 +2,8 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { actualizarNombreEIndice, type Profile } from '@/lib/data/perfil'
-import {
-  avisoCampoIndice,
-  campoIndiceGuardable,
-  leerCampoHandicap,
-  textoCampoHandicap,
-} from '@/golf/handicap-index-range'
+import { leerCampoHandicap, textoCampoHandicap } from '@/golf/handicap-index-range'
+import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
 
 export function useProfileEdit(profile: Profile, onProfile: (p: Profile) => void) {
   const [editing, setEditing] = useState(false)
@@ -17,14 +13,14 @@ export function useProfileEdit(profile: Profile, onProfile: (p: Profile) => void
   // Un plus guardado (−2) se precarga "+2": con String(−2) el campo decía "-2", distinto del resto de la app.
   const [editIndice, setEditIndice] = useState(textoCampoHandicap(profile.indice))
 
-  // Vacío = sin índice federado (se guarda null, como antes). A medio escribir ("+") no avisa ni deja guardar.
-  const indiceAviso = avisoCampoIndice(editIndice)
-  const indiceGuardable = campoIndiceGuardable(editIndice)
+  // Vacío = sin índice federado (se guarda null, como antes). "Guardar" no se apaga por el índice: con "+" a
+  // medio escribir, al guardar se avisa en el campo y se le da el foco.
+  const campoIndice = useAvisoIndiceAlEnviar(editIndice, 'perfil-indice', { opcional: true, rango: 'indice' })
 
   const save = async () => {
-    // El botón ya viene bloqueado; esto es la red de seguridad: nunca se escribe un índice que no es número
-    // o que está fuera de rango (antes, parseFloat("+2") guardaba 2 y "abc" guardaba NaN → null).
-    if (!indiceGuardable) return
+    // Nunca se escribe un índice que no es número o que está fuera de rango (antes, parseFloat("+2")
+    // guardaba 2 y "abc" guardaba NaN → null).
+    if (!campoIndice.validarAlEnviar()) return
     setSaving(true)
     const updated = await actualizarNombreEIndice(createClient(), profile.id, {
       name: editName.trim(),
@@ -45,6 +41,6 @@ export function useProfileEdit(profile: Profile, onProfile: (p: Profile) => void
 
   return {
     editing, setEditing, saving, saved, editName, setEditName, editIndice, setEditIndice,
-    indiceAviso, indiceGuardable, save, cancel,
+    campoIndice, save, cancel,
   }
 }
