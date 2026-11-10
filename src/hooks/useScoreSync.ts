@@ -1,43 +1,19 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-
-const STORAGE_PREFIX = 'golfers_score_'
-const DIAS_PARA_LIMPIAR = 7
-
-interface ScoreEntry {
-  scores: Record<number, number>
-  timestamp: number
-  sincronizado: boolean
-  codigoRonda: string
-  jugadorId: string
-}
-
-const claveDelRespaldo = (codigoRonda: string, jugadorId: string) => `${STORAGE_PREFIX}${codigoRonda}_${jugadorId}`
-
-/** La tarjeta del respaldo que el servidor todavía no confirmó, o null si no hay nada pendiente. */
-export function leerRespaldoPendiente(codigoRonda: string, jugadorId: string): Record<number, number> | null {
-  try {
-    const raw = localStorage.getItem(claveDelRespaldo(codigoRonda, jugadorId))
-    if (!raw) return null
-    const data: ScoreEntry = JSON.parse(raw)
-    return !data.sincronizado && Object.keys(data.scores).length > 0 ? data.scores : null
-  } catch { return null }
-}
-
-/**
- * Borra el respaldo de un jugador. Sólo cuando la ronda ya no existe o se descartó:
- * nadie podría sincronizarlo y el banner de "Sincronizando…" quedaría para siempre.
- */
-export function borrarRespaldo(codigoRonda: string, jugadorId: string): void {
-  try { localStorage.removeItem(claveDelRespaldo(codigoRonda, jugadorId)) } catch { /* modo privado */ }
-}
+import {
+  barrerRespaldosViejos,
+  claveDelRespaldo,
+  leerRespaldoPendiente,
+  marcarRespaldoSincronizado,
+  type RespaldoLocal,
+} from '@/lib/ronda/respaldo-local'
 
 /**
  * Hook para persistir scores en localStorage como respaldo offline.
  * - Guarda cada cambio de score localmente ANTES de enviar al servidor
  * - Si el servidor falla, el score NO se pierde
  * - Al reconectar, sincroniza automáticamente los scores pendientes
- * - Limpia entradas sincronizadas después de 7 días
+ * - Barre los respaldos que ya no sirven (`barrerRespaldosViejos`)
  */
 export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
   const key = jugadorId ? claveDelRespaldo(codigoRonda, jugadorId) : ''
@@ -52,7 +28,7 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
         sincronizado: false,
         codigoRonda,
         jugadorId: jugadorId!,
-      } satisfies ScoreEntry))
+      } satisfies RespaldoLocal))
     } catch {
       // Falla silenciosamente en modo privado de Safari
     }
@@ -60,24 +36,15 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
 
   /** Con `enviados`, marca sólo si el respaldo sigue siendo esa tarjeta: una más nueva queda pendiente. */
   const marcarSincronizado = useCallback((enviados?: Record<number, number>) => {
-    if (!key) return
-    try {
-      const raw = localStorage.getItem(key)
-      if (!raw) return
-      const data: ScoreEntry = JSON.parse(raw)
-      // Las claves son hoyos (enteros): JSON.stringify las ordena igual en las dos.
-      if (enviados && JSON.stringify(data.scores) !== JSON.stringify(enviados)) return
-      data.sincronizado = true
-      localStorage.setItem(key, JSON.stringify(data))
-    } catch { /* silencioso */ }
-  }, [key])
+    if (jugadorId) marcarRespaldoSincronizado(codigoRonda, jugadorId, enviados)
+  }, [codigoRonda, jugadorId])
 
   const obtenerLocal = useCallback((): Record<number, number> | null => {
     if (!key) return null
     try {
       const raw = localStorage.getItem(key)
       if (!raw) return null
-      const data: ScoreEntry = JSON.parse(raw)
+      const data: RespaldoLocal = JSON.parse(raw)
       return data.scores
     } catch { return null }
   }, [key])
@@ -92,28 +59,13 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
     try {
       const raw = localStorage.getItem(key)
       if (!raw) return 0
-      const data: ScoreEntry = JSON.parse(raw)
+      const data: RespaldoLocal = JSON.parse(raw)
       return data.timestamp
     } catch { return 0 }
   }, [key])
 
-  // Limpiar entradas antiguas ya sincronizadas (todas las del prefix)
-  useEffect(() => {
-    try {
-      const ahora = Date.now()
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i)
-        if (!k || !k.startsWith(STORAGE_PREFIX)) continue
-        const raw = localStorage.getItem(k)
-        if (!raw) continue
-        const data: ScoreEntry = JSON.parse(raw)
-        const diasTranscurridos = (ahora - data.timestamp) / (1000 * 60 * 60 * 24)
-        if (data.sincronizado && diasTranscurridos > DIAS_PARA_LIMPIAR) {
-          localStorage.removeItem(k)
-        }
-      }
-    } catch { /* silencioso */ }
-  }, [])
+  // Barre lo sincronizado hace más de 7 días y lo de rondas vistas cerradas hace más de 30.
+  useEffect(() => { barrerRespaldosViejos() }, [])
 
   // Misma identidad entre renders: un efecto que depende de este objeto (el reenvío del respaldo) no corre en cada render.
   return useMemo(() => ({

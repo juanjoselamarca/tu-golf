@@ -7,7 +7,11 @@ import { saveRondaLibreScores, nuevaSecuencia } from '@/lib/data/ronda-libre-sco
 import { addToast } from '@/hooks/useToast'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
-import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cierre'
+import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
+import { AVISO_RONDA_NO_EXISTE, AVISO_TARJETA_RECHAZADA } from '@/components/ronda/finalizar-copy'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
+import { marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 
 type ScoreSyncReturn = ReturnType<typeof useScoreSync>
 
@@ -19,10 +23,16 @@ interface UseScoreSaveOptions {
   onSaveSuccess?: () => void
   /** Llamado cuando supabase reporta que la ronda ya fue finalizada */
   onRondaFinalized?: () => void
+  /** La ronda ya no existe (P0001): las copias locales ya se borraron; sacar al jugador. */
+  onRondaNoExiste?: () => void
 }
 
-/** Cómo terminó un guardado en el servidor (los avisos de finalizada/sin permiso ya los da el hook). */
-export type ResultadoGuardado = 'guardado' | 'finalizada' | 'sin_permiso' | 'sin_conexion'
+/**
+ * Cómo terminó un guardado en el servidor (los avisos de finalizada/sin permiso/no existe ya los da el
+ * hook). `no_existe`: la ronda se borró (P0001); las copias locales de la ronda ya están borradas.
+ * `rechazado`: el servidor rechazó la tarjeta en firme (P0004 / 22023); reintentar no cambia nada.
+ */
+export type ResultadoGuardado = 'guardado' | 'finalizada' | 'sin_permiso' | 'no_existe' | 'rechazado' | 'sin_conexion'
 
 export interface UseScoreSaveResult {
   saveScores: (jugadorId: string, holeScores: Record<number, number>) => Promise<void>
@@ -52,7 +62,7 @@ export interface UseScoreSaveResult {
  * - Callbacks para UI feedback (onSaveSuccess) y navegacion (onRondaFinalized)
  */
 export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
-  const { codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized } = opts
+  const { codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste } = opts
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
@@ -63,6 +73,9 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   const finalizandoRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSaveRef = useRef<{ jugadorId: string; holeScores: Record<number, number> } | null>(null)
+  // El servidor dijo que la ronda ya no existe (P0001) y las copias locales se borraron: desde acá
+  // nada vuelve a escribir el respaldo (un toque más lo recrearía y el banner volvería para siempre).
+  const rondaBorradaRef = useRef(false)
 
   // Cleanup: si el componente se desmonta con un save pendiente, disparar
   // inmediatamente para no perder el último tap (CERO FALLOS).
@@ -73,15 +86,31 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     }
     // Flush: si hay data pendiente, enviar al server ahora
     const pending = pendingSaveRef.current
-    if (pending) {
+    if (pending && !rondaBorradaRef.current) {
       pendingSaveRef.current = null
       // Fire-and-forget — el componente ya se desmontó, no podemos actualizar state.
-      // Pero el score se guardó localmente en saveScores(), así que si el RPC falla
-      // se re-sincroniza al volver (useScoreSync).
+      // El score ya está en el respaldo local (saveScores): si el RPC falla, se re-sincroniza al
+      // volver. Si llega, el respaldo se marca sincronizado (si no, el banner "Sincronizando…"
+      // quedaba con una tarjeta que el servidor ya tenía); si la ronda ya no existe, se limpia.
       const supabase = createClient()
       const scoresObj: Record<string, number> = {}
       for (const [k, v] of Object.entries(pending.holeScores)) scoresObj[String(k)] = v
-      saveRondaLibreScores(supabase, { codigo, jugadorId: pending.jugadorId, delta: scoresObj }).then(() => { /* ok */ }, () => { /* silent — local backup existe */ })
+      const { jugadorId, holeScores } = pending
+      saveRondaLibreScores(supabase, { codigo, jugadorId, delta: scoresObj }).then(({ error }) => {
+        if (!error) marcarRespaldoSincronizado(codigo, jugadorId, holeScores)
+        // Ronda cerrada: lo sin enviar sale del banner y se guarda (se puede reabrir).
+        else if (error.code === RONDA_ERRCODE.FINALIZED) marcarRespaldosDeRondaCerrada(codigo)
+        // P0001 sólo se limpia con la ronda confirmada como borrada (también sale si falta el jugador).
+        // Viva: rechazo de esta tarjeta, que sale del banner (reenviarla da lo mismo). Cerrada: como P0002.
+        else if (error.code === RONDA_ERRCODE.NOT_FOUND) {
+          return confirmarRondaBorrada(supabase, codigo).then(v => {
+            if (v === 'ronda_borrada') limpiarCopiaLocalDeRonda(codigo)
+            else if (v === 'ronda_cerrada') marcarRespaldosDeRondaCerrada(codigo)
+            else if (v === 'ronda_viva') marcarRespaldoRechazado(codigo, jugadorId, holeScores)
+          })
+        }
+        else if (esRechazoQueDescarta(error)) marcarRespaldoRechazado(codigo, jugadorId, holeScores)
+      }).catch(() => { /* silent — local backup existe */ })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al desmontar; codigo es fijo por página
   }, [])
@@ -92,6 +121,8 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     holeScores: Record<number, number>,
     paraFinalizar: boolean,
   ): Promise<ResultadoGuardado> => {
+    // La ronda ya no existe: no se manda nada (ni se vuelve a avisar).
+    if (rondaBorradaRef.current) return 'no_existe'
     setSaveStatus('saving')
     // Local ya se guardó en saveScores (debounce wrapper) — acá solo va al server.
 
@@ -109,6 +140,8 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     let success = false
     let rondaFinalizedRpc = false
     let forbiddenRpc = false
+    let noExisteRpc = false
+    let rechazadoRpc = false
     let intentos = 0
     while (!success && intentos < 3) {
       const supabase = createClient()
@@ -119,6 +152,18 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       else if (error.code === RONDA_ERRCODE.FINALIZED) { rondaFinalizedRpc = true; break }
       // Sin permiso sobre esta tarjeta: reintentar no cambia nada.
       else if (error.code === RONDA_ERRCODE.FORBIDDEN) { forbiddenRpc = true; break }
+      // No encontró ronda+jugador: se confirma con la ronda antes de tratarla como borrada.
+      // Borrada → salir (reintentar no la trae de vuelta). Cerrada → como P0002. Viva → rechazo de
+      // esta tarjeta. Sin señal para confirmarlo → como falta de conexión, sin limpiar nada.
+      else if (error.code === RONDA_ERRCODE.NOT_FOUND) {
+        const veredicto = await confirmarRondaBorrada(supabase, codigo)
+        if (veredicto === 'ronda_borrada') noExisteRpc = true
+        else if (veredicto === 'ronda_cerrada') rondaFinalizedRpc = true
+        else if (veredicto === 'ronda_viva') rechazadoRpc = true
+        break
+      }
+      // Cualquier otro rechazo firme del servidor tampoco se arregla reintentando.
+      else if (esRechazoQueDescarta(error)) { rechazadoRpc = true; break }
       else {
         // Backoff exponencial: 400ms, 800ms. Alineado con score-grupo.
         if (intentos < 2) {
@@ -130,11 +175,41 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
 
     if (rondaFinalizedRpc) {
       setSaveStatus('error')
+      // Respuesta firme: lo sin enviar sale del banner ya (no al próximo reload), y NO se borra:
+      // la ronda se puede reabrir y el conciliador lo devuelve al banner.
+      marcarRespaldosDeRondaCerrada(codigo)
       // Finalizar sigue por su cuenta (la tarjeta va igual al historial): ni aviso ni redirect.
       if (paraFinalizar || finalizandoRef.current) return 'finalizada'
       addToast({ type: 'warning', title: 'Ronda finalizada', message: 'El administrador cerro esta ronda. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
       onRondaFinalized?.()
       return 'finalizada'
+    }
+    if (noExisteRpc) {
+      // Un guardado anterior ya lo resolvió (aviso + salida): éste no repite nada.
+      if (rondaBorradaRef.current) return 'no_existe'
+      rondaBorradaRef.current = true
+      setSaveStatus('error')
+      // Nadie podrá subir estas tarjetas: si quedaran, el banner "Sincronizando…" seguiría en toda la app.
+      // Lo que esperaba en el debounce tampoco sale (la ronda no existe).
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
+      pendingSaveRef.current = null
+      setHasUnsaved(false)
+      limpiarCopiaLocalDeRonda(codigo)
+      // Finalizar avisa y saca al jugador por su cuenta.
+      if (paraFinalizar || finalizandoRef.current) return 'no_existe'
+      addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info', duration: 8000 })
+      onRondaNoExiste?.()
+      return 'no_existe'
+    }
+    if (rechazadoRpc) {
+      setSaveStatus('error')
+      // El servidor no la va a aceptar nunca: si siguiera pendiente, el banner "Sincronizando…" quedaba pegado
+      // en toda la app y cada vuelta al scorer la reenviaba. Se guarda unos días y se barre; un golpe nuevo
+      // la vuelve a intentar.
+      marcarRespaldoRechazado(codigo, jugadorId, holeScores)
+      // Avisa también el guardado de Finalizar (que se detiene sin cerrar); no los anteriores en vuelo.
+      if (paraFinalizar || !finalizandoRef.current) addToast({ ...AVISO_TARJETA_RECHAZADA, type: 'error', duration: 8000 })
+      return 'rechazado'
     }
     if (forbiddenRpc) {
       setSaveStatus('error')
@@ -153,7 +228,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       setTimeout(() => setSaveStatus('idle'), 1500)
       return 'guardado'
     }
-  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized])
+  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste])
 
   const executeSave = useCallback((
     jugadorId: string,
@@ -170,6 +245,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   // valor se envía al servidor. El guardado local es inmediato (dentro de executeSave).
   // Alineado con score-grupo que ya tiene debounce de 500ms.
   const saveScores = useCallback((jugadorId: string, holeScores: Record<number, number>): Promise<void> => {
+    if (rondaBorradaRef.current) return Promise.resolve()
     pendingSaveRef.current = { jugadorId, holeScores }
     setHasUnsaved(true)
 
@@ -189,6 +265,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   }, [scoreSync, executeSave])
 
   const guardarAhora = useCallback(async (jugadorId: string, holeScores: Record<number, number>): Promise<ResultadoGuardado> => {
+    if (rondaBorradaRef.current) return 'no_existe'
     // Lo que esperaba en el debounce queda contenido en esta tarjeta (es la más nueva).
     if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
     pendingSaveRef.current = null

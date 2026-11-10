@@ -76,8 +76,8 @@ export function hayMarcasPendientes(codigo: string): boolean {
 
 /**
  * Sale de pendientes solo si el servidor la guardó o la rechazó en forma definitiva (`esRechazoDefinitivoDeTimba`,
- * que incluye P0003). Cualquier otro error (sin red = `{ code: '', status: 0 }`, plazo vencido, 5xx, sesión vencida
- * = 42501 / PGRST301) la deja pendiente.
+ * que incluye P0003 y deja pendiente P0002: la ronda se puede reabrir). Cualquier otro error (sin red =
+ * `{ code: '', status: 0 }`, plazo vencido, 5xx, sesión vencida = 42501 / PGRST301) la deja pendiente.
  */
 const quedaPendiente = (error: PostgrestError | null) => !!error && !esRechazoDefinitivoDeTimba(error)
 

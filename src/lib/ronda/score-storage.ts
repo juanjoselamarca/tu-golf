@@ -9,6 +9,9 @@
 // - save/clear envueltos en try/catch silencioso (quota exceeded / disabled)
 // - load devuelve {} si no hay nada o si el JSON está corrupto
 
+import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
+import { borrarRespaldosDeRonda, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
+
 const KEY = (codigo: string, jugadorId: string) => `ronda_${codigo}_${jugadorId}`
 
 export function saveScores(codigo: string, jugadorId: string, scores: Record<number, number>): void {
@@ -33,6 +36,16 @@ export function clearScores(codigo: string, jugadorId: string): void {
   } catch {
     // noop (parity con lsClear original)
   }
+}
+
+/**
+ * Borra las tarjetas de TODOS los jugadores de una ronda en este teléfono (la ronda ya no existe o
+ * se descartó). El `_` final del prefijo no toca otra ronda cuyo código empiece igual; las claves
+ * del scorer de grupo (`ronda_grupo_…`, `ronda_puntitos_…`) no calzan porque el código va en
+ * mayúsculas.
+ */
+export function clearScoresDeRonda(codigo: string): void {
+  borrarClavesConPrefijo(KEY(codigo, ''))
 }
 
 // Exportado para la migración a IndexedDB (Sprint 2) y para tests.
@@ -124,14 +137,7 @@ export function clearScorerGrupoSnapshot(codigo: string): void {
 
 /** Al cerrar sesión: ninguna copia del scorer queda para el próximo usuario del teléfono. */
 export function clearAllScorerGrupoSnapshots(): void {
-  try {
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const k = localStorage.key(i)
-      if (k?.startsWith(SNAPSHOT_PREFIX)) localStorage.removeItem(k)
-    }
-  } catch {
-    // noop
-  }
+  borrarClavesConPrefijo(SNAPSHOT_PREFIX)
 }
 
 // ─── Golpes de equipo del scorer de grupo (scramble / foursome) ───────────
@@ -244,21 +250,94 @@ export function hayPendientes(codigo: string): boolean {
   return golpesPendientes.hay(codigo)
 }
 
+const RECH_KEY = (codigo: string) => `ronda_grupo_rechazados_${codigo}`
+const golpesRechazados = crearColaDePendientes(RECH_KEY)
+
+/**
+ * El servidor rechazó en firme una tarjeta (P0004/22023: golpe o hoyo inválido; P0001 con la ronda viva: el
+ * jugador ya no está). Sus golpes salen de pendientes (reenviarlos solos daría el mismo rechazo cada 15 s y
+ * el aviso "sin enviar" quedaría pegado) pero NO se pierden: quedan apartados en el teléfono, se pintan al
+ * abrir el scorer y Finalizar los reenvía (`saveAllScores` con `reintentarRechazados`). Se borran con la
+ * copia del grupo si la ronda ya no existe; al finalizar se quedan (son de alguien que ya no está en la ronda).
+ *
+ * Sólo se aparta el valor exacto que se envió: si el marcador corrigió el hoyo mientras el envío viajaba, el
+ * valor pendiente es más nuevo y no se toca (ni queda el viejo apartado, que lo pisaría al reintentar).
+ */
+export function apartarRechazados(codigo: string, id: string, golpes: Record<string | number, number>): void {
+  const pendiente = golpesPendientes.leer(codigo)[id] ?? {}
+  const apartados = Object.fromEntries(
+    Object.entries(golpes).filter(([h, v]) => pendiente[String(h)] == null || pendiente[String(h)] === v),
+  )
+  golpesPendientes.confirmar(codigo, id, golpes)
+  if (Object.keys(apartados).length > 0) golpesRechazados.marcar(codigo, id, apartados)
+}
+
+export function leerRechazados(codigo: string): PendientesGrupo {
+  return golpesRechazados.leer(codigo)
+}
+
+/** El servidor aceptó `enviados` para `id`: esos hoyos dejan de estar rechazados, con el valor que sea
+ * (lo aceptado es más nuevo que cualquier valor rechazado de ese hoyo). */
+export function confirmarRechazados(codigo: string, id: string, enviados: Record<string | number, number>): void {
+  const r = golpesRechazados.leer(codigo)
+  if (!r[id]) return
+  const resto = { ...r[id] }
+  for (const h of Object.keys(enviados)) delete resto[String(h)]
+  golpesRechazados.escribir(codigo, { ...r, [id]: resto })
+}
+
+/** El marcador corrigió un hoyo de una tarjeta rechazada: el valor rechazado de ese hoyo ya no vale. */
+export function olvidarRechazado(codigo: string, id: string, hoyo: number): void {
+  const r = golpesRechazados.leer(codigo)
+  if (!r[id] || r[id][String(hoyo)] == null) return
+  const { [String(hoyo)]: _corregido, ...resto } = r[id]
+  void _corregido
+  golpesRechazados.escribir(codigo, { ...r, [id]: resto })
+}
+
 /** Marcas de puntos especiales de Timba libre pendientes de confirmar (ver `puntitos-pendientes.ts`). */
 export const PUNTITOS_PEND_KEY = (codigo: string) => `ronda_puntitos_pendientes_${codigo}`
 
 /**
- * La ronda terminó (finalizada o descartada) en este teléfono: se borra TODA su copia
- * local del scorer de grupo — snapshot, golpes por jugador, golpes de equipo y pendientes.
+ * Snapshot, golpes por jugador, golpes de equipo y pendientes (golpes y puntitos) del scorer de grupo.
+ * Con `alFinalizar`, los golpes apartados y las marcas de puntos especiales que el servidor no confirmó se quedan
+ * (una ronda finalizada se puede reabrir; Finalizar sólo espera los golpes, no las marcas).
  */
-export function limpiarCopiaLocalDelGrupo(codigo: string): void {
+function borrarCopiaDelGrupo(codigo: string, alFinalizar = false): void {
   clearScorerGrupoSnapshot(codigo)
   try {
     localStorage.removeItem(GROUP_KEY(codigo))
     localStorage.removeItem(TEAM_KEY(codigo))
     localStorage.removeItem(PEND_KEY(codigo))
-    localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
+    // Al finalizar sólo pueden quedar apartados los de quien el servidor confirmó fuera de la ronda
+    // (Finalizar no cierra con una tarjeta rechazada de alguien que sigue): se guardan, no se borran.
+    if (!alFinalizar) localStorage.removeItem(RECH_KEY(codigo))
+    if (!(alFinalizar && crearColaDePendientes(PUNTITOS_PEND_KEY).hay(codigo))) localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
   } catch {
     // noop
   }
+}
+
+/**
+ * La ronda ya NO EXISTE (descartada o borrada, confirmado por el servidor): se borra TODA su copia
+ * local en este teléfono, de los dos scorers — tarjetas y respaldos del individual (de todos los
+ * jugadores, sincronizados o no) y la copia del de grupo. Una sola función: el creador puede pasar de
+ * un scorer al otro en la misma ronda. Nunca para una ronda finalizada (se puede reabrir: ver
+ * `cerrarCopiaLocalAlFinalizar`), ni por una lectura sin señal o una sesión vencida.
+ */
+export function limpiarCopiaLocalDeRonda(codigo: string): void {
+  clearScoresDeRonda(codigo)
+  borrarRespaldosDeRonda(codigo)
+  borrarCopiaDelGrupo(codigo)
+}
+
+/**
+ * El scorer de grupo finalizó la ronda con todo lo suyo enviado: se borra SU copia, pero los respaldos
+ * del scorer individual que no subieron (el creador anotó sin señal en el individual y finalizó desde
+ * el de grupo) no se borran: se marcan de ronda cerrada. Salen del banner, y si la ronda se reabre
+ * (reabrir un torneo devuelve sus rondas a 'en_curso') son lo único que hay.
+ */
+export function cerrarCopiaLocalAlFinalizar(codigo: string): void {
+  borrarCopiaDelGrupo(codigo, true)
+  marcarRespaldosDeRondaCerrada(codigo)
 }

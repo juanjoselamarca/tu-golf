@@ -22,11 +22,11 @@ import { addToast } from '@/hooks/useToast'
 import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import { conTimeout } from '@/lib/red/con-timeout'
-import { borrarRespaldo } from '@/hooks/useScoreSync'
 import {
   fetchRondaParaCierre,
   PLAZO_GUARDAR_TARJETA_MS,
   RONDA_NO_EXISTE,
+  esRondaCerrada,
   avisarAlCoachRondaNueva,
   fetchIndicesDeUsuario,
   guardarTarjetaEnHistorial,
@@ -40,10 +40,11 @@ import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { armarTarjetaHistorica, completarHoyosSinMarcarConPar, hoyosSinMarcar } from '@/golf/ronda-libre/tarjeta-historica'
 import { hoyosSinTerminarDeJugador, matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
-import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
+import { saveScores as lsSave, limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
-import { descartarRondaLibre, esRechazoDelCierre } from '@/lib/data/ronda-libre-cierre'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION } from '@/components/ronda/finalizar-copy'
+import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
+import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/ConfirmarFinalizarHoja'
 import type { ResultadoGuardado } from './useScoreSave'
 import type { HoleData, RondaLibre } from '@/types/ronda'
@@ -51,14 +52,6 @@ import type { HoleData, RondaLibre } from '@/types/ronda'
 /** Con plazo: con la base colgada la lectura no termina y el botón quedaba en "Finalizando...". */
 function leerRondaParaCierre(supabase: ReturnType<typeof createClient>, codigo: string) {
   return conTimeout(fetchRondaParaCierre(supabase, codigo), PLAZO_CARGA_SCORER_MS).catch(() => null)
-}
-
-function limpiarCopiaLocal(codigo: string, ronda: Pick<RondaLibre, 'ronda_libre_jugadores'>) {
-  try {
-    // Las dos copias: la tarjeta y el respaldo sin sincronizar (si quedara, el banner
-    // "Sincronizando…" seguiría en todas las pantallas sin ronda donde subirlo).
-    for (const j of ronda.ronda_libre_jugadores) { lsClear(codigo, j.id); borrarRespaldo(codigo, j.id) }
-  } catch { /* no bloquear */ }
 }
 
 interface UseFinalizeRondaOptions {
@@ -123,6 +116,13 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   // rápidos (o un reintento con mala señal) no deben correr el flujo dos veces.
   const finalizandoRef = useRef(false)
   const [finalizando, setFinalizando] = useState(false)
+  /** La ronda ya no existe (la descartó quien la creó): avisa, borra las copias locales y saca al jugador. */
+  const salirPorRondaBorrada = () => {
+    addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
+    limpiarCopiaLocalDeRonda(codigo)
+    onDiscardSuccess?.()
+  }
+
   // Cuándo se armó "Descartar": un doble toque no puede borrar la ronda (es irreversible).
   const descarteArmadoEn = useRef(0)
 
@@ -138,9 +138,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     if (Date.now() - descarteArmadoEn.current < MS_ANTES_DE_ARMAR) return
     setDiscarding(true)
     haptic(30)
-    const { error } = await descartarRondaLibre(createClient(), codigo)
-    if (error) { setDiscarding(false); setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
-    limpiarCopiaLocal(codigo, ronda)
+    // noExiste: el servidor ya la borró (un intento anterior cuya respuesta se perdió). Es un descarte hecho.
+    const { error, noExiste } = await descartarRondaLibre(createClient(), codigo)
+    if (error && !noExiste) { setDiscarding(false); setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
+    limpiarCopiaLocalDeRonda(codigo)
     addToast({ title: 'Ronda descartada', type: 'info' })
     onDiscardSuccess?.()
   }
@@ -189,14 +190,14 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       addToast({ title: 'Sin conexión', message: 'No pudimos leer la ronda. Vuelve a finalizar en un momento.', type: 'error' })
       return
     }
-    if (fresca.estado === RONDA_NO_EXISTE) {
-      addToast({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.', type: 'info' })
-      limpiarCopiaLocal(codigo, ronda)
-      onDiscardSuccess?.()
-      return
+    if (fresca.estado === RONDA_NO_EXISTE) { salirPorRondaBorrada(); return }
+    const yaFinalizada = esRondaCerrada(fresca.estado)
+    // Lo que no subió (un guardado que falló con señal) sale del banner y se guarda: este camino no
+    // pasa por `guardarAhora`, y sin la marca quedaba "Sincronizando N hoyos…" en toda la app.
+    if (yaFinalizada) {
+      addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+      marcarRespaldosDeRondaCerrada(codigo)
     }
-    const yaFinalizada = fresca.estado === 'finalizada'
-    if (yaFinalizada) addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
 
     // Bug fix 30-abr-2026: el ultimo hoyo en par no se persistia. La UI mostraba
     // par como placeholder visual (sensacion de registrado), pero el state era
@@ -236,8 +237,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     if (!yaFinalizada) {
       const guardado = await guardarAhora(activeJugadorId, playerScores)
       if (guardado === 'sin_conexion') { addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 }); return }
-      // Sin permiso sobre esta tarjeta: el guardado ya avisó; no se cierra nada a su nombre.
-      if (guardado === 'sin_permiso') return
+      // Sin permiso o tarjeta rechazada: el guardado ya avisó; no se cierra nada a su nombre.
+      if (guardado === 'sin_permiso' || guardado === 'rechazado') return
+      // La borraron entre la lectura y el guardado (el guardado ya limpió las copias locales).
+      if (guardado === 'no_existe') { salirPorRondaBorrada(); return }
       // La cerró otro entre la lectura y el guardado (el ganador del match): se vuelve a
       // empezar. La segunda pasada lee las tarjetas FINALES y toma el camino "ya finalizada"
       // (historial sí, cierre no). Con la lectura de antes el match podía no estar decidido
@@ -353,8 +356,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.cierre', level: 'warning', meta: { codigo } })
       addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
       return
-    } else if (freshRonda.estado === 'finalizada') {
+    } else if (esRondaCerrada(freshRonda.estado)) {
       // Otro jugador ya finalizo — no duplicar
+      marcarRespaldosDeRondaCerrada(codigo)
       setRoundDone(true)
     } else {
       // Completa = todos los hoyos de la ronda anotados, salvo los que el match no exige.
@@ -376,6 +380,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
           return
         }
         if (finErr) void captureError(finErr, { context: 'finalize-ronda.finalizar_ronda_libre', meta: { codigo } })
+        // Cerrada (por este cierre o por otro, P0002): lo que no subió sale del banner y se guarda.
+        if (!finErr || finErr.code === RONDA_ERRCODE.FINALIZED) marcarRespaldosDeRondaCerrada(codigo)
       }
     }
 

@@ -9,7 +9,8 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { borrarRespaldo, leerRespaldoPendiente, useScoreSync } from './useScoreSync'
+import { useScoreSync } from './useScoreSync'
+import { borrarRespaldosDeRonda, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
 
 // jsdom tiene localStorage, pero limpiamos entre tests
 beforeEach(() => {
@@ -17,14 +18,20 @@ beforeEach(() => {
   vi.useRealTimers()
 })
 
-describe('borrarRespaldo', () => {
-  it('borra sólo el respaldo de ese jugador en esa ronda', () => {
-    localStorage.setItem('golfers_score_ABC_p1', '{}')
-    localStorage.setItem('golfers_score_ABC_p2', '{}')
-    borrarRespaldo('ABC', 'p1')
+describe('borrarRespaldosDeRonda', () => {
+  it('borra los respaldos de TODOS los jugadores de esa ronda y de ninguna otra', () => {
+    localStorage.setItem('golfers_score_ABC_p1', '{"sincronizado":false}')
+    localStorage.setItem('golfers_score_ABC_p2', '{"sincronizado":false}')
+    // Un código que empieza igual (ABC es prefijo de ABCD) no es la misma ronda.
+    localStorage.setItem('golfers_score_ABCD_p1', '{"sincronizado":false}')
+    localStorage.setItem('golfers_score_XYZ_p1', '{"sincronizado":false}')
+    localStorage.setItem('ronda_ABC_p1', '{}')
+    borrarRespaldosDeRonda('ABC')
     expect(localStorage.getItem('golfers_score_ABC_p1')).toBeNull()
-    expect(localStorage.getItem('golfers_score_ABC_p2')).not.toBeNull()
-    localStorage.clear()
+    expect(localStorage.getItem('golfers_score_ABC_p2')).toBeNull()
+    expect(localStorage.getItem('golfers_score_ABCD_p1')).not.toBeNull()
+    expect(localStorage.getItem('golfers_score_XYZ_p1')).not.toBeNull()
+    expect(localStorage.getItem('ronda_ABC_p1')).not.toBeNull()
   })
 })
 

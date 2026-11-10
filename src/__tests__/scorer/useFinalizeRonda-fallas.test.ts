@@ -24,7 +24,9 @@ vi.mock('@/lib/supabase', () => ({
     rpc: () => Promise.resolve({}),
   }),
 }))
-vi.mock('@/lib/ronda/score-storage', () => ({ clearScores: vi.fn(), saveScores: vi.fn() }))
+vi.mock('@/lib/ronda/score-storage', async (importOriginal) => ({
+  // La limpieza es la real (envuelta para espiarla): las aserciones miran el localStorage.
+  limpiarCopiaLocalDeRonda: vi.fn((await importOriginal<typeof import('@/lib/ronda/score-storage')>()).limpiarCopiaLocalDeRonda), clearScores: vi.fn(), saveScores: vi.fn() }))
 vi.mock('@/lib/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('@/lib/push-notifications', () => ({
   getNotifPrefs: vi.fn(() => ({ partidas_terminadas: false })),
@@ -99,10 +101,11 @@ vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
 
 import { useFinalizeRonda } from '@/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda'
 import { addToast } from '@/hooks/useToast'
-import { clearScores } from '@/lib/ronda/score-storage'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { PLAZO_GUARDAR_TARJETA_MS } from '@/lib/data/ronda-libre-finalizar'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import type { IndicesDelJugador } from '@/lib/ronda/aviso-indices-ronda'
+import { contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
 
 async function finalizar(opts: Parameters<typeof useFinalizeRonda>[0] = baseOpts()) {
   const { result } = renderHook(() => useFinalizeRonda(opts))
@@ -345,7 +348,7 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     fetchRondaParaCierre.mockResolvedValue(null)
     await finalizar()
     expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
-    expect(clearScores).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
     localStorage.clear()
   })
 
@@ -360,7 +363,7 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
     expect(titulos).toContain('Esta ronda ya no existe')
     expect(titulos).not.toContain('Sin conexión')
-    expect(clearScores).toHaveBeenCalledWith('ABC123', 'p1')
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC123')
     expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
     // El respaldo también: si no, el banner "Sincronizando…" queda en toda la app.
     expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
@@ -434,3 +437,59 @@ describe('useFinalizeRonda — el último hoyo llega a la base antes de cerrar (
     expect(result.current.finalizando).toBe(false)
   })
 })
+
+// PR #763, vuelta 5: un respaldo que no subió en una ronda que ya está cerrada sale del banner
+// "Sincronizando N hoyos…" (que si no queda en toda la app) pero se GUARDA en el teléfono: la
+// ronda se puede reabrir y entonces sube. Los tres caminos donde Finalizar se entera del cierre.
+describe('useFinalizeRonda — respaldo sin subir con la ronda cerrada', () => {
+  const RESPALDO = 'golfers_score_ABC123_p1'
+  const respaldoSinSubir = () => localStorage.setItem(RESPALDO, JSON.stringify({ scores: { 9: 5 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: 'p1' }))
+  const COMPLETA = { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 }
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    respaldoSinSubir()
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
+    fetchRondaParaCierre.mockResolvedValue({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: COMPLETA }] })
+  })
+  const fueraDelBannerYGuardado = () => {
+    expect(contarHoyosPendientes()).toBe(0)
+    expect(leerRespaldoPendiente('ABC123', 'p1')).toEqual({ 9: 5 })
+  }
+
+  it('la encuentra cerrada al leerla (la cerró el ganador del match)', async () => {
+    fetchRondaParaCierre.mockResolvedValue({ estado: 'finalizada', jugadores: [{ id: 'p1', scores: COMPLETA }] })
+    await finalizar()
+    fueraDelBannerYGuardado()
+  })
+
+  it('se cierra mientras guardo (P0002) y la relectura la confirma cerrada', async () => {
+    fetchRondaParaCierre
+      .mockResolvedValueOnce({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: COMPLETA }] })
+      .mockResolvedValueOnce({ estado: 'finalizada', jugadores: [{ id: 'p1', scores: COMPLETA }] })
+    await finalizar({ ...baseOpts(), guardarAhora: vi.fn(async () => 'finalizada' as const) })
+    fueraDelBannerYGuardado()
+  })
+
+  it('mi tarjeta subió bien y la lectura del cierre ya la ve cerrada (sin P0002 de por medio)', async () => {
+    fetchRondaParaCierre
+      .mockResolvedValueOnce({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: COMPLETA }] })
+      .mockResolvedValueOnce({ estado: 'finalizada', jugadores: [{ id: 'p1', scores: COMPLETA }] })
+    await finalizar()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    fueraDelBannerYGuardado()
+  })
+
+  it('el cierre responde P0002 (otro la cerró entre medio)', async () => {
+    finalizarRondaLibre.mockResolvedValueOnce({ error: { code: 'P0002' } } as never)
+    await finalizar()
+    fueraDelBannerYGuardado()
+  })
+
+  it('inverso: el cierre sin respuesta deja el respaldo en el banner (sigue pendiente de subir)', async () => {
+    finalizarRondaLibre.mockResolvedValueOnce({ error: { code: '' } } as never)
+    await finalizar()
+    expect(contarHoyosPendientes()).toBe(1)
+  })
+})
+

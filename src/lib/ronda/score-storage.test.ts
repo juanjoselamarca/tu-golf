@@ -1,9 +1,22 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDelGrupo } from './score-storage'
+import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda, cerrarCopiaLocalAlFinalizar, apartarRechazados, leerRechazados, confirmarRechazados, olvidarRechazado } from './score-storage'
+import { contarHoyosPendientes, leerRespaldoPendiente } from './respaldo-local'
 
 beforeEach(() => localStorage.clear())
 
 describe('score-storage', () => {
+  it('clearScoresDeRonda borra las tarjetas de todos los jugadores de esa ronda y de ninguna otra', () => {
+    saveScores('ABC', 'j1', { 1: 4 })
+    saveScores('ABC', 'j2', { 1: 5 })
+    saveScores('ABCD', 'j1', { 1: 6 })
+    saveGroupScores('ABC', { j1: { 1: 4 } })
+    clearScoresDeRonda('ABC')
+    expect(loadScores('ABC', 'j1')).toEqual({})
+    expect(loadScores('ABC', 'j2')).toEqual({})
+    expect(loadScores('ABCD', 'j1')).toEqual({ 1: 6 })
+    expect(localStorage.getItem('ronda_grupo_ABC')).not.toBeNull()
+  })
+
   it('roundtrip: save → load', () => {
     saveScores('ABC', 'j1', { 1: 4, 2: 5 })
     expect(loadScores('ABC', 'j1')).toEqual({ 1: 4, 2: 5 })
@@ -97,17 +110,55 @@ describe('pendientes de confirmar (revisión Fable, caída 04-oct)', () => {
   })
 })
 
-describe('limpiarCopiaLocalDelGrupo', () => {
+describe('limpiarCopiaLocalDeRonda', () => {
   it('borra snapshot, golpes por jugador, golpes de equipo y pendientes de ESA ronda (no de otra)', () => {
     saveScorerGrupoSnapshot('ABC', { at: Date.now(), authUserId: 'u1', anotadorNombre: 'A', ronda: { id: 'r' }, parMap: {}, holeDataMap: {}, playerHcp: {}, playerDisplayHcp: {}, teamEquipos: [] })
     saveGroupScores('ABC', { p1: { 1: 4 } })
     saveGroupTeamScores('ABC', { e1: { '1': 3 } })
     marcarPendientes('ABC', 'p1', { 2: 5 })
     saveGroupScores('XYZ', { p9: { 1: 4 } })
-    limpiarCopiaLocalDelGrupo('ABC')
+    limpiarCopiaLocalDeRonda('ABC')
     const claves = Object.keys(localStorage)
     expect(claves.filter(k => k.includes('ABC'))).toEqual([])
     expect(claves).toContain('ronda_grupo_XYZ')
+  })
+
+  it('una sola limpieza para los dos scorers: también tarjetas individuales, respaldos y puntitos (PR #763)', () => {
+    saveScores('ABC', 'p1', { 1: 4 })
+    localStorage.setItem('golfers_score_ABC_p1', JSON.stringify({ scores: { 1: 4 }, sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
+    localStorage.setItem('ronda_puntitos_pendientes_ABC', '{}')
+    saveScores('ABCD', 'p1', { 1: 6 })
+    localStorage.setItem('golfers_score_ABCD_p1', '{}')
+    limpiarCopiaLocalDeRonda('ABC')
+    const claves = Object.keys(localStorage)
+    expect(claves.filter(k => /ABC(_|$)/.test(k))).toEqual([])
+    expect(loadScores('ABCD', 'p1')).toEqual({ 1: 6 })
+    expect(claves).toContain('golfers_score_ABCD_p1')
+  })
+})
+
+// PR #763 vuelta 4: finalizar no es borrar. La ronda se puede reabrir (reabrir un torneo devuelve sus
+// rondas a 'en_curso') y los golpes del individual que no subieron son lo único que hay de esos hoyos.
+describe('cerrarCopiaLocalAlFinalizar', () => {
+  it('borra la copia del scorer de grupo, pero los respaldos sin subir del individual se marcan, no se borran', () => {
+    saveGroupScores('ABC', { p1: { 1: 4 } })
+    marcarPendientes('ABC', 'p1', { 1: 4 })
+    localStorage.setItem('golfers_score_ABC_p1', JSON.stringify({ scores: { 18: 5 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
+    expect(contarHoyosPendientes()).toBe(1)
+    cerrarCopiaLocalAlFinalizar('ABC')
+    expect(localStorage.getItem('ronda_grupo_ABC')).toBeNull()
+    expect(hayPendientes('ABC')).toBe(false)
+    expect(leerRespaldoPendiente('ABC', 'p1')).toEqual({ 18: 5 })
+    expect(contarHoyosPendientes()).toBe(0)
+  })
+
+  it('las marcas de puntitos sin subir se conservan (si la ronda se reabre, suben); sin marcas, la clave se va', () => {
+    localStorage.setItem('ronda_puntitos_pendientes_ABC', JSON.stringify({ p1: { 3: 1 } }))
+    cerrarCopiaLocalAlFinalizar('ABC')
+    expect(JSON.parse(localStorage.getItem('ronda_puntitos_pendientes_ABC') ?? '{}')).toEqual({ p1: { 3: 1 } })
+    localStorage.setItem('ronda_puntitos_pendientes_ABC', '{}')
+    cerrarCopiaLocalAlFinalizar('ABC')
+    expect(localStorage.getItem('ronda_puntitos_pendientes_ABC')).toBeNull()
   })
 })
 
@@ -118,3 +169,54 @@ describe('loadScorerGrupoSnapshot — snapshot corrupto', () => {
   })
 })
 
+// PR #763, vuelta 6: una tarjeta rechazada en firme sale de pendientes (sin bucle ni aviso pegado) pero sus
+// golpes quedan apartados en el teléfono hasta que suban o se corrijan; se van con la copia del grupo.
+describe('tarjetas rechazadas en firme', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('apartar saca los golpes de pendientes y los guarda aparte', () => {
+    marcarPendientes('R1', 'p2', { 10: 5, 11: 4 })
+    apartarRechazados('R1', 'p2', { 10: 5, 11: 4 })
+    expect(hayPendientes('R1')).toBe(false)
+    expect(leerRechazados('R1')).toEqual({ p2: { 10: 5, 11: 4 } })
+  })
+
+  it('corregir un hoyo olvida sólo ese valor rechazado; sin hoyos, la tarjeta deja de estar apartada', () => {
+    apartarRechazados('R1', 'p2', { 10: 5, 11: 4 })
+    olvidarRechazado('R1', 'p2', 10)
+    expect(leerRechazados('R1')).toEqual({ p2: { 11: 4 } })
+    olvidarRechazado('R1', 'p2', 11)
+    expect(leerRechazados('R1')).toEqual({})
+    olvidarRechazado('R1', 'p9', 3) // sin nada apartado: no hace nada
+    expect(leerRechazados('R1')).toEqual({})
+  })
+
+  it('confirmar quita todos los hoyos que el servidor aceptó, con el valor que sea', () => {
+    apartarRechazados('R1', 'p2', { 10: 5, 11: 4, 12: 3 })
+    confirmarRechazados('R1', 'p2', { 10: 5, 11: 6 })
+    expect(leerRechazados('R1')).toEqual({ p2: { 12: 3 } })
+  })
+
+  it('apartar sólo aparta el valor exacto enviado: un hoyo corregido mientras viajaba no se toca', () => {
+    marcarPendientes('R1', 'p2', { 10: 5, 11: 4 })
+    marcarPendientes('R1', 'p2', { 11: 6 }) // corrección del marcador con el envío en vuelo
+    apartarRechazados('R1', 'p2', { 10: 5, 11: 4 })
+    expect(leerPendientes('R1')).toEqual({ p2: { 11: 6 } })
+    expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+  })
+
+  it('se borran con la copia del grupo al limpiar la ronda, y de ninguna otra', () => {
+    apartarRechazados('R1', 'p2', { 10: 5 })
+    apartarRechazados('R2', 'p2', { 10: 5 })
+    limpiarCopiaLocalDeRonda('R1')
+    expect(leerRechazados('R1')).toEqual({})
+    expect(leerRechazados('R2')).toEqual({ p2: { 10: 5 } })
+  })
+
+  it('cerrar la ronda al finalizar los guarda (sólo quedan los de quien ya no está en la ronda)', () => {
+    apartarRechazados('R1', 'p2', { 10: 5 })
+    cerrarCopiaLocalAlFinalizar('R1')
+    expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+    expect(localStorage.getItem('ronda_grupo_R1')).toBeNull()
+  })
+})

@@ -1,27 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-
-function contarHoyosPendientes(): number {
-  try {
-    let total = 0
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)
-      if (!k || !k.startsWith('golfers_score_')) continue
-      const raw = localStorage.getItem(k)
-      if (!raw) continue
-      const data = JSON.parse(raw) as { sincronizado?: boolean; scores?: Record<string, number> }
-      if (data.sincronizado === false && data.scores) {
-        total += Object.keys(data.scores).length
-      }
-    }
-    return total
-  } catch { return 0 }
-}
+import { useCallback, useEffect, useState } from 'react'
+import { contarHoyosPendientes } from '@/lib/ronda/respaldo-local'
+import { useConciliarRespaldos } from '@/hooks/useConciliarRespaldos'
 
 export function OfflineBanner() {
   const [offline, setOffline] = useState(false)
   const [pendientes, setPendientes] = useState(0)
+  // Los respaldos de una ronda borrada se limpian y los de una cerrada dejan de contarse;
+  // si no, el aviso de "Sincronizando…" quedaba pegado en todas las páginas (PR #763).
+  const recontar = useCallback(() => setPendientes(contarHoyosPendientes()), [])
+  useConciliarRespaldos(recontar)
 
   useEffect(() => {
     const tick = () => setPendientes(contarHoyosPendientes())

@@ -32,6 +32,7 @@ import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { conTimeout } from '@/lib/red/con-timeout'
+import { RONDA_NO_EXISTE } from '@/lib/data/ronda-libre-estado'
 import {
   fetchIndiceParaTope,
   grossAjustadoAlGuardar,
@@ -49,19 +50,8 @@ type Client = Pick<SupabaseClient, 'from' | 'rpc'>
  */
 export const PLAZO_GUARDAR_TARJETA_MS = 20_000
 
-/** `estado` de una ronda que ya no existe (el creador la descartó: se borra). */
-export const RONDA_NO_EXISTE = 'no_existe'
-
-/**
- * Estado actual de la ronda (guard contra un cierre desde otro dispositivo). `null` =
- * la lectura falló (red); una ronda borrada vuelve como `RONDA_NO_EXISTE`, para no
- * decirle "sin conexión" a quien tiene señal perfecta.
- */
-export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): Promise<string | null> {
-  const { data, error } = await supabase.from('rondas_libres').select('estado').eq('codigo', codigo).single()
-  if (error?.code === 'PGRST116') return RONDA_NO_EXISTE
-  return (data?.estado as string | undefined) ?? null
-}
+// Viven en un módulo liviano: también los usa el banner de "Sincronizando…", que va en todas las páginas.
+export { RONDA_NO_EXISTE, esRondaCerrada, fetchEstadoRondaLibre } from '@/lib/data/ronda-libre-estado'
 
 /**
  * Estado + tarjetas frescas de todos los jugadores (¿terminaron todos?). `null` =

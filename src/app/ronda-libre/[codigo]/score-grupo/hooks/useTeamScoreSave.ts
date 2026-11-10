@@ -4,9 +4,9 @@ import { useCallback, useState } from 'react'
 import type React from 'react'
 import { haptic } from '@/lib/ronda/helpers'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
-import { saveGroupTeamScores, marcarPendientes, ID_PENDIENTE_EQUIPO } from '@/lib/ronda/score-storage'
+import { saveGroupTeamScores, marcarPendientes, ID_PENDIENTE_EQUIPO, olvidarRechazado } from '@/lib/ronda/score-storage'
 import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
-import { completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
+import { completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 
 export interface TeamScoreSave {
   /** +/- sobre el score COMPARTIDO del equipo (scramble / foursome) en un hoyo. */
@@ -57,6 +57,7 @@ export function useTeamScoreSave(input: {
         const base = eq.scores[key] ?? (parMap[hole] ?? 4)
         const newScore = limitarGolpes(base + delta)
         marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(equipoId), { [key]: newScore })
+        olvidarRechazado(codigo, ID_PENDIENTE_EQUIPO(equipoId), hole)
         return { ...eq, scores: { ...eq.scores, [key]: newScore } }
       })
       respaldar(codigo, next)
@@ -83,14 +84,9 @@ export function useTeamScoreSave(input: {
   }, [codigo, setTeamEquipos, setHasUnsaved, programarEnvio])
 
   const completarEquiposConPar = useCallback((equipos: EquipoDelScorer[], hoyos: readonly number[]) => {
-    const next = equipos.map(eq => {
-      const { rellenados } = completarHoyosSinMarcarConPar(eq.scores, hoyos, parMap)
-      if (rellenados.length === 0) return eq
-      const delta = Object.fromEntries(rellenados.map(h => [String(h), parMap[h] ?? 4]))
-      marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(eq.id), delta)
-      return { ...eq, scores: { ...eq.scores, ...delta } }
-    })
-    if (next.some((eq, i) => eq !== equipos[i])) {
+    const { equipos: next, rellenados } = completarEquiposSinMarcarConPar(equipos, hoyos, parMap)
+    for (const { id, delta } of rellenados) marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(id), delta)
+    if (rellenados.length > 0) {
       setTeamEquipos(next)
       respaldar(codigo, next)
     }

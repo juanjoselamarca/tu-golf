@@ -83,8 +83,9 @@ export async function DELETE(
   const admin = createAdminClient()
   const { id } = await params
 
-  // Delete jugadores first, then the ronda
-  await admin.from('ronda_libre_jugadores').delete().eq('ronda_id', id)
+  // Un solo DELETE: los jugadores caen por la FK ON DELETE CASCADE (ronda_libre_jugadores_ronda_id_fkey).
+  // Borrarlos antes dejaba, si el segundo DELETE fallaba, una ronda viva sin jugadores: sus scorers
+  // recibían P0001 y limpiaban la tarjeta local de una ronda que seguía existiendo (PR #763).
   const { error } = await admin.from('rondas_libres').delete().eq('id', id)
   if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 

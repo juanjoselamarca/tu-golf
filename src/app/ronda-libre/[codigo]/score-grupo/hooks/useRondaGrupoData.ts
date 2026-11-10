@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { esRondaCerrada } from '@/lib/data/ronda-libre-estado'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -22,10 +23,12 @@ import {
   loadGroupScores,
   loadGroupTeamScores,
   leerPendientes,
+  leerRechazados,
   ID_PENDIENTE_EQUIPO,
   saveScorerGrupoSnapshot,
   loadScorerGrupoSnapshot,
   type ScorerGrupoSnapshot,
+  limpiarCopiaLocalDeRonda,
 } from '@/lib/ronda/score-storage'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import type { HoleData, RondaLibre } from '@/types/ronda'
@@ -108,7 +111,8 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
   const userId = sesion.userId
 
   const carga = await fetchRondaLibreParaScorer(supabase, codigo)
-  if (carga.estado === 'no_existe') return { tipo: 'redirigir', a: '/dashboard', reemplazar: false }
+  // Ronda borrada (PGRST116, confirmado por el servidor): su copia local ya no tiene dónde subirse.
+  if (carga.estado === 'no_existe') { limpiarCopiaLocalDeRonda(codigo); return { tipo: 'redirigir', a: '/dashboard', reemplazar: false } }
   if (carga.estado === 'sin_conexion') return { tipo: 'sin_conexion', userId }
   const r = carga.ronda
 
@@ -122,7 +126,7 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
     return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
   }
   // Demo rondas son spectator-only (misma regla que /score); finalizada → vista de resultados.
-  if (r.es_demo || r.estado === 'finalizada') {
+  if (r.es_demo || esRondaCerrada(r.estado)) {
     return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
   }
 
@@ -214,13 +218,15 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const pintarPrimeraVez = useCallback((r: RondaLibre, localGana: boolean, equipos: EquipoDelScorer[]) => {
     const cached = loadGroupScores(codigo)
     const pend = leerPendientes(codigo)
+    // Tarjetas que el servidor rechazó en firme: sus golpes se muestran (para revisarlos) por encima de la BD.
+    const rech = leerRechazados(codigo)
     const db = tarjetasDesdeLaRonda(r)
     const initialScores: Record<string, Record<number, number>> = {}
     for (const j of r.ronda_libre_jugadores) {
       const base = localGana
         ? { ...db[j.id], ...(cached[j.id] ?? {}) }
         : { ...(cached[j.id] ?? {}), ...db[j.id] } // online: BD manda; lo local aporta lo que falta
-      initialScores[j.id] = { ...base, ...numerico(pend[j.id]) }
+      initialScores[j.id] = { ...base, ...numerico(rech[j.id]), ...numerico(pend[j.id]) }
     }
     setScores(initialScores)
     // Equipos (scramble/foursome): respaldo local + pendientes por encima del servidor/copia.
@@ -230,6 +236,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       scores: {
         ...eq.scores,
         ...(localGana ? cachedEq[eq.id] ?? {} : {}),
+        ...(rech[ID_PENDIENTE_EQUIPO(eq.id)] ?? {}),
         ...(pend[ID_PENDIENTE_EQUIPO(eq.id)] ?? {}),
       },
     }))

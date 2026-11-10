@@ -32,6 +32,7 @@ import { useRondaGrupoData } from './hooks/useRondaGrupoData'
 import { useGrupoScoreSave } from './hooks/useGrupoScoreSave'
 import { useTeamScoreSave } from './hooks/useTeamScoreSave'
 import { useFinalizeGrupo } from './hooks/useFinalizeGrupo'
+import { useIrAlResultadoSiCerrada } from './hooks/useIrAlResultadoSiCerrada'
 import { useMatchPlayState } from '../hooks/useMatchPlayState'
 import { useGrupoScoreboard } from './hooks/useGrupoScoreboard'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
@@ -65,13 +66,12 @@ export default function ScoreGrupoPage() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
-  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada } =
+  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos })
-  // La ronda se cerró en otro dispositivo (el servidor rechazó un envío): al resultado,
-  // igual que Finalizar cuando la encuentra cerrada.
+  // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
-    if (rondaCerrada) router.push(`/ronda-libre/${codigo}?finished=true`)
-  }, [rondaCerrada, router, codigo])
+    if (rondaNoExiste) router.push('/dashboard')
+  }, [rondaNoExiste, router])
   // Con servidor (al abrir o al reconectar), enviar lo que quedó sólo en el teléfono.
   const saveAllRef = useRef(saveAllScores)
   useEffect(() => { saveAllRef.current = saveAllScores }, [saveAllScores])
@@ -88,6 +88,7 @@ export default function ScoreGrupoPage() {
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores,
     })
+  useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
   useBeforeUnloadWarning(hasUnsaved)
   // Mientras se finaliza no se aceptan golpes: un tap tardío llegaría después del cierre
   // (P0002), no entraría al historial y mostraría "se cerró desde otro dispositivo".

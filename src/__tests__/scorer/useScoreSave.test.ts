@@ -2,6 +2,8 @@ import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useScoreSave } from '@/app/ronda-libre/[codigo]/score/hooks/useScoreSave'
 import { addToast } from '@/hooks/useToast'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
+import { contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
 
 const mockUpdate = vi.fn()
 const mockSingle = vi.fn()
@@ -16,7 +18,9 @@ vi.mock('@/lib/supabase', () => ({
   }),
 }))
 
-vi.mock('@/lib/ronda/score-storage', () => ({
+vi.mock('@/lib/ronda/score-storage', async (importOriginal) => ({
+  // La limpieza es la real (envuelta para espiarla): las aserciones miran el localStorage.
+  limpiarCopiaLocalDeRonda: vi.fn((await importOriginal<typeof import('@/lib/ronda/score-storage')>()).limpiarCopiaLocalDeRonda),
   saveScores: vi.fn(),
   loadScores: vi.fn(),
   clearScores: vi.fn(),
@@ -57,6 +61,13 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
 })
+
+// P0001 sólo dice que no encontró ronda+jugador: el scorer confirma con una lectura de la ronda.
+const P0001 = { data: null, error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } }
+function rondaBorradaEnServidor() {
+  mockRpc.mockResolvedValue(P0001)
+  mockSingle.mockResolvedValue({ data: null, error: { code: 'PGRST116', message: '0 rows' } })
+}
 
 describe('useScoreSave', () => {
   it('saveStatus arranca en idle', () => {
@@ -129,6 +140,279 @@ describe('useScoreSave', () => {
     await flushDebounce()
     expect(onRondaFinalized).toHaveBeenCalledOnce()
     expect(result.current.saveStatus).toBe('error')
+  })
+
+  // PR #759: la ronda la descartó quien la creó. El RPC responde P0001 y antes se
+  // trataba como falla de red: 3 intentos, "No se pudo conectar" y el respaldo
+  // quedaba sin sincronizar para siempre (banner "Sincronizando…" en toda la app).
+  describe('ronda borrada (P0001)', () => {
+    const respaldo = (codigo: string, jugador: string) => localStorage.setItem(
+      `golfers_score_${codigo}_${jugador}`,
+      JSON.stringify({ scores: { 1: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: codigo, jugadorId: jugador }),
+    )
+    beforeEach(() => {
+      localStorage.clear()
+      vi.mocked(addToast).mockClear()
+      vi.mocked(limpiarCopiaLocalDeRonda).mockClear()
+    })
+
+    it('no reintenta, avisa que ya no existe, borra las copias locales de la ronda y saca al jugador', async () => {
+      respaldo('ABC123', 'p1'); respaldo('ABC123', 'p2'); respaldo('OTRA', 'p1')
+      rondaBorradaEnServidor()
+      const onRondaNoExiste = vi.fn()
+      const { result } = renderHook(() => useScoreSave({
+        codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste,
+      }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      await flushDebounce()
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(onRondaNoExiste).toHaveBeenCalledOnce()
+      expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.' }))
+      expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Error al guardar' }))
+      expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
+      expect(localStorage.getItem('golfers_score_ABC123_p2')).toBeNull()
+      expect(localStorage.getItem('golfers_score_OTRA_p1')).not.toBeNull()
+      expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC123')
+    })
+
+    it('para Finalizar: devuelve no_existe sin avisar ni redirigir (Finalizar decide)', async () => {
+      respaldo('ABC123', 'p1')
+      rondaBorradaEnServidor()
+      const onRondaNoExiste = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste }))
+      let p!: Promise<string>
+      await act(async () => { p = result.current.guardarAhora('p1', { 1: 4 }); await vi.runAllTimersAsync() })
+      expect(await p).toBe('no_existe')
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(onRondaNoExiste).not.toHaveBeenCalled()
+      expect(addToast).not.toHaveBeenCalled()
+    })
+
+    it('P0001 con la ronda VIVA (falta ese jugador): rechazo de la tarjeta, no limpia ni saca a nadie', async () => {
+      respaldo('ABC123', 'p1'); respaldo('ABC123', 'p2')
+      mockRpc.mockResolvedValue(P0001)
+      mockSingle.mockResolvedValue({ data: { estado: 'en_curso' }, error: null })
+      const onRondaNoExiste = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste }))
+      let r!: string
+      await act(async () => { const p = result.current.guardarAhora('p1', { 1: 4 }); await vi.runAllTimersAsync(); r = await p })
+      expect(r).toBe('rechazado')
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(onRondaNoExiste).not.toHaveBeenCalled()
+      expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+      expect(localStorage.getItem('golfers_score_ABC123_p2')).not.toBeNull()
+      expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar tu tarjeta' }))
+      // La tarjeta rechazada sale del banner y del reenvío (no se borra al tiro); la de p2 sigue pendiente.
+      expect(JSON.parse(localStorage.getItem('golfers_score_ABC123_p1')!).rechazadaEn).toEqual(expect.any(Number))
+      expect(leerRespaldoPendiente('ABC123', 'p1')).toBeNull()
+      expect(contarHoyosPendientes()).toBe(1)
+      // No queda bloqueado: el siguiente guardado sale.
+      mockRpc.mockResolvedValue({ data: { '1': 4 }, error: null })
+      await act(async () => { const p = result.current.guardarAhora('p1', { 1: 4 }); await vi.runAllTimersAsync(); r = await p })
+      expect(r).toBe('guardado')
+    })
+
+    it('P0001 sin poder confirmar la ronda (sin señal): no limpia, queda como falta de conexión', async () => {
+      respaldo('ABC123', 'p1')
+      mockRpc.mockResolvedValue(P0001)
+      mockSingle.mockResolvedValue({ data: null, error: { code: '', message: 'Failed to fetch' } })
+      const onRondaNoExiste = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste }))
+      let r!: string
+      await act(async () => { const p = result.current.guardarAhora('p1', { 1: 4 }); await vi.runAllTimersAsync(); r = await p })
+      expect(r).toBe('sin_conexion')
+      expect(onRondaNoExiste).not.toHaveBeenCalled()
+      expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+      expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
+    })
+
+    it('inverso: una falla de red NO borra el respaldo ni saca al jugador', async () => {
+      respaldo('ABC123', 'p1')
+      mockRpc.mockResolvedValue({ data: null, error: { code: '', message: 'Failed to fetch' } })
+      const onRondaNoExiste = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      await flushDebounce()
+      expect(mockRpc).toHaveBeenCalledTimes(3)
+      expect(onRondaNoExiste).not.toHaveBeenCalled()
+      expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
+      expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+    })
+
+    it('inverso: sin permiso (P0003, sesión vencida) NO borra el respaldo', async () => {
+      respaldo('ABC123', 'p1')
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0003', message: 'RONDA_FORBIDDEN' } })
+      const onRondaNoExiste = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      await flushDebounce()
+      expect(onRondaNoExiste).not.toHaveBeenCalled()
+      expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
+    })
+
+    it('otro rechazo definitivo (P0004) no se reintenta ni se presenta como falta de conexión', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0004', message: 'INVALID_DELTA' } })
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      await flushDebounce()
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('No se pudo conectar') }))
+      expect(result.current.saveStatus).toBe('error')
+      expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar tu tarjeta', message: 'Revisa los golpes anotados; tus scores siguen en tu teléfono.' }))
+    })
+  })
+
+  describe('después de la ronda borrada y al salir (revisión 1, PR #763)', () => {
+    const respaldo = (scores: Record<number, number>, sincronizado = false) => localStorage.setItem(
+      'golfers_score_ABC123_p1',
+      JSON.stringify({ scores, timestamp: Date.now(), sincronizado, codigoRonda: 'ABC123', jugadorId: 'p1' }),
+    )
+    const leer = () => JSON.parse(localStorage.getItem('golfers_score_ABC123_p1') ?? 'null')
+    beforeEach(() => { localStorage.clear(); vi.mocked(addToast).mockClear() })
+
+    it('un toque después del P0001 no vuelve a escribir el respaldo ni manda nada', async () => {
+      rondaBorradaEnServidor()
+      const scoreSync = makeScoreSync()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync, onRondaNoExiste: vi.fn() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      await flushDebounce()
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      scoreSync.guardarLocal.mockClear()
+      await act(async () => { await result.current.saveScores('p1', { 1: 4, 2: 5 }) })
+      await flushDebounce()
+      expect(scoreSync.guardarLocal).not.toHaveBeenCalled()
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(result.current.hasUnsaved).toBe(false)
+      let r!: string
+      await act(async () => { r = await result.current.guardarAhora('p1', { 1: 4, 2: 5 }) })
+      expect(r).toBe('no_existe')
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(addToast).toHaveBeenCalledTimes(1)
+    })
+
+    it('al salir con un golpe en el debounce: si llega, el respaldo queda sincronizado (el banner se apaga)', async () => {
+      respaldo({ 1: 4 })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(leer().sincronizado).toBe(true)
+    })
+
+    it('al salir: si el servidor responde P0001, se limpia la copia local de la ronda', async () => {
+      respaldo({ 1: 4 })
+      localStorage.setItem('ronda_ABC123_p1', '{"1":4}')
+      rondaBorradaEnServidor()
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer()).toBeNull()
+      expect(localStorage.getItem('ronda_ABC123_p1')).toBeNull()
+    })
+
+    it('al salir, un P0001 con la ronda viva no limpia nada pero saca la tarjeta del banner (rechazada)', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue(P0001)
+      mockSingle.mockResolvedValue({ data: { estado: 'en_curso' }, error: null })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+      expect(leer()).toMatchObject({ sincronizado: false, scores: { 1: 4 }, rechazadaEn: expect.any(Number) })
+      expect(contarHoyosPendientes()).toBe(0)
+    })
+
+    it('al salir, un P0004 (rechazo que descarta) también saca la tarjeta del banner', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0004', message: 'INVALID_DELTA' } })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer().rechazadaEn).toEqual(expect.any(Number))
+      expect(contarHoyosPendientes()).toBe(0)
+    })
+
+    it('inverso: al salir con la ronda finalizada (P0002) la tarjeta sigue sin enviar (la ronda se puede reabrir)', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer().rechazadaEn).toBeUndefined()
+      expect(leerRespaldoPendiente('ABC123', 'p1')).toEqual({ 1: 4 })
+      // PR #763 vuelta 4: pero sale del banner ya (marcada de ronda cerrada), no recién al próximo reload.
+      expect(leer().rondaCerradaEn).toEqual(expect.any(Number))
+      expect(contarHoyosPendientes()).toBe(0)
+    })
+
+    // PR #763 vuelta 4: con la ronda cerrada el RPC busca la fila antes de mirar el estado, así que
+    // una cerrada sin ese jugador responde P0001. Confirmada como cerrada, cuenta como P0002.
+    it('al salir, un P0001 con la ronda cerrada se trata como cerrada: se guarda y sale del banner', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue(P0001)
+      mockSingle.mockResolvedValue({ data: { estado: 'finalizada' }, error: null })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+      expect(leer()).toMatchObject({ sincronizado: false, scores: { 1: 4 }, rondaCerradaEn: expect.any(Number) })
+      expect(leer().rechazadaEn).toBeUndefined()
+      expect(leerRespaldoPendiente('ABC123', 'p1')).toEqual({ 1: 4 })
+      expect(contarHoyosPendientes()).toBe(0)
+    })
+
+    it('anotando con la ronda finalizada (P0002): la tarjeta se guarda y sale del banner', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } })
+      const onRondaFinalized = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaFinalized }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      await flushDebounce()
+      expect(onRondaFinalized).toHaveBeenCalledOnce()
+      expect(leerRespaldoPendiente('ABC123', 'p1')).toEqual({ 1: 4 })
+      expect(leer().rondaCerradaEn).toEqual(expect.any(Number))
+      expect(contarHoyosPendientes()).toBe(0)
+    })
+
+    it('anotando, un P0001 con la ronda cerrada cuenta como P0002 (no como rechazo de la tarjeta)', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue(P0001)
+      mockSingle.mockResolvedValue({ data: { estado: 'finalizada' }, error: null })
+      const onRondaFinalized = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaFinalized }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      await flushDebounce()
+      expect(onRondaFinalized).toHaveBeenCalledOnce()
+      expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar tu tarjeta' }))
+      expect(leer().rechazadaEn).toBeUndefined()
+      expect(leerRespaldoPendiente('ABC123', 'p1')).toEqual({ 1: 4 })
+      expect(contarHoyosPendientes()).toBe(0)
+    })
+
+    it('inverso: al salir sin red, el respaldo queda pendiente (se re-sincroniza al volver)', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue({ data: null, error: { code: '', message: 'Failed to fetch' } })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer()).toMatchObject({ sincronizado: false, scores: { 1: 4 } })
+    })
+
+    it('inverso: al salir, si el respaldo ya es una tarjeta más nueva que la enviada, sigue pendiente', async () => {
+      respaldo({ 1: 4, 2: 6 })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer().sincronizado).toBe(false)
+    })
   })
 
   it('usa rpc upsert no UPDATE directo', async () => {
