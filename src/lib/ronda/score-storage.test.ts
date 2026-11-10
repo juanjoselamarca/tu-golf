@@ -191,10 +191,18 @@ describe('tarjetas rechazadas en firme', () => {
     expect(leerRechazados('R1')).toEqual({})
   })
 
-  it('confirmar quita sólo el valor exacto que el servidor aceptó', () => {
-    apartarRechazados('R1', 'p2', { 10: 5, 11: 4 })
+  it('confirmar quita todos los hoyos que el servidor aceptó, con el valor que sea', () => {
+    apartarRechazados('R1', 'p2', { 10: 5, 11: 4, 12: 3 })
     confirmarRechazados('R1', 'p2', { 10: 5, 11: 6 })
-    expect(leerRechazados('R1')).toEqual({ p2: { 11: 4 } })
+    expect(leerRechazados('R1')).toEqual({ p2: { 12: 3 } })
+  })
+
+  it('apartar sólo aparta el valor exacto enviado: un hoyo corregido mientras viajaba no se toca', () => {
+    marcarPendientes('R1', 'p2', { 10: 5, 11: 4 })
+    marcarPendientes('R1', 'p2', { 11: 6 }) // corrección del marcador con el envío en vuelo
+    apartarRechazados('R1', 'p2', { 10: 5, 11: 4 })
+    expect(leerPendientes('R1')).toEqual({ p2: { 11: 6 } })
+    expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
   })
 
   it('se borran con la copia del grupo al limpiar la ronda, y de ninguna otra', () => {
@@ -205,9 +213,10 @@ describe('tarjetas rechazadas en firme', () => {
     expect(leerRechazados('R2')).toEqual({ p2: { 10: 5 } })
   })
 
-  it('cerrar la ronda al finalizar también se los lleva', () => {
+  it('cerrar la ronda al finalizar los guarda (sólo quedan los de quien ya no está en la ronda)', () => {
     apartarRechazados('R1', 'p2', { 10: 5 })
     cerrarCopiaLocalAlFinalizar('R1')
-    expect(leerRechazados('R1')).toEqual({})
+    expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+    expect(localStorage.getItem('ronda_grupo_R1')).toBeNull()
   })
 })

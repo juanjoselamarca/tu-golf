@@ -2,13 +2,13 @@
 // Finalizar no clasifica los errores del guardado por su cuenta (PR #763, vuelta 5). Antes contaba
 // P0001 / P0004 como "sin servidor": con la ronda cerrada mostraba "No se pudo finalizar todavía" y,
 // con un jugador que ya no está en la ronda o un golpe inválido, pedía reintentar para siempre.
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useState } from 'react'
 import { useGrupoScoreSave } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import { useFinalizeGrupo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useFinalizeGrupo'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
-import { leerPendientes, leerRechazados, hayPendientes } from '@/lib/ronda/score-storage'
+import { leerPendientes, leerRechazados, hayPendientes, apartarRechazados } from '@/lib/ronda/score-storage'
 import { contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 
@@ -33,11 +33,12 @@ vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 vi.mock('@/lib/ronda/helpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/ronda/helpers')>()), haptic: vi.fn() }))
 
 const saveRondaLibreScores = vi.fn(async (_c: unknown, _a: { jugadorId: string }) => ({ error: null as { code: string } | null }))
+const saveRondaEquiposScores = vi.fn(async () => ({ error: null as { code: string } | null }))
 const finalizarRondaLibre = vi.fn(async (): Promise<{ finalizada: boolean; error: unknown }> => ({ finalizada: true, error: null }))
 vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-scores')>()),
   saveRondaLibreScores: (...a: unknown[]) => saveRondaLibreScores(...(a as [unknown, { jugadorId: string }])),
-  saveRondaEquiposScores: vi.fn(async () => ({ error: null })),
+  saveRondaEquiposScores: (...a: unknown[]) => saveRondaEquiposScores(...(a as [])),
   finalizarRondaLibre: (...a: unknown[]) => finalizarRondaLibre(...(a as [])),
 }))
 const guardarTarjetaEnHistorial = vi.fn(async (): Promise<{ status: string; id: null; tarjeta: object; error?: Error }> => ({ status: 'insertada', id: null, tarjeta: {} }))
@@ -67,17 +68,16 @@ const rondaCompleta = {
 }
 const ronda = rondaCompleta as never
 
-function montar(r: never = ronda) {
-  return renderHook(() => {
-    const ronda = r
+function montar(r: never = ronda, teamEquipos: never[] = []) {
+  return renderHook(({ ronda }: { ronda: never }) => {
     const [scores, setScores] = useState<Record<string, Record<number, number>>>({ p1: { 10: 4 }, p2: { 10: 5 } })
-    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 18, scores, setScores, parMap: PAR, teamEquipos: [] })
+    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 18, scores, setScores, parMap: PAR, teamEquipos })
     const fin = useFinalizeGrupo({
-      ronda, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR, teamEquipos: [],
+      ronda, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR, teamEquipos,
       completarEquiposConPar: ((e: unknown) => e) as never, matchResult: null, authUserId: 'u1', enviarPendientes: save.saveAllScores,
     })
     return { save, fin }
-  })
+  }, { initialProps: { ronda: r } })
 }
 async function finalizar(r: ReturnType<typeof montar>['result']) {
   await act(async () => { await r.current.fin.finalizeRound() })
@@ -92,6 +92,7 @@ beforeEach(() => {
   lecturas.length = 0
   lecturas.push('en_curso')
   saveRondaLibreScores.mockImplementation(async () => ({ error: null }))
+  saveRondaEquiposScores.mockImplementation(async () => ({ error: null }))
   finalizarRondaLibre.mockResolvedValue({ finalizada: true, error: null })
 })
 
@@ -121,7 +122,8 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
   // Decisión de Juanjo (10-nov-2026): con una tarjeta rechazada en firme NO se cierra; los golpes quedan en
   // el teléfono y el aviso nombra al jugador. Antes se cerraba y cerrarCopiaLocalAlFinalizar borraba los de Beto.
   const avisoBeto = expect.objectContaining(avisoTarjetasNoGuardadas(['Beto']))
-  it.each(['P0001', 'P0004', '22023'])('rechazo firme de la tarjeta de Beto con la ronda viva (%s): NO cierra, sus golpes siguen en el teléfono y el aviso lo nombra', async (code) => {
+  const avisoGenerico = expect.objectContaining({ title: 'Un golpe no se pudo guardar' })
+  it.each(['P0004', '22023'])('rechazo firme de la tarjeta de Beto con la ronda viva (%s): NO cierra, sus golpes siguen en el teléfono y el aviso lo nombra', async (code) => {
     rechazaA('p2', code)
     const { result } = montar()
     await finalizar(result)
@@ -129,6 +131,8 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
     expect(addToast).toHaveBeenCalledWith(avisoBeto)
+    // Un solo aviso: el que nombra (el genérico del envío no sale encima).
+    expect(addToast).not.toHaveBeenCalledWith(avisoGenerico)
     expect(addToast).not.toHaveBeenCalledWith(avisoSinServidor)
     expect(leerRechazados('ABC').p2).toMatchObject({ 10: 5, 18: 5 })
     expect(localStorage.getItem('ronda_grupo_ABC')).not.toBeNull()
@@ -142,9 +146,11 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     rechazaA('p2', 'P0004')
     const { result } = montar()
     await act(async () => { await result.current.save.saveAllScores({ p2: { 10: 5 } }) })
-    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Un golpe no se pudo guardar' }))
+    expect(addToast).toHaveBeenCalledWith(avisoGenerico)
     await finalizar(result)
     expect(addToast).toHaveBeenCalledWith(avisoBeto)
+    // El genérico salió una vez (el guardado de antes), no otra con Finalizar.
+    expect(addToast.mock.calls.filter(c => (c[0] as { title: string }).title === 'Un golpe no se pudo guardar')).toHaveLength(1)
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
@@ -161,6 +167,52 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
     expect(leerRechazados('ABC')).toEqual({})
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+  })
+
+  it('P0001 con la ronda viva (el organizador sacó a Beto): cierra igual y sus golpes quedan apartados en el teléfono', async () => {
+    rechazaA('p2', 'P0001')
+    const { result } = montar()
+    await finalizar(result)
+    expect(addToast).not.toHaveBeenCalledWith(avisoBeto)
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+    expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+    expect(leerRechazados('ABC').p2).toMatchObject({ 10: 5 })
+  })
+
+  it('Beto rechazado antes y ya no aparece en la pantalla: su rechazo no bloquea Finalizar y sus golpes no se borran', async () => {
+    rechazaA('p2', 'P0004')
+    const { result, rerender } = montar()
+    await act(async () => { await result.current.save.saveAllScores({ p2: { 10: 5 } }) })
+    expect(leerRechazados('ABC').p2).toEqual({ 10: 5 })
+    const sinBeto = { ...rondaCompleta, ronda_libre_jugadores: rondaCompleta.ronda_libre_jugadores.filter(j => j.id !== 'p2') } as never
+    rerender({ ronda: sinBeto })
+    await finalizar(result)
+    expect(addToast).not.toHaveBeenCalledWith(avisoBeto)
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+    expect(leerRechazados('ABC').p2).toEqual({ 10: 5 })
+  })
+
+  it('la misma tarjeta vuelve a ser rechazada sin cambios: sigue bloqueado con el mismo aviso', async () => {
+    rechazaA('p2', 'P0004')
+    const { result } = montar()
+    await finalizar(result)
+    await finalizar(result)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(addToast.mock.calls.filter(c => (c[0] as { title: string }).title === avisoTarjetasNoGuardadas(['Beto']).title)).toHaveLength(2)
+  })
+
+  it('el reenvío de la tarjeta rechazada no tiene señal: el aviso nombra a Beto y dice que es por señal', async () => {
+    rechazaA('p2', 'P0004')
+    const { result } = montar()
+    await act(async () => { await result.current.save.saveAllScores({ p2: { 10: 5 } }) })
+    saveRondaLibreScores.mockImplementation(async () => ({ error: { code: 'SIN_RESPUESTA' } }))
+    await finalizar(result)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'No pudimos guardar la tarjeta de Beto por falta de señal.',
+      message: 'Vuelve a finalizar cuando tengas conexión.',
+    }))
+    expect(addToast).not.toHaveBeenCalledWith(avisoBeto)
   })
 
   it('el organizador sacó a Beto (P0001, ronda viva): al reabrir sin él, su tarjeta apartada no bloquea Finalizar', async () => {
@@ -187,6 +239,16 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     finalizarRondaLibre.mockResolvedValueOnce({ finalizada: false, error: { code: 'P0002' } })
     const { result } = montar()
     await finalizar(result)
+    expect(contarHoyosPendientes()).toBe(0)
+    expect(leerRespaldoPendiente('ABC', 'p1')).toEqual({ 12: 6 })
+  })
+
+  it('el envío de Finalizar responde P0002 (otro la cerró): el respaldo sin subir del individual sale del banner y se guarda', async () => {
+    localStorage.setItem('golfers_score_ABC_p1', JSON.stringify({ scores: { 12: 6 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
+    rechazaA('p1', 'P0002')
+    const { result } = montar()
+    await finalizar(result)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(contarHoyosPendientes()).toBe(0)
     expect(leerRespaldoPendiente('ABC', 'p1')).toEqual({ 12: 6 })
   })
@@ -220,5 +282,58 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
+  })
+})
+
+// PR #763, vuelta 7: la cola de golpes rechazados no pisa una corrección del marcador.
+describe('golpes rechazados y correcciones del marcador', () => {
+  it('se rechaza un envío y el marcador corrige el hoyo antes de la respuesta: queda su corrección', async () => {
+    let soltar: (() => void) | undefined
+    saveRondaLibreScores.mockImplementation(async (_c, a) => {
+      if (a.jugadorId !== 'p2') return { error: null }
+      await new Promise<void>(r => { soltar = r })
+      return { error: { code: 'P0004' } }
+    })
+    const { result } = montar()
+    let envio: Promise<unknown> | undefined
+    act(() => { envio = result.current.save.saveAllScores({ p2: { 10: 5, 11: 3 } }) })
+    await waitFor(() => expect(soltar).toBeDefined())
+    act(() => { result.current.save.handleScoreChange('p2', 11, 1) })
+    soltar!()
+    await act(async () => { await envio })
+    expect(leerPendientes('ABC').p2).toEqual({ 11: 4 })
+    expect(leerRechazados('ABC').p2).toEqual({ 10: 5 })
+  })
+
+  it('el reintento de Finalizar no pisa un hoyo con un valor pendiente más nuevo', async () => {
+    apartarRechazados('ABC', 'p2', { 10: 5 })
+    localStorage.setItem('ronda_grupo_pendientes_ABC', JSON.stringify({ p2: { 10: 6 } }))
+    const { result } = montar()
+    await act(async () => { await result.current.save.saveAllScores(undefined, { reintentarRechazados: true }) })
+    const beto = saveRondaLibreScores.mock.calls.filter(c => c[1].jugadorId === 'p2')
+    expect(beto).toHaveLength(1)
+    expect((beto[0][1] as unknown as { delta: Record<string, number> }).delta).toEqual({ 10: 6 })
+  })
+
+  it('aceptado el hoyo con otro valor, el rechazado de ese hoyo se olvida', async () => {
+    apartarRechazados('ABC', 'p2', { 10: 5 })
+    const { result } = montar()
+    await act(async () => { await result.current.save.saveAllScores({ p2: { 10: 6 } }) })
+    expect(leerRechazados('ABC')).toEqual({})
+  })
+
+  it('corregir un hoyo de una tarjeta rechazada olvida el valor rechazado', () => {
+    localStorage.setItem('ronda_grupo_rechazados_ABC', JSON.stringify({ p2: { 11: 9 } }))
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p2', 11, 1) })
+    expect(leerRechazados('ABC')).toEqual({})
+  })
+
+  it('scramble: Finalizar reenvía la tarjeta rechazada del EQUIPO que sigue en la ronda', async () => {
+    localStorage.setItem('ronda_grupo_rechazados_ABC', JSON.stringify({ 'eq:e1': { 10: 4 } }))
+    const equipo = { id: 'e1', nombre: 'Los Azules', jugadorIds: ['p1', 'p2'], jugadorNombres: ['Ana', 'Beto'], scores: {} } as never
+    const { result } = montar(ronda, [equipo])
+    await act(async () => { await result.current.save.saveAllScores(undefined, { reintentarRechazados: true }) })
+    expect(saveRondaEquiposScores).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ equipoId: 'e1', delta: { 10: 4 } }))
   })
 })

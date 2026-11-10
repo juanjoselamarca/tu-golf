@@ -23,3 +23,13 @@ describe('avisoTarjetasNoGuardadas (copy de Juanjo, 10-nov-2026)', () => {
     expect(avisoTarjetasNoGuardadas(['Beto', 'Ana', 'Caro']).title).toBe('No pudimos guardar las tarjetas de Beto, Ana y Caro.')
   })
 })
+
+describe('avisoTarjetasNoGuardadas sin señal (el reenvío no tuvo respuesta)', () => {
+  const texto = (n: string[]) => { const a = avisoTarjetasNoGuardadas(n, 'sin_senal'); return a.title + ' ' + a.message }
+  it('una tarjeta: la causa es la señal, no los golpes', () => {
+    expect(texto(['Beto'])).toBe('No pudimos guardar la tarjeta de Beto por falta de señal. Vuelve a finalizar cuando tengas conexión.')
+  })
+  it('varias', () => {
+    expect(texto(['Beto', 'Ana'])).toBe('No pudimos guardar las tarjetas de Beto y Ana por falta de señal. Vuelve a finalizar cuando tengas conexión.')
+  })
+})
