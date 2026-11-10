@@ -471,6 +471,15 @@ describe('useFinalizeRonda — respaldo sin subir con la ronda cerrada', () => {
     fueraDelBannerYGuardado()
   })
 
+  it('mi tarjeta subió bien y la lectura del cierre ya la ve cerrada (sin P0002 de por medio)', async () => {
+    fetchRondaParaCierre
+      .mockResolvedValueOnce({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: COMPLETA }] })
+      .mockResolvedValueOnce({ estado: 'finalizada', jugadores: [{ id: 'p1', scores: COMPLETA }] })
+    await finalizar()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    fueraDelBannerYGuardado()
+  })
+
   it('el cierre responde P0002 (otro la cerró entre medio)', async () => {
     finalizarRondaLibre.mockResolvedValueOnce({ error: { code: 'P0002' } } as never)
     await finalizar()

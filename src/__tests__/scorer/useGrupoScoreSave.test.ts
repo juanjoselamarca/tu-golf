@@ -458,12 +458,12 @@ describe('useGrupoScoreSave — ronda borrada por su creador (P0001, PR #763)', 
   it('saveAllScores dice si la ronda quedó cerrada (Finalizar no lo confunde con falta de señal)', async () => {
     const { result } = montar()
     let estado!: string
-    await act(async () => { estado = await result.current.save.saveAllScores({ p1: { 1: 4 }, p2: { 1: 5 } }) })
+    await act(async () => { estado = (await result.current.save.saveAllScores({ p1: { 1: 4 }, p2: { 1: 5 } })).estado })
     expect(estado).toBe('ronda_abierta')
     // P0002 de un jugador y otro rechazo definitivo en el mismo envío: igual es una ronda cerrada.
     saveRondaLibreScores.mockImplementation((async (_c: unknown, a: { jugadorId: string }) =>
       ({ error: { code: a.jugadorId === 'p1' ? 'P0002' : 'P0004' } })) as never)
-    await act(async () => { estado = await result.current.save.saveAllScores({ p1: { 1: 5 }, p2: { 1: 6 } }) })
+    await act(async () => { estado = (await result.current.save.saveAllScores({ p1: { 1: 5 }, p2: { 1: 6 } })).estado })
     expect(estado).toBe('ronda_cerrada')
     expect(result.current.save.rondaCerrada).toBe(true)
   })

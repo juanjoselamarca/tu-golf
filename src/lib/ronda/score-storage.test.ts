@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda, cerrarCopiaLocalAlFinalizar } from './score-storage'
+import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda, cerrarCopiaLocalAlFinalizar, apartarRechazados, leerRechazados, confirmarRechazados, olvidarRechazado } from './score-storage'
 import { contarHoyosPendientes, leerRespaldoPendiente } from './respaldo-local'
 
 beforeEach(() => localStorage.clear())
@@ -169,3 +169,45 @@ describe('loadScorerGrupoSnapshot — snapshot corrupto', () => {
   })
 })
 
+// PR #763, vuelta 6: una tarjeta rechazada en firme sale de pendientes (sin bucle ni aviso pegado) pero sus
+// golpes quedan apartados en el teléfono hasta que suban o se corrijan; se van con la copia del grupo.
+describe('tarjetas rechazadas en firme', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('apartar saca los golpes de pendientes y los guarda aparte', () => {
+    marcarPendientes('R1', 'p2', { 10: 5, 11: 4 })
+    apartarRechazados('R1', 'p2', { 10: 5, 11: 4 })
+    expect(hayPendientes('R1')).toBe(false)
+    expect(leerRechazados('R1')).toEqual({ p2: { 10: 5, 11: 4 } })
+  })
+
+  it('corregir un hoyo olvida sólo ese valor rechazado; sin hoyos, la tarjeta deja de estar apartada', () => {
+    apartarRechazados('R1', 'p2', { 10: 5, 11: 4 })
+    olvidarRechazado('R1', 'p2', 10)
+    expect(leerRechazados('R1')).toEqual({ p2: { 11: 4 } })
+    olvidarRechazado('R1', 'p2', 11)
+    expect(leerRechazados('R1')).toEqual({})
+    olvidarRechazado('R1', 'p9', 3) // sin nada apartado: no hace nada
+    expect(leerRechazados('R1')).toEqual({})
+  })
+
+  it('confirmar quita sólo el valor exacto que el servidor aceptó', () => {
+    apartarRechazados('R1', 'p2', { 10: 5, 11: 4 })
+    confirmarRechazados('R1', 'p2', { 10: 5, 11: 6 })
+    expect(leerRechazados('R1')).toEqual({ p2: { 11: 4 } })
+  })
+
+  it('se borran con la copia del grupo al limpiar la ronda, y de ninguna otra', () => {
+    apartarRechazados('R1', 'p2', { 10: 5 })
+    apartarRechazados('R2', 'p2', { 10: 5 })
+    limpiarCopiaLocalDeRonda('R1')
+    expect(leerRechazados('R1')).toEqual({})
+    expect(leerRechazados('R2')).toEqual({ p2: { 10: 5 } })
+  })
+
+  it('cerrar la ronda al finalizar también se los lleva', () => {
+    apartarRechazados('R1', 'p2', { 10: 5 })
+    cerrarCopiaLocalAlFinalizar('R1')
+    expect(leerRechazados('R1')).toEqual({})
+  })
+})

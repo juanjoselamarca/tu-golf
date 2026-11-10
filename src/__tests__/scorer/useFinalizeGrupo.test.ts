@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useFinalizeGrupo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useFinalizeGrupo'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { claveDelRespaldo, contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
-import type { EstadoTrasEnvio } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
+import type { ResultadoEnvio } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 
 const respaldoSinSubir = () => localStorage.setItem(claveDelRespaldo('ABC', 'p1'), JSON.stringify({ scores: { 18: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
 
@@ -69,7 +69,7 @@ const rondaBase = {
   ],
 }
 
-const enviarPendientes = vi.fn(async (_override?: Record<string, Record<number, number>>): Promise<EstadoTrasEnvio> => 'ronda_abierta')
+const enviarPendientes = vi.fn(async (_override?: Record<string, Record<number, number>>, _op?: { reintentarRechazados?: boolean }): Promise<ResultadoEnvio> => ({ estado: 'ronda_abierta', rechazadas: [] }))
 type EquipoT = { id: string; scores: Record<string, number> }
 // Doble del de useTeamScoreSave: hoyos de la ronda sin score del equipo → par (mismo objeto si no falta nada).
 const completarEquiposConPar = vi.fn((eqs: EquipoT[], hoyos: readonly number[]) => eqs.map(e => {
@@ -150,7 +150,7 @@ describe('useFinalizeGrupo', () => {
     expect(result.current.scores.p1[1]).toBeUndefined()
     // Un solo envío (respalda, marca pendiente y clasifica errores en useGrupoScoreSave) con lo rellenado.
     expect(enviarPendientes).toHaveBeenCalledTimes(1)
-    expect(enviarPendientes).toHaveBeenCalledWith(result.current.scores)
+    expect(enviarPendientes).toHaveBeenCalledWith(result.current.scores, { reintentarRechazados: true })
     expect(enviarPendientes.mock.calls[0][0]?.p2[18]).toBe(5)
 
     // Historial: sólo p1 (su propia tarjeta; p2 es invitado), con id para avisar al coach.
@@ -180,7 +180,7 @@ describe('useFinalizeGrupo', () => {
     expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
     expect((guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>])[1]).toMatchObject({ userId: 'u1' })
     expect(recalcularIndiceGolfers).not.toHaveBeenCalledWith(cliente, 'u3', expect.anything())
-    expect(enviarPendientes).toHaveBeenCalledWith(expect.objectContaining({ p3: expect.objectContaining({ 10: 4 }) })) // sus golpes sí se guardan
+    expect(enviarPendientes).toHaveBeenCalledWith(expect.objectContaining({ p3: expect.objectContaining({ 10: 4 }) }), { reintentarRechazados: true }) // sus golpes sí se guardan
     expect(finalizarRondaLibre).toHaveBeenCalled()
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
   })
@@ -335,7 +335,7 @@ describe('useFinalizeGrupo', () => {
   // PR #763 vuelta 4: B cerró la ronda mientras A anotaba. Los golpes de A quedan pendientes en su
   // teléfono (P0002), pero eso no es falta de señal: A no ve "sin servidor" y su tarjeta va al historial.
   it('la ronda la cerró otro (P0002 al enviar): no avisa "sin servidor", la tarjeta va al historial y NO se vuelve a cerrar', async () => {
-    enviarPendientes.mockResolvedValueOnce('ronda_cerrada')
+    enviarPendientes.mockResolvedValueOnce({ estado: 'ronda_cerrada', rechazadas: [] })
     pendientes.hay = true
     respaldoSinSubir()
     localStorage.setItem('ronda_grupo_pendientes_ABC', JSON.stringify({ p1: { 18: 5 } }))
@@ -354,7 +354,7 @@ describe('useFinalizeGrupo', () => {
   })
 
   it('scramble con la ronda cerrada por otro (envío de equipos P0002): tampoco avisa "sin servidor"', async () => {
-    enviarPendientes.mockResolvedValueOnce('ronda_cerrada')
+    enviarPendientes.mockResolvedValueOnce({ estado: 'ronda_cerrada', rechazadas: [] })
     pendientes.hay = true
     const equipos = [{ id: 'e1', nombre: 'E1', jugadorIds: ['p1', 'p2'], scores: Object.fromEntries(back9.map(h => [String(h), PAR[h]])) }]
     localStorage.setItem('ronda_grupo_pendientes_ABC', JSON.stringify({ 'eq:e1': { 18: 5 } }))
@@ -370,7 +370,7 @@ describe('useFinalizeGrupo', () => {
   })
 
   it('la ronda se borró al enviar: no sigue (el envío ya avisó, limpió y saca al marcador)', async () => {
-    enviarPendientes.mockResolvedValueOnce('ronda_borrada')
+    enviarPendientes.mockResolvedValueOnce({ estado: 'ronda_borrada', rechazadas: [] })
     const { result } = montar()
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
@@ -424,7 +424,7 @@ describe('useFinalizeGrupo', () => {
     // Las tarjetas individuales siguen vacías: ni se rellenan ni se envían.
     expect(result.current.scores).toEqual({})
     // Lo del equipo (incluido el 18 = par) sale por los pendientes antes de cerrar; ninguna tarjeta individual.
-    expect(enviarPendientes).toHaveBeenCalledWith(undefined)
+    expect(enviarPendientes).toHaveBeenCalledWith(undefined, { reintentarRechazados: true })
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
     expect((input.scores as Record<string, number>)['18']).toBe(5)
     expect(finalizarRondaLibre).toHaveBeenCalled()
@@ -435,7 +435,7 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
     expect(completarEquiposConPar).not.toHaveBeenCalled()
-    expect(enviarPendientes).toHaveBeenCalledWith(expect.objectContaining({ p1: expect.any(Object), p2: expect.any(Object) }))
+    expect(enviarPendientes).toHaveBeenCalledWith(expect.objectContaining({ p1: expect.any(Object), p2: expect.any(Object) }), { reintentarRechazados: true })
   })
 
   it('un segundo finalizar mientras hay uno en vuelo no corre el flujo dos veces', async () => {
