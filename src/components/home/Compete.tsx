@@ -1,5 +1,6 @@
 import { HOME } from '@/content/home'
 import CTAButton from './CTAButton'
+import Eyebrow from './Eyebrow'
 
 /**
  * Sección "Compete" — torneos + leaderboard en vivo. Estático (Server Component).
@@ -23,7 +24,7 @@ export default function Compete() {
     <section className="compete">
       <div className="cinner">
         <div className="ctxt rv">
-          <span className="eyebrow"><span className="d" />{c.eyebrow}</span>
+          <Eyebrow text={c.eyebrow} />
           <h2 className="display">
             {c.titleLine1} <span className="g">{c.titleLine2}</span>
           </h2>

@@ -1,5 +1,6 @@
 import { HOME } from '@/content/home'
 import CTAButton from './CTAButton'
+import Eyebrow from './Eyebrow'
 
 /**
  * Sección "Planes" — teaser SIN precios (decisión PM: no casarse con CLP antes de
@@ -17,7 +18,7 @@ export default function Plans() {
     <section className="plans-sec">
       <div className="pinner">
         <div className="rv" style={{ textAlign: 'center', maxWidth: '50ch', margin: '0 auto' }}>
-          <span className="eyebrow"><span className="d" />{p.eyebrow}</span>
+          <Eyebrow text={p.eyebrow} />
           <h2
             className="display"
             style={{ fontWeight: 600, fontSize: 'clamp(28px,3.4vw,48px)', marginTop: 16, letterSpacing: '-0.02em', lineHeight: 1.02 }}

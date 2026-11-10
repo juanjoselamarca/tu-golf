@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { HOME } from '@/content/home'
 import PgaBroadcast from './PgaBroadcast'
 import CTAButton from './CTAButton'
+import Eyebrow from './Eyebrow'
 
 const SLIDES = ['s1', 's2', 's3', 's4'] as const
 const Arrow = () => (
@@ -33,7 +34,7 @@ export default function Hero() {
       <div className="fade" />
 
       <div className="inner">
-        <span className="eyebrow"><span className="d" />{h.eyebrow}</span>
+        <Eyebrow text={h.eyebrow} />
         <h1 className="display">
           <span className="a">{h.titleLine1}</span>
           <span className="b">{h.titleLine2}</span>

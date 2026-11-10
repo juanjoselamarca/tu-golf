@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { HOME } from '@/content/home'
+import Eyebrow from './Eyebrow'
 
 /**
  * Sección "El coach tAIger+" — 3 pasos (Registra → Encuentra tu fuga → Te da el plan).
@@ -39,7 +40,7 @@ export default function CoachSteps() {
       <div className="pinner">
         <div className="rv">
           <div style={{ textAlign: 'center', maxWidth: '52ch', margin: '0 auto' }}>
-            <span className="eyebrow"><span className="d" />{c.eyebrow}</span>
+            <Eyebrow text={c.eyebrow} />
             <h2 className="display" style={{ marginInline: 'auto' }}>
               {c.titleLine1} <span className="g">{c.titleLine2}</span>
             </h2>

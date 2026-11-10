@@ -1,4 +1,5 @@
 import { HOME } from '@/content/home'
+import Eyebrow from './Eyebrow'
 
 /**
  * Sección "Lo que necesitas" — grid 2×2, cada feature con su mini-visual.
@@ -21,7 +22,7 @@ export default function Features() {
     <section className="feats-sec">
       <div className="pinner">
         <div className="rv" style={{ textAlign: 'center', maxWidth: '50ch', margin: '0 auto 42px' }}>
-          <span className="eyebrow"><span className="d" />{f.eyebrow}</span>
+          <Eyebrow text={f.eyebrow} />
           <h2
             className="display"
             style={{ fontWeight: 600, fontSize: 'clamp(28px,3.2vw,46px)', marginTop: 16, letterSpacing: '-0.02em', lineHeight: 1.02 }}
