@@ -23,6 +23,7 @@ import { isAuthSessionMissingError } from '@supabase/supabase-js'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { PLAZO_LECTURA_INDICE_MS } from '@/lib/red/plazos'
 import { captureError } from '@/lib/error-tracking'
+import { loginUrl } from '@/lib/auth/login-url'
 import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
@@ -216,7 +217,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
               Tu sesión expiró. Vuelve a ingresar para ver qué rondas cuentan.<br />
               <Link
-                href={`/login?next=${encodeURIComponent(window.location.pathname)}`}
+                href={loginUrl(window.location.pathname)}
                 style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '0 12px', color: 'var(--brand-on-bg)', fontWeight: 600 }}
               >
                 Ingresar →

@@ -95,11 +95,12 @@ describe('IndiceBreakdownModal', () => {
   it('sin sesión: lo dice, ofrece ingresar (44 px) y no muestra la hoja vacía', async () => {
     usuario = null
     errorAuth = new AuthSessionMissingError()
+    window.history.pushState({}, '', '/perfil')
     render(<IndiceBreakdownModal isOpen onClose={() => {}} />)
     await waitFor(() => expect(document.body.textContent).toContain('Tu sesión expiró'))
     expect(document.body.textContent).not.toContain('Aún no tienes rondas válidas')
     const link = screen.getByRole('link', { name: 'Ingresar →' })
-    expect(link.getAttribute('href')).toBe('/login?next=%2F')
+    expect(link.getAttribute('href')).toBe('/login?next=%2Fperfil')
     expect(link.style.minHeight).toBe('44px')
     expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
   })
