@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { calcularCPI, type ResultadoCPI, type RondaCPI } from '@/golf/stats/cpi'
-import { indexWindow, INDEX_WINDOW_COLUMNS, type IndexWindowRound } from '@/golf/core/index-window'
+import { fetchRondasIndice } from '@/lib/data/rondas-indice'
 import { captureError } from '@/lib/error-tracking'
 
 export interface Profile {
@@ -117,23 +116,13 @@ export async function countTournaments(supabase: SupabaseClient, userId: string)
 /**
  * FUENTE ÚNICA de las rondas que lee el CPI. La usan /perfil (`fetchCpi`),
  * /api/cpi, /coach y el caché que escribe import-confirm, así que las cuatro
- * superficies muestran el mismo número. Son las rondas que promedia
- * el índice (`indexWindow`), en su orden: sin las tarjetas FedeGolf (espejo
- * score-only, `OR_EXCLUDE_FEDEGOLF`) ni las que el usuario excluyó. El diferencial es
- * el persistido (el del índice, con el tope WHS 3.1, #545). Sin `limit`: cortaría
- * antes del filtro de elegibilidad. El `order` queda: si PostgREST corta en su máximo
- * de filas (1000), se quedan las más recientes. `null` si la lectura falla.
+ * superficies muestran el mismo número. Son las rondas que promedia el índice
+ * (`fetchRondasIndice`), en su orden. El diferencial es el persistido (el del índice,
+ * con el tope WHS 3.1, #545). `null` si la lectura falla.
  */
 export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): Promise<RondaCPI[] | null> {
-  const { data, error } = await supabase
-    .from('historical_rounds')
-    .select(INDEX_WINDOW_COLUMNS)
-    .eq('user_id', userId)
-    .or(OR_EXCLUDE_FEDEGOLF)
-    .eq('excluded_from_handicap', false)
-    .order('played_at', { ascending: false })
-  if (error) return null
-  return indexWindow((data ?? []) as IndexWindowRound[]).map(r => ({ played_at: r.played_at, diferencial: r.diferencial }))
+  const rondas = await fetchRondasIndice(supabase, userId)
+  return rondas ? rondas.map(r => ({ played_at: r.played_at, diferencial: r.diferencial })) : null
 }
 
 // CPI calculado server-side: misma lógica que /api/cpi pero SIN round-trip HTTP
