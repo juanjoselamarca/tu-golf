@@ -1,7 +1,9 @@
 'use client'
 
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
-import { formatearHandicap } from '@/golf/handicap-index-range'
+import { formatearHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
+import { useCampoHandicap } from '@/hooks/useCampoHandicap'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
 
@@ -18,6 +20,9 @@ interface Props {
 
 /** La tarjeta del creador: su índice y su tee. Vive sola para poder ir dentro de un equipo. */
 export function TarjetaDelCreador(props: Props) {
+  // Texto local: "+2" y "18,5" se pueden escribir, y un plus se precarga "+2" (antes type=number decía "-2"
+  // y el "HCP +2" de al lado lo contradecía).
+  const campo = useCampoHandicap(props.indice, props.onIndice)
   return (
     <div style={{
       padding: '12px 14px', borderRadius: '12px',
@@ -40,11 +45,14 @@ export function TarjetaDelCreador(props: Props) {
         </label>
         <input
           id="indice-creador"
-          type="number"
-          step="0.1"
+          type="text"
+          inputMode="text"
+          autoComplete="off"
           placeholder="Ej: 10.5"
-          value={props.indice ?? ''}
-          onChange={e => props.onIndice(e.target.value ? Number(e.target.value) : null)}
+          value={campo.texto}
+          onChange={e => campo.onTexto(e.target.value)}
+          aria-invalid={campo.invalido}
+          aria-describedby={campo.invalido ? 'indice-creador-error' : undefined}
           style={{ ...input, ...inputNumerico }}
         />
         <SelectorDeTeeDelJugador
@@ -59,6 +67,7 @@ export function TarjetaDelCreador(props: Props) {
           </span>
         )}
       </div>
+      {campo.invalido && <AvisoCampo id="indice-creador-error">{MENSAJE_HANDICAP_NO_ES_NUMERO}</AvisoCampo>}
     </div>
   )
 }
