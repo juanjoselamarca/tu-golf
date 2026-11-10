@@ -10,6 +10,7 @@ import {
   formatearIndice,
   parsearHandicap,
   PLACEHOLDER_CAMPO_HANDICAP,
+  REGLA_INVITADO,
 } from '@/golf/handicap-index-range'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
@@ -76,7 +77,7 @@ export function InscribirPlayerForm({
   // resto de la app ("+2" plus, "18,5" con coma); lo que no es número se avisa, no se pierde.
   // El botón no se apaga por el hándicap: a medio escribir ("+", "-") se avisa en el campo al tocarlo, con foco.
   // El rango depende de lo que guarda el torneo: lo valida quien inscribe.
-  const campoGuestHcp = useAvisoIndiceAlEnviar(guestHcp, 'guest-hcp', { opcional: true, rango: null })
+  const campoGuestHcp = useAvisoIndiceAlEnviar(guestHcp, 'guest-hcp', REGLA_INVITADO)
   const guestReady = guestName.trim() !== ''
 
   // Batch state

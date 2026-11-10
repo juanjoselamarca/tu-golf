@@ -206,6 +206,10 @@ export interface ReglaCampoHandicap {
   rango: 'indice' | null
 }
 
+/** Hándicap de un invitado (por el link del torneo o inscrito por el organizador): opcional, y el rango lo
+ *  valida el servidor o quien inscribe, porque depende de lo que guarda el torneo. */
+export const REGLA_INVITADO: ReglaCampoHandicap = { opcional: true, rango: null }
+
 /**
  * Aviso EN VIVO del campo, o null. Texto que no es número → mensajeHandicapNoEsNumero; con rango 'indice', un
  * número fuera de rango → MENSAJE_INDICE_FUERA_DE_RANGO. Vacío o a medio escribir ("+") no avisa mientras se

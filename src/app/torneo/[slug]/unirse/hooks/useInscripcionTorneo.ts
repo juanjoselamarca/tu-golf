@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { campoHandicapSePuedeEnviar, leerCampoHandicap, mensajeHandicapNoEsNumero, type ReglaCampoHandicap } from '@/golf/handicap-index-range'
+import { campoHandicapSePuedeEnviar, leerCampoHandicap, mensajeHandicapNoEsNumero, REGLA_INVITADO } from '@/golf/handicap-index-range'
+import { MENSAJE_NOMBRE_INVITADO_CORTO, nombreDeInvitadoValido } from '@/lib/inscripcion/nombre-invitado'
 import { useRouter } from 'next/navigation'
 import type {
   JoinInfoTournament,
@@ -27,16 +28,6 @@ const aRespuestaJson = ({ res, json }: { res: Response; json: unknown }): Respue
  * Estado y acciones de la inscripción a un torneo por link: carga de join-info,
  * inscripción con cuenta e inscripción como invitado (redirige al scorer).
  */
-/** Hándicap del invitado: opcional; el rango lo valida el servidor (depende de lo que guarda el torneo). */
-export const REGLA_INVITADO: ReglaCampoHandicap = { opcional: true, rango: null }
-
-export const MENSAJE_NOMBRE_INVITADO_CORTO = 'Ingresa tu nombre (al menos 2 caracteres).'
-
-/** El nombre del invitado necesita al menos 2 letras sin contar espacios. */
-export function nombreDeInvitadoValido(nombre: string): boolean {
-  return nombre.trim().length >= 2
-}
-
 export function useInscripcionTorneo(slug: string) {
   const router = useRouter()
 
