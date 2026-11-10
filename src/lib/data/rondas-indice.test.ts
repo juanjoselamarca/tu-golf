@@ -50,7 +50,11 @@ describe('fetchRondasIndice', () => {
     expect(s.llamadas.some(l => l.startsWith('limit:'))).toBe(false)
     expect(s.llamadas).toContain('eq:["user_id","u1"]')
     expect(s.llamadas).toContain('eq:["excluded_from_handicap",false]')
-    expect(s.llamadas.filter(l => l.startsWith('order:')).map(l => JSON.parse(l.slice(6))[0])).toEqual(['played_at', 'created_at', 'id'])
+    expect(s.llamadas.filter(l => l.startsWith('order:')).map(l => JSON.parse(l.slice(6)))).toEqual([
+      ['played_at', { ascending: false }],
+      ['created_at', { ascending: false, nullsFirst: false }],
+      ['id', { ascending: false }],
+    ])
   })
 
   it('tope en la ventana del índice (20)', async () => {

@@ -23,21 +23,13 @@ import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
 import { rondasParaActivar, textoRondasParaActivar } from '@/lib/indice-golfers'
-import { indexWindow, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
+import { fetchRondasIndice, type RondaIndice } from '@/lib/data/rondas-indice'
 import { formatearIndice } from '@/golf/handicap-index-range'
 
-interface RoundForBreakdown {
-  id: string
-  course_name: string
-  played_at: string
-  created_at: string | null
-  total_gross: number | null
-  diferencial: number | null
-  holes_played: number | null
-  slope_rating: number | null
-  course_rating: number | null
-  excluded_from_handicap: boolean
-}
+type RoundForBreakdown = RondaIndice<'course_name'>
+
+/** Lectura: `cargando` → rondas, o por qué no hay (sin sesión / falló la red). Nunca "sin rondas" por un error. */
+type Lectura = { estado: 'cargando' } | { estado: 'ok'; rondas: RoundForBreakdown[] } | { estado: 'sin-sesion' } | { estado: 'error' }
 
 interface IndiceBreakdownModalProps {
   isOpen: boolean
@@ -54,8 +46,10 @@ function formatDateShort(d: string): string {
 }
 
 export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdownModalProps) {
-  const [rounds, setRounds] = useState<RoundForBreakdown[] | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [lectura, setLectura] = useState<Lectura>({ estado: 'cargando' })
+  const [intento, setIntento] = useState(0)
+  const loading = lectura.estado === 'cargando'
+  const rounds = lectura.estado === 'ok' ? lectura.rondas : null
 
   // Inyectar keyframes globales una sola vez. Patrón portable que evita
   // el problema de styled-jsx con inline style animation + ESLint Vercel.
@@ -81,23 +75,17 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
-    setLoading(true)
+    setLectura({ estado: 'cargando' })
     ;(async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { if (!cancelled) setLoading(false); return }
-      const { data } = await supabase
-        .from('historical_rounds')
-        .select(`${INDEX_WINDOW_COLUMNS}, course_name`)
-        .eq('user_id', user.id)
-        .order('played_at', { ascending: false })
-      if (!cancelled) {
-        setRounds(indexWindow((data as RoundForBreakdown[]) ?? []))
-        setLoading(false)
-      }
+      if (!user) { if (!cancelled) setLectura({ estado: 'sin-sesion' }); return }
+      // Misma lectura que el CPI y Mi Golf (predicado del RPC). null = falló: no es "sin rondas".
+      const rondas = await fetchRondasIndice(supabase, user.id, ['course_name'] as const)
+      if (!cancelled) setLectura(rondas ? { estado: 'ok', rondas } : { estado: 'error' })
     })()
     return () => { cancelled = true }
-  }, [isOpen])
+  }, [isOpen, intento])
 
   const tableRow = rounds ? whsTableRow(rounds.length) : null
 
@@ -196,6 +184,25 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             </p>
           )}
 
+          {lectura.estado === 'error' && (
+            <div role="alert" style={{ textAlign: 'center', color: 'var(--text-2)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
+              <p style={{ margin: 0 }}>No pudimos cargar tus rondas. Revisa tu conexión.</p>
+              <button
+                type="button"
+                onClick={() => setIntento(n => n + 1)}
+                style={{ minHeight: '44px', padding: '0 20px', marginTop: '12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px', fontFamily: 'inherit', cursor: 'pointer' }}
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {lectura.estado === 'sin-sesion' && (
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
+              Tu sesión expiró. Vuelve a ingresar para ver qué rondas cuentan.
+            </p>
+          )}
+
           {!loading && rounds && rounds.length === 0 && (
             <div style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
               {/* Las tarjetas FedeGolf llegan excluidas del índice: no son un camino para activarlo. */}
@@ -227,7 +234,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
               {rounds.map((r, i) => (
                 <BreakdownRow
                   key={r.id}
-                  titulo={r.course_name}
+                  titulo={r.course_name ?? 'Cancha desconocida'}
                   meta={`${formatDateShort(r.played_at)} · ${r.holes_played ?? 18}h · ${r.total_gross ?? '—'}`}
                   valor={r.diferencial != null ? r.diferencial.toFixed(1) : '—'}
                   cuenta={usedIds.has(r.id)}

@@ -3,8 +3,9 @@
  * `indexWindow` (src/golf/core/index-window.ts), gemela del RPC `calcular_indice_golfers`
  * (diferencial, slope y CR, no excluida, gross posible; las 20 más recientes, mismo orden).
  *
- * La usan el CPI (`fetchRondasCPI`: /perfil, /api/cpi, /coach, import-confirm) y Mi Golf
- * (`.length` → barra "Calibración del índice"), así que lo que cuentan es lo que el RPC promedia.
+ * La usan el CPI (`fetchRondasCPI`: /perfil, /api/cpi, /coach, import-confirm), Mi Golf
+ * (`.length` → barra "Calibración del índice") y el modal "¿Qué rondas cuentan?" (con `course_name`),
+ * así que lo que muestran es lo que el RPC promedia.
  *
  * Las tarjetas FedeGolf no se filtran aparte: el RPC tampoco lo hace, y llegan con
  * `excluded_from_handicap = TRUE` (10-nov-2026: 0 de 32 sin excluir en prod).
@@ -16,10 +17,21 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { indexWindow, INDEX_WINDOW_COLUMNS, type IndexWindowRound } from '@/golf/core/index-window'
 import { captureError } from '@/lib/error-tracking'
 
-export async function fetchRondasIndice(supabase: SupabaseClient, userId: string): Promise<IndexWindowRound[] | null> {
+/** Columnas que un lector puede pedir además de las del índice, con su tipo. */
+export interface ColumnasExtraRondaIndice {
+  course_name: string | null
+}
+
+export type RondaIndice<K extends keyof ColumnasExtraRondaIndice = never> = IndexWindowRound & Pick<ColumnasExtraRondaIndice, K>
+
+export async function fetchRondasIndice<K extends keyof ColumnasExtraRondaIndice = never>(
+  supabase: SupabaseClient,
+  userId: string,
+  columnasExtra: readonly K[] = [],
+): Promise<RondaIndice<K>[] | null> {
   const { data, error } = await supabase
     .from('historical_rounds')
-    .select(INDEX_WINDOW_COLUMNS)
+    .select([INDEX_WINDOW_COLUMNS, ...columnasExtra].join(', '))
     .eq('user_id', userId)
     .not('diferencial', 'is', null)
     .not('slope_rating', 'is', null)
@@ -32,5 +44,5 @@ export async function fetchRondasIndice(supabase: SupabaseClient, userId: string
     void captureError(error, { context: 'historical-rounds.rondas-indice', level: 'warning', meta: { userId } })
     return null
   }
-  return indexWindow((data ?? []) as unknown as IndexWindowRound[])
+  return indexWindow((data ?? []) as unknown as RondaIndice<K>[])
 }
