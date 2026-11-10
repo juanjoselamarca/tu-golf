@@ -13,6 +13,7 @@
 
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
+import type { IndicesDelJugador } from '@/lib/ronda/aviso-indices-ronda'
 import { calcularNivel, diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { hoyosConGolpes, mitadJugada } from '@/golf/core/hoyos-jugados'
 import { ratingsPublicadosDe9 } from '@/golf/core/course-handicap'
@@ -254,11 +255,17 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
   return { status: 'insertada', tarjeta, id: null }
 }
 
-/** Índice actual del perfil (para el toast "tu índice bajó/subió"). */
-export async function fetchIndiceDeUsuario(supabase: Client, userId: string): Promise<number | null> {
-  const { data } = await supabase.from('profiles').select('indice').eq('id', userId).single()
-  const v = data?.indice as number | null | undefined
-  return v ?? null
+/**
+ * Los dos índices del perfil (para el aviso al finalizar): el de la Federación y
+ * el Golfers+. Null si la lectura falló: el aviso no inventa un número.
+ */
+export async function fetchIndicesDeUsuario(supabase: Client, userId: string): Promise<IndicesDelJugador | null> {
+  const { data, error } = await supabase.from('profiles').select('indice, indice_golfers').eq('id', userId).single()
+  if (error || !data) return null
+  return {
+    federacion: (data.indice as number | null | undefined) ?? null,
+    golfers: (data.indice_golfers as number | null | undefined) ?? null,
+  }
 }
 
 /** SQLSTATE de Postgres: `insufficient_privilege`. Determinista: no se reintenta. */
