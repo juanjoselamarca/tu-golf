@@ -1,6 +1,7 @@
 'use client'
 
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
+import { nombreOJugadorN } from '@/lib/nombre-de-jugador'
 import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { usePlayerSearch, type SearchResult } from '../hooks/usePlayerSearch'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico, inputQueBloquea } from './estilos'
@@ -12,6 +13,8 @@ import { AvisoCampo } from '@/components/ui/AvisoCampo'
 interface Props {
   rival: RivalDelCreador
   indiceEnLista: number
+  /** Número del jugador en pantalla (`numerosEnPantalla`): con él se nombra si no tiene nombre. */
+  numeroEnPantalla: number
   tees: CourseTee[]
   teeGlobal: string
   golpes: number | null
@@ -22,7 +25,7 @@ interface Props {
 }
 
 /** Un rival del creador: tipo de cuenta, nombre, índice, tee y teléfono. */
-export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, onCampo, onQuitar, onBloqueo }: Props) {
+export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, teeGlobal, golpes, onCampo, onQuitar, onBloqueo }: Props) {
   const idNombre = `rival-${indiceEnLista}-nombre`
   const idIndice = `rival-${indiceEnLista}-indice`
   // Texto local (#773): con type=number, "+1.5" quedaba en '' → 0 y un plus se veía "-2". El índice que llega
@@ -88,7 +91,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
       <div ref={containerRef} style={{ position: 'relative' }}>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
           <label htmlFor={idNombre} className="sr-only" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-            Nombre del jugador {indiceEnLista + 1}
+            Nombre del jugador {numeroEnPantalla}
           </label>
           <input
             id={idNombre}
@@ -102,7 +105,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           <button
             type="button"
             onClick={onQuitar}
-            aria-label={`Quitar a ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
+            aria-label={`Quitar a ${nombreOJugadorN(rival.nombre, numeroEnPantalla)}`}
             style={{
               background: 'transparent', border: `1px solid ${colores.borde}`,
               color: colores.peligro, borderRadius: '10px', padding: '8px 12px',
@@ -219,7 +222,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           tees={tees}
           valor={rival.tees ?? teeGlobal}
           onElegir={t => onCampo('tees', t)}
-          etiquetaAccesible={`Tee de ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
+          etiquetaAccesible={`Tee de ${nombreOJugadorN(rival.nombre, numeroEnPantalla)}`}
         />
         {golpes != null && (
           <span style={hcpDeJugador}>
@@ -233,7 +236,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
         <input
           type="tel"
           placeholder="Teléfono (WhatsApp, opcional)"
-          aria-label={`Teléfono de ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
+          aria-label={`Teléfono de ${nombreOJugadorN(rival.nombre, numeroEnPantalla)}`}
           value={rival.telefono}
           onChange={e => onCampo('telefono', e.target.value)}
           style={{ ...input, width: '100%', marginTop: '6px' }}

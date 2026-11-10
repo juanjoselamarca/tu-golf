@@ -138,8 +138,8 @@ test.describe('Scorer — Asistente /ronda-libre/nueva', () => {
     // Un solo compañero en blanco: Revisar espera a que tenga nombre.
     const revisar = page.getByRole('button', { name: /revisar/i })
     await expect(revisar).toBeDisabled()
-    await expect(page.getByLabel(/nombre del jugador 1/i)).toHaveCount(1)
-    await page.getByLabel(/nombre del jugador 1/i).fill('Compañero E2E')
+    await expect(page.getByLabel(/nombre del jugador 2/i)).toHaveCount(1)
+    await page.getByLabel(/nombre del jugador 2/i).fill('Compañero E2E')
     await expect(revisar).toBeEnabled()
 
     await revisar.click()
@@ -157,14 +157,14 @@ test.describe('Scorer — Asistente /ronda-libre/nueva', () => {
 
     await llegarAFormato(page)
     await elegirFormatoYSeguir(page, /^scramble\b/i)
-    await page.getByLabel(/nombre del jugador 1/i).fill('Compañero E2E')
+    await page.getByLabel(/nombre del jugador 2/i).fill('Compañero E2E')
 
     await page.getByRole('button', { name: /atrás/i }).click()
     await elegirFormatoYSeguir(page, /^stroke play\b/i)
 
     await expect(page.getByText('¿Quién anota?')).toBeVisible()
     await expect(page.getByRole('button', { name: /yo anoto por todos/i })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByLabel(/nombre del jugador 1/i)).toHaveValue('Compañero E2E')
+    await expect(page.getByLabel(/nombre del jugador 2/i)).toHaveValue('Compañero E2E')
     await expect(page.getByLabel(/nombre del equipo/i), 'Stroke Play no arma equipos').toHaveCount(0)
     await expect(page.getByRole('button', { name: /revisar/i })).toBeEnabled()
 

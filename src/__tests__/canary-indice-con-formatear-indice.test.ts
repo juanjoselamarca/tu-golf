@@ -386,7 +386,7 @@ describe('índice y hándicap: siempre con su formateador', () => {
       '<p>{indexOf}</p>',
       'Necesitas {MIN_DIFERENCIALES_INDICE} rondas',
       "{avisoHcpPct && <p>{avisoHcpPct}</p>}",
-      'Nombre del jugador {indiceEnLista + 1}',
+      'Nombre del jugador {numeroEnPantalla}',
       // vuelta 7: claves y ids que contienen "indice" no son un rótulo ni un valor
       '`fedegolf-sync-indice:${user.id}`',
       "update(`indice:${userId}`)",

@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { useState } from 'react'
 import { PasoJugadores } from './PasoJugadores'
-import { ID_DEL_CREADOR, type RivalDelCreador } from '../hooks/useFormularioDeRonda'
+import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from '../hooks/useFormularioDeRonda'
 
 vi.mock('../hooks/usePlayerSearch', () => ({
   usePlayerSearch: () => ({ results: [], searching: false, open: false, dismiss: vi.fn(), containerRef: { current: null } }),
@@ -13,10 +13,12 @@ vi.mock('../hooks/usePlayerSearch', () => ({
 
 const RIVAL: RivalDelCreador = { id: 'r1', tipo: 'invitado', nombre: 'Pedro', telefono: '', handicap: 10, tees: null, profileId: null }
 
-function Paso({ onSiguiente, equipos = false, rivalesIniciales = [RIVAL] }: {
+function Paso({ onSiguiente, equipos = false, rivalesIniciales = [RIVAL], repartoDeEquipos }: {
   onSiguiente: () => void
   equipos?: boolean
   rivalesIniciales?: RivalDelCreador[]
+  /** Equipos fijos; si no, uno solo con todos. */
+  repartoDeEquipos?: EquipoDeLaRonda[]
 }) {
   const [rivales, setRivales] = useState<RivalDelCreador[]>(rivalesIniciales)
   const [indice, setIndice] = useState<number | null>(12)
@@ -31,7 +33,7 @@ function Paso({ onSiguiente, equipos = false, rivalesIniciales = [RIVAL] }: {
       onCampoRival={(idx, campo, valor) => setRivales(rs => rs.map((r, i) => (i === idx ? { ...r, [campo]: valor } : r)))}
       onQuitarRival={idx => setRivales(rs => rs.filter((_, i) => i !== idx))}
       onAgregarRival={vi.fn()}
-      equipos={equipos ? [{ nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, ...rivales.map(r => r.id)] }] : []}
+      equipos={equipos ? repartoDeEquipos ?? [{ nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, ...rivales.map(r => r.id)] }] : []}
       onAgregarEquipo={vi.fn()} onQuitarEquipo={vi.fn()} onRenombrarEquipo={vi.fn()} onMoverAlEquipo={vi.fn()}
       golpesDe={i => (i == null ? null : Math.round(i))}
       rondasRecientes={[]} problema={null}
@@ -110,5 +112,41 @@ describe('PasoJugadores — un índice inválido o a medio escribir no deja avan
     expect(revisar().disabled).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: /Quitar/ }))
     expect(revisar().disabled).toBe(false)
+  })
+  describe('un solo número por jugador: su posición en pantalla', () => {
+    const SIN_NOMBRE = (id: string): RivalDelCreador => ({ ...RIVAL, id, nombre: '' })
+
+    it('best ball con r0 en el Equipo 2 y r1 en el Equipo 1: el aviso, la etiqueta y "Quitar a…" dicen el mismo número', () => {
+      render(
+        <Paso onSiguiente={vi.fn()} equipos rivalesIniciales={[SIN_NOMBRE('r0'), SIN_NOMBRE('r1')]}
+          repartoDeEquipos={[
+            { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1'] },
+            { nombre: 'Equipo 2', miembros: ['r0'] },
+          ]} />,
+      )
+      // En pantalla: Ana (1), r1 (2) en el Equipo 1; r0 (3) en el Equipo 2.
+      expect(screen.getByLabelText('Nombre del jugador 3').id).toBe('rival-0-nombre')
+      expect(screen.getByLabelText('Nombre del jugador 2').id).toBe('rival-1-nombre')
+      fireEvent.change(indiceRival(), { target: { value: '+' } })
+      expect(revisar().disabled).toBe(true)
+      expect(aviso().textContent).toMatch(/^Revisa el índice de Jugador 3:/)
+      expect(screen.getByRole('button', { name: 'Quitar a Jugador 3' })).toBeTruthy()
+      expect(screen.getByRole('textbox', { name: 'Teléfono de Jugador 3' })).toBeTruthy()
+    })
+
+    it('con el creador en el Equipo 2, el primero que bloquea es el de arriba en pantalla, no el creador', () => {
+      render(
+        <Paso onSiguiente={vi.fn()} equipos rivalesIniciales={[SIN_NOMBRE('r0')]}
+          repartoDeEquipos={[
+            { nombre: 'Equipo 1', miembros: ['r0'] },
+            { nombre: 'Equipo 2', miembros: [ID_DEL_CREADOR] },
+          ]} />,
+      )
+      expect(screen.getByLabelText('Nombre del jugador 1').id).toBe('rival-0-nombre')
+      fireEvent.change(screen.getByLabelText('Índice', { selector: '#indice-creador' }), { target: { value: '+' } })
+      expect(aviso().textContent).toMatch(/^Revisa tu índice:/)
+      fireEvent.change(indiceRival(), { target: { value: '+' } })
+      expect(aviso().textContent).toMatch(/^Revisa el índice de Jugador 1:/)
+    })
   })
 })

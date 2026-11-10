@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { numerosEnPantalla } from '../hooks/equipos-del-formulario'
 import { nombreOJugadorN } from '@/lib/nombre-de-jugador'
 import { mensajeIndiceQueBloquea } from '@/golf/handicap-index-range'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
@@ -71,14 +72,15 @@ export function PasoJugadores(props: Props) {
       else otro.delete(id)
       return otro
     })
-  // El aviso nombra al primero que bloquea, en el orden de la pantalla: el creador y después los rivales.
-  const posRivalQueBloquea = props.rivales.findIndex(r => camposQueBloquean.has(r.id))
-  const avisoDeIndice = camposQueBloquean.has(ID_DEL_CREADOR)
-    ? mensajeIndiceQueBloquea(null)
-    : posRivalQueBloquea !== -1
-      // El creador es la tarjeta 1: el rival i es la tarjeta i + 2 en pantalla.
-      ? mensajeIndiceQueBloquea(nombreOJugadorN(props.rivales[posRivalQueBloquea].nombre, posRivalQueBloquea + 2))
-      : null
+  // Un solo número por jugador: su posición en pantalla (con equipos, el orden de los equipos). El aviso
+  // nombra al primero que bloquea en ese orden, con el mismo número que su tarjeta.
+  const numeroEnPantalla = numerosEnPantalla(props.esFormatoDeEquipo ? props.equipos : null, props.rivales.map(r => r.id))
+  const numeroDe = (id: string) => numeroEnPantalla.get(id) ?? 0
+  const primeroQueBloquea = [...numeroEnPantalla.keys()].find(id => camposQueBloquean.has(id))
+  const rivalQueBloquea = props.rivales.find(r => r.id === primeroQueBloquea)
+  const avisoDeIndice = primeroQueBloquea == null
+    ? null
+    : mensajeIndiceQueBloquea(rivalQueBloquea ? nombreOJugadorN(rivalQueBloquea.nombre, numeroDe(rivalQueBloquea.id)) : null)
   const noAvanza = avisoDeIndice != null || props.problema != null
   const detalleDelBoton = avisoDeIndice ?? props.problema?.detalle ?? null
 
@@ -155,6 +157,7 @@ export function PasoJugadores(props: Props) {
             onRenombrarEquipo={props.onRenombrarEquipo}
             onMoverAlEquipo={props.onMoverAlEquipo}
             onBloqueoDe={onBloqueoDe}
+            numeroDe={numeroDe}
           />
         ) : (
           <>
@@ -165,6 +168,7 @@ export function PasoJugadores(props: Props) {
                 key={rival.id}
                 rival={rival}
                 indiceEnLista={idx}
+                numeroEnPantalla={numeroDe(rival.id)}
                 tees={props.tees}
                 teeGlobal={props.teeGlobal}
                 golpes={props.golpesDe(rival.handicap, rival.tees ?? props.teeGlobal)}

@@ -15,7 +15,7 @@ const BASE: RivalDelCreador = { id: 'r1', tipo: 'invitado', nombre: 'Pedro', tel
 function Tarjeta({ inicial, onHandicap }: { inicial: number | null; onHandicap: (v: number | null) => void }) {
   const [rival, setRival] = useState<RivalDelCreador>({ ...BASE, handicap: inicial })
   return (
-    <TarjetaDeRival rival={rival} indiceEnLista={0} tees={[]} teeGlobal="" golpes={rival.handicap}
+    <TarjetaDeRival rival={rival} indiceEnLista={0} numeroEnPantalla={2} tees={[]} teeGlobal="" golpes={rival.handicap}
       onCampo={(campo, valor) => {
         setRival(r => ({ ...r, [campo]: valor }))
         if (campo === 'handicap') onHandicap(valor as number | null)

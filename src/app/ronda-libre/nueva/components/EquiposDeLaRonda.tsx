@@ -1,6 +1,7 @@
 'use client'
 
 import type { FormatoJuego } from '@/golf/core/rules'
+import { nombreOJugadorN } from '@/lib/nombre-de-jugador'
 import {
   EQUIPOS_PARA_COMPETIR,
   puedeSumarCompanero,
@@ -32,6 +33,8 @@ interface Props {
   onMoverAlEquipo: (id: string) => void
   /** Callback de bloqueo del índice de cada jugador, por id (ver PasoJugadores). */
   onBloqueoDe: (id: string) => (bloquea: boolean) => void
+  /** Número del jugador en pantalla (`numerosEnPantalla`), el mismo que usa el aviso del índice. */
+  numeroDe: (id: string) => number
 }
 
 const botonPunteado = {
@@ -60,7 +63,7 @@ export function EquiposDeLaRonda(props: Props) {
   const nombreDe = (id: string) => {
     if (id === ID_DEL_CREADOR) return props.creador.nombre.trim() || 'ti'
     const idx = posicionDeRival.get(id)
-    return (idx != null && props.rivales[idx]?.nombre.trim()) || `el jugador ${(idx ?? 0) + 1}`
+    return nombreOJugadorN(idx != null ? props.rivales[idx]?.nombre : null, props.numeroDe(id))
   }
   // Qué dice el botón de corregir el reparto: mover al otro equipo o cambiar de lugar con alguien.
   const textoDelMovimiento = (id: string) => {
@@ -125,6 +128,7 @@ export function EquiposDeLaRonda(props: Props) {
                 <TarjetaDeRival
                   rival={rival}
                   indiceEnLista={idx}
+                  numeroEnPantalla={props.numeroDe(id)}
                   tees={props.tees}
                   teeGlobal={props.teeGlobal}
                   golpes={props.golpesDe(rival.handicap, rival.tees ?? props.teeGlobal)}

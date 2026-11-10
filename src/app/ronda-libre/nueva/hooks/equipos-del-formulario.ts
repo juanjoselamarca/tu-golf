@@ -11,6 +11,22 @@ export interface EquipoDeLaRonda {
   miembros: string[]
 }
 
+/**
+ * Número de cada jugador EN PANTALLA (partiendo en 1), en el orden en que el paso de jugadores dibuja las
+ * tarjetas: con equipos, los integrantes de cada equipo en orden (como `EquiposDeLaRonda`); sin equipos, el
+ * creador y después los rivales. Es el único número con que se nombra a un jugador sin nombre ("Jugador 3")
+ * en ese paso: el aviso del índice, la etiqueta de la tarjeta y "Cambiar con…" dicen lo mismo.
+ * Un rival que no está en ningún equipo (no debería pasar) va al final, para que nunca quede sin número.
+ */
+export function numerosEnPantalla(
+  equipos: readonly EquipoDeLaRonda[] | null,
+  idsDeRivales: readonly string[],
+): Map<string, number> {
+  const orden = equipos ? equipos.flatMap(e => e.miembros) : [ID_DEL_CREADOR]
+  for (const id of idsDeRivales) if (!orden.includes(id)) orden.push(id)
+  return new Map(orden.map((id, i) => [id, i + 1]))
+}
+
 export function nombreDeEquipo(posicion: number): string {
   return `Equipo ${posicion + 1}`
 }
