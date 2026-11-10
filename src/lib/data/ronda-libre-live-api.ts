@@ -8,6 +8,7 @@ import type { LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 import { TIMEOUT_EN_VIVO_MS } from '@/lib/red/plazos'
 import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
+import { redondearHandicap } from '@/golf/handicap-index-range'
 
 type RespuestaOk = Extract<LoadRondaResult, { status: 'ok' }>
 
@@ -198,6 +199,6 @@ export function crearHcpAMostrar(
     const display = displayHcpMap[id]
     if (display != null) return display
     const h = j?.handicap ?? null
-    return h != null ? Math.round(h) : null
+    return h != null ? redondearHandicap(h) : null
   }
 }

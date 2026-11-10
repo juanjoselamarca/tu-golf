@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 interface UserOption {
   id: string
@@ -211,7 +212,7 @@ export default function PlaygroundPage() {
             <option value="">— sin seleccionar —</option>
             {users.map(u => (
               <option key={u.id} value={u.id}>
-                {u.name ?? '(sin nombre)'} · {u.email ?? 'sin email'} {typeof u.indice === 'number' ? `· hcp ${u.indice}` : ''}
+                {u.name ?? '(sin nombre)'} · {u.email ?? 'sin email'} {typeof u.indice === 'number' ? `· hcp ${formatearIndice(u.indice)}` : ''}
               </option>
             ))}
           </select>

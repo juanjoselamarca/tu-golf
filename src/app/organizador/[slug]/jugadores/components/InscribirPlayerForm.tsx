@@ -197,7 +197,7 @@ export function InscribirPlayerForm({
                     <div style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 500 }}>{p.name}</div>
                     <div style={{ color: 'var(--text-2)', fontSize: '12px' }}>
                       {p.email}
-                      {p.indice != null && <span> · Indice {p.indice}</span>}
+                      {p.indice != null && <span> · Índice {formatearIndice(Number(p.indice))}</span>}
                     </div>
                   </button>
                 ))}

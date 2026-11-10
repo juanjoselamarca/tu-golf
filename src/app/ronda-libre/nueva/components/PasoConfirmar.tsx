@@ -7,6 +7,7 @@ import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
 import type { EquipoDeLaRonda } from '../hooks/useFormularioDeRonda'
 import { nombreVisibleDeTee } from './SelectorTees'
 import { colores, primario, secundario, tarjeta } from './estilos'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 interface Props {
   cancha: string
@@ -91,7 +92,7 @@ export function PasoConfirmar(props: Props) {
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {j.nombre}
-          {j.indice != null ? ` · idx ${j.indice}` : ''}
+          {j.indice != null ? ` · idx ${formatearIndice(j.indice)}` : ''}
           {/* Los golpes que va a repartir la ronda. En una vuelta de 9
               no son los mismos que el índice sugiere, y verlos acá
               evita la sorpresa en el hoyo 1. */}

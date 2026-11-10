@@ -12,6 +12,7 @@ import { ChevronDown } from '@/components/icons'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { AvisoHcpPct } from '@/components/AvisoHcpPct'
+import { formatearHandicap, redondearHandicap } from '@/golf/handicap-index-range'
 
 /* ── Types ────────────────────────────────────────────────── */
 export interface GroupData {
@@ -84,7 +85,7 @@ const T = {
  */
 function hcpAMostrar(p: Player): number | null {
   if (p.hcp == null) return null
-  return Math.round(p.hcpDisplay ?? p.hcp)
+  return redondearHandicap(p.hcpDisplay ?? p.hcp)
 }
 
 function scoreColor(n: number, esPuntos: boolean) {
@@ -371,7 +372,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                         color: T.muted,
                         textAlign: 'center',
                       }}>
-                        {hcpAMostrar(p) ?? ''}
+                        {hcpAMostrar(p) != null ? formatearHandicap(hcpAMostrar(p)) : ''}
                       </span>
                     )}
 
@@ -547,7 +548,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                           minWidth: 0,
                         }}>
                           {p.name}
-                          {hcpAMostrar(p) != null && <span style={{ color: T.muted, fontWeight: 400 }}> ({hcpAMostrar(p)})</span>}
+                          {hcpAMostrar(p) != null && <span style={{ color: T.muted, fontWeight: 400 }}> ({formatearHandicap(hcpAMostrar(p))})</span>}
                         </span>
 
                         {/* Score + THRU */}
@@ -620,7 +621,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                     color: T.muted,
                   }}>
                     {p.name}
-                    {hcpAMostrar(p) != null && <span style={{ color: T.faint }}> ({hcpAMostrar(p)})</span>}
+                    {hcpAMostrar(p) != null && <span style={{ color: T.faint }}> ({formatearHandicap(hcpAMostrar(p))})</span>}
                   </span>
                 </div>
               ))}

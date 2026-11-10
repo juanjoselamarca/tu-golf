@@ -20,6 +20,7 @@ import {
   primaryScoreColor,
   secondaryScoreText,
 } from './score-display'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 
 /* ── Types ─────────────────────────────────────────────── */
 interface TVPlayer {
@@ -276,7 +277,7 @@ export default function TVBoard() {
                     )}
                   </div>
                   <div style={{ textAlign: 'center', fontSize: '18px', color: 'var(--text-2)' }}>
-                    {p.handicap}
+                    {p.handicap != null ? formatearHandicap(p.handicap) : ''}
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '16px', color: 'var(--text-2)' }}>
                     {/* Torneos de 1 ronda: Thru exacto (PGA). Multi-ronda: acumulado hasta "F" (seguimiento en tracking). */}

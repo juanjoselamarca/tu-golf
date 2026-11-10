@@ -7,6 +7,7 @@
 import type { LivePlayer } from '../types'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-format'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 
 /** Celda sin dato. Em dash, el mismo que usa `formatThru`. */
 const EMPTY = '—'
@@ -202,7 +203,7 @@ export default function IndividualLeaderboard({
                   <td style={{ ...tdStyle, color: 'var(--text-2)' }}>{p.category_name ?? EMPTY}</td>
                 )}
                 <td style={tdNumStyle}>{played ? p.gross_total : EMPTY}</td>
-                {!soloBruto && <td style={tdNumStyle}>{p.handicap_index ?? EMPTY}</td>}
+                {!soloBruto && <td style={tdNumStyle}>{p.handicap_index != null ? formatearHandicap(p.handicap_index) : EMPTY}</td>}
                 {isStableford ? (
                   <td style={{ ...tdNumStyle, fontWeight: 600, fontSize: isLeader ? '16px' : undefined }}>
                     {played ? (p.points_total ?? 0) : EMPTY}

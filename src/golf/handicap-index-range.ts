@@ -93,7 +93,18 @@ export function formatearHandicap(v: number | string | null | undefined): string
  * Para avisos que comparan dos índices a la décima.
  */
 export function formatearIndice(v: number): string {
-  return v < 0 ? `+${(-v).toFixed(1)}` : v.toFixed(1)
+  const decima = Math.abs(v).toFixed(1)
+  // Un plus que redondea a cero (−0.04) es "0.0", no "+0.0".
+  return v < 0 && decima !== '0.0' ? `+${decima}` : decima
+}
+
+/**
+ * Hándicap a golpes enteros, simétrico en los plus: −1.5 → −2 (el plus 1.5 es "+2"), igual que 1.5 → 2.
+ * `Math.round(-1.5)` da −1. Nunca devuelve −0.
+ */
+export function redondearHandicap(v: number): number {
+  const r = Math.sign(v) * Math.round(Math.abs(v))
+  return r === 0 ? 0 : r
 }
 
 /**
