@@ -108,6 +108,21 @@ export async function fetchProfile(supabase: SupabaseClient, userId: string): Pr
   return data as Profile
 }
 
+/** Guarda nombre e índice federado del perfil. Devuelve las columnas actualizadas, o null si falló. */
+export async function actualizarNombreEIndice(
+  supabase: SupabaseClient,
+  userId: string,
+  cambios: { name: string; indice: number | null },
+): Promise<Pick<Profile, 'id' | 'name' | 'indice' | 'avatar_url'> | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .update(cambios)
+    .eq('id', userId)
+    .select('id, name, indice, avatar_url')
+    .single()
+  return (data as Pick<Profile, 'id' | 'name' | 'indice' | 'avatar_url'> | null) ?? null
+}
+
 export async function countTournaments(supabase: SupabaseClient, userId: string): Promise<number> {
   const { count } = await supabase.from('players').select('id', { count: 'exact', head: true }).eq('user_id', userId)
   return count ?? 0

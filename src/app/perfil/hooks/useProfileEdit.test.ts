@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useProfileEdit } from './useProfileEdit'
 import type { Profile } from '@/lib/data/perfil'
@@ -10,10 +10,12 @@ const baseProfile: Profile = {
   subscription_tier: 'free',
 }
 
+const update = vi.hoisted(() => vi.fn())
+
 vi.mock('@/lib/supabase', () => ({
   createClient: () => ({
     from: () => ({
-      update: () => ({
+      update: (payload: unknown) => (update(payload), {
         eq: () => ({
           select: () => ({
             // El update solo devuelve estas 4 columnas (como en prod).
@@ -36,5 +38,56 @@ describe('useProfileEdit', () => {
     expect(merged.indice).toBe(11.0)              // viene del update
     expect(merged.indice_golfers).toBe(10.1)      // CONSERVADO del profile previo
     expect(merged.nivel).toBe(3)                  // CONSERVADO del profile previo
+  })
+})
+
+// "Índice Federación": parseFloat("+2") guardaba 2 (un plus pasaba a hándicap 2), "abc" guardaba null sin
+// avisar, y un plus guardado se precargaba "-2".
+describe('useProfileEdit — índice federado', () => {
+  beforeEach(() => update.mockClear())
+
+  const guardar = async (texto: string, indice: number | null = 12.3) => {
+    const { result } = renderHook(() => useProfileEdit({ ...baseProfile, indice }, vi.fn()))
+    act(() => { result.current.setEditIndice(texto) })
+    await act(async () => { await result.current.save() })
+    return result
+  }
+
+  it('un plus guardado (−2) se precarga "+2"', () => {
+    const { result } = renderHook(() => useProfileEdit({ ...baseProfile, indice: -2 }, vi.fn()))
+    expect(result.current.editIndice).toBe('+2')
+  })
+
+  it.each([['+2', -2], ['18,5', 18.5], ['-1.5', -1.5], ['', null]])('guardar "%s" escribe %s', async (texto, indice) => {
+    const result = await guardar(texto)
+    expect(update).toHaveBeenCalledWith({ name: 'Ana', indice })
+    expect(result.current.indiceAviso).toBeNull()
+  })
+
+  it('"abc" no escribe y avisa', async () => {
+    const result = await guardar('abc')
+    expect(update).not.toHaveBeenCalled()
+    expect(result.current.indiceAviso).toBe('Escribe un número: 12.4, o +2 si es plus.')
+    expect(result.current.indiceGuardable).toBe(false)
+  })
+
+  it('fuera del rango WHS ("60") no escribe y avisa el rango', async () => {
+    const result = await guardar('60')
+    expect(update).not.toHaveBeenCalled()
+    expect(result.current.indiceAviso).toMatch(/^Revisa el índice de handicap/)
+  })
+
+  it('"+" a medio escribir no escribe ni avisa', async () => {
+    const result = await guardar('+')
+    expect(update).not.toHaveBeenCalled()
+    expect(result.current.indiceAviso).toBeNull()
+    expect(result.current.indiceGuardable).toBe(false)
+  })
+
+  it('cancelar vuelve a la precarga con "+"', () => {
+    const { result } = renderHook(() => useProfileEdit({ ...baseProfile, indice: -2 }, vi.fn()))
+    act(() => { result.current.setEditIndice('abc') })
+    act(() => { result.current.cancel() })
+    expect(result.current.editIndice).toBe('+2')
   })
 })
