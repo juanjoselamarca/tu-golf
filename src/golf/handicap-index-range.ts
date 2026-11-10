@@ -89,6 +89,14 @@ export function formatearHandicap(v: number | string | null | undefined): string
 }
 
 /**
+ * Un índice con UN decimal fijo ("18.0", no "18"), los plus con "+" (−1 → "+1.0").
+ * Para avisos que comparan dos índices a la décima.
+ */
+export function formatearIndice(v: number): string {
+  return v < 0 ? `+${(-v).toFixed(1)}` : v.toFixed(1)
+}
+
+/**
  * Lo que tipea el usuario → número. Acepta el plus con signo ("+2" → −2, la
  * notación del golf), el negativo con que lo guarda la app ("-2" → −2) y la
  * coma decimal ("18,5"). Devuelve NaN si no es un número: el caller decide el
