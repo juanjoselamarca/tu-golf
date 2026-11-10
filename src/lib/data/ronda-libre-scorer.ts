@@ -26,7 +26,7 @@ import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { conTimeout } from '@/lib/red/con-timeout'
-import { fetchRondaEquipos, courseHandicapsDeRonda } from './ronda-libre'
+import { fetchEquiposDeRondas, courseHandicapsDeRonda } from './ronda-libre'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 import { crearHcpAMostrar, type HcpAMostrar } from './ronda-libre-live-api'
 import type { HoleData, RondaLibre } from '@/types/ronda'
@@ -212,14 +212,16 @@ export interface EquipoDelScorer extends Equipo {
 
 /**
  * Equipos de la ronda (sólo formatos por equipo; `[]` en el resto). Fuente
- * única `fetchRondaEquipos`; acá sólo se resuelven los nombres de los miembros.
+ * única `fetchEquiposDeRondas`; acá sólo se resuelven los nombres de los miembros.
+ * Un error de lectura se LANZA y la carga termina en `sin_conexion`: con `[]` el
+ * scorer creía que la ronda no tiene equipos y Finalizar decía "Tarjeta completa".
  */
 export async function fetchEquiposDelScorer(
   supabase: Client,
   ronda: Pick<RondaLibre, 'id' | 'formato_juego' | 'ronda_libre_jugadores'>,
 ): Promise<EquipoDelScorer[]> {
   if (!isTeamFormat(ronda.formato_juego)) return []
-  const equipos = await fetchRondaEquipos(supabase, ronda.id)
+  const equipos = (await fetchEquiposDeRondas(supabase, [ronda.id])).get(ronda.id) ?? []
   return equipos.map(e => ({
     ...e,
     jugadorNombres: e.jugadorIds.map(id => ronda.ronda_libre_jugadores.find(j => j.id === id)?.nombre || '?'),

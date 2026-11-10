@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { calcularCPI, validarRonda, type ResultadoCPI } from '@/golf/stats/cpi'
-import { calcularNivel } from '@/lib/indice-golfers'
+import { actualizarNivelDelJugador } from '@/lib/data/ronda-libre-finalizar'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportJob, ImportRoundData, TarjetasNoGuardadas } from '@/lib/import-types'
 import { importRound, metadataDelImport, tarjetaDelImport, type ImportSource } from '@/lib/import-round'
@@ -215,23 +215,7 @@ export async function recalcularTrasImportar(
 
   supabase.rpc('calcular_indice_golfers', { p_user_id: userId }).then(() => {})
 
-  const hace90Dias = new Date()
-  hace90Dias.setDate(hace90Dias.getDate() - 90)
-  supabase
-    .from('historical_rounds')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('played_at', hace90Dias.toISOString())
-    .then(({ count }: { count: number | null }) => {
-      const nuevoNivel = calcularNivel(count ?? 0)
-      const expira = new Date()
-      expira.setDate(expira.getDate() + 60)
-      supabase.from('profiles').update({
-        nivel: nuevoNivel,
-        nivel_updated_at: new Date().toISOString(),
-        nivel_expires_at: expira.toISOString(),
-      }).eq('id', userId).then(() => {})
-    })
+  void actualizarNivelDelJugador(supabase, userId).catch(() => {})
 
   generarInsights(supabase, userId, importadas).catch(() => {})
 

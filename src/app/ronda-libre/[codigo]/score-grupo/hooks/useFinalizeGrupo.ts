@@ -1,17 +1,18 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { saveRondaLibreScores, finalizarRondaLibre, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
+import { saveRondaLibreScores, finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
-import { descartarRondaLibre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
+import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import {
   fetchEstadoRondaLibre,
+  RONDA_NO_EXISTE,
   guardarTarjetaEnHistorial,
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
@@ -29,13 +30,12 @@ import type { MatchResult } from '@/golf/formats/match-play'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { RondaLibre } from '@/types/ronda'
 
-/** Cuánto queda armado el "¿Finalizar?" antes de volver solo a "Finalizar ronda". */
-export const CONFIRM_FINALIZE_MS = 5000
-
 export interface FinalizeGrupo {
   finalizeRound: () => Promise<void>
   finalizing: boolean
+  /** Hoja de confirmación abierta: queda así hasta que la persona decide. */
   confirmFinalize: boolean
+  setConfirmFinalize: React.Dispatch<React.SetStateAction<boolean>>
   discardRound: () => Promise<void>
   discarding: boolean
   showDiscardConfirm: boolean
@@ -53,7 +53,6 @@ export interface FinalizeGrupo {
 export function useFinalizeGrupo(input: {
   ronda: RondaLibre | null
   codigo: string
-  currentHole: number
   /** Hoyos de la ronda en orden de juego — la misma lista que navega la página. */
   hoyos: readonly number[]
   scores: Record<string, Record<number, number>>
@@ -72,20 +71,13 @@ export function useFinalizeGrupo(input: {
   /** Envía todo lo pendiente (jugadores y equipos) — `useGrupoScoreSave.saveAllScores`. */
   enviarPendientes: () => Promise<void>
 }): FinalizeGrupo {
-  const { ronda, codigo, currentHole, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes } = input
+  const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes } = input
   const router = useRouter()
 
   const [finalizing, setFinalizing] = useState(false)
   const [confirmFinalize, setConfirmFinalize] = useState(false)
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discarding, setDiscarding] = useState(false)
-  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  /* ── Reset confirmation when changing holes ── */
-  useEffect(() => {
-    setConfirmFinalize(false)
-    if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
-  }, [currentHole])
 
   const discardRound = useCallback(async () => {
     if (!ronda || discarding) return
@@ -107,12 +99,10 @@ export function useFinalizeGrupo(input: {
     if (!confirmFinalize) {
       setConfirmFinalize(true)
       haptic([20, 50, 20])
-      // Auto-reset after 5 seconds
-      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current)
-      confirmTimeoutRef.current = setTimeout(() => setConfirmFinalize(false), CONFIRM_FINALIZE_MS)
       return
     }
-    if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
+    // Se cierra la hoja: si no hay servidor, el aviso pide volver a tocar Finalizar.
+    setConfirmFinalize(false)
     setFinalizing(true)
     haptic(30)
 
@@ -124,6 +114,9 @@ export function useFinalizeGrupo(input: {
       setFinalizing(false)
     }
     if (!authUserId) { avisarSinServidor(); return }
+    // Scramble / foursome siempre tienen equipos: si no están, no cargaron. Cerrar
+    // dejaría el historial sin hoyos.
+    if (isSharedBallFormat(ronda.formato_juego) && teamEquipos.length === 0) { avisarSinServidor(); return }
     let estado: string | null
     try {
       estado = await conTimeout(fetchEstadoRondaLibre(supabase, codigo), PLAZO_CARGA_SCORER_MS)
@@ -131,6 +124,16 @@ export function useFinalizeGrupo(input: {
       avisarSinServidor()
       return
     }
+    if (estado === RONDA_NO_EXISTE) {
+      addToast({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.', type: 'info' })
+      limpiarCopiaLocalDelGrupo(codigo)
+      setFinalizing(false)
+      router.push('/dashboard')
+      return
+    }
+    // Sin estado no hay respuesta del servidor: más abajo se rellenan hoyos con par,
+    // y eso no se hace a ciegas.
+    if (estado === null) { avisarSinServidor(); return }
     if (estado === 'finalizada') {
       addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
       setFinalizing(false)
@@ -205,9 +208,9 @@ export function useFinalizeGrupo(input: {
         if (guardado.status === 'sin_hoyos') continue // no jugó ningún hoyo
         if (guardado.status === 'duplicada') {
           // Ya guardada (el jugador la finalizó desde su teléfono, o reintento):
-          // queda la primera. Se registra para poder auditar si difieren.
+          // queda la primera. Se registra para poder auditar si difieren. El índice se
+          // recalcula igual: si el primer intento venció el plazo, nadie lo recalculó.
           void captureError(new Error('historical_rounds duplicada'), { context: 'score_grupo_finalize_historical.duplicada', level: 'info', meta: { codigo, jugadorId: j.id } })
-          continue
         }
         if (guardado.status === 'error') {
           // Sólo puede fallar la tarjeta PROPIA (las ajenas ya no se insertan).
@@ -235,22 +238,21 @@ export function useFinalizeGrupo(input: {
 
     // Finalizar ronda
     const { error: updateErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: ronda.ronda_libre_jugadores[0]?.id })
-    if (updateErr?.code === ERRCODE_SIN_RESPUESTA) {
-      // El cierre no llegó (o no sabemos si llegó): no se navega a "terminada" en falso.
-      // Reintentar es seguro: el historial es idempotente y el cierre devuelve P0002 si ya cerró.
+    if (updateErr && !esRechazoDelCierre(updateErr)) {
+      // Sin una respuesta firme (sin red, plazo vencido, 5xx) no sabemos si cerró: no se
+      // navega a "terminada" en falso. Reintentar es seguro: el historial es idempotente
+      // y el cierre devuelve P0002 si ya cerró.
+      captureError(updateErr, { context: 'score_grupo_finalize_update_estado', level: 'warning' })
       avisarSinServidor()
       return
     }
     if (!updateErr) limpiarCopiaLocalDelGrupo(codigo)
     if (updateErr) {
-      // No se reintenta acá: las filas de historical_rounds ya se crearon arriba
-      // (idempotentes por ux_historical_rounds_ronda_libre_jugador, con o sin
-      // course_id). La ronda queda en_curso hasta el cierre automático; cierre
-      // transaccional = follow-up en REORDENAMIENTO_TRACKING.
+      // Respuesta firme del servidor (ya cerrada, sin permiso): no hay nada que reintentar.
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
     }
     router.push(`/ronda-libre/${codigo}?finished=true`)
   }
 
-  return { finalizeRound, finalizing, confirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm }
+  return { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm }
 }

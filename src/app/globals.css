@@ -165,7 +165,7 @@
   --score-eagle-bg:  rgba(11,107,166,0.15);
   --score-eagle-fg:  #1d4ed8;
   --score-birdie-bg: rgba(20,179,217,0.15);
-  --score-birdie-fg: #0e7490;
+  --score-birdie-fg: #0e6f8a; /* 4.80:1 sobre --score-birdie-bg compositado en --bg (#0e7490 daba 4.49) */
   --score-bogey-bg:  rgba(196,153,42,0.18);
   --score-bogey-fg:  #92400e;
   --score-double-bg: rgba(220,59,46,0.15);

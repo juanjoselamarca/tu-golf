@@ -20,8 +20,12 @@ import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
 import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
+import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
+import { conTimeout } from '@/lib/red/con-timeout'
+import { borrarRespaldo } from '@/hooks/useScoreSync'
 import {
   fetchRondaParaCierre,
+  PLAZO_GUARDAR_TARJETA_MS,
   RONDA_NO_EXISTE,
   avisarAlCoachRondaNueva,
   fetchIndiceDeUsuario,
@@ -37,10 +41,24 @@ import { armarTarjetaHistorica, completarHoyosSinMarcarConPar, hoyosSinMarcar } 
 import { hoyosSinTerminarDeJugador, matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
-import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
+import { descartarRondaLibre, esRechazoDelCierre } from '@/lib/data/ronda-libre-cierre'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION } from '@/components/ronda/finalizar-copy'
+import { MS_ANTES_DE_ARMAR } from '@/components/ronda/ConfirmarFinalizarHoja'
 import type { ResultadoGuardado } from './useScoreSave'
 import type { HoleData, RondaLibre } from '@/types/ronda'
+
+/** Con plazo: con la base colgada la lectura no termina y el botón quedaba en "Finalizando...". */
+function leerRondaParaCierre(supabase: ReturnType<typeof createClient>, codigo: string) {
+  return conTimeout(fetchRondaParaCierre(supabase, codigo), PLAZO_CARGA_SCORER_MS).catch(() => null)
+}
+
+function limpiarCopiaLocal(codigo: string, ronda: Pick<RondaLibre, 'ronda_libre_jugadores'>) {
+  try {
+    // Las dos copias: la tarjeta y el respaldo sin sincronizar (si quedara, el banner
+    // "Sincronizando…" seguiría en todas las pantallas sin ronda donde subirlo).
+    for (const j of ronda.ronda_libre_jugadores) { lsClear(codigo, j.id); borrarRespaldo(codigo, j.id) }
+  } catch { /* no bloquear */ }
+}
 
 interface UseFinalizeRondaOptions {
   ronda: RondaLibre | null
@@ -60,6 +78,8 @@ interface UseFinalizeRondaOptions {
    * play no se finaliza (el match y los hoyos a rellenar dependen del handicap).
    */
   netoNoDisponible?: boolean
+  /** Cuenta de quien anota, ya resuelta al cargar: preguntarla acá iría a la red justo al cerrar. */
+  authUserId: string | null
   /** Guardado inmediato y esperado (sin debounce): la tarjeta tiene que estar en la base antes de cerrar. */
   guardarAhora: (jugadorId: string, holeScores: Record<number, number>) => Promise<ResultadoGuardado>
   /** Avisa al guardado que Finalizar corre: un "Ronda finalizada" de otro guardado no avisa ni redirige. */
@@ -88,7 +108,7 @@ export interface UseFinalizeRondaResult {
 
 export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRondaResult {
   const {
-    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, netoNoDisponible = false,
+    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, authUserId, netoNoDisponible = false,
     guardarAhora, marcarFinalizando, setScores, setHasUnsaved, setHistoricalRoundId,
     onDiscardSuccess,
   } = opts
@@ -102,23 +122,24 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   // rápidos (o un reintento con mala señal) no deben correr el flujo dos veces.
   const finalizandoRef = useRef(false)
   const [finalizando, setFinalizando] = useState(false)
+  // Cuándo se armó "Descartar": un doble toque no puede borrar la ronda (es irreversible).
+  const descarteArmadoEn = useRef(0)
 
   const discardRound = async () => {
     if (!ronda || discarding) return
     if (!confirmDiscard) {
+      descarteArmadoEn.current = Date.now()
       setConfirmDiscard(true)
       haptic([20, 40, 20])
       setTimeout(() => setConfirmDiscard(false), 5000)
       return
     }
+    if (Date.now() - descarteArmadoEn.current < MS_ANTES_DE_ARMAR) return
     setDiscarding(true)
     haptic(30)
     const { error } = await descartarRondaLibre(createClient(), codigo)
     if (error) { setDiscarding(false); setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
-    // Limpia localStorage para esta ronda
-    try {
-      for (const j of ronda.ronda_libre_jugadores) lsClear(codigo, j.id)
-    } catch { /* no bloquear */ }
+    limpiarCopiaLocal(codigo, ronda)
     addToast({ title: 'Ronda descartada', type: 'info' })
     onDiscardSuccess?.()
   }
@@ -161,7 +182,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     // par hoyos no jugados, también en el estado local y en localStorage. Se avisa y
     // "Finalizar" queda disponible para reintentar, sin haber tocado nada.
     const supabase = createClient()
-    const fresca = await fetchRondaParaCierre(supabase, codigo)
+    const fresca = await leerRondaParaCierre(supabase, codigo)
     if (!fresca) {
       void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.tarjetas-frescas', level: 'warning', meta: { codigo } })
       addToast({ title: 'Sin conexión', message: 'No pudimos leer la ronda. Vuelve a finalizar en un momento.', type: 'error' })
@@ -169,6 +190,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     }
     if (fresca.estado === RONDA_NO_EXISTE) {
       addToast({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.', type: 'info' })
+      limpiarCopiaLocal(codigo, ronda)
+      onDiscardSuccess?.()
       return
     }
     const yaFinalizada = fresca.estado === 'finalizada'
@@ -231,8 +254,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         return
       }
     }
-    const { data: { user: authUser } } = await supabase.auth.getUser()
-    if (!yaFinalizada) await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
+    if (!yaFinalizada) void trackEvent(supabase, authUserId, 'ronda_completada', { codigo })
 
     // Save to historical_rounds — posicional en orden de juego (ver tarjeta-historica).
     // holes_played = hoyos REALMENTE jugados (no el config de la ronda).
@@ -250,7 +272,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     // con el scorer de grupo). La de otra cuenta la guarda su dueño desde la ronda
     // terminada ("Guardar en mi historial"); la de un invitado no es de nadie con
     // historial (antes entraba al historial de quien anotaba y movía su índice).
-    const historicalUserId = esMiTarjeta(activePlayer, authUser?.id) ? activePlayer.user_id : null
+    const historicalUserId = esMiTarjeta(activePlayer, authUserId) ? activePlayer.user_id : null
     let historialFallo = false
     // La tarjeta tal como quedó en el historial (con los hoyos estimados) para el modal final.
     let tarjetaGuardada = tarjeta
@@ -283,7 +305,11 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         historialFallo = true
         throw new Error('historial-no-guardado')
       }
-      // Duplicate entry (unique constraint): silently continue — round already saved
+      // Ya estaba guardada (reintento, u otro dispositivo): queda la primera. Se
+      // registra para poder auditar si difieren.
+      if (guardado.status === 'duplicada') {
+        void captureError(new Error('historical_rounds duplicada'), { context: 'finalize-ronda.historial.duplicada', level: 'info', meta: { codigo, jugadorId: activeJugadorId } })
+      }
       if (guardado.status === 'insertada' && guardado.id) {
         setHistoricalRoundId(guardado.id)
         // Cerebro v2: el coach aprende de la ronda (plan-outcome). No bloquea.
@@ -291,14 +317,15 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       }
 
       // ── Task 2.8: capturar índice ANTES del recálculo ──
-      const indiceBefore = await fetchIndiceDeUsuario(supabase, historicalUserId)
+      // El índice no bloquea el cierre: cada paso tiene plazo y, vencido, sigue.
+      const indiceBefore = await conTimeout(fetchIndiceDeUsuario(supabase, historicalUserId), PLAZO_CARGA_SCORER_MS).catch(() => null)
 
       // Recalcular Indice Golfers+ con retry exponencial (no bloquea la finalización)
-      const rpcSucceeded = await recalcularIndiceGolfers(supabase, historicalUserId, { reintentos: 3 })
+      const rpcSucceeded = await conTimeout(recalcularIndiceGolfers(supabase, historicalUserId, { reintentos: 3 }), PLAZO_GUARDAR_TARJETA_MS).catch(() => false)
 
       // ── Task 2.8: capturar índice DESPUÉS y mostrar toast ──
       if (rpcSucceeded) {
-        const indiceAfter = await fetchIndiceDeUsuario(supabase, historicalUserId)
+        const indiceAfter = await conTimeout(fetchIndiceDeUsuario(supabase, historicalUserId), PLAZO_CARGA_SCORER_MS).catch(() => null)
 
         if (indiceBefore != null && indiceAfter != null && indiceBefore !== indiceAfter) {
           const direction = indiceAfter < indiceBefore ? 'bajó' : 'subió'
@@ -325,7 +352,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       void actualizarNivelDelJugador(supabase, historicalUserId).catch(() => {})
 
       // Detectar patrones del dueno de la sesion (tAIger+ patterns es del usuario logged-in)
-      if (authUser?.id) {
+      if (authUserId) {
         fetch('/api/taiger/patterns', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
           .then(() => {}).catch(() => {})
       }
@@ -337,10 +364,14 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
 
     // Check if ALL players have completed all holes -> finalize round
     // Guard: verificar que la ronda no fue finalizada por otro jugador simultaneamente
-    const freshRonda = yaFinalizada ? { estado: 'finalizada', jugadores: [] } : await fetchRondaParaCierre(supabase, codigo)
+    const freshRonda = yaFinalizada ? { estado: 'finalizada', jugadores: [] } : await leerRondaParaCierre(supabase, codigo)
     if (!freshRonda) {
       // Lectura fallida: NO se cierra la ronda para todos (`[].every` daba true).
+      // Se avisa y se sale: si seguía a la pantalla final, la ronda quedaba abierta sin
+      // que nadie lo supiera. Reintentar es seguro: el historial es idempotente.
       void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.cierre', level: 'warning', meta: { codigo } })
+      addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
+      return
     } else if (freshRonda.estado === 'finalizada') {
       // Otro jugador ya finalizo — no duplicar
       setRoundDone(true)
@@ -356,6 +387,13 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         // RPC: cierra solo si sigue en_curso (sin carrera), valida quién puede y,
         // si ESTA llamada la cerró, manda el "Resultado final" a los seguidores.
         const { error: finErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: activeJugadorId ?? undefined })
+        // Sin una respuesta firme (sin red, plazo vencido, 5xx) no sabemos si cerró: no se
+        // pasa a "terminada" en falso. Reintentar es seguro: devuelve P0002 si ya había cerrado.
+        if (finErr && !esRechazoDelCierre(finErr)) {
+          void captureError(finErr, { context: 'finalize-ronda.finalizar_ronda_libre', level: 'warning', meta: { codigo } })
+          addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
+          return
+        }
         if (finErr) void captureError(finErr, { context: 'finalize-ronda.finalizar_ronda_libre', meta: { codigo } })
       }
     }

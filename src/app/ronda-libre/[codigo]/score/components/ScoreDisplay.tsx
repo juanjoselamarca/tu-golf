@@ -1,6 +1,7 @@
 'use client'
 
-import { getChipStyle, getChipLabel } from '@/lib/ronda/helpers'
+import { getChipLabel } from '@/lib/ronda/helpers'
+import { scoreChipStyle } from '@/lib/score-tokens'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 
 interface ScoreDisplayProps {
@@ -67,7 +68,7 @@ export function ScoreDisplay({
         <div style={{
           marginTop: '8px', padding: '4px 16px', borderRadius: '20px',
           fontSize: '13px', fontWeight: 500, letterSpacing: '0.01em',
-          ...getChipStyle(score, par, true),
+          ...scoreChipStyle(score, par),
         }}>{getChipLabel(score, par)}</div>
       )}
 

@@ -25,14 +25,14 @@ const equipos: Array<{ id: string; nombre: string; handicap_equipo: number | nul
 
 const montar = (formato: string, modo: string, currentHole: number, eqs = equipos) => renderHook(() => useGrupoScoreboard({
   ronda: { holes: 9, modo_juego: modo, formato_juego: formato } as never,
-  jugadores, scores: {}, parMap, holeDataMap, playerHcp, equipos: eqs, ordenHoyos: orden, currentHole, isLastHole: currentHole === 9,
+  jugadores, scores: {}, parMap, holeDataMap, playerHcp, equipos: eqs, ordenHoyos: orden, currentHole, isLastHole: currentHole === 9, matchResult: null,
 })).result.current
 
 describe('useGrupoScoreboard — bola compartida (#602)', () => {
   it('THRU y hoyos faltantes salen de los equipos', () => {
     const b = montar('scramble', 'neto', 6)
     expect(b.maxThru).toBe(5)
-    expect(b.totalMissingScores).toBe(4 + 6) // e1 le faltan 6-9, e2 4-9
+    expect(b.hoyosPorMarcar).toBe(6) // e1 le faltan 6-9, e2 4-9: cada hoyo se cuenta una vez
     expect(b.hoyoCompleto(3)).toBe(true)
     expect(b.hoyoCompleto(4)).toBe(false) // e2 no lo anotó
   })
@@ -60,10 +60,10 @@ describe('useGrupoScoreboard — bola compartida (#602)', () => {
   it('formato individual: sigue con las tarjetas de los jugadores', () => {
     const b = renderHook(() => useGrupoScoreboard({
       ronda: { holes: 9, modo_juego: 'neto', formato_juego: 'stroke_play' } as never,
-      jugadores, scores: { p1: { 1: 4, 2: 4 } }, parMap, holeDataMap, playerHcp, equipos: [], ordenHoyos: orden, currentHole: 6, isLastHole: false,
+      jugadores, scores: { p1: { 1: 4, 2: 4 } }, parMap, holeDataMap, playerHcp, equipos: [], ordenHoyos: orden, matchResult: null, currentHole: 6, isLastHole: false,
     })).result.current
     expect(b.maxThru).toBe(2)
-    expect(b.totalMissingScores).toBe(7 + 9 * 3)
+    expect(b.hoyosPorMarcar).toBe(9) // todos: al menos un jugador no anotó ninguno
     expect(b.maxStrokesOnHole).toBe(3) // playerHcp ya es el CH que puntúa en la ronda: 30 en 9 hoyos = 3 por hoyo
     expect(b.totalesDeEquipo('e1')).toBeNull()
   })

@@ -87,7 +87,8 @@ que nunca finalizó. Investigación: memoria `project_cristian_ross_investigacio
 ## PR B — scorer de grupo
 
 - `useFinalizeGrupo.ts` / `useFinalizeRonda.ts`: hoja de confirmación fija (Cancelar / Finalizar).
-- `useRondaScoreData.ts`: con la tarjeta completa abrir en el último hoyo + aviso permanente.
+- `hoyoParaRetomar` (fuente única, la usan `useRondaScoreData.ts` y `hoyoInicial`): con la tarjeta completa abrir en el
+  último hoyo + aviso permanente.
 - `trackPageView` en `/score-grupo`.
 - e2e: `score-grupo-finalize-missing.spec.ts`, `scorer-finalizar-ultimo-hoyo.spec.ts`.
 

@@ -33,9 +33,9 @@ vi.mock('@/lib/data/ronda-libre-scores', () => ({
   ERRCODE_SIN_RESPUESTA: 'SIN_RESPUESTA',
 }))
 const descartarRondaLibre = vi.fn(async () => ({ error: null as string | null }))
-vi.mock('@/lib/data/ronda-libre-cierre', () => ({
+vi.mock('@/lib/data/ronda-libre-cierre', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data/ronda-libre-cierre')>()),
   descartarRondaLibre: (...a: unknown[]) => descartarRondaLibre(...(a as [])),
-  RONDA_ERRCODE: { NOT_FOUND: 'P0001', FINALIZED: 'P0002', FORBIDDEN: 'P0003', INVALID_DELTA: 'P0004' },
 }))
 
 const fetchEstadoRondaLibre = vi.fn(async () => 'en_curso' as string | null)
@@ -44,6 +44,7 @@ const recalcularIndiceGolfers = vi.fn(async () => true)
 const actualizarNivelDelJugador = vi.fn(async () => {})
 const avisarAlCoachRondaNueva = vi.fn()
 vi.mock('@/lib/data/ronda-libre-finalizar', () => ({
+  RONDA_NO_EXISTE: 'no_existe',
   fetchEstadoRondaLibre: (...a: unknown[]) => fetchEstadoRondaLibre(...(a as [])),
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...(a as [])),
   recalcularIndiceGolfers: (...a: unknown[]) => recalcularIndiceGolfers(...(a as [])),
@@ -73,9 +74,8 @@ function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record
   const r = opts.ronda ?? rondaBase
   return renderHook(() => {
     const [scores, setScores] = useState(opts.scores ?? { p1: { 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5 }, p2: { 10: 5 } })
-    const [currentHole] = useState(18)
     const fin = useFinalizeGrupo({
-      ronda: r as never, codigo: 'ABC', currentHole, hoyos: back9, scores, setScores, parMap: PAR,
+      ronda: r as never, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR,
       teamEquipos: (opts.teamEquipos ?? []) as never, completarEquiposConPar: completarEquiposConPar as never, matchResult: null,
       authUserId: opts.authUserId === undefined ? 'u1' : opts.authUserId, enviarPendientes,
     })
@@ -98,6 +98,38 @@ describe('useFinalizeGrupo', () => {
     expect(result.current.fin.confirmFinalize).toBe(true)
     expect(result.current.fin.finalizing).toBe(false)
     expect(fetchEstadoRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('la confirmación no se desarma sola: queda abierta hasta que se decide (la ronda R4794T quedó sin cerrar)', async () => {
+    vi.useFakeTimers()
+    try {
+      const { result } = montar()
+      await act(async () => { await result.current.fin.finalizeRound() })
+      await act(async () => { vi.advanceTimersByTime(600_000) })
+      expect(result.current.fin.confirmFinalize).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancelar cierra la confirmación sin finalizar', async () => {
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { result.current.fin.setConfirmFinalize(false) })
+    expect(result.current.fin.confirmFinalize).toBe(false)
+    expect(fetchEstadoRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('al confirmar se cierra la hoja: sin servidor no reaparece sola y Finalizar vuelve a preguntar', async () => {
+    fetchEstadoRondaLibre.mockRejectedValueOnce(new Error('sin red'))
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.fin.confirmFinalize).toBe(false)
+    expect(result.current.fin.finalizing).toBe(false)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.fin.confirmFinalize).toBe(true)
   })
 
   it('segundo tap: rellena con par SÓLO los hoyos de la ronda, guarda a todos, historial por jugador con cuenta, cierra y navega', async () => {
@@ -171,7 +203,10 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'score_grupo_finalize_historical.duplicada', level: 'info' }))
-    expect(recalcularIndiceGolfers).not.toHaveBeenCalled()
+    // Si el primer intento venció el plazo y el INSERT llegó después, nadie recalculó.
+    expect(recalcularIndiceGolfers).toHaveBeenCalledWith(cliente, 'u1', expect.anything())
+    expect(actualizarNivelDelJugador).toHaveBeenCalledWith(cliente, 'u1')
+    expect(avisarAlCoachRondaNueva).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).toHaveBeenCalled()
   })
 
@@ -207,8 +242,46 @@ describe('useFinalizeGrupo', () => {
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
-  it('el cierre no llega (SIN_RESPUESTA): no navega a "terminada" en falso y deja reintentar', async () => {
-    finalizarRondaLibre.mockResolvedValue({ finalizada: false, error: { code: 'SIN_RESPUESTA' } })
+  it('la ronda ya no existe (el creador la descartó): lo dice, no culpa a la señal, y sale al inicio', async () => {
+    fetchEstadoRondaLibre.mockResolvedValue('no_existe')
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo finalizar todavía' }))
+    expect(push).toHaveBeenCalledWith('/dashboard')
+    expect(limpiarCopiaLocalDelGrupo).toHaveBeenCalledWith('ABC')
+    expect(saveGroupScores).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('sin respuesta sobre el estado (null): no rellena hoyos con par ni cierra, y deja reintentar', async () => {
+    fetchEstadoRondaLibre.mockResolvedValue(null)
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.scores.p1[18]).toBeUndefined()
+    expect(saveGroupScores).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDelGrupo).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.fin.finalizing).toBe(false)
+  })
+
+  it('scramble sin equipos cargados: no cierra ni guarda historial, avisa y deja reintentar', async () => {
+    const { result } = montar({ ronda: { ...rondaBase, formato_juego: 'scramble' }, teamEquipos: [] })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+    expect(result.current.fin.finalizing).toBe(false)
+  })
+
+  // postgrest-js no lanza sin red: devuelve `code: ''`. Un 5xx trae su propio código.
+  it.each(['SIN_RESPUESTA', '', '503'])('el cierre sin respuesta firme (code "%s"): no navega a "terminada" en falso y deja reintentar', async (code) => {
+    finalizarRondaLibre.mockResolvedValue({ finalizada: false, error: { code } })
     const { result } = montar()
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })

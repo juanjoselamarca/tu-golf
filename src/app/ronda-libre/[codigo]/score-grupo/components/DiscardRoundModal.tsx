@@ -22,7 +22,7 @@ export function DiscardRoundModal({ showConfirm, setShowConfirm, discarding, onD
           style={{
             background: 'transparent',
             border: '1px solid transparent',
-            color: 'rgba(156,163,175,0.7)',
+            color: 'var(--text-2)',
             fontSize: '14px', fontWeight: 400,
             padding: '8px 14px', borderRadius: '8px',
             cursor: discarding ? 'not-allowed' : 'pointer',

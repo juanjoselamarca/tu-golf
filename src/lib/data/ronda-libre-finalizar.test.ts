@@ -10,6 +10,7 @@ import {
   actualizarNivelDelJugador,
   fetchNombreDeEquipoDelJugador,
   PG_INSUFFICIENT_PRIVILEGE,
+  PLAZO_GUARDAR_TARJETA_MS,
   type RatingsPorTee,
 } from './ronda-libre-finalizar'
 import { actualizarScoresDeRonda } from './historial-edicion'
@@ -77,7 +78,11 @@ describe('fetchEstadoRondaLibre / fetchRondaParaCierre', () => {
     expect(await fetchEstadoRondaLibre(sb as never, 'ABC')).toBe('finalizada')
     expect(sb.llamadas[0].cadena).toEqual([['select', ['estado']], ['eq', ['codigo', 'ABC']], ['single', []]])
   })
-  it('null cuando no existe', async () => {
+  it('ronda borrada (PGRST116): RONDA_NO_EXISTE, no una falla de red', async () => {
+    const sb = fakeSupabase({ rondas_libres: { data: null, error: { code: 'PGRST116' } } })
+    expect(await fetchEstadoRondaLibre(sb as never, 'ABC')).toBe('no_existe')
+  })
+  it('null cuando la lectura no trae datos (red)', async () => {
     const sb = fakeSupabase({ rondas_libres: { data: null } })
     expect(await fetchEstadoRondaLibre(sb as never, 'ABC')).toBeNull()
     expect(await fetchRondaParaCierre(sb as never, 'ABC')).toBeNull()
@@ -128,6 +133,21 @@ describe('guardarTarjetaEnHistorial', () => {
   const base = () => ({
     ronda, jugador: { id: 'p1', tees: null }, userId: 'u1', scores: scores18, scoresPorJugador: {},
     hoyos: hoyosDeLaRonda(1, 18), parMap: PAR, ratingsPorTee: new Map() as RatingsPorTee, conId: true,
+  })
+
+  it('si la base no responde vence el plazo y vuelve como error, con la tarjeta para mostrar', async () => {
+    vi.useFakeTimers()
+    try {
+      const colgado: Record<string, unknown> = new Proxy({}, { get: (_t, p) => (p === 'then' ? () => {} : () => colgado) })
+      const sb = { from: () => colgado, rpc: () => colgado }
+      const pendiente = guardarTarjetaEnHistorial(sb as never, base())
+      await vi.advanceTimersByTimeAsync(PLAZO_GUARDAR_TARJETA_MS + 1)
+      const r = await pendiente
+      expect(r.status).toBe('error')
+      expect(r.tarjeta.totalGross).toBeGreaterThan(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('sin hoyos jugados no inserta', async () => {
@@ -432,6 +452,11 @@ describe('recalcularIndiceGolfers', () => {
 })
 
 describe('actualizarNivelDelJugador', () => {
+  it('si el conteo falla no escribe: un nivel 4 no puede quedar en Rookie por mala señal', async () => {
+    const sb = fakeSupabase({ historical_rounds: { error: { code: '' } }, profiles: {} })
+    await actualizarNivelDelJugador(sb as never, 'u1')
+    expect(sb.llamadas.some(l => l.tabla === 'profiles')).toBe(false)
+  })
   it('cuenta rondas de 90 días y escribe nivel con vigencia de 60 días', async () => {
     const sb = fakeSupabase({ historical_rounds: { count: 7 }, profiles: {} })
     await actualizarNivelDelJugador(sb as never, 'u1')

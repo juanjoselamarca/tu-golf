@@ -4,6 +4,7 @@ import {
   armarTarjetaHistorica,
   completarHoyosSinMarcarConPar,
   filaHistorialRondaLibre,
+  hoyosPorMarcarAlFinalizar,
   hoyosSinMarcar,
   scoreDelHoyo,
 } from './tarjeta-historica'
@@ -60,6 +61,28 @@ describe('completarHoyosSinMarcarConPar — ronda de 9 desde el 10', () => {
     const copia = { ...marcados }
     completarHoyosSinMarcarConPar(marcados, back, PAR)
     expect(marcados).toEqual(copia)
+  })
+})
+
+describe('hoyosPorMarcarAlFinalizar', () => {
+  const hoyos = [1, 2, 3, 4]
+  it('sin tarjetas faltan todos: unos equipos que no cargaron no son una tarjeta completa', () => {
+    expect(hoyosPorMarcarAlFinalizar([], hoyos)).toEqual(hoyos)
+  })
+  it('un hoyo que falta en dos tarjetas se cuenta una vez', () => {
+    expect(hoyosPorMarcarAlFinalizar([{ scores: { 1: 4, 2: 4 } }, { scores: { 1: 4 } }], hoyos)).toEqual([2, 3, 4])
+  })
+  it('acepta claves string (JSONB) y tarjeta sin anotar', () => {
+    expect(hoyosPorMarcarAlFinalizar([{ scores: { '1': 4, '2': 4, '3': 4, '4': 4 } }], hoyos)).toEqual([])
+    expect(hoyosPorMarcarAlFinalizar([{ scores: undefined }], hoyos)).toEqual(hoyos)
+  })
+  it('match play: los hoyos que esa tarjeta no tiene que anotar no se marcan como par', () => {
+    expect(hoyosPorMarcarAlFinalizar([{ scores: { 1: 4, 2: 4 }, noRellenar: [3, 4] }], hoyos)).toEqual([])
+    // Excluidos en una tarjeta, pero otra sí los debe.
+    expect(hoyosPorMarcarAlFinalizar([{ scores: { 1: 4, 2: 4 }, noRellenar: [3, 4] }, { scores: { 1: 4, 2: 4, 3: 4 } }], hoyos)).toEqual([4])
+  })
+  it('un hoyo fuera de la ronda no cuenta', () => {
+    expect(hoyosPorMarcarAlFinalizar([{ scores: { 1: 4, 2: 4, 3: 4, 4: 4, 18: 5 } }], hoyos)).toEqual([])
   })
 })
 

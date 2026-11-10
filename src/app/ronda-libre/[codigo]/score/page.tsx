@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
+import { useState, useCallback, useMemo, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
-import { createClient } from '@/lib/supabase'
-import { trackPageView } from '@/lib/analytics'
+import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
+import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
+import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
+import { textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
 import { getYardajeForTee } from '@/types/ronda'
 import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
@@ -125,7 +127,7 @@ function ScorePageContent() {
     confirmDiscard,
     discarding, roundDone, setRoundDone, finalScore,
   } = useFinalizeRonda({
-    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, netoNoDisponible,
+    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, authUserId, netoNoDisponible,
     guardarAhora, marcarFinalizando, setScores, setHasUnsaved,
     setHistoricalRoundId,
     onDiscardSuccess,
@@ -141,13 +143,7 @@ function ScorePageContent() {
     }
   }, [hasUnsaved, finalizando, activeJugadorId, scores, saveScores]))
 
-  // Track page view
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data }) => {
-      trackPageView(supabase, data.session?.user?.id ?? null, '/score', { codigo })
-    })
-  }, [codigo])
+  useScorerPageView('/score', codigo)
 
   // Con el cierre en pantalla tampoco: la tarjeta ya está en el historial y la ronda puede estar cerrada.
   useOfflineResync({ isOnline, activeJugadorId, finalizando: finalizando || roundDone, scoreSync, saveImmediately })
@@ -178,6 +174,7 @@ function ScorePageContent() {
     jugadores, scores, parMap, holeDataMap, playerHcp, currentHole,
     currentHoleIdx,
     hoyos: ordenHoyos,
+    matchResult,
   })
   const {
     mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
@@ -188,7 +185,7 @@ function ScorePageContent() {
     },
     totals: { totalGross, totalOverUnder, holesPlayed },
     neto: { totalNet, totalStableford },
-    flags: { missingCount, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning },
+    flags: { hoyosPorMarcar, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning },
     display: { displayOverUnder },
     strokeAdvantageOn,
   } = calc
@@ -444,20 +441,26 @@ function ScorePageContent() {
         />
       )}
 
+      {canFinalize && <AvisoTarjetaCompleta completa={hoyosPorMarcar === 0 && !finalizando} enUltimoHoyo={isLastHole} />}
+
       <ScorerNavBar
         currentHoleIdx={currentHoleIdx}
         isLastHole={isLastHole}
         canFinalize={canFinalize}
-        confirmFinalize={confirmFinalize}
         finalizando={finalizando}
-        missingCount={missingCount}
-        holesPlayed={holesPlayed}
-        totalHoles={totalHoles}
         onPrev={nav.goToPrevHole}
-        onNext={() => { setConfirmFinalize(false); goToNextHole() }}
+        onNext={goToNextHole}
         onFinalize={finalizeRound}
         theme={theme}
       />
+
+      {confirmFinalize && (
+        <ConfirmarFinalizarHoja
+          titulo={textoConfirmarFinalizar(hoyosPorMarcar)}
+          onConfirmar={finalizeRound}
+          onCancelar={() => setConfirmFinalize(false)}
+        />
+      )}
 
       {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. */}
       {puedeDescartarRonda(ronda, authUserId) && (

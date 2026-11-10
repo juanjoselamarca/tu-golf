@@ -30,6 +30,7 @@ import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
+import { conTimeout } from '@/lib/red/con-timeout'
 import {
   fetchIndiceParaTope,
   grossAjustadoAlGuardar,
@@ -40,14 +41,26 @@ import type { Jugador, RondaLibre } from '@/types/ronda'
 
 type Client = Pick<SupabaseClient, 'from' | 'rpc'>
 
-/** Estado actual de la ronda (guard contra un cierre desde otro dispositivo). */
-export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): Promise<string | null> {
-  const { data } = await supabase.from('rondas_libres').select('estado').eq('codigo', codigo).single()
-  return (data?.estado as string | undefined) ?? null
-}
+/**
+ * Plazo para guardar la tarjeta en el historial y para recalcular el índice. Son
+ * varias lecturas y una escritura en cadena: con la base saturada o mala señal
+ * pueden no responder nunca, y el jugador quedaba mirando "Guardando…".
+ */
+export const PLAZO_GUARDAR_TARJETA_MS = 20_000
 
 /** `estado` de una ronda que ya no existe (el creador la descartó: se borra). */
 export const RONDA_NO_EXISTE = 'no_existe'
+
+/**
+ * Estado actual de la ronda (guard contra un cierre desde otro dispositivo). `null` =
+ * la lectura falló (red); una ronda borrada vuelve como `RONDA_NO_EXISTE`, para no
+ * decirle "sin conexión" a quien tiene señal perfecta.
+ */
+export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): Promise<string | null> {
+  const { data, error } = await supabase.from('rondas_libres').select('estado').eq('codigo', codigo).single()
+  if (error?.code === 'PGRST116') return RONDA_NO_EXISTE
+  return (data?.estado as string | undefined) ?? null
+}
 
 /**
  * Estado + tarjetas frescas de todos los jugadores (¿terminaron todos?). `null` =
@@ -160,8 +173,9 @@ export async function guardarTarjetaEnHistorial(
 ): Promise<ResultadoGuardarTarjeta> {
   // Nunca lanza: una lectura que falla (red) vuelve como `error` y el que llama
   // ofrece reintentar; un throw dejaba el botón "Guardando…" colgado para siempre.
+  // El plazo no cancela el INSERT: si igual llega, el reintento cae en 23505 (`duplicada`).
   try {
-    return await guardarTarjeta(supabase, input)
+    return await conTimeout(guardarTarjeta(supabase, input), PLAZO_GUARDAR_TARJETA_MS)
   } catch (e) {
     const tarjeta = armarTarjetaHistorica({ scores: input.scores, hoyos: input.hoyos, roundHoles: input.ronda.holes ?? 18, parMap: input.parMap })
     return { status: 'error', tarjeta, error: e instanceof Error ? e : new Error(String(e)) }
@@ -300,17 +314,19 @@ export async function recalcularIndiceGolfers(
 
 /**
  * Nivel del jugador = rondas de los últimos 90 días (`calcularNivel`), con
- * vigencia de 60 días. Los finalizadores lo disparan sin esperar.
+ * vigencia de 60 días. Los finalizadores lo disparan sin esperar. Sin conteo no se
+ * escribe nada: `count ?? 0` dejaba en "Rookie" a quien reintentaba con mala señal.
  */
 export async function actualizarNivelDelJugador(supabase: Client, userId: string): Promise<void> {
   const hace90 = new Date()
   hace90.setDate(hace90.getDate() - 90)
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('historical_rounds')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .gte('played_at', hace90.toISOString())
-  const nivel = calcularNivel(count ?? 0)
+  if (error || count == null) return
+  const nivel = calcularNivel(count)
   const expira = new Date()
   expira.setDate(expira.getDate() + 60)
   await supabase.from('profiles').update({

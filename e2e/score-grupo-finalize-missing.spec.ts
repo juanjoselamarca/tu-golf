@@ -115,15 +115,26 @@ test('finalize en grupo con hoyos sin marcar pide confirmar auto-fill con par', 
   await page.locator('text=/^9$/').first().click({ timeout: 10_000 }).catch(() => {})
   await page.waitForTimeout(500)
 
-  // Primer tap en Finalizar → activa confirmación → copy debería contener
+  // Primer tap en Finalizar → abre la hoja de confirmación → la pregunta debería contener
   // "Marcar N hoyos como par y finalizar"
   const finalizarBtn = page.getByRole('button', { name: /Finalizar ronda/i }).first()
   await expect(finalizarBtn).toBeVisible({ timeout: 10_000 })
   await finalizarBtn.click()
 
-  // Después del primer tap, el botón cambia a estado "confirmFinalize=true"
+  // El primer tap abre la hoja, que no se desarma sola (antes volvía atrás a los 5 s).
   // El copy esperado para missingCount=9: "¿Marcar 9 hoyos como par y finalizar?"
-  await expect(
-    page.getByRole('button', { name: /Marcar.*como par y finalizar/i }).first()
-  ).toBeVisible({ timeout: 5_000 })
+  const hoja = page.getByRole('dialog', { name: /Marcar.*como par y finalizar/i })
+  await expect(hoja).toBeVisible({ timeout: 5_000 })
+  await page.waitForTimeout(6_000)
+  await expect(hoja).toBeVisible()
+  await hoja.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(hoja).toBeHidden()
+
+  // Doble toque sobre "Finalizar ronda": el segundo cae donde aparece la hoja y no puede
+  // cerrar la ronda. Quien la creó tiene "Descartar ronda" debajo, y por eso la barra sube.
+  await finalizarBtn.dblclick()
+  await page.waitForTimeout(800)
+  await expect(hoja).toBeVisible()
+  const { data: ronda } = await adminClient().from('rondas_libres').select('estado').eq('codigo', codigo).single()
+  expect(ronda?.estado).toBe('en_curso')
 })

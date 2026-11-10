@@ -21,7 +21,6 @@ vi.mock('@/lib/supabase', () => ({
       delete: () => makeChainable({ error: null }),
       select: () => makeChainable({ data: null, count: 0, error: null }),
     }),
-    auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
     rpc: () => Promise.resolve({}),
   }),
 }))
@@ -64,6 +63,7 @@ const baseOpts = () => ({
   parMap: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 },
   holeDataMap: {},
   codigo: 'ABC123',
+  authUserId: 'u1' as string | null,
   guardarAhora: vi.fn(async () => 'guardado' as const),
   marcarFinalizando: vi.fn(),
   setScores: vi.fn(),
@@ -80,11 +80,17 @@ const guardarTarjetaEnHistorial = vi.fn()
 // Lo que devuelve el guardado real: la tarjeta canónica (el modal final la usa).
 const TARJETA = { scores: [4, 4, 4, 4, 4, 4, 4, 4, 4], parPerHole: null, totalGross: 36, holesPlayed: 9, hoyos: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
 const fetchRondaParaCierre = vi.fn()
+const recalcularIndice = vi.fn(async () => true)
+const fetchIndice = vi.fn(async () => null as number | null)
+const captureError = vi.fn()
+vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 const finalizarRondaLibre = vi.fn(async () => ({ error: null }))
 vi.mock('@/lib/data/ronda-libre-finalizar', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-finalizar')>()),
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...a),
   fetchRondaParaCierre: (...a: unknown[]) => fetchRondaParaCierre(...a),
+  recalcularIndiceGolfers: () => recalcularIndice(),
+  fetchIndiceDeUsuario: () => fetchIndice(),
 }))
 vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-scores')>()),
@@ -93,6 +99,9 @@ vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
 
 import { useFinalizeRonda } from '@/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda'
 import { addToast } from '@/hooks/useToast'
+import { clearScores } from '@/lib/ronda/score-storage'
+import { PLAZO_GUARDAR_TARJETA_MS } from '@/lib/data/ronda-libre-finalizar'
+import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 
 async function finalizar(opts: Parameters<typeof useFinalizeRonda>[0] = baseOpts()) {
   const { result } = renderHook(() => useFinalizeRonda(opts))
@@ -115,6 +124,57 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
     expect(titulos).not.toContain('Ronda guardada')
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(result.current.roundDone).toBe(false)
+  })
+
+  it('tarjeta ya guardada (duplicada): se registra para auditar y la ronda cierra igual', async () => {
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'duplicada', tarjeta: TARJETA })
+    const result = await finalizar()
+    expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'finalize-ronda.historial.duplicada', level: 'info' }))
+    expect(recalcularIndice).toHaveBeenCalledTimes(1)
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+    expect(result.current.roundDone).toBe(true)
+  })
+
+  it('si el recálculo del índice no responde: vence el plazo y la ronda cierra igual', async () => {
+    vi.useFakeTimers()
+    try {
+      guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
+      recalcularIndice.mockImplementationOnce(() => new Promise<boolean>(() => {}))
+      const opts = baseOpts()
+      const { result } = renderHook(() => useFinalizeRonda(opts))
+      await act(async () => { await result.current.finalizeRound() })
+      await act(async () => {
+        const fin = result.current.finalizeRound()
+        await vi.advanceTimersByTimeAsync(PLAZO_GUARDAR_TARJETA_MS + 2 * PLAZO_CARGA_SCORER_MS + 100)
+        await fin
+      })
+      expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+      expect(result.current.roundDone).toBe(true)
+      expect(vi.mocked(addToast).mock.calls.map(c => (c[0] as { message?: string }).message)).toContain('Tu índice se actualizará pronto')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it.each([['antes', 0], ['después', 1]])('si leer el índice %s del recálculo no responde: la ronda cierra igual', async (_cuando, respondidas) => {
+    vi.useFakeTimers()
+    try {
+      guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
+      for (let i = 0; i < respondidas; i++) fetchIndice.mockResolvedValueOnce(10)
+      fetchIndice.mockImplementationOnce(() => new Promise<number | null>(() => {}))
+      const opts = baseOpts()
+      const { result } = renderHook(() => useFinalizeRonda(opts))
+      await act(async () => { await result.current.finalizeRound() })
+      await act(async () => {
+        const fin = result.current.finalizeRound()
+        await vi.advanceTimersByTimeAsync(PLAZO_GUARDAR_TARJETA_MS + 2 * PLAZO_CARGA_SCORER_MS + 100)
+        await fin
+      })
+      expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+      expect(result.current.roundDone).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('si la lectura para cerrar falla (null): NO cierra la ronda para todos', async () => {
@@ -272,8 +332,19 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     expect(result.current.roundDone).toBe(false)
   })
 
-  it('ronda descartada por su creador: dice que ya no existe (no "Sin conexión") y no toca nada', async () => {
-    const o = opts()
+  it('sin señal (lectura null): el respaldo sin sincronizar queda intacto', async () => {
+    localStorage.setItem('golfers_score_ABC123_p1', JSON.stringify({ scores: { 1: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: 'p1' }))
+    fetchRondaParaCierre.mockResolvedValue(null)
+    await finalizar()
+    expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
+    expect(clearScores).not.toHaveBeenCalled()
+    localStorage.clear()
+  })
+
+  it('ronda descartada por su creador: dice que ya no existe (no "Sin conexión"), limpia lo local y sale', async () => {
+    const onDiscardSuccess = vi.fn()
+    const o = { ...opts(), onDiscardSuccess }
+    localStorage.setItem('golfers_score_ABC123_p1', JSON.stringify({ scores: { 1: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: 'p1' }))
     fetchRondaParaCierre.mockResolvedValue({ estado: 'no_existe', jugadores: [] })
     await finalizar(o)
     expect(o.guardarAhora).not.toHaveBeenCalled()
@@ -281,6 +352,10 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
     expect(titulos).toContain('Esta ronda ya no existe')
     expect(titulos).not.toContain('Sin conexión')
+    expect(clearScores).toHaveBeenCalledWith('ABC123', 'p1')
+    expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
+    // El respaldo también: si no, el banner "Sincronizando…" queda en toda la app.
+    expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
   })
 })
 

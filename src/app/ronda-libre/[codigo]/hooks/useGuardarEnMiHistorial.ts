@@ -153,6 +153,9 @@ export function useGuardarEnMiHistorial(input: {
     }
     if (resultado.status === 'duplicada') {
       void captureError(new Error('historical_rounds duplicada'), { context: 'ronda-terminada.guardar-en-mi-historial.duplicada', level: 'info', meta: { codigo: ronda.codigo } })
+      // Si el primer intento venció el plazo y el INSERT llegó después, nadie recalculó.
+      void recalcularIndiceGolfers(supabase, currentUserId, { context: 'ronda-terminada.calcular_indice', level: 'warning' })
+      void actualizarNivelDelJugador(supabase, currentUserId).catch(() => {})
       addToast({ title: 'Esta tarjeta ya estaba registrada', type: 'info' })
       setEstado('guardado')
       return

@@ -100,7 +100,7 @@ async function abrirEnElUltimoHoyo(page: Page, r: Ronda) {
 async function anotarYFinalizar(page: Page, sobrePar: number) {
   for (let i = 0; i < sobrePar; i++) await page.getByRole('button', { name: 'Aumentar score' }).click()
   await page.getByRole('button', { name: 'Finalizar ronda' }).click()
-  await page.getByRole('button', { name: 'Confirmar finalizacion' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Finalizar', exact: true }).click()
 }
 
 function deltaDe(route: Route): Record<string, number> {
@@ -328,6 +328,30 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     }
   })
 
+  const CIERRES_CAIDOS: Array<[string, (route: Route) => Promise<void>]> = [
+    ['sin red', route => route.abort('internetdisconnected')],
+    ['503', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Service Unavailable"}' })],
+  ]
+  for (const [caso, responder] of CIERRES_CAIDOS) {
+    test(`el cierre falla (${caso}): avisa, la ronda sigue abierta y reintentar la cierra`, async ({ page }) => {
+      const r = await rondaConUltimoHoyoPendiente(1)
+      await page.route(RPC_CERRAR, responder)
+
+      await abrirEnElUltimoHoyo(page, r)
+      await anotarYFinalizar(page, 0)
+
+      await expect(page.getByRole('alert').filter({ hasText: AVISO_SIN_SERVIDOR })).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByText('Ronda completada')).toHaveCount(0)
+      expect((await estadoEnBase(r)).estado).toBe('en_curso')
+
+      await page.unroute(RPC_CERRAR)
+      await page.getByRole('button', { name: 'Finalizar ronda' }).click()
+      await page.getByRole('dialog').getByRole('button', { name: 'Finalizar', exact: true }).click()
+      await expect(page.getByText('Ronda completada', { exact: true })).toBeVisible({ timeout: 45_000 })
+      expect((await estadoEnBase(r)).estado).toBe('finalizada')
+    })
+  }
+
   test('sin servidor: avisa, no cierra nada, y al volver la señal Finalizar guarda el último hoyo', async ({ page }) => {
     const r = await rondaConUltimoHoyoPendiente(1)
     const ultimo = r.hoyos[8]
@@ -358,7 +382,7 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     // Vuelve la señal: el mismo botón termina el trabajo, con el golpe que se anotó sin señal.
     await page.unroute(RPC_GUARDAR)
     await finalizar.click()
-    await page.getByRole('button', { name: 'Confirmar finalizacion' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Finalizar', exact: true }).click()
     const totalEsperado = totalDe(r, sobrePar)
     await expect(page.getByText('Ronda completada', { exact: true })).toBeVisible({ timeout: 45_000 })
     await expect(totalEnPantalla(page)).toHaveText(String(totalEsperado))

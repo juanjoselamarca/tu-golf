@@ -32,8 +32,8 @@ export async function fetchRondaEquipos(
   supabase: Pick<SupabaseClient, 'from'>,
   rondaId: string,
 ): Promise<Equipo[]> {
-  // Mantiene el comportamiento previo del scorer y del push: un error de lectura
-  // equivalía a "sin equipos" (el feed /en-vivo sí lo propaga: ver fetchEquiposDeRondas).
+  // Para quien no puede frenar por esto (push, lectura de la ronda): un error de lectura
+  // equivale a "sin equipos" (el scorer y el feed /en-vivo lo propagan: ver fetchEquiposDeRondas).
   // Ahora al menos queda registrado.
   try {
     return (await fetchEquiposDeRondas(supabase, [rondaId])).get(rondaId) ?? []
