@@ -4,7 +4,12 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { actualizarIndice } from '@/lib/data/perfil'
-import { avisoCampoIndice, leerCampoHandicap } from '@/golf/handicap-index-range'
+import {
+  avisoCampoIndice,
+  campoIndiceGuardable,
+  leerCampoHandicap,
+  PLACEHOLDER_CAMPO_HANDICAP,
+} from '@/golf/handicap-index-range'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { Flag } from '@/components/icons'
 
@@ -144,8 +149,8 @@ export function OnboardingWizard({ userId, userName }: Props) {
   }, [handicap, noHandicap, userId])
 
   // Sin "No tengo / No sé" el índice es obligatorio: un número dentro del rango WHS (plus incluido).
-  const campoHandicap = leerCampoHandicap(handicap)
-  const canAdvanceStep1 = noHandicap || (campoHandicap.estado === 'ok' && avisoCampoIndice(handicap) == null)
+  // campoIndiceGuardable (enviable + rango WHS) acepta vacío; aquí vacío no avanza: hay que marcar "No tengo".
+  const canAdvanceStep1 = noHandicap || (handicap.trim() !== '' && campoIndiceGuardable(handicap))
   const avisoHandicap = noHandicap ? null : avisoCampoIndice(handicap)
 
   // ── Step 2: course search ──
@@ -201,7 +206,7 @@ export function OnboardingWizard({ userId, userName }: Props) {
                 type="text"
                 inputMode="text"
                 autoComplete="off"
-                placeholder="18.4"
+                placeholder={PLACEHOLDER_CAMPO_HANDICAP}
                 value={noHandicap ? '' : handicap}
                 disabled={noHandicap}
                 onChange={(e) => setHandicap(e.target.value)}

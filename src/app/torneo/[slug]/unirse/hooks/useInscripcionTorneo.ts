@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { leerCampoHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
+import { campoHandicapEnviable, leerCampoHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
 import { useRouter } from 'next/navigation'
 import type {
   JoinInfoTournament,
@@ -156,15 +156,14 @@ export function useInscripcionTorneo(slug: string) {
     }
     // "+2" es un plus (−2) y "18,5" lleva coma: se lee como en el resto de la app. parseFloat("+2") daba 2.
     // El botón ya viene bloqueado con texto inválido o a medio escribir; esto es la red de seguridad.
-    const campoHcp = leerCampoHandicap(guestHandicap)
-    if (campoHcp.estado === 'invalido' || campoHcp.estado === 'incompleto') {
+    if (!campoHandicapEnviable(guestHandicap)) {
       setError(MENSAJE_HANDICAP_NO_ES_NUMERO)
       return
     }
     setGuestJoining(true)
     setError(null)
 
-    const handicapNum = campoHcp.valor ?? undefined
+    const handicapNum = leerCampoHandicap(guestHandicap).valor ?? undefined
     const postGuestJoin = async (guestId: string, guestToken: string | undefined) =>
       aRespuestaJson(await fetchJsonConPlazo(`/api/torneos/${encodeURIComponent(slug)}/guest-join`, {
         method: 'POST',

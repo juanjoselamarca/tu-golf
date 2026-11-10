@@ -1,5 +1,10 @@
 import Link from 'next/link'
-import { leerCampoHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
+import {
+  campoHandicapEnviable,
+  leerCampoHandicap,
+  MENSAJE_HANDICAP_NO_ES_NUMERO,
+  PLACEHOLDER_CAMPO_HANDICAP,
+} from '@/golf/handicap-index-range'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { loginUrl } from '@/lib/auth/login-url'
 import { Input } from '@/components/ui/Input'
@@ -29,10 +34,9 @@ export function FormInvitado({
   onJoin: () => void
 }) {
   // El hándicap a medio escribir ("+", "-") bloquea sin avisar; el aviso es para texto que no es número.
-  const campoHcp = leerCampoHandicap(guestHandicap)
-  const hcpInvalido = campoHcp.estado === 'invalido'
+  const hcpInvalido = leerCampoHandicap(guestHandicap).estado === 'invalido'
   const bloqueado =
-    guestJoining || guestName.trim().length < 2 || hcpInvalido || campoHcp.estado === 'incompleto'
+    guestJoining || guestName.trim().length < 2 || !campoHandicapEnviable(guestHandicap)
   return (
     <div>
       {/* Guest form */}
@@ -77,7 +81,7 @@ export function FormInvitado({
             autoComplete="off"
             value={guestHandicap}
             onChange={(e) => onGuestHandicap(e.target.value)}
-            placeholder="Ej: 18.5 o +2"
+            placeholder={PLACEHOLDER_CAMPO_HANDICAP}
             error={hcpInvalido}
             aria-invalid={hcpInvalido}
             aria-describedby={hcpInvalido ? 'guest-handicap-error' : undefined}

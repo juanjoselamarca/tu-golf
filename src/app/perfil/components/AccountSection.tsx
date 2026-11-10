@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import { PLACEHOLDER_CAMPO_HANDICAP } from '@/golf/handicap-index-range'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { Button } from '@/components/ui/Button'
 import { Check } from '@/components/icons'
@@ -87,7 +88,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
               type="text"
               inputMode="text"
               autoComplete="off"
-              placeholder="Ej: 15.4 — tu índice oficial de la Federación"
+              placeholder={PLACEHOLDER_CAMPO_HANDICAP}
               value={edit.editIndice}
               onChange={(e) => edit.setEditIndice(e.target.value)}
               aria-invalid={edit.indiceAviso != null}

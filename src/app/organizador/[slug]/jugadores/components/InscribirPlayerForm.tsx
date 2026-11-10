@@ -5,7 +5,15 @@ import { inputStyle } from '../styles'
 import type { Profile } from '../hooks/useProfileSearch'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { UpsellCard } from '@/components/billing/UpsellCard'
-import { formatearHandicap, formatearIndice, leerCampoHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO, parsearHandicap } from '@/golf/handicap-index-range'
+import {
+  campoHandicapEnviable,
+  formatearHandicap,
+  formatearIndice,
+  leerCampoHandicap,
+  MENSAJE_HANDICAP_NO_ES_NUMERO,
+  parsearHandicap,
+  PLACEHOLDER_CAMPO_HANDICAP,
+} from '@/golf/handicap-index-range'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 
 export type InscribirMode = 'search' | 'guest' | 'batch'
@@ -69,9 +77,8 @@ export function InscribirPlayerForm({
   // Handicap es opcional: si está vacío se inscribe con null. Si tiene valor se lee como en el
   // resto de la app ("+2" plus, "18,5" con coma); lo que no es número se avisa, no se pierde.
   // A medio escribir ("+", "-") no deja agregar pero tampoco avisa: el aviso es para texto que no es número.
-  const guestHcpCampo = leerCampoHandicap(guestHcp)
-  const guestHcpInvalido = guestHcpCampo.estado === 'invalido'
-  const guestReady = guestName.trim() !== '' && (guestHcpCampo.estado === 'vacio' || guestHcpCampo.estado === 'ok')
+  const guestHcpInvalido = leerCampoHandicap(guestHcp).estado === 'invalido'
+  const guestReady = guestName.trim() !== '' && campoHandicapEnviable(guestHcp)
 
   // Batch state
   const [batchText, setBatchText] = useState('')
@@ -255,7 +262,7 @@ export function InscribirPlayerForm({
               type="text"
               inputMode="text"
               autoComplete="off"
-              placeholder="Ej: 12.4 o +2"
+              placeholder={PLACEHOLDER_CAMPO_HANDICAP}
               value={guestHcp}
               onChange={(e) => setGuestHcp(e.target.value)}
               aria-invalid={guestHcpInvalido}

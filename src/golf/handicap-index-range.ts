@@ -136,6 +136,23 @@ export function leerCampoHandicap(texto: string): CampoHandicap {
   return Number.isNaN(valor) ? { estado: 'invalido', valor: null } : { estado: 'ok', valor }
 }
 
+/**
+ * true si el campo se puede enviar tal cual: vacío (sin hándicap) o un número. A medio escribir ("+") o con
+ * texto que no es número, no. El RANGO lo decide cada caller (ver `campoIndiceGuardable` para el índice WHS).
+ */
+export function campoHandicapEnviable(texto: string): boolean {
+  const { estado } = leerCampoHandicap(texto)
+  return estado === 'vacio' || estado === 'ok'
+}
+
+/** Placeholder de todo campo donde se tipea un índice o hándicap: muestra la coma/punto y cómo se escribe un plus. */
+export const PLACEHOLDER_CAMPO_HANDICAP = 'Ej: 18.5 o +2'
+/**
+ * Variante para los campos angostos de la ronda libre (90px, monospace 16px): caben ~6 caracteres y el texto
+ * largo se cortaba ("Ej: 10." ya se cortaba). Ahí el plus lo explica el aviso si se escribe mal.
+ */
+export const PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO = '18.5'
+
 /** Texto inicial de un campo de hándicap a partir del valor guardado: un plus (−2) se ve "+2". */
 export function textoCampoHandicap(v: number | null | undefined): string {
   return v == null ? '' : formatearHandicap(v)
@@ -175,7 +192,8 @@ export function avisoCampoIndice(texto: string): string | null {
 
 /** true si el campo de índice se puede guardar tal cual: vacío (sin índice) o un número dentro del rango WHS. */
 export function campoIndiceGuardable(texto: string): boolean {
-  const campo = leerCampoHandicap(texto)
-  return campo.estado === 'vacio' || (campo.estado === 'ok' && esIndiceDeHandicapValido(campo.valor))
+  if (!campoHandicapEnviable(texto)) return false
+  const { valor } = leerCampoHandicap(texto)
+  return valor == null || esIndiceDeHandicapValido(valor)
 }
 

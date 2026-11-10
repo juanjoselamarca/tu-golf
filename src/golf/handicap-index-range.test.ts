@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   leerCampoHandicap,
+  campoHandicapEnviable,
   avisoCampoIndice,
   campoIndiceGuardable,
   textoCampoHandicap,
@@ -203,6 +204,15 @@ describe('textoCampoHandicap — precarga del campo', () => {
     expect(textoCampoHandicap(12.3)).toBe('12.3')
     expect(textoCampoHandicap(null)).toBe('')
     expect(textoCampoHandicap(undefined)).toBe('')
+  })
+})
+
+describe('campoHandicapEnviable — vacío o número, sin mirar el rango', () => {
+  it.each([
+    ['', true], ['  ', true], ['+2', true], ['18,5', true], ['60', true],
+    ['+', false], ['-', false], ['.', false], [',', false], ['abc', false], ['1O', false],
+  ])('%j → %s', (texto, enviable) => {
+    expect(campoHandicapEnviable(texto)).toBe(enviable)
   })
 })
 
