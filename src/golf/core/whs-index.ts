@@ -22,6 +22,9 @@ export const WHS_TABLE_5_2 = [
   { from: 20, to: 20, best: 8, adjustment: 0 },
 ] as const
 
+/** Mínimo de diferenciales para que exista índice (primera fila de la tabla 5.2a; el RPC usa el mismo). */
+export const MIN_DIFERENCIALES_INDICE = WHS_TABLE_5_2[0].from
+
 /** Table row for `count` differentials; null below 3 (no index). */
 export function whsTableRow(count: number): (typeof WHS_TABLE_5_2)[number] | null {
   const n = Math.min(count, 20)

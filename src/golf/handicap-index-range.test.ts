@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   HANDICAP_INDEX_MAX,
+  formatearIndice,
   HANDICAP_INDEX_MIN,
   MENSAJE_INDICE_FUERA_DE_RANGO,
   RANGO_INDICE,
@@ -159,5 +160,14 @@ describe('courseDataDeInscripcion', () => {
     expect(courseDataDeInscripcion({ slope_rating: null, course_rating: 73.5, par_total: 72 })).toBeNull()
     expect(courseDataDeInscripcion({ slope_rating: 130, course_rating: null, par_total: 72 })).toBeNull()
     expect(courseDataDeInscripcion(null)).toBeNull()
+  })
+})
+
+describe('formatearIndice', () => {
+  it('un decimal fijo y los plus con "+"', () => {
+    expect(formatearIndice(18)).toBe('18.0')
+    expect(formatearIndice(17.24)).toBe('17.2')
+    expect(formatearIndice(0)).toBe('0.0')
+    expect(formatearIndice(-1)).toBe('+1.0')
   })
 })

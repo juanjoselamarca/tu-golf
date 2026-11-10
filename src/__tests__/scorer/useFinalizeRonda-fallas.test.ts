@@ -83,7 +83,7 @@ const guardarTarjetaEnHistorial = vi.fn()
 const TARJETA = { scores: [4, 4, 4, 4, 4, 4, 4, 4, 4], parPerHole: null, totalGross: 36, holesPlayed: 9, hoyos: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
 const fetchRondaParaCierre = vi.fn()
 const recalcularIndice = vi.fn(async () => true)
-const fetchIndice = vi.fn(async () => null as number | null)
+const fetchIndice = vi.fn(async () => null as IndicesDelJugador | null)
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 const finalizarRondaLibre = vi.fn(async () => ({ error: null }))
@@ -92,7 +92,7 @@ vi.mock('@/lib/data/ronda-libre-finalizar', async (importOriginal) => ({
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...a),
   fetchRondaParaCierre: (...a: unknown[]) => fetchRondaParaCierre(...a),
   recalcularIndiceGolfers: () => recalcularIndice(),
-  fetchIndiceDeUsuario: () => fetchIndice(),
+  fetchIndicesDeUsuario: () => fetchIndice(),
 }))
 vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-scores')>()),
@@ -104,6 +104,7 @@ import { addToast } from '@/hooks/useToast'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { PLAZO_GUARDAR_TARJETA_MS } from '@/lib/data/ronda-libre-finalizar'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
+import type { IndicesDelJugador } from '@/lib/ronda/aviso-indices-ronda'
 
 async function finalizar(opts: Parameters<typeof useFinalizeRonda>[0] = baseOpts()) {
   const { result } = renderHook(() => useFinalizeRonda(opts))
@@ -137,6 +138,13 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
     expect(result.current.roundDone).toBe(true)
   })
 
+  it('el aviso muestra los dos índices: el Golfers+ que movió la ronda y el de la Federación al lado', async () => {
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
+    fetchIndice.mockResolvedValueOnce({ federacion: 18, golfers: 17.4 }).mockResolvedValueOnce({ federacion: 18, golfers: 17.2 })
+    await finalizar()
+    expect(addToast).toHaveBeenCalledWith({ type: 'success', title: 'Bajaste tu índice Golfers+ a 17.2', message: 'Venías de 17.4 · Federación 18.0' })
+  })
+
   it('si el recálculo del índice no responde: vence el plazo y la ronda cierra igual', async () => {
     vi.useFakeTimers()
     try {
@@ -152,7 +160,7 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
       })
       expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
       expect(result.current.roundDone).toBe(true)
-      expect(vi.mocked(addToast).mock.calls.map(c => (c[0] as { message?: string }).message)).toContain('Tu índice se actualizará pronto')
+      expect(vi.mocked(addToast).mock.calls.map(c => (c[0] as { message?: string }).message)).toContain('Tu índice Golfers+ se actualizará pronto')
     } finally {
       vi.useRealTimers()
     }
@@ -162,8 +170,8 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
     vi.useFakeTimers()
     try {
       guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
-      for (let i = 0; i < respondidas; i++) fetchIndice.mockResolvedValueOnce(10)
-      fetchIndice.mockImplementationOnce(() => new Promise<number | null>(() => {}))
+      for (let i = 0; i < respondidas; i++) fetchIndice.mockResolvedValueOnce({ federacion: 18, golfers: 10 })
+      fetchIndice.mockImplementationOnce(() => new Promise<IndicesDelJugador | null>(() => {}))
       const opts = baseOpts()
       const { result } = renderHook(() => useFinalizeRonda(opts))
       await act(async () => { await result.current.finalizeRound() })

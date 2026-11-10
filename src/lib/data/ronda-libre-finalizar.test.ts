@@ -5,7 +5,7 @@ import {
   fetchRondaParaCierre,
   fetchRatingsDelTee,
   guardarTarjetaEnHistorial,
-  fetchIndiceDeUsuario,
+  fetchIndicesDeUsuario,
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
   fetchNombreDeEquipoDelJugador,
@@ -411,10 +411,19 @@ describe('finalizar y después corregir un hoyo: el ajuste de los demás no camb
   })
 })
 
-describe('fetchIndiceDeUsuario', () => {
-  it('índice del perfil o null', async () => {
-    expect(await fetchIndiceDeUsuario(fakeSupabase({ profiles: { data: { indice: 12.4 } } }) as never, 'u1')).toBe(12.4)
-    expect(await fetchIndiceDeUsuario(fakeSupabase({ profiles: { data: null } }) as never, 'u1')).toBeNull()
+describe('fetchIndicesDeUsuario', () => {
+  it('los dos índices del perfil: Federación y Golfers+', async () => {
+    const sb = fakeSupabase({ profiles: { data: { indice: 18, indice_golfers: 17.2 } } })
+    expect(await fetchIndicesDeUsuario(sb as never, 'u1')).toEqual({ federacion: 18, golfers: 17.2 })
+    // El cliente falso devuelve lo que se le da: se afirma que se PIDEN las dos columnas.
+    expect(sb.llamadas[0]).toMatchObject({ tabla: 'profiles' })
+    expect(sb.llamadas[0].cadena).toContainEqual(['select', ['indice, indice_golfers']])
+    expect(await fetchIndicesDeUsuario(fakeSupabase({ profiles: { data: { indice: 18, indice_golfers: null } } }) as never, 'u1'))
+      .toEqual({ federacion: 18, golfers: null })
+  })
+  it('lectura fallida: null (el aviso no inventa un número)', async () => {
+    expect(await fetchIndicesDeUsuario(fakeSupabase({ profiles: { data: null } }) as never, 'u1')).toBeNull()
+    expect(await fetchIndicesDeUsuario(fakeSupabase({ profiles: { data: null, error: { code: '500' } } }) as never, 'u1')).toBeNull()
   })
 })
 

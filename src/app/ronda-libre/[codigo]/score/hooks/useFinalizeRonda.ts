@@ -27,13 +27,14 @@ import {
   PLAZO_GUARDAR_TARJETA_MS,
   RONDA_NO_EXISTE,
   avisarAlCoachRondaNueva,
-  fetchIndiceDeUsuario,
+  fetchIndicesDeUsuario,
   guardarTarjetaEnHistorial,
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
+import { avisoDeIndicesAlFinalizar } from '@/lib/ronda/aviso-indices-ronda'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { armarTarjetaHistorica, completarHoyosSinMarcarConPar, hoyosSinMarcar } from '@/golf/ronda-libre/tarjeta-historica'
@@ -314,36 +315,16 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
 
       // ── Task 2.8: capturar índice ANTES del recálculo ──
       // El índice no bloquea el cierre: cada paso tiene plazo y, vencido, sigue.
-      const indiceBefore = await conTimeout(fetchIndiceDeUsuario(supabase, historicalUserId), PLAZO_CARGA_SCORER_MS).catch(() => null)
+      const indicesAntes = await conTimeout(fetchIndicesDeUsuario(supabase, historicalUserId), PLAZO_CARGA_SCORER_MS).catch(() => null)
 
       // Recalcular Indice Golfers+ con retry exponencial (no bloquea la finalización)
       const rpcSucceeded = await conTimeout(recalcularIndiceGolfers(supabase, historicalUserId, { reintentos: 3 }), PLAZO_GUARDAR_TARJETA_MS).catch(() => false)
 
-      // ── Task 2.8: capturar índice DESPUÉS y mostrar toast ──
-      if (rpcSucceeded) {
-        const indiceAfter = await conTimeout(fetchIndiceDeUsuario(supabase, historicalUserId), PLAZO_CARGA_SCORER_MS).catch(() => null)
-
-        if (indiceBefore != null && indiceAfter != null && indiceBefore !== indiceAfter) {
-          const direction = indiceAfter < indiceBefore ? 'bajó' : 'subió'
-          addToast({
-            title: `Tu índice ${direction}`,
-            message: `${indiceBefore.toFixed(1)} → ${indiceAfter.toFixed(1)}`,
-            type: indiceAfter < indiceBefore ? 'success' : 'info',
-          })
-        } else if (indiceAfter != null) {
-          addToast({
-            title: 'Ronda guardada',
-            message: `Índice actual: ${indiceAfter.toFixed(1)}`,
-            type: 'success',
-          })
-        }
-      } else {
-        addToast({
-          title: 'Ronda guardada',
-          message: 'Tu índice se actualizará pronto',
-          type: 'info',
-        })
-      }
+      // ── Task 2.8: los dos índices DESPUÉS y el aviso (Federación y Golfers+) ──
+      const indicesDespues = rpcSucceeded
+        ? await conTimeout(fetchIndicesDeUsuario(supabase, historicalUserId), PLAZO_CARGA_SCORER_MS).catch(() => null)
+        : null
+      addToast(avisoDeIndicesAlFinalizar(indicesAntes, indicesDespues, rpcSucceeded))
 
       void actualizarNivelDelJugador(supabase, historicalUserId).catch(() => {})
 
