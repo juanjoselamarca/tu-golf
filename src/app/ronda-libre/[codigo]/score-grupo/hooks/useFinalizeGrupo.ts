@@ -215,12 +215,15 @@ export function useFinalizeGrupo(input: {
       if (rondaYaCerrada) {
         marcarRespaldosDeRondaCerrada(codigo)
       } else if (envio.rechazadas.length > 0) {
-        // Rechazo firme de una tarjeta (P0004/22023 = INVALID_DELTA: golpe u hoyo inválido; P0001 con la
-        // ronda viva: el jugador ya no está). NO se cierra: cerrar borraría la copia del grupo, el único
-        // lugar con esos golpes. Quedan en el teléfono, el marcador sigue en la pantalla para revisarlos y
-        // el aviso nombra a cada uno (sale siempre, aunque el envío ya haya avisado otro rechazo antes).
-        const nombres = envio.rechazadas.map(({ id }) => nombreDeTarjeta(ronda, teamEquipos, id))
-        addToast({ ...avisoTarjetasNoGuardadas(nombres), type: 'error', duration: 10000 })
+        // Rechazo firme de una tarjeta (P0004/22023 = INVALID_DELTA: golpe u hoyo inválido). NO se cierra:
+        // cerrar borraría la copia del grupo, el único lugar con esos golpes. Quedan en el teléfono, el
+        // marcador sigue en la pantalla para revisarlos y el aviso nombra a cada uno (el genérico del envío
+        // no sale encima). Si su reenvío no tuvo respuesta, el aviso dice que es por señal, no por los golpes.
+        // (P0001 con la ronda viva = el jugador ya no está: el envío lo deja fuera y no bloquea.)
+        const rechazadas = envio.rechazadas.filter(r => r.causa === 'rechazo')
+        const causa = rechazadas.length > 0 ? 'rechazo' : 'sin_senal'
+        const nombres = (rechazadas.length > 0 ? rechazadas : envio.rechazadas).map(({ id }) => nombreDeTarjeta(ronda, teamEquipos, id))
+        addToast({ ...avisoTarjetasNoGuardadas(nombres, causa), type: 'error', duration: 10000 })
         haptic([30, 60, 30])
         return
       } else if (hayPendientes(codigo)) {

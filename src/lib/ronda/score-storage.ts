@@ -257,21 +257,33 @@ const golpesRechazados = crearColaDePendientes(RECH_KEY)
  * El servidor rechazó en firme una tarjeta (P0004/22023: golpe o hoyo inválido; P0001 con la ronda viva: el
  * jugador ya no está). Sus golpes salen de pendientes (reenviarlos solos daría el mismo rechazo cada 15 s y
  * el aviso "sin enviar" quedaría pegado) pero NO se pierden: quedan apartados en el teléfono, se pintan al
- * abrir el scorer y Finalizar los reenvía (`saveAllScores` con `reintentarRechazados`). Viven y se borran
- * con la copia del grupo.
+ * abrir el scorer y Finalizar los reenvía (`saveAllScores` con `reintentarRechazados`). Se borran con la
+ * copia del grupo si la ronda ya no existe; al finalizar se quedan (son de alguien que ya no está en la ronda).
+ *
+ * Sólo se aparta el valor exacto que se envió: si el marcador corrigió el hoyo mientras el envío viajaba, el
+ * valor pendiente es más nuevo y no se toca (ni queda el viejo apartado, que lo pisaría al reintentar).
  */
 export function apartarRechazados(codigo: string, id: string, golpes: Record<string | number, number>): void {
+  const pendiente = golpesPendientes.leer(codigo)[id] ?? {}
+  const apartados = Object.fromEntries(
+    Object.entries(golpes).filter(([h, v]) => pendiente[String(h)] == null || pendiente[String(h)] === v),
+  )
   golpesPendientes.confirmar(codigo, id, golpes)
-  golpesRechazados.marcar(codigo, id, golpes)
+  if (Object.keys(apartados).length > 0) golpesRechazados.marcar(codigo, id, apartados)
 }
 
 export function leerRechazados(codigo: string): PendientesGrupo {
   return golpesRechazados.leer(codigo)
 }
 
-/** El servidor aceptó `enviados` para `id`: esos hoyos (con ese valor exacto) dejan de estar rechazados. */
+/** El servidor aceptó `enviados` para `id`: esos hoyos dejan de estar rechazados, con el valor que sea
+ * (lo aceptado es más nuevo que cualquier valor rechazado de ese hoyo). */
 export function confirmarRechazados(codigo: string, id: string, enviados: Record<string | number, number>): void {
-  golpesRechazados.confirmar(codigo, id, enviados)
+  const r = golpesRechazados.leer(codigo)
+  if (!r[id]) return
+  const resto = { ...r[id] }
+  for (const h of Object.keys(enviados)) delete resto[String(h)]
+  golpesRechazados.escribir(codigo, { ...r, [id]: resto })
 }
 
 /** El marcador corrigió un hoyo de una tarjeta rechazada: el valor rechazado de ese hoyo ya no vale. */
@@ -288,17 +300,19 @@ export const PUNTITOS_PEND_KEY = (codigo: string) => `ronda_puntitos_pendientes_
 
 /**
  * Snapshot, golpes por jugador, golpes de equipo y pendientes (golpes y puntitos) del scorer de grupo.
- * Con `conservarPuntitosSinSubir`, las marcas de puntos especiales que el servidor no confirmó se quedan
+ * Con `alFinalizar`, los golpes apartados y las marcas de puntos especiales que el servidor no confirmó se quedan
  * (una ronda finalizada se puede reabrir; Finalizar sólo espera los golpes, no las marcas).
  */
-function borrarCopiaDelGrupo(codigo: string, conservarPuntitosSinSubir = false): void {
+function borrarCopiaDelGrupo(codigo: string, alFinalizar = false): void {
   clearScorerGrupoSnapshot(codigo)
   try {
     localStorage.removeItem(GROUP_KEY(codigo))
     localStorage.removeItem(TEAM_KEY(codigo))
     localStorage.removeItem(PEND_KEY(codigo))
-    localStorage.removeItem(RECH_KEY(codigo))
-    if (!(conservarPuntitosSinSubir && crearColaDePendientes(PUNTITOS_PEND_KEY).hay(codigo))) localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
+    // Al finalizar sólo pueden quedar apartados los de quien el servidor confirmó fuera de la ronda
+    // (Finalizar no cierra con una tarjeta rechazada de alguien que sigue): se guardan, no se borran.
+    if (!alFinalizar) localStorage.removeItem(RECH_KEY(codigo))
+    if (!(alFinalizar && crearColaDePendientes(PUNTITOS_PEND_KEY).hay(codigo))) localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
   } catch {
     // noop
   }

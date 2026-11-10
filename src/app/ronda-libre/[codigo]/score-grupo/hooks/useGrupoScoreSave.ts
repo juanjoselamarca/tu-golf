@@ -91,12 +91,15 @@ export type EstadoTrasEnvio = 'ronda_cerrada' | 'ronda_abierta' | 'ronda_borrada
 
 /**
  * Resultado de un envío: cómo quedó la ronda y qué tarjetas (jugador, o `eq:<id>` de equipo) el servidor
- * rechazó en firme y siguen rechazadas (P0004/22023, o P0001 con la ronda viva). Sus golpes están apartados
- * en el teléfono (`apartarRechazados`): Finalizar no cierra con ellas y nombra a cada una.
+ * rechazó en firme y siguen rechazadas (P0004/22023 = INVALID_DELTA). Sus golpes están apartados en el
+ * teléfono (`apartarRechazados`): Finalizar no cierra con ellas y nombra a cada una. Sólo tarjetas que
+ * la pantalla muestra y que siguen en la ronda: un P0001 con la ronda viva (el jugador ya no está) aparta
+ * sus golpes pero no bloquea Finalizar. `causa`: 'rechazo' (el servidor la rechazó) o 'sin_senal' (el
+ * reenvío de esta vez no tuvo respuesta: sus golpes siguen pendientes de subir).
  */
 export interface ResultadoEnvio {
   estado: EstadoTrasEnvio
-  rechazadas: { id: string; code: string }[]
+  rechazadas: { id: string; code: string; causa: 'rechazo' | 'sin_senal' }[]
 }
 
 /**
@@ -143,6 +146,10 @@ export function useGrupoScoreSave(input: {
   const avisoDefinitivoRef = useRef(false)
   /** Tarjetas rechazadas en firme en esta sesión y todavía no aceptadas (id → código del rechazo). */
   const rechazadasRef = useRef(new Map<string, string>())
+  /** Tarjetas que el servidor confirmó fuera de la ronda (P0001 con la ronda viva): apartadas, no bloquean. */
+  const fueraDeRondaRef = useRef(new Set<string>())
+  /** Finalizar reenvía las rechazadas y avisa con nombre: el aviso genérico del rechazo no sale encima. */
+  const silenciarAvisoRef = useRef(false)
   /** Ciclo de envío en curso (incluye la vuelta extra que pidió quien llegó mientras viajaba). */
   const cicloRef = useRef<Promise<void> | null>(null)
   const [rondaCerrada, setRondaCerrada] = useState(false)
@@ -219,12 +226,15 @@ export function useGrupoScoreSave(input: {
         // teléfono; Finalizar no cierra con esta tarjeta y la nombra.
         if (esRechazoQueDescarta({ code })) {
           apartarRechazados(codigo, id, golpes)
-          rechazadasRef.current.set(id, code)
+          // P0001 con la ronda viva: ese jugador (o equipo) ya no está en la ronda. Sus golpes quedan
+          // apartados en el teléfono, pero no bloquean Finalizar (no hay corrección posible desde acá).
+          if (code === RONDA_ERRCODE.NOT_FOUND) { fueraDeRondaRef.current.add(id); rechazadasRef.current.delete(id) }
+          else rechazadasRef.current.set(id, code)
         }
         rechazoDefinitivo = code
         // Aunque otra tarjeta del mismo envío tenga otro rechazo: con un P0002 la ronda está cerrada.
         if (code === RONDA_ERRCODE.FINALIZED) vioRondaCerrada = true
-        if (avisoDefinitivoRef.current) return
+        if (avisoDefinitivoRef.current || silenciarAvisoRef.current) return
         avisoDefinitivoRef.current = true
         // TODO(aviso-único): "los cambios nuevos no se guardan" ya no es cierto (se guardan en el teléfono y
         // suben si la ronda se reabre). El aviso al jugador va en su propio PR (decisión de Juanjo: aviso único).
@@ -328,20 +338,36 @@ export function useGrupoScoreSave(input: {
     overrideScores?: Record<string, Record<number, number>>,
     opciones?: { reintentarRechazados?: boolean },
   ): Promise<ResultadoEnvio> => {
+    // Tarjetas que la pantalla muestra y que el servidor no confirmó fuera de la ronda. Las demás (el
+    // organizador sacó al jugador) no bloquean Finalizar: sus golpes apartados se quedan en el teléfono.
+    const vigentes = (): Set<string> => new Set([
+      ...(ronda?.ronda_libre_jugadores ?? []).map(j => j.id),
+      ...equiposRef.current.map(eq => ID_PENDIENTE_EQUIPO(eq.id)),
+    ].filter(id => !fueraDeRondaRef.current.has(id)))
+    const antes = vigentes()
+    for (const id of [...rechazadasRef.current.keys()]) if (!antes.has(id)) rechazadasRef.current.delete(id)
     if (opciones?.reintentarRechazados && ronda && !rondaBorradaRef.current) {
-      // Antes que `overrideScores` (lo más nuevo en pantalla gana) y sólo de quienes siguen en la ronda:
-      // si el organizador sacó a un jugador, su tarjeta apartada no bloquea Finalizar para siempre.
-      const vigentes = new Set([
-        ...ronda.ronda_libre_jugadores.map(j => j.id),
-        ...equiposRef.current.map(eq => ID_PENDIENTE_EQUIPO(eq.id)),
-      ])
+      // Antes que `overrideScores` (lo más nuevo en pantalla gana). Un hoyo con un valor pendiente de subir
+      // no se toca: ese valor es más nuevo que el rechazado (una corrección del marcador).
+      const pendientes = leerPendientes(codigo)
       for (const [id, golpes] of Object.entries(leerRechazados(codigo))) {
-        if (vigentes.has(id)) marcarPendientes(codigo, id, golpes)
+        if (!antes.has(id)) continue
+        const libres = Object.fromEntries(Object.entries(golpes).filter(([h]) => pendientes[id]?.[h] == null))
+        if (Object.keys(libres).length > 0) marcarPendientes(codigo, id, libres)
       }
     }
-    await enviarTodo(overrideScores)
-    const rechazadas = [...rechazadasRef.current].map(([id, code]) => ({ id, code }))
+    silenciarAvisoRef.current = Boolean(opciones?.reintentarRechazados)
+    try {
+      await enviarTodo(overrideScores)
+    } finally {
+      silenciarAvisoRef.current = false
+    }
     if (rondaBorradaRef.current) return { estado: 'ronda_borrada', rechazadas: [] }
+    const despues = vigentes()
+    const pendientes = leerPendientes(codigo)
+    const rechazadas = [...rechazadasRef.current]
+      .filter(([id]) => despues.has(id))
+      .map(([id, code]) => ({ id, code, causa: Object.keys(pendientes[id] ?? {}).length > 0 ? 'sin_senal' as const : 'rechazo' as const }))
     return { estado: rondaCerradaRef.current ? 'ronda_cerrada' : 'ronda_abierta', rechazadas }
   }, [enviarTodo, ronda, codigo])
 

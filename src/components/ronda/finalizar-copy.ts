@@ -26,19 +26,25 @@ export const AVISO_TARJETA_RECHAZADA = {
 } as const
 
 /**
- * Finalizar del scorer de grupo con tarjetas que el servidor rechazó en firme (golpe inválido, o el jugador
- * ya no está en la ronda): la ronda NO se cierra y los golpes siguen en el teléfono. Nombra a cada jugador
+ * Finalizar del scorer de grupo con tarjetas que el servidor rechazó en firme (golpe u hoyo inválido): la
+ * ronda NO se cierra y los golpes siguen en el teléfono. Nombra a cada jugador
  * (o equipo) para que el marcador revise. Copy de Juanjo (10-nov-2026): "No pudimos guardar la tarjeta de
  * {nombre}. Revisa sus golpes y vuelve a finalizar." / "…las tarjetas de {A} y {B}…".
+ * Con `sin_senal` (el reenvío no tuvo respuesta): "…por falta de señal. Vuelve a finalizar cuando tengas conexión."
  */
-export function avisoTarjetasNoGuardadas(nombres: readonly string[]): { title: string; message: string } {
+export function avisoTarjetasNoGuardadas(
+  nombres: readonly string[],
+  causa: 'rechazo' | 'sin_senal' = 'rechazo',
+): { title: string; message: string } {
   const lista = nombres.length <= 1
     ? (nombres[0] ?? '')
     : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
-  return {
-    title: nombres.length > 1 ? `No pudimos guardar las tarjetas de ${lista}.` : `No pudimos guardar la tarjeta de ${lista}.`,
-    message: 'Revisa sus golpes y vuelve a finalizar.',
+  const tarjetas = nombres.length > 1 ? `las tarjetas de ${lista}` : `la tarjeta de ${lista}`
+  // Sin señal no hay nada que revisar en los golpes: se pide volver a finalizar con conexión.
+  if (causa === 'sin_senal') {
+    return { title: `No pudimos guardar ${tarjetas} por falta de señal.`, message: 'Vuelve a finalizar cuando tengas conexión.' }
   }
+  return { title: `No pudimos guardar ${tarjetas}.`, message: 'Revisa sus golpes y vuelve a finalizar.' }
 }
 
 /**
