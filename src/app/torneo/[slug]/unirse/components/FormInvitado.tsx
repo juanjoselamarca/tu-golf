@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { leerCampoHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { loginUrl } from '@/lib/auth/login-url'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -26,7 +28,11 @@ export function FormInvitado({
   guestJoining: boolean
   onJoin: () => void
 }) {
-  const bloqueado = guestJoining || guestName.trim().length < 2
+  // El hándicap a medio escribir ("+", "-") bloquea sin avisar; el aviso es para texto que no es número.
+  const campoHcp = leerCampoHandicap(guestHandicap)
+  const hcpInvalido = campoHcp.estado === 'invalido'
+  const bloqueado =
+    guestJoining || guestName.trim().length < 2 || hcpInvalido || campoHcp.estado === 'incompleto'
   return (
     <div>
       {/* Guest form */}
@@ -62,19 +68,23 @@ export function FormInvitado({
           <label htmlFor="guest-handicap" style={{ fontSize: '13px', color: 'var(--text-2)', display: 'block', marginBottom: '6px' }}>
             Índice de handicap (opcional)
           </label>
+          {/* type="text": un type="number" deja el valor en '' con "+2" (y el invitado entraba sin
+              hándicap, sin aviso); inputMode "text" porque el teclado decimal del iPhone no tiene signo. */}
           <Input
             id="guest-handicap"
-            type="number"
-            step="0.1"
-            min="-10"
-            max="54"
+            type="text"
+            inputMode="text"
+            autoComplete="off"
             value={guestHandicap}
             onChange={(e) => onGuestHandicap(e.target.value)}
-            placeholder="Ej: 18.5"
-            inputMode="decimal"
+            placeholder="Ej: 18.5 o +2"
+            error={hcpInvalido}
+            aria-invalid={hcpInvalido}
+            aria-describedby={hcpInvalido ? 'guest-handicap-error' : undefined}
             // `style` reemplaza el del input interno de ui/Input: se repite el color.
             style={{ color: 'var(--text)', fontFamily: 'var(--font-dm-mono), monospace' }}
           />
+          {hcpInvalido && <AvisoCampo id="guest-handicap-error">{MENSAJE_HANDICAP_NO_ES_NUMERO}</AvisoCampo>}
         </div>
 
         <Button type="button" variant="commit" size="lg" fullWidth onClick={onJoin} disabled={bloqueado}>

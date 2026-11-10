@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { leerCampoHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
 import { useRouter } from 'next/navigation'
 import type {
   JoinInfoTournament,
@@ -153,10 +154,17 @@ export function useInscripcionTorneo(slug: string) {
       setError('Ingresa tu nombre (al menos 2 caracteres).')
       return
     }
+    // "+2" es un plus (−2) y "18,5" lleva coma: se lee como en el resto de la app. parseFloat("+2") daba 2.
+    // El botón ya viene bloqueado con texto inválido o a medio escribir; esto es la red de seguridad.
+    const campoHcp = leerCampoHandicap(guestHandicap)
+    if (campoHcp.estado === 'invalido' || campoHcp.estado === 'incompleto') {
+      setError(MENSAJE_HANDICAP_NO_ES_NUMERO)
+      return
+    }
     setGuestJoining(true)
     setError(null)
 
-    const handicapNum = guestHandicap ? parseFloat(guestHandicap) : undefined
+    const handicapNum = campoHcp.valor ?? undefined
     const postGuestJoin = async (guestId: string, guestToken: string | undefined) =>
       aRespuestaJson(await fetchJsonConPlazo(`/api/torneos/${encodeURIComponent(slug)}/guest-join`, {
         method: 'POST',
@@ -164,7 +172,7 @@ export function useInscripcionTorneo(slug: string) {
         body: JSON.stringify({
           guestId,
           name: trimmedName,
-          handicap: handicapNum != null && !isNaN(handicapNum) ? handicapNum : undefined,
+          handicap: handicapNum,
           guestToken,
         }),
       }, PLAZO_INSCRIPCION_MS, { leerCuerpoSiNoOk: true }))
@@ -192,7 +200,7 @@ export function useInscripcionTorneo(slug: string) {
       const body = res.body as { guestToken?: string }
       // Guardar datos de sesión de invitado
       saveGuestName(trimmedName)
-      if (handicapNum != null && !isNaN(handicapNum)) {
+      if (handicapNum != null) {
         saveGuestHandicap(handicapNum)
       }
       if (body.guestToken) {

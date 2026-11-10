@@ -195,3 +195,41 @@ describe('useInscripcionTorneo · invitado', () => {
     expect(router.push).not.toHaveBeenCalled()
   })
 })
+
+// El campo era type=number + parseFloat: "+1.5" llegaba como 1.5 (o '' y sin hándicap) y "18,5" como 18.
+describe('useInscripcionTorneo · hándicap del invitado', () => {
+  const ANON = { ...JOIN_INFO, profile: null, authenticated: false }
+
+  it.each([['+1.5', -1.5], ['18,5', 18.5], [' -2 ', -2]])('"%s" se envía como %s', async (texto, valor) => {
+    const { result } = await montar(ANON)
+    act(() => {
+      result.current.setGuestName('Pedro Pérez')
+      result.current.setGuestHandicap(texto)
+    })
+    red.fetchJsonConPlazo.mockResolvedValueOnce(respuesta(200, { guestToken: 'tok' }))
+    await act(() => result.current.handleGuestJoin())
+    const [, init] = red.fetchJsonConPlazo.mock.calls[1]
+    expect(JSON.parse(init.body).handicap).toBe(valor)
+    expect(guest.setGuestHandicap).toHaveBeenCalledWith(valor)
+  })
+
+  it('vacío → se inscribe sin hándicap', async () => {
+    const { result } = await montar(ANON)
+    act(() => result.current.setGuestName('Pedro Pérez'))
+    red.fetchJsonConPlazo.mockResolvedValueOnce(respuesta(200, { guestToken: 'tok' }))
+    await act(() => result.current.handleGuestJoin())
+    const [, init] = red.fetchJsonConPlazo.mock.calls[1]
+    expect(JSON.parse(init.body).handicap).toBeUndefined()
+  })
+
+  it.each(['abc', '+'])('"%s" no llama al servidor', async texto => {
+    const { result } = await montar(ANON)
+    act(() => {
+      result.current.setGuestName('Pedro Pérez')
+      result.current.setGuestHandicap(texto)
+    })
+    await act(() => result.current.handleGuestJoin())
+    expect(red.fetchJsonConPlazo).toHaveBeenCalledTimes(1)
+    expect(result.current.error).toBe('Escribe un número: 12.4, o +2 si es plus.')
+  })
+})
