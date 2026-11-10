@@ -231,6 +231,8 @@ test.describe('Organizador: hoja de salida con invitados y hándicap del torneo 
     const texto = await textoCopiado(page)
     expect(texto).toContain('\nTodos los jugadores\n')
     expect(texto).toContain(`  ${INVITADO.nombre} (14.2)`)
+    expect(texto).toContain(`  ${SOFIA.nombre} (12.0)`)
+    expect(texto).toContain(`  ${TOMAS.nombre} (20.3)`)
     expect(texto).not.toContain(PENDIENTE.nombre)
   })
 
