@@ -8,6 +8,7 @@ import { addToast } from '@/hooks/useToast'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
 import { RONDA_ERRCODE, esRechazoDefinitivo } from '@/lib/data/ronda-libre-cierre'
+import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE, AVISO_TARJETA_RECHAZADA } from '@/components/ronda/finalizar-copy'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { marcarRespaldoSincronizado } from '@/lib/ronda/respaldo-local'
@@ -96,8 +97,11 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       for (const [k, v] of Object.entries(pending.holeScores)) scoresObj[String(k)] = v
       saveRondaLibreScores(supabase, { codigo, jugadorId: pending.jugadorId, delta: scoresObj }).then(({ error }) => {
         if (!error) marcarRespaldoSincronizado(codigo, pending.jugadorId, pending.holeScores)
-        else if (error.code === RONDA_ERRCODE.NOT_FOUND) limpiarCopiaLocalDeRonda(codigo)
-      }, () => { /* silent — local backup existe */ })
+        // P0001 sólo se limpia con la ronda confirmada como borrada (también sale si falta el jugador).
+        else if (error.code === RONDA_ERRCODE.NOT_FOUND) {
+          return confirmarRondaBorrada(supabase, codigo).then(v => { if (v === 'ronda_borrada') limpiarCopiaLocalDeRonda(codigo) })
+        }
+      }).catch(() => { /* silent — local backup existe */ })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al desmontar; codigo es fijo por página
   }, [])
@@ -139,8 +143,15 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       else if (error.code === RONDA_ERRCODE.FINALIZED) { rondaFinalizedRpc = true; break }
       // Sin permiso sobre esta tarjeta: reintentar no cambia nada.
       else if (error.code === RONDA_ERRCODE.FORBIDDEN) { forbiddenRpc = true; break }
-      // La ronda se borró (quien la creó la descartó). No es una falla de red: reintentar no la trae de vuelta.
-      else if (error.code === RONDA_ERRCODE.NOT_FOUND) { noExisteRpc = true; break }
+      // No encontró ronda+jugador: se confirma con la ronda antes de tratarla como borrada.
+      // Borrada → salir (reintentar no la trae de vuelta). Viva → rechazo de esta tarjeta. Sin
+      // señal para confirmarlo → como falta de conexión, sin limpiar nada.
+      else if (error.code === RONDA_ERRCODE.NOT_FOUND) {
+        const veredicto = await confirmarRondaBorrada(supabase, codigo)
+        if (veredicto === 'ronda_borrada') noExisteRpc = true
+        else if (veredicto === 'ronda_viva') rechazadoRpc = true
+        break
+      }
       // Cualquier otro rechazo firme del servidor tampoco se arregla reintentando.
       else if (esRechazoDefinitivo(error)) { rechazadoRpc = true; break }
       else {

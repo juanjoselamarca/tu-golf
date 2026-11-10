@@ -61,6 +61,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+// P0001 sólo dice que no encontró ronda+jugador: el scorer confirma con una lectura de la ronda.
+const P0001 = { data: null, error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } }
+function rondaBorradaEnServidor() {
+  mockRpc.mockResolvedValue(P0001)
+  mockSingle.mockResolvedValue({ data: null, error: { code: 'PGRST116', message: '0 rows' } })
+}
+
 describe('useScoreSave', () => {
   it('saveStatus arranca en idle', () => {
     const { result } = renderHook(() => useScoreSave({
@@ -150,7 +157,7 @@ describe('useScoreSave', () => {
 
     it('no reintenta, avisa que ya no existe, borra las copias locales de la ronda y saca al jugador', async () => {
       respaldo('ABC123', 'p1'); respaldo('ABC123', 'p2'); respaldo('OTRA', 'p1')
-      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } })
+      rondaBorradaEnServidor()
       const onRondaNoExiste = vi.fn()
       const { result } = renderHook(() => useScoreSave({
         codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste,
@@ -169,7 +176,7 @@ describe('useScoreSave', () => {
 
     it('para Finalizar: devuelve no_existe sin avisar ni redirigir (Finalizar decide)', async () => {
       respaldo('ABC123', 'p1')
-      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } })
+      rondaBorradaEnServidor()
       const onRondaNoExiste = vi.fn()
       const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste }))
       let p!: Promise<string>
@@ -178,6 +185,40 @@ describe('useScoreSave', () => {
       expect(mockRpc).toHaveBeenCalledTimes(1)
       expect(onRondaNoExiste).not.toHaveBeenCalled()
       expect(addToast).not.toHaveBeenCalled()
+    })
+
+    it('P0001 con la ronda VIVA (falta ese jugador): rechazo de la tarjeta, no limpia ni saca a nadie', async () => {
+      respaldo('ABC123', 'p1'); respaldo('ABC123', 'p2')
+      mockRpc.mockResolvedValue(P0001)
+      mockSingle.mockResolvedValue({ data: { estado: 'en_curso' }, error: null })
+      const onRondaNoExiste = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste }))
+      let r!: string
+      await act(async () => { const p = result.current.guardarAhora('p1', { 1: 4 }); await vi.runAllTimersAsync(); r = await p })
+      expect(r).toBe('rechazado')
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(onRondaNoExiste).not.toHaveBeenCalled()
+      expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+      expect(localStorage.getItem('golfers_score_ABC123_p2')).not.toBeNull()
+      expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar tu tarjeta' }))
+      // No queda bloqueado: el siguiente guardado sale.
+      mockRpc.mockResolvedValue({ data: { '1': 4 }, error: null })
+      await act(async () => { const p = result.current.guardarAhora('p1', { 1: 4 }); await vi.runAllTimersAsync(); r = await p })
+      expect(r).toBe('guardado')
+    })
+
+    it('P0001 sin poder confirmar la ronda (sin señal): no limpia, queda como falta de conexión', async () => {
+      respaldo('ABC123', 'p1')
+      mockRpc.mockResolvedValue(P0001)
+      mockSingle.mockResolvedValue({ data: null, error: { code: '', message: 'Failed to fetch' } })
+      const onRondaNoExiste = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaNoExiste }))
+      let r!: string
+      await act(async () => { const p = result.current.guardarAhora('p1', { 1: 4 }); await vi.runAllTimersAsync(); r = await p })
+      expect(r).toBe('sin_conexion')
+      expect(onRondaNoExiste).not.toHaveBeenCalled()
+      expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+      expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
     })
 
     it('inverso: una falla de red NO borra el respaldo ni saca al jugador', async () => {
@@ -225,7 +266,7 @@ describe('useScoreSave', () => {
     beforeEach(() => { localStorage.clear(); vi.mocked(addToast).mockClear() })
 
     it('un toque después del P0001 no vuelve a escribir el respaldo ni manda nada', async () => {
-      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } })
+      rondaBorradaEnServidor()
       const scoreSync = makeScoreSync()
       const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync, onRondaNoExiste: vi.fn() }))
       await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
@@ -257,13 +298,24 @@ describe('useScoreSave', () => {
     it('al salir: si el servidor responde P0001, se limpia la copia local de la ronda', async () => {
       respaldo({ 1: 4 })
       localStorage.setItem('ronda_ABC123_p1', '{"1":4}')
-      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } })
+      rondaBorradaEnServidor()
       const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
       await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
       unmount()
       await act(async () => { await vi.runAllTimersAsync() })
       expect(leer()).toBeNull()
       expect(localStorage.getItem('ronda_ABC123_p1')).toBeNull()
+    })
+
+    it('inverso: al salir, un P0001 con la ronda viva no limpia nada', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue(P0001)
+      mockSingle.mockResolvedValue({ data: { estado: 'en_curso' }, error: null })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer()).toMatchObject({ sincronizado: false, scores: { 1: 4 } })
     })
 
     it('inverso: al salir sin red, el respaldo queda pendiente (se re-sincroniza al volver)', async () => {

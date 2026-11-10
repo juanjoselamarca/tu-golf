@@ -16,6 +16,7 @@ import {
   hayPendientes,
   limpiarCopiaLocalDeRonda,
 } from '@/lib/ronda/score-storage'
+import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
 import type { RondaLibre } from '@/types/ronda'
 import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
@@ -178,37 +179,44 @@ export function useGrupoScoreSave(input: {
       let ok = false
       let attempts = 0
       let rechazoDefinitivo: string | null = null
-      let noExiste = false as boolean
+      let noExiste = false
+      // La ronda se cerró en otro dispositivo / golpe fuera de rango: no se reintenta
+      // (sale de pendientes), pero tampoco se informa como guardado.
+      const rechazar = (id: string, golpes: Record<number, number>, code: string) => {
+        confirmarPendientes(codigo, id, golpes)
+        rechazoDefinitivo = code
+        if (avisoDefinitivoRef.current) return
+        avisoDefinitivoRef.current = true
+        addToast({
+          type: 'error',
+          title: code === RONDA_ERRCODE.FINALIZED ? 'La ronda ya fue finalizada' : 'Un golpe no se pudo guardar',
+          message: code === RONDA_ERRCODE.FINALIZED
+            ? 'Se cerró desde otro dispositivo; los cambios nuevos no se guardan.'
+            : 'El servidor lo rechazó. Revisa ese hoyo.',
+          duration: 6000,
+        })
+      }
       while (!ok && attempts < SAVE_RETRIES) {
+        const noEncontrados: [string, Record<number, number>][] = []
         const envios = Object.entries(leerPendientes(codigo)).map(async ([id, golpes]) => {
           const r = id.startsWith('eq:')
             ? await saveRondaEquiposScores(supabase, { codigo, equipoId: id.slice(3), delta: golpes })
             : await saveRondaLibreScores(supabase, { codigo, jugadorId: id, delta: golpes })
           if (!r.error) confirmarPendientes(codigo, id, golpes)
-          // La ronda se borró (quien la creó la descartó): ni se reintenta ni es un golpe rechazado.
-          else if (r.error.code === RONDA_ERRCODE.NOT_FOUND) { noExiste = true; return { error: null } }
-          else if (esRechazoDefinitivo(r.error)) {
-            // La ronda se cerró en otro dispositivo / golpe fuera de rango: no se reintenta
-            // (sale de pendientes), pero tampoco se informa como guardado.
-            confirmarPendientes(codigo, id, golpes)
-            rechazoDefinitivo = r.error.code
-            if (!avisoDefinitivoRef.current) {
-              avisoDefinitivoRef.current = true
-              addToast({
-                type: 'error',
-                title: r.error.code === RONDA_ERRCODE.FINALIZED ? 'La ronda ya fue finalizada' : 'Un golpe no se pudo guardar',
-                message: r.error.code === RONDA_ERRCODE.FINALIZED
-                  ? 'Se cerró desde otro dispositivo; los cambios nuevos no se guardan.'
-                  : 'El servidor lo rechazó. Revisa ese hoyo.',
-                duration: 6000,
-              })
-            }
-            return { error: null }
-          }
+          // No encontró ronda+jugador (o equipo): se decide abajo, con UNA lectura de la ronda.
+          else if (r.error.code === RONDA_ERRCODE.NOT_FOUND) { noEncontrados.push([id, golpes]); return { error: null } }
+          else if (esRechazoDefinitivo(r.error)) { rechazar(id, golpes, r.error.code); return { error: null } }
           return r
         })
-        const results = await Promise.all(envios)
-        if (noExiste) break
+        const results: { error: { code?: string } | null }[] = await Promise.all(envios)
+        if (noEncontrados.length > 0) {
+          // Borrada → limpiar y salir. Viva (falta ese jugador o equipo) → rechazo de esas tarjetas.
+          // Sin señal para confirmarlo → como servidor sin respuesta: nada se limpia y se reintenta.
+          const veredicto = await confirmarRondaBorrada(supabase, codigo)
+          if (veredicto === 'ronda_borrada') { noExiste = true; break }
+          if (veredicto === 'ronda_viva') for (const [id, golpes] of noEncontrados) rechazar(id, golpes, RONDA_ERRCODE.NOT_FOUND)
+          else results.push({ error: { code: ERRCODE_SIN_RESPUESTA } })
+        }
         ok = !results.some(r => r.error)
         attempts++
         // Sin respuesta / sin red: el servidor está caído, reintentar a los 400 ms no
