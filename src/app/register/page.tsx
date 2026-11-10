@@ -1,7 +1,13 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { avisoCampoIndice, campoIndiceGuardable, leerCampoHandicap } from '@/golf/handicap-index-range'
+import {
+  avisoCampoIndice,
+  campoIndiceGuardable,
+  leerCampoHandicap,
+  MENSAJE_HANDICAP_NO_ES_NUMERO,
+  PLACEHOLDER_CAMPO_HANDICAP,
+} from '@/golf/handicap-index-range'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -80,6 +86,9 @@ function RegisterContent() {
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [indice,   setIndice]   = useState('')
+  // Aviso que deja "Crear cuenta" cuando el índice va a medio escribir ("+", "-", ","): mientras se tipea no se
+  // regaña, pero al enviar sí se explica por qué no pasa. Se borra al volver a escribir.
+  const [indiceAvisoAlEnviar, setIndiceAvisoAlEnviar] = useState<string | null>(null)
   const [showPwd,  setShowPwd]  = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [pendingConfirmation, setPendingConfirmation] = useState(false)
@@ -100,15 +109,20 @@ function RegisterContent() {
     })
   }
 
-  const indiceAviso = avisoCampoIndice(indice)
+  const indiceAviso = avisoCampoIndice(indice) ?? indiceAvisoAlEnviar
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearAll()
 
     // Client validation
-    // El botón ya viene bloqueado con un índice que no se puede guardar; esto es la red de seguridad.
-    if (!campoIndiceGuardable(indice)) return
+    // El botón NO se bloquea por el índice (un botón apagado sin aviso no dice qué falta): al enviar con un
+    // índice que no se puede guardar, se avisa en el campo y se lleva el foco ahí.
+    if (!campoIndiceGuardable(indice)) {
+      setIndiceAvisoAlEnviar(avisoCampoIndice(indice) ?? MENSAJE_HANDICAP_NO_ES_NUMERO)
+      document.getElementById('registro-indice')?.focus()
+      return
+    }
     if (password.length < PASSWORD_MIN_LENGTH) {
       setFieldError('password', `Mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
       showError(PASSWORD_TOO_SHORT.title, PASSWORD_TOO_SHORT.body)
@@ -124,6 +138,8 @@ function RegisterContent() {
         data: {
           name,
           // "+2" es un plus (−2) y "18,5" lleva coma: parseFloat("+2") daba 2.
+          // OJO: hoy este metadato NO llega a profiles.indice: el trigger handle_new_user no lo copia (#777).
+          // Se manda igual para que, al corregir el trigger, los registros nuevos ya lo traigan.
           indice: leerCampoHandicap(indice).valor,
         },
       },
@@ -391,7 +407,7 @@ function RegisterContent() {
               <label htmlFor="registro-indice" style={labelStyle}>Índice de hándicap <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: theme.textFaint }}>(opcional)</span></label>
               {/* inputMode "text": el teclado decimal del iPhone no tiene signo y un plus se escribe "+2". Ya no se
                   "normaliza" al salir: parseFloat("+2") lo dejaba en 2 (un plus se registraba como hándicap 2). */}
-              <input id="registro-indice" type="text" inputMode="text" autoComplete="off" placeholder="ej: 12.4 — si no lo sabes, déjalo vacío" value={indice} onChange={(e) => setIndice(e.target.value)}
+              <input id="registro-indice" type="text" inputMode="text" autoComplete="off" placeholder={PLACEHOLDER_CAMPO_HANDICAP} value={indice} onChange={(e) => { setIndice(e.target.value); setIndiceAvisoAlEnviar(null) }}
                 aria-invalid={indiceAviso != null}
                 aria-describedby={indiceAviso != null ? 'registro-indice-error' : undefined}
                 style={{ ...baseInput, border: `1px solid ${theme.border}` }}
@@ -424,7 +440,7 @@ function RegisterContent() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || !campoIndiceGuardable(indice)}
+              disabled={loading}
               style={{ background: theme.gold, color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', width: '100%', borderRadius: '12px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms, box-shadow 200ms', marginTop: '6px', boxShadow: '0 2px 10px rgba(196,153,42,0.25)' }}
               onMouseEnter={(e) => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.05)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(196,153,42,0.35)' } }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 10px rgba(196,153,42,0.25)' }}

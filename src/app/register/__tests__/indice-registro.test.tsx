@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 // Registro (primer contacto): parseFloat("+2") registraba un plus como hándicap 2, y el onBlur con 0..54 ya lo
 // dejaba en "2" antes de enviar. "18,5" se leía 18.
+// Estos tests verifican lo que se MANDA en signUp (options.data.indice), nada más: hoy ese metadato no llega a
+// profiles.indice porque el trigger handle_new_user no lo copia (#777, PR aparte con migración).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 
@@ -30,23 +32,36 @@ async function enviar(indice: string) {
 describe('registro — índice de hándicap', () => {
   beforeEach(() => signUp.mockClear())
 
-  it.each([['+2', -2], ['18,5', 18.5], ['', null]])('"%s" se registra como %s (y el blur no lo cambia)', async (texto, indice) => {
+  it.each([['+2', -2], ['18,5', 18.5], ['', null]])('"%s" se manda en signUp como %s (y el blur no lo cambia)', async (texto, indice) => {
     expect(await enviar(texto)).toBe(texto)
     expect(signUp).toHaveBeenCalledTimes(1)
     expect((signUp.mock.calls[0] as unknown as [{ options: { data: { indice: unknown } } }])[0].options.data.indice).toBe(indice)
   })
 
-  it('"abc" avisa, bloquea el botón y no registra', async () => {
+  it('"abc" avisa y no llama a signUp; el botón no se apaga por el índice', async () => {
     await enviar('abc')
     expect(signUp).not.toHaveBeenCalled()
-    expect(boton().disabled).toBe(true)
+    expect(boton().disabled).toBe(false)
     expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus.')
   })
 
-  it('"+" a medio escribir bloquea sin avisar', async () => {
-    await enviar('+')
+  it.each(['-', '+', '.', ','])('"%s" a medio escribir: no avisa mientras se tipea; al tocar "Crear cuenta" avisa, enfoca el campo y no llama a signUp', async texto => {
+    render(<RegisterPage />)
+    // Todo lo obligatorio lleno: el click de verdad tiene que pasar la validación nativa del form.
+    fireEvent.change(screen.getByPlaceholderText('Tu nombre y apellido'), { target: { value: 'Ana Pérez' } })
+    fireEvent.change(screen.getByPlaceholderText('tu@email.com'), { target: { value: 'a@b.cl' } })
+    fireEvent.change(document.querySelector('input[type="password"]')!, { target: { value: 'clave-segura-123' } })
+    fireEvent.click(document.querySelector('input[type="checkbox"]')!)
+    fireEvent.change(campo(), { target: { value: texto } })
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(boton().disabled).toBe(false)
+    await act(async () => { fireEvent.click(boton()) })
     expect(signUp).not.toHaveBeenCalled()
-    expect(boton().disabled).toBe(true)
+    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus.')
+    expect(campo().getAttribute('aria-describedby')).toBe('registro-indice-error')
+    expect(document.activeElement).toBe(campo())
+    // Al volver a escribir, el aviso del envío se va.
+    fireEvent.change(campo(), { target: { value: '12' } })
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
