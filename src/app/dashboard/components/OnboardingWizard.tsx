@@ -57,7 +57,8 @@ const CTA: React.CSSProperties = {
   borderRadius: 12,
   border: 'none',
   background: 'var(--brand)',
-  color: '#fff',
+  // DESIGN.md §5: commit = dorado sólido, texto navy (~7,4:1). Blanco daba ~2,6:1.
+  color: 'var(--brand-dark)',
   fontFamily: 'var(--font-display, "Playfair Display", serif)',
   fontSize: '1.0625rem',
   fontWeight: 600,
