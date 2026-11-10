@@ -7,8 +7,16 @@ let filas: unknown[] = []
 /** Respuestas de error en cola: cada lectura consume una (4G débil en la cancha). */
 let errores: unknown[] = []
 let usuario: { id: string } | null = { id: 'u1' }
+/** Lo que devuelve getUser además del usuario (red caída, sesión ausente) o una excepción. */
+let errorAuth: unknown = null
+let getUserLanza = false
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: () => {} }))
+const formateados = vi.hoisted(() => [] as number[])
+vi.mock('@/golf/handicap-index-range', async orig => {
+  const real = (await orig()) as typeof import('@/golf/handicap-index-range')
+  return { ...real, formatearIndice: (v: number) => { formateados.push(v); return real.formatearIndice(v) } }
+})
 vi.mock('@/lib/supabase', () => ({
   createClient: () => {
     const q: Record<string, unknown> = {}
@@ -18,12 +26,15 @@ vi.mock('@/lib/supabase', () => ({
       return Promise.resolve(error ? { data: null, error } : { data: filas, error: null }).then(ok, ko)
     }
     return {
-      auth: { getUser: () => Promise.resolve({ data: { user: usuario } }) },
+      auth: {
+        getUser: () => (getUserLanza ? Promise.reject(new Error('boom')) : Promise.resolve({ data: { user: usuario }, error: errorAuth })),
+      },
       from: () => q,
     }
   },
 }))
 
+import { AuthRetryableFetchError, AuthSessionMissingError } from '@supabase/supabase-js'
 import IndiceBreakdownModal from '../IndiceBreakdownModal'
 
 function ronda(id: string, diferencial: number, extra: Record<string, unknown> = {}) {
@@ -33,7 +44,7 @@ function ronda(id: string, diferencial: number, extra: Record<string, unknown> =
   }
 }
 
-beforeEach(() => { filas = []; errores = []; usuario = { id: 'u1' } })
+beforeEach(() => { filas = []; errores = []; usuario = { id: 'u1' }; errorAuth = null; getUserLanza = false })
 
 describe('IndiceBreakdownModal', () => {
   it('índice plus: el resumen dice "+1.0", nunca "-1"', async () => {
@@ -81,10 +92,49 @@ describe('IndiceBreakdownModal', () => {
     expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
   })
 
-  it('sin sesión: lo dice, no muestra la hoja vacía', async () => {
+  it('sin sesión: lo dice, ofrece ingresar (44 px) y no muestra la hoja vacía', async () => {
     usuario = null
+    errorAuth = new AuthSessionMissingError()
     render(<IndiceBreakdownModal isOpen onClose={() => {}} />)
     await waitFor(() => expect(document.body.textContent).toContain('Tu sesión expiró'))
     expect(document.body.textContent).not.toContain('Aún no tienes rondas válidas')
+    const link = screen.getByRole('link', { name: 'Ingresar →' })
+    expect(link.getAttribute('href')).toBe('/login?next=%2F')
+    expect(link.style.minHeight).toBe('44px')
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+  })
+
+  it('sin red, getUser trae user null + AuthRetryableFetchError: pide reintentar, no dice "sesión expirada"', async () => {
+    usuario = null
+    errorAuth = new AuthRetryableFetchError('Failed to fetch', 0)
+    render(<IndiceBreakdownModal isOpen onClose={() => {}} />)
+    const boton = await screen.findByRole('button', { name: 'Reintentar' })
+    expect(document.body.textContent).not.toContain('Tu sesión expiró')
+    usuario = { id: 'u1' }
+    errorAuth = null
+    filas = [ronda('1', 16.0), ronda('2', 17.0), ronda('3', 18.0)]
+    fireEvent.click(boton)
+    await waitFor(() => expect(document.body.textContent).toContain('= 14.0.'))
+  })
+
+  it('si algo lanza dentro de la lectura, muestra el error con Reintentar (no se queda en "Cargando…")', async () => {
+    getUserLanza = true
+    render(<IndiceBreakdownModal isOpen onClose={() => {}} />)
+    await screen.findByRole('button', { name: 'Reintentar' })
+    expect(document.body.textContent).not.toContain('Cargando')
+  })
+
+  it('al reabrir, el primer cuadro no pinta la lectura anterior', async () => {
+    filas = [ronda('1', 16.0), ronda('2', 17.0), ronda('3', 18.0)]
+    const { rerender } = render(<IndiceBreakdownModal isOpen onClose={() => {}} />)
+    await waitFor(() => expect(document.body.textContent).toContain('= 14.0.'))
+    rerender(<IndiceBreakdownModal isOpen={false} onClose={() => {}} />)
+    filas = [ronda('1', 1.0), ronda('2', 5.0), ronda('3', 6.0)]
+    // act() corre el efecto antes de volver, así que el DOM final no muestra el primer cuadro: se mira
+    // qué índices llegó a formatear el render (el resumen es el único que llama a formatearIndice).
+    formateados.length = 0
+    rerender(<IndiceBreakdownModal isOpen onClose={() => {}} />)
+    await waitFor(() => expect(document.body.textContent).toContain('= +1.0.'))
+    expect(formateados).not.toContain(14)
   })
 })

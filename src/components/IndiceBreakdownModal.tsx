@@ -19,6 +19,10 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Portal } from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase'
+import { isAuthSessionMissingError } from '@supabase/supabase-js'
+import { conTimeout } from '@/lib/red/con-timeout'
+import { PLAZO_LECTURA_INDICE_MS } from '@/lib/red/plazos'
+import { captureError } from '@/lib/error-tracking'
 import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
@@ -75,16 +79,27 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
-    setLectura({ estado: 'cargando' })
+    const fijar = (l: Lectura) => { if (!cancelled) setLectura(l) }
     ;(async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { if (!cancelled) setLectura({ estado: 'sin-sesion' }); return }
-      // Misma lectura que el CPI y Mi Golf (predicado del RPC). null = falló: no es "sin rondas".
-      const rondas = await fetchRondasIndice(supabase, user.id, ['course_name'] as const)
-      if (!cancelled) setLectura(rondas ? { estado: 'ok', rondas } : { estado: 'error' })
+      try {
+        const supabase = createClient()
+        const { data: { user }, error } = await conTimeout(supabase.auth.getUser(), PLAZO_LECTURA_INDICE_MS)
+        if (!user) {
+          // Sin red, getUser devuelve user null + AuthRetryableFetchError: eso es "reintentar", no "sesión expirada".
+          fijar(!error || isAuthSessionMissingError(error) ? { estado: 'sin-sesion' } : { estado: 'error' })
+          return
+        }
+        // Misma lectura que el CPI y Mi Golf (predicado del RPC). null = falló: no es "sin rondas".
+        const rondas = await conTimeout(fetchRondasIndice(supabase, user.id, ['course_name'] as const), PLAZO_LECTURA_INDICE_MS)
+        fijar(rondas ? { estado: 'ok', rondas } : { estado: 'error' })
+      } catch (e) {
+        // Plazo agotado o cualquier excepción: nunca quedarse en "Cargando…".
+        void captureError(e, { context: 'indice-breakdown.lectura', level: 'warning' })
+        fijar({ estado: 'error' })
+      }
     })()
-    return () => { cancelled = true }
+    // Al cerrar (o reintentar) vuelve a "cargando": al reabrir, el primer cuadro no pinta la lectura anterior.
+    return () => { cancelled = true; setLectura({ estado: 'cargando' }) }
   }, [isOpen, intento])
 
   const tableRow = rounds ? whsTableRow(rounds.length) : null
@@ -199,7 +214,13 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
 
           {lectura.estado === 'sin-sesion' && (
             <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
-              Tu sesión expiró. Vuelve a ingresar para ver qué rondas cuentan.
+              Tu sesión expiró. Vuelve a ingresar para ver qué rondas cuentan.<br />
+              <Link
+                href={`/login?next=${encodeURIComponent(window.location.pathname)}`}
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '0 12px', color: 'var(--brand-on-bg)', fontWeight: 600 }}
+              >
+                Ingresar →
+              </Link>
             </p>
           )}
 

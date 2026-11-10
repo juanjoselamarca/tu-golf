@@ -15,6 +15,12 @@ export const TIMEOUT_EN_VIVO_MS = 8_000
  */
 export const PLAZO_AUTOSELECCION_INVITADO_MS = 5_000
 
+/**
+ * Lectura de "¿Qué rondas cuentan?" (sesión + rondas del índice). `createClient()` no tiene plazo propio:
+ * sin este, con el wifi del club que acepta y no contesta, la hoja se queda en "Cargando…".
+ */
+export const PLAZO_LECTURA_INDICE_MS = 10_000
+
 /** Chequeo de salud del banner de estado (`/api/health`). */
 export const PLAZO_SALUD_MS = 10_000
 
