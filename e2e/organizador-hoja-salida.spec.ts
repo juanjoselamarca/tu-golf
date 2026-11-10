@@ -141,12 +141,14 @@ test.describe('Organizador: hoja de salida con invitados y hándicap del torneo 
   test.afterAll(async () => {
     const errs: string[] = []
     // tournaments arrastra players, tournament_groups y tournament_group_players (ON DELETE CASCADE).
+    // Con el torneo vivo, borrar a un jugador fallaría por FK: solo eso frena el borrado de los usuarios.
+    let torneoBorrado = true
     if (tournamentId) {
       const { error } = await adminClient().from('tournaments').delete().eq('id', tournamentId)
-      if (error) errs.push(`tournaments: ${error.message}`)
+      if (error) { errs.push(`tournaments: ${error.message}`); torneoBorrado = false }
     }
     for (const id of usuarios) {
-      if (errs.length === 0) errs.push(...(await deleteEphemeralUser(id)))
+      if (torneoBorrado) errs.push(...(await deleteEphemeralUser(id)))
       else errs.push(`usuario efímero sin borrar: ${id}`)
     }
     if (errs.length) console.warn(`[organizador-hoja-salida] cleanup parcial:\n  ${errs.join('\n  ')}`)
@@ -166,10 +168,12 @@ test.describe('Organizador: hoja de salida con invitados y hándicap del torneo 
     await expect(grupo(page, 'Grupo 2')).toContainText(horaCL(SALIDA_G2))
     expect(horaCL(SALIDA_G1), 'la hora del fixture es la de Santiago (no UTC)').toMatch(/^08:10/)
 
-    expect(await filas(page, 'Grupo 1')).toEqual([
+    // Dentro de un grupo la hoja no ordena a los jugadores (el embed no tiene ORDER BY): se compara como conjunto.
+    // El orden de los GRUPOS sí está garantizado (sort_order) y se afirma exacto arriba.
+    expect((await filas(page, 'Grupo 1')).sort()).toEqual([
       `${INVITADO.nombre}|14.2`,
       `${SOFIA.nombre}|12.0`,
-    ])
+    ].sort())
     expect(await filas(page, 'Grupo 2')).toEqual([`${TOMAS.nombre}|20.3`])
 
     // Lo que #767 arregló: ni "Jugador" genérico, ni "—", ni el índice del perfil de Sofía.
@@ -191,10 +195,13 @@ test.describe('Organizador: hoja de salida con invitados y hándicap del torneo 
     expect(lineas[1]).toMatch(/ · 18H · Tees Blanco$/)
     expect(lineas[2]).toMatch(/2026/)
     const desdeGrupos = lineas.slice(lineas.indexOf(`${horaCL(SALIDA_G1)}  Grupo 1`))
-    expect(desdeGrupos.slice(0, 7)).toEqual([
-      `${horaCL(SALIDA_G1)}  Grupo 1`,
+    expect(desdeGrupos[0]).toBe(`${horaCL(SALIDA_G1)}  Grupo 1`)
+    // Jugadores del grupo 1 como conjunto (sin orden garantizado dentro del grupo, igual que en pantalla).
+    expect(desdeGrupos.slice(1, 3).sort()).toEqual([
       `  ${INVITADO.nombre} (14.2)`,
       `  ${SOFIA.nombre} (12.0)`,
+    ].sort())
+    expect(desdeGrupos.slice(3, 7)).toEqual([
       '',
       `${horaCL(SALIDA_G2)}  Grupo 2`,
       `  ${TOMAS.nombre} (20.3)`,
@@ -229,7 +236,9 @@ test.describe('Organizador: hoja de salida con invitados y hándicap del torneo 
 
   test('slug inexistente: "no encontrado", no una hoja vacía para compartir', async ({ page }) => {
     await abrirHoja(page, `${slug}-no-existe`)
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Torneo no encontrado' })).toBeVisible()
+    // Y no es el estado de error ("No pudimos cargar…"), que tampoco tiene botones ni grupos.
+    await expect(page.getByText('No pudimos cargar la hoja de salida')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Copiar texto' })).toHaveCount(0)
     await expect(page.locator('[data-print-group]')).toHaveCount(0)
   })
