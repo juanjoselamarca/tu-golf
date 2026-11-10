@@ -5,13 +5,15 @@
 
 import type { LiveTeam } from '../types'
 import { formatVsPar, formatThru, vsParColor } from './golf-format'
-import { etiquetasDePosicion } from '@/golf/core/posiciones'
-import { hasPlayData } from '@/golf/leaderboard/board-rules'
+import { esPrimerLugar } from '@/golf/core/posiciones'
+import { posicionesDeEquipos, type PosicionesPorId } from '../posiciones-en-vivo'
 
 export interface TeamLeaderboardProps {
   teams: LiveTeam[]
   /** Hoyos de la ronda: sin esto un equipo que terminó 9 hoyos mostraba "9" en vez de "F". */
   holeCount: number
+  /** Posiciones dentro de la competencia, por id (ver IndividualLeaderboard). Sin esto, sobre `teams`. */
+  posiciones?: PosicionesPorId
 }
 
 function joinPlayerNames(team: LiveTeam): string {
@@ -19,19 +21,13 @@ function joinPlayerNames(team: LiveTeam): string {
   return team.players.map((p) => p.name).join(' / ')
 }
 
-export default function TeamLeaderboard({ teams, holeCount }: TeamLeaderboardProps) {
-  // Ordenar por vs_par (par-relativo): comparable entre equipos con distinto
-  // `thru`. Ordenar por team_total (golpes totales) haría liderar erróneamente a
-  // un equipo que jugó menos hoyos. Desempate por más hoyos jugados. Los que no
-  // salieron van al final (su vs_par 0 los dejaba entre los que van en par).
-  const salio = (t: LiveTeam) => (hasPlayData({ holesPlayed: t.thru }) ? 0 : 1)
-  const sorted = [...teams].sort((a, b) => salio(a) - salio(b) || a.vs_par - b.vs_par || b.thru - a.thru)
-  // Empates estilo golf: equipos al mismo vs_par comparten posición (T2, T2, 4).
-  // El orden por hoyos jugados de arriba es convención de board, no desempate.
-  // Un equipo sin hoyos no tiene posición (no empata "E" con uno que va en par).
-  const positions = etiquetasDePosicion(sorted, (a, b) => a.vs_par === b.vs_par, {
-    sinPosicion: (t) => !hasPlayData({ holesPlayed: t.thru }),
-  })
+export default function TeamLeaderboard({ teams, holeCount, posiciones }: TeamLeaderboardProps) {
+  // El orden lo decide el motor (`rankTeamsWithCountback`): vs par, más hoyos
+  // arriba entre empatados, countback cuando el grupo terminó y sin hoyos al final.
+  // Re-ordenar acá por vs par perdía el countback y contradecía al podio.
+  const sorted = teams
+  // Empates estilo golf con la clave del motor (T2, T2, 4); sin hoyos, sin posición.
+  const positions = posiciones ?? posicionesDeEquipos(sorted)
 
   const tableStyle: React.CSSProperties = {
     width: '100%',
@@ -98,7 +94,8 @@ export default function TeamLeaderboard({ teams, holeCount }: TeamLeaderboardPro
         </thead>
         <tbody>
           {sorted.map((t, idx) => {
-            const isLeader = idx === 0
+            const posicion = positions.get(t.id) ?? null
+            const isLeader = esPrimerLugar(posicion)
             const isEvenRow = idx % 2 === 1
             const rowStyle: React.CSSProperties = {
               background: isLeader
@@ -109,7 +106,7 @@ export default function TeamLeaderboard({ teams, holeCount }: TeamLeaderboardPro
             }
             return (
               <tr key={t.id} style={rowStyle}>
-                <td style={tdNumStyle}>{positions[idx] ?? '—'}</td>
+                <td style={tdNumStyle}>{posicion ?? '—'}</td>
                 <td style={{ ...tdStyle, fontWeight: isLeader ? 700 : 600 }}>{t.name}</td>
                 <td style={{ ...tdStyle, color: 'var(--text-2)' }}>{joinPlayerNames(t)}</td>
                 <td style={tdNumStyle}>{t.team_total}</td>

@@ -71,3 +71,33 @@ export function etiquetasPorClaveDeEmpate<T>(
     sinPosicion: (f) => clave(f) == null,
   })
 }
+
+/**
+ * Etiquetas con la clave de empate del motor y, si alguna fila no la trae, por score.
+ *
+ * La clave viaja en respuestas cacheadas (/api/en-vivo, la ruta en vivo del torneo). Una
+ * respuesta generada antes de que existiera llega sin ella (`undefined`): en vez de mostrar
+ * "—" para todos, se calcula por score consecutivo como antes del countback. `null` en la
+ * clave sigue siendo "sin posición".
+ */
+export function etiquetasConRespaldo<T>(
+  filas: readonly T[],
+  clave: (fila: T) => string | null | undefined,
+  mismoScore: (anterior: T, actual: T) => boolean,
+  sinPosicion: (fila: T) => boolean,
+): (string | null)[] {
+  if (filas.every((f) => clave(f) !== undefined)) return etiquetasPorClaveDeEmpate(filas, clave)
+  return etiquetasDePosicion(filas, mismoScore, { sinPosicion })
+}
+
+/** ¿La etiqueta es el primer lugar, solo o empatado ("1" o "T1")? Para resaltar al líder. */
+export function esPrimerLugar(etiqueta: string | null | undefined): boolean {
+  return etiqueta === '1' || etiqueta === 'T1'
+}
+
+/** Número del lugar de una etiqueta ("T2" → 2), para medallas de podio. null si no tiene. */
+export function lugarDeEtiqueta(etiqueta: string | null | undefined): number | null {
+  if (!etiqueta) return null
+  const n = Number(etiqueta.startsWith('T') ? etiqueta.slice(1) : etiqueta)
+  return Number.isInteger(n) && n > 0 ? n : null
+}

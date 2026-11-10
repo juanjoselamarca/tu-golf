@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { etiquetasDePosicion, etiquetasPorClaveDeEmpate } from './posiciones'
+import { esPrimerLugar, etiquetasConRespaldo, etiquetasDePosicion, etiquetasPorClaveDeEmpate, lugarDeEtiqueta } from './posiciones'
 
 interface Fila { nombre: string; vsPar: number; hoyos: number; pts?: number }
 const mismoVsPar = (a: Fila, b: Fila) => a.vsPar === b.vsPar
@@ -76,5 +76,26 @@ describe('etiquetasPorClaveDeEmpate', () => {
   it('misma clave = empate; null = sin posición', () => {
     const filas = [{ k: '-3#0' }, { k: '1#0' }, { k: '1#0' }, { k: '1#1' }, { k: null }]
     expect(etiquetasPorClaveDeEmpate(filas, (f) => f.k)).toEqual(['1', 'T2', 'T2', '4', null])
+  })
+})
+
+describe('etiquetasConRespaldo / esPrimerLugar / lugarDeEtiqueta', () => {
+  type F = { s: number; c?: string | null; h: number }
+  const mismo = (a: F, b: F) => a.s === b.s
+  const sin = (f: F) => f.h === 0
+
+  it('con clave en todas las filas usa la clave (el countback manda)', () => {
+    const filas: F[] = [{ s: 1, c: '0#0', h: 9 }, { s: 1, c: '0#1', h: 9 }, { s: 3, c: null, h: 0 }]
+    expect(etiquetasConRespaldo(filas, (f) => f.c, mismo, sin)).toEqual(['1', '2', null])
+  })
+
+  it('respuesta cacheada sin clave: cae al score, no "—" para todos', () => {
+    const filas: F[] = [{ s: 1, h: 9 }, { s: 1, h: 9 }, { s: 3, h: 9 }, { s: 0, h: 0 }]
+    expect(etiquetasConRespaldo(filas, (f) => f.c, mismo, sin)).toEqual(['T1', 'T1', '3', null])
+  })
+
+  it('esPrimerLugar y lugarDeEtiqueta', () => {
+    expect([esPrimerLugar('1'), esPrimerLugar('T1'), esPrimerLugar('T10'), esPrimerLugar(null)]).toEqual([true, true, false, false])
+    expect([lugarDeEtiqueta('T2'), lugarDeEtiqueta('4'), lugarDeEtiqueta(null), lugarDeEtiqueta('')]).toEqual([2, 4, null, null])
   })
 })

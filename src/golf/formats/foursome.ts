@@ -21,7 +21,7 @@
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { handicapDeEquipoParaHoyos } from './team-handicap'
 import { normalizedStrokeIndexByHole } from '../core/stroke-index'
-import { rankTeamsWithCountback } from '../leaderboard/team-tiebreak'
+import { rankTeamsWithCountback, type EquipoConClaveDeEmpate } from '../leaderboard/team-tiebreak'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -209,7 +209,7 @@ export function ordenarEquiposFoursome(
   teams: FoursomeTeamResult[],
   formato: FormatoJuego,
   modo: ModoJuego
-): FoursomeTeamResult[] {
+): EquipoConClaveDeEmpate<FoursomeTeamResult>[] {
   const stableford = formato === 'stableford'
   return rankTeamsWithCountback(teams, {
     mode: stableford ? 'higher_wins' : 'lower_wins',

@@ -14,7 +14,7 @@
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { normalizedStrokeIndexByHole } from '../core/stroke-index'
-import { rankTeamsWithCountback } from '../leaderboard/team-tiebreak'
+import { rankTeamsWithCountback, type EquipoConClaveDeEmpate } from '../leaderboard/team-tiebreak'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -223,7 +223,7 @@ export function ordenarEquiposBestBall(
   teams: BestBallTeamResult[],
   formato: FormatoJuego,
   modo: ModoJuego
-): BestBallTeamResult[] {
+): EquipoConClaveDeEmpate<BestBallTeamResult>[] {
   const stableford = formato === 'stableford'
   return rankTeamsWithCountback(teams, {
     mode: stableford ? 'higher_wins' : 'lower_wins',
