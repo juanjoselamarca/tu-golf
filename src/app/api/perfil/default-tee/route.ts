@@ -31,22 +31,22 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  let body: { color?: string; genero?: string }
-  try {
-    body = await req.json()
-  } catch {
+  // `null` o una lista son JSON válido: sin este guard `body.color` reventaba en un 500.
+  const raw: unknown = await req.json().catch(() => undefined)
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return NextResponse.json({ error: 'Body inválido.' }, { status: 400 })
   }
+  const body = raw as { color?: unknown; genero?: unknown }
 
   // Normaliza (blue→azul, Blanca→blanco…) y valida contra las 4 opciones.
-  const color = extractTeeColor(body.color)
+  const color = extractTeeColor(typeof body.color === 'string' ? body.color : null)
   if (!color || !VALID_COLORS.has(color)) {
     return NextResponse.json({ error: 'Elige un color: negro, azul, blanco o rojo.' }, { status: 400 })
   }
 
   // Género opcional ('M'=varones / 'F'=damas) para desambiguar tees del mismo
   // color por género.
-  const generoRaw = (body.genero || '').toString().trim().toUpperCase()
+  const generoRaw = typeof body.genero === 'string' ? body.genero.trim().toUpperCase() : ''
   const genero = generoRaw === 'M' || generoRaw === 'F' ? generoRaw : null
 
   // 1. Guardar la preferencia.
