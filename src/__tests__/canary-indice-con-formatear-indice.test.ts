@@ -7,11 +7,13 @@
  * src/components, src/lib y src/golf (sin tests):
  *  1. `.toFixed(1)` cuyo receptor (identificador, o la llamada/paréntesis entero, justo antes) nombre
  *     un índice o un hándicap (`/indice|index|idx|hcp|handicap/i`).
- *  2. `{…}` en posición de hijo JSX (.tsx) o `${…}` de un template, cuyo VALOR MOSTRADO contenga
- *     `indice|indice_golfers|indiceGolfers|handicap_index|hcpDisplay` sin pasar por `formatear*`
- *     (se descartan las comparaciones `x != null`, `typeof x === '…'` y los strings literales).
- * Las excepciones legítimas van en PERMITIDOS: archivo + fragmento de la línea + cuántas veces calza
- * (`veces`) + su porqué. Si una excepción deja de calzar o calza otra cantidad, el test se cae.
+ *  2. `{…}` en posición de hijo JSX (.tsx; también "({x})" y expresiones de varias líneas) o `${…}` de un
+ *     template, cuyo VALOR MOSTRADO nombre un índice o un hándicap (ID_MOSTRADO) sin pasar por
+ *     `formatear*`. Un ternario se mira por rama: si una rama formatea y la otra pinta el valor crudo,
+ *     marca. Se descartan la condición, las comparaciones `x != null` / `typeof x === '…'` y los strings.
+ * Las excepciones legítimas van en PERMITIDOS: archivo + fragmento de la línea donde abre la marca +
+ * cuántas veces calza (`veces`) + su porqué. Si una excepción deja de calzar o calza otra cantidad,
+ * el test se cae.
  */
 import { describe, it, expect } from 'vitest'
 import * as fs from 'fs'
@@ -20,8 +22,13 @@ import * as path from 'path'
 const SRC = path.resolve(__dirname, '..')
 const RAICES = ['app', 'components', 'lib', 'golf']
 const NOMBRE_INDICE = /(indice|index|idx|hcp|handicap)/i
-const ID_MOSTRADO = /\b(indice|indice_golfers|indiceGolfers|handicap_index|hcpDisplay)\b/
+const ID_MOSTRADO =
+  /\b(indice|indice_golfers|indiceGolfers|handicap_index|hcpDisplay|handicap_at_registration|handicap|hcp|handicap_equipo|courseHcpDe|hcpAMostrar|displayHandicap)\b/
 const TOFIXED = '.toFixed(1)'
+/** Formateadores canónicos (o que los envuelven): lo que pasa por ellos ya sale con su "+". */
+const FORMATEADOR = /\b(formatear\w*|handicapHojaSalida)\(/
+/** Una expresión JSX/template más larga que esto no es un valor pintado: es un bloque mal leído. */
+const MAX_EXPR = 400
 
 const PROMPT = 'texto para el modelo del coach, no UI; cambiarlo mueve los snapshots y el examen del coach: va en su propio PR'
 
@@ -37,6 +44,8 @@ const PERMITIDOS: Array<{ archivo: string; fragmento: string; veces: number; por
   { archivo: 'app/demo/taiger/page.tsx', fragmento: '(-indiceDelta).toFixed(1)', veces: 1, porque: 'delta de la maqueta, con su signo escrito a mano' },
   // Regla 2 ({…} / ${…})
   { archivo: 'components/mi-golf/CompetenciaTab.tsx', fragmento: '{hcpDisplay}', veces: 1, porque: 'ya es texto: lo arma CompetenciaSection con formatearIndice' },
+  { archivo: 'components/Scorecard.tsx', fragmento: "HCP {typeof displayHandicap === 'string' ? displayHandicap : formatearHandicap(", veces: 1, porque: 'la rama cruda es el texto ya armado ("S/Ind", el de 9h); la numérica pasa por formatearHandicap' },
+  { archivo: 'lib/data/tournaments/motivo-para-no-iniciar.ts', fragmento: '${handicap.porcentajes.length}', veces: 1, porque: 'cuántos porcentajes tiene el hándicap personalizado, no un hándicap' },
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: '`Índice actual: ${indice}`', veces: 1, porque: PROMPT },
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: 'aún sin índice oficial): ${indiceGolfers}`', veces: 1, porque: PROMPT },
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: '${indice ?? (indiceGolfers != null ?', veces: 2, porque: PROMPT },
@@ -67,37 +76,88 @@ function receptores(linea: string): string[] {
 
 /** ¿El `{` que sigue a `prev` abre un hijo JSX? (no una prop, un objeto, un bloque ni una desestructuración) */
 function hijoJsx(prev: string): boolean {
+  // Dentro de un comentario ("/** recibe {name, hcp} */") no hay JSX.
+  if (/^\s*(\*|\/\/|\/\*)/.test(prev.slice(prev.lastIndexOf('\n') + 1))) return false
   const t = prev.trimEnd()
   if (t === '') return true
   const c = t.at(-1)
-  if (c === '>' || c === '}') return true
+  if (c === '>') return !t.endsWith('=>') // "<td>{x}" sí; "x => {" es un bloque
+  if (c === '}') return true // "{a} {b}"
+  // "Ana ({x})" o "</b>({x})": texto JSX entre paréntesis; no "f({", "if (", "return (", "=> ({".
+  if (c === '(') return /(\w\s+|[^=]>\s*)\($/.test(t) && !/\b(return|await|typeof|if|while|for|switch|catch|new)\s*\($/.test(t)
   if (c === ':') return /[A-ZÁÉÍÓÚ][\wáéíóúñ]*:$/.test(t) // "Índice: {x}" (texto), no "clave: {"
-  if (/[=(,?[{&|!+*/<-]$/.test(t)) return false
-  return !/\b(const|let|var|import|export|type|interface|return|function|case|default|in|of|else)$/.test(t)
+  if (/[=(),?[{&|!+*/<;-]$/.test(t)) return false
+  if (/\b(class|interface|enum|namespace|extends|implements)\b[^{};()]*$/.test(t)) return false
+  if (/\)\s*:\s*[^{};()=]+$/.test(t)) return false // "f(x): number | null {": tipo de retorno
+  return !/\b(const|let|var|import|export|type|interface|return|function|case|default|in|of|else|try|finally|do)$/.test(t)
 }
 
-/** Regla 2: `${…}` y, en .tsx, `{…}` hijos JSX que cierran en la misma línea. */
-function expresiones(linea: string, tsx: boolean): string[] {
-  const out: string[] = []
-  for (let i = 0; i < linea.length; i++) {
-    if (linea[i] !== '{') continue
-    const tpl = linea[i - 1] === '$'
-    if (!tpl && (!tsx || !hijoJsx(linea.slice(0, i)))) continue
+/**
+ * Regla 2: `${…}` y, en .tsx, `{…}` hijos JSX, aunque crucen líneas. Devuelve cada expresión con el
+ * número (0-based) de la línea donde abre.
+ */
+function expresiones(texto: string, tsx: boolean): Array<{ expr: string; linea: number }> {
+  const out: Array<{ expr: string; linea: number }> = []
+  let linea = 0
+  for (let i = 0; i < texto.length; i++) {
+    if (texto[i] === '\n') { linea++; continue }
+    if (texto[i] !== '{') continue
+    const tpl = texto[i - 1] === '$'
+    if (!tpl && (!tsx || !hijoJsx(texto.slice(Math.max(0, i - 300), i)))) continue
     let prof = 0
     let j = i
-    for (; j < linea.length; j++) {
-      if (linea[j] === '{') prof++
-      else if (linea[j] === '}' && --prof === 0) break
+    for (; j < texto.length && j - i <= MAX_EXPR; j++) {
+      if (texto[j] === '{') prof++
+      else if (texto[j] === '}' && --prof === 0) break
     }
-    if (j < linea.length) out.push(linea.slice(i + 1, j))
+    if (texto[j] === '}' && prof === 0) out.push({ expr: texto.slice(i + 1, j), linea })
   }
   return out
+}
+
+/** Índice del cierre del string que abre en `k` (comilla simple, doble o backtick). */
+function finString(e: string, k: number): number {
+  const q = e[k]
+  for (let m = k + 1; m < e.length; m++) {
+    if (e[m] === '\\') { m++; continue }
+    if (e[m] === q) return m
+  }
+  return e.length
+}
+
+/** Las ramas que se pintan de un ternario de primer nivel (sin la condición); sin ternario, la expresión entera. */
+function ramas(e: string): string[] {
+  const esPregunta = (k: number) => e[k] === '?' && e[k + 1] !== '.' && e[k + 1] !== '?' && e[k - 1] !== '?'
+  let prof = 0
+  let q = -1
+  for (let k = 0; k < e.length && q === -1; k++) {
+    const c = e[k]
+    if (c === '`' || c === "'" || c === '"') k = finString(e, k)
+    else if ('([{'.includes(c)) prof++
+    else if (')]}'.includes(c)) prof--
+    else if (prof === 0 && esPregunta(k)) q = k
+  }
+  if (q === -1) return [e]
+  let anidados = 0
+  prof = 0
+  for (let k = q + 1; k < e.length; k++) {
+    const c = e[k]
+    if (c === '`' || c === "'" || c === '"') k = finString(e, k)
+    else if ('([{'.includes(c)) prof++
+    else if (')]}'.includes(c)) prof--
+    else if (prof === 0 && esPregunta(k)) anidados++
+    else if (prof === 0 && c === ':') {
+      if (anidados === 0) return [e.slice(q + 1, k), ...ramas(e.slice(k + 1))]
+      anidados--
+    }
+  }
+  return [e]
 }
 
 /** Lo que la expresión pinta: sin comentarios, strings literales ni comparaciones contra null/tipo. */
 function valorMostrado(expr: string): string {
   return expr
-    .replace(/\/\*.*?\*\//g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/'[^']*'|"[^"]*"/g, "''")
     .replace(/typeof\s+[\w.?!]+\s*[!=]==?\s*''/g, '')
     .replace(/[\w.?!]+\s*[!=]==?\s*(null|undefined)/g, '')
@@ -105,11 +165,17 @@ function valorMostrado(expr: string): string {
 }
 
 const marcaExpr = (e: string) =>
-  !/^\s*[\w'"]+\s*:/.test(e) && !/formatear/.test(e) && !/</.test(e) && ID_MOSTRADO.test(valorMostrado(e))
+  !/^\s*[\w'"]+\s*:/.test(e) &&
+  ramas(e).some(r => !FORMATEADOR.test(r) && !/</.test(r) && ID_MOSTRADO.test(valorMostrado(r)))
 
-/** Cuántas marcas tiene la línea (las dos reglas). */
-function marcas(linea: string, tsx: boolean): number {
-  return receptores(linea).filter(r => NOMBRE_INDICE.test(r)).length + expresiones(linea, tsx).filter(marcaExpr).length
+/** Líneas (0-based) con marca, una entrada por marca (las dos reglas). */
+function marcas(texto: string, tsx: boolean): number[] {
+  const out: number[] = []
+  texto.split('\n').forEach((l, i) => {
+    for (const r of receptores(l)) if (NOMBRE_INDICE.test(r)) out.push(i)
+  })
+  for (const { expr, linea } of expresiones(texto, tsx)) if (marcaExpr(expr)) out.push(linea)
+  return out
 }
 
 function archivos(dir: string): string[] {
@@ -133,9 +199,9 @@ describe('índice y hándicap: siempre con su formateador', () => {
       '{r.hcp.toFixed(1)}', // simulación
       'profile.indice.toFixed(1)', 'u.indice_golfers.toFixed(1)', 'data.indiceGolfers.toFixed(1)',
       'status.ultimoIndice.toFixed(1)', 'body?.indice?.toFixed(1)', 'Number(profile.indice).toFixed(1)',
-    ]) expect(marcas(s, false), s).toBeGreaterThan(0)
+    ]) expect(marcas(s, false).length, s).toBeGreaterThan(0)
     for (const s of ['r.diferencial.toFixed(1)', 'delta.toFixed(1)', 'suma.toFixed(1)', 'promedioCrudo.toFixed(2)']) {
-      expect(marcas(s, false), s).toBe(0)
+      expect(marcas(s, false), s).toEqual([])
     }
   })
 
@@ -148,19 +214,40 @@ describe('índice y hándicap: siempre con su formateador', () => {
       "{j.indice != null ? ` · idx ${j.indice}` : ''}", // confirmar ronda libre
       "{typeof u.indice === 'number' ? `· hcp ${u.indice}` : ''}", // playground admin
       '              {hcpDisplay}',
-    ]) expect(marcas(s, true), s).toBeGreaterThan(0)
+      '<span className="hcp"> ({hcpAMostrar(p)})</span>', // board del torneo, junto al nombre
+      // scorer en cancha: "HCP -1.5 · juega con -2"
+      "<p>{nombre} · HCP {selectedPlayer.handicap_at_registration ?? '—'}{pct !== 100 && ` · juega con ${courseHcpDe(selectedPlayer)} (${pct} %)`}</p>",
+      '<span>Hcp {entry.hcp}</span>', // pegado masivo del organizador
+      '<div>\n  HCP {r.breakdown.handicapInfo.handicap}\n</div>', // GWI
+      '<span>\n  HCP {equipo.handicap_equipo}\n</span>', // equipo de bola compartida
+      // varias líneas
+      "<td>\n  {p.handicap != null\n    ? p.handicap\n    : '—'}\n</td>",
+      // una rama formatea y la otra pinta crudo
+      "<td>{esPlus ? formatearHandicap(p.hcp) : p.hcp}</td>",
+      '<td>{h == null ? EMPTY : modo === 1 ? formatearIndice(h) : h.handicap}</td>',
+    ]) expect(marcas(s, true).length, s).toBeGreaterThan(0)
   })
 
   it('regla 2 deja pasar lo que no pinta un índice', () => {
     for (const s of [
       '{p.handicap_index != null ? formatearHandicap(p.handicap_index) : EMPTY}',
+      "<td>\n  {p.handicap != null\n    ? formatearHandicap(p.handicap)\n    : '—'}\n</td>",
       "{profileIndex.indice_golfers != null ? 'Historial real' : 'Activa tu índice'}",
       "{ label: 'Con indice G+', value: users.filter(u => u.indice_golfers != null).length },",
       "{ key: 'indice_golfers' as const, label: 'Indice G+' },",
       '      const { indice } = r',
       '<Hero indice={indiceGolfers} nivel={nivel} />',
       '{/* Handicap (indice) */}',
-    ]) expect(marcas(s, true), s).toBe(0)
+      'const f = ({ hcp }: Props) => hcp',
+      'setEstado({ hcp })',
+      'if (x) {\n  return hcp\n}',
+      'function f(hcp: number) {\n  return hcp\n}',
+      'items.map(p => {\n  return p.hcp\n})',
+      'class Board extends Base {\n  hcp = 1\n}',
+      'function hcpAMostrar(p: Player): number | null {\n  return p.hcp\n}',
+      '/** Recibe un array de {name, hcp} */',
+      "{p.handicap != null ? handicapHojaSalida(p.handicap) : '—'}",
+    ]) expect(marcas(s, true), s).toEqual([])
   })
 
   it('ningún archivo pinta un índice o un hándicap a mano fuera de las excepciones', () => {
@@ -171,14 +258,14 @@ describe('índice y hándicap: siempre con su formateador', () => {
       for (const abs of archivos(path.join(SRC, raiz))) {
         barridos++
         const rel = path.relative(SRC, abs).split(path.sep).join('/')
-        const tsx = abs.endsWith('.tsx')
-        fs.readFileSync(abs, 'utf8').split('\n').forEach((linea, i) => {
-          const n = marcas(linea, tsx)
-          if (n === 0) return
+        const texto = fs.readFileSync(abs, 'utf8')
+        const lineas = texto.split('\n')
+        for (const i of marcas(texto, abs.endsWith('.tsx'))) {
+          const linea = lineas[i]
           const k = PERMITIDOS.findIndex(p => p.archivo === rel && linea.includes(p.fragmento))
           if (k === -1) hallazgos.push(`${rel}:${i + 1}: ${linea.trim()}`)
-          else veces[k] += n
-        })
+          else veces[k]++
+        }
       }
     }
     // Guard: un barrido que no lee nada pasaría en vacío.
