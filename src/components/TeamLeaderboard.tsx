@@ -8,6 +8,7 @@
  */
 
 import type { ReactNode } from 'react'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { formatOverUnder } from '@/golf/core/rules'
 import { getScoreColor } from '@/golf/core/colors'
@@ -150,7 +151,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
                 {team.jugadores.join(' · ')}
                 {team.teamHandicap != null && (
                   <span style={{ marginLeft: '6px', color: 'var(--brand-on-bg)' }}>
-                    HCP {team.teamHandicap}
+                    HCP {formatearHandicap(team.teamHandicap)}
                   </span>
                 )}
               </div>

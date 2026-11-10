@@ -7,7 +7,7 @@ import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
 import type { EquipoDeLaRonda } from '../hooks/useFormularioDeRonda'
 import { nombreVisibleDeTee } from './SelectorTees'
 import { colores, primario, secundario, tarjeta } from './estilos'
-import { formatearIndice } from '@/golf/handicap-index-range'
+import { formatearHandicap, formatearIndice } from '@/golf/handicap-index-range'
 
 interface Props {
   cancha: string
@@ -95,8 +95,9 @@ export function PasoConfirmar(props: Props) {
           {j.indice != null ? ` · idx ${formatearIndice(j.indice)}` : ''}
           {/* Los golpes que va a repartir la ronda. En una vuelta de 9
               no son los mismos que el índice sugiere, y verlos acá
-              evita la sorpresa en el hoyo 1. */}
-          {golpes != null ? ` · ${golpes} golpes` : ''}
+              evita la sorpresa en el hoyo 1. Mismo rótulo que la tarjeta del
+              paso anterior ("HCP 12", "HCP +2"): "+2 golpes" se leía como recibir dos. */}
+          {golpes != null ? ` · HCP ${formatearHandicap(golpes)}` : ''}
         </span>
         {props.hayVariosTees && j.tees && (
           <span style={{

@@ -1,6 +1,7 @@
 'use client'
 
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
 
@@ -54,7 +55,7 @@ export function TarjetaDelCreador(props: Props) {
         />
         {props.golpes != null && (
           <span style={hcpDeJugador}>
-            HCP {props.golpes}
+            HCP {formatearHandicap(props.golpes)}
           </span>
         )}
       </div>
