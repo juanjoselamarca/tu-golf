@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { useRondaScoreData } from '@/app/ronda-libre/[codigo]/score/hooks/useRondaScoreData'
-import { clearScoresDeRonda } from '@/lib/ronda/score-storage'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 
 // Golpes que trae la BD para p1 (cada test los fija).
 let golpesEnLaBd: Record<string, number> = {}
@@ -89,11 +89,12 @@ vi.mock('@/golf/core/course-handicap', () => ({
   cargarCourseData: async () => ({ cr: 72, slope: 113, holes: 9, parTotal: 36 }),
 }))
 
-vi.mock('@/lib/ronda/score-storage', () => ({
+vi.mock('@/lib/ronda/score-storage', async (importOriginal) => ({
+  // La limpieza es la real (envuelta para espiarla): las aserciones miran el localStorage.
+  limpiarCopiaLocalDeRonda: vi.fn((await importOriginal<typeof import('@/lib/ronda/score-storage')>()).limpiarCopiaLocalDeRonda),
   loadScores: () => ({}),
   saveScores: vi.fn(),
   clearScores: vi.fn(),
-  clearScoresDeRonda: vi.fn(),
 }))
 
 vi.mock('@/golf/core/round-score', () => ({
@@ -162,17 +163,17 @@ describe('useRondaScoreData', () => {
     expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
     expect(localStorage.getItem('golfers_score_ABC123_p2')).toBeNull()
     expect(localStorage.getItem('golfers_score_OTRA_p1')).not.toBeNull()
-    expect(clearScoresDeRonda).toHaveBeenCalledWith('ABC123')
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC123')
   })
 
   it('inverso: sin señal al leer la ronda NO borra nada ni saca al jugador', async () => {
     respuestaRonda = 'red'
-    vi.mocked(clearScoresDeRonda).mockClear()
+    vi.mocked(limpiarCopiaLocalDeRonda).mockClear()
     respaldo('p1')
     const { result } = renderHook(() => useRondaScoreData('ABC123', null))
     await waitFor(() => expect(result.current.loadError).not.toBeNull())
     expect(routerPush).not.toHaveBeenCalled()
     expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
-    expect(clearScoresDeRonda).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
   })
 })

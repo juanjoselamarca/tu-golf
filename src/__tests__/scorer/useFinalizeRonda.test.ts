@@ -5,7 +5,7 @@ import { finalizarRondaLibre, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-lib
 import { fetchRondaParaCierre } from '@/lib/data/ronda-libre-finalizar'
 import { addToast } from '@/hooks/useToast'
 import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
-import { clearScoresDeRonda } from '@/lib/ronda/score-storage'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 
 const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn((..._a: unknown[]) => Promise.resolve({})) }))
 
@@ -32,7 +32,9 @@ vi.mock('@/lib/supabase', () => ({
     rpc: (...a: unknown[]) => rpcMock(...a),
   }),
 }))
-vi.mock('@/lib/ronda/score-storage', () => ({ clearScores: vi.fn(), clearScoresDeRonda: vi.fn(), saveScores: vi.fn() }))
+vi.mock('@/lib/ronda/score-storage', async (importOriginal) => ({
+  // La limpieza es la real (envuelta para espiarla): las aserciones miran el localStorage.
+  limpiarCopiaLocalDeRonda: vi.fn((await importOriginal<typeof import('@/lib/ronda/score-storage')>()).limpiarCopiaLocalDeRonda), clearScores: vi.fn(), saveScores: vi.fn() }))
 vi.mock('@/lib/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('@/lib/push-notifications', () => ({
   getNotifPrefs: vi.fn(() => ({ partidas_terminadas: false })),
@@ -263,7 +265,7 @@ describe('useFinalizeRonda — ronda que ya no existe', () => {
     await descartarConDosToques(result)
     expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
     expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
-    expect(clearScoresDeRonda).toHaveBeenCalledWith('ABC123')
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC123')
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
   })
 
@@ -275,7 +277,7 @@ describe('useFinalizeRonda — ronda que ya no existe', () => {
     await descartarConDosToques(result)
     expect(onDiscardSuccess).not.toHaveBeenCalled()
     expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
-    expect(clearScoresDeRonda).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
   })
 

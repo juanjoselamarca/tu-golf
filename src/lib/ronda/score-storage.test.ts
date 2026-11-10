@@ -121,6 +121,19 @@ describe('limpiarCopiaLocalDeRonda', () => {
     expect(claves.filter(k => k.includes('ABC'))).toEqual([])
     expect(claves).toContain('ronda_grupo_XYZ')
   })
+
+  it('una sola limpieza para los dos scorers: también tarjetas individuales, respaldos y puntitos (PR #763)', () => {
+    saveScores('ABC', 'p1', { 1: 4 })
+    localStorage.setItem('golfers_score_ABC_p1', JSON.stringify({ scores: { 1: 4 }, sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
+    localStorage.setItem('ronda_puntitos_pendientes_ABC', '{}')
+    saveScores('ABCD', 'p1', { 1: 6 })
+    localStorage.setItem('golfers_score_ABCD_p1', '{}')
+    limpiarCopiaLocalDeRonda('ABC')
+    const claves = Object.keys(localStorage)
+    expect(claves.filter(k => /ABC(_|$)/.test(k))).toEqual([])
+    expect(loadScores('ABCD', 'p1')).toEqual({ 1: 6 })
+    expect(claves).toContain('golfers_score_ABCD_p1')
+  })
 })
 
 describe('loadScorerGrupoSnapshot — snapshot corrupto', () => {

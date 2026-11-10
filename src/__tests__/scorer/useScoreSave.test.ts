@@ -2,7 +2,7 @@ import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useScoreSave } from '@/app/ronda-libre/[codigo]/score/hooks/useScoreSave'
 import { addToast } from '@/hooks/useToast'
-import { clearScoresDeRonda } from '@/lib/ronda/score-storage'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 
 const mockUpdate = vi.fn()
 const mockSingle = vi.fn()
@@ -17,11 +17,12 @@ vi.mock('@/lib/supabase', () => ({
   }),
 }))
 
-vi.mock('@/lib/ronda/score-storage', () => ({
+vi.mock('@/lib/ronda/score-storage', async (importOriginal) => ({
+  // La limpieza es la real (envuelta para espiarla): las aserciones miran el localStorage.
+  limpiarCopiaLocalDeRonda: vi.fn((await importOriginal<typeof import('@/lib/ronda/score-storage')>()).limpiarCopiaLocalDeRonda),
   saveScores: vi.fn(),
   loadScores: vi.fn(),
   clearScores: vi.fn(),
-  clearScoresDeRonda: vi.fn(),
 }))
 
 vi.mock('@/hooks/useToast', () => ({ addToast: vi.fn() }))
@@ -144,7 +145,7 @@ describe('useScoreSave', () => {
     beforeEach(() => {
       localStorage.clear()
       vi.mocked(addToast).mockClear()
-      vi.mocked(clearScoresDeRonda).mockClear()
+      vi.mocked(limpiarCopiaLocalDeRonda).mockClear()
     })
 
     it('no reintenta, avisa que ya no existe, borra las copias locales de la ronda y saca al jugador', async () => {
@@ -163,7 +164,7 @@ describe('useScoreSave', () => {
       expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
       expect(localStorage.getItem('golfers_score_ABC123_p2')).toBeNull()
       expect(localStorage.getItem('golfers_score_OTRA_p1')).not.toBeNull()
-      expect(clearScoresDeRonda).toHaveBeenCalledWith('ABC123')
+      expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC123')
     })
 
     it('para Finalizar: devuelve no_existe sin avisar ni redirigir (Finalizar decide)', async () => {
@@ -189,7 +190,7 @@ describe('useScoreSave', () => {
       expect(mockRpc).toHaveBeenCalledTimes(3)
       expect(onRondaNoExiste).not.toHaveBeenCalled()
       expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
-      expect(clearScoresDeRonda).not.toHaveBeenCalled()
+      expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
     })
 
     it('inverso: sin permiso (P0003, sesión vencida) NO borra el respaldo', async () => {
@@ -211,6 +212,77 @@ describe('useScoreSave', () => {
       expect(mockRpc).toHaveBeenCalledTimes(1)
       expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('No se pudo conectar') }))
       expect(result.current.saveStatus).toBe('error')
+      expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar tu tarjeta', message: 'Revisa los golpes anotados; tus scores siguen en tu teléfono.' }))
+    })
+  })
+
+  describe('después de la ronda borrada y al salir (revisión 1, PR #763)', () => {
+    const respaldo = (scores: Record<number, number>, sincronizado = false) => localStorage.setItem(
+      'golfers_score_ABC123_p1',
+      JSON.stringify({ scores, timestamp: Date.now(), sincronizado, codigoRonda: 'ABC123', jugadorId: 'p1' }),
+    )
+    const leer = () => JSON.parse(localStorage.getItem('golfers_score_ABC123_p1') ?? 'null')
+    beforeEach(() => { localStorage.clear(); vi.mocked(addToast).mockClear() })
+
+    it('un toque después del P0001 no vuelve a escribir el respaldo ni manda nada', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } })
+      const scoreSync = makeScoreSync()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync, onRondaNoExiste: vi.fn() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      await flushDebounce()
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      scoreSync.guardarLocal.mockClear()
+      await act(async () => { await result.current.saveScores('p1', { 1: 4, 2: 5 }) })
+      await flushDebounce()
+      expect(scoreSync.guardarLocal).not.toHaveBeenCalled()
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(result.current.hasUnsaved).toBe(false)
+      let r!: string
+      await act(async () => { r = await result.current.guardarAhora('p1', { 1: 4, 2: 5 }) })
+      expect(r).toBe('no_existe')
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(addToast).toHaveBeenCalledTimes(1)
+    })
+
+    it('al salir con un golpe en el debounce: si llega, el respaldo queda sincronizado (el banner se apaga)', async () => {
+      respaldo({ 1: 4 })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      expect(leer().sincronizado).toBe(true)
+    })
+
+    it('al salir: si el servidor responde P0001, se limpia la copia local de la ronda', async () => {
+      respaldo({ 1: 4 })
+      localStorage.setItem('ronda_ABC123_p1', '{"1":4}')
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer()).toBeNull()
+      expect(localStorage.getItem('ronda_ABC123_p1')).toBeNull()
+    })
+
+    it('inverso: al salir sin red, el respaldo queda pendiente (se re-sincroniza al volver)', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue({ data: null, error: { code: '', message: 'Failed to fetch' } })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer()).toMatchObject({ sincronizado: false, scores: { 1: 4 } })
+    })
+
+    it('inverso: al salir, si el respaldo ya es una tarjeta más nueva que la enviada, sigue pendiente', async () => {
+      respaldo({ 1: 4, 2: 6 })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer().sincronizado).toBe(false)
     })
   })
 

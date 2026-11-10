@@ -24,7 +24,9 @@ vi.mock('@/lib/supabase', () => ({
     rpc: () => Promise.resolve({}),
   }),
 }))
-vi.mock('@/lib/ronda/score-storage', () => ({ clearScores: vi.fn(), clearScoresDeRonda: vi.fn(), saveScores: vi.fn() }))
+vi.mock('@/lib/ronda/score-storage', async (importOriginal) => ({
+  // La limpieza es la real (envuelta para espiarla): las aserciones miran el localStorage.
+  limpiarCopiaLocalDeRonda: vi.fn((await importOriginal<typeof import('@/lib/ronda/score-storage')>()).limpiarCopiaLocalDeRonda), clearScores: vi.fn(), saveScores: vi.fn() }))
 vi.mock('@/lib/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('@/lib/push-notifications', () => ({
   getNotifPrefs: vi.fn(() => ({ partidas_terminadas: false })),
@@ -99,7 +101,7 @@ vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
 
 import { useFinalizeRonda } from '@/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda'
 import { addToast } from '@/hooks/useToast'
-import { clearScoresDeRonda } from '@/lib/ronda/score-storage'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { PLAZO_GUARDAR_TARJETA_MS } from '@/lib/data/ronda-libre-finalizar'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 
@@ -337,7 +339,7 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     fetchRondaParaCierre.mockResolvedValue(null)
     await finalizar()
     expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
-    expect(clearScoresDeRonda).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
     localStorage.clear()
   })
 
@@ -352,7 +354,7 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
     expect(titulos).toContain('Esta ronda ya no existe')
     expect(titulos).not.toContain('Sin conexión')
-    expect(clearScoresDeRonda).toHaveBeenCalledWith('ABC123')
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC123')
     expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
     // El respaldo también: si no, el banner "Sincronizando…" queda en toda la app.
     expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()

@@ -333,3 +333,48 @@ describe('useGrupoScoreSave — revisión Fable', () => {
   })
 })
 
+
+describe('useGrupoScoreSave — ronda borrada por su creador (P0001, PR #763)', () => {
+  it('limpia toda la copia local, avisa que ya no existe, saca al marcador y no reintenta', async () => {
+    localStorage.setItem('ronda_ABC_p1', '{"1":4}')
+    localStorage.setItem('golfers_score_ABC_p1', JSON.stringify({ scores: { 1: 4 }, sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
+    localStorage.setItem('ronda_grupo_OTRA', '{}')
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'P0001' } })
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    expect(saveRondaLibreScores).toHaveBeenCalledTimes(1)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Un golpe no se pudo guardar' }))
+    expect(result.current.save.rondaNoExiste).toBe(true)
+    expect(result.current.save.pendienteDeEnvio).toBe(false)
+    for (const k of ['ronda_grupo_ABC', 'ronda_grupo_pendientes_ABC', 'ronda_ABC_p1', 'golfers_score_ABC_p1']) {
+      expect(localStorage.getItem(k)).toBeNull()
+    }
+    expect(localStorage.getItem('ronda_grupo_OTRA')).not.toBeNull()
+    // Ni la sincronización automática ni un toque nuevo vuelven a escribir o a mandar.
+    act(() => { result.current.save.handleScoreChange('p1', 2, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(saveRondaLibreScores).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem('ronda_grupo_ABC')).toBeNull()
+  })
+
+  it('inverso: sin respuesta del servidor NO limpia ni saca al marcador', async () => {
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'SIN_RESPUESTA' } })
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    expect(result.current.save.rondaNoExiste).toBe(false)
+    expect(localStorage.getItem('ronda_grupo_ABC')).not.toBeNull()
+    expect(localStorage.getItem('ronda_grupo_pendientes_ABC')).not.toBeNull()
+  })
+
+  it('inverso: sesión vencida (P0003) NO limpia ni saca al marcador', async () => {
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'P0003' } })
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
+    expect(result.current.save.rondaNoExiste).toBe(false)
+    expect(localStorage.getItem('ronda_grupo_ABC')).not.toBeNull()
+  })
+})
