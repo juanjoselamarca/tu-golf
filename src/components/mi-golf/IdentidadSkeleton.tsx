@@ -24,7 +24,7 @@ export function IdentidadSkeleton() {
       {/* Grid de stats 2×2 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} style={{ border: '1px solid #ececec', borderRadius: '12px', padding: '16px' }}>
+          <div key={i} style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '16px' }}>
             <Bar width="50%" height={12} mb={10} />
             <Bar width="70%" height={24} />
           </div>
@@ -32,7 +32,7 @@ export function IdentidadSkeleton() {
       </div>
 
       {/* Card tAIger */}
-      <div style={{ border: '1px solid #ececec', borderRadius: '16px', padding: '20px' }}>
+      <div style={{ border: '1px solid var(--border)', borderRadius: '16px', padding: '20px' }}>
         <Bar width="30%" height={14} mb={14} />
         <Bar width="100%" height={14} mb={8} />
         <Bar width="80%" height={14} />
