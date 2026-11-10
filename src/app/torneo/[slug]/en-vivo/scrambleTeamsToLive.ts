@@ -13,6 +13,7 @@ function nameToLivePlayer(name: string, i: number): LivePlayer {
     gross_total: 0,
     vs_par: 0,
     thru: 0,
+    clave_empate: null, // miembro de equipo: no tiene posición propia
   }
 }
 

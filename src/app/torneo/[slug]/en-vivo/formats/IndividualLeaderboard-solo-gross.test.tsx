@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import IndividualLeaderboard from './IndividualLeaderboard'
 
-const jugadores = [{ id: 'p1', name: 'Ana', scores_per_hole: [4], gross_total: 4, vs_par: 0, thru: 1 }]
+const jugadores = [{ id: 'p1', name: 'Ana', scores_per_hole: [4], gross_total: 4, vs_par: 0, thru: 1, clave_empate: '0#0' }]
 
 describe('IndividualLeaderboard del torneo en vivo — vista sólo bruta', () => {
   it('soloBruto: sin columnas HCP ni Neto (nada de "0" de relleno)', () => {

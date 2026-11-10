@@ -24,6 +24,7 @@ import { describe, it, expect } from 'vitest'
 import { resolveLeaderboardTies, applyCountback, type CountbackPlayer } from '@/golf/core/countback'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { modoPermitidoPorPlan } from '@/golf/billing/modo-por-plan'
+import { etiquetasDePosicion } from '@/golf/core/posiciones'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS compartidos
@@ -51,21 +52,9 @@ function getScoreHeader(formato: string): string {
   return formato === 'stableford' ? 'PUNTOS' : 'SCORE'
 }
 
-/** Compute positions con ties (T3) — replicado de TournamentTabs.computePositions */
+/** Posiciones con empate (T3): la fuente única, no una réplica (antes copiaba la de TournamentTabs). */
 function computePositions(players: Array<{ total: number }>): string[] {
-  if (players.length === 0) return []
-  const positions: string[] = []
-  let i = 0
-  while (i < players.length) {
-    let j = i + 1
-    while (j < players.length && players[j].total === players[i].total) j++
-    const tied = j - i > 1
-    for (let k = i; k < j; k++) {
-      positions.push(tied ? `T${i + 1}` : `${i + 1}`)
-    }
-    i = j
-  }
-  return positions
+  return etiquetasDePosicion(players, (a, b) => a.total === b.total).map((p) => p ?? '')
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

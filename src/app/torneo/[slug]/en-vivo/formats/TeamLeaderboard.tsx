@@ -4,7 +4,9 @@
 // Tabla de equipos para best_ball, scramble y foursome.
 
 import type { LiveTeam } from '../types'
-import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-format'
+import { formatVsPar, formatThru, vsParColor } from './golf-format'
+import { etiquetasDePosicion } from '@/golf/core/posiciones'
+import { hasPlayData } from '@/golf/leaderboard/board-rules'
 
 export interface TeamLeaderboardProps {
   teams: LiveTeam[]
@@ -20,10 +22,16 @@ function joinPlayerNames(team: LiveTeam): string {
 export default function TeamLeaderboard({ teams, holeCount }: TeamLeaderboardProps) {
   // Ordenar por vs_par (par-relativo): comparable entre equipos con distinto
   // `thru`. Ordenar por team_total (golpes totales) haría liderar erróneamente a
-  // un equipo que jugó menos hoyos. Desempate por más hoyos jugados.
-  const sorted = [...teams].sort((a, b) => a.vs_par - b.vs_par || b.thru - a.thru)
+  // un equipo que jugó menos hoyos. Desempate por más hoyos jugados. Los que no
+  // salieron van al final (su vs_par 0 los dejaba entre los que van en par).
+  const salio = (t: LiveTeam) => (hasPlayData({ holesPlayed: t.thru }) ? 0 : 1)
+  const sorted = [...teams].sort((a, b) => salio(a) - salio(b) || a.vs_par - b.vs_par || b.thru - a.thru)
   // Empates estilo golf: equipos al mismo vs_par comparten posición (T2, T2, 4).
-  const positions = computePositions(sorted.map((t) => t.vs_par))
+  // El orden por hoyos jugados de arriba es convención de board, no desempate.
+  // Un equipo sin hoyos no tiene posición (no empata "E" con uno que va en par).
+  const positions = etiquetasDePosicion(sorted, (a, b) => a.vs_par === b.vs_par, {
+    sinPosicion: (t) => !hasPlayData({ holesPlayed: t.thru }),
+  })
 
   const tableStyle: React.CSSProperties = {
     width: '100%',
@@ -101,7 +109,7 @@ export default function TeamLeaderboard({ teams, holeCount }: TeamLeaderboardPro
             }
             return (
               <tr key={t.id} style={rowStyle}>
-                <td style={tdNumStyle}>{positions[idx]}</td>
+                <td style={tdNumStyle}>{positions[idx] ?? '—'}</td>
                 <td style={{ ...tdStyle, fontWeight: isLeader ? 700 : 600 }}>{t.name}</td>
                 <td style={{ ...tdStyle, color: 'var(--text-2)' }}>{joinPlayerNames(t)}</td>
                 <td style={tdNumStyle}>{t.team_total}</td>

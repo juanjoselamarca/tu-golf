@@ -29,6 +29,8 @@ export interface LivePlayer {
   points_total?: number // si formato = stableford
   vs_par: number
   thru: number // hoyos jugados (0..hole_count)
+  /** Con quién empata (`Player.claveEmpate` del motor): misma clave = "T". `null` = sin posición. */
+  clave_empate: string | null
 }
 
 export interface LiveTeam {

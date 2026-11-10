@@ -6,7 +6,8 @@
 
 import type { LivePlayer } from '../types'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
-import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-format'
+import { formatVsPar, formatThru, vsParColor } from './golf-format'
+import { etiquetasPorClaveDeEmpate } from '@/golf/core/posiciones'
 
 /** Celda sin dato. Em dash, el mismo que usa `formatThru`. */
 const EMPTY = '—'
@@ -48,15 +49,11 @@ export default function IndividualLeaderboard({
   const sorted = players
   const isStableford = format === 'stableford'
 
-  // Empates estilo golf sobre la MISMA métrica que ordenó: puntos en
-  // stableford, "a par" en el resto. Quien no jugó no empata con quien está en
-  // par — va aparte, al final.
-  const positions = computePositions(
-    sorted.map((p) => {
-      if (!hasPlayData({ holesPlayed: p.thru })) return Number.POSITIVE_INFINITY
-      return isStableford ? (p.points_total ?? 0) : p.vs_par
-    }),
-  )
+  // Empates estilo golf ("T2") con la clave que emitió el motor: mismo score y,
+  // si el countback ya los separó (tarjetas terminadas), ya no empatan. Se
+  // calcula sobre las filas MOSTRADAS: con un filtro de categoría la posición es
+  // dentro de la categoría. Quien no jugó no tiene posición.
+  const positions = etiquetasPorClaveDeEmpate(sorted, (p) => p.clave_empate)
 
   // Si TODAS las filas tienen categoría vacía, ocultar la columna CAT para no
   // desperdiciar espacio horizontal (frecuente en torneos sin categorías).
@@ -192,7 +189,7 @@ export default function IndividualLeaderboard({
 
             return (
               <tr key={p.id} style={rowStyle}>
-                <td style={tdNumStyle}>{played ? positions[idx] : EMPTY}</td>
+                <td style={tdNumStyle}>{positions[idx] ?? EMPTY}</td>
                 <td style={{ ...tdStyle, fontWeight: isLeader ? 700 : isFinished ? 600 : 400 }}>
                   {/* Desktop: nombre completo con marcador. Mobile: sin "(M)"/"(F)" */}
                   <span className="leaderboard-name-full">{p.name}</span>
