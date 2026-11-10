@@ -3,7 +3,8 @@ import { useState } from 'react'
 
 /**
  * Aviso que deja el envío de un formulario en UN campo (el nombre del invitado, el índice): se muestra en
- * `${idCampo}-error`, el campo recibe el foco y el aviso se va apenas se vuelve a escribir. Es la base de
+ * `${idCampo}-error`, el campo recibe el foco y el aviso se va apenas se vuelve a escribir o con `limpiar()`
+ * (al reintentar el envío: si vuelve a fallar, el aviso se monta de nuevo y el lector de pantalla lo anuncia). Es la base de
  * useAvisoIndiceAlEnviar; sirve igual para un campo que no es de hándicap.
  */
 export function useAvisoDeCampo(texto: string, idCampo: string) {
@@ -20,10 +21,13 @@ export function useAvisoDeCampo(texto: string, idCampo: string) {
     document.getElementById(idCampo)?.focus()
   }
 
+  const limpiar = () => setAvisoDelEnvio(null)
+
   return {
     avisoDelEnvio,
     idAviso,
     avisar,
+    limpiar,
     propsDelCampo: {
       'aria-invalid': avisoDelEnvio != null,
       'aria-describedby': avisoDelEnvio != null ? idAviso : undefined,

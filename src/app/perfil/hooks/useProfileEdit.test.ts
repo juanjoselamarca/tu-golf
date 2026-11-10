@@ -11,7 +11,7 @@ const baseProfile: Profile = {
 }
 
 const update = vi.hoisted(() => vi.fn())
-const respuesta = vi.hoisted(() => ({ falla: false }))
+const respuesta = vi.hoisted(() => ({ falla: false, pendiente: null as Promise<void> | null }))
 const captureError = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/error-tracking', () => ({ captureError }))
 
@@ -22,9 +22,12 @@ vi.mock('@/lib/supabase', () => ({
         eq: () => ({
           select: () => ({
             // El update solo devuelve estas 4 columnas (como en prod).
-            single: async () => (respuesta.falla
-              ? { data: null, error: { message: 'Failed to fetch' } }
-              : { data: { id: 'u1', name: 'Ana María', indice: 11.0, avatar_url: null }, error: null }),
+            single: async () => {
+              if (respuesta.pendiente) await respuesta.pendiente
+              return respuesta.falla
+                ? { data: null, error: { message: 'Failed to fetch' } }
+                : { data: { id: 'u1', name: 'Ana María', indice: 11.0, avatar_url: null }, error: null }
+            },
           }),
         }),
       }),
@@ -93,7 +96,7 @@ describe('useProfileEdit — índice federado', () => {
     act(() => { result.current.cancel() })
     expect(result.current.editIndice).toBe('+2')
   })
-  it('si el UPDATE falla (#776): no cierra la edición, no dice "Guardado", avisa en el campo y registra el error', async () => {
+  it('si el UPDATE falla (#776): no cierra la edición, no dice "Guardado", avisa en el formulario y registra el error', async () => {
     respuesta.falla = true
     try {
       const onProfile = vi.fn()
@@ -106,10 +109,71 @@ describe('useProfileEdit — índice federado', () => {
       expect(result.current.saved).toBe(false)
       expect(result.current.saving).toBe(false)
       expect(result.current.editIndice).toBe('+2')
-      expect(result.current.campoIndice.aviso).toBe('No pudimos guardar tu índice. Revisa tu señal y vuelve a intentarlo.')
+      // El fallo es del formulario, no del índice: el campo queda sin aviso.
+      expect(result.current.errorAlGuardar).toBe('No pudimos guardar tus cambios. Revisa tu señal y vuelve a intentarlo.')
+      expect(result.current.campoIndice.aviso).toBeNull()
       expect(captureError).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'actualizarNombreEIndice' }))
     } finally {
       respuesta.falla = false
     }
+  })
+  describe('el aviso de guardado fallido no queda pegado', () => {
+    const MENSAJE = 'No pudimos guardar tus cambios. Revisa tu señal y vuelve a intentarlo.'
+    const fallaUnaVez = async (result: { current: ReturnType<typeof useProfileEdit> }) => {
+      respuesta.falla = true
+      act(() => { result.current.setEditing(true) })
+      await act(async () => { await result.current.save() })
+      respuesta.falla = false
+      expect(result.current.errorAlGuardar).toBe(MENSAJE)
+    }
+
+    it('fallo → reintento exitoso → reabrir: sin aviso', async () => {
+      const { result } = renderHook(() => useProfileEdit(baseProfile, vi.fn()))
+      await fallaUnaVez(result)
+      await act(async () => { await result.current.save() })
+      expect(result.current.editing).toBe(false)
+      expect(result.current.errorAlGuardar).toBeNull()
+      act(() => { result.current.setEditing(true) })
+      expect(result.current.errorAlGuardar).toBeNull()
+      expect(result.current.campoIndice.aviso).toBeNull()
+    })
+
+    it('fallo → cancelar: sin aviso (ni al reabrir)', async () => {
+      const { result } = renderHook(() => useProfileEdit(baseProfile, vi.fn()))
+      await fallaUnaVez(result)
+      act(() => { result.current.cancel() })
+      expect(result.current.errorAlGuardar).toBeNull()
+      act(() => { result.current.setEditing(true) })
+      expect(result.current.errorAlGuardar).toBeNull()
+    })
+
+    it('cancelar también quita el aviso de un índice a medio escribir', async () => {
+      const { result } = renderHook(() => useProfileEdit({ ...baseProfile, indice: null }, vi.fn()))
+      act(() => { result.current.setEditing(true) })
+      act(() => { result.current.setEditIndice('+') })
+      await act(async () => { await result.current.save() })
+      expect(result.current.campoIndice.aviso).not.toBeNull()
+      act(() => { result.current.cancel() })
+      expect(result.current.campoIndice.aviso).toBeNull()
+    })
+
+    it('dos fallos seguidos: el aviso se va mientras guarda y vuelve (se anuncia de nuevo)', async () => {
+      const { result } = renderHook(() => useProfileEdit(baseProfile, vi.fn()))
+      await fallaUnaVez(result)
+      respuesta.falla = true
+      let soltar: () => void = () => {}
+      respuesta.pendiente = new Promise<void>(r => { soltar = r })
+      try {
+        let guardando: Promise<void> = Promise.resolve()
+        act(() => { guardando = result.current.save() })
+        expect(result.current.saving).toBe(true)
+        expect(result.current.errorAlGuardar).toBeNull()
+        await act(async () => { soltar(); await guardando })
+        expect(result.current.errorAlGuardar).toBe(MENSAJE)
+      } finally {
+        respuesta.falla = false
+        respuesta.pendiente = null
+      }
+    })
   })
 })

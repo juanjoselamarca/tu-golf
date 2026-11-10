@@ -72,4 +72,17 @@ describe('useAvisoIndiceAlEnviar', () => {
     expect(result.current.aviso).toBeNull()
     input.remove()
   })
+
+  it('el aviso de un envío fallido se va con validarAlEnviar() (reintento) y con limpiar(), sin reescribir', () => {
+    const { result } = renderHook(() => useAvisoIndiceAlEnviar('12', 'c', OPCIONAL_INDICE))
+    act(() => result.current.avisar('No pudimos guardar tu índice. Revisa tu señal y vuelve a intentarlo.'))
+    let ok = false
+    act(() => { ok = result.current.validarAlEnviar() })
+    expect(ok).toBe(true)
+    expect(result.current.aviso).toBeNull()
+    act(() => result.current.avisar('No pudimos guardar tu índice. Revisa tu señal y vuelve a intentarlo.'))
+    act(() => result.current.limpiar())
+    expect(result.current.aviso).toBeNull()
+    expect(result.current.propsDelCampo['aria-invalid']).toBe(false)
+  })
 })

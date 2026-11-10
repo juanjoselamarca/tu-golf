@@ -145,6 +145,9 @@ export function OnboardingWizard({ userId, userName }: Props) {
   const canAdvanceStep1 = noHandicap || leerCampoHandicap(handicap).estado !== 'vacio'
 
   const handleSaveHandicap = async () => {
+    // Se limpia antes de reintentar (con "No tengo" no se pasa por validarAlEnviar): si vuelve a fallar, el
+    // aviso se monta de nuevo y se anuncia otra vez.
+    campoHandicap.limpiar()
     if (!noHandicap && !campoHandicap.validarAlEnviar()) return
     setSaving(true)
     try {
@@ -236,6 +239,7 @@ export function OnboardingWizard({ userId, userName }: Props) {
                   checked={noHandicap}
                   onChange={(e) => {
                     setNoHandicap(e.target.checked)
+                    campoHandicap.limpiar()
                     if (e.target.checked) setHandicap('')
                   }}
                   style={{ accentColor: 'var(--brand)' }}

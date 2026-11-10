@@ -101,6 +101,9 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
               Golfers+ calcula su propio índice automáticamente basado en tus rondas.
             </p>
           </div>
+          {edit.errorAlGuardar != null && (
+            <p role="alert" style={{ margin: 0, fontSize: '12px', color: 'var(--error-fg)' }}>{edit.errorAlGuardar}</p>
+          )}
           <div style={{ display: 'flex', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
             <Button variant="commit" size="md" onClick={edit.save} loading={edit.saving} disabled={edit.saving}>
               {edit.saving ? 'Guardando...' : 'Guardar cambios'}
