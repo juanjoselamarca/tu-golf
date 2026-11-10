@@ -10,7 +10,12 @@
  *  2. `{…}` en posición de hijo JSX (.tsx; también "({x})" y expresiones de varias líneas) o `${…}` de un
  *     template, cuyo VALOR MOSTRADO nombre un índice o un hándicap (ID_MOSTRADO) sin pasar por
  *     `formatear*`. Un ternario se mira por rama: si una rama formatea y la otra pinta el valor crudo,
- *     marca. Se descartan la condición, las comparaciones `x != null` / `typeof x === '…'` y los strings.
+ *     marca. Se descartan la condición, las comparaciones `x != null` / `typeof x === '…'`, los strings
+ *     y el texto fijo de los templates. ID_MOSTRADO busca hcp/handicap/indice DENTRO de cualquier
+ *     identificador (`hcpLabel`, `currentHandicap`, `teamHandicap`), sin importar mayúsculas.
+ *  3. Etiqueta: un `{…}` / `${…}` justo después del texto "HCP", "Hcp", "hcp", "Índice", "Indice" o
+ *     "idx" pinta un hándicap aunque la variable se llame `golpes`: cada rama tiene que pasar por un
+ *     formateador, ser un `<Componente` (HcpCelda) o ser un texto fijo / constante ('—', EMPTY).
  * Las excepciones legítimas van en PERMITIDOS: archivo + fragmento de la línea donde abre la marca +
  * cuántas veces calza (`veces`) + su porqué. Si una excepción deja de calzar o calza otra cantidad,
  * el test se cae.
@@ -22,8 +27,15 @@ import * as path from 'path'
 const SRC = path.resolve(__dirname, '..')
 const RAICES = ['app', 'components', 'lib', 'golf']
 const NOMBRE_INDICE = /(indice|index|idx|hcp|handicap)/i
-const ID_MOSTRADO =
-  /\b(indice|indice_golfers|indiceGolfers|handicap_index|hcpDisplay|handicap_at_registration|handicap|hcp|handicap_equipo|courseHcpDe|hcpAMostrar|displayHandicap)\b/
+const ID_MOSTRADO = /(hcp|handicap|indice)/i
+/** Identificadores que contienen hcp/handicap/indice pero no son un hándicap: porcentaje, posición en
+ *  una lista, fecha. Las constantes en MAYÚSCULAS (MIN_DIFERENCIALES_INDICE) tampoco. */
+const NO_ES_VALOR = /(pct|EnLista$|_at$|At$)/i
+/** En ronda libre `golpes` es el hándicap de cancha: "${golpes} golpes" lo pinta. (Un gross "${total} golpes" no.) */
+const ETIQUETA_DESPUES = /^\s*golpes\b/
+const ES_GOLPES = /^\s*([\w$]+[?!]*\.)*golpes\s*$/
+/** Texto que rotula lo que sigue como un hándicap o un índice ("HCP {x}", "· idx ${x}", "Índice: {x}"). */
+const ETIQUETA = /\b(HCP|Hcp|hcp|Índice|Indice|idx)\s*:?\s*\(?$/
 const TOFIXED = '.toFixed(1)'
 /** Formateadores canónicos (o que los envuelven): lo que pasa por ellos ya sale con su "+". */
 const FORMATEADOR = /\b(formatear\w*|handicapHojaSalida)\(/
@@ -41,17 +53,18 @@ const PERMITIDOS: Array<{ archivo: string; fragmento: string; veces: number; por
   { archivo: 'lib/fedegolf/tarjetas.ts', fragmento: 'valor: indice.toFixed(1)', veces: 1, porque: 'paso de la cuenta (suma → promedio → truncado): va con el signo aritmético de los pasos anteriores' },
   { archivo: 'app/demo/taiger/page.tsx', fragmento: 'PLAYER.indiceGolfers.toFixed(1)', veces: 1, porque: 'maqueta con constantes positivas fijas, sin datos de usuario' },
   { archivo: 'app/demo/taiger/page.tsx', fragmento: 'PLAYER.indiceWHS.toFixed(1)', veces: 1, porque: 'maqueta con constantes positivas fijas, sin datos de usuario' },
-  { archivo: 'app/demo/taiger/page.tsx', fragmento: '(-indiceDelta).toFixed(1)', veces: 1, porque: 'delta de la maqueta, con su signo escrito a mano' },
+  { archivo: 'app/demo/taiger/page.tsx', fragmento: '(-indiceDelta).toFixed(1)', veces: 2, porque: 'delta de la maqueta, con su signo escrito a mano (calza en las dos reglas)' },
   // Regla 2 ({…} / ${…})
   { archivo: 'components/mi-golf/CompetenciaTab.tsx', fragmento: '{hcpDisplay}', veces: 1, porque: 'ya es texto: lo arma CompetenciaSection con formatearIndice' },
+  { archivo: 'app/coach/progreso/components/MetaResumen.tsx', fragmento: '>{indiceTexto}</div>', veces: 2, porque: 'ya es texto: indiceTexto = formatearIndice(currentHandicap)' },
   { archivo: 'components/Scorecard.tsx', fragmento: "HCP {typeof displayHandicap === 'string' ? displayHandicap : formatearHandicap(", veces: 1, porque: 'la rama cruda es el texto ya armado ("S/Ind", el de 9h); la numérica pasa por formatearHandicap' },
-  { archivo: 'lib/data/tournaments/motivo-para-no-iniciar.ts', fragmento: '${handicap.porcentajes.length}', veces: 1, porque: 'cuántos porcentajes tiene el hándicap personalizado, no un hándicap' },
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: '`Índice actual: ${indice}`', veces: 1, porque: PROMPT },
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: 'aún sin índice oficial): ${indiceGolfers}`', veces: 1, porque: PROMPT },
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: '${indice ?? (indiceGolfers != null ?', veces: 2, porque: PROMPT },
+  { archivo: 'golf/coach/prompts/contexto.ts', fragmento: 'el índice ${anyIndice} refleja', veces: 3, porque: PROMPT },
   { archivo: 'golf/coach/v3/exam/build-exam-system.ts', fragmento: '${seed.handicap.indice}', veces: 1, porque: PROMPT },
-  { archivo: 'golf/coach/v3/exam/mock-executor.ts', fragmento: 'DISTINTO del índice (${h.indice})', veces: 1, porque: PROMPT },
-  { archivo: 'lib/data/coach-handicap.ts', fragmento: 'DISTINTO del índice (${indice})', veces: 1, porque: PROMPT },
+  { archivo: 'golf/coach/v3/exam/mock-executor.ts', fragmento: 'DISTINTO del índice (${h.indice})', veces: 2, porque: PROMPT },
+  { archivo: 'lib/data/coach-handicap.ts', fragmento: 'DISTINTO del índice (${indice})', veces: 2, porque: PROMPT },
   { archivo: 'lib/import/confirmar.ts', fragmento: '(índice: ${profile?.indice ?? ', veces: 1, porque: PROMPT },
   { archivo: 'lib/import-round.ts', fragmento: 'Indice de handicap negativo (${profile.indice})', veces: 1, porque: 'aviso interno (no UI) que nombra el valor crudo guardado' },
 ]
@@ -81,6 +94,8 @@ function hijoJsx(prev: string): boolean {
   const t = prev.trimEnd()
   if (t === '') return true
   const c = t.at(-1)
+  // "f(x): Partial<T> {" o "): { a: string; b: number } | null {": tipo de retorno (en la misma línea)
+  if (/\)\s*:\s*[^()=]+$/.test(t.slice(t.lastIndexOf('\n') + 1))) return false
   if (c === '>') return !t.endsWith('=>') // "<td>{x}" sí; "x => {" es un bloque
   if (c === '}') return true // "{a} {b}"
   // "Ana ({x})" o "</b>({x})": texto JSX entre paréntesis; no "f({", "if (", "return (", "=> ({".
@@ -88,16 +103,15 @@ function hijoJsx(prev: string): boolean {
   if (c === ':') return /[A-ZÁÉÍÓÚ][\wáéíóúñ]*:$/.test(t) // "Índice: {x}" (texto), no "clave: {"
   if (/[=(),?[{&|!+*/<;-]$/.test(t)) return false
   if (/\b(class|interface|enum|namespace|extends|implements)\b[^{};()]*$/.test(t)) return false
-  if (/\)\s*:\s*[^{};()=]+$/.test(t)) return false // "f(x): number | null {": tipo de retorno
-  return !/\b(const|let|var|import|export|type|interface|return|function|case|default|in|of|else|try|finally|do)$/.test(t)
+  return !/\b(const|let|var|import|export|type|interface|return|function|case|default|in|of|else|try|catch|finally|do)$/.test(t)
 }
 
 /**
  * Regla 2: `${…}` y, en .tsx, `{…}` hijos JSX, aunque crucen líneas. Devuelve cada expresión con el
  * número (0-based) de la línea donde abre.
  */
-function expresiones(texto: string, tsx: boolean): Array<{ expr: string; linea: number }> {
-  const out: Array<{ expr: string; linea: number }> = []
+function expresiones(texto: string, tsx: boolean): Array<{ expr: string; linea: number; antes: string; despues: string }> {
+  const out: Array<{ expr: string; linea: number; antes: string; despues: string }> = []
   let linea = 0
   for (let i = 0; i < texto.length; i++) {
     if (texto[i] === '\n') { linea++; continue }
@@ -110,7 +124,7 @@ function expresiones(texto: string, tsx: boolean): Array<{ expr: string; linea: 
       if (texto[j] === '{') prof++
       else if (texto[j] === '}' && --prof === 0) break
     }
-    if (texto[j] === '}' && prof === 0) out.push({ expr: texto.slice(i + 1, j), linea })
+    if (texto[j] === '}' && prof === 0) out.push({ expr: texto.slice(i + 1, j), linea, antes: texto.slice(Math.max(0, i - 40), tpl ? i - 1 : i), despues: texto.slice(j + 1, j + 20) })
   }
   return out
 }
@@ -154,9 +168,33 @@ function ramas(e: string): string[] {
   return [e]
 }
 
+/** El código de la expresión sin el texto fijo de sus templates (`HCP ${x}` → `${x}`): ese texto no es un valor. */
+function sinTextoDeTemplates(e: string): string {
+  let out = ''
+  const modos: Array<'codigo' | 'template'> = ['codigo']
+  const llaves = [0]
+  for (let i = 0; i < e.length; i++) {
+    const c = e[i]
+    if (modos.at(-1) === 'template') {
+      if (c === '\\') i++
+      else if (c === '`') { modos.pop(); out += c }
+      else if (c === '$' && e[i + 1] === '{') { modos.push('codigo'); llaves.push(0); out += '${'; i++ }
+      continue
+    }
+    if (c === '`') { modos.push('template'); out += c; continue }
+    if (c === '{') llaves[llaves.length - 1]++
+    else if (c === '}') {
+      if (llaves.at(-1) === 0 && modos.length > 1) { modos.pop(); llaves.pop(); out += c; continue }
+      llaves[llaves.length - 1]--
+    }
+    out += c
+  }
+  return out
+}
+
 /** Lo que la expresión pinta: sin comentarios, strings literales ni comparaciones contra null/tipo. */
 function valorMostrado(expr: string): string {
-  return expr
+  return sinTextoDeTemplates(expr)
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/'[^']*'|"[^"]*"/g, "''")
     .replace(/typeof\s+[\w.?!]+\s*[!=]==?\s*''/g, '')
@@ -164,9 +202,27 @@ function valorMostrado(expr: string): string {
     .replace(/\.filter\([^)]*\)/g, '')
 }
 
-const marcaExpr = (e: string) =>
+/** ¿El valor pinta un identificador de hándicap/índice? Cuenta el FINAL de cada cadena (`r.breakdown.handicapInfo.handicap`
+ *  sí, `handicapInfo.label` o `sinHandicap.map(…)` no), sin constantes en mayúsculas ni NO_ES_VALOR. */
+function nombraHandicap(v: string): boolean {
+  for (const m of v.matchAll(/[A-Za-z_$][\w$]*/g)) {
+    const id = m[0]
+    if (!ID_MOSTRADO.test(id) || /^[A-Z0-9_$]+$/.test(id) || NO_ES_VALOR.test(id)) continue
+    if (/^[?!]*\s*\./.test(v.slice(m.index + id.length))) continue
+    return true
+  }
+  return false
+}
+
+/** Una rama rotulada como hándicap está bien si formatea, es un componente o es un texto fijo / constante. */
+const ramaRotuladaOk = (r: string) =>
+  FORMATEADOR.test(r) || /<[A-Z]/.test(r) || /^\s*(''|[A-Z_]+|null|undefined)?\s*$/.test(valorMostrado(r))
+
+const marcaExpr = (e: string, antes = '', despues = '') =>
   !/^\s*[\w'"]+\s*:/.test(e) &&
-  ramas(e).some(r => !FORMATEADOR.test(r) && !/</.test(r) && ID_MOSTRADO.test(valorMostrado(r)))
+  (ramas(e).some(r => !FORMATEADOR.test(r) && !/</.test(r) && nombraHandicap(valorMostrado(r))) ||
+    ((ETIQUETA.test(antes) || (ETIQUETA_DESPUES.test(despues) && ramas(e).some(r => ES_GOLPES.test(r)))) &&
+      !ramas(e).every(ramaRotuladaOk)))
 
 /** Líneas (0-based) con marca, una entrada por marca (las dos reglas). */
 function marcas(texto: string, tsx: boolean): number[] {
@@ -174,7 +230,7 @@ function marcas(texto: string, tsx: boolean): number[] {
   texto.split('\n').forEach((l, i) => {
     for (const r of receptores(l)) if (NOMBRE_INDICE.test(r)) out.push(i)
   })
-  for (const { expr, linea } of expresiones(texto, tsx)) if (marcaExpr(expr)) out.push(linea)
+  for (const { expr, linea, antes, despues } of expresiones(texto, tsx)) if (marcaExpr(expr, antes, despues)) out.push(linea)
   return out
 }
 
@@ -224,6 +280,13 @@ describe('índice y hándicap: siempre con su formateador', () => {
       "<td>\n  {p.handicap != null\n    ? p.handicap\n    : '—'}\n</td>",
       // una rama formatea y la otra pinta crudo
       "<td>{esPlus ? formatearHandicap(p.hcp) : p.hcp}</td>",
+      // vuelta 6: identificadores que contienen hcp/handicap, y etiquetas con variables de otro nombre
+      "{showNet && hcpLabel != null && <span style={{ color: 'var(--brand-on-bg)', marginRight: '4px' }}>HCP {hcpLabel}</span>}", // header del scorer
+      '<span style={hcpDeJugador}>\n  HCP {golpes}\n</span>', // tarjeta del rival
+      '<span style={hcpDeJugador}>\n  HCP {props.golpes}\n</span>', // tarjeta del creador
+      "{golpes != null ? ` · ${golpes} golpes` : ''}", // confirmar ronda libre
+      "<span style={label(y(currentHandicap) - 5, 'right', 'var(--text-3)')}>hcp {currentHandicap}</span>", // avance del coach
+      '<span style={{ marginLeft: 6 }}>\n  HCP {team.teamHandicap}\n</span>', // leaderboard de equipos
       '<td>{h == null ? EMPTY : modo === 1 ? formatearIndice(h) : h.handicap}</td>',
     ]) expect(marcas(s, true).length, s).toBeGreaterThan(0)
   })
@@ -247,6 +310,17 @@ describe('índice y hándicap: siempre con su formateador', () => {
       'function hcpAMostrar(p: Player): number | null {\n  return p.hcp\n}',
       '/** Recibe un array de {name, hcp} */',
       "{p.handicap != null ? handicapHojaSalida(p.handicap) : '—'}",
+      '<span>HCP <HcpCelda hcp={hcpLabel} /></span>',
+      "<span>HCP {h != null ? formatearHandicap(h) : '—'}</span>",
+      '<td>Índice {EMPTY}</td>',
+      "{`Ronda de ${hoyos} hoyos`}",
+      '<p>{indexOf}</p>',
+      'Necesitas {MIN_DIFERENCIALES_INDICE} rondas',
+      "{avisoHcpPct && <p>{avisoHcpPct}</p>}",
+      'Nombre del jugador {indiceEnLista + 1}',
+      "{` · ±${r.breakdown.handicapInfo.sigma} strokes`}",
+      '): Partial<TournamentConfig> {\n  return { hcp }\n}',
+      '} catch {\n  setHcp(hcp)\n}',
     ]) expect(marcas(s, true), s).toEqual([])
   })
 
