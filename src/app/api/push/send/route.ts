@@ -25,7 +25,7 @@ export const dynamic = 'force-dynamic'
 
 interface PushPayload {
   title: string
-  body: string
+  body?: string
   icon?: string
   badge?: string
   tag?: string

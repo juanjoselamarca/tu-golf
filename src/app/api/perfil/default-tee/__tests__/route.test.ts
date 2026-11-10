@@ -52,6 +52,7 @@ describe('POST /api/perfil/default-tee', () => {
   it('color o género que no son texto → 400 o se ignoran, nunca 500', async () => {
     const r1 = await POST(req(JSON.stringify({ color: 5 })))
     expect(r1.status).toBe(400)
+    // genero no-texto ya daba 200 antes del fix: esto fija el comportamiento, no el bug.
     const r2 = await POST(req(JSON.stringify({ color: 'azul', genero: 7 })))
     expect(r2.status).toBe(200)
     expect(update).toHaveBeenCalledWith({ default_tee_color: 'azul' })
