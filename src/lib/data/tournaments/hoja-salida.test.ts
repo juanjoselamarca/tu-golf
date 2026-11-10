@@ -25,10 +25,12 @@ describe('textoHojaSalida', () => {
     expect(texto.split('\n')).toEqual(['COPA', '9H · Tees Azul', '', 'Grupo 1', '  Ana (12.4)', '', 'Golfers+ · golfers.cl'])
   })
 
-  it('el índice sale con un decimal, igual que en pantalla ("12.0", no "12")', () => {
+  it('el índice sale con un decimal y el plus con "+", igual que en pantalla ("12.0", "+1.2")', () => {
     const texto = textoHojaSalida(base, [{ name: 'G', tee_time: null, players: [{ name: 'Ana', handicap: 12 }, { name: 'Bea', handicap: -1.2 }] }], 'golfers.cl')
     expect(texto).toContain('  Ana (12.0)')
-    expect(texto).toContain('  Bea (-1.2)')
+    // Un plus se guarda negativo y se muestra con "+" (la notación del golf), también en WhatsApp.
+    expect(texto).toContain('  Bea (+1.2)')
+    expect(texto).not.toContain('-1.2')
   })
 })
 

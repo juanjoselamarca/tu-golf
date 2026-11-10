@@ -16,25 +16,25 @@
 // the history), but each item shows whether it enters the calculation.
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Portal } from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase'
+import { isAuthSessionMissingError } from '@supabase/supabase-js'
+import { conTimeout } from '@/lib/red/con-timeout'
+import { PLAZO_LECTURA_INDICE_MS } from '@/lib/red/plazos'
+import { captureError } from '@/lib/error-tracking'
+import { loginUrl } from '@/lib/auth/login-url'
 import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
-import { indexWindow, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
+import { rondasParaActivar, textoRondasParaActivar } from '@/lib/indice-golfers'
+import { fetchRondasIndice, type RondaIndice } from '@/lib/data/rondas-indice'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
-interface RoundForBreakdown {
-  id: string
-  course_name: string
-  played_at: string
-  created_at: string | null
-  total_gross: number | null
-  diferencial: number | null
-  holes_played: number | null
-  slope_rating: number | null
-  course_rating: number | null
-  excluded_from_handicap: boolean
-}
+type RoundForBreakdown = RondaIndice<'course_name'>
+
+/** Lectura: `cargando` → rondas, o por qué no hay (sin sesión / falló la red). Nunca "sin rondas" por un error. */
+type Lectura = { estado: 'cargando' } | { estado: 'ok'; rondas: RoundForBreakdown[] } | { estado: 'sin-sesion' } | { estado: 'error' }
 
 interface IndiceBreakdownModalProps {
   isOpen: boolean
@@ -51,8 +51,10 @@ function formatDateShort(d: string): string {
 }
 
 export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdownModalProps) {
-  const [rounds, setRounds] = useState<RoundForBreakdown[] | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [lectura, setLectura] = useState<Lectura>({ estado: 'cargando' })
+  const [intento, setIntento] = useState(0)
+  const loading = lectura.estado === 'cargando'
+  const rounds = lectura.estado === 'ok' ? lectura.rondas : null
 
   // Inyectar keyframes globales una sola vez. Patrón portable que evita
   // el problema de styled-jsx con inline style animation + ESLint Vercel.
@@ -78,23 +80,29 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
-    setLoading(true)
-    ;(async () => {
+    const fijar = (l: Lectura) => { if (!cancelled) setLectura(l) }
+    const leer = async (): Promise<Lectura> => {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { if (!cancelled) setLoading(false); return }
-      const { data } = await supabase
-        .from('historical_rounds')
-        .select(`${INDEX_WINDOW_COLUMNS}, course_name`)
-        .eq('user_id', user.id)
-        .order('played_at', { ascending: false })
-      if (!cancelled) {
-        setRounds(indexWindow((data as RoundForBreakdown[]) ?? []))
-        setLoading(false)
+      const { data: { user }, error } = await supabase.auth.getUser()
+      // Sin red, getUser devuelve user null + AuthRetryableFetchError: eso es "reintentar", no "sesión expirada".
+      if (!user) return !error || isAuthSessionMissingError(error) ? { estado: 'sin-sesion' } : { estado: 'error' }
+      // Misma lectura que el CPI y Mi Golf (predicado del RPC). null = falló: no es "sin rondas".
+      const rondas = await fetchRondasIndice(supabase, user.id, ['course_name'] as const)
+      return rondas ? { estado: 'ok', rondas } : { estado: 'error' }
+    }
+    ;(async () => {
+      try {
+        // Un solo plazo para la lectura entera (sesión + rondas), no uno por paso.
+        fijar(await conTimeout(leer(), PLAZO_LECTURA_INDICE_MS))
+      } catch (e) {
+        // Plazo agotado o cualquier excepción: nunca quedarse en "Cargando…".
+        void captureError(e, { context: 'indice-breakdown.lectura', level: 'warning' })
+        fijar({ estado: 'error' })
       }
     })()
-    return () => { cancelled = true }
-  }, [isOpen])
+    // Al cerrar (o reintentar) vuelve a "cargando": al reabrir, el primer cuadro no pinta la lectura anterior.
+    return () => { cancelled = true; setLectura({ estado: 'cargando' }) }
+  }, [isOpen, intento])
 
   const tableRow = rounds ? whsTableRow(rounds.length) : null
 
@@ -168,8 +176,8 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             </button>
           </div>
 
-          {/* Resumen */}
-          {!loading && rounds && rounds.length > 0 && (
+          {/* Resumen: solo con índice (sin fila de la tabla WHS diría "mejores 0 … = —") */}
+          {!loading && rounds && tableRow && (
             <div style={{
               background: 'var(--bg)',
               border: '1px solid var(--border)',
@@ -180,10 +188,10 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
               color: 'var(--text-2)',
               lineHeight: 1.6,
             }}>
-              De tus últimas <strong style={{ color: 'var(--text)' }}>{rounds.length}</strong> rondas con diferencial,
+              De tus últimas <strong style={{ color: 'var(--text)' }}>{rounds.length}</strong> rondas válidas,
               las mejores <strong style={{ color: 'var(--text)' }}>{usedIds.size}</strong> entran al cálculo:
-              {tableRow && tableRow.adjustment !== 0 ? `promedio − ${Math.abs(tableRow.adjustment).toFixed(1)} (ajuste WHS con ${rounds.length} rondas)` : 'promedio'}{' '}
-              = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice ?? '—'}</strong>.
+              {tableRow.adjustment !== 0 ? `promedio − ${Math.abs(tableRow.adjustment).toFixed(1)} (ajuste WHS con ${rounds.length} rondas)` : 'promedio'}{' '}
+              = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice != null ? formatearIndice(indice) : '—'}</strong>.
             </div>
           )}
 
@@ -193,16 +201,58 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             </p>
           )}
 
-          {!loading && rounds && rounds.length === 0 && (
+          {lectura.estado === 'error' && (
+            <div role="alert" style={{ textAlign: 'center', color: 'var(--text-2)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
+              <p style={{ margin: 0 }}>No pudimos cargar tus rondas. Revisa tu conexión.</p>
+              <button
+                type="button"
+                onClick={() => setIntento(n => n + 1)}
+                style={{ minHeight: '44px', padding: '0 20px', marginTop: '12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px', fontFamily: 'inherit', cursor: 'pointer' }}
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {lectura.estado === 'sin-sesion' && (
             <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
-              Aún no tienes rondas con diferencial calculado.<br />
-              Importa tu historial desde FedeGolf, Garmin o un CSV.
+              Tu sesión expiró. Vuelve a ingresar para ver qué rondas cuentan.<br />
+              <Link
+                href={loginUrl(window.location.pathname)}
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '0 12px', color: 'var(--brand-on-bg)', fontWeight: 600 }}
+              >
+                Ingresar →
+              </Link>
             </p>
           )}
 
-          {!loading && rounds && rounds.length > 0 && rounds.length < 3 && (
+          {!loading && rounds && rounds.length === 0 && (
+            <div style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
+              {/* Las tarjetas FedeGolf llegan excluidas del índice: no son un camino para activarlo. */}
+              <p style={{ margin: 0 }}>
+                Aún no tienes rondas válidas (canchas con slope y rating).<br />
+                Registra una ronda o importa tus tarjetas de Garmin.
+              </p>
+              <Link
+                href="/ronda-libre/nueva"
+                onClick={onClose}
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '0 12px', marginTop: '8px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}
+              >
+                Registrar una ronda →
+              </Link>
+              <Link
+                href="/importar"
+                onClick={onClose}
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '0 12px', marginTop: '8px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}
+              >
+                Importar de Garmin →
+              </Link>
+            </div>
+          )}
+
+          {!loading && rounds && rounds.length > 0 && rondasParaActivar(rounds.length) > 0 && (
             <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '20px 0', lineHeight: 1.6 }}>
-              Faltan {3 - rounds.length} rondas para activar el índice (mínimo 3 con diferencial).
+              {textoRondasParaActivar(rondasParaActivar(rounds.length))}
             </p>
           )}
 
@@ -214,7 +264,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
               {rounds.map((r, i) => (
                 <BreakdownRow
                   key={r.id}
-                  titulo={r.course_name}
+                  titulo={r.course_name ?? 'Cancha desconocida'}
                   meta={`${formatDateShort(r.played_at)} · ${r.holes_played ?? 18}h · ${r.total_gross ?? '—'}`}
                   valor={r.diferencial != null ? r.diferencial.toFixed(1) : '—'}
                   cuenta={usedIds.has(r.id)}

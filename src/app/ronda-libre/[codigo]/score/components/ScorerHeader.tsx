@@ -1,6 +1,7 @@
 'use client'
 
 import { displayDesdeJugador, type MatchResult } from '@/golf/formats/match-play'
+import { HcpCelda } from '../../components/HcpCelda'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 
@@ -87,7 +88,7 @@ export function ScorerHeader({
                   {holesPlayed > 0 ? (showStableford ? `${totalStableford} pts` : displayOverUnder > 0 ? `+${displayOverUnder}` : displayOverUnder === 0 ? 'E' : displayOverUnder) : '—'}
                 </div>
                 <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>
-                  {showNet && hcpLabel != null && <span style={{ color: 'var(--brand-on-bg)', marginRight: '4px' }}>HCP {hcpLabel}</span>}
+                  {showNet && hcpLabel != null && <span style={{ color: 'var(--brand-on-bg)', marginRight: '4px' }}>HCP <HcpCelda hcp={hcpLabel} enLinea /></span>}
                   THRU {holesPlayed}/{totalHoles}
                 </div>
               </>

@@ -8,6 +8,7 @@ import { prepararJuegoDeRondaNueva } from '@/golf/ronda-libre/juego-de-ronda-nue
 import { puedeCrearJuegoPersonalizado } from '@/lib/auth/juego-personalizado'
 import { handicapsDeEquipoDeRondaNueva } from '@/lib/data/ronda-libre-equipos'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { NOMBRE_EQUIPO_MAX } from '@/golf/ronda-libre/nombre-de-equipo'
 import { parseFechaISO } from '@/golf/tournament-fechas'
 import { evaluarRondaLibre } from '@/lib/data/course-aptitud'
 import { bloqueaRondaLibre, seArreglaJugandoGross } from '@/golf/courses/aptitud-torneo'
@@ -46,7 +47,8 @@ const playerSchema = z.object({
 })
 
 const equipoSchema = z.object({
-  nombre: z.string().min(1).max(50),
+  // Sin espacios a los lados: un nombre de solo espacios ya no se graba en blanco.
+  nombre: z.string().trim().min(1, 'Cada equipo necesita un nombre.').max(NOMBRE_EQUIPO_MAX, `El nombre del equipo puede tener hasta ${NOMBRE_EQUIPO_MAX} caracteres.`),
   jugadorIndices: z.array(z.number().int().min(0)),
 })
 

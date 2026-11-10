@@ -7,6 +7,8 @@ import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
 import type { EquipoDeLaRonda } from '../hooks/useFormularioDeRonda'
 import { nombreVisibleDeTee } from './SelectorTees'
 import { colores, primario, secundario, tarjeta } from './estilos'
+import { formatearHandicap, formatearIndice } from '@/golf/handicap-index-range'
+import { nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 
 interface Props {
   cancha: string
@@ -69,7 +71,7 @@ export function PasoConfirmar(props: Props) {
   const grupos: Array<{ titulo: string | null; jugadores: JugadorDeLaRonda[] }> = props.equipos.length > 0
     ? [
         ...props.equipos.map((e, i) => ({
-          titulo: e.nombre.trim() || `Equipo ${i + 1}`,
+          titulo: nombreVisibleDeEquipo(e.nombre, i),
           jugadores: e.miembros.map(id => porId.get(id)).filter((j): j is JugadorDeLaRonda => j != null),
         })),
         { titulo: null, jugadores: props.jugadores.filter(j => !enAlgunEquipo.has(j.id)) },
@@ -91,11 +93,12 @@ export function PasoConfirmar(props: Props) {
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {j.nombre}
-          {j.indice != null ? ` · idx ${j.indice}` : ''}
+          {j.indice != null ? ` · idx ${formatearIndice(j.indice)}` : ''}
           {/* Los golpes que va a repartir la ronda. En una vuelta de 9
               no son los mismos que el índice sugiere, y verlos acá
-              evita la sorpresa en el hoyo 1. */}
-          {golpes != null ? ` · ${golpes} golpes` : ''}
+              evita la sorpresa en el hoyo 1. Mismo rótulo que la tarjeta del
+              paso anterior ("HCP 12", "HCP +2"): "+2 golpes" se leía como recibir dos. */}
+          {golpes != null ? ` · HCP ${formatearHandicap(golpes)}` : ''}
         </span>
         {props.hayVariosTees && j.tees && (
           <span style={{

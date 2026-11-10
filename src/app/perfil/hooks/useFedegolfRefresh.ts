@@ -7,6 +7,7 @@ import { SYNC_INDICE_COOLDOWN_LABEL } from '@/lib/fedegolf/sync-cooldown'
 import { MENSAJE_NO_VINCULADO } from '@/lib/fedegolf/sincronizar-indice'
 import { marcarAvisoMostrado } from '@/lib/fedegolf/aviso-local'
 import type { CambioIndice } from '@/lib/fedegolf/persistencia-indice'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 type FedegolfMsg = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
@@ -84,7 +85,7 @@ export function useFedegolfRefresh(
           kind: 'ok',
           text: aviso
             ? `${aviso.title}. ${aviso.message}`
-            : `Índice actualizado: ${body?.indice?.toFixed(1) ?? '—'}`,
+            : `Índice actualizado: ${body?.indice != null ? formatearIndice(body.indice) : '—'}`,
         })
         onSinIndice(false)
         const updated = await fetchProfile(createClient(), profile.id)

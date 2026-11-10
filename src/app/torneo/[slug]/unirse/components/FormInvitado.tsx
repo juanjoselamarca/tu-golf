@@ -1,4 +1,9 @@
 import Link from 'next/link'
+import { PLACEHOLDER_CAMPO_HANDICAP, REGLA_INVITADO } from '@/golf/handicap-index-range'
+import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
+import { useAvisoDeCampo } from '@/hooks/useAvisoDeCampo'
+import { MENSAJE_NOMBRE_INVITADO_CORTO, NOMBRE_INVITADO_MAX, nombreDeInvitadoValido } from '@/lib/inscripcion/nombre-invitado'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { loginUrl } from '@/lib/auth/login-url'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -26,7 +31,17 @@ export function FormInvitado({
   guestJoining: boolean
   onJoin: () => void
 }) {
-  const bloqueado = guestJoining || guestName.trim().length < 2
+  // El botón solo se apaga mientras se inscribe. Un nombre de 1 letra o un hándicap a medio escribir ("+")
+  // se avisan al tocarlo, en el campo, y se le da el foco: un botón apagado no dice qué falta.
+  const campoNombre = useAvisoDeCampo(guestName, 'guest-name')
+  const campoHcp = useAvisoIndiceAlEnviar(guestHandicap, 'guest-handicap', REGLA_INVITADO)
+  const enviar = () => {
+    if (!nombreDeInvitadoValido(guestName)) {
+      campoNombre.avisar(MENSAJE_NOMBRE_INVITADO_CORTO)
+      return
+    }
+    if (campoHcp.validarAlEnviar()) onJoin()
+  }
   return (
     <div>
       {/* Guest form */}
@@ -53,31 +68,37 @@ export function FormInvitado({
             value={guestName}
             onChange={(e) => onGuestName(e.target.value)}
             placeholder="Nombre y apellido"
-            maxLength={100}
+            maxLength={NOMBRE_INVITADO_MAX}
             autoComplete="name"
+            error={campoNombre.avisoDelEnvio != null}
+            {...campoNombre.propsDelCampo}
           />
+          {campoNombre.avisoDelEnvio != null && <AvisoCampo id={campoNombre.idAviso}>{campoNombre.avisoDelEnvio}</AvisoCampo>}
         </div>
 
         <div style={{ marginBottom: '20px' }}>
           <label htmlFor="guest-handicap" style={{ fontSize: '13px', color: 'var(--text-2)', display: 'block', marginBottom: '6px' }}>
             Índice de handicap (opcional)
           </label>
+          {/* type="text": un type="number" deja el valor en '' con "+2" (y el invitado entraba sin
+              hándicap, sin aviso); inputMode "text" porque el teclado decimal del iPhone no tiene signo. */}
           <Input
             id="guest-handicap"
-            type="number"
-            step="0.1"
-            min="-10"
-            max="54"
+            type="text"
+            inputMode="text"
+            autoComplete="off"
             value={guestHandicap}
             onChange={(e) => onGuestHandicap(e.target.value)}
-            placeholder="Ej: 18.5"
-            inputMode="decimal"
+            placeholder={PLACEHOLDER_CAMPO_HANDICAP}
+            error={campoHcp.aviso != null}
+            {...campoHcp.propsDelCampo}
             // `style` reemplaza el del input interno de ui/Input: se repite el color.
             style={{ color: 'var(--text)', fontFamily: 'var(--font-dm-mono), monospace' }}
           />
+          {campoHcp.aviso != null && <AvisoCampo id={campoHcp.idAviso}>{campoHcp.aviso}</AvisoCampo>}
         </div>
 
-        <Button type="button" variant="commit" size="lg" fullWidth onClick={onJoin} disabled={bloqueado}>
+        <Button type="button" variant="commit" size="lg" fullWidth onClick={enviar} disabled={guestJoining}>
           {guestJoining ? 'Inscribiendo...' : 'Scorear como invitado'}
         </Button>
       </div>

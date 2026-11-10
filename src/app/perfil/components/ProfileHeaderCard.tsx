@@ -3,6 +3,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import type { Profile } from '@/lib/data/perfil'
 import { getPlayerTier } from '../perfilFormat'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 interface Props {
   profile: Profile
@@ -45,7 +46,7 @@ export function ProfileHeaderCard({ profile, tourneysPlayed, onAddIndice }: Prop
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             {profile.indice != null ? (
               <span style={{ fontSize: '13px', color: 'var(--status-live-fg)', fontWeight: 700, fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace' }}>
-                Índice: {profile.indice}
+                Índice: {formatearIndice(profile.indice)}
               </span>
             ) : (
               <Button

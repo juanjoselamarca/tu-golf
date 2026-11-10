@@ -10,6 +10,7 @@ import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { MENSAJE_NETO_PRO, MENSAJE_PLAN_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import type { FormaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
+import { nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from './useFormularioDeRonda'
 import { loginUrl } from '@/lib/auth/login-url'
 
@@ -90,8 +91,10 @@ export function equiposConIndices(
   jugadores: JugadorDeLaRonda[],
 ): Array<{ nombre: string; jugadorIndices: number[] }> {
   const posicionPorId = new Map(jugadores.map((j, i) => [j.id, i]))
-  return equipos.map(e => ({
-    nombre: e.nombre,
+  // El nombre que se graba es el que muestra la pantalla: vacío o solo espacios → "Equipo N" (antes, un
+  // nombre borrado llegaba vacío y la API respondía 400 con un mensaje en inglés).
+  return equipos.map((e, i) => ({
+    nombre: nombreVisibleDeEquipo(e.nombre, i),
     jugadorIndices: e.miembros
       .map(id => posicionPorId.get(id))
       .filter((i): i is number => i != null),

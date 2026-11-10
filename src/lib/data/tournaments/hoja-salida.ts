@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getCourseDisplayName } from '@/golf/courses/data'
+import { formatearIndice } from '@/golf/handicap-index-range'
 import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
 
 export interface TorneoHojaSalida {
@@ -52,9 +53,12 @@ export function fechaHojaSalida(dateStart: string, conAnio: boolean): string {
   })
 }
 
-/** Índice con un decimal, igual en pantalla y en el texto compartido. */
+/**
+ * Índice (`profiles.indice`, no el hándicap de juego) con un decimal y los plus con "+",
+ * igual en pantalla y en el texto compartido.
+ */
 export function handicapHojaSalida(handicap: number): string {
-  return handicap.toFixed(1)
+  return formatearIndice(handicap)
 }
 
 /** Texto plano para copiar o compartir la hoja de salida. */

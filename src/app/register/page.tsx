@@ -1,6 +1,9 @@
 'use client'
 
 import { Suspense, useState } from 'react'
+import { leerCampoHandicap, PLACEHOLDER_CAMPO_HANDICAP } from '@/golf/handicap-index-range'
+import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
@@ -98,11 +101,15 @@ function RegisterContent() {
     })
   }
 
+  // Opcional y con rango WHS. El botón no se apaga por el índice: al enviar se avisa en el campo y se enfoca.
+  const campoIndice = useAvisoIndiceAlEnviar(indice, 'registro-indice', { opcional: true, rango: 'indice' })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearAll()
 
     // Client validation
+    if (!campoIndice.validarAlEnviar()) return
     if (password.length < PASSWORD_MIN_LENGTH) {
       setFieldError('password', `Mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
       showError(PASSWORD_TOO_SHORT.title, PASSWORD_TOO_SHORT.body)
@@ -117,7 +124,10 @@ function RegisterContent() {
       options: {
         data: {
           name,
-          indice: indice ? parseFloat(indice) : null,
+          // "+2" es un plus (−2) y "18,5" lleva coma: parseFloat("+2") daba 2.
+          // OJO: hoy este metadato NO llega a profiles.indice: el trigger handle_new_user no lo copia (#777).
+          // Se manda igual para que, al corregir el trigger, los registros nuevos ya lo traigan.
+          indice: leerCampoHandicap(indice).valor,
         },
       },
     })
@@ -381,11 +391,15 @@ function RegisterContent() {
 
             {/* Índice */}
             <div>
-              <label style={labelStyle}>Índice de hándicap <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: theme.textFaint }}>(opcional)</span></label>
-              <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ej: 12.4 — si no lo sabes, déjalo vacío" value={indice} onChange={(e) => setIndice(e.target.value)}
+              <label htmlFor="registro-indice" style={labelStyle}>Índice de hándicap <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: theme.textFaint }}>(opcional)</span></label>
+              {/* inputMode "text": el teclado decimal del iPhone no tiene signo y un plus se escribe "+2". Ya no se
+                  "normaliza" al salir: parseFloat("+2") lo dejaba en 2 (un plus se registraba como hándicap 2). */}
+              <input id="registro-indice" type="text" inputMode="text" autoComplete="off" placeholder={PLACEHOLDER_CAMPO_HANDICAP} value={indice} onChange={(e) => setIndice(e.target.value)}
+                {...campoIndice.propsDelCampo}
                 style={{ ...baseInput, border: `1px solid ${theme.border}` }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = theme.gold; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(196,153,42,0.12)' }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.boxShadow = 'none'; const v = e.target.value.replace(',', '.'); const n = parseFloat(v); if (!isNaN(n) && n >= 0 && n <= 54) setIndice(String(n)) }} />
+                onBlur={(e) => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.boxShadow = 'none' }} />
+              {campoIndice.aviso != null && <AvisoCampo id={campoIndice.idAviso}>{campoIndice.aviso}</AvisoCampo>}
             </div>
 
             {/* Aceptación de términos */}

@@ -1,6 +1,7 @@
 'use client'
 
 import { scoreChipStyle, scoreFgVar } from '@/lib/score-tokens'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { formatVsPar } from '@/golf/share/vs-par'
@@ -85,7 +86,7 @@ export function PlayerScoreCard({
           <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{j.nombre}</div>
           {showNetStableford && played > 0 && (
             <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>
-              HCP {displayHcp ?? hcp}
+              HCP {formatearHandicap(displayHcp ?? hcp)}
             </div>
           )}
         </div>

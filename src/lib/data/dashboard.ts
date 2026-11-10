@@ -15,6 +15,7 @@ import type { Tournament, RondaLibre, HistoricalRound } from '@/lib/mi-golf/type
 import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 import { normalizeScores } from '@/lib/data/focus'
 import { captureError } from '@/lib/error-tracking'
+import { fetchRondasIndice } from '@/lib/data/rondas-indice'
 
 // Campos slim de historical_rounds: lo necesario para stats/tendencia/listado.
 // `scores`/`par_per_hole` se omiten a propósito (se traen aparte solo para la
@@ -169,7 +170,8 @@ export async function isNewUser(
 export type IdentidadData = {
   indiceGolfers: number | null
   totalRounds: number
-  rondasConDiferencial: number
+  /** Rondas que promedia el índice (`fetchRondasIndice`, tope 20); null = no se pudo leer. */
+  rondasValidasIndice: number | null
   taigerSessionCount: number
   historico: HistoricalRound[]
 }
@@ -181,13 +183,13 @@ export async function loadIdentidadData(
   const [
     { data: profile },
     { count: totalRounds },
-    { count: rondasConDiferencial },
+    rondasIndice,
     { count: taigerSessionCount },
     { data: historicoRaw },
   ] = await Promise.all([
     supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
     supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF),
-    supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).not('diferencial', 'is', null),
+    fetchRondasIndice(supabase, userId),
     supabase.from('taiger_sessions').select('*', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).limit(50),
   ])
@@ -195,7 +197,7 @@ export async function loadIdentidadData(
   return {
     indiceGolfers: (profile?.indice_golfers as number | null) ?? null,
     totalRounds: totalRounds ?? 0,
-    rondasConDiferencial: rondasConDiferencial ?? 0,
+    rondasValidasIndice: rondasIndice?.length ?? null,
     taigerSessionCount: taigerSessionCount ?? 0,
     historico: mapHistoricoSlim(historicoRaw),
   }

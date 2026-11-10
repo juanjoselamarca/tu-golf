@@ -1,6 +1,7 @@
 'use client'
 
 import type { FormatoJuego } from '@/golf/core/rules'
+import { nombreOJugadorN } from '@/lib/nombre-de-jugador'
 import {
   EQUIPOS_PARA_COMPETIR,
   puedeSumarCompanero,
@@ -8,6 +9,7 @@ import {
 } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
 import { destinoParaMover } from '../hooks/equipos-del-formulario'
+import { NOMBRE_EQUIPO_MAX, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { colores, input } from './estilos'
 import { TarjetaDelCreador } from './TarjetaDelCreador'
@@ -30,6 +32,10 @@ interface Props {
   onQuitarEquipo: (equipoIdx: number) => void
   onRenombrarEquipo: (equipoIdx: number, nombre: string) => void
   onMoverAlEquipo: (id: string) => void
+  /** Callback de bloqueo del índice de cada jugador, por id (ver PasoJugadores). */
+  onBloqueoDe: (id: string) => (bloquea: boolean) => void
+  /** Número del jugador en pantalla (`numerosEnPantalla`), el mismo que usa el aviso del índice. */
+  numeroDe: (id: string) => number
 }
 
 const botonPunteado = {
@@ -56,15 +62,15 @@ export function EquiposDeLaRonda(props: Props) {
   const totalJugadores = 1 + props.rivales.length
   const posicionDeRival = new Map(props.rivales.map((r, i) => [r.id, i]))
   const nombreDe = (id: string) => {
-    if (id === ID_DEL_CREADOR) return props.creador.nombre.trim() || 'ti'
+    if (id === ID_DEL_CREADOR) return nombreOJugadorN(props.creador.nombre, props.numeroDe(id))
     const idx = posicionDeRival.get(id)
-    return (idx != null && props.rivales[idx]?.nombre.trim()) || `el jugador ${(idx ?? 0) + 1}`
+    return nombreOJugadorN(idx != null ? props.rivales[idx]?.nombre : null, props.numeroDe(id))
   }
   // Qué dice el botón de corregir el reparto: mover al otro equipo o cambiar de lugar con alguien.
   const textoDelMovimiento = (id: string) => {
     const movimiento = destinoParaMover(props.formato, props.equipos, id)
     if (!movimiento) return null
-    const equipo = props.equipos[movimiento.equipoIdx].nombre.trim() || `Equipo ${movimiento.equipoIdx + 1}`
+    const equipo = nombreVisibleDeEquipo(props.equipos[movimiento.equipoIdx].nombre, movimiento.equipoIdx)
     return movimiento.intercambiaCon ? `Cambiar con ${nombreDe(movimiento.intercambiaCon)} ⇄` : `Mover a ${equipo} →`
   }
 
@@ -73,7 +79,7 @@ export function EquiposDeLaRonda(props: Props) {
       {props.equipos.map((equipo, equipoIdx) => (
         <section
           key={equipoIdx}
-          aria-label={equipo.nombre}
+          aria-label={nombreVisibleDeEquipo(equipo.nombre, equipoIdx)}
           style={{
             padding: '12px', marginBottom: '12px', borderRadius: '14px',
             border: `1px solid ${colores.borde}`, background: 'rgba(196,153,42,0.02)',
@@ -84,6 +90,7 @@ export function EquiposDeLaRonda(props: Props) {
               type="text"
               aria-label={`Nombre del equipo ${equipoIdx + 1}`}
               value={equipo.nombre}
+              maxLength={NOMBRE_EQUIPO_MAX}
               onChange={e => props.onRenombrarEquipo(equipoIdx, e.target.value)}
               style={{ ...input, flex: 1, fontWeight: 600, background: 'transparent', border: 'none', padding: '8px 4px' }}
             />
@@ -110,6 +117,7 @@ export function EquiposDeLaRonda(props: Props) {
                   teeGlobal={props.teeGlobal}
                   onTeeGlobal={props.onTeeGlobal}
                   golpes={props.golpesDe(props.creador.indice, props.teeGlobal)}
+                  onBloqueo={props.onBloqueoDe(id)}
                 />
               )
             }
@@ -122,11 +130,13 @@ export function EquiposDeLaRonda(props: Props) {
                 <TarjetaDeRival
                   rival={rival}
                   indiceEnLista={idx}
+                  numeroEnPantalla={props.numeroDe(id)}
                   tees={props.tees}
                   teeGlobal={props.teeGlobal}
                   golpes={props.golpesDe(rival.handicap, rival.tees ?? props.teeGlobal)}
                   onCampo={(campo, valor) => props.onCampoRival(idx, campo, valor)}
                   onQuitar={() => props.onQuitarRival(idx)}
+                  onBloqueo={props.onBloqueoDe(id)}
                 />
                 {movimiento && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-6px', marginBottom: '6px' }}>

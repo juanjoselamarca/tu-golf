@@ -1,11 +1,16 @@
 'use client'
 
+import { useState } from 'react'
+import { numerosEnPantalla } from '../hooks/equipos-del-formulario'
+import { nombreOJugadorN } from '@/lib/nombre-de-jugador'
+import { mensajeIndiceQueBloquea } from '@/golf/handicap-index-range'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { FORMAT_META } from '@/golf/core/rules'
 import { maxRivales, puedeSumarCompanero } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { CourseTee, JugadorReciente, RondaReciente } from '@/lib/data/ronda-libre-nueva'
 import {
   esRivalEnBlanco,
+  ID_DEL_CREADOR,
   type DatosDeRival,
   type EquipoDeLaRonda,
   type RivalDelCreador,
@@ -53,6 +58,32 @@ interface Props {
 
 /** Paso 3: quiénes juegan, con qué índice y desde qué tee. */
 export function PasoJugadores(props: Props) {
+  // Ids de los jugadores cuyo índice va a medio escribir ("+") o no es número ("1O"): el campo le manda `null`
+  // al formulario, que no distingue eso de "sin índice". Mientras haya alguno, el paso no avanza y el aviso
+  // bajo el botón nombra al primero (aquí hay varias tarjetas: un aviso al enviar no sabría a cuál enfocar,
+  // a diferencia de los formularios de un solo campo, que avisan al enviar con `useAvisoIndiceAlEnviar`).
+  // Si no se bloqueara, la ronda se creaba con ese jugador sin índice.
+  const [camposQueBloquean, setCamposQueBloquean] = useState<ReadonlySet<string>>(() => new Set())
+  const onBloqueoDe = (id: string) => (bloquea: boolean) =>
+    setCamposQueBloquean(prev => {
+      if (prev.has(id) === bloquea) return prev
+      const otro = new Set(prev)
+      if (bloquea) otro.add(id)
+      else otro.delete(id)
+      return otro
+    })
+  // Un solo número por jugador: su posición en pantalla (con equipos, el orden de los equipos). El aviso
+  // nombra al primero que bloquea en ese orden, con el mismo número que su tarjeta.
+  const numeroEnPantalla = numerosEnPantalla(props.esFormatoDeEquipo ? props.equipos : null, props.rivales.map(r => r.id))
+  const numeroDe = (id: string) => numeroEnPantalla.get(id) ?? 0
+  const primeroQueBloquea = [...numeroEnPantalla.keys()].find(id => camposQueBloquean.has(id))
+  const rivalQueBloquea = props.rivales.find(r => r.id === primeroQueBloquea)
+  const avisoDeIndice = primeroQueBloquea == null
+    ? null
+    : mensajeIndiceQueBloquea(rivalQueBloquea ? nombreOJugadorN(rivalQueBloquea.nombre, numeroDe(rivalQueBloquea.id)) : null)
+  const noAvanza = avisoDeIndice != null || props.problema != null
+  const detalleDelBoton = avisoDeIndice ?? props.problema?.detalle ?? null
+
   const totalJugadores = 1 + props.rivales.length
   // Hay dónde poner a un jugador más: una tarjeta en blanco que ocupar, o cupo
   // en algún equipo (formatos por equipo) / bajo el tope de rivales (el resto).
@@ -89,6 +120,7 @@ export function PasoJugadores(props: Props) {
       teeGlobal={props.teeGlobal}
       onTeeGlobal={props.onTeeGlobal}
       golpes={golpesCreador}
+      onBloqueo={onBloqueoDe(ID_DEL_CREADOR)}
     />
   )
 
@@ -124,6 +156,8 @@ export function PasoJugadores(props: Props) {
             onQuitarEquipo={props.onQuitarEquipo}
             onRenombrarEquipo={props.onRenombrarEquipo}
             onMoverAlEquipo={props.onMoverAlEquipo}
+            onBloqueoDe={onBloqueoDe}
+            numeroDe={numeroDe}
           />
         ) : (
           <>
@@ -134,11 +168,13 @@ export function PasoJugadores(props: Props) {
                 key={rival.id}
                 rival={rival}
                 indiceEnLista={idx}
+                numeroEnPantalla={numeroDe(rival.id)}
                 tees={props.tees}
                 teeGlobal={props.teeGlobal}
                 golpes={props.golpesDe(rival.handicap, rival.tees ?? props.teeGlobal)}
                 onCampo={(campo, valor) => props.onCampoRival(idx, campo, valor)}
                 onQuitar={() => props.onQuitarRival(idx)}
+                onBloqueo={onBloqueoDe(rival.id)}
               />
             ))}
 
@@ -188,11 +224,11 @@ export function PasoJugadores(props: Props) {
 
         {/* Sólo en neto: en Match Play Gross nadie recibe golpes, y anunciarlos
             prometía una ventaja que el marcador no da. */}
-        {esMatchPlay && props.modo === 'neto' && props.rivales.length === 1 && (
+        {esMatchPlay && props.modo === 'neto' && props.llevaElScoreDelGrupo && props.rivales.length === 1 && (
           <DiferenciaDeHandicap
-            jugadorA={{ nombre: props.creador.nombre, golpes: golpesCreador }}
+            jugadorA={{ nombre: nombreOJugadorN(props.creador.nombre, numeroDe(ID_DEL_CREADOR)), golpes: golpesCreador }}
             jugadorB={{
-              nombre: props.rivales[0].nombre.trim() || 'Rival',
+              nombre: nombreOJugadorN(props.rivales[0].nombre, numeroDe(props.rivales[0].id)),
               golpes: props.golpesDe(props.rivales[0].handicap, props.rivales[0].tees ?? props.teeGlobal),
             }}
           />
@@ -215,17 +251,23 @@ export function PasoJugadores(props: Props) {
         <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <button
             type="button"
-            disabled={props.problema != null}
+            disabled={noAvanza}
+            aria-describedby={detalleDelBoton != null ? 'paso-jugadores-aviso' : undefined}
             onClick={props.onSiguiente}
-            style={{ ...primario(props.problema != null), width: '100%' }}
+            style={{ ...primario(noAvanza), width: '100%' }}
           >
             Revisar →
           </button>
-          {props.problema && (
-            <div style={{ fontSize: '11px', color: colores.aviso, textAlign: 'center', lineHeight: 1.3 }}>
-              {props.problema.detalle}
-            </div>
-          )}
+          {/* Siempre montado: un role="status" que aparece junto con su texto no siempre se anuncia. */}
+          <div
+            id="paso-jugadores-aviso"
+            role="status"
+            style={avisoDeIndice != null
+              ? { fontSize: '12px', color: 'var(--error-fg)', textAlign: 'center', lineHeight: 1.3 }
+              : { fontSize: '11px', color: colores.aviso, textAlign: 'center', lineHeight: 1.3 }}
+          >
+            {detalleDelBoton}
+          </div>
         </div>
       </div>
     </div>

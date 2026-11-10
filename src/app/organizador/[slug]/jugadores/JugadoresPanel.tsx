@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type CSSProperties } from 'react'
+import { leerCampoHandicap } from '@/golf/handicap-index-range'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Flag } from '@/components/icons'
@@ -55,7 +56,8 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
   const handleInscribir = () => inscribirPlayer(selectedProfile, selectedCat, resetSearch)
   const handleInscribirGuest = () =>
-    inscribirGuest(guestName, guestHcp.trim() === '' ? null : Number(guestHcp), selectedCat, () => {
+    // El botón solo se habilita con el campo vacío (null) u ok (el número leído).
+    inscribirGuest(guestName, leerCampoHandicap(guestHcp).valor, selectedCat, () => {
       setGuestName('')
       setGuestHcp('')
     })

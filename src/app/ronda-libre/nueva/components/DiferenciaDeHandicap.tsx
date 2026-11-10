@@ -1,6 +1,7 @@
 'use client'
 
 import { calcularDiferenciaHandicap } from '@/golf/formats'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import { colores } from './estilos'
 
 interface Props {
@@ -68,7 +69,7 @@ function Detalle({ jugadorA, jugadorB }: Props) {
       de ventaja
       <br />
       <span style={{ fontSize: '11px', color: colores.texto3 }}>
-        HCP cancha: {hcpA} ({jugadorA.nombre}) vs {hcpB} ({jugadorB.nombre})
+        HCP cancha: {formatearHandicap(hcpA)} ({jugadorA.nombre}) vs {formatearHandicap(hcpB)} ({jugadorB.nombre})
       </span>
     </div>
   )

@@ -1,25 +1,36 @@
 'use client'
 
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
+import { nombreOJugadorN } from '@/lib/nombre-de-jugador'
 import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { usePlayerSearch, type SearchResult } from '../hooks/usePlayerSearch'
-import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
+import { colores, etiqueta, hcpDeJugador, input, inputNumerico, inputQueBloquea } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
+import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
+import { useCampoHandicap } from '@/hooks/useCampoHandicap'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 
 interface Props {
   rival: RivalDelCreador
   indiceEnLista: number
+  /** Número del jugador en pantalla (`numerosEnPantalla`): con él se nombra si no tiene nombre. */
+  numeroEnPantalla: number
   tees: CourseTee[]
   teeGlobal: string
   golpes: number | null
   onCampo: <K extends keyof RivalDelCreador>(campo: K, valor: RivalDelCreador[K]) => void
   onQuitar: () => void
+  /** El índice va a medio escribir o no es número: el paso no debe avanzar (ver useCampoHandicap). */
+  onBloqueo: (bloquea: boolean) => void
 }
 
 /** Un rival del creador: tipo de cuenta, nombre, índice, tee y teléfono. */
-export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, onCampo, onQuitar }: Props) {
+export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, teeGlobal, golpes, onCampo, onQuitar, onBloqueo }: Props) {
   const idNombre = `rival-${indiceEnLista}-nombre`
   const idIndice = `rival-${indiceEnLista}-indice`
+  // Texto local (#773): con type=number, "+1.5" quedaba en '' → 0 y un plus se veía "-2". El índice que llega
+  // de un perfil elegido (handleSelect) reemplaza el texto.
+  const campoIndice = useCampoHandicap(rival.handicap, v => onCampo('handicap', v), onBloqueo)
 
   // Search only active when tipo === 'cuenta' and no profile selected yet.
   const searchActive = rival.tipo === 'cuenta' && !rival.profileId
@@ -80,7 +91,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
       <div ref={containerRef} style={{ position: 'relative' }}>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
           <label htmlFor={idNombre} className="sr-only" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-            Nombre del jugador {indiceEnLista + 1}
+            Nombre del jugador {numeroEnPantalla}
           </label>
           <input
             id={idNombre}
@@ -94,7 +105,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           <button
             type="button"
             onClick={onQuitar}
-            aria-label={`Quitar a ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
+            aria-label={`Quitar a ${nombreOJugadorN(rival.nombre, numeroEnPantalla)}`}
             style={{
               background: 'transparent', border: `1px solid ${colores.borde}`,
               color: colores.peligro, borderRadius: '10px', padding: '8px 12px',
@@ -154,7 +165,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
                 <span style={{ fontWeight: 500 }}>{profile.name}</span>
                 {profile.indice != null && (
                   <span style={{ fontSize: '12px', color: colores.texto3, marginLeft: '8px', flexShrink: 0 }}>
-                    HCP {profile.indice.toFixed(1)}
+                    HCP {formatearIndice(profile.indice)}
                   </span>
                 )}
               </button>
@@ -193,31 +204,39 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
         </label>
         <input
           id={idIndice}
-          type="number"
-          step="0.1"
-          placeholder="Ej: 10.5"
-          value={rival.handicap ?? ''}
-          onChange={e => onCampo('handicap', e.target.value ? Number(e.target.value) : null)}
-          style={{ ...input, ...inputNumerico }}
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          placeholder={PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO}
+          value={campoIndice.texto}
+          onChange={e => campoIndice.onTexto(e.target.value)}
+          // Inválido o a medio escribir: el paso no avanza por este campo. "abc" tiene aviso propio; "+" a medio
+          // escribir se explica en el aviso bajo el botón del paso, que nombra al jugador.
+          aria-invalid={campoIndice.bloquea}
+          aria-describedby={campoIndice.invalido
+            ? `${idIndice}-error`
+            : campoIndice.bloquea ? 'paso-jugadores-aviso' : undefined}
+          style={{ ...input, ...inputNumerico, ...(campoIndice.bloquea ? inputQueBloquea : null) }}
         />
         <SelectorDeTeeDelJugador
           tees={tees}
           valor={rival.tees ?? teeGlobal}
           onElegir={t => onCampo('tees', t)}
-          etiquetaAccesible={`Tee de ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
+          etiquetaAccesible={`Tee de ${nombreOJugadorN(rival.nombre, numeroEnPantalla)}`}
         />
         {golpes != null && (
           <span style={hcpDeJugador}>
-            HCP {golpes}
+            HCP {formatearHandicap(golpes)}
           </span>
         )}
       </div>
+      {campoIndice.invalido && <AvisoCampo id={`${idIndice}-error`}>{MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO}</AvisoCampo>}
 
       {rival.tipo === 'invitado' && (
         <input
           type="tel"
           placeholder="Teléfono (WhatsApp, opcional)"
-          aria-label={`Teléfono de ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
+          aria-label={`Teléfono de ${nombreOJugadorN(rival.nombre, numeroEnPantalla)}`}
           value={rival.telefono}
           onChange={e => onCampo('telefono', e.target.value)}
           style={{ ...input, width: '100%', marginTop: '6px' }}

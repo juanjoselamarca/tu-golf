@@ -4,6 +4,7 @@ import {
   equiposSirvenPara,
   ID_DEL_CREADOR,
   moverEntreEquipos,
+  numerosEnPantalla,
   repartirEnEquipos,
   type EquipoDeLaRonda,
 } from './equipos-del-formulario'
@@ -141,5 +142,19 @@ describe('destinoParaMover / moverEntreEquipos', () => {
     expect(moverEntreEquipos(equipos, 'r3', { equipoIdx: 0, intercambiaCon: null })).toEqual([
       { nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, 'r1', 'r2', 'r3'] },
     ])
+  })
+})
+
+describe('numerosEnPantalla', () => {
+  it('sin equipos: el creador es el 1 y los rivales siguen en orden', () => {
+    expect([...numerosEnPantalla(null, ['a', 'b'])]).toEqual([[ID_DEL_CREADOR, 1], ['a', 2], ['b', 3]])
+  })
+  it('con equipos: los integrantes de cada equipo, en el orden de los equipos', () => {
+    const equipos = [{ nombre: 'Equipo 1', miembros: ['b'] }, { nombre: 'Equipo 2', miembros: ['a', ID_DEL_CREADOR] }]
+    expect([...numerosEnPantalla(equipos, ['a', 'b'])]).toEqual([['b', 1], ['a', 2], [ID_DEL_CREADOR, 3]])
+  })
+  it('un rival fuera de todo equipo no queda sin número: va al final', () => {
+    const equipos = [{ nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR] }]
+    expect(numerosEnPantalla(equipos, ['a']).get('a')).toBe(2)
   })
 })

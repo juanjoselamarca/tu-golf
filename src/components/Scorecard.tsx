@@ -22,6 +22,7 @@ import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
 import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 
 const MONO = '"DM Mono", ui-monospace, SFMono-Regular, monospace'
 const SANS = '"DM Sans", system-ui, -apple-system, sans-serif'
@@ -544,7 +545,7 @@ export default function Scorecard({
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 {playerName && <div style={{ fontSize: 14, fontWeight: 600, color: K.tp, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName}</div>}
-                {isN && displayHandicap !== null && (displayHandicap !== undefined || courseHandicap !== 0) && <div style={{ fontSize: 10, color: K.tm, marginTop: 1, fontFamily: MONO }}>HCP {displayHandicap ?? courseHandicap}</div>}
+                {isN && displayHandicap !== null && (displayHandicap !== undefined || courseHandicap !== 0) && <div style={{ fontSize: 10, color: K.tm, marginTop: 1, fontFamily: MONO }}>HCP {typeof displayHandicap === 'string' ? displayHandicap : formatearHandicap(displayHandicap ?? courseHandicap)}</div>}
               </div>
               {played > 0 && (
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>

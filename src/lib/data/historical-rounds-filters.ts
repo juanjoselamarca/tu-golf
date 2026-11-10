@@ -7,9 +7,11 @@
 // índice oficial: no traen hoyo-a-hoyo (scores/par null), a menudo duplican una
 // ronda Garmin/manual ya importada, y su único hogar de UI es el modal "Tu
 // índice oficial, explicado". Por eso NO deben aparecer ni contar en las
-// superficies genéricas: historial, stats de perfil, CPI, dashboard, y el coach
+// superficies genéricas: historial, stats de perfil, dashboard, y el coach
 // (donde además doble-contarían). El índice oficial vive en profiles.indice; el
 // Golfers+ ya las ignora vía excluded_from_handicap=TRUE en el RPC.
+// Las rondas del índice (CPI, calibración de Mi Golf) se leen con `fetchRondasIndice`
+// (rondas-indice.ts), que usa el predicado del RPC y no necesita este filtro.
 //
 // Null-safe a propósito: no todas las rondas tienen import_source (muchas son
 // NULL). `import_source.is.null` conserva esas; `import_source.neq.fedegolf`

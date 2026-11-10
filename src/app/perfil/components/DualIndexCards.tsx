@@ -1,6 +1,8 @@
 'use client'
 import type { Profile } from '@/lib/data/perfil'
 import { formatRelativeTime } from '@/lib/format'
+import { formatearIndice } from '@/golf/handicap-index-range'
+import { MIN_DIFERENCIALES_INDICE } from '@/golf/core/whs-index'
 import Link from 'next/link'
 import { LinkIcon, Check } from '@/components/icons'
 
@@ -27,7 +29,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
           Federación
         </p>
         <p style={{ fontSize: '36px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: '0 0 6px' }}>
-          {profile.indice != null ? profile.indice.toFixed(1) : '—'}
+          {profile.indice != null ? formatearIndice(profile.indice) : '—'}
         </p>
         <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: '0 0 10px', lineHeight: 1.5 }}>
           {vinculado && sinIndiceVigente
@@ -193,7 +195,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
             Golfers+
           </p>
           <p style={{ fontSize: '36px', fontWeight: 700, color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: '0 0 6px' }}>
-            {profile.indice_golfers.toFixed(1)}
+            {formatearIndice(profile.indice_golfers)}
           </p>
           <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: '0 0 10px', lineHeight: 1.5 }}>
             Rendimiento real · coaching y amistosos
@@ -212,13 +214,8 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
           <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 10px' }}>
             Golfers+
           </p>
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-            {[0, 1, 2].map(i => (
-              <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--border)' }} />
-            ))}
-          </div>
           <p style={{ fontSize: '11px', color: 'var(--text-2)', margin: '0 0 8px', lineHeight: 1.4 }}>
-            Juega 3 rondas para activar tu índice
+            Juega {MIN_DIFERENCIALES_INDICE} rondas válidas (canchas con slope y rating) para activar tu índice
           </p>
           <Link href="/ronda-libre/nueva" style={{ fontSize: '10px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}>
             Jugar ahora →

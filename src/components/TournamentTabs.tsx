@@ -12,6 +12,8 @@ import { ChevronDown } from '@/components/icons'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { AvisoHcpPct } from '@/components/AvisoHcpPct'
+import { formatearHandicap } from '@/golf/handicap-index-range'
+import { redondearHandicapWHS } from '@/golf/core/stroke-index'
 import { GruposDelTorneo } from '@/components/torneo/GruposDelTorneo'
 import { T, hcpAMostrar, scoreColor, thruLabel } from '@/components/torneo/tablero-torneo'
 import { esPrimerLugar, etiquetasPorClaveDeEmpate } from '@/golf/core/posiciones'
@@ -289,7 +291,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                         color: T.muted,
                         textAlign: 'center',
                       }}>
-                        {hcpAMostrar(p) ?? ''}
+                        {hcpAMostrar(p) != null ? formatearHandicap(hcpAMostrar(p)) : ''}
                       </span>
                     )}
 
@@ -351,7 +353,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                               formato: (formato === 'stableford' && modoJuego === 'neto' ? 'stroke_play' : formato ?? 'stroke_play') as ScorecardProps['formato'],
                             }
                           : {
-                              courseHandicap: Math.round(p.hcp),
+                              courseHandicap: redondearHandicapWHS(p.hcp),
                               displayHandicap: hcpAMostrar(p) ?? undefined,
                               modo: supportsDualLeaderboard ? viewMode : (modoJuego === 'neto' ? 'neto' : 'gross'),
                               formato: (formato ?? 'stroke_play') as ScorecardProps['formato'],

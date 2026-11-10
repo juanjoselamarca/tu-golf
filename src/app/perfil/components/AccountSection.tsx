@@ -1,5 +1,7 @@
 'use client'
 import Link from 'next/link'
+import { PLACEHOLDER_CAMPO_HANDICAP } from '@/golf/handicap-index-range'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { Button } from '@/components/ui/Button'
 import { Check } from '@/components/icons'
 import { ProBadge } from '@/components/billing/ProBadge'
@@ -78,27 +80,30 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice Federación</label>
+            <label htmlFor="perfil-indice" style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice Federación</label>
+            {/* inputMode "text": el teclado decimal del iPhone no tiene signo y un plus se escribe "+2".
+                Ya no se "normaliza" al salir del campo: parseFloat("+2") lo dejaba en 2 (un plus pasaba a 2). */}
             <input
+              id="perfil-indice"
               type="text"
-              inputMode="decimal"
-              pattern="[0-9]*[.,]?[0-9]*"
-              placeholder="Ej: 15.4 — tu índice oficial de la Federación"
+              inputMode="text"
+              autoComplete="off"
+              placeholder={PLACEHOLDER_CAMPO_HANDICAP}
               value={edit.editIndice}
               onChange={(e) => edit.setEditIndice(e.target.value)}
+              {...edit.campoIndice.propsDelCampo}
               style={inputStyle}
               onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-on-bg)')}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)'
-                const v = e.target.value.replace(',', '.')
-                const n = parseFloat(v)
-                if (!isNaN(n) && n >= 0 && n <= 54) edit.setEditIndice(String(n))
-              }}
+              onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
             />
+            {edit.campoIndice.aviso != null && <AvisoCampo id={edit.campoIndice.idAviso}>{edit.campoIndice.aviso}</AvisoCampo>}
             <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '4px', margin: '4px 0 0' }}>
               Golfers+ calcula su propio índice automáticamente basado en tus rondas.
             </p>
           </div>
+          {edit.errorAlGuardar != null && (
+            <AvisoCampo id="perfil-error-al-guardar">{edit.errorAlGuardar}</AvisoCampo>
+          )}
           <div style={{ display: 'flex', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
             <Button variant="commit" size="md" onClick={edit.save} loading={edit.saving} disabled={edit.saving}>
               {edit.saving ? 'Guardando...' : 'Guardar cambios'}

@@ -2,6 +2,7 @@
 // pestaña Grupos). Salieron de TournamentTabs.tsx al bajarlo de 600 LOC.
 import type { Player } from '@/lib/golf-data'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
+import { redondearHandicapWHS } from '@/golf/core/stroke-index'
 
 /* ── Design tokens ────────────────────────────────────────── */
 export const T = {
@@ -28,7 +29,10 @@ export const T = {
  */
 export function hcpAMostrar(p: Player): number | null {
   if (p.hcp == null) return null
-  return Math.round(p.hcpDisplay ?? p.hcp)
+  // Se comparte el REDONDEO con los golpes de la tarjeta (courseHandicap en TournamentTabs), no el número: en un
+  // torneo hcpDisplay es el índice inscrito y p.hcp el hándicap de juego (con hcp_pct). Solo sin hcpDisplay se ve
+  // p.hcp, y entonces lo que se ve es lo que puntúa.
+  return redondearHandicapWHS(p.hcpDisplay ?? p.hcp)
 }
 
 export function scoreColor(n: number, esPuntos: boolean) {

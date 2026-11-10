@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { fetchProfile, countTournaments, fetchCpi, fetchRondasCPI, fetchFedegolfStatus, estadoTrasVincular, FEDEGOLF_SIN_VINCULO } from './perfil'
-import { OR_EXCLUDE_FEDEGOLF } from './historical-rounds-filters'
 
 // Cliente Supabase mockeado con builder chainable (cast a never para el tipo).
 function mockSupabase(handlers: unknown) {
@@ -54,7 +53,7 @@ describe('countTournaments', () => {
 function lectura(resultado: { data: unknown; error: unknown }) {
   const filtros: Array<[string, ...unknown[]]> = []
   const b: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'or', 'order', 'limit']) b[m] = (...args: unknown[]) => { filtros.push([m, ...args]); return b }
+  for (const m of ['select', 'eq', 'not', 'or', 'order', 'limit']) b[m] = (...args: unknown[]) => { filtros.push([m, ...args]); return b }
   b.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(resultado).then(ok, ko)
   return { filtros, supabase: { from: () => b } }
 }
@@ -65,11 +64,11 @@ const RONDA = {
 }
 
 describe('fetchRondasCPI — fuente única de las superficies del CPI', () => {
-  it('excluye FedeGolf y las rondas excluidas del índice', async () => {
+  it('lee con el predicado del índice (fetchRondasIndice): sin excluidas, sin filtro FedeGolf aparte', async () => {
     const { filtros, supabase } = lectura({ data: [RONDA], error: null })
     const rondas = await fetchRondasCPI(mockSupabase(supabase), 'u1')
     expect(rondas).toEqual([{ played_at: '2026-01-01', diferencial: 12.2 }])
-    expect(filtros).toContainEqual(['or', OR_EXCLUDE_FEDEGOLF])
+    expect(filtros.map(([m]) => m)).not.toContain('or')
     expect(filtros).toContainEqual(['eq', 'excluded_from_handicap', false])
     expect(filtros).toContainEqual(['eq', 'user_id', 'u1'])
     expect(filtros.map(([m]) => m)).not.toContain('limit')

@@ -36,7 +36,7 @@ export async function IdentidadSection({ userId, userName }: { userId: string; u
       userName={userName}
       indiceGolfers={indiceGolfers}
       nivel={nivel}
-      rondasConDiferencial={data.rondasConDiferencial}
+      rondasValidasIndice={data.rondasValidasIndice}
       totalRounds={data.totalRounds}
       taigerSessionCount={data.taigerSessionCount}
       stats={stats}

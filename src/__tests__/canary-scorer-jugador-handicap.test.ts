@@ -261,7 +261,7 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
   }))
   const fuente = ARCHIVOS.map((a) => a.lineas.join('\n')).join('\n')
 
-  it('el índice aparece exactamente 3 veces, y las tres son de display', () => {
+  it('el índice aparece exactamente 4 veces, y las cuatro son de display', () => {
     // Presupuesto de ocurrencias, no lista negra de patrones. La versión
     // anterior exigía "no tener `<` en la línea", y `<` aparece en TypeScript
     // idiomático — `Array<number>`, `useState<number>(...)`, `new Map<string,
@@ -272,11 +272,12 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
     // Contar no depende de adivinar la forma: cualquier aparición nueva —con
     // `<` o sin él— pone esto rojo y obliga a que alguien mire.
     //
-    // Son 3 en 2 líneas: la ficha del jugador seleccionado lo usa una vez, y la
-    // del listado dos (la guarda `!= null` y el valor). Si este número tiene que
-    // cambiar, que sea con alguien mirando por qué.
+    // Son 4 en 2 líneas: la ficha del jugador seleccionado y la del listado, cada
+    // una con la guarda `!= null` y el valor que pasa por `formatearHandicap` (PR
+    // #765: un plus se veía "-1.5"). Si este número tiene que cambiar, que sea con
+    // alguien mirando por qué.
     const ocurrencias = fuente.match(/handicap_at_registration/g)?.length ?? 0
-    expect(ocurrencias).toBe(3)
+    expect(ocurrencias).toBe(4)
   })
 
   it('el índice sólo se MUESTRA — nunca entra a un cálculo', () => {

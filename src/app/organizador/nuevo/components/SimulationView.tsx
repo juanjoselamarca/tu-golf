@@ -5,6 +5,7 @@
 // al pasar las 600 líneas (regla "el que toca, ordena").
 
 import type { AnySimulationResult } from '@/lib/draft/simulators'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 export function SimulationView({ result }: { result: AnySimulationResult }) {
   if (result.kind === 'individual') {
@@ -56,7 +57,7 @@ function IndividualLeaderboard({
             <tr key={r.name} style={i % 2 === 0 ? undefined : trAltStyle}>
               <td style={tdStyle}>{i + 1}</td>
               <td style={tdStyle}>{r.name}</td>
-              <td style={tdStyleRight}>{r.hcp.toFixed(1)}</td>
+              <td style={tdStyleRight}>{formatearIndice(r.hcp)}</td>
               <td style={tdStyleRight}>{r.total}</td>
             </tr>
           ))}
@@ -93,7 +94,7 @@ function StablefordLeaderboard({
             <tr key={r.name} style={i % 2 === 0 ? undefined : trAltStyle}>
               <td style={tdStyle}>{i + 1}</td>
               <td style={tdStyle}>{r.name}</td>
-              <td style={tdStyleRight}>{r.hcp.toFixed(1)}</td>
+              <td style={tdStyleRight}>{formatearIndice(r.hcp)}</td>
               <td style={tdStyleRight}>{r.points}</td>
             </tr>
           ))}

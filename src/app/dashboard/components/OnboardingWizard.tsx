@@ -3,6 +3,14 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { actualizarIndice } from '@/lib/data/perfil'
+import {
+  leerCampoHandicap,
+  MENSAJE_INDICE_NO_SE_GUARDO,
+  PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO,
+} from '@/golf/handicap-index-range'
+import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { Flag } from '@/components/icons'
 
 type Step = 1 | 2 | 3
@@ -129,19 +137,33 @@ export function OnboardingWizard({ userId, userName }: Props) {
   const firstName = userName.split(' ')[0]
 
   // ── Step 1: save handicap ──
-  const handleSaveHandicap = useCallback(async () => {
+  // Sin "No tengo / No sé" el índice es obligatorio (sin "o déjalo vacío" en el aviso) y con rango WHS.
+  // "Siguiente" se apaga solo con el campo vacío (y sin "No tengo"): ahí no hay nada que avisar todavía. Con "+"
+  // a medio escribir o "abc", al tocarlo se avisa en el campo y se le da el foco (no se apaga sin decir por qué).
+  // Con "No tengo" el texto es '' y no hay aviso en vivo; solo puede aparecer el de un guardado fallido.
+  const campoHandicap = useAvisoIndiceAlEnviar(handicap, 'onboarding-indice', { opcional: false, rango: 'indice' })
+  const avisoHandicap = campoHandicap.aviso
+  const canAdvanceStep1 = noHandicap || leerCampoHandicap(handicap).estado !== 'vacio'
+
+  const handleSaveHandicap = async () => {
+    // Se limpia antes de reintentar (con "No tengo" no se pasa por validarAlEnviar): si vuelve a fallar, el
+    // aviso se monta de nuevo y se anuncia otra vez.
+    campoHandicap.limpiar()
+    if (!noHandicap && !campoHandicap.validarAlEnviar()) return
     setSaving(true)
     try {
-      const supabase = createClient()
-      const indice = noHandicap ? null : parseFloat(handicap)
-      await supabase.from('profiles').update({ indice }).eq('id', userId)
+      // "+2" es un plus (−2) y "18,5" lleva coma: parseFloat("+2") guardaba 2.
+      const indice = noHandicap ? null : leerCampoHandicap(handicap).valor
+      // Si el UPDATE falla (sin señal), no se avanza como si se hubiera guardado: se avisa en el campo.
+      if (!(await actualizarIndice(createClient(), userId, indice))) {
+        campoHandicap.avisar(MENSAJE_INDICE_NO_SE_GUARDO)
+        return
+      }
       setStep(2)
     } finally {
       setSaving(false)
     }
-  }, [handicap, noHandicap, userId])
-
-  const canAdvanceStep1 = noHandicap || (handicap !== '' && !isNaN(parseFloat(handicap)) && parseFloat(handicap) >= 0 && parseFloat(handicap) <= 54)
+  }
 
   // ── Step 2: course search ──
   const handleSearch = useCallback(async (q: string) => {
@@ -187,24 +209,30 @@ export function OnboardingWizard({ userId, userName }: Props) {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%' }}>
-              <label style={{ fontSize: '0.8125rem', color: 'var(--text-2)', fontWeight: 500 }}>
+              <label htmlFor="onboarding-indice" style={{ fontSize: '0.8125rem', color: 'var(--text-2)', fontWeight: 500 }}>
                 Handicap Index
               </label>
+              {/* type="text": un type="number" con min=0 no deja escribir un plus ("+2") ni "18,5". */}
               <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                max={54}
-                step={0.1}
-                placeholder="18.4"
+                id="onboarding-indice"
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                placeholder={PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO}
                 value={noHandicap ? '' : handicap}
                 disabled={noHandicap}
                 onChange={(e) => setHandicap(e.target.value)}
+                aria-invalid={avisoHandicap != null}
+                aria-describedby={avisoHandicap != null ? campoHandicap.idAviso : noHandicap ? undefined : 'onboarding-indice-pista'}
                 style={{
                   ...INPUT,
                   opacity: noHandicap ? 0.4 : 1,
                 }}
               />
+              {avisoHandicap != null
+                ? <AvisoCampo id={campoHandicap.idAviso}>{avisoHandicap}</AvisoCampo>
+                // El placeholder angosto no tiene lugar para el plus: la pista queda fija bajo el campo.
+                : !noHandicap && <p id="onboarding-indice-pista" style={{ margin: '-8px 0 0', fontSize: '12px', color: 'var(--text-2)' }}>Si eres plus, escribe +2.</p>}
 
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.875rem', color: 'var(--text-2)' }}>
                 <input
@@ -212,6 +240,7 @@ export function OnboardingWizard({ userId, userName }: Props) {
                   checked={noHandicap}
                   onChange={(e) => {
                     setNoHandicap(e.target.checked)
+                    campoHandicap.limpiar()
                     if (e.target.checked) setHandicap('')
                   }}
                   style={{ accentColor: 'var(--brand)' }}

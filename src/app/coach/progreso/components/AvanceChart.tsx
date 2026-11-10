@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 /**
  * El héroe de la vista: los diferenciales de cada ronda 18h bajando (ojalá)
@@ -165,9 +166,9 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
           <circle cx={lastTx} cy={y(ma[ma.length - 1])} r="4.5" fill="var(--brand)" stroke="var(--bg-surface)" strokeWidth="1.5" />
         </svg>
         {targetHandicap != null && (
-          <span style={label(y(targetHandicap) - 5, 'left', 'var(--coach-recovery-high)')}>meta {targetHandicap}</span>
+          <span style={label(y(targetHandicap) - 5, 'left', 'var(--coach-recovery-high)')}>meta {formatearIndice(targetHandicap)}</span>
         )}
-        <span style={label(y(currentHandicap) - 5, 'right', 'var(--text-3)')}>hcp {currentHandicap}</span>
+        <span style={label(y(currentHandicap) - 5, 'right', 'var(--text-3)')}>hcp {formatearIndice(currentHandicap)}</span>
         {/* Orientación temporal */}
         <span style={label(H - 6, 'left', 'var(--text-3)')}>{fmtMes(puntos[0].played_at)}</span>
         <span style={label(H - 6, 'right', 'var(--text-3)')}>{fmtMes(puntos[puntos.length - 1].played_at)}</span>

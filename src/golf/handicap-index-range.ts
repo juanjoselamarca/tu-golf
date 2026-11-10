@@ -93,7 +93,9 @@ export function formatearHandicap(v: number | string | null | undefined): string
  * Para avisos que comparan dos índices a la décima.
  */
 export function formatearIndice(v: number): string {
-  return v < 0 ? `+${(-v).toFixed(1)}` : v.toFixed(1)
+  const decima = Math.abs(v).toFixed(1)
+  // Un plus que redondea a cero (−0.04) es "0.0", no "+0.0".
+  return v < 0 && decima !== '0.0' ? `+${decima}` : decima
 }
 
 /**
@@ -108,6 +110,70 @@ export function parsearHandicap(texto: string): number {
   const conSigno = t[0] === '+' || t[0] === '-'
   const n = Number(conSigno ? t.slice(1) : t)
   return conSigno && n !== 0 ? -n : n
+}
+
+/** Aviso de un campo de hándicap OBLIGATORIO con texto que no es un número (onboarding sin "No tengo"). */
+export const MENSAJE_HANDICAP_NO_ES_NUMERO = 'Escribe un número (12.4, o +2 si es plus).'
+/** Lo mismo para un campo OPCIONAL (registro, perfil, invitados, ronda libre): vacío también vale. */
+export const MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO = 'Escribe un número (12.4, o +2 si es plus) o déjalo vacío.'
+/** El UPDATE del índice falló (sin señal en la cancha, sesión vencida): se avisa en el campo, no se da por guardado. */
+export const MENSAJE_INDICE_NO_SE_GUARDO = 'No pudimos guardar tu índice. Revisa tu señal y vuelve a intentarlo.'
+
+export function mensajeHandicapNoEsNumero(opcional: boolean): string {
+  return opcional ? MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO : MENSAJE_HANDICAP_NO_ES_NUMERO
+}
+
+/**
+ * Aviso bajo "Revisar" en ronda libre cuando el índice de un jugador va a medio escribir o no es número.
+ * `nombre` null = el creador ("tu índice").
+ */
+export function mensajeIndiceQueBloquea(nombre: string | null): string {
+  const de = nombre == null ? 'tu índice' : `el índice de ${nombre}`
+  return `Revisa ${de}: escribe un número (12.4, o +2 si es plus) o déjalo vacío.`
+}
+
+/**
+ * Estado de un campo de hándicap mientras se tipea. "incompleto" = va a medio escribir ("+", "-", ".",
+ * "+,"): el formulario no deja enviar, pero tampoco avisa (avisar al primer "+" es regañar antes de tiempo).
+ * "invalido" = hay texto que no es un número: se avisa con MENSAJE_HANDICAP_NO_ES_NUMERO. El RANGO lo
+ * decide cada caller (índice WHS, hándicap de cancha), con `esIndiceDeHandicapValido` o
+ * `esHandicapDeInscripcionValido`.
+ */
+export type CampoHandicap =
+  | { estado: 'vacio'; valor: null }
+  | { estado: 'incompleto'; valor: null }
+  | { estado: 'invalido'; valor: null }
+  | { estado: 'ok'; valor: number }
+
+export function leerCampoHandicap(texto: string): CampoHandicap {
+  const t = texto.trim()
+  if (t === '') return { estado: 'vacio', valor: null }
+  if (/^[+-]?[.,]?$/.test(t)) return { estado: 'incompleto', valor: null }
+  const valor = parsearHandicap(t)
+  return Number.isNaN(valor) ? { estado: 'invalido', valor: null } : { estado: 'ok', valor }
+}
+
+/**
+ * true si el campo se puede enviar tal cual: vacío (sin hándicap) o un número. A medio escribir ("+") o con
+ * texto que no es número, no. El RANGO lo decide cada caller (ver `campoIndiceGuardable` para el índice WHS).
+ */
+export function campoHandicapEnviable(texto: string): boolean {
+  const { estado } = leerCampoHandicap(texto)
+  return estado === 'vacio' || estado === 'ok'
+}
+
+/** Placeholder de todo campo donde se tipea un índice o hándicap: muestra la coma/punto y cómo se escribe un plus. */
+export const PLACEHOLDER_CAMPO_HANDICAP = 'Ej: 18.5 o +2'
+/**
+ * Variante para los campos angostos (ronda libre: 90px en monospace 16px; onboarding: centrado y corto): caben
+ * ~6 caracteres y el texto largo se cortaba ("Ej: 10." ya se cortaba). El plus lo explica una pista fija o el
+ * aviso si se escribe mal.
+ */
+export const PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO = 'ej. 18'
+
+/** Texto inicial de un campo de hándicap a partir del valor guardado: un plus (−2) se ve "+2". */
+export function textoCampoHandicap(v: number | null | undefined): string {
+  return v == null || !Number.isFinite(v) ? '' : formatearHandicap(v)
 }
 
 /** Mensaje para el usuario cuando el índice está fuera de rango. */
@@ -128,4 +194,46 @@ export function esHandicapDeInscripcionValido(v: unknown, rango: RangoHandicap):
 /** true si `v` es un número finito dentro del rango WHS de ÍNDICE. */
 export function esIndiceDeHandicapValido(v: unknown): v is number {
   return esHandicapDeInscripcionValido(v, RANGO_INDICE)
+}
+
+/**
+ * Regla de un campo de hándicap tipeado. `opcional`: vacío vale (y el aviso lo dice). `rango: 'indice'`: el
+ * número tiene que estar en el rango WHS de índice (perfil, registro, onboarding); `null`: el rango lo valida
+ * otro (invitados: depende de lo que guarda el torneo).
+ */
+export interface ReglaCampoHandicap {
+  opcional: boolean
+  rango: 'indice' | null
+}
+
+/** Hándicap de un invitado (por el link del torneo o inscrito por el organizador): opcional, y el rango lo
+ *  valida el servidor o quien inscribe, porque depende de lo que guarda el torneo. */
+export const REGLA_INVITADO: ReglaCampoHandicap = { opcional: true, rango: null }
+
+/**
+ * Aviso EN VIVO del campo, o null. Texto que no es número → mensajeHandicapNoEsNumero; con rango 'indice', un
+ * número fuera de rango → MENSAJE_INDICE_FUERA_DE_RANGO. Vacío o a medio escribir ("+") no avisa mientras se
+ * tipea: eso se avisa al enviar (useAvisoIndiceAlEnviar).
+ */
+export function avisoCampoHandicap(texto: string, regla: ReglaCampoHandicap): string | null {
+  const campo = leerCampoHandicap(texto)
+  if (campo.estado === 'invalido') return mensajeHandicapNoEsNumero(regla.opcional)
+  if (regla.rango === 'indice' && campo.estado === 'ok' && !esIndiceDeHandicapValido(campo.valor)) {
+    return MENSAJE_INDICE_FUERA_DE_RANGO
+  }
+  return null
+}
+
+/** true si el campo de índice se puede guardar tal cual: vacío (sin índice) o un número dentro del rango WHS. */
+export function campoIndiceGuardable(texto: string): boolean {
+  if (!campoHandicapEnviable(texto)) return false
+  const { valor } = leerCampoHandicap(texto)
+  return valor == null || esIndiceDeHandicapValido(valor)
+}
+
+/** true si el campo se puede enviar con su regla: vacío o un número (en rango, si la regla lo pide), salvo un
+ *  obligatorio vacío. */
+export function campoHandicapSePuedeEnviar(texto: string, regla: ReglaCampoHandicap): boolean {
+  if (!regla.opcional && leerCampoHandicap(texto).estado === 'vacio') return false
+  return regla.rango === 'indice' ? campoIndiceGuardable(texto) : campoHandicapEnviable(texto)
 }

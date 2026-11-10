@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { ShieldCheck, Lock, Check, X } from '@/components/icons'
 import { formatRelativeTime } from '@/lib/format'
 import type { FedegolfStatus } from '@/lib/data/perfil'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 const inputStyle: React.CSSProperties = {
   background: 'var(--bg-surface)',
@@ -167,7 +168,7 @@ export function FedegolfVincularModal({
                 <div>
                   <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '0 0 2px' }}>Índice oficial</p>
                   <p style={{ fontSize: '26px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: 0 }}>
-                    {status.ultimoIndice != null ? status.ultimoIndice.toFixed(1) : '—'}
+                    {status.ultimoIndice != null ? formatearIndice(status.ultimoIndice) : '—'}
                   </p>
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--status-live-fg)', fontWeight: 600 }}>

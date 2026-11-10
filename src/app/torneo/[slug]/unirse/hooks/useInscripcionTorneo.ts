@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { campoHandicapSePuedeEnviar, leerCampoHandicap, mensajeHandicapNoEsNumero, REGLA_INVITADO } from '@/golf/handicap-index-range'
+import { MENSAJE_NOMBRE_INVITADO_CORTO, nombreDeInvitadoValido } from '@/lib/inscripcion/nombre-invitado'
 import { useRouter } from 'next/navigation'
 import type {
   JoinInfoTournament,
@@ -149,14 +151,21 @@ export function useInscripcionTorneo(slug: string) {
   const handleGuestJoin = async () => {
     if (!tournament || guestJoining) return
     const trimmedName = guestName.trim()
-    if (trimmedName.length < 2) {
-      setError('Ingresa tu nombre (al menos 2 caracteres).')
+    // FormInvitado ya avisa en cada campo y no llama aquí con un nombre corto o un hándicap que no es número;
+    // esto es la red de seguridad para otro llamador: nunca se vuelve sin decir nada.
+    if (!nombreDeInvitadoValido(trimmedName)) {
+      setError(MENSAJE_NOMBRE_INVITADO_CORTO)
+      return
+    }
+    // "+2" es un plus (−2) y "18,5" lleva coma: se lee como en el resto de la app. parseFloat("+2") daba 2.
+    if (!campoHandicapSePuedeEnviar(guestHandicap, REGLA_INVITADO)) {
+      setError(mensajeHandicapNoEsNumero(REGLA_INVITADO.opcional))
       return
     }
     setGuestJoining(true)
     setError(null)
 
-    const handicapNum = guestHandicap ? parseFloat(guestHandicap) : undefined
+    const handicapNum = leerCampoHandicap(guestHandicap).valor ?? undefined
     const postGuestJoin = async (guestId: string, guestToken: string | undefined) =>
       aRespuestaJson(await fetchJsonConPlazo(`/api/torneos/${encodeURIComponent(slug)}/guest-join`, {
         method: 'POST',
@@ -164,7 +173,7 @@ export function useInscripcionTorneo(slug: string) {
         body: JSON.stringify({
           guestId,
           name: trimmedName,
-          handicap: handicapNum != null && !isNaN(handicapNum) ? handicapNum : undefined,
+          handicap: handicapNum,
           guestToken,
         }),
       }, PLAZO_INSCRIPCION_MS, { leerCuerpoSiNoOk: true }))
@@ -192,7 +201,7 @@ export function useInscripcionTorneo(slug: string) {
       const body = res.body as { guestToken?: string }
       // Guardar datos de sesión de invitado
       saveGuestName(trimmedName)
-      if (handicapNum != null && !isNaN(handicapNum)) {
+      if (handicapNum != null) {
         saveGuestHandicap(handicapNum)
       }
       if (body.guestToken) {

@@ -7,6 +7,7 @@ import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
 import type { GroupData } from '@/components/TournamentTabs'
 import { T, hcpAMostrar, scoreColor, thruLabel } from './tablero-torneo'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 
 /* ── Group status dot ─────────────────────────────────────── */
 function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: string; color: string } {
@@ -119,7 +120,7 @@ export function GruposDelTorneo({ groups, players, playerIdToIndex, totalHoyos, 
                       minWidth: 0,
                     }}>
                       {p.name}
-                      {hcpAMostrar(p) != null && <span style={{ color: T.muted, fontWeight: 400 }}> ({hcpAMostrar(p)})</span>}
+                      {hcpAMostrar(p) != null && <span style={{ color: T.muted, fontWeight: 400 }}> ({formatearHandicap(hcpAMostrar(p))})</span>}
                     </span>
 
                     {/* Score + THRU */}
@@ -192,7 +193,7 @@ export function GruposDelTorneo({ groups, players, playerIdToIndex, totalHoyos, 
                 color: T.muted,
               }}>
                 {p.name}
-                {hcpAMostrar(p) != null && <span style={{ color: T.faint }}> ({hcpAMostrar(p)})</span>}
+                {hcpAMostrar(p) != null && <span style={{ color: T.faint }}> ({formatearHandicap(hcpAMostrar(p))})</span>}
               </span>
             </div>
           ))}

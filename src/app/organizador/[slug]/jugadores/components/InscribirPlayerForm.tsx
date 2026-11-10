@@ -5,30 +5,39 @@ import { inputStyle } from '../styles'
 import type { Profile } from '../hooks/useProfileSearch'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { UpsellCard } from '@/components/billing/UpsellCard'
+import {
+  formatearHandicap,
+  formatearIndice,
+  parsearHandicap,
+  PLACEHOLDER_CAMPO_HANDICAP,
+  REGLA_INVITADO,
+} from '@/golf/handicap-index-range'
+import { AvisoCampo } from '@/components/ui/AvisoCampo'
+import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
 
 export type InscribirMode = 'search' | 'guest' | 'batch'
 
+/** Al final de la línea: el hándicap (con signo y coma o punto decimal). Tras coma, punto y coma o tab
+ *  cualquier número; tras un ESPACIO solo uno con signo o decimal ("Ana +2", "Juan Pérez 18,5"), porque
+ *  "Invitado 1" es un nombre, no "Invitado" con hándicap 1. */
+const HCP_AL_FINAL = /(?:[,;\t]\s*|\s+(?=[+-]|\d+[.,]\d))([+-]?\d+(?:[.,]\d+)?)$/
+/** Separadores sobrantes al final ("Juan;18,5;" de una planilla). */
+const SEPARADORES_AL_FINAL = /[\s,;\t]+$/
+
 /** Parsea una línea de texto en {nombre, handicap}.
- *  Acepta "Nombre" o "Nombre, 18.4" o "Nombre, email@x.com, 18.4".
- *  El handicap es opcional; si no se puede parsear como numero, queda null. */
-function parseBatchLine(line: string): { name: string; hcp: number | null } | null {
-  const trimmed = line.trim()
+ *  Acepta "Nombre", "Nombre, 18.4", "Nombre 18,5", "Nombre<TAB>18,5" (Excel chileno),
+ *  "Nombre, email@x.com, 18.4" y el plus "Nombre, +2" (−2).
+ *  El hándicap se saca del FINAL antes de partir por comas: si no, "18,5" quedaba en 18.
+ *  Es opcional; si la línea no termina en un número, queda null. */
+export function parseBatchLine(line: string): { name: string; hcp: number | null } | null {
+  const trimmed = line.trim().replace(SEPARADORES_AL_FINAL, '')
   if (!trimmed) return null
 
-  const parts = trimmed.split(/[,;\t]+/).map(s => s.trim()).filter(Boolean)
-  const name = parts[0]
+  const m = HCP_AL_FINAL.exec(trimmed)
+  const resto = m ? trimmed.slice(0, m.index) : trimmed
+  const name = resto.split(/[,;\t]+/).map(s => s.trim()).find(Boolean)
   if (!name) return null
-
-  // Buscar el primer token que sea numerico entre los restantes
-  let hcp: number | null = null
-  for (let i = 1; i < parts.length; i++) {
-    const n = Number(parts[i])
-    if (!Number.isNaN(n) && parts[i] !== '') {
-      hcp = n
-      break
-    }
-  }
-  return { name, hcp }
+  return { name, hcp: m ? parsearHandicap(m[1]) : null }
 }
 
 interface Props {
@@ -64,10 +73,12 @@ export function InscribirPlayerForm({
 }: Props) {
   const { allowed: guestAllowed } = useEntitlement('guest-tournament')
 
-  // Handicap es opcional: si está vacío se inscribe con null.
-  // Si tiene valor, debe ser numérico válido.
-  const guestHcpValid = guestHcp.trim() === '' || !Number.isNaN(Number(guestHcp))
-  const guestReady = guestName.trim() !== '' && guestHcpValid
+  // Handicap es opcional: si está vacío se inscribe con null. Si tiene valor se lee como en el
+  // resto de la app ("+2" plus, "18,5" con coma); lo que no es número se avisa, no se pierde.
+  // El botón no se apaga por el hándicap: a medio escribir ("+", "-") se avisa en el campo al tocarlo, con foco.
+  // El rango depende de lo que guarda el torneo: lo valida quien inscribe.
+  const campoGuestHcp = useAvisoIndiceAlEnviar(guestHcp, 'guest-hcp', REGLA_INVITADO)
+  const guestReady = guestName.trim() !== ''
 
   // Batch state
   const [batchText, setBatchText] = useState('')
@@ -175,7 +186,7 @@ export function InscribirPlayerForm({
             />
             {selectedProfile && (
               <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '3px' }}>
-                {selectedProfile.name}{selectedProfile.indice != null ? ` — Hcp ${Number(selectedProfile.indice).toFixed(1)}` : ''}
+                {selectedProfile.name}{selectedProfile.indice != null ? ` — Hcp ${formatearIndice(Number(selectedProfile.indice))}` : ''}
               </div>
             )}
             {showResults && results.length > 0 && !selectedProfile && (
@@ -196,7 +207,7 @@ export function InscribirPlayerForm({
                     <div style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 500 }}>{p.name}</div>
                     <div style={{ color: 'var(--text-2)', fontSize: '12px' }}>
                       {p.email}
-                      {p.indice != null && <span> · Indice {p.indice}</span>}
+                      {p.indice != null && <span> · Índice {formatearIndice(Number(p.indice))}</span>}
                     </div>
                   </button>
                 ))}
@@ -243,22 +254,27 @@ export function InscribirPlayerForm({
 
           {/* Handicap (indice) */}
           <div style={{ flex: '0 1 130px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (opcional)</label>
+            <label htmlFor="guest-hcp" style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (opcional)</label>
+            {/* type="text": un type="number" deja el valor en '' con "+2" (y se inscribía sin
+                hándicap sin avisar); inputMode "text" porque el teclado decimal del iPhone no tiene signo. */}
             <input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              placeholder="Índice de handicap (opcional)"
+              id="guest-hcp"
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              placeholder={PLACEHOLDER_CAMPO_HANDICAP}
               value={guestHcp}
               onChange={(e) => setGuestHcp(e.target.value)}
+              {...campoGuestHcp.propsDelCampo}
               style={{ ...inputStyle, width: '100%' }}
             />
+            {campoGuestHcp.aviso != null && <AvisoCampo id={campoGuestHcp.idAviso}>{campoGuestHcp.aviso}</AvisoCampo>}
           </div>
 
           {/* Button */}
           <button
             type="button"
-            onClick={onInscribirGuest}
+            onClick={() => { if (campoGuestHcp.validarAlEnviar()) onInscribirGuest() }}
             disabled={loading || !guestReady}
             style={{
               background: 'var(--brand)',
@@ -322,7 +338,7 @@ export function InscribirPlayerForm({
                   <div key={i} style={{ fontSize: '12px', color: 'var(--text)', padding: '3px 0', borderBottom: i < parsedBatch.length - 1 ? '1px solid var(--border)' : 'none' }}>
                     {entry.name}
                     {entry.hcp != null && (
-                      <span style={{ color: 'var(--text-2)', marginLeft: '8px' }}>Hcp {entry.hcp}</span>
+                      <span style={{ color: 'var(--text-2)', marginLeft: '8px' }}>Hcp {formatearHandicap(entry.hcp)}</span>
                     )}
                     {entry.hcp == null && (
                       <span style={{ color: 'var(--text-2)', marginLeft: '8px', fontStyle: 'italic' }}>sin handicap</span>

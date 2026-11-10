@@ -116,6 +116,15 @@ describe('equiposConIndices', () => {
     const todas = equiposConIndices(equipos, jugadores).flatMap(e => e.jugadorIndices)
     expect(new Set(todas).size).toBe(todas.length)
   })
+  it('un equipo con el nombre borrado o solo espacios viaja como "Equipo N", el mismo que muestra la pantalla', () => {
+    // Antes viajaba vacío y la API respondía 400 ("Too small…", en inglés) al tocar "Crear ronda".
+    const sinNombre: EquipoDeLaRonda[] = [
+      { nombre: '   ', miembros: [ID_DEL_CREADOR, 'r1'] },
+      { nombre: '', miembros: ['r2', 'r3'] },
+    ]
+    expect(equiposConIndices(sinNombre, jugadores).map(e => e.nombre)).toEqual(['Equipo 1', 'Equipo 2'])
+    expect(equiposConIndices([{ nombre: ' Los Leones ', miembros: [ID_DEL_CREADOR] }], jugadores)[0].nombre).toBe('Los Leones')
+  })
 })
 
 describe('jugadoresParaLaApi', () => {

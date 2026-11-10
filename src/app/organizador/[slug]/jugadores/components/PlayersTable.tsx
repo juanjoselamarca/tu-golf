@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { Users } from '@/components/icons'
 import { inputStyle } from '../styles'
 import type { Player, TournamentGroup } from '../types'
+import { formatearHandicap, formatearIndice } from '@/golf/handicap-index-range'
 
 type StatusFilter = 'all' | 'approved' | 'withdrawn' | 'disqualified'
 
@@ -165,8 +166,8 @@ export function PlayersTable({
                       <span style={{ marginLeft: '8px', fontSize: '12px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'var(--error-bg)', color: 'var(--error-fg)', letterSpacing: '0.05em' }}>DQ</span>
                     )}
                   </td>
-                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px', fontFamily: '"DM Mono", monospace' }}>{p.profiles?.indice ?? '—'}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{p.handicap_at_registration ?? '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px', fontFamily: '"DM Mono", monospace' }}>{p.profiles?.indice != null ? formatearIndice(p.profiles.indice) : '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{p.handicap_at_registration != null ? formatearHandicap(p.handicap_at_registration) : '—'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     {groups.length > 0 ? (

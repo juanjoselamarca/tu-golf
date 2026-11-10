@@ -1,6 +1,7 @@
 'use client'
 
 import { scoreChipStyle, scoreFgVar } from '@/lib/score-tokens'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import { teePlayerEnHoyo, type TotalesBolaCompartida } from '@/golf/formats'
 import { formatVsPar } from '@/golf/share/vs-par'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
@@ -66,7 +67,7 @@ export function SharedBallTeamCard({
             {/* El handicap de equipo sólo juega en neto. */}
             {esNeto && equipo.handicap_equipo != null && (
               <span style={{ fontSize: '11px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
-                HCP {equipo.handicap_equipo}
+                HCP {formatearHandicap(equipo.handicap_equipo)}
               </span>
             )}
           </div>

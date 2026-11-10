@@ -12,6 +12,7 @@ import { ChevronDown, Loader2, Users } from '@/components/icons'
 import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { inscritoAprobado } from '@/golf/tournament-status'
 import type { PlayerRow } from '@/lib/data/tournaments/players'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 // Mapa nombre tee → color hex (no canónicamente exportado del módulo de colors —
 // estos son los colores estándar de tees chilenos. Si no matchea cae a neutro gris).
@@ -138,7 +139,7 @@ export function TeesAssignmentSection({
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >
-                  {hcp != null ? hcp.toFixed(1) : '—'}
+                  {hcp != null ? formatearIndice(hcp) : '—'}
                 </span>
                 <label
                   style={{
