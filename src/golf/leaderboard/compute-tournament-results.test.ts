@@ -40,11 +40,19 @@ describe('computeTournamentResults — podio gross/neto independiente', () => {
 
     expect(r).not.toBeNull()
     // Gross: A gana con 70 strokes; B segundo con 75.
-    expect(r!.grossWinner).toEqual({ name: 'A', score: 70 })
-    expect(r!.grossSecond).toEqual({ name: 'B', score: 75 })
+    expect(r!.grossWinner).toEqual({ name: 'A', score: 70, etiqueta: '1' })
+    expect(r!.grossSecond).toEqual({ name: 'B', score: 75, etiqueta: '2' })
     // Neto: B gana (NO A — ese era el bug). score = net-vs-par(-5) + par(72) = 67.
-    expect(r!.netoWinner).toEqual({ name: 'B', score: 67 })
-    expect(r!.netoSecond).toEqual({ name: 'A', score: 71 })
+    expect(r!.netoWinner).toEqual({ name: 'B', score: 67, etiqueta: '1' })
+    expect(r!.netoSecond).toEqual({ name: 'A', score: 71, etiqueta: '2' })
+  })
+
+  it('empate que el countback no separó: 1° y 2° dicen T1 los dos (como el podio), no "1° Juan / 2° Pedro"', () => {
+    const gross = [mk('Juan', 0, 72, { claveEmpate: '0#0' }), mk('Pedro', 0, 72, { claveEmpate: '0#0' })]
+    const neto = [mk('Pedro', -3, 72, { claveEmpate: '0#0' }), mk('Juan', -1, 72, { claveEmpate: '1#0' })]
+    const r = computeTournamentResults(gross, neto, 72, null)!
+    expect([r.grossWinner!.etiqueta, r.grossSecond!.etiqueta]).toEqual(['T1', 'T1'])
+    expect([r.netoWinner!.etiqueta, r.netoSecond!.etiqueta]).toEqual(['1', '2'])
   })
 
   it('devuelve null si ningún jugador terminó', () => {
@@ -95,6 +103,18 @@ describe('computeTeamTournamentResults — podio de parejas', () => {
     ]
     const r = computeTeamTournamentResults(ordered, { a: [], b: [], c: [] }, 'neto', 'scramble')
     expect(r!.teamPodium!.map((t) => [t.pos, t.etiqueta])).toEqual([[1, 'T1'], [1, 'T1'], [3, '3']])
+  })
+
+  it('el corte es por lugar: con 1, 2, T3, T3 el top 3 trae a los dos T3 (no deja fuera al segundo)', () => {
+    const ordered = [
+      mkTeam('a', 'A', -4, { claveEmpate: '0#0' }),
+      mkTeam('b', 'B', -2, { claveEmpate: '1#0' }),
+      mkTeam('c', 'C', 0, { claveEmpate: '2#0' }),
+      mkTeam('d', 'D', 0, { claveEmpate: '2#0' }),
+      mkTeam('e', 'E', 3, { claveEmpate: '3#0' }),
+    ]
+    const r = computeTeamTournamentResults(ordered, { a: [], b: [], c: [], d: [], e: [] }, 'neto', 'scramble')
+    expect(r!.teamPodium!.map((t) => [t.name, t.etiqueta])).toEqual([['A', '1'], ['B', '2'], ['C', 'T3'], ['D', 'T3']])
   })
 
   it('si el countback los separó (claves distintas), 1 y 2 aunque el vs par sea igual', () => {

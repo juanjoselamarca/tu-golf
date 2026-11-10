@@ -7,7 +7,7 @@
 import { isFinishedCard } from './board-rules'
 import { formatPuntosStableford } from './formato-score'
 import { formatVsPar } from '@/golf/share/vs-par'
-import { etiquetasConRespaldo, lugarDeEtiqueta } from '@/golf/core/posiciones'
+import { dentroDelCorte, etiquetasConRespaldo, lugarDeEtiqueta } from '@/golf/core/posiciones'
 import type { Player } from '@/lib/golf-data'
 import type { TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
@@ -55,11 +55,19 @@ export function computeTournamentResults(
 
   const avgGross = byGross.reduce((sum, p) => sum + grossOf(p), 0) / byGross.length
 
+  // Lugar con empates estilo golf, con la clave de empate de CADA ranking (gross y neto
+  // vienen de su propio rankEntries): si el countback no separó al 1° del 2°, los dos
+  // dicen T1, igual que el podio. Antes numeraba por fila: "1° Juan / 2° Pedro".
+  const lugares = (ranking: Player[], score: (p: Player) => number) =>
+    etiquetasConRespaldo(ranking, (p) => p.claveEmpate, (a, b) => score(a) === score(b), () => false)
+  const lugaresGross = lugares(byGross, grossOf)
+  const lugaresNeto = lugares(byNeto, netoStrokesOf)
+
   return {
-    grossWinner: byGross[0] ? { name: byGross[0].name, score: grossScore1 } : null,
-    netoWinner:  byNeto[0]  ? { name: byNeto[0].name,  score: netoScore1 }  : null,
-    grossSecond: byGross[1] ? { name: byGross[1].name, score: grossScore2 } : null,
-    netoSecond:  byNeto[1]  ? { name: byNeto[1].name,  score: netoScore2 }  : null,
+    grossWinner: byGross[0] ? { name: byGross[0].name, score: grossScore1, etiqueta: lugaresGross[0] ?? '1' } : null,
+    netoWinner:  byNeto[0]  ? { name: byNeto[0].name,  score: netoScore1, etiqueta: lugaresNeto[0] ?? '1' }  : null,
+    grossSecond: byGross[1] ? { name: byGross[1].name, score: grossScore2, etiqueta: lugaresGross[1] ?? '2' } : null,
+    netoSecond:  byNeto[1]  ? { name: byNeto[1].name,  score: netoScore2, etiqueta: lugaresNeto[1] ?? '2' }  : null,
     avgField: avgGross,
     totalEagles:  stats?.eagles  ?? 0,
     totalBirdies: stats?.birdies ?? 0,
@@ -104,11 +112,11 @@ export function buildTeamPodium(
   )
   return orderedTeams
     .map((t, i) => ({ t, etiqueta: etiquetas[i] }))
-    .filter(({ t }) => t.holesPlayed > 0)
-    .slice(0, limit)
-    .map(({ t, etiqueta }, i) => ({
-      pos: lugarDeEtiqueta(etiqueta) ?? i + 1,
-      etiqueta: etiqueta ?? String(i + 1),
+    // Corte por LUGAR, no por filas: con 1, 2, T3, T3 entran los dos T3.
+    .filter(({ t, etiqueta }) => t.holesPlayed > 0 && dentroDelCorte(etiqueta, limit))
+    .map(({ t, etiqueta }) => ({
+      pos: lugarDeEtiqueta(etiqueta) as number,
+      etiqueta: etiqueta as string,
       name: t.teamNombre,
       members: (memberNames[t.teamId] ?? []).join(' / '),
       score: isStableford

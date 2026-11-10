@@ -156,11 +156,18 @@ export interface TeamPodiumEntry {
   score: string
 }
 
+export interface ResultadoIndividual {
+  name: string
+  score: number
+  etiqueta: string
+}
+
 export interface TournamentResultados {
-  grossWinner: { name: string; score: number } | null
-  netoWinner:  { name: string; score: number } | null
-  grossSecond: { name: string; score: number } | null
-  netoSecond:  { name: string; score: number } | null
+  /** `etiqueta`: lugar con empates estilo golf ("1", "T1", "2"). */
+  grossWinner: ResultadoIndividual | null
+  netoWinner:  ResultadoIndividual | null
+  grossSecond: ResultadoIndividual | null
+  netoSecond:  ResultadoIndividual | null
   avgField: number
   totalEagles: number
   totalBirdies: number
