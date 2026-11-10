@@ -82,6 +82,7 @@ export default defineConfig({
         'ronda-libre-equipos-leaderboard.spec.ts',
         'scorer-match-play.spec.ts',
         'torneo-invitado-join-claim.spec.ts',
+        'organizador-hoja-salida.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
