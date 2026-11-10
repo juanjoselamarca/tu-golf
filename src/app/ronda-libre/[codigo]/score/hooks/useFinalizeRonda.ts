@@ -24,6 +24,7 @@ import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import { conTimeout } from '@/lib/red/con-timeout'
 import {
   fetchRondaParaCierre,
+  PLAZO_GUARDAR_TARJETA_MS,
   RONDA_NO_EXISTE,
   avisarAlCoachRondaNueva,
   fetchIndiceDeUsuario,
@@ -296,7 +297,11 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         historialFallo = true
         throw new Error('historial-no-guardado')
       }
-      // Duplicate entry (unique constraint): silently continue — round already saved
+      // Ya estaba guardada (reintento, u otro dispositivo): queda la primera. Se
+      // registra para poder auditar si difieren.
+      if (guardado.status === 'duplicada') {
+        void captureError(new Error('historical_rounds duplicada'), { context: 'finalize-ronda.historial.duplicada', level: 'info', meta: { codigo, jugadorId: activeJugadorId } })
+      }
       if (guardado.status === 'insertada' && guardado.id) {
         setHistoricalRoundId(guardado.id)
         // Cerebro v2: el coach aprende de la ronda (plan-outcome). No bloquea.
@@ -304,14 +309,15 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       }
 
       // ── Task 2.8: capturar índice ANTES del recálculo ──
-      const indiceBefore = await fetchIndiceDeUsuario(supabase, historicalUserId)
+      // El índice no bloquea el cierre: cada paso tiene plazo y, vencido, sigue.
+      const indiceBefore = await conTimeout(fetchIndiceDeUsuario(supabase, historicalUserId), PLAZO_CARGA_SCORER_MS).catch(() => null)
 
       // Recalcular Indice Golfers+ con retry exponencial (no bloquea la finalización)
-      const rpcSucceeded = await recalcularIndiceGolfers(supabase, historicalUserId, { reintentos: 3 })
+      const rpcSucceeded = await conTimeout(recalcularIndiceGolfers(supabase, historicalUserId, { reintentos: 3 }), PLAZO_GUARDAR_TARJETA_MS).catch(() => false)
 
       // ── Task 2.8: capturar índice DESPUÉS y mostrar toast ──
       if (rpcSucceeded) {
-        const indiceAfter = await fetchIndiceDeUsuario(supabase, historicalUserId)
+        const indiceAfter = await conTimeout(fetchIndiceDeUsuario(supabase, historicalUserId), PLAZO_CARGA_SCORER_MS).catch(() => null)
 
         if (indiceBefore != null && indiceAfter != null && indiceBefore !== indiceAfter) {
           const direction = indiceAfter < indiceBefore ? 'bajó' : 'subió'

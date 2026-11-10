@@ -189,6 +189,10 @@ describe('fetchEquiposDelScorer', () => {
     const eq = await fetchEquiposDelScorer(sb as never, { id: 'r1', formato_juego: 'scramble', ronda_libre_jugadores: jugadores })
     expect(eq).toEqual([{ id: 'e1', nombre: 'Cóndores', handicap_equipo: 8, handicap_equipo_juego: 4, scores: { '1': 4 }, jugadorIds: ['p1', 'p2', 'zz'], jugadorNombres: ['Ana', 'Beto', '?'] }])
   })
+  it('error de lectura: lanza, para que la carga termine en sin_conexion (con [] el scorer creía que no hay equipos)', async () => {
+    const sb = fakeSupabase({ ronda_equipos: { error: { code: '', message: 'Failed to fetch' } } })
+    await expect(fetchEquiposDelScorer(sb as never, { id: 'r1', formato_juego: 'scramble', ronda_libre_jugadores: jugadores })).rejects.toBeTruthy()
+  })
   it('equipo anterior a handicap_equipo_juego (fila sin el dato): null, el motor parte el completo', async () => {
     const sb = fakeSupabase({
       ronda_equipos: { data: [{ id: 'e1', ronda_id: 'r1', nombre: 'Cóndores', handicap_equipo: 8, scores: {}, ronda_equipo_jugadores: [] }] },

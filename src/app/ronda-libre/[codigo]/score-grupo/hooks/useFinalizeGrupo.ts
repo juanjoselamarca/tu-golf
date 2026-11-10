@@ -123,6 +123,9 @@ export function useFinalizeGrupo(input: {
       avisarSinServidor()
       return
     }
+    // Sin estado no hay respuesta del servidor (la lectura no distingue error de
+    // fila ausente): más abajo se rellenan hoyos con par, y eso no se hace a ciegas.
+    if (estado === null) { avisarSinServidor(); return }
     if (estado === 'finalizada') {
       addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
       setFinalizing(false)

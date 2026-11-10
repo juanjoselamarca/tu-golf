@@ -10,6 +10,7 @@ import {
   actualizarNivelDelJugador,
   fetchNombreDeEquipoDelJugador,
   PG_INSUFFICIENT_PRIVILEGE,
+  PLAZO_GUARDAR_TARJETA_MS,
   type RatingsPorTee,
 } from './ronda-libre-finalizar'
 import { actualizarScoresDeRonda } from './historial-edicion'
@@ -128,6 +129,21 @@ describe('guardarTarjetaEnHistorial', () => {
   const base = () => ({
     ronda, jugador: { id: 'p1', tees: null }, userId: 'u1', scores: scores18, scoresPorJugador: {},
     hoyos: hoyosDeLaRonda(1, 18), parMap: PAR, ratingsPorTee: new Map() as RatingsPorTee, conId: true,
+  })
+
+  it('si la base no responde vence el plazo y vuelve como error, con la tarjeta para mostrar', async () => {
+    vi.useFakeTimers()
+    try {
+      const colgado: Record<string, unknown> = new Proxy({}, { get: (_t, p) => (p === 'then' ? () => {} : () => colgado) })
+      const sb = { from: () => colgado, rpc: () => colgado }
+      const pendiente = guardarTarjetaEnHistorial(sb as never, base())
+      await vi.advanceTimersByTimeAsync(PLAZO_GUARDAR_TARJETA_MS + 1)
+      const r = await pendiente
+      expect(r.status).toBe('error')
+      expect(r.tarjeta.totalGross).toBeGreaterThan(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('sin hoyos jugados no inserta', async () => {

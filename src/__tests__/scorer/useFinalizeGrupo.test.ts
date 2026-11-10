@@ -238,6 +238,18 @@ describe('useFinalizeGrupo', () => {
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
+  it('sin respuesta sobre el estado (null): no rellena hoyos con par ni cierra, y deja reintentar', async () => {
+    fetchEstadoRondaLibre.mockResolvedValue(null)
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.scores.p1[18]).toBeUndefined()
+    expect(saveGroupScores).not.toHaveBeenCalled()
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.fin.finalizing).toBe(false)
+  })
+
   it('scramble sin equipos cargados: no cierra ni guarda historial, avisa y deja reintentar', async () => {
     const { result } = montar({ ronda: { ...rondaBase, formato_juego: 'scramble' }, teamEquipos: [] })
     await act(async () => { await result.current.fin.finalizeRound() })

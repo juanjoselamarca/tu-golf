@@ -30,6 +30,7 @@ import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
+import { conTimeout } from '@/lib/red/con-timeout'
 import {
   fetchIndiceParaTope,
   grossAjustadoAlGuardar,
@@ -39,6 +40,13 @@ import {
 import type { Jugador, RondaLibre } from '@/types/ronda'
 
 type Client = Pick<SupabaseClient, 'from' | 'rpc'>
+
+/**
+ * Plazo para guardar la tarjeta en el historial y para recalcular el índice. Son
+ * varias lecturas y una escritura en cadena: con la base saturada o mala señal
+ * pueden no responder nunca, y el jugador quedaba mirando "Guardando…".
+ */
+export const PLAZO_GUARDAR_TARJETA_MS = 20_000
 
 /** Estado actual de la ronda (guard contra un cierre desde otro dispositivo). */
 export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): Promise<string | null> {
@@ -160,8 +168,9 @@ export async function guardarTarjetaEnHistorial(
 ): Promise<ResultadoGuardarTarjeta> {
   // Nunca lanza: una lectura que falla (red) vuelve como `error` y el que llama
   // ofrece reintentar; un throw dejaba el botón "Guardando…" colgado para siempre.
+  // El plazo no cancela el INSERT: si igual llega, el reintento cae en 23505 (`duplicada`).
   try {
-    return await guardarTarjeta(supabase, input)
+    return await conTimeout(guardarTarjeta(supabase, input), PLAZO_GUARDAR_TARJETA_MS)
   } catch (e) {
     const tarjeta = armarTarjetaHistorica({ scores: input.scores, hoyos: input.hoyos, roundHoles: input.ronda.holes ?? 18, parMap: input.parMap })
     return { status: 'error', tarjeta, error: e instanceof Error ? e : new Error(String(e)) }

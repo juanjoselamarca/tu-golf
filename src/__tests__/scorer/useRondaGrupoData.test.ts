@@ -36,6 +36,7 @@ const RONDA = {
   ronda_libre_jugadores: [{ id: 'j1', nombre: 'Juan José Lamarca', user_id: 'u1', scores: { 11: 4, 12: 6 }, handicap: 8.2, tees: 'azul' }],
 }
 const carga = { valor: { estado: 'ok', ronda: RONDA } as { estado: string; ronda?: unknown } }
+const lecturaDeEquipos = { falla: false }
 vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
   const real = await orig<typeof import('@/lib/data/ronda-libre-scorer')>()
   return {
@@ -43,18 +44,22 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
     fetchRondaLibreParaScorer: async () => carga.valor,
     cargarHoyosDelScorer: async () => ({ parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, finalParTotal: 72 }),
     resolverHandicapsDelScorer: async () => ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 } }),
-    fetchEquiposDelScorer: async () => [],
+    fetchEquiposDelScorer: async () => {
+      if (lecturaDeEquipos.falla) throw new Error('Failed to fetch')
+      return []
+    },
   }
 })
 
-function snapshotPrevio() {
+function snapshotPrevio(teamEquipos: unknown[] = []) {
   saveScorerGrupoSnapshot('B4F5Y2', {
     at: Date.now(), authUserId: 'u1', anotadorNombre: 'Juan José Lamarca', ronda: RONDA,
-    parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, playerHcp: { j1: 10 }, playerDisplayHcp: { j1: 10 }, teamEquipos: [],
+    parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, playerHcp: { j1: 10 }, playerDisplayHcp: { j1: 10 }, teamEquipos,
   })
 }
 
 beforeEach(() => {
+  lecturaDeEquipos.falla = false
   localStorage.clear()
   push.mockClear()
   replace.mockClear()
@@ -119,6 +124,22 @@ describe('useRondaGrupoData — resiliencia ante caídas del servidor', () => {
     await waitFor(() => expect(result.current.conexion).toBe('ok'))
     expect(result.current.loadError).toBeNull()
     expect(result.current.ronda?.id).toBe('r1')
+  })
+
+  it('si al reconectar los equipos no se pueden leer: sigue sin conexión y conserva los equipos que tenía', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const equipos = [{ id: 'e1', nombre: 'Cóndores', handicap_equipo: 8, handicap_equipo_juego: 4, scores: {}, jugadorIds: ['j1'] }]
+    snapshotPrevio(equipos)
+    carga.valor = { estado: 'sin_conexion' }
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.conexion).toBe('sin_conexion'))
+    expect(result.current.teamEquipos).toEqual(equipos)
+
+    carga.valor = { estado: 'ok', ronda: RONDA }
+    lecturaDeEquipos.falla = true
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
+    expect(result.current.conexion).toBe('sin_conexion')
+    expect(result.current.teamEquipos).toEqual(equipos)
   })
 
   it('al reconectar en segundo plano refresca la ronda SIN pisar los golpes anotados offline', async () => {
