@@ -19,7 +19,8 @@
  *  4. Props que pintan un valor: `v={…}` / `value={…}` / `defaultValue={…}` (un `<KV v=…>`, un `<input value=…>`)
  *     cuyo valor nombre un hándicap sin formateador; y `.toString()`, `.toFixed(0)` y `.toFixed(2)` sobre un
  *     identificador de hándicap (el final de la cadena, como en la regla 2). Un input de hándicap se llena con
- *     `textoCampoHandicap` o el texto de `useCampoHandicap`, nunca con el número crudo ("-2").
+ *     `textoCampoHandicap` o el texto de `useCampoHandicap`, nunca con el número crudo ("-2"). Lo mismo con
+ *     `String(<hándicap>)`: `useState(String(profile.indice))` precargaba "-2" en el perfil.
  * Las excepciones legítimas van en PERMITIDOS: archivo + fragmento de la línea donde abre la marca +
  * cuántas veces calza (`veces`) + su porqué. Si una excepción deja de calzar o calza otra cantidad,
  * el test se cae.
@@ -47,6 +48,8 @@ const ES_GOLPES = /^\s*([\w$]+[?!]*\.)*golpes\s*$/
 const ETIQUETA = /(?<![\p{L}\w-])(HCP|Hcp|hcp|[ÍIíi]ndice|H[áa]ndicap|idx)(?::?\s+\(?|\s*\()$/u
 /** Regla 1 (`.toFixed(1)`, receptor con NOMBRE_INDICE) y regla 4 (los demás, receptor con nombraHandicap). */
 const METODOS = /\.(toFixed\([012]\)|toString\(\))/g
+/** Regla 4: `String(x)` con x un identificador de hándicap (sin paréntesis adentro: el caso real es directo). */
+const STRING_DE = /(?<![\w.$])String\(([^()]*)\)/g
 /** Regla 4: props que pintan su valor. */
 const PROP_VALOR = /(?<![\w-])(v|value|defaultValue)=\{/g
 /** Formateadores canónicos (o que los envuelven): lo que pasa por ellos ya sale con su "+". */
@@ -66,6 +69,9 @@ const PERMITIDOS: Array<{ archivo: string; fragmento: string; veces: number; por
   { archivo: 'app/dashboard/components/OnboardingWizard.tsx', fragmento: "value={noHandicap ? '' : handicap}", veces: 1, porque: 'texto tipeado del campo (string), no el número guardado: se precarga con textoCampoHandicap' },
   { archivo: 'app/organizador/nuevo/sections/CategoriasSection.tsx', fragmento: "value={cat.handicap_min ?? ''}", veces: 1, porque: 'BUG conocido, issue #775 (type=number: un plus se ve "-2")' },
   { archivo: 'app/organizador/nuevo/sections/CategoriasSection.tsx', fragmento: "value={cat.handicap_max ?? ''}", veces: 1, porque: 'BUG conocido, issue #775 (type=number: un plus se ve "-2")' },
+  { archivo: 'app/admin/golf-ops/page.tsx', fragmento: "hcp: u.indice != null ? String(u.indice) : '-'", veces: 1, porque: 'BUG conocido, issue #775 (tabla de admins: un plus se ve "-2")' },
+  { archivo: 'app/admin/golf-ops/page.tsx', fragmento: 'const hcpNum = parseFloat(String(editHcp))', veces: 1, porque: 'BUG conocido, issue #775 (lee el campo con parseFloat: "+2" queda en 2)' },
+  { archivo: 'lib/guest-session.ts', fragmento: 'localStorage.setItem(GUEST_HANDICAP_KEY, String(handicap))', veces: 1, porque: 'se guarda el número para releerlo como número; no se muestra' },
   { archivo: 'app/admin/golf-ops/page.tsx', fragmento: 'defaultValue={editHcp}', veces: 1, porque: 'BUG conocido, issue #775 (solo admins; archivo de 1.033 LOC a refactorizar primero)' },
   // Regla 1 (.toFixed(1))
   { archivo: 'components/GWIDisplay.tsx', fragmento: 'vsIndex.toFixed(1)', veces: 1, porque: 'delta con signo explícito (golpes vs esperado), no un índice' },
@@ -271,6 +277,7 @@ function marcas(texto: string, tsx: boolean): number[] {
     for (const { receptor, metodo } of receptores(l)) {
       if (metodo === 'toFixed(1)' ? NOMBRE_INDICE.test(receptor) : nombraHandicap(receptor)) out.push(i)
     }
+    for (const m of l.matchAll(STRING_DE)) if (nombraHandicap(valorMostrado(m[1]))) out.push(i)
   })
   for (const { expr, linea, antes, despues } of expresiones(texto, tsx)) if (marcaExpr(expr, antes, despues)) out.push(linea)
   if (tsx) {
@@ -344,6 +351,9 @@ describe('índice y hándicap: siempre con su formateador', () => {
       'const t = hcp.toFixed(0)',
       'const t = r.breakdown.handicapInfo.handicap.toFixed(2)',
       'const t = profile.indice.toString()',
+      "const [editIndice, setEditIndice] = useState(profile.indice != null ? String(profile.indice) : '')", // perfil antes de la vuelta 6
+      'useState(String(profile.indice))',
+      "hcp: u.indice != null ? String(u.indice) : '-'",
       '<td>{h == null ? EMPTY : modo === 1 ? formatearIndice(h) : h.handicap}</td>',
     ]) expect(marcas(s, true).length, s).toBeGreaterThan(0)
   })
@@ -384,6 +394,7 @@ describe('índice y hándicap: siempre con su formateador', () => {
       '{indiceAviso != null && <AvisoCampo id="x">{indiceAviso}</AvisoCampo>}',
       '<input value={campo.texto} />',
       'promedio.toFixed(2)', 'n.toString()', 'index.toString()',
+      'String(n)', 'String(e.target.value)', 'String(hcpPct)', 'String(golpesAMano(x))',
       "{` · ±${r.breakdown.handicapInfo.sigma} strokes`}",
       '): Partial<TournamentConfig> {\n  return { hcp }\n}',
       '} catch {\n  setHcp(hcp)\n}',
