@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { rankEntries, type RankingMode } from './rank-entries'
+import { etiquetasPorClaveDeEmpate } from '@/golf/core/posiciones'
 import type { LeaderboardEntry } from './types'
 
 function entry(over: Partial<LeaderboardEntry> & { name: string }): LeaderboardEntry {
@@ -173,5 +174,50 @@ describe('rankEntries — canario del dual leaderboard', () => {
     // Con lower_wins en los últimos 9, gana 'Peor' (3s en últimos 9 = 27 strokes
     // vs 'Mejor' que en últimos 9 tiene 5s = 45 strokes).
     expect(players[0].name.startsWith('Peor')).toBe(true)
+  })
+})
+
+describe('rankEntries — claveEmpate (posiciones "T2" de las tablas)', () => {
+  const opts = { parTotal: 72, formatoJuego: 'stroke_play' as const }
+  const etiquetas = (players: { claveEmpate: string | null }[]) =>
+    etiquetasPorClaveDeEmpate(players, (p) => p.claveEmpate)
+
+  it('a mitad de vuelta, mismo score = empate provisorio: T2 y T2 aunque lleven distintos hoyos', () => {
+    const { players } = rankEntries([
+      { ...entry({ name: 'Líder', grossTotal: 38, holesPlayed: 9, status: 'live', scores: [...new Array(9).fill(4).map((v, i) => (i < 2 ? 5 : v)), ...new Array(9).fill(null)] }), parPlayed: 36 },
+      { ...entry({ name: 'Diego', grossTotal: 50, holesPlayed: 9, status: 'live', scores: [...new Array(9).fill(5).map((v, i) => (i === 0 ? 10 : v)), ...new Array(9).fill(null)] }), parPlayed: 36 },
+      { ...entry({ name: 'María', grossTotal: 54, holesPlayed: 10, status: 'live', scores: [...new Array(10).fill(5).map((v, i) => (i === 0 ? 9 : v)), ...new Array(8).fill(null)] }), parPlayed: 40 },
+      entry({ name: 'Sin salir', grossTotal: 0, holesPlayed: 0, status: 'live', scores: new Array(18).fill(null) }),
+    ], 'gross', opts)
+    // vs par por hoyos jugados: Líder +2 (9h), Diego +14 (9h), María +14 (10h), el último no jugó.
+    expect(players.map((p) => p.total)).toEqual([2, 14, 14, 0])
+    expect(etiquetas(players)).toEqual(['1', 'T2', 'T2', null])
+  })
+
+  it('con las tarjetas terminadas, el countback separa: sin T entre los que desempató', () => {
+    const a = entry({ name: 'A', grossTotal: 72, scores: [4,4,4,4,4,4,4,4,4, 4,4,4,4,4,4,4,4,4] })
+    const b = entry({ name: 'B', grossTotal: 72, scores: [3,4,4,4,4,4,4,4,4, 5,4,4,4,4,4,4,4,4] }) // back 9 peor
+    const c = entry({ name: 'C', grossTotal: 75 })
+    const { players } = rankEntries([b, c, a], 'gross', opts)
+    expect(players.map((p) => p.name.split(' ')[0])).toEqual(['A', 'B', 'C'])
+    expect(etiquetas(players)).toEqual(['1', '2', '3'])
+  })
+
+  it('tarjetas idénticas: el countback no separa y quedan T1', () => {
+    const { players } = rankEntries([
+      entry({ name: 'A', grossTotal: 72 }),
+      entry({ name: 'B', grossTotal: 72 }),
+      entry({ name: 'C', grossTotal: 80 }),
+    ], 'gross', opts)
+    expect(etiquetas(players)).toEqual(['T1', 'T1', '3'])
+  })
+
+  it('stableford: empate por puntos', () => {
+    const { players } = rankEntries([
+      entry({ name: 'A', stablefordTotal: 36, status: 'live', holesPlayed: 14, scores: [...new Array(14).fill(4), ...new Array(4).fill(null)] }),
+      entry({ name: 'B', stablefordTotal: 36, status: 'live', holesPlayed: 12, scores: [...new Array(12).fill(4), ...new Array(6).fill(null)] }),
+      entry({ name: 'C', stablefordTotal: 40, status: 'live', holesPlayed: 12, scores: [...new Array(12).fill(4), ...new Array(6).fill(null)] }),
+    ], 'stableford', opts)
+    expect(etiquetas(players)).toEqual(['1', 'T2', 'T2'])
   })
 })

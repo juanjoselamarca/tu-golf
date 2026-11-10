@@ -23,6 +23,7 @@ function mk(name: string, total: number, grossStrokes: number, over: Partial<Pla
     holes: 18,
     status: 'F',
     scores: [grossStrokes],
+    claveEmpate: null,
     ...over,
   }
 }

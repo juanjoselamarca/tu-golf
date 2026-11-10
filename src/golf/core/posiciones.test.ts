@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { etiquetasDePosicion } from './posiciones'
+import { etiquetasDePosicion, etiquetasPorClaveDeEmpate } from './posiciones'
 
 interface Fila { nombre: string; vsPar: number; hoyos: number; pts?: number }
 const mismoVsPar = (a: Fila, b: Fila) => a.vsPar === b.vsPar
@@ -69,5 +69,12 @@ describe('etiquetasDePosicion', () => {
   it('tabla larga: el lugar sigue contando las filas de arriba (T10 tras nueve)', () => {
     const filas = [...Array.from({ length: 9 }, (_, i) => f(`J${i}`, i)), f('K', 20), f('L', 20)]
     expect(etiquetasDePosicion(filas, mismoVsPar).slice(-2)).toEqual(['T10', 'T10'])
+  })
+})
+
+describe('etiquetasPorClaveDeEmpate', () => {
+  it('misma clave = empate; null = sin posición', () => {
+    const filas = [{ k: '-3#0' }, { k: '1#0' }, { k: '1#0' }, { k: '1#1' }, { k: null }]
+    expect(etiquetasPorClaveDeEmpate(filas, (f) => f.k)).toEqual(['1', 'T2', 'T2', '4', null])
   })
 })

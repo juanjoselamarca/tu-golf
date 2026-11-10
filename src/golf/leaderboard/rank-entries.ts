@@ -14,6 +14,7 @@ import type { CountbackMode, CountbackPlayer, CountbackResult } from '@/golf/cor
 import type { FormatoJuego } from '@/golf/core/rules'
 import type { PlayerConHandicap } from '@/lib/golf-data'
 import type { LeaderboardEntry } from './types'
+import { hasPlayData } from './board-rules'
 
 export type RankingMode = 'gross' | 'neto' | 'stableford'
 
@@ -172,10 +173,17 @@ export function rankEntries(
   // no un empate que haya que resolver. Antes se anotaba el field entero con
   // "(empate)" porque a mitad de torneo casi todos comparten score a par.
   const cbResults: CountbackResult[] = []
+  // grupoDeScore[k] = nº del grupo de mismo score primario de cbResults[k]. Va en
+  // la clave de empate en vez del score mismo: la clave viaja al visor y no debe
+  // cargar un número que la vista no muestra (p. ej. el neto en la vista bruta).
+  const grupoDeScore: number[] = []
+  let grupo = 0
   let i = 0
   while (i < cbPlayers.length) {
     let j = i + 1
     while (j < cbPlayers.length && cbPlayers[j].primaryScore === cbPlayers[i].primaryScore) j++
+    for (let k = i; k < j; k++) grupoDeScore.push(grupo)
+    grupo++
 
     const group = cbPlayers.slice(i, j)
     const todasTerminadas = group.every((g) => cardIsComplete(sorted[Number(g.id)].entry, holeCount))
@@ -190,6 +198,8 @@ export function rankEntries(
           primaryScore: g.primaryScore,
           resolvedByCountback: false,
           annotation: '',
+          // Empate provisorio (alguien sigue en cancha): todos en el mismo subgrupo → "T".
+          subgrupo: 0,
         })),
       )
     }
@@ -220,6 +230,10 @@ export function rankEntries(
       status:  e.status,
       scores:  e.scores,
       latestRound: e.latestRound,
+      // Empate de golf: mismo score primario y, si el countback corrió, mismo
+      // subgrupo. El orden por hoyos jugados / tarjeta detallada de arriba es
+      // convención de board, no desempate: no separa. Sin hoyos no compite.
+      claveEmpate: hasPlayData(e) ? `${grupoDeScore[idx]}#${r.subgrupo}` : null,
     })
     order.push(originalIndex)
   })

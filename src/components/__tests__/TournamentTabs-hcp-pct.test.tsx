@@ -10,7 +10,7 @@ import type { Player } from '@/lib/golf-data'
 const jugador: Player = {
   pos: 1, id: 'j1', name: 'Ana', country: 'CL', cat: 'General', hcp: 18, hcpDisplay: 18,
   today: 0, total: 72, holes: 18, grossTotal: 72, netTotal: 54, stablefordTotal: 36,
-  status: 'F', scores: Array.from({ length: 18 }, () => 4),
+  status: 'F', scores: Array.from({ length: 18 }, () => 4), claveEmpate: '0#0',
 }
 
 function pintar(etiquetaHcpPct: string | null) {

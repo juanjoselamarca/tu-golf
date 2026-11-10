@@ -57,3 +57,17 @@ export function etiquetasDePosicion<T>(
 
   return lugar.map((l, i) => (l == null ? null : empatada[i] ? `T${l}` : String(l)))
 }
+
+/**
+ * Atajo para tablas cuyo motor ya emite la clave de empate de cada fila (p. ej.
+ * `Player.claveEmpate` de `rankEntries`): misma clave = empatados; clave `null`
+ * = no compite todavía (sin posición).
+ */
+export function etiquetasPorClaveDeEmpate<T>(
+  filas: readonly T[],
+  clave: (fila: T) => string | null | undefined,
+): (string | null)[] {
+  return etiquetasDePosicion(filas, (a, b) => clave(a) === clave(b), {
+    sinPosicion: (f) => clave(f) == null,
+  })
+}

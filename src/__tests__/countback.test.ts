@@ -155,3 +155,36 @@ describe('resolveLeaderboardTies', () => {
     expect(result[3].id).toBe('d')
   })
 })
+
+describe('subgrupo: qué empates siguen vivos después del countback', () => {
+  const pareja = [4,4,4,4,4,4,4,4,4, 4,4,4,4,4,4,4,4,4]
+  const peor9 = [3,4,4,4,4,4,4,4,4, 5,4,4,4,4,4,4,4,4] // mismo total, back 9 peor
+
+  it('dos tarjetas idénticas quedan en el mismo subgrupo; la que el countback separó, en otro', () => {
+    const r = applyCountback([
+      makePlayer('x', 'X', peor9, 72),
+      makePlayer('a', 'A', pareja, 72),
+      makePlayer('b', 'B', pareja, 72),
+    ], 'lower_wins')
+    expect(r.map(p => p.id)).toEqual(['a', 'b', 'x'])
+    expect(r.map(p => p.subgrupo)).toEqual([0, 0, 1])
+  })
+
+  it('A=B y C=D dentro del mismo grupo son dos subgrupos distintos', () => {
+    const r = applyCountback([
+      makePlayer('c', 'C', peor9, 72),
+      makePlayer('a', 'A', pareja, 72),
+      makePlayer('d', 'D', peor9, 72),
+      makePlayer('b', 'B', pareja, 72),
+    ], 'lower_wins')
+    expect(r.map(p => p.subgrupo)).toEqual([0, 0, 1, 1])
+  })
+
+  it('un jugador solo, o fuera de un grupo empatado, es subgrupo 0', () => {
+    const r = resolveLeaderboardTies([
+      makePlayer('a', 'A', pareja, 70),
+      makePlayer('b', 'B', pareja, 72),
+    ])
+    expect(r.map(p => p.subgrupo)).toEqual([0, 0])
+  })
+})
