@@ -35,12 +35,12 @@ export interface FilaDelRankingDeEquipos {
  * countback; el que no anotó nada, sin lugar (null). La usan la tabla de equipos, la imagen para compartir y
  * `equiposEnElPrimerLugar` (cuadro ganador): las tres dicen lo mismo.
  */
-export function posicionesDeEquipos(ranking: readonly FilaDelRankingDeEquipos[]): (string | null)[] {
+export function posicionesDeEquiposRondaLibre(ranking: readonly FilaDelRankingDeEquipos[]): (string | null)[] {
   return etiquetasDePosicion(ranking, (a, b) => a.diff === b.diff, { sinPosicion: (t) => t.holesPlayed === 0 })
 }
 
 /**
- * Los equipos que comparten el primer lugar ("1" o "T1" en `posicionesDeEquipos`). Uno solo si no hay empate;
+ * Los equipos que comparten el primer lugar ("1" o "T1" en `posicionesDeEquiposRondaLibre`). Uno solo si no hay empate;
  * ninguno si nadie anotó (no hay resultado que mostrar).
  *
  * La imagen para compartir decidía el empate por `score` (golpes brutos) y la
@@ -48,7 +48,7 @@ export function posicionesDeEquipos(ranking: readonly FilaDelRankingDeEquipos[])
  * podían decir cosas distintas. Acá se decide una vez para los dos.
  */
 export function equiposEnElPrimerLugar<T extends FilaDelRankingDeEquipos>(ranking: readonly T[]): T[] {
-  const posiciones = posicionesDeEquipos(ranking)
+  const posiciones = posicionesDeEquiposRondaLibre(ranking)
   return ranking.filter((_, i) => esPrimerLugar(posiciones[i]))
 }
 

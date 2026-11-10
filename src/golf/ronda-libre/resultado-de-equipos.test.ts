@@ -5,7 +5,7 @@ import {
   hayEmpateDeEquipos,
   juegaContraElPar,
   nombrarEquipos,
-  posicionesDeEquipos,
+  posicionesDeEquiposRondaLibre,
 } from './resultado-de-equipos'
 
 describe('etiquetaDelResultadoDeEquipos', () => {
@@ -63,17 +63,17 @@ describe('nombrarEquipos', () => {
   })
 })
 
-describe('posicionesDeEquipos — una sola cuenta para tabla, imagen y cuadro ganador', () => {
+describe('posicionesDeEquiposRondaLibre — una sola cuenta para tabla, imagen y cuadro ganador', () => {
   const ranking = [
     { diff: -2, holesPlayed: 18 }, { diff: 0, holesPlayed: 18 }, { diff: 0, holesPlayed: 18 },
     { diff: 3, holesPlayed: 18 }, { diff: 0, holesPlayed: 0 },
   ]
   it('mismo vs par = mismo lugar; el que no anotó, sin lugar', () => {
-    expect(posicionesDeEquipos(ranking)).toEqual(['1', 'T2', 'T2', '4', null])
+    expect(posicionesDeEquiposRondaLibre(ranking)).toEqual(['1', 'T2', 'T2', '4', null])
   })
-  it('equiposEnElPrimerLugar son exactamente los "1"/"T1" de posicionesDeEquipos', () => {
+  it('equiposEnElPrimerLugar son exactamente los "1"/"T1" de posicionesDeEquiposRondaLibre', () => {
     const empatados = [{ diff: -1, holesPlayed: 9 }, { diff: -1, holesPlayed: 18 }, { diff: 2, holesPlayed: 18 }]
-    expect(posicionesDeEquipos(empatados).slice(0, 2)).toEqual(['T1', 'T1'])
+    expect(posicionesDeEquiposRondaLibre(empatados).slice(0, 2)).toEqual(['T1', 'T1'])
     expect(equiposEnElPrimerLugar(empatados)).toHaveLength(2)
     expect(equiposEnElPrimerLugar(ranking)).toHaveLength(1)
   })

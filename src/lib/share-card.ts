@@ -6,7 +6,7 @@ import { isTeamFormat } from '@/golf/formats'
 import { esPrimerLugar } from '@/golf/core/posiciones'
 import {
   equiposEnElPrimerLugar,
-  posicionesDeEquipos,
+  posicionesDeEquiposRondaLibre,
   etiquetaDelResultadoDeEquipos,
   juegaContraElPar,
   nombrarEquipos,
@@ -671,7 +671,7 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
  */
 /** Ranking de la imagen con la misma etiqueta que la tabla: mismo vs par = "T" (sin countback en la ronda libre). */
 function rankingDeEquipos(teams: NonNullable<LeaderboardShareData['teams']>): NonNullable<ShareCardRondaLibre['ranking']> {
-  const posiciones = posicionesDeEquipos(teams)
+  const posiciones = posicionesDeEquiposRondaLibre(teams)
   return teams.map((t, i) => ({ nombre: t.nombre, score: t.score, diff: t.diff, holesPlayed: t.holesPlayed, posicion: posiciones[i] }))
 }
 

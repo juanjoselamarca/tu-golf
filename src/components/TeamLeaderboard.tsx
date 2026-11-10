@@ -15,7 +15,7 @@ import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 import { esPrimerLugar } from '@/golf/core/posiciones'
 import { scorePrimarioDeEquipo } from '@/golf/leaderboard/team-tiebreak'
-import { posicionesDeEquipos } from '@/golf/ronda-libre/resultado-de-equipos'
+import { posicionesDeEquiposRondaLibre } from '@/golf/ronda-libre/resultado-de-equipos'
 
 interface TeamEntry {
   teamId: string
@@ -69,8 +69,8 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
   // Re-ordenar acá por score perdía el countback y subía al equipo que no ha salido.
   const sorted = teams
   // Empates estilo golf (T2, T2, 4) con la MISMA cuenta que el cuadro ganador y la imagen
-  // (`posicionesDeEquipos`): mismo score = mismo lugar, sin countback. Sin hoyos: "—".
-  const posiciones = posicionesDeEquipos(
+  // (`posicionesDeEquiposRondaLibre`): mismo score = mismo lugar, sin countback. Sin hoyos: "—".
+  const posiciones = posicionesDeEquiposRondaLibre(
     sorted.map((t) => ({ diff: primaryScore(t, modoJuego, formatoJuego), holesPlayed: t.holesPlayed })),
   )
 
