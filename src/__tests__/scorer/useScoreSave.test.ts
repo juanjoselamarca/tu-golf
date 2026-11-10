@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useScoreSave } from '@/app/ronda-libre/[codigo]/score/hooks/useScoreSave'
 import { addToast } from '@/hooks/useToast'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
+import { contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
 
 const mockUpdate = vi.fn()
 const mockSingle = vi.fn()
@@ -201,6 +202,10 @@ describe('useScoreSave', () => {
       expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
       expect(localStorage.getItem('golfers_score_ABC123_p2')).not.toBeNull()
       expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar tu tarjeta' }))
+      // La tarjeta rechazada sale del banner y del reenvío (no se borra al tiro); la de p2 sigue pendiente.
+      expect(JSON.parse(localStorage.getItem('golfers_score_ABC123_p1')!).rechazadaEn).toEqual(expect.any(Number))
+      expect(leerRespaldoPendiente('ABC123', 'p1')).toBeNull()
+      expect(contarHoyosPendientes()).toBe(1)
       // No queda bloqueado: el siguiente guardado sale.
       mockRpc.mockResolvedValue({ data: { '1': 4 }, error: null })
       await act(async () => { const p = result.current.guardarAhora('p1', { 1: 4 }); await vi.runAllTimersAsync(); r = await p })
@@ -307,7 +312,7 @@ describe('useScoreSave', () => {
       expect(localStorage.getItem('ronda_ABC123_p1')).toBeNull()
     })
 
-    it('inverso: al salir, un P0001 con la ronda viva no limpia nada', async () => {
+    it('al salir, un P0001 con la ronda viva no limpia nada pero saca la tarjeta del banner (rechazada)', async () => {
       respaldo({ 1: 4 })
       mockRpc.mockResolvedValue(P0001)
       mockSingle.mockResolvedValue({ data: { estado: 'en_curso' }, error: null })
@@ -315,7 +320,31 @@ describe('useScoreSave', () => {
       await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
       unmount()
       await act(async () => { await vi.runAllTimersAsync() })
-      expect(leer()).toMatchObject({ sincronizado: false, scores: { 1: 4 } })
+      expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+      expect(leer()).toMatchObject({ sincronizado: false, scores: { 1: 4 }, rechazadaEn: expect.any(Number) })
+      expect(contarHoyosPendientes()).toBe(0)
+    })
+
+    it('al salir, un P0004 (rechazo que descarta) también saca la tarjeta del banner', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0004', message: 'INVALID_DELTA' } })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer().rechazadaEn).toEqual(expect.any(Number))
+      expect(contarHoyosPendientes()).toBe(0)
+    })
+
+    it('inverso: al salir con la ronda finalizada (P0002) la tarjeta sigue sin enviar (la ronda se puede reabrir)', async () => {
+      respaldo({ 1: 4 })
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } })
+      const { result, unmount } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      unmount()
+      await act(async () => { await vi.runAllTimersAsync() })
+      expect(leer().rechazadaEn).toBeUndefined()
+      expect(leerRespaldoPendiente('ABC123', 'p1')).toEqual({ 1: 4 })
     })
 
     it('inverso: al salir sin red, el respaldo queda pendiente (se re-sincroniza al volver)', async () => {

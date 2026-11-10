@@ -18,6 +18,8 @@ export const DIAS_RETENCION_RESPALDO_SINCRONIZADO = 7
  * Pasado este plazo desde que se vio cerrada, se barre.
  */
 export const DIAS_RETENCION_RESPALDO_RONDA_CERRADA = 30
+/** Una tarjeta que el servidor rechazó en firme (ver `rechazadaEn`) se guarda una semana y se barre. */
+export const DIAS_RETENCION_RESPALDO_RECHAZADO = 7
 
 export interface RespaldoLocal {
   scores: Record<number, number>
@@ -31,6 +33,13 @@ export interface RespaldoLocal {
    * se reabre, la mezcla y la reenvía. El conciliador la quita si la ronda vuelve a 'en_curso'.
    */
   rondaCerradaEn?: number
+  /**
+   * Cuándo el servidor rechazó esta tarjeta en firme con la ronda abierta (el jugador ya no está en
+   * ella, o un valor inválido): reenviarla da el mismo rechazo. Sale del banner y del reenvío, y se
+   * barre a los `DIAS_RETENCION_RESPALDO_RECHAZADO` días. Un golpe nuevo reescribe el respaldo sin
+   * esta marca (vuelve a intentarse).
+   */
+  rechazadaEn?: number
 }
 
 export const claveDelRespaldo = (codigoRonda: string, jugadorId: string) => `${PREFIJO_RESPALDO}${codigoRonda}_${jugadorId}`
@@ -58,8 +67,8 @@ function leerTodos(): { clave: string; r: RespaldoLocal }[] {
  */
 export const CODIGO_RONDA_LIBRE = /^[A-Z0-9]{4,12}$/
 
-/** Golpes que el servidor no confirmó (de una ronda abierta o cerrada). */
-const sinEnviar = (r: RespaldoLocal) => !r.sincronizado && !!r.scores && Object.keys(r.scores).length > 0
+/** Golpes que el servidor no confirmó ni rechazó en firme (de una ronda abierta o cerrada). */
+const sinEnviar = (r: RespaldoLocal) => !r.sincronizado && r.rechazadaEn == null && !!r.scores && Object.keys(r.scores).length > 0
 /** Lo que el banner cuenta como "por sincronizar": sin enviar y con la ronda abierta. */
 const estaPendiente = (r: RespaldoLocal) => sinEnviar(r) && r.rondaCerradaEn == null
 const esDeRondaLibre = (r: RespaldoLocal) => typeof r.codigoRonda === 'string' && CODIGO_RONDA_LIBRE.test(r.codigoRonda)
@@ -105,7 +114,7 @@ function reescribirRespaldosDeRonda(codigoRonda: string, cambia: (r: RespaldoLoc
   return cambio
 }
 
-/** La ronda está cerrada: sus tarjetas sin enviar salen del banner, pero NO se borran. */
+/** La ronda está cerrada: sus tarjetas sin enviar salen del banner, pero NO se borran (ver `barrerRespaldosDeRondaCerrada`). */
 export function marcarRespaldosDeRondaCerrada(codigoRonda: string, ahora = Date.now()): boolean {
   return reescribirRespaldosDeRonda(codigoRonda, r => (sinEnviar(r) && r.rondaCerradaEn == null ? { ...r, rondaCerradaEn: ahora } : null))
 }
@@ -120,8 +129,13 @@ export function desmarcarRespaldosDeRondaCerrada(codigoRonda: string): boolean {
   })
 }
 
-/** Con `enviados`, marca sólo si el respaldo sigue siendo esa tarjeta: una más nueva queda pendiente. */
-export function marcarRespaldoSincronizado(codigoRonda: string, jugadorId: string, enviados?: Record<number, number>): void {
+/**
+ * Reescribe el respaldo de un jugador con `cambio`. Con `enviados`, sólo si el respaldo sigue siendo
+ * esa tarjeta: una más nueva (anotada mientras viajaba el envío) queda como está.
+ */
+function reescribirRespaldoSiEsLaTarjeta(
+  codigoRonda: string, jugadorId: string, enviados: Record<number, number> | undefined, cambio: (r: RespaldoLocal) => void,
+): void {
   const key = claveDelRespaldo(codigoRonda, jugadorId)
   try {
     const raw = localStorage.getItem(key)
@@ -129,26 +143,65 @@ export function marcarRespaldoSincronizado(codigoRonda: string, jugadorId: strin
     const data: RespaldoLocal = JSON.parse(raw)
     // Las claves son hoyos (enteros): JSON.stringify las ordena igual en las dos.
     if (enviados && JSON.stringify(data.scores) !== JSON.stringify(enviados)) return
-    data.sincronizado = true
-    delete data.rondaCerradaEn
+    cambio(data)
     localStorage.setItem(key, JSON.stringify(data))
   } catch { /* silencioso */ }
 }
 
+/** El servidor confirmó la tarjeta. Con `enviados`, sólo si el respaldo sigue siendo esa tarjeta. */
+export function marcarRespaldoSincronizado(codigoRonda: string, jugadorId: string, enviados?: Record<number, number>): void {
+  reescribirRespaldoSiEsLaTarjeta(codigoRonda, jugadorId, enviados, data => {
+    data.sincronizado = true
+    delete data.rondaCerradaEn
+  })
+}
+
 /**
- * Barre lo que ya no sirve: respaldos confirmados por el servidor hace más de
- * `DIAS_RETENCION_RESPALDO_SINCRONIZADO` días y los de una ronda vista cerrada hace más de
- * `DIAS_RETENCION_RESPALDO_RONDA_CERRADA`. Lo sin enviar de una ronda abierta no se toca nunca.
+ * El servidor rechazó la tarjeta en firme con la ronda abierta (ver `RespaldoLocal.rechazadaEn`): sale del
+ * banner y del reenvío, sin borrarse al tiro. Con `enviados`, sólo si el respaldo sigue siendo esa tarjeta.
  */
-export function barrerRespaldosViejos(ahora = Date.now()): void {
-  // Primero se juntan las claves: borrar mientras se recorre localStorage corre los índices.
-  const viejas = leerTodos().filter(({ r }) =>
-    (r.sincronizado && ahora - r.timestamp > DIAS_RETENCION_RESPALDO_SINCRONIZADO * DIA_MS) ||
-    (!r.sincronizado && r.rondaCerradaEn != null && ahora - r.rondaCerradaEn > DIAS_RETENCION_RESPALDO_RONDA_CERRADA * DIA_MS),
-  ).map(({ clave }) => clave)
+export function marcarRespaldoRechazado(
+  codigoRonda: string, jugadorId: string, enviados?: Record<number, number>, ahora = Date.now(),
+): void {
+  reescribirRespaldoSiEsLaTarjeta(codigoRonda, jugadorId, enviados, data => {
+    if (data.sincronizado) return
+    data.rechazadaEn = ahora
+  })
+}
+
+/** Borra los respaldos para los que `viejo` da true (primero junta las claves: borrar mientras se recorre corre los índices). */
+function borrarRespaldosSi(viejo: (clave: string, r: RespaldoLocal) => boolean): void {
+  const viejas = leerTodos().filter(({ clave, r }) => viejo(clave, r)).map(({ clave }) => clave)
   for (const clave of viejas) {
     try { localStorage.removeItem(clave) } catch { /* silencioso */ }
   }
+}
+
+/**
+ * Barre lo que ya no sirve sin preguntarle al servidor: respaldos confirmados hace más de
+ * `DIAS_RETENCION_RESPALDO_SINCRONIZADO` días y rechazados en firme hace más de
+ * `DIAS_RETENCION_RESPALDO_RECHAZADO`. Lo sin enviar no se toca acá, ni siquiera el de una ronda
+ * vista cerrada hace mucho: pudo reabrirse. Ese lo barre el conciliador con
+ * `barrerRespaldosDeRondaCerrada`, recién después de confirmar que sigue cerrada.
+ */
+export function barrerRespaldosViejos(ahora = Date.now()): void {
+  borrarRespaldosSi((_, r) =>
+    (r.sincronizado && ahora - r.timestamp > DIAS_RETENCION_RESPALDO_SINCRONIZADO * DIA_MS) ||
+    (!r.sincronizado && r.rechazadaEn != null && ahora - r.rechazadaEn > DIAS_RETENCION_RESPALDO_RECHAZADO * DIA_MS),
+  )
+}
+
+/**
+ * Borra los respaldos sin enviar de una ronda vista cerrada hace más de `DIAS_RETENCION_RESPALDO_RONDA_CERRADA`
+ * días. Sólo con la ronda recién confirmada 'finalizada' por el servidor: una reabierta se desmarca
+ * antes y no pierde nada.
+ */
+export function barrerRespaldosDeRondaCerrada(codigoRonda: string, ahora = Date.now()): void {
+  const prefijo = claveDelRespaldo(codigoRonda, '')
+  borrarRespaldosSi((clave, r) =>
+    clave.startsWith(prefijo) && !r.sincronizado && r.rondaCerradaEn != null &&
+    ahora - r.rondaCerradaEn > DIAS_RETENCION_RESPALDO_RONDA_CERRADA * DIA_MS,
+  )
 }
 
 /**

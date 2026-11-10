@@ -9,7 +9,8 @@
 //   - no existe (PGRST116) → el creador la descartó: se borra toda su copia local;
 //   - 'finalizada'         → se MARCA (sale del banner) pero NO se borra: la ronda se puede
 //                            reabrir (reabrir un torneo devuelve sus rondas a 'en_curso') y
-//                            esos golpes son lo único que hay;
+//                            esos golpes son lo único que hay. A los 30 días marcada se barre, y
+//                            sólo acá: con la ronda recién confirmada cerrada;
 //   - 'en_curso'           → si estaba marcada, se desmarca (vuelve al banner y el scorer la reenvía).
 // Cualquier otra cosa (red caída, timeout, sesión vencida, permisos) no toca nada.
 
@@ -18,6 +19,7 @@ import { createClient } from '@/lib/supabase'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { fetchEstadoRondaLibre, RONDA_NO_EXISTE, TIMEOUT_ESTADO_RONDA_MS } from '@/lib/data/ronda-libre-estado'
 import {
+  barrerRespaldosDeRondaCerrada,
   codigosConRespaldoDeRondaCerrada,
   codigosConRespaldoPendiente,
   desmarcarRespaldosDeRondaCerrada,
@@ -41,7 +43,11 @@ export async function conciliarRespaldos(): Promise<string[]> {
     }
     let cambio = false
     if (estado === RONDA_NO_EXISTE) { limpiarCopiaLocalDeRonda(codigo); cambio = true }
-    else if (estado === 'finalizada') cambio = marcarRespaldosDeRondaCerrada(codigo)
+    else if (estado === 'finalizada') {
+      cambio = marcarRespaldosDeRondaCerrada(codigo)
+      // Recién confirmada cerrada: lo marcado hace más de 30 días se barre (una reabierta nunca llega acá).
+      barrerRespaldosDeRondaCerrada(codigo)
+    }
     else if (estado === 'en_curso') cambio = desmarcarRespaldosDeRondaCerrada(codigo)
     if (cambio) cambiados.push(codigo)
   }

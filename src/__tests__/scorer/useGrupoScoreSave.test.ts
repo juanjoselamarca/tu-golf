@@ -267,20 +267,52 @@ describe('useGrupoScoreSave — revisión Fable', () => {
     expect(saveRondaLibreScores).toHaveBeenCalledWith(cliente, expect.objectContaining({ jugadorId: 'p2', delta: { 1: 5 } }))
   })
 
-  it('ronda finalizada en otro dispositivo (P0002): un aviso y NO se reintenta para siempre', async () => {
+  it('ronda finalizada en otro dispositivo (P0002): un aviso, NO se reintenta y los golpes se GUARDAN', async () => {
+    const { leerPendientes } = await import('@/lib/ronda/score-storage')
     saveRondaLibreScores.mockResolvedValue({ error: { code: 'P0002' } })
     const { result } = montar()
     act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
     await act(async () => { await vi.advanceTimersByTimeAsync(600) })
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'La ronda ya fue finalizada' }))
-    expect(result.current.save.pendienteDeEnvio).toBe(false)
     // No se informa como guardado y la página navega al resultado.
     expect(result.current.save.saveStatus).toBe('error')
     expect(result.current.save.hasUnsaved).toBe(true)
     expect(result.current.save.rondaCerrada).toBe(true)
+    // Reabrir un torneo devuelve sus rondas a 'en_curso': lo que no subió es lo único que hay.
+    expect(leerPendientes('ABC')).toEqual({ p1: { 1: 5 } })
+    expect(result.current.save.pendienteDeEnvio).toBe(true)
+    // Pero con la ronda cerrada no se reintenta: ni cada 15 s ni al volver la red.
     const llamadas = saveRondaLibreScores.mock.calls.length
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    await act(async () => { window.dispatchEvent(new Event('online')); await vi.advanceTimersByTimeAsync(10) })
     expect(saveRondaLibreScores.mock.calls.length).toBe(llamadas)
+    expect(addToast).toHaveBeenCalledTimes(1)
+  })
+
+  it('P0002 y después la ronda se reabre: al volver al scorer los golpes guardados se reenvían', async () => {
+    const { leerPendientes, hayPendientes } = await import('@/lib/ronda/score-storage')
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'P0002' } })
+    const cerrada = montar()
+    act(() => { cerrada.result.current.save.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    cerrada.unmount()
+    expect(leerPendientes('ABC')).toEqual({ p1: { 1: 5 } })
+    // Reabierta ('en_curso'): la página pinta lo pendiente y llama a saveAllScores() (useRondaGrupoData → golpesSinSubir).
+    saveRondaLibreScores.mockReset()
+    saveRondaLibreScores.mockResolvedValue({ error: null })
+    const { result } = montar({ p1: { 1: 5 }, p2: {} })
+    await act(async () => { await result.current.save.saveAllScores() })
+    expect(saveRondaLibreScores).toHaveBeenCalledWith(cliente, { codigo: 'ABC', jugadorId: 'p1', delta: { 1: 5 } })
+    expect(hayPendientes('ABC')).toBe(false)
+  })
+
+  it('P0004 (golpe inválido): ése sí sale de pendientes (reenviarlo da el mismo rechazo)', async () => {
+    const { hayPendientes } = await import('@/lib/ronda/score-storage')
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'P0004' } })
+    const { result } = montar()
+    await act(async () => { await result.current.save.saveAllScores({ p1: { 1: 4 }, p2: {} }) })
+    expect(hayPendientes('ABC')).toBe(false)
+    expect(result.current.save.rondaCerrada).toBe(false)
   })
 
   it('tras una caída reenvía los valores actuales (una escritura vencida puede aterrizar tarde)', async () => {

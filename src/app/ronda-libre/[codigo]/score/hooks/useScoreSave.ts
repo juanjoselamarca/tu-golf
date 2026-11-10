@@ -7,11 +7,11 @@ import { saveRondaLibreScores, nuevaSecuencia } from '@/lib/data/ronda-libre-sco
 import { addToast } from '@/hooks/useToast'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
-import { RONDA_ERRCODE, esRechazoDefinitivo } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cierre'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE, AVISO_TARJETA_RECHAZADA } from '@/components/ronda/finalizar-copy'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
-import { marcarRespaldoSincronizado } from '@/lib/ronda/respaldo-local'
+import { marcarRespaldoRechazado, marcarRespaldoSincronizado } from '@/lib/ronda/respaldo-local'
 
 type ScoreSyncReturn = ReturnType<typeof useScoreSync>
 
@@ -95,12 +95,18 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       const supabase = createClient()
       const scoresObj: Record<string, number> = {}
       for (const [k, v] of Object.entries(pending.holeScores)) scoresObj[String(k)] = v
-      saveRondaLibreScores(supabase, { codigo, jugadorId: pending.jugadorId, delta: scoresObj }).then(({ error }) => {
-        if (!error) marcarRespaldoSincronizado(codigo, pending.jugadorId, pending.holeScores)
+      const { jugadorId, holeScores } = pending
+      saveRondaLibreScores(supabase, { codigo, jugadorId, delta: scoresObj }).then(({ error }) => {
+        if (!error) marcarRespaldoSincronizado(codigo, jugadorId, holeScores)
         // P0001 sólo se limpia con la ronda confirmada como borrada (también sale si falta el jugador).
+        // Viva: rechazo de esta tarjeta, que sale del banner (reenviarla da lo mismo).
         else if (error.code === RONDA_ERRCODE.NOT_FOUND) {
-          return confirmarRondaBorrada(supabase, codigo).then(v => { if (v === 'ronda_borrada') limpiarCopiaLocalDeRonda(codigo) })
+          return confirmarRondaBorrada(supabase, codigo).then(v => {
+            if (v === 'ronda_borrada') limpiarCopiaLocalDeRonda(codigo)
+            else if (v === 'ronda_viva') marcarRespaldoRechazado(codigo, jugadorId, holeScores)
+          })
         }
+        else if (esRechazoQueDescarta(error)) marcarRespaldoRechazado(codigo, jugadorId, holeScores)
       }).catch(() => { /* silent — local backup existe */ })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al desmontar; codigo es fijo por página
@@ -153,7 +159,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
         break
       }
       // Cualquier otro rechazo firme del servidor tampoco se arregla reintentando.
-      else if (esRechazoDefinitivo(error)) { rechazadoRpc = true; break }
+      else if (esRechazoQueDescarta(error)) { rechazadoRpc = true; break }
       else {
         // Backoff exponencial: 400ms, 800ms. Alineado con score-grupo.
         if (intentos < 2) {
@@ -190,6 +196,10 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     }
     if (rechazadoRpc) {
       setSaveStatus('error')
+      // El servidor no la va a aceptar nunca: si siguiera pendiente, el banner "Sincronizando…" quedaba pegado
+      // en toda la app y cada vuelta al scorer la reenviaba. Se guarda unos días y se barre; un golpe nuevo
+      // la vuelve a intentar.
+      marcarRespaldoRechazado(codigo, jugadorId, holeScores)
       // Avisa también el guardado de Finalizar (que se detiene sin cerrar); no los anteriores en vuelo.
       if (paraFinalizar || !finalizandoRef.current) addToast({ ...AVISO_TARJETA_RECHAZADA, type: 'error', duration: 8000 })
       return 'rechazado'

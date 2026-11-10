@@ -31,7 +31,9 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 import { conciliarRespaldos, useConciliarRespaldos } from './useConciliarRespaldos'
-import { contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
+import {
+  barrerRespaldosViejos, contarHoyosPendientes, leerRespaldoPendiente, DIAS_RETENCION_RESPALDO_RONDA_CERRADA,
+} from '@/lib/ronda/respaldo-local'
 
 const respaldo = (codigo: string, jugador: string, sincronizado = false) => localStorage.setItem(
   `golfers_score_${codigo}_${jugador}`,
@@ -80,6 +82,32 @@ describe('conciliarRespaldos', () => {
     expect(await conciliarRespaldos()).toEqual(['FIN999'])
     expect(contarHoyosPendientes()).toBe(1)
     expect(leerRespaldoPendiente('FIN999', 'p1')).toEqual({ 1: 4 })
+  })
+
+  it('vista cerrada hace más de 30 días y REABIERTA: abrir un scorer (barrido) y conciliar no la pierden', async () => {
+    const viejo = Date.now() - (DIAS_RETENCION_RESPALDO_RONDA_CERRADA + 5) * 24 * 60 * 60 * 1000
+    localStorage.setItem('golfers_score_FIN999_p1', JSON.stringify({
+      scores: { 1: 4 }, timestamp: viejo, sincronizado: false, codigoRonda: 'FIN999', jugadorId: 'p1', rondaCerradaEn: viejo,
+    }))
+    // El scorer barre al montar, ANTES de que el conciliador sepa que se reabrió.
+    barrerRespaldosViejos()
+    expect(hay('golfers_score_FIN999_p1')).toBe(true)
+    respuestas.set('FIN999', { data: { estado: 'en_curso' }, error: null })
+    await conciliarRespaldos()
+    expect(leerRespaldoPendiente('FIN999', 'p1')).toEqual({ 1: 4 })
+    expect(contarHoyosPendientes()).toBe(1)
+  })
+
+  it('vista cerrada hace más de 30 días y el servidor confirma que SIGUE cerrada: ahí se barre', async () => {
+    const viejo = Date.now() - (DIAS_RETENCION_RESPALDO_RONDA_CERRADA + 5) * 24 * 60 * 60 * 1000
+    localStorage.setItem('golfers_score_FIN999_p1', JSON.stringify({
+      scores: { 1: 4 }, timestamp: viejo, sincronizado: false, codigoRonda: 'FIN999', jugadorId: 'p1', rondaCerradaEn: viejo,
+    }))
+    respaldo('FIN999', 'p2') // recién vista cerrada: se marca y se queda
+    respuestas.set('FIN999', { data: { estado: 'finalizada' }, error: null })
+    await conciliarRespaldos()
+    expect(hay('golfers_score_FIN999_p1')).toBe(false)
+    expect(hay('golfers_score_FIN999_p2')).toBe(true)
   })
 
   it('una ronda cerrada que después se borra: ahí sí limpia', async () => {
