@@ -4,7 +4,11 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { actualizarIndice } from '@/lib/data/perfil'
-import { leerCampoHandicap, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
+import {
+  leerCampoHandicap,
+  MENSAJE_INDICE_NO_SE_GUARDO,
+  PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO,
+} from '@/golf/handicap-index-range'
 import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { Flag } from '@/components/icons'
@@ -133,11 +137,12 @@ export function OnboardingWizard({ userId, userName }: Props) {
 
   // ── Step 1: save handicap ──
   // Sin "No tengo / No sé" el índice es obligatorio (sin "o déjalo vacío" en el aviso) y con rango WHS.
-  // "Siguiente" solo espera que haya algo escrito: con "+" a medio escribir o "abc", al tocarlo se avisa en el
-  // campo y se le da el foco (no se apaga sin decir por qué).
+  // "Siguiente" se apaga solo con el campo vacío (y sin "No tengo"): ahí no hay nada que avisar todavía. Con "+"
+  // a medio escribir o "abc", al tocarlo se avisa en el campo y se le da el foco (no se apaga sin decir por qué).
+  // Con "No tengo" el texto es '' y no hay aviso en vivo; solo puede aparecer el de un guardado fallido.
   const campoHandicap = useAvisoIndiceAlEnviar(handicap, 'onboarding-indice', { opcional: false, rango: 'indice' })
-  const avisoHandicap = noHandicap ? null : campoHandicap.aviso
-  const canAdvanceStep1 = noHandicap || handicap.trim() !== ''
+  const avisoHandicap = campoHandicap.aviso
+  const canAdvanceStep1 = noHandicap || leerCampoHandicap(handicap).estado !== 'vacio'
 
   const handleSaveHandicap = async () => {
     if (!noHandicap && !campoHandicap.validarAlEnviar()) return
@@ -145,7 +150,11 @@ export function OnboardingWizard({ userId, userName }: Props) {
     try {
       // "+2" es un plus (−2) y "18,5" lleva coma: parseFloat("+2") guardaba 2.
       const indice = noHandicap ? null : leerCampoHandicap(handicap).valor
-      await actualizarIndice(createClient(), userId, indice)
+      // Si el UPDATE falla (sin señal), no se avanza como si se hubiera guardado: se avisa en el campo.
+      if (!(await actualizarIndice(createClient(), userId, indice))) {
+        campoHandicap.avisar(MENSAJE_INDICE_NO_SE_GUARDO)
+        return
+      }
       setStep(2)
     } finally {
       setSaving(false)

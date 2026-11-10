@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { actualizarNombreEIndice, type Profile } from '@/lib/data/perfil'
-import { leerCampoHandicap, textoCampoHandicap } from '@/golf/handicap-index-range'
+import { leerCampoHandicap, MENSAJE_INDICE_NO_SE_GUARDO, textoCampoHandicap } from '@/golf/handicap-index-range'
 import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
 
 export function useProfileEdit(profile: Profile, onProfile: (p: Profile) => void) {
@@ -26,7 +26,13 @@ export function useProfileEdit(profile: Profile, onProfile: (p: Profile) => void
       name: editName.trim(),
       indice: leerCampoHandicap(editIndice).valor,
     })
-    if (updated) onProfile({ ...profile, ...updated } as Profile)
+    if (!updated) {
+      // El UPDATE falló: no se cierra la edición ni se marca "Guardado" (antes decía "Guardado" igual, #776).
+      campoIndice.avisar(MENSAJE_INDICE_NO_SE_GUARDO)
+      setSaving(false)
+      return
+    }
+    onProfile({ ...profile, ...updated } as Profile)
     setSaving(false)
     setSaved(true)
     setEditing(false)

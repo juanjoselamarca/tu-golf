@@ -114,18 +114,20 @@ export async function actualizarNombreEIndice(
   userId: string,
   cambios: { name: string; indice: number | null },
 ): Promise<Pick<Profile, 'id' | 'name' | 'indice' | 'avatar_url'> | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .update(cambios)
     .eq('id', userId)
     .select('id, name, indice, avatar_url')
     .single()
+  if (error) captureError(error, { context: 'actualizarNombreEIndice', meta: { userId } })
   return (data as Pick<Profile, 'id' | 'name' | 'indice' | 'avatar_url'> | null) ?? null
 }
 
 /** Guarda solo el índice federado (onboarding). Devuelve false si el UPDATE falló. */
 export async function actualizarIndice(supabase: SupabaseClient, userId: string, indice: number | null): Promise<boolean> {
   const { error } = await supabase.from('profiles').update({ indice }).eq('id', userId)
+  if (error) captureError(error, { context: 'actualizarIndice', meta: { userId } })
   return !error
 }
 

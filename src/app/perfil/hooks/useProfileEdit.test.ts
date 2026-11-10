@@ -11,6 +11,9 @@ const baseProfile: Profile = {
 }
 
 const update = vi.hoisted(() => vi.fn())
+const respuesta = vi.hoisted(() => ({ falla: false }))
+const captureError = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/error-tracking', () => ({ captureError }))
 
 vi.mock('@/lib/supabase', () => ({
   createClient: () => ({
@@ -19,7 +22,9 @@ vi.mock('@/lib/supabase', () => ({
         eq: () => ({
           select: () => ({
             // El update solo devuelve estas 4 columnas (como en prod).
-            single: async () => ({ data: { id: 'u1', name: 'Ana María', indice: 11.0, avatar_url: null }, error: null }),
+            single: async () => (respuesta.falla
+              ? { data: null, error: { message: 'Failed to fetch' } }
+              : { data: { id: 'u1', name: 'Ana María', indice: 11.0, avatar_url: null }, error: null }),
           }),
         }),
       }),
@@ -67,7 +72,7 @@ describe('useProfileEdit — índice federado', () => {
   it('"abc" no escribe y avisa', async () => {
     const result = await guardar('abc')
     expect(update).not.toHaveBeenCalled()
-    expect(result.current.campoIndice.aviso).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
+    expect(result.current.campoIndice.aviso).toBe('Escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
   })
 
   it('fuera del rango WHS ("60") no escribe y avisa el rango', async () => {
@@ -79,7 +84,7 @@ describe('useProfileEdit — índice federado', () => {
   it('"+" a medio escribir: al guardar no escribe y avisa en el campo', async () => {
     const result = await guardar('+')
     expect(update).not.toHaveBeenCalled()
-    expect(result.current.campoIndice.aviso).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
+    expect(result.current.campoIndice.aviso).toBe('Escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
   })
 
   it('cancelar vuelve a la precarga con "+"', () => {
@@ -87,5 +92,24 @@ describe('useProfileEdit — índice federado', () => {
     act(() => { result.current.setEditIndice('abc') })
     act(() => { result.current.cancel() })
     expect(result.current.editIndice).toBe('+2')
+  })
+  it('si el UPDATE falla (#776): no cierra la edición, no dice "Guardado", avisa en el campo y registra el error', async () => {
+    respuesta.falla = true
+    try {
+      const onProfile = vi.fn()
+      const { result } = renderHook(() => useProfileEdit(baseProfile, onProfile))
+      act(() => { result.current.setEditing(true) })
+      act(() => { result.current.setEditIndice('+2') })
+      await act(async () => { await result.current.save() })
+      expect(onProfile).not.toHaveBeenCalled()
+      expect(result.current.editing).toBe(true)
+      expect(result.current.saved).toBe(false)
+      expect(result.current.saving).toBe(false)
+      expect(result.current.editIndice).toBe('+2')
+      expect(result.current.campoIndice.aviso).toBe('No pudimos guardar tu índice. Revisa tu señal y vuelve a intentarlo.')
+      expect(captureError).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'actualizarNombreEIndice' }))
+    } finally {
+      respuesta.falla = false
+    }
   })
 })
