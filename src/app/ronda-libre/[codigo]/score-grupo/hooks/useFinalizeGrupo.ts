@@ -20,7 +20,7 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
 import { saveGroupScores, confirmarPendientes, hayPendientes, limpiarCopiaLocalDelGrupo } from '@/lib/ronda/score-storage'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
@@ -84,8 +84,9 @@ export function useFinalizeGrupo(input: {
     setDiscarding(true)
     setShowDiscardConfirm(false)
     haptic(30)
-    const { error } = await descartarRondaLibre(createClient(), codigo)
-    if (error) {
+    // noExiste: un intento anterior ya la borró y la respuesta se perdió. Es un descarte hecho.
+    const { error, noExiste } = await descartarRondaLibre(createClient(), codigo)
+    if (error && !noExiste) {
       setDiscarding(false)
       addToast({ type: 'error', title: 'No se descartó la ronda', message: error, duration: 5000 })
       return
@@ -125,7 +126,7 @@ export function useFinalizeGrupo(input: {
       return
     }
     if (estado === RONDA_NO_EXISTE) {
-      addToast({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.', type: 'info' })
+      addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
       limpiarCopiaLocalDelGrupo(codigo)
       setFinalizing(false)
       router.push('/dashboard')

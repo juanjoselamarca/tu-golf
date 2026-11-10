@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
 
 const STORAGE_PREFIX = 'golfers_score_'
 const DIAS_PARA_LIMPIAR = 7
@@ -25,11 +26,12 @@ export function leerRespaldoPendiente(codigoRonda: string, jugadorId: string): R
 }
 
 /**
- * Borra el respaldo de un jugador. Sólo cuando la ronda ya no existe o se descartó:
- * nadie podría sincronizarlo y el banner de "Sincronizando…" quedaría para siempre.
+ * Borra los respaldos de TODOS los jugadores de una ronda (los que anotó este teléfono). Sólo con
+ * la ronda confirmada como borrada (P0001 / PGRST116): nunca por una lectura sin señal o una sesión
+ * vencida. El `_` final del prefijo evita tocar otra ronda cuyo código empiece igual (ABC vs ABCD).
  */
-export function borrarRespaldo(codigoRonda: string, jugadorId: string): void {
-  try { localStorage.removeItem(claveDelRespaldo(codigoRonda, jugadorId)) } catch { /* modo privado */ }
+export function borrarRespaldosDeRonda(codigoRonda: string): void {
+  borrarClavesConPrefijo(claveDelRespaldo(codigoRonda, ''))
 }
 
 /**

@@ -18,6 +18,7 @@ import {
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
 import { leerRespaldoPendiente } from '@/hooks/useScoreSync'
+import { limpiarCopiaLocalDeRonda } from '../copia-local'
 import { captureError } from '@/lib/error-tracking'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { netoNoDisponibleSinSesion } from '@/golf/ronda-libre/permisos'
@@ -97,7 +98,9 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         reintento = setTimeout(() => setIntento(i => i + 1), REINTENTO_CARGA_MS)
       }
       const carga = await fetchRondaLibreParaScorer(supabase, codigo)
-      if (carga.estado === 'no_existe') { router.push('/dashboard'); return }
+      // Ronda borrada (PGRST116, confirmado por el servidor): sus copias locales ya no tienen dónde
+      // subirse; si quedaran, el banner "Sincronizando…" seguiría en toda la app.
+      if (carga.estado === 'no_existe') { limpiarCopiaLocalDeRonda(codigo); router.push('/dashboard'); return }
       if (carga.estado === 'sin_conexion') { sinConexion(); return }
       const r = carga.ronda
       // Quién anota: la sesión del teléfono, no el servidor de login (puede estar caído).

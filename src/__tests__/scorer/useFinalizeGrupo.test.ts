@@ -32,7 +32,7 @@ vi.mock('@/lib/data/ronda-libre-scores', () => ({
   finalizarRondaLibre: (...a: unknown[]) => finalizarRondaLibre(...(a as [])),
   ERRCODE_SIN_RESPUESTA: 'SIN_RESPUESTA',
 }))
-const descartarRondaLibre = vi.fn(async () => ({ error: null as string | null }))
+const descartarRondaLibre = vi.fn(async () => ({ error: null as string | null, noExiste: false }))
 vi.mock('@/lib/data/ronda-libre-cierre', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-cierre')>()),
   descartarRondaLibre: (...a: unknown[]) => descartarRondaLibre(...(a as [])),
@@ -371,11 +371,29 @@ describe('useFinalizeGrupo', () => {
     expect(push).toHaveBeenCalledWith('/dashboard?discarded=1')
 
     push.mockClear()
-    descartarRondaLibre.mockResolvedValueOnce({ error: 'Solo quien creó la ronda puede descartarla.' })
+    descartarRondaLibre.mockResolvedValueOnce({ error: 'Solo quien creó la ronda puede descartarla.', noExiste: false })
     const { result: r2 } = montar()
     await act(async () => { await r2.current.fin.discardRound() })
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', message: 'Solo quien creó la ronda puede descartarla.' }))
     expect(r2.current.fin.discarding).toBe(false)
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  // PR #759: el servidor borró la ronda pero la respuesta se perdió; el reintento recibe P0001.
+  it('descartar con la ronda ya borrada (noExiste): limpia y va al dashboard como un descarte exitoso', async () => {
+    descartarRondaLibre.mockResolvedValueOnce({ error: 'Esta ronda ya no existe.', noExiste: true })
+    const { result } = montar()
+    await act(async () => { await result.current.fin.discardRound() })
+    expect(limpiarCopiaLocalDelGrupo).toHaveBeenCalledWith('ABC')
+    expect(push).toHaveBeenCalledWith('/dashboard?discarded=1')
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
+  })
+
+  it('inverso: descartar sin red no limpia ni sale', async () => {
+    descartarRondaLibre.mockResolvedValueOnce({ error: 'No se pudo descartar la ronda. Intenta de nuevo.', noExiste: false })
+    const { result } = montar()
+    await act(async () => { await result.current.fin.discardRound() })
+    expect(limpiarCopiaLocalDelGrupo).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
   })
 })

@@ -79,12 +79,17 @@ export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'deta
 /**
  * Borra la ronda con sus jugadores y equipos, en una sola transacción.
  * Solo el creador; nunca una ronda de torneo.
+ *
+ * `noExiste`: el servidor respondió P0001, la ronda ya no está. Pasa cuando un intento anterior
+ * la borró y la respuesta se perdió (mala señal): para quien descarta es un descarte hecho, y los
+ * dos scorers siguen por el camino de éxito (limpiar las copias locales y salir). Sólo P0001:
+ * sin red, 5xx o sin permiso la ronda puede seguir viva y no se limpia nada.
  */
 export async function descartarRondaLibre(
   supabase: RpcClient,
   codigo: string,
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; noExiste: boolean }> {
   const { error } = await supabase.rpc('descartar_ronda_libre', { p_codigo: codigo })
-  if (!error) return { error: null }
-  return { error: mensajeErrorDescartar(error) }
+  if (!error) return { error: null, noExiste: false }
+  return { error: mensajeErrorDescartar(error), noExiste: error.code === RONDA_ERRCODE.NOT_FOUND }
 }

@@ -8,6 +8,15 @@ export const AVISO_FINALIZAR_SIN_SERVIDOR = {
 } as const
 
 /**
+ * La ronda ya no existe (quien la creó la descartó): el mismo aviso en los dos scorers,
+ * al guardar un golpe o al finalizar. Las copias locales se borran y el jugador sale.
+ */
+export const AVISO_RONDA_NO_EXISTE = {
+  title: 'Esta ronda ya no existe',
+  message: 'Quien la creó la descartó.',
+} as const
+
+/**
  * Match play NETO sin sesión con un jugador cuyo índice está en su perfil (#511):
  * sin ese índice el match (y qué hoyos quedaron sin jugar) saldría como gross. No
  * se cierra a su nombre; los golpes siguen anotados.

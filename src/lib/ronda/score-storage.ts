@@ -9,6 +9,8 @@
 // - save/clear envueltos en try/catch silencioso (quota exceeded / disabled)
 // - load devuelve {} si no hay nada o si el JSON está corrupto
 
+import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
+
 const KEY = (codigo: string, jugadorId: string) => `ronda_${codigo}_${jugadorId}`
 
 export function saveScores(codigo: string, jugadorId: string, scores: Record<number, number>): void {
@@ -33,6 +35,16 @@ export function clearScores(codigo: string, jugadorId: string): void {
   } catch {
     // noop (parity con lsClear original)
   }
+}
+
+/**
+ * Borra las tarjetas de TODOS los jugadores de una ronda en este teléfono (la ronda ya no existe o
+ * se descartó). El `_` final del prefijo no toca otra ronda cuyo código empiece igual; las claves
+ * del scorer de grupo (`ronda_grupo_…`, `ronda_puntitos_…`) no calzan porque el código va en
+ * mayúsculas.
+ */
+export function clearScoresDeRonda(codigo: string): void {
+  borrarClavesConPrefijo(KEY(codigo, ''))
 }
 
 // Exportado para la migración a IndexedDB (Sprint 2) y para tests.
@@ -124,14 +136,7 @@ export function clearScorerGrupoSnapshot(codigo: string): void {
 
 /** Al cerrar sesión: ninguna copia del scorer queda para el próximo usuario del teléfono. */
 export function clearAllScorerGrupoSnapshots(): void {
-  try {
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const k = localStorage.key(i)
-      if (k?.startsWith(SNAPSHOT_PREFIX)) localStorage.removeItem(k)
-    }
-  } catch {
-    // noop
-  }
+  borrarClavesConPrefijo(SNAPSHOT_PREFIX)
 }
 
 // ─── Golpes de equipo del scorer de grupo (scramble / foursome) ───────────

@@ -15,8 +15,24 @@ function cliente(respuesta: { data?: unknown; error?: unknown }) {
 describe('descartarRondaLibre', () => {
   it('éxito sin error', async () => {
     const sb = cliente({})
-    expect(await descartarRondaLibre(sb as never, 'ABC123')).toEqual({ error: null })
+    expect(await descartarRondaLibre(sb as never, 'ABC123')).toEqual({ error: null, noExiste: false })
     expect(sb.rpc).toHaveBeenCalledWith('descartar_ronda_libre', { p_codigo: 'ABC123' })
+  })
+
+  it('P0001 (la borró un intento anterior cuya respuesta se perdió): noExiste, para seguir como descartada', async () => {
+    const r = await descartarRondaLibre(
+      cliente({ error: { code: 'P0001', message: 'RONDA_NOT_FOUND', details: '' } }) as never,
+      'ABC123',
+    )
+    expect(r.noExiste).toBe(true)
+  })
+
+  it('sin red, sin permiso o 5xx: NO es noExiste (la ronda puede seguir viva)', async () => {
+    for (const code of ['', 'P0003', '08006', 'PGRST301']) {
+      const r = await descartarRondaLibre(cliente({ error: { code, message: 'x', details: '' } }) as never, 'ABC123')
+      expect(r.noExiste).toBe(false)
+      expect(r.error).not.toBeNull()
+    }
   })
 
   it('no-creador recibe un mensaje claro (antes: "Ronda descartada" sin borrar nada)', async () => {

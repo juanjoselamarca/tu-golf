@@ -1,9 +1,21 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDelGrupo } from './score-storage'
+import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDelGrupo, clearScoresDeRonda } from './score-storage'
 
 beforeEach(() => localStorage.clear())
 
 describe('score-storage', () => {
+  it('clearScoresDeRonda borra las tarjetas de todos los jugadores de esa ronda y de ninguna otra', () => {
+    saveScores('ABC', 'j1', { 1: 4 })
+    saveScores('ABC', 'j2', { 1: 5 })
+    saveScores('ABCD', 'j1', { 1: 6 })
+    saveGroupScores('ABC', { j1: { 1: 4 } })
+    clearScoresDeRonda('ABC')
+    expect(loadScores('ABC', 'j1')).toEqual({})
+    expect(loadScores('ABC', 'j2')).toEqual({})
+    expect(loadScores('ABCD', 'j1')).toEqual({ 1: 6 })
+    expect(localStorage.getItem('ronda_grupo_ABC')).not.toBeNull()
+  })
+
   it('roundtrip: save → load', () => {
     saveScores('ABC', 'j1', { 1: 4, 2: 5 })
     expect(loadScores('ABC', 'j1')).toEqual({ 1: 4, 2: 5 })
