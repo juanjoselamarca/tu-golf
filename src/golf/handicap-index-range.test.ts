@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  parsearHandicapOpcional,
   HANDICAP_INDEX_MAX,
   formatearIndice,
   HANDICAP_INDEX_MIN,
@@ -147,6 +148,18 @@ describe('parsearHandicap', () => {
     for (const v of [-2, -2.4, 0, 12.4, 54]) {
       expect(parsearHandicap(formatearHandicap(v))).toBe(v)
     }
+  })
+})
+
+describe('parsearHandicapOpcional', () => {
+  it('vacío → null; "+2" → −2; "18,5" → 18.5; lo que no es número → NaN', () => {
+    expect(parsearHandicapOpcional('')).toBeNull()
+    expect(parsearHandicapOpcional('   ')).toBeNull()
+    expect(parsearHandicapOpcional('+2')).toBe(-2)
+    expect(parsearHandicapOpcional('-2')).toBe(-2)
+    expect(parsearHandicapOpcional('18,5')).toBe(18.5)
+    expect(parsearHandicapOpcional('12.4')).toBe(12.4)
+    expect(parsearHandicapOpcional('abc')).toBeNaN()
   })
 })
 

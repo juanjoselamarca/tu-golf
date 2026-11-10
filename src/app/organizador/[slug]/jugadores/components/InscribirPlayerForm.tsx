@@ -5,32 +5,27 @@ import { inputStyle } from '../styles'
 import type { Profile } from '../hooks/useProfileSearch'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { UpsellCard } from '@/components/billing/UpsellCard'
-import { formatearHandicap, formatearIndice, parsearHandicap } from '@/golf/handicap-index-range'
+import { formatearHandicap, formatearIndice, parsearHandicap, parsearHandicapOpcional } from '@/golf/handicap-index-range'
 
 export type InscribirMode = 'search' | 'guest' | 'batch'
 
+/** Al final de la línea, tras un separador: el hándicap (con signo y coma o punto decimal). */
+const HCP_AL_FINAL = /[\s,;\t]+([+-]?\d+(?:[.,]\d+)?)$/
+
 /** Parsea una línea de texto en {nombre, handicap}.
- *  Acepta "Nombre" o "Nombre, 18.4" o "Nombre, email@x.com, 18.4".
- *  El handicap es opcional; si no se puede parsear como numero, queda null. */
+ *  Acepta "Nombre", "Nombre, 18.4", "Nombre 18,5", "Nombre<TAB>18,5" (Excel chileno),
+ *  "Nombre, email@x.com, 18.4" y el plus "Nombre, +2" (−2).
+ *  El hándicap se saca del FINAL antes de partir por comas: si no, "18,5" quedaba en 18.
+ *  Es opcional; si la línea no termina en un número, queda null. */
 export function parseBatchLine(line: string): { name: string; hcp: number | null } | null {
   const trimmed = line.trim()
   if (!trimmed) return null
 
-  const parts = trimmed.split(/[,;\t]+/).map(s => s.trim()).filter(Boolean)
-  const name = parts[0]
+  const m = HCP_AL_FINAL.exec(trimmed)
+  const resto = m ? trimmed.slice(0, m.index) : trimmed
+  const name = resto.split(/[,;\t]+/).map(s => s.trim()).find(Boolean)
   if (!name) return null
-
-  // Buscar el primer token que sea numerico entre los restantes
-  let hcp: number | null = null
-  for (let i = 1; i < parts.length; i++) {
-    // "+2" es un plus (−2), como en el resto de la app; Number("+2") daba 2.
-    const n = parsearHandicap(parts[i])
-    if (!Number.isNaN(n) && parts[i] !== '') {
-      hcp = n
-      break
-    }
-  }
-  return { name, hcp }
+  return { name, hcp: m ? parsearHandicap(m[1]) : null }
 }
 
 interface Props {
@@ -66,9 +61,9 @@ export function InscribirPlayerForm({
 }: Props) {
   const { allowed: guestAllowed } = useEntitlement('guest-tournament')
 
-  // Handicap es opcional: si está vacío se inscribe con null.
-  // Si tiene valor, debe ser numérico válido.
-  const guestHcpValid = guestHcp.trim() === '' || !Number.isNaN(Number(guestHcp))
+  // Handicap es opcional: si está vacío se inscribe con null. Si tiene valor se lee como en el
+  // resto de la app ("+2" plus, "18,5" con coma); lo que no es número se avisa, no se pierde.
+  const guestHcpValid = !Number.isNaN(parsearHandicapOpcional(guestHcp) ?? 0)
   const guestReady = guestName.trim() !== '' && guestHcpValid
 
   // Batch state
@@ -246,15 +241,25 @@ export function InscribirPlayerForm({
           {/* Handicap (indice) */}
           <div style={{ flex: '0 1 130px' }}>
             <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (opcional)</label>
+            {/* type="text": un type="number" deja el valor en '' con "+2" (y se inscribía sin
+                hándicap sin avisar); inputMode "text" porque el teclado decimal del iPhone no tiene signo. */}
             <input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              placeholder="Índice de handicap (opcional)"
+              id="guest-hcp"
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              placeholder="Ej: 12.4 o +2"
               value={guestHcp}
               onChange={(e) => setGuestHcp(e.target.value)}
+              aria-invalid={!guestHcpValid}
+              aria-describedby={guestHcpValid ? undefined : 'guest-hcp-error'}
               style={{ ...inputStyle, width: '100%' }}
             />
+            {!guestHcpValid && (
+              <p id="guest-hcp-error" role="alert" style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--double)' }}>
+                Escribe un número: 12.4, o +2 si es plus.
+              </p>
+            )}
           </div>
 
           {/* Button */}

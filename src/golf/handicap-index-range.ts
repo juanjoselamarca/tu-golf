@@ -112,6 +112,14 @@ export function parsearHandicap(texto: string): number {
   return conSigno && n !== 0 ? -n : n
 }
 
+/**
+ * Campo OPCIONAL de hándicap tipeado (invitado del organizador, pegado masivo): vacío → `null`; si no,
+ * `parsearHandicap` ("+2" → −2, "18,5" → 18.5). NaN = no es un número: el caller avisa.
+ */
+export function parsearHandicapOpcional(texto: string): number | null {
+  return texto.trim() === '' ? null : parsearHandicap(texto)
+}
+
 /** Mensaje para el usuario cuando el índice está fuera de rango. */
 export const MENSAJE_INDICE_FUERA_DE_RANGO =
   `Revisa el índice de handicap: debe estar entre ${formatearHandicap(HANDICAP_INDEX_MIN)} (plus) y ${HANDICAP_INDEX_MAX}.`
