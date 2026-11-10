@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { formatearIndice } from '@/golf/handicap-index-range'
 import { useParams } from 'next/navigation'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
 
@@ -94,7 +95,7 @@ export default function AdminBrainPage() {
 
       <Section title="Resumen">
         <KV k="userId" v={params.userId} />
-        <KV k="Indice" v={data.profile?.indice?.toString() ?? '—'} />
+        <KV k="Indice" v={data.profile?.indice != null ? formatearIndice(data.profile.indice) : '—'} />
         <KV k="Nivel" v={data.profile?.nivel?.toString() ?? '—'} />
         <KV k="Sesion creada" v={data.session?.created_at ?? '—'} />
         <KV k="Mensajes acumulados" v={data.session?.message_count?.toString() ?? '0'} />
