@@ -15,6 +15,7 @@ import {
 import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
 import type { ComunidadMensaje } from '@/lib/mi-golf/types'
 import { posicionDeRondaEnCurso, type PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 export async function CompetenciaSection({ userId, userName }: { userId: string; userName: string }) {
   const supabase = await createClient()
@@ -40,7 +41,7 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
   const enriquecidosOrganizing = enrichOrganizing(data.organizedTournaments)
   const finalizadosRecientes = buildFinalizados(data.playedTournaments, data.organizedTournaments)
 
-  const hcpDisplay = data.indiceGolfers != null ? data.indiceGolfers.toFixed(1) : null
+  const hcpDisplay = data.indiceGolfers != null ? formatearIndice(data.indiceGolfers) : null
   const comunidad: ComunidadMensaje = null
 
   let activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null = null

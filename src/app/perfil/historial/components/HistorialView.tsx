@@ -34,6 +34,7 @@ import { cardStyle } from '../lib/constants'
 import { useToast } from '@/hooks/useToast'
 import type { HistoricalRound, Pill } from '../lib/types'
 import { fechaDeCalendario } from '@/lib/format'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 /* ── Style for filter selects ── */
 const filterSelectStyle: React.CSSProperties = {
@@ -86,7 +87,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
   // Subtítulo honesto: muestra el índice REAL recalculado, no una promesa vacía.
   // null = <3 rondas válidas (todavía no hay índice).
   const idxMsg = (index?: number | null) =>
-    index != null ? `Tu índice ahora: ${index.toFixed(1)}` : 'Índice recalculado.'
+    index != null ? `Tu índice ahora: ${formatearIndice(index)}` : 'Índice recalculado.'
 
   const handleDelete = async (id: string) => {
     const res = await deleteRound(id)
@@ -121,7 +122,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
     if (res.ok) {
       toast.showSuccess(
         `${res.deletedCount} ${res.deletedCount === 1 ? 'ronda eliminada' : 'rondas eliminadas'}`,
-        res.index != null ? `Tu índice ahora: ${res.index.toFixed(1)}` : 'Ya no tienes índice (sin rondas).',
+        res.index != null ? `Tu índice ahora: ${formatearIndice(res.index)}` : 'Ya no tienes índice (sin rondas).',
       )
     } else if (res.reason === 'noop') {
       toast.showWarning('No se eliminó nada', 'Recarga la página e intenta de nuevo.')

@@ -5,6 +5,7 @@ import { inputStyle } from '../styles'
 import type { Profile } from '../hooks/useProfileSearch'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { UpsellCard } from '@/components/billing/UpsellCard'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 export type InscribirMode = 'search' | 'guest' | 'batch'
 
@@ -175,7 +176,7 @@ export function InscribirPlayerForm({
             />
             {selectedProfile && (
               <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '3px' }}>
-                {selectedProfile.name}{selectedProfile.indice != null ? ` — Hcp ${Number(selectedProfile.indice).toFixed(1)}` : ''}
+                {selectedProfile.name}{selectedProfile.indice != null ? ` — Hcp ${formatearIndice(Number(selectedProfile.indice))}` : ''}
               </div>
             )}
             {showResults && results.length > 0 && !selectedProfile && (

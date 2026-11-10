@@ -5,6 +5,7 @@ import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { usePlayerSearch, type SearchResult } from '../hooks/usePlayerSearch'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 interface Props {
   rival: RivalDelCreador
@@ -154,7 +155,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
                 <span style={{ fontWeight: 500 }}>{profile.name}</span>
                 {profile.indice != null && (
                   <span style={{ fontSize: '12px', color: colores.texto3, marginLeft: '8px', flexShrink: 0 }}>
-                    HCP {profile.indice.toFixed(1)}
+                    HCP {formatearIndice(profile.indice)}
                   </span>
                 )}
               </button>

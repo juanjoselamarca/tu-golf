@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { adminColors, adminCard, adminFonts } from '@/components/admin/admin-tokens'
 import { inferHoles } from '@/golf/core/holes'
 import { inscritoAprobado } from '@/golf/tournament-status'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 interface UserProfile {
   id: string; name: string; email: string; role: string
@@ -173,8 +174,8 @@ export default function UserDetailPage() {
       {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '20px' }}>
         {[
-          { label: 'Handicap', value: profile.indice != null ? profile.indice.toFixed(1) : '—' },
-          { label: 'Indice G+', value: profile.indice_golfers != null ? profile.indice_golfers.toFixed(1) : '—' },
+          { label: 'Handicap', value: profile.indice != null ? formatearIndice(profile.indice) : '—' },
+          { label: 'Indice G+', value: profile.indice_golfers != null ? formatearIndice(profile.indice_golfers) : '—' },
           { label: 'CPI', value: profile.cpi_score != null ? profile.cpi_score.toFixed(1) : '—' },
           { label: 'Rondas', value: totalRondas },
           { label: 'Torneos', value: tournaments.length },

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { adminColors, adminCard, adminFonts } from '@/components/admin/admin-tokens'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 interface UserRow {
   id: string
@@ -229,7 +230,7 @@ export default function UsuariosPage() {
                     {u.created_at ? new Date(u.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                   </td>
                   <td style={{ padding: '14px 16px', ...adminFonts.body, color: u.indice_golfers != null ? adminColors.gold : adminColors.grayDim, fontWeight: u.indice_golfers != null ? 600 : 400 }}>
-                    {u.indice_golfers != null ? u.indice_golfers.toFixed(1) : '—'}
+                    {u.indice_golfers != null ? formatearIndice(u.indice_golfers) : '—'}
                   </td>
                   <td style={{ padding: '14px 16px' }}>
                     {u.nivel ? (

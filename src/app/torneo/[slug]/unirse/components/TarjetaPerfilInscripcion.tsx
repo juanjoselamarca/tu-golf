@@ -1,4 +1,5 @@
 import type { JoinInfoProfile } from '@/lib/data/tournaments/joinFlow'
+import { formatearIndice } from '@/golf/handicap-index-range'
 
 /** Quién se va a inscribir: inicial, nombre e índice del perfil con sesión. */
 export function TarjetaPerfilInscripcion({ profile }: { profile: JoinInfoProfile }) {
@@ -40,7 +41,7 @@ export function TarjetaPerfilInscripcion({ profile }: { profile: JoinInfoProfile
               <>
                 Índice:{' '}
                 <span style={{ fontFamily: 'var(--font-dm-mono), monospace', color: 'var(--text)' }}>
-                  {Number(profile.indice).toFixed(1)}
+                  {formatearIndice(Number(profile.indice))}
                 </span>
               </>
             ) : (
