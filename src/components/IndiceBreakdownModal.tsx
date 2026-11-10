@@ -81,18 +81,19 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
     if (!isOpen) return
     let cancelled = false
     const fijar = (l: Lectura) => { if (!cancelled) setLectura(l) }
+    const leer = async (): Promise<Lectura> => {
+      const supabase = createClient()
+      const { data: { user }, error } = await supabase.auth.getUser()
+      // Sin red, getUser devuelve user null + AuthRetryableFetchError: eso es "reintentar", no "sesión expirada".
+      if (!user) return !error || isAuthSessionMissingError(error) ? { estado: 'sin-sesion' } : { estado: 'error' }
+      // Misma lectura que el CPI y Mi Golf (predicado del RPC). null = falló: no es "sin rondas".
+      const rondas = await fetchRondasIndice(supabase, user.id, ['course_name'] as const)
+      return rondas ? { estado: 'ok', rondas } : { estado: 'error' }
+    }
     ;(async () => {
       try {
-        const supabase = createClient()
-        const { data: { user }, error } = await conTimeout(supabase.auth.getUser(), PLAZO_LECTURA_INDICE_MS)
-        if (!user) {
-          // Sin red, getUser devuelve user null + AuthRetryableFetchError: eso es "reintentar", no "sesión expirada".
-          fijar(!error || isAuthSessionMissingError(error) ? { estado: 'sin-sesion' } : { estado: 'error' })
-          return
-        }
-        // Misma lectura que el CPI y Mi Golf (predicado del RPC). null = falló: no es "sin rondas".
-        const rondas = await conTimeout(fetchRondasIndice(supabase, user.id, ['course_name'] as const), PLAZO_LECTURA_INDICE_MS)
-        fijar(rondas ? { estado: 'ok', rondas } : { estado: 'error' })
+        // Un solo plazo para la lectura entera (sesión + rondas), no uno por paso.
+        fijar(await conTimeout(leer(), PLAZO_LECTURA_INDICE_MS))
       } catch (e) {
         // Plazo agotado o cualquier excepción: nunca quedarse en "Cargando…".
         void captureError(e, { context: 'indice-breakdown.lectura', level: 'warning' })

@@ -86,7 +86,9 @@ const T = {
  */
 function hcpAMostrar(p: Player): number | null {
   if (p.hcp == null) return null
-  // Mismo redondeo que los golpes que reparte la tarjeta (courseHandicap, más abajo): lo que se ve es lo que puntúa.
+  // Se comparte el REDONDEO con los golpes de la tarjeta (courseHandicap, más abajo), no el número: en un torneo
+  // hcpDisplay es el índice inscrito y p.hcp el hándicap de juego (con hcp_pct). Solo sin hcpDisplay se ve p.hcp,
+  // y entonces lo que se ve es lo que puntúa.
   return redondearHandicapWHS(p.hcpDisplay ?? p.hcp)
 }
 
