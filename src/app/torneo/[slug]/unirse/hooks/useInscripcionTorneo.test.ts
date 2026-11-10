@@ -222,7 +222,8 @@ describe('useInscripcionTorneo · hándicap del invitado', () => {
     expect(JSON.parse(init.body).handicap).toBeUndefined()
   })
 
-  it.each(['abc', '+'])('"%s" no llama al servidor ni pone el banner genérico (el aviso va en el campo)', async texto => {
+  // FormInvitado avisa en el campo y no llama; si otro llamador llega aquí, no se vuelve sin decir nada.
+  it.each(['abc', '+'])('"%s" no llama al servidor y dice por qué', async texto => {
     const { result } = await montar(ANON)
     act(() => {
       result.current.setGuestName('Pedro Pérez')
@@ -230,6 +231,6 @@ describe('useInscripcionTorneo · hándicap del invitado', () => {
     })
     await act(() => result.current.handleGuestJoin())
     expect(red.fetchJsonConPlazo).toHaveBeenCalledTimes(1)
-    expect(result.current.error).toBeNull()
+    expect(result.current.error).toBe('Escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
   })
 })

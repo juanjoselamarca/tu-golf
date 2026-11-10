@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { campoHandicapEnviable, leerCampoHandicap } from '@/golf/handicap-index-range'
+import { campoHandicapSePuedeEnviar, leerCampoHandicap, mensajeHandicapNoEsNumero, type ReglaCampoHandicap } from '@/golf/handicap-index-range'
 import { useRouter } from 'next/navigation'
 import type {
   JoinInfoTournament,
@@ -27,6 +27,16 @@ const aRespuestaJson = ({ res, json }: { res: Response; json: unknown }): Respue
  * Estado y acciones de la inscripción a un torneo por link: carga de join-info,
  * inscripción con cuenta e inscripción como invitado (redirige al scorer).
  */
+/** Hándicap del invitado: opcional; el rango lo valida el servidor (depende de lo que guarda el torneo). */
+export const REGLA_INVITADO: ReglaCampoHandicap = { opcional: true, rango: null }
+
+export const MENSAJE_NOMBRE_INVITADO_CORTO = 'Ingresa tu nombre (al menos 2 caracteres).'
+
+/** El nombre del invitado necesita al menos 2 letras sin contar espacios. */
+export function nombreDeInvitadoValido(nombre: string): boolean {
+  return nombre.trim().length >= 2
+}
+
 export function useInscripcionTorneo(slug: string) {
   const router = useRouter()
 
@@ -150,14 +160,17 @@ export function useInscripcionTorneo(slug: string) {
   const handleGuestJoin = async () => {
     if (!tournament || guestJoining) return
     const trimmedName = guestName.trim()
-    if (trimmedName.length < 2) {
-      setError('Ingresa tu nombre (al menos 2 caracteres).')
+    // FormInvitado ya avisa en cada campo y no llama aquí con un nombre corto o un hándicap que no es número;
+    // esto es la red de seguridad para otro llamador: nunca se vuelve sin decir nada.
+    if (!nombreDeInvitadoValido(trimmedName)) {
+      setError(MENSAJE_NOMBRE_INVITADO_CORTO)
       return
     }
     // "+2" es un plus (−2) y "18,5" lleva coma: se lee como en el resto de la app. parseFloat("+2") daba 2.
-    // FormInvitado ya avisó en el campo (useAvisoIndiceAlEnviar) y no llama aquí; esto es la red de seguridad.
-    // Sin setError: el aviso va en el campo, no en el banner genérico.
-    if (!campoHandicapEnviable(guestHandicap)) return
+    if (!campoHandicapSePuedeEnviar(guestHandicap, REGLA_INVITADO)) {
+      setError(mensajeHandicapNoEsNumero(REGLA_INVITADO.opcional))
+      return
+    }
     setGuestJoining(true)
     setError(null)
 

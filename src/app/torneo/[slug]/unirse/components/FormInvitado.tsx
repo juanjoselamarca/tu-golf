@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { PLACEHOLDER_CAMPO_HANDICAP } from '@/golf/handicap-index-range'
 import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
+import { useAvisoDeCampo } from '@/hooks/useAvisoDeCampo'
+import { MENSAJE_NOMBRE_INVITADO_CORTO, nombreDeInvitadoValido, REGLA_INVITADO } from '../hooks/useInscripcionTorneo'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { loginUrl } from '@/lib/auth/login-url'
 import { Input } from '@/components/ui/Input'
@@ -29,10 +31,17 @@ export function FormInvitado({
   guestJoining: boolean
   onJoin: () => void
 }) {
-  // Opcional; el rango lo valida el servidor (depende de lo que guarda el torneo). El botón no se apaga por el
-  // hándicap: con "+" o "-" a medio escribir se avisa en el campo al tocarlo, y se le da el foco.
-  const campoHcp = useAvisoIndiceAlEnviar(guestHandicap, 'guest-handicap', { opcional: true, rango: null })
-  const bloqueado = guestJoining || guestName.trim().length < 2
+  // El botón solo se apaga mientras se inscribe. Un nombre de 1 letra o un hándicap a medio escribir ("+")
+  // se avisan al tocarlo, en el campo, y se le da el foco: un botón apagado no dice qué falta.
+  const campoNombre = useAvisoDeCampo(guestName, 'guest-name')
+  const campoHcp = useAvisoIndiceAlEnviar(guestHandicap, 'guest-handicap', REGLA_INVITADO)
+  const enviar = () => {
+    if (!nombreDeInvitadoValido(guestName)) {
+      campoNombre.avisar(MENSAJE_NOMBRE_INVITADO_CORTO)
+      return
+    }
+    if (campoHcp.validarAlEnviar()) onJoin()
+  }
   return (
     <div>
       {/* Guest form */}
@@ -61,7 +70,10 @@ export function FormInvitado({
             placeholder="Nombre y apellido"
             maxLength={100}
             autoComplete="name"
+            error={campoNombre.avisoDelEnvio != null}
+            {...campoNombre.propsDelCampo}
           />
+          {campoNombre.avisoDelEnvio != null && <AvisoCampo id={campoNombre.idAviso}>{campoNombre.avisoDelEnvio}</AvisoCampo>}
         </div>
 
         <div style={{ marginBottom: '20px' }}>
@@ -86,7 +98,7 @@ export function FormInvitado({
           {campoHcp.aviso != null && <AvisoCampo id={campoHcp.idAviso}>{campoHcp.aviso}</AvisoCampo>}
         </div>
 
-        <Button type="button" variant="commit" size="lg" fullWidth onClick={() => { if (campoHcp.validarAlEnviar()) onJoin() }} disabled={bloqueado}>
+        <Button type="button" variant="commit" size="lg" fullWidth onClick={enviar} disabled={guestJoining}>
           {guestJoining ? 'Inscribiendo...' : 'Scorear como invitado'}
         </Button>
       </div>
