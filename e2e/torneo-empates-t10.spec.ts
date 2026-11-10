@@ -74,6 +74,10 @@ test('torneo en vivo: T10 cabe en la columna de posición', async ({ page }) => 
   await page.emulateMedia({ colorScheme: 'light' })
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'))
   await page.screenshot({ path: 'test-results/empates-t10/en-vivo-390-claro.png', fullPage: true })
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+  await expect(t10.first()).toBeVisible()
+  await page.screenshot({ path: 'test-results/empates-t10/en-vivo-390-oscuro.png', fullPage: true })
 })
 
 test('modo TV: T10 cabe en la columna de posición', async ({ page }) => {
