@@ -214,13 +214,8 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
           <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 10px' }}>
             Golfers+
           </p>
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-            {Array.from({ length: MIN_DIFERENCIALES_INDICE }, (_, i) => i).map(i => (
-              <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--border)' }} />
-            ))}
-          </div>
           <p style={{ fontSize: '11px', color: 'var(--text-2)', margin: '0 0 8px', lineHeight: 1.4 }}>
-            Juega {MIN_DIFERENCIALES_INDICE} rondas válidas para activar tu índice
+            Juega {MIN_DIFERENCIALES_INDICE} rondas válidas (canchas con slope y rating) para activar tu índice
           </p>
           <Link href="/ronda-libre/nueva" style={{ fontSize: '10px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}>
             Jugar ahora →

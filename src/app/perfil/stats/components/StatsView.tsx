@@ -11,6 +11,8 @@ import type { StatsRound } from '@/lib/data/stats'
 import { useStatsDerived, type RangeKey } from '../hooks/useStatsDerived'
 import { C, cardStyle } from './tokens'
 import { ProGate } from '@/components/billing/ProGate'
+import { formatearIndice } from '@/golf/handicap-index-range'
+import { MIN_DIFERENCIALES_INDICE } from '@/golf/core/whs-index'
 import { UpsellCard } from '@/components/billing/UpsellCard'
 import { UpsellCardSkeleton } from '@/components/billing/UpsellCardSkeleton'
 
@@ -33,6 +35,9 @@ interface Props {
   allRounds: StatsRound[]
   profileIndex: ProfileIndexPair
 }
+
+/** Rondas registradas (de cualquier cancha) desde las que hay tendencias, promedios y mejor/peor ronda. */
+const MIN_RONDAS_ESTADISTICAS = 3
 
 /* ── Helpers ── */
 function fmtDate(d: string) {
@@ -88,7 +93,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
           {allRounds.length} ronda{allRounds.length !== 1 ? 's' : ''} registrada{allRounds.length !== 1 ? 's' : ''}
         </p>
 
-        {/* ── Empty state for < 3 rounds ── */}
+        {/* ── Empty state: sin rondas ── */}
         {allRounds.length === 0 && (
           <div style={{
             ...cardStyle, marginBottom: 20, textAlign: 'center', padding: '48px 20px',
@@ -99,7 +104,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               Aún no tienes rondas registradas
             </p>
             <p style={{ color: C.muted, fontSize: 14, margin: '0 auto 20px', maxWidth: 360, lineHeight: 1.5 }}>
-              Registra 3+ rondas para ver tus estadísticas: tendencia de scoring, GWI, birdies, eagles y más.
+              Registra {MIN_RONDAS_ESTADISTICAS} rondas para ver tus estadísticas: tendencia de scoring, GWI, birdies, eagles y más.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/ronda-libre/nueva" style={{
@@ -120,17 +125,17 @@ export function StatsView({ allRounds, profileIndex }: Props) {
           </div>
         )}
 
-        {allRounds.length > 0 && allRounds.length < 3 && (
+        {allRounds.length > 0 && allRounds.length < MIN_RONDAS_ESTADISTICAS && (
           <div style={{
             ...cardStyle, marginBottom: 20, textAlign: 'center',
             background: 'rgba(196,153,42,0.04)', border: '1px solid rgba(196,153,42,0.2)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><BarChart3 size={32} strokeWidth={1.5} /></div>
             <p style={{ color: C.ivory, fontSize: 15, fontWeight: 600, margin: '0 0 6px' }}>
-              Registra {3 - allRounds.length} ronda{3 - allRounds.length !== 1 ? 's' : ''} más para estadísticas completas
+              Registra {MIN_RONDAS_ESTADISTICAS - allRounds.length} ronda{MIN_RONDAS_ESTADISTICAS - allRounds.length !== 1 ? 's' : ''} más para estadísticas completas
             </p>
             <p style={{ color: C.muted, fontSize: 13, margin: '0 0 12px' }}>
-              Con 3+ rondas se activan tendencias, promedios y tu Índice Golfers+.
+              Con {MIN_RONDAS_ESTADISTICAS} rondas se activan tendencias y promedios. Tu Índice Golfers+ se activa con {MIN_DIFERENCIALES_INDICE} rondas válidas (canchas con slope y rating).
             </p>
             <Link href="/ronda-libre/nueva" style={{
               display: 'inline-block', background: 'var(--brand)', color: 'var(--brand-dark)',
@@ -149,7 +154,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               Federación
             </p>
             <p style={{ fontSize: 32, fontWeight: 700, color: C.ivory, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
-              {profileIndex.indice != null ? profileIndex.indice.toFixed(1) : '—'}
+              {profileIndex.indice != null ? formatearIndice(profileIndex.indice) : '—'}
             </p>
             <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>Oficial</p>
           </div>
@@ -161,10 +166,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               Golfers+
             </p>
             <p style={{ fontSize: 32, fontWeight: 700, color: profileIndex.indice_golfers != null ? C.gold : C.muted, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
-              {profileIndex.indice_golfers != null ? profileIndex.indice_golfers.toFixed(1) : '—'}
+              {profileIndex.indice_golfers != null ? formatearIndice(profileIndex.indice_golfers) : '—'}
             </p>
             <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>
-              {profileIndex.indice_golfers != null ? 'Historial real' : '3+ rondas para activar'}
+              {profileIndex.indice_golfers != null ? 'Historial real' : `${MIN_DIFERENCIALES_INDICE} rondas válidas para activar`}
             </p>
           </div>
         </div>
@@ -379,7 +384,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
         )}
 
         {/* ── Best & Worst Rounds ── */}
-        {hasRounds && bestRoundData && worstRoundData && rounds.length >= 3 && (
+        {hasRounds && bestRoundData && worstRoundData && rounds.length >= MIN_RONDAS_ESTADISTICAS && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div style={{ ...cardStyle, textAlign: 'center' }}>
               <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
