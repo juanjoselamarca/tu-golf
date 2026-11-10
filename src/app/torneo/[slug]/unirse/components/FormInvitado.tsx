@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { PLACEHOLDER_CAMPO_HANDICAP, REGLA_INVITADO } from '@/golf/handicap-index-range'
 import { useAvisoIndiceAlEnviar } from '@/hooks/useAvisoIndiceAlEnviar'
 import { useAvisoDeCampo } from '@/hooks/useAvisoDeCampo'
-import { MENSAJE_NOMBRE_INVITADO_CORTO, nombreDeInvitadoValido } from '@/lib/inscripcion/nombre-invitado'
+import { MENSAJE_NOMBRE_INVITADO_CORTO, NOMBRE_INVITADO_MAX, nombreDeInvitadoValido } from '@/lib/inscripcion/nombre-invitado'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { loginUrl } from '@/lib/auth/login-url'
 import { Input } from '@/components/ui/Input'
@@ -68,7 +68,7 @@ export function FormInvitado({
             value={guestName}
             onChange={(e) => onGuestName(e.target.value)}
             placeholder="Nombre y apellido"
-            maxLength={100}
+            maxLength={NOMBRE_INVITADO_MAX}
             autoComplete="name"
             error={campoNombre.avisoDelEnvio != null}
             {...campoNombre.propsDelCampo}

@@ -8,7 +8,7 @@ import {
   puedeSumarEquipo,
 } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
-import { destinoParaMover } from '../hooks/equipos-del-formulario'
+import { destinoParaMover, nombreDeEquipo } from '../hooks/equipos-del-formulario'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { colores, input } from './estilos'
 import { TarjetaDelCreador } from './TarjetaDelCreador'
@@ -69,7 +69,7 @@ export function EquiposDeLaRonda(props: Props) {
   const textoDelMovimiento = (id: string) => {
     const movimiento = destinoParaMover(props.formato, props.equipos, id)
     if (!movimiento) return null
-    const equipo = props.equipos[movimiento.equipoIdx].nombre.trim() || `Equipo ${movimiento.equipoIdx + 1}`
+    const equipo = props.equipos[movimiento.equipoIdx].nombre.trim() || nombreDeEquipo(movimiento.equipoIdx)
     return movimiento.intercambiaCon ? `Cambiar con ${nombreDe(movimiento.intercambiaCon)} ⇄` : `Mover a ${equipo} →`
   }
 

@@ -102,7 +102,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
             </p>
           </div>
           {edit.errorAlGuardar != null && (
-            <p role="alert" style={{ margin: 0, fontSize: '12px', color: 'var(--error-fg)' }}>{edit.errorAlGuardar}</p>
+            <AvisoCampo id="perfil-error-al-guardar">{edit.errorAlGuardar}</AvisoCampo>
           )}
           <div style={{ display: 'flex', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
             <Button variant="commit" size="md" onClick={edit.save} loading={edit.saving} disabled={edit.saving}>

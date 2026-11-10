@@ -228,7 +228,7 @@ export function PasoJugadores(props: Props) {
           <DiferenciaDeHandicap
             jugadorA={{ nombre: props.creador.nombre, golpes: golpesCreador }}
             jugadorB={{
-              nombre: props.rivales[0].nombre.trim() || 'Rival',
+              nombre: nombreOJugadorN(props.rivales[0].nombre, numeroDe(props.rivales[0].id)),
               golpes: props.golpesDe(props.rivales[0].handicap, props.rivales[0].tees ?? props.teeGlobal),
             }}
           />

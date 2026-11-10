@@ -20,7 +20,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { nombreDeInvitadoValido } from '@/lib/inscripcion/nombre-invitado'
+import { MENSAJE_NOMBRE_INVITADO_INVALIDO, nombreDeInvitadoValido } from '@/lib/inscripcion/nombre-invitado'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { rechazoInvitados } from '@/lib/data/tournaments/joinFlow'
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     return NextResponse.json({ error: 'invalid_guest_id', message: 'ID de invitado inválido.' }, { status: 400 })
   }
   if (!nombreDeInvitadoValido(name)) {
-    return NextResponse.json({ error: 'invalid_name', message: 'El nombre debe tener entre 2 y 100 caracteres.' }, { status: 400 })
+    return NextResponse.json({ error: 'invalid_name', message: MENSAJE_NOMBRE_INVITADO_INVALIDO }, { status: 400 })
   }
   // El índice es opcional, pero si viene tiene que ser real: entra directo al
   // neto del leaderboard (un "185" tipeado por 18.5 ganaba el torneo).
