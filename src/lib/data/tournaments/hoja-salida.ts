@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getCourseDisplayName } from '@/golf/courses/data'
 import { formatearIndice } from '@/golf/handicap-index-range'
+import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
 
 export interface TorneoHojaSalida {
   name: string
@@ -84,9 +85,27 @@ export function textoHojaSalida(t: TorneoHojaSalida, groups: GrupoHojaSalida[], 
 
 type Fila = Record<string, unknown>
 
-function jugadorDe(profiles: unknown): { name: string; handicap: number | null } {
-  const p = profiles as Fila | null | undefined
-  return { name: (p?.name as string) || 'Jugador', handicap: (p?.indice as number | null) ?? null }
+/** Columnas de `players` que necesita la hoja (con el perfil, si el jugador tiene cuenta). */
+const COLUMNAS_JUGADOR = 'player_name, handicap_at_registration, profiles(name, indice)'
+
+/**
+ * Nombre y hándicap de una fila de `players`, iguales a los del board del torneo:
+ * - el nombre sale de `resolveLegacyPlayerName` (perfil → nombre de inscripción →
+ *   "Jugador"). El invitado sin cuenta no tiene perfil: antes salía "Jugador";
+ * - el hándicap es el inscrito en el torneo (`handicap_at_registration`), el mismo
+ *   que muestra la columna HCP del board y el que puede corregir el organizador; sin
+ *   él, el índice del perfil. Antes se leía siempre el del perfil: el invitado
+ *   quedaba en "—" y un hándicap corregido para el torneo no aparecía en la hoja.
+ */
+function jugadorDe(player: unknown): { name: string; handicap: number | null } {
+  const p = (player ?? {}) as Fila
+  const perfil = p.profiles as { name?: string | null; indice?: number | null } | null | undefined
+  const inscrito = p.handicap_at_registration as number | string | null | undefined
+  const handicap = inscrito != null ? Number(inscrito) : (perfil?.indice ?? null)
+  return {
+    name: resolveLegacyPlayerName({ profiles: perfil ?? null, player_name: (p.player_name as string | null) ?? null }),
+    handicap: handicap != null && Number.isFinite(handicap) ? handicap : null,
+  }
 }
 
 /**
@@ -119,7 +138,7 @@ export async function cargarHojaSalida(
 
   const { data: tGroups, error: errG } = await supabase
     .from('tournament_groups')
-    .select('name, tee_time, tournament_group_players(player_id, players(profiles(name, indice)))')
+    .select(`name, tee_time, tournament_group_players(player_id, players(${COLUMNAS_JUGADOR}))`)
     .eq('tournament_id', row.id)
     .order('sort_order')
   if (errG) throw errG
@@ -130,14 +149,14 @@ export async function cargarHojaSalida(
       groups: tGroups.map((g: Fila) => ({
         name: g.name as string,
         tee_time: g.tee_time as string | null,
-        players: ((g.tournament_group_players as Fila[]) || []).map(gp => jugadorDe((gp.players as Fila | null)?.profiles)),
+        players: ((g.tournament_group_players as Fila[]) || []).map(gp => jugadorDe(gp.players)),
       })),
     }
   }
 
   const { data: players, error: errP } = await supabase
     .from('players')
-    .select('profiles(name, indice)')
+    .select(COLUMNAS_JUGADOR)
     .eq('tournament_id', row.id)
     .eq('status', 'approved')
   if (errP) throw errP
@@ -145,7 +164,7 @@ export async function cargarHojaSalida(
   return {
     tournament,
     groups: players && players.length > 0
-      ? [{ name: 'Todos los jugadores', tee_time: null, players: players.map((p: Fila) => jugadorDe(p.profiles)) }]
+      ? [{ name: 'Todos los jugadores', tee_time: null, players: players.map((p: Fila) => jugadorDe(p)) }]
       : [],
   }
 }

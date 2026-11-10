@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { hayMarcasPendientes, marcarPuntitoConRespaldo, marcasPendientes, reenviarPuntitosPendientes } from './puntitos-pendientes'
-import { hayPendientes, limpiarCopiaLocalDelGrupo } from './score-storage'
+import { hayPendientes, limpiarCopiaLocalDeRonda } from './score-storage'
 import { ERRCODE_SIN_RESPUESTA, type RondaLibreWriteClient } from '@/lib/data/ronda-libre-scores'
 
 const COD = 'ABC123'
@@ -121,10 +121,22 @@ describe('marcas de Timba con respaldo offline', () => {
     expect(marcasPendientes(COD).map(m => m.jugadorId)).toEqual(['pedro'])
   })
 
-  it.each(['finalizada', 'rechazo', 'prohibido'] as const)('%s: rechazo definitivo, se descarta', async modo => {
+  it.each(['rechazo', 'prohibido'] as const)('%s: rechazo definitivo, se descarta', async modo => {
     const { c } = cliente(() => modo)
     await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
     expect(hayMarcasPendientes(COD)).toBe(false)
+  })
+
+  it('ronda finalizada (P0002): la marca queda pendiente, la ronda se puede reabrir', async () => {
+    let red: Modo = 'finalizada'
+    const { c, llamadas } = cliente(() => red)
+    await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
+    expect(marcasPendientes(COD).map(m => m.jugadorId)).toEqual(['pedro'])
+    // Reabierta: el reenvío la sube.
+    red = 'ok'
+    const antes = llamadas.length
+    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 1, rechazadas: [], pendientes: 0 })
+    expect(llamadas.slice(antes).map(l => l.args.p_jugador_id)).toEqual(['pedro'])
   })
 
   it('reenvío sin señal (code vacío): se detiene y no descarta nada', async () => {
@@ -149,7 +161,7 @@ describe('marcas de Timba con respaldo offline', () => {
     await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
     expect(hayPendientes(COD)).toBe(false)
     expect(hayMarcasPendientes(COD)).toBe(true)
-    limpiarCopiaLocalDelGrupo(COD)
+    limpiarCopiaLocalDeRonda(COD)
     expect(hayMarcasPendientes(COD)).toBe(false)
   })
 

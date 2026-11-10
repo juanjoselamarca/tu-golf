@@ -16,6 +16,7 @@ import {
 import { deleteStaleSubscriptions } from './subscriptions'
 import { resolveWatcherSubscriptions, removeWatchersByIdentity, watchersToRemove } from './watchers'
 import { loadRoundForPush, type RoundPushSnapshot } from './round-snapshot'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 export type RoundUpdateResult =
   | { status: 'not_found' }
@@ -25,7 +26,7 @@ export type RoundUpdateResult =
 
 /** El "Resultado final" es la única notificación que sale siempre, con o sin puntajes. */
 export function isRoundFinished(snapshot: Pick<RoundPushSnapshot, 'estado'>): boolean {
-  return snapshot.estado === 'finalizada'
+  return esRondaCerrada(snapshot.estado)
 }
 
 /**

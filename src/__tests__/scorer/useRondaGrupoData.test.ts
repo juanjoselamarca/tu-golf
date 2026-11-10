@@ -89,6 +89,7 @@ describe('useRondaGrupoData — resiliencia ante caídas del servidor', () => {
     expect(result.current.scores.j1).toEqual({ 11: 4, 12: 6, 13: 5, 14: 3 })
     expect(result.current.currentHole).toBe(15)
     expect(push).not.toHaveBeenCalled()
+    expect(localStorage.getItem('ronda_grupo_B4F5Y2')).not.toBeNull() // sin señal no se limpia nada
     expect(replace).not.toHaveBeenCalled()
   })
 
@@ -157,10 +158,17 @@ describe('useRondaGrupoData — resiliencia ante caídas del servidor', () => {
     expect(result.current.scores.j1).toEqual({ 11: 4, 12: 6, 13: 5, 14: 3 })
   })
 
-  it('la ronda de verdad no existe (PGRST116): dashboard, como antes', async () => {
+  it('la ronda de verdad no existe (PGRST116): limpia su copia local y va al dashboard', async () => {
+    snapshotPrevio()
+    saveGroupScores('B4F5Y2', { j1: { 11: 4 } })
+    localStorage.setItem('golfers_score_B4F5Y2_j1', JSON.stringify({ scores: { 11: 4 }, sincronizado: false, codigoRonda: 'B4F5Y2', jugadorId: 'j1' }))
     carga.valor = { estado: 'no_existe' }
     renderHook(() => useRondaGrupoData('B4F5Y2'))
     await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard'))
+    // Sin esto el banner "Sincronizando…" quedaba pegado con golpes que ya no tienen dónde subirse.
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u1')).toBeNull()
+    expect(localStorage.getItem('ronda_grupo_B4F5Y2')).toBeNull()
+    expect(localStorage.getItem('golfers_score_B4F5Y2_j1')).toBeNull()
   })
 
   it('de verdad sin sesión y sin copia: login, como antes', async () => {

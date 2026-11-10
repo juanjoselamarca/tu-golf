@@ -27,6 +27,7 @@ function jugador(over: Partial<Player> & { name: string }): Player {
     holes: over.holes ?? 18,
     status: over.status ?? 'F',
     scores: over.scores ?? new Array(18).fill(4),
+    claveEmpate: over.claveEmpate ?? null,
   }
 }
 

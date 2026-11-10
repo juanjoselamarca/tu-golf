@@ -28,6 +28,11 @@ import LiveFilterBar from './LiveFilterBar'
 import TVMode from './TVMode'
 import IndividualLeaderboard from './formats/IndividualLeaderboard'
 import TeamLeaderboard from './formats/TeamLeaderboard'
+import {
+  applyFilters, applyFiltersTeams, applyFiltersMatches,
+  posicionesDeLaCompetencia, posicionesDeEquiposEnLaCompetencia,
+  type ExtendedPlayer, type ExtendedTeam, type ExtendedMatch,
+} from './filtros-en-vivo'
 import MatchPlayHeadToHead from './formats/MatchPlayHeadToHead'
 import MatchPlayBracket from './formats/MatchPlayBracket'
 
@@ -35,18 +40,6 @@ import MatchPlayBracket from './formats/MatchPlayBracket'
 type ExtendedTournament = TorneoEnVivo['tournament'] & {
   bracket_mode?: 'single_elimination' | 'round_robin' | 'one_vs_one' | null
 }
-type ExtendedPlayer = LivePlayer & {
-  group_id?: string | null
-  category_id?: string | null
-}
-type ExtendedTeam = LiveTeam & {
-  group_id?: string | null
-  category_id?: string | null
-}
-type ExtendedMatch = LiveMatch & {
-  category_id?: string | null
-}
-
 export interface LiveViewProps {
   tournament: ExtendedTournament
   players: ExtendedPlayer[]
@@ -56,48 +49,6 @@ export interface LiveViewProps {
   groups: Array<{ id: string; name: string }>
   /** Si el viewer es uno de los players, su player.id. Habilita "Solo mi grupo". */
   initialUserId?: string
-}
-
-interface PlayerFilters {
-  categoryFilter: string | null
-  groupFilter: string | null
-  myViewEnabled: boolean
-  userId?: string
-}
-
-function applyFilters(players: ExtendedPlayer[], f: PlayerFilters): ExtendedPlayer[] {
-  let out = players
-  if (f.categoryFilter) {
-    out = out.filter((p) => p.category_id === f.categoryFilter)
-  }
-  if (f.groupFilter) {
-    out = out.filter((p) => p.group_id === f.groupFilter)
-  }
-  if (f.myViewEnabled && f.userId) {
-    const me = players.find((p) => p.id === f.userId)
-    if (me?.group_id) {
-      out = out.filter((p) => p.group_id === me.group_id)
-    }
-  }
-  return out
-}
-
-function applyFiltersTeams(
-  teams: ExtendedTeam[],
-  f: { categoryFilter: string | null; groupFilter: string | null }
-): ExtendedTeam[] {
-  let out = teams
-  if (f.categoryFilter) out = out.filter((t) => t.category_id === f.categoryFilter)
-  if (f.groupFilter) out = out.filter((t) => t.group_id === f.groupFilter)
-  return out
-}
-
-function applyFiltersMatches(
-  matches: ExtendedMatch[],
-  f: { categoryFilter: string | null }
-): ExtendedMatch[] {
-  if (!f.categoryFilter) return matches
-  return matches.filter((m) => m.category_id === f.categoryFilter)
 }
 
 export default function LiveView({
@@ -165,6 +116,15 @@ export default function LiveView({
     () => applyFiltersTeams(teams, { categoryFilter, groupFilter }),
     [teams, categoryFilter, groupFilter]
   )
+  // Posiciones dentro de la competencia (la categoría sí, el grupo de salida no).
+  const posicionesJugadores = useMemo(
+    () => posicionesDeLaCompetencia(players, categoryFilter, tournament.format === 'stableford'),
+    [players, categoryFilter, tournament.format]
+  )
+  const posicionesEquipos = useMemo(
+    () => posicionesDeEquiposEnLaCompetencia(teams, categoryFilter),
+    [teams, categoryFilter]
+  )
   const filteredMatches = useMemo(
     () => applyFiltersMatches(matches, { categoryFilter }),
     [matches, categoryFilter]
@@ -181,6 +141,7 @@ export default function LiveView({
           holeCount={tournament.hole_count}
           soloBruto={!!data.tournament.vista?.soloBruto}
           sinNeto={!!data.tournament.vista?.sinNeto}
+          posiciones={posicionesJugadores}
         />
       )
     }
@@ -188,7 +149,7 @@ export default function LiveView({
       // Sin ninguna tabla buena todavía y el servidor no pudo armarla: sólo el aviso
       // de arriba (nada de "Aún no hay equipos", que contradiría el aviso).
       if (equiposFallaDesde === null && filteredTeams.length === 0) return null
-      return <TeamLeaderboard teams={filteredTeams} holeCount={tournament.hole_count} />
+      return <TeamLeaderboard teams={filteredTeams} holeCount={tournament.hole_count} posiciones={posicionesEquipos} />
     }
     if (format === 'match_play') {
       const bracketMode = tournament.bracket_mode || 'one_vs_one'
@@ -198,8 +159,8 @@ export default function LiveView({
       return <MatchPlayBracket matches={filteredMatches} bracketMode={bracketMode} />
     }
     // Fallback defensivo: torneos viejos sin formato definido se renderizan como stroke_play gross.
-    return <IndividualLeaderboard players={filteredPlayers} format="stroke_play" modo="gross" holeCount={tournament.hole_count} />
-  }, [tournament, filteredPlayers, filteredTeams, filteredMatches, equiposFallaDesde])
+    return <IndividualLeaderboard players={filteredPlayers} format="stroke_play" modo="gross" holeCount={tournament.hole_count} posiciones={posicionesJugadores} />
+  }, [tournament, filteredPlayers, filteredTeams, filteredMatches, equiposFallaDesde, posicionesJugadores, posicionesEquipos])
 
   // Aviso de tabla de equipos no disponible / desactualizada: en la vista normal Y en
   // modo TV (las dos ramas: sin tabla previa, o con la última buena y su hora).

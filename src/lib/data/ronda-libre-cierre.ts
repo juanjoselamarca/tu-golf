@@ -22,7 +22,7 @@ export const RONDA_ERRCODE = {
 /**
  * Respuesta firme de `finalizar_ronda_libre`: el servidor decidió (ya estaba cerrada, sin permiso, no existe).
  * Cualquier otro error deja sin saber si cerró (sin red: `{ code: '' }`; plazo vencido; 5xx; sesión caída), y
- * quien finaliza tiene que poder reintentar. No es `esRechazoDefinitivo`: esa considera reintentable a P0003.
+ * quien finaliza tiene que poder reintentar. No es `esNoReintentable`: esa considera reintentable a P0003.
  */
 export function esRechazoDelCierre(error: { code?: string | null } | null | undefined): boolean {
   return !!error?.code && (Object.values(RONDA_ERRCODE) as string[]).includes(error.code)
@@ -32,9 +32,10 @@ export function esRechazoDelCierre(error: { code?: string | null } | null | unde
 const PARAMETRO_INVALIDO = '22023'
 
 /**
- * Rechazos DEFINITIVOS de las RPC de escritura de ronda libre (golpes, puntos especiales, retiros): reintentar
- * no sirve, el cambio sale de pendientes. Fuente única para el scorer; la cola de marcas usa
- * `esRechazoDefinitivoDeTimba`, que se apoya en esta.
+ * Respuestas de las RPC de escritura de ronda libre (golpes, puntos especiales, retiros) con las que reintentar
+ * NO sirve. Ojo: no reintentar no es descartar (ver `esRechazoQueDescarta`): P0002 (ronda finalizada) para los
+ * envíos, pero lo que no subió se guarda, porque la ronda se puede reabrir (reabrir un torneo devuelve sus rondas
+ * a 'en_curso') y esos golpes son lo único que hay.
  *
  * Todo lo demás se reintenta, en particular:
  *  - sin red: postgrest-js NO lanza, devuelve `{ code: '', status: 0 }` (y `SIN_RESPUESTA` si venció el plazo);
@@ -48,19 +49,28 @@ const RECHAZOS_DEFINITIVOS: readonly string[] = [
   PARAMETRO_INVALIDO,
 ]
 
-export function esRechazoDefinitivo(error: { code?: string | null } | null | undefined): boolean {
+export function esNoReintentable(error: { code?: string | null } | null | undefined): boolean {
   return !!error?.code && RECHAZOS_DEFINITIVOS.includes(error.code)
 }
 
 /**
- * Rechazo definitivo de las RPC de la Timba (puntos especiales y retiros). Igual que `esRechazoDefinitivo` más
- * P0003: en golpes P0003 puede ser una sesión vencida porque el upsert de golpes tiene grant para anon (sin sesión
+ * Rechazo con el que el cambio sale de pendientes y se pierde: el servidor no lo va a aceptar nunca (la ronda o
+ * el jugador ya no están, el valor es inválido). Es `esNoReintentable` menos P0002: una ronda finalizada se
+ * puede reabrir, así que lo pendiente se guarda en el teléfono (sin reintentar) y sube al reabrirse.
+ */
+export function esRechazoQueDescarta(error: { code?: string | null } | null | undefined): boolean {
+  return esNoReintentable(error) && error?.code !== RONDA_ERRCODE.FINALIZED
+}
+
+/**
+ * Rechazo con el que una marca de la Timba (puntos especiales y retiros) sale de la cola. Igual que
+ * `esRechazoQueDescarta` (P0002 la deja pendiente: la ronda se puede reabrir) más P0003: en golpes P0003 puede ser una sesión vencida porque el upsert de golpes tiene grant para anon (sin sesión
  * llega a la función y ella rechaza). Las RPC de la Timba NO tienen grant para anon: una sesión caída llega antes,
  * como 42501 o PGRST301/303, y se reintenta. Acá P0003 es permanente (ronda demo, o sin permiso sobre un jugador
  * con cuenta): reintentarlo dejaría la marca trabando la cola para siempre.
  */
 export function esRechazoDefinitivoDeTimba(error: { code?: string | null } | null | undefined): boolean {
-  return esRechazoDefinitivo(error) || error?.code === RONDA_ERRCODE.FORBIDDEN
+  return esRechazoQueDescarta(error) || error?.code === RONDA_ERRCODE.FORBIDDEN
 }
 
 type RpcClient = Pick<SupabaseClient, 'rpc'>
@@ -79,12 +89,17 @@ export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'deta
 /**
  * Borra la ronda con sus jugadores y equipos, en una sola transacción.
  * Solo el creador; nunca una ronda de torneo.
+ *
+ * `noExiste`: el servidor respondió P0001, la ronda ya no está. Pasa cuando un intento anterior
+ * la borró y la respuesta se perdió (mala señal): para quien descarta es un descarte hecho, y los
+ * dos scorers siguen por el camino de éxito (limpiar las copias locales y salir). Sólo P0001:
+ * sin red, 5xx o sin permiso la ronda puede seguir viva y no se limpia nada.
  */
 export async function descartarRondaLibre(
   supabase: RpcClient,
   codigo: string,
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; noExiste: boolean }> {
   const { error } = await supabase.rpc('descartar_ronda_libre', { p_codigo: codigo })
-  if (!error) return { error: null }
-  return { error: mensajeErrorDescartar(error) }
+  if (!error) return { error: null, noExiste: false }
+  return { error: mensajeErrorDescartar(error), noExiste: error.code === RONDA_ERRCODE.NOT_FOUND }
 }

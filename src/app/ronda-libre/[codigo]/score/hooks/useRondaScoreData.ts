@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { esRondaCerrada } from '@/lib/data/ronda-libre-estado'
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -17,7 +18,8 @@ import {
 } from '@/lib/data/ronda-libre-scorer'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
-import { leerRespaldoPendiente } from '@/hooks/useScoreSync'
+import { leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { netoNoDisponibleSinSesion } from '@/golf/ronda-libre/permisos'
@@ -97,7 +99,9 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         reintento = setTimeout(() => setIntento(i => i + 1), REINTENTO_CARGA_MS)
       }
       const carga = await fetchRondaLibreParaScorer(supabase, codigo)
-      if (carga.estado === 'no_existe') { router.push('/dashboard'); return }
+      // Ronda borrada (PGRST116, confirmado por el servidor): sus copias locales ya no tienen dónde
+      // subirse; si quedaran, el banner "Sincronizando…" seguiría en toda la app.
+      if (carga.estado === 'no_existe') { limpiarCopiaLocalDeRonda(codigo); router.push('/dashboard'); return }
       if (carga.estado === 'sin_conexion') { sinConexion(); return }
       const r = carga.ronda
       // Quién anota: la sesión del teléfono, no el servidor de login (puede estar caído).
@@ -105,7 +109,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       if (sesion.estado === 'sin_conexion') { sinConexion(); return }
       const authUser = sesion.estado === 'ok' ? { id: sesion.userId } : null
       // If ronda was closed (by admin or player), redirect to detail view (read-only)
-      if (r.estado === 'finalizada') { router.replace(`/ronda-libre/${codigo}`); return }
+      if (esRondaCerrada(r.estado)) { router.replace(`/ronda-libre/${codigo}`); return }
       // Demo rondas son spectator-only: cualquier usuario es redirigido al leaderboard.
       // El scoring usa la UI real en /score, no queremos que toquen demo data.
       if (r.es_demo) { router.replace(`/ronda-libre/${codigo}`); return }

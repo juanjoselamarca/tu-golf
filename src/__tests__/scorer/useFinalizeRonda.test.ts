@@ -5,6 +5,9 @@ import { finalizarRondaLibre, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-lib
 import { fetchRondaParaCierre } from '@/lib/data/ronda-libre-finalizar'
 import { addToast } from '@/hooks/useToast'
 import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
+
+const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn((..._a: unknown[]) => Promise.resolve({})) }))
 
 // Chainable builder that resolves when awaited (then/catch)
 const makeChainable = (resolved: unknown = { error: null }): unknown => {
@@ -26,10 +29,12 @@ vi.mock('@/lib/supabase', () => ({
       delete: () => makeChainable({ error: null }),
       select: () => makeChainable({ data: null, count: 0, error: null }),
     }),
-    rpc: () => Promise.resolve({}),
+    rpc: (...a: unknown[]) => rpcMock(...a),
   }),
 }))
-vi.mock('@/lib/ronda/score-storage', () => ({ clearScores: vi.fn(), saveScores: vi.fn() }))
+vi.mock('@/lib/ronda/score-storage', async (importOriginal) => ({
+  // La limpieza es la real (envuelta para espiarla): las aserciones miran el localStorage.
+  limpiarCopiaLocalDeRonda: vi.fn((await importOriginal<typeof import('@/lib/ronda/score-storage')>()).limpiarCopiaLocalDeRonda), clearScores: vi.fn(), saveScores: vi.fn() }))
 vi.mock('@/lib/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('@/lib/push-notifications', () => ({
   getNotifPrefs: vi.fn(() => ({ partidas_terminadas: false })),
@@ -234,5 +239,59 @@ describe('useFinalizeRonda', () => {
     expect(init?.method).toBe('POST')
     const body = JSON.parse(init?.body as string) as { historical_round_id: string }
     expect(body.historical_round_id).toBe('h1') // mock insert devuelve { id: 'h1' }
+  })
+})
+
+// PR #759: la ronda ya no existe (la borró quien la creó, o un descarte anterior cuya respuesta se perdió).
+describe('useFinalizeRonda — ronda que ya no existe', () => {
+  const respaldo = () => localStorage.setItem('golfers_score_ABC123_p1', JSON.stringify({
+    scores: { 1: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: 'p1',
+  }))
+  const descartarConDosToques = async (result: { current: { discardRound: () => Promise<void> } }) => {
+    const ahora = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
+    try {
+      await act(async () => { await result.current.discardRound() })
+      ahora.mockReturnValue(1_002_000)
+      await act(async () => { await result.current.discardRound() })
+    } finally { ahora.mockRestore() }
+  }
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear() })
+
+  it('descartar recibe P0001 (el servidor ya la borró): sigue como descartada y limpia las copias locales', async () => {
+    respaldo()
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: 'P0001', message: 'RONDA_NOT_FOUND', details: '' } })
+    const onDiscardSuccess = vi.fn()
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), onDiscardSuccess }))
+    await descartarConDosToques(result)
+    expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC123')
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
+  })
+
+  it('inverso: descartar sin red NO limpia ni sale (la ronda puede seguir viva)', async () => {
+    respaldo()
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: '', message: 'Failed to fetch', details: '' } })
+    const onDiscardSuccess = vi.fn()
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), onDiscardSuccess }))
+    await descartarConDosToques(result)
+    expect(onDiscardSuccess).not.toHaveBeenCalled()
+    expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
+  })
+
+  it('Finalizar: el guardado responde no_existe → avisa, limpia y sale sin cerrar nada', async () => {
+    respaldo()
+    const onDiscardSuccess = vi.fn()
+    const opts = { ...baseOpts(), onDiscardSuccess, guardarAhora: vi.fn(async () => 'no_existe' as const) }
+    const { result } = renderHook(() => useFinalizeRonda(opts))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.' }))
+    expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.roundDone).toBe(false)
+    expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
   })
 })

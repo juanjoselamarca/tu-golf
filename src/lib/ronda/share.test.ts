@@ -50,3 +50,16 @@ describe('buildLeaderboardShareData — scramble sin scores individuales', () =>
     expect(data.totalHoles).toBe(2) // <- holesPlayed de la card sale de acá, no de players[0]
   })
 })
+
+describe('buildLeaderboardShareData — la imagen usa el lugar de la tabla', () => {
+  it('stroke play: mismo vs par = T1 y T1, y el que no salió no va (posicionesDelLeaderboard)', () => {
+    const ronda = { formato_juego: 'stroke_play', modo_juego: 'gross', holes: 18, course_name: 'Los Leones', ronda_libre_jugadores: [] } as unknown as RondaLibre
+    const fila = (nombre: string, vsPar: number, holesPlayed: number) => ({ nombre, vsPar, holesPlayed, stablefordPts: 0 })
+    const data = buildLeaderboardShareData({
+      ronda,
+      leaderboard: [fila('Ana', -1, 18), fila('Beto', -1, 18), fila('Caro', 2, 18), fila('Dani', 0, 0)] as unknown as Parameters<typeof buildLeaderboardShareData>[0]['leaderboard'],
+      equipos: [], parMap: {}, siMap: {}, courseHcpMap: {}, fechaDisplay: '10 nov 2026', codigo: 'T1T1', isFinished: true,
+    })
+    expect(data.players.map((p) => [p.nombre, p.posicion])).toEqual([['Ana', 'T1'], ['Beto', 'T1'], ['Caro', '3']])
+  })
+})

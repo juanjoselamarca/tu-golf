@@ -17,7 +17,7 @@
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { handicapDeEquipoParaHoyos } from './team-handicap'
 import { normalizedStrokeIndexByHole } from '../core/stroke-index'
-import { rankTeamsWithCountback } from '../leaderboard/team-tiebreak'
+import { rankTeamsWithCountback, type EquipoConClaveDeEmpate, scorePrimarioDeEquipo } from '../leaderboard/team-tiebreak'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -160,9 +160,7 @@ export function scorePrimarioScramble(
   formato: FormatoJuego,
   modo: ModoJuego
 ): number {
-  if (formato === 'stableford') return result.totalStableford
-  if (modo === 'neto') return result.overUnderNeto
-  return result.overUnderGross
+  return scorePrimarioDeEquipo(result, formato, modo)
 }
 
 /**
@@ -173,7 +171,7 @@ export function ordenarEquiposScramble(
   teams: ScrambleTeamResult[],
   formato: FormatoJuego,
   modo: ModoJuego
-): ScrambleTeamResult[] {
+): EquipoConClaveDeEmpate<ScrambleTeamResult>[] {
   const stableford = formato === 'stableford'
   return rankTeamsWithCountback(teams, {
     mode: stableford ? 'higher_wins' : 'lower_wins',

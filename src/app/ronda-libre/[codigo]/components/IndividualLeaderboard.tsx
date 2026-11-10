@@ -8,7 +8,7 @@ import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import type { RondaLibre } from '@/types/ronda'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import { HcpCelda } from './HcpCelda'
-import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
+import { posicionesDelLeaderboard, type LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 import { hoyosDelMotor } from '@/golf/formats'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
@@ -54,6 +54,7 @@ export function IndividualLeaderboard({
     ronda.formato_juego !== 'stableford' &&
     leaderboard.some(j => j.vsParGross !== j.vsParNeto)
   const secondaryLabel = isNetoMode ? 'Gross' : 'Neto'
+  const posiciones = posicionesDelLeaderboard(leaderboard, ronda.formato_juego)
 
   return (
     <div style={{
@@ -64,8 +65,8 @@ export function IndividualLeaderboard({
       <div style={{
         display: 'grid',
         gridTemplateColumns: showSecondary
-          ? '28px 1fr 40px 64px 52px'
-          : '32px 1fr 72px 60px',
+          ? '32px 1fr 40px 64px 52px'
+          : '36px 1fr 72px 60px',
         padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--border)', gap: '4px',
       }}>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>#</span>
@@ -107,12 +108,12 @@ export function IndividualLeaderboard({
                 width: '100%', background: 'var(--bg-surface)', border: 'none', cursor: 'pointer',
                 display: 'grid',
                 gridTemplateColumns: showSecondary
-                  ? '28px 1fr 40px 64px 52px'
-                  : '32px 1fr 72px 60px',
+                  ? '32px 1fr 40px 64px 52px'
+                  : '36px 1fr 72px 60px',
                 padding: '13px 16px', alignItems: 'center', textAlign: 'left', gap: '4px',
               }}
             >
-              <span style={{ fontSize: '14px', color: 'var(--text-3)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{idx + 1}</span>
+              <span style={{ fontSize: '14px', color: 'var(--text-3)', fontWeight: 600, fontFamily: '"DM Mono", monospace', whiteSpace: 'nowrap' }} data-testid="posicion">{posiciones[idx] ?? '—'}</span>
               {/* El chevron es HERMANO del nombre, no hijo: dentro del span con ellipsis, un nombre largo
                   ("Alberto Chadwick") lo truncaba y no se veía qué fila estaba expandida (inbox 16-oct). */}
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>

@@ -333,6 +333,7 @@ export function buildLeaderboardFromLegacy(
       holes:   0,
       status:  'live',
       scores:  new Array(totalHoyos).fill(null),
+      claveEmpate: null, // no empezó: sin posición
     })
     playerIdToIndex[p.id] = playerIdx
   })

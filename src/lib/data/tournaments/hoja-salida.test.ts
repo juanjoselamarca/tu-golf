@@ -62,6 +62,31 @@ describe('cargarHojaSalida', () => {
     expect(hoja?.groups).toEqual([{ name: 'Grupo 1', tee_time: null, players: [{ name: 'Ana', handicap: 5 }] }])
   })
 
+  // Hunter 10-nov-2026: `demo-copa-chile-2026` tiene 40 invitados sin cuenta en grupos y la hoja
+  // los listaba a todos como "Jugador" con hándicap "—" (leía solo `profiles`).
+  it('invitado sin cuenta: su nombre de inscripción y su hándicap inscrito, no "Jugador" / "—"', async () => {
+    const hoja = await cargarHojaSalida(mockSupabase({
+      tournaments: torneoOk,
+      tournament_groups: [{ name: 'Grupo 1', tee_time: null, tournament_group_players: [
+        { player_id: 'g', players: { player_name: 'Antonia Reyes', handicap_at_registration: 13, profiles: null } },
+        { player_id: 'r', players: { player_name: null, handicap_at_registration: 8.4, profiles: { name: 'Ana', indice: 9.1 } } },
+      ] }],
+    }), 'a')
+    expect(hoja?.groups[0].players).toEqual([{ name: 'Antonia Reyes', handicap: 13 }, { name: 'Ana', handicap: 8.4 }])
+  })
+
+  it('el hándicap inscrito manda sobre el índice del perfil (el mismo que la columna HCP del board)', async () => {
+    const hoja = await cargarHojaSalida(mockSupabase({
+      tournaments: torneoOk,
+      tournament_groups: [],
+      players: [
+        { player_name: null, handicap_at_registration: '12.5', profiles: { name: 'Bea', indice: 14 } },
+        { player_name: 'Invitado', handicap_at_registration: null, profiles: null },
+      ],
+    }), 'a')
+    expect(hoja?.groups[0].players).toEqual([{ name: 'Bea', handicap: 12.5 }, { name: 'Invitado', handicap: null }])
+  })
+
   it('torneo inexistente → null', async () => {
     expect(await cargarHojaSalida(mockSupabase({ tournaments: null }), 'x')).toBeNull()
   })

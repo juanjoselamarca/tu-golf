@@ -3,8 +3,10 @@
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
+import { esPrimerLugar } from '@/golf/core/posiciones'
 import {
   equiposEnElPrimerLugar,
+  posicionesDeEquiposRondaLibre,
   etiquetaDelResultadoDeEquipos,
   juegaContraElPar,
   nombrarEquipos,
@@ -34,7 +36,8 @@ export interface ShareCardRondaLibre {
   hoyos?: readonly number[]
   formato_juego?: FormatoJuego | string
   modo_juego?: ModoJuego | string | null
-  ranking?: Array<{ nombre: string; score: number; diff: number; holesPlayed?: number }>
+  /** `posicion`: etiqueta con empates estilo golf ("T1"), la misma que la tabla. Sin ella, i + 1. */
+  ranking?: Array<{ nombre: string; score: number; diff: number; holesPlayed?: number; posicion?: string | null }>
   /** Resultado Match Play (ej: "3&2", "All Square", "1 UP"). Si viene y formato es match_play,
    * se muestra prominente en lugar de score + vs-par. */
   matchResult?: string
@@ -71,7 +74,14 @@ export interface ShareCardTorneo {
 export type ShareCardData = ShareCardRondaLibre | ShareCardTorneo
 
 // Keep backwards compat
-export interface LeaderboardPlayer { nombre: string; vsPar: number; holesPlayed: number; totalHoles: number }
+export interface LeaderboardPlayer {
+  nombre: string
+  vsPar: number
+  holesPlayed: number
+  totalHoles: number
+  /** Lugar de la tabla (`posicionesDelLeaderboard`): la imagen dice lo mismo que la pantalla. */
+  posicion: string | null
+}
 export interface LeaderboardShareData {
   players: LeaderboardPlayer[]
   courseName: string
@@ -529,8 +539,10 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
     ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.stroke()
     data.ranking.forEach((j, i) => {
       const ly = rkY + 16 + i * 56
-      ctx.textAlign = 'left'; ctx.font = `${i === 0 ? 'bold ' : ''}28px Arial, sans-serif`
-      ctx.fillStyle = i === 0 ? '#ffffff' : 'rgba(255,255,255,0.45)'; ctx.fillText(`${i + 1}. ${j.nombre}`, 110, ly + 36)
+      const posicion = j.posicion === undefined ? String(i + 1) : j.posicion
+      const lider = j.posicion === undefined ? i === 0 : esPrimerLugar(posicion)
+      ctx.textAlign = 'left'; ctx.font = `${lider ? 'bold ' : ''}28px Arial, sans-serif`
+      ctx.fillStyle = lider ? '#ffffff' : 'rgba(255,255,255,0.45)'; ctx.fillText(posicion ? `${posicion}. ${j.nombre}` : j.nombre, 110, ly + 36)
       ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'
       if (j.holesPlayed === 0) {
         // Equipo que no anotó ningún hoyo: va al final y no tiene score que mostrar.
@@ -657,6 +669,12 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
  * si el formato no es por equipos o no hay ranking. Con un solo equipo
  * (`contraElPar`) el título dice "Contra el par" y no hay trofeo.
  */
+/** Ranking de la imagen con la misma etiqueta que la tabla: mismo vs par = "T" (sin countback en la ronda libre). */
+function rankingDeEquipos(teams: NonNullable<LeaderboardShareData['teams']>): NonNullable<ShareCardRondaLibre['ranking']> {
+  const posiciones = posicionesDeEquiposRondaLibre(teams)
+  return teams.map((t, i) => ({ nombre: t.nombre, score: t.score, diff: t.diff, holesPlayed: t.holesPlayed, posicion: posiciones[i] }))
+}
+
 export function tarjetaDeEquipos(data: LeaderboardShareData): ShareCardRondaLibre | null {
   if (!isTeamFormat(data.formato_juego) || !data.teams || data.teams.length === 0) return null
   // El mismo criterio que el cuadro ganador de la pantalla: por `diff`; y si
@@ -683,7 +701,7 @@ export function tarjetaDeEquipos(data: LeaderboardShareData): ShareCardRondaLibr
     teamJugadores: winTeam.jugadores,
     teamFormato: data.formato_juego as 'best_ball' | 'scramble' | 'foursome',
     contraElPar: juegaContraElPar(data.teams.length),
-    ranking: data.teams.map(t => ({ nombre: t.nombre, score: t.score, diff: t.diff, holesPlayed: t.holesPlayed })),
+    ranking: rankingDeEquipos(data.teams),
   }
 }
 
@@ -730,11 +748,13 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
   }
 
   // Stroke Play / Stableford: ranking por vsPar
-  const isTie = data.players.length > 1 && data.players[1].vsPar === winner.vsPar
+  // El lugar viene de la tabla (posicionesDelLeaderboard): empate = los que comparten el primer lugar.
+  const primeros = data.players.filter(p => esPrimerLugar(p.posicion))
+  const isTie = primeros.length > 1
   const parTotal = parTotalEstandar(winner.totalHoles)
   const cardData: ShareCardRondaLibre = {
     tipo: 'ronda_libre', ganador: winner.nombre, esEmpate: isTie,
-    jugadores: isTie ? data.players.filter(p => p.vsPar === winner.vsPar).map(p => p.nombre) : undefined,
+    jugadores: isTie ? primeros.map(p => p.nombre) : undefined,
     // Stableford: scoreGross = puntos, scoreDiff = 0 (no aplica vs-par)
     scoreGross: isStableford ? winner.vsPar : parTotal + winner.vsPar,
     scoreDiff: isStableford ? 0 : winner.vsPar,
@@ -746,6 +766,7 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
       nombre: p.nombre,
       score: isStableford ? p.vsPar : parTotalEstandar(p.totalHoles) + p.vsPar,
       diff: isStableford ? 0 : p.vsPar,
+      posicion: p.posicion,
     })),
   }
   return compartirResultado(cardData)

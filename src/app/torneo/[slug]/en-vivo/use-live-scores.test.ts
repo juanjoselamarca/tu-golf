@@ -14,7 +14,7 @@ import { useTorneoEnVivo, INTERVALO_TORNEO_S, conservarNombres } from './use-liv
 import { vistaPublica } from '@/lib/data/tournaments/vista-publica'
 
 const jugador = (id: string, name: string, gross: number) => ({
-  id, name, handicap_index: 10, scores_per_hole: [], gross_total: gross, vs_par: 0, thru: 1,
+  id, name, handicap_index: 10, scores_per_hole: [], gross_total: gross, vs_par: 0, thru: 1, clave_empate: '0#0' as string | null,
 })
 const torneo = (players: ReturnType<typeof jugador>[]): TorneoEnVivo => ({
   tournament: { id: 't1', slug: 'copa', name: 'Copa', format: 'stroke_play', modo: 'gross', hole_count: 18, total_rounds: 1, par_total: 72, status: 'in_progress', live: true,

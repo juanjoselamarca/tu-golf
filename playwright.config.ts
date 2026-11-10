@@ -71,6 +71,7 @@ export default defineConfig({
         'torneo-anotar-mi-score.spec.ts',
         'import-fotos-lotes.spec.ts',
         'envivo-feed-render.spec.ts',
+        'torneo-empates-t10.spec.ts',
         'scorer-finalizar-ultimo-hoyo.spec.ts',
         'torneo-inscripcion.spec.ts',
         'tarjeta-par-de-la-ronda.spec.ts',
@@ -82,6 +83,7 @@ export default defineConfig({
         'ronda-libre-equipos-leaderboard.spec.ts',
         'scorer-match-play.spec.ts',
         'torneo-invitado-join-claim.spec.ts',
+        'organizador-hoja-salida.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],

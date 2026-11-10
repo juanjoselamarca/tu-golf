@@ -6,6 +6,7 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { TEAM_FORMAT_KEYS } from '@/golf/formats'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { formatLabel } from '@/golf/core/rules'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 function calcGross(scores: Record<string, number> | null, hoyos: readonly number[]): number {
   if (!scores) return 0
@@ -61,7 +62,7 @@ export async function generateMetadata(props: { params: Promise<{ codigo: string
     }
   }
 
-  const estadoLabel = ronda.estado === 'finalizada' ? 'Finalizada' : 'En vivo'
+  const estadoLabel = esRondaCerrada(ronda.estado) ? 'Finalizada' : 'En vivo'
   const modoLabel = ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'
 
   let title: string

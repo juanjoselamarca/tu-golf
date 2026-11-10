@@ -1,9 +1,13 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { useRondaScoreData } from '@/app/ronda-libre/[codigo]/score/hooks/useRondaScoreData'
+import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 
 // Golpes que trae la BD para p1 (cada test los fija).
 let golpesEnLaBd: Record<string, number> = {}
+// Qué responde la lectura de la ronda: la fila, "no hay fila" (PGRST116) o una falla de red.
+let respuestaRonda: 'ok' | 'no_existe' | 'red' = 'ok'
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
 
 // Chainable query builder stub that supports .in(), .order(), .single()
 function makeQueryBuilder(table: string) {
@@ -38,6 +42,8 @@ function makeQueryBuilder(table: string) {
   builder['in'] = () => builder
   builder['order'] = () => awaitableOrderChain
   builder['single'] = async () => {
+    if (table === 'rondas_libres' && respuestaRonda === 'no_existe') return { data: null, error: { code: 'PGRST116', message: '0 rows' } }
+    if (table === 'rondas_libres' && respuestaRonda === 'red') return { data: null, error: { code: '', message: 'Failed to fetch' } }
     if (table === 'rondas_libres') {
       return {
         data: {
@@ -69,7 +75,7 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: routerPush, replace: vi.fn() }),
 }))
 
 vi.mock('@/golf/core/course-handicap', () => ({
@@ -83,7 +89,9 @@ vi.mock('@/golf/core/course-handicap', () => ({
   cargarCourseData: async () => ({ cr: 72, slope: 113, holes: 9, parTotal: 36 }),
 }))
 
-vi.mock('@/lib/ronda/score-storage', () => ({
+vi.mock('@/lib/ronda/score-storage', async (importOriginal) => ({
+  // La limpieza es la real (envuelta para espiarla): las aserciones miran el localStorage.
+  limpiarCopiaLocalDeRonda: vi.fn((await importOriginal<typeof import('@/lib/ronda/score-storage')>()).limpiarCopiaLocalDeRonda),
   loadScores: () => ({}),
   saveScores: vi.fn(),
   clearScores: vi.fn(),
@@ -95,6 +103,8 @@ vi.mock('@/golf/core/round-score', () => ({
 
 beforeEach(() => {
   golpesEnLaBd = {}
+  respuestaRonda = 'ok'
+  routerPush.mockClear()
   localStorage.clear()
 })
 
@@ -136,5 +146,34 @@ describe('useRondaScoreData', () => {
     const { result } = renderHook(() => useRondaScoreData('ABC123', null))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.scores.p1).toEqual({ 1: 5, 2: 4, 3: 6 })
+  })
+
+  // PR #759: con la ronda borrada, el scorer manda al dashboard. El respaldo sin
+  // sincronizar quedaba en el teléfono y el banner "Sincronizando N hoyos…" no se iba nunca.
+  const respaldo = (jugador: string) => localStorage.setItem(`golfers_score_ABC123_${jugador}`, JSON.stringify({
+    scores: { 1: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: jugador,
+  }))
+
+  it('ronda que ya no existe (PGRST116): borra las copias locales de la ronda y va al dashboard', async () => {
+    respuestaRonda = 'no_existe'
+    respaldo('p1'); respaldo('p2')
+    localStorage.setItem('golfers_score_OTRA_p1', '{"sincronizado":false}')
+    renderHook(() => useRondaScoreData('ABC123', null))
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/dashboard'))
+    expect(localStorage.getItem('golfers_score_ABC123_p1')).toBeNull()
+    expect(localStorage.getItem('golfers_score_ABC123_p2')).toBeNull()
+    expect(localStorage.getItem('golfers_score_OTRA_p1')).not.toBeNull()
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC123')
+  })
+
+  it('inverso: sin señal al leer la ronda NO borra nada ni saca al jugador', async () => {
+    respuestaRonda = 'red'
+    vi.mocked(limpiarCopiaLocalDeRonda).mockClear()
+    respaldo('p1')
+    const { result } = renderHook(() => useRondaScoreData('ABC123', null))
+    await waitFor(() => expect(result.current.loadError).not.toBeNull())
+    expect(routerPush).not.toHaveBeenCalled()
+    expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
   })
 })

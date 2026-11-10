@@ -34,8 +34,10 @@ describe('equipos de un torneo NETO según el visor', () => {
     expect(teams.map((t) => t.id)).toEqual(['B', 'A'])
     expect(teams.map((t) => t.team_total)).toEqual([13, 15])
     expect(teams.map((t) => t.vs_par)).toEqual([1, 3])
+    // clave_empate es opaca (grupo#subgrupo del orden BRUTO): no lleva score ni neto.
     for (const t of teams) {
-      expect(Object.keys(t).sort()).toEqual(['id', 'name', 'players', 'team_scores_per_hole', 'team_total', 'thru', 'vs_par'])
+      expect(Object.keys(t).sort()).toEqual(['clave_empate', 'id', 'name', 'players', 'team_scores_per_hole', 'team_total', 'thru', 'vs_par'])
+      expect(t.clave_empate).toMatch(/^[0-9]+#[0-9]+$/)
     }
     // Los integrantes viajan sólo con su nombre: ni `handicap_index` (antes un 0 de
     // relleno de `nameToLivePlayer`; ahora la clave no existe) ni ningún campo neto.

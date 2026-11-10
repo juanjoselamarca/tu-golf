@@ -23,6 +23,7 @@ import { useLivePoll } from '@/hooks/ronda/useLivePoll'
 import { segundosDesdeElDato, textoActualizadoHace } from '@/lib/ronda/actualizado-hace'
 import type { RondaLibre, Role } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 const SS_KEY = (codigo: string) => `ronda-${codigo}-role`
 
@@ -225,7 +226,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
 
   // Polling: carga inicial + cada INTERVALO_EN_VIVO_S + al volver a primer plano.
   // Se detiene con la ronda finalizada (ya no cambia) o inexistente.
-  const finalizada = ronda?.estado === 'finalizada'
+  const finalizada = esRondaCerrada(ronda?.estado)
   const { pollNow, nextPollAt } = useLivePoll(reload, {
     intervalMs: INTERVALO_EN_VIVO_S * 1000,
     enabled: !!codigo && !notFound && !finalizada,

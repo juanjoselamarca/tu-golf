@@ -40,6 +40,7 @@ import { captureError } from '@/lib/error-tracking'
 import { RondaCodigoSchema } from '@/lib/push/schemas'
 import { loadRoundAccess, loadRoundForPush, isRoundParticipant, isRoundPlayer } from '@/lib/push/round-snapshot'
 import { needsRetry, pushRoundUpdate } from '@/lib/push/round-update'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Límite por ronda, sólo a quien participa. Una ronda finalizada no pasa
     // por el límite — el "Resultado final" no se puede perder.
-    if (access.estado !== 'finalizada') {
+    if (!esRondaCerrada(access.estado)) {
       const rlRonda = checkRateLimit(`push-round-codigo:${codigo}`, 12, 60_000)
       if (!rlRonda.allowed) return tooMany(rlRonda)
     }

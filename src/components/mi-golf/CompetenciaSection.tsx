@@ -16,6 +16,7 @@ import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
 import type { ComunidadMensaje } from '@/lib/mi-golf/types'
 import { posicionDeRondaEnCurso, type PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 import { formatearIndice } from '@/golf/handicap-index-range'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 export async function CompetenciaSection({ userId, userName }: { userId: string; userName: string }) {
   const supabase = await createClient()
@@ -24,8 +25,8 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
   const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Santiago' })
   const now = Date.now()
 
-  const activeRonda = data.rondasLibres.find((r) => r.estado === 'en_curso') ?? null
-  const finishedRondasRaw = data.rondasLibres.filter((r) => r.estado !== 'en_curso')
+  const activeRonda = data.rondasLibres.find((r) => !esRondaCerrada(r.estado)) ?? null
+  const finishedRondasRaw = data.rondasLibres.filter((r) => esRondaCerrada(r.estado))
   let finishedRondas = buildFinishedRondas(finishedRondasRaw, data.historico)
 
   // Detalle hoyo-por-hoyo solo de la última ronda del día (UltimaRondaHero), por el

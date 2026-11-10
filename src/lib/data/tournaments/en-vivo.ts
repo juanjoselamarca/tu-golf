@@ -122,6 +122,7 @@ function filaEnVivo(p: Player, meta: { categoryId?: string | null; categoryName?
     ...(p.stablefordTotal !== undefined ? { points_total: p.stablefordTotal } : {}),
     vs_par: p.total,
     thru: p.holes,
+    clave_empate: p.claveEmpate,
     group_id: meta.groupId ?? null,
     category_id: meta.categoryId ?? null,
   }

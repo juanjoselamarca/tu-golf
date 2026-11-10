@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { totalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
+import { etiquetasDePosicion } from '@/golf/core/posiciones'
 import type { RondaLibre } from '@/types/ronda'
 
 export interface RankingEntry {
@@ -11,6 +12,8 @@ export interface RankingEntry {
   vsPar: number
   holesPlayed: number
   gross: number
+  /** Posición con empates estilo golf: mismo vs par = "T2" y "T2" (el scorer no tiene countback). */
+  posicion: string
 }
 
 /**
@@ -26,12 +29,14 @@ export function useMiniRanking(
   return useMemo(() => {
     if (!ronda) return []
     const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes)
-    return ronda.ronda_libre_jugadores
+    const ordenados = ronda.ronda_libre_jugadores
       .map(j => {
         const t = totalesDeTarjeta(scores[j.id], hoyos, parMap)
         return { id: j.id, nombre: j.nombre, vsPar: t.vsPar, holesPlayed: t.holesPlayed, gross: t.gross }
       })
       .filter(j => j.holesPlayed > 0)
       .sort((a, b) => a.vsPar - b.vsPar)
+    const posiciones = etiquetasDePosicion(ordenados, (a, b) => a.vsPar === b.vsPar)
+    return ordenados.map((j, i) => ({ ...j, posicion: posiciones[i] ?? '' }))
   }, [ronda, scores, parMap])
 }

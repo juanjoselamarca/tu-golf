@@ -29,6 +29,9 @@ export interface LivePlayer {
   points_total?: number // si formato = stableford
   vs_par: number
   thru: number // hoyos jugados (0..hole_count)
+  /** Con quién empata (`Player.claveEmpate` del motor): misma clave = "T". `null` = sin posición.
+   *  `undefined` = respuesta cacheada de antes de la clave: la tabla cae a comparar el score. */
+  clave_empate?: string | null
 }
 
 export interface LiveTeam {
@@ -39,6 +42,9 @@ export interface LiveTeam {
   team_total: number
   vs_par: number
   thru: number
+  /** Clave de empate del motor (`rankTeamsWithCountback`): misma clave = "T"; null = no salió;
+   *  undefined = respuesta cacheada sin clave (se cae a comparar vs_par). */
+  clave_empate?: string | null
 }
 
 export interface LiveMatch {

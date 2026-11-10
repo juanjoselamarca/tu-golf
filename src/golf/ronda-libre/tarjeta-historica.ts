@@ -79,6 +79,27 @@ export function completarHoyosSinMarcarConPar(
   return { scores: next, rellenados }
 }
 
+/**
+ * Lo mismo para las tarjetas de EQUIPO (scramble / foursome): cada equipo con sus hoyos sin marcar
+ * completados con par (mismo par por defecto). Devuelve los equipos (el mismo objeto si no cambió)
+ * y, por equipo cambiado, el delta rellenado (para respaldarlo y enviarlo). No muta el input.
+ */
+export function completarEquiposSinMarcarConPar<E extends { id: string; scores: Record<string, number> }>(
+  equipos: readonly E[],
+  hoyos: readonly number[],
+  parMap: Record<number, number>,
+): { equipos: E[]; rellenados: { id: string; delta: Record<string, number> }[] } {
+  const rellenados: { id: string; delta: Record<string, number> }[] = []
+  const next = equipos.map(eq => {
+    const { scores, rellenados: hoyosRellenados } = completarHoyosSinMarcarConPar(eq.scores, hoyos, parMap)
+    if (hoyosRellenados.length === 0) return eq
+    const delta = Object.fromEntries(hoyosRellenados.map(h => [String(h), scores[h]]))
+    rellenados.push({ id: eq.id, delta })
+    return { ...eq, scores: { ...eq.scores, ...delta } }
+  })
+  return { equipos: next, rellenados }
+}
+
 export interface TarjetaHistorica {
   /** Golpes por número de hoyo ascendente; `null` en los hoyos sin score. */
   scores: (number | null)[]

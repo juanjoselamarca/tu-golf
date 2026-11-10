@@ -10,7 +10,8 @@ import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { trackPageView } from '@/lib/analytics'
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { cleanupFollowedRounds } from '@/lib/round-notifications'
-import { chipDeFormato, publicaPuntos, scoreDeLaFila } from '@/lib/ronda/feed-en-vivo'
+import { chipDeFormato, filasDeLaTarjeta, publicaPuntos, scoreDeLaFila } from '@/lib/ronda/feed-en-vivo'
+import { esPrimerLugar } from '@/golf/core/posiciones'
 
 /** Fila de la tarjeta: un jugador, o un equipo en scramble/foursome (el puntaje es del equipo). */
 interface JugadorEnVivo {
@@ -350,40 +351,28 @@ export default function EnVivoPage() {
                     {(() => {
                       // Stableford neto llega sin puntos ("solo bruto"): se ordena y muestra por golpes brutos.
                       const isStab = publicaPuntos(ronda)
-                      return ronda.jugadores
-                      .slice()
-                      .sort((a, b) => {
-                        // Jugadores sin hoyos jugados van al final
-                        if (a.holesCompleted === 0) { if (b.holesCompleted !== 0) return 1 }
-                        else if (b.holesCompleted === 0) return -1
-                        else {
-                          // Stableford: mayor pts primero. Stroke/otros: menor vsPar primero.
-                          const porScore = isStab
-                            ? (b.stablefordPts ?? 0) - (a.stablefordPts ?? 0)
-                            : a.vsPar - b.vsPar
-                          if (porScore !== 0) return porScore
-                        }
-                        // Empatados (o todos sin empezar): desempate por nombre. Sin esto
-                        // `sort` es estable y el orden lo decidía el orden de llegada del
-                        // feed, que se mueve con cada guardado: al arrancar el torneo, con
-                        // todos en 0 hoyos, las filas y el "1." bailaban entre refrescos.
-                        return (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es', { sensitivity: 'base' })
-                      })
+                      // Orden y posición con empates "T2" (fuente única: `filasDeLaTarjeta`).
+                      return filasDeLaTarjeta(ronda, ronda.jugadores)
                       .slice(0, 4)
-                      .map((j: JugadorEnVivo, idx: number) => {
+                      .map(({ jugador: j, posicion }: { jugador: JugadorEnVivo; posicion: string | null }) => {
                         // Mismo criterio que el orden: puntos, o vs par (con "Gross" delante si la ronda es neto).
                         const score = scoreDeLaFila(ronda, j)
+                        // Líder = primer lugar (solo o empatado), no la primera fila por nombre.
+                        const lider = esPrimerLugar(posicion)
                         return (
                         <div key={j.id} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           padding: '4px 8px', borderRadius: '6px',
-                          background: idx === 0 ? 'rgba(200,165,90,0.08)' : 'transparent',
+                          background: lider ? 'rgba(200,165,90,0.08)' : 'transparent',
                         }}>
                           <span style={{
-                            fontSize: '13px', color: idx === 0 ? 'var(--text-primary)' : 'var(--text-2)',
-                            fontWeight: idx === 0 ? 600 : 400,
+                            fontSize: '13px', color: lider ? 'var(--text-primary)' : 'var(--text-2)',
+                            fontWeight: lider ? 600 : 400,
+                            display: 'flex', alignItems: 'baseline', gap: '6px', minWidth: 0,
                           }}>
-                            {idx + 1}. {j.nombre}
+                            {/* Ancho mínimo para que "T10" quepa y los nombres queden alineados. */}
+                            <span data-testid="posicion" style={{ minWidth: '24px', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{posicion ?? '—'}</span>
+                            <span>{j.nombre}</span>
                           </span>
                           {isLoggedIn && j.holesCompleted > 0 && (
                             <span style={{
