@@ -256,7 +256,7 @@ export function InscribirPlayerForm({
               style={{ ...inputStyle, width: '100%' }}
             />
             {!guestHcpValid && (
-              <p id="guest-hcp-error" role="alert" style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--double)' }}>
+              <p id="guest-hcp-error" role="alert" style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--error-fg)' }}>
                 Escribe un número: 12.4, o +2 si es plus.
               </p>
             )}
