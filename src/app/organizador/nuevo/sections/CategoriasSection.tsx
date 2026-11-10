@@ -204,7 +204,7 @@ const titleStyle: React.CSSProperties = {
 
 const emptyStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontStyle: 'italic',
   color: 'var(--text-secondary)',
 }
@@ -252,7 +252,7 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
   // 16px: con menos, iOS Safari hace zoom de página al enfocar el campo.
-  fontSize: 16,
+  fontSize: FONT_SIZE.body,
   outline: 'none',
 }
 
@@ -278,7 +278,7 @@ const addBtnStyle: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--brand-gold)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   cursor: 'pointer',
 }

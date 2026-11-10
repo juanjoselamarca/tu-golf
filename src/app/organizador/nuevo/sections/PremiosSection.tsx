@@ -256,7 +256,7 @@ const titleStyle: React.CSSProperties = {
 
 const emptyStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontStyle: 'italic',
   color: 'var(--text-secondary)',
 }
@@ -326,7 +326,7 @@ const addBtnStyle: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--brand-gold)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   cursor: 'pointer',
 }
@@ -367,7 +367,7 @@ const kindClearStyle: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--text-secondary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 11,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 500,
   cursor: 'pointer',
 }

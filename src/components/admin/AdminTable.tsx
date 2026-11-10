@@ -63,7 +63,7 @@ export function AdminTable<T extends Record<string, unknown>>({
         borderBottom: `1px solid ${adminColors.border}`, gap: '8px',
       }}>
         {columns.map(c => (
-          <span key={c.key} style={{ ...adminFonts.label, fontSize: '11px' }}>{c.label}</span>
+          <span key={c.key} style={{ ...adminFonts.label, fontSize: FONT_SIZE.caption }}>{c.label}</span>
         ))}
       </div>
 
@@ -84,7 +84,7 @@ export function AdminTable<T extends Record<string, unknown>>({
           </div>
         ))
       ) : paged.length === 0 ? (
-        <div style={{ padding: '32px 0', textAlign: 'center', color: adminColors.gray, fontSize: '13px' }}>
+        <div style={{ padding: '32px 0', textAlign: 'center', color: adminColors.gray, fontSize: FONT_SIZE.small }}>
           Sin resultados
         </div>
       ) : (
@@ -121,7 +121,7 @@ export function AdminTable<T extends Record<string, unknown>>({
             borderRadius: '6px', padding: '6px 14px', color: safeP <= 1 ? adminColors.grayDim : adminColors.ivory,
             cursor: safeP <= 1 ? 'not-allowed' : 'pointer', fontSize: FONT_SIZE.caption,
           }}>{'\u2190'}</button>
-          <span style={{ ...adminFonts.mono, fontSize: '11px' }}>{safeP} / {totalPages}</span>
+          <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption }}>{safeP} / {totalPages}</span>
           <button disabled={safeP >= totalPages} onClick={() => setPage(p => p + 1)} style={{
             background: adminColors.bg, border: `1px solid ${adminColors.border}`,
             borderRadius: '6px', padding: '6px 14px', color: safeP >= totalPages ? adminColors.grayDim : adminColors.ivory,

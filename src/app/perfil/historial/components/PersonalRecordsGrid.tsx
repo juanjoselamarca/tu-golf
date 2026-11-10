@@ -77,7 +77,7 @@ export function PersonalRecordsGrid({ bestRound18, bestRound9 }: Props) {
                 <Trophy size={14} strokeWidth={1.75} />
               </span>
               <span style={{
-                fontSize: '10px', fontWeight: 600, color: 'var(--text-3)',
+                fontSize: FONT_SIZE.caption, fontWeight: 600, color: 'var(--text-3)',
                 textTransform: 'uppercase', letterSpacing: '0.06em',
               }}>
                 {rec.label}
@@ -86,7 +86,7 @@ export function PersonalRecordsGrid({ bestRound18, bestRound9 }: Props) {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
               <span style={{
                 fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
-                fontSize: '28px', fontWeight: 700, color: 'var(--brand-on-bg)',
+                fontSize: FONT_SIZE.dataH1, fontWeight: 700, color: 'var(--brand-on-bg)',
                 lineHeight: 1, fontVariantNumeric: 'tabular-nums',
               }}>
                 {d.score}
@@ -101,13 +101,13 @@ export function PersonalRecordsGrid({ bestRound18, bestRound9 }: Props) {
               </span>
             </div>
             <div style={{
-              fontSize: '11px', color: 'var(--text-3)',
+              fontSize: FONT_SIZE.caption, color: 'var(--text-3)',
               marginTop: '4px',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {d.course}
             </div>
-            <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '2px' }}>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginTop: '2px' }}>
               {formatDateShort(d.date)}
             </div>
           </div>

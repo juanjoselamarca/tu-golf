@@ -127,7 +127,7 @@ export default function PlaygroundPage() {
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 24 }}>
-          <h1 style={{ ...adminFonts.sectionTitle, fontSize: '1.6rem', color: adminColors.gold, margin: 0 }}>
+          <h1 style={{ ...adminFonts.sectionTitle, fontSize: FONT_SIZE.h2, color: adminColors.gold, margin: 0 }}>
             Playground · tAIger+
           </h1>
           <Link href="/admin/sistema/taiger" style={{ color: adminColors.gray, fontSize: FONT_SIZE.small, textDecoration: 'none' }}>
@@ -144,7 +144,7 @@ export default function PlaygroundPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 13, color: adminColors.gray, marginBottom: 4 }}>Modo</div>
+              <div style={{ fontSize: FONT_SIZE.small, color: adminColors.gray, marginBottom: 4 }}>Modo</div>
               <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: sendToUser ? adminColors.red : adminColors.green }}>
                 {sendToUser ? 'ENVIAR AL USUARIO REAL' : 'SANDBOX (no persiste nada)'}
               </div>
@@ -156,15 +156,15 @@ export default function PlaygroundPage() {
                 onChange={e => { setSendToUser(e.target.checked); setConfirmSend(false) }}
                 aria-label="Enviar al usuario"
               />
-              <span style={{ fontSize: 13, color: adminColors.gray }}>enviar al usuario real</span>
+              <span style={{ fontSize: FONT_SIZE.small, color: adminColors.gray }}>enviar al usuario real</span>
             </label>
           </div>
           {sendToUser && (
             <div style={{ marginTop: 12, padding: 12, background: adminColors.bg, borderRadius: 6 }}>
-              <div style={{ fontSize: 13, color: adminColors.red, marginBottom: 8, fontWeight: 600 }}>
+              <div style={{ fontSize: FONT_SIZE.small, color: adminColors.red, marginBottom: 8, fontWeight: 600 }}>
                 ⚠ El proximo mensaje se persistira en la sesion real del usuario, marcado como sent_by_admin=true.
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: adminColors.ivory, cursor: 'pointer' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: FONT_SIZE.small, color: adminColors.ivory, cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={confirmSend}
@@ -178,7 +178,7 @@ export default function PlaygroundPage() {
         </div>
 
         <div style={{ ...adminCard, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, color: adminColors.gray, marginBottom: 8 }}>1. Elegir usuario</div>
+          <div style={{ fontSize: FONT_SIZE.small, color: adminColors.gray, marginBottom: 8 }}>1. Elegir usuario</div>
           <input
             type="text"
             placeholder="buscar por nombre o email..."
@@ -217,7 +217,7 @@ export default function PlaygroundPage() {
             ))}
           </select>
           {selectedUser && (
-            <div style={{ marginTop: 8, fontSize: 13, color: adminColors.gray }}>
+            <div style={{ marginTop: 8, fontSize: FONT_SIZE.small, color: adminColors.gray }}>
               <Link href={`/admin/sistema/taiger/${selectedUser.id}`} style={{ color: adminColors.blue, textDecoration: 'none' }}>
                 ver cerebro de este usuario →
               </Link>
@@ -227,12 +227,12 @@ export default function PlaygroundPage() {
 
         {selectedUserId && (
           <div style={{ ...adminCard, padding: 16, marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: adminColors.gray, marginBottom: 8 }}>2. Conversacion</div>
+            <div style={{ fontSize: FONT_SIZE.small, color: adminColors.gray, marginBottom: 8 }}>2. Conversacion</div>
             {conversation.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 {conversation.map((m, i) => (
                   <div key={i} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, color: adminColors.gray, marginBottom: 2 }}>{m.role}</div>
+                    <div style={{ fontSize: FONT_SIZE.caption, color: adminColors.gray, marginBottom: 2 }}>{m.role}</div>
                     <div style={{
                       padding: 10,
                       background: m.role === 'user' ? adminColors.bg : adminColors.cardHover,
@@ -298,7 +298,7 @@ export default function PlaygroundPage() {
               {loading ? 'pensando...' : sendToUser ? 'enviar al usuario real' : 'probar en sandbox'}
             </button>
             {error && (
-              <div style={{ marginTop: 8, padding: 10, background: adminColors.redDim, border: `1px solid ${adminColors.red}`, borderRadius: 6, color: adminColors.red, fontSize: 13 }}>
+              <div style={{ marginTop: 8, padding: 10, background: adminColors.redDim, border: `1px solid ${adminColors.red}`, borderRadius: 6, color: adminColors.red, fontSize: FONT_SIZE.small }}>
                 {error}
               </div>
             )}
@@ -307,7 +307,7 @@ export default function PlaygroundPage() {
 
         {result && (
           <div style={{ ...adminCard, padding: 16, marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: adminColors.gray, marginBottom: 8 }}>3. Respuesta del coach</div>
+            <div style={{ fontSize: FONT_SIZE.small, color: adminColors.gray, marginBottom: 8 }}>3. Respuesta del coach</div>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, fontSize: FONT_SIZE.caption }}>
               <span style={{ padding: '2px 8px', background: result.persisted ? adminColors.greenDim : adminColors.grayDim, color: result.persisted ? adminColors.green : adminColors.gray, borderRadius: 4 }}>
@@ -333,7 +333,7 @@ export default function PlaygroundPage() {
                     <summary style={{ cursor: 'pointer', color: t.ok ? adminColors.green : adminColors.red }}>
                       {t.tool} · {t.ms}ms · {t.ok ? 'ok' : 'fail'}
                     </summary>
-                    <div style={{ marginTop: 6, fontFamily: 'monospace', fontSize: 11 }}>
+                    <div style={{ marginTop: 6, fontFamily: 'monospace', fontSize: FONT_SIZE.dataCaption }}>
                       <div style={{ color: adminColors.gray, marginBottom: 4 }}>input:</div>
                       <pre style={{ margin: 0, color: adminColors.ivory, whiteSpace: 'pre-wrap' }}>{JSON.stringify(t.input, null, 2)}</pre>
                       <div style={{ color: adminColors.gray, marginTop: 6, marginBottom: 4 }}>output (preview):</div>
@@ -346,14 +346,14 @@ export default function PlaygroundPage() {
 
             <details open={showContext} onToggle={e => setShowContext((e.target as HTMLDetailsElement).open)} style={{ marginBottom: 8 }}>
               <summary style={{ cursor: 'pointer', fontSize: FONT_SIZE.caption, color: adminColors.gray }}>contexto del jugador (PLAYER_CONTEXT)</summary>
-              <pre style={{ marginTop: 6, padding: 10, background: adminColors.bg, borderRadius: 4, fontSize: 11, fontFamily: 'monospace', color: adminColors.ivory, whiteSpace: 'pre-wrap', maxHeight: 300, overflow: 'auto' }}>
+              <pre style={{ marginTop: 6, padding: 10, background: adminColors.bg, borderRadius: 4, fontSize: FONT_SIZE.dataCaption, fontFamily: 'monospace', color: adminColors.ivory, whiteSpace: 'pre-wrap', maxHeight: 300, overflow: 'auto' }}>
                 {result.contextString}
               </pre>
             </details>
 
             <details open={showSystem} onToggle={e => setShowSystem((e.target as HTMLDetailsElement).open)}>
               <summary style={{ cursor: 'pointer', fontSize: FONT_SIZE.caption, color: adminColors.gray }}>system prompt completo enviado a Anthropic</summary>
-              <pre style={{ marginTop: 6, padding: 10, background: adminColors.bg, borderRadius: 4, fontSize: 11, fontFamily: 'monospace', color: adminColors.ivory, whiteSpace: 'pre-wrap', maxHeight: 400, overflow: 'auto' }}>
+              <pre style={{ marginTop: 6, padding: 10, background: adminColors.bg, borderRadius: 4, fontSize: FONT_SIZE.dataCaption, fontFamily: 'monospace', color: adminColors.ivory, whiteSpace: 'pre-wrap', maxHeight: 400, overflow: 'auto' }}>
                 {result.systemPrompt}
               </pre>
             </details>

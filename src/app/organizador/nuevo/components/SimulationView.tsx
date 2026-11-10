@@ -271,7 +271,7 @@ function prettyFormat(format: string): string {
 
 export const subtitleStyle: React.CSSProperties = {
   margin: '0 0 12px 0',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-secondary)',
 }
 
@@ -345,11 +345,11 @@ const matchItemStyle: React.CSSProperties = {
   borderRadius: 8,
   background: 'var(--bg-surface)',
   border: '1px solid var(--border)',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
 }
 
 const vsStyle: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: FONT_SIZE.caption,
   textTransform: 'uppercase',
   color: 'var(--text-secondary)',
   fontWeight: 600,

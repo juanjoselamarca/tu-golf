@@ -258,7 +258,7 @@ export default function CommandCenterPage() {
               {alerts.length === 0 ? (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
-                  color: adminColors.grayDim, fontSize: '13px',
+                  color: adminColors.grayDim, fontSize: FONT_SIZE.small,
                 }}>
                   <AdminBadge text="Sin alertas" variant="success" dot />
                 </div>

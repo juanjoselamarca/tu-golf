@@ -1,5 +1,6 @@
 'use client'
 import { adminColors } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 type BadgeVariant = 'success' | 'warning' | 'error' | 'neutral' | 'gold'
 
@@ -21,7 +22,7 @@ export function AdminBadge({ text, variant = 'neutral', dot }: {
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: '6px',
       background: s.bg, color: s.color,
-      fontSize: '11px', fontWeight: 600, padding: '3px 10px',
+      fontSize: FONT_SIZE.caption, fontWeight: 600, padding: '3px 10px',
       borderRadius: '20px', whiteSpace: 'nowrap',
     }}>
       {dot && <span style={{

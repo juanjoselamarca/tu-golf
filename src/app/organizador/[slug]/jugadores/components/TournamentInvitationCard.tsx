@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { copyToClipboard } from '@/lib/clipboard'
 import { SITE_URL } from '@/lib/site-url'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   slug: string
@@ -74,7 +75,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
         textAlign: 'center',
       }}
     >
-      <div style={{ fontSize: '12px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
+      <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
         Invitar jugadores
       </div>
 
@@ -99,12 +100,12 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
       </div>
 
       {tournamentName && (
-        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+        <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
           {tournamentName}
         </div>
       )}
 
-      <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '14px' }}>
+      <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '14px' }}>
         Escanea para inscribirte
       </div>
 
@@ -119,7 +120,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
           padding: '6px 16px',
           minHeight: '44px',
           borderRadius: '8px',
-          fontSize: '13px',
+          fontSize: FONT_SIZE.small,
           fontWeight: 600,
           cursor: 'pointer',
           transition: 'all 200ms',
@@ -147,7 +148,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
           color: '#062b14',
           padding: '12px 28px',
           borderRadius: '10px',
-          fontSize: '15px',
+          fontSize: FONT_SIZE.body,
           fontWeight: 700,
           cursor: 'pointer',
           transition: 'all 200ms',
@@ -175,7 +176,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
           color: linkCopied ? 'var(--status-live-fg)' : 'var(--brand-on-bg)',
           padding: '12px 28px',
           borderRadius: '10px',
-          fontSize: '15px',
+          fontSize: FONT_SIZE.body,
           fontWeight: 700,
           cursor: 'pointer',
           transition: 'all 200ms',
@@ -190,11 +191,11 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
 
       {/* Code reference - secondary */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-        <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>Código:</span>
+        <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>Código:</span>
         <span
           style={{
             fontFamily: 'monospace',
-            fontSize: '16px',
+            fontSize: FONT_SIZE.dataBody,
             fontWeight: 700,
             color: 'var(--brand-on-bg)',
             letterSpacing: '0.1em',
@@ -217,7 +218,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
             padding: '0 12px',
             minHeight: '44px',
             minWidth: '44px',
-            fontSize: '13px',
+            fontSize: FONT_SIZE.small,
             cursor: 'pointer',
             textDecoration: 'underline',
             textUnderlineOffset: '2px',

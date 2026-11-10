@@ -216,7 +216,7 @@ const closeBtnStyle: React.CSSProperties = {
   appearance: 'none',
   background: 'transparent',
   border: 'none',
-  fontSize: 28,
+  fontSize: FONT_SIZE.h1,
   lineHeight: 1,
   cursor: 'pointer',
   color: 'var(--text-secondary)',

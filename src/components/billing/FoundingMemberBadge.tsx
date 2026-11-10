@@ -43,7 +43,7 @@ export function FoundingMemberBadge({ lockedPrice, className }: FoundingMemberBa
       </span>
       {lockedPrice && (
         <span style={{
-          fontSize: '11px',
+          fontSize: FONT_SIZE.caption,
           fontWeight: 500,
           color: 'var(--text-2, #5a6573)',
           opacity: 0.8,

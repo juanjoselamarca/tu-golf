@@ -56,7 +56,7 @@ export function InlineEditScores({ initialScores, hoyos, estimados, saving, onSa
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: '8px',
       }}>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>Editar scores ({GOLPES_MIN_POR_HOYO}-{GOLPES_MAX_POR_HOYO})</div>
+        <div style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: 'var(--text-3)' }}>Editar scores ({GOLPES_MIN_POR_HOYO}-{GOLPES_MAX_POR_HOYO})</div>
         {total > 0 && (
           <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
             Total: <strong style={{ color: 'var(--text)' }}>{total}</strong>{' '}
@@ -71,7 +71,7 @@ export function InlineEditScores({ initialScores, hoyos, estimados, saving, onSa
         >
           {Array.from({ length: Math.min(9, n - offset) }, (_, i) => (
             <div key={i + offset} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-3)', marginBottom: '2px' }}>{numeroDe(i + offset)}</div>
+              <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', marginBottom: '2px' }}>{numeroDe(i + offset)}</div>
               <input
                 type="text" inputMode="numeric" pattern="[0-9]*"
                 aria-label={`Golpes del hoyo ${numeroDe(i + offset)}${esEstimado.has(numeroDe(i + offset)) ? ' (estimado)' : ''}`}

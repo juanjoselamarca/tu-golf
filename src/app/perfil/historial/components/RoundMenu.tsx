@@ -198,7 +198,7 @@ function MenuButton({ icon, children, onClick, disabled, danger, dataTestid }: M
         padding: '10px 12px', minHeight: '44px',
         background: 'none', border: 'none',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        fontSize: '13px', color,
+        fontSize: FONT_SIZE.small, color,
         fontFamily: '"DM Sans", system-ui, sans-serif',
         borderRadius: '6px',
         textAlign: 'left',
@@ -301,7 +301,7 @@ export function ConfirmDeleteSheet({
             <strong style={{ color: 'var(--text)' }}>{courseLabel}</strong>
           </p>
           <p style={{
-            fontSize: '13px', color: 'var(--text-3)',
+            fontSize: FONT_SIZE.small, color: 'var(--text-3)',
             margin: '0 0 18px',
           }}>
             {dateLabel} · Esta acción no se puede deshacer y el índice se recalculará.

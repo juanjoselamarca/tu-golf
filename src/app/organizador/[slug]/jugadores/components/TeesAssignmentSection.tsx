@@ -121,7 +121,7 @@ export function TeesAssignmentSection({
                     flex: 1,
                     minWidth: 0,
                     fontFamily: 'var(--font-dm-sans), sans-serif',
-                    fontSize: 15,
+                    fontSize: FONT_SIZE.body,
                     color: 'var(--text)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',

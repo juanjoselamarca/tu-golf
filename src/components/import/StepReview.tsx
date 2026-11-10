@@ -162,7 +162,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
             borderRadius: '10px', padding: '10px 12px',
           }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '10px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Formato</span>
+              <span style={{ fontSize: FONT_SIZE.dataCaption, color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Formato</span>
               <select
                 value={formato}
                 onChange={e => setFormato(e.target.value as FormatoImportacion)}
@@ -181,7 +181,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
               </select>
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '10px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Modo</span>
+              <span style={{ fontSize: FONT_SIZE.dataCaption, color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Modo</span>
               <select
                 value={modoEfectivo}
                 onChange={e => setModo(e.target.value as ModoImportacion)}
@@ -205,7 +205,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
               style={{
                 margin: '0 0 12px', padding: '10px 12px', borderRadius: '10px',
                 background: 'var(--error-bg)', border: '1px solid var(--error-border)',
-                color: 'var(--error-fg)', fontSize: '13px', lineHeight: 1.45, textAlign: 'center',
+                color: 'var(--error-fg)', fontSize: FONT_SIZE.small, lineHeight: 1.45, textAlign: 'center',
               }}
             >
               {confirmError}

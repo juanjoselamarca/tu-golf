@@ -16,7 +16,7 @@ export function FunnelChart({ steps }: { steps: FunnelStep[] }) {
         return (
           <div key={i}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ ...adminFonts.body, fontSize: '13px' }}>{step.label}</span>
+              <span style={{ ...adminFonts.body, fontSize: FONT_SIZE.small }}>{step.label}</span>
               <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, color: adminColors.gold }}>
                 {step.value} ({pct.toFixed(0)}%)
               </span>

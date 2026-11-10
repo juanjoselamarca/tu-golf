@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { adminColors, adminFonts, adminCard } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface ProjectionSliderProps {
   totalUsers: number
@@ -28,8 +29,8 @@ export function ProjectionSlider({ totalUsers }: ProjectionSliderProps) {
       {/* Conversion slider */}
       <div style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-          <span style={{ ...adminFonts.body, fontSize: '13px' }}>Conversion rate</span>
-          <span style={{ ...adminFonts.kpiSmall, fontSize: '1.1rem' }}>{conversionPct}%</span>
+          <span style={{ ...adminFonts.body, fontSize: FONT_SIZE.small }}>Conversion rate</span>
+          <span style={{ ...adminFonts.kpiSmall, fontSize: FONT_SIZE.lead }}>{conversionPct}%</span>
         </div>
         <input type="range" min={1} max={20} value={conversionPct}
           onChange={e => setConversionPct(+e.target.value)}
@@ -40,8 +41,8 @@ export function ProjectionSlider({ totalUsers }: ProjectionSliderProps) {
       {/* Price slider */}
       <div style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-          <span style={{ ...adminFonts.body, fontSize: '13px' }}>Precio mensual</span>
-          <span style={{ ...adminFonts.kpiSmall, fontSize: '1.1rem' }}>${price}</span>
+          <span style={{ ...adminFonts.body, fontSize: FONT_SIZE.small }}>Precio mensual</span>
+          <span style={{ ...adminFonts.kpiSmall, fontSize: FONT_SIZE.lead }}>${price}</span>
         </div>
         <input type="range" min={5} max={20} value={price}
           onChange={e => setPrice(+e.target.value)}
@@ -70,7 +71,7 @@ export function ProjectionSlider({ totalUsers }: ProjectionSliderProps) {
         </div>
       </div>
 
-      <div style={{ marginTop: '12px', ...adminFonts.mono, fontSize: '10px', textAlign: 'center' }}>
+      <div style={{ marginTop: '12px', ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, textAlign: 'center' }}>
         {proUsers} usuarios Pro de {totalUsers} totales | Costos est. ${totalCost}/mes
       </div>
     </div>

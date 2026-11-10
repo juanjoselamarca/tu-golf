@@ -9,6 +9,7 @@ import { copyToClipboard } from '@/lib/clipboard'
 import type { TournamentConfig, RegistrationConfig } from '@/lib/draft/types'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
 import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface InscripcionSectionProps {
   config: TournamentConfig
@@ -142,7 +143,7 @@ const copyBtnStyle: React.CSSProperties = {
   border: '1px solid var(--brand-gold)',
   background: 'transparent',
   color: 'var(--brand-gold)',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   cursor: 'pointer',
 }

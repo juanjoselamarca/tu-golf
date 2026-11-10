@@ -48,26 +48,26 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <div>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: FONT_SIZE.lead, color: 'var(--text)' }}>{selectedPlayer.profiles?.name}</span>
-          <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
+          <span style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.small, marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
           {holeCount === 18 && grossTotal > 0 && (
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', alignSelf: 'center' }}>
+            <div style={{ fontSize: FONT_SIZE.dataCaption, color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', alignSelf: 'center' }}>
               {outGross}+{inGross}
             </div>
           )}
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>GROSS</div>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '2px' }}>GROSS</div>
             <div style={{ fontSize: FONT_SIZE.dataMd, fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>{grossTotal || '—'}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>NET</div>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '2px' }}>NET</div>
             <div style={{ fontSize: FONT_SIZE.dataMd, fontWeight: 700, fontFamily: '"DM Mono", monospace', color: netTotal < 0 ? 'var(--status-live-fg)' : netTotal > 0 ? 'var(--status-closed-fg)' : 'var(--text)' }}>
               {grossTotal ? (netTotal <= 0 ? netTotal : `+${netTotal}`) : '—'}
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>vs PAR</div>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '2px' }}>vs PAR</div>
             <div style={{ fontSize: FONT_SIZE.dataMd, fontWeight: 700, fontFamily: '"DM Mono", monospace', color: 'var(--text-2)' }}>
               {grossTotal ? (() => {
                 const vp = grossTotal - parJugado
@@ -103,8 +103,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
                 animation: hasErr ? 'pulse 1s ease-in-out 3' : 'none',
               }}
             >
-              <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '2px' }}>H{holeNum}</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px' }}>P{par}</div>
+              <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '2px' }}>H{holeNum}</div>
+              <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '4px' }}>P{par}</div>
               <input
                 type="number"
                 min={1}
@@ -133,7 +133,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
               {haScore && isStablefordFormat(resolveFormatoJuego(tournament)) && (() => {
                 const pts = stablefordPtsAt(holeNum, gross)
                 return (
-                  <div style={{ fontSize: '10px', color: pts >= 2 ? 'var(--status-live-fg)' : pts === 1 ? 'var(--brand-on-bg)' : 'var(--text-2)', fontWeight: 600, marginTop: '2px' }}>
+                  <div style={{ fontSize: FONT_SIZE.caption, color: pts >= 2 ? 'var(--status-live-fg)' : pts === 1 ? 'var(--brand-on-bg)' : 'var(--text-2)', fontWeight: 600, marginTop: '2px' }}>
                     {pts} pt{pts !== 1 ? 's' : ''}
                   </div>
                 )
@@ -149,7 +149,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         <button
           type="button"
           onClick={() => setShowStats(!showStats)}
-          style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-2)', fontSize: '13px' }}
+          style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-2)', fontSize: FONT_SIZE.small }}
         >
           <span style={{ transition: 'transform 200ms', transform: showStats ? 'rotate(90deg)' : 'rotate(0)', display: 'inline-block' }}>▶</span>
           Estadísticas adicionales — Putts · Fairway · GIR (opcional)
@@ -171,7 +171,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
               background: 'var(--brand-on-bg)',
               color: 'var(--bg)',
               fontWeight: 700,
-              fontSize: '15px',
+              fontSize: FONT_SIZE.body,
               padding: '12px 28px',
               borderRadius: '8px',
               border: 'none',

@@ -74,7 +74,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
         {/* Body */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
           {/* Icon */}
-          <span style={{ fontSize: '15px', color: cfg.iconColor, flexShrink: 0, fontWeight: 700, lineHeight: '20px' }}>
+          <span style={{ fontSize: FONT_SIZE.body, color: cfg.iconColor, flexShrink: 0, fontWeight: 700, lineHeight: '20px' }}>
             {cfg.icon}
           </span>
 
@@ -84,7 +84,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
               {title}
             </div>
             {message && (
-              <div style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.4 }}>
+              <div style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.small, lineHeight: 1.4 }}>
                 {message}
               </div>
             )}

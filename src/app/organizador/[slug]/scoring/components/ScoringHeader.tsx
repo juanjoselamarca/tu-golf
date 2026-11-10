@@ -67,7 +67,7 @@ export function ScoringHeader({
       <Link
         href={`/torneo/${slug}`}
         target="_blank"
-        style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none', fontWeight: 500 }}
+        style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '8px 16px', borderRadius: '8px', fontSize: FONT_SIZE.small, textDecoration: 'none', fontWeight: 500 }}
       >
         Ver leaderboard público →
       </Link>

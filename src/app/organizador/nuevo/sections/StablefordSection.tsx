@@ -101,7 +101,7 @@ const titleStyle: React.CSSProperties = {
 
 const helperStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-secondary)',
 }
 

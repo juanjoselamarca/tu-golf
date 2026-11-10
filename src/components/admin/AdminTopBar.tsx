@@ -45,7 +45,7 @@ export function AdminTopBar({ compact }: { compact?: boolean } = {}) {
           boxShadow: status.supabaseOk ? `0 0 4px ${adminColors.green}` : 'none',
           flexShrink: 0,
         }} />
-        <span style={{ ...adminFonts.mono, fontSize: '10px', color: adminColors.gray }}>
+        <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, color: adminColors.gray }}>
           {status.activeUsers}{'\uD83D\uDC64'} {status.liveRounds}{'\u26F3'}
         </span>
       </div>
@@ -67,22 +67,22 @@ export function AdminTopBar({ compact }: { compact?: boolean } = {}) {
             background: status.supabaseOk ? adminColors.green : adminColors.red,
             boxShadow: status.supabaseOk ? `0 0 6px ${adminColors.green}` : 'none',
           }} />
-          <span style={{ ...adminFonts.mono, fontSize: '11px' }}>
+          <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption }}>
             {status.supabaseOk ? 'Sistemas OK' : 'Error detectado'}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <span style={{ fontSize: FONT_SIZE.caption }}>{'\uD83D\uDC64'}</span>
-          <span style={{ ...adminFonts.mono, fontSize: '11px', color: adminColors.ivory }}>{status.activeUsers}</span>
-          <span style={{ ...adminFonts.mono, fontSize: '11px' }}>activos</span>
+          <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, color: adminColors.ivory }}>{status.activeUsers}</span>
+          <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption }}>activos</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <span style={{ fontSize: FONT_SIZE.caption }}>{'\u26F3'}</span>
-          <span style={{ ...adminFonts.mono, fontSize: '11px', color: adminColors.ivory }}>{status.liveRounds}</span>
-          <span style={{ ...adminFonts.mono, fontSize: '11px' }}>rondas en vivo</span>
+          <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, color: adminColors.ivory }}>{status.liveRounds}</span>
+          <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption }}>rondas en vivo</span>
         </div>
       </div>
-      <span style={{ ...adminFonts.mono, fontSize: '10px', color: adminColors.grayDim }}>
+      <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, color: adminColors.grayDim }}>
         {status.lastUpdate && `Actualizado ${status.lastUpdate}`}
       </span>
     </div>

@@ -65,7 +65,7 @@ const GARMIN_CARD = {
 
 const RecomendadoLabel = () => (
   <span style={{
-    fontSize: '10px', fontWeight: 700, color: 'var(--brand-on-bg)',
+    fontSize: FONT_SIZE.caption, fontWeight: 700, color: 'var(--brand-on-bg)',
     letterSpacing: '0.08em', textTransform: 'uppercase',
     animation: 'selectorFadeIn 0.4s ease-out 0.12s both',
   }}>
@@ -133,11 +133,11 @@ function SourceCard({ icon, title, badge, description, chip, time, recommended, 
           <span style={{ fontWeight: 700, fontSize: FONT_SIZE.body, color: 'var(--text)' }}>
             {title}
           </span>
-          <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--brand-on-bg)', letterSpacing: '0.04em' }}>
+          <span style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: 'var(--brand-on-bg)', letterSpacing: '0.04em' }}>
             {badge}
           </span>
         </div>
-        <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>
+        <p style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.small, margin: '0 0 10px', lineHeight: 1.4 }}>
           {description}
         </p>
         <div style={{
@@ -152,7 +152,7 @@ function SourceCard({ icon, title, badge, description, chip, time, recommended, 
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
           <ClockIcon />
-          <span style={{ fontSize: '11px' }}>{time}</span>
+          <span style={{ fontSize: FONT_SIZE.caption }}>{time}</span>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'var(--text-2)', fontSize: FONT_SIZE.lead }}>
@@ -203,7 +203,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
         {/* Recommendation banner */}
         {hasRecommendation && (
           <p style={{
-            fontSize: '13px',
+            fontSize: FONT_SIZE.small,
             color: 'var(--text-2)',
             marginBottom: '4px',
             animation: 'selectorFadeIn 0.4s ease-out 0.1s both',
@@ -233,7 +233,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
             animation: 'selectorFadeIn 0.5s ease-out 0.22s both',
           }}>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-            <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Otras opciones</span>
+            <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>Otras opciones</span>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
           </div>
         )}
@@ -281,13 +281,13 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
               <span style={{ fontWeight: 600, fontSize: FONT_SIZE.small, color: 'var(--text-2)' }}>
                 Agregar ronda manual
               </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>
+              <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
                 Una por una
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-2)' }}>
               <ClockIcon />
-              <span style={{ fontSize: '11px' }}>~1 min por tarjeta</span>
+              <span style={{ fontSize: FONT_SIZE.caption }}>~1 min por tarjeta</span>
             </div>
           </div>
 

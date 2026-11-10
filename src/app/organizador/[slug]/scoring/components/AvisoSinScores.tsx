@@ -30,7 +30,7 @@ export function AvisoSinScores({ motivo, status, slug }: {
       textAlign: 'center', color: 'var(--text-2)',
     }}>
       <div style={{ fontSize: FONT_SIZE.body, color: 'var(--text)', marginBottom: '6px' }}>{titulo}</div>
-      <div style={{ fontSize: '13px', marginBottom: conAccion ? '20px' : 0 }}>{detalle}</div>
+      <div style={{ fontSize: FONT_SIZE.small, marginBottom: conAccion ? '20px' : 0 }}>{detalle}</div>
       {conAccion && (
         <Link href={`/organizador/${slug}/jugadores`}
           style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: '44px', padding: '10px 24px', borderRadius: '8px', background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', fontSize: FONT_SIZE.small, fontWeight: 600, textDecoration: 'none' }}>

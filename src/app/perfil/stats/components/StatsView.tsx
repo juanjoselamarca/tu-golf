@@ -82,10 +82,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             ← Perfil
           </Link>
         </div>
-        <h1 style={{ fontFamily: 'var(--font-playfair), "Playfair Display", serif', color: C.ivory, fontSize: 26, fontWeight: 700, margin: '0 0 4px' }}>
+        <h1 style={{ fontFamily: 'var(--font-playfair), "Playfair Display", serif', color: C.ivory, fontSize: FONT_SIZE.h2, fontWeight: 700, margin: '0 0 4px' }}>
           Mis estadísticas
         </h1>
-        <p style={{ color: C.muted, fontSize: 13, margin: '0 0 16px' }}>
+        <p style={{ color: C.muted, fontSize: FONT_SIZE.small, margin: '0 0 16px' }}>
           {allRounds.length} ronda{allRounds.length !== 1 ? 's' : ''} registrada{allRounds.length !== 1 ? 's' : ''}
         </p>
 
@@ -127,15 +127,15 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             background: 'rgba(196,153,42,0.04)', border: '1px solid rgba(196,153,42,0.2)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><BarChart3 size={32} strokeWidth={1.5} /></div>
-            <p style={{ color: C.ivory, fontSize: 15, fontWeight: 600, margin: '0 0 6px' }}>
+            <p style={{ color: C.ivory, fontSize: FONT_SIZE.body, fontWeight: 600, margin: '0 0 6px' }}>
               Registra {3 - allRounds.length} ronda{3 - allRounds.length !== 1 ? 's' : ''} más para estadísticas completas
             </p>
-            <p style={{ color: C.muted, fontSize: 13, margin: '0 0 12px' }}>
+            <p style={{ color: C.muted, fontSize: FONT_SIZE.small, margin: '0 0 12px' }}>
               Con 3+ rondas se activan tendencias, promedios y tu Índice Golfers+.
             </p>
             <Link href="/ronda-libre/nueva" style={{
               display: 'inline-block', background: 'var(--brand)', color: 'var(--brand-dark)',
-              fontWeight: 700, fontSize: 13, padding: '10px 20px', borderRadius: 10,
+              fontWeight: 700, fontSize: FONT_SIZE.small, padding: '10px 20px', borderRadius: 10,
               textDecoration: 'none',
             }}>
               Nueva ronda
@@ -146,25 +146,25 @@ export function StatsView({ allRounds, profileIndex }: Props) {
         {/* ── Dual Index ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
           <div style={{ ...cardStyle, textAlign: 'center', padding: '16px 12px' }}>
-            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.muted, margin: '0 0 6px' }}>
+            <p style={{ fontSize: FONT_SIZE.caption, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.muted, margin: '0 0 6px' }}>
               Federación
             </p>
             <p style={{ fontSize: FONT_SIZE.dataH1, fontWeight: 700, color: C.ivory, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
               {profileIndex.indice != null ? profileIndex.indice.toFixed(1) : '—'}
             </p>
-            <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>Oficial</p>
+            <p style={{ fontSize: FONT_SIZE.caption, color: C.muted, margin: 0 }}>Oficial</p>
           </div>
           <div style={{
             ...cardStyle, textAlign: 'center', padding: '16px 12px',
             borderColor: profileIndex.indice_golfers != null ? 'rgba(196,153,42,0.35)' : C.cardBorder,
           }}>
-            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.gold, margin: '0 0 6px' }}>
+            <p style={{ fontSize: FONT_SIZE.caption, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.gold, margin: '0 0 6px' }}>
               Golfers+
             </p>
             <p style={{ fontSize: FONT_SIZE.dataH1, fontWeight: 700, color: profileIndex.indice_golfers != null ? C.gold : C.muted, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
               {profileIndex.indice_golfers != null ? profileIndex.indice_golfers.toFixed(1) : '—'}
             </p>
-            <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>
+            <p style={{ fontSize: FONT_SIZE.caption, color: C.muted, margin: 0 }}>
               {profileIndex.indice_golfers != null ? 'Historial real' : '3+ rondas para activar'}
             </p>
           </div>
@@ -183,7 +183,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 border: `1px solid ${range === r.key ? 'var(--brand)' : C.cardBorder}`,
                 background: range === r.key ? 'rgba(196,153,42,0.08)' : 'transparent',
                 color: range === r.key ? C.gold : C.muted,
-                fontSize: 13,
+                fontSize: FONT_SIZE.small,
                 fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'all 0.2s',
@@ -208,11 +208,11 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                   transform: 'translate(-50%, -50%)',
                   textAlign: 'center',
                 }}>
-                  <span style={{ color: C.greenText, fontSize: 36, fontWeight: 700, fontFamily: '"DM Mono", monospace' }}>
+                  <span style={{ color: C.greenText, fontSize: FONT_SIZE.dataLg, fontWeight: 700, fontFamily: '"DM Mono", monospace' }}>
                     {Math.round(gwiValue)}
                   </span>
                   <br />
-                  <span style={{ color: C.muted, fontSize: 11 }}>GWI</span>
+                  <span style={{ color: C.muted, fontSize: FONT_SIZE.caption }}>GWI</span>
                 </div>
               </>
             ) : (
@@ -226,7 +226,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             )}
           </div>
           {!hasRounds && (
-            <p style={{ color: C.muted, fontSize: 13, marginTop: 16, fontStyle: 'italic' }}>
+            <p style={{ color: C.muted, fontSize: FONT_SIZE.small, marginTop: 16, fontStyle: 'italic' }}>
               Registra tu primera ronda para ver tu GWI
             </p>
           )}
@@ -243,7 +243,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             </div>
           ) : (
             <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: C.muted, fontSize: 13 }}>Sin datos aún</span>
+              <span style={{ color: C.muted, fontSize: FONT_SIZE.small }}>Sin datos aún</span>
             </div>
           )}
         </div>
@@ -259,7 +259,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             </div>
           ) : (
             <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: C.muted, fontSize: 13 }}>Sin datos aún</span>
+              <span style={{ color: C.muted, fontSize: FONT_SIZE.small }}>Sin datos aún</span>
             </div>
           )}
         </div>
@@ -278,10 +278,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             { label: 'Eagles', value: hasRounds ? eagles : '--', color: C.eagleText },
           ].map((s, i) => (
             <div key={i} style={{ ...cardStyle, textAlign: 'center' }}>
-              <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
+              <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
                 {s.label}
               </p>
-              <p style={{ color: s.color, fontSize: 28, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>
+              <p style={{ color: s.color, fontSize: FONT_SIZE.dataH2, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>
                 {s.value}
               </p>
             </div>
@@ -314,14 +314,14 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 width: 48, height: 48, borderRadius: 12,
                 background: trendData.improving ? C.greenDim : trendData.declining ? 'rgba(220,38,38,0.12)' : 'var(--surface-soft)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 22,
+                fontSize: FONT_SIZE.h2,
               }}>
                 {trendData.improving ? '↗' : trendData.declining ? '↘' : '→'}
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{
                   color: trendData.improving ? C.greenText : trendData.declining ? C.red : C.ivory,
-                  fontSize: 15, fontWeight: 700, margin: '0 0 2px',
+                  fontSize: FONT_SIZE.body, fontWeight: 700, margin: '0 0 2px',
                 }}>
                   {trendData.improving ? 'Mejorando' : trendData.declining ? 'En declive' : 'Estable'}
                 </p>
@@ -367,10 +367,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                       transition: 'width 0.5s ease',
                     }} />
                   </div>
-                  <span style={{ color: C.ivory, fontSize: 13, fontWeight: 600, width: 36, textAlign: 'right', flexShrink: 0, fontFamily: '"DM Mono", monospace' }}>
+                  <span style={{ color: C.ivory, fontSize: FONT_SIZE.dataSm, fontWeight: 600, width: 36, textAlign: 'right', flexShrink: 0, fontFamily: '"DM Mono", monospace' }}>
                     {count}
                   </span>
-                  <span style={{ color: C.muted, fontSize: 11, width: 38, flexShrink: 0 }}>
+                  <span style={{ color: C.muted, fontSize: FONT_SIZE.caption, width: 38, flexShrink: 0 }}>
                     {(count / scoringTotal * 100).toFixed(0)}%
                   </span>
                 </div>
@@ -383,36 +383,36 @@ export function StatsView({ allRounds, profileIndex }: Props) {
         {hasRounds && bestRoundData && worstRoundData && rounds.length >= 3 && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div style={{ ...cardStyle, textAlign: 'center' }}>
-              <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
+              <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
                 Mejor ronda
               </p>
-              <p style={{ color: C.greenText, fontSize: 28, fontWeight: 700, margin: '0 0 2px', fontFamily: '"DM Mono", monospace' }}>
+              <p style={{ color: C.greenText, fontSize: FONT_SIZE.dataH1, fontWeight: 700, margin: '0 0 2px', fontFamily: '"DM Mono", monospace' }}>
                 {bestRoundData.total_gross}
               </p>
-              <p style={{ color: C.greenText, fontSize: 13, fontWeight: 600, margin: '0 0 6px', fontFamily: '"DM Mono", monospace' }}>
+              <p style={{ color: C.greenText, fontSize: FONT_SIZE.dataSm, fontWeight: 600, margin: '0 0 6px', fontFamily: '"DM Mono", monospace' }}>
                 {formatOverUnder(vsPar(bestRoundData))}
               </p>
-              <p style={{ color: C.muted, fontSize: 11, margin: '0 0 2px', lineHeight: 1.3 }}>
+              <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, margin: '0 0 2px', lineHeight: 1.3 }}>
                 {bestRoundData.course_name}
               </p>
-              <p style={{ color: C.muted, fontSize: 10, margin: 0 }}>
+              <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, margin: 0 }}>
                 {fmtDate(bestRoundData.played_at)}
               </p>
             </div>
             <div style={{ ...cardStyle, textAlign: 'center' }}>
-              <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
+              <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
                 Peor ronda
               </p>
-              <p style={{ color: C.red, fontSize: 28, fontWeight: 700, margin: '0 0 2px', fontFamily: '"DM Mono", monospace' }}>
+              <p style={{ color: C.red, fontSize: FONT_SIZE.dataH1, fontWeight: 700, margin: '0 0 2px', fontFamily: '"DM Mono", monospace' }}>
                 {worstRoundData.total_gross}
               </p>
-              <p style={{ color: C.red, fontSize: 13, fontWeight: 600, margin: '0 0 6px', fontFamily: '"DM Mono", monospace' }}>
+              <p style={{ color: C.red, fontSize: FONT_SIZE.dataSm, fontWeight: 600, margin: '0 0 6px', fontFamily: '"DM Mono", monospace' }}>
                 {formatOverUnder(vsPar(worstRoundData))}
               </p>
-              <p style={{ color: C.muted, fontSize: 11, margin: '0 0 2px', lineHeight: 1.3 }}>
+              <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, margin: '0 0 2px', lineHeight: 1.3 }}>
                 {worstRoundData.course_name}
               </p>
-              <p style={{ color: C.muted, fontSize: 10, margin: 0 }}>
+              <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, margin: 0 }}>
                 {fmtDate(worstRoundData.played_at)}
               </p>
             </div>
@@ -433,14 +433,14 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 flex: 1, textAlign: 'center', padding: 16,
                 background: C.greenDim, borderRadius: 12,
               }}>
-                <p style={{ color: C.muted, fontSize: 11, margin: '0 0 4px' }}>Front 9</p>
+                <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, margin: '0 0 4px' }}>Front 9</p>
                 <p style={{ color: C.ivory, fontSize: FONT_SIZE.dataH2, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.front}</p>
               </div>
               <div style={{
                 flex: 1, textAlign: 'center', padding: 16,
                 background: C.greenDim, borderRadius: 12,
               }}>
-                <p style={{ color: C.muted, fontSize: 11, margin: '0 0 4px' }}>Back 9</p>
+                <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, margin: '0 0 4px' }}>Back 9</p>
                 <p style={{ color: C.ivory, fontSize: FONT_SIZE.dataH2, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.back}</p>
               </div>
             </div>
@@ -470,10 +470,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                       #{i + 1}
                     </span>
                     <div>
-                      <p style={{ color: C.ivory, fontSize: 13, fontWeight: 500, margin: 0 }}>
+                      <p style={{ color: C.ivory, fontSize: FONT_SIZE.small, fontWeight: 500, margin: 0 }}>
                         {r.course_name}
                       </p>
-                      <p style={{ color: C.muted, fontSize: 11, margin: 0 }}>
+                      <p style={{ color: C.muted, fontSize: FONT_SIZE.caption, margin: 0 }}>
                         {fmtDate(r.played_at)}
                       </p>
                     </div>
@@ -488,7 +488,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               ))}
             </div>
           ) : (
-            <p style={{ color: C.muted, fontSize: 13, fontStyle: 'italic', margin: 0 }}>
+            <p style={{ color: C.muted, fontSize: FONT_SIZE.small, fontStyle: 'italic', margin: 0 }}>
               Registra rondas en tu historial para ver tu ranking personal
             </p>
           )}

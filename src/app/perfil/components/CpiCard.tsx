@@ -63,7 +63,7 @@ export function CpiCard({ cpiData }: Props) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', marginBottom: '10px' }}>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '36px', fontWeight: 700, color: getCpiTextColor(cpiData.score), lineHeight: 1 }}>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.dataLg, fontWeight: 700, color: getCpiTextColor(cpiData.score), lineHeight: 1 }}>
           {cpiData.score.toFixed(1)}
         </span>
         <span style={{

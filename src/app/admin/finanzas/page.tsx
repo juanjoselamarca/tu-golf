@@ -51,7 +51,7 @@ export default function FinanzasPage() {
           style={{
             background: adminColors.card, border: `1px solid ${adminColors.border}`,
             borderRadius: '8px', padding: '8px 16px', color: adminColors.gold,
-            cursor: loading ? 'not-allowed' : 'pointer', fontSize: '13px',
+            cursor: loading ? 'not-allowed' : 'pointer', fontSize: FONT_SIZE.small,
             fontFamily: "'DM Sans', sans-serif", fontWeight: 600,
             opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s',
           }}
@@ -83,7 +83,7 @@ export default function FinanzasPage() {
               padding: '8px 0', borderBottom: `1px solid ${adminColors.border}`,
             }}>
               {['Service', 'Plan', 'Cost/mes', 'Uso', 'Límite'].map(h => (
-                <span key={h} style={{ ...adminFonts.label, fontSize: '10px' }}>{h}</span>
+                <span key={h} style={{ ...adminFonts.label, fontSize: FONT_SIZE.caption }}>{h}</span>
               ))}
             </div>
             {/* Rows */}
@@ -96,19 +96,19 @@ export default function FinanzasPage() {
                   alignItems: 'center',
                 }}
               >
-                <span style={{ ...adminFonts.body, fontSize: '13px', textTransform: 'capitalize' }}>{service}</span>
-                <span style={{ ...adminFonts.mono, fontSize: '11px' }}>{info.plan}</span>
+                <span style={{ ...adminFonts.body, fontSize: FONT_SIZE.small, textTransform: 'capitalize' }}>{service}</span>
+                <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption }}>{info.plan}</span>
                 <span style={{
                   ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption,
                   color: info.cost > 0 ? adminColors.yellow : adminColors.green,
                 }}>
                   ${info.cost.toFixed(2)}
                 </span>
-                <span style={{ ...adminFonts.mono, fontSize: '11px' }}>{info.usage}</span>
-                <span style={{ ...adminFonts.mono, fontSize: '11px' }}>{info.limit}</span>
+                <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption }}>{info.usage}</span>
+                <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption }}>{info.limit}</span>
               </div>
             )) : (
-              <div style={{ padding: '20px 0', textAlign: 'center', color: adminColors.grayDim, fontSize: '13px' }}>
+              <div style={{ padding: '20px 0', textAlign: 'center', color: adminColors.grayDim, fontSize: FONT_SIZE.small }}>
                 Cargando...
               </div>
             )}

@@ -220,7 +220,7 @@ const groupStyle: React.CSSProperties = {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   color: 'var(--text-secondary)',
 }
@@ -246,7 +246,7 @@ function chipStyle(active: boolean, disabled: boolean): React.CSSProperties {
     // #c4992a da 2,65:1 y reprueba WCAG AA; --bg-deep es oscuro en ambos temas.
     color: active ? 'var(--bg-deep)' : 'var(--text-primary)',
     fontFamily: '"DM Sans", sans-serif',
-    fontSize: 13,
+    fontSize: FONT_SIZE.small,
     fontWeight: 500,
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.45 : 1,

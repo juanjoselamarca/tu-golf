@@ -32,7 +32,7 @@ export function AdminCard({ icon, label, value, delta, loading, sparkline, child
       <span style={adminFonts.label}>{label}</span>
       {delta && !loading && (
         <span style={{
-          ...adminFonts.label, fontSize: '11px', textTransform: 'none' as const,
+          ...adminFonts.label, fontSize: FONT_SIZE.caption, textTransform: 'none' as const,
           color: delta.value >= 0 ? adminColors.green : adminColors.red,
           fontWeight: 600,
         }}>

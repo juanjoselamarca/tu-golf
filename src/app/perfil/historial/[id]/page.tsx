@@ -125,7 +125,7 @@ export default function HistorialDetallePage() {
         <div style={{ marginBottom: '20px' }}>
           <h1 style={{
             fontFamily: '"Playfair Display", serif',
-            fontSize: '22px', fontWeight: 700, color: 'var(--text)',
+            fontSize: FONT_SIZE.h2, fontWeight: 700, color: 'var(--text)',
             margin: '0 0 6px',
             lineHeight: 1.3,
           }}>

@@ -79,7 +79,7 @@ export function BulkDeleteModal({ open, count, deleting, onConfirm, onCancel }: 
         <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: '0 0 6px', lineHeight: 1.5 }}>
           Vas a borrar <strong style={{ color: 'var(--error-fg)' }}>{count} {count === 1 ? 'ronda' : 'rondas'}</strong> de tu historial.
         </p>
-        <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '0 0 16px', lineHeight: 1.5 }}>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-3)', margin: '0 0 16px', lineHeight: 1.5 }}>
           Esta acción es permanente, no se puede deshacer y tu índice se recalculará desde cero.
         </p>
 
@@ -100,7 +100,7 @@ export function BulkDeleteModal({ open, count, deleting, onConfirm, onCancel }: 
             data-testid="historial-bulk-delete-understood"
             style={{ width: '18px', height: '18px', accentColor: 'var(--double)', flexShrink: 0 }}
           />
-          <span style={{ fontSize: '13px', color: 'var(--text-2)', fontWeight: 600 }}>
+          <span style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', fontWeight: 600 }}>
             Entiendo que es permanente
           </span>
         </label>

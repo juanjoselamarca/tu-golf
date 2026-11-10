@@ -53,7 +53,7 @@ export function FatalErrorScreen({ onRetry }: FatalErrorScreenProps) {
       <p style={{ color: 'var(--text)', fontSize: FONT_SIZE.body, textAlign: 'center', margin: 0 }}>
         No se pudieron cargar las tarjetas
       </p>
-      <p style={{ color: 'var(--text-3)', fontSize: '13px', textAlign: 'center', margin: 0 }}>
+      <p style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.small, textAlign: 'center', margin: 0 }}>
         Revisa tu conexión e intenta de nuevo
       </p>
       <button
@@ -71,7 +71,7 @@ export function FatalErrorScreen({ onRetry }: FatalErrorScreenProps) {
       <Link
         href="/dashboard"
         style={{
-          color: 'var(--text-3)', fontSize: '13px',
+          color: 'var(--text-3)', fontSize: FONT_SIZE.small,
           textDecoration: 'none', marginTop: '4px',
         }}
       >
@@ -95,7 +95,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
         </div>
         <div style={{
           fontFamily: '"Playfair Display", serif',
-          fontSize: '22px', color: 'var(--text)', marginBottom: '8px',
+          fontSize: FONT_SIZE.h2, color: 'var(--text)', marginBottom: '8px',
         }}>
           La carga tardó más de lo esperado
         </div>
@@ -128,7 +128,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
       </div>
       <div style={{
         fontFamily: '"Playfair Display", serif',
-        fontSize: '22px', color: 'var(--text)', marginBottom: '8px',
+        fontSize: FONT_SIZE.h2, color: 'var(--text)', marginBottom: '8px',
       }}>
         Tu historial está vacío
       </div>

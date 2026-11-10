@@ -14,6 +14,7 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { C } from './tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /* ── GWI gauge (dona 220°→-40°) ── */
 export function GwiGauge({ value }: { value: number }) {
@@ -49,7 +50,7 @@ const tooltipStyles = {
   itemStyle: { color: C.ivory },
 }
 
-const axisTick = { fill: C.muted, fontSize: 11, fontFamily: '"DM Mono", monospace' }
+const axisTick = { fill: C.muted, fontSize: FONT_SIZE.dataCaption, fontFamily: '"DM Mono", monospace' }
 
 /* ── Evolución de score ── */
 export function ScoreEvolutionChart({ data }: { data: { date: string; gross: number }[] }) {
@@ -104,7 +105,7 @@ export function ScoringTrendChart({ data, avgScore }: {
           y={avgScore}
           stroke={C.muted}
           strokeDasharray="6 4"
-          label={{ value: 'Promedio', fill: C.muted, fontSize: 10, position: 'insideTopRight' }}
+          label={{ value: 'Promedio', fill: C.muted, fontSize: FONT_SIZE.caption, position: 'insideTopRight' }}
         />
       </LineChart>
     </ResponsiveContainer>

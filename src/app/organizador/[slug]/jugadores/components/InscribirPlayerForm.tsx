@@ -118,7 +118,7 @@ export function InscribirPlayerForm({
     border: `1px solid ${active ? 'var(--border-md)' : 'var(--border)'}`,
     background: active ? 'rgba(196,153,42,0.12)' : 'transparent',
     color: active ? 'var(--brand-on-bg)' : 'var(--text-2)',
-    fontSize: '13px',
+    fontSize: FONT_SIZE.small,
     fontWeight: 600,
     cursor: 'pointer',
   })
@@ -175,7 +175,7 @@ export function InscribirPlayerForm({
               onFocus={() => search && setShowResults(true)}
             />
             {selectedProfile && (
-              <div style={{ fontSize: '11px', color: 'var(--brand-on-bg)', marginTop: '3px' }}>
+              <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', marginTop: '3px' }}>
                 {selectedProfile.name}{selectedProfile.indice != null ? ` — Hcp ${Number(selectedProfile.indice).toFixed(1)}` : ''}
               </div>
             )}
@@ -194,8 +194,8 @@ export function InscribirPlayerForm({
                     onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)')}
                     onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}
                   >
-                    <div style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 500 }}>{p.name}</div>
-                    <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>
+                    <div style={{ color: 'var(--text)', fontSize: FONT_SIZE.small, fontWeight: 500 }}>{p.name}</div>
+                    <div style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.caption }}>
                       {p.email}
                       {p.indice != null && <span> · Indice {p.indice}</span>}
                     </div>
@@ -285,7 +285,7 @@ export function InscribirPlayerForm({
           <label style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px' }}>
             Pega una lista de nombres (uno por linea)
           </label>
-          <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '8px' }}>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '8px' }}>
             Formato: Nombre o Nombre, Handicap (ej: Juan Perez, 18.4)
           </div>
           <textarea
@@ -305,7 +305,7 @@ export function InscribirPlayerForm({
 
           {parsedBatch.length > 0 && !batchConfirm && (
             <div style={{ marginTop: '12px' }}>
-              <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '8px' }}>
+              <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', marginBottom: '8px' }}>
                 Se agregarán <strong>{parsedBatch.length}</strong> jugador{parsedBatch.length !== 1 ? 'es' : ''} como invitados:
               </div>
               <div
@@ -337,7 +337,7 @@ export function InscribirPlayerForm({
                   background: 'rgba(251,191,36,0.1)',
                   border: '1px solid rgba(251,191,36,0.3)',
                   borderRadius: '8px',
-                  fontSize: '13px',
+                  fontSize: FONT_SIZE.small,
                   color: '#fbbf24',
                   marginBottom: '12px',
                 }}>
@@ -396,7 +396,7 @@ export function InscribirPlayerForm({
                   padding: '10px 16px',
                   minHeight: '44px',
                   borderRadius: '8px',
-                  fontSize: '13px',
+                  fontSize: FONT_SIZE.small,
                   cursor: 'pointer',
                 }}
               >
@@ -412,7 +412,7 @@ export function InscribirPlayerForm({
               background: 'rgba(34,197,94,0.1)',
               border: '1px solid rgba(34,197,94,0.3)',
               borderRadius: '8px',
-              fontSize: '13px',
+              fontSize: FONT_SIZE.small,
               color: '#22c55e',
               fontWeight: 600,
             }}>

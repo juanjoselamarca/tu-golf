@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /** Estilo base de inputs del panel de jugadores. Compartido por los
  *  componentes de formulario (inscribir, grupos, asignación). */
@@ -9,7 +10,7 @@ export const inputStyle: CSSProperties = {
   borderRadius: '8px',
   padding: '10px 12px',
   // 16px evita el zoom automático de iOS al enfocar; 44px = target táctil mínimo.
-  fontSize: '16px',
+  fontSize: FONT_SIZE.body,
   minHeight: '44px',
   outline: 'none',
   transition: 'border-color 200ms',

@@ -216,13 +216,13 @@ const titleStyle: React.CSSProperties = {
 
 const helperStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-secondary)',
 }
 
 const emptyStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontStyle: 'italic',
   color: 'var(--text-secondary)',
 }
@@ -286,7 +286,7 @@ function roleBadgeStyle(role: 'owner' | 'admin'): React.CSSProperties {
   return {
     padding: '2px 10px',
     borderRadius: 999,
-    fontSize: 11,
+    fontSize: FONT_SIZE.caption,
     fontWeight: 600,
     background: role === 'owner' ? 'var(--brand-gold)' : 'rgba(196,153,42,0.14)',
     color: role === 'owner' ? '#fff' : 'var(--brand-gold)',
@@ -303,7 +303,7 @@ const addBtnStyle: React.CSSProperties = {
   background: 'transparent',
   color: 'var(--brand-gold)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   cursor: 'pointer',
 }
@@ -340,7 +340,7 @@ const modalTitleStyle: React.CSSProperties = {
 
 const modalSubStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-secondary)',
 }
 
@@ -359,7 +359,7 @@ const searchInputStyle: React.CSSProperties = {
 
 const hintStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-secondary)',
   fontStyle: 'italic',
 }
@@ -400,7 +400,7 @@ function inviteBtnStyle(isIn: boolean): React.CSSProperties {
 function feedbackStyle(type: 'ok' | 'err'): React.CSSProperties {
   return {
     margin: 0,
-    fontSize: 13,
+    fontSize: FONT_SIZE.small,
     fontWeight: 500,
     color: type === 'ok' ? '#16a34a' : '#dc2626',
     padding: '8px 12px',
@@ -417,6 +417,6 @@ const modalCloseStyle: React.CSSProperties = {
   background: 'var(--input-bg)',
   color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   cursor: 'pointer',
 }

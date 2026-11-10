@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { NIVEL_LABELS, NIVEL_DESCRIPCION } from '@/lib/indice-golfers'
 import type { Profile } from '@/lib/data/perfil'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /** Gap note — momento editorial cuando hay desalineación >= 1.5 entre índices */
 export function GapNote({ profile }: { profile: Profile }) {
@@ -23,7 +24,7 @@ export function GapNote({ profile }: { profile: Profile }) {
     }}>
       <div style={{ flex: 1, minWidth: '220px' }}>
         <div style={{
-          fontSize: '9px',
+          fontSize: FONT_SIZE.dataCaption,
           fontFamily: '"DM Mono", monospace',
           fontWeight: 700,
           color: 'var(--brand-on-bg)',
@@ -33,7 +34,7 @@ export function GapNote({ profile }: { profile: Profile }) {
         }}>
           Recomendación tAIger+
         </div>
-        <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
+        <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
           <strong style={{ color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente.
         </p>
       </div>
@@ -52,10 +53,10 @@ export function NivelBadge({ profile }: { profile: Profile }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg)', border: '1px solid var(--border)', borderLeft: '3px solid var(--brand)', borderRadius: '12px', marginBottom: '16px' }}>
       <div>
-        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
+        <p style={{ fontSize: FONT_SIZE.small, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
           {NIVEL_LABELS[profile.nivel] ?? 'Sin nivel'}
         </p>
-        <p style={{ fontSize: '11px', color: 'var(--text-2)', margin: 0 }}>
+        <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', margin: 0 }}>
           {NIVEL_DESCRIPCION[profile.nivel] ?? ''}
         </p>
       </div>
@@ -74,7 +75,7 @@ export function SyncHistorialBlock() {
       marginBottom: '16px',
     }}>
       <div style={{
-        fontSize: '10px', fontWeight: 700, color: 'var(--text-3)',
+        fontSize: FONT_SIZE.dataCaption, fontWeight: 700, color: 'var(--text-3)',
         fontFamily: '"DM Mono", monospace',
         letterSpacing: '0.12em', textTransform: 'uppercase',
         marginBottom: '6px',
@@ -83,12 +84,12 @@ export function SyncHistorialBlock() {
       </div>
       <div style={{
         fontFamily: '"Playfair Display", serif',
-        fontSize: '17px', color: 'var(--text)', fontWeight: 600,
+        fontSize: FONT_SIZE.lead, color: 'var(--text)', fontWeight: 600,
         marginBottom: '4px', letterSpacing: '-0.01em',
       }}>
         Trae tu historial completo
       </div>
-      <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
+      <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
         Importa tus rondas desde FedeGolf, Garmin Connect o un CSV — el Índice Golfers+ y CPI™ se recalculan automáticamente.
       </p>
       <Link
@@ -98,7 +99,7 @@ export function SyncHistorialBlock() {
           minHeight: '44px', padding: '0 18px',
           background: 'transparent', border: '1px solid rgba(196,153,42,0.6)',
           color: 'var(--brand-on-bg)', borderRadius: '12px',
-          fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+          fontSize: FONT_SIZE.small, fontWeight: 600, textDecoration: 'none',
         }}
       >
         Importar historial →

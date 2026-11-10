@@ -167,7 +167,7 @@ export default function AdminBrainPage() {
         {data.events.length === 0 ? <Empty>Sin eventos</Empty> : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {data.events.map(e => (
-              <li key={e.id} style={{ padding: '8px 0', borderBottom: `1px solid ${adminColors.border}`, fontSize: 13 }}>
+              <li key={e.id} style={{ padding: '8px 0', borderBottom: `1px solid ${adminColors.border}`, fontSize: FONT_SIZE.small }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}
                      onClick={() => setExpandedEvent(expandedEvent === e.id ? null : e.id)}>
                   <span><strong>{e.type}</strong> · {new Date(e.created_at).toLocaleString('es-CL')}</span>
@@ -176,7 +176,7 @@ export default function AdminBrainPage() {
                 {expandedEvent === e.id && (
                   <pre style={{
                     background: adminColors.cardHover, padding: 8, marginTop: 4, borderRadius: 4,
-                    fontSize: 11, overflow: 'auto', color: adminColors.ivory,
+                    fontSize: FONT_SIZE.caption, overflow: 'auto', color: adminColors.ivory,
                   }}>{JSON.stringify(e.payload, null, 2)}</pre>
                 )}
               </li>
@@ -194,7 +194,7 @@ export default function AdminBrainPage() {
                 <div key={i} style={{
                   background: m.role === 'user' ? adminColors.cardHover : adminColors.card,
                   border: `1px solid ${adminColors.border}`,
-                  padding: 10, borderRadius: 6, fontSize: 13,
+                  padding: 10, borderRadius: 6, fontSize: FONT_SIZE.small,
                 }}>
                   <div style={{ fontWeight: 600, marginBottom: 4, color: adminColors.gray }}>
                     {m.role}
@@ -229,7 +229,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function PlanCard({ plan }: { plan: ActivePlan }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 13 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: FONT_SIZE.small }}>
       <KV k="Patron" v={plan.pattern_id} />
       <KV k="Status" v={plan.status} />
       <KV k="Metrica" v={`${plan.metric} ${plan.target_op} ${plan.target_value}`} />
@@ -254,13 +254,13 @@ function KV({ k, v }: { k: string; v: string }) {
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <div style={{ color: adminColors.gray, fontSize: 13, fontStyle: 'italic' }}>{children}</div>
+  return <div style={{ color: adminColors.gray, fontSize: FONT_SIZE.small, fontStyle: 'italic' }}>{children}</div>
 }
 
 const tableStyle: React.CSSProperties = {
   width: '100%',
   borderCollapse: 'collapse',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
 }
 function Th({ children }: { children: React.ReactNode }) {
   return <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: `1px solid ${adminColors.border}`, color: adminColors.gray, fontWeight: 500 }}>{children}</th>

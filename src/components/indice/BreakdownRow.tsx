@@ -16,6 +16,7 @@
 // claro y #C4992A en oscuro.
 
 import type { ReactNode } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface BreakdownRowProps {
   /** Nombre de la cancha. Se trunca con ellipsis en una línea. */
@@ -52,7 +53,7 @@ export default function BreakdownRow({ titulo, meta, valor, cuenta, marca, ultim
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span
             style={{
-              fontSize: '13.5px',
+              fontSize: FONT_SIZE.small,
               fontWeight: cuenta ? 600 : 500,
               color: cuenta ? 'var(--text)' : 'var(--text-2)',
               whiteSpace: 'nowrap',
@@ -67,7 +68,7 @@ export default function BreakdownRow({ titulo, meta, valor, cuenta, marca, ultim
         </div>
         <div
           style={{
-            fontSize: '10.5px',
+            fontSize: FONT_SIZE.dataCaption,
             color: 'var(--text-3)',
             fontFamily: '"DM Mono", monospace',
             marginTop: '3px',
@@ -81,7 +82,7 @@ export default function BreakdownRow({ titulo, meta, valor, cuenta, marca, ultim
         <div
           style={{
             fontFamily: '"DM Mono", monospace',
-            fontSize: '17px',
+            fontSize: FONT_SIZE.dataMd,
             fontWeight: 500,
             fontVariantNumeric: 'tabular-nums',
             color: cuenta ? 'var(--text)' : 'var(--text-3)',
@@ -93,7 +94,7 @@ export default function BreakdownRow({ titulo, meta, valor, cuenta, marca, ultim
         {cuenta && (
           <div
             style={{
-              fontSize: '9px',
+              fontSize: FONT_SIZE.dataCaption,
               textTransform: 'uppercase',
               letterSpacing: '0.09em',
               fontFamily: '"DM Mono", monospace',
@@ -121,7 +122,7 @@ export function BreakdownSeccion({ rotulo, nota }: { rotulo: string; nota?: stri
       <p
         style={{
           fontFamily: '"DM Mono", monospace',
-          fontSize: '10px',
+          fontSize: FONT_SIZE.dataCaption,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
           color: 'var(--text-3)',
@@ -131,7 +132,7 @@ export function BreakdownSeccion({ rotulo, nota }: { rotulo: string; nota?: stri
         {rotulo}
       </p>
       {nota && (
-        <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '5px 0 0', lineHeight: 1.5 }}>
+        <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', margin: '5px 0 0', lineHeight: 1.5 }}>
           {nota}
         </p>
       )}

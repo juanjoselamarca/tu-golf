@@ -10,6 +10,7 @@
 
 import Link from 'next/link'
 import { taigerMessage } from '../lib/helpers'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Pill {
   label: string
@@ -30,7 +31,7 @@ export function HistorialHeader({ pills, totalRounds, progress }: Props) {
         <Link
           href="/perfil"
           style={{
-            color: 'var(--text-3)', fontSize: '13px', textDecoration: 'none',
+            color: 'var(--text-3)', fontSize: FONT_SIZE.small, textDecoration: 'none',
             display: 'inline-flex', alignItems: 'center', gap: '4px',
             marginBottom: '6px', minHeight: '44px',
           }}
@@ -39,7 +40,7 @@ export function HistorialHeader({ pills, totalRounds, progress }: Props) {
         </Link>
         <h1 style={{
           fontFamily: '"Playfair Display", serif',
-          fontSize: '26px',
+          fontSize: FONT_SIZE.h2,
           color: 'var(--text)',
           margin: '0 0 16px 0',
           fontWeight: 700,
@@ -66,7 +67,7 @@ export function HistorialHeader({ pills, totalRounds, progress }: Props) {
               flexShrink: 0,
             }}>
               <span style={{
-                fontSize: '11px',
+                fontSize: FONT_SIZE.caption,
                 color: 'var(--text-3)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
@@ -76,7 +77,7 @@ export function HistorialHeader({ pills, totalRounds, progress }: Props) {
               </span>
               <span style={{
                 fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
-                fontSize: '15px',
+                fontSize: FONT_SIZE.dataBody,
                 color: 'var(--text)',
                 fontWeight: 700,
                 fontVariantNumeric: 'tabular-nums',
@@ -91,10 +92,10 @@ export function HistorialHeader({ pills, totalRounds, progress }: Props) {
         <div style={{ marginTop: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
             {/* TODO(foundation): reemplazar emoji por <TaigerIcon /> cuando el icon system migre emojis — P7 */}
-            <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+            <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>
               &#128047; {taigerMessage(totalRounds)}
             </span>
-            <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{totalRounds}</span>
+            <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>{totalRounds}</span>
           </div>
           <div style={{
             height: '4px',

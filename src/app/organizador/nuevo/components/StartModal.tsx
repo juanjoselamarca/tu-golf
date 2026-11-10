@@ -206,7 +206,7 @@ const errorStyle: React.CSSProperties = {
   color: 'var(--error-fg)',
   padding: '8px 12px',
   borderRadius: 8,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   border: '1px solid var(--error-border)',
 }
 

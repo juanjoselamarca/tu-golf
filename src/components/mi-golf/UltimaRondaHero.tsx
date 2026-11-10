@@ -52,7 +52,7 @@ export function UltimaRondaHero({ ronda }: { ronda: RondaConScores }) {
         <div
           style={{
             fontFamily: 'var(--font-dm-mono)',
-            fontSize: '11px',
+            fontSize: FONT_SIZE.dataCaption,
             textTransform: 'uppercase',
             letterSpacing: '0.12em',
             fontWeight: 700,
@@ -64,7 +64,7 @@ export function UltimaRondaHero({ ronda }: { ronda: RondaConScores }) {
         </div>
         <div
           style={{
-            fontSize: '17px',
+            fontSize: FONT_SIZE.lead,
             fontWeight: 700,
             lineHeight: 1.2,
             color: TEXT,
@@ -125,7 +125,7 @@ export function UltimaRondaHero({ ronda }: { ronda: RondaConScores }) {
         <div
           style={{
             fontFamily: 'var(--font-dm-mono)',
-            fontSize: '11px',
+            fontSize: FONT_SIZE.dataCaption,
             fontWeight: 600,
             marginTop: '4px',
             color: diffColor(ronda.vsPar),

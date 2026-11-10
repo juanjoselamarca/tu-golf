@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ErrorScreen } from '@/components/ui/ErrorScreen'
 import { captureError } from '@/lib/error-tracking'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   error: Error & { digest?: string }
@@ -61,7 +62,7 @@ export function RouteErrorBoundary({ error, reset, context, homeHref = '/' }: Pr
             border: '1px solid rgba(255,80,80,0.25)',
             borderRadius: '8px',
             fontFamily: 'var(--font-dm-mono), monospace',
-            fontSize: '11px',
+            fontSize: FONT_SIZE.dataCaption,
             color: 'var(--text-2)',
             textAlign: 'left',
             wordBreak: 'break-word',

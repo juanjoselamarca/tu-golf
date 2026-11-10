@@ -49,7 +49,7 @@ export function CompetenciaTab(props: Props) {
     <main style={{ padding: '24px 24px 32px', maxWidth: '640px', margin: '0 auto' }}>
       {/* GREETING */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '20px' }}>
-        <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '22px', color: TEXT, fontWeight: 600 }}>
+        <div style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h2, color: TEXT, fontWeight: 600 }}>
           Hola, {userName}
         </div>
         {hcpDisplay && (
@@ -175,14 +175,14 @@ function TorneoRowPlaying({ t }: { t: Tournament & { horaSalida: string | null; 
         <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {t.name}
         </div>
-        <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Chip variant="upcoming">{chipText}</Chip>
           <span>{t.courses?.nombre}</span>
         </div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500 }}>Inscrito</div>
-        {t.horaSalida && <div style={{ fontSize: '11px', color: TEXT, fontWeight: 600, marginTop: '2px' }}>Salida {t.horaSalida}</div>}
+        <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2, fontWeight: 500 }}>Inscrito</div>
+        {t.horaSalida && <div style={{ fontSize: FONT_SIZE.caption, color: TEXT, fontWeight: 600, marginTop: '2px' }}>Salida {t.horaSalida}</div>}
       </div>
     </Link>
   )
@@ -212,15 +212,15 @@ function TorneoRowOrganizing({ t }: { t: Tournament & { inscritos: number; hoyoA
         <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {t.name}
         </div>
-        <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
           {isLive ? <Chip variant="live">En curso</Chip> : <Chip variant="upcoming">Abierto</Chip>}
           <span>{t.courses?.nombre}</span>
         </div>
       </Link>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, fontFamily: '"DM Mono", monospace' }}>{t.inscritos} jugadores</div>
+        <div style={{ fontSize: FONT_SIZE.dataCaption, color: TEXT_2, fontWeight: 500, fontFamily: '"DM Mono", monospace' }}>{t.inscritos} jugadores</div>
         {t.hoyoActual != null && (
-          <div style={{ fontSize: '11px', color: TEXT, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>Hoyo {t.hoyoActual}/18</div>
+          <div style={{ fontSize: FONT_SIZE.dataCaption, color: TEXT, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>Hoyo {t.hoyoActual}/18</div>
         )}
       </div>
       <TournamentCardMenu slug={t.slug} isActive={isLive} />
@@ -250,7 +250,7 @@ function TorneoRowFinished({
         <div style={{ fontSize: FONT_SIZE.small, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {t.name}
         </div>
-        <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Chip variant="finished">Finalizado</Chip>
           <span>{t.courses?.nombre}</span>
         </div>
@@ -262,7 +262,7 @@ function TorneoRowFinished({
               {t.posicionFinal}
             </div>
             {t.totalJugadores && (
-              <div style={{ fontSize: '11px', color: TEXT_3, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>
+              <div style={{ fontSize: FONT_SIZE.dataCaption, color: TEXT_3, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>
                 de {t.totalJugadores}
               </div>
             )}
@@ -288,7 +288,7 @@ function Chip({ variant, children }: { variant: 'live' | 'upcoming' | 'finished'
         borderRadius: '10px',
         whiteSpace: 'nowrap',
         flexShrink: 0,
-        fontSize: '10px',
+        fontSize: FONT_SIZE.dataCaption,
         fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
         letterSpacing: '0.06em',
         fontWeight: 700,
@@ -335,7 +335,7 @@ function Rondas({
               <div style={{ fontSize: FONT_SIZE.small, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {r.course_name}
               </div>
-              <div style={{ fontSize: '11px', color: TEXT_3, marginTop: '3px' }}>{fechaContextual}</div>
+              <div style={{ fontSize: FONT_SIZE.caption, color: TEXT_3, marginTop: '3px' }}>{fechaContextual}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
               {r.total_gross != null && (
@@ -344,9 +344,9 @@ function Rondas({
                     {r.total_gross}
                   </div>
                   {esMejor ? (
-                    <div style={{ fontSize: '11px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes</div>
+                    <div style={{ fontSize: FONT_SIZE.caption, color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes</div>
                   ) : r.vsPar != null ? (
-                    <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
+                    <div style={{ fontSize: FONT_SIZE.dataCaption, color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
                       {textoVsPar(r.vsPar)}
                     </div>
                   ) : null}
@@ -404,7 +404,7 @@ function SectionLabel({ label, linkText, linkHref }: { label: string; linkText: 
   return (
     <div
       style={{
-        fontSize: '10px',
+        fontSize: FONT_SIZE.dataCaption,
         fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
         letterSpacing: '0.1em',
         color: TEXT_3,
@@ -416,7 +416,7 @@ function SectionLabel({ label, linkText, linkHref }: { label: string; linkText: 
       }}
     >
       <span>{label}</span>
-      <Link href={linkHref} style={{ fontSize: '11px', color: GOLD, textTransform: 'none', letterSpacing: 0, fontWeight: 600, textDecoration: 'none' }}>
+      <Link href={linkHref} style={{ fontSize: FONT_SIZE.caption, color: GOLD, textTransform: 'none', letterSpacing: 0, fontWeight: 600, textDecoration: 'none' }}>
         {linkText}
       </Link>
     </div>
@@ -449,7 +449,7 @@ function SubGroup({
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          fontSize: '11px',
+          fontSize: FONT_SIZE.dataCaption,
           fontFamily: 'var(--font-dm-mono)',
           textTransform: 'uppercase',
           letterSpacing: '0.08em',

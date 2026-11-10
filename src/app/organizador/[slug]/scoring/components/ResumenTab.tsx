@@ -56,7 +56,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
         <div style={{ color: 'var(--text)', marginBottom: '12px' }}>No pudimos cargar el resumen.</div>
         <button
           onClick={reload}
-          style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '8px 20px', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
+          style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '8px 20px', borderRadius: '8px', fontSize: FONT_SIZE.small, cursor: 'pointer' }}
         >
           Reintentar
         </button>
@@ -85,7 +85,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
         {statCards.map((c) => (
           <div key={c.label} style={CARD_STYLE}>
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
+            <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
             <div style={{ fontSize: FONT_SIZE.h2, fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>{c.value}</div>
             {c.sub && <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginTop: '4px' }}>{c.sub}</div>}
           </div>
@@ -99,11 +99,11 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
           <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginLeft: '8px' }}>Toca el handicap para editar</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FONT_SIZE.small }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
                 {['Jugador', 'HCP', 'Gross', 'Neto', 'Pts', 'Estado'].map((h) => (
-                  <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '10px 12px', textAlign: h === 'Jugador' ? 'left' : 'center' }}>{h}</th>
+                  <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: FONT_SIZE.caption, letterSpacing: '0.05em', padding: '10px 12px', textAlign: h === 'Jugador' ? 'left' : 'center' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -134,7 +134,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                       ) : (
                         <button
                           onClick={() => row.id && hcpEditor.startEdit(row.id, rosterPlayer?.handicap_at_registration ?? null)}
-                          style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--brand-on-bg)', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
+                          style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--brand-on-bg)', cursor: 'pointer', padding: '4px 8px', fontSize: FONT_SIZE.small, fontWeight: 600 }}
                           title="Editar handicap"
                         >
                           {formatearHandicap(rosterPlayer?.handicap_at_registration ?? row.hcpDisplay)}
@@ -152,7 +152,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       <span style={{
-                        fontSize: '11px',
+                        fontSize: FONT_SIZE.caption,
                         padding: '3px 8px',
                         borderRadius: '12px',
                         background: estado.done ? 'var(--status-live-bg)' : 'var(--surface-soft)',

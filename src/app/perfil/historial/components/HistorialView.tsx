@@ -219,7 +219,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
               type="button"
               aria-expanded={showChart}
               style={{
-                fontSize: '13px', color: 'var(--brand-on-bg)', background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: FONT_SIZE.small, color: 'var(--brand-on-bg)', background: 'none', border: 'none', cursor: 'pointer',
                 marginBottom: '8px', fontWeight: 600, minHeight: '44px', padding: 0,
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
               }}

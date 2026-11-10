@@ -62,9 +62,9 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
 
   const showSyncBlock = cpiData?.status !== 'insufficient_data'
 
-  // Estilo compartido para headers de grupo — 11px uppercase, text-3, DM Sans.
+  // Estilo compartido para headers de grupo — 12px uppercase, text-3, DM Sans.
   const groupHeaderStyle: React.CSSProperties = {
-    fontSize: '11px',
+    fontSize: FONT_SIZE.caption,
     fontWeight: 700,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
@@ -88,7 +88,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
       paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))',
     }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
+        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.small, textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
           ← Dashboard
         </Link>
 

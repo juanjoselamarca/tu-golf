@@ -1,5 +1,6 @@
 'use client'
 import { adminColors, adminFonts, adminCard } from './admin-tokens'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface ServiceHealth {
   name: string
@@ -28,14 +29,14 @@ export function HealthGrid({ services, loading }: { services: ServiceHealth[]; l
                   width: '8px', height: '8px', borderRadius: '50%', background: dotColor,
                   boxShadow: isOk ? `0 0 6px ${dotColor}` : 'none', flexShrink: 0,
                 }} />
-                <span style={{ color: adminColors.ivory, fontSize: '13px', fontWeight: 600 }}>{svc.name}</span>
+                <span style={{ color: adminColors.ivory, fontSize: FONT_SIZE.small, fontWeight: 600 }}>{svc.name}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ ...adminFonts.mono, fontSize: '11px', color: dotColor }}>
+                <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption, color: dotColor }}>
                   {isNotConfigured ? 'No config' : isOk ? 'Operativo' : 'Error'}
                 </span>
                 {svc.ms > 0 && (
-                  <span style={{ ...adminFonts.mono, fontSize: '10px' }}>{svc.ms}ms</span>
+                  <span style={{ ...adminFonts.mono, fontSize: FONT_SIZE.dataCaption }}>{svc.ms}ms</span>
                 )}
               </div>
             </div>

@@ -62,7 +62,7 @@ export function DeleteAccountModal() {
             >
               ¿Eliminar tu cuenta?
             </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 20px', lineHeight: 1.55 }}>
+            <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', margin: '0 0 20px', lineHeight: 1.55 }}>
               Se borrarán todos tus datos: perfil, rondas, historial, estadísticas y sesiones de coaching.
               En torneos y rondas de otros jugadores, tus golpes se mantienen a nombre de «Jugador eliminado» para no alterar sus resultados.
               <br />

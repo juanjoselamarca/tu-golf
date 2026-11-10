@@ -66,9 +66,9 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
             const tieneScore = typeof score === 'number'
             return (
               <div key={h} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-                <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '1px', fontWeight: 500 }}>{h}</div>
+                <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginBottom: '1px', fontWeight: 500 }}>{h}</div>
                 {parCompleto && (
-                  <div style={{ fontSize: '8px', color: 'var(--text-2)', marginBottom: '3px', letterSpacing: '0.02em' }}>P{par}</div>
+                  <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '3px', letterSpacing: '0.02em' }}>P{par}</div>
                 )}
                 <button
                   type="button"
@@ -87,7 +87,7 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
                       <div style={{
                         width: '22px', height: '22px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '13px', fontWeight: 700, color: 'var(--text)',
+                        fontSize: FONT_SIZE.small, fontWeight: 700, color: 'var(--text)',
                       }}>{score}</div>
                     )
                   ) : (
@@ -95,7 +95,7 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
                       width: '22px', height: '22px', borderRadius: '4px',
                       border: '1px dashed var(--surface-border-strong)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '9px', color: 'var(--text-3)',
+                      fontSize: FONT_SIZE.caption, color: 'var(--text-3)',
                     }}>?</div>
                   )}
                   {esAmbiguo && (
@@ -113,9 +113,9 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
           minWidth: '36px', textAlign: 'center', borderLeft: '1px solid var(--border)',
           paddingLeft: '8px', marginLeft: '6px',
         }}>
-          <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '1px', fontWeight: 600 }}>{inicio === 0 ? 'OUT' : 'IN'}</div>
-          {parFila != null && <div style={{ fontSize: '8px', color: 'var(--text-2)', marginBottom: '3px' }}>P{parFila}</div>}
-          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--brand-on-bg)' }}>{totalFila}</div>
+          <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', marginBottom: '1px', fontWeight: 600 }}>{inicio === 0 ? 'OUT' : 'IN'}</div>
+          {parFila != null && <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '3px' }}>P{parFila}</div>}
+          <div style={{ fontSize: FONT_SIZE.body, fontWeight: 700, color: 'var(--brand-on-bg)' }}>{totalFila}</div>
         </div>
       </div>
     </div>
@@ -151,7 +151,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
             <>
               <div style={{
                 fontFamily: "'Playfair Display', serif",
-                fontSize: '28px', fontWeight: 700,
+                fontSize: FONT_SIZE.h1, fontWeight: 700,
                 color: colorDelScore,
                 lineHeight: 1,
                 fontVariantNumeric: 'tabular-nums',
@@ -160,7 +160,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
               </div>
               {vsPar != null && (
                 <div style={{
-                  fontSize: '11px',
+                  fontSize: FONT_SIZE.dataCaption,
                   color: 'var(--text-3)',
                   marginTop: '2px',
                   fontFamily: '"DM Mono", monospace',
@@ -198,7 +198,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
             <span>{round.holes_played}h</span>
             <span
               style={{
-                padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
+                padding: '2px 8px', borderRadius: '8px', fontSize: FONT_SIZE.caption, fontWeight: 600,
                 background: isRejected ? 'var(--surface-soft)' : statusLabel.bg,
                 color: isRejected ? 'var(--text-3)' : statusLabel.color,
                 letterSpacing: '0.04em',
@@ -258,7 +258,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
               <FilaDeHoyos key={inicio} round={round} inicio={inicio} onCorregirGolpe={onCorregirGolpe} />
             ))}
             {round.metadata?.ambiguous_holes && round.metadata.ambiguous_holes.length > 0 && (
-              <div style={{ fontSize: '11px', color: 'var(--status-draft-fg)', marginTop: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--status-draft-fg)', marginTop: '8px', textAlign: 'center' }}>
                 Hoyos con punto azul fueron estimados — toca para corregir
               </div>
             )}
@@ -301,7 +301,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
                   padding: '8px 0', borderRadius: '8px',
                   background: 'transparent',
                   border: 'none',
-                  color: 'var(--error-fg)', fontSize: '13px', fontWeight: 600,
+                  color: 'var(--error-fg)', fontSize: FONT_SIZE.small, fontWeight: 600,
                   cursor: 'pointer', minHeight: '44px',
                 }}
               >
@@ -335,7 +335,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
               width: '100%', padding: '10px', borderRadius: '10px',
               background: 'var(--surface-soft)',
               border: '1px solid var(--border)',
-              color: 'var(--text-2)', fontSize: '13px', fontWeight: 500,
+              color: 'var(--text-2)', fontSize: FONT_SIZE.small, fontWeight: 500,
               cursor: 'pointer', minHeight: '44px',
             }}
           >

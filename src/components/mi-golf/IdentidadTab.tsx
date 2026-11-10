@@ -92,7 +92,7 @@ function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null })
         </div>
         <div
           style={{
-            fontSize: '11px',
+            fontSize: FONT_SIZE.dataCaption,
             fontFamily: 'var(--font-dm-mono)',
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
@@ -137,7 +137,7 @@ function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null })
       </div>
       <div
         style={{
-          fontSize: '11px',
+          fontSize: FONT_SIZE.dataCaption,
           fontFamily: 'var(--font-dm-mono)',
           textTransform: 'uppercase',
           letterSpacing: '0.1em',
@@ -163,7 +163,7 @@ function LevelsBar({ nivel }: { nivel: Nivel }) {
         <div
           style={{
             fontFamily: 'var(--font-playfair)',
-            fontSize: '28px',
+            fontSize: FONT_SIZE.h1,
             color: TEXT,
             fontWeight: 700,
             letterSpacing: '-0.01em',
@@ -185,7 +185,7 @@ function LevelsBar({ nivel }: { nivel: Nivel }) {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
+          gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
           gap: '4px',
           marginBottom: '10px',
           alignItems: 'center',
@@ -215,15 +215,12 @@ function LevelsBar({ nivel }: { nivel: Nivel }) {
       {/* Labels — activo destacado */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
+          display: 'flex',
+          justifyContent: 'space-between',
           gap: '4px',
-          fontSize: '9px',
-          fontFamily: 'var(--font-dm-mono)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
+          fontSize: FONT_SIZE.caption,
+          fontFamily: 'var(--font-dm-sans)',
           fontWeight: 600,
-          textAlign: 'center',
         }}
       >
         {NIVELES_ORDEN.map((n) => (
@@ -254,7 +251,7 @@ function Progreso({ label, actual, total }: { label: string; actual: number; tot
           marginBottom: '6px',
         }}
       >
-        <span style={{ fontSize: '13px', color: TEXT, fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: FONT_SIZE.small, color: TEXT, fontWeight: 500 }}>{label}</span>
         <span
           style={{
             fontFamily: 'var(--font-playfair)',
@@ -280,7 +277,7 @@ function TuJuego({ stats, ultimasGross }: { stats: StatsForma; ultimasGross: num
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
           gap: '10px',
         }}
       >
@@ -359,7 +356,7 @@ function StatCard({
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          fontSize: '9px',
+          fontSize: FONT_SIZE.dataCaption,
           fontFamily: 'var(--font-dm-mono)',
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
@@ -374,7 +371,7 @@ function StatCard({
       <div
         style={{
           fontFamily: 'var(--font-dm-mono)',
-          fontSize: compact ? '15px' : '26px',
+          fontSize: compact ? FONT_SIZE.dataBody : FONT_SIZE.dataH2,
           fontWeight: 700,
           color: TEXT,
           lineHeight: 1.1,
@@ -389,7 +386,7 @@ function StatCard({
       {sub && (
         <div
           style={{
-            fontSize: '11px',
+            fontSize: FONT_SIZE.caption,
             color: TEXT_2,
             marginTop: '4px',
             fontWeight: 500,
@@ -472,7 +469,7 @@ function TaigerCard({
 
       <div
         style={{
-          fontSize: '9px',
+          fontSize: FONT_SIZE.dataCaption,
           fontFamily: 'var(--font-dm-mono)',
           textTransform: 'uppercase',
           letterSpacing: '0.1em',
@@ -489,7 +486,7 @@ function TaigerCard({
       <div
         style={{
           fontFamily: 'var(--font-playfair)',
-          fontSize: '15px',
+          fontSize: FONT_SIZE.body,
           color: TEXT,
           fontWeight: 500,
           lineHeight: 1.5,
@@ -507,7 +504,7 @@ function TaigerCard({
       {hasUsed && (
         <div
           style={{
-            fontSize: '10px',
+            fontSize: FONT_SIZE.dataCaption,
             fontFamily: 'var(--font-dm-mono)',
             color: TEXT_3,
             fontWeight: 500,
@@ -562,7 +559,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        fontSize: '10px',
+        fontSize: FONT_SIZE.dataCaption,
         fontFamily: 'var(--font-dm-mono)',
         textTransform: 'uppercase',
         letterSpacing: '0.1em',

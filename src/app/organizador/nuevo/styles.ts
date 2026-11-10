@@ -7,6 +7,7 @@
 // Los estilos CSS de ResponsiveStyles (en TournamentDraftEditor) overriden
 // borderRadius, background, border y padding de las cards a nivel global
 // vía `.draft-editor-form section { ... }`.
+import { FONT_SIZE } from '@/lib/font-size'
 
 // ── Página ───────────────────────────────────────────────────────────
 // Lienzo de pantalla completa del wizard (editor y modal de arranque).
@@ -33,7 +34,7 @@ export const cardStyle: React.CSSProperties = {
 
 export const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: FONT_SIZE.lead,
   fontWeight: 600,
   color: 'var(--text-primary, #111827)',
 }
@@ -45,7 +46,7 @@ export const fieldStyle: React.CSSProperties = {
 }
 
 export const labelStyle: React.CSSProperties = {
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   color: 'var(--text-secondary, #4b5563)',
 }
@@ -57,7 +58,7 @@ export const inputStyle: React.CSSProperties = {
   background: 'var(--input-bg, #ffffff)',
   color: 'var(--text-primary, #111827)',
   // 16px evita el zoom automático de iOS al enfocar; 44px = target táctil mínimo.
-  fontSize: 16,
+  fontSize: FONT_SIZE.body,
   minHeight: 44,
   outline: 'none',
 }
@@ -72,7 +73,7 @@ export const fieldStyleCompact: React.CSSProperties = {
 }
 
 export const labelStyleCompact: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   fontWeight: 500,
   color: 'var(--text-secondary, #4b5563)',
 }
@@ -83,7 +84,7 @@ export const inputStyleCompact: React.CSSProperties = {
   border: '1px solid var(--border, #e5e7eb)',
   background: 'var(--input-bg, #ffffff)',
   color: 'var(--text-primary, #111827)',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   outline: 'none',
 }
 
@@ -91,13 +92,13 @@ export const inputStyleCompact: React.CSSProperties = {
 
 export const helperStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   color: 'var(--text-secondary, #4b5563)',
 }
 
 export const emptyStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontStyle: 'italic',
   color: 'var(--text-secondary, #4b5563)',
 }
@@ -109,7 +110,7 @@ export const addBtnStyle: React.CSSProperties = {
   border: '1px dashed var(--brand-gold, #c4992a)',
   background: 'transparent',
   color: 'var(--brand-gold, #c4992a)',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   fontWeight: 500,
   cursor: 'pointer',
 }
@@ -121,7 +122,7 @@ export const removeBtnStyle: React.CSSProperties = {
   border: '1px solid var(--border, #e5e7eb)',
   background: 'transparent',
   color: 'var(--text-secondary, #4b5563)',
-  fontSize: 12,
+  fontSize: FONT_SIZE.caption,
   cursor: 'pointer',
 }
 

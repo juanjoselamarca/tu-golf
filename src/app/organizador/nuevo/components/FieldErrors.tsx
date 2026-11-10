@@ -5,6 +5,7 @@
 // campo se muestran junto al input (`InlineFieldError`). El editor decide qué
 // keys raíz pertenecen a cada sección (`section-keys.ts`). Sin role="alert": el
 // header ya anuncia el estado una sola vez.
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface FieldErrorsProps {
   /** Keys raíz del config que edita la sección (ver `section-keys.ts`). */
@@ -33,7 +34,7 @@ const containerStyle: React.CSSProperties = {
   borderRadius: 10,
   background: 'var(--error-bg)',
   color: 'var(--error-fg)',
-  fontSize: 13,
+  fontSize: FONT_SIZE.small,
   lineHeight: 1.4,
 }
 
