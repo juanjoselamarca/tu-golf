@@ -151,6 +151,15 @@ describe('cerrarCopiaLocalAlFinalizar', () => {
     expect(leerRespaldoPendiente('ABC', 'p1')).toEqual({ 18: 5 })
     expect(contarHoyosPendientes()).toBe(0)
   })
+
+  it('las marcas de puntitos sin subir se conservan (si la ronda se reabre, suben); sin marcas, la clave se va', () => {
+    localStorage.setItem('ronda_puntitos_pendientes_ABC', JSON.stringify({ p1: { 3: 1 } }))
+    cerrarCopiaLocalAlFinalizar('ABC')
+    expect(JSON.parse(localStorage.getItem('ronda_puntitos_pendientes_ABC') ?? '{}')).toEqual({ p1: { 3: 1 } })
+    localStorage.setItem('ronda_puntitos_pendientes_ABC', '{}')
+    cerrarCopiaLocalAlFinalizar('ABC')
+    expect(localStorage.getItem('ronda_puntitos_pendientes_ABC')).toBeNull()
+  })
 })
 
 describe('loadScorerGrupoSnapshot — snapshot corrupto', () => {
