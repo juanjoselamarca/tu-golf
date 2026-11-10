@@ -1,7 +1,7 @@
 'use client'
 
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
-import { formatearHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
+import { formatearHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
@@ -16,13 +16,15 @@ interface Props {
   onTeeGlobal: (tee: string) => void
   /** Golpes de juego con ese índice desde ese tee; `null` si no se puede calcular. */
   golpes: number | null
+  /** El índice va a medio escribir o no es número: el paso no debe avanzar (ver useCampoHandicap). */
+  onBloqueo?: (bloquea: boolean) => void
 }
 
 /** La tarjeta del creador: su índice y su tee. Vive sola para poder ir dentro de un equipo. */
 export function TarjetaDelCreador(props: Props) {
   // Texto local: "+2" y "18,5" se pueden escribir, y un plus se precarga "+2" (antes type=number decía "-2"
   // y el "HCP +2" de al lado lo contradecía).
-  const campo = useCampoHandicap(props.indice, props.onIndice)
+  const campo = useCampoHandicap(props.indice, props.onIndice, props.onBloqueo)
   return (
     <div style={{
       padding: '12px 14px', borderRadius: '12px',
@@ -48,7 +50,7 @@ export function TarjetaDelCreador(props: Props) {
           type="text"
           inputMode="text"
           autoComplete="off"
-          placeholder="Ej: 10.5"
+          placeholder={PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO}
           value={campo.texto}
           onChange={e => campo.onTexto(e.target.value)}
           aria-invalid={campo.invalido}

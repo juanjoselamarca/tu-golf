@@ -1,11 +1,14 @@
 'use client'
 
+import { useState } from 'react'
+import { MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { FORMAT_META } from '@/golf/core/rules'
 import { maxRivales, puedeSumarCompanero } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { CourseTee, JugadorReciente, RondaReciente } from '@/lib/data/ronda-libre-nueva'
 import {
   esRivalEnBlanco,
+  ID_DEL_CREADOR,
   type DatosDeRival,
   type EquipoDeLaRonda,
   type RivalDelCreador,
@@ -53,6 +56,22 @@ interface Props {
 
 /** Paso 3: quiénes juegan, con qué índice y desde qué tee. */
 export function PasoJugadores(props: Props) {
+  // Ids de los jugadores cuyo índice va a medio escribir ("+") o no es número ("1O"): el campo le manda `null`
+  // al formulario, que no distingue eso de "sin índice". Mientras haya alguno, no se avanza (como en los otros
+  // formularios con `campoHandicapEnviable`): si no, la ronda se creaba con ese jugador sin índice.
+  const [camposQueBloquean, setCamposQueBloquean] = useState<ReadonlySet<string>>(() => new Set())
+  const onBloqueoDe = (id: string) => (bloquea: boolean) =>
+    setCamposQueBloquean(prev => {
+      if (prev.has(id) === bloquea) return prev
+      const otro = new Set(prev)
+      if (bloquea) otro.add(id)
+      else otro.delete(id)
+      return otro
+    })
+  const indiceBloquea = camposQueBloquean.size > 0
+  const noAvanza = indiceBloquea || props.problema != null
+  const detalleDelBoton = indiceBloquea ? MENSAJE_HANDICAP_NO_ES_NUMERO : props.problema?.detalle
+
   const totalJugadores = 1 + props.rivales.length
   // Hay dónde poner a un jugador más: una tarjeta en blanco que ocupar, o cupo
   // en algún equipo (formatos por equipo) / bajo el tope de rivales (el resto).
@@ -89,6 +108,7 @@ export function PasoJugadores(props: Props) {
       teeGlobal={props.teeGlobal}
       onTeeGlobal={props.onTeeGlobal}
       golpes={golpesCreador}
+      onBloqueo={onBloqueoDe(ID_DEL_CREADOR)}
     />
   )
 
@@ -124,6 +144,7 @@ export function PasoJugadores(props: Props) {
             onQuitarEquipo={props.onQuitarEquipo}
             onRenombrarEquipo={props.onRenombrarEquipo}
             onMoverAlEquipo={props.onMoverAlEquipo}
+            onBloqueoDe={onBloqueoDe}
           />
         ) : (
           <>
@@ -139,6 +160,7 @@ export function PasoJugadores(props: Props) {
                 golpes={props.golpesDe(rival.handicap, rival.tees ?? props.teeGlobal)}
                 onCampo={(campo, valor) => props.onCampoRival(idx, campo, valor)}
                 onQuitar={() => props.onQuitarRival(idx)}
+                onBloqueo={onBloqueoDe(rival.id)}
               />
             ))}
 
@@ -215,15 +237,15 @@ export function PasoJugadores(props: Props) {
         <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <button
             type="button"
-            disabled={props.problema != null}
+            disabled={noAvanza}
             onClick={props.onSiguiente}
-            style={{ ...primario(props.problema != null), width: '100%' }}
+            style={{ ...primario(noAvanza), width: '100%' }}
           >
             Revisar →
           </button>
-          {props.problema && (
+          {detalleDelBoton && (
             <div style={{ fontSize: '11px', color: colores.aviso, textAlign: 'center', lineHeight: 1.3 }}>
-              {props.problema.detalle}
+              {detalleDelBoton}
             </div>
           )}
         </div>

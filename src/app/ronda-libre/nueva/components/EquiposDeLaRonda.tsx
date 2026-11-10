@@ -30,6 +30,8 @@ interface Props {
   onQuitarEquipo: (equipoIdx: number) => void
   onRenombrarEquipo: (equipoIdx: number, nombre: string) => void
   onMoverAlEquipo: (id: string) => void
+  /** Callback de bloqueo del índice de cada jugador, por id (ver PasoJugadores). */
+  onBloqueoDe?: (id: string) => (bloquea: boolean) => void
 }
 
 const botonPunteado = {
@@ -110,6 +112,7 @@ export function EquiposDeLaRonda(props: Props) {
                   teeGlobal={props.teeGlobal}
                   onTeeGlobal={props.onTeeGlobal}
                   golpes={props.golpesDe(props.creador.indice, props.teeGlobal)}
+                  onBloqueo={props.onBloqueoDe?.(id)}
                 />
               )
             }
@@ -127,6 +130,7 @@ export function EquiposDeLaRonda(props: Props) {
                   golpes={props.golpesDe(rival.handicap, rival.tees ?? props.teeGlobal)}
                   onCampo={(campo, valor) => props.onCampoRival(idx, campo, valor)}
                   onQuitar={() => props.onQuitarRival(idx)}
+                  onBloqueo={props.onBloqueoDe?.(id)}
                 />
                 {movimiento && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-6px', marginBottom: '6px' }}>

@@ -5,7 +5,7 @@ import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { usePlayerSearch, type SearchResult } from '../hooks/usePlayerSearch'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
-import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
+import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 
@@ -17,15 +17,17 @@ interface Props {
   golpes: number | null
   onCampo: <K extends keyof RivalDelCreador>(campo: K, valor: RivalDelCreador[K]) => void
   onQuitar: () => void
+  /** El índice va a medio escribir o no es número: el paso no debe avanzar (ver useCampoHandicap). */
+  onBloqueo?: (bloquea: boolean) => void
 }
 
 /** Un rival del creador: tipo de cuenta, nombre, índice, tee y teléfono. */
-export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, onCampo, onQuitar }: Props) {
+export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, onCampo, onQuitar, onBloqueo }: Props) {
   const idNombre = `rival-${indiceEnLista}-nombre`
   const idIndice = `rival-${indiceEnLista}-indice`
   // Texto local (#773): con type=number, "+1.5" quedaba en '' → 0 y un plus se veía "-2". El índice que llega
   // de un perfil elegido (handleSelect) reemplaza el texto.
-  const campoIndice = useCampoHandicap(rival.handicap, v => onCampo('handicap', v))
+  const campoIndice = useCampoHandicap(rival.handicap, v => onCampo('handicap', v), onBloqueo)
 
   // Search only active when tipo === 'cuenta' and no profile selected yet.
   const searchActive = rival.tipo === 'cuenta' && !rival.profileId
@@ -202,7 +204,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           type="text"
           inputMode="text"
           autoComplete="off"
-          placeholder="Ej: 10.5"
+          placeholder={PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO}
           value={campoIndice.texto}
           onChange={e => campoIndice.onTexto(e.target.value)}
           aria-invalid={campoIndice.invalido}
