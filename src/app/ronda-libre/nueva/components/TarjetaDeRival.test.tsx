@@ -43,6 +43,6 @@ describe('TarjetaDeRival — índice (#773)', () => {
     render(<Tarjeta inicial={10} onHandicap={onHandicap} />)
     fireEvent.change(campo(), { target: { value: 'abc' } })
     expect(onHandicap).toHaveBeenLastCalledWith(null)
-    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
+    expect(screen.getByRole('alert').textContent).toBe('Escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
   })
 })

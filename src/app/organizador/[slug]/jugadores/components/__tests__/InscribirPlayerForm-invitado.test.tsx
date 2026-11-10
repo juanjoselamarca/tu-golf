@@ -9,7 +9,7 @@ vi.mock('@/components/billing/UpsellCard', () => ({ UpsellCard: () => null }))
 
 import { InscribirPlayerForm } from '../InscribirPlayerForm'
 
-const AVISO = 'Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.'
+const AVISO = 'Escribe un número (12.4, o +2 si es plus) o déjalo vacío.'
 let onInscribirGuest = vi.fn()
 
 function pintar(guestHcp: string) {

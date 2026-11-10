@@ -35,7 +35,7 @@ describe('TarjetaDelCreador — índice', () => {
     render(<Tarjeta inicial={10} onIndice={onIndice} />)
     fireEvent.change(campo(), { target: { value: 'abc' } })
     expect(onIndice).toHaveBeenLastCalledWith(null)
-    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
+    expect(screen.getByRole('alert').textContent).toBe('Escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
     expect(screen.queryByText(/^HCP/)).toBeNull()
   })
 

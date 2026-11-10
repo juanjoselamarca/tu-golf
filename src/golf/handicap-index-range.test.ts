@@ -225,7 +225,7 @@ describe('campoHandicapEnviable — vacío o número, sin mirar el rango', () =>
 describe('avisoCampoHandicap / campoIndiceGuardable — campo de índice WHS (opcional)', () => {
   const REGLA = { opcional: true, rango: 'indice' as const }
   it.each([
-    ['', null, true], ['+', null, false], ['abc', 'Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.', false],
+    ['', null, true], ['+', null, false], ['abc', 'Escribe un número (12.4, o +2 si es plus) o déjalo vacío.', false],
     ['+2', null, true], ['18,5', null, true], ['54', null, true], ['60', 'rango', false], ['+11', 'rango', false],
   ])('%j → aviso %s, guardable %s', (texto, aviso, guardable) => {
     const a = avisoCampoHandicap(texto, REGLA)
@@ -236,10 +236,17 @@ describe('avisoCampoHandicap / campoIndiceGuardable — campo de índice WHS (op
   })
 
   it('obligatorio: sin "o déjalo vacío"; sin rango: "60" no avisa y se envía', () => {
-    expect(avisoCampoHandicap('abc', { opcional: false, rango: 'indice' })).toBe('Escribe un número: 12.4, o +2 si es plus.')
+    expect(avisoCampoHandicap('abc', { opcional: false, rango: 'indice' })).toBe('Escribe un número (12.4, o +2 si es plus).')
     expect(avisoCampoHandicap('60', { opcional: true, rango: null })).toBeNull()
     expect(campoHandicapSePuedeEnviar('60', { opcional: true, rango: null })).toBe(true)
     expect(campoHandicapSePuedeEnviar('+', { opcional: true, rango: null })).toBe(false)
+  })
+
+  it('un campo obligatorio vacío no se puede enviar; uno opcional vacío sí', () => {
+    expect(campoHandicapSePuedeEnviar('', { opcional: false, rango: 'indice' })).toBe(false)
+    expect(campoHandicapSePuedeEnviar('  ', { opcional: false, rango: null })).toBe(false)
+    expect(campoHandicapSePuedeEnviar('', { opcional: true, rango: 'indice' })).toBe(true)
+    expect(campoHandicapSePuedeEnviar('12', { opcional: false, rango: 'indice' })).toBe(true)
   })
 })
 

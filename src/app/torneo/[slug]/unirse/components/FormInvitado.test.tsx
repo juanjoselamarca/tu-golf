@@ -13,7 +13,7 @@ function pintar(guestHandicap: string) {
   )
   return onJoin
 }
-const AVISO = 'Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.'
+const AVISO = 'Escribe un número (12.4, o +2 si es plus) o déjalo vacío.'
 const boton = () => screen.getByRole('button', { name: 'Scorear como invitado' }) as HTMLButtonElement
 const campo = () => screen.getByLabelText('Índice de handicap (opcional)') as HTMLInputElement
 

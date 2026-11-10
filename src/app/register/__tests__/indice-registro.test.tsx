@@ -42,7 +42,7 @@ describe('registro — índice de hándicap', () => {
     await enviar('abc')
     expect(signUp).not.toHaveBeenCalled()
     expect(boton().disabled).toBe(false)
-    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
+    expect(screen.getByRole('alert').textContent).toBe('Escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
   })
 
   it.each(['-', '+', '.', ','])('"%s" a medio escribir: no avisa mientras se tipea; al tocar "Crear cuenta" avisa, enfoca el campo y no llama a signUp', async texto => {
@@ -57,7 +57,7 @@ describe('registro — índice de hándicap', () => {
     expect(boton().disabled).toBe(false)
     await act(async () => { fireEvent.click(boton()) })
     expect(signUp).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
+    expect(screen.getByRole('alert').textContent).toBe('Escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
     expect(campo().getAttribute('aria-describedby')).toBe('registro-indice-error')
     expect(document.activeElement).toBe(campo())
     // Al volver a escribir, el aviso del envío se va.

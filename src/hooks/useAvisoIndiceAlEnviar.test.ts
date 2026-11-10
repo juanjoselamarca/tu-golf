@@ -15,7 +15,7 @@ describe('useAvisoIndiceAlEnviar', () => {
     let paso = true
     act(() => { paso = result.current.validarAlEnviar() })
     expect(paso).toBe(false)
-    expect(result.current.aviso).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
+    expect(result.current.aviso).toBe('Escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
     expect(result.current.propsDelCampo).toEqual({ 'aria-invalid': true, 'aria-describedby': 'campo-x-error' })
     expect(document.activeElement).toBe(input)
     input.remove()
@@ -33,7 +33,7 @@ describe('useAvisoIndiceAlEnviar', () => {
 
   it('obligatorio: sin la coletilla "o déjalo vacío"', () => {
     const { result } = renderHook(() => useAvisoIndiceAlEnviar('abc', 'c', { opcional: false, rango: 'indice' }))
-    expect(result.current.aviso).toBe('Escribe un número: 12.4, o +2 si es plus.')
+    expect(result.current.aviso).toBe('Escribe un número (12.4, o +2 si es plus).')
   })
 
   it('con rango de índice, "60" avisa el rango en vivo y no deja enviar; sin rango, se envía', () => {
@@ -51,5 +51,25 @@ describe('useAvisoIndiceAlEnviar', () => {
     act(() => { paso = result.current.validarAlEnviar() })
     expect(paso).toBe(true)
     expect(result.current.aviso).toBeNull()
+  })
+  it('obligatorio vacío: no se envía y avisa', () => {
+    const { result } = renderHook(() => useAvisoIndiceAlEnviar('', 'c', { opcional: false, rango: 'indice' }))
+    expect(result.current.sePuedeEnviar).toBe(false)
+    act(() => { result.current.validarAlEnviar() })
+    expect(result.current.aviso).toBe('Escribe un número (12.4, o +2 si es plus).')
+  })
+
+  it('avisar(mensaje) muestra el aviso en el campo, lo enfoca y se va al volver a escribir', () => {
+    const input = document.createElement('input')
+    input.id = 'campo-y'
+    document.body.appendChild(input)
+    const { result, rerender } = renderHook(({ t }) => useAvisoIndiceAlEnviar(t, 'campo-y', OPCIONAL_INDICE), { initialProps: { t: '12' } })
+    act(() => result.current.avisar('No pudimos guardar tu índice. Revisa tu señal y vuelve a intentarlo.'))
+    expect(result.current.aviso).toBe('No pudimos guardar tu índice. Revisa tu señal y vuelve a intentarlo.')
+    expect(result.current.propsDelCampo['aria-describedby']).toBe('campo-y-error')
+    expect(document.activeElement).toBe(input)
+    rerender({ t: '12.5' })
+    expect(result.current.aviso).toBeNull()
+    input.remove()
   })
 })
