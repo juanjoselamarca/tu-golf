@@ -155,8 +155,11 @@ export function rankEntries(
   const cbPlayers: CountbackPlayer[] = sorted.map((s, idx) => ({
     id: String(idx),
     name: nameOf(s.entry, idx),
+    // Sin puntos por hoyo (stablefordScores) el countback stableford queda sin
+    // datos: se manda vacío y el grupo no se desempata (ver `sinDatosDeCountback`).
+    // Antes caía a los golpes con 'higher_wins' y ganaba quien hizo MÁS golpes.
     scores: mode === 'stableford'
-      ? (s.entry.stablefordScores ?? s.entry.scores.map((v) => v ?? 0))
+      ? (s.entry.stablefordScores ?? [])
       : s.entry.scores.map((v) => v ?? 0),
     primaryScore: primaryScoreFor(s.entry, mode, parTotal),
   }))
@@ -187,8 +190,10 @@ export function rankEntries(
 
     const group = cbPlayers.slice(i, j)
     const todasTerminadas = group.every((g) => cardIsComplete(sorted[Number(g.id)].entry, holeCount))
+    const sinDatosDeCountback =
+      mode === 'stableford' && group.some((g) => !sorted[Number(g.id)].entry.stablefordScores?.length)
 
-    if (group.length > 1 && todasTerminadas) {
+    if (group.length > 1 && todasTerminadas && !sinDatosDeCountback) {
       cbResults.push(...applyCountback(group, cbMode, holeCount))
     } else {
       cbResults.push(

@@ -220,4 +220,20 @@ describe('rankEntries — claveEmpate (posiciones "T2" de las tablas)', () => {
     ], 'stableford', opts)
     expect(etiquetas(players)).toEqual(['1', 'T2', 'T2'])
   })
+
+  it('stableford sin puntos por hoyo: no desempata por golpes (antes ganaba quien hizo MÁS)', () => {
+    const pocos = entry({ name: 'Pocos', stablefordTotal: 36, scores: new Array(18).fill(4) })
+    const muchos = entry({ name: 'Muchos', stablefordTotal: 36, scores: new Array(18).fill(5) })
+    const { players } = rankEntries([pocos, muchos], 'stableford', opts)
+    expect(players.map((p) => p.name)).toEqual(['Pocos', 'Muchos'])
+    expect(etiquetas(players)).toEqual(['T1', 'T1'])
+  })
+
+  it('stableford con puntos por hoyo: el countback sí separa (más puntos atrás gana)', () => {
+    const a = entry({ name: 'A', stablefordTotal: 36, stablefordScores: [3, ...new Array(17).fill(2)].slice(0, 18) })
+    const b = entry({ name: 'B', stablefordTotal: 36, stablefordScores: [...new Array(17).fill(2), 3].slice(0, 18) })
+    const { players } = rankEntries([a, b], 'stableford', opts)
+    expect(players.map((p) => p.name.split(' ')[0])).toEqual(['B', 'A'])
+    expect(etiquetas(players)).toEqual(['1', '2'])
+  })
 })
