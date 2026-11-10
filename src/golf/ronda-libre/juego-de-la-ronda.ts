@@ -9,7 +9,7 @@
  *  7. Hoyo numérico: la base o el JSON pueden traerlo como string y el motor compara con `===`.
  *  8. 27 hoyos: neto no disponible (`netoDisponibleEnHoyos`).
  *  9. Retiros persistidos; uno desde un hoyo que no está en la ronda lo ignora el motor.
- * 10. `rondaCerrada` = `estado === 'finalizada'` leído de la base.
+ * 10. `rondaCerrada` = `esRondaCerrada(estado)` leído de la base.
  */
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
@@ -24,6 +24,7 @@ import {
   type ResultadoJuego,
 } from '@/golf/formats/personalizado'
 import { courseHandicapDelJuego, type MapasDeHandicap } from './handicap-del-juego'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 export interface FilaMarcaPuntito {
   id: string
@@ -122,7 +123,7 @@ export function armarEntradaDelJuego(datos: DatosDelJuego): EntradaDelJuego {
   return {
     ok: true,
     jugadorIds: [...jugadorIds],
-    entrada: { config, jugadores, hoyos, scores, marcas, retiros, rondaCerrada: datos.ronda.estado === 'finalizada' },
+    entrada: { config, jugadores, hoyos, scores, marcas, retiros, rondaCerrada: esRondaCerrada(datos.ronda.estado) },
   }
 }
 

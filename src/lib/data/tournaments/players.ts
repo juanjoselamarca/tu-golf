@@ -9,6 +9,7 @@
 // entonces este SELECT devolvía 42703 en prod y `listPlayers` fallaba.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 const PLAYERS_SELECT = `
   id, tournament_id, user_id, category_id, handicap_at_registration, status, tee_id, genero,
@@ -109,7 +110,7 @@ export function inscritoSinGrupo(playerId: string, grupos: GrupoParaScorer[]): b
 export async function fetchCodigoSiSeAnota(supabase: SupabaseClient, rondaId: string): Promise<string | null> {
   const { data } = await supabase.from('rondas_libres').select('codigo, estado, es_demo').eq('id', rondaId).maybeSingle()
   const r = data as { codigo: string | null; estado: string | null; es_demo: boolean | null } | null
-  if (!r?.codigo || r.estado === 'finalizada' || r.es_demo) return null
+  if (!r?.codigo || esRondaCerrada(r.estado) || r.es_demo) return null
   return r.codigo
 }
 

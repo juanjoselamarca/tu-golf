@@ -12,17 +12,9 @@ type Client = Pick<SupabaseClient, 'from'>
 /** Plazo de una lectura de estado que decide si se borra algo: sin respuesta, no se borra. */
 export const TIMEOUT_ESTADO_RONDA_MS = 10_000
 
-/** `estado` de una ronda que ya no existe (el creador la descartó: se borra). */
-export const RONDA_NO_EXISTE = 'no_existe'
-
-/**
- * La ronda existe y no acepta golpes: la misma regla que el RPC de guardado (`estado <> 'en_curso'`
- * → P0002). Una sola definición de "cerrada" para los scorers, Finalizar y el conciliador del banner.
- * Sin lectura (`null`) o con la ronda borrada (`RONDA_NO_EXISTE`) NO está cerrada: es otro caso.
- */
-export function esRondaCerrada(estado: string | null | undefined): boolean {
-  return estado != null && estado !== RONDA_NO_EXISTE && estado !== 'en_curso'
-}
+// Qué significa cada estado vive en el dominio (puro); acá se re-exporta para la capa de datos.
+import { RONDA_NO_EXISTE, esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
+export { RONDA_NO_EXISTE, esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 /**
  * Estado actual de la ronda (guard contra un cierre desde otro dispositivo). `null` =

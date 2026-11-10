@@ -27,6 +27,7 @@ import { captureError } from '@/lib/error-tracking'
 import { RondaCodigoSchema, PushSubscriptionJsonSchema, PushSubscriptionProofSchema } from '@/lib/push/schemas'
 import { upsertPushSubscription, findOwnedSubscription, SubscriptionOwnershipError } from '@/lib/push/subscriptions'
 import { addWatcher, removeWatcher, WatcherLimitError } from '@/lib/push/watchers'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       .eq('codigo', codigo)
       .maybeSingle()
     if (!ronda) return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
-    if (ronda.estado !== 'en_curso') {
+    if (esRondaCerrada(ronda.estado)) {
       return NextResponse.json({ error: 'La ronda ya terminó', code: 'round_over' }, { status: 409 })
     }
 

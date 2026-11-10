@@ -51,6 +51,7 @@ import { LiveStyles } from './components/LiveStyles'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
 import { GuardarEnMiHistorial } from './components/GuardarEnMiHistorial'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
 
@@ -90,16 +91,16 @@ function RondaLibrePageContent() {
 
   // Track de la ronda activa para el indicador live.
   useEffect(() => {
-    if (role === 'espectador' && ronda && ronda.estado === 'en_curso' && !isAnonymous) {
+    if (role === 'espectador' && ronda && !esRondaCerrada(ronda.estado) && !isAnonymous) {
       setActiveRondaSession(codigo, ronda.course_name)
     }
   }, [role, ronda, isAnonymous, codigo])
 
   /* ── Derivados (null-safe para que los hooks de abajo siempre se llamen) ── */
-  const isFinished = finishedParam || ronda?.estado === 'finalizada'
+  const isFinished = finishedParam || esRondaCerrada(ronda?.estado)
   const guardarHistorial = useGuardarEnMiHistorial({
     // Sin el neto (anónimo o falla al traerlo) no se ofrece guardar: la tarjeta iría sin handicaps.
-    ronda: vistaVisor ? null : rondaLive, isFinished: rondaLive?.estado === 'finalizada', currentUserId, parMap, siMap,
+    ronda: vistaVisor ? null : rondaLive, isFinished: esRondaCerrada(rondaLive?.estado), currentUserId, parMap, siMap,
     courseHcpMap, courseHcpCompletoMap, sinIndice, equipos,
   })
   // Un solo dorado sólido por vista (DESIGN.md §5): mientras falte guardar, guardar es la acción principal.
@@ -150,7 +151,7 @@ function RondaLibrePageContent() {
   const fechaDisplay = ronda.fecha
     ? new Date(ronda.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
     : ''
-  const isEnCurso = ronda.estado === 'en_curso'
+  const isEnCurso = !esRondaCerrada(ronda.estado)
   const hasCourse = Object.keys(parMap).length > 0
   const isNetoMode = ronda.modo_juego === 'neto'
   const timelineEvents = buildTimelineEvents(ronda.ronda_libre_jugadores, ronda.holes, parMap)
@@ -393,7 +394,7 @@ function RondaLibrePageContent() {
         )}
       </div>
 
-      {isAdmin && ronda.estado === 'en_curso' && <AdminScoringBar codigo={codigo} />}
+      {isAdmin && isEnCurso && <AdminScoringBar codigo={codigo} />}
 
       {/* Jugador autenticado (no admin) en ronda individual en curso → enlace al scorer */}
       {!isAdmin && !isAdminRound && isEnCurso && !isAnonymous && currentUserId &&
