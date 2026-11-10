@@ -11,7 +11,7 @@ import { RONDA_ERRCODE, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cier
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE, AVISO_TARJETA_RECHAZADA } from '@/components/ronda/finalizar-copy'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
-import { marcarRespaldoRechazado, marcarRespaldoSincronizado } from '@/lib/ronda/respaldo-local'
+import { marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 
 type ScoreSyncReturn = ReturnType<typeof useScoreSync>
 
@@ -98,11 +98,14 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       const { jugadorId, holeScores } = pending
       saveRondaLibreScores(supabase, { codigo, jugadorId, delta: scoresObj }).then(({ error }) => {
         if (!error) marcarRespaldoSincronizado(codigo, jugadorId, holeScores)
+        // Ronda cerrada: lo sin enviar sale del banner y se guarda (se puede reabrir).
+        else if (error.code === RONDA_ERRCODE.FINALIZED) marcarRespaldosDeRondaCerrada(codigo)
         // P0001 sólo se limpia con la ronda confirmada como borrada (también sale si falta el jugador).
-        // Viva: rechazo de esta tarjeta, que sale del banner (reenviarla da lo mismo).
+        // Viva: rechazo de esta tarjeta, que sale del banner (reenviarla da lo mismo). Cerrada: como P0002.
         else if (error.code === RONDA_ERRCODE.NOT_FOUND) {
           return confirmarRondaBorrada(supabase, codigo).then(v => {
             if (v === 'ronda_borrada') limpiarCopiaLocalDeRonda(codigo)
+            else if (v === 'ronda_cerrada') marcarRespaldosDeRondaCerrada(codigo)
             else if (v === 'ronda_viva') marcarRespaldoRechazado(codigo, jugadorId, holeScores)
           })
         }
@@ -150,11 +153,12 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       // Sin permiso sobre esta tarjeta: reintentar no cambia nada.
       else if (error.code === RONDA_ERRCODE.FORBIDDEN) { forbiddenRpc = true; break }
       // No encontró ronda+jugador: se confirma con la ronda antes de tratarla como borrada.
-      // Borrada → salir (reintentar no la trae de vuelta). Viva → rechazo de esta tarjeta. Sin
-      // señal para confirmarlo → como falta de conexión, sin limpiar nada.
+      // Borrada → salir (reintentar no la trae de vuelta). Cerrada → como P0002. Viva → rechazo de
+      // esta tarjeta. Sin señal para confirmarlo → como falta de conexión, sin limpiar nada.
       else if (error.code === RONDA_ERRCODE.NOT_FOUND) {
         const veredicto = await confirmarRondaBorrada(supabase, codigo)
         if (veredicto === 'ronda_borrada') noExisteRpc = true
+        else if (veredicto === 'ronda_cerrada') rondaFinalizedRpc = true
         else if (veredicto === 'ronda_viva') rechazadoRpc = true
         break
       }
@@ -171,6 +175,9 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
 
     if (rondaFinalizedRpc) {
       setSaveStatus('error')
+      // Respuesta firme: lo sin enviar sale del banner ya (no al próximo reload), y NO se borra:
+      // la ronda se puede reabrir y el conciliador lo devuelve al banner.
+      marcarRespaldosDeRondaCerrada(codigo)
       // Finalizar sigue por su cuenta (la tarjeta va igual al historial): ni aviso ni redirect.
       if (paraFinalizar || finalizandoRef.current) return 'finalizada'
       addToast({ type: 'warning', title: 'Ronda finalizada', message: 'El administrador cerro esta ronda. Tus scores estan guardados en tu dispositivo.', duration: 8000 })

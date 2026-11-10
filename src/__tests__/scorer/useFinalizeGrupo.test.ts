@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useState } from 'react'
 import { useFinalizeGrupo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useFinalizeGrupo'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { claveDelRespaldo, contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }))
@@ -17,13 +18,19 @@ vi.mock('@/lib/ronda/helpers', async (importOriginal) => ({ ...(await importOrig
 const saveGroupScores = vi.fn()
 const pendientes = { hay: false }
 const limpiarCopiaLocalDeRonda = vi.fn()
-vi.mock('@/lib/ronda/score-storage', () => ({
-  saveGroupScores: (...a: unknown[]) => saveGroupScores(...a),
-  loadGroupScores: () => ({}),
-  confirmarPendientes: vi.fn(),
-  hayPendientes: () => pendientes.hay,
-  limpiarCopiaLocalDeRonda: (...a: unknown[]) => limpiarCopiaLocalDeRonda(...a),
-}))
+const cerrarCopiaLocalAlFinalizar = vi.fn()
+// Las dos limpiezas son las reales (sobre el localStorage de jsdom), espiadas.
+vi.mock('@/lib/ronda/score-storage', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/ronda/score-storage')>()
+  return {
+    saveGroupScores: (...a: unknown[]) => saveGroupScores(...a),
+    loadGroupScores: () => ({}),
+    confirmarPendientes: vi.fn(),
+    hayPendientes: () => pendientes.hay,
+    limpiarCopiaLocalDeRonda: (c: string) => { limpiarCopiaLocalDeRonda(c); real.limpiarCopiaLocalDeRonda(c) },
+    cerrarCopiaLocalAlFinalizar: (c: string) => { cerrarCopiaLocalAlFinalizar(c); real.cerrarCopiaLocalAlFinalizar(c) },
+  }
+})
 
 const saveRondaLibreScores = vi.fn(async () => ({ error: null }))
 const finalizarRondaLibre = vi.fn(async () => ({ finalizada: true, error: null as unknown }))
@@ -63,7 +70,7 @@ const rondaBase = {
   ],
 }
 
-const enviarPendientes = vi.fn(async () => {})
+const enviarPendientes = vi.fn(async (): Promise<'ronda_cerrada' | 'ronda_abierta'> => 'ronda_abierta')
 type EquipoT = { id: string; scores: Record<string, number> }
 // Doble del de useTeamScoreSave: hoyos de la ronda sin score del equipo → par (mismo objeto si no falta nada).
 const completarEquiposConPar = vi.fn((eqs: EquipoT[], hoyos: readonly number[]) => eqs.map(e => {
@@ -85,6 +92,8 @@ function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record
 
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.clear()
+  saveRondaLibreScores.mockResolvedValue({ error: null })
   fetchEstadoRondaLibre.mockResolvedValue('en_curso')
   finalizarRondaLibre.mockResolvedValue({ finalizada: true, error: null })
   pendientes.hay = false
@@ -290,12 +299,67 @@ describe('useFinalizeGrupo', () => {
     expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
   })
 
-  it('cierre exitoso borra la copia local del scorer', async () => {
+  it('cierre exitoso borra la copia local del scorer de grupo', async () => {
     const { result } = montar()
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
-    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalledWith('ABC')
+    expect(cerrarCopiaLocalAlFinalizar).toHaveBeenCalledWith('ABC')
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+  })
+
+  // PR #763 vuelta 4: el creador anotó sin señal en el individual y finalizó desde el de grupo.
+  // Finalizar no borra esos golpes (la ronda se puede reabrir): salen del banner y se guardan.
+  it('finalizar no borra el respaldo sin subir del scorer individual: lo marca de ronda cerrada', async () => {
+    localStorage.setItem(claveDelRespaldo('ABC', 'p1'), JSON.stringify({ scores: { 18: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
+    localStorage.setItem('ronda_grupo_ABC', JSON.stringify({ p1: { 10: 4 } }))
+    expect(contarHoyosPendientes()).toBe(1)
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+    expect(leerRespaldoPendiente('ABC', 'p1')).toEqual({ 18: 4 })
+    expect(contarHoyosPendientes()).toBe(0)
+    expect(localStorage.getItem('ronda_grupo_ABC')).toBeNull()
+  })
+
+  // PR #763 vuelta 4: B cerró la ronda mientras A anotaba. Los golpes de A quedan pendientes en su
+  // teléfono (P0002), pero eso no es falta de señal: A no ve "sin servidor" y su tarjeta va al historial.
+  it('la ronda la cerró otro (P0002 al guardar): no avisa "sin servidor" y la tarjeta va al historial', async () => {
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'P0002' } } as never)
+    pendientes.hay = true
+    finalizarRondaLibre.mockResolvedValue({ finalizada: false, error: { code: 'P0002' } })
+    localStorage.setItem(claveDelRespaldo('ABC', 'p1'), JSON.stringify({ scores: { 18: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo finalizar todavía' }))
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
+    expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+    expect(leerRespaldoPendiente('ABC', 'p1')).toEqual({ 18: 4 })
+    expect(contarHoyosPendientes()).toBe(0)
+  })
+
+  it('scramble con la ronda cerrada por otro (envío de equipos P0002): tampoco avisa "sin servidor"', async () => {
+    enviarPendientes.mockResolvedValueOnce('ronda_cerrada')
+    pendientes.hay = true
+    const equipos = [{ id: 'e1', nombre: 'E1', jugadorIds: ['p1', 'p2'], scores: Object.fromEntries(back9.map(h => [String(h), PAR[h]])) }]
+    const { result } = montar({ ronda: { ...rondaBase, formato_juego: 'scramble' }, teamEquipos: equipos })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo finalizar todavía' }))
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
+    expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+  })
+
+  it('inverso: con pendientes y la ronda abierta (sin señal) sigue avisando y no cierra', async () => {
+    pendientes.hay = true
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo finalizar todavía' }))
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
   })
 
   it('error al insertar el historial: toast, el botón vuelve a estar disponible y NO cierra la ronda', async () => {

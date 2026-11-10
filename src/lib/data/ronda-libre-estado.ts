@@ -34,10 +34,14 @@ export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): P
  * ronda+jugador (o ronda+equipo) no encuentra fila: con la ronda borrada, pero también con la
  * ronda viva si falta ese jugador o equipo. Antes de limpiar nada se pregunta por la ronda:
  *  - 'ronda_borrada': el servidor confirma que no existe (PGRST116) → limpiar y salir;
- *  - 'ronda_viva':    existe → rechazo definitivo de ESA tarjeta, nada se limpia;
+ *  - 'ronda_cerrada': existe pero no está 'en_curso' → igual que un P0002. El RPC busca la fila
+ *                     ANTES de mirar el estado: en una ronda cerrada a la que le falta ese jugador
+ *                     el P0001 llega primero, y una ronda cerrada siempre se trata como cerrada
+ *                     (lo pendiente se guarda: se puede reabrir);
+ *  - 'ronda_viva':    en curso → rechazo definitivo de ESA tarjeta, nada se limpia;
  *  - 'sin_senal':     no se pudo confirmar (red, timeout, sesión) → no limpiar, se reintenta.
  */
-export type VeredictoRondaNoEncontrada = 'ronda_borrada' | 'ronda_viva' | 'sin_senal'
+export type VeredictoRondaNoEncontrada = 'ronda_borrada' | 'ronda_cerrada' | 'ronda_viva' | 'sin_senal'
 
 export async function confirmarRondaBorrada(supabase: Client, codigo: string): Promise<VeredictoRondaNoEncontrada> {
   let estado: string | null
@@ -47,5 +51,6 @@ export async function confirmarRondaBorrada(supabase: Client, codigo: string): P
     return 'sin_senal'
   }
   if (estado === RONDA_NO_EXISTE) return 'ronda_borrada'
-  return estado == null ? 'sin_senal' : 'ronda_viva'
+  if (estado == null) return 'sin_senal'
+  return estado === 'en_curso' ? 'ronda_viva' : 'ronda_cerrada'
 }

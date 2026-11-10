@@ -10,7 +10,7 @@
 // - load devuelve {} si no hay nada o si el JSON está corrupto
 
 import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
-import { borrarRespaldosDeRonda } from '@/lib/ronda/respaldo-local'
+import { borrarRespaldosDeRonda, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 
 const KEY = (codigo: string, jugadorId: string) => `ronda_${codigo}_${jugadorId}`
 
@@ -253,16 +253,8 @@ export function hayPendientes(codigo: string): boolean {
 /** Marcas de puntos especiales de Timba libre pendientes de confirmar (ver `puntitos-pendientes.ts`). */
 export const PUNTITOS_PEND_KEY = (codigo: string) => `ronda_puntitos_pendientes_${codigo}`
 
-/**
- * La ronda terminó (finalizada, descartada o ya no existe): se borra TODA su copia local en este
- * teléfono, de los dos scorers — tarjetas y respaldos del individual (de todos los jugadores) y
- * snapshot, golpes por jugador, golpes de equipo y pendientes (golpes y puntitos) del de grupo.
- * Una sola función: el creador puede pasar de un scorer al otro en la misma ronda.
- * Sólo con respuesta firme del servidor; nunca por una lectura sin señal o una sesión vencida.
- */
-export function limpiarCopiaLocalDeRonda(codigo: string): void {
-  clearScoresDeRonda(codigo)
-  borrarRespaldosDeRonda(codigo)
+/** Snapshot, golpes por jugador, golpes de equipo y pendientes (golpes y puntitos) del scorer de grupo. */
+function borrarCopiaDelGrupo(codigo: string): void {
   clearScorerGrupoSnapshot(codigo)
   try {
     localStorage.removeItem(GROUP_KEY(codigo))
@@ -272,4 +264,28 @@ export function limpiarCopiaLocalDeRonda(codigo: string): void {
   } catch {
     // noop
   }
+}
+
+/**
+ * La ronda ya NO EXISTE (descartada o borrada, confirmado por el servidor): se borra TODA su copia
+ * local en este teléfono, de los dos scorers — tarjetas y respaldos del individual (de todos los
+ * jugadores, sincronizados o no) y la copia del de grupo. Una sola función: el creador puede pasar de
+ * un scorer al otro en la misma ronda. Nunca para una ronda finalizada (se puede reabrir: ver
+ * `cerrarCopiaLocalAlFinalizar`), ni por una lectura sin señal o una sesión vencida.
+ */
+export function limpiarCopiaLocalDeRonda(codigo: string): void {
+  clearScoresDeRonda(codigo)
+  borrarRespaldosDeRonda(codigo)
+  borrarCopiaDelGrupo(codigo)
+}
+
+/**
+ * El scorer de grupo finalizó la ronda con todo lo suyo enviado: se borra SU copia, pero los respaldos
+ * del scorer individual que no subieron (el creador anotó sin señal en el individual y finalizó desde
+ * el de grupo) no se borran: se marcan de ronda cerrada. Salen del banner, y si la ronda se reabre
+ * (reabrir un torneo devuelve sus rondas a 'en_curso') son lo único que hay.
+ */
+export function cerrarCopiaLocalAlFinalizar(codigo: string): void {
+  borrarCopiaDelGrupo(codigo)
+  marcarRespaldosDeRondaCerrada(codigo)
 }

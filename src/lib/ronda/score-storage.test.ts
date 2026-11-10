@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda } from './score-storage'
+import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda, cerrarCopiaLocalAlFinalizar } from './score-storage'
+import { contarHoyosPendientes, leerRespaldoPendiente } from './respaldo-local'
 
 beforeEach(() => localStorage.clear())
 
@@ -133,6 +134,22 @@ describe('limpiarCopiaLocalDeRonda', () => {
     expect(claves.filter(k => /ABC(_|$)/.test(k))).toEqual([])
     expect(loadScores('ABCD', 'p1')).toEqual({ 1: 6 })
     expect(claves).toContain('golfers_score_ABCD_p1')
+  })
+})
+
+// PR #763 vuelta 4: finalizar no es borrar. La ronda se puede reabrir (reabrir un torneo devuelve sus
+// rondas a 'en_curso') y los golpes del individual que no subieron son lo único que hay de esos hoyos.
+describe('cerrarCopiaLocalAlFinalizar', () => {
+  it('borra la copia del scorer de grupo, pero los respaldos sin subir del individual se marcan, no se borran', () => {
+    saveGroupScores('ABC', { p1: { 1: 4 } })
+    marcarPendientes('ABC', 'p1', { 1: 4 })
+    localStorage.setItem('golfers_score_ABC_p1', JSON.stringify({ scores: { 18: 5 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
+    expect(contarHoyosPendientes()).toBe(1)
+    cerrarCopiaLocalAlFinalizar('ABC')
+    expect(localStorage.getItem('ronda_grupo_ABC')).toBeNull()
+    expect(hayPendientes('ABC')).toBe(false)
+    expect(leerRespaldoPendiente('ABC', 'p1')).toEqual({ 18: 5 })
+    expect(contarHoyosPendientes()).toBe(0)
   })
 })
 

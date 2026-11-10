@@ -258,8 +258,8 @@ describe('useGrupoScoreSave — revisión Fable', () => {
     let soltar: () => void = () => {}
     saveRondaLibreScores.mockImplementationOnce(() => new Promise(r => { soltar = () => r({ error: null }) }) as never)
     const { result } = montar()
-    let p1: Promise<void> = Promise.resolve()
-    let p2: Promise<void> = Promise.resolve()
+    let p1: Promise<unknown> = Promise.resolve()
+    let p2: Promise<unknown> = Promise.resolve()
     act(() => { p1 = result.current.save.saveAllScores({ p1: { 1: 4 }, p2: {} }) })
     await act(async () => { p2 = result.current.save.saveAllScores({ p1: { 1: 4 }, p2: { 1: 5 } }); await vi.advanceTimersByTimeAsync(10) })
     expect(saveRondaLibreScores).toHaveBeenCalledTimes(1) // el segundo no salió en paralelo
@@ -334,7 +334,7 @@ describe('useGrupoScoreSave — revisión Fable', () => {
     let soltar: () => void = () => {}
     saveRondaLibreScores.mockImplementationOnce(() => new Promise(r => { soltar = () => r({ error: null }) }) as never)
     const { result } = montar()
-    let enVuelo: Promise<void> = Promise.resolve()
+    let enVuelo: Promise<unknown> = Promise.resolve()
     act(() => { enVuelo = result.current.save.saveAllScores({ p1: { 1: 4 }, p2: {} }) })
     // Tap al score de equipo del 18 mientras viaja el envío anterior; después, Finalizar.
     marcarPendientes('ABC', 'eq:e1', { 9: 5 })
@@ -437,6 +437,35 @@ describe('useGrupoScoreSave — ronda borrada por su creador (P0001, PR #763)', 
     act(() => { result.current.save.handleScoreChange('p2', 2, 1) })
     await act(async () => { await vi.advanceTimersByTimeAsync(600) })
     expect(saveRondaLibreScores.mock.calls.length).toBeGreaterThan(llamadas)
+  })
+
+  // PR #763 vuelta 4: el RPC busca ronda+jugador ANTES de mirar el estado, así que una ronda cerrada
+  // sin ese jugador responde P0001. Confirmada como cerrada, cuenta como P0002: los golpes se guardan.
+  it('P0001 con la ronda CERRADA: como P0002, guarda los golpes, marca la ronda cerrada y no limpia', async () => {
+    const { leerPendientes } = await import('@/lib/ronda/score-storage')
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'P0001' } })
+    estadoRonda.valor = { data: { estado: 'finalizada' }, error: null }
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    expect(result.current.save.rondaNoExiste).toBe(false)
+    expect(result.current.save.rondaCerrada).toBe(true)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'La ronda ya fue finalizada' }))
+    expect(leerPendientes('ABC')).toEqual({ p1: { 1: 5 } })
+    expect(localStorage.getItem('ronda_grupo_ABC')).not.toBeNull()
+  })
+
+  it('saveAllScores dice si la ronda quedó cerrada (Finalizar no lo confunde con falta de señal)', async () => {
+    const { result } = montar()
+    let estado!: string
+    await act(async () => { estado = await result.current.save.saveAllScores({ p1: { 1: 4 }, p2: { 1: 5 } }) })
+    expect(estado).toBe('ronda_abierta')
+    // P0002 de un jugador y otro rechazo definitivo en el mismo envío: igual es una ronda cerrada.
+    saveRondaLibreScores.mockImplementation((async (_c: unknown, a: { jugadorId: string }) =>
+      ({ error: { code: a.jugadorId === 'p1' ? 'P0002' : 'P0004' } })) as never)
+    await act(async () => { estado = await result.current.save.saveAllScores({ p1: { 1: 5 }, p2: { 1: 6 } }) })
+    expect(estado).toBe('ronda_cerrada')
+    expect(result.current.save.rondaCerrada).toBe(true)
   })
 
   it('P0001 sin poder confirmar la ronda (sin señal): no limpia, queda "sin enviar" y se reintenta', async () => {

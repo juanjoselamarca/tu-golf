@@ -21,7 +21,9 @@ import {
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
-import { saveGroupScores, confirmarPendientes, hayPendientes, limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
+import { saveGroupScores, confirmarPendientes, hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
+import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
+import type { EstadoTrasEnvio } from './useGrupoScoreSave'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
@@ -69,7 +71,7 @@ export function useFinalizeGrupo(input: {
    */
   authUserId: string | null
   /** Envía todo lo pendiente (jugadores y equipos) — `useGrupoScoreSave.saveAllScores`. */
-  enviarPendientes: () => Promise<void>
+  enviarPendientes: () => Promise<EstadoTrasEnvio>
 }): FinalizeGrupo {
   const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes } = input
   const router = useRouter()
@@ -154,6 +156,8 @@ export function useFinalizeGrupo(input: {
     const bolaCompartida = isSharedBallFormat(ronda.formato_juego)
     const filledScores: typeof scores = { ...scores }
     let equiposFinales = teamEquipos
+    // Otro dispositivo cerró la ronda entre la lectura de arriba y el guardado (P0002).
+    let cerradaAlGuardar = false
     if (bolaCompartida) {
       equiposFinales = completarEquiposConPar(teamEquipos, hoyos)
     } else {
@@ -182,10 +186,14 @@ export function useFinalizeGrupo(input: {
       })
       const sinServidor = guardados.some(g => g.error && g.error.code !== RONDA_ERRCODE.FINALIZED)
       if (sinServidor) { avisarSinServidor(); return }
+      cerradaAlGuardar = guardados.some(g => g.error?.code === RONDA_ERRCODE.FINALIZED)
     }
     // Lo que quede pendiente (scores de equipo de scramble/foursome) también tiene que llegar.
-    await enviarPendientes()
-    if (hayPendientes(codigo)) { avisarSinServidor(); return }
+    const trasEnvio = await enviarPendientes()
+    // Con la ronda cerrada (P0002) lo pendiente se queda en el teléfono a propósito (se puede reabrir):
+    // no es falta de señal, y la tarjeta sigue el camino normal al historial.
+    const rondaYaCerrada = cerradaAlGuardar || trasEnvio === 'ronda_cerrada'
+    if (hayPendientes(codigo) && !rondaYaCerrada) { avisarSinServidor(); return }
 
     // Historial: SÓLO la tarjeta de quien anota (`esMiTarjeta`, P0 01-oct-2026).
     // Antes se insertaba la de cada jugador con cuenta: la RLS de historical_rounds
@@ -247,7 +255,10 @@ export function useFinalizeGrupo(input: {
       avisarSinServidor()
       return
     }
-    if (!updateErr) limpiarCopiaLocalDeRonda(codigo)
+    // Cerrada por este finalizar: la copia del grupo ya subió entera y se borra; los respaldos sin subir
+    // del scorer individual se marcan (no se borran). Cerrada por otro (P0002): lo pendiente se guarda.
+    if (!updateErr) cerrarCopiaLocalAlFinalizar(codigo)
+    else if (updateErr.code === RONDA_ERRCODE.FINALIZED) marcarRespaldosDeRondaCerrada(codigo)
     if (updateErr) {
       // Respuesta firme del servidor (ya cerrada, sin permiso): no hay nada que reintentar.
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
