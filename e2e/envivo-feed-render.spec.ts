@@ -104,10 +104,22 @@ function tarjeta(page: Page, codigo: string) {
   return page.locator(`a[href="/ronda-libre/${codigo}"]`)
 }
 
+/** Filas de jugadores de una tarjeta en el orden en que se ven: "posición nombre". */
+async function filasVisibles(page: Page, codigo: string): Promise<string[]> {
+  const posiciones = tarjeta(page, codigo).getByTestId('posicion')
+  const n = await posiciones.count()
+  const filas: string[] = []
+  for (let i = 0; i < n; i++) {
+    const pos = posiciones.nth(i)
+    const nombre = await pos.locator('xpath=following-sibling::span[1]').innerText()
+    filas.push(`${(await pos.innerText()).trim()} ${nombre.trim()}`)
+  }
+  return filas
+}
+
 /** Nombres de las filas de jugadores de una tarjeta, en el orden en que se ven. */
 async function ordenVisible(page: Page, codigo: string): Promise<string[]> {
-  const texto = await tarjeta(page, codigo).innerText()
-  return [...texto.matchAll(/^\s*\d+\.\s+(.+?)\s*$/gm)].map(m => m[1].split(/\s{2,}|\t/)[0].trim())
+  return (await filasVisibles(page, codigo)).map(f => f.split(' ').slice(1).join(' '))
 }
 
 async function abrir(page: Page) {
@@ -185,6 +197,17 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     await expect(card.getByText('Stroke Play · bruto')).toHaveCount(0)
     await expect(card.getByText('Gross', { exact: true })).toHaveCount(0)
     expect(await ordenVisible(page, 'E2ESG4')).toEqual(['Gabi Núñez', 'Hugo Vera'])
+  })
+
+  test('empates estilo golf: mismo score = T3 y T3 (no 3 y 4 por el nombre)', async ({ page }) => {
+    const rondas = feed()
+    // Eli queda en el mismo vs par que Ana (+3): empate, aunque el nombre los ordene.
+    rondas[0].jugadores = rondas[0].jugadores.map(j => (j.nombre === 'Eli Mora' ? { ...j, vsPar: 3 } : j))
+    await mockFeed(page, () => ({ status: 200, rondas }))
+    await abrir(page)
+    const card = tarjeta(page, 'E2EST1')
+    await expect(card.getByText(formatVsPar(-1), { exact: true })).toBeVisible({ timeout: 15_000 })
+    expect(await filasVisibles(page, 'E2EST1')).toEqual(['1 Beto Rojas', '2 Dani Soto', 'T3 Ana Pérez', 'T3 Eli Mora'])
   })
 
   test('Stableford gross de 9 hoyos: ordena por puntos, muestra "pts" y Thru F', async ({ page }) => {
