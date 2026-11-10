@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/Button'
 import { formatOverUnder } from '@/constants/golf'
 import { scoreFgVar } from '@/lib/score-tokens'
 import type { RondaLibre } from '@/types/ronda'
-import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
+import { posicionesDelLeaderboard, type LeaderboardEntry } from '@/lib/ronda/leaderboard'
+import { esPrimerLugar } from '@/golf/core/posiciones'
 import type { TeamShareRow } from '@/lib/ronda/team-ranking'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 
@@ -136,21 +137,25 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
   }
 
   const isStab = ronda.formato_juego === 'stableford'
-  const isTie = leaderboard.length > 1 && (isStab
-    ? leaderboard[0].stablefordPts === leaderboard[1].stablefordPts
-    : leaderboard[0].vsPar === leaderboard[1].vsPar)
-  const winnerScore = leaderboard[0].vsPar
+  // Mismo lugar que la tabla y la imagen (`posicionesDelLeaderboard`). Antes comparaba el
+  // vs par del 1° y el 2° del leaderboard completo: un inscrito sin hoyos (vs par 0) empataba
+  // con un líder en E y el cuadro decía "Empate · Juan y Diego" con solo Juan anotado.
+  const posiciones = posicionesDelLeaderboard(leaderboard, ronda.formato_juego)
+  const primeros = leaderboard.filter((_, i) => esPrimerLugar(posiciones[i]))
+  // Nadie anotó un hoyo: no hay resultado que coronar.
+  if (primeros.length === 0) return null
+  const lider = primeros[0]
+  const isTie = primeros.length > 1
+  const winnerScore = lider.vsPar
   const scoreColor = isStab ? 'var(--brand-on-bg)' : scoreFgVar(winnerScore)
-  const nombre = isTie
-    ? leaderboard.filter(j => isStab ? j.stablefordPts === leaderboard[0].stablefordPts : j.vsPar === winnerScore).map(j => j.nombre.split(' ')[0]).join(' y ')
-    : leaderboard[0].nombre
+  const nombre = isTie ? primeros.map(j => j.nombre.split(' ')[0]).join(' y ') : lider.nombre
 
   return (
     <HeroCard
       ronda={ronda}
       etiqueta={isTie ? 'Empate' : 'Ganador'}
       nombre={nombre}
-      scoreNode={isStab ? formatPuntosStableford(leaderboard[0].stablefordPts, { conUnidad: true }) : formatOverUnder(winnerScore)}
+      scoreNode={isStab ? formatPuntosStableford(lider.stablefordPts, { conUnidad: true }) : formatOverUnder(winnerScore)}
       scoreColor={scoreColor}
       isTie={isTie}
       onShare={onShare}
