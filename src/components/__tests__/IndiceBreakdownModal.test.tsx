@@ -67,6 +67,7 @@ describe('IndiceBreakdownModal', () => {
     await waitFor(() => expect(document.body.textContent).toContain('Aún no tienes rondas válidas (canchas con slope y rating).'))
     expect(document.body.textContent).not.toMatch(/FedeGolf/i)
     expect(screen.getByRole('link', { name: 'Registrar una ronda →' }).getAttribute('href')).toBe('/ronda-libre/nueva')
+    expect(screen.getByRole('link', { name: 'Importar de Garmin →' }).getAttribute('href')).toBe('/importar')
   })
 
   it('si la lectura falla NO dice "sin rondas válidas": pide reintentar, y al reintentar muestra las rondas', async () => {

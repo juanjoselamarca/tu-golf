@@ -208,7 +208,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
               {/* Las tarjetas FedeGolf llegan excluidas del índice: no son un camino para activarlo. */}
               <p style={{ margin: 0 }}>
                 Aún no tienes rondas válidas (canchas con slope y rating).<br />
-                Registra una ronda o importa tus tarjetas de Garmin desde tu historial.
+                Registra una ronda o importa tus tarjetas de Garmin.
               </p>
               <Link
                 href="/ronda-libre/nueva"
@@ -216,6 +216,13 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
                 style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '0 12px', marginTop: '8px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}
               >
                 Registrar una ronda →
+              </Link>
+              <Link
+                href="/importar"
+                onClick={onClose}
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '0 12px', marginTop: '8px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}
+              >
+                Importar de Garmin →
               </Link>
             </div>
           )}
