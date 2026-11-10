@@ -71,6 +71,7 @@ export default defineConfig({
         'torneo-anotar-mi-score.spec.ts',
         'import-fotos-lotes.spec.ts',
         'envivo-feed-render.spec.ts',
+        'torneo-empates-t10.spec.ts',
         'scorer-finalizar-ultimo-hoyo.spec.ts',
         'torneo-inscripcion.spec.ts',
         'tarjeta-par-de-la-ronda.spec.ts',

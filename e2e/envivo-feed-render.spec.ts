@@ -319,7 +319,8 @@ test.describe('/en-vivo sin sesión — el visitante no ve scores', () => {
     await abrir(page)
 
     const card = tarjeta(page, 'E2EST1')
-    await expect(card.getByText('1. Beto Rojas')).toBeVisible({ timeout: 15_000 })
+    await expect(card.getByText('Beto Rojas', { exact: true })).toBeVisible({ timeout: 15_000 })
+    expect((await filasVisibles(page, 'E2EST1'))[0]).toBe('1 Beto Rojas')
     await expect(card.getByText('Ver →')).toHaveCount(4)
     await expect(card.getByText(/en \d+ hoyos?/)).toHaveCount(0)
     await expect(card.getByText(formatVsPar(-1), { exact: true })).toHaveCount(0)
