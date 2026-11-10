@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { esPrimerLugar, etiquetasConRespaldo, etiquetasDePosicion, etiquetasPorClaveDeEmpate, lugarDeEtiqueta } from './posiciones'
+import { dentroDelCorte, esPrimerLugar, etiquetasConRespaldo, lugarConOrdinal, etiquetasDePosicion, etiquetasPorClaveDeEmpate, lugarDeEtiqueta } from './posiciones'
 
 interface Fila { nombre: string; vsPar: number; hoyos: number; pts?: number }
 const mismoVsPar = (a: Fila, b: Fila) => a.vsPar === b.vsPar
@@ -97,5 +97,18 @@ describe('etiquetasConRespaldo / esPrimerLugar / lugarDeEtiqueta', () => {
   it('esPrimerLugar y lugarDeEtiqueta', () => {
     expect([esPrimerLugar('1'), esPrimerLugar('T1'), esPrimerLugar('T10'), esPrimerLugar(null)]).toEqual([true, true, false, false])
     expect([lugarDeEtiqueta('T2'), lugarDeEtiqueta('4'), lugarDeEtiqueta(null), lugarDeEtiqueta('')]).toEqual([2, 4, null, null])
+  })
+})
+
+describe('dentroDelCorte / lugarConOrdinal', () => {
+  it('corta por lugar: con 1, 2, T3, T3, 5 entran los dos T3 al top 3 y queda fuera el 5', () => {
+    expect(['1', '2', 'T3', 'T3', '5'].filter((e) => dentroDelCorte(e, 3))).toEqual(['1', '2', 'T3', 'T3'])
+  })
+  it('sin lugar no entra', () => {
+    expect(dentroDelCorte(null, 3)).toBe(false)
+  })
+  it('"1°" sin empate y "T1" con empate', () => {
+    expect(lugarConOrdinal('1')).toBe('1°')
+    expect(lugarConOrdinal('T1')).toBe('T1')
   })
 })

@@ -70,7 +70,7 @@ import { TournamentFooter } from './components/TournamentFooter'
 import { DuplicateTournamentButton } from './components/DuplicateTournamentButton'
 import { ResultsShareCard } from './components/ResultsShareCard'
 import type { PodiumEntry, TournamentResultados, WithdrawnEntry } from './types'
-import { etiquetasPorClaveDeEmpate, lugarDeEtiqueta } from '@/golf/core/posiciones'
+import { etiquetasPorClaveDeEmpate, dentroDelCorte, lugarDeEtiqueta } from '@/golf/core/posiciones'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { Suspense } from 'react'
@@ -283,11 +283,12 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         .map((t) => ({ pos: t.pos, etiqueta: t.etiqueta, name: t.name, score: t.score }))
     }
     const etiquetas = etiquetasPorClaveDeEmpate(players, (p) => p.claveEmpate)
-    return players.slice(0, limite).flatMap((p, i) => {
+    // Corte por LUGAR, no por filas: con 1, 2, T3, T3 entran los dos T3 (y quien no jugó no tiene lugar).
+    return players.flatMap((p, i) => {
       const etiqueta = etiquetas[i]
-      if (etiqueta == null) return [] // no jugó: no va al podio
+      if (etiqueta == null || !dentroDelCorte(etiqueta, limite)) return []
       return [{
-        pos: lugarDeEtiqueta(etiqueta) ?? i + 1,
+        pos: lugarDeEtiqueta(etiqueta) as number,
         etiqueta,
         name: p.name,
         score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),

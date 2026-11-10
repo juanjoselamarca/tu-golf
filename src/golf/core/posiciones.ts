@@ -101,3 +101,17 @@ export function lugarDeEtiqueta(etiqueta: string | null | undefined): number | n
   const n = Number(etiqueta.startsWith('T') ? etiqueta.slice(1) : etiqueta)
   return Number.isInteger(n) && n > 0 ? n : null
 }
+
+/**
+ * ¿La etiqueta entra en un corte por lugar ("top 3")? Se corta por LUGAR, no por filas: con 1, 2, T3, T3 los dos T3
+ * entran al top 3. Un empate en el borde no deja a nadie afuera.
+ */
+export function dentroDelCorte(etiqueta: string | null | undefined, limite: number): boolean {
+  const lugar = lugarDeEtiqueta(etiqueta)
+  return lugar != null && lugar <= limite
+}
+
+/** Lugar para un título de premio: "1°" sin empate, "T1" con empate. */
+export function lugarConOrdinal(etiqueta: string): string {
+  return etiqueta.startsWith('T') ? etiqueta : `${etiqueta}°`
+}

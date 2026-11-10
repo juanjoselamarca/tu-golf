@@ -14,8 +14,14 @@ interface ResultsShareCardProps {
   totalPlayers: number
 }
 
+/** Filas del podio que caben en la imagen. El corte es por lugar (top 5 con empates): si un empate pasa de 5
+ *  filas, la imagen crece hacia abajo; este tope solo evita una imagen interminable con un empate masivo. */
+const FILAS_MAXIMAS_DE_LA_IMAGEN = 8
+const FILAS_EN_600 = 5
+const ALTO_DE_FILA = 52
+
 /**
- * Genera una imagen PNG 600x600 con los resultados del torneo usando Canvas API.
+ * Genera una imagen PNG 600x600 (más alta si un empate trae más de 5 filas) con los resultados del torneo usando Canvas API.
  * Diseño: fondo oscuro navy, branding dorado, podio top 3.
  * Sin dependencias externas.
  */
@@ -24,8 +30,9 @@ function drawResultsCard(
   props: Omit<ResultsShareCardProps, 'totalPlayers'> & { totalPlayers: number },
 ) {
   const { tournamentName, courseName, dateDisplay, topPlayers, totalPlayers } = props
+  const top = topPlayers.slice(0, FILAS_MAXIMAS_DE_LA_IMAGEN)
   const W = 600
-  const H = 600
+  const H = 600 + Math.max(0, top.length - FILAS_EN_600) * ALTO_DE_FILA
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')!
@@ -104,8 +111,7 @@ function drawResultsCard(
 
   // Podio
   const startY = sepY + 50
-  const entryH = 52
-  const top = topPlayers.slice(0, 5)
+  const entryH = ALTO_DE_FILA
 
   top.forEach((entry, i) => {
     const y = startY + i * entryH
