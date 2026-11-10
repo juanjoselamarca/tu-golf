@@ -22,6 +22,9 @@ export const RONDA_NO_EXISTE = 'no_existe'
  */
 export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): Promise<string | null> {
   const { data, error } = await supabase.from('rondas_libres').select('estado').eq('codigo', codigo).single()
+  // 0 filas = no existe SÓLO porque la RLS deja ver toda fila (`ver_rondas`: USING (true), sin RESTRICTIVE de
+  // lectura). Con eso se borran golpes sin subir: si una policy empezara a esconder rondas, una viva se leería
+  // como borrada. Lo cuida src/__tests__/canary-rondas-libres-lectura-total.test.ts (en `npm run verify`).
   if (error?.code === 'PGRST116') return RONDA_NO_EXISTE
   return (data?.estado as string | undefined) ?? null
 }
