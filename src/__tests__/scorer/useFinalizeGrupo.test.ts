@@ -44,6 +44,7 @@ const recalcularIndiceGolfers = vi.fn(async () => true)
 const actualizarNivelDelJugador = vi.fn(async () => {})
 const avisarAlCoachRondaNueva = vi.fn()
 vi.mock('@/lib/data/ronda-libre-finalizar', () => ({
+  RONDA_NO_EXISTE: 'no_existe',
   fetchEstadoRondaLibre: (...a: unknown[]) => fetchEstadoRondaLibre(...(a as [])),
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...(a as [])),
   recalcularIndiceGolfers: (...a: unknown[]) => recalcularIndiceGolfers(...(a as [])),
@@ -202,7 +203,10 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'score_grupo_finalize_historical.duplicada', level: 'info' }))
-    expect(recalcularIndiceGolfers).not.toHaveBeenCalled()
+    // Si el primer intento venció el plazo y el INSERT llegó después, nadie recalculó.
+    expect(recalcularIndiceGolfers).toHaveBeenCalledWith(cliente, 'u1', expect.anything())
+    expect(actualizarNivelDelJugador).toHaveBeenCalledWith(cliente, 'u1')
+    expect(avisarAlCoachRondaNueva).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).toHaveBeenCalled()
   })
 
@@ -235,6 +239,18 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
     expect(enviarPendientes).toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('la ronda ya no existe (el creador la descartó): lo dice, no culpa a la señal, y sale al inicio', async () => {
+    fetchEstadoRondaLibre.mockResolvedValue('no_existe')
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo finalizar todavía' }))
+    expect(push).toHaveBeenCalledWith('/dashboard')
+    expect(saveGroupScores).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 

@@ -78,7 +78,11 @@ describe('fetchEstadoRondaLibre / fetchRondaParaCierre', () => {
     expect(await fetchEstadoRondaLibre(sb as never, 'ABC')).toBe('finalizada')
     expect(sb.llamadas[0].cadena).toEqual([['select', ['estado']], ['eq', ['codigo', 'ABC']], ['single', []]])
   })
-  it('null cuando no existe', async () => {
+  it('ronda borrada (PGRST116): RONDA_NO_EXISTE, no una falla de red', async () => {
+    const sb = fakeSupabase({ rondas_libres: { data: null, error: { code: 'PGRST116' } } })
+    expect(await fetchEstadoRondaLibre(sb as never, 'ABC')).toBe('no_existe')
+  })
+  it('null cuando la lectura no trae datos (red)', async () => {
     const sb = fakeSupabase({ rondas_libres: { data: null } })
     expect(await fetchEstadoRondaLibre(sb as never, 'ABC')).toBeNull()
     expect(await fetchRondaParaCierre(sb as never, 'ABC')).toBeNull()

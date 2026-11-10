@@ -48,14 +48,19 @@ type Client = Pick<SupabaseClient, 'from' | 'rpc'>
  */
 export const PLAZO_GUARDAR_TARJETA_MS = 20_000
 
-/** Estado actual de la ronda (guard contra un cierre desde otro dispositivo). */
-export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): Promise<string | null> {
-  const { data } = await supabase.from('rondas_libres').select('estado').eq('codigo', codigo).single()
-  return (data?.estado as string | undefined) ?? null
-}
-
 /** `estado` de una ronda que ya no existe (el creador la descartó: se borra). */
 export const RONDA_NO_EXISTE = 'no_existe'
+
+/**
+ * Estado actual de la ronda (guard contra un cierre desde otro dispositivo). `null` =
+ * la lectura falló (red); una ronda borrada vuelve como `RONDA_NO_EXISTE`, para no
+ * decirle "sin conexión" a quien tiene señal perfecta.
+ */
+export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): Promise<string | null> {
+  const { data, error } = await supabase.from('rondas_libres').select('estado').eq('codigo', codigo).single()
+  if (error?.code === 'PGRST116') return RONDA_NO_EXISTE
+  return (data?.estado as string | undefined) ?? null
+}
 
 /**
  * Estado + tarjetas frescas de todos los jugadores (¿terminaron todos?). `null` =

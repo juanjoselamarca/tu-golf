@@ -119,7 +119,8 @@ describe('useGuardarEnMiHistorial', () => {
     await act(async () => { await result.current.guardar() })
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta tarjeta ya estaba registrada' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }))
-    expect(recalcularIndiceGolfers).not.toHaveBeenCalled()
+    // Si el primer intento venció el plazo y el INSERT llegó después, nadie recalculó.
+    expect(recalcularIndiceGolfers).toHaveBeenCalledTimes(1)
     expect(avisarAlCoachRondaNueva).not.toHaveBeenCalled()
     expect(result.current.estado).toBe('guardado')
   })

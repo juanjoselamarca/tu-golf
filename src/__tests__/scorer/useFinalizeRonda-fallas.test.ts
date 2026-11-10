@@ -81,6 +81,7 @@ const guardarTarjetaEnHistorial = vi.fn()
 const TARJETA = { scores: [4, 4, 4, 4, 4, 4, 4, 4, 4], parPerHole: null, totalGross: 36, holesPlayed: 9, hoyos: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
 const fetchRondaParaCierre = vi.fn()
 const recalcularIndice = vi.fn(async () => true)
+const fetchIndice = vi.fn(async () => null as number | null)
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 const finalizarRondaLibre = vi.fn(async () => ({ error: null }))
@@ -89,6 +90,7 @@ vi.mock('@/lib/data/ronda-libre-finalizar', async (importOriginal) => ({
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...a),
   fetchRondaParaCierre: (...a: unknown[]) => fetchRondaParaCierre(...a),
   recalcularIndiceGolfers: () => recalcularIndice(),
+  fetchIndiceDeUsuario: () => fetchIndice(),
 }))
 vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-scores')>()),
@@ -127,6 +129,7 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'duplicada', tarjeta: TARJETA })
     const result = await finalizar()
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'finalize-ronda.historial.duplicada', level: 'info' }))
+    expect(recalcularIndice).toHaveBeenCalledTimes(1)
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
     expect(result.current.roundDone).toBe(true)
   })
@@ -147,6 +150,27 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
       expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
       expect(result.current.roundDone).toBe(true)
       expect(vi.mocked(addToast).mock.calls.map(c => (c[0] as { message?: string }).message)).toContain('Tu índice se actualizará pronto')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it.each([['antes', 0], ['después', 1]])('si leer el índice %s del recálculo no responde: la ronda cierra igual', async (_cuando, respondidas) => {
+    vi.useFakeTimers()
+    try {
+      guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
+      for (let i = 0; i < respondidas; i++) fetchIndice.mockResolvedValueOnce(10)
+      fetchIndice.mockImplementationOnce(() => new Promise<number | null>(() => {}))
+      const opts = baseOpts()
+      const { result } = renderHook(() => useFinalizeRonda(opts))
+      await act(async () => { await result.current.finalizeRound() })
+      await act(async () => {
+        const fin = result.current.finalizeRound()
+        await vi.advanceTimersByTimeAsync(PLAZO_GUARDAR_TARJETA_MS + 2 * PLAZO_CARGA_SCORER_MS + 100)
+        await fin
+      })
+      expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+      expect(result.current.roundDone).toBe(true)
     } finally {
       vi.useRealTimers()
     }

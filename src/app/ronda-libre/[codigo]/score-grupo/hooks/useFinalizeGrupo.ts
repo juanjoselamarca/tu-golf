@@ -12,6 +12,7 @@ import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import {
   fetchEstadoRondaLibre,
+  RONDA_NO_EXISTE,
   guardarTarjetaEnHistorial,
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
@@ -123,8 +124,15 @@ export function useFinalizeGrupo(input: {
       avisarSinServidor()
       return
     }
-    // Sin estado no hay respuesta del servidor (la lectura no distingue error de
-    // fila ausente): más abajo se rellenan hoyos con par, y eso no se hace a ciegas.
+    if (estado === RONDA_NO_EXISTE) {
+      addToast({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.', type: 'info' })
+      limpiarCopiaLocalDelGrupo(codigo)
+      setFinalizing(false)
+      router.push('/dashboard')
+      return
+    }
+    // Sin estado no hay respuesta del servidor: más abajo se rellenan hoyos con par,
+    // y eso no se hace a ciegas.
     if (estado === null) { avisarSinServidor(); return }
     if (estado === 'finalizada') {
       addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
@@ -200,9 +208,9 @@ export function useFinalizeGrupo(input: {
         if (guardado.status === 'sin_hoyos') continue // no jugó ningún hoyo
         if (guardado.status === 'duplicada') {
           // Ya guardada (el jugador la finalizó desde su teléfono, o reintento):
-          // queda la primera. Se registra para poder auditar si difieren.
+          // queda la primera. Se registra para poder auditar si difieren. El índice se
+          // recalcula igual: si el primer intento venció el plazo, nadie lo recalculó.
           void captureError(new Error('historical_rounds duplicada'), { context: 'score_grupo_finalize_historical.duplicada', level: 'info', meta: { codigo, jugadorId: j.id } })
-          continue
         }
         if (guardado.status === 'error') {
           // Sólo puede fallar la tarjeta PROPIA (las ajenas ya no se insertan).
