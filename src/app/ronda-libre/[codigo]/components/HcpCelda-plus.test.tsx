@@ -23,3 +23,17 @@ describe('crearHcpAMostrar — redondeo del motor', () => {
     expect(crearHcpAMostrar([{ id: 'a', handicap: -1.5 }], {}, [], 'todos')('a')).toBe(-1)
   })
 })
+
+describe('HcpCelda enLinea (header del scorer)', () => {
+  it('"S/Ind" y "—" heredan tamaño y color de la línea: sin 11px ni --text-3 propios', () => {
+    const sinIndice = render(<HcpCelda hcp={SIN_INDICE} enLinea />).container.firstElementChild as HTMLElement
+    expect(sinIndice.getAttribute('style')).toBeNull()
+    const oculto = render(<HcpCelda hcp={null} enLinea />).container.firstElementChild as HTMLElement
+    expect(oculto.getAttribute('style')).toBeNull()
+  })
+
+  it('sin enLinea, la celda conserva su estilo', () => {
+    const celda = render(<HcpCelda hcp={SIN_INDICE} />).container.firstElementChild as HTMLElement
+    expect(celda.style.fontSize).toBe('11px')
+  })
+})
