@@ -12,7 +12,8 @@ import { ChevronDown } from '@/components/icons'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { AvisoHcpPct } from '@/components/AvisoHcpPct'
-import { formatearHandicap, redondearHandicap } from '@/golf/handicap-index-range'
+import { formatearHandicap } from '@/golf/handicap-index-range'
+import { redondearHandicapWHS } from '@/golf/core/stroke-index'
 
 /* ── Types ────────────────────────────────────────────────── */
 export interface GroupData {
@@ -85,7 +86,8 @@ const T = {
  */
 function hcpAMostrar(p: Player): number | null {
   if (p.hcp == null) return null
-  return redondearHandicap(p.hcpDisplay ?? p.hcp)
+  // Mismo redondeo que los golpes que reparte la tarjeta (courseHandicap, más abajo): lo que se ve es lo que puntúa.
+  return redondearHandicapWHS(p.hcpDisplay ?? p.hcp)
 }
 
 function scoreColor(n: number, esPuntos: boolean) {
@@ -434,7 +436,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                               formato: (formato === 'stableford' && modoJuego === 'neto' ? 'stroke_play' : formato ?? 'stroke_play') as ScorecardProps['formato'],
                             }
                           : {
-                              courseHandicap: Math.round(p.hcp),
+                              courseHandicap: redondearHandicapWHS(p.hcp),
                               displayHandicap: hcpAMostrar(p) ?? undefined,
                               modo: supportsDualLeaderboard ? viewMode : (modoJuego === 'neto' ? 'neto' : 'gross'),
                               formato: (formato ?? 'stroke_play') as ScorecardProps['formato'],

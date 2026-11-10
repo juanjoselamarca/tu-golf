@@ -99,15 +99,6 @@ export function formatearIndice(v: number): string {
 }
 
 /**
- * Hándicap a golpes enteros, simétrico en los plus: −1.5 → −2 (el plus 1.5 es "+2"), igual que 1.5 → 2.
- * `Math.round(-1.5)` da −1. Nunca devuelve −0.
- */
-export function redondearHandicap(v: number): number {
-  const r = Math.sign(v) * Math.round(Math.abs(v))
-  return r === 0 ? 0 : r
-}
-
-/**
  * Lo que tipea el usuario → número. Acepta el plus con signo ("+2" → −2, la
  * notación del golf), el negativo con que lo guarda la app ("-2" → −2) y la
  * coma decimal ("18,5"). Devuelve NaN si no es un número: el caller decide el

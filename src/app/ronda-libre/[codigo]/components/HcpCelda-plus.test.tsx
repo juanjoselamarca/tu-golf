@@ -1,9 +1,10 @@
 // Ronda libre: la columna HCP (golpes de cancha) de un plus dice "+2", y crearHcpAMostrar redondea
-// simétrico (el plus 1.5 son 2 golpes; Math.round(-1.5) daba −1).
+// como el motor (redondearHandicapWHS, el mismo de los golpes que reparte el leaderboard).
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 import { HcpCelda } from './HcpCelda'
 import { crearHcpAMostrar, SIN_INDICE } from '@/lib/data/ronda-libre-live-api'
+import { redondearHandicapWHS } from '@/golf/core/stroke-index'
 
 describe('HcpCelda — plus', () => {
   it('−2 se pinta "+2"; 12 queda "12"; "S/Ind" sigue igual', () => {
@@ -13,9 +14,12 @@ describe('HcpCelda — plus', () => {
   })
 })
 
-describe('crearHcpAMostrar — redondeo simétrico', () => {
-  it('handicap −1.5 sin display → −2 (no −1)', () => {
-    const hcp = crearHcpAMostrar([{ id: 'a', handicap: -1.5 }], {}, [], 'todos')
-    expect(hcp('a')).toBe(-2)
+describe('crearHcpAMostrar — redondeo del motor', () => {
+  it.each([-1.5, -2.5, 12.5, 12.4])('handicap %s sin display → redondearHandicapWHS', h => {
+    const hcp = crearHcpAMostrar([{ id: 'a', handicap: h }], {}, [], 'todos')
+    expect(hcp('a')).toBe(redondearHandicapWHS(h))
+  })
+  it('−1.5 → −1 ("+1"), no −2', () => {
+    expect(crearHcpAMostrar([{ id: 'a', handicap: -1.5 }], {}, [], 'todos')('a')).toBe(-1)
   })
 })

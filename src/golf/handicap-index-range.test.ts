@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   HANDICAP_INDEX_MAX,
   formatearIndice,
-  redondearHandicap,
   HANDICAP_INDEX_MIN,
   MENSAJE_INDICE_FUERA_DE_RANGO,
   RANGO_INDICE,
@@ -182,15 +181,3 @@ describe('formatearIndice — plus que redondea a cero', () => {
   })
 })
 
-describe('redondearHandicap', () => {
-  it('simétrico: el plus 1.5 son 2 golpes, como 1.5', () => {
-    expect(redondearHandicap(-1.5)).toBe(-2)
-    expect(redondearHandicap(1.5)).toBe(2)
-    expect(redondearHandicap(-1.4)).toBe(-1)
-    expect(redondearHandicap(12.6)).toBe(13)
-  })
-  it('nunca −0', () => {
-    expect(Object.is(redondearHandicap(-0.4), 0)).toBe(true)
-    expect(Object.is(redondearHandicap(-0), 0)).toBe(true)
-  })
-})
