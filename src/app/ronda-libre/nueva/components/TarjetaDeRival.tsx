@@ -3,7 +3,7 @@
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
 import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { usePlayerSearch, type SearchResult } from '../hooks/usePlayerSearch'
-import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
+import { colores, etiqueta, hcpDeJugador, input, inputNumerico, inputQueBloquea } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
 import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
@@ -207,10 +207,13 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           placeholder={PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO}
           value={campoIndice.texto}
           onChange={e => campoIndice.onTexto(e.target.value)}
-          // Inválido o a medio escribir: el paso no avanza por este campo (el aviso propio es solo para "abc").
+          // Inválido o a medio escribir: el paso no avanza por este campo. "abc" tiene aviso propio; "+" a medio
+          // escribir se explica en el aviso bajo el botón del paso, que nombra al jugador.
           aria-invalid={campoIndice.bloquea}
-          aria-describedby={campoIndice.invalido ? `${idIndice}-error` : undefined}
-          style={{ ...input, ...inputNumerico }}
+          aria-describedby={campoIndice.invalido
+            ? `${idIndice}-error`
+            : campoIndice.bloquea ? 'paso-jugadores-aviso' : undefined}
+          style={{ ...input, ...inputNumerico, ...(campoIndice.bloquea ? inputQueBloquea : null) }}
         />
         <SelectorDeTeeDelJugador
           tees={tees}

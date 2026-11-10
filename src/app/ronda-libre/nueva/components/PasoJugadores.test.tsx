@@ -65,15 +65,26 @@ describe('PasoJugadores — un índice inválido o a medio escribir no deja avan
 
   it('"+" a medio escribir en el creador también bloquea, con el aviso bajo el botón', () => {
     render(<Paso onSiguiente={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText('Índice', { selector: '#indice-creador' }), { target: { value: '+' } })
+    const creador = () => screen.getByLabelText('Índice', { selector: '#indice-creador' }) as HTMLInputElement
+    expect(creador().style.boxShadow).toBe('')
+    fireEvent.change(creador(), { target: { value: '+' } })
     expect(revisar().disabled).toBe(true)
     expect(aviso().textContent).toBe('Revisa tu índice: escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
+    // Sin aviso propio (no es "abc"): el campo apunta al aviso del paso y se marca con el borde de error.
+    expect(creador().getAttribute('aria-describedby')).toBe('paso-jugadores-aviso')
+    expect(creador().style.boxShadow).toContain('var(--error-fg)')
+    fireEvent.change(creador(), { target: { value: '+2' } })
+    expect(creador().getAttribute('aria-describedby')).toBeNull()
+    expect(creador().style.boxShadow).toBe('')
   })
 
-  it('un rival sin nombre se nombra "Jugador N"', () => {
+  it('un rival sin nombre se nombra "Jugador N" con su número en pantalla (el creador es la tarjeta 1)', () => {
     render(<Paso onSiguiente={vi.fn()} rivalesIniciales={[{ ...RIVAL, nombre: '' }]} />)
     fireEvent.change(indiceRival(), { target: { value: '1O' } })
-    expect(aviso().textContent).toMatch(/^Revisa el índice de Jugador 1:/)
+    expect(aviso().textContent).toMatch(/^Revisa el índice de Jugador 2:/)
+    // "1O" tiene aviso propio bajo el campo: ese es el que lo describe, no el del paso.
+    expect(indiceRival().getAttribute('aria-describedby')).not.toBe('paso-jugadores-aviso')
+    expect(indiceRival().style.boxShadow).toContain('var(--error-fg)')
   })
 
   it('el aviso está siempre montado (vacío sin problema) para que el lector de pantalla lo anuncie', () => {

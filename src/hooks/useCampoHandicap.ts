@@ -9,10 +9,11 @@ import { campoHandicapEnviable, leerCampoHandicap, textoCampoHandicap } from '@/
  * ni "18,5", y un plus guardado se veía "-2". Aquí el texto se precarga con `textoCampoHandicap` ("+2") y lo
  * tipeado se lee con `leerCampoHandicap`. Al padre le llega el número si el texto es un número, y `null` si
  * está vacío, a medio escribir o inválido: así lo que se calcula con ese valor (los golpes) nunca contradice
- * lo que dice el campo. `invalido` es para el aviso; `bloquea` (a medio escribir o inválido) es lo que no deja
- * avanzar al formulario, igual que en los otros formularios (`campoHandicapEnviable`). Como el `null` que le
- * llega al padre no distingue "vacío" de "abc", el hook le avisa con `onBloquea(true/false)`, también al
- * desmontarse (un rival que se quita no deja el formulario trabado).
+ * lo que dice el campo. `invalido` es para el aviso; `bloquea` (a medio escribir o inválido, lo contrario de
+ * `campoHandicapEnviable`) es lo que el padre usa para no avanzar. Como el `null` que le llega al padre no
+ * distingue "vacío" de "abc", el hook le avisa con `onBloquea(true/false)`, también al desmontarse (un rival
+ * que se quita no deja el formulario trabado). Lo usa la ronda libre, con varias tarjetas en un paso; los
+ * formularios de un solo campo usan `useAvisoIndiceAlEnviar`, que no apaga el botón y avisa al enviar.
  *
  * Si el padre cambia el valor desde afuera (llega el índice del perfil), el texto se reemplaza, salvo que ya
  * diga ese mismo número (no se le pisa "12." a quien está escribiendo 12.5).

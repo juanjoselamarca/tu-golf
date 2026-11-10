@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { nombreOJugadorN } from '@/lib/nombre-de-jugador'
 import { mensajeIndiceQueBloquea } from '@/golf/handicap-index-range'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { FORMAT_META } from '@/golf/core/rules'
@@ -57,8 +58,10 @@ interface Props {
 /** Paso 3: quiénes juegan, con qué índice y desde qué tee. */
 export function PasoJugadores(props: Props) {
   // Ids de los jugadores cuyo índice va a medio escribir ("+") o no es número ("1O"): el campo le manda `null`
-  // al formulario, que no distingue eso de "sin índice". Mientras haya alguno, no se avanza (como en los otros
-  // formularios con `campoHandicapEnviable`): si no, la ronda se creaba con ese jugador sin índice.
+  // al formulario, que no distingue eso de "sin índice". Mientras haya alguno, el paso no avanza y el aviso
+  // bajo el botón nombra al primero (aquí hay varias tarjetas: un aviso al enviar no sabría a cuál enfocar,
+  // a diferencia de los formularios de un solo campo, que avisan al enviar con `useAvisoIndiceAlEnviar`).
+  // Si no se bloqueara, la ronda se creaba con ese jugador sin índice.
   const [camposQueBloquean, setCamposQueBloquean] = useState<ReadonlySet<string>>(() => new Set())
   const onBloqueoDe = (id: string) => (bloquea: boolean) =>
     setCamposQueBloquean(prev => {
@@ -73,7 +76,8 @@ export function PasoJugadores(props: Props) {
   const avisoDeIndice = camposQueBloquean.has(ID_DEL_CREADOR)
     ? mensajeIndiceQueBloquea(null)
     : posRivalQueBloquea !== -1
-      ? mensajeIndiceQueBloquea(props.rivales[posRivalQueBloquea].nombre.trim() || `Jugador ${posRivalQueBloquea + 1}`)
+      // El creador es la tarjeta 1: el rival i es la tarjeta i + 2 en pantalla.
+      ? mensajeIndiceQueBloquea(nombreOJugadorN(props.rivales[posRivalQueBloquea].nombre, posRivalQueBloquea + 2))
       : null
   const noAvanza = avisoDeIndice != null || props.problema != null
   const detalleDelBoton = avisoDeIndice ?? props.problema?.detalle ?? null

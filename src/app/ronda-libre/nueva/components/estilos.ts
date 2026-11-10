@@ -70,6 +70,13 @@ export const inputNumerico = {
   fontFamily: 'var(--font-dm-mono), monospace',
 } as const
 
+/** Borde del índice que no deja avanzar el paso (a medio escribir o inválido): 2px en el color de error, para
+ *  que se vea al sol cuál de las tarjetas es la que el aviso bajo el botón está nombrando. */
+export const inputQueBloquea = {
+  border: '1px solid var(--error-fg)',
+  boxShadow: 'inset 0 0 0 1px var(--error-fg)',
+} as const
+
 /** "HCP n" junto a cada jugador. */
 export const hcpDeJugador = {
   fontFamily: 'var(--font-dm-mono), monospace',

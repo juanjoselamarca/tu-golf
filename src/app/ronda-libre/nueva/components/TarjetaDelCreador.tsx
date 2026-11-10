@@ -4,7 +4,7 @@ import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
 import { formatearHandicap, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
-import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
+import { colores, etiqueta, hcpDeJugador, input, inputNumerico, inputQueBloquea } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
 
 interface Props {
@@ -53,10 +53,11 @@ export function TarjetaDelCreador(props: Props) {
           placeholder={PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO}
           value={campo.texto}
           onChange={e => campo.onTexto(e.target.value)}
-          // Inválido o a medio escribir: el paso no avanza por este campo (el aviso propio es solo para "abc").
+          // Inválido o a medio escribir: el paso no avanza por este campo. "abc" tiene aviso propio; "+" a medio
+          // escribir se explica en el aviso bajo el botón del paso, que nombra al jugador.
           aria-invalid={campo.bloquea}
-          aria-describedby={campo.invalido ? 'indice-creador-error' : undefined}
-          style={{ ...input, ...inputNumerico }}
+          aria-describedby={campo.invalido ? 'indice-creador-error' : campo.bloquea ? 'paso-jugadores-aviso' : undefined}
+          style={{ ...input, ...inputNumerico, ...(campo.bloquea ? inputQueBloquea : null) }}
         />
         <SelectorDeTeeDelJugador
           tees={props.tees}
