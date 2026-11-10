@@ -71,7 +71,7 @@ function montar() {
     const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 18, scores, setScores, parMap: PAR, teamEquipos: [] })
     const fin = useFinalizeGrupo({
       ronda, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR, teamEquipos: [],
-      completarEquiposConPar: (e => e) as never, matchResult: null, authUserId: 'u1', enviarPendientes: save.saveAllScores,
+      completarEquiposConPar: ((e: unknown) => e) as never, matchResult: null, authUserId: 'u1', enviarPendientes: save.saveAllScores,
     })
     return { save, fin }
   })
