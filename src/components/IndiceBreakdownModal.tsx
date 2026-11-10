@@ -16,6 +16,7 @@
 // the history), but each item shows whether it enters the calculation.
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Portal } from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase'
 import { X } from '@/components/icons'
@@ -196,10 +197,20 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
           )}
 
           {!loading && rounds && rounds.length === 0 && (
-            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
-              Aún no tienes rondas con diferencial calculado.<br />
-              Importa tu historial desde FedeGolf, Garmin o un CSV.
-            </p>
+            <div style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
+              {/* Las tarjetas FedeGolf llegan excluidas del índice: no son un camino para activarlo. */}
+              <p style={{ margin: 0 }}>
+                Aún no tienes rondas válidas (canchas con slope y rating).<br />
+                Registra una ronda o importa tus tarjetas de Garmin desde tu historial.
+              </p>
+              <Link
+                href="/ronda-libre/nueva"
+                onClick={onClose}
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '0 12px', marginTop: '8px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}
+              >
+                Registrar una ronda →
+              </Link>
+            </div>
           )}
 
           {!loading && rounds && rounds.length > 0 && rondasParaActivar(rounds.length) > 0 && (

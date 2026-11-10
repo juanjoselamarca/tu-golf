@@ -53,4 +53,13 @@ describe('IndiceBreakdownModal', () => {
     expect(document.body.textContent).not.toContain('entran al cálculo')
     expect(document.body.textContent).not.toContain('= —')
   })
+
+  it('sin rondas válidas: dice la verdad (slope y rating) y no ofrece FedeGolf como camino', async () => {
+    // Una tarjeta FedeGolf llega excluida del índice: no cuenta.
+    filas = [ronda('1', 10.0, { excluded_from_handicap: true })]
+    render(<IndiceBreakdownModal isOpen onClose={() => {}} />)
+    await waitFor(() => expect(document.body.textContent).toContain('Aún no tienes rondas válidas (canchas con slope y rating).'))
+    expect(document.body.textContent).not.toMatch(/FedeGolf/i)
+    expect(screen.getByRole('link', { name: 'Registrar una ronda →' }).getAttribute('href')).toBe('/ronda-libre/nueva')
+  })
 })
