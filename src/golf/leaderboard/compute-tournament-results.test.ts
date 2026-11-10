@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 import type { Player } from '@/lib/golf-data'
-import { computeTournamentResults, computeTeamTournamentResults, type TeamStandingForPodium } from './compute-tournament-results'
+import { computeTournamentResults, computeTeamTournamentResults, podioIndividual, type TeamStandingForPodium } from './compute-tournament-results'
 
 // Player mínimo para el podio. `scores` es un array cuyo SUM = strokes gross
 // (computeTournamentResults usa grossOf = suma de scores). `total` = vs-par
@@ -138,5 +138,25 @@ describe('computeTeamTournamentResults — podio de parejas', () => {
   it('devuelve null si ningún equipo jugó', () => {
     const ordered = [mkTeam('a', 'A', -2, { holesPlayed: 0 })]
     expect(computeTeamTournamentResults(ordered, { a: [] }, 'neto', 'scramble')).toBeNull()
+  })
+})
+
+describe('podioIndividual — lugar de la tabla y corte por lugar', () => {
+  it('con 1, 2, T3, T3, 5 el top 3 trae a los dos T3', () => {
+    const players = [
+      mk('A', -4, 68, { claveEmpate: '0#0' }), mk('B', -2, 70, { claveEmpate: '1#0' }),
+      mk('C', 0, 72, { claveEmpate: '2#0' }), mk('D', 0, 72, { claveEmpate: '2#0' }),
+      mk('E', 3, 75, { claveEmpate: '3#0' }),
+    ]
+    expect(podioIndividual(players, 3, false)).toEqual([
+      { pos: 1, etiqueta: '1', name: 'A', score: '-4' },
+      { pos: 2, etiqueta: '2', name: 'B', score: '-2' },
+      { pos: 3, etiqueta: 'T3', name: 'C', score: 'E' },
+      { pos: 3, etiqueta: 'T3', name: 'D', score: 'E' },
+    ])
+  })
+  it('las filas sin clave de empate (no jugaron) no tienen lugar y no entran', () => {
+    const players = [mk('A', -1, 71, { claveEmpate: '0#0' }), mk('B', 0, 0, { claveEmpate: null, holes: 0 })]
+    expect(podioIndividual(players, 3, false).map((p) => p.name)).toEqual(['A'])
   })
 })

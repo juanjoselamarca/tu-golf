@@ -5,12 +5,12 @@
 // o 'published' y hay al menos 1 jugador con ronda terminada.
 
 import { isFinishedCard } from './board-rules'
-import { formatPuntosStableford } from './formato-score'
+import { formatPuntosStableford, formatScoreDelRanking } from './formato-score'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { scorePrimarioDeEquipo } from './team-tiebreak'
-import { dentroDelCorte, etiquetasConRespaldo, lugarDeEtiqueta } from '@/golf/core/posiciones'
+import { dentroDelCorte, etiquetasConRespaldo, etiquetasPorClaveDeEmpate, lugarDeEtiqueta } from '@/golf/core/posiciones'
 import type { Player } from '@/lib/golf-data'
-import type { TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
+import type { PodiumEntry, TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import type { TourneyStats } from './types'
 
@@ -123,6 +123,25 @@ export function buildTeamPodium(
         ? formatPuntosStableford(t.totalStableford, { conUnidad: true })
         : formatVsPar(modo === 'neto' ? t.overUnderNeto : t.overUnderGross),
     }))
+}
+
+/**
+ * Podio individual desde el ranking PRIMARIO ya ordenado con countback: el lugar sale de la misma clave de empate
+ * que la tabla (T1 y T1 si el countback no los separó) y el corte es por LUGAR (con 1, 2, T3, T3 entran los dos
+ * T3). Quien no jugó (clave null) no tiene lugar y no entra. Fuente única del podio, el WhatsApp y la imagen.
+ */
+export function podioIndividual(players: readonly Player[], limite: number, rankingPorPuntos: boolean): PodiumEntry[] {
+  const etiquetas = etiquetasPorClaveDeEmpate(players, (p) => p.claveEmpate)
+  return players.flatMap((p, i) => {
+    const etiqueta = etiquetas[i]
+    if (etiqueta == null || !dentroDelCorte(etiqueta, limite)) return []
+    return [{
+      pos: lugarDeEtiqueta(etiqueta) as number,
+      etiqueta,
+      name: p.name,
+      score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),
+    }]
+  })
 }
 
 /**

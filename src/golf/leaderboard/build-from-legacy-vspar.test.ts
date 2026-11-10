@@ -302,3 +302,25 @@ describe('buildLeaderboardFromLegacy — nombre único del jugador', () => {
     expect(out.players[0].name).toBe('Paty Demo')
   })
 })
+
+describe('buildLeaderboardFromLegacy — la clave de empate llega a los tres rankings', () => {
+  it('applyToday conserva claveEmpate: mismo score = misma clave; sin ronda = null', () => {
+    const out = buildLeaderboardFromLegacy(
+      [
+        player({ id: 'p1', profiles: { name: 'Ana', indice: null }, rounds: [round([[1, 4], [2, 4], [3, 4]])] }),
+        player({ id: 'p2', profiles: { name: 'Beto', indice: null }, rounds: [round([[1, 4], [2, 4], [3, 4]])] }),
+        player({ id: 'p3', profiles: { name: 'Caro', indice: null }, rounds: [] }),
+      ],
+      CTX,
+      1,
+    )
+    for (const ranking of [out.players, out.playersByGross, out.playersByNeto]) {
+      const claves = ranking.map((p) => p.claveEmpate)
+      expect(claves[0]).not.toBeNull()
+      expect(claves[0]).toBe(claves[1])
+    }
+    // El que no empezó solo va al ranking primario, sin lugar; gross y neto lo omiten.
+    expect(out.players[2].claveEmpate).toBeNull()
+    expect(out.playersByGross).toHaveLength(2)
+  })
+})

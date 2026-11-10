@@ -14,7 +14,6 @@ import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 import { boardPublicoRondaLibre, etiquetaDelFormato, gwiDelBoardPublico, vistaPublica, type VistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { AvisoSoloBruto } from './components/AvisoSoloBruto'
-import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
@@ -50,6 +49,7 @@ import {
   computeTournamentResults,
   computeTeamTournamentResults,
   buildTeamPodium,
+  podioIndividual,
   type CourseHole,
   type TourneyStats,
   type TournamentLeaderboardContext,
@@ -70,7 +70,6 @@ import { TournamentFooter } from './components/TournamentFooter'
 import { DuplicateTournamentButton } from './components/DuplicateTournamentButton'
 import { ResultsShareCard } from './components/ResultsShareCard'
 import type { PodiumEntry, TournamentResultados, WithdrawnEntry } from './types'
-import { etiquetasPorClaveDeEmpate, dentroDelCorte, lugarDeEtiqueta } from '@/golf/core/posiciones'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { Suspense } from 'react'
@@ -282,18 +281,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       return buildTeamPodium(orderedTeams, teamMemberNames, vista.modo, formatoJuego, limite)
         .map((t) => ({ pos: t.pos, etiqueta: t.etiqueta, name: t.name, score: t.score }))
     }
-    const etiquetas = etiquetasPorClaveDeEmpate(players, (p) => p.claveEmpate)
-    // Corte por LUGAR, no por filas: con 1, 2, T3, T3 entran los dos T3 (y quien no jugó no tiene lugar).
-    return players.flatMap((p, i) => {
-      const etiqueta = etiquetas[i]
-      if (etiqueta == null || !dentroDelCorte(etiqueta, limite)) return []
-      return [{
-        pos: lugarDeEtiqueta(etiqueta) as number,
-        etiqueta,
-        name: p.name,
-        score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),
-      }]
-    })
+    return podioIndividual(players, limite, rankingPorPuntos)
   }
   const podiumEntries = isClosed ? podio(3) : []
 
