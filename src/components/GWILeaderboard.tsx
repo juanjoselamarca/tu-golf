@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatearIndice } from '@/golf/handicap-index-range'
 import { HOYOS_MINIMOS_GWI, type GWIResultPublico } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
 import { Trophy, BarChart3, Zap, Target, AlertTriangle, Dices } from '@/components/icons'
@@ -202,7 +203,7 @@ export default function GWILeaderboard({
                   {/* HCP info — null = oculto a este visor (jugador con cuenta, visor sin sesión) */}
                   {r.breakdown.handicapInfo && (
                     <div data-testid="gwi-hcp-info" style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
-                      HCP {r.breakdown.handicapInfo.handicap}
+                      HCP {formatearIndice(r.breakdown.handicapInfo.handicap)}
                       {hoyosRestantes > 0 && ` · ±${r.breakdown.handicapInfo.sigma} strokes en ${hoyosRestantes} hoyos`}
                       {' · '}{r.breakdown.handicapInfo.label}
                     </div>

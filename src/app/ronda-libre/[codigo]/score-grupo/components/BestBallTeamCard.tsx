@@ -17,6 +17,7 @@
  * Usado solo cuando ronda.formato_juego === 'best_ball'.
  */
 import type React from 'react'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { scoreFgVar } from '@/lib/score-tokens'
@@ -256,7 +257,7 @@ export function BestBallTeamCard({
                     fontFamily: '"DM Mono", monospace',
                   }}
                 >
-                  HCP {hcp}
+                  HCP {formatearHandicap(hcp)}
                 </div>
               </div>
 

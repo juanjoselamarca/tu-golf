@@ -2,6 +2,7 @@
 // stats opcionales (colapsable) y finalización de la ronda.
 
 import { useState } from 'react'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
@@ -55,7 +56,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--surface-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <div>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)' }}>{resolveLegacyPlayerName(selectedPlayer)}</span>
-          <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
+          <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration != null ? formatearHandicap(selectedPlayer.handicap_at_registration) : '—'}</span>
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
           {holeCount === 18 && grossTotal > 0 && (

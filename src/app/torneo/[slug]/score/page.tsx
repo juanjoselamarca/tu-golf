@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { formatearHandicap } from '@/golf/handicap-index-range'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { TorneoNoEncontrado } from '@/components/torneo/TorneoNoEncontrado'
@@ -505,7 +506,7 @@ export default function PlayerScoringPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>
             <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 2px' }}>{tournament.name}</h1>
-            {selectedPlayer && <p style={{ fontSize: '13px', color: 'var(--brand-on-bg)', margin: 0 }}>{playerDisplayName(selectedPlayer, nombresServidor)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}{tournament && hcpPctDelTorneo(tournament) !== HCP_PCT_DEFAULT && ` · juega con ${courseHcpDe(selectedPlayer)} (${hcpPctDelTorneo(tournament)} %)`}</p>}
+            {selectedPlayer && <p style={{ fontSize: '13px', color: 'var(--brand-on-bg)', margin: 0 }}>{playerDisplayName(selectedPlayer, nombresServidor)} · HCP {selectedPlayer.handicap_at_registration != null ? formatearHandicap(selectedPlayer.handicap_at_registration) : '—'}{tournament && hcpPctDelTorneo(tournament) !== HCP_PCT_DEFAULT && ` · juega con ${formatearHandicap(courseHcpDe(selectedPlayer))} (${hcpPctDelTorneo(tournament)} %)`}</p>}
           </div>
           {tournament.formato_juego && (
             <span style={{
@@ -538,7 +539,7 @@ export default function PlayerScoringPage() {
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#c4992a'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(122,143,168,0.2)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(7,13,24,0.5)' }}>
                   {playerDisplayName(p, nombresServidor)}
-                  {p.handicap_at_registration != null && <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '8px' }}>HCP {p.handicap_at_registration}</span>}
+                  {p.handicap_at_registration != null && <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '8px' }}>HCP {formatearHandicap(p.handicap_at_registration)}</span>}
                 </button>
               ))}
             </div>

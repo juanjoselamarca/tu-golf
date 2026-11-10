@@ -1,6 +1,7 @@
 'use client'
 
 import { generarOrdenHoyos } from '@/lib/ronda/helpers'
+import { HcpCelda } from '../../components/HcpCelda'
 import { hoyoParaRetomar } from '@/golf/core/hoyos-jugados'
 import type { Jugador } from '@/types/ronda'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
@@ -39,7 +40,7 @@ export function PlayerSelectorScreen({ jugadores, hcpAMostrar, scores, hoyoInici
               <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{j.nombre}</div>
               {/* Sin entrada en el HCP a mostrar (jugador sin índice, #511): no se inventa un 0. */}
               {hcpAMostrar(j.id) != null && (
-                <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP {hcpAMostrar(j.id)}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP <HcpCelda hcp={hcpAMostrar(j.id)} /></div>
               )}
             </div>
             <span style={{ color: 'var(--brand-on-bg)', fontSize: '20px' }}>{'→'}</span>

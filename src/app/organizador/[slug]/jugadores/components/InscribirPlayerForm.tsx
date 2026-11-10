@@ -5,14 +5,14 @@ import { inputStyle } from '../styles'
 import type { Profile } from '../hooks/useProfileSearch'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { UpsellCard } from '@/components/billing/UpsellCard'
-import { formatearIndice } from '@/golf/handicap-index-range'
+import { formatearHandicap, formatearIndice, parsearHandicap } from '@/golf/handicap-index-range'
 
 export type InscribirMode = 'search' | 'guest' | 'batch'
 
 /** Parsea una línea de texto en {nombre, handicap}.
  *  Acepta "Nombre" o "Nombre, 18.4" o "Nombre, email@x.com, 18.4".
  *  El handicap es opcional; si no se puede parsear como numero, queda null. */
-function parseBatchLine(line: string): { name: string; hcp: number | null } | null {
+export function parseBatchLine(line: string): { name: string; hcp: number | null } | null {
   const trimmed = line.trim()
   if (!trimmed) return null
 
@@ -23,7 +23,8 @@ function parseBatchLine(line: string): { name: string; hcp: number | null } | nu
   // Buscar el primer token que sea numerico entre los restantes
   let hcp: number | null = null
   for (let i = 1; i < parts.length; i++) {
-    const n = Number(parts[i])
+    // "+2" es un plus (−2), como en el resto de la app; Number("+2") daba 2.
+    const n = parsearHandicap(parts[i])
     if (!Number.isNaN(n) && parts[i] !== '') {
       hcp = n
       break
@@ -323,7 +324,7 @@ export function InscribirPlayerForm({
                   <div key={i} style={{ fontSize: '12px', color: 'var(--text)', padding: '3px 0', borderBottom: i < parsedBatch.length - 1 ? '1px solid var(--border)' : 'none' }}>
                     {entry.name}
                     {entry.hcp != null && (
-                      <span style={{ color: 'var(--text-2)', marginLeft: '8px' }}>Hcp {entry.hcp}</span>
+                      <span style={{ color: 'var(--text-2)', marginLeft: '8px' }}>Hcp {formatearHandicap(entry.hcp)}</span>
                     )}
                     {entry.hcp == null && (
                       <span style={{ color: 'var(--text-2)', marginLeft: '8px', fontStyle: 'italic' }}>sin handicap</span>
