@@ -111,7 +111,7 @@ describe('useGuardarEnMiHistorial', () => {
     expect(result.current.estado).toBe('oculto')
   })
 
-  it('duplicada (otra pestaña ya la guardó): avisa, no celebra, no recalcula y queda como guardada', async () => {
+  it('duplicada (otra pestaña ya la guardó): avisa, no celebra, recalcula el índice y queda como guardada', async () => {
     tarjetaYaEnMiHistorial.mockResolvedValue(false)
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'duplicada', tarjeta: {} })
     const { result } = montar()

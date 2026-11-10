@@ -314,17 +314,19 @@ export async function recalcularIndiceGolfers(
 
 /**
  * Nivel del jugador = rondas de los últimos 90 días (`calcularNivel`), con
- * vigencia de 60 días. Los finalizadores lo disparan sin esperar.
+ * vigencia de 60 días. Los finalizadores lo disparan sin esperar. Sin conteo no se
+ * escribe nada: `count ?? 0` dejaba en "Rookie" a quien reintentaba con mala señal.
  */
 export async function actualizarNivelDelJugador(supabase: Client, userId: string): Promise<void> {
   const hace90 = new Date()
   hace90.setDate(hace90.getDate() - 90)
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('historical_rounds')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .gte('played_at', hace90.toISOString())
-  const nivel = calcularNivel(count ?? 0)
+  if (error || count == null) return
+  const nivel = calcularNivel(count)
   const expira = new Date()
   expira.setDate(expira.getDate() + 60)
   await supabase.from('profiles').update({

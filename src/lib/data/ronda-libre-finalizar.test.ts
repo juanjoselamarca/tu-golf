@@ -452,6 +452,11 @@ describe('recalcularIndiceGolfers', () => {
 })
 
 describe('actualizarNivelDelJugador', () => {
+  it('si el conteo falla no escribe: un nivel 4 no puede quedar en Rookie por mala señal', async () => {
+    const sb = fakeSupabase({ historical_rounds: { error: { code: '' } }, profiles: {} })
+    await actualizarNivelDelJugador(sb as never, 'u1')
+    expect(sb.llamadas.some(l => l.tabla === 'profiles')).toBe(false)
+  })
   it('cuenta rondas de 90 días y escribe nivel con vigencia de 60 días', async () => {
     const sb = fakeSupabase({ historical_rounds: { count: 7 }, profiles: {} })
     await actualizarNivelDelJugador(sb as never, 'u1')

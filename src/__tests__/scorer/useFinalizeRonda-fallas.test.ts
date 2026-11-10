@@ -99,6 +99,7 @@ vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
 
 import { useFinalizeRonda } from '@/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda'
 import { addToast } from '@/hooks/useToast'
+import { clearScores } from '@/lib/ronda/score-storage'
 import { PLAZO_GUARDAR_TARJETA_MS } from '@/lib/data/ronda-libre-finalizar'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 
@@ -331,8 +332,9 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     expect(result.current.roundDone).toBe(false)
   })
 
-  it('ronda descartada por su creador: dice que ya no existe (no "Sin conexión") y no toca nada', async () => {
-    const o = opts()
+  it('ronda descartada por su creador: dice que ya no existe (no "Sin conexión"), limpia lo local y sale', async () => {
+    const onDiscardSuccess = vi.fn()
+    const o = { ...opts(), onDiscardSuccess }
     fetchRondaParaCierre.mockResolvedValue({ estado: 'no_existe', jugadores: [] })
     await finalizar(o)
     expect(o.guardarAhora).not.toHaveBeenCalled()
@@ -340,6 +342,8 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
     expect(titulos).toContain('Esta ronda ya no existe')
     expect(titulos).not.toContain('Sin conexión')
+    expect(clearScores).toHaveBeenCalledWith('ABC123', 'p1')
+    expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
   })
 })
 

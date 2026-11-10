@@ -51,6 +51,12 @@ function leerRondaParaCierre(supabase: ReturnType<typeof createClient>, codigo: 
   return conTimeout(fetchRondaParaCierre(supabase, codigo), PLAZO_CARGA_SCORER_MS).catch(() => null)
 }
 
+function limpiarCopiaLocal(codigo: string, ronda: Pick<RondaLibre, 'ronda_libre_jugadores'>) {
+  try {
+    for (const j of ronda.ronda_libre_jugadores) lsClear(codigo, j.id)
+  } catch { /* no bloquear */ }
+}
+
 interface UseFinalizeRondaOptions {
   ronda: RondaLibre | null
   activeJugadorId: string | null
@@ -130,10 +136,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     haptic(30)
     const { error } = await descartarRondaLibre(createClient(), codigo)
     if (error) { setDiscarding(false); setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
-    // Limpia localStorage para esta ronda
-    try {
-      for (const j of ronda.ronda_libre_jugadores) lsClear(codigo, j.id)
-    } catch { /* no bloquear */ }
+    limpiarCopiaLocal(codigo, ronda)
     addToast({ title: 'Ronda descartada', type: 'info' })
     onDiscardSuccess?.()
   }
@@ -184,6 +187,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     }
     if (fresca.estado === RONDA_NO_EXISTE) {
       addToast({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.', type: 'info' })
+      limpiarCopiaLocal(codigo, ronda)
+      onDiscardSuccess?.()
       return
     }
     const yaFinalizada = fresca.estado === 'finalizada'
