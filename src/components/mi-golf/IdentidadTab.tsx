@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Trophy, MapPin, Flag, BarChart3 } from '@/components/icons'
 import type { Nivel, StatsForma, TaigerLine } from '@/lib/mi-golf/types'
 import { NIVELES_ORDEN } from '@/lib/mi-golf/niveles'
+import { MIN_DIFERENCIALES_INDICE } from '@/golf/core/whs-index'
 
 type Props = {
   userName: string
@@ -114,7 +115,7 @@ function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null })
           Sin calibrar
         </div>
         <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>
-          Juega 3 rondas en canchas con slope/rating para desbloquear
+          Juega {MIN_DIFERENCIALES_INDICE} rondas válidas (canchas con slope y rating) para desbloquear
         </div>
       </div>
     )

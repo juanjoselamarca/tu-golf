@@ -21,6 +21,7 @@ import { createClient } from '@/lib/supabase'
 import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
+import { rondasParaActivar, textoRondasParaActivar } from '@/lib/indice-golfers'
 import { indexWindow, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
 
 interface RoundForBreakdown {
@@ -200,9 +201,9 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             </p>
           )}
 
-          {!loading && rounds && rounds.length > 0 && rounds.length < 3 && (
+          {!loading && rounds && rounds.length > 0 && rondasParaActivar(rounds.length) > 0 && (
             <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '20px 0', lineHeight: 1.6 }}>
-              Faltan {3 - rounds.length} rondas para activar el índice (mínimo 3 con diferencial).
+              {textoRondasParaActivar(rondasParaActivar(rounds.length))}
             </p>
           )}
 

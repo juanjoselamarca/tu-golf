@@ -4,6 +4,7 @@
  */
 
 import { alcanzaMinimoDeHoyosJugados, esScoreDe9Disperso, esTarjetaAMedias, MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
+import { MIN_DIFERENCIALES_INDICE } from '@/golf/core/whs-index'
 
 /**
  * CR/slope de 9 hoyos con los que se calcula un diferencial de 9: los publicados
@@ -95,7 +96,14 @@ export const NIVEL_DESCRIPCION: Record<number, string> = {
  * Retorna 0 si ya tiene suficientes.
  */
 export function rondasParaActivar(rondasConDiferencial: number): number {
-  return Math.max(0, 3 - rondasConDiferencial)
+  return Math.max(0, MIN_DIFERENCIALES_INDICE - rondasConDiferencial)
+}
+
+/** "Falta 1 ronda válida…" / "Faltan 2 rondas válidas…" (singular bien escrito). */
+export function textoRondasParaActivar(faltan: number): string {
+  return faltan === 1
+    ? 'Falta 1 ronda válida para activar el índice.'
+    : `Faltan ${faltan} rondas válidas para activar el índice.`
 }
 
 

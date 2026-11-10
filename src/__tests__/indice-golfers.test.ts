@@ -4,6 +4,7 @@ import {
   calcularDiferencial,
   calcularNivel,
   rondasParaActivar,
+  textoRondasParaActivar,
   NIVEL_LABELS,
   diferencialDeTarjeta,
 } from '../lib/indice-golfers'
@@ -163,5 +164,12 @@ describe('diferencialDeTarjeta — tarjetas incompletas (WHS 3.3 / 5.1b, #545 re
   it('tarjeta de 15 casillas con 3 no jugados: sigue a medias (los estimados llevan golpes; una completa trae 18) — revisión 2 P2-a', () => {
     expect(diferencialDeTarjeta({ grossAjustado: 75, holesPlayed: 15, hoyosNoJugados: 3, ratings, bolaCompartida: false })).toBeNull()
     expect(diferencialDeTarjeta({ grossAjustado: 85, holesPlayed: 18, hoyosNoJugados: 3, ratings, bolaCompartida: false })).not.toBeNull()
+  })
+})
+
+describe('textoRondasParaActivar', () => {
+  it('singular bien escrito y "válidas" (solo cuentan las rondas con diferencial)', () => {
+    expect(textoRondasParaActivar(1)).toBe('Falta 1 ronda válida para activar el índice.')
+    expect(textoRondasParaActivar(2)).toBe('Faltan 2 rondas válidas para activar el índice.')
   })
 })

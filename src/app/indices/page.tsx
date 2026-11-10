@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Flag, Target, TrendingUp, BarChart3 } from '@/components/icons'
-import { WHS_TABLE_5_2 } from '@/golf/core/whs-index'
+import { MIN_DIFERENCIALES_INDICE, WHS_TABLE_5_2 } from '@/golf/core/whs-index'
 
 /* ── Design tokens ──────────────────────────────────── */
 const gold = '#C4992A'
@@ -334,7 +334,7 @@ export default function IndicesPage() {
                 </div>
               </div>
               <p style={{ fontSize: '13px', color: textFaint, lineHeight: 1.5, margin: 0 }}>
-                Necesitas mínimo 3 rondas de 18 hoyos con datos de cancha (slope y rating) para activar tu Índice Golfers+. Se recalcula automáticamente cada vez que registras una ronda.
+                Necesitas mínimo {MIN_DIFERENCIALES_INDICE} rondas válidas (de 9 o 18 hoyos, con slope y rating de la cancha) para activar tu Índice Golfers+. Se recalcula automáticamente cada vez que registras una ronda.
               </p>
             </Section>
           </>
