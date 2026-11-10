@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MENSAJE_HANDICAP_NO_ES_NUMERO } from '@/golf/handicap-index-range'
+import { mensajeIndiceQueBloquea } from '@/golf/handicap-index-range'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { FORMAT_META } from '@/golf/core/rules'
 import { maxRivales, puedeSumarCompanero } from '@/golf/ronda-libre/plantilla-de-jugadores'
@@ -68,9 +68,15 @@ export function PasoJugadores(props: Props) {
       else otro.delete(id)
       return otro
     })
-  const indiceBloquea = camposQueBloquean.size > 0
-  const noAvanza = indiceBloquea || props.problema != null
-  const detalleDelBoton = indiceBloquea ? MENSAJE_HANDICAP_NO_ES_NUMERO : props.problema?.detalle
+  // El aviso nombra al primero que bloquea, en el orden de la pantalla: el creador y después los rivales.
+  const posRivalQueBloquea = props.rivales.findIndex(r => camposQueBloquean.has(r.id))
+  const avisoDeIndice = camposQueBloquean.has(ID_DEL_CREADOR)
+    ? mensajeIndiceQueBloquea(null)
+    : posRivalQueBloquea !== -1
+      ? mensajeIndiceQueBloquea(props.rivales[posRivalQueBloquea].nombre.trim() || `Jugador ${posRivalQueBloquea + 1}`)
+      : null
+  const noAvanza = avisoDeIndice != null || props.problema != null
+  const detalleDelBoton = avisoDeIndice ?? props.problema?.detalle ?? null
 
   const totalJugadores = 1 + props.rivales.length
   // Hay dónde poner a un jugador más: una tarjeta en blanco que ocupar, o cupo
@@ -238,16 +244,22 @@ export function PasoJugadores(props: Props) {
           <button
             type="button"
             disabled={noAvanza}
+            aria-describedby={detalleDelBoton != null ? 'paso-jugadores-aviso' : undefined}
             onClick={props.onSiguiente}
             style={{ ...primario(noAvanza), width: '100%' }}
           >
             Revisar →
           </button>
-          {detalleDelBoton && (
-            <div style={{ fontSize: '11px', color: colores.aviso, textAlign: 'center', lineHeight: 1.3 }}>
-              {detalleDelBoton}
-            </div>
-          )}
+          {/* Siempre montado: un role="status" que aparece junto con su texto no siempre se anuncia. */}
+          <div
+            id="paso-jugadores-aviso"
+            role="status"
+            style={avisoDeIndice != null
+              ? { fontSize: '12px', color: 'var(--error-fg)', textAlign: 'center', lineHeight: 1.3 }
+              : { fontSize: '11px', color: colores.aviso, textAlign: 'center', lineHeight: 1.3 }}
+          >
+            {detalleDelBoton}
+          </div>
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { usePlayerSearch, type SearchResult } from '../hooks/usePlayerSearch'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
-import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
+import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 
@@ -18,7 +18,7 @@ interface Props {
   onCampo: <K extends keyof RivalDelCreador>(campo: K, valor: RivalDelCreador[K]) => void
   onQuitar: () => void
   /** El índice va a medio escribir o no es número: el paso no debe avanzar (ver useCampoHandicap). */
-  onBloqueo?: (bloquea: boolean) => void
+  onBloqueo: (bloquea: boolean) => void
 }
 
 /** Un rival del creador: tipo de cuenta, nombre, índice, tee y teléfono. */
@@ -207,7 +207,8 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           placeholder={PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO}
           value={campoIndice.texto}
           onChange={e => campoIndice.onTexto(e.target.value)}
-          aria-invalid={campoIndice.invalido}
+          // Inválido o a medio escribir: el paso no avanza por este campo (el aviso propio es solo para "abc").
+          aria-invalid={campoIndice.bloquea}
           aria-describedby={campoIndice.invalido ? `${idIndice}-error` : undefined}
           style={{ ...input, ...inputNumerico }}
         />
@@ -223,7 +224,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           </span>
         )}
       </div>
-      {campoIndice.invalido && <AvisoCampo id={`${idIndice}-error`}>{MENSAJE_HANDICAP_NO_ES_NUMERO}</AvisoCampo>}
+      {campoIndice.invalido && <AvisoCampo id={`${idIndice}-error`}>{MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO}</AvisoCampo>}
 
       {rival.tipo === 'invitado' && (
         <input

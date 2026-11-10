@@ -20,7 +20,7 @@ function Tarjeta({ inicial, onHandicap }: { inicial: number | null; onHandicap: 
         setRival(r => ({ ...r, [campo]: valor }))
         if (campo === 'handicap') onHandicap(valor as number | null)
       }}
-      onQuitar={vi.fn()} />
+      onQuitar={vi.fn()} onBloqueo={vi.fn()} />
   )
 }
 const campo = () => screen.getByLabelText('Índice') as HTMLInputElement
@@ -43,6 +43,6 @@ describe('TarjetaDeRival — índice (#773)', () => {
     render(<Tarjeta inicial={10} onHandicap={onHandicap} />)
     fireEvent.change(campo(), { target: { value: 'abc' } })
     expect(onHandicap).toHaveBeenLastCalledWith(null)
-    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus.')
+    expect(screen.getByRole('alert').textContent).toBe('Escribe un número: 12.4, o +2 si es plus, o déjalo vacío.')
   })
 })

@@ -1,7 +1,7 @@
 'use client'
 
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
-import { formatearHandicap, MENSAJE_HANDICAP_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
+import { formatearHandicap, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
@@ -17,7 +17,7 @@ interface Props {
   /** Golpes de juego con ese índice desde ese tee; `null` si no se puede calcular. */
   golpes: number | null
   /** El índice va a medio escribir o no es número: el paso no debe avanzar (ver useCampoHandicap). */
-  onBloqueo?: (bloquea: boolean) => void
+  onBloqueo: (bloquea: boolean) => void
 }
 
 /** La tarjeta del creador: su índice y su tee. Vive sola para poder ir dentro de un equipo. */
@@ -53,7 +53,8 @@ export function TarjetaDelCreador(props: Props) {
           placeholder={PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO}
           value={campo.texto}
           onChange={e => campo.onTexto(e.target.value)}
-          aria-invalid={campo.invalido}
+          // Inválido o a medio escribir: el paso no avanza por este campo (el aviso propio es solo para "abc").
+          aria-invalid={campo.bloquea}
           aria-describedby={campo.invalido ? 'indice-creador-error' : undefined}
           style={{ ...input, ...inputNumerico }}
         />
@@ -69,7 +70,7 @@ export function TarjetaDelCreador(props: Props) {
           </span>
         )}
       </div>
-      {campo.invalido && <AvisoCampo id="indice-creador-error">{MENSAJE_HANDICAP_NO_ES_NUMERO}</AvisoCampo>}
+      {campo.invalido && <AvisoCampo id="indice-creador-error">{MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO}</AvisoCampo>}
     </div>
   )
 }
