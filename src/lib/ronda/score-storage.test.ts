@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda, cerrarCopiaLocalAlFinalizar, apartarRechazados, leerRechazados, confirmarRechazados, olvidarRechazado, barrerRechazadosViejos } from './score-storage'
-import { DIAS_RETENCION_RECHAZADO_EN_FIRME } from './respaldo-local'
+import { DIAS_RETENCION_RECHAZADO_EN_FIRME, relojPlausible } from './respaldo-local'
 import { contarHoyosPendientes, leerRespaldoPendiente } from './respaldo-local'
 
 beforeEach(() => localStorage.clear())
@@ -276,6 +276,8 @@ describe('tarjetas rechazadas en firme', () => {
       vi.useFakeTimers({ toFake: ['Date'] })
       vi.setSystemTime(T0)
       apartarRechazados('R1', 'p2', { 10: 5 })
+      // Precondición: el reloj atrasado tiene que pasar el piso, si no el test pasa en vacío por el guard de arriba.
+      expect(relojPlausible(T0 - 60 * DIA)).toBe(true)
       barrerRechazadosViejos(T0 - 60 * DIA)
       barrerRechazadosViejos(T0 + DIA)
       expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })

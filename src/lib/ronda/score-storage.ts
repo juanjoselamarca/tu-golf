@@ -275,8 +275,9 @@ function borrarRechazados(codigo: string): void {
 /**
  * Barre los golpes apartados (ver `apartarRechazados`) cuyo último rechazo fue hace más de
  * `DIAS_RETENCION_RECHAZADO_EN_FIRME` días, con la misma regla que la tarjeta rechazada del scorer individual
- * (`estadoDelPlazo`): una marca sin fecha o con una fecha que no sirve empieza a contar desde este barrido, y con
- * el reloj implausible no se barre nada. Sólo mira el teléfono: no toca pendientes ni la copia del grupo.
+ * (`estadoDelPlazo`): una marca sin fecha o anterior al piso de reloj empieza a contar desde este barrido, una con
+ * fecha futura se deja como está, y con el reloj implausible no se barre nada. Sólo mira el teléfono: no toca
+ * pendientes ni la copia del grupo.
  */
 export function barrerRechazadosViejos(ahora = Date.now()): void {
   if (!relojPlausible(ahora)) return

@@ -4,6 +4,7 @@ import {
   codigosConRespaldoPendiente, contarHoyosPendientes, desmarcarRespaldosDeRondaCerrada, leerRespaldoPendiente,
   marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada,
   DIAS_RETENCION_RECHAZADO_EN_FIRME, DIAS_RETENCION_RESPALDO_RONDA_CERRADA, DIAS_RETENCION_RESPALDO_SINCRONIZADO,
+  relojPlausible,
 } from './respaldo-local'
 
 const respaldo = (codigo: string, jugador: string, scores: Record<number, number>, sincronizado = false) =>
@@ -143,6 +144,8 @@ describe('barrerRespaldosViejos', () => {
 
   it('reloj atrasado pero plausible al barrer (Android sin red en la fecha de compilación): al volver la hora real la tarjeta sigue', () => {
     conFecha('RECREAL', { rechazadaEn: ahora })
+    // Precondición: el reloj atrasado tiene que pasar el piso, si no el test pasa en vacío por el guard de arriba.
+    expect(relojPlausible(ahora - 120 * DIA)).toBe(true)
     barrerRespaldosViejos(ahora - 120 * DIA)
     barrerRespaldosViejos(ahora + DIA)
     expect(JSON.parse(localStorage.getItem('golfers_score_RECREAL_p1')!).rechazadaEn).toBe(ahora)
@@ -162,6 +165,14 @@ describe('barrerRespaldosViejos', () => {
     conFecha('CERANT', { rondaCerradaEn: Date.UTC(2010, 0, 1) })
     barrerRespaldosDeRondaCerrada('CERANT', ahora)
     expect(JSON.parse(localStorage.getItem('golfers_score_CERANT_p1')!).rondaCerradaEn).toBe(ahora)
+  })
+
+  it('barrerRespaldosDeRondaCerrada: reloj atrasado pero plausible no reescribe la marca; al volver la hora real sigue', () => {
+    conFecha('CERREAL', { rondaCerradaEn: ahora })
+    expect(relojPlausible(ahora - 120 * DIA)).toBe(true)
+    barrerRespaldosDeRondaCerrada('CERREAL', ahora - 120 * DIA)
+    barrerRespaldosDeRondaCerrada('CERREAL', ahora + DIA)
+    expect(leer('CERREAL', 'p1')).toMatchObject({ rondaCerradaEn: ahora, scores: { 1: 4 } })
   })
 
   it('barrerRespaldosDeRondaCerrada: sólo esa ronda, sólo lo marcado pasado su plazo', () => {
