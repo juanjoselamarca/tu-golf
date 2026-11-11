@@ -65,7 +65,7 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 | # | Archivo | LOC antes | LOC después | Estado | PR | Fecha |
 |---|---|---|---|---|---|---|
 | 1 | `src/app/api/import/screenshot/route.ts` | 767 | — | ⏳ Pendiente | — | — |
-| 2 | `src/app/api/admin/health-check/route.ts` | 600 | — | ⏳ Pendiente | — | — |
+| 2 | `src/app/api/admin/health-check/route.ts` | 725 | 19 | ✅ Hecho | checks en `src/lib/health-check-admin/` (6 categorías + tipos + orquestador con tests) | 11 nov |
 | 3 | `src/app/api/import/garmin-zip/route.ts` | 540 | — | ⏳ Pendiente | — | — |
 | 4 | `src/app/api/inbox/webhook/route.ts` | 505 | — | ⏳ Pendiente | — | — |
 
