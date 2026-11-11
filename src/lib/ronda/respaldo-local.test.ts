@@ -120,17 +120,32 @@ describe('barrerRespaldosViejos', () => {
     expect(quedan).toEqual(['golfers_score_ABIVIE_p1', 'golfers_score_CERVIE_p1', 'golfers_score_RECNUE_p1', 'golfers_score_SYNNUE_p1'])
   })
 
-  it('una tarjeta rechazada con una fecha que no sirve (futura o de un reloj en 2010) no se borra: el plazo parte de nuevo', () => {
-    conFecha('RECFUT', { rechazadaEn: ahora + 365 * DIA })
+  it('una tarjeta rechazada con fecha de un reloj en 2010 no se borra: el plazo parte de nuevo', () => {
     conFecha('RECANT', { rechazadaEn: Date.UTC(2010, 0, 1) })
     barrerRespaldosViejos(ahora)
-    for (const c of ['RECFUT', 'RECANT']) {
-      expect(JSON.parse(localStorage.getItem(`golfers_score_${c}_p1`)!)).toMatchObject({ rechazadaEn: ahora, scores: { 1: 4 } })
-    }
+    expect(JSON.parse(localStorage.getItem('golfers_score_RECANT_p1')!)).toMatchObject({ rechazadaEn: ahora, scores: { 1: 4 } })
     barrerRespaldosViejos(ahora + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA)
-    expect(Object.keys(localStorage)).toHaveLength(2)
+    expect(Object.keys(localStorage)).toHaveLength(1)
     barrerRespaldosViejos(ahora + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
     expect(Object.keys(localStorage)).toEqual([])
+  })
+
+  it('una tarjeta rechazada con fecha futura se deja como está y vence cuando la hora real la alcanza más el plazo', () => {
+    const futura = ahora + 365 * DIA
+    conFecha('RECFUT', { rechazadaEn: futura })
+    barrerRespaldosViejos(ahora)
+    expect(JSON.parse(localStorage.getItem('golfers_score_RECFUT_p1')!).rechazadaEn).toBe(futura)
+    barrerRespaldosViejos(futura + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA)
+    expect(Object.keys(localStorage)).toHaveLength(1)
+    barrerRespaldosViejos(futura + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
+    expect(Object.keys(localStorage)).toEqual([])
+  })
+
+  it('reloj atrasado pero plausible al barrer (Android sin red en la fecha de compilación): al volver la hora real la tarjeta sigue', () => {
+    conFecha('RECREAL', { rechazadaEn: ahora })
+    barrerRespaldosViejos(ahora - 120 * DIA)
+    barrerRespaldosViejos(ahora + DIA)
+    expect(JSON.parse(localStorage.getItem('golfers_score_RECREAL_p1')!).rechazadaEn).toBe(ahora)
   })
 
   it('con el reloj del teléfono en 2010 (se reinició sin red) no barre ni reescribe nada', () => {

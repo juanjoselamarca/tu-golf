@@ -36,13 +36,17 @@ export const relojPlausible = (ahora: number): boolean => ahora >= RELOJ_MINIMO_
 export type EstadoDelPlazo = 'vigente' | 'vencido' | 'reiniciar'
 
 /**
- * En qué va un plazo de retención que partió en `desde`. 'reiniciar' cuando la marca no sirve para contar: sin
- * fecha, anterior a `RELOJ_MINIMO_PLAUSIBLE` o futura (el reloj estaba mal al escribirla, o lo está ahora). El
- * plazo vuelve a partir desde `ahora`: ante la duda se guarda de más, nunca se borra antes. Llamar sólo con
- * `relojPlausible(ahora)`.
+ * En qué va un plazo de retención que partió en `desde`. Ante la duda se guarda de más, nunca se borra antes:
+ * - con el reloj implausible ahora, nada vence;
+ * - una marca sin fecha o anterior a `RELOJ_MINIMO_PLAUSIBLE` no sirve para contar: 'reiniciar' (desde `ahora`);
+ * - una marca futura se deja como está: no se sabe si el reloj estaba adelantado al escribirla o está atrasado
+ *   ahora (Android sin red arranca en la fecha de compilación del sistema, que pasa el piso). Reescribirla con un
+ *   `ahora` atrasado la haría vencer apenas vuelva la hora real. Vence cuando la hora real la alcance más el plazo.
  */
 export function estadoDelPlazo(desde: number | null | undefined, ahora: number, dias: number): EstadoDelPlazo {
-  if (desde == null || !Number.isFinite(desde) || desde < RELOJ_MINIMO_PLAUSIBLE || desde > ahora) return 'reiniciar'
+  if (!relojPlausible(ahora)) return 'vigente'
+  if (desde == null || !Number.isFinite(desde) || desde < RELOJ_MINIMO_PLAUSIBLE) return 'reiniciar'
+  if (desde > ahora) return 'vigente'
   return ahora - desde > dias * DIA_MS ? 'vencido' : 'vigente'
 }
 

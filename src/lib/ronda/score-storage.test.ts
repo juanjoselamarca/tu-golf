@@ -244,9 +244,9 @@ describe('tarjetas rechazadas en firme', () => {
       vi.useFakeTimers({ toFake: ['Date'] })
       vi.setSystemTime(T0)
       apartarRechazados('R1', 'p2', { 10: 5 })
-      vi.setSystemTime(T0 + 20 * DIA)
+      vi.setSystemTime(T0 + (DIAS_RETENCION_RECHAZADO_EN_FIRME - 10) * DIA)
       apartarRechazados('R1', 'p2', { 11: 4 })
-      barrerRechazadosViejos(T0 + 31 * DIA)
+      barrerRechazadosViejos(T0 + (DIAS_RETENCION_RECHAZADO_EN_FIRME + 1) * DIA)
       expect(leerRechazados('R1')).toEqual({ p2: { 10: 5, 11: 4 } })
     })
 
@@ -259,16 +259,27 @@ describe('tarjetas rechazadas en firme', () => {
       expect(Object.keys(localStorage)).toEqual([])
     })
 
-    it('una marca con fecha futura (reloj adelantado al apartar) reinicia el plazo desde el barrido', () => {
+    it('una marca con fecha futura se deja como está y vence cuando la hora real la alcanza más el plazo', () => {
       vi.useFakeTimers({ toFake: ['Date'] })
-      vi.setSystemTime(T0 + 365 * DIA)
+      const futura = T0 + 365 * DIA
+      vi.setSystemTime(futura)
       apartarRechazados('R1', 'p2', { 10: 5 })
       barrerRechazadosViejos(T0)
+      expect(localStorage.getItem('ronda_grupo_rechazo_en_R1')).toBe(String(futura))
+      barrerRechazadosViejos(futura + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA)
       expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
-      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA)
-      expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
-      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
+      barrerRechazadosViejos(futura + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
       expect(leerRechazados('R1')).toEqual({})
+    })
+
+    it('reloj atrasado pero plausible al barrer (Android sin red en la fecha de compilación): al volver la hora real los golpes siguen', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(T0)
+      apartarRechazados('R1', 'p2', { 10: 5 })
+      barrerRechazadosViejos(T0 - 60 * DIA)
+      barrerRechazadosViejos(T0 + DIA)
+      expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+      expect(localStorage.getItem('ronda_grupo_rechazo_en_R1')).toBe(String(T0))
     })
 
     it('con el reloj en 2010 al barrer no toca la marca, y al volver la hora real los golpes siguen', () => {
