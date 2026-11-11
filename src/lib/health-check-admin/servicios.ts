@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { type Category, type Check, safeCheck, timed } from './tipos'
+import { type Category, safeCheck, timed } from './tipos'
 
 // ─── 1. Services ────────────────────────────────────────────────────────────
 

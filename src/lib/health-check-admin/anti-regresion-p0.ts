@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { type Category, type Check, safeCheck } from './tipos'
+import { type Category, safeCheck } from './tipos'
 
 // ─── 6. Anti-regresión P0 ──────────────────────────────────────────────────
 // Cada P0 cerrado debe dejar un check anti-regresión.
