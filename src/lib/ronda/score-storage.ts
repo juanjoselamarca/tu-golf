@@ -10,7 +10,12 @@
 // - load devuelve {} si no hay nada o si el JSON está corrupto
 
 import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
-import { borrarRespaldosDeRonda, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
+import {
+  borrarRespaldosDeRonda,
+  DIA_MS,
+  DIAS_RETENCION_RECHAZADO_EN_FIRME,
+  marcarRespaldosDeRondaCerrada,
+} from '@/lib/ronda/respaldo-local'
 
 const KEY = (codigo: string, jugadorId: string) => `ronda_${codigo}_${jugadorId}`
 
@@ -257,13 +262,6 @@ const PREFIJO_RECH_EN = 'ronda_grupo_rechazo_en_'
 const RECH_EN_KEY = (codigo: string) => `${PREFIJO_RECH_EN}${codigo}`
 const golpesRechazados = crearColaDePendientes(RECH_KEY)
 
-/**
- * Los golpes apartados de una ronda que nunca se finalizó desde este teléfono se barren a los 30 días del
- * último rechazo (el mismo plazo que un respaldo de ronda cerrada): pasado eso nadie los va a reenviar.
- */
-export const DIAS_RETENCION_RECHAZADOS_GRUPO = 30
-const DIA_MS = 24 * 60 * 60 * 1000
-
 function borrarRechazados(codigo: string): void {
   try {
     localStorage.removeItem(RECH_KEY(codigo))
@@ -275,7 +273,7 @@ function borrarRechazados(codigo: string): void {
 
 /**
  * Barre los golpes apartados (ver `apartarRechazados`) cuyo último rechazo fue hace más de
- * `DIAS_RETENCION_RECHAZADOS_GRUPO` días. Los de antes de que existiera la fecha empiezan a contar desde
+ * `DIAS_RETENCION_RECHAZADO_EN_FIRME` días. Los de antes de que existiera la fecha empiezan a contar desde
  * este barrido. Sólo mira el teléfono: no toca pendientes ni la copia del grupo.
  */
 export function barrerRechazadosViejos(ahora = Date.now()): void {
@@ -289,8 +287,10 @@ export function barrerRechazadosViejos(ahora = Date.now()): void {
     for (const codigo of codigos) {
       const desde = Number(localStorage.getItem(RECH_EN_KEY(codigo)))
       if (localStorage.getItem(RECH_KEY(codigo)) == null) localStorage.removeItem(RECH_EN_KEY(codigo))
-      else if (!Number.isFinite(desde) || desde <= 0) localStorage.setItem(RECH_EN_KEY(codigo), String(ahora))
-      else if (ahora - desde > DIAS_RETENCION_RECHAZADOS_GRUPO * DIA_MS) borrarRechazados(codigo)
+      // Sin fecha (marcas de antes de este cambio) o con fecha futura (reloj adelantado al apartar y después
+      // corregido): empieza a contar desde ahora, si no la marca quedaría sin barrer por años.
+      else if (!Number.isFinite(desde) || desde <= 0 || desde > ahora) localStorage.setItem(RECH_EN_KEY(codigo), String(ahora))
+      else if (ahora - desde > DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA_MS) borrarRechazados(codigo)
     }
   } catch {
     // modo privado / cuota: el próximo barrido reintenta

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda, cerrarCopiaLocalAlFinalizar, apartarRechazados, leerRechazados, confirmarRechazados, olvidarRechazado, barrerRechazadosViejos, DIAS_RETENCION_RECHAZADOS_GRUPO } from './score-storage'
+import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda, cerrarCopiaLocalAlFinalizar, apartarRechazados, leerRechazados, confirmarRechazados, olvidarRechazado, barrerRechazadosViejos } from './score-storage'
+import { DIAS_RETENCION_RECHAZADO_EN_FIRME } from './respaldo-local'
 import { contarHoyosPendientes, leerRespaldoPendiente } from './respaldo-local'
 
 beforeEach(() => localStorage.clear())
@@ -231,9 +232,9 @@ describe('tarjetas rechazadas en firme', () => {
       apartarRechazados('R1', 'p2', { 10: 5 })
       vi.setSystemTime(T0 + 10 * DIA)
       apartarRechazados('R2', 'p3', { 4: 7 })
-      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADOS_GRUPO * DIA)
+      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA)
       expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
-      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADOS_GRUPO * DIA + 1)
+      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
       expect(leerRechazados('R1')).toEqual({})
       expect(leerRechazados('R2')).toEqual({ p3: { 4: 7 } })
       expect(Object.keys(localStorage).filter(k => k.includes('R1'))).toEqual([])
@@ -253,9 +254,21 @@ describe('tarjetas rechazadas en firme', () => {
       localStorage.setItem('ronda_grupo_rechazados_R1', JSON.stringify({ p2: { 10: 5 } }))
       barrerRechazadosViejos(T0)
       expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
-      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADOS_GRUPO * DIA + 1)
+      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
       expect(leerRechazados('R1')).toEqual({})
       expect(Object.keys(localStorage)).toEqual([])
+    })
+
+    it('una marca con fecha futura (reloj adelantado al apartar) reinicia el plazo desde el barrido', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(T0 + 365 * DIA)
+      apartarRechazados('R1', 'p2', { 10: 5 })
+      barrerRechazadosViejos(T0)
+      expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA)
+      expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
+      expect(leerRechazados('R1')).toEqual({})
     })
 
     it('no toca los pendientes ni la copia del grupo', () => {

@@ -9,7 +9,7 @@ import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
 
 export const PREFIJO_RESPALDO = 'golfers_score_'
 
-const DIA_MS = 24 * 60 * 60 * 1000
+export const DIA_MS = 24 * 60 * 60 * 1000
 /** Un respaldo ya confirmado por el servidor se guarda una semana más y se barre. */
 export const DIAS_RETENCION_RESPALDO_SINCRONIZADO = 7
 /**
@@ -18,8 +18,13 @@ export const DIAS_RETENCION_RESPALDO_SINCRONIZADO = 7
  * Pasado este plazo desde que se vio cerrada, se barre.
  */
 export const DIAS_RETENCION_RESPALDO_RONDA_CERRADA = 30
-/** Una tarjeta que el servidor rechazó en firme (ver `rechazadaEn`) se guarda una semana y se barre. */
-export const DIAS_RETENCION_RESPALDO_RECHAZADO = 7
+/**
+ * Golpes que el servidor rechazó en firme con la ronda abierta (el jugador ya no está o el valor es inválido):
+ * la tarjeta del scorer individual (`rechazadaEn`) y los golpes apartados del scorer de grupo
+ * (`apartarRechazados`). Un solo plazo para los dos: junto al golpe inválido pueden viajar golpes válidos
+ * (una corrección) que solo viven en el teléfono, así que se guardan lo mismo que un respaldo de ronda cerrada.
+ */
+export const DIAS_RETENCION_RECHAZADO_EN_FIRME = 30
 
 export interface RespaldoLocal {
   scores: Record<number, number>
@@ -36,7 +41,7 @@ export interface RespaldoLocal {
   /**
    * Cuándo el servidor rechazó esta tarjeta en firme con la ronda abierta (el jugador ya no está en
    * ella, o un valor inválido): reenviarla da el mismo rechazo. Sale del banner y del reenvío, y se
-   * barre a los `DIAS_RETENCION_RESPALDO_RECHAZADO` días. Un golpe nuevo reescribe el respaldo sin
+   * barre a los `DIAS_RETENCION_RECHAZADO_EN_FIRME` días. Un golpe nuevo reescribe el respaldo sin
    * esta marca (vuelve a intentarse).
    */
   rechazadaEn?: number
@@ -180,14 +185,14 @@ function borrarRespaldosSi(viejo: (clave: string, r: RespaldoLocal) => boolean):
 /**
  * Barre lo que ya no sirve sin preguntarle al servidor: respaldos confirmados hace más de
  * `DIAS_RETENCION_RESPALDO_SINCRONIZADO` días y rechazados en firme hace más de
- * `DIAS_RETENCION_RESPALDO_RECHAZADO`. Lo sin enviar no se toca acá, ni siquiera el de una ronda
+ * `DIAS_RETENCION_RECHAZADO_EN_FIRME`. Lo sin enviar no se toca acá, ni siquiera el de una ronda
  * vista cerrada hace mucho: pudo reabrirse. Ese lo barre el conciliador con
  * `barrerRespaldosDeRondaCerrada`, recién después de confirmar que sigue cerrada.
  */
 export function barrerRespaldosViejos(ahora = Date.now()): void {
   borrarRespaldosSi((_, r) =>
     (r.sincronizado && ahora - r.timestamp > DIAS_RETENCION_RESPALDO_SINCRONIZADO * DIA_MS) ||
-    (!r.sincronizado && r.rechazadaEn != null && ahora - r.rechazadaEn > DIAS_RETENCION_RESPALDO_RECHAZADO * DIA_MS),
+    (!r.sincronizado && r.rechazadaEn != null && ahora - r.rechazadaEn > DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA_MS),
   )
 }
 

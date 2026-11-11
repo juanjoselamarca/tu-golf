@@ -3,7 +3,7 @@ import {
   barrerRespaldosDeRondaCerrada, barrerRespaldosViejos, borrarRespaldosDeRonda, codigosConRespaldoDeRondaCerrada,
   codigosConRespaldoPendiente, contarHoyosPendientes, desmarcarRespaldosDeRondaCerrada, leerRespaldoPendiente,
   marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada,
-  DIAS_RETENCION_RESPALDO_RECHAZADO, DIAS_RETENCION_RESPALDO_RONDA_CERRADA, DIAS_RETENCION_RESPALDO_SINCRONIZADO,
+  DIAS_RETENCION_RECHAZADO_EN_FIRME, DIAS_RETENCION_RESPALDO_RONDA_CERRADA, DIAS_RETENCION_RESPALDO_SINCRONIZADO,
 } from './respaldo-local'
 
 const respaldo = (codigo: string, jugador: string, scores: Record<number, number>, sincronizado = false) =>
@@ -110,7 +110,7 @@ describe('barrerRespaldosViejos', () => {
   it('barre lo sincronizado y lo rechazado viejos; nunca lo sin enviar, ni de una ronda vista cerrada hace mucho', () => {
     conFecha('SYNVIE', { sincronizado: true, timestamp: ahora - (DIAS_RETENCION_RESPALDO_SINCRONIZADO + 1) * DIA })
     conFecha('SYNNUE', { sincronizado: true, timestamp: ahora - 1 * DIA })
-    conFecha('RECVIE', { rechazadaEn: ahora - (DIAS_RETENCION_RESPALDO_RECHAZADO + 1) * DIA })
+    conFecha('RECVIE', { rechazadaEn: ahora - (DIAS_RETENCION_RECHAZADO_EN_FIRME + 1) * DIA })
     conFecha('RECNUE', { rechazadaEn: ahora - 1 * DIA })
     // Vista cerrada hace más de 30 días: pudo reabrirse. Sin preguntarle al servidor no se toca (revisión 3).
     conFecha('CERVIE', { rondaCerradaEn: ahora - (DIAS_RETENCION_RESPALDO_RONDA_CERRADA + 1) * DIA })
