@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda, cerrarCopiaLocalAlFinalizar, apartarRechazados, leerRechazados, confirmarRechazados, olvidarRechazado } from './score-storage'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO, saveGroupScores, saveGroupTeamScores, limpiarCopiaLocalDeRonda, clearScoresDeRonda, cerrarCopiaLocalAlFinalizar, apartarRechazados, leerRechazados, confirmarRechazados, olvidarRechazado, barrerRechazadosViejos, DIAS_RETENCION_RECHAZADOS_GRUPO } from './score-storage'
 import { contarHoyosPendientes, leerRespaldoPendiente } from './respaldo-local'
 
 beforeEach(() => localStorage.clear())
@@ -213,10 +213,58 @@ describe('tarjetas rechazadas en firme', () => {
     expect(leerRechazados('R2')).toEqual({ p2: { 10: 5 } })
   })
 
-  it('cerrar la ronda al finalizar los guarda (sólo quedan los de quien ya no está en la ronda)', () => {
+  it('cerrar la ronda al finalizar también los borra: nadie los vuelve a leer (P3-3 del #763)', () => {
     apartarRechazados('R1', 'p2', { 10: 5 })
     cerrarCopiaLocalAlFinalizar('R1')
-    expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
-    expect(localStorage.getItem('ronda_grupo_R1')).toBeNull()
+    expect(leerRechazados('R1')).toEqual({})
+    expect(Object.keys(localStorage).filter(k => k.includes('R1'))).toEqual([])
+  })
+
+  describe('barrido de los apartados que quedaron (nunca se finalizó)', () => {
+    const DIA = 24 * 60 * 60 * 1000
+    const T0 = Date.UTC(2026, 10, 1)
+    afterEach(() => vi.useRealTimers())
+
+    it('a los 30 días del último rechazo se borran; antes, no; los de otra ronda más nueva se quedan', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(T0)
+      apartarRechazados('R1', 'p2', { 10: 5 })
+      vi.setSystemTime(T0 + 10 * DIA)
+      apartarRechazados('R2', 'p3', { 4: 7 })
+      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADOS_GRUPO * DIA)
+      expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADOS_GRUPO * DIA + 1)
+      expect(leerRechazados('R1')).toEqual({})
+      expect(leerRechazados('R2')).toEqual({ p3: { 4: 7 } })
+      expect(Object.keys(localStorage).filter(k => k.includes('R1'))).toEqual([])
+    })
+
+    it('un rechazo nuevo de la misma ronda reinicia el plazo', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(T0)
+      apartarRechazados('R1', 'p2', { 10: 5 })
+      vi.setSystemTime(T0 + 20 * DIA)
+      apartarRechazados('R1', 'p2', { 11: 4 })
+      barrerRechazadosViejos(T0 + 31 * DIA)
+      expect(leerRechazados('R1')).toEqual({ p2: { 10: 5, 11: 4 } })
+    })
+
+    it('los apartados de antes de este cambio (sin fecha) empiezan a contar desde el primer barrido', () => {
+      localStorage.setItem('ronda_grupo_rechazados_R1', JSON.stringify({ p2: { 10: 5 } }))
+      barrerRechazadosViejos(T0)
+      expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADOS_GRUPO * DIA + 1)
+      expect(leerRechazados('R1')).toEqual({})
+      expect(Object.keys(localStorage)).toEqual([])
+    })
+
+    it('no toca los pendientes ni la copia del grupo', () => {
+      marcarPendientes('R1', 'p1', { 1: 4 })
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(T0)
+      apartarRechazados('R1', 'p2', { 10: 5 })
+      barrerRechazadosViejos(T0 + 365 * DIA)
+      expect(leerPendientes('R1')).toEqual({ p1: { 1: 4 } })
+    })
   })
 })

@@ -25,10 +25,12 @@ import {
   desmarcarRespaldosDeRondaCerrada,
   marcarRespaldosDeRondaCerrada,
 } from '@/lib/ronda/respaldo-local'
-import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
+import { barrerRechazadosViejos, limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 
 /** Concilia una vez. Devuelve los códigos cuyo estado local cambió (borrados, marcados o desmarcados). */
 export async function conciliarRespaldos(): Promise<string[]> {
+  // Local y sin servidor: los golpes apartados del scorer de grupo que nadie va a reenviar (P3-3 del #763).
+  barrerRechazadosViejos()
   if (typeof navigator !== 'undefined' && !navigator.onLine) return []
   const codigos = [...new Set([...codigosConRespaldoPendiente(), ...codigosConRespaldoDeRondaCerrada()])]
   if (codigos.length === 0) return []

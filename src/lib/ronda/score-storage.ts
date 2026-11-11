@@ -250,15 +250,60 @@ export function hayPendientes(codigo: string): boolean {
   return golpesPendientes.hay(codigo)
 }
 
-const RECH_KEY = (codigo: string) => `ronda_grupo_rechazados_${codigo}`
+const PREFIJO_RECH = 'ronda_grupo_rechazados_'
+const RECH_KEY = (codigo: string) => `${PREFIJO_RECH}${codigo}`
+/** Cuándo se apartó el último rechazo de la ronda (para barrer lo que quedó si nunca se finalizó). */
+const PREFIJO_RECH_EN = 'ronda_grupo_rechazo_en_'
+const RECH_EN_KEY = (codigo: string) => `${PREFIJO_RECH_EN}${codigo}`
 const golpesRechazados = crearColaDePendientes(RECH_KEY)
+
+/**
+ * Los golpes apartados de una ronda que nunca se finalizó desde este teléfono se barren a los 30 días del
+ * último rechazo (el mismo plazo que un respaldo de ronda cerrada): pasado eso nadie los va a reenviar.
+ */
+export const DIAS_RETENCION_RECHAZADOS_GRUPO = 30
+const DIA_MS = 24 * 60 * 60 * 1000
+
+function borrarRechazados(codigo: string): void {
+  try {
+    localStorage.removeItem(RECH_KEY(codigo))
+    localStorage.removeItem(RECH_EN_KEY(codigo))
+  } catch {
+    // noop
+  }
+}
+
+/**
+ * Barre los golpes apartados (ver `apartarRechazados`) cuyo último rechazo fue hace más de
+ * `DIAS_RETENCION_RECHAZADOS_GRUPO` días. Los de antes de que existiera la fecha empiezan a contar desde
+ * este barrido. Sólo mira el teléfono: no toca pendientes ni la copia del grupo.
+ */
+export function barrerRechazadosViejos(ahora = Date.now()): void {
+  const codigos = new Set<string>()
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k?.startsWith(PREFIJO_RECH)) codigos.add(k.slice(PREFIJO_RECH.length))
+      else if (k?.startsWith(PREFIJO_RECH_EN)) codigos.add(k.slice(PREFIJO_RECH_EN.length))
+    }
+    for (const codigo of codigos) {
+      const desde = Number(localStorage.getItem(RECH_EN_KEY(codigo)))
+      if (localStorage.getItem(RECH_KEY(codigo)) == null) localStorage.removeItem(RECH_EN_KEY(codigo))
+      else if (!Number.isFinite(desde) || desde <= 0) localStorage.setItem(RECH_EN_KEY(codigo), String(ahora))
+      else if (ahora - desde > DIAS_RETENCION_RECHAZADOS_GRUPO * DIA_MS) borrarRechazados(codigo)
+    }
+  } catch {
+    // modo privado / cuota: el próximo barrido reintenta
+  }
+}
 
 /**
  * El servidor rechazó en firme una tarjeta (P0004/22023: golpe o hoyo inválido; P0001 con la ronda viva: el
  * jugador ya no está). Sus golpes salen de pendientes (reenviarlos solos daría el mismo rechazo cada 15 s y
  * el aviso "sin enviar" quedaría pegado) pero NO se pierden: quedan apartados en el teléfono, se pintan al
  * abrir el scorer y Finalizar los reenvía (`saveAllScores` con `reintentarRechazados`). Se borran con la
- * copia del grupo si la ronda ya no existe; al finalizar se quedan (son de alguien que ya no está en la ronda).
+ * copia del grupo (ronda borrada o finalizada desde acá: al finalizar sólo pueden quedar los de alguien que
+ * ya no está en la ronda, y nadie los vuelve a leer) y, si nunca se finaliza, con `barrerRechazadosViejos`.
  *
  * Sólo se aparta el valor exacto que se envió: si el marcador corrigió el hoyo mientras el envío viajaba, el
  * valor pendiente es más nuevo y no se toca (ni queda el viejo apartado, que lo pisaría al reintentar).
@@ -269,7 +314,9 @@ export function apartarRechazados(codigo: string, id: string, golpes: Record<str
     Object.entries(golpes).filter(([h, v]) => pendiente[String(h)] == null || pendiente[String(h)] === v),
   )
   golpesPendientes.confirmar(codigo, id, golpes)
-  if (Object.keys(apartados).length > 0) golpesRechazados.marcar(codigo, id, apartados)
+  if (Object.keys(apartados).length === 0) return
+  golpesRechazados.marcar(codigo, id, apartados)
+  try { localStorage.setItem(RECH_EN_KEY(codigo), String(Date.now())) } catch { /* cuota / modo privado */ }
 }
 
 export function leerRechazados(codigo: string): PendientesGrupo {
@@ -299,8 +346,8 @@ export function olvidarRechazado(codigo: string, id: string, hoyo: number): void
 export const PUNTITOS_PEND_KEY = (codigo: string) => `ronda_puntitos_pendientes_${codigo}`
 
 /**
- * Snapshot, golpes por jugador, golpes de equipo y pendientes (golpes y puntitos) del scorer de grupo.
- * Con `alFinalizar`, los golpes apartados y las marcas de puntos especiales que el servidor no confirmó se quedan
+ * Snapshot, golpes por jugador, golpes de equipo, pendientes (golpes y puntitos) y apartados del scorer de grupo.
+ * Con `alFinalizar`, las marcas de puntos especiales que el servidor no confirmó se quedan
  * (una ronda finalizada se puede reabrir; Finalizar sólo espera los golpes, no las marcas).
  */
 function borrarCopiaDelGrupo(codigo: string, alFinalizar = false): void {
@@ -310,8 +357,9 @@ function borrarCopiaDelGrupo(codigo: string, alFinalizar = false): void {
     localStorage.removeItem(TEAM_KEY(codigo))
     localStorage.removeItem(PEND_KEY(codigo))
     // Al finalizar sólo pueden quedar apartados los de quien el servidor confirmó fuera de la ronda
-    // (Finalizar no cierra con una tarjeta rechazada de alguien que sigue): se guardan, no se borran.
-    if (!alFinalizar) localStorage.removeItem(RECH_KEY(codigo))
+    // (Finalizar no cierra con una tarjeta rechazada de alguien que sigue): nadie los reenvía (ya no está
+    // en la ronda), así que también se van.
+    borrarRechazados(codigo)
     if (!(alFinalizar && crearColaDePendientes(PUNTITOS_PEND_KEY).hay(codigo))) localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
   } catch {
     // noop

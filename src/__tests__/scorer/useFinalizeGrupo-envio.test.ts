@@ -169,17 +169,18 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
   })
 
-  it('P0001 con la ronda viva (el organizador sacó a Beto): cierra igual y sus golpes quedan apartados en el teléfono', async () => {
+  it('P0001 con la ronda viva (el organizador sacó a Beto): cierra igual y, cerrada, sus golpes apartados se borran (nadie los reenvía)', async () => {
     rechazaA('p2', 'P0001')
     const { result } = montar()
     await finalizar(result)
     expect(addToast).not.toHaveBeenCalledWith(avisoBeto)
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
-    expect(leerRechazados('ABC').p2).toMatchObject({ 10: 5 })
+    // P3-3 del #763: antes quedaban huérfanos para siempre (ni se leían ni se barrían).
+    expect(leerRechazados('ABC')).toEqual({})
   })
 
-  it('Beto rechazado antes y ya no aparece en la pantalla: su rechazo no bloquea Finalizar y sus golpes no se borran', async () => {
+  it('Beto rechazado antes y ya no aparece en la pantalla: su rechazo no bloquea Finalizar; cerrada, sus apartados se borran', async () => {
     rechazaA('p2', 'P0004')
     const { result, rerender } = montar()
     await act(async () => { await result.current.save.saveAllScores({ p2: { 10: 5 } }) })
@@ -189,7 +190,7 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     await finalizar(result)
     expect(addToast).not.toHaveBeenCalledWith(avisoBeto)
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
-    expect(leerRechazados('ABC').p2).toEqual({ 10: 5 })
+    expect(leerRechazados('ABC')).toEqual({})
   })
 
   it('la misma tarjeta vuelve a ser rechazada sin cambios: sigue bloqueado con el mismo aviso', async () => {

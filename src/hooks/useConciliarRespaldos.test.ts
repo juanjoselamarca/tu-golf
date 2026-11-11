@@ -165,6 +165,19 @@ describe('conciliarRespaldos', () => {
     expect(consultas).toEqual([])
     expect(hay('golfers_score_copa-leones-2026-k3j_round-1')).toBe(true)
   })
+
+  it('barre los golpes apartados del scorer de grupo de hace más de 30 días, aun sin conexión (P3-3 del #763)', async () => {
+    online = false
+    const hace31Dias = Date.now() - 31 * 24 * 60 * 60 * 1000
+    localStorage.setItem('ronda_grupo_rechazados_ABC123', JSON.stringify({ p2: { 10: 5 } }))
+    localStorage.setItem('ronda_grupo_rechazo_en_ABC123', String(hace31Dias))
+    localStorage.setItem('ronda_grupo_rechazados_XYZ789', JSON.stringify({ p2: { 10: 5 } }))
+    localStorage.setItem('ronda_grupo_rechazo_en_XYZ789', String(Date.now()))
+    await conciliarRespaldos()
+    expect(hay('ronda_grupo_rechazados_ABC123')).toBe(false)
+    expect(hay('ronda_grupo_rechazo_en_ABC123')).toBe(false)
+    expect(hay('ronda_grupo_rechazados_XYZ789')).toBe(true)
+  })
 })
 
 describe('useConciliarRespaldos', () => {
