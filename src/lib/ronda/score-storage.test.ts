@@ -271,6 +271,27 @@ describe('tarjetas rechazadas en firme', () => {
       expect(leerRechazados('R1')).toEqual({})
     })
 
+    it('con el reloj en 2010 al barrer no toca la marca, y al volver la hora real los golpes siguen', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(T0)
+      apartarRechazados('R1', 'p2', { 10: 5 })
+      barrerRechazadosViejos(Date.UTC(2010, 0, 1))
+      expect(localStorage.getItem('ronda_grupo_rechazo_en_R1')).toBe(String(T0))
+      barrerRechazadosViejos(T0 + DIA)
+      expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+    })
+
+    it('una marca escrita con el reloj en 2010 sobrevive al primer barrido con la hora real y parte el plazo ahí', () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(Date.UTC(2010, 0, 1))
+      apartarRechazados('R1', 'p2', { 10: 5 })
+      barrerRechazadosViejos(T0)
+      expect(leerRechazados('R1')).toEqual({ p2: { 10: 5 } })
+      expect(localStorage.getItem('ronda_grupo_rechazo_en_R1')).toBe(String(T0))
+      barrerRechazadosViejos(T0 + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
+      expect(leerRechazados('R1')).toEqual({})
+    })
+
     it('no toca los pendientes ni la copia del grupo', () => {
       marcarPendientes('R1', 'p1', { 1: 4 })
       vi.useFakeTimers({ toFake: ['Date'] })

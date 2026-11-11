@@ -33,6 +33,7 @@ vi.mock('@/lib/supabase', () => ({
 import { conciliarRespaldos, useConciliarRespaldos } from './useConciliarRespaldos'
 import {
   barrerRespaldosViejos, contarHoyosPendientes, leerRespaldoPendiente, DIAS_RETENCION_RESPALDO_RONDA_CERRADA,
+  DIA_MS, DIAS_RETENCION_RECHAZADO_EN_FIRME,
 } from '@/lib/ronda/respaldo-local'
 
 const respaldo = (codigo: string, jugador: string, sincronizado = false) => localStorage.setItem(
@@ -168,7 +169,7 @@ describe('conciliarRespaldos', () => {
 
   it('barre los golpes apartados del scorer de grupo de hace más de 30 días, aun sin conexión (P3-3 del #763)', async () => {
     online = false
-    const hace31Dias = Date.now() - 31 * 24 * 60 * 60 * 1000
+    const hace31Dias = Date.now() - (DIAS_RETENCION_RECHAZADO_EN_FIRME + 1) * DIA_MS
     localStorage.setItem('ronda_grupo_rechazados_ABC123', JSON.stringify({ p2: { 10: 5 } }))
     localStorage.setItem('ronda_grupo_rechazo_en_ABC123', String(hace31Dias))
     localStorage.setItem('ronda_grupo_rechazados_XYZ789', JSON.stringify({ p2: { 10: 5 } }))

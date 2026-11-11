@@ -12,9 +12,10 @@
 import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
 import {
   borrarRespaldosDeRonda,
-  DIA_MS,
   DIAS_RETENCION_RECHAZADO_EN_FIRME,
+  estadoDelPlazo,
   marcarRespaldosDeRondaCerrada,
+  relojPlausible,
 } from '@/lib/ronda/respaldo-local'
 
 const KEY = (codigo: string, jugadorId: string) => `ronda_${codigo}_${jugadorId}`
@@ -273,10 +274,12 @@ function borrarRechazados(codigo: string): void {
 
 /**
  * Barre los golpes apartados (ver `apartarRechazados`) cuyo último rechazo fue hace más de
- * `DIAS_RETENCION_RECHAZADO_EN_FIRME` días. Los de antes de que existiera la fecha empiezan a contar desde
- * este barrido. Sólo mira el teléfono: no toca pendientes ni la copia del grupo.
+ * `DIAS_RETENCION_RECHAZADO_EN_FIRME` días, con la misma regla que la tarjeta rechazada del scorer individual
+ * (`estadoDelPlazo`): una marca sin fecha o con una fecha que no sirve empieza a contar desde este barrido, y con
+ * el reloj implausible no se barre nada. Sólo mira el teléfono: no toca pendientes ni la copia del grupo.
  */
 export function barrerRechazadosViejos(ahora = Date.now()): void {
+  if (!relojPlausible(ahora)) return
   const codigos = new Set<string>()
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -285,12 +288,11 @@ export function barrerRechazadosViejos(ahora = Date.now()): void {
       else if (k?.startsWith(PREFIJO_RECH_EN)) codigos.add(k.slice(PREFIJO_RECH_EN.length))
     }
     for (const codigo of codigos) {
-      const desde = Number(localStorage.getItem(RECH_EN_KEY(codigo)))
-      if (localStorage.getItem(RECH_KEY(codigo)) == null) localStorage.removeItem(RECH_EN_KEY(codigo))
-      // Sin fecha (marcas de antes de este cambio) o con fecha futura (reloj adelantado al apartar y después
-      // corregido): empieza a contar desde ahora, si no la marca quedaría sin barrer por años.
-      else if (!Number.isFinite(desde) || desde <= 0 || desde > ahora) localStorage.setItem(RECH_EN_KEY(codigo), String(ahora))
-      else if (ahora - desde > DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA_MS) borrarRechazados(codigo)
+      if (localStorage.getItem(RECH_KEY(codigo)) == null) { localStorage.removeItem(RECH_EN_KEY(codigo)); continue }
+      const marca = localStorage.getItem(RECH_EN_KEY(codigo))
+      const estado = estadoDelPlazo(marca == null ? null : Number(marca), ahora, DIAS_RETENCION_RECHAZADO_EN_FIRME)
+      if (estado === 'reiniciar') localStorage.setItem(RECH_EN_KEY(codigo), String(ahora))
+      else if (estado === 'vencido') borrarRechazados(codigo)
     }
   } catch {
     // modo privado / cuota: el próximo barrido reintenta

@@ -64,7 +64,8 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
     } catch { return 0 }
   }, [key])
 
-  // Barre lo sincronizado hace más de 7 días y lo de rondas vistas cerradas hace más de 30.
+  // Barre lo sincronizado y lo rechazado en firme pasados sus plazos (constantes DIAS_RETENCION_* de respaldo-local).
+  // Lo de rondas cerradas no: eso lo barre el conciliador tras confirmar con el servidor que siguen cerradas.
   useEffect(() => { barrerRespaldosViejos() }, [])
 
   // Misma identidad entre renders: un efecto que depende de este objeto (el reenvío del respaldo) no corre en cada render.

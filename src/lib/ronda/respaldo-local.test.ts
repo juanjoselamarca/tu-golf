@@ -103,7 +103,7 @@ describe('respaldo-local — tarjeta rechazada en firme con la ronda abierta (re
 })
 
 describe('barrerRespaldosViejos', () => {
-  const ahora = 100 * DIA
+  const ahora = Date.UTC(2026, 10, 1)
   const conFecha = (codigo: string, extra: object) => localStorage.setItem(`golfers_score_${codigo}_p1`,
     JSON.stringify({ scores: { 1: 4 }, timestamp: ahora, sincronizado: false, codigoRonda: codigo, jugadorId: 'p1', ...extra }))
 
@@ -118,6 +118,35 @@ describe('barrerRespaldosViejos', () => {
     barrerRespaldosViejos(ahora)
     const quedan = Object.keys(localStorage).sort()
     expect(quedan).toEqual(['golfers_score_ABIVIE_p1', 'golfers_score_CERVIE_p1', 'golfers_score_RECNUE_p1', 'golfers_score_SYNNUE_p1'])
+  })
+
+  it('una tarjeta rechazada con una fecha que no sirve (futura o de un reloj en 2010) no se borra: el plazo parte de nuevo', () => {
+    conFecha('RECFUT', { rechazadaEn: ahora + 365 * DIA })
+    conFecha('RECANT', { rechazadaEn: Date.UTC(2010, 0, 1) })
+    barrerRespaldosViejos(ahora)
+    for (const c of ['RECFUT', 'RECANT']) {
+      expect(JSON.parse(localStorage.getItem(`golfers_score_${c}_p1`)!)).toMatchObject({ rechazadaEn: ahora, scores: { 1: 4 } })
+    }
+    barrerRespaldosViejos(ahora + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA)
+    expect(Object.keys(localStorage)).toHaveLength(2)
+    barrerRespaldosViejos(ahora + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
+    expect(Object.keys(localStorage)).toEqual([])
+  })
+
+  it('con el reloj del teléfono en 2010 (se reinició sin red) no barre ni reescribe nada', () => {
+    conFecha('RECVIE', { rechazadaEn: ahora - (DIAS_RETENCION_RECHAZADO_EN_FIRME + 1) * DIA })
+    conFecha('SYNVIE', { sincronizado: true, timestamp: ahora - (DIAS_RETENCION_RESPALDO_SINCRONIZADO + 1) * DIA })
+    conFecha('CERVIE', { rondaCerradaEn: ahora - (DIAS_RETENCION_RESPALDO_RONDA_CERRADA + 1) * DIA })
+    const antes = { ...localStorage }
+    barrerRespaldosViejos(Date.UTC(2010, 0, 1))
+    barrerRespaldosDeRondaCerrada('CERVIE', Date.UTC(2010, 0, 1))
+    expect({ ...localStorage }).toEqual(antes)
+  })
+
+  it('barrerRespaldosDeRondaCerrada: una marca de cierre con fecha que no sirve reinicia el plazo en vez de borrar', () => {
+    conFecha('CERANT', { rondaCerradaEn: Date.UTC(2010, 0, 1) })
+    barrerRespaldosDeRondaCerrada('CERANT', ahora)
+    expect(JSON.parse(localStorage.getItem('golfers_score_CERANT_p1')!).rondaCerradaEn).toBe(ahora)
   })
 
   it('barrerRespaldosDeRondaCerrada: sólo esa ronda, sólo lo marcado pasado su plazo', () => {
