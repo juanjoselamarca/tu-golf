@@ -21,7 +21,7 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_RONDA_NO_EXISTE, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
@@ -171,7 +171,7 @@ export function useFinalizeGrupo(input: {
     // Lo que no subió sale del banner YA (no después del historial, que puede fallar o tardar) y se guarda.
     let rondaYaCerrada = esRondaCerrada(estado)
     if (rondaYaCerrada) {
-      addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+      addToast({ ...AVISO_RONDA_YA_FINALIZADA, type: 'info' })
       marcarRespaldosDeRondaCerrada(codigo)
     }
 
@@ -213,17 +213,17 @@ export function useFinalizeGrupo(input: {
       // reabrir); no es falta de señal, y la tarjeta sigue al historial.
       rondaYaCerrada = envio.estado === 'ronda_cerrada'
       if (rondaYaCerrada) {
+        // El envío de Finalizar va en silencio (el aviso con nombre es de Finalizar): el P0002 se avisa acá.
+        addToast({ ...AVISO_RONDA_YA_FINALIZADA, type: 'info' })
         marcarRespaldosDeRondaCerrada(codigo)
       } else if (envio.rechazadas.length > 0) {
         // Rechazo firme de una tarjeta (P0004/22023 = INVALID_DELTA: golpe u hoyo inválido). NO se cierra:
         // cerrar borraría la copia del grupo, el único lugar con esos golpes. Quedan en el teléfono, el
         // marcador sigue en la pantalla para revisarlos y el aviso nombra a cada uno (el genérico del envío
-        // no sale encima). Si su reenvío no tuvo respuesta, el aviso dice que es por señal, no por los golpes.
+        // no sale encima). Una cuyo reenvío no tuvo respuesta no viene acá: eso es señal (abajo).
         // (P0001 con la ronda viva = el jugador ya no está: el envío lo deja fuera y no bloquea.)
-        const rechazadas = envio.rechazadas.filter(r => r.causa === 'rechazo')
-        const causa = rechazadas.length > 0 ? 'rechazo' : 'sin_senal'
-        const nombres = (rechazadas.length > 0 ? rechazadas : envio.rechazadas).map(({ id }) => nombreDeTarjeta(ronda, teamEquipos, id))
-        addToast({ ...avisoTarjetasNoGuardadas(nombres, causa), type: 'error', duration: 10000 })
+        const nombres = envio.rechazadas.map(({ id }) => nombreDeTarjeta(ronda, teamEquipos, id))
+        addToast({ ...avisoTarjetasNoGuardadas(nombres), type: 'error', duration: 10000 })
         haptic([30, 60, 30])
         return
       } else if (hayPendientes(codigo)) {
