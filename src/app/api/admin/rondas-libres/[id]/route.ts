@@ -4,7 +4,13 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
 import { captureError } from '@/lib/error-tracking'
 import { pushRoundUpdate } from '@/lib/push/round-update'
+import { isUuid } from '@/lib/uuid'
 export const dynamic = 'force-dynamic'
+
+/** Los estados que acepta `rondas_libres_estado_check`: cualquier otro valor llegaba al UPDATE y volvía 500. */
+const ESTADOS_EDITABLES: readonly unknown[] = ['en_curso', 'finalizada']
+
+const idInvalido = () => NextResponse.json({ error: 'ID de ronda inválido' }, { status: 400 })
 
 export async function GET(
   _request: NextRequest,
@@ -16,6 +22,7 @@ export async function GET(
 
   const admin = createAdminClient()
   const { id } = await params
+  if (!isUuid(id)) return idInvalido()
 
   const [ronda, jugadores] = await Promise.all([
     admin.from('rondas_libres').select('*').eq('id', id).single(),
@@ -40,10 +47,16 @@ export async function PATCH(
 
   const admin = createAdminClient()
   const { id } = await params
-  const body = await request.json()
-  const { estado } = body
+  if (!isUuid(id)) return idInvalido()
+  const body: unknown = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 })
+  }
+  // Se valida si la clave VIENE, no si es truthy: con `estado && …` un "" o un 0 saltaban el filtro
+  // y llegaban al UPDATE, donde el CHECK de la tabla los rechazaba con un 500.
+  const { estado } = body as { estado?: unknown }
 
-  if (estado && !['en_curso', 'finalizada'].includes(estado)) {
+  if (estado !== undefined && !ESTADOS_EDITABLES.includes(estado)) {
     return NextResponse.json({ error: 'Estado inválido. Debe ser en_curso o finalizada.' }, { status: 400 })
   }
 
@@ -82,6 +95,7 @@ export async function DELETE(
 
   const admin = createAdminClient()
   const { id } = await params
+  if (!isUuid(id)) return idInvalido()
 
   // Un solo DELETE: los jugadores caen por la FK ON DELETE CASCADE (ronda_libre_jugadores_ronda_id_fkey).
   // Borrarlos antes dejaba, si el segundo DELETE fallaba, una ronda viva sin jugadores: sus scorers
