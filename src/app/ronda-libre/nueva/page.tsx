@@ -137,7 +137,9 @@ export default function NuevaRondaLibrePage() {
         }}>
           Nueva Ronda
         </h1>
-        <p style={{ fontSize: '14px', color: colores.texto2, marginTop: 0, marginBottom: '20px' }}>
+        {/* aria-live: al volver a una etapa tocándola en el stepper, el botón que tenía el foco desaparece (ese
+            paso pasa a ser el actual). Así el lector de pantalla anuncia dónde quedó. */}
+        <p aria-live="polite" style={{ fontSize: '14px', color: colores.texto2, marginTop: 0, marginBottom: '20px' }}>
           {SUBTITULOS[form.paso]}
         </p>
 
@@ -148,7 +150,10 @@ export default function NuevaRondaLibrePage() {
             labels={PASOS}
             // Volver a una etapa ya hecha tocándola (inbox 8a0b2270): lo mismo que apretar "Atrás" las veces
             // necesarias, así que no pierde nada de lo cargado.
-            onVolverAPaso={paso => form.setPaso(paso as PasoDelAsistente)}
+            // Mientras la ronda se está creando no se puede volver: la pantalla de compartir lee el formulario
+            // vivo, y una cancha o un "quién anota" cambiados con el POST en vuelo mostrarían (o abrirían) algo
+            // distinto de lo que se creó.
+            onVolverAPaso={creando ? undefined : paso => form.setPaso(paso as PasoDelAsistente)}
           />
         </div>
 

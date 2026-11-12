@@ -106,7 +106,10 @@ export function Stepper({ steps, current, labels, className = '', onVolverAPaso 
                 aria-label={label ? `Volver a ${label.toLowerCase()}` : `Volver al paso ${n}`}
                 // min-w/min-h 44: el disco mide 32, el área táctil no puede medir eso (DESIGN.md, uso en
                 // cancha). El -m compensa el padding para que el layout quede idéntico al paso no navegable.
-                className="flex flex-col items-center gap-1 min-w-[44px] min-h-[44px] -m-1.5 p-1.5 rounded-lg cursor-pointer active:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                // Anillo de foco igual al de Toggle: --brand-on-bg (oro para texto; el --gold sobre el crema del
+                // tema claro no llega a 3:1, el piso de WCAG 1.4.11) y outline-none para que Chrome no sume su
+                // anillo nativo blanco (outline-style: auto).
+                className="flex flex-col items-center gap-1 min-w-[44px] min-h-[44px] -m-1.5 p-1.5 rounded-lg cursor-pointer active:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-on-bg)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--bg)]"
               >
                 {disco}
                 {etiqueta}
