@@ -58,8 +58,11 @@ Toda pantalla de este feature (confirmación antes/después, aviso al grupo) la 
    pasar de gross a neto sería un bypass del paywall.
 4. **Confirmación antes/después del resultado, no solo del dato.** No "índice 8,5 → 18,5" sino "Juan: HCP 9 → 20 ·
    neto actual 79 → 68 · pasa del 3º al 1º". El que corrige ve el efecto antes de confirmar.
-5. **Aviso en dos niveles (privacidad):** con sesión y en la ronda, el detalle con números; en el `/live` público, un
-   mensaje genérico ("El organizador corrigió la ronda en el hoyo 7"). Decisión pendiente de Juanjo (§8).
+5. **Aviso discreto, detalle a pedido (decidido por Juanjo, 12-nov).** Juanjo: «será información de sobra y muerta,
+   no me interesa que se vea altiro». Nada de popup ni banner con números al grupo. La ronda muestra una marca
+   discreta ("Corregida") y el detalle (quién, qué, hoyo, antes/después) se abre solo si alguien lo toca, y queda en el
+   historial. Como no se empuja a nadie, el detalle se muestra solo a jugadores con sesión en la ronda; el `/live`
+   público ve solo la marca.
 6. **Historial permanente** de correcciones visible en la tarjeta final: en un grupo que apuesta, el registro es la
    prueba.
 7. **Selector de tee con los nombres exactos** de la cancha (no prefijos): evita el latente "Rojo"/"Rojo Damas".
@@ -79,7 +82,7 @@ Toda pantalla de este feature (confirmación antes/después, aviso al grupo) la 
 **E1 — lo que más se usa, en formatos individuales y best ball**
 - Índice, tee, nombre, gross↔neto, hoyo de inicio (rondas de 18).
 - RPC `corregir_ronda_libre` + log + `revision` en `/live`.
-- Confirmación antes/después del resultado; aviso al grupo; historial en la tarjeta.
+- Confirmación antes/después del resultado (para quien corrige); marca discreta "Corregida" con detalle a pedido; historial en la tarjeta.
 - Cerrar el PATCH directo.
 - Fuera: torneos y Timba.
 
@@ -95,7 +98,6 @@ Toda pantalla de este feature (confirmación antes/después, aviso al grupo) la 
 
 **Proceso:** zona crítica (hcp/net/scoring, RLS, migración) → plan → `revisor-fable` → tests de golf contra WHS.
 
-## 8. Decisiones abiertas para Juanjo
+## 8. Decisiones
 
-1. ¿El aviso con números (índice/HCP antes y después) lo ven solo quienes tienen sesión y están en la ronda, y el
-   `/live` público ve un mensaje genérico? (Recomendado: sí, por privacidad del hándicap.)
+- **Aviso (12-nov, Juanjo):** discreto, sin números a la vista; detalle solo si alguien lo toca (ver §5.5).
