@@ -14,7 +14,7 @@ import { PasoFormato } from './components/PasoFormato'
 import { PasoJugadores } from './components/PasoJugadores'
 import { useCreadorDeRonda, recordarUltimaCancha } from './hooks/useCreadorDeRonda'
 import { useCrearRonda, jugadoresDeLaRonda } from './hooks/useCrearRonda'
-import { useFormularioDeRonda } from './hooks/useFormularioDeRonda'
+import { useFormularioDeRonda, type PasoDelAsistente } from './hooks/useFormularioDeRonda'
 import { useHandicapDeCancha } from './hooks/useHandicapDeCancha'
 import { useSetupDeCancha } from './hooks/useSetupDeCancha'
 import { useTeesCoherentes } from './hooks/useTeesCoherentes'
@@ -142,7 +142,14 @@ export default function NuevaRondaLibrePage() {
         </p>
 
         <div className="mb-7">
-          <Stepper steps={4} current={form.paso} labels={PASOS} />
+          <Stepper
+            steps={4}
+            current={form.paso}
+            labels={PASOS}
+            // Volver a una etapa ya hecha tocándola (inbox 8a0b2270): lo mismo que apretar "Atrás" las veces
+            // necesarias, así que no pierde nada de lo cargado.
+            onVolverAPaso={paso => form.setPaso(paso as PasoDelAsistente)}
+          />
         </div>
 
         {form.paso === 1 && (
