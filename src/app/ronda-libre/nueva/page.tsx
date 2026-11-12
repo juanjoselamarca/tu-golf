@@ -14,7 +14,7 @@ import { PasoFormato } from './components/PasoFormato'
 import { PasoJugadores } from './components/PasoJugadores'
 import { useCreadorDeRonda, recordarUltimaCancha } from './hooks/useCreadorDeRonda'
 import { useCrearRonda, jugadoresDeLaRonda } from './hooks/useCrearRonda'
-import { useFormularioDeRonda, type PasoDelAsistente } from './hooks/useFormularioDeRonda'
+import { useFormularioDeRonda, volverDeEtapa } from './hooks/useFormularioDeRonda'
 import { useHandicapDeCancha } from './hooks/useHandicapDeCancha'
 import { useSetupDeCancha } from './hooks/useSetupDeCancha'
 import { useTeesCoherentes } from './hooks/useTeesCoherentes'
@@ -148,12 +148,7 @@ export default function NuevaRondaLibrePage() {
             steps={4}
             current={form.paso}
             labels={PASOS}
-            // Volver a una etapa ya hecha tocándola (inbox 8a0b2270): lo mismo que apretar "Atrás" las veces
-            // necesarias, así que no pierde nada de lo cargado.
-            // Mientras la ronda se está creando no se puede volver: la pantalla de compartir lee el formulario
-            // vivo, y una cancha o un "quién anota" cambiados con el POST en vuelo mostrarían (o abrirían) algo
-            // distinto de lo que se creó.
-            onVolverAPaso={creando ? undefined : paso => form.setPaso(paso as PasoDelAsistente)}
+            onVolverAPaso={volverDeEtapa(creando, form.setPaso)}
           />
         </div>
 
