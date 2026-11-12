@@ -12,16 +12,24 @@ import { loginUrl } from '@/lib/auth/login-url'
 import { createClient } from '@/lib/supabase'
 
 /**
- * Respuestas del chat que "Reintentar" nunca va a arreglar: sesión vencida (401)
- * o acceso al coach retirado (403). Antes caían en la barra de error con un botón
- * Reintentar que volvía a fallar igual: un callejón sin salida. Devuelve a dónde
- * mandar al usuario, o null si el error sí se puede reintentar.
+ * Respuesta del chat que "Reintentar" nunca va a arreglar: sesión vencida (401).
+ * Antes caía en la barra de error con un botón Reintentar que volvía a fallar
+ * igual: un callejón sin salida. Devuelve a dónde mandar al usuario, o null si el
+ * error sí se puede reintentar.
+ *
+ * El 403 NO entra: `hasCoachAccess` devuelve false también cuando la consulta de
+ * profiles falla, así que un 403 puede ser un tropiezo de la base y Reintentar
+ * es lo honesto. La ruta solo responde 401 si de verdad no hay sesión (un fallo
+ * de Auth sale como 503).
  */
 export function destinoSinReintento(status: number, sessionId: string): string | null {
   if (status === 401) return loginUrl(`/coach/sesion/${sessionId}`)
-  if (status === 403) return '/coach'
   return null
 }
+
+/** Tope para borrar la sesión local antes de ir al login: signOut hace un POST a
+ *  /logout y, si la red se cuelga, el chat no puede quedarse girando. */
+const SIGNOUT_TIMEOUT_MS = 3000
 
 interface UseTaigerChatArgs {
   session: TaigerSession | null
@@ -137,10 +145,12 @@ export function useTaigerChat({
         if (destino) {
           // Sesión revocada con la cookie todavía puesta (cerró sesión en otro
           // equipo, cambió la clave): sin borrarla, el proxy ve "logueado" y
-          // rebota /login a /dashboard. signOut local no llama a la red.
-          if (res.status === 401) {
-            await createClient().auth.signOut({ scope: 'local' }).catch(() => {})
-          }
+          // rebota /login a /dashboard. signOut hace un POST a /logout: con tope,
+          // y se redirige igual aunque falle o no conteste.
+          await Promise.race([
+            createClient().auth.signOut({ scope: 'local' }).catch(() => {}),
+            new Promise(resolve => setTimeout(resolve, SIGNOUT_TIMEOUT_MS)),
+          ])
           router.replace(destino)
           return
         }

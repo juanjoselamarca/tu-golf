@@ -4,7 +4,7 @@ import type { ChatMessage, TaigerSession } from '@/lib/data/taiger'
 
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace, push: vi.fn() }) }))
-const signOut = vi.fn(async () => ({ error: null }))
+const signOut = vi.fn<() => Promise<unknown>>(async () => ({ error: null }))
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({ auth: { signOut } }) }))
 
 import { useTaigerChat, destinoSinReintento } from './useTaigerChat'
@@ -43,7 +43,8 @@ function montar(sessionId = SESSION_ID) {
 const fetchMock = vi.fn()
 beforeEach(() => {
   replace.mockReset()
-  signOut.mockClear()
+  signOut.mockReset()
+  signOut.mockImplementation(async () => ({ error: null }))
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
 })
@@ -56,15 +57,12 @@ describe('destinoSinReintento', () => {
     expect(destino?.startsWith('/login')).toBe(true)
     expect(destino).toContain(encodeURIComponent(`/coach/sesion/${SESSION_ID}`))
   })
-  it('403 → /coach (ahí se muestra la puerta de acceso)', () => {
-    expect(destinoSinReintento(403, 'nueva')).toBe('/coach')
-  })
-  it('429, 400, 500 y 503 se pueden reintentar: no redirige', () => {
-    for (const s of [400, 429, 500, 503]) expect(destinoSinReintento(s, SESSION_ID)).toBeNull()
+  it('403, 429, 400, 500 y 503 se pueden reintentar: no redirige', () => {
+    for (const s of [400, 403, 429, 500, 503]) expect(destinoSinReintento(s, SESSION_ID)).toBeNull()
   })
 })
 
-describe('useTaigerChat — errores que Reintentar no arregla', () => {
+describe('useTaigerChat — la sesión vencida no deja un Reintentar inútil', () => {
   it('sesión vencida (401): manda a iniciar sesión en vez de mostrar Reintentar', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(401, { error: 'Debes iniciar sesión para continuar' }))
     const { result } = montar()
@@ -74,6 +72,7 @@ describe('useTaigerChat — errores que Reintentar no arregla', () => {
     expect(result.current.error).toBeNull()
     // Borra la cookie local: si no, el proxy rebota /login a /dashboard.
     expect(signOut).toHaveBeenCalledWith({ scope: 'local' })
+    expect(signOut.mock.invocationCallOrder[0]).toBeLessThan(replace.mock.invocationCallOrder[0])
     await waitFor(() => expect(result.current.streaming).toBe(false))
   })
 
@@ -84,12 +83,28 @@ describe('useTaigerChat — errores que Reintentar no arregla', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith(loginUrl('/coach/sesion/nueva')))
   })
 
-  it('acceso retirado (403): vuelve a /coach en vez de mostrar Reintentar', async () => {
+  it('si signOut no contesta, igual manda al login (tope de 3 s)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      signOut.mockImplementation(() => new Promise(() => {}))
+      fetchMock.mockResolvedValueOnce(jsonResponse(401, { error: 'Debes iniciar sesión para continuar' }))
+      const { result } = montar()
+      act(() => result.current.handleSend('Hola'))
+      await waitFor(() => expect(signOut).toHaveBeenCalled())
+      expect(replace).not.toHaveBeenCalled()
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+      expect(replace).toHaveBeenCalledWith(destinoSinReintento(401, SESSION_ID))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('403 (puede ser un tropiezo de la base) sigue con Reintentar y no redirige', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(403, { error: 'Acceso al coach no habilitado' }))
     const { result } = montar('nueva')
     act(() => result.current.handleSend('Hola'))
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/coach'))
-    expect(result.current.error).toBeNull()
+    await waitFor(() => expect(result.current.error).toBe('Acceso al coach no habilitado'))
+    expect(replace).not.toHaveBeenCalled()
     expect(signOut).not.toHaveBeenCalled()
   })
 
