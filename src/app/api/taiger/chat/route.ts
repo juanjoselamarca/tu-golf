@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { buildContextString } from '@/golf/coach/prompts'
 import { buildCoachSystem, buildCoachTools } from '@/golf/coach/build-system'
@@ -40,8 +41,14 @@ const chatInputSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (!user) {
+      // Si Auth no respondió (red, caída de Supabase), no es una sesión vencida:
+      // 503 para que el chat ofrezca Reintentar. El 401 manda al login y haría
+      // perder la conversación por un tropiezo de un segundo.
+      if (isAuthRetryableFetchError(authError)) {
+        return NextResponse.json({ error: 'No me pude conectar. Toca reintentar.' }, { status: 503 })
+      }
       return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
     }
 
