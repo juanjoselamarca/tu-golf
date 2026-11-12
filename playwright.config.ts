@@ -85,6 +85,7 @@ export default defineConfig({
         'torneo-invitado-join-claim.spec.ts',
         'organizador-hoja-salida.spec.ts',
         'ronda-libre-neto-leaderboard.spec.ts',
+        'ronda-libre-foursome-neto.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
