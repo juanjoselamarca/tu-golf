@@ -88,20 +88,28 @@ function filaDe(page: Page, nombre: string): Locator {
   return page.getByRole('button', { name: new RegExp(`(Expandir|Colapsar) scorecard de ${nombre}$`) })
 }
 
-/** Celdas de la fila: posición, jugador, HCP, score (+ secundario), thru. */
-async function celdas(fila: Locator): Promise<string[]> {
-  return fila.locator(':scope > *').allInnerTexts()
+/**
+ * Fila normalizada: [posición, jugador, HCP, score principal, score secundario, thru]. Se lee dentro de
+ * `expect.poll` para no fallar si la vista repinta (datos públicos → datos con sesión) justo en la lectura.
+ */
+async function resumenFila(fila: Locator): Promise<string[]> {
+  const [pos = '', jugador = '', hcp = '', score = '', thru = ''] = await fila.locator(':scope > *').allInnerTexts()
+  const [principal = '', secundario = ''] = score.split('\n').map(x => x.trim())
+  return [pos.trim(), jugador.replace(/[▲▼]/g, '').trim(), hcp.trim(), principal, secundario, thru.trim()]
 }
 
 test.describe('Ronda libre Stroke Play neto — clasificación', () => {
   test.beforeAll(async () => {
     const hoyos = await sinError(
       'par y SI de Los Leones',
-      adminClient().from('course_holes').select('numero, par, stroke_index').eq('course_id', DEFAULT_COURSE_ID).lte('numero', 9).order('numero'),
+      adminClient().from('course_holes').select('numero, par, stroke_index').eq('course_id', DEFAULT_COURSE_ID).order('numero'),
     )
+    // El motor escala el rating con el par de la CANCHA (suma de course_holes): tiene que ser 72.
+    expect((hoyos ?? []).reduce((a, h) => a + h.par, 0), 'par total de Los Leones (18 hoyos)').toBe(TEE_BLANCO.par)
     // Si la cancha de pruebas cambia, los netos de abajo dejan de ser ciertos: fallar acá, no en un número raro.
-    expect((hoyos ?? []).map(h => h.par), 'par de Los Leones hoyos 1-9').toEqual(PAR_1_A_9)
-    expect((hoyos ?? []).map(h => h.stroke_index), 'SI de Los Leones hoyos 1-9').toEqual(SI_1_A_9)
+    const front = (hoyos ?? []).slice(0, 9)
+    expect(front.map(h => h.par), 'par de Los Leones hoyos 1-9').toEqual(PAR_1_A_9)
+    expect(front.map(h => h.stroke_index), 'SI de Los Leones hoyos 1-9').toEqual(SI_1_A_9)
     const tee = await sinError(
       'tee blanco de Los Leones',
       adminClient()
@@ -163,15 +171,10 @@ test.describe('Ronda libre Stroke Play neto — clasificación', () => {
     const ordenNeto = ['Rodrigo Alto', 'Paula Baja', 'Tomás Medio']
     for (const [i, nombre] of ordenNeto.entries()) {
       const e = esperado.find(x => x.nombre === nombre)!
-      const [pos, jugador, hcp, score, thru] = await celdas(filaDe(page, nombre))
-      expect(pos.trim(), `posición de ${nombre}`).toBe(String(i + 1))
-      expect(jugador).toContain(nombre)
-      expect(hcp.trim(), `HCP (course handicap) de ${nombre}`).toBe(String(e.ch))
-      // Score principal = neto; debajo, el gross de apoyo (solo si difiere del neto).
-      const [principal, secundario] = score.split('\n').map(s => s.trim())
-      expect(principal, `neto de ${nombre}`).toBe(fmt(e.neto))
-      expect(secundario, `gross de apoyo de ${nombre}`).toBe(`Gross ${fmt(e.gross)}`)
-      expect(thru.trim(), `thru de ${nombre}`).toBe('4')
+      // HCP = course handicap (no el índice). Score principal = neto; debajo, el gross de apoyo.
+      await expect
+        .poll(() => resumenFila(filaDe(page, nombre)), { message: `fila de ${nombre}` })
+        .toEqual([String(i + 1), nombre, String(e.ch), fmt(e.neto), `Gross ${fmt(e.gross)}`, '4'])
     }
 
     // El orden también en el DOM (no solo el número de posición).
@@ -185,7 +188,9 @@ test.describe('Ronda libre Stroke Play neto — clasificación', () => {
 
   test('9 hoyos: course handicap de 9 hoyos (front) y SI renormalizado a 1-9', async ({ page }) => {
     // WHS 9 hoyos: CH9 = round(índice/2 × slope_front/113 + (CR_front − par_front)), par front 36.
-    //   Rodrigo 17,0 → 8,5 × 128/113 + 0,2 = 9,83 → 10 · Paula 1,0 → 0,5 × 128/113 + 0,2 = 0,77 → 1
+    //   Rodrigo 20,0 → 10 × 128/113 + 0,2 = 11,53 → 12 · Paula 1,0 → 0,5 × 128/113 + 0,2 = 0,77 → 1
+    // Atajos equivocados que dan otro número para Rodrigo: la mitad del CH de 18 ya redondeado (22 / 2 = 11) o
+    // el CH de 18 entero (22).
     const parFront = PAR_1_A_9.reduce((a, b) => a + b, 0)
     expect(parFront).toBe(36)
     const ch9 = (indice: number) =>
@@ -195,41 +200,41 @@ test.describe('Ronda libre Stroke Play neto — clasificación', () => {
     expect(siDeLaVuelta).toEqual([7, 4, 8, 1, 6, 9, 2, 5, 3])
 
     const jugadores = [
-      { nombre: 'Paula Nueve', indice: 1.0, golpes: [4, 4, 3, 5, 4] },
-      { nombre: 'Rodrigo Nueve', indice: 17.0, golpes: [5, 6, 4, 6, 5] },
+      { nombre: 'Paula Nueve', indice: 1.0, golpes: [4, 4, 3, 5, 4, 3, 4, 4, 5] },
+      { nombre: 'Rodrigo Nueve', indice: 20.0, golpes: [5, 6, 4, 6, 5, 4, 5, 5, 6] },
     ]
-    expect(jugadores.map(j => ch9(j.indice)), 'course handicaps 9h a mano').toEqual([1, 10])
+    expect(jugadores.map(j => ch9(j.indice)), 'course handicaps 9h a mano').toEqual([1, 12])
+    const ch18 = Math.round(20 * (TEE_BLANCO.slope / 113) + (TEE_BLANCO.rating - TEE_BLANCO.par))
+    expect([ch18, Math.round(ch18 / 2)], 'los atajos dan otro número').toEqual([22, 11])
 
     const { id, codigo } = await crearRondaNeto(page.request, jugadores, 9)
     for (const j of jugadores) await anotar(id, j.nombre, j.golpes)
 
-    // Hoyos 1-5 (par 20). Paula CH 1: golpe en el SI 1 de la vuelta (h4) → 20 − 1 − 20 = −1.
-    // Rodrigo CH 10: 1 en cada hoyo + 2º en el SI 1 (h4) → 26 − 6 − 20 = 0 (E). Con el SI de 18 sin renormalizar
-    // también da E acá, pero con el CH de 18 hoyos (19) serían 11 golpes → −5: eso es lo que discrimina.
+    // Los 9 hoyos (par 36, Thru F). Paula CH 1: golpe en el SI 1 de la vuelta (h4) → 36 − 1 − 36 = −1 (gross E).
+    // Rodrigo CH 12: 1 en cada hoyo + 2º en los SI 1, 2, 3 de la vuelta (h4, h7, h9) → 46 − 12 − 36 = −2 (gross +10).
+    //   Con CH 11 (mitad del de 18) sería −1 y empataría con Paula; con CH 22, −12.
     const esperado = jugadores.map(j => ({
       ...j,
       ch: ch9(j.indice),
-      neto: netoVsPar(j.golpes, ch9(j.indice), siDeLaVuelta.slice(0, 5), 9),
+      neto: netoVsPar(j.golpes, ch9(j.indice), siDeLaVuelta, 9),
       gross: grossVsPar(j.golpes),
     }))
     expect(esperado.map(e => [e.nombre, e.neto, e.gross])).toEqual([
       ['Paula Nueve', -1, 0],
-      ['Rodrigo Nueve', 0, 6],
+      ['Rodrigo Nueve', -2, 10],
     ])
 
     const pageErrors: string[] = []
     page.on('pageerror', e => pageErrors.push(e.message))
     await page.goto(`/ronda-libre/${codigo}`, { waitUntil: 'domcontentloaded' })
-    await expect(filaDe(page, 'Paula Nueve')).toBeVisible({ timeout: 20_000 })
+    await expect(filaDe(page, 'Rodrigo Nueve')).toBeVisible({ timeout: 20_000 })
 
-    for (const [i, nombre] of ['Paula Nueve', 'Rodrigo Nueve'].entries()) {
+    // El HCP que se MUESTRA en 9 hoyos es el de 18 (decisión de la vista, IndividualLeaderboard): no se afirma acá.
+    for (const [i, nombre] of ['Rodrigo Nueve', 'Paula Nueve'].entries()) {
       const e = esperado.find(x => x.nombre === nombre)!
-      const [pos, , , score, thru] = await celdas(filaDe(page, nombre))
-      expect(pos.trim(), `posición de ${nombre}`).toBe(String(i + 1))
-      const [principal, secundario] = score.split('\n').map(s => s.trim())
-      expect(principal, `neto de ${nombre}`).toBe(fmt(e.neto))
-      expect(secundario, `gross de apoyo de ${nombre}`).toBe(`Gross ${fmt(e.gross)}`)
-      expect(thru.trim(), `thru de ${nombre}`).toBe('5')
+      await expect
+        .poll(async () => (await resumenFila(filaDe(page, nombre))).filter((_, k) => k !== 2), { message: `fila de ${nombre}` })
+        .toEqual([String(i + 1), nombre, fmt(e.neto), `Gross ${fmt(e.gross)}`, 'F'])
     }
 
     expect(pageErrors, 'errores JS en la vista de la ronda').toEqual([])
