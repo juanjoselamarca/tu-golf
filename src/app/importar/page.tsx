@@ -2,6 +2,7 @@
 
 import { Suspense } from 'react'
 import ImportWizard from '@/components/import/ImportWizard'
+import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 
 function ImportarContent() {
   return <ImportWizard />
@@ -9,21 +10,7 @@ function ImportarContent() {
 
 export default function ImportarPage() {
   return (
-    <Suspense
-      fallback={
-        <div
-          style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-2)',
-          }}
-        >
-          Cargando importador...
-        </div>
-      }
-    >
+    <Suspense fallback={<BrandedLoading message="Cargando importador" />}>
       <ImportarContent />
     </Suspense>
   )
