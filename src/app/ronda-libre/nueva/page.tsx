@@ -14,7 +14,7 @@ import { PasoFormato } from './components/PasoFormato'
 import { PasoJugadores } from './components/PasoJugadores'
 import { useCreadorDeRonda, recordarUltimaCancha } from './hooks/useCreadorDeRonda'
 import { useCrearRonda, jugadoresDeLaRonda } from './hooks/useCrearRonda'
-import { useFormularioDeRonda } from './hooks/useFormularioDeRonda'
+import { useFormularioDeRonda, volverDeEtapa } from './hooks/useFormularioDeRonda'
 import { useHandicapDeCancha } from './hooks/useHandicapDeCancha'
 import { useSetupDeCancha } from './hooks/useSetupDeCancha'
 import { useTeesCoherentes } from './hooks/useTeesCoherentes'
@@ -137,12 +137,19 @@ export default function NuevaRondaLibrePage() {
         }}>
           Nueva Ronda
         </h1>
-        <p style={{ fontSize: '14px', color: colores.texto2, marginTop: 0, marginBottom: '20px' }}>
+        {/* aria-live: al volver a una etapa tocándola en el stepper, el botón que tenía el foco desaparece (ese
+            paso pasa a ser el actual). Así el lector de pantalla anuncia dónde quedó. */}
+        <p aria-live="polite" style={{ fontSize: '14px', color: colores.texto2, marginTop: 0, marginBottom: '20px' }}>
           {SUBTITULOS[form.paso]}
         </p>
 
         <div className="mb-7">
-          <Stepper steps={4} current={form.paso} labels={PASOS} />
+          <Stepper
+            steps={4}
+            current={form.paso}
+            labels={PASOS}
+            onVolverAPaso={volverDeEtapa(creando, form.setPaso)}
+          />
         </div>
 
         {form.paso === 1 && (

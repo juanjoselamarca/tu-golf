@@ -75,6 +75,19 @@ function hoyDeChile(): string {
 export type DatosDeRival = Partial<Pick<RivalDelCreador, 'nombre' | 'handicap' | 'tees'>>
 
 /** Tarjeta de rival sin nada cargado. */
+/**
+ * Si el stepper deja volver a una etapa ya hecha (inbox 8a0b2270), y a dónde. Mientras la ronda se está creando
+ * no: la pantalla de compartir lee el formulario vivo, y una cancha o un "quién anota" cambiados con el POST en
+ * vuelo mostrarían (o abrirían) algo distinto de lo que se creó. Volver equivale a apretar "Atrás" las veces
+ * necesarias, así que no pierde nada de lo cargado.
+ */
+export function volverDeEtapa(
+  creando: boolean,
+  setPaso: (paso: PasoDelAsistente) => void,
+): ((paso: number) => void) | undefined {
+  return creando ? undefined : paso => setPaso(paso as PasoDelAsistente)
+}
+
 export function esRivalEnBlanco(r: RivalDelCreador): boolean {
   return !r.nombre.trim() && r.handicap == null && !r.telefono.trim() && !r.profileId
 }

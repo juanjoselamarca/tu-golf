@@ -165,7 +165,14 @@ export function PasoConfirmar(props: Props) {
       </div>
 
       <div style={{ display: 'flex', gap: '10px' }}>
-        <button type="button" onClick={props.onEditar} style={secundario}>
+        {/* Bloqueado mientras se crea: volver a editar con el POST en vuelo deja la pantalla de compartir
+            mostrando datos que no son los de la ronda creada. */}
+        <button
+          type="button"
+          disabled={props.creando}
+          onClick={props.onEditar}
+          style={{ ...secundario, ...(props.creando ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+        >
           ← Editar
         </button>
         <button

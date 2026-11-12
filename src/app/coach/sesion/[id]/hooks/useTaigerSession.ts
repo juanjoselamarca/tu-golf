@@ -34,7 +34,8 @@ export function useTaigerSession(sessionId: string): UseTaigerSessionResult {
     const loadSession = async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace(loginUrl('/coach')); return }
+      // Mismo destino que el 401 del chat (destinoSinReintento): vuelve a esta sesión.
+      if (!user) { router.replace(loginUrl(`/coach/sesion/${sessionId}`)); return }
 
       // 'nueva' es un placeholder cliente: la sesion primaria real se crea en el
       // primer POST a /api/taiger/chat via getOrCreateActiveSession (migration 017).
