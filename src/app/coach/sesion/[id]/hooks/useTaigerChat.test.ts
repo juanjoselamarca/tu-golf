@@ -4,6 +4,8 @@ import type { ChatMessage, TaigerSession } from '@/lib/data/taiger'
 
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace, push: vi.fn() }) }))
+const signOut = vi.fn(async () => ({ error: null }))
+vi.mock('@/lib/supabase', () => ({ createClient: () => ({ auth: { signOut } }) }))
 
 import { useTaigerChat, destinoSinReintento } from './useTaigerChat'
 import { loginUrl } from '@/lib/auth/login-url'
@@ -41,6 +43,7 @@ function montar(sessionId = SESSION_ID) {
 const fetchMock = vi.fn()
 beforeEach(() => {
   replace.mockReset()
+  signOut.mockClear()
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
 })
@@ -69,7 +72,16 @@ describe('useTaigerChat — errores que Reintentar no arregla', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledTimes(1))
     expect(replace).toHaveBeenCalledWith(destinoSinReintento(401, SESSION_ID))
     expect(result.current.error).toBeNull()
+    // Borra la cookie local: si no, el proxy rebota /login a /dashboard.
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' })
     await waitFor(() => expect(result.current.streaming).toBe(false))
+  })
+
+  it('401 en una sesión nueva vuelve a /coach/sesion/nueva tras el login', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(401, { error: 'Debes iniciar sesión para continuar' }))
+    const { result } = montar('nueva')
+    act(() => result.current.handleSend('Hola'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(loginUrl('/coach/sesion/nueva')))
   })
 
   it('acceso retirado (403): vuelve a /coach en vez de mostrar Reintentar', async () => {
@@ -78,6 +90,7 @@ describe('useTaigerChat — errores que Reintentar no arregla', () => {
     act(() => result.current.handleSend('Hola'))
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/coach'))
     expect(result.current.error).toBeNull()
+    expect(signOut).not.toHaveBeenCalled()
   })
 
   it('429 sigue mostrando el error con Reintentar y no redirige', async () => {

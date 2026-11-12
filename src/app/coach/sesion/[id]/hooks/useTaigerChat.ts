@@ -9,6 +9,7 @@ import type { ChatMessage, TaigerSession } from '@/lib/data/taiger'
 import { createSseDecoder, type SseEvent } from './sseParser'
 import { prepareCoachHistory } from '@/golf/coach/history-window'
 import { loginUrl } from '@/lib/auth/login-url'
+import { createClient } from '@/lib/supabase'
 
 /**
  * Respuestas del chat que "Reintentar" nunca va a arreglar: sesión vencida (401)
@@ -134,6 +135,12 @@ export function useTaigerChat({
       if (!res.ok) {
         const destino = destinoSinReintento(res.status, sessionId)
         if (destino) {
+          // Sesión revocada con la cookie todavía puesta (cerró sesión en otro
+          // equipo, cambió la clave): sin borrarla, el proxy ve "logueado" y
+          // rebota /login a /dashboard. signOut local no llama a la red.
+          if (res.status === 401) {
+            await createClient().auth.signOut({ scope: 'local' }).catch(() => {})
+          }
           router.replace(destino)
           return
         }
