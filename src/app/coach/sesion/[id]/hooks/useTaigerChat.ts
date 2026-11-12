@@ -8,6 +8,19 @@ import type { ScoreProjection } from '@/components/coach/ScoreProjectionCard'
 import type { ChatMessage, TaigerSession } from '@/lib/data/taiger'
 import { createSseDecoder, type SseEvent } from './sseParser'
 import { prepareCoachHistory } from '@/golf/coach/history-window'
+import { loginUrl } from '@/lib/auth/login-url'
+
+/**
+ * Respuestas del chat que "Reintentar" nunca va a arreglar: sesión vencida (401)
+ * o acceso al coach retirado (403). Antes caían en la barra de error con un botón
+ * Reintentar que volvía a fallar igual: un callejón sin salida. Devuelve a dónde
+ * mandar al usuario, o null si el error sí se puede reintentar.
+ */
+export function destinoSinReintento(status: number, sessionId: string): string | null {
+  if (status === 401) return loginUrl(`/coach/sesion/${sessionId}`)
+  if (status === 403) return '/coach'
+  return null
+}
 
 interface UseTaigerChatArgs {
   session: TaigerSession | null
@@ -119,6 +132,11 @@ export function useTaigerChat({
       })
 
       if (!res.ok) {
+        const destino = destinoSinReintento(res.status, sessionId)
+        if (destino) {
+          router.replace(destino)
+          return
+        }
         const data = await res.json()
         const friendly = data.error === 'Input inválido' && data.details
           ? `Tu mensaje no pudo enviarse: ${data.details}. Intenta uno más corto.`
