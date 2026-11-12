@@ -3,7 +3,8 @@ import {
   barrerRespaldosDeRondaCerrada, barrerRespaldosViejos, borrarRespaldosDeRonda, codigosConRespaldoDeRondaCerrada,
   codigosConRespaldoPendiente, contarHoyosPendientes, desmarcarRespaldosDeRondaCerrada, leerRespaldoPendiente,
   marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada,
-  DIAS_RETENCION_RESPALDO_RECHAZADO, DIAS_RETENCION_RESPALDO_RONDA_CERRADA, DIAS_RETENCION_RESPALDO_SINCRONIZADO,
+  DIAS_RETENCION_RECHAZADO_EN_FIRME, DIAS_RETENCION_RESPALDO_RONDA_CERRADA, DIAS_RETENCION_RESPALDO_SINCRONIZADO,
+  relojPlausible,
 } from './respaldo-local'
 
 const respaldo = (codigo: string, jugador: string, scores: Record<number, number>, sincronizado = false) =>
@@ -103,14 +104,14 @@ describe('respaldo-local — tarjeta rechazada en firme con la ronda abierta (re
 })
 
 describe('barrerRespaldosViejos', () => {
-  const ahora = 100 * DIA
+  const ahora = Date.UTC(2026, 10, 1)
   const conFecha = (codigo: string, extra: object) => localStorage.setItem(`golfers_score_${codigo}_p1`,
     JSON.stringify({ scores: { 1: 4 }, timestamp: ahora, sincronizado: false, codigoRonda: codigo, jugadorId: 'p1', ...extra }))
 
   it('barre lo sincronizado y lo rechazado viejos; nunca lo sin enviar, ni de una ronda vista cerrada hace mucho', () => {
     conFecha('SYNVIE', { sincronizado: true, timestamp: ahora - (DIAS_RETENCION_RESPALDO_SINCRONIZADO + 1) * DIA })
     conFecha('SYNNUE', { sincronizado: true, timestamp: ahora - 1 * DIA })
-    conFecha('RECVIE', { rechazadaEn: ahora - (DIAS_RETENCION_RESPALDO_RECHAZADO + 1) * DIA })
+    conFecha('RECVIE', { rechazadaEn: ahora - (DIAS_RETENCION_RECHAZADO_EN_FIRME + 1) * DIA })
     conFecha('RECNUE', { rechazadaEn: ahora - 1 * DIA })
     // Vista cerrada hace más de 30 días: pudo reabrirse. Sin preguntarle al servidor no se toca (revisión 3).
     conFecha('CERVIE', { rondaCerradaEn: ahora - (DIAS_RETENCION_RESPALDO_RONDA_CERRADA + 1) * DIA })
@@ -118,6 +119,60 @@ describe('barrerRespaldosViejos', () => {
     barrerRespaldosViejos(ahora)
     const quedan = Object.keys(localStorage).sort()
     expect(quedan).toEqual(['golfers_score_ABIVIE_p1', 'golfers_score_CERVIE_p1', 'golfers_score_RECNUE_p1', 'golfers_score_SYNNUE_p1'])
+  })
+
+  it('una tarjeta rechazada con fecha de un reloj en 2010 no se borra: el plazo parte de nuevo', () => {
+    conFecha('RECANT', { rechazadaEn: Date.UTC(2010, 0, 1) })
+    barrerRespaldosViejos(ahora)
+    expect(JSON.parse(localStorage.getItem('golfers_score_RECANT_p1')!)).toMatchObject({ rechazadaEn: ahora, scores: { 1: 4 } })
+    barrerRespaldosViejos(ahora + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA)
+    expect(Object.keys(localStorage)).toHaveLength(1)
+    barrerRespaldosViejos(ahora + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
+    expect(Object.keys(localStorage)).toEqual([])
+  })
+
+  it('una tarjeta rechazada con fecha futura se deja como está y vence cuando la hora real la alcanza más el plazo', () => {
+    const futura = ahora + 365 * DIA
+    conFecha('RECFUT', { rechazadaEn: futura })
+    barrerRespaldosViejos(ahora)
+    expect(JSON.parse(localStorage.getItem('golfers_score_RECFUT_p1')!).rechazadaEn).toBe(futura)
+    barrerRespaldosViejos(futura + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA)
+    expect(Object.keys(localStorage)).toHaveLength(1)
+    barrerRespaldosViejos(futura + DIAS_RETENCION_RECHAZADO_EN_FIRME * DIA + 1)
+    expect(Object.keys(localStorage)).toEqual([])
+  })
+
+  it('reloj atrasado pero plausible al barrer (Android sin red en la fecha de compilación): al volver la hora real la tarjeta sigue', () => {
+    conFecha('RECREAL', { rechazadaEn: ahora })
+    // Precondición: el reloj atrasado tiene que pasar el piso, si no el test pasa en vacío por el guard de arriba.
+    expect(relojPlausible(ahora - 120 * DIA)).toBe(true)
+    barrerRespaldosViejos(ahora - 120 * DIA)
+    barrerRespaldosViejos(ahora + DIA)
+    expect(JSON.parse(localStorage.getItem('golfers_score_RECREAL_p1')!).rechazadaEn).toBe(ahora)
+  })
+
+  it('con el reloj del teléfono en 2010 (se reinició sin red) no barre ni reescribe nada', () => {
+    conFecha('RECVIE', { rechazadaEn: ahora - (DIAS_RETENCION_RECHAZADO_EN_FIRME + 1) * DIA })
+    conFecha('SYNVIE', { sincronizado: true, timestamp: ahora - (DIAS_RETENCION_RESPALDO_SINCRONIZADO + 1) * DIA })
+    conFecha('CERVIE', { rondaCerradaEn: ahora - (DIAS_RETENCION_RESPALDO_RONDA_CERRADA + 1) * DIA })
+    const antes = { ...localStorage }
+    barrerRespaldosViejos(Date.UTC(2010, 0, 1))
+    barrerRespaldosDeRondaCerrada('CERVIE', Date.UTC(2010, 0, 1))
+    expect({ ...localStorage }).toEqual(antes)
+  })
+
+  it('barrerRespaldosDeRondaCerrada: una marca de cierre con fecha que no sirve reinicia el plazo en vez de borrar', () => {
+    conFecha('CERANT', { rondaCerradaEn: Date.UTC(2010, 0, 1) })
+    barrerRespaldosDeRondaCerrada('CERANT', ahora)
+    expect(JSON.parse(localStorage.getItem('golfers_score_CERANT_p1')!).rondaCerradaEn).toBe(ahora)
+  })
+
+  it('barrerRespaldosDeRondaCerrada: reloj atrasado pero plausible no reescribe la marca; al volver la hora real sigue', () => {
+    conFecha('CERREAL', { rondaCerradaEn: ahora })
+    expect(relojPlausible(ahora - 120 * DIA)).toBe(true)
+    barrerRespaldosDeRondaCerrada('CERREAL', ahora - 120 * DIA)
+    barrerRespaldosDeRondaCerrada('CERREAL', ahora + DIA)
+    expect(leer('CERREAL', 'p1')).toMatchObject({ rondaCerradaEn: ahora, scores: { 1: 4 } })
   })
 
   it('barrerRespaldosDeRondaCerrada: sólo esa ronda, sólo lo marcado pasado su plazo', () => {

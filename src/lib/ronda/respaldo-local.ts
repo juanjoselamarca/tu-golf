@@ -9,7 +9,7 @@ import { borrarClavesConPrefijo } from '@/lib/local-storage-prefijo'
 
 export const PREFIJO_RESPALDO = 'golfers_score_'
 
-const DIA_MS = 24 * 60 * 60 * 1000
+export const DIA_MS = 24 * 60 * 60 * 1000
 /** Un respaldo ya confirmado por el servidor se guarda una semana más y se barre. */
 export const DIAS_RETENCION_RESPALDO_SINCRONIZADO = 7
 /**
@@ -18,8 +18,39 @@ export const DIAS_RETENCION_RESPALDO_SINCRONIZADO = 7
  * Pasado este plazo desde que se vio cerrada, se barre.
  */
 export const DIAS_RETENCION_RESPALDO_RONDA_CERRADA = 30
-/** Una tarjeta que el servidor rechazó en firme (ver `rechazadaEn`) se guarda una semana y se barre. */
-export const DIAS_RETENCION_RESPALDO_RECHAZADO = 7
+/**
+ * Golpes que el servidor rechazó en firme con la ronda abierta (el jugador ya no está o el valor es inválido):
+ * la tarjeta del scorer individual (`rechazadaEn`) y los golpes apartados del scorer de grupo
+ * (`apartarRechazados`). Un solo plazo para los dos: junto al golpe inválido pueden viajar golpes válidos
+ * (una corrección) que solo viven en el teléfono, así que se guardan lo mismo que un respaldo de ronda cerrada.
+ */
+export const DIAS_RETENCION_RECHAZADO_EN_FIRME = DIAS_RETENCION_RESPALDO_RONDA_CERRADA
+
+/**
+ * Un reloj del teléfono anterior a esta fecha está mal (se reinició sin red y quedó en 2010, por ejemplo). Con
+ * ese reloj no se barre nada, y una marca escrita con él no sirve para contar un plazo.
+ */
+export const RELOJ_MINIMO_PLAUSIBLE = Date.UTC(2026, 0, 1)
+export const relojPlausible = (ahora: number): boolean => ahora >= RELOJ_MINIMO_PLAUSIBLE
+
+export type EstadoDelPlazo = 'vigente' | 'vencido' | 'reiniciar'
+
+/**
+ * En qué va un plazo de retención que partió en `desde`. Ante la duda se guarda de más:
+ * - con el reloj implausible ahora, nada vence;
+ * - una marca sin fecha o anterior a `RELOJ_MINIMO_PLAUSIBLE` no sirve para contar: 'reiniciar' (desde `ahora`);
+ * - una marca futura se deja como está: no se sabe si el reloj estaba adelantado al escribirla o está atrasado
+ *   ahora (Android sin red arranca en la fecha de compilación del sistema, que pasa el piso). Reescribirla con un
+ *   `ahora` atrasado la haría vencer apenas vuelva la hora real. Vence cuando la hora real la alcance más el plazo.
+ * Límite: sin una hora confiable, si el reloj al barrer va más adelantado que el que escribió la marca (reloj
+ * adelantado a mano, o una marca escrita con el reloj atrasado) el plazo vence antes de tiempo. Ver issue #780.
+ */
+export function estadoDelPlazo(desde: number | null | undefined, ahora: number, dias: number): EstadoDelPlazo {
+  if (!relojPlausible(ahora)) return 'vigente'
+  if (desde == null || !Number.isFinite(desde) || desde < RELOJ_MINIMO_PLAUSIBLE) return 'reiniciar'
+  if (desde > ahora) return 'vigente'
+  return ahora - desde > dias * DIA_MS ? 'vencido' : 'vigente'
+}
 
 export interface RespaldoLocal {
   scores: Record<number, number>
@@ -36,7 +67,7 @@ export interface RespaldoLocal {
   /**
    * Cuándo el servidor rechazó esta tarjeta en firme con la ronda abierta (el jugador ya no está en
    * ella, o un valor inválido): reenviarla da el mismo rechazo. Sale del banner y del reenvío, y se
-   * barre a los `DIAS_RETENCION_RESPALDO_RECHAZADO` días. Un golpe nuevo reescribe el respaldo sin
+   * barre a los `DIAS_RETENCION_RECHAZADO_EN_FIRME` días. Un golpe nuevo reescribe el respaldo sin
    * esta marca (vuelve a intentarse).
    */
   rechazadaEn?: number
@@ -169,25 +200,39 @@ export function marcarRespaldoRechazado(
   })
 }
 
-/** Borra los respaldos para los que `viejo` da true (primero junta las claves: borrar mientras se recorre corre los índices). */
-function borrarRespaldosSi(viejo: (clave: string, r: RespaldoLocal) => boolean): void {
-  const viejas = leerTodos().filter(({ clave, r }) => viejo(clave, r)).map(({ clave }) => clave)
-  for (const clave of viejas) {
-    try { localStorage.removeItem(clave) } catch { /* silencioso */ }
+/**
+ * Recorre los respaldos con el plazo que `plazo` les da: borra los vencidos y reescribe los que deben reiniciar
+ * (con `reiniciar`). Primero junta las claves: borrar mientras se recorre corre los índices.
+ */
+function barrerRespaldosSi(
+  plazo: (clave: string, r: RespaldoLocal) => EstadoDelPlazo | null, reiniciar: (r: RespaldoLocal) => void = () => {},
+): void {
+  const conPlazo = leerTodos().map(({ clave, r }) => ({ clave, r, estado: plazo(clave, r) }))
+  for (const { clave, r, estado } of conPlazo) {
+    try {
+      if (estado === 'vencido') localStorage.removeItem(clave)
+      else if (estado === 'reiniciar') { reiniciar(r); localStorage.setItem(clave, JSON.stringify(r)) }
+    } catch { /* silencioso */ }
   }
 }
 
 /**
  * Barre lo que ya no sirve sin preguntarle al servidor: respaldos confirmados hace más de
  * `DIAS_RETENCION_RESPALDO_SINCRONIZADO` días y rechazados en firme hace más de
- * `DIAS_RETENCION_RESPALDO_RECHAZADO`. Lo sin enviar no se toca acá, ni siquiera el de una ronda
+ * `DIAS_RETENCION_RECHAZADO_EN_FIRME`. Lo sin enviar no se toca acá, ni siquiera el de una ronda
  * vista cerrada hace mucho: pudo reabrirse. Ese lo barre el conciliador con
- * `barrerRespaldosDeRondaCerrada`, recién después de confirmar que sigue cerrada.
+ * `barrerRespaldosDeRondaCerrada`, recién después de confirmar que sigue cerrada. Con el reloj implausible no
+ * barre nada (ver `estadoDelPlazo`).
  */
 export function barrerRespaldosViejos(ahora = Date.now()): void {
-  borrarRespaldosSi((_, r) =>
-    (r.sincronizado && ahora - r.timestamp > DIAS_RETENCION_RESPALDO_SINCRONIZADO * DIA_MS) ||
-    (!r.sincronizado && r.rechazadaEn != null && ahora - r.rechazadaEn > DIAS_RETENCION_RESPALDO_RECHAZADO * DIA_MS),
+  if (!relojPlausible(ahora)) return
+  barrerRespaldosSi(
+    (_, r) => {
+      // Ya está en el servidor: borrarlo antes de tiempo no pierde nada, y no se reescribe.
+      if (r.sincronizado) return ahora - r.timestamp > DIAS_RETENCION_RESPALDO_SINCRONIZADO * DIA_MS ? 'vencido' : null
+      return r.rechazadaEn != null ? estadoDelPlazo(r.rechazadaEn, ahora, DIAS_RETENCION_RECHAZADO_EN_FIRME) : null
+    },
+    r => { r.rechazadaEn = ahora },
   )
 }
 
@@ -197,10 +242,13 @@ export function barrerRespaldosViejos(ahora = Date.now()): void {
  * antes y no pierde nada.
  */
 export function barrerRespaldosDeRondaCerrada(codigoRonda: string, ahora = Date.now()): void {
+  if (!relojPlausible(ahora)) return
   const prefijo = claveDelRespaldo(codigoRonda, '')
-  borrarRespaldosSi((clave, r) =>
-    clave.startsWith(prefijo) && !r.sincronizado && r.rondaCerradaEn != null &&
-    ahora - r.rondaCerradaEn > DIAS_RETENCION_RESPALDO_RONDA_CERRADA * DIA_MS,
+  barrerRespaldosSi(
+    (clave, r) => clave.startsWith(prefijo) && !r.sincronizado && r.rondaCerradaEn != null
+      ? estadoDelPlazo(r.rondaCerradaEn, ahora, DIAS_RETENCION_RESPALDO_RONDA_CERRADA)
+      : null,
+    r => { r.rondaCerradaEn = ahora },
   )
 }
 

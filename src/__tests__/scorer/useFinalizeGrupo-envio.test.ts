@@ -10,7 +10,7 @@ import { useFinalizeGrupo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/u
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { leerPendientes, leerRechazados, hayPendientes, apartarRechazados } from '@/lib/ronda/score-storage'
 import { contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_RONDA_YA_FINALIZADA, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }))
@@ -169,17 +169,18 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
   })
 
-  it('P0001 con la ronda viva (el organizador sacó a Beto): cierra igual y sus golpes quedan apartados en el teléfono', async () => {
+  it('P0001 con la ronda viva (el organizador sacó a Beto): cierra igual y, cerrada, sus golpes apartados se borran (nadie los reenvía)', async () => {
     rechazaA('p2', 'P0001')
     const { result } = montar()
     await finalizar(result)
     expect(addToast).not.toHaveBeenCalledWith(avisoBeto)
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
-    expect(leerRechazados('ABC').p2).toMatchObject({ 10: 5 })
+    // P3-3 del #763: antes quedaban huérfanos para siempre (ni se leían ni se barrían).
+    expect(leerRechazados('ABC')).toEqual({})
   })
 
-  it('Beto rechazado antes y ya no aparece en la pantalla: su rechazo no bloquea Finalizar y sus golpes no se borran', async () => {
+  it('Beto rechazado antes y ya no aparece en la pantalla: su rechazo no bloquea Finalizar; cerrada, sus apartados se borran', async () => {
     rechazaA('p2', 'P0004')
     const { result, rerender } = montar()
     await act(async () => { await result.current.save.saveAllScores({ p2: { 10: 5 } }) })
@@ -189,7 +190,7 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     await finalizar(result)
     expect(addToast).not.toHaveBeenCalledWith(avisoBeto)
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
-    expect(leerRechazados('ABC').p2).toEqual({ 10: 5 })
+    expect(leerRechazados('ABC')).toEqual({})
   })
 
   it('la misma tarjeta vuelve a ser rechazada sin cambios: sigue bloqueado con el mismo aviso', async () => {
@@ -201,18 +202,50 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     expect(addToast.mock.calls.filter(c => (c[0] as { title: string }).title === avisoTarjetasNoGuardadas(['Beto']).title)).toHaveLength(2)
   })
 
-  it('el reenvío de la tarjeta rechazada no tiene señal: el aviso nombra a Beto y dice que es por señal', async () => {
+  // P3-2 del #763: sin señal no sube NINGUNA tarjeta, no sólo la de Beto: el aviso es el de siempre, sin nombres.
+  it('el reenvío de la tarjeta rechazada no tiene señal (ni el resto): "sin servidor", sin nombrar a nadie', async () => {
     rechazaA('p2', 'P0004')
     const { result } = montar()
     await act(async () => { await result.current.save.saveAllScores({ p2: { 10: 5 } }) })
     saveRondaLibreScores.mockImplementation(async () => ({ error: { code: 'SIN_RESPUESTA' } }))
+    addToast.mockClear()
     await finalizar(result)
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
-    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'No pudimos guardar la tarjeta de Beto por falta de señal.',
-      message: 'Vuelve a finalizar cuando tengas conexión.',
-    }))
-    expect(addToast).not.toHaveBeenCalledWith(avisoBeto)
+    expect(addToast).toHaveBeenCalledWith(avisoSinServidor)
+    expect(addToast.mock.calls.some(c => /Beto/.test((c[0] as { title: string }).title))).toBe(false)
+  })
+
+  it('Beto rechazado de nuevo y Ana sin señal: el aviso nombra sólo a Beto (lo único que hay que revisar)', async () => {
+    saveRondaLibreScores.mockImplementation(async (_c, a) => ({ error: { code: a.jugadorId === 'p2' ? 'P0004' : 'SIN_RESPUESTA' } }))
+    const { result } = montar()
+    await finalizar(result)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(avisoBeto)
+  })
+
+  // P3-1 del #763: un envío en vuelo cuando se toca Finalizar. Su vuelta extra (la que pidió Finalizar)
+  // reenvía la tarjeta rechazada; antes des-silenciaba y salía el aviso genérico encima del que nombra.
+  it('Finalizar con un envío en vuelo: la vuelta extra sigue en silencio y sale un solo aviso, el que nombra', async () => {
+    let soltar: (() => void) | undefined
+    let primera = true
+    saveRondaLibreScores.mockImplementation(async (_c, a) => {
+      if (primera && a.jugadorId === 'p1') { primera = false; await new Promise<void>(r => { soltar = r }) }
+      return { error: a.jugadorId === 'p2' ? { code: 'P0004' } : null }
+    })
+    const { result } = montar()
+    let envio: Promise<unknown> | undefined
+    act(() => { envio = result.current.save.saveAllScores({ p1: { 10: 4 } }) })
+    await waitFor(() => expect(soltar).toBeDefined())
+    // Primer toque: pide confirmación; el segundo finaliza (y espera el envío en vuelo).
+    act(() => { void result.current.fin.finalizeRound() })
+    let fin: Promise<unknown> | undefined
+    act(() => { fin = result.current.fin.finalizeRound() })
+    await new Promise(r => setTimeout(r, 20))
+    soltar!()
+    await act(async () => { await envio; await fin })
+    await waitFor(() => expect(addToast).toHaveBeenCalledWith(avisoBeto))
+    expect(addToast).not.toHaveBeenCalledWith(avisoGenerico)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
   it('el organizador sacó a Beto (P0001, ronda viva): al reabrir sin él, su tarjeta apartada no bloquea Finalizar', async () => {
@@ -248,6 +281,8 @@ describe('Finalizar (grupo) usa la clasificación del envío', () => {
     rechazaA('p1', 'P0002')
     const { result } = montar()
     await finalizar(result)
+    // P3-1 del #763: el silencio de Finalizar tapaba el P0002; ahora se avisa que ya estaba finalizada.
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining(AVISO_RONDA_YA_FINALIZADA))
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(contarHoyosPendientes()).toBe(0)
     expect(leerRespaldoPendiente('ABC', 'p1')).toEqual({ 12: 6 })

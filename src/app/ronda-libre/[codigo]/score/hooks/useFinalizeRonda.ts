@@ -44,7 +44,7 @@ import { saveScores as lsSave, limpiarCopiaLocalDeRonda } from '@/lib/ronda/scor
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA } from '@/components/ronda/finalizar-copy'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/ConfirmarFinalizarHoja'
 import type { ResultadoGuardado } from './useScoreSave'
 import type { HoleData, RondaLibre } from '@/types/ronda'
@@ -195,7 +195,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     // Lo que no subió (un guardado que falló con señal) sale del banner y se guarda: este camino no
     // pasa por `guardarAhora`, y sin la marca quedaba "Sincronizando N hoyos…" en toda la app.
     if (yaFinalizada) {
-      addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+      addToast({ ...AVISO_RONDA_YA_FINALIZADA, type: 'info' })
       marcarRespaldosDeRondaCerrada(codigo)
     }
 

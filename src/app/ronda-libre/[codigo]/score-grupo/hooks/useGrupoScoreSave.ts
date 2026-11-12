@@ -94,12 +94,12 @@ export type EstadoTrasEnvio = 'ronda_cerrada' | 'ronda_abierta' | 'ronda_borrada
  * rechazó en firme y siguen rechazadas (P0004/22023 = INVALID_DELTA). Sus golpes están apartados en el
  * teléfono (`apartarRechazados`): Finalizar no cierra con ellas y nombra a cada una. Sólo tarjetas que
  * la pantalla muestra y que siguen en la ronda: un P0001 con la ronda viva (el jugador ya no está) aparta
- * sus golpes pero no bloquea Finalizar. `causa`: 'rechazo' (el servidor la rechazó) o 'sin_senal' (el
- * reenvío de esta vez no tuvo respuesta: sus golpes siguen pendientes de subir).
+ * sus golpes pero no bloquea Finalizar. Una rechazada antes cuyo reenvío de esta vez no tuvo respuesta no
+ * está: sus golpes siguen pendientes de subir y eso es falta de señal, no un rechazo (`hayPendientes`).
  */
 export interface ResultadoEnvio {
   estado: EstadoTrasEnvio
-  rechazadas: { id: string; code: string; causa: 'rechazo' | 'sin_senal' }[]
+  rechazadas: { id: string; code: string }[]
 }
 
 /**
@@ -148,7 +148,10 @@ export function useGrupoScoreSave(input: {
   const rechazadasRef = useRef(new Map<string, string>())
   /** Tarjetas que el servidor confirmó fuera de la ronda (P0001 con la ronda viva): apartadas, no bloquean. */
   const fueraDeRondaRef = useRef(new Set<string>())
-  /** Finalizar reenvía las rechazadas y avisa con nombre: el aviso genérico del rechazo no sale encima. */
+  /**
+   * Finalizar reenvía las rechazadas y avisa con nombre: el aviso genérico del rechazo no sale encima. Dura
+   * todo el ciclo de Finalizar, incluida la vuelta extra que corre al terminar un envío que estaba en vuelo.
+   */
   const silenciarAvisoRef = useRef(false)
   /** Ciclo de envío en curso (incluye la vuelta extra que pidió quien llegó mientras viajaba). */
   const cicloRef = useRef<Promise<void> | null>(null)
@@ -356,18 +359,22 @@ export function useGrupoScoreSave(input: {
         if (Object.keys(libres).length > 0) marcarPendientes(codigo, id, libres)
       }
     }
-    silenciarAvisoRef.current = Boolean(opciones?.reintentarRechazados)
+    // Sólo Finalizar silencia, y deja el silencio como estaba: la vuelta extra (`sincronizarRef`, sin opciones)
+    // corre dentro de su ciclo y no debe des-silenciarlo (salía el genérico encima del aviso con nombre).
+    const silenciar = Boolean(opciones?.reintentarRechazados)
+    const silencioPrevio = silenciarAvisoRef.current
+    if (silenciar) silenciarAvisoRef.current = true
     try {
       await enviarTodo(overrideScores)
     } finally {
-      silenciarAvisoRef.current = false
+      if (silenciar) silenciarAvisoRef.current = silencioPrevio
     }
     if (rondaBorradaRef.current) return { estado: 'ronda_borrada', rechazadas: [] }
     const despues = vigentes()
     const pendientes = leerPendientes(codigo)
     const rechazadas = [...rechazadasRef.current]
-      .filter(([id]) => despues.has(id))
-      .map(([id, code]) => ({ id, code, causa: Object.keys(pendientes[id] ?? {}).length > 0 ? 'sin_senal' as const : 'rechazo' as const }))
+      .filter(([id]) => despues.has(id) && Object.keys(pendientes[id] ?? {}).length === 0)
+      .map(([id, code]) => ({ id, code }))
     return { estado: rondaCerradaRef.current ? 'ronda_cerrada' : 'ronda_abierta', rechazadas }
   }, [enviarTodo, ronda, codigo])
 
