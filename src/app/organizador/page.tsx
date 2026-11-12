@@ -12,6 +12,7 @@ import { getPageUser } from '@/lib/auth/getPageUser'
 import { FORMATS } from '@/golf/formats'
 import { tournamentStatusBadge } from '@/golf/tournament-status'
 import { loginUrl } from '@/lib/auth/login-url'
+import { formatDate } from '@/lib/format'
 
 export const metadata: Metadata = {
   title: 'Mis Torneos — Golfers+',
@@ -34,13 +35,9 @@ interface TournamentRow {
 
 // ─── Helpers ───
 
-function formatDate(iso: string | null): string {
-  if (!iso) return 'Sin fecha'
-  return new Date(iso).toLocaleDateString('es-CL', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+// Fecha corta canónica (DESIGN.md §8): "1 sep 2026", igual que el resto de la app.
+function fechaCorta(iso: string | null): string {
+  return iso ? formatDate(iso, 'short') || 'Sin fecha' : 'Sin fecha'
 }
 
 // ─── Page ───
@@ -192,7 +189,7 @@ function TournamentCard({ tournament: t }: { tournament: TournamentRow }) {
         >
           <span className="inline-flex items-center gap-1">
             <Calendar size={13} />
-            {formatDate(t.date_start)}
+            {fechaCorta(t.date_start)}
           </span>
           <span className="inline-flex items-center gap-1">
             <Flag size={13} />
@@ -225,7 +222,7 @@ function DraftCard({ id, name, updatedAt }: { id: string; name: string | null; u
         {name || 'Borrador sin nombre'}
       </span>
       <span className="shrink-0 text-xs" style={{ color: 'var(--text-2)' }}>
-        {formatDate(updatedAt)}
+        {fechaCorta(updatedAt)}
       </span>
     </Link>
   )
