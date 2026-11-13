@@ -587,14 +587,14 @@ describe('P0003 con la sesión cerrada (hunter 13-nov)', () => {
     localStorage.setItem('golfers_score_ABC123_p1', JSON.stringify({ scores: { 1: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: 'p1' }))
     mockRpc.mockResolvedValue(P0003)
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
-    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), authUserId: 'u1' }))
     await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
     await flushDebounce()
     expect(mockRpc).toHaveBeenCalledTimes(1)
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Tu sesión se cerró' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No puedes anotar esta tarjeta' }))
     expect(assign).toHaveBeenCalledTimes(1)
-    expect(assign).toHaveBeenCalledWith('/ronda-libre/ABC123/score')
+    expect(assign).toHaveBeenCalledWith('/ronda-libre/ABC123/score?j=p1')
     expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
     expect(result.current.saveStatus).toBe('error')
   })
@@ -602,7 +602,7 @@ describe('P0003 con la sesión cerrada (hunter 13-nov)', () => {
   it('sin sesión: golpes siguientes no repiten el aviso ni el viaje al login', async () => {
     mockRpc.mockResolvedValue(P0003)
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
-    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), authUserId: 'u1' }))
     await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
     await flushDebounce()
     await act(async () => { await result.current.saveScores('p1', { 1: 4, 2: 5 }) })
@@ -613,7 +613,7 @@ describe('P0003 con la sesión cerrada (hunter 13-nov)', () => {
 
   it('con sesión (tarjeta de otro): sigue el aviso de permiso y no se va al login', async () => {
     mockRpc.mockResolvedValue(P0003)
-    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), authUserId: 'u1' }))
     await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
     await flushDebounce()
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No puedes anotar esta tarjeta' }))
@@ -623,7 +623,7 @@ describe('P0003 con la sesión cerrada (hunter 13-nov)', () => {
   it('Finalizar sin sesión: devuelve sin_permiso (Finalizar no cierra) y lleva al login', async () => {
     mockRpc.mockResolvedValue(P0003)
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
-    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), authUserId: 'u1' }))
     let r: string | undefined
     await act(async () => { r = await result.current.guardarAhora('p1', { 1: 4 }) })
     await act(async () => { await vi.runAllTimersAsync() })
@@ -634,10 +634,32 @@ describe('P0003 con la sesión cerrada (hunter 13-nov)', () => {
   it('ronda demo sin sesión (P0003 "ronda demo"): no manda al login', async () => {
     mockRpc.mockResolvedValue({ data: null, error: { code: 'P0003', message: 'RONDA_FORBIDDEN', details: 'ronda demo' } })
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
-    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), authUserId: 'u1' }))
     await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
     await flushDebounce()
     expect(assign).not.toHaveBeenCalled()
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Tu sesión se cerró' }))
+  })
+
+  it('nunca tuvo sesión (link abierto por otro, tarjeta de un jugador con cuenta): aviso de permiso, no va al login', async () => {
+    mockRpc.mockResolvedValue(P0003)
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null })
+    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), authUserId: null }))
+    await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+    await flushDebounce()
+    expect(assign).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No puedes anotar esta tarjeta' }))
+  })
+
+  it('no se puede confirmar la sesión (refresh caído por red): como falta de conexión, no va al login', async () => {
+    mockRpc.mockResolvedValue(P0003)
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: { message: 'Failed to fetch' } })
+    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), authUserId: 'u1' }))
+    await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+    await flushDebounce()
+    expect(assign).not.toHaveBeenCalled()
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Tu sesión se cerró' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No puedes anotar esta tarjeta' }))
+    expect(result.current.saveStatus).toBe('error')
   })
 })

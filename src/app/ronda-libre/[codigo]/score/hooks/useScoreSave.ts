@@ -11,6 +11,7 @@ import { RONDA_ERRCODE, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cier
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE, AVISO_SESION_CERRADA, AVISO_TARJETA_RECHAZADA, ESPERA_IR_AL_LOGIN_MS } from '@/components/ronda/finalizar-copy'
 import { irAlLogin } from '@/lib/auth/ir-al-login'
+import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 
@@ -26,6 +27,11 @@ interface UseScoreSaveOptions {
   onRondaFinalized?: () => void
   /** La ronda ya no existe (P0001): las copias locales ya se borraron; sacar al jugador. */
   onRondaNoExiste?: () => void
+  /**
+   * Quién tenía sesión al abrir el scorer (`useRondaScoreData`). Sólo si había sesión y ya no la hay, un
+   * P0003 es "se cerró la sesión" y se va al login; quien nunca entró ve el aviso de permiso de siempre.
+   */
+  authUserId?: string | null
 }
 
 /**
@@ -63,7 +69,7 @@ export interface UseScoreSaveResult {
  * - Callbacks para UI feedback (onSaveSuccess) y navegacion (onRondaFinalized)
  */
 export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
-  const { codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste } = opts
+  const { codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste, authUserId = null } = opts
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
@@ -158,10 +164,12 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       // se cerró en otro dispositivo), el RPC corrió como anónimo: no es la tarjeta, es la sesión.
       else if (error.code === RONDA_ERRCODE.FORBIDDEN) {
         forbiddenRpc = true
-        // La ronda demo también responde P0003 (y se mira sin sesión): ahí el login no arregla nada.
-        if (error.details !== 'ronda demo') {
-          const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
-          sinSesion = !data.session
+        // Sólo cuenta si al abrir había sesión (quien nunca entró ve el aviso de permiso) y no es la ronda demo
+        // (también responde P0003). Sin poder confirmar la sesión (red), como falta de conexión: no se va al login.
+        if (authUserId && error.details !== 'ronda demo') {
+          const sesion = await sesionDelScorer(supabase)
+          if (sesion.estado === 'sin_sesion') sinSesion = true
+          else if (sesion.estado === 'sin_conexion') forbiddenRpc = false  // cae en !success → 'sin_conexion'
         }
         break
       }
@@ -232,7 +240,10 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       if (yendoAlLoginRef.current) return 'sin_permiso'
       yendoAlLoginRef.current = true
       addToast({ ...AVISO_SESION_CERRADA, type: 'warning', duration: ESPERA_IR_AL_LOGIN_MS + 1000 })
-      setTimeout(() => { irAlLogin(`/ronda-libre/${codigo}/score`) }, ESPERA_IR_AL_LOGIN_MS)
+      // Vuelve a ESTA tarjeta (?j): si no, el scorer abre la del dueño y el respaldo de ésta no se reenvía.
+      // La navegación es dura (no desmonta React): lo que esperaba en el debounce ya está en el respaldo
+      // local (guardarLocal) y se reenvía al volver.
+      setTimeout(() => { irAlLogin(`/ronda-libre/${codigo}/score?j=${encodeURIComponent(jugadorId)}`) }, ESPERA_IR_AL_LOGIN_MS)
       return 'sin_permiso'
     }
     if (forbiddenRpc) {
@@ -252,7 +263,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       setTimeout(() => setSaveStatus('idle'), 1500)
       return 'guardado'
     }
-  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste])
+  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste, authUserId])
 
   const executeSave = useCallback((
     jugadorId: string,

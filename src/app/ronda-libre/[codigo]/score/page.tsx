@@ -119,6 +119,7 @@ function ScorePageContent() {
     onRondaFinalized,
     // La ronda se borró mientras se anotaba: el aviso y la limpieza ya los hizo el guardado.
     onRondaNoExiste: onDiscardSuccess,
+    authUserId,
   })
 
   const { view, setView, gwi } = useGwiLeaderboard(codigo)
