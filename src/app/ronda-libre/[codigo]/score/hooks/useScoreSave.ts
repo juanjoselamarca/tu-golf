@@ -9,7 +9,9 @@ import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
 import { RONDA_ERRCODE, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cierre'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
-import { AVISO_RONDA_NO_EXISTE, AVISO_TARJETA_RECHAZADA } from '@/components/ronda/finalizar-copy'
+import { AVISO_RONDA_NO_EXISTE, AVISO_SESION_CERRADA, AVISO_TARJETA_RECHAZADA, ESPERA_IR_AL_LOGIN_MS } from '@/components/ronda/finalizar-copy'
+import { irAlLogin } from '@/lib/auth/ir-al-login'
+import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 
@@ -25,6 +27,11 @@ interface UseScoreSaveOptions {
   onRondaFinalized?: () => void
   /** La ronda ya no existe (P0001): las copias locales ya se borraron; sacar al jugador. */
   onRondaNoExiste?: () => void
+  /**
+   * Quién tenía sesión al abrir el scorer (`useRondaScoreData`). Sólo si había sesión y ya no la hay, un
+   * P0003 es "se cerró la sesión" y se va al login; quien nunca entró ve el aviso de permiso de siempre.
+   */
+  authUserId?: string | null
 }
 
 /**
@@ -62,7 +69,7 @@ export interface UseScoreSaveResult {
  * - Callbacks para UI feedback (onSaveSuccess) y navegacion (onRondaFinalized)
  */
 export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
-  const { codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste } = opts
+  const { codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste, authUserId = null } = opts
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
@@ -76,6 +83,8 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   // El servidor dijo que la ronda ya no existe (P0001) y las copias locales se borraron: desde acá
   // nada vuelve a escribir el respaldo (un toque más lo recrearía y el banner volvería para siempre).
   const rondaBorradaRef = useRef(false)
+  // Ya se avisó que la sesión se cerró y se va al login: los guardados siguientes no repiten el aviso.
+  const yendoAlLoginRef = useRef(false)
 
   // Cleanup: si el componente se desmonta con un save pendiente, disparar
   // inmediatamente para no perder el último tap (CERO FALLOS).
@@ -140,6 +149,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     let success = false
     let rondaFinalizedRpc = false
     let forbiddenRpc = false
+    let sinSesion = false
     let noExisteRpc = false
     let rechazadoRpc = false
     let intentos = 0
@@ -150,8 +160,19 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       const { error } = await saveRondaLibreScores(supabase, { codigo, jugadorId: jugadorId, delta: scoresObj, seq })
       if (!error) { success = true }
       else if (error.code === RONDA_ERRCODE.FINALIZED) { rondaFinalizedRpc = true; break }
-      // Sin permiso sobre esta tarjeta: reintentar no cambia nada.
-      else if (error.code === RONDA_ERRCODE.FORBIDDEN) { forbiddenRpc = true; break }
+      // Sin permiso sobre esta tarjeta: reintentar no cambia nada. Si el teléfono ya no tiene sesión (expiró o
+      // se cerró en otro dispositivo), el RPC corrió como anónimo: no es la tarjeta, es la sesión.
+      else if (error.code === RONDA_ERRCODE.FORBIDDEN) {
+        forbiddenRpc = true
+        // Sólo cuenta si al abrir había sesión (quien nunca entró ve el aviso de permiso) y no es la ronda demo
+        // (también responde P0003). Sin poder confirmar la sesión (red), como falta de conexión: no se va al login.
+        if (authUserId && error.details !== 'ronda demo') {
+          const sesion = await sesionDelScorer(supabase)
+          if (sesion.estado === 'sin_sesion') sinSesion = true
+          else if (sesion.estado === 'sin_conexion') forbiddenRpc = false  // cae en !success → 'sin_conexion'
+        }
+        break
+      }
       // No encontró ronda+jugador: se confirma con la ronda antes de tratarla como borrada.
       // Borrada → salir (reintentar no la trae de vuelta). Cerrada → como P0002. Viva → rechazo de
       // esta tarjeta. Sin señal para confirmarlo → como falta de conexión, sin limpiar nada.
@@ -211,6 +232,20 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       if (paraFinalizar || !finalizandoRef.current) addToast({ ...AVISO_TARJETA_RECHAZADA, type: 'error', duration: 8000 })
       return 'rechazado'
     }
+    if (forbiddenRpc && sinSesion) {
+      setSaveStatus('error')
+      // Antes: "No puedes anotar esta tarjeta… inicia sesión con la cuenta del jugador" a quien ES el jugador,
+      // sin salida, repetido en cada golpe. El respaldo local queda pendiente (P0003 no lo descarta) y
+      // useOfflineResync lo reenvía al volver al scorer con la sesión.
+      if (yendoAlLoginRef.current) return 'sin_permiso'
+      yendoAlLoginRef.current = true
+      addToast({ ...AVISO_SESION_CERRADA, type: 'warning', duration: ESPERA_IR_AL_LOGIN_MS + 1000 })
+      // Vuelve a ESTA tarjeta (?j): si no, el scorer abre la del dueño y el respaldo de ésta no se reenvía.
+      // La navegación es dura (no desmonta React): lo que esperaba en el debounce ya está en el respaldo
+      // local (guardarLocal) y se reenvía al volver.
+      setTimeout(() => { irAlLogin(`/ronda-libre/${codigo}/score?j=${encodeURIComponent(jugadorId)}`) }, ESPERA_IR_AL_LOGIN_MS)
+      return 'sin_permiso'
+    }
     if (forbiddenRpc) {
       setSaveStatus('error')
       addToast({ type: 'error', title: 'No puedes anotar esta tarjeta', message: 'Inicia sesión con la cuenta del jugador o pídele a quien creó la ronda que anote. Tus scores están guardados en tu dispositivo.', duration: 8000 })
@@ -228,7 +263,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       setTimeout(() => setSaveStatus('idle'), 1500)
       return 'guardado'
     }
-  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste])
+  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste, authUserId])
 
   const executeSave = useCallback((
     jugadorId: string,
