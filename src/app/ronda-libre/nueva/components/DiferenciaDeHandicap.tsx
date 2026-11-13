@@ -62,25 +62,27 @@ function Detalle({ jugadorA, jugadorB, hoyos }: Props) {
   const [strokesA, strokesB] = calcularDiferenciaHandicap(jugadorA.golpes ?? 0, jugadorB.golpes ?? 0)
   const ventaja = Math.max(strokesA, strokesB)
 
-  if (ventaja === 0) {
-    return (
-      <div style={{ fontSize: '13px', color: colores.texto2 }}>
-        Mismo handicap — sin strokes de ventaja
-      </div>
-    )
-  }
-
+  const enNueve = hoyos <= 9
   const receptor = strokesA > 0 ? jugadorA.nombre : jugadorB.nombre
 
   return (
     <div style={{ fontSize: '13px', color: colores.texto2, lineHeight: 1.6 }}>
-      <strong>{receptor}</strong> recibe{' '}
-      <strong style={{ color: colores.oroTexto }}>
-        {ventaja} stroke{ventaja !== 1 ? 's' : ''}
-      </strong>{' '}
-      de ventaja{hoyos <= 9 ? ' en 9 hoyos' : ''}
-      {/* Nunca cae a los golpes: en 9 hoyos serían la mitad del HCP. */}
-      {jugadorA.hcp != null && jugadorB.hcp != null && (
+      {ventaja === 0 ? (
+        // En 9 hoyos dos HCP distintos pueden dar los mismos golpes: no se afirma
+        // "mismo handicap" junto a dos HCP que no lo son.
+        enNueve ? 'Sin strokes de ventaja en 9 hoyos' : 'Mismo handicap — sin strokes de ventaja'
+      ) : (
+        <>
+          <strong>{receptor}</strong> recibe{' '}
+          <strong style={{ color: colores.oroTexto }}>
+            {ventaja} stroke{ventaja !== 1 ? 's' : ''}
+          </strong>{' '}
+          de ventaja{enNueve ? ' en 9 hoyos' : ''}
+        </>
+      )}
+      {/* Nunca cae a los golpes: en 9 hoyos serían la mitad del HCP. En 18 con
+          ventaja 0 los HCP son iguales y la línea sobra. */}
+      {(enNueve || ventaja > 0) && jugadorA.hcp != null && jugadorB.hcp != null && (
         <>
           <br />
           <span style={{ fontSize: '11px', color: colores.texto3 }}>

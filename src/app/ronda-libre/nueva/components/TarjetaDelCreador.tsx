@@ -14,7 +14,6 @@ interface Props {
   tees: CourseTee[]
   teeGlobal: string
   onTeeGlobal: (tee: string) => void
-  /** Golpes de juego con ese índice desde ese tee; `null` si no se puede calcular. */
   /** HCP que se muestra (siempre el de 18 hoyos). */
   hcp: number | null
   /** El índice va a medio escribir o no es número: el paso no debe avanzar (ver useCampoHandicap). */

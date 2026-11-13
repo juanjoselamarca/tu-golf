@@ -43,4 +43,28 @@ describe('DiferenciaDeHandicap', () => {
     )
     expect(screen.queryByText(/HCP cancha/)).toBeNull()
   })
+
+  it('9 hoyos sin ventaja con HCP distintos: no afirma "mismo handicap"', () => {
+    render(
+      <DiferenciaDeHandicap
+        hoyos={9}
+        jugadorA={{ nombre: 'Juan', golpes: 8, hcp: 17 }}
+        jugadorB={{ nombre: 'Pedro', golpes: 8, hcp: 16 }}
+      />,
+    )
+    expect(screen.queryByText(/Mismo handicap/)).toBeNull()
+    expect(screen.getByText(/Sin strokes de ventaja en 9 hoyos/)).toBeTruthy()
+    expect(screen.getByText(/HCP cancha: 17 \(Juan\) vs 16 \(Pedro\)/)).toBeTruthy()
+  })
+
+  it('18 hoyos sin ventaja: "Mismo handicap"', () => {
+    render(
+      <DiferenciaDeHandicap
+        hoyos={18}
+        jugadorA={{ nombre: 'Juan', golpes: 15, hcp: 15 }}
+        jugadorB={{ nombre: 'Pedro', golpes: 15, hcp: 15 }}
+      />,
+    )
+    expect(screen.getByText(/Mismo handicap/)).toBeTruthy()
+  })
 })

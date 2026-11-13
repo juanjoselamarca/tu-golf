@@ -76,4 +76,28 @@ describe('useHandicapDeCancha — HCP visible vs golpes de la ronda', () => {
     await waitFor(() => expect(result.current.hcpVisibleDe(15.4, 'Azul')).not.toBeNull())
     expect(result.current.hcpVisibleDe(15.4, 'Azul')).toBe(15)
   })
+
+  it('si el 18h falla una vez, reintenta y termina en el mismo HCP que el marcador', async () => {
+    let fallas = 0
+    cargarCourseData.mockImplementation(async (_id: string, _tee: string, holes: number) => {
+      if (holes > 9 && fallas++ === 0) throw new Error('sin red')
+      return holes <= 9 ? cd9 : cd18
+    })
+    const { result } = render(9)
+    await waitFor(() => expect(result.current.hcpVisibleDe(15, 'Azul')).toBe(15))
+    await waitFor(() => expect(result.current.hcpVisibleDe(15, 'Azul')).toBe(17), { timeout: 6000 })
+  }, 10000)
+
+  it('si el 18h no vuelve, deja de reintentar (índice entero, nunca la mitad)', async () => {
+    cargarCourseData.mockImplementation(async (_id: string, _tee: string, holes: number) => {
+      if (holes > 9) throw new Error('sin red')
+      return cd9
+    })
+    const { result } = render(9)
+    await waitFor(() => expect(cargarCourseData.mock.calls.filter(c => c[2] === 18)).toHaveLength(3), { timeout: 9000 })
+    await new Promise(r => setTimeout(r, 3500))
+    expect(cargarCourseData.mock.calls.filter(c => c[2] === 18)).toHaveLength(3)
+    expect(result.current.hcpVisibleDe(15.4, 'Azul')).toBe(15)
+  }, 15000)
 })
+

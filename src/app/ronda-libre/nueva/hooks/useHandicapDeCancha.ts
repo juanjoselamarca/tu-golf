@@ -22,6 +22,10 @@ interface Args {
   teesEnJuego: string[]
 }
 
+/** Reintentos del dato de 18h tras un fallo, y la espera entre uno y otro. */
+const MAX_REINTENTOS_18H = 2
+const ESPERA_REINTENTO_18H_MS = 3000
+
 type PorIndiceYTee = (indice: number | null | undefined, tee: string | null | undefined) => number | null
 
 export interface HandicapDeCancha {
@@ -93,6 +97,13 @@ export function useHandicapDeCancha({
   /** CourseData de 18h por cancha y tee: lo llena `cargarCourseDataParaMostrar`. */
   const cache18h = useRef(new Map<string, CourseData | null>())
   const [version, setVersion] = useState(0)
+  // Claves cuyo dato de 18h falló (señal intermitente en el club). Mientras tanto
+  // se muestra el índice entero; se reintenta pocas veces para terminar en el
+  // mismo HCP que verá el marcador, que recarga el dato.
+  const reintentar18h = useRef(new Map<string, number>())
+  const [reintento, setReintento] = useState(0)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
   const claveDeCancha = `${courseId}|${holes}|${parTotal ?? ''}|${[...recorridos].sort().join(',')}`
 
@@ -104,7 +115,10 @@ export function useHandicapDeCancha({
   useEffect(() => {
     if (!courseId || tees.length === 0) return
 
-    const faltan = tees.filter(tee => !cache.current.has(`${claveDeCancha}|${tee}`))
+    const faltan = tees.filter(tee => {
+      const clave = `${claveDeCancha}|${tee}`
+      return !cache.current.has(clave) || (reintentar18h.current.get(clave) ?? 0) > 0
+    })
     if (faltan.length === 0) return
 
     let cancelado = false
@@ -130,6 +144,7 @@ export function useHandicapDeCancha({
           // Dejar la clave sin escribir escondería el HCP para siempre.
         }
         let paraMostrar: CourseData | null = null
+        let fallo18h = false
         try {
           paraMostrar = await cargarCourseDataParaMostrar(
             deLaRonda,
@@ -143,20 +158,34 @@ export function useHandicapDeCancha({
             meta: { courseId, tee, holes },
           })
           // Sin el dato de 18h se muestra el índice entero: nunca la mitad.
+          fallo18h = true
         }
-        return [tee, { deLaRonda, paraMostrar }] as const
+        return [tee, { deLaRonda, paraMostrar }, fallo18h] as const
       }),
     ).then(cargados => {
       if (cancelado) return
-      for (const [tee, data] of cargados) cache.current.set(`${claveDeCancha}|${tee}`, data)
+      let hayQueReintentar = false
+      for (const [tee, data, fallo18h] of cargados) {
+        const clave = `${claveDeCancha}|${tee}`
+        cache.current.set(clave, data)
+        const pendientes = reintentar18h.current.get(clave)
+        // 1ª falla: quedan MAX_REINTENTOS_18H. Éxito o reintentos agotados: se borra.
+        const quedan = fallo18h ? (pendientes === undefined ? MAX_REINTENTOS_18H : pendientes - 1) : 0
+        if (quedan > 0) { reintentar18h.current.set(clave, quedan); hayQueReintentar = true }
+        else reintentar18h.current.delete(clave)
+      }
       setVersion(v => v + 1)
+      if (hayQueReintentar) {
+        if (timer.current) clearTimeout(timer.current)
+        timer.current = setTimeout(() => setReintento(r => r + 1), ESPERA_REINTENTO_18H_MS)
+      }
     })
 
     return () => { cancelado = true }
     // `tees` se compara por su versión serializada: el array se reconstruye en
     // cada render y como dependencia dispararía el efecto sin parar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, claveDeCancha, listaDeTees])
+  }, [courseId, claveDeCancha, listaDeTees, reintento])
 
   const datosDe = (indice: number | null | undefined, tee: string | null | undefined): DatosDelTee | null => {
     if (indice == null || !courseId) return null
