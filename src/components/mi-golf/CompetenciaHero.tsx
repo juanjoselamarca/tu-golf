@@ -2,7 +2,9 @@
 // Hero del dashboard (ronda en vivo / próximo torneo / vacío) + acciones primarias.
 // Extraído de CompetenciaTab.tsx (680 LOC) por la regla 'el que toca, ordena'.
 import type { PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
+import type { CSSProperties } from 'react'
 import Link from 'next/link'
+import { Plus } from '@/components/icons'
 import type { Tournament, RondaLibre } from '@/lib/mi-golf/types'
 import { GOLD, TEXT, TEXT_2, BORDER, BG_SOFT } from './competencia-tokens'
 
@@ -148,6 +150,20 @@ export function HeroVacio() {
   )
 }
 
+// Links secundarios bajo "Nueva ronda". La regla global de toque (`a { min-height: 44px }`)
+// estira el link a 44 px: con `borderBottom` la raya quedaba ~30 px bajo el texto, suelta.
+// El subrayado va pegado al texto y el link se centra en su área de toque de 44 px.
+const LINK_SECUNDARIO: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  color: TEXT_2,
+  fontWeight: 500,
+  textDecoration: 'underline',
+  textDecorationColor: BORDER,
+  textDecorationThickness: '1px',
+  textUnderlineOffset: '4px',
+}
+
 export function Acciones() {
   return (
     <div style={{ marginBottom: '28px' }}>
@@ -170,7 +186,7 @@ export function Acciones() {
           marginBottom: '12px',
         }}
       >
-        <span style={{ fontSize: '20px', fontWeight: 300, lineHeight: 1 }}>+</span>
+        <Plus size={20} strokeWidth={1.75} aria-hidden="true" />
         Nueva ronda
       </Link>
       <div
@@ -188,25 +204,13 @@ export function Acciones() {
           // principal de la home nunca llevó al creador de torneos. La ruta real
           // es la que ya usa el Navbar (`Navbar.tsx:625`).
           href="/organizador/nuevo"
-          style={{
-            color: TEXT_2,
-            fontWeight: 500,
-            textDecoration: 'none',
-            borderBottom: `1px solid ${BORDER}`,
-            paddingBottom: '2px',
-          }}
+          style={LINK_SECUNDARIO}
         >
           Organizar torneo
         </Link>
         <Link
           href="/torneo/unirme"
-          style={{
-            color: TEXT_2,
-            fontWeight: 500,
-            textDecoration: 'none',
-            borderBottom: `1px solid ${BORDER}`,
-            paddingBottom: '2px',
-          }}
+          style={LINK_SECUNDARIO}
         >
           Unirme con código
         </Link>

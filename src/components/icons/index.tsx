@@ -3,7 +3,7 @@ export {
   Flag, Calendar, Users, BarChart3, Target, DollarSign, Wrench, RefreshCw,
   FileText, Bot, CheckCircle, Circle, Bell, Handshake, Sparkles,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  Smartphone, PersonStanding, Check,
+  Smartphone, PersonStanding, Check, Plus,
   Eye, EyeOff, Flame, AlertTriangle, MapPin, Dices, Mail, ArrowLeft, ArrowRight,
   User, Copy, Share2, X,
   ArrowUpRight, ArrowDownRight, ArrowUpCircle, ArrowDownCircle,
