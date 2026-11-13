@@ -122,7 +122,7 @@ export function useHandicapDeCancha({
     const faltan = tees.filter(tee => {
       const clave = `${claveDeCancha}|${tee}`
       if (!cache.current.has(clave)) return true
-      return (reintentar.current.get(clave) ?? 0) > 0 && Date.now() >= (noAntesDe.current.get(clave) ?? 0)
+      return (reintentar.current.get(clave) ?? 0) > 0 && performance.now() >= (noAntesDe.current.get(clave) ?? 0)
     })
     if (faltan.length === 0) return
 
@@ -188,7 +188,7 @@ export function useHandicapDeCancha({
         if (quedan > 0) {
           reintentar.current.set(clave, quedan)
           // Margen: el timer no debe llegar antes que el permiso.
-          noAntesDe.current.set(clave, Date.now() + ESPERA_REINTENTO_MS - 200)
+          noAntesDe.current.set(clave, performance.now() + ESPERA_REINTENTO_MS - 200)
           // El 18h vacío quedó guardado en su caché: hay que soltarlo para volver a
           // pedirlo. Uno bueno (cargado por otra clave de la misma cancha) se conserva.
           const clave18h = `${courseId}|${tee}|18`
