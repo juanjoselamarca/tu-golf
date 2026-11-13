@@ -103,7 +103,10 @@ describe('useHandicapDeCancha — HCP visible vs golpes de la ronda', () => {
     await waitFor(() => expect(cargarCourseData.mock.calls.filter(c => c[2] === 18)).toHaveLength(3), { timeout: 9000 })
     expect(llamadas9).toBe(1)
     expect(result.current.golpesDe(15, 'Azul')).toBe(golpes)
-  }, 15000)
+    // Y no hay cuarto intento.
+    await new Promise(r => setTimeout(r, 3500))
+    expect(cargarCourseData.mock.calls.filter(c => c[2] === 18)).toHaveLength(3)
+  }, 20000)
 
   it('si el 18h no vuelve nunca, deja de reintentar (índice entero, nunca la mitad)', async () => {
     cargarCourseData.mockImplementation(async (_id: string, _tee: string, holes: number) => {
@@ -135,4 +138,19 @@ describe('useHandicapDeCancha — HCP visible vs golpes de la ronda', () => {
     await new Promise(r => setTimeout(r, 3500))
     expect(cargarCourseData).toHaveBeenCalledTimes(1)
   }, 10000)
+
+  it('cambiar un tee en pleno corte no gasta los reintentos de golpe', async () => {
+    cargarCourseData.mockImplementation(async (_id: string, _tee: string, holes: number) => (holes > 9 ? null : cd9))
+    let tees = ['Azul']
+    const { rerender } = renderHook(() => useHandicapDeCancha({
+      courseId: 'cancha-1', parTotal: 72, holes: 9, recorridos: [], teesEnJuego: tees,
+    }))
+    const llamadasAzul18 = () => cargarCourseData.mock.calls.filter(c => c[1] === 'azul' && c[2] === 18).length
+    await waitFor(() => expect(llamadasAzul18()).toBe(1))
+    tees = ['Azul', 'Rojo']; rerender()
+    tees = ['Azul', 'Rojo', 'Blanco']; rerender()
+    await new Promise(r => setTimeout(r, 500))
+    expect(llamadasAzul18()).toBe(1)
+  }, 10000)
 })
+

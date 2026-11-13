@@ -102,6 +102,9 @@ export function useHandicapDeCancha({
   // la mitad); se reintenta pocas veces para terminar en los mismos números que
   // verá el marcador, que recarga el dato.
   const reintentar = useRef(new Map<string, number>())
+  // Cuándo puede volver a intentarse cada clave: cambiar un tee re-ejecuta el
+  // efecto y no debe gastar los reintentos de golpe en pleno corte de señal.
+  const noAntesDe = useRef(new Map<string, number>())
   const [reintento, setReintento] = useState(0)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
@@ -118,7 +121,8 @@ export function useHandicapDeCancha({
 
     const faltan = tees.filter(tee => {
       const clave = `${claveDeCancha}|${tee}`
-      return !cache.current.has(clave) || (reintentar.current.get(clave) ?? 0) > 0
+      if (!cache.current.has(clave)) return true
+      return (reintentar.current.get(clave) ?? 0) > 0 && Date.now() >= (noAntesDe.current.get(clave) ?? 0)
     })
     if (faltan.length === 0) return
 
@@ -183,11 +187,16 @@ export function useHandicapDeCancha({
         const quedan = incompleto ? (pendientes === undefined ? MAX_REINTENTOS : pendientes - 1) : 0
         if (quedan > 0) {
           reintentar.current.set(clave, quedan)
-          // El 18h vacío quedó guardado en su caché: hay que soltarlo para volver a pedirlo.
-          cache18h.current.delete(`${courseId}|${tee}|18`)
+          // Margen: el timer no debe llegar antes que el permiso.
+          noAntesDe.current.set(clave, Date.now() + ESPERA_REINTENTO_MS - 200)
+          // El 18h vacío quedó guardado en su caché: hay que soltarlo para volver a
+          // pedirlo. Uno bueno (cargado por otra clave de la misma cancha) se conserva.
+          const clave18h = `${courseId}|${tee}|18`
+          if (cache18h.current.get(clave18h) == null) cache18h.current.delete(clave18h)
           hayQueReintentar = true
         } else {
           reintentar.current.delete(clave)
+          noAntesDe.current.delete(clave)
         }
       }
       setVersion(v => v + 1)
