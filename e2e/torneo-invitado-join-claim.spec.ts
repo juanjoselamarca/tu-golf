@@ -48,6 +48,9 @@ let page: Page
 const NOMBRE_INVITADO = 'E2E Invitado Perez'
 const INDICE_INVITADO = 14.2
 
+/** Tee blanco de la cancha de pruebas. El spec verifica estos números contra `course_tees` antes de usarlos. */
+const TEE_DEL_TORNEO = { nombre: 'blanco', slope: 129, rating: 71.6, par: 72 }
+
 /**
  * Torneo del organizador efímero en la cancha de pruebas. `status` decide si se puede entrar ('open') y si se
  * puede anotar ('in_progress', que pone `activarTorneo`). El organizador es Pro: `guest-tournament` es feature Pro y el gate lee
@@ -67,6 +70,9 @@ async function crearTorneo(opts: { status: string; maxPlayers?: number | null })
     hole_count: 18,
     status: opts.status,
     hcp_calc_mode: 'whs',
+    // Tee global del torneo: el invitado no elige tee, así que su course handicap sale de éste
+    // (`resolvePlayerTee` → 'global'). Fijarlo hace que el neto esperado sea un número, no un rango.
+    tees: TEE_DEL_TORNEO.nombre,
     max_players: opts.maxPlayers ?? null,
   }).select('id').single())
   return { id: (t as { id: string }).id, slug, nombre }
@@ -127,18 +133,27 @@ async function guestJoin(
   }
 }
 
-/** Par de cada hoyo de la cancha de pruebas, desde el catálogo (`course_holes`), como lo lee el scorer. */
-let paresPorHoyo: Map<number, number> | undefined
-async function parDelHoyo(hole: number): Promise<number> {
-  if (!paresPorHoyo) {
+/** Par y SI de cada hoyo de la cancha de pruebas, desde el catálogo (`course_holes`), como lo lee el scorer. */
+let hoyosDelCatalogo: Map<number, { par: number; si: number }> | undefined
+async function hoyoDelCatalogo(hole: number): Promise<{ par: number; si: number }> {
+  if (!hoyosDelCatalogo) {
     const filas = await sinError('select course_holes', adminClient().from('course_holes')
-      .select('numero, par').eq('course_id', DEFAULT_COURSE_ID))
-    paresPorHoyo = new Map((filas as Array<{ numero: number; par: number }>).map(h => [h.numero, h.par]))
-    expect(paresPorHoyo.size, 'la cancha de pruebas tiene sus hoyos en el catálogo').toBeGreaterThanOrEqual(18)
+      .select('numero, par, stroke_index').eq('course_id', DEFAULT_COURSE_ID))
+    hoyosDelCatalogo = new Map((filas as Array<{ numero: number; par: number; stroke_index: number }>)
+      .map(h => [h.numero, { par: h.par, si: h.stroke_index }]))
+    expect(hoyosDelCatalogo.size, 'la cancha de pruebas tiene sus hoyos en el catálogo').toBeGreaterThanOrEqual(18)
   }
-  const par = paresPorHoyo.get(hole)
-  expect(par, `par del hoyo ${hole} en el catálogo`).toBeDefined()
-  return par!
+  const hoyo = hoyosDelCatalogo.get(hole)
+  expect(hoyo, `hoyo ${hole} en el catálogo`).toBeDefined()
+  return hoyo!
+}
+async function parDelHoyo(hole: number): Promise<number> {
+  return (await hoyoDelCatalogo(hole)).par
+}
+
+/** Golpes recibidos en un hoyo de SI `si` con course handicap `ch` en una vuelta de `n` hoyos (WHS 6.2). */
+function golpesEnHoyo(ch: number, si: number, n: number): number {
+  return Math.floor(ch / n) + (si <= ch % n ? 1 : 0)
 }
 
 /** Un par válido (3-5) pero DISTINTO al del catálogo: si el server lo copiara, el assert lo caza. */
@@ -322,6 +337,7 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
 
   const otro = randomUUID()
   let tokenDeOtro = ''
+  let ch = 0
 
   test('con su token anota de verdad; con el token de otro invitado no escribe nada', async () => {
     // El segundo invitado entra mientras el torneo sigue 'open': una vez en juego ya no se admiten
@@ -330,6 +346,18 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
     expect(rOtro.status, rOtro.body.error ?? '').toBe(200)
     tokenDeOtro = rOtro.body.guestToken!
     expect(await jugadoresEnBase(torneo), 'dos invitados inscritos').toHaveLength(2)
+
+    // Course handicap que el server tiene que usar, calculado a mano (WHS 6.1, un solo redondeo):
+    // round(14,2 × 129/113 + (71,6 − 72)) = round(15,81) = 16. Si el tee de la cancha de pruebas cambia,
+    // fallar acá con el dato, no más abajo con un neto raro.
+    const tee = await sinError('tee del torneo', adminClient().from('course_tees')
+      .select('slope, rating, par_total').eq('course_id', DEFAULT_COURSE_ID).eq('nombre', TEE_DEL_TORNEO.nombre).single())
+    expect([tee?.slope, Number(tee?.rating), tee?.par_total], 'slope, CR y par del tee blanco')
+      .toEqual([TEE_DEL_TORNEO.slope, TEE_DEL_TORNEO.rating, TEE_DEL_TORNEO.par])
+    ch = Math.round(INDICE_INVITADO * (TEE_DEL_TORNEO.slope / 113) + (TEE_DEL_TORNEO.rating - TEE_DEL_TORNEO.par))
+    expect(ch, 'course handicap del invitado').toBe(16)
+    // El hoyo 3 (SI 15) es el que separa los modelos: con CH 16 recibe golpe; con el índice crudo (14) no.
+    expect((await hoyoDelCatalogo(3)).si, 'SI del hoyo 3: entre el índice crudo y el course handicap').toBe(15)
 
     await activarTorneo(torneo)
     const golpes: Array<[number, number]> = [[1, 4], [2, 5], [3, 3]]
@@ -348,7 +376,11 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
       // El neto lo deriva el server del bruto y el course handicap: el "1" del cliente no puede quedar.
       expect(g.net_score, `neto del hoyo ${g.hole_number} derivado por el server`).not.toBeNull()
       expect(g.net_score, `neto del hoyo ${g.hole_number}: no el del cliente`).not.toBe(NETO_MENTIROSO)
-      expect(g.net_score!, `neto del hoyo ${g.hole_number} ≤ bruto`).toBeLessThanOrEqual(g.gross_score!)
+      // Neto EXACTO: bruto − golpes recibidos con el course handicap WHS del tee del torneo, repartidos por SI.
+      // Con "≤ bruto" pasaba igual un neto con el índice crudo (14) en vez del course handicap (16).
+      const { si } = await hoyoDelCatalogo(g.hole_number)
+      expect(g.net_score, `neto del hoyo ${g.hole_number} (SI ${si}, CH ${ch})`)
+        .toBe(g.gross_score! - golpesEnHoyo(ch, si, 18))
       // El torneo es stroke play: `puntajeDeHoyo` firma `puntos: 0` fuera de stableford. Afirmar el valor exacto;
       // `not.toBe(99)` pasaba en vacío (también con los puntos en NULL o con cualquier otro número del cliente).
       expect(g.points, `puntos del hoyo ${g.hole_number}: 0 en stroke play, no los del cliente`).toBe(0)
