@@ -10,7 +10,7 @@ function Tarjeta({ inicial, onIndice }: { inicial: number | null; onIndice: (v: 
   const [indice, setIndice] = useState(inicial)
   return (
     <TarjetaDelCreador nombre="Ana" indice={indice} onIndice={v => { setIndice(v); onIndice(v) }} onBloqueo={vi.fn()}
-      tees={[]} teeGlobal="" onTeeGlobal={vi.fn()} golpes={indice} />
+      tees={[]} teeGlobal="" onTeeGlobal={vi.fn()} hcp={indice} />
   )
 }
 const campo = () => screen.getByLabelText('Índice') as HTMLInputElement

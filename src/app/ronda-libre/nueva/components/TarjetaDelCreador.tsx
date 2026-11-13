@@ -15,7 +15,8 @@ interface Props {
   teeGlobal: string
   onTeeGlobal: (tee: string) => void
   /** Golpes de juego con ese índice desde ese tee; `null` si no se puede calcular. */
-  golpes: number | null
+  /** HCP que se muestra (siempre el de 18 hoyos). */
+  hcp: number | null
   /** El índice va a medio escribir o no es número: el paso no debe avanzar (ver useCampoHandicap). */
   onBloqueo: (bloquea: boolean) => void
 }
@@ -65,9 +66,9 @@ export function TarjetaDelCreador(props: Props) {
           onElegir={props.onTeeGlobal}
           etiquetaAccesible="Tu tee de salida"
         />
-        {props.golpes != null && (
+        {props.hcp != null && (
           <span style={hcpDeJugador}>
-            HCP {formatearHandicap(props.golpes)}
+            HCP {formatearHandicap(props.hcp)}
           </span>
         )}
       </div>

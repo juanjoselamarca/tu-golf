@@ -24,7 +24,8 @@ interface Props {
   equipos: EquipoDeLaRonda[]
   /** Quién anota: tú por todos (scorer de grupo) o cada uno en su celular. */
   llevaElScoreDelGrupo: boolean
-  golpesDe: (indice: number | null | undefined, tee: string | null | undefined) => number | null
+  /** HCP que se muestra: siempre el de 18 hoyos. */
+  hcpVisibleDe: (indice: number | null | undefined, tee: string | null | undefined) => number | null
   /** Más de un tee disponible: recién ahí el tee por jugador aporta información. */
   hayVariosTees: boolean
   problema: ProblemaDeLaRonda | null
@@ -79,7 +80,7 @@ export function PasoConfirmar(props: Props) {
     : [{ titulo: null, jugadores: props.jugadores }]
 
   const filaDeJugador = (j: JugadorDeLaRonda) => {
-    const golpes = props.golpesDe(j.indice, j.tees)
+    const hcp = props.hcpVisibleDe(j.indice, j.tees)
     return (
       <div key={j.id} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
@@ -94,11 +95,10 @@ export function PasoConfirmar(props: Props) {
         }}>
           {j.nombre}
           {j.indice != null ? ` · idx ${formatearIndice(j.indice)}` : ''}
-          {/* Los golpes que va a repartir la ronda. En una vuelta de 9
-              no son los mismos que el índice sugiere, y verlos acá
-              evita la sorpresa en el hoyo 1. Mismo rótulo que la tarjeta del
-              paso anterior ("HCP 12", "HCP +2"): "+2 golpes" se leía como recibir dos. */}
-          {golpes != null ? ` · HCP ${formatearHandicap(golpes)}` : ''}
+          {/* El HCP de 18 hoyos aunque la ronda sea de 9 (regla de Juanjo,
+              12-nov-2026): el mismo número que verá en el marcador. "HCP 12",
+              "HCP +2": "+2 golpes" se leía como recibir dos. */}
+          {hcp != null ? ` · HCP ${formatearHandicap(hcp)}` : ''}
         </span>
         {props.hayVariosTees && j.tees && (
           <span style={{

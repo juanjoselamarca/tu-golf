@@ -17,7 +17,8 @@ interface Props {
   numeroEnPantalla: number
   tees: CourseTee[]
   teeGlobal: string
-  golpes: number | null
+  /** HCP que se muestra (siempre el de 18 hoyos). */
+  hcp: number | null
   onCampo: <K extends keyof RivalDelCreador>(campo: K, valor: RivalDelCreador[K]) => void
   onQuitar: () => void
   /** El índice va a medio escribir o no es número: el paso no debe avanzar (ver useCampoHandicap). */
@@ -25,7 +26,7 @@ interface Props {
 }
 
 /** Un rival del creador: tipo de cuenta, nombre, índice, tee y teléfono. */
-export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, teeGlobal, golpes, onCampo, onQuitar, onBloqueo }: Props) {
+export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, teeGlobal, hcp, onCampo, onQuitar, onBloqueo }: Props) {
   const idNombre = `rival-${indiceEnLista}-nombre`
   const idIndice = `rival-${indiceEnLista}-indice`
   // Texto local (#773): con type=number, "+1.5" quedaba en '' → 0 y un plus se veía "-2". El índice que llega
@@ -224,9 +225,9 @@ export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, t
           onElegir={t => onCampo('tees', t)}
           etiquetaAccesible={`Tee de ${nombreOJugadorN(rival.nombre, numeroEnPantalla)}`}
         />
-        {golpes != null && (
+        {hcp != null && (
           <span style={hcpDeJugador}>
-            HCP {formatearHandicap(golpes)}
+            HCP {formatearHandicap(hcp)}
           </span>
         )}
       </div>

@@ -11,6 +11,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import {
+  cargarCourseDataParaMostrar,
   resolverHandicapDisplayDeRonda,
   type CourseData,
   type CargadorDeCourseData,
@@ -135,5 +136,27 @@ describe('resolverHandicapDisplayDeRonda — el HCP que ve el jugador', () => {
     )
     // Sin guardarrail: round(12 + (55 − 35)) = 32 golpes de handicap mostrado.
     expect(display).toBe(12)
+  })
+})
+
+// Mitad de carga, separada para el asistente de Nueva Ronda (el índice cambia a
+// cada tecla y el cálculo tiene que ser síncrono). Mismas tres ramas.
+describe('cargarCourseDataParaMostrar — qué CourseData da el HCP de 18', () => {
+  it('vuelta de 9 en cancha de 18: el de 18h del mismo tee', async () => {
+    const { cargar, llamadas } = cargadorEspia()
+    expect(await cargarCourseDataParaMostrar(cd9, ronda(), new Map(), cargar)).toBe(cd18)
+    expect(llamadas).toEqual([['cancha-1', 'azul', 18, 72]])
+  })
+
+  it('vuelta de 18: el mismo que puntúa, sin consultar', async () => {
+    const { cargar, llamadas } = cargadorEspia()
+    expect(await cargarCourseDataParaMostrar(cd18, ronda(), new Map(), cargar)).toBe(cd18)
+    expect(llamadas).toEqual([])
+  })
+
+  it('loop de 9 en cancha multi-recorrido: null (se muestra el índice entero)', async () => {
+    const { cargar, llamadas } = cargadorEspia()
+    expect(await cargarCourseDataParaMostrar(cd9, ronda({ tieneRecorridos: true }), new Map(), cargar)).toBeNull()
+    expect(llamadas).toEqual([])
   })
 })

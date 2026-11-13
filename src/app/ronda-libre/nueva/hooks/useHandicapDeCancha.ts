@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { captureError } from '@/lib/error-tracking'
-import { cargarCourseData, resolverCourseHandicap, type CourseData } from '@/golf/core/course-handicap'
+import {
+  cargarCourseData,
+  cargarCourseDataParaMostrar,
+  resolverCourseHandicap,
+  resolverCourseHandicapDisplay,
+  type CourseData,
+} from '@/golf/core/course-handicap'
 
 interface Args {
   courseId: string | null
@@ -16,12 +22,29 @@ interface Args {
   teesEnJuego: string[]
 }
 
+type PorIndiceYTee = (indice: number | null | undefined, tee: string | null | undefined) => number | null
+
 export interface HandicapDeCancha {
   /**
-   * Golpes que recibe un jugador de este índice desde este tee, o `null` si
-   * todavía no se puede saber (sin índice, sin cancha, o el dato aún cargando).
+   * Golpes que recibe un jugador de este índice desde este tee EN ESTA RONDA
+   * (en 9 hoyos, los de 9), o `null` si todavía no se puede saber (sin índice,
+   * sin cancha, o el dato aún cargando). Para CALCULAR (la ventaja del match),
+   * nunca para el rótulo "HCP".
    */
-  golpesDe: (indice: number | null | undefined, tee: string | null | undefined) => number | null
+  golpesDe: PorIndiceYTee
+  /**
+   * El handicap que se MUESTRA ("HCP 15"): siempre el de 18 hoyos, aunque la
+   * ronda sea de 9 (regla de Juanjo, 12-nov-2026: un HCP partido en 2 pierde
+   * significado). Mismo cálculo que la vista en vivo y el scorer
+   * (`resolverCourseHandicapDisplay`), así el número no cambia al crear la ronda.
+   */
+  hcpVisibleDe: PorIndiceYTee
+}
+
+/** Lo que se carga por tee: el CourseData con que se puntúa y el de 18h para mostrar. */
+interface DatosDelTee {
+  deLaRonda: CourseData | null
+  paraMostrar: CourseData | null
 }
 
 /**
@@ -39,8 +62,13 @@ export interface HandicapDeCancha {
  *    golpes en la pantalla de confirmación.
  *
  * Ahora la previsualización pasa por `cargarCourseData` + `resolverCourseHandicap`,
- * que son los que usa el scorer: el número que se ve al crear la ronda es el
- * número con el que se juega.
+ * que son los que usa el scorer: los golpes que se anuncian son los que se juegan.
+ *
+ * Lo que se MUESTRA como "HCP" es otra cosa (12-nov-2026): siempre el de 18 hoyos,
+ * igual que en la vista en vivo. El arreglo de arriba había dejado el rótulo con
+ * los golpes de 9 (la mitad), y la misma persona veía "HCP 8" al crear la ronda
+ * y "HCP 15" en el marcador (inbox 2afd0036). Por eso hay dos funciones:
+ * `golpesDe` para calcular y `hcpVisibleDe` para el rótulo.
  */
 export function useHandicapDeCancha({
   courseId,
@@ -61,7 +89,9 @@ export function useHandicapDeCancha({
    * leía la caché VIEJA, concluía que no faltaba nada, y después el primero la
    * vaciaba. Nadie volvía a pedir el dato y el HCP no aparecía nunca.
    */
-  const cache = useRef(new Map<string, CourseData | null>())
+  const cache = useRef(new Map<string, DatosDelTee>())
+  /** CourseData de 18h por cancha y tee: lo llena `cargarCourseDataParaMostrar`. */
+  const cache18h = useRef(new Map<string, CourseData | null>())
   const [version, setVersion] = useState(0)
 
   const claveDeCancha = `${courseId}|${holes}|${parTotal ?? ''}|${[...recorridos].sort().join(',')}`
@@ -81,15 +111,15 @@ export function useHandicapDeCancha({
 
     Promise.all(
       faltan.map(async tee => {
+        let deLaRonda: CourseData | null = null
         try {
-          const data = await cargarCourseData(
+          deLaRonda = await cargarCourseData(
             courseId,
             tee,
             holes,
             parTotal ?? undefined,
             recorridos.length > 0 ? recorridos : null,
           )
-          return [tee, data] as const
         } catch (err) {
           captureError(err, {
             context: 'ronda-libre.nueva.course-data',
@@ -98,8 +128,23 @@ export function useHandicapDeCancha({
           // `null` = sin datos de cancha. `resolverCourseHandicap` cae al camino
           // seguro (el índice, la mitad en 9 hoyos) y muestra un número honesto.
           // Dejar la clave sin escribir escondería el HCP para siempre.
-          return [tee, null] as const
         }
+        let paraMostrar: CourseData | null = null
+        try {
+          paraMostrar = await cargarCourseDataParaMostrar(
+            deLaRonda,
+            { courseId, tee, finalParTotal: parTotal ?? undefined, tieneRecorridos: recorridos.length > 0 },
+            cache18h.current,
+            cargarCourseData,
+          )
+        } catch (err) {
+          captureError(err, {
+            context: 'ronda-libre.nueva.course-data-18h',
+            meta: { courseId, tee, holes },
+          })
+          // Sin el dato de 18h se muestra el índice entero: nunca la mitad.
+        }
+        return [tee, { deLaRonda, paraMostrar }] as const
       }),
     ).then(cargados => {
       if (cancelado) return
@@ -113,15 +158,23 @@ export function useHandicapDeCancha({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, claveDeCancha, listaDeTees])
 
-  const golpesDe = (indice: number | null | undefined, tee: string | null | undefined): number | null => {
+  const datosDe = (indice: number | null | undefined, tee: string | null | undefined): DatosDelTee | null => {
     if (indice == null || !courseId) return null
-    const clave = `${claveDeCancha}|${(tee || '').toLowerCase()}`
-    if (!cache.current.has(clave)) return null
-    return resolverCourseHandicap(indice, cache.current.get(clave) ?? null, holes)
+    return cache.current.get(`${claveDeCancha}|${(tee || '').toLowerCase()}`) ?? null
+  }
+
+  const golpesDe: PorIndiceYTee = (indice, tee) => {
+    const datos = datosDe(indice, tee)
+    return datos && indice != null ? resolverCourseHandicap(indice, datos.deLaRonda, holes) : null
+  }
+
+  const hcpVisibleDe: PorIndiceYTee = (indice, tee) => {
+    const datos = datosDe(indice, tee)
+    return datos && indice != null ? resolverCourseHandicapDisplay(indice, datos.deLaRonda, datos.paraMostrar) : null
   }
 
   // `version` sólo existe para que el render siguiente lea la caché ya llena.
   void version
 
-  return { golpesDe }
+  return { golpesDe, hcpVisibleDe }
 }

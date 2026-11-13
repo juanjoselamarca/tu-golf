@@ -206,22 +206,40 @@ export async function resolverHandicapDisplayDeRonda(
   cache18h: Map<string, CourseData | null>,
   cargar: CargadorDeCourseData = cargarCourseData,
 ): Promise<number> {
-  let courseData18h = courseData9h
-  if (courseData9h?.is9Hole) {
-    if (ronda.tieneRecorridos) {
-      courseData18h = null
-    } else {
-      const clave = `${ronda.courseId}|${ronda.tee}|18`
-      if (!cache18h.has(clave)) {
-        cache18h.set(
-          clave,
-          await cargar(ronda.courseId, ronda.tee, 18, ronda.finalParTotal),
-        )
-      }
-      courseData18h = cache18h.get(clave) ?? null
-    }
-  }
+  const courseData18h = await cargarCourseDataParaMostrar(courseData9h, ronda, cache18h, cargar)
   return resolverCourseHandicapDisplay(handicapIndex, courseData9h, courseData18h)
+}
+
+/**
+ * El CourseData con el que se calcula el handicap QUE SE MUESTRA (el de 18 hoyos),
+ * sin calcularlo. Mitad de carga de `resolverHandicapDisplayDeRonda`, separada para
+ * quien necesita el dato antes de saber el índice (el asistente de Nueva Ronda: el
+ * índice cambia a cada tecla y el cálculo tiene que ser síncrono). Pasar lo que
+ * devuelve como `courseData18h` de `resolverCourseHandicapDisplay`.
+ *
+ *  - ronda de 18h → el mismo `courseData9h` (es el de 18; no se pide nada).
+ *  - loop de 9 en cancha multi-recorrido → `null` (no hay un 18 confiable: se
+ *    muestra el índice entero, nunca un valor inflado).
+ *  - 9 hoyos de una cancha de 18 → el CourseData de 18h del MISMO tee.
+ */
+export async function cargarCourseDataParaMostrar(
+  courseData9h: CourseData | null,
+  ronda: {
+    courseId: string | null
+    tee: string
+    finalParTotal?: number
+    tieneRecorridos: boolean
+  },
+  cache18h: Map<string, CourseData | null>,
+  cargar: CargadorDeCourseData = cargarCourseData,
+): Promise<CourseData | null> {
+  if (!courseData9h?.is9Hole) return courseData9h
+  if (ronda.tieneRecorridos) return null
+  const clave = `${ronda.courseId}|${ronda.tee}|18`
+  if (!cache18h.has(clave)) {
+    cache18h.set(clave, await cargar(ronda.courseId, ronda.tee, 18, ronda.finalParTotal))
+  }
+  return cache18h.get(clave) ?? null
 }
 
 /** Cómo se trae un CourseData. Ver `resolverHandicapDisplayDeRonda`. */

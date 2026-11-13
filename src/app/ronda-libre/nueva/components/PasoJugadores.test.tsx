@@ -36,6 +36,8 @@ function Paso({ onSiguiente, equipos = false, rivalesIniciales = [RIVAL], repart
       equipos={equipos ? repartoDeEquipos ?? [{ nombre: 'Equipo 1', miembros: [ID_DEL_CREADOR, ...rivales.map(r => r.id)] }] : []}
       onAgregarEquipo={vi.fn()} onQuitarEquipo={vi.fn()} onRenombrarEquipo={vi.fn()} onMoverAlEquipo={vi.fn()}
       golpesDe={i => (i == null ? null : Math.round(i))}
+      hcpVisibleDe={i => (i == null ? null : Math.round(i))}
+      hoyos={18}
       rondasRecientes={[]} problema={null}
       onAtras={vi.fn()} onSiguiente={onSiguiente}
     />
