@@ -115,3 +115,16 @@ export function hojaFinalizarTimba(input: {
   }
   return { titulo: '¿Finalizar la Timba?', detalle: lineas.length > 0 ? lineas.join(' ') : undefined }
 }
+
+/**
+ * El servidor rechazó la tarjeta (P0003) y el teléfono ya no tiene sesión: no es un problema de permisos sino
+ * de sesión cerrada (expiró, o se cerró desde otro dispositivo). Los golpes quedan en el respaldo local y el
+ * scorer los reenvía solo al volver con la sesión (useOfflineResync).
+ */
+export const AVISO_SESION_CERRADA = {
+  title: 'Tu sesión se cerró',
+  message: 'Tus golpes quedaron en este teléfono. Inicia sesión y vuelves a esta tarjeta: se suben solos.',
+} as const
+
+/** Lo que tarda en ir al login tras el aviso de sesión cerrada (que se alcance a leer). */
+export const ESPERA_IR_AL_LOGIN_MS = 3500
