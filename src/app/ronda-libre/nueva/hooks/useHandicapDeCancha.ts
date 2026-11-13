@@ -22,9 +22,9 @@ interface Args {
   teesEnJuego: string[]
 }
 
-/** Reintentos del dato de 18h tras un fallo, y la espera entre uno y otro. */
-const MAX_REINTENTOS_18H = 2
-const ESPERA_REINTENTO_18H_MS = 3000
+/** Reintentos tras un dato de cancha que no llegó, y la espera entre uno y otro. */
+const MAX_REINTENTOS = 2
+const ESPERA_REINTENTO_MS = 3000
 
 type PorIndiceYTee = (indice: number | null | undefined, tee: string | null | undefined) => number | null
 
@@ -97,10 +97,11 @@ export function useHandicapDeCancha({
   /** CourseData de 18h por cancha y tee: lo llena `cargarCourseDataParaMostrar`. */
   const cache18h = useRef(new Map<string, CourseData | null>())
   const [version, setVersion] = useState(0)
-  // Claves cuyo dato de 18h falló (señal intermitente en el club). Mientras tanto
-  // se muestra el índice entero; se reintenta pocas veces para terminar en el
-  // mismo HCP que verá el marcador, que recarga el dato.
-  const reintentar18h = useRef(new Map<string, number>())
+  // Claves a las que les faltó un dato (señal intermitente en el club) y los
+  // reintentos que les quedan. Mientras tanto se muestra el camino seguro (nunca
+  // la mitad); se reintenta pocas veces para terminar en los mismos números que
+  // verá el marcador, que recarga el dato.
+  const reintentar = useRef(new Map<string, number>())
   const [reintento, setReintento] = useState(0)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
@@ -117,38 +118,43 @@ export function useHandicapDeCancha({
 
     const faltan = tees.filter(tee => {
       const clave = `${claveDeCancha}|${tee}`
-      return !cache.current.has(clave) || (reintentar18h.current.get(clave) ?? 0) > 0
+      return !cache.current.has(clave) || (reintentar.current.get(clave) ?? 0) > 0
     })
     if (faltan.length === 0) return
 
     let cancelado = false
+    const tieneRecorridos = recorridos.length > 0
 
     Promise.all(
       faltan.map(async tee => {
-        let deLaRonda: CourseData | null = null
-        try {
-          deLaRonda = await cargarCourseData(
-            courseId,
-            tee,
-            holes,
-            parTotal ?? undefined,
-            recorridos.length > 0 ? recorridos : null,
-          )
-        } catch (err) {
-          captureError(err, {
-            context: 'ronda-libre.nueva.course-data',
-            meta: { courseId, tee, holes },
-          })
-          // `null` = sin datos de cancha. `resolverCourseHandicap` cae al camino
-          // seguro (el índice, la mitad en 9 hoyos) y muestra un número honesto.
-          // Dejar la clave sin escribir escondería el HCP para siempre.
+        const clave = `${claveDeCancha}|${tee}`
+        // En un reintento, lo que ya llegó bien no se vuelve a pedir: un segundo
+        // corte de señal no puede pisar un dato bueno con uno vacío.
+        let deLaRonda: CourseData | null = cache.current.get(clave)?.deLaRonda ?? null
+        if (!deLaRonda) {
+          try {
+            deLaRonda = await cargarCourseData(
+              courseId,
+              tee,
+              holes,
+              parTotal ?? undefined,
+              tieneRecorridos ? recorridos : null,
+            )
+          } catch (err) {
+            captureError(err, {
+              context: 'ronda-libre.nueva.course-data',
+              meta: { courseId, tee, holes },
+            })
+            // `null` = sin datos de cancha. `resolverCourseHandicap` cae al camino
+            // seguro (el índice, la mitad en 9 hoyos) y muestra un número honesto.
+            // Dejar la clave sin escribir escondería el HCP para siempre.
+          }
         }
         let paraMostrar: CourseData | null = null
-        let fallo18h = false
         try {
           paraMostrar = await cargarCourseDataParaMostrar(
             deLaRonda,
-            { courseId, tee, finalParTotal: parTotal ?? undefined, tieneRecorridos: recorridos.length > 0 },
+            { courseId, tee, finalParTotal: parTotal ?? undefined, tieneRecorridos },
             cache18h.current,
             cargarCourseData,
           )
@@ -158,26 +164,36 @@ export function useHandicapDeCancha({
             meta: { courseId, tee, holes },
           })
           // Sin el dato de 18h se muestra el índice entero: nunca la mitad.
-          fallo18h = true
         }
-        return [tee, { deLaRonda, paraMostrar }, fallo18h] as const
+        return [tee, { deLaRonda, paraMostrar }] as const
       }),
     ).then(cargados => {
       if (cancelado) return
       let hayQueReintentar = false
-      for (const [tee, data, fallo18h] of cargados) {
+      for (const [tee, datos] of cargados) {
         const clave = `${claveDeCancha}|${tee}`
-        cache.current.set(clave, data)
-        const pendientes = reintentar18h.current.get(clave)
-        // 1ª falla: quedan MAX_REINTENTOS_18H. Éxito o reintentos agotados: se borra.
-        const quedan = fallo18h ? (pendientes === undefined ? MAX_REINTENTOS_18H : pendientes - 1) : 0
-        if (quedan > 0) { reintentar18h.current.set(clave, quedan); hayQueReintentar = true }
-        else reintentar18h.current.delete(clave)
+        cache.current.set(clave, datos)
+        // Un corte de señal no lanza: Supabase devuelve `null`. Por eso "faltó el
+        // dato" es un vacío donde debería haber uno: sin datos de la vuelta, o
+        // una vuelta de 9 de un solo recorrido sin su tee de 18.
+        const incompleto = datos.deLaRonda === null
+          || (datos.deLaRonda.is9Hole === true && !tieneRecorridos && datos.paraMostrar === null)
+        const pendientes = reintentar.current.get(clave)
+        // 1ª falla: quedan MAX_REINTENTOS. Completo o reintentos agotados: se borra.
+        const quedan = incompleto ? (pendientes === undefined ? MAX_REINTENTOS : pendientes - 1) : 0
+        if (quedan > 0) {
+          reintentar.current.set(clave, quedan)
+          // El 18h vacío quedó guardado en su caché: hay que soltarlo para volver a pedirlo.
+          cache18h.current.delete(`${courseId}|${tee}|18`)
+          hayQueReintentar = true
+        } else {
+          reintentar.current.delete(clave)
+        }
       }
       setVersion(v => v + 1)
       if (hayQueReintentar) {
         if (timer.current) clearTimeout(timer.current)
-        timer.current = setTimeout(() => setReintento(r => r + 1), ESPERA_REINTENTO_18H_MS)
+        timer.current = setTimeout(() => setReintento(r => r + 1), ESPERA_REINTENTO_MS)
       }
     })
 

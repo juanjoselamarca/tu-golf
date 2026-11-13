@@ -17,6 +17,7 @@ vi.mock('@/golf/core/course-handicap', async importOriginal => ({
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 
 import { useHandicapDeCancha } from './useHandicapDeCancha'
+import { resolverCourseHandicap } from '@/golf/core/course-handicap'
 
 /** Front 9 de un tee azul de cancha de 18. */
 const cd9: CourseData = { slope: 130, courseRating: 35.75, par: 36, is9Hole: true }
@@ -77,10 +78,12 @@ describe('useHandicapDeCancha — HCP visible vs golpes de la ronda', () => {
     expect(result.current.hcpVisibleDe(15.4, 'Azul')).toBe(15)
   })
 
-  it('si el 18h falla una vez, reintenta y termina en el mismo HCP que el marcador', async () => {
-    let fallas = 0
+  // Un corte de señal NO lanza: supabase-js devuelve `{ data: null, error }` y el
+  // cargador entrega `null`. Los reintentos se prueban con ese `null`, no con un throw.
+  it('si el 18h llega vacío por un corte, reintenta y termina en el mismo HCP que el marcador', async () => {
+    let vacios = 0
     cargarCourseData.mockImplementation(async (_id: string, _tee: string, holes: number) => {
-      if (holes > 9 && fallas++ === 0) throw new Error('sin red')
+      if (holes > 9 && vacios++ === 0) return null
       return holes <= 9 ? cd9 : cd18
     })
     const { result } = render(9)
@@ -88,7 +91,21 @@ describe('useHandicapDeCancha — HCP visible vs golpes de la ronda', () => {
     await waitFor(() => expect(result.current.hcpVisibleDe(15, 'Azul')).toBe(17), { timeout: 6000 })
   }, 10000)
 
-  it('si el 18h no vuelve, deja de reintentar (índice entero, nunca la mitad)', async () => {
+  it('el reintento no vuelve a pedir el dato de la vuelta que ya llegó (no lo pisa con un vacío)', async () => {
+    let llamadas9 = 0
+    cargarCourseData.mockImplementation(async (_id: string, _tee: string, holes: number) => {
+      if (holes <= 9) return llamadas9++ === 0 ? cd9 : null
+      return null
+    })
+    const { result } = render(9)
+    await waitFor(() => expect(result.current.golpesDe(15, 'Azul')).not.toBeNull())
+    const golpes = result.current.golpesDe(15, 'Azul')
+    await waitFor(() => expect(cargarCourseData.mock.calls.filter(c => c[2] === 18)).toHaveLength(3), { timeout: 9000 })
+    expect(llamadas9).toBe(1)
+    expect(result.current.golpesDe(15, 'Azul')).toBe(golpes)
+  }, 15000)
+
+  it('si el 18h no vuelve nunca, deja de reintentar (índice entero, nunca la mitad)', async () => {
     cargarCourseData.mockImplementation(async (_id: string, _tee: string, holes: number) => {
       if (holes > 9) throw new Error('sin red')
       return cd9
@@ -99,5 +116,23 @@ describe('useHandicapDeCancha — HCP visible vs golpes de la ronda', () => {
     expect(cargarCourseData.mock.calls.filter(c => c[2] === 18)).toHaveLength(3)
     expect(result.current.hcpVisibleDe(15.4, 'Azul')).toBe(15)
   }, 15000)
-})
 
+  it('el dato de la vuelta vacío en la primera carga también se reintenta', async () => {
+    let llamadas9 = 0
+    cargarCourseData.mockImplementation(async (_id: string, _tee: string, holes: number) => {
+      if (holes <= 9) return llamadas9++ === 0 ? null : cd9
+      return cd18
+    })
+    const { result } = render(9)
+    await waitFor(() => expect(result.current.hcpVisibleDe(15, 'Azul')).toBe(17), { timeout: 6000 })
+    // Los golpes salen del rating real del tee, no del camino seguro sin datos.
+    expect(result.current.golpesDe(15, 'Azul')).toBe(resolverCourseHandicap(15, cd9, 9))
+  }, 10000)
+
+  it('ronda de 18 completa: no reintenta nada', async () => {
+    const { result } = render(18)
+    await waitFor(() => expect(result.current.golpesDe(15, 'Azul')).not.toBeNull())
+    await new Promise(r => setTimeout(r, 3500))
+    expect(cargarCourseData).toHaveBeenCalledTimes(1)
+  }, 10000)
+})
