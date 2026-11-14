@@ -64,7 +64,7 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 
 | # | Archivo | LOC antes | LOC después | Estado | PR | Fecha |
 |---|---|---|---|---|---|---|
-| 1 | `src/app/api/import/screenshot/route.ts` | 767 | — | ⏳ Pendiente | — | — |
+| 1 | `src/app/api/import/screenshot/route.ts` | 785 | 429 | ✅ Hecho (reconstrucción → `src/golf/import/garmin-color-reconstruction.ts`, visión IA → `src/lib/import/screenshot-vision.ts`, tests de caracterización) | (este PR) | 2026-11-14 |
 | 2 | `src/app/api/admin/health-check/route.ts` | 600 | — | ⏳ Pendiente | — | — |
 | 3 | `src/app/api/import/garmin-zip/route.ts` | 540 | — | ⏳ Pendiente | — | — |
 | 4 | `src/app/api/inbox/webhook/route.ts` | 505 | — | ⏳ Pendiente | — | — |
