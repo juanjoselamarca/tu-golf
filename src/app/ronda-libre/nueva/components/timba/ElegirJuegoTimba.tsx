@@ -79,7 +79,7 @@ export function ElegirJuegoTimba({ timba, onTimba, modo, onModo, holes }: Props)
       </div>
 
       <section aria-label="Así se juega" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <span style={caption}>Así se juega · toca un número para cambiarlo</span>
+        <span style={caption}>Así se juega · toca lo subrayado para cambiarlo</span>
         <FraseDelJuego config={config} holes={holes} onConfig={cambiar} />
         <div style={{ background: colores.fondo, borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <span style={{ fontSize: '12px', fontWeight: 600, color: colores.texto2 }}>

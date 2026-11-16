@@ -3,7 +3,7 @@ import { cambiarUnidad, formatPuntosTimba } from '@/golf/formats/personalizado'
 import {
   MENSAJE_TIMBA_UN_CELULAR, TITULO_REVISA_EL_JUEGO, prepararJuegoDeRondaNueva,
 } from '@/golf/ronda-libre/juego-de-ronda-nueva'
-import { problemaDeLaTimbaEnJugadores, problemaParaCrearLaTimba } from './useTimbaDeLaRonda'
+import { MENSAJE_FALTA_NOMBRE, problemaDeLaTimbaEnJugadores, problemaParaCrearLaTimba } from './useTimbaDeLaRonda'
 import {
   configParaEnviar, conCompanero, conConfig, parejasFijas, problemaDeLaTimba, sortear, sorteoVigente,
   timbaDePlantilla, tramosDelSorteo,
@@ -88,5 +88,12 @@ describe('Timba en el asistente', () => {
     expect(problemaParaCrearLaTimba(t, jug(CUATRO), 18, 'gross', 'c1', false)).toEqual({ titulo: TITULO_REVISA_EL_JUEGO, detalle: MENSAJE_TIMBA_UN_CELULAR })
     expect(problemaDeLaTimbaEnJugadores(t, jug(CUATRO), 18, 'gross', 'c1', false)).toEqual({ titulo: TITULO_REVISA_EL_JUEGO, detalle: MENSAJE_TIMBA_UN_CELULAR })
     expect(problemaDeLaTimbaEnJugadores(t, jug(CUATRO), 18, 'gross', 'c1', true)).toBeNull()
+  })
+
+  it('una fila de jugador sin nombre avisa eso, no "es para 4" (el usuario ve 4 tarjetas)', () => {
+    const t = timbaDePlantilla('colombiana')
+    const tres = CUATRO.slice(0, 3)
+    expect(problemaDeLaTimbaEnJugadores(t, jug(tres), 18, 'gross', 'c1', true, 1)).toEqual({ titulo: TITULO_REVISA_EL_JUEGO, detalle: MENSAJE_FALTA_NOMBRE })
+    expect(problemaDeLaTimbaEnJugadores(t, jug(tres), 18, 'gross', 'c1', true, 0)?.detalle).not.toBe(MENSAJE_FALTA_NOMBRE)
   })
 })

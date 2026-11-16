@@ -90,8 +90,12 @@ describe('FraseDelJuego', () => {
     const valores = screen.getAllByRole('button', { name: /Cambiar$/ })
     expect(valores.length).toBeGreaterThan(0)
     for (const b of valores) {
-      expect(b.style.minHeight).toBe('44px')
-      expect(b.style.display).toBe('inline-flex')
+      // El botón mide su texto (la frase se lee corrida); el área táctil 44×44 es su hijo absoluto.
+      const area = b.querySelector<HTMLElement>('span[aria-hidden]')
+      expect(area?.style.position).toBe('absolute')
+      expect(area?.style.height).toBe('44px')
+      expect(area?.style.minWidth).toBe('44px')
+      expect(b.style.margin).toBe('0px')
       expect(b.parentElement?.style.whiteSpace).toBe('nowrap')
     }
     const piezas = renglonesConPuntuacion(fraseDelJuego(t.config, 18))

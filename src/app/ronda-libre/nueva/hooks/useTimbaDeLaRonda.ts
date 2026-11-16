@@ -35,12 +35,17 @@ export function problemaParaCrearLaTimba(
 }
 
 /** Lo que frena el paso Jugadores: todo menos las parejas, que se eligen en Confirmar. */
+/** Hay un jugador agregado sin nombre (la ronda lo descartaría y el conteo del juego no cuadraría). */
+export const MENSAJE_FALTA_NOMBRE = 'Falta el nombre de un jugador.'
+
 export function problemaDeLaTimbaEnJugadores(
   timba: TimbaDelFormulario, jugadores: readonly JugadorDeLaTimba[], holes: number, modo: ModoJuego, courseId: string | null,
-  adminMode: boolean,
+  adminMode: boolean, filasSinNombre = 0,
 ): ProblemaDeLaRonda | null {
   // Mismos textos que la API (prepararJuegoDeRondaNueva): un solo celular, y sin cancha del catálogo no hay par por hoyo.
   if (!adminMode) return { titulo: TITULO_REVISA_EL_JUEGO, detalle: MENSAJE_TIMBA_UN_CELULAR }
+  // Una fila sin nombre no cuenta como jugador: sin este aviso el usuario ve 4 tarjetas y lee "es para 4".
+  if (filasSinNombre > 0) return { titulo: TITULO_REVISA_EL_JUEGO, detalle: MENSAJE_FALTA_NOMBRE }
   if (!courseId) return problemaParaCrearLaTimba(timba, jugadores, holes, modo, courseId, adminMode)
   return problemaDeLaTimba(timba, jugadores, holes, modo, { conParejas: false })
 }

@@ -96,7 +96,8 @@ export default function NuevaRondaLibrePage() {
   // Los jugadores de la Timba quedan fijos al crearla (sus puntos van por identidad): no pueden sumarse después
   // por el link, así que se anota en un solo celular.
   const problemaTimbaJugadores = timba.timba
-    ? problemaDeLaTimbaEnJugadores(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId, form.llevaElScoreDelGrupo)
+    ? problemaDeLaTimbaEnJugadores(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId, form.llevaElScoreDelGrupo,
+        form.rivalesEnJuego.filter(r => !r.nombre.trim()).length)
     : null
   const juegoTimba = timba.timba
     ? {

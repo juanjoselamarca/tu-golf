@@ -11,8 +11,6 @@ type Valor = Extract<TrozoDeFrase, { tipo: 'valor' }>
 
 /** Alto táctil mínimo de cada valor de la frase (se usa con guante y al sol). */
 const ALTO_TACTIL = 44
-/** Cuánto del ancho táctil se le devuelve al texto a cada lado (el valor se ve pegado a la frase). */
-const MARGEN_TACTIL_PX = 13
 
 type Pieza = { tipo: 'texto'; texto: string } | { tipo: 'valor'; valor: Valor; puntuacion: string }
 
@@ -59,17 +57,23 @@ export function FraseDelJuego({ config, holes, onConfig }: Props) {
                 aria-label={`${t.valor.titulo}: ${t.valor.texto}. Cambiar`}
                 onClick={() => setAbierto(t.valor)}
                 style={{
-                  // 44×44 de toque, pero la frase se lee corrida ("vale 2, peor bola 1"): el valor va centrado
-                  // y el margen negativo devuelve a la línea el ancho extra del área táctil.
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  minHeight: `${ALTO_TACTIL}px`, minWidth: `${ALTO_TACTIL}px`, verticalAlign: 'top',
-                  margin: `0 -${MARGEN_TACTIL_PX}px`, position: 'relative',
-                  border: 0, background: 'transparent', padding: 0, font: 'inherit', fontWeight: 700,
-                  lineHeight: 1.2, color: colores.oroTexto, cursor: 'pointer',
+                  // El botón mide lo que mide su texto (sea "2" o "peor bola"), así la frase se lee corrida
+                  // y la puntuación queda pegada. El área táctil de 44×44 la da el hijo absoluto, que no
+                  // ocupa lugar en el renglón. minWidth/minHeight 0 anulan la regla global de botones.
+                  display: 'inline-block', position: 'relative', minWidth: 0, minHeight: 0,
+                  border: 0, background: 'transparent', padding: 0, margin: 0, font: 'inherit', fontWeight: 700,
+                  lineHeight: 'inherit', color: colores.oroTexto, cursor: 'pointer',
                   textDecoration: `underline dotted ${colores.oroTexto}`, textDecorationThickness: '2px', textUnderlineOffset: '4px',
                 }}
               >
                 {t.valor.texto}
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                    width: '100%', minWidth: `${ALTO_TACTIL}px`, height: `${ALTO_TACTIL}px`,
+                  }}
+                />
               </button>
               {t.puntuacion}
             </span>
