@@ -158,7 +158,8 @@ export function useCrearRonda(args: Args) {
   // resoluciones distintas podrían aprobar una repartición y mandar otra.
   const equipos = equiposConIndices(args.equipos, args.jugadores)
 
-  const problema = validarNuevaRonda({
+  // Sin el juego: el paso Jugadores lo usa, porque las parejas de la Timba se eligen después, en Confirmar.
+  const problemaDeLaRonda = validarNuevaRonda({
     cancha: args.cancha,
     formato: args.formato,
     modo: args.modo,
@@ -169,7 +170,8 @@ export function useCrearRonda(args: Args) {
     })),
     equipos,
     creadorId: args.userId,
-  }) ?? args.timba?.problema ?? null
+  })
+  const problema = problemaDeLaRonda ?? args.timba?.problema ?? null
 
   const crear = async () => {
     if (creando) return
@@ -265,5 +267,5 @@ export function useCrearRonda(args: Args) {
     }
   }
 
-  return { crear, creando, creada, problema }
+  return { crear, creando, creada, problema, problemaDeLaRonda }
 }

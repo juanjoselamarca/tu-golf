@@ -93,9 +93,11 @@ export default function NuevaRondaLibrePage() {
   // Timba libre: el juego se valida con la MISMA función que la API. En Jugadores todavía no frenan las parejas
   // (se eligen en Confirmar); en Confirmar, todo.
   const jugadoresDeLaTimba = jugadores.map(j => ({ id: j.id, nombre: j.nombre, indice: j.indice }))
-  const problemaTimbaJugadores = timba.timba
-    ? problemaDeLaTimbaEnJugadores(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId)
-    : null
+  // Los jugadores de la Timba quedan fijos al crearla (sus puntos van por identidad): no pueden sumarse después
+  // por el link, así que se anota en un solo celular.
+  const problemaTimbaJugadores = !timba.timba ? null : !form.llevaElScoreDelGrupo
+    ? { titulo: 'Revisa el juego', detalle: 'Timba libre se anota en un solo celular: elige «Yo anoto por todos» y suma a los jugadores.' }
+    : problemaDeLaTimbaEnJugadores(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId)
   const juegoTimba = timba.timba
     ? {
         reglasJuego: configParaEnviar(timba.timba, jugadoresDeLaTimba.map(j => j.id), form.modo),
@@ -103,7 +105,7 @@ export default function NuevaRondaLibrePage() {
       }
     : null
 
-  const { crear, creando, creada, problema } = useCrearRonda({
+  const { crear, creando, creada, problema, problemaDeLaRonda } = useCrearRonda({
     userId: creador.userId,
     courseId: form.courseId,
     cancha: form.cancha,
@@ -208,7 +210,7 @@ export default function NuevaRondaLibrePage() {
               puedeElegir: timba.puedeElegir,
               actual: timba.timba,
               // Timba libre se arma sobre la ronda individual base (cada uno con su tarjeta).
-              onElegir: () => { form.elegirFormato('stroke_play'); timba.elegir() },
+              onElegir: () => { form.elegirFormato('stroke_play'); form.elegirQuienAnota(true); timba.elegir() },
               onTimba: timba.setTimba,
             }}
             onAtras={() => form.setPaso(1)}
@@ -243,7 +245,7 @@ export default function NuevaRondaLibrePage() {
             hcpVisibleDe={hcpVisibleDe}
             hoyos={forma.holes}
             rondasRecientes={creador.rondasRecientes}
-            problema={form.problemaDelFormulario ?? problemaTimbaJugadores ?? problema}
+            problema={form.problemaDelFormulario ?? problemaTimbaJugadores ?? problemaDeLaRonda}
             onAtras={() => form.setPaso(2)}
             onSiguiente={() => form.setPaso(4)}
           />
