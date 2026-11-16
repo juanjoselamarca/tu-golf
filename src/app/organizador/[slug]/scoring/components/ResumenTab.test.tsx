@@ -56,12 +56,15 @@ describe('ResumenTab · handicap', () => {
       <ResumenTab
         board={board([fila('p1', 'Ana', -2), fila('p2', 'Beto', 12.4)])}
         roster={[jugador('p1', -2), jugador('p2', 12.4)]}
+        hcpCalcMode="whs"
         hcpEditor={editor()}
       />,
     )
-    expect(screen.getByText('+2')).toBeTruthy()
-    expect(screen.queryByText('-2')).toBeNull()
+    expect(screen.getByText('+2.0')).toBeTruthy()
+    expect(screen.queryByText('-2.0')).toBeNull()
     expect(screen.getByText('12.4')).toBeTruthy()
+    // WHS: lo inscrito es el índice, y se rotula igual que en el panel de jugadores.
+    expect(screen.getByText('Índice')).toBeTruthy()
   })
 
   it('sin handicap en el roster cae al del board, y sin ninguno muestra "--"', () => {
@@ -69,10 +72,24 @@ describe('ResumenTab · handicap', () => {
       <ResumenTab
         board={board([fila('p1', 'Ana', -3)])}
         roster={[jugador('p1', null)]}
+        hcpCalcMode="whs"
         hcpEditor={editor()}
       />,
     )
-    expect(screen.getByText('+3')).toBeTruthy()
+    expect(screen.getByText('+3.0')).toBeTruthy()
+  })
+
+  it('torneo no WHS: rótulo HCP y el número sin decimal forzado', () => {
+    render(
+      <ResumenTab
+        board={board([fila('p1', 'Ana', -2)])}
+        roster={[jugador('p1', -2)]}
+        hcpCalcMode={null}
+        hcpEditor={editor()}
+      />,
+    )
+    expect(screen.getByText('HCP')).toBeTruthy()
+    expect(screen.getByText('+2')).toBeTruthy()
   })
 
   it('el input es de texto: un type="number" descarta el "+2" y la coma de "18,5"', () => {
@@ -80,10 +97,11 @@ describe('ResumenTab · handicap', () => {
       <ResumenTab
         board={board([fila('p1', 'Ana', -2)])}
         roster={[jugador('p1', -2)]}
+        hcpCalcMode="whs"
         hcpEditor={editor({ editingId: 'p1', editValue: '+2' })}
       />,
     )
-    const input = screen.getByRole('textbox', { name: 'Handicap de inscripción' })
+    const input = screen.getByRole('textbox', { name: 'Índice de inscripción' })
     expect(input.getAttribute('type')).toBe('text')
     expect((input as HTMLInputElement).value).toBe('+2')
   })
@@ -92,7 +110,7 @@ describe('ResumenTab · handicap', () => {
 // El hook real detrás de la vista: lo que se tipea en el input es lo que llega a la base.
 function ResumenConEditor({ roster }: { roster: ScoringPlayer[] }) {
   const hcpEditor = useHcpEditor({ onSaved: vi.fn(), hcpCalcMode: 'whs', course: null })
-  return <ResumenTab board={board([fila('p1', 'Ana', -2)])} roster={roster} hcpEditor={hcpEditor} />
+  return <ResumenTab board={board([fila('p1', 'Ana', -2)])} roster={roster} hcpEditor={hcpEditor} hcpCalcMode="whs" />
 }
 
 describe('ResumenTab · editar el handicap en el DOM', () => {
@@ -102,9 +120,10 @@ describe('ResumenTab · editar el handicap en el DOM', () => {
   ])('tipear %s guarda %p', async (texto, valor) => {
     updatePlayerHandicap.mockClear()
     render(<ResumenConEditor roster={[jugador('p1', -2)]} />)
-    fireEvent.click(screen.getByRole('button', { name: '+2' }))
-    const input = screen.getByRole('textbox', { name: 'Handicap de inscripción' }) as HTMLInputElement
-    expect(input.value).toBe('+2')
+    fireEvent.click(screen.getByRole('button', { name: '+2.0' }))
+    const input = screen.getByRole('textbox', { name: 'Índice de inscripción' }) as HTMLInputElement
+    // Precarga igual que el botón: "+2.0", no "+2".
+    expect(input.value).toBe('+2.0')
     fireEvent.change(input, { target: { value: texto } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await vi.waitFor(() => expect(updatePlayerHandicap).toHaveBeenCalled())

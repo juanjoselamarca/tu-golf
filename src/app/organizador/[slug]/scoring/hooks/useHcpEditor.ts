@@ -10,9 +10,9 @@ import { updatePlayerHandicap, type ScoringCourse } from '@/lib/data/tournaments
 import {
   courseDataDeInscripcion,
   esHandicapDeInscripcionValido,
-  formatearHandicap,
   mensajeHandicapFueraDeRango,
   parsearHandicap,
+  presentacionHandicapInscrito,
   rangoDeHandicapDeInscripcion,
 } from '@/golf/handicap-index-range'
 
@@ -37,11 +37,14 @@ export function useHcpEditor({ onSaved, hcpCalcMode, course }: UseHcpEditorArgs)
     [hcpCalcMode, course],
   )
 
+  // Rótulo y formato del panel (Índice en WHS, HCP en el resto): el editor habla igual que la columna.
+  const { rotulo, enFrase, formatear } = useMemo(() => presentacionHandicapInscrito(hcpCalcMode), [hcpCalcMode])
+
   const startEdit = useCallback((playerId: string, current: number | null) => {
     setEditingId(playerId)
-    // Se precarga como se muestra ("+2"), no como lo guarda la base ("-2").
-    setEditValue(current == null ? '' : formatearHandicap(current))
-  }, [])
+    // Se precarga exactamente como se muestra ("+2.0"), no como lo guarda la base ("-2").
+    setEditValue(current == null ? '' : formatear(current))
+  }, [formatear])
 
   const cancel = useCallback(() => setEditingId(null), [])
 
@@ -50,21 +53,21 @@ export function useHcpEditor({ onSaved, hcpCalcMode, course }: UseHcpEditorArgs)
       // "+2" (notación del golf) y "-2" (como lo guarda la app) son el mismo plus.
       const value = parsearHandicap(editValue)
       if (!esHandicapDeInscripcionValido(value, rango)) {
-        showWarning('Handicap inválido', mensajeHandicapFueraDeRango(rango))
+        showWarning(`${rotulo} inválido`, mensajeHandicapFueraDeRango(rango))
         setEditingId(null)
         return
       }
       try {
         await updatePlayerHandicap(createClient(), playerId, value, rango)
         onSaved(playerId, value)
-        showSuccess('Handicap actualizado', '', { duration: 1500 })
+        showSuccess(`${rotulo} actualizado`, '', { duration: 1500 })
       } catch (e) {
         void captureError(e, { context: 'scoring.useHcpEditor.save', meta: { playerId } })
-        showError('Error', 'No se pudo actualizar el handicap.')
+        showError('Error', `No se pudo actualizar el ${enFrase}.`)
       }
       setEditingId(null)
     },
-    [editValue, onSaved, rango, showError, showSuccess, showWarning],
+    [editValue, enFrase, onSaved, rango, rotulo, showError, showSuccess, showWarning],
   )
 
   return { editingId, editValue, setEditValue, startEdit, cancel, save }

@@ -25,7 +25,7 @@ import { modoDeJuego } from '@/golf/core/rules'
 import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
-import type { PlayerForCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { esModoHcpWhs, handicapInscrito, type PlayerForCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import type { LegacyHcpContext } from '@/golf/leaderboard/types'
 import { leerHandicapDeEquipo } from '@/lib/draft/team-config-legacy'
 import { formatoDeLaTarjetaDelGrupo } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
@@ -34,7 +34,6 @@ import { fetchCourseHoles, fetchLegacyHcpContext, type Client } from './leaderbo
 import {
   handicapsDeEquipoDelGrupo,
   isProducerTeamFormat,
-  resolvePlayerHandicap,
 } from './teamRounds'
 import { grupoEnlazadoIncompleto, playerName } from './motivo-para-no-iniciar'
 
@@ -57,6 +56,57 @@ export interface StartPlayer extends PlayerForCourseHcp {
   player_name: string | null
   status: string
   profiles: { name: string; indice: number | null } | null
+}
+
+/**
+ * Handicap de la fila del jugador en la tarjeta del grupo (`ronda_libre_jugadores.handicap`),
+ * que el scorer y el board tratan SIEMPRE como índice.
+ *  - WHS: lo inscrito (`handicapInscrito`), el mismo número con que puntúan el handicap
+ *    de equipo y el Resumen y el que ve el organizador. Antes se tomaba el índice de HOY
+ *    del perfil: si FedeGolf lo actualizó entre la inscripción y el inicio, la tarjeta
+ *    mostraba un número y el equipo puntuaba con otro. Un inscrito sin snapshot lo
+ *    completa antes `completarIndicesInscritos`.
+ *  - raw (torneos viejos): lo inscrito es un course handicap ya convertido; escribirlo
+ *    en un campo de índice lo convertiría dos veces. Se mantiene el índice del perfil.
+ */
+export function handicapDeLaTarjeta(player: StartPlayer, hcpCalcMode: string | null | undefined): number {
+  if (esModoHcpWhs(hcpCalcMode)) return handicapInscrito(player)
+  return player.profiles?.indice ?? player.handicap_at_registration ?? 0
+}
+
+/**
+ * WHS: el aprobado inscrito sin índice (no lo tenía al inscribirse) y que HOY sí lo
+ * tiene en su perfil queda con ese índice en `players.handicap_at_registration` (lo
+ * que la inscripción habría guardado), para que tarjeta, equipo y leaderboard
+ * puntúen con el mismo número. Sin esto la tarjeta y el equipo jugarían con 0.
+ * Muta `players` en memoria con lo que quedó en la base. Devuelve false si una escritura
+ * falla o si otro (el organizador desde otra pestaña) ya lo llenó entre la lectura y acá:
+ * el reintento lee el valor nuevo, en vez de armar la tarjeta con uno que la base no tiene.
+ */
+export async function completarIndicesInscritos(
+  svc: SupabaseClient,
+  hcpCalcMode: string | null | undefined,
+  players: StartPlayer[],
+): Promise<boolean> {
+  if (!esModoHcpWhs(hcpCalcMode)) return true
+  for (const p of players) {
+    const indice = p.profiles?.indice
+    if (p.handicap_at_registration != null || indice == null) continue
+    const { data, error } = await svc
+      .from('players')
+      .update({ handicap_at_registration: indice })
+      .eq('id', p.id)
+      .is('handicap_at_registration', null)
+      .select('handicap_at_registration')
+    if (error) {
+      void captureError(error, { context: 'start-tournament.completar-indice', level: 'error', meta: { playerId: p.id } })
+      return false
+    }
+    const guardado = (data as Array<{ handicap_at_registration: number | null }> | null)?.[0]?.handicap_at_registration
+    if (guardado == null) return false
+    p.handicap_at_registration = guardado
+  }
+  return true
 }
 
 /** Columnas de `players` que lee el inicio del torneo. */
@@ -90,6 +140,8 @@ export interface StartTournamentInfo {
   courses: { nombre?: string } | null
   /** `tournaments.team_config` (JSONB, forma vieja o nueva): de acá sale el handicap de equipo. */
   team_config?: unknown
+  /** `tournaments.hcp_calc_mode`: decide qué número lleva la fila de la tarjeta (`handicapDeLaTarjeta`). */
+  hcp_calc_mode?: string | null
 }
 
 /**
@@ -364,7 +416,7 @@ export async function materializeGroupScorecard(
       if (!player) {
         return abortar('jugador-del-grupo-no-existe', new Error(`player ${gp.player_id} no está en el torneo`))
       }
-      const handicap = resolvePlayerHandicap(player)
+      const handicap = handicapDeLaTarjeta(player, t.hcp_calc_mode)
       const { data: jugador, error } = await svc
         .from('ronda_libre_jugadores')
         .insert({

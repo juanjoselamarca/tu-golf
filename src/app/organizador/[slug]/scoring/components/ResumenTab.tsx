@@ -4,7 +4,7 @@
 // `hasPlayData`, los mismos porteros del podio.
 
 import { isFinishedCard, hasPlayData } from '@/golf/leaderboard'
-import { formatearHandicap } from '@/golf/handicap-index-range'
+import { presentacionHandicapInscrito } from '@/golf/handicap-index-range'
 import type { ResumenLider } from '@/golf/leaderboard/resumen-cards'
 import type { Player } from '@/lib/golf-data'
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
@@ -15,6 +15,8 @@ interface ResumenTabProps {
   board: UseResumenBoardReturn
   roster: ScoringPlayer[]
   hcpEditor: UseHcpEditorReturn
+  /** `tournaments.hcp_calc_mode`: rótulo y formato del hándicap inscrito. */
+  hcpCalcMode: string | null | undefined
 }
 
 /** "Mejor Gross" cuando terminó · "Mejor Gross · en curso" mientras se juega. */
@@ -46,7 +48,8 @@ function estadoDe(row: Player): { label: string; done: boolean } {
   return { label: 'Sin iniciar', done: false }
 }
 
-export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
+export function ResumenTab({ board, roster, hcpEditor, hcpCalcMode }: ResumenTabProps) {
+  const presentacionHcp = presentacionHandicapInscrito(hcpCalcMode)
   const { cards, rows, loading, error, reload } = board
 
   if (error) {
@@ -95,13 +98,13 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
       <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '12px', overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--surface-border)' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: 'var(--text)' }}>Jugadores</span>
-          <span style={{ fontSize: '12px', color: 'var(--text-2)', marginLeft: '8px' }}>Toca el handicap para editar</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-2)', marginLeft: '8px' }}>Toca el {presentacionHcp.enFrase} para editar</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
-                {['Jugador', 'HCP', 'Gross', 'Neto', 'Pts', 'Estado'].map((h) => (
+                {['Jugador', presentacionHcp.rotulo, 'Gross', 'Neto', 'Pts', 'Estado'].map((h) => (
                   <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '12px', letterSpacing: '0.05em', padding: '10px 12px', textAlign: h === 'Jugador' ? 'left' : 'center' }}>{h}</th>
                 ))}
               </tr>
@@ -119,7 +122,7 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                       {isEditingThis && row.id ? (
                         <input
                           type="text"
-                          aria-label="Handicap de inscripción"
+                          aria-label={`${presentacionHcp.rotulo} de inscripción`}
                           autoFocus
                           value={hcpEditor.editValue}
                           onChange={(e) => hcpEditor.setEditValue(e.target.value)}
@@ -134,9 +137,9 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
                         <button
                           onClick={() => row.id && hcpEditor.startEdit(row.id, rosterPlayer?.handicap_at_registration ?? null)}
                           style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--brand-on-bg)', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
-                          title="Editar handicap"
+                          title={`Editar ${presentacionHcp.enFrase}`}
                         >
-                          {formatearHandicap(rosterPlayer?.handicap_at_registration ?? row.hcpDisplay)}
+                          {(() => { const v = rosterPlayer?.handicap_at_registration ?? row.hcpDisplay; return v != null ? presentacionHcp.formatear(v) : '--' })()}
                         </button>
                       )}
                     </td>

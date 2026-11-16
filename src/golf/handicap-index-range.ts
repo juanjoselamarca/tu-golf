@@ -107,11 +107,13 @@ export function formatearIndice(v: number): string {
  */
 export function presentacionHandicapInscrito(hcpCalcMode: string | null | undefined): {
   rotulo: 'Índice' | 'HCP'
+  /** El rótulo dentro de una frase ("Editar índice", "No se pudo actualizar el HCP"). */
+  enFrase: 'índice' | 'HCP'
   formatear: (v: number) => string
 } {
   return esModoHcpWhs(hcpCalcMode)
-    ? { rotulo: 'Índice', formatear: formatearIndice }
-    : { rotulo: 'HCP', formatear: (v) => formatearHandicap(v) }
+    ? { rotulo: 'Índice', enFrase: 'índice', formatear: formatearIndice }
+    : { rotulo: 'HCP', enFrase: 'HCP', formatear: (v) => formatearHandicap(v) }
 }
 
 /**

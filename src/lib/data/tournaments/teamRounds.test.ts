@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { LegacyHcpContext } from '@/golf/leaderboard/types'
-import { handicapsDeEquipoDelGrupo, resolvePlayerHandicap, isProducerTeamFormat } from './teamRounds'
+import { handicapsDeEquipoDelGrupo, isProducerTeamFormat } from './teamRounds'
 
 describe('isProducerTeamFormat', () => {
   it('scramble, foursome y best_ball → true', () => {
@@ -99,27 +99,3 @@ describe('handicapsDeEquipoDelGrupo', () => {
   })
 })
 
-describe('resolvePlayerHandicap', () => {
-  it('prefiere profiles.indice (índice vivo, consistente con el leaderboard)', () => {
-    expect(
-      resolvePlayerHandicap({ profiles: { indice: 12.4 }, handicap_at_registration: 18 }),
-    ).toBe(12.4)
-  })
-
-  it('cae a handicap_at_registration cuando no hay índice', () => {
-    expect(
-      resolvePlayerHandicap({ profiles: { indice: null }, handicap_at_registration: 18 }),
-    ).toBe(18)
-  })
-
-  it('cae a 0 cuando no hay nada (invitado sin índice ni registro)', () => {
-    expect(resolvePlayerHandicap({ profiles: { indice: null }, handicap_at_registration: null })).toBe(0)
-    expect(resolvePlayerHandicap({})).toBe(0)
-  })
-
-  it('índice 0 es válido y no se confunde con ausencia', () => {
-    expect(
-      resolvePlayerHandicap({ profiles: { indice: 0 }, handicap_at_registration: 18 }),
-    ).toBe(0)
-  })
-})

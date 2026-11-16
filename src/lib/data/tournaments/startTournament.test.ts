@@ -10,6 +10,7 @@ import { TEAM_CONFIG_VIEJO_PAREJA_OFICIAL } from '@/lib/draft/team-config-legacy
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 
 import {
+  completarIndicesInscritos,
   ensureRound1Cards,
   ERROR_SIN_DESHACER,
   gruposSinTarjeta,
@@ -76,7 +77,7 @@ function fakeDb(opts: {
             select: () => Promise.resolve(
               fail
                 ? { data: null, error: { message: `boom ${table}` } }
-                : { data: opts.grupoYaEnlazado ? [] : [{ id: 'g1' }], error: null },
+                : { data: opts.grupoYaEnlazado ? [] : [{ id: 'g1', ...(payload as object) }], error: null },
             ),
             then: (resolve: (r: unknown) => unknown) =>
               Promise.resolve({ error: fail ? { message: `boom ${table}` } : null }).then(resolve),
@@ -110,7 +111,7 @@ const group = (playerIds: string[], name = 'Grupo 1'): StartGroup => ({
   ronda_libre_id: null,
   players: playerIds.map((pid, i) => ({ id: `gp${i}`, player_id: pid })),
 })
-const tournament = (format: string | null = 'stroke_play', extra: { formato_juego?: string | null; modo_juego?: string | null; hcp_pct?: number | null; team_config?: unknown } = {}) =>
+const tournament = (format: string | null = 'stroke_play', extra: { formato_juego?: string | null; modo_juego?: string | null; hcp_pct?: number | null; team_config?: unknown; hcp_calc_mode?: string | null } = {}) =>
   ({ format, tees: 'azul', course_name: 'Los Leones', courses: null, ...extra })
 const ronda1 = { courseId: 'c1', holeCount: 18, date: '2026-10-30' }
 
@@ -427,6 +428,36 @@ describe('materializeGroupScorecard — handicap de equipo en ronda_equipos', ()
       tournament: tournament(formato, { formato_juego: formato, team_config }), group: group(['p1', 'p2']), players: pareja(), ronda1, creatorId: 'org', hcpEquipos: ctx,
     })
 
+  it('la tarjeta de cada integrante lleva lo inscrito, no el índice de hoy del perfil', async () => {
+    // El perfil se actualizó después de inscribirse (FedeGolf): 10 → 8.5. El equipo
+    // puntúa con lo inscrito; la tarjeta tiene que mostrar ese mismo número.
+    const db = fakeDb()
+    await materializeGroupScorecard(db.svc, {
+      tournament: tournament('scramble', { formato_juego: 'scramble', hcp_calc_mode: 'whs' }), group: group(['p1', 'p2']),
+      players: [
+        player('p1', { handicap_at_registration: 10, profiles: { name: 'Juan', indice: 8.5 } }),
+        player('p2', { handicap_at_registration: 20, profiles: { name: 'Juanito', indice: 20 } }),
+      ],
+      ronda1, creatorId: 'org', hcpEquipos: hcpEquipos(),
+    })
+    const filas = db.ops.filter((o) => o.kind === 'insert' && o.table === 'ronda_libre_jugadores').map((o) => o.payload as Record<string, unknown>)
+    expect(filas.map((f) => f.handicap)).toEqual([10, 20])
+  })
+
+  it('torneo raw: la tarjeta lleva el índice del perfil (lo inscrito es un course handicap; reconvertirlo lo duplicaría)', async () => {
+    const db = fakeDb()
+    await materializeGroupScorecard(db.svc, {
+      tournament: tournament('best_ball', { formato_juego: 'best_ball', hcp_calc_mode: 'raw' }), group: group(['p1', 'p2']),
+      players: [
+        player('p1', { handicap_at_registration: 22, profiles: { name: 'Juan', indice: 15 } }),
+        player('p2', { user_id: null, handicap_at_registration: 18, profiles: null }),
+      ],
+      ronda1, creatorId: 'org', hcpEquipos: null,
+    })
+    const filas = db.ops.filter((o) => o.kind === 'insert' && o.table === 'ronda_libre_jugadores').map((o) => o.payload as Record<string, unknown>)
+    expect(filas.map((f) => f.handicap)).toEqual([15, 18])
+  })
+
   it('scramble WHS 18 hoyos: completo y de juego iguales (35 % × 10 + 15 % × 20 = 6,5 → 7)', async () => {
     const db = fakeDb()
     expect((await armar(db, 'scramble', hcpEquipos())).ok).toBe(true)
@@ -470,5 +501,43 @@ describe('materializeGroupScorecard — handicap de equipo en ronda_equipos', ()
     expect(res.ok).toBe(false)
     expect(equipoInsertado(db)).toBeUndefined()
     expect(rondaBorrada(db.ops)).toBe(true)
+  })
+})
+
+describe('completarIndicesInscritos — inscrito sin índice que hoy lo tiene', () => {
+  it('WHS: guarda el índice del perfil como lo inscrito (solo si sigue vacío) y lo deja en memoria', async () => {
+    const db = fakeDb()
+    const players = [
+      player('p1', { handicap_at_registration: null, profiles: { name: 'Ana', indice: 14 } }),
+      player('p2', { handicap_at_registration: 9 }),
+      player('p3', { user_id: null, handicap_at_registration: null, profiles: null }),
+    ]
+    expect(await completarIndicesInscritos(db.svc, 'whs', players)).toBe(true)
+    const updates = db.ops.filter((o) => o.kind === 'update' && o.table === 'players')
+    expect(updates).toHaveLength(1)
+    expect(updates[0].payload).toEqual({ handicap_at_registration: 14 })
+    expect(updates[0].filters).toEqual([['eq', 'id', 'p1'], ['is', 'handicap_at_registration', null]])
+    expect(players.map((p) => p.handicap_at_registration)).toEqual([14, 9, null])
+  })
+
+  it('raw: no toca nada (lo inscrito ahí es un course handicap, no un índice)', async () => {
+    const db = fakeDb()
+    const players = [player('p1', { handicap_at_registration: null, profiles: { name: 'Ana', indice: 14 } })]
+    expect(await completarIndicesInscritos(db.svc, 'raw', players)).toBe(true)
+    expect(db.ops).toHaveLength(0)
+  })
+
+  it('si la escritura falla devuelve false (el inicio se corta antes de armar tarjetas)', async () => {
+    const db = fakeDb({ failUpdate: 'players' })
+    const players = [player('p1', { handicap_at_registration: null, profiles: { name: 'Ana', indice: 14 } })]
+    expect(await completarIndicesInscritos(db.svc, 'whs', players)).toBe(false)
+  })
+
+  it('si otro lo llenó entre la lectura y la escritura (0 filas), devuelve false y no inventa el valor en memoria', async () => {
+    // `grupoYaEnlazado` hace que el update condicional no afecte filas.
+    const db = fakeDb({ grupoYaEnlazado: true })
+    const players = [player('p1', { handicap_at_registration: null, profiles: { name: 'Ana', indice: 14 } })]
+    expect(await completarIndicesInscritos(db.svc, 'whs', players)).toBe(false)
+    expect(players[0].handicap_at_registration).toBeNull()
   })
 })

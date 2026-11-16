@@ -183,7 +183,7 @@ export default function ScoringPage() {
         )}
 
         {activeTab === 'resumen' && (
-          <ResumenTab board={resumen} roster={players} hcpEditor={hcpEditor} />
+          <ResumenTab board={resumen} roster={players} hcpEditor={hcpEditor} hcpCalcMode={tournament.hcp_calc_mode} />
         )}
 
         {/* Sin empezar no hay tarjetas que mostrar; cerrado o publicado, las tarjetas se siguen leyendo (revisarlas
