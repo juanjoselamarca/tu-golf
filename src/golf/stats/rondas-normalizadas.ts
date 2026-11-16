@@ -157,7 +157,9 @@ function motivoFueraDeNumeros(
 
 /**
  * Normaliza las rondas crudas del historial, en el MISMO orden en que llegan.
- * Rondas sin ningún hoyo marcado se omiten.
+ * Una ronda sin ningún hoyo marcado pero con total (carga manual "solo total", import
+ * FedeGolf) entra a promedios y mejor ronda con su total, nunca al conteo hoyo a hoyo.
+ * Sin hoyos ni total, se omite.
  *
  * Pares: los de la tarjeta jugada mandan sobre el catálogo; sin par real el hoyo
  * no cuenta hoyo a hoyo (nunca par 4 inventado: un 2 en un par 3 sin catálogo se
@@ -181,6 +183,42 @@ export function normalizarRondas(
     return matchedId
   }
 
+  /**
+   * 251 rondas en prod (11 usuarios sin ninguna otra) tienen total y no tarjeta. Sin
+   * esto, esos usuarios veían "Aún no tienes rondas" en stats y un historial sin resumen.
+   * bucket por holes_played (solo 9 o 18 exactos); par: el del catálogo si la cancha
+   * tiene sus 18 pares y la ronda es de 18; si no, estándar 72/36.
+   */
+  function rondaSoloTotal(raw: RawStatsRound, courseId: string | null): RondaNormalizada | null {
+    if (raw.total_gross == null) return null
+    const bucket: 18 | 9 | null = raw.holes_played === 18 ? 18 : raw.holes_played === 9 ? 9 : null
+    const catalogo = courseId ? courseParMap.get(courseId) ?? null : null
+    const pares18 = catalogo?.slice(0, 18) ?? []
+    const parCatalogo = bucket === 18 && pares18.length === 18 && pares18.every(p => typeof p === 'number')
+      ? (pares18 as number[]).reduce((a, b) => a + b, 0)
+      : null
+    const totalPar = bucket == null ? null : parCatalogo ?? (bucket === 18 ? 72 : 36)
+    const vsPar = totalPar != null ? raw.total_gross - totalPar : null
+    return {
+      id: raw.id,
+      course_name: raw.course_name,
+      played_at: raw.played_at,
+      scores: [],
+      total_gross: raw.total_gross,
+      holes_played: raw.holes_played ?? 0,
+      import_source: raw.import_source,
+      parPerHole: null,
+      vsPar,
+      tarjeta: [],
+      pares: [],
+      hoyosEstimados: [],
+      bucket,
+      vsPar18: vsPar == null || bucket == null ? null : bucket === 9 ? vsPar * 2 : vsPar,
+      fueraDePromedios: motivoFueraDeNumeros(raw, raw.total_gross, raw.holes_played ?? 0, bucket),
+      cuentaHoyoAHoyo: false,
+    }
+  }
+
   const rondas: RondaNormalizada[] = []
   for (const raw of rawRounds) {
     // Se itera la tarjeta CON su posición (no compactada): un hoyo sin marcar no
@@ -190,7 +228,11 @@ export function normalizarRondas(
     for (let i = 0; i < tarjeta.length; i++) {
       if (typeof tarjeta[i] === 'number') jugadas.push(i)
     }
-    if (jugadas.length === 0) continue
+    if (jugadas.length === 0) {
+      const soloTotal = rondaSoloTotal(raw, findCourseId(raw.course_name, raw.course_id))
+      if (soloTotal) rondas.push(soloTotal)
+      continue
+    }
     const scores = jugadas.map(i => tarjeta[i] as number)
 
     const totalGross = raw.total_gross ?? scores.reduce((a, b) => a + b, 0)
@@ -211,8 +253,9 @@ export function normalizarRondas(
     const paresJugados = jugadas.map(i => pares[i])
     const parPerHole = paresJugados.every((p): p is number => p != null) ? (paresJugados as number[]) : null
     let totalPar: number | null = parPerHole ? parPerHole.reduce((a, b) => a + b, 0) : null
-    // Sin par real: par estándar solo para el vs-par de una ronda completa.
-    if (totalPar == null && bucket != null) totalPar = bucket === 18 ? 72 : 36
+    // Sin par real: par estándar solo para una ronda de EXACTAMENTE 9 o 18 hoyos. Una de
+    // 27 sin par contra 72 daría +60 dentro del promedio de 18: mejor sin vsPar (no promedia).
+    if (totalPar == null && (scores.length === 18 || scores.length === 9)) totalPar = scores.length === 18 ? 72 : 36
     const vsPar = totalPar != null ? totalGross - totalPar : null
 
     const fueraDePromedios = motivoFueraDeNumeros(raw, totalGross, scores.length, bucket)
@@ -277,6 +320,24 @@ export function contarHoyoAHoyo(rondas: RondaNormalizada[]): ConteoHoyoAHoyo {
     }
   }
   return c
+}
+
+/**
+ * El bucket de hoyos del que habla una pantalla de stats: el que tiene MÁS rondas que
+ * cuentan (empate → 18). Una sola regla para cifras, gráfico, mejores rondas y tendencia:
+ * con 2 de 18 y 7 de 9, el jugador juega 9 hoyos y eso es lo que se le muestra.
+ * null si ninguna ronda cuenta.
+ */
+export function bucketPrincipal(rondas: RondaNormalizada[]): 18 | 9 | null {
+  let n18 = 0
+  let n9 = 0
+  for (const r of rondas) {
+    if (r.fueraDePromedios != null) continue
+    if (r.bucket === 18) n18++
+    else if (r.bucket === 9) n9++
+  }
+  if (n18 === 0 && n9 === 0) return null
+  return n18 >= n9 ? 18 : 9
 }
 
 /** Las rondas que entran a promedios, mejores rondas y gráfico, del bucket pedido. */
@@ -357,20 +418,18 @@ export function agregarRondas(rondas: RondaNormalizada[]): AgregadosDeRondas {
 export interface PuntoScoreVsPar {
   id: string
   played_at: string
-  /** Y del gráfico: vsPar en escala de 18 hoyos. */
-  vsPar18: number
-  /** Ronda de 9 hoyos (se dibuja como punto hueco). */
-  es9: boolean
+  /** Y del gráfico: vsPar de la ronda, en la escala de su propio bucket (sin duplicar). */
+  vsPar: number
 }
 
 /**
  * Puntos del gráfico en orden CRONOLÓGICO (más antigua primero), sea cual sea el
- * orden de entrada. Solo rondas que cuentan para los números; una de 9 entra con
- * su vsPar duplicado (escala 18).
+ * orden de entrada. Solo rondas que cuentan, del MISMO bucket que la cifra héroe:
+ * mezclar 9h (×2) con 18h dibujaba una escala que contradecía el promedio.
  */
-export function serieScoreVsPar(rondas: RondaNormalizada[]): PuntoScoreVsPar[] {
-  return rondas
-    .filter(r => r.fueraDePromedios == null && r.vsPar18 != null)
-    .map(r => ({ id: r.id, played_at: r.played_at, vsPar18: r.vsPar18 as number, es9: r.bucket === 9 }))
+export function serieScoreVsPar(rondas: RondaNormalizada[], bucket: 18 | 9): PuntoScoreVsPar[] {
+  return rondasQueCuentan(rondas, bucket)
+    .filter(r => r.vsPar != null)
+    .map(r => ({ id: r.id, played_at: r.played_at, vsPar: r.vsPar as number }))
     .sort((a, b) => (a.played_at < b.played_at ? -1 : a.played_at > b.played_at ? 1 : 0))
 }

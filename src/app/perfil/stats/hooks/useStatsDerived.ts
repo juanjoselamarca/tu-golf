@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import {
   agregarRondas,
+  bucketPrincipal,
   contarHoyoAHoyo,
   mejorRonda,
   rondasQueCuentan,
@@ -15,27 +16,17 @@ import { scoringTrendLast5, frontBackNine } from '@/golf/stats/personal'
 
 export type RangeKey = '5' | '10' | '20' | 'all'
 
-/** Las cifras principales, de UN solo bucket de hoyos (18 si hay; si el jugador solo juega 9, de 9). */
+/** Las cifras principales, todas del MISMO bucket de hoyos (bucketPrincipal). */
 export interface CifrasStats {
   bucket: 18 | 9
+  /** Rondas del rango que entran al promedio (el n que se muestra junto al rótulo). */
+  rondasEnPromedio: number
   promedioVsPar: number | null
   mejorRonda: BestRound | null
-  peorRonda: BestRound | null
 }
 
 const porFechaDesc = (a: RondaNormalizada, b: RondaNormalizada) =>
   a.played_at < b.played_at ? 1 : a.played_at > b.played_at ? -1 : 0
-
-/** Más alto vsPar; en empate gana la primera en el orden recibido. */
-function peorRonda(rondas: RondaNormalizada[]): BestRound | null {
-  let peor: RondaNormalizada | null = null
-  for (const r of rondas) {
-    if (r.vsPar != null && (!peor || r.vsPar > (peor.vsPar as number))) peor = r
-  }
-  return peor
-    ? { score: peor.total_gross, course: peor.course_name, date: peor.played_at, vsPar: peor.vsPar as number, roundId: peor.id }
-    : null
-}
 
 /** Shape que esperan scoringTrendLast5 / frontBackNine, con el bucket ya resuelto (no holes_played crudo). */
 const paraTendencia = (r: RondaNormalizada) => ({
@@ -50,38 +41,46 @@ const paraTendencia = (r: RondaNormalizada) => ({
  * que /perfil/historial: fetchRondasNormalizadas) y los agregados salen de
  * agregarRondas — por construcción, las dos pantallas dicen los mismos números.
  *
- * El rango toma las N rondas más recientes (orden explícito más reciente primero).
+ * UN bucket de hoyos para toda la pantalla (bucketPrincipal sobre TODAS las rondas,
+ * no sobre el rango): cifra héroe, gráfico, mejores rondas y tendencia hablan de lo
+ * mismo. El rango toma las N rondas más recientes.
  */
 export function useStatsDerived(allRondas: RondaNormalizada[], range: RangeKey) {
   const ordenadas = useMemo(() => [...allRondas].sort(porFechaDesc), [allRondas])
+  const bucket = useMemo(() => bucketPrincipal(ordenadas), [ordenadas])
 
   const rondas = useMemo(
     () => (range === 'all' ? ordenadas : ordenadas.slice(0, parseInt(range, 10))),
     [ordenadas, range],
   )
 
+  // Se expone para el test de coherencia historial = stats.
   const agregados: AgregadosDeRondas = useMemo(() => agregarRondas(rondas), [rondas])
   const hasRounds = rondas.length > 0
 
+  /** Rondas registradas que no entran a promedios (equipo, match play, incompletas, error de carga). */
+  const fueraDePromedios = useMemo(() => allRondas.filter(r => r.fueraDePromedios != null).length, [allRondas])
+
+  const delBucket = useMemo(
+    () => (bucket == null ? [] : rondasQueCuentan(rondas, bucket).filter(r => r.vsPar != null)),
+    [rondas, bucket],
+  )
+
   const cifras: CifrasStats | null = useMemo(() => {
-    const bucket: 18 | 9 | null = agregados.totalRounds18 > 0 ? 18 : agregados.totalRounds9 > 0 ? 9 : null
     if (bucket == null) return null
-    const delBucket = rondasQueCuentan(rondas, bucket)
     return {
       bucket,
+      rondasEnPromedio: delBucket.length,
       promedioVsPar: bucket === 18 ? agregados.avgOverPar18 : agregados.avgOverPar9,
       mejorRonda: mejorRonda(delBucket),
-      peorRonda: peorRonda(delBucket),
     }
-  }, [agregados, rondas])
+  }, [bucket, delBucket, agregados])
 
   const scoringCounts = useMemo(() => contarHoyoAHoyo(rondas), [rondas])
   const scoringTotal = scoringCounts.eagles + scoringCounts.birdies
     + scoringCounts.pars + scoringCounts.bogeys + scoringCounts.doubles
 
-  const serie = useMemo(() => serieScoreVsPar(rondas), [rondas])
-  // Sin línea de promedio en el gráfico: mezclaría 9h×2 con 18h y contradiría el
-  // "Promedio vs par" de la cifra héroe (que es de un solo bucket). Un número, una fuente.
+  const serie = useMemo(() => (bucket == null ? [] : serieScoreVsPar(rondas, bucket)), [rondas, bucket])
 
   // Front/Back: solo 18 hoyos exactos que cuentan (una de 27 no tiene un "back 9" único).
   const nineHoleData = useMemo(
@@ -89,19 +88,16 @@ export function useStatsDerived(allRondas: RondaNormalizada[], range: RangeKey) 
     [rondas],
   )
 
-  const topRounds = useMemo(() => {
-    if (!cifras) return []
-    return rondasQueCuentan(rondas, cifras.bucket)
-      .filter(r => r.vsPar != null)
-      .sort((a, b) => (a.vsPar as number) - (b.vsPar as number))
-      .slice(0, 5)
-  }, [rondas, cifras])
+  const topRounds = useMemo(
+    () => [...delBucket].sort((a, b) => (a.vsPar as number) - (b.vsPar as number)).slice(0, 5),
+    [delBucket],
+  )
 
-  // Tendencia sobre TODAS las rondas (no el rango filtrado): el rango afecta
+  // Tendencia sobre TODAS las rondas del bucket (no el rango): el rango afecta
   // gráfico y cifras, no la tendencia. scoringTrendLast5 espera orden cronológico.
   const trendData = useMemo(
-    () => scoringTrendLast5(ordenadas.filter(r => r.fueraDePromedios == null).reverse().map(paraTendencia)),
-    [ordenadas],
+    () => (bucket == null ? null : scoringTrendLast5(rondasQueCuentan(ordenadas, bucket).reverse().map(paraTendencia))),
+    [ordenadas, bucket],
   )
 
   return {
@@ -109,6 +105,7 @@ export function useStatsDerived(allRondas: RondaNormalizada[], range: RangeKey) 
     hasRounds,
     agregados,
     cifras,
+    fueraDePromedios,
     scoringCounts,
     scoringTotal,
     serie,

@@ -45,7 +45,22 @@ describe('useStatsDerived', () => {
     expect(d.cifras?.bucket).toBe(18)
     expect(d.cifras?.mejorRonda?.score).toBe(80)
     expect(d.cifras?.promedioVsPar).toBe(13) // (8 + 18) / 2
-    expect(d.cifras?.peorRonda?.score).toBe(90)
+    expect(d.cifras?.rondasEnPromedio).toBe(2)
+    expect(d.fueraDePromedios).toBe(1)
+  })
+
+  it('una sola regla de bucket: 2 de 18 y 7 de 9 → cifras, gráfico, top y tendencia hablan de 9 hoyos', () => {
+    const rs = [
+      raw({ total_gross: 80 }), raw({ total_gross: 82 }),
+      ...Array.from({ length: 7 }, () => raw({ scores: Array(9).fill(5), total_gross: 45, holes_played: 9 })),
+    ]
+    const d = derivar(rs)
+    expect(d.cifras?.bucket).toBe(9)
+    expect(d.cifras?.rondasEnPromedio).toBe(7)
+    expect(d.serie).toHaveLength(7)
+    expect(d.serie.every(p => p.vsPar === 9)).toBe(true)
+    expect(d.topRounds.every(r => r.bucket === 9)).toBe(true)
+    expect(d.trendData?.bucketHoles).toBe(9)
   })
 
   it('usuario solo-9h: las cifras caen al bucket 9 (rotulado), nunca vacías', () => {

@@ -3,6 +3,7 @@ import {
   agregarRondas,
   normalizarRondas,
   serieScoreVsPar,
+  bucketPrincipal,
   type RawStatsRound,
 } from './rondas-normalizadas'
 
@@ -56,22 +57,62 @@ describe('normalizarRondas', () => {
     expect(r.cuentaHoyoAHoyo).toBe(true)
   })
 
-  it('sin ningún hoyo marcado la ronda se omite', () => {
-    expect(normalizarRondas([raw({ scores: [null, null] }), raw({ scores: null })], [], [])).toEqual([])
+  it('sin hoyos ni total, la ronda se omite', () => {
+    expect(normalizarRondas([raw({ scores: [null, null], total_gross: null as unknown as number }), raw({ scores: null, total_gross: null as unknown as number })], [], [])).toEqual([])
+  })
+
+  it('solo total (carga manual / FedeGolf): entra a promedios con par estándar, nunca hoyo a hoyo', () => {
+    const [r] = normalizarRondas([raw({ scores: null, total_gross: 85, holes_played: 18, import_source: 'manual' })], [], [])
+    expect(r.bucket).toBe(18)
+    expect(r.vsPar).toBe(13)
+    expect(r.fueraDePromedios).toBeNull()
+    expect(r.cuentaHoyoAHoyo).toBe(false)
+    const ag = agregarRondas([r])
+    expect(ag.avgOverPar18).toBe(13)
+    expect(ag.bestRound18?.score).toBe(85)
+    expect(ag.totalBirdies).toBe(0)
+  })
+
+  it('solo total con holes_played raro queda parcial; scramble solo total queda fuera', () => {
+    expect(una(raw({ scores: null, total_gross: 60, holes_played: 12 })).fueraDePromedios).toBe('parcial')
+    expect(una(raw({ scores: [], total_gross: 62, formato_juego: 'scramble' })).fueraDePromedios).toBe('bola_compartida')
   })
 })
 
 describe('serieScoreVsPar', () => {
-  it('orden cronológico, 9h como punto de 9 con vsPar duplicado, rondas fuera de números sin punto', () => {
-    const rondas = normalizarRondas([
-      raw({ id: 'nueva', played_at: '2026-06-10', total_gross: 80 }),
-      raw({ id: 'scramble', played_at: '2026-06-05', formato_juego: 'scramble', total_gross: 62 }),
-      raw({ id: 'nueve', played_at: '2026-06-01', scores: Array(9).fill(4).map((s, i) => (i < 5 ? 5 : s)), total_gross: 41, holes_played: 9 }),
-      raw({ id: 'parcial', played_at: '2026-05-01', scores: Array(12).fill(5), total_gross: 60 }),
-    ], [], [])
-    expect(serieScoreVsPar(rondas)).toEqual([
-      { id: 'nueve', played_at: '2026-06-01', vsPar18: 10, es9: true },
-      { id: 'nueva', played_at: '2026-06-10', vsPar18: 8, es9: false },
-    ])
+  const rondas = () => normalizarRondas([
+    raw({ id: 'nueva', played_at: '2026-06-10', total_gross: 80 }),
+    raw({ id: 'scramble', played_at: '2026-06-05', formato_juego: 'scramble', total_gross: 62 }),
+    raw({ id: 'nueve', played_at: '2026-06-01', scores: Array(9).fill(4).map((s, i) => (i < 5 ? 5 : s)), total_gross: 41, holes_played: 9 }),
+    raw({ id: 'parcial', played_at: '2026-05-01', scores: Array(12).fill(5), total_gross: 60 }),
+  ], [], [])
+
+  it('solo el bucket pedido, en su propia escala; rondas fuera de números sin punto', () => {
+    expect(serieScoreVsPar(rondas(), 18)).toEqual([{ id: 'nueva', played_at: '2026-06-10', vsPar: 8 }])
+    expect(serieScoreVsPar(rondas(), 9)).toEqual([{ id: 'nueve', played_at: '2026-06-01', vsPar: 5 }])
+  })
+})
+
+describe('bucketPrincipal', () => {
+  const r18 = (id: string) => raw({ id })
+  const r9 = (id: string) => raw({ id, scores: Array(9).fill(5), total_gross: 45, holes_played: 9 })
+
+  it('gana el bucket con más rondas que cuentan; empate → 18', () => {
+    expect(bucketPrincipal(normalizarRondas([r18('a'), r18('b'), r9('c'), r9('d'), r9('e')], [], []))).toBe(9)
+    expect(bucketPrincipal(normalizarRondas([r18('a'), r9('b')], [], []))).toBe(18)
+  })
+
+  it('las rondas fuera de números no votan; sin rondas que cuenten → null', () => {
+    const scramble = (id: string) => raw({ id, formato_juego: 'scramble' })
+    expect(bucketPrincipal(normalizarRondas([scramble('a'), scramble('b'), r9('c')], [], []))).toBe(9)
+    expect(bucketPrincipal(normalizarRondas([scramble('a')], [], []))).toBeNull()
+  })
+})
+
+describe('par estándar', () => {
+  it('una ronda de 27 hoyos sin par real no inventa par 72 (queda sin vsPar)', () => {
+    const [r] = normalizarRondas([raw({ scores: Array(27).fill(5), total_gross: 135, holes_played: 27 })], [], [])
+    expect(r.bucket).toBe(18)
+    expect(r.vsPar).toBeNull()
   })
 })

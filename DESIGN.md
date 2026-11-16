@@ -92,7 +92,8 @@ Definida en `src/app/globals.css` como CSS custom properties. NO inventar colore
 eran la firma visual más clara de "plantilla generada". Un score son dígitos: no hay ambigüedad `I/1` que justifique mono.
 Un solo wordmark en toda la app.
 
-**Escala** (px / peso, mobile-first). Máximo **tres tamaños de texto por pantalla** y **un número héroe por viewport**:
+**Escala** (px / peso, mobile-first). Solo estos siete tamaños existen (nada de 15, 12 o 11 px); **un número
+héroe por viewport**; y dentro de un mismo bloque (tarjeta, fila, sección) **máximo tres tamaños de texto**:
 
 | Rol | Tamaño / peso |
 |-----|---------------|

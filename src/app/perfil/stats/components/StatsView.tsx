@@ -25,14 +25,11 @@ interface Props {
   rondas: RondaNormalizada[] | null
 }
 
-/** Rondas registradas (de cualquier cancha) desde las que hay tendencias y promedios. */
-const MIN_RONDAS_ESTADISTICAS = 3
-
 const RANGOS: { key: RangeKey; label: string }[] = [
-  { key: '5', label: '5R' },
-  { key: '10', label: '10R' },
-  { key: '20', label: '20R' },
-  { key: 'all', label: 'Todo' },
+  { key: '5', label: 'Últimas 5' },
+  { key: '10', label: 'Últimas 10' },
+  { key: '20', label: 'Últimas 20' },
+  { key: 'all', label: 'Todas' },
 ]
 
 function fmtDate(d: string) {
@@ -43,6 +40,11 @@ function fmtDate(d: string) {
       oración en vez de mayúsculas, filas con divisor en vez de tarjetas) ── */
 
 const divisor = `1px solid ${C.cardBorder}`
+
+/** Fila dentro de una sección: título a la izquierda, contenido debajo, divisor arriba si no es la primera. */
+function Fila({ primera, children }: { primera?: boolean; children: ReactNode }) {
+  return <div style={{ paddingTop: primera ? 0 : 12, marginTop: primera ? 0 : 12, borderTop: primera ? 'none' : divisor }}>{children}</div>
+}
 
 function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
   return (
@@ -69,7 +71,7 @@ export function StatsView({ rondas: rondasOError }: Props) {
   const [range, setRange] = useState<RangeKey>('all')
   const allRounds = rondasOError ?? []
   const {
-    hasRounds, cifras, scoringCounts, scoringTotal, serie, nineHoleData, topRounds, trendData,
+    hasRounds, cifras, fueraDePromedios, scoringCounts, scoringTotal, serie, nineHoleData, topRounds, trendData,
   } = useStatsDerived(allRounds, range)
 
   const mejor = cifras?.mejorRonda ?? null
@@ -92,7 +94,9 @@ export function StatsView({ rondas: rondasOError }: Props) {
     )
   }
 
-  const faltan = MIN_RONDAS_ESTADISTICAS - allRounds.length
+  const resumenGrafico = serie.length > 0 && cifras
+    ? `Score vs par de ${serie.length} ronda${serie.length !== 1 ? 's' : ''} de ${cifras.bucket} hoyos: mejor ${formatOverUnder(Math.min(...serie.map(p => p.vsPar)))}, peor ${formatOverUnder(Math.max(...serie.map(p => p.vsPar)))}.`
+    : ''
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh', padding: '16px', paddingBottom: 'calc(140px + env(safe-area-inset-bottom, 0px))' }}>
@@ -111,18 +115,18 @@ export function StatsView({ rondas: rondasOError }: Props) {
           <section style={{ ...cardStyle, padding: '32px 16px', marginBottom: 16, textAlign: 'center' }}>
             <p style={{ color: C.ivory, fontSize: 18, fontWeight: 600, margin: '0 0 8px' }}>Aún no tienes rondas registradas</p>
             <p style={{ color: C.muted, fontSize: 14, margin: '0 auto 20px', maxWidth: 340, lineHeight: 1.5 }}>
-              Juega o importa {MIN_RONDAS_ESTADISTICAS} rondas y aquí verás tu score vs par, birdies y tendencia.
+              Juega o importa tus rondas y aquí verás tu score vs par, birdies y tendencia.
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/ronda-libre/nueva" style={{
                 display: 'inline-flex', alignItems: 'center', minHeight: 44, background: 'var(--brand)', color: 'var(--brand-dark)',
-                fontWeight: 600, fontSize: 15, padding: '0 20px', borderRadius: 12, textDecoration: 'none',
+                fontWeight: 600, fontSize: 16, padding: '0 20px', borderRadius: 12, textDecoration: 'none',
               }}>
                 Nueva ronda
               </Link>
               <Link href="/perfil/historial" style={{
                 display: 'inline-flex', alignItems: 'center', minHeight: 44, color: 'var(--brand-on-bg)',
-                fontWeight: 600, fontSize: 15, padding: '0 16px', textDecoration: 'none',
+                fontWeight: 600, fontSize: 16, padding: '0 16px', textDecoration: 'none',
               }}>
                 Importar historial
               </Link>
@@ -130,10 +134,9 @@ export function StatsView({ rondas: rondasOError }: Props) {
           </section>
         )}
 
-        {allRounds.length > 0 && faltan > 0 && (
-          <p style={{ color: C.muted, fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 }}>
-            Con {faltan} ronda{faltan !== 1 ? 's' : ''} más se activan tendencias y promedios.{' '}
-            <Link href="/ronda-libre/nueva" style={{ color: 'var(--brand-on-bg)', fontWeight: 600 }}>Nueva ronda</Link>
+        {fueraDePromedios > 0 && (
+          <p style={{ color: C.muted, fontSize: 14, margin: '-8px 0 16px', lineHeight: 1.5 }}>
+            {fueraDePromedios === 1 ? '1 no entra' : `${fueraDePromedios} no entran`} a los promedios: de equipo, match play, incompletas o con un error de carga.
           </p>
         )}
 
@@ -154,7 +157,7 @@ export function StatsView({ rondas: rondasOError }: Props) {
                     style={{
                       flex: 1, minHeight: 44, border: 'none', borderLeft: i === 0 ? 'none' : divisor,
                       background: activo ? 'var(--surface-soft)' : 'transparent',
-                      color: activo ? C.ivory : C.muted, fontSize: 14, fontWeight: activo ? 600 : 500, cursor: 'pointer',
+                      color: activo ? C.ivory : C.muted, fontSize: 13, fontWeight: activo ? 600 : 500, cursor: 'pointer', padding: '0 4px',
                     }}
                   >
                     {r.label}
@@ -166,7 +169,7 @@ export function StatsView({ rondas: rondasOError }: Props) {
             {/* ── Héroe + tres cifras ── */}
             <section style={{ ...cardStyle, padding: 16, marginBottom: 16 }}>
               <p style={{ color: C.muted, fontSize: 13, fontWeight: 500, margin: '0 0 4px' }}>
-                Promedio vs par{cifras ? ` · ${cifras.bucket} hoyos` : ''}
+                Promedio vs par{cifras ? ` · ${cifras.bucket} hoyos · ${cifras.rondasEnPromedio} ronda${cifras.rondasEnPromedio !== 1 ? 's' : ''}` : ''}
               </p>
               <p className="num" style={{ color: C.ivory, fontSize: 40, fontWeight: 700, lineHeight: 1, margin: 0 }}>
                 {cifras?.promedioVsPar != null ? formatOverUnder(cifras.promedioVsPar) : '—'}
@@ -174,7 +177,7 @@ export function StatsView({ rondas: rondasOError }: Props) {
               <div style={{ display: 'flex', gap: 12, marginTop: 16, paddingTop: 16, borderTop: divisor }}>
                 <Cifra
                   etiqueta="Mejor ronda"
-                  valor={mejor ? <>{mejor.score} <span style={{ fontSize: 15, fontWeight: 500, color: C.muted }}>{formatOverUnder(mejor.vsPar)}</span></> : '—'}
+                  valor={mejor ? <>{mejor.score} <span style={{ fontSize: 16, fontWeight: 500, color: C.muted }}>{formatOverUnder(mejor.vsPar)}</span></> : '—'}
                   detalle={mejor ? mejor.course : undefined}
                 />
                 <Cifra etiqueta="Birdies" valor={hasRounds ? scoringCounts.birdies : '—'} />
@@ -183,9 +186,9 @@ export function StatsView({ rondas: rondasOError }: Props) {
             </section>
 
             {/* ── Un solo gráfico ── */}
-            <Seccion titulo="Tu score vs par" nota="Rondas de 9 hoyos, al doble (punto hueco).">
+            <Seccion titulo="Tu score vs par" nota={cifras ? `Rondas de ${cifras.bucket} hoyos` : undefined}>
               {serie.length > 0 ? (
-                <div style={{ height: 200 }}>
+                <div role="img" aria-label={resumenGrafico} style={{ height: 200 }}>
                   <ScoreVsParChart puntos={serie} />
                 </div>
               ) : (
@@ -209,25 +212,40 @@ export function StatsView({ rondas: rondasOError }: Props) {
               </div>
             }
           >
-            {/* ── Tendencia ── */}
-            {trendData && (
-              <Seccion titulo="Tendencia">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span aria-hidden="true" style={{ color: trendData.improving ? C.greenText : trendData.declining ? C.red : C.muted, display: 'flex' }}>
-                    {trendData.improving ? <ArrowDownRight size={24} strokeWidth={1.75} /> : trendData.declining ? <ArrowUpRight size={24} strokeWidth={1.75} /> : <ArrowRight size={24} strokeWidth={1.75} />}
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ color: C.ivory, fontSize: 16, fontWeight: 600, margin: 0 }}>
-                      {trendData.improving ? 'Mejorando' : trendData.declining ? 'Empeorando' : 'Estable'}{' '}
-                      <span className="num" style={{ color: C.muted, fontWeight: 500 }}>
-                        ({parseFloat(trendData.diff) > 0 ? '+' : ''}{trendData.diff} golpes)
+            {/* ── Cómo vienes: tendencia e ida/vuelta como filas de una sección (DESIGN.md §13) ── */}
+            {(trendData || nineHoleData) && (
+              <Seccion titulo="Cómo vienes">
+                {trendData && (
+                  <Fila primera>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span aria-hidden="true" style={{ color: C.ivory, display: 'flex' }}>
+                        {trendData.improving ? <ArrowDownRight size={24} strokeWidth={1.75} /> : trendData.declining ? <ArrowUpRight size={24} strokeWidth={1.75} /> : <ArrowRight size={24} strokeWidth={1.75} />}
                       </span>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ color: C.ivory, fontSize: 16, fontWeight: 600, margin: 0 }}>
+                          {trendData.improving ? 'Mejorando' : trendData.declining ? 'Empeorando' : 'Estable'}{' '}
+                          <span className="num" style={{ color: C.muted, fontWeight: 500 }}>
+                            ({parseFloat(trendData.diff) > 0 ? '+' : ''}{trendData.diff} golpes)
+                          </span>
+                        </p>
+                        <p className="num" style={{ color: C.muted, fontSize: 14, margin: '2px 0 0' }}>
+                          Últimas 5: {trendData.avgLast} · anteriores {trendData.prevCount}: {trendData.avgPrev}
+                        </p>
+                      </div>
+                    </div>
+                  </Fila>
+                )}
+                {nineHoleData && (
+                  <Fila primera={!trendData}>
+                    <p style={{ color: C.muted, fontSize: 13, fontWeight: 500, margin: '0 0 8px' }}>
+                      Ida vs vuelta · promedio en {nineHoleData.count} rondas de 18
                     </p>
-                    <p className="num" style={{ color: C.muted, fontSize: 14, margin: '2px 0 0' }}>
-                      Últimas 5 ({trendData.bucketHoles} hoyos): {trendData.avgLast} · anteriores {trendData.prevCount}: {trendData.avgPrev}
-                    </p>
-                  </div>
-                </div>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <Cifra etiqueta="Ida (1–9)" valor={nineHoleData.front} />
+                      <Cifra etiqueta="Vuelta (10–18)" valor={nineHoleData.back} />
+                    </div>
+                  </Fila>
+                )}
               </Seccion>
             )}
 
@@ -258,16 +276,6 @@ export function StatsView({ rondas: rondasOError }: Props) {
               </Seccion>
             )}
 
-            {/* ── Ida vs vuelta ── */}
-            {nineHoleData && (
-              <Seccion titulo="Ida vs vuelta" nota={`Promedio en ${nineHoleData.count} rondas de 18 hoyos`}>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <Cifra etiqueta="Ida (1–9)" valor={nineHoleData.front} />
-                  <Cifra etiqueta="Vuelta (10–18)" valor={nineHoleData.back} />
-                </div>
-              </Seccion>
-            )}
-
             {/* ── Mejores 5 ── */}
             <Seccion titulo={cifras ? `Tus mejores rondas · ${cifras.bucket} hoyos` : 'Tus mejores rondas'}>
               {topRounds.length > 0 ? (
@@ -279,7 +287,7 @@ export function StatsView({ rondas: rondasOError }: Props) {
                     }}>
                       <span className="num" style={{ color: C.muted, fontSize: 14, width: 16 }}>{i + 1}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ color: C.ivory, fontSize: 15, fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <p style={{ color: C.ivory, fontSize: 16, fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {r.course_name}
                         </p>
                         <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>{fmtDate(r.played_at)}</p>
