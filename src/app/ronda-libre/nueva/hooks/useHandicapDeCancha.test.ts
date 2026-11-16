@@ -152,5 +152,30 @@ describe('useHandicapDeCancha — HCP visible vs golpes de la ronda', () => {
     await new Promise(r => setTimeout(r, 500))
     expect(llamadasAzul18()).toBe(1)
   }, 10000)
+
+  it('un reintento no suelta el 18h bueno que ya trajo otra clave de la misma cancha y tee', async () => {
+    // Con par 72 todo llega bien (y queda el 18h de Azul en caché). Al cambiar el par,
+    // la vuelta de 9 llega vacía una vez: se reintenta, pero el 18h bueno se conserva
+    // y no se vuelve a pedir.
+    let parTotal = 72
+    let vaciosPar71 = 0
+    cargarCourseData.mockImplementation(async (_id: string, _tee: string, holes: number, par?: number) => {
+      if (holes > 9) return cd18
+      if (par === 71 && vaciosPar71++ === 0) return null
+      return cd9
+    })
+    const { result, rerender } = renderHook(() => useHandicapDeCancha({
+      courseId: 'cancha-1', parTotal, holes: 9, recorridos: [], teesEnJuego: ['Azul'],
+    }))
+    await waitFor(() => expect(result.current.hcpVisibleDe(15, 'Azul')).toBe(17))
+    const llamadas18 = () => cargarCourseData.mock.calls.filter(c => c[2] === 18).length
+    expect(llamadas18()).toBe(1)
+    parTotal = 71; rerender()
+    // El reintento recupera la vuelta de 9 (2 llamadas con par 71)...
+    await waitFor(() => expect(cargarCourseData.mock.calls.filter(c => c[2] === 9 && c[3] === 71)).toHaveLength(2), { timeout: 6000 })
+    await waitFor(() => expect(result.current.golpesDe(15, 'Azul')).toBe(resolverCourseHandicap(15, cd9, 9)))
+    // ...sin volver a pedir el 18h que ya estaba bueno.
+    expect(llamadas18()).toBe(1)
+  }, 10000)
 })
 
