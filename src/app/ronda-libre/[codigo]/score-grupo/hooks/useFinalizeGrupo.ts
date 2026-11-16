@@ -264,7 +264,7 @@ export function useFinalizeGrupo(input: {
         }
         const guardado = await guardarTarjetaEnHistorial(supabase, {
           ronda, jugador: j, userId: j.user_id, scores: playerScores, scoresPorJugador: filledScores,
-          hoyos, parMap, ratingsPorTee, conId: true,
+          hoyos, parMap, ratingsPorTee, conId: true, retiradoDesde: timba?.retiros[j.id],
         })
         if (guardado.status === 'sin_hoyos') continue // no jugó ningún hoyo
         if (guardado.status === 'duplicada') {

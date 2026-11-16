@@ -21,6 +21,22 @@ export function hoyosNoJugadosPorRetiro(desde: number | null | undefined, ordenH
 }
 
 /**
+ * Los golpes de una tarjeta sin los anotados desde el retiro (en orden de juego): lo que va al historial. El motor
+ * ya no los cuenta; sin este filtro llegarían igual a la tarjeta histórica. No borra nada del servidor. Sin retiro
+ * (o con un retiro fuera de la ronda) devuelve el mismo objeto.
+ */
+export function golpesHastaElRetiro<T extends Readonly<Record<string | number, number | null | undefined>>>(
+  scores: T,
+  desde: number | null | undefined,
+  ordenHoyos: readonly number[],
+): T {
+  if (hoyosNoJugadosPorRetiro(desde, ordenHoyos).length === 0) return scores
+  return Object.fromEntries(
+    Object.entries(scores).filter(([hoyo]) => !estaRetiradoEn(desde, Number(hoyo), ordenHoyos)),
+  ) as T
+}
+
+/**
  * Desde qué hoyo se retira quien se va estando en `hoyoActual`: ese mismo si todavía no tiene score, o el primero
  * sin score después. `null` si ya anotó todos los que quedan (no hay hoyo que perder).
  */

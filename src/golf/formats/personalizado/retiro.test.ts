@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { estaRetiradoEn, hoyosNoJugadosPorRetiro, hoyoDesdeElQueSeRetira, hoyosParaElegirElRetiro } from './retiro'
+import { estaRetiradoEn, hoyosNoJugadosPorRetiro, hoyoDesdeElQueSeRetira, hoyosParaElegirElRetiro, golpesHastaElRetiro } from './retiro'
 
 // Salida en el 10: el orden de juego es 10..18, 1..9 (spec, "Hoyo pendiente y retiro").
 const ORDEN = [10, 11, 12, 13, 14, 15, 16, 17, 18, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -40,5 +40,20 @@ describe('hoyos para elegir desde cuál se retira (se acordaron tarde)', () => {
   it('hoyo fuera de la ronda: hasta el calculado, o nada', () => {
     expect(hoyosParaElegirElRetiro(ORDEN, 99, null)).toEqual([])
     expect(hoyosParaElegirElRetiro([1, 2, 3], 99, 2)).toEqual([1, 2])
+  })
+})
+
+describe('golpes hasta el retiro (la tarjeta del historial no lleva lo anotado después)', () => {
+  it('quita los golpes desde el hoyo del retiro en orden de juego, sin tocar los anteriores', () => {
+    const scores = { 10: 4, 11: 5, 12: 3, 17: 6, 18: 4, 1: 5 }
+    expect(golpesHastaElRetiro(scores, 17, ORDEN)).toEqual({ 10: 4, 11: 5, 12: 3 })
+  })
+  it('sin retiro (o retiro fuera de la ronda) devuelve los mismos golpes', () => {
+    const scores = { 10: 4, 11: 5 }
+    expect(golpesHastaElRetiro(scores, null, ORDEN)).toBe(scores)
+    expect(golpesHastaElRetiro(scores, 99, ORDEN)).toBe(scores)
+  })
+  it('acepta claves de texto (tarjeta como viene del servidor)', () => {
+    expect(golpesHastaElRetiro({ '10': 4, '11': 5 }, 11, ORDEN)).toEqual({ '10': 4 })
   })
 })

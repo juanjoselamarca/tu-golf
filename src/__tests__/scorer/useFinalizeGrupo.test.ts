@@ -512,6 +512,14 @@ describe('useFinalizeGrupo', () => {
       expect(finalizarRondaLibre).toHaveBeenCalled()
     })
 
+    it('la tarjeta propia al historial lleva el hoyo del retiro (para no subir lo anotado después)', async () => {
+      const { result } = montar({ timba: { retiros: { p1: 16 }, enviarMarcas: vi.fn(async () => true), hoyoEnPantalla: 18 } })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
+      expect(input.retiradoDesde).toBe(16)
+    })
+
     it('con puntos especiales sin enviar NO cierra y lo avisa', async () => {
       const enviarMarcas = vi.fn(async () => false)
       const { result } = montar({ timba: { retiros: {}, enviarMarcas, hoyoEnPantalla: 18 } })
