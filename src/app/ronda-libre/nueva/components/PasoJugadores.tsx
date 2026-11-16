@@ -48,7 +48,12 @@ interface Props {
   onQuitarEquipo: (equipoIdx: number) => void
   onRenombrarEquipo: (equipoIdx: number, nombre: string) => void
   onMoverAlEquipo: (id: string) => void
+  /** Golpes de la ronda (en 9 hoyos, los de 9): solo para calcular la ventaja del match. */
   golpesDe: (indice: number | null | undefined, tee: string | null | undefined) => number | null
+  /** HCP que se muestra: siempre el de 18 hoyos. */
+  hcpVisibleDe: (indice: number | null | undefined, tee: string | null | undefined) => number | null
+  /** Hoyos de la ronda: la ventaja del match se anuncia para esos hoyos. */
+  hoyos: number
   rondasRecientes: RondaReciente[]
   /** Problema que impide crear la ronda, si lo hay. */
   problema: ProblemaDeLaRonda | null
@@ -119,7 +124,7 @@ export function PasoJugadores(props: Props) {
       tees={props.tees}
       teeGlobal={props.teeGlobal}
       onTeeGlobal={props.onTeeGlobal}
-      golpes={golpesCreador}
+      hcp={props.hcpVisibleDe(props.creador.indice, props.teeGlobal)}
       onBloqueo={onBloqueoDe(ID_DEL_CREADOR)}
     />
   )
@@ -148,7 +153,7 @@ export function PasoJugadores(props: Props) {
             teeGlobal={props.teeGlobal}
             onTeeGlobal={props.onTeeGlobal}
             tees={props.tees}
-            golpesDe={props.golpesDe}
+            hcpVisibleDe={props.hcpVisibleDe}
             onCampoRival={props.onCampoRival}
             onQuitarRival={props.onQuitarRival}
             onAgregarCompanero={equipoIdx => props.onAgregarRival(undefined, equipoIdx)}
@@ -171,7 +176,7 @@ export function PasoJugadores(props: Props) {
                 numeroEnPantalla={numeroDe(rival.id)}
                 tees={props.tees}
                 teeGlobal={props.teeGlobal}
-                golpes={props.golpesDe(rival.handicap, rival.tees ?? props.teeGlobal)}
+                hcp={props.hcpVisibleDe(rival.handicap, rival.tees ?? props.teeGlobal)}
                 onCampo={(campo, valor) => props.onCampoRival(idx, campo, valor)}
                 onQuitar={() => props.onQuitarRival(idx)}
                 onBloqueo={onBloqueoDe(rival.id)}
@@ -226,10 +231,16 @@ export function PasoJugadores(props: Props) {
             prometía una ventaja que el marcador no da. */}
         {esMatchPlay && props.modo === 'neto' && props.llevaElScoreDelGrupo && props.rivales.length === 1 && (
           <DiferenciaDeHandicap
-            jugadorA={{ nombre: nombreOJugadorN(props.creador.nombre, numeroDe(ID_DEL_CREADOR)), golpes: golpesCreador }}
+            hoyos={props.hoyos}
+            jugadorA={{
+              nombre: nombreOJugadorN(props.creador.nombre, numeroDe(ID_DEL_CREADOR)),
+              golpes: golpesCreador,
+              hcp: props.hcpVisibleDe(props.creador.indice, props.teeGlobal),
+            }}
             jugadorB={{
               nombre: nombreOJugadorN(props.rivales[0].nombre, numeroDe(props.rivales[0].id)),
               golpes: props.golpesDe(props.rivales[0].handicap, props.rivales[0].tees ?? props.teeGlobal),
+              hcp: props.hcpVisibleDe(props.rivales[0].handicap, props.rivales[0].tees ?? props.teeGlobal),
             }}
           />
         )}

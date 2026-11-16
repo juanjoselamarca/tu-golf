@@ -24,7 +24,8 @@ interface Props {
   teeGlobal: string
   onTeeGlobal: (tee: string) => void
   tees: CourseTee[]
-  golpesDe: (indice: number | null | undefined, tee: string | null | undefined) => number | null
+  /** HCP que se muestra: siempre el de 18 hoyos. */
+  hcpVisibleDe: (indice: number | null | undefined, tee: string | null | undefined) => number | null
   onCampoRival: <K extends keyof RivalDelCreador>(idx: number, campo: K, valor: RivalDelCreador[K]) => void
   onQuitarRival: (idx: number) => void
   onAgregarCompanero: (equipoIdx: number) => void
@@ -116,7 +117,7 @@ export function EquiposDeLaRonda(props: Props) {
                   tees={props.tees}
                   teeGlobal={props.teeGlobal}
                   onTeeGlobal={props.onTeeGlobal}
-                  golpes={props.golpesDe(props.creador.indice, props.teeGlobal)}
+                  hcp={props.hcpVisibleDe(props.creador.indice, props.teeGlobal)}
                   onBloqueo={props.onBloqueoDe(id)}
                 />
               )
@@ -133,7 +134,7 @@ export function EquiposDeLaRonda(props: Props) {
                   numeroEnPantalla={props.numeroDe(id)}
                   tees={props.tees}
                   teeGlobal={props.teeGlobal}
-                  golpes={props.golpesDe(rival.handicap, rival.tees ?? props.teeGlobal)}
+                  hcp={props.hcpVisibleDe(rival.handicap, rival.tees ?? props.teeGlobal)}
                   onCampo={(campo, valor) => props.onCampoRival(idx, campo, valor)}
                   onQuitar={() => props.onQuitarRival(idx)}
                   onBloqueo={props.onBloqueoDe(id)}

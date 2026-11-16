@@ -77,7 +77,7 @@ export default function NuevaRondaLibrePage() {
     rivales: form.rivalesEnJuego,
   })
 
-  const { golpesDe } = useHandicapDeCancha({
+  const { golpesDe, hcpVisibleDe } = useHandicapDeCancha({
     courseId: form.courseId,
     parTotal: setup.details?.par_total ?? null,
     holes: forma.holes,
@@ -213,6 +213,8 @@ export default function NuevaRondaLibrePage() {
             onRenombrarEquipo={form.renombrarEquipo}
             onMoverAlEquipo={form.moverAlEquipo}
             golpesDe={golpesDe}
+            hcpVisibleDe={hcpVisibleDe}
+            hoyos={forma.holes}
             rondasRecientes={creador.rondasRecientes}
             problema={form.problemaDelFormulario ?? problema}
             onAtras={() => form.setPaso(2)}
@@ -233,7 +235,7 @@ export default function NuevaRondaLibrePage() {
             jugadores={jugadores}
             equipos={form.esFormatoDeEquipo ? form.equipos : []}
             llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
-            golpesDe={golpesDe}
+            hcpVisibleDe={hcpVisibleDe}
             hayVariosTees={setup.tees.length > 1}
             problema={form.problemaDelFormulario ?? problema}
             creando={creando}

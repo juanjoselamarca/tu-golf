@@ -10,7 +10,7 @@ function renderPaso(creando: boolean) {
     <PasoConfirmar
       cancha="Los Leones" forma={{ holes: 18, hoyoInicio: 1, esMultiRecorrido: false }} mitad="front"
       recorridosElegidos={[]} formato="stroke_play" modo="gross" teeGlobal="Azul" fecha="2026-11-12"
-      jugadores={[]} equipos={[]} llevaElScoreDelGrupo={false} golpesDe={() => null} hayVariosTees={false}
+      jugadores={[]} equipos={[]} llevaElScoreDelGrupo={false} hcpVisibleDe={() => null} hayVariosTees={false}
       problema={null} creando={creando} onEditar={vi.fn()} onCrear={vi.fn()}
     />,
   )
