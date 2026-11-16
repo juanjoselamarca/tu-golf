@@ -39,19 +39,24 @@ export function useTecladoAbierto(): boolean {
   useEffect(() => {
     if (!pantallaTactil()) return
     const vv = window.visualViewport ?? null
-    // El alto "sin teclado": el mayor visto (se actualiza al girar el teléfono).
-    let alturaBase = vv ? Math.max(vv.height, window.innerHeight) : 0
+    // Alto visible sin zoom: el pellizco achica `height` pero no es teclado.
+    const altoVisible = () => (vv ? vv.height * (vv.scale || 1) : 0)
+    // El alto "sin teclado": el mayor visto en la orientación actual. Un giro se
+    // detecta por el cambio de ancho (no por `orientationchange`, que según el
+    // navegador llega antes de que el viewport tenga el alto nuevo).
+    let anchoBase = vv ? Math.round(vv.width * (vv.scale || 1)) : 0
+    let alturaBase = vv ? Math.max(altoVisible(), window.innerHeight) : 0
 
     const revisar = () => {
       const campo = abreTeclado(document.activeElement)
       if (!vv) { setAbierto(campo); return }
-      alturaBase = Math.max(alturaBase, vv.height)
-      setAbierto(campo && alturaBase - vv.height > UMBRAL_PX)
-    }
-    const alGirar = () => {
-      // Al girar cambia el alto de referencia: se reinicia con el actual.
-      alturaBase = vv ? vv.height : 0
-      revisar()
+      const ancho = Math.round(vv.width * (vv.scale || 1))
+      if (Math.abs(ancho - anchoBase) > 1) {
+        anchoBase = ancho
+        alturaBase = Math.max(altoVisible(), window.innerHeight)
+      }
+      alturaBase = Math.max(alturaBase, altoVisible())
+      setAbierto(campo && alturaBase - altoVisible() > UMBRAL_PX)
     }
     // focusout llega ANTES de que el foco pase al campo siguiente: se revisa en
     // el próximo tick, cuando `activeElement` ya es el nuevo (o el body).
@@ -63,14 +68,12 @@ export function useTecladoAbierto(): boolean {
     document.addEventListener('focusin', revisar)
     document.addEventListener('focusout', alSalir)
     vv?.addEventListener('resize', revisar)
-    window.addEventListener('orientationchange', alGirar)
     revisar()
     return () => {
       clearTimeout(pendiente)
       document.removeEventListener('focusin', revisar)
       document.removeEventListener('focusout', alSalir)
       vv?.removeEventListener('resize', revisar)
-      window.removeEventListener('orientationchange', alGirar)
     }
   }, [])
 

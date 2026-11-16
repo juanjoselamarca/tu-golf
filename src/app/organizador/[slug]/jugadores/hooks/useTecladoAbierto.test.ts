@@ -72,16 +72,28 @@ describe('useTecladoAbierto', () => {
       const listeners: Array<() => void> = []
       const vv = {
         height: alto,
+        width: 390,
+        scale: 1,
         addEventListener: (_: string, fn: () => void) => { listeners.push(fn) },
         removeEventListener: vi.fn(),
       }
       Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true })
+      Object.defineProperty(window, 'innerHeight', { value: alto, configurable: true })
+      const avisar = () => listeners.forEach((fn) => fn())
       return {
-        cambiarAlto(h: number) { vv.height = h; listeners.forEach((fn) => fn()) },
+        cambiarAlto(h: number) { vv.height = h; avisar() },
+        /** Zoom de pellizco: el viewport visible se achica en CSS px, sin teclado. */
+        zoom(escala: number) { vv.scale = escala; vv.height = alto / escala; vv.width = 390 / escala; avisar() },
+        /** Giro a horizontal sin teclado: cambia ancho y alto (y innerHeight). */
+        girar(ancho: number, h: number) {
+          Object.defineProperty(window, 'innerHeight', { value: h, configurable: true })
+          vv.width = ancho; vv.height = h; avisar()
+        },
       }
     }
     afterEach(() => {
       Object.defineProperty(window, 'visualViewport', { value: undefined, configurable: true })
+      Object.defineProperty(window, 'innerHeight', { value: 768, configurable: true })
     })
 
     it('foco sin teclado visible (viewport completo) no esconde la barra', () => {
@@ -113,6 +125,27 @@ describe('useTecladoAbierto', () => {
       act(() => { input.focus(); vp.cambiarAlto(500) })
       expect(result.current).toBe(true)
       act(() => { input.remove(); vp.cambiarAlto(844) })
+      expect(result.current).toBe(false)
+    })
+
+    it('girar a horizontal con foco y sin teclado no esconde la barra; con teclado sí', () => {
+      simularPantalla(true)
+      const vp = simularViewport(844)
+      const input = campo('<input type="text">')
+      const { result } = renderHook(() => useTecladoAbierto())
+      act(() => { input.focus() })
+      act(() => { vp.girar(844, 360) })
+      expect(result.current).toBe(false)
+      act(() => { vp.cambiarAlto(150) })
+      expect(result.current).toBe(true)
+    })
+
+    it('el zoom de pellizco con foco no cuenta como teclado', () => {
+      simularPantalla(true)
+      const vp = simularViewport(844)
+      const input = campo('<input type="text">')
+      const { result } = renderHook(() => useTecladoAbierto())
+      act(() => { input.focus(); vp.zoom(1.5) })
       expect(result.current).toBe(false)
     })
 

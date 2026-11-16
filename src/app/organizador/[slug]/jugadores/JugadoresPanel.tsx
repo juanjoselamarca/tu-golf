@@ -264,6 +264,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
             // Por eso pasamos null acá — el fallback efectivo se resuelve via category
             // o queda en source='none' (motor decide).
             tournamentTeesGlobal={null}
+            hcpCalcMode={tournament.hcp_calc_mode}
             loading={tees.loading}
             errors={tees.errors}
             onAssign={async (playerId, teeId) => {

@@ -257,7 +257,7 @@ export function InscribirPlayerForm({
 
           {/* Handicap (indice) */}
           <div style={{ flex: '0 1 130px' }}>
-            <label htmlFor="guest-hcp" style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (opcional)</label>
+            <label htmlFor="guest-hcp" style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>{presentacionHcp.rotulo} (opcional)</label>
             {/* type="text": un type="number" deja el valor en '' con "+2" (y se inscribía sin
                 hándicap sin avisar); inputMode "text" porque el teclado decimal del iPhone no tiene signo. */}
             <input
@@ -304,7 +304,7 @@ export function InscribirPlayerForm({
             Pega una lista de nombres (uno por linea)
           </label>
           <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px' }}>
-            Formato: Nombre o Nombre, Handicap (ej: Juan Perez, 18.4)
+            Formato: Nombre o Nombre, {presentacionHcp.rotulo} (ej: Juan Perez, 18.4)
           </div>
           <textarea
             value={batchText}
@@ -344,7 +344,7 @@ export function InscribirPlayerForm({
                       <span style={{ color: 'var(--text-2)', marginLeft: '8px' }}>{presentacionHcp.rotulo} {presentacionHcp.formatear(entry.hcp)}</span>
                     )}
                     {entry.hcp == null && (
-                      <span style={{ color: 'var(--text-2)', marginLeft: '8px', fontStyle: 'italic' }}>sin handicap</span>
+                      <span style={{ color: 'var(--text-2)', marginLeft: '8px', fontStyle: 'italic' }}>{presentacionHcp.rotulo === 'Índice' ? 'sin índice' : 'sin HCP'}</span>
                     )}
                   </div>
                 ))}
