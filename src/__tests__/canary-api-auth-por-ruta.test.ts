@@ -78,6 +78,8 @@ const SESION_OPCIONAL: Record<string, string> = {
   'GET gwi/torneo/[slug]':
     'el GWI del torneo ya calculado; el anónimo recibe las filas enmascaradas por visor (publicarResultadoGWI)',
   'GET perfil/tee-prompt-status': 'sin sesión responde { show: false } fijo, sin leer la base',
+  'GET ronda-libre/permiso-timba':
+    'sin sesión responde { puedeCrear: false } fijo, sin leer la base (falla cerrado; POST /create valida igual)',
   'POST push/follow':
     'seguir una ronda sin cuenta (decisión de producto 29-sep-2026): el watcher es la suscripción push del dispositivo, ' +
     'con prueba de posesión, tope de seguidores por ronda y rate limit por IP',
