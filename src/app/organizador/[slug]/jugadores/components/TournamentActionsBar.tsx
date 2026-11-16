@@ -94,7 +94,7 @@ export function TournamentActionsBar({
   const preInicio = tournamentStatus === 'draft' || tournamentStatus === 'open'
 
   return (
-    <div ref={barraRef} className="organizador-barra-acciones" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: preInicio ? '10px 16px' : '16px 24px', paddingBottom: `calc(${preInicio ? 10 : 16}px + env(safe-area-inset-bottom, 0px))`, display: tecladoAbierto ? 'none' : 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: preInicio ? '8px' : '12px', zIndex: 50 }}>
+    <div ref={barraRef} className="organizador-barra-acciones" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: preInicio ? '10px 16px' : '16px 24px', paddingBottom: `calc(${preInicio ? 22 : 16}px + env(safe-area-inset-bottom, 0px))` /* ≥20: el botón JUGAR del nav sobresale ~15 px hacia arriba */, display: tecladoAbierto ? 'none' : 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: preInicio ? '8px' : '12px', zIndex: 50 }}>
       {preInicio && motivoNoIniciar && (
         // El motivo se ve ANTES de apretar "Iniciar" (antes llegaba como toast
         // del 400 recién al apretarlo). Una línea de texto, sin caja.

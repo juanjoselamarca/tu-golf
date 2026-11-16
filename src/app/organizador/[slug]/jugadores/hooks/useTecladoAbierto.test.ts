@@ -67,6 +67,61 @@ describe('useTecladoAbierto', () => {
     expect(result.current).toBe(true)
   })
 
+  describe('con visualViewport (exige que el viewport se haya achicado)', () => {
+    function simularViewport(alto: number) {
+      const listeners: Array<() => void> = []
+      const vv = {
+        height: alto,
+        addEventListener: (_: string, fn: () => void) => { listeners.push(fn) },
+        removeEventListener: vi.fn(),
+      }
+      Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true })
+      return {
+        cambiarAlto(h: number) { vv.height = h; listeners.forEach((fn) => fn()) },
+      }
+    }
+    afterEach(() => {
+      Object.defineProperty(window, 'visualViewport', { value: undefined, configurable: true })
+    })
+
+    it('foco sin teclado visible (viewport completo) no esconde la barra', () => {
+      simularPantalla(true)
+      simularViewport(844)
+      const input = campo('<input type="text">')
+      const { result } = renderHook(() => useTecladoAbierto())
+      act(() => { input.focus() })
+      expect(result.current).toBe(false)
+    })
+
+    it('foco + viewport achicado = abierto; cerrar el teclado con "atrás" (foco sigue) = cerrado', () => {
+      simularPantalla(true)
+      const vp = simularViewport(844)
+      const input = campo('<input type="text">')
+      const { result } = renderHook(() => useTecladoAbierto())
+      act(() => { input.focus(); vp.cambiarAlto(500) })
+      expect(result.current).toBe(true)
+      act(() => { vp.cambiarAlto(844) })
+      expect(document.activeElement).toBe(input)
+      expect(result.current).toBe(false)
+    })
+
+    it('si el campo con foco se desmonta, la barra vuelve al cerrarse el teclado', () => {
+      simularPantalla(true)
+      const vp = simularViewport(844)
+      const input = campo('<input type="text">')
+      const { result } = renderHook(() => useTecladoAbierto())
+      act(() => { input.focus(); vp.cambiarAlto(500) })
+      expect(result.current).toBe(true)
+      act(() => { input.remove(); vp.cambiarAlto(844) })
+      expect(result.current).toBe(false)
+    })
+
+    it('un input desconectado del documento no cuenta como campo con teclado', () => {
+      const input = document.createElement('input')
+      expect(abreTeclado(input)).toBe(false)
+    })
+  })
+
   it('en escritorio (puntero fino) nunca se marca abierto', () => {
     simularPantalla(false)
     const input = campo('<input type="text">')

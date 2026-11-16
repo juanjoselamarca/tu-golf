@@ -4,8 +4,7 @@ import { useMemo, useState } from 'react'
 import { Users } from '@/components/icons'
 import { inputStyle } from '../styles'
 import type { Player, TournamentGroup } from '../types'
-import { formatearHandicap, formatearIndice } from '@/golf/handicap-index-range'
-import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
+import { presentacionHandicapInscrito } from '@/golf/handicap-index-range'
 
 type StatusFilter = 'all' | 'approved' | 'withdrawn' | 'disqualified'
 
@@ -41,8 +40,7 @@ export function PlayersTable({
   players, groups, tournamentStatus, hcpCalcMode,
   getPlayerGroupId, onAssignPlayer, onWithdraw, onDisqualify,
 }: Props) {
-  const esWhs = esModoHcpWhs(hcpCalcMode)
-  const formatear = esWhs ? formatearIndice : formatearHandicap
+  const { rotulo: rotuloHcp, formatear } = presentacionHandicapInscrito(hcpCalcMode)
   const [loadingPlayerId, setLoadingPlayerId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -146,7 +144,7 @@ export function PlayersTable({
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['#', 'Nombre', esWhs ? 'Índice' : 'HCP', 'Categoría', 'Grupo', ''].map((h) => (
+                {['#', 'Nombre', rotuloHcp, 'Categoría', 'Grupo', ''].map((h) => (
                   <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                     {h}
                   </th>

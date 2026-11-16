@@ -6,9 +6,9 @@ import type { Profile } from '../hooks/useProfileSearch'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { UpsellCard } from '@/components/billing/UpsellCard'
 import {
-  formatearHandicap,
   formatearIndice,
   parsearHandicap,
+  presentacionHandicapInscrito,
   PLACEHOLDER_CAMPO_HANDICAP,
   REGLA_INVITADO,
 } from '@/golf/handicap-index-range'
@@ -61,6 +61,8 @@ interface Props {
   onInscribirGuest: () => void
   /** Inscripcion masiva: recibe array de {name, hcp} y retorna cuantos se agregaron. */
   onInscribirBatch?: (entries: Array<{ name: string; hcp: number | null }>) => Promise<number>
+  /** `tournaments.hcp_calc_mode`: decide si el número del lote se rotula Índice o HCP. */
+  hcpCalcMode?: string | null
 }
 
 /** Formulario de inscripcion: buscar un perfil existente, agregar un invitado,
@@ -69,9 +71,10 @@ export function InscribirPlayerForm({
   dropdownRef, search, setSearch, results, showResults, setShowResults,
   selectedProfile, setSelectedProfile, loading, onInscribir,
   mode, setMode, guestName, setGuestName, guestHcp, setGuestHcp, onInscribirGuest,
-  onInscribirBatch,
+  onInscribirBatch, hcpCalcMode,
 }: Props) {
   const { allowed: guestAllowed } = useEntitlement('guest-tournament')
+  const presentacionHcp = presentacionHandicapInscrito(hcpCalcMode)
 
   // Handicap es opcional: si está vacío se inscribe con null. Si tiene valor se lee como en el
   // resto de la app ("+2" plus, "18,5" con coma); lo que no es número se avisa, no se pierde.
@@ -186,7 +189,7 @@ export function InscribirPlayerForm({
             />
             {selectedProfile && (
               <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '3px' }}>
-                {selectedProfile.name}{selectedProfile.indice != null ? ` — Hcp ${formatearIndice(Number(selectedProfile.indice))}` : ''}
+                {selectedProfile.name}{selectedProfile.indice != null ? ` — Índice ${formatearIndice(Number(selectedProfile.indice))}` : ''}
               </div>
             )}
             {showResults && results.length > 0 && !selectedProfile && (
@@ -338,7 +341,7 @@ export function InscribirPlayerForm({
                   <div key={i} style={{ fontSize: '12px', color: 'var(--text)', padding: '3px 0', borderBottom: i < parsedBatch.length - 1 ? '1px solid var(--border)' : 'none' }}>
                     {entry.name}
                     {entry.hcp != null && (
-                      <span style={{ color: 'var(--text-2)', marginLeft: '8px' }}>Hcp {formatearHandicap(entry.hcp)}</span>
+                      <span style={{ color: 'var(--text-2)', marginLeft: '8px' }}>{presentacionHcp.rotulo} {presentacionHcp.formatear(entry.hcp)}</span>
                     )}
                     {entry.hcp == null && (
                       <span style={{ color: 'var(--text-2)', marginLeft: '8px', fontStyle: 'italic' }}>sin handicap</span>

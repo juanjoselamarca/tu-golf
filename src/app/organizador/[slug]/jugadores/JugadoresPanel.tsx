@@ -196,6 +196,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           setGuestHcp={setGuestHcp}
           onInscribirGuest={handleInscribirGuest}
           onInscribirBatch={handleInscribirBatch}
+          hcpCalcMode={tournament.hcp_calc_mode}
         />
 
         <GroupsSection
