@@ -112,6 +112,9 @@
   --surface-border:        rgba(0, 0, 0, 0.08);
   --surface-border-strong: rgba(0, 0, 0, 0.16);
 
+  /* Velo bajo una hoja o un modal (scrim): oscurece el fondo y avisa que tocarlo cierra. */
+  --scrim: rgba(17, 24, 39, 0.45);
+
   /* Aliases theme-aware para el wizard /organizador/nuevo, componentes
      tournament-draft (AssistantPanel) y vistas torneo/en-vivo. Sin estos,
      los 4 tokens caían siempre al fallback hardcoded #f9fafb/#111827/etc.,
@@ -237,6 +240,9 @@
   --surface-soft:          rgba(255, 255, 255, 0.04);
   --surface-border:        rgba(255, 255, 255, 0.08);
   --surface-border-strong: rgba(255, 255, 255, 0.2);
+
+  /* Scrim — dark: más opaco, el fondo ya es oscuro y la hoja tiene que despegarse. */
+  --scrim: rgba(0, 0, 0, 0.6);
 }
 
 /* â”€â”€ Base styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */

@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
 import { Portal, Z_OVERLAY, Z_OVERLAY_BACKDROP } from './Portal'
 
 /** Arrastre hacia abajo (px) desde el que soltar cierra la hoja. */
@@ -17,30 +18,28 @@ interface Props {
 /**
  * Hoja inferior modal (fuente única para el patrón "bottom sheet" del asistente). Se cierra tocando fuera,
  * con Escape o deslizándola hacia abajo; el contenido decide si además trae un botón Cerrar. Montada en `body`
- * (`Portal`) para anclarse al viewport. Al abrir, el foco entra a la hoja; al cerrar, vuelve a quien la abrió.
+ * (`Portal`) para anclarse al viewport. Trampa de foco real (`useDialogFocus`): el foco entra al abrir, Tab no
+ * se escapa al fondo y al cerrar vuelve a quien la abrió.
  */
 export function BottomSheet({ abierto, onCerrar, etiqueta, children }: Props) {
   const hoja = useRef<HTMLDivElement>(null)
   const inicioY = useRef<number | null>(null)
   const [arrastre, setArrastre] = useState(0)
-  // El padre suele pasar una flecha nueva en cada render: con ella en las dependencias, el efecto de abajo
-  // devolvería y volvería a meter el foco en cada render.
+  // El padre suele pasar una flecha nueva en cada render: con ella en las dependencias de `useDialogFocus`, el
+  // foco saldría y volvería a entrar a la hoja en cada render. Se pasa una función estable que lee la última.
   const cerrar = useRef(onCerrar)
   useEffect(() => { cerrar.current = onCerrar }, [onCerrar])
+  const cerrarEstable = useCallback(() => cerrar.current(), [])
+
+  // Foco (fuente única `useDialogFocus`): entra a la hoja al abrir, Tab y Shift+Tab ciclan dentro, Escape cierra
+  // y al cerrar vuelve a quien la abrió.
+  useDialogFocus(hoja, abierto, cerrarEstable)
 
   useEffect(() => {
     if (!abierto) return
-    const previo = document.activeElement as HTMLElement | null
-    hoja.current?.focus()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') cerrar.current() }
-    document.addEventListener('keydown', onKey)
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = overflow
-      previo?.focus?.()
-    }
+    return () => { document.body.style.overflow = overflow }
   }, [abierto])
 
   if (!abierto) return null
@@ -57,7 +56,7 @@ export function BottomSheet({ abierto, onCerrar, etiqueta, children }: Props) {
         data-testid="bottom-sheet-fondo"
         aria-hidden="true"
         onClick={onCerrar}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.45)', zIndex: Z_OVERLAY_BACKDROP }}
+        style={{ position: 'fixed', inset: 0, background: 'var(--scrim)', zIndex: Z_OVERLAY_BACKDROP }}
       />
       <div
         ref={hoja}
