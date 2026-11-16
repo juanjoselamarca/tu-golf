@@ -17,10 +17,12 @@ import { log } from './inbox-logger';
 const TG_BASE = 'https://api.telegram.org';
 const DEFAULT_TIMEOUT_MS = 8000;
 // Archivos (getFile + descarga): timeout propio y un reintento. El 16-nov-2026 las 6 fotos de
-// un reporte murieron con el timeout de 8 s en una sola pasada y se perdieron. Peor caso:
-// 2×10 s + 2×15 s = 50 s, bajo el maxDuration de 60 s de la ruta del webhook.
-const FILE_META_TIMEOUT_MS = 10_000;
-const FILE_DOWNLOAD_TIMEOUT_MS = 15_000;
+// un reporte murieron con el timeout de 8 s en una sola pasada y se perdieron. Peor caso de
+// archivos: 2×8 s + 2×12 s = 40 s; deja ~20 s del maxDuration de 60 s de la ruta para la base
+// (upload + insert) y el sendMessage final. Si la función se pasara, Telegram reentrega el
+// update y el insert es idempotente (23505 = ya guardado).
+const FILE_META_TIMEOUT_MS = 8_000;
+const FILE_DOWNLOAD_TIMEOUT_MS = 12_000;
 const FILE_ATTEMPTS = 2;
 
 /**
@@ -96,7 +98,7 @@ async function fetchWithTimeout(
 }
 
 /** Error HTTP definitivo (4xx): reintentar no lo arregla. */
-class TelegramHttpError extends Error {}
+export class TelegramHttpError extends Error {}
 
 /**
  * GET con timeout que cubre la petición COMPLETA (headers + lectura del cuerpo) y un

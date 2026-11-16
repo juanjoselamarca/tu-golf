@@ -8,11 +8,19 @@ import path from 'node:path';
 
 vi.stubEnv('TELEGRAM_BOT_TOKEN', '123:fake-token-for-tests');
 
-import { getFile, downloadFile, INBOX_PENDING_FILE_PREFIX } from '@/lib/telegram-inbox';
+import {
+  getFile,
+  downloadFile,
+  INBOX_PENDING_FILE_PREFIX,
+  MIME_TO_EXT,
+} from '@/lib/telegram-inbox';
 import {
   PENDING_PREFIX,
+  BY_EXT,
   pendingFileIds,
   removePending,
+  nextStatus,
+  redact,
 } from '../../../scripts/inbox-recuperar-archivos.mjs';
 
 const fetchMock = vi.fn();
@@ -80,6 +88,25 @@ describe('scripts/inbox-recuperar-archivos.mjs', () => {
     expect(removePending(notas, 'aaa')).toBe(['triage previo', `${PENDING_PREFIX}bbb`].join('\n'));
     expect(removePending(`${PENDING_PREFIX}aaa`, 'aaa')).toBeNull();
     expect(pendingFileIds(null)).toEqual([]);
+  });
+
+  it('cada tipo que recupera el script es uno que el webhook acepta (sin lista paralela)', () => {
+    for (const [mime, ext] of Object.values(BY_EXT) as [string, string, string][]) {
+      expect((MIME_TO_EXT as Record<string, string>)[mime]).toBe(ext);
+    }
+  });
+
+  it('solo un reporte en error sin pendientes pasa a nuevo; otro status no se toca', () => {
+    expect(nextStatus('error', 0)).toBe('nuevo');
+    expect(nextStatus('error', 1)).toBe('error');
+    expect(nextStatus('triaged', 0)).toBe('triaged');
+    expect(nextStatus('en_progreso', 0)).toBe('en_progreso');
+  });
+
+  it('lo que imprime el script nunca lleva el token del bot', () => {
+    const msg = 'Failed to parse URL from https://api.telegram.org/bot123:AbC-x_9/getFile?file_id=z';
+    expect(redact(msg)).not.toMatch(/123:AbC/);
+    expect(redact(msg)).toContain('bot[REDACTED]');
   });
 
   it('el script existe donde lo nombra el comentario del helper', () => {

@@ -66,6 +66,7 @@ type Captured = {
   selectCountReturn: number;
   uploads: { bucket: string; path: string; contentType: string }[];
   uploadError: { message: string } | null;
+  insertError: { code: string; message: string } | null;
 };
 
 let captured: Captured;
@@ -101,7 +102,7 @@ function makeMockSupabase() {
     };
     api.insert = async (payload: unknown) => {
       captured.inserts.push(payload);
-      return { data: null, error: null };
+      return { data: null, error: captured.insertError };
     };
     api.update = (payload: unknown) => {
       state.isUpdate = { payload };
@@ -214,6 +215,7 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 // ──────────────────────────────────────────────
 // eslint-disable-next-line import/first
 import { POST } from '../route';
+import { TelegramHttpError } from '@/lib/telegram-inbox';
 
 // ──────────────────────────────────────────────
 // Helpers para construir requests
@@ -270,6 +272,7 @@ beforeEach(() => {
     selectCountReturn: 0,
     uploads: [],
     uploadError: null,
+    insertError: null,
   };
   sendMessageSpy.mockClear();
   getFileSpy.mockReset();
@@ -488,12 +491,13 @@ describe('POST /api/inbox/webhook', () => {
     expect(aviso?.[0]).toBe(ALLOWED_CHAT);
   });
 
-  it('11. falla la descarga de una foto de un álbum ya creado → la anota en el álbum, sin INSERT ni cambio de status', async () => {
+  it('11. falla una foto de un álbum ya creado → fila PROPIA de error (sin media_group), el álbum no se toca', async () => {
+    // Anotar en la fila del álbum sería leer-modificar-escribir: otra foto del mismo álbum
+    // procesada en paralelo podía borrar la nota y perder la foto en silencio.
     captured.selectMaybeSingleReturn = {
       id: 'uuid-album',
       fotos_paths: ['reports/2026/11/ok.jpg'],
       caption: 'álbum',
-      notas: 'archivo pendiente: file_id=otra',
     };
     getFileSpy.mockResolvedValue({ filePath: 'photos/x.jpg', fileSize: 1000, mimeType: null });
     downloadFileSpy.mockRejectedValue(new Error('This operation was aborted'));
@@ -510,13 +514,74 @@ describe('POST /api/inbox/webhook', () => {
     });
     const resp = await POST(req as unknown as Parameters<typeof POST>[0]);
     expect(resp.status).toBe(200);
-    expect(captured.inserts).toHaveLength(0);
-    const merge = captured.updates.find((u) => u.match.id === 'uuid-album');
-    const payload = merge?.payload as { notas: string; fotos_paths: string[]; status?: string };
-    expect(payload.notas).toBe('archivo pendiente: file_id=otra\narchivo pendiente: file_id=foto-album-2');
-    expect(payload.fotos_paths).toEqual(['reports/2026/11/ok.jpg']);
-    expect(payload.status).toBeUndefined();
+    expect(captured.updates.find((u) => u.match.id === 'uuid-album')).toBeUndefined();
+    expect(captured.inserts).toHaveLength(1);
+    const ins = captured.inserts[0] as {
+      status: string;
+      notas: string;
+      telegram_media_group_id: string | null;
+      telegram_message_id: number;
+    };
+    expect(ins.status).toBe('error');
+    expect(ins.notas).toBe('archivo pendiente: file_id=foto-album-2');
+    expect(ins.telegram_media_group_id).toBeNull();
+    expect(ins.telegram_message_id).toBe(110);
     expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('Quedó anotado'))).toBe(true);
+  });
+
+  it('11b. foto exitosa de un álbum → el merge no escribe notas (no pisa nada)', async () => {
+    captured.selectMaybeSingleReturn = { id: 'uuid-album', fotos_paths: [], caption: null };
+    getFileSpy.mockResolvedValue({ filePath: 'photos/x.jpg', fileSize: 1000, mimeType: null });
+    downloadFileSpy.mockResolvedValue(new ArrayBuffer(1000));
+    const req = buildRequest({
+      update_id: 111,
+      message: {
+        message_id: 111,
+        date: nowUnix(),
+        chat: { id: ALLOWED_CHAT },
+        from: { id: ALLOWED_CHAT },
+        photo: [{ file_id: 'ok' }],
+        media_group_id: 'grupo-1',
+      },
+    });
+    await POST(req as unknown as Parameters<typeof POST>[0]);
+    const merge = captured.updates.find((u) => u.match.id === 'uuid-album');
+    expect(merge).toBeDefined();
+    expect(Object.keys(merge?.payload as object)).not.toContain('notas');
+  });
+
+  it('11c. Telegram rechaza el archivo con 4xx (>20 MB, file_id inválido) → error definitivo, sin nota pendiente', async () => {
+    getFileSpy.mockRejectedValue(new TelegramHttpError('telegram getFile HTTP 400'));
+    const req = buildRequest({
+      update_id: 112,
+      message: {
+        message_id: 112,
+        date: nowUnix(),
+        chat: { id: ALLOWED_CHAT },
+        from: { id: ALLOWED_CHAT },
+        photo: [{ file_id: 'gigante' }],
+      },
+    });
+    await POST(req as unknown as Parameters<typeof POST>[0]);
+    const ins = captured.inserts[0] as { status: string; notas?: string | null };
+    expect(ins.status).toBe('error');
+    expect(ins.notas ?? null).toBeNull();
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('no me entrega'))).toBe(true);
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('Quedó anotado'))).toBe(false);
+  });
+
+  it('11d. Telegram reentrega un update ya guardado (23505) → "✓ recibido", no "no pude guardar"', async () => {
+    captured.insertError = { code: '23505', message: 'duplicate key' };
+    const req = buildRequest(textMessage('ya estaba'));
+    await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(sendMessageSpy).toHaveBeenCalledWith(ALLOWED_CHAT, '✓ recibido');
+  });
+
+  it('11e. un error real de insert sí avisa que no se guardó', async () => {
+    captured.insertError = { code: '08006', message: 'connection failure' };
+    const req = buildRequest(textMessage('se cae la base'));
+    await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('no pude guardar'))).toBe(true);
   });
 
   it('12. error inesperado en un chat autorizado → avisa que no se guardó (antes: 200 mudo)', async () => {
