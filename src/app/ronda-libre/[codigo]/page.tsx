@@ -52,6 +52,8 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
 import { GuardarEnMiHistorial } from './components/GuardarEnMiHistorial'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { TimbaEnVivo } from './components/timba/TimbaEnVivo'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
 
@@ -317,6 +319,17 @@ function RondaLibrePageContent() {
           <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} hcpAMostrar={hcpAMostrar} />
         )}
 
+        {/* Timba libre: el juego son puntos (GET /juego), no golpes; los rankings de golpes darían un ganador falso. */}
+        {esFormatoPersonalizado(ronda.formato_juego) ? (
+          <TimbaEnVivo
+            codigo={codigo}
+            jugadores={ronda.ronda_libre_jugadores}
+            hoyoInicio={ronda.hoyo_inicio}
+            holes={ronda.holes}
+            firma={`${currentUserId ?? ''}:${ronda.estado}:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.scores))}`}
+            onIngresar={() => { requireAuth('Ve los puntos de la Timba') }}
+          />
+        ) : (<>
         {isTeamFormat && (
           <TeamLeaderboards
             ronda={ronda}
@@ -349,6 +362,7 @@ function RondaLibrePageContent() {
             onToggleExpand={(id) => setExpanded(prev => prev === id ? null : id)}
           />
         )}
+        </>)}
 
         {ronda.formato_juego !== 'match_play' && formatoTieneGWI(ronda.formato_juego) && !isFinished && hayGWIParaMostrar(gwi.jugadores) && (
           <GwiPanel ronda={ronda} jugadores={gwi.jugadores} results={gwi.results} />

@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosPorMarcarAlFinalizar } from '@/golf/ronda-libre/tarjeta-historica'
-import { hoyosSinTerminarDeJugador } from '@/golf/ronda-libre/match-de-la-ronda'
+import { hoyosQueNoSeRellenan } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import type { MatchResult } from '@/golf/formats/match-play'
 import { hoyosAnotados, puedeFinalizar, totalesDeTarjeta, type TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
@@ -79,8 +79,10 @@ export function useGrupoScoreboard(input: {
   isLastHole: boolean
   /** Match play: define los hoyos que cada tarjeta no tiene que anotar. */
   matchResult: MatchResult | null
+  /** Timba libre: retiros (`VistaDelJuego.retiros`); sus hoyos no se cuentan como "se marcan con par". */
+  retiros?: Readonly<Record<string, number>>
 }): GrupoScoreboard {
-  const { ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult } = input
+  const { ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros } = input
   const holes = ronda?.holes
   const modo = ronda?.modo_juego
   const formato = ronda?.formato_juego
@@ -131,7 +133,7 @@ export function useGrupoScoreboard(input: {
     const hoyosPorMarcar = hoyosPorMarcarAlFinalizar(
       bolaCompartida
         ? tarjetas
-        : jugadores.map(j => ({ scores: scores[j.id], noRellenar: hoyosSinTerminarDeJugador(matchResult, jugadores, j.id) })),
+        : jugadores.map(j => ({ scores: scores[j.id], noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos }) })),
       ordenHoyos,
     ).length
     // Timba libre: el scorer no sabe el hándicap de los otros (`/live` no lo entrega), así que los golpes
@@ -147,5 +149,5 @@ export function useGrupoScoreboard(input: {
       siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, getPlayerTotal,
       strokesOnHole, maxStrokesOnHole, hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
     }
-  }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult])
+  }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros])
 }

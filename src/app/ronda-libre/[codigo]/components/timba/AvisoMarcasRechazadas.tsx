@@ -1,13 +1,5 @@
 'use client'
 
-import type { MarcaRechazada } from '../../score-grupo/hooks/useMarcasDeLaTimba'
-
-/** Una línea por marca: "El Sandy de Diego en el hoyo 4" (o "Quitar el Sandy…" si era quitarla). */
-export function lineaDeMarcaRechazada(m: MarcaRechazada, nombrePuntito: string, nombreJugador: string): string {
-  const base = `${nombrePuntito} de ${nombreJugador} en el hoyo ${m.hoyo}`
-  return m.marcar ? base : `Quitar el ${nombrePuntito} de ${nombreJugador} en el hoyo ${m.hoyo}`
-}
-
 /**
  * Marcas que el servidor rechazó para siempre (`reenviarPuntitosPendientes` → `rechazadas`): ya salieron de la
  * cola y no cuentan. En un juego con plata no pueden desaparecer en silencio: se le avisan al grupo hasta que

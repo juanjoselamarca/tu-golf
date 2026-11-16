@@ -7,6 +7,12 @@ export const AVISO_FINALIZAR_SIN_SERVIDOR = {
   message: 'Sin conexión con el servidor. Tus golpes están guardados en este teléfono; vuelve a tocar Finalizar en un momento.',
 } as const
 
+/** Timba libre: quedan puntos especiales sin enviar. No se cierra: cerrada, la RPC ya no los acepta. */
+export const AVISO_MARCAS_SIN_ENVIAR = {
+  title: 'Hay puntos especiales sin enviar',
+  message: 'Sin ellos el juego no queda completo. Los golpes ya están guardados; vuelve a tocar Finalizar en un momento.',
+} as const
+
 /**
  * La ronda ya no existe (quien la creó la descartó): el mismo aviso en los dos scorers,
  * al guardar un golpe o al finalizar. Las copias locales se borran y el jugador sale.
