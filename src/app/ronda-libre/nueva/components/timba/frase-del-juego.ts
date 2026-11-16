@@ -3,7 +3,7 @@
  * sus alternativas ya armadas (cada una es la config que queda si se elige). Puro: la pantalla solo pinta.
  */
 import {
-  cambiarDueloPareja, cambiarExtremosPorPuesto, cambiarUnidad, extremosPorPuesto,
+  NOMBRE_DUELO, cambiarDueloPareja, cambiarExtremosPorPuesto, cambiarUnidad, extremosPorPuesto, hoyosPorTramoParejo,
   type ConfigJuego, type DueloPareja, type TipoDueloPareja, type Unidad,
 } from '@/golf/formats/personalizado'
 
@@ -12,7 +12,6 @@ export type TrozoDeFrase =
   | { tipo: 'texto'; texto: string }
   | { tipo: 'valor'; texto: string; titulo: string; opciones: OpcionDeValor[] }
 
-const NOMBRE_DUELO: Record<TipoDueloPareja, string> = { mejor_bola: 'mejor bola', peor_bola: 'peor bola', suma: 'suma' }
 const UNIDAD_EN_FRASE: Record<Unidad, string> = {
   individual: 'individual',
   parejas_fijas: 'en parejas fijas',
@@ -27,7 +26,8 @@ function valoresDeDuelo(config: ConfigJuego): number[] {
 }
 
 function tramo(holes: number): string {
-  return holes % 3 === 0 ? ` cada ${holes / 3} hoyos` : ''
+  const n = hoyosPorTramoParejo(holes)
+  return n ? ` cada ${n} hoyos` : ''
 }
 
 function trozosDeUnidad(config: ConfigJuego, holes: number): TrozoDeFrase[] {

@@ -1,7 +1,7 @@
 'use client'
 
 import { Shuffle } from '@/components/icons'
-import type { Pareja } from '@/golf/formats/personalizado'
+import { hoyosPorTramoParejo, type Pareja } from '@/golf/formats/personalizado'
 import {
   conCompanero, parejasFijas, sortear, sorteoVigente, tramosDelSorteo, type JugadorDeLaTimba, type TimbaDelFormulario,
 } from '../../hooks/timba-del-formulario'
@@ -57,7 +57,7 @@ export function ParejasDeLaTimba({ timba, onTimba, jugadores, holes }: Props) {
   }
 
   const orden = sorteoVigente(timba, ids)
-  const hoyosPorTramo = holes % 3 === 0 ? holes / 3 : null
+  const hoyosPorTramo = hoyosPorTramoParejo(holes)
   return (
     <section aria-label="Parejas" style={{ ...tarjeta, display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <span style={{ fontSize: '15px', fontWeight: 600, color: colores.texto }}>

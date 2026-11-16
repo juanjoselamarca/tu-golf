@@ -3,19 +3,25 @@
  * Textos aprobados por Juanjo (maquetas Bloqueo y Main).
  */
 import {
-  JUGADORES_POR_PLANTILLA, NOMBRE_FORMATO_PERSONALIZADO, NOMBRE_PLANTILLA, type PlantillaJuego, type PuntitoDelCatalogo,
+  JUGADORES_POR_PLANTILLA, NOMBRE_FORMATO_PERSONALIZADO, NOMBRE_PLANTILLA, hoyosPorTramoParejo,
+  type PlantillaJuego, type PuntitoDelCatalogo,
 } from '@/golf/formats/personalizado'
 
 export const TITULO_TIMBA = NOMBRE_FORMATO_PERSONALIZADO
 export const SUBTITULO_TIMBA = 'Tú anotas el score, la app lleva los puntos.'
 export const MARCA_PROXIMAMENTE = 'Próximamente'
 
-export const PLANTILLAS_DEL_CATALOGO = ['colombiana', 'dos_cero_dos', 'subterranea', 'subterror'] as const satisfies readonly PlantillaJuego[]
+/** Los juegos armados del catálogo: todas las plantillas (`NOMBRE_PLANTILLA`) menos la que se arma a mano. */
+export const PLANTILLAS_DEL_CATALOGO: readonly PlantillaJuego[] =
+  (Object.keys(NOMBRE_PLANTILLA) as PlantillaJuego[]).filter(p => p !== 'personalizado_total')
 
-/** Bajada de cada juego. La Colombiana rota en tramos de un tercio de la ronda (6 en 18, 3 en 9). */
+/** Bajada de cada juego. La Colombiana rota por tramos (`hoyosPorTramoParejo`: 6 en 18, 3 en 9). */
 export function bajadaDePlantilla(p: PlantillaJuego, holes = 18): string {
   switch (p) {
-    case 'colombiana': return holes % 3 === 0 ? `Parejas que rotan cada ${holes / 3} hoyos` : 'Parejas que rotan'
+    case 'colombiana': {
+      const n = hoyosPorTramoParejo(holes)
+      return n ? `Parejas que rotan cada ${n} hoyos` : 'Parejas que rotan'
+    }
     case 'dos_cero_dos': return 'El mejor suma, el peor resta'
     case 'subterranea': return 'Solo cuenta la peor bola'
     case 'subterror': return 'El peor del hoyo resta 1'

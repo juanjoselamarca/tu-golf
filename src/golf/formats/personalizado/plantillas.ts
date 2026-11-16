@@ -2,7 +2,7 @@
  * Plantillas del catálogo de Timba libre. Cada una es una config armada con las piezas de `config.ts`:
  * el motor no sabe de plantillas, solo de piezas.
  */
-import { LIMITES_JUEGO, VERSION_CONFIG_JUEGO, type ConfigJuego, type Pareja, type PuntitoConfig } from './config'
+import { LIMITES_JUEGO, VERSION_CONFIG_JUEGO, type ConfigJuego, type Pareja, type PuntitoConfig, type TipoDueloPareja } from './config'
 
 export type PlantillaJuego = ConfigJuego['plantilla']
 
@@ -24,6 +24,13 @@ export const NOMBRE_PLANTILLA: Record<PlantillaJuego, string> = {
   subterranea: 'La Subterránea',
   subterror: 'La Subterror',
   personalizado_total: 'Personalizado total',
+}
+
+/** Nombre de cada duelo de parejas, en minúscula (va dentro de una frase); al inicio de una línea se capitaliza. */
+export const NOMBRE_DUELO: Record<TipoDueloPareja, string> = {
+  mejor_bola: 'mejor bola',
+  peor_bola: 'peor bola',
+  suma: 'suma',
 }
 
 /** Jugadores que pide cada plantilla (mínimo y máximo). */

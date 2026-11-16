@@ -1,5 +1,6 @@
 export * from './config'
 export * from './plantillas'
+export * from './tramos'
 export * from './validar'
 export * from './motor'
 export * from './reglas-guardadas'

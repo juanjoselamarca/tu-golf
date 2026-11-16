@@ -6,7 +6,7 @@
  * Gross y sin puntos especiales: muestra cómo se reparten los duelos, que es lo que la frase explica.
  */
 import {
-  calcularJuegoPersonalizado, formatPuntosTimba, type ConfigJuego, type TipoDueloPareja,
+  NOMBRE_DUELO, calcularJuegoPersonalizado, formatPuntosTimba, type ConfigJuego,
 } from '@/golf/formats/personalizado'
 
 const NOMBRES = ['Juan', 'Pedro', 'Diego', 'Tomás'] as const
@@ -17,7 +17,7 @@ const GOLPES_INDIVIDUAL = [4, 5, 5, 6]
 const GOLPES_PAREJAS = [4, 6, 5, 5]
 const PAR = 4
 
-const NOMBRE_DUELO: Record<TipoDueloPareja, string> = { mejor_bola: 'Mejor bola', peor_bola: 'Peor bola', suma: 'Suma' }
+const conMayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
 
 export interface EjemploDelHoyo {
   /** "Par 4 · Juan 4 · Pedro 5 · Diego 5 · Tomás 6" */
@@ -47,7 +47,7 @@ export function ejemploDelHoyo(config: ConfigJuego): EjemploDelHoyo {
     ? hoyo.duelos.flatMap(d => {
         if (d.tipo === 'por_puesto' || !d.porPareja) return []
         const [jp, dt] = d.porPareja
-        return [`${NOMBRE_DUELO[d.tipo]}: Juan y Pedro ${formatPuntosTimba(jp)} · Diego y Tomás ${formatPuntosTimba(dt)}`]
+        return [`${conMayuscula(NOMBRE_DUELO[d.tipo])}: Juan y Pedro ${formatPuntosTimba(jp)} · Diego y Tomás ${formatPuntosTimba(dt)}`]
       })
     : []
   return {

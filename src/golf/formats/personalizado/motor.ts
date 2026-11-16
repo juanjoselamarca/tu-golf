@@ -8,6 +8,7 @@
  */
 import { strokesRecibidosEnHoyo } from '../../core/stableford-score'
 import { esHandicapUsable, golpesALaDiferenciaDelMasBajo } from '../match-play'
+import { TRAMOS_ROTATIVOS, hoyosPorTramo } from './tramos'
 import {
   COMBINACIONES_DE_4,
   type ConfigJuego,
@@ -150,8 +151,7 @@ export function repartirPorPuesto(scores: readonly number[], valores: readonly n
 function parejasDelTramo(config: ConfigJuego, orden: number, totalHoyos: number): { tramo: number | null; parejas: [Pareja, Pareja] | null } {
   if (config.unidad === 'individual') return { tramo: null, parejas: null }
   if (config.unidad === 'parejas_fijas') return { tramo: 0, parejas: config.parejas ?? COMBINACIONES_DE_4[0] }
-  const largo = Math.max(1, Math.floor(totalHoyos / 3))
-  const tramo = Math.min(2, Math.floor(orden / largo))
+  const tramo = Math.min(TRAMOS_ROTATIVOS - 1, Math.floor(orden / hoyosPorTramo(totalHoyos)))
   const sorteo = config.sorteo ?? [0, 1, 2]
   return { tramo, parejas: COMBINACIONES_DE_4[sorteo[tramo]] }
 }

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { crearConfigDePlantilla, type ConfigJuego } from '@/golf/formats/personalizado'
+import { crearConfigDePlantilla, hoyosPorTramoParejo, type ConfigJuego } from '@/golf/formats/personalizado'
 import { fraseDelJuego, type TrozoDeFrase } from './frase-del-juego'
 import { ejemploDelHoyo } from './ejemplo-del-hoyo'
+import { PLANTILLAS_DEL_CATALOGO, bajadaDePlantilla } from './catalogo'
 
 const fijo = () => 0.3
 const leer = (t: TrozoDeFrase[]) => t.map(x => x.texto).join('')
@@ -72,5 +73,16 @@ describe('ejemplo en vivo (motor real)', () => {
     expect(ejemploDelHoyo(c).puntos).toBe('Juan 0 · Pedro 0 · Diego +1 · Tomás +1')
     const resta = { ...c, duelos: [{ tipo: 'peor_bola' as const, valor: 2, perdedorResta: true }] }
     expect(ejemploDelHoyo(resta).puntos).toBe('Juan −2 · Pedro −2 · Diego +2 · Tomás +2')
+  })
+})
+
+describe('catálogo y frase: una sola fuente', () => {
+  it('PLANTILLAS_DEL_CATALOGO sale de NOMBRE_PLANTILLA, sin la que se arma a mano', () => {
+    expect(PLANTILLAS_DEL_CATALOGO).toEqual(['colombiana', 'dos_cero_dos', 'subterranea', 'subterror'])
+  })
+  it('la Colombiana dice el mismo largo de tramo que el motor (hoyosPorTramoParejo)', () => {
+    for (const holes of [9, 18, 27]) {
+      expect(bajadaDePlantilla('colombiana', holes)).toBe(`Parejas que rotan cada ${hoyosPorTramoParejo(holes)} hoyos`)
+    }
   })
 })
