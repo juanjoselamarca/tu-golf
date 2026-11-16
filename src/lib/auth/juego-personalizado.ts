@@ -1,6 +1,8 @@
 // ─── Quién puede crear una Timba libre (formato `personalizado`) ──────────────
 //
 // Fuente única en la APP del permiso de crear. Etapa 1: solo admins (prompt de Timba libre, decisión de Juanjo).
+// En la UI, además, manda el interruptor `TIMBA_LIBRE_ABIERTA` (`./timba-libre-abierta.ts`): con `false` nadie la
+// elige en el asistente, aunque este permiso diga que sí.
 // Abrirla a más usuarios NO es cambiar solo esto: también, en una migración nueva, las dos guardas RESTRICTIVE de
 // rondas_libres (`rondas_libres_personalizado_solo_admin_*`, que llaman a `usuario_es_admin()`), y decidir si
 // pasa por el paywall (hoy no). Sin la migración, la API diría que sí y la base rechazaría con 42501.
