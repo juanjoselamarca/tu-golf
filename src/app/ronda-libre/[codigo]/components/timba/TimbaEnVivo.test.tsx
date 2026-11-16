@@ -9,7 +9,13 @@ vi.mock('../../hooks/useJuegoDeLaTimba', () => ({
   },
 }))
 
+const panel = vi.hoisted(() => ({ props: [] as Array<Record<string, unknown>> }))
+vi.mock('./PanelDelJuego', () => ({
+  PanelDelJuego: (props: Record<string, unknown>) => { panel.props.push(props); return null },
+}))
+
 import { TimbaEnVivo } from './TimbaEnVivo'
+import { ALTO_NAVBAR_PX } from '@/lib/constants'
 
 const montar = (cerrada: boolean) =>
   render(<TimbaEnVivo codigo="ABC" jugadores={[]} hoyoInicio={1} holes={9} firma="" cerrada={cerrada} onIngresar={vi.fn()} />)
@@ -20,5 +26,10 @@ describe('TimbaEnVivo', () => {
     expect(juego.opciones.at(-1)).toMatchObject({ activo: true, intervaloS: undefined })
     montar(true)
     expect(juego.opciones.at(-1)).toMatchObject({ activo: true, intervaloS: 0 })
+  })
+
+  it('los nombres de la tabla quedan fijos bajo el navbar al bajar (la página hace scroll con la ventana)', () => {
+    montar(false)
+    expect(panel.props.at(-1)).toMatchObject({ encabezadoFijoEn: `${ALTO_NAVBAR_PX}px` })
   })
 })

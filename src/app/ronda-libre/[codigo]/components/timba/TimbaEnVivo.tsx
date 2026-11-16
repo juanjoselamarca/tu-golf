@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { nombresCortos } from '@/golf/ronda-libre/tabla-del-juego'
 import { useJuegoDeLaTimba } from '../../hooks/useJuegoDeLaTimba'
+import { ALTO_NAVBAR_PX } from '@/lib/constants'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from './PestanasDeLaTimba'
 import { PanelDelJuego } from './PanelDelJuego'
 
@@ -66,7 +67,10 @@ export function TimbaEnVivo(props: {
       <PestanasDeLaTimba activa={pestana} onCambiar={setPestana} />
       <div id={PANEL_DE_PESTANA(pestana)} role="tabpanel">
         {pestana === 'juego' ? (
-          <PanelDelJuego juego={juego} nombres={nombres} hoyoActual={null} onReintentar={() => { void recargar() }} onIngresar={onIngresar} />
+          <PanelDelJuego
+            juego={juego} nombres={nombres} hoyoActual={null} onReintentar={() => { void recargar() }} onIngresar={onIngresar}
+            encabezadoFijoEn={`${ALTO_NAVBAR_PX}px`}
+          />
         ) : (
           <TarjetaDeGolpes jugadores={jugadores} hoyos={hoyos} />
         )}
