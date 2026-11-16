@@ -83,3 +83,16 @@ export function alternarPuntito(config: ConfigJuego, tipo: PuntitoDelCatalogo): 
 export function cambiarDestinoPuntitos(config: ConfigJuego, destino: PuntitoConfig['destino']): ConfigJuego {
   return { ...config, puntitos: config.puntitos.map(p => ({ ...p, destino })) }
 }
+
+/**
+ * Cómo se reparte la pareja lo que gana un duelo. Al pasar a "dividir", un duelo que vale impar sube al par
+ * siguiente (el validador exige pares para que cada uno reciba un entero); los pares quedan como están.
+ */
+export function cambiarRepartoPareja(config: ConfigJuego, reparto: ConfigJuego['repartoPareja']): ConfigJuego {
+  if (reparto === 'total_a_cada_uno') return { ...config, repartoPareja: reparto }
+  return {
+    ...config,
+    repartoPareja: reparto,
+    duelos: config.duelos.map(d => (d.tipo === 'por_puesto' || d.valor % 2 === 0 ? d : { ...d, valor: d.valor + 1 })),
+  }
+}

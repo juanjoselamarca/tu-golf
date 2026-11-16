@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  alternarPuntito, cambiarDestinoPuntitos, cambiarDueloPareja, cambiarExtremosPorPuesto, cambiarPerdedorResta,
+  alternarPuntito, cambiarDestinoPuntitos, cambiarDueloPareja, cambiarExtremosPorPuesto, cambiarPerdedorResta, cambiarRepartoPareja,
   cambiarUnidad, extremosPorPuesto,
 } from './armado'
 import { crearConfigDePlantilla } from './plantillas'
@@ -49,5 +49,11 @@ describe('armado de la Timba', () => {
     c = cambiarDestinoPuntitos(c, 'pareja')
     expect(alternarPuntito(c, 'sandy').puntitos.map(p => p.destino)).toEqual(['pareja', 'pareja', 'pareja'])
     expect(alternarPuntito(c, 'birdie').puntitos.map(p => p.id)).toEqual(['greenie'])
+  })
+
+  it('reparto "dividir": los duelos impares suben al par siguiente y el validador lo acepta', () => {
+    const c = cambiarRepartoPareja(crearConfigDePlantilla('colombiana', fijo), 'dividir')
+    expect(c.duelos.map(d => (d.tipo === 'por_puesto' ? null : d.valor))).toEqual([2, 2, 2])
+    expect(cambiarRepartoPareja(c, 'total_a_cada_uno').repartoPareja).toBe('total_a_cada_uno')
   })
 })
