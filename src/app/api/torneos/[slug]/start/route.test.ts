@@ -57,7 +57,7 @@ vi.mock('@/lib/data/tournaments/startTournament', async (orig) => {
   }
 })
 
-import { POST } from './route'
+import { GET, POST } from './route'
 import {
   ERROR_CAMBIO_DE_ESTADO,
   ERROR_ESTADO_DESCONOCIDO,
@@ -294,5 +294,112 @@ describe('POST /api/torneos/[slug]/start', () => {
   it('torneo ya en juego → 409', async () => {
     ;(tables.tournaments.data as { status: string }).status = 'in_progress'
     expect((await call()).status).toBe(409)
+  })
+})
+
+// ── Aviso de jugadores sin índice (plan 2026-11-16 §3) ─────────────────────────
+
+const conBody = (body: unknown) =>
+  POST({ json: async () => body } as unknown as NextRequest, { params: Promise.resolve({ slug: 'mi-torneo' }) })
+const consultar = () => GET({} as NextRequest, { params: Promise.resolve({ slug: 'mi-torneo' }) })
+
+/** Beto pasa a ser un invitado sin índice en ninguna parte. */
+function betoSinIndice() {
+  const ps = tables.players.data as Array<Record<string, unknown>>
+  ps[1] = { id: 'p2', user_id: null, player_name: 'Beto', handicap_at_registration: null, status: 'approved', profiles: null }
+}
+
+describe('GET /api/torneos/[slug]/start', () => {
+  it('devuelve motivo null y la lista de sin índice', async () => {
+    betoSinIndice()
+    const res = await consultar()
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ motivo: null, sinIndice: [{ id: 'p2', nombre: 'Beto' }] })
+  })
+
+  it('todos con índice (inscrito o en el perfil) → lista vacía', async () => {
+    const ps = tables.players.data as Array<Record<string, unknown>>
+    ps[0] = { ...ps[0], handicap_at_registration: null } // perfil con índice 10: lo completa el inicio
+    expect(await (await consultar()).json()).toEqual({ motivo: null, sinIndice: [] })
+  })
+
+  it('devuelve el motivo que bloquea (jugador sin grupo)', async () => {
+    tables.tournament_groups = { data: [], error: null }
+    const { motivo } = await (await consultar()).json()
+    expect(motivo).toContain('Jugadores sin grupo')
+  })
+
+  it('un pendiente sin índice no aparece (no juega)', async () => {
+    ;(tables.players.data as Array<Record<string, unknown>>).push(
+      { id: 'p3', user_id: null, player_name: 'Caro', handicap_at_registration: null, status: 'pending', profiles: null },
+    )
+    expect((await (await consultar()).json()).sinIndice).toEqual([])
+  })
+
+  it('sin sesión → 401; no organizador → 403; solo lee y no gasta cupo', async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null } })
+    expect((await consultar()).status).toBe(401)
+    mockGetUser.mockResolvedValueOnce({ data: { user: { id: 'otro' } } })
+    expect((await consultar()).status).toBe(403)
+    await consultar()
+    expect(mockRateLimit).not.toHaveBeenCalled()
+    expect(statusUpdates).toEqual([])
+  })
+})
+
+describe('POST /api/torneos/[slug]/start — confirmación de sin índice', () => {
+  it('hay sin índice y el panel no los vio (sin body, panel viejo) → 409 con la lista, sin gastar cupo ni escribir', async () => {
+    betoSinIndice()
+    const res = await call()
+    expect(res.status).toBe(409)
+    const data = await res.json()
+    expect(data.codigo).toBe('confirmar-sin-indice')
+    expect(data.sinIndice).toEqual([{ id: 'p2', nombre: 'Beto' }])
+    expect(data.error).toContain('Sin índice: Beto.')
+    expect(mockRateLimit).not.toHaveBeenCalled()
+    expect(mockEnsure).not.toHaveBeenCalled()
+    expect(mockMaterialize).not.toHaveBeenCalled()
+    expect(statusUpdates).toEqual([])
+  })
+
+  it('la lista vista no cubre a todos (alguien quedó sin índice después del GET) → 409', async () => {
+    betoSinIndice()
+    ;(tables.players.data as Array<Record<string, unknown>>)[0] = {
+      id: 'p1', user_id: null, player_name: 'Ana', handicap_at_registration: null, status: 'approved', profiles: null,
+    }
+    const res = await conBody({ sinIndiceVistos: ['p2'] })
+    expect(res.status).toBe(409)
+    expect((await res.json()).sinIndice.map((j: { id: string }) => j.id)).toEqual(['p1', 'p2'])
+    expect(mockRateLimit).not.toHaveBeenCalled()
+    expect(statusUpdates).toEqual([])
+  })
+
+  it('la lista vista cubre a todos → inicia igual (sin índice nunca bloquea)', async () => {
+    betoSinIndice()
+    const res = await conBody({ sinIndiceVistos: ['p2'] })
+    expect(res.status).toBe(200)
+    expect(statusPuesto()).toBe(true)
+    expect(mockRateLimit).toHaveBeenCalledTimes(1)
+  })
+
+  // Una llamada por test: el mock de grupos solo lee de verdad la primera vez.
+  it('body con basura (no es lista) → se trata como "no vio a nadie" → 409', async () => {
+    betoSinIndice()
+    expect((await conBody({ sinIndiceVistos: 'p2' })).status).toBe(409)
+  })
+
+  it('body con ids que no son texto → 409', async () => {
+    betoSinIndice()
+    expect((await conBody({ sinIndiceVistos: [2] })).status).toBe(409)
+  })
+
+  it('sin nadie sin índice, el POST sin body inicia como siempre', async () => {
+    expect((await call()).status).toBe(200)
+  })
+
+  it('el motivo que bloquea gana al aviso: 400, no 409', async () => {
+    betoSinIndice()
+    tables.tournament_groups = { data: [], error: null }
+    expect((await call()).status).toBe(400)
   })
 })
