@@ -140,7 +140,14 @@ async function deshacerSiNoSeAplico(s, row, subidos, upErr) {
   await borrarSubidos(s, row.id, subidos);
 }
 
-/** Reporte del álbum de esta fila: mismo grupo y chat, que no esté en error. */
+/**
+ * Status de un reporte de álbum al que se le pueden sumar fotos recuperadas. Ni `error`
+ * (otra foto pendiente), ni `descartado` (una fila ya fusionada: tiene el mismo grupo y es
+ * la más antigua), ni `resuelto` (la foto se perdería en algo cerrado: va a su propio reporte).
+ */
+export const STATUS_ALBUM_ABIERTO = ['nuevo', 'triaged', 'en_progreso'];
+
+/** Reporte del álbum de esta fila: mismo grupo y chat, abierto. */
 async function buscarHermana(s, row) {
   if (!row.telegram_media_group_id) return null;
   const { data, error } = await s
@@ -148,7 +155,7 @@ async function buscarHermana(s, row) {
     .select('id, status, fotos_paths, caption, texto, audio_path')
     .eq('telegram_media_group_id', row.telegram_media_group_id)
     .eq('telegram_chat_id', row.telegram_chat_id)
-    .neq('status', 'error')
+    .in('status', STATUS_ALBUM_ABIERTO)
     .neq('id', row.id)
     .order('recibido_en', { ascending: true })
     .limit(1)
@@ -179,19 +186,27 @@ async function main() {
     process.exit(1);
   }
   const s = createClient(url, key, { auth: { persistSession: false } });
+  const { recuperados, fallidos, vacio } = await recuperarPendientes(s, bot);
+  if (vacio) {
+    out('Sin archivos pendientes de recuperar.');
+    return;
+  }
+  out(`Recuperados: ${recuperados} · siguen pendientes: ${fallidos}`);
+  if (fallidos) process.exitCode = 1;
+}
+
+/**
+ * Recorre los reportes con archivos pendientes (más antiguo primero) y los recupera.
+ * Exportada para testear el flujo completo con un cliente falso.
+ */
+export async function recuperarPendientes(s, bot) {
   const { data, error } = await s
     .from('inbox_reports')
     .select('id, status, notas, fotos_paths, audio_path, caption, texto, telegram_media_group_id, telegram_chat_id')
     .like('notas', `%${PENDING_PREFIX}%`)
     .order('recibido_en', { ascending: true });
-  if (error) {
-    err(error.message);
-    process.exit(1);
-  }
-  if (!data?.length) {
-    out('Sin archivos pendientes de recuperar.');
-    return;
-  }
+  if (error) throw new Error(error.message);
+  if (!data?.length) return { recuperados: 0, fallidos: 0, vacio: true };
 
   let recuperados = 0;
   let fallidos = 0;
@@ -252,16 +267,22 @@ async function main() {
       let aplicada = !e2 && !!sumada?.length;
       if (e2) {
         // Error de red: el UPDATE pudo aplicarse igual. Si el álbum ya tiene las fotos, listo.
-        const { data: rel } = await s.from('inbox_reports').select('fotos_paths').eq('id', hermana.id).maybeSingle();
+        const { data: rel, error: eRel } = await s.from('inbox_reports').select('fotos_paths').eq('id', hermana.id).maybeSingle();
+        if (eRel || !rel) {
+          err(`⚠ ${row.id}: no sé si las fotos entraron al álbum ${hermana.id}; NO revierto ni borro ${subidos.join(', ')} (revisar a mano)`);
+          fallidos += subidos.length;
+          continue;
+        }
         aplicada = nuevas.length > 0 && nuevas.every((p) => (rel?.fotos_paths ?? []).includes(p));
       }
       if (!aplicada) {
-        const { error: e3 } = await s
+        const { data: revertida, error: e3 } = await s
           .from('inbox_reports')
           .update({ notas: row.notas, status: row.status })
           .eq('id', row.id)
-          .eq('notas', nota);
-        if (e3) {
+          .eq('notas', nota)
+          .select('id');
+        if (e3 || revertida?.length !== 1) {
           err(`⚠ ${row.id}: quedó descartado pero sus archivos no entraron al álbum ${hermana.id} (${subidos.join(', ')}); revisar a mano`);
         } else {
           await borrarSubidos(s, row.id, subidos);
@@ -289,8 +310,7 @@ async function main() {
     }
     recuperados += subidos.length;
   }
-  out(`Recuperados: ${recuperados} · siguen pendientes: ${fallidos}`);
-  if (fallidos) process.exitCode = 1;
+  return { recuperados, fallidos, vacio: false };
 }
 
 if (process.argv[1]?.endsWith('inbox-recuperar-archivos.mjs')) {
