@@ -52,8 +52,11 @@ export function useTecladoAbierto(): boolean {
       if (!vv) { setAbierto(campo); return }
       const ancho = Math.round(vv.width * (vv.scale || 1))
       if (Math.abs(ancho - anchoBase) > 1) {
+        // Giro: la base se rearma solo con el alto visible de ahora (no con
+        // `innerHeight`, que puede llegar viejo). Si se gira con el teclado
+        // abierto la base queda baja y la barra se muestra: el lado seguro.
         anchoBase = ancho
-        alturaBase = Math.max(altoVisible(), window.innerHeight)
+        alturaBase = altoVisible()
       }
       alturaBase = Math.max(alturaBase, altoVisible())
       setAbierto(campo && alturaBase - altoVisible() > UMBRAL_PX)

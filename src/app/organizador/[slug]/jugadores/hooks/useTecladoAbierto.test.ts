@@ -140,6 +140,20 @@ describe('useTecladoAbierto', () => {
       expect(result.current).toBe(true)
     })
 
+    it('girar con innerHeight todavía viejo (llega después) tampoco esconde la barra', () => {
+      simularPantalla(true)
+      const vp = simularViewport(844)
+      const input = campo('<input type="text">')
+      const { result } = renderHook(() => useTecladoAbierto())
+      act(() => { input.focus() })
+      act(() => {
+        vp.girar(844, 360)
+        Object.defineProperty(window, 'innerHeight', { value: 844, configurable: true })
+        vp.cambiarAlto(360)
+      })
+      expect(result.current).toBe(false)
+    })
+
     it('el zoom de pellizco con foco no cuenta como teclado', () => {
       simularPantalla(true)
       const vp = simularViewport(844)

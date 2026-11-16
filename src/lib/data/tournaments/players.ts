@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 
 const PLAYERS_SELECT = `
-  id, tournament_id, user_id, category_id, handicap_at_registration, status, tee_id, genero,
+  id, tournament_id, user_id, category_id, player_name, handicap_at_registration, status, tee_id, genero,
   profiles:profiles!players_user_id_fkey ( id, name, indice ),
   categories:categories ( id, name, default_tee_color, gender )
 `
@@ -22,6 +22,8 @@ export interface PlayerRow {
   tournament_id: string
   user_id: string | null
   category_id: string | null
+  /** Nombre del invitado sin cuenta (sin `profiles`). */
+  player_name: string | null
   handicap_at_registration: number | null
   status: string
   tee_id: string | null
