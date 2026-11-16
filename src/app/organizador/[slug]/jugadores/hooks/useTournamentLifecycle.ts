@@ -6,8 +6,35 @@ import { useConfirmModal } from '@/hooks/useConfirmModal'
 import type { Player, Tournament, TournamentGroup } from '../types'
 import { resolveFormatoJuego } from '@/golf/formats'
 import { ultimaRondaCerrada } from '@/lib/data/tournaments/ultima-ronda-cerrada'
-import { motivoParaNoIniciarDesdeInscritos } from '@/lib/data/tournaments/motivo-para-no-iniciar'
+import {
+  avisoSinIndice,
+  CODIGO_CONFIRMAR_SIN_INDICE,
+  motivoParaNoIniciarDesdeInscritos,
+  type JugadorSinIndice,
+} from '@/lib/data/tournaments/motivo-para-no-iniciar'
 import { inscritoAprobado } from '@/golf/tournament-status'
+
+/** Tope de vueltas confirmar → 409: la lista de sin índice no puede cambiar sin fin. */
+const MAX_CONFIRMACIONES_DE_INICIO = 3
+
+/** La lista `sinIndice` de la ruta, tolerante a una respuesta sin ella. */
+function listaSinIndice(v: unknown): JugadorSinIndice[] {
+  if (!Array.isArray(v)) return []
+  return v.filter(
+    (j): j is JugadorSinIndice => typeof j?.id === 'string' && typeof j?.nombre === 'string',
+  )
+}
+
+/** El texto del modal de inicio: el aviso de sin índice (si hay) va primero; la pregunta, al final. */
+export function descripcionDeInicio(
+  aprobados: number,
+  sinIndice: JugadorSinIndice[],
+  hcpCalcMode: string | null | undefined,
+): string {
+  const pregunta = `¿Iniciar con ${aprobados} jugador${aprobados !== 1 ? 'es' : ''}? Se crearán las rondas para todos.`
+  const aviso = avisoSinIndice(sinIndice, hcpCalcMode)
+  return aviso ? `${aviso} ${pregunta}` : pregunta
+}
 
 interface UseTournamentLifecycleArgs {
   tournament: Tournament & { codigo?: string | null }
@@ -150,36 +177,66 @@ export function useTournamentLifecycle({
     }
   }
 
+  // Iniciar: 1) GET de lo que ve el servidor (motivo + jugadores sin índice);
+  // 2) UN modal de confirmación que, si hay sin índice, los nombra; 3) POST con
+  // los que el organizador vio. Si entre el GET y el POST alguien quedó sin
+  // índice, el servidor responde 409 con la lista nueva y se vuelve a confirmar
+  // (un modal por intento, nunca dos seguidos). Sin índice nunca bloquea.
   const handleStartTournament = async () => {
     if (motivoNoIniciar) {
       showError('Aún no se puede iniciar', motivoNoIniciar)
       return
     }
+    const url = `/api/torneos/${tournament.slug}/start`
 
-    const ok = await confirm({
-      title: 'Iniciar torneo',
-      description: `¿Iniciar con ${aprobadosCount} jugador${aprobadosCount !== 1 ? 'es' : ''}? Se crearán las rondas para todos.`,
-      confirmText: 'Iniciar torneo',
-      variant: 'warning',
-    })
-    if (!ok) return
     setStarting(true)
-
     try {
-      const res = await fetch(`/api/torneos/${tournament.slug}/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      const data = await res.json().catch(() => ({}))
-
-      if (!res.ok) {
-        showError('Error al iniciar', data.error || 'No se pudo iniciar el torneo.')
+      const pre = await fetch(url, { method: 'GET' })
+      const preData = await pre.json().catch(() => ({}))
+      if (!pre.ok) {
+        showError('Error al iniciar', preData.error || 'No se pudo preparar el inicio del torneo.')
         return
       }
+      // El servidor manda: puede ver algo que el panel todavía no (otra pestaña).
+      if (preData.motivo) {
+        showError('Aún no se puede iniciar', preData.motivo)
+        return
+      }
+      let sinIndice = listaSinIndice(preData.sinIndice)
 
-      setTournamentStatus('in_progress')
-      showSuccess('Torneo iniciado', 'Las rondas fueron creadas. Los jugadores ya pueden cargar scores.')
-      router.push(`/organizador/${tournament.slug}/scoring`)
+      for (let intento = 0; intento < MAX_CONFIRMACIONES_DE_INICIO; intento++) {
+        setStarting(false)
+        const ok = await confirm({
+          title: 'Iniciar torneo',
+          description: descripcionDeInicio(aprobadosCount, sinIndice, tournament.hcp_calc_mode),
+          confirmText: 'Iniciar torneo',
+          variant: 'warning',
+        })
+        if (!ok) return
+        setStarting(true)
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sinIndiceVistos: sinIndice.map((j) => j.id) }),
+        })
+        const data = await res.json().catch(() => ({}))
+
+        if (res.status === 409 && data.codigo === CODIGO_CONFIRMAR_SIN_INDICE) {
+          sinIndice = listaSinIndice(data.sinIndice)
+          continue
+        }
+        if (!res.ok) {
+          showError('Error al iniciar', data.error || 'No se pudo iniciar el torneo.')
+          return
+        }
+
+        setTournamentStatus('in_progress')
+        showSuccess('Torneo iniciado', 'Las rondas fueron creadas. Los jugadores ya pueden cargar scores.')
+        router.push(`/organizador/${tournament.slug}/scoring`)
+        return
+      }
+      showError('No se pudo iniciar', 'La lista de jugadores cambió mientras confirmabas. Recarga la página e intenta de nuevo.')
     } catch {
       showError('Sin conexión', 'No se pudo iniciar el torneo. Revisa tu conexión e intenta de nuevo.')
     } finally {
