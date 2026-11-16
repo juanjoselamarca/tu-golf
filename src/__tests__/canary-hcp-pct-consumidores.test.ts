@@ -126,7 +126,8 @@ describe('canario · la tarjeta del grupo hereda el % del torneo', () => {
     expect(leer('lib/data/tournaments/startTournament.ts')).toMatch(/hcp_pct:\s*hcpPctDelTorneo\(t\)/)
   })
   it('el inicio del torneo pide hcp_pct', () => {
-    expect(leer('app/api/torneos/[slug]/start/route.ts')).toMatch(/\.select\('[^']*\bhcp_pct\b/)
+    // La ruta de inicio lee el torneo con `leerParaIniciar` (compartido por GET y POST).
+    expect(leer('lib/data/tournaments/leer-para-iniciar.ts')).toMatch(/\.select\('[^']*\bhcp_pct\b/)
   })
 })
 
