@@ -90,7 +90,11 @@ export async function fetchHistorialRounds(
     .select(SELECT_COLUMNS)
     .eq('user_id', userId)
     .or(OR_EXCLUDE_FEDEGOLF)
+    // Desempate determinista (mismo canónico que indice_golfers, migración 20261030140000):
+    // con dos rondas el mismo día, Postgres podía devolverlas en cualquier orden.
     .order('played_at', { ascending: false })
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
     .limit(500)
 
   if (error) {
@@ -130,7 +134,10 @@ export async function fetchRondasNormalizadas(
       .select('id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, garmin_scorecard_id, metadata, par_per_hole, formato_juego')
       .eq('user_id', userId)
       .or(OR_EXCLUDE_FEDEGOLF)
-      .order('played_at', { ascending: false }),
+      // Desempate determinista: stats corta "Últimas 5" y calcula la tendencia sobre este orden.
+      .order('played_at', { ascending: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false }),
     supabase
       .from('courses')
       .select('id, nombre, fuente, canonical_course_id'),

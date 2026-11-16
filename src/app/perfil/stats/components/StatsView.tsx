@@ -136,7 +136,7 @@ export function StatsView({ rondas: rondasOError }: Props) {
 
         {fueraDePromedios > 0 && (
           <p style={{ color: C.muted, fontSize: 14, margin: '-8px 0 16px', lineHeight: 1.5 }}>
-            {fueraDePromedios === 1 ? '1 no entra' : `${fueraDePromedios} no entran`} a los promedios: de equipo, match play, incompletas o con un error de carga.
+            {fueraDePromedios === 1 ? '1 no entra' : `${fueraDePromedios} no entran`} a estos números: de equipo, match play, incompletas o con un error de carga.
           </p>
         )}
 
@@ -189,8 +189,8 @@ export function StatsView({ rondas: rondasOError }: Props) {
                   valor={mejor ? <>{mejor.score} <span style={{ fontSize: 16, fontWeight: 500, color: C.muted }}>{formatOverUnder(mejor.vsPar)}</span></> : '—'}
                   detalle={mejor ? mejor.course : undefined}
                 />
-                <Cifra etiqueta="Birdies" valor={hasRounds ? scoringCounts.birdies : '—'} />
-                <Cifra etiqueta="Eagles" valor={hasRounds ? scoringCounts.eagles : '—'} />
+                <Cifra etiqueta="Birdies" valor={cifras ? scoringCounts.birdies : '—'} />
+                <Cifra etiqueta="Eagles" valor={cifras ? scoringCounts.eagles : '—'} />
               </div>
             </section>
 

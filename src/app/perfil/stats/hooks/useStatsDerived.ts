@@ -90,7 +90,13 @@ export function useStatsDerived(allRondas: RondaNormalizada[], range: RangeKey) 
   const scoringTotal = scoringCounts.eagles + scoringCounts.birdies
     + scoringCounts.pars + scoringCounts.bogeys + scoringCounts.doubles
 
-  const serie = useMemo(() => (bucket == null ? [] : serieScoreVsPar(delBucket, bucket)), [delBucket, bucket])
+  // MISMO orden cronológico que la tendencia (reverse de `ordenadas`): con dos rondas el
+  // mismo día, el sort estable de serieScoreVsPar conserva el orden recibido, y si
+  // gráfico y tendencia ordenan los empates distinto el veredicto puede cambiar de signo.
+  const serie = useMemo(
+    () => (bucket == null ? [] : serieScoreVsPar([...delBucket].reverse(), bucket)),
+    [delBucket, bucket],
+  )
 
   // Ida/vuelta: solo si la pantalla habla de 18 hoyos, con tarjeta de 18 exactos
   // (una de 27 no tiene un "back 9" único).

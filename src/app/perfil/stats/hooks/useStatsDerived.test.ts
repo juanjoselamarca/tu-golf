@@ -77,6 +77,19 @@ describe('useStatsDerived', () => {
     expect(d.nineHoleData).toBeNull()
   })
 
+  it('gráfico y tendencia ordenan igual las rondas del mismo día', () => {
+    const dia = (id: string, total: number) =>
+      raw({ id, played_at: '2026-03-01', scores: Array(9).fill(5), total_gross: total, holes_played: 9 })
+    const d = derivar([
+      raw({ id: 'a', played_at: '2026-01-01', scores: Array(9).fill(5), total_gross: 40, holes_played: 9 }),
+      dia('x', 36), dia('y', 48),
+      ...['b', 'c', 'd', 'e'].map((id, i) => raw({ id, played_at: `2026-04-0${i + 1}`, scores: Array(9).fill(5), total_gross: 44, holes_played: 9 })),
+    ])
+    // Tendencia: anteriores = las 2 primeras del orden cronológico; deben ser las 2 primeras del gráfico.
+    const anterioresDelGrafico = (d.serie[0].vsPar + d.serie[1].vsPar) / 2 + 36
+    expect(Number(d.trendData?.avgPrev)).toBe(anterioresDelGrafico)
+  })
+
   it('usuario solo-9h: las cifras caen al bucket 9 (rotulado), nunca vacías', () => {
     const d = derivar([
       raw({ scores: Array(9).fill(5), total_gross: 45, holes_played: 9 }),

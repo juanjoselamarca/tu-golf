@@ -39,9 +39,7 @@ describe('fetchHistorialRounds', () => {
                 or: (filter: string) => {
                   expect(filter).toBe(OR_EXCLUDE_FEDEGOLF)
                   return {
-                    order: () => ({
-                      limit: async () => ({ data: [{ id: 'r1', course_name: 'X' }], error: null }),
-                    }),
+                    order: ordenRondas({ data: [{ id: 'r1', course_name: 'X' }], error: null }),
                   }
                 },
               }
@@ -61,9 +59,7 @@ describe('fetchHistorialRounds', () => {
         select: () => ({
           eq: () => ({
             or: () => ({
-              order: () => ({
-                limit: async () => ({ data: null, error: { message: 'boom' } }),
-              }),
+              order: ordenRondas({ data: null, error: { message: 'boom' } }),
             }),
           }),
         }),
@@ -73,6 +69,24 @@ describe('fetchHistorialRounds', () => {
     expect(res).toEqual({ rounds: [], loadError: true })
   })
 })
+
+/**
+ * Mock de `.order(...)` de historical_rounds: exige el desempate determinista
+ * (played_at, created_at, id) y después resuelve con `.limit()` o con await directo.
+ */
+function ordenRondas(res: unknown) {
+  const cols: string[] = []
+  const fin = () => {
+    expect(cols).toEqual(['played_at', 'created_at', 'id'])
+    return res
+  }
+  const chain = {
+    order: (col: string) => { cols.push(col); return chain },
+    limit: async () => fin(),
+    then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve().then(fin).then(ok, ko),
+  }
+  return chain.order
+}
 
 describe('fetchHistorialStats', () => {
   /** Mock: rondas + courses ok; course_holes con paginación configurable. */
@@ -92,7 +106,7 @@ describe('fetchHistorialStats', () => {
             select: () => ({
               eq: () => ({
                 or: () => ({
-                order: async () => opts.roundsError
+                order: ordenRondas(opts.roundsError
                   ? { data: null, error: { message: 'boom' } }
                   : {
                       data: [{
@@ -101,7 +115,7 @@ describe('fetchHistorialStats', () => {
                         holes_played: 3, import_source: null,
                       }],
                       error: null,
-                    },
+                    }),
                 }),
               }),
             }),
