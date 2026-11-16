@@ -6,6 +6,10 @@ import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
 interface ConfirmarFinalizarHojaProps {
   /** La pregunta: `textoConfirmarFinalizar` (hoyos que se marcan como par, o tarjeta completa). */
   titulo: string
+  /** Texto bajo la pregunta (opcional): qué pasa si se confirma. */
+  detalle?: string
+  /** Botón de confirmar; por defecto "Finalizar". La misma hoja confirma el retiro de un jugador en la Timba. */
+  textoConfirmar?: string
   onConfirmar: () => void
   onCancelar: () => void
 }
@@ -22,7 +26,7 @@ export const MS_ANTES_DE_ARMAR = 400
  * que tocó "Finalizar ronda" y, según lo alta que esté la barra (sube si debajo está
  * "Descartar ronda"), el segundo toque de un doble toque caía justo en él y cerraba la ronda.
  */
-export function ConfirmarFinalizarHoja({ titulo, onConfirmar, onCancelar }: ConfirmarFinalizarHojaProps) {
+export function ConfirmarFinalizarHoja({ titulo, detalle, textoConfirmar = 'Finalizar', onConfirmar, onCancelar }: ConfirmarFinalizarHojaProps) {
   const tituloId = useId()
   const confirmarRef = useRef<HTMLButtonElement>(null)
   const [armada, setArmada] = useState(false)
@@ -66,6 +70,11 @@ export function ConfirmarFinalizarHoja({ titulo, onConfirmar, onCancelar }: Conf
           <div id={tituloId} style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', textAlign: 'center', marginBottom: '8px', lineHeight: 1.3 }}>
             {titulo}
           </div>
+          {detalle && (
+            <p style={{ margin: '-4px 0 8px', fontSize: '15px', lineHeight: 1.45, color: 'var(--text-2)', textAlign: 'center' }}>
+              {detalle}
+            </p>
+          )}
           <button
             ref={confirmarRef}
             onClick={onConfirmar}
@@ -76,7 +85,7 @@ export function ConfirmarFinalizarHoja({ titulo, onConfirmar, onCancelar }: Conf
               pointerEvents: armada ? 'auto' : 'none',
             }}
           >
-            Finalizar
+            {textoConfirmar}
           </button>
           <button
             onClick={onCancelar}
