@@ -14,6 +14,7 @@ import {
 import type { MitadDeCancha } from '@/golf/ronda-libre/forma-de-la-ronda'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { RondaReciente } from '@/lib/data/ronda-libre-nueva'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { modoPermitidoPorPlan, netoBloqueadoPorPlan } from '@/golf/billing/modo-por-plan'
 import type { NetoFeature } from '@/golf/billing/plans'
 import { useAccesoNeto } from '@/hooks/useAccesoNeto'
@@ -26,6 +27,17 @@ import {
   type EquipoDeLaRonda,
 } from './equipos-del-formulario'
 import { nombreDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
+
+/** El aviso único de "falta escribir un nombre" del asistente (formatos de equipo y Timba libre). */
+export function problemaPorNombresQueFaltan(cuantos: number): ProblemaDeLaRonda | null {
+  if (cuantos <= 0) return null
+  return {
+    titulo: 'Falta un nombre',
+    detalle: cuantos === 1
+      ? 'Escribe el nombre del jugador que falta.'
+      : `Escribe el nombre de los ${cuantos} jugadores que faltan.`,
+  }
+}
 
 export { ID_DEL_CREADOR } from './equipos-del-formulario'
 export type { EquipoDeLaRonda } from './equipos-del-formulario'
@@ -364,7 +376,8 @@ export function useFormularioDeRonda() {
     setCourseId(r.course_id)
     setTees(r.tees)
     elegirHoyos(r.holes === 9 ? 9 : 18)
-    const formatoRepetido = (r.formato_juego as FormatoJuego) ?? 'stroke_play'
+    // Timba libre no es un formato del formulario (su juego se arma de nuevo): se repite la ronda individual base.
+    const formatoRepetido = esFormatoPersonalizado(r.formato_juego) ? 'stroke_play' : ((r.formato_juego as FormatoJuego) ?? 'stroke_play')
     // Se guarda lo pedido; `modo` le aplica formato y plan (un Match Play
     // Neto viejo, repetido por alguien sin Pro, queda en Gross a la vista).
     if (r.modo_juego === 'gross' || r.modo_juego === 'neto') setModo(r.modo_juego)
@@ -387,14 +400,9 @@ export function useFormularioDeRonda() {
   const sinNombreEnEquipos = esFormatoDeEquipo
     ? rivalesEnJuego.filter(r => !r.nombre.trim() && equipos.some(e => e.miembros.includes(r.id))).length
     : 0
-  const problemaDelFormulario: ProblemaDeLaRonda | null = sinNombreEnEquipos > 0
-    ? {
-        titulo: 'Falta un nombre',
-        detalle: sinNombreEnEquipos === 1
-          ? 'Escribe el nombre del jugador que falta.'
-          : `Escribe el nombre de los ${sinNombreEnEquipos} jugadores que faltan.`,
-      }
-    : null
+  const problemaDelFormulario = problemaPorNombresQueFaltan(sinNombreEnEquipos)
+  /** Tarjetas de rival agregadas sin nombre (no viajan a la ronda). */
+  const filasSinNombre = rivalesEnJuego.length - rivalesConNombre.length
 
   return {
     paso, setPaso,
@@ -404,7 +412,7 @@ export function useFormularioDeRonda() {
     formato, elegirFormato, esFormatoDeEquipo,
     modo, setModo, netoBloqueado,
     llevaElScoreDelGrupo, preguntaQuienAnota, anotaPorTodos, elegirQuienAnota,
-    rivales, rivalesEnJuego, rivalesConNombre, agregarRival, actualizarRival, quitarRival,
+    rivales, rivalesEnJuego, rivalesConNombre, filasSinNombre, agregarRival, actualizarRival, quitarRival,
     problemaDelFormulario,
     repetirRonda,
     equipos, agregarEquipoRival, quitarEquipo, renombrarEquipo, moverAlEquipo,

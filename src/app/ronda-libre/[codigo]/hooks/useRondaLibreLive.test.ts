@@ -225,6 +225,24 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     expect(notifyScoreEvent.mock.calls.filter(c => c[1] === 'leader_change').map(c => c[0])).toEqual(['Bea'])
   })
 
+  it('Timba libre: nunca avisa cambio de líder (no hay ranking por golpes ni neto)', async () => {
+    const r0 = ok({ 1: 5 }) as Extract<LoadRondaResult, { status: 'ok' }>
+    const base = r0.ronda.ronda_libre_jugadores[0]
+    const dos = (scoresBea: Record<string, number>) => ({
+      ...r0,
+      ronda: { ...r0.ronda, formato_juego: 'personalizado', ronda_libre_jugadores: [
+        { ...base, id: 'j1', nombre: 'Ana', scores: { 1: 5 } },
+        { ...base, id: 'j2', nombre: 'Bea', scores: scoresBea },
+      ] } as never,
+    })
+    loadRondaLibre.mockResolvedValue(dos({}))
+    renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    loadRondaLibre.mockResolvedValue(dos({ 1: 3 }))
+    await avanzar(INTERVALO_EN_VIVO_S * 1000)
+    expect(notifyScoreEvent.mock.calls.filter(c => c[1] === 'leader_change')).toEqual([])
+  })
+
   it('ronda NETO con sesión: el PRIMER cambio de líder se avisa (el líder neto se siembra al llegar la sesión)', async () => {
     const r0 = ok({ 1: 5 }) as Extract<LoadRondaResult, { status: 'ok' }>
     const base = r0.ronda.ronda_libre_jugadores[0]

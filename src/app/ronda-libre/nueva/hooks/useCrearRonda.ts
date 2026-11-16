@@ -7,7 +7,8 @@ import { captureError } from '@/lib/error-tracking'
 import { useToast } from '@/hooks/useToast'
 import { isTeamFormat } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
-import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { validarNuevaRonda, type ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { FORMATO_PERSONALIZADO, type ConfigJuego } from '@/golf/formats/personalizado'
 import { MENSAJE_NETO_PRO, MENSAJE_PLAN_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import type { FormaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
 import { nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
@@ -136,10 +137,24 @@ interface Args {
   forma: FormaDeLaRonda
   recorridos: string[]
   llevaElScoreDelGrupo: boolean
+  /**
+   * Timba libre elegida: la ronda viaja como `personalizado` con su `reglas_juego`. `problema` lo calcula
+   * `problemaParaCrearLaTimba`, la misma función que corre la API. `formato` sigue siendo el individual de base.
+   */
+  timba?: { reglasJuego: ConfigJuego; problema: ProblemaDeLaRonda | null } | null
 }
 
 export interface RondaCreada {
   codigo: string
+}
+
+/**
+ * El formato que viaja a la API, y con el MISMO se valida acá: la API corre `validarNuevaRonda` con
+ * `personalizado` en una Timba (el `formato` del formulario es el individual de base).
+ */
+export function formatoQueViaja(formatoDelFormulario: FormatoJuego, conTimba: boolean): FormatoJuego {
+  // El tipo de la app aún no incluye `personalizado` (la API lo acepta aparte con `esFormatoPersonalizado`).
+  return conTimba ? (FORMATO_PERSONALIZADO as unknown as FormatoJuego) : formatoDelFormulario
 }
 
 export function useCrearRonda(args: Args) {
@@ -152,9 +167,12 @@ export function useCrearRonda(args: Args) {
   // resoluciones distintas podrían aprobar una repartición y mandar otra.
   const equipos = equiposConIndices(args.equipos, args.jugadores)
 
-  const problema = validarNuevaRonda({
+  const formatoAEnviar = formatoQueViaja(args.formato, !!args.timba)
+
+  // Sin el juego: el paso Jugadores lo usa, porque las parejas de la Timba se eligen después, en Confirmar.
+  const problemaDeLaRonda = validarNuevaRonda({
     cancha: args.cancha,
-    formato: args.formato,
+    formato: formatoAEnviar,
     modo: args.modo,
     jugadores: jugadoresParaLaApi(args.jugadores, args.userId).map(j => ({
       nombre: j.nombre,
@@ -164,6 +182,7 @@ export function useCrearRonda(args: Args) {
     equipos,
     creadorId: args.userId,
   })
+  const problema = problemaDeLaRonda ?? args.timba?.problema ?? null
 
   const crear = async () => {
     if (creando) return
@@ -209,12 +228,13 @@ export function useCrearRonda(args: Args) {
           holes: args.forma.holes,
           fecha: args.fecha,
           hoyo_inicio: args.forma.hoyoInicio,
-          formato_juego: args.formato,
+          formato_juego: formatoAEnviar,
           modo_juego: args.modo,
           admin_mode: args.llevaElScoreDelGrupo,
           recorridos: args.recorridos.length > 0 ? args.recorridos : undefined,
           jugadores: jugadoresParaLaApi(args.jugadores, args.userId),
-          equipos: isTeamFormat(args.formato) ? equipos : undefined,
+          equipos: isTeamFormat(formatoAEnviar) ? equipos : undefined,
+          reglas_juego: args.timba?.reglasJuego,
         }),
       })
 
@@ -247,7 +267,7 @@ export function useCrearRonda(args: Args) {
       captureError(err, {
         context: 'ronda-libre.nueva.crear',
         userId: args.userId,
-        meta: { cancha: args.cancha, formato: args.formato },
+        meta: { cancha: args.cancha, formato: formatoAEnviar },
       })
       showError('Error al crear la ronda', 'No pudimos contactar el servidor. Revisa tu conexión.')
     } finally {
@@ -258,5 +278,5 @@ export function useCrearRonda(args: Args) {
     }
   }
 
-  return { crear, creando, creada, problema }
+  return { crear, creando, creada, problema, problemaDeLaRonda }
 }

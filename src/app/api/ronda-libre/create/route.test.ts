@@ -129,6 +129,7 @@ vi.mock('@/lib/data/course-aptitud', () => ({ evaluarRondaLibre: vi.fn(async () 
 
 import { POST } from './route'
 import { crearConfigDePlantilla } from '@/golf/formats/personalizado'
+import { MENSAJE_TIMBA_UN_CELULAR } from '@/golf/ronda-libre/juego-de-ronda-nueva'
 
 function req(body: unknown) {
   return new Request('http://test/api/ronda-libre/create', {
@@ -534,6 +535,14 @@ describe('POST /api/ronda-libre/create — Timba libre (formato personalizado)',
     esAdminElCreador = true
     const res = await POST(req(timba({ course_id: null })))
     expect(res.status).toBe(400)
+    expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+  })
+
+  it('sin admin_mode (cada uno en su celular) es 400 con el mensaje de la UI, sin crear nada', async () => {
+    esAdminElCreador = true
+    const res = await POST(req(timba({ admin_mode: false })))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe(MENSAJE_TIMBA_UN_CELULAR)
     expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
   })
 

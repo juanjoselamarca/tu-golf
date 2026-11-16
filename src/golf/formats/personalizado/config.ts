@@ -93,6 +93,8 @@ export const COMBINACIONES_DE_4: readonly [Pareja, Pareja][] = [
 
 /** Clave de Timba libre en `formato_juego` (rondas_libres e historical_rounds). Fuente única. */
 export const FORMATO_PERSONALIZADO = 'personalizado' as const
+/** Nombre del formato para mostrar (selector, encabezados, compartir). */
+export const NOMBRE_FORMATO_PERSONALIZADO = 'Timba libre'
 
 export function esFormatoPersonalizado(formato: string | null | undefined): formato is typeof FORMATO_PERSONALIZADO {
   return formato === FORMATO_PERSONALIZADO

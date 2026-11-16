@@ -6,6 +6,7 @@ import { LEYENDAS } from './leyendas-de-formato'
 import { chip, colores, etiqueta, informativo, opcion, tarjeta } from './estilos'
 import { ProBadge } from '@/components/billing/ProBadge'
 import { planesUrl } from '@/lib/planes-url'
+import { FilaTimbaLibre } from './timba/FilaTimbaLibre'
 
 const FORMATOS = KNOWN_FORMAT_KEYS as ReadonlyArray<FormatoJuego>
 
@@ -27,6 +28,8 @@ interface Props {
   onModo: (m: ModoJuego) => void
   /** El neto de este formato pide plan Pro (lo decide `modoPermitidoPorPlan`). */
   netoBloqueado: boolean
+  /** Timba libre: se lista siempre; elegirla depende del permiso. Activa, el modo y la leyenda los pone su panel. */
+  timba: { puedeElegir: boolean; activa: boolean; onElegir: () => void }
 }
 
 /**
@@ -41,10 +44,10 @@ interface Props {
  * bloqueado y Gross queda activo (el hook nunca deja seleccionado un modo
  * bloqueado). El selector se ocultaría sólo si un formato admitiera un modo.
  */
-export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloqueado }: Props) {
+export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloqueado, timba }: Props) {
   const meta = FORMAT_META[formato]
   const leyenda = LEYENDAS[formato]
-  const modosPermitidos = meta?.modosPermitidos ?? ['gross', 'neto']
+  const modosPermitidos = timba.activa ? [] : (meta?.modosPermitidos ?? ['gross', 'neto'])
 
   return (
     <div style={tarjeta}>
@@ -53,7 +56,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloquead
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {FORMATOS.map(clave => {
           const info = FORMAT_META[clave]
-          const activo = formato === clave
+          const activo = !timba.activa && formato === clave
           return (
             <button
               key={clave}
@@ -77,6 +80,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloquead
             </button>
           )
         })}
+        <FilaTimbaLibre puedeElegir={timba.puedeElegir} activa={timba.activa} onElegir={timba.onElegir} />
       </div>
 
       {modosPermitidos.length > 1 && (
@@ -124,7 +128,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloquead
         </div>
       )}
 
-      {leyenda && (
+      {leyenda && !timba.activa && (
         <div style={informativo}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ color: colores.oroTexto, display: 'flex', flexShrink: 0 }} aria-hidden="true"><leyenda.icono size={18} strokeWidth={1.75} /></span>

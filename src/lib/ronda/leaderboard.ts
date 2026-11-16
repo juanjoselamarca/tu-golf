@@ -9,6 +9,7 @@ import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { etiquetasDePosicion } from '@/golf/core/posiciones'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import type { Jugador, ModoJuego, FormatoJuego } from '@/types/ronda'
 
 /** Entrada del leaderboard: jugador + métricas derivadas. */
@@ -50,6 +51,9 @@ export function buildLeaderboard({
   modoJuego,
   formatoJuego,
 }: BuildLeaderboardArgs): LeaderboardEntry[] {
+  // Timba libre: no hay tabla por golpes ni por neto (gana el que suma puntos) y, sin el course handicap de los
+  // otros, el neto caería a hándicap 0. Sus puntos se leen solo de `GET /juego` (spec, "Para el PR C").
+  if (esFormatoPersonalizado(formatoJuego)) return []
   const isNetoMode = modoJuego === 'neto'
   const isStableford = formatoJuego === 'stableford'
 

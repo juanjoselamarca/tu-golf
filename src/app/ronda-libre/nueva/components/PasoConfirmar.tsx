@@ -29,6 +29,8 @@ interface Props {
   /** Más de un tee disponible: recién ahí el tee por jugador aporta información. */
   hayVariosTees: boolean
   problema: ProblemaDeLaRonda | null
+  /** Timba libre: su nombre reemplaza al del formato, y `juego` (las parejas) va antes de crear. */
+  timba?: { nombre: string; juego: React.ReactNode }
   creando: boolean
   onEditar: () => void
   onCrear: () => void
@@ -132,7 +134,9 @@ export function PasoConfirmar(props: Props) {
           <Fila etiqueta="Empieza en">Hoyo {forma.hoyoInicio}</Fila>
         )}
 
-        <Fila etiqueta="Formato">{formatLabel(props.formato, props.modo)}</Fila>
+        <Fila etiqueta="Formato">
+          {props.timba ? `${props.timba.nombre} · ${props.modo === 'neto' ? 'Neto' : 'Gross'}` : formatLabel(props.formato, props.modo)}
+        </Fila>
 
         <Fila etiqueta="Tees">{nombreVisibleDeTee(props.teeGlobal, props.recorridosElegidos.length === 2)}</Fila>
 
@@ -163,6 +167,8 @@ export function PasoConfirmar(props: Props) {
           </div>
         </div>
       </div>
+
+      {props.timba?.juego}
 
       <div style={{ display: 'flex', gap: '10px' }}>
         {/* Bloqueado mientras se crea: volver a editar con el POST en vuelo deja la pantalla de compartir

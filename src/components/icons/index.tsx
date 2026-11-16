@@ -13,4 +13,5 @@ export {
   Link as LinkIcon,
   Loader2,
   ShieldCheck, Lock,
+  Info, SlidersHorizontal, Shuffle,
 } from 'lucide-react'

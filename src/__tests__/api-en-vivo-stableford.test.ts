@@ -209,3 +209,19 @@ describe('GET /api/en-vivo — hora de inicio', () => {
     expect(json.rondas[0].fecha).toBe('2026-10-08')
   })
 })
+
+describe('GET /api/en-vivo — Timba libre', () => {
+  beforeEach(() => { tablasConsultadas.length = 0 })
+
+  it('una Timba (personalizado) no sale en el feed: su ranking por golpes sería falso; las demás sí', async () => {
+    rondas = [
+      ronda({ id: 'rt', codigo: 'TIMBA1', formato_juego: 'personalizado' }),
+      ronda({ id: 'rs', codigo: 'STROKE1', formato_juego: 'stroke_play' }),
+    ]
+    const { status, json } = await feed()
+    expect(status).toBe(200)
+    const codigos = (json.rondas as Array<{ codigo: string }>).map(r => r.codigo)
+    expect(codigos).toEqual(['STROKE1'])
+  })
+})
+

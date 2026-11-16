@@ -4,6 +4,7 @@ import { calcularScoreRonda } from '@/golf/core/round-score'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida } from '@/golf/formats'
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { cargarHoyosDelScorer, type HoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { fetchEquiposDeRondas } from '@/lib/data/ronda-libre'
 import { vistaPublicaDeRondaLibre } from '@/lib/data/tournaments/vista-publica'
@@ -271,7 +272,11 @@ export async function GET(request: Request) {
     // orden físico, y ese orden se mueve con cada UPDATE de scores. En el feed
     // público eso reordenaba las filas del espectador entre dos refrescos (y con
     // ellas el "1." resaltado y la lista que se manda a seguir por push).
-    const rondasRaw = ((data ?? []) as unknown as RondaRow[]).map(r => ({
+    // Timba libre (`personalizado`): el feed ordena por golpes y resalta un "1."; en una Timba gana quien suma
+    // puntos, así que ese ranking sería falso (spec formato-personalizado, "Para el PR C"). No sale en el feed
+    // hasta que la Timba tenga su propia vista de puntos (PR C2). Se filtra en memoria y no en la query: un
+    // `neq` dejaría fuera también las filas con `formato_juego` NULL.
+    const rondasRaw = ((data ?? []) as unknown as RondaRow[]).filter(r => !esFormatoPersonalizado(r.formato_juego)).map(r => ({
       ...r,
       ronda_libre_jugadores: ordenarJugadoresDeLaRonda(r.ronda_libre_jugadores ?? [], r.creador_id),
     }))

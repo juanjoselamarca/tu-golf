@@ -100,6 +100,7 @@ describe('cláusula 2 — orden de los jugadores por jugadorIds', () => {
       jugadores: ['Juan', 'Pedro', 'Diego', 'Tomás'].map(nombre => ({ nombre, indice: 10 })),
       holes: 18,
       courseId: 'cancha',
+      adminMode: true,
       nuevoId: () => IDS[n++],
     })
     if (!creada.ok) throw new Error(creada.error)
@@ -196,7 +197,7 @@ describe('cláusula 8 — 27 hoyos', () => {
   })
   it('la creación no ofrece Timba neto en 27 hoyos', () => {
     const r = prepararJuegoDeRondaNueva({
-      reglasJuego: config({ modo: 'neto' }), modoDeLaRonda: 'neto', holes: 27, courseId: 'cancha', nuevoId: () => crypto.randomUUID(),
+      reglasJuego: config({ modo: 'neto' }), modoDeLaRonda: 'neto', holes: 27, courseId: 'cancha', adminMode: true, nuevoId: () => crypto.randomUUID(),
       jugadores: ['Juan', 'Pedro', 'Diego', 'Tomás'].map(nombre => ({ nombre, indice: 10 })),
     })
     expect(r).toEqual({ ok: false, error: 'Por ahora, el juego neto es para rondas de 9 o 18 hoyos.' })

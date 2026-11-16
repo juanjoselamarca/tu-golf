@@ -12,6 +12,7 @@
 // Las guardas "set solo si hay datos" mantienen que un hiccup de red NO borre
 // pares ni equipos ya cargados.
 
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadRondaLibre, loadHcpConSesion, aplicarHcpConSesion, rehidratarHandicaps, crearHcpAMostrar, type HcpConSesion, type HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import type { VistaPublica } from '@/lib/data/tournaments/vista-publica'
@@ -129,8 +130,12 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     conLider = true,
   ) => {
     const isNeto = r.modo_juego === 'neto'
+    // Timba libre: no hay líder por golpes ni neto (gana el que suma puntos, y sin el hándicap de los otros el
+    // neto caería a 0). No se avisa cambio de líder (spec, "Para el PR C").
+    const avisaLider = conLider && !esFormatoPersonalizado(r.formato_juego)
     const hoyos = hoyosDeLaRonda(r.hoyo_inicio, r.holes)
-    const lb = [...r.ronda_libre_jugadores]
+    // Sin líder que avisar no se arma la tabla: en una Timba el `?? handicap` de abajo sería un neto inventado.
+    const lb = !avisaLider ? [] : [...r.ronda_libre_jugadores]
       .map(j => {
         const ch = chs[j.id] ?? Math.round(j.handicap ?? 0)
         const vsPar = isNeto
@@ -141,7 +146,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
       .filter(j => j.hp > 0)
       .sort((a, b) => a.vsPar - b.vsPar)
 
-    if (conLider && lb.length > 0) {
+    if (avisaLider && lb.length > 0) {
       const leader = lb[0]
       if (avisar && prevLeaderRef.current && prevLeaderRef.current !== leader.nombre) {
         notifyScoreEvent(leader.nombre, 'leader_change', `Toma el liderato con ${formatOverUnder(leader.vsPar)}`, `/ronda-libre/${codigo}`)

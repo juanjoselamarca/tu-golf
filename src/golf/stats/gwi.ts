@@ -6,6 +6,7 @@
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { esMiTarjeta } from '../ronda-libre/permisos'
+import { esFormatoPersonalizado } from '../formats/personalizado/config'
 
 // ─── Matemáticas base ───
 function normalCDF(x: number): number {
@@ -439,4 +440,13 @@ export const HOYOS_MINIMOS_GWI = 3
 /** El panel GWI de la ronda en vivo se muestra con 2+ jugadores y alguno con 3+ hoyos. */
 export function hayGWIParaMostrar(jugadores: ReadonlyArray<Pick<JugadorGWIPublico, 'hoyosCompletados'>>): boolean {
   return jugadores.length >= 2 && jugadores.some(j => j.hoyosCompletados >= HOYOS_MINIMOS_GWI)
+}
+
+/**
+ * Si el formato tiene GWI (quién gana, por golpes o neto). La Timba libre (`personalizado`) no: gana quien suma
+ * puntos y sin el hándicap de los otros el neto saldría inventado (spec formato-personalizado, "Para el PR C").
+ * Lo usan el servidor (`gwiDeRondaLibre`, no calcula) y la página en vivo (no monta el panel).
+ */
+export function formatoTieneGWI(formato: string | null | undefined): boolean {
+  return !esFormatoPersonalizado(formato)
 }

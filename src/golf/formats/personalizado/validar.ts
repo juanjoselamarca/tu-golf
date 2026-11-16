@@ -5,6 +5,7 @@
 import { esHandicapUsable } from '../match-play'
 import { configJuegoSchema, LIMITES_JUEGO, netoDisponibleEnHoyos, type ConfigJuego } from './config'
 import { JUGADORES_POR_PLANTILLA, NOMBRE_PLANTILLA } from './plantillas'
+import { TRAMOS_ROTATIVOS, hoyosPorTramoParejo } from './tramos'
 
 export interface ContextoValidacion {
   /** Nombre y course handicap de cada jugador, en el orden de la ronda (`null` si está en `sinIndice`). */
@@ -26,18 +27,21 @@ export function validarJuegoPersonalizado(config: unknown, ctx: ContextoValidaci
 
   const rango = JUGADORES_POR_PLANTILLA[c.plantilla]
   const { min, max } = LIMITES_JUEGO.jugadores
-  if (n < min || n > max) errores.push(`Timba libre es para ${min} o ${max} jugadores.`)
-  else if (n < rango.min || n > rango.max) {
+  // El rango de la plantilla cabe en el general: fuera de él, primero el mensaje propio del juego ("La Colombiana
+  // es para 4 jugadores"), que dice exactamente qué falta; el general solo si la plantilla no pide nada distinto.
+  if (n < rango.min || n > rango.max) {
     errores.push(
-      rango.min === rango.max
-        ? `${NOMBRE_PLANTILLA[c.plantilla]} es para ${rango.min} jugadores.`
-        : `${NOMBRE_PLANTILLA[c.plantilla]} es para ${rango.min} a ${rango.max} jugadores.`,
+      rango.min === min && rango.max === max
+        ? `Timba libre es para ${min} o ${max} jugadores.`
+        : rango.min === rango.max
+          ? `${NOMBRE_PLANTILLA[c.plantilla]} es para ${rango.min} jugadores.`
+          : `${NOMBRE_PLANTILLA[c.plantilla]} es para ${rango.min} a ${rango.max} jugadores.`,
     )
   } else if (esParejas && n !== 4) errores.push('Los juegos de parejas son para 4 jugadores.')
 
   if (c.unidad === 'parejas_rotativas') {
-    if (ctx.cantidadHoyos % 3 !== 0) errores.push('Las parejas que rotan necesitan una cantidad de hoyos divisible por 3.')
-    if (!c.sorteo || new Set(c.sorteo).size !== 3) errores.push('Falta sortear el orden de las parejas.')
+    if (hoyosPorTramoParejo(ctx.cantidadHoyos) == null) errores.push('Las parejas que rotan necesitan una cantidad de hoyos divisible por 3.')
+    if (!c.sorteo || new Set(c.sorteo).size !== TRAMOS_ROTATIVOS) errores.push('Falta sortear el orden de las parejas.')
   }
   if (c.unidad === 'parejas_fijas') {
     const usados = c.parejas ? c.parejas.flat() : []
