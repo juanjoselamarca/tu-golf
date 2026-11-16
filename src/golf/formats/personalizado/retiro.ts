@@ -36,6 +36,15 @@ export function golpesHastaElRetiro<T extends Readonly<Record<string | number, n
   ) as T
 }
 
+/** `true` si el jugador tiene algún golpe anotado desde `desde` (incluido) en orden de juego: un retiro desde ahí lo descuenta. */
+export function tieneGolpesDesde(
+  scores: Readonly<Record<string | number, number | null | undefined>> | undefined,
+  desde: number,
+  ordenHoyos: readonly number[],
+): boolean {
+  return Object.entries(scores ?? {}).some(([hoyo, golpes]) => golpes != null && estaRetiradoEn(desde, Number(hoyo), ordenHoyos))
+}
+
 /**
  * Desde qué hoyo se retira quien se va estando en `hoyoActual`: ese mismo si todavía no tiene score, o el primero
  * sin score después. `null` si ya anotó todos los que quedan (no hay hoyo que perder).

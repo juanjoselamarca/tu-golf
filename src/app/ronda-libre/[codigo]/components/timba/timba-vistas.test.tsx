@@ -7,7 +7,7 @@ import { JuegoDeLaTimba, avisoNetoComoGross } from './JuegoDeLaTimba'
 import { PanelDelJuego, TEXTO_JUEGO_SIN_SESION, TEXTO_SIN_JUEGO } from './PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from './PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from './RetiroDeJugadores'
-import { HojaDeRetiro } from './HojaDeRetiro'
+import { AVISO_GOLPES_DESDE_EL_RETIRO, DETALLE_RETIRO, HojaDeRetiro } from './HojaDeRetiro'
 import { AvisoMarcasRechazadas } from './AvisoMarcasRechazadas'
 import { PestanasDeLaTimba } from './PestanasDeLaTimba'
 import { TarjetaDeGolpes } from './TimbaEnVivo'
@@ -130,6 +130,17 @@ describe('HojaDeRetiro', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('HojaDeRetiro: elegir un hoyo ya anotado', () => {
+  it('avisa que lo anotado desde ese hoyo deja de contar, solo si hay golpes desde ahí', () => {
+    render(<HojaDeRetiro jugador={{ nombre: 'Juan', desdeSiSeVa: 8, hoyosParaElegir: [1, 2, 3, 4, 5, 6, 7, 8], conGolpesDesde: [1, 2, 3, 4, 5, 6, 7] }} onConfirmar={vi.fn()} onCancelar={vi.fn()} />)
+    const hoja = screen.getByRole('dialog')
+    expect(hoja.textContent).not.toContain(AVISO_GOLPES_DESDE_EL_RETIRO)
+    fireEvent.click(within(hoja).getByRole('radio', { name: 'Hoyo 6' }))
+    expect(hoja.textContent).toContain(`${DETALLE_RETIRO} ${AVISO_GOLPES_DESDE_EL_RETIRO}`)
+    expect(AVISO_GOLPES_DESDE_EL_RETIRO).toBe('Lo que anotó desde ese hoyo deja de contar.')
   })
 })
 

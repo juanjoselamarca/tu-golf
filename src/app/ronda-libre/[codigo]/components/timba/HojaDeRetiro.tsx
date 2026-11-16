@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
 
 export const DETALLE_RETIRO = 'Pierde los hoyos que no juegue: en cada uno queda último. Los demás siguen jugando.'
+/** Se suma al detalle cuando el hoyo elegido (o uno posterior) ya tiene golpes de ese jugador. */
+export const AVISO_GOLPES_DESDE_EL_RETIRO = 'Lo que anotó desde ese hoyo deja de contar.'
 
 /**
  * Confirmación del retiro de un jugador en una Timba (spec, "Hoyo pendiente y retiro"), la misma desde la pestaña
@@ -11,7 +13,7 @@ export const DETALLE_RETIRO = 'Pierde los hoyos que no juegue: en cada uno queda
  * se acordó tarde, se elige otro entre la salida y el hoyo actual (`hoyosParaElegirElRetiro`).
  */
 export function HojaDeRetiro({ jugador, onConfirmar, onCancelar }: {
-  jugador: { nombre: string; desdeSiSeVa: number | null; hoyosParaElegir: readonly number[] }
+  jugador: { nombre: string; desdeSiSeVa: number | null; hoyosParaElegir: readonly number[]; conGolpesDesde?: readonly number[] }
   onConfirmar: (desde: number) => void
   onCancelar: () => void
 }) {
@@ -23,7 +25,7 @@ export function HojaDeRetiro({ jugador, onConfirmar, onCancelar }: {
   return (
     <ConfirmarFinalizarHoja
       titulo={`¿${jugador.nombre} se retira desde el hoyo ${desde}?`}
-      detalle={DETALLE_RETIRO}
+      detalle={jugador.conGolpesDesde?.includes(desde) ? `${DETALLE_RETIRO} ${AVISO_GOLPES_DESDE_EL_RETIRO}` : DETALLE_RETIRO}
       textoConfirmar="Retirar"
       onConfirmar={() => onConfirmar(desde)}
       onCancelar={onCancelar}

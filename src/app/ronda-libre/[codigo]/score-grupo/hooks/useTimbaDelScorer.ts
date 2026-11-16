@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { estaRetiradoEn, hoyoDesdeElQueSeRetira, hoyosParaElegirElRetiro, nombreDelPuntito } from '@/golf/formats/personalizado'
+import { estaRetiradoEn, hoyoDesdeElQueSeRetira, hoyosParaElegirElRetiro, nombreDelPuntito, tieneGolpesDesde } from '@/golf/formats/personalizado'
 import { retirosVigentes } from '@/golf/ronda-libre/retiros-de-la-timba'
 import { marcasDelHoyo, puntitosMarcables, type MarcasDeUnPuntito } from '@/golf/ronda-libre/marcas-de-la-timba'
 import { useJuegoDeLaTimba, type EstadoDelJuego } from '../../hooks/useJuegoDeLaTimba'
@@ -17,6 +17,8 @@ export interface JugadorParaRetiro {
   desdeSiSeVa: number | null
   /** Para elegir otro si se acordaron tarde: de la salida hasta el actual (`hoyosParaElegirElRetiro`). */
   hoyosParaElegir: number[]
+  /** De `hoyosParaElegir`, desde cuáles ya tiene golpes anotados (`tieneGolpesDesde`): la hoja avisa que dejan de contar. */
+  conGolpesDesde: number[]
 }
 
 export interface TimbaDelScorer {
@@ -89,12 +91,14 @@ export function useTimbaDelScorer(input: {
     })
     const jugadoresParaRetiro = jugadores.map(j => {
       const desdeSiSeVa = hoyoDesdeElQueSeRetira(scores[j.id], currentHole, ordenHoyos)
+      const hoyosParaElegir = hoyosParaElegirElRetiro(ordenHoyos, currentHole, desdeSiSeVa)
       return {
         id: j.id,
         nombre: j.nombre,
         retiradoDesde: retiros[j.id] ?? null,
         desdeSiSeVa,
-        hoyosParaElegir: hoyosParaElegirElRetiro(ordenHoyos, currentHole, desdeSiSeVa),
+        hoyosParaElegir,
+        conGolpesDesde: hoyosParaElegir.filter(h => tieneGolpesDesde(scores[j.id], h, ordenHoyos)),
       }
     })
     return { retiradoEn, retiradosDelHoyo, puntosDelHoyo, birdieAutomatico, lineasRechazadas, jugadoresParaRetiro }

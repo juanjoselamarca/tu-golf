@@ -57,8 +57,8 @@ describe('useTimbaDelScorer', () => {
     expect(t.retiradoEn('b', 3)).toBe(false)
     expect([...t.retiradosDelHoyo]).toEqual(['b'])
     expect(t.jugadoresParaRetiro).toEqual([
-      { id: 'a', nombre: 'Juan', retiradoDesde: null, desdeSiSeVa: 5, hoyosParaElegir: [1, 2, 3, 4, 5] },
-      { id: 'b', nombre: 'Diego', retiradoDesde: 4, desdeSiSeVa: 5, hoyosParaElegir: [1, 2, 3, 4, 5] },
+      { id: 'a', nombre: 'Juan', retiradoDesde: null, desdeSiSeVa: 5, hoyosParaElegir: [1, 2, 3, 4, 5], conGolpesDesde: [1, 2, 3] },
+      { id: 'b', nombre: 'Diego', retiradoDesde: 4, desdeSiSeVa: 5, hoyosParaElegir: [1, 2, 3, 4, 5], conGolpesDesde: [1, 2, 3] },
     ])
   })
 
