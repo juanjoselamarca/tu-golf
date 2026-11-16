@@ -6,7 +6,8 @@ const MONO = 'var(--font-dm-mono), "DM Mono", monospace'
 /** Marca de golpe recibido en un hoyo (neto): un punto por golpe. */
 export const MARCA_GOLPE_RECIBIDO = '•'
 
-export function textoSinHandicap(nombres: readonly string[]): string {
+/** Neto con jugadores sin hándicap usable (`resultado.sinHandicap`): el juego va como gross. */
+export function avisoNetoComoGross(nombres: readonly string[]): string {
   const quien = nombres.length === 1 ? `de ${nombres[0]}` : `de ${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}`
   return `Falta el hándicap ${quien}: mientras tanto el juego va sin golpes recibidos, como gross.`
 }
@@ -53,6 +54,7 @@ function Celda({ celda, pendiente }: { celda: CeldaDelJuego; pendiente: boolean 
  */
 export function JuegoDeLaTimba({ tabla, desactualizado, pie }: { tabla: TablaDelJuego; desactualizado?: boolean; pie?: ReactNode }) {
   const columnas = `minmax(44px, 0.8fr) repeat(${tabla.columnas.length}, minmax(0, 1fr))`
+  const faltan = tabla.sinHandicap
   return (
     <section aria-label={`Puntos de ${tabla.titulo}`} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
@@ -72,7 +74,7 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie }: { tabla: TablaDel
 
       {tabla.sinHandicap.length > 0 && (
         <p role="note" style={{ margin: 0, padding: '10px 12px', borderRadius: '10px', background: 'var(--status-open-bg)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.45 }}>
-          {textoSinHandicap(tabla.sinHandicap)}
+          {avisoNetoComoGross(faltan)}
         </p>
       )}
 
@@ -103,8 +105,8 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie }: { tabla: TablaDel
               <span key={c.jugadorId} role="columnheader" style={{ textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>
             ))}
           </div>
-          {tabla.filas.map(f => f.tipo === 'tramo' ? (
-            <div key={`t${f.indice}`} role="row">
+          {tabla.filas.map((f, i) => f.tipo === 'tramo' ? (
+            <div key={`tramo-${i}`} role="row">
               <span role="cell" style={{ display: 'block' }}><Marcador marcador={f.marcador} compacto /></span>
             </div>
           ) : (

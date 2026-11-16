@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import type { TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
 import type { PuntitoConfig } from '@/golf/formats/personalizado'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/ConfirmarFinalizarHoja'
-import { JuegoDeLaTimba, textoSinHandicap } from './JuegoDeLaTimba'
+import { JuegoDeLaTimba, avisoNetoComoGross } from './JuegoDeLaTimba'
 import { PanelDelJuego, TEXTO_JUEGO_SIN_SESION, TEXTO_SIN_JUEGO } from './PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from './PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from './RetiroDeJugadores'
@@ -42,8 +42,8 @@ describe('JuegoDeLaTimba', () => {
 
   it('neto sin hándicap: avisa quién falta y no muestra la leyenda de golpes', () => {
     render(<JuegoDeLaTimba tabla={{ ...tabla, sinHandicap: ['Pedro', 'Tomás'] }} />)
-    expect(screen.getByRole('note').textContent).toBe(textoSinHandicap(['Pedro', 'Tomás']))
-    expect(textoSinHandicap(['Pedro', 'Tomás'])).toContain('de Pedro y Tomás')
+    expect(screen.getByRole('note').textContent).toBe(avisoNetoComoGross(['Pedro', 'Tomás']))
+    expect(avisoNetoComoGross(['Pedro', 'Tomás'])).toContain('de Pedro y Tomás')
     expect(screen.queryByText(/golpe recibido en el hoyo/)).toBeNull()
   })
 })
