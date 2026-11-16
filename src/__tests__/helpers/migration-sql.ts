@@ -64,7 +64,8 @@ export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
     'id', 'codigo', 'creador_id', 'course_id', 'course_name', 'tees', 'holes', 'fecha', 'estado', 'created_at', 'modo_juego',
     'hoyo_inicio', 'admin_mode', 'admin_user_id', 'recorridos', 'formato_juego', 'es_demo', 'hcp_pct',
   ],
-  ronda_libre_jugadores: ['id', 'ronda_id', 'nombre', 'user_id', 'scores', 'handicap', 'tees'],
+  // handicap_de_inscripcion: 20261116120000_handicap_de_inscripcion (la vista pública separa fuente y privacidad).
+  ronda_libre_jugadores: ['id', 'ronda_id', 'nombre', 'user_id', 'scores', 'handicap', 'tees', 'handicap_de_inscripcion'],
   ronda_equipos: ['id', 'ronda_id', 'nombre', 'handicap_equipo', 'scores', 'created_at', 'handicap_equipo_juego'],
   ronda_equipo_jugadores: ['equipo_id', 'jugador_id', 'orden'],
 }
