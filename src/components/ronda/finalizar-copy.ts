@@ -1,3 +1,8 @@
+/** "A", "A y B", "A, B y C": la enumeración de los avisos de Finalizar. */
+function enumerar(items: readonly string[]): string {
+  return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`
+}
+
 /**
  * Aviso cuando Finalizar no llega al servidor — el mismo en los dos scorers. Los
  * golpes ya están en el teléfono; la ronda no se cierra a medias y se reintenta.
@@ -47,9 +52,7 @@ export const AVISO_TARJETA_RECHAZADA = {
  * Sólo para rechazos: si lo que faltó fue señal, el aviso es `AVISO_FINALIZAR_SIN_SERVIDOR` (no sube ninguna).
  */
 export function avisoTarjetasNoGuardadas(nombres: readonly string[]): { title: string; message: string } {
-  const lista = nombres.length <= 1
-    ? (nombres[0] ?? '')
-    : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+  const lista = enumerar(nombres)
   const tarjetas = nombres.length > 1 ? `las tarjetas de ${lista}` : `la tarjeta de ${lista}`
   return { title: `No pudimos guardar ${tarjetas}.`, message: 'Revisa sus golpes y vuelve a finalizar.' }
 }
@@ -72,4 +75,15 @@ export const AVISO_FINALIZAR_MATCH_SIN_SESION = {
 export function textoConfirmarFinalizar(hoyosPorMarcar: number): string {
   if (hoyosPorMarcar === 0) return '¿Finalizar ronda?'
   return `¿Marcar ${hoyosPorMarcar} hoyo${hoyosPorMarcar > 1 ? 's' : ''} como par y finalizar?`
+}
+
+/**
+ * Timba libre: la línea bajo la pregunta de Finalizar cuando quedan hoyos sin anotar (fuera del que está en
+ * pantalla): al cerrar cuentan como "no jugó" (regla de Juanjo, 26-oct). Copy decidido (16-nov-2026).
+ * `hoyos` sale de `hoyosQueQuedanSinJugarEnLaTimba`; vacío → sin línea.
+ */
+export function detalleHoyosSinAnotarTimba(hoyos: readonly number[]): string | undefined {
+  if (hoyos.length === 0) return undefined
+  if (hoyos.length === 1) return `Hoyo ${hoyos[0]} sin anotar: cuenta como no jugado y quien no anotó lo pierde.`
+  return `Hoyos ${enumerar(hoyos.map(String))} sin anotar: cuentan como no jugados y quien no anotó los pierde.`
 }

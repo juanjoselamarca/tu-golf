@@ -90,7 +90,8 @@ export function useFinalizeGrupo(input: {
    * Timba libre: retiros (sus hoyos no se rellenan con par) y el reenvío de los puntos especiales. Con marcas sin
    * enviar NO se cierra: después de cerrar la RPC las rechaza (P0002) y el juego quedaría sin esos puntos.
    */
-  timba?: { retiros: Readonly<Record<string, number>>; enviarMarcas: () => Promise<boolean> }
+  /** Timba libre (solo entonces): retiros, envío de marcas y el hoyo en pantalla (el único que se rellena con par). */
+  timba?: { retiros: Readonly<Record<string, number>>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number }
 }): FinalizeGrupo {
   const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes, timba } = input
   const router = useRouter()
@@ -195,9 +196,10 @@ export function useFinalizeGrupo(input: {
       for (const j of ronda.ronda_libre_jugadores) {
         // Match play: los hoyos que el rival concedió y los posteriores a decidirse el
         // match no se jugaron: no se inventan con par (el historial los estima con par neto).
-        // Timba: tampoco los hoyos desde que el jugador se retiró.
+        // Timba: solo el hoyo en pantalla (el resto sin score es "no jugó") y nunca desde el retiro.
         const noRellenar = hoyosQueNoSeRellenan({
           matchResult, jugadores: ronda.ronda_libre_jugadores, jugadorId: j.id, retiros: timba?.retiros, ordenHoyos: hoyos,
+          esTimba: timba != null, hoyoEnPantalla: timba?.hoyoEnPantalla,
         })
         const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap, noRellenar)
         if (rellenados.length > 0) filledScores[j.id] = completos

@@ -7,7 +7,7 @@ import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
 import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
 import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
-import { textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
+import { detalleHoyosSinAnotarTimba, textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
 import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
 import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
@@ -102,7 +102,7 @@ export default function ScoreGrupoPage() {
     useFinalizeGrupo({
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores,
-      timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes } : undefined,
+      timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
     })
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
   useBeforeUnloadWarning(hasUnsaved)
@@ -117,7 +117,7 @@ export default function ScoreGrupoPage() {
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
-    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, getPlayerTotal, maxStrokesOnHole,
+    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, getPlayerTotal, maxStrokesOnHole,
     hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
   } = board
 
@@ -348,7 +348,7 @@ export default function ScoreGrupoPage() {
         </div>
       </div>
 
-      {canFinalize && <AvisoTarjetaCompleta completa={hoyosPorMarcar === 0 && !finalizing} enUltimoHoyo={isLastHole} />}
+      {canFinalize && <AvisoTarjetaCompleta completa={hoyosPorMarcar === 0 && hoyosSinJugarTimba.length === 0 && !finalizing} enUltimoHoyo={isLastHole} />}
 
       <GrupoNavBar
         currentHoleIdx={currentHoleIdx}
@@ -366,6 +366,7 @@ export default function ScoreGrupoPage() {
       {confirmFinalize && (
         <ConfirmarFinalizarHoja
           titulo={textoConfirmarFinalizar(hoyosPorMarcar)}
+          detalle={detalleHoyosSinAnotarTimba(hoyosSinJugarTimba)}
           onConfirmar={finalizeRound}
           onCancelar={() => setConfirmFinalize(false)}
         />

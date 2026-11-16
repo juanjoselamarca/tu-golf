@@ -76,7 +76,7 @@ const completarEquiposConPar = vi.fn((eqs: EquipoT[], hoyos: readonly number[]) 
   const faltan = hoyos.filter(h => e.scores[String(h)] == null)
   return faltan.length === 0 ? e : { ...e, scores: { ...e.scores, ...Object.fromEntries(faltan.map(h => [String(h), PAR[h]])) } }
 }))
-function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record<number, number>>; teamEquipos?: unknown[]; authUserId?: string | null; timba?: { retiros: Record<string, number>; enviarMarcas: () => Promise<boolean> } } = {}) {
+function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record<number, number>>; teamEquipos?: unknown[]; authUserId?: string | null; timba?: { retiros: Record<string, number>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number } } = {}) {
   const r = opts.ronda ?? rondaBase
   return renderHook(() => {
     const [scores, setScores] = useState(opts.scores ?? { p1: { 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5 }, p2: { 10: 5 } })
@@ -488,22 +488,31 @@ describe('useFinalizeGrupo', () => {
   })
 
   describe('Timba libre', () => {
-    it('no rellena con par los hoyos del retirado y cierra con las marcas enviadas', async () => {
+    it('al cerrar solo rellena el hoyo en pantalla: el resto sin score es "no jugó" (regla 26-oct)', async () => {
       const enviarMarcas = vi.fn(async () => true)
-      const { result } = montar({ timba: { retiros: { p2: 14 }, enviarMarcas } })
+      const { result } = montar({ timba: { retiros: { p2: 14 }, enviarMarcas, hoyoEnPantalla: 18 } })
       await act(async () => { await result.current.fin.finalizeRound() })
       await act(async () => { await result.current.fin.finalizeRound() })
-      // p2 jugó 10 y se retiró desde el 14: 11..13 se rellenan, 14..18 no (el motor los contaría como jugados).
-      expect(result.current.scores.p2[13]).toBe(4)
-      expect(result.current.scores.p2[14]).toBeUndefined()
+      // Ana (p1) anotó del 10 al 17: el 18 en pantalla queda con par.
+      expect(result.current.scores.p1[18]).toBe(5)
+      // Beto (p2) se retiró desde el 14: ni sus hoyos previos sin anotar ni el 18 reciben par.
+      expect(result.current.scores.p2[13]).toBeUndefined()
       expect(result.current.scores.p2[18]).toBeUndefined()
       expect(enviarMarcas).toHaveBeenCalledTimes(1)
       expect(finalizarRondaLibre).toHaveBeenCalled()
     })
 
+    it('sin retiro: el que no anotó del 11 al 17 los pierde (sin par inventado) y el 18 en pantalla sí lleva par', async () => {
+      const { result } = montar({ timba: { retiros: {}, enviarMarcas: vi.fn(async () => true), hoyoEnPantalla: 18 } })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      expect(result.current.scores.p2).toEqual({ 10: 5, 18: 5 })
+      expect(finalizarRondaLibre).toHaveBeenCalled()
+    })
+
     it('con puntos especiales sin enviar NO cierra y lo avisa', async () => {
       const enviarMarcas = vi.fn(async () => false)
-      const { result } = montar({ timba: { retiros: {}, enviarMarcas } })
+      const { result } = montar({ timba: { retiros: {}, enviarMarcas, hoyoEnPantalla: 18 } })
       await act(async () => { await result.current.fin.finalizeRound() })
       await act(async () => { await result.current.fin.finalizeRound() })
       expect(enviarMarcas).toHaveBeenCalledTimes(1)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { textoConfirmarFinalizar, avisoTarjetasNoGuardadas } from './finalizar-copy'
+import { textoConfirmarFinalizar, avisoTarjetasNoGuardadas, detalleHoyosSinAnotarTimba } from './finalizar-copy'
 
 describe('textoConfirmarFinalizar', () => {
   it('avisa los hoyos que se marcan como par', () => {
@@ -21,5 +21,17 @@ describe('avisoTarjetasNoGuardadas (copy de Juanjo, 10-nov-2026)', () => {
   })
   it('tres o más: comas y la última con "y"', () => {
     expect(avisoTarjetasNoGuardadas(['Beto', 'Ana', 'Caro']).title).toBe('No pudimos guardar las tarjetas de Beto, Ana y Caro.')
+  })
+})
+
+describe('detalleHoyosSinAnotarTimba', () => {
+  it('sin hoyos no hay línea', () => {
+    expect(detalleHoyosSinAnotarTimba([])).toBeUndefined()
+  })
+  it('un hoyo: singular', () => {
+    expect(detalleHoyosSinAnotarTimba([17])).toBe('Hoyo 17 sin anotar: cuenta como no jugado y quien no anotó lo pierde.')
+  })
+  it('varios: la lista real con "y"', () => {
+    expect(detalleHoyosSinAnotarTimba([15, 16, 17])).toBe('Hoyos 15, 16 y 17 sin anotar: cuentan como no jugados y quien no anotó los pierde.')
   })
 })
