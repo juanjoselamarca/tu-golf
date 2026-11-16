@@ -264,6 +264,7 @@ function ScorePageContent() {
       <PlayerSelectorScreen
         jugadores={jugadores}
         hcpAMostrar={hcpAMostrar}
+        formatoJuego={ronda.formato_juego}
         scores={scores}
         hoyoInicio={ronda.hoyo_inicio ?? 1}
         holes={ronda.holes}

@@ -1,5 +1,6 @@
 'use client'
 
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { scoreChipStyle, scoreFgVar } from '@/lib/score-tokens'
 import { formatearHandicap } from '@/golf/handicap-index-range'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
@@ -47,12 +48,16 @@ export function PlayerScoreCard({
   const { gross, vsPar, out, inn } = totals
   const chipStyle = playerScore != null ? scoreChipStyle(playerScore, par) : null
   const siAllocThisHole = siAllocByHole[currentHole] ?? holeData.stroke_index
-  const strokesThisHole = strokesRecibidosEnHoyo(dotHcp, siAllocThisHole, totalHoles)
+  // Timba libre: ni HCP, ni neto, ni golpes recibidos genéricos. Su neto es otro (diferencia del más bajo) y lo
+  // calcula `GET /juego`; acá solo se anotan golpes (spec, "Para el PR C").
+  const esTimba = esFormatoPersonalizado(formatoJuego)
+  const muestraNeto = showNetStableford && !esTimba
+  const strokesThisHole = esTimba ? 0 : strokesRecibidosEnHoyo(dotHcp, siAllocThisHole, totalHoles)
   const netScoreThisHole = playerScore != null ? playerScore - strokesThisHole : null
   // Stableford muestra puntos en gross Y en neto; en gross el handicap no entra en juego
   // (`handicapQueJuega`). `showNetStableford` sigue gobernando lo NETO (HCP, net, golpes).
   const isStableford = formatoJuego === 'stableford'
-  const muestraTotales = showNetStableford || isStableford
+  const muestraTotales = muestraNeto || isStableford
   const hcpJuego = handicapQueJuega(modoJuego, hcp)
   const stablefordPts = playerScore != null ? puntosStablefordHoyo(playerScore, par, hcpJuego, siAllocThisHole, totalHoles) : null
 
@@ -84,7 +89,7 @@ export function PlayerScoreCard({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div>
           <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{j.nombre}</div>
-          {showNetStableford && played > 0 && (
+          {muestraNeto && played > 0 && (
             <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>
               HCP {formatearHandicap(displayHcp ?? hcp)}
             </div>
@@ -165,7 +170,7 @@ export function PlayerScoreCard({
               {displayScore}
             </div>
             {modoJuego !== 'gross' && strokesThisHole > 0 && (
-              <span style={{
+              <span data-testid="golpes-recibidos-genericos" style={{
                 display: 'inline-flex', alignItems: 'center', gap: '3px',
                 alignSelf: 'flex-start', marginTop: '6px',
               }}>

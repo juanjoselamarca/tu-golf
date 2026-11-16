@@ -3,20 +3,24 @@
 import { generarOrdenHoyos } from '@/lib/ronda/helpers'
 import { HcpCelda } from '../../components/HcpCelda'
 import { hoyoParaRetomar } from '@/golf/core/hoyos-jugados'
-import type { Jugador } from '@/types/ronda'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import type { FormatoJuego, Jugador } from '@/types/ronda'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
 interface PlayerSelectorScreenProps {
   jugadores: Jugador[]
   /** HCP a mostrar (course handicap COMPLETO, 18h); `null` = sin índice, no se muestra. */
   hcpAMostrar: HcpAMostrar
+  /** Timba libre no muestra el HCP: `/hcp` y `/live` no lo entregan para `personalizado` (spec, "Para el PR C"). */
+  formatoJuego: FormatoJuego
   scores: Record<string, Record<number, number>>
   hoyoInicio: number
   holes: number
   onSelect: (jugadorId: string, firstEmptyHole: number) => void
 }
 
-export function PlayerSelectorScreen({ jugadores, hcpAMostrar, scores, hoyoInicio, holes, onSelect }: PlayerSelectorScreenProps) {
+export function PlayerSelectorScreen({ jugadores, hcpAMostrar, formatoJuego, scores, hoyoInicio, holes, onSelect }: PlayerSelectorScreenProps) {
+  const sinHcp = esFormatoPersonalizado(formatoJuego)
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
@@ -39,7 +43,7 @@ export function PlayerSelectorScreen({ jugadores, hcpAMostrar, scores, hoyoInici
             <div>
               <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{j.nombre}</div>
               {/* Sin entrada en el HCP a mostrar (jugador sin índice, #511): no se inventa un 0. */}
-              {hcpAMostrar(j.id) != null && (
+              {!sinHcp && hcpAMostrar(j.id) != null && (
                 <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP <HcpCelda hcp={hcpAMostrar(j.id)} /></div>
               )}
             </div>
