@@ -17,6 +17,7 @@ import { compartirLeaderboard } from '@/lib/share-card'
 import { captureError } from '@/lib/error-tracking'
 import { buildLeaderboard, mostrarCopiarLink, rondaTieneDatos } from '@/lib/ronda/leaderboard'
 import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
+import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
@@ -159,7 +160,7 @@ function RondaLibrePageContent() {
   const timelineEvents = buildTimelineEvents(ronda.ronda_libre_jugadores, ronda.holes, parMap)
   const mr = buildMatchResult(ronda, parMap, siMap, courseHcpMap)
 
-  const isAdmin = ronda.admin_mode && ronda.admin_user_id === currentUserId
+  const isAdmin = anotaLaRonda(ronda, currentUserId)
   const isAdminRound = !!ronda.admin_mode
   const adminPlayerName = isAdminRound
     ? ronda.ronda_libre_jugadores.find(j => j.user_id === ronda.admin_user_id)?.nombre ?? 'El admin'

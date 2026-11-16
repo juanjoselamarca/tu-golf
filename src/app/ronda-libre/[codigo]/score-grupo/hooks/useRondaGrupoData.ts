@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
 import { hoyoParaRetomar, hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import {
   fetchRondaLibreParaScorer,
@@ -117,9 +119,11 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
   const r = carga.ronda
 
   // Team formats MUST use score-grupo (individual scoring doesn't support them).
-  // Non-team rounds require admin_mode + matching admin user.
-  if (!isTeamFormat(r.formato_juego) && (!r.admin_mode || r.admin_user_id !== userId)) {
-    return { tipo: 'redirigir', a: `/ronda-libre/${codigo}/score`, reemplazar: true }
+  // Non-team rounds require admin_mode + matching admin user (`anotaLaRonda`, la misma regla que usa /score).
+  // Timba libre: quien no anota va a la ronda en vivo (el individual nunca se usa en una Timba).
+  if (!isTeamFormat(r.formato_juego) && !anotaLaRonda(r, userId)) {
+    const a = esFormatoPersonalizado(r.formato_juego) ? `/ronda-libre/${codigo}` : `/ronda-libre/${codigo}/score`
+    return { tipo: 'redirigir', a, reemplazar: true }
   }
   // For team formats without admin_mode, any player in the round can score
   if (isTeamFormat(r.formato_juego) && !r.admin_mode && !r.ronda_libre_jugadores.some(j => j.user_id === userId)) {

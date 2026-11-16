@@ -5,6 +5,7 @@
  * login/dashboard y no se recuperó solo. Regla: una falla PASAJERA nunca saca a nadie de su
  * ronda; se anota desde la copia local y se reintenta solo.
  */
+import { FORMATO_PERSONALIZADO } from '@/golf/formats/personalizado'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useRondaGrupoData, hoyoInicial } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useRondaGrupoData'
@@ -67,6 +68,21 @@ beforeEach(() => {
   carga.valor = { estado: 'ok', ronda: RONDA }
 })
 afterEach(() => vi.useRealTimers())
+
+describe('useRondaGrupoData — quién anota la Timba (anotaLaRonda, sin bucle con /score)', () => {
+  it('Timba sin modo admin: va a la ronda en vivo, nunca a /score (que la mandaría de vuelta)', async () => {
+    carga.valor = { estado: 'ok', ronda: { ...RONDA, formato_juego: FORMATO_PERSONALIZADO, admin_mode: false } }
+    renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/ronda-libre/B4F5Y2'))
+    expect(replace).not.toHaveBeenCalledWith('/ronda-libre/B4F5Y2/score')
+  })
+  it('Timba en modo admin y el usuario es el admin: se queda en el scorer de grupo', async () => {
+    carga.valor = { estado: 'ok', ronda: { ...RONDA, formato_juego: FORMATO_PERSONALIZADO } }
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(replace).not.toHaveBeenCalled()
+  })
+})
 
 describe('useRondaGrupoData — resiliencia ante caídas del servidor', () => {
   it('online: carga, conexión ok y deja la copia local para abrir sin servidor', async () => {

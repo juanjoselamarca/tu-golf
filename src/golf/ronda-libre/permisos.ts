@@ -22,6 +22,20 @@ export function puedeDescartarRonda(
 }
 
 /**
+ * ¿Este usuario lleva el score del grupo (scorer de grupo en modo admin)? FUENTE ÚNICA de las redirecciones entre
+ * `/score`, `/score-grupo` y la ronda en vivo, y de la barra del admin. Si cada pantalla usara su versión (antes
+ * `/score` miraba `admin_user_id ?? creador_id` y `/score-grupo` exigía `admin_mode`) una ronda sin modo admin
+ * rebotaba entre las dos. En una Timba, quien no anota va a la ronda en vivo.
+ */
+export function anotaLaRonda(
+  ronda: { admin_mode?: boolean | null; admin_user_id?: string | null } | null | undefined,
+  userId: string | null | undefined,
+): boolean {
+  if (!ronda || !userId) return false
+  return !!ronda.admin_mode && ronda.admin_user_id === userId
+}
+
+/**
  * ¿Esta tarjeta es de quien la mira/finaliza? FUENTE ÚNICA de "es mi tarjeta":
  * - los dos finalizadores (individual y grupo): entra al historial sólo si es SUYA;
  * - la máscara por visor del GWI (`filasDelVisorGWI` en `@/golf/stats/gwi`), que
