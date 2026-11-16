@@ -730,7 +730,8 @@ create table public."ronda_libre_jugadores" (
   "pending_user_id" uuid,
   "handicap" numeric(4,1) default NULL::numeric,
   "tees" text,
-  "perfil_sugerido_id" uuid
+  "perfil_sugerido_id" uuid,
+  "handicap_de_inscripcion" boolean default false not null
 );
 create table public."ronda_libre_puntitos" (
   "id" uuid default gen_random_uuid() not null,
@@ -979,6 +980,23 @@ create table public."tournaments" (
   "hcp_pct" smallint default 100 not null
 );
 -- ===== 5. funciones =====
+CREATE OR REPLACE FUNCTION public.backfill_handicap_de_inscripcion()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  n integer;
+BEGIN
+  UPDATE public.ronda_libre_jugadores rlj
+     SET handicap_de_inscripcion = true
+   WHERE rlj.handicap IS NOT NULL
+     AND NOT rlj.handicap_de_inscripcion
+     AND EXISTS (SELECT 1 FROM public.tournament_group_players tgp WHERE tgp.jugador_ronda_id = rlj.id);
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.calcular_indice_golfers(p_user_id uuid)
  RETURNS numeric
  LANGUAGE plpgsql
@@ -1181,6 +1199,123 @@ BEGIN
     -- p. ej. taiger_sessions (NO ACTION): la ronda tiene datos asociados.
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda con datos asociados';
   END;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.editar_handicap_inscrito(p_player_id uuid, p_esperado numeric, p_valor numeric, p_tocar_tarjeta boolean, p_handicap_tarjeta numeric, p_base jsonb, p_equipos jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_base       jsonb := COALESCE(p_base, '[]'::jsonb);
+  v_equipos    jsonb := COALESCE(p_equipos, '[]'::jsonb);
+  v_ids        uuid[];
+  v_bloqueados integer;
+  v_torneo     uuid;
+  v_esperadas  integer;
+  v_n          integer;
+  v_tarjetas   integer := 0;
+  v_e          jsonb;
+BEGIN
+  -- Forma de los parámetros.
+  IF p_player_id IS NULL THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: p_player_id es null';
+  END IF;
+  IF p_tocar_tarjeta IS NULL THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: p_tocar_tarjeta es null';
+  END IF;
+  IF NOT p_tocar_tarjeta AND p_handicap_tarjeta IS NOT NULL THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: p_handicap_tarjeta sin p_tocar_tarjeta';
+  END IF;
+  IF jsonb_typeof(v_base) <> 'array' OR jsonb_typeof(v_equipos) <> 'array' THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: p_base y p_equipos deben ser arrays';
+  END IF;
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_base) b
+              WHERE jsonb_typeof(b) <> 'object' OR NOT (b ? 'player_id') OR NOT (b ? 'esperado')
+                 OR jsonb_typeof(b->'player_id') <> 'string'
+                 OR jsonb_typeof(b->'esperado') NOT IN ('number', 'null')) THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: entrada de p_base mal formada';
+  END IF;
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_equipos) e
+              WHERE jsonb_typeof(e) <> 'object' OR NOT (e ? 'equipo_id') OR NOT (e ? 'handicap_equipo')
+                 OR NOT (e ? 'handicap_equipo_juego')
+                 OR jsonb_typeof(e->'equipo_id') <> 'string'
+                 OR jsonb_typeof(e->'handicap_equipo') NOT IN ('number', 'null')
+                 OR jsonb_typeof(e->'handicap_equipo_juego') NOT IN ('number', 'null')) THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: entrada de p_equipos mal formada';
+  END IF;
+
+  -- El editado más la base, sin repetidos.
+  v_ids := ARRAY(SELECT (b->>'player_id')::uuid FROM jsonb_array_elements(v_base) b) || p_player_id;
+  IF cardinality(v_ids) <> (SELECT count(DISTINCT x) FROM unnest(v_ids) x) THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: player repetido en p_base (o el editado está en p_base)';
+  END IF;
+  IF (SELECT count(*) FROM jsonb_array_elements(v_equipos) e)
+     <> (SELECT count(DISTINCT (e->>'equipo_id')::uuid) FROM jsonb_array_elements(v_equipos) e) THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: equipo repetido en p_equipos';
+  END IF;
+
+  -- Bloqueo en orden fijo (dos ediciones simultáneas de compañeros no se cruzan en deadlock).
+  PERFORM 1 FROM public.players p WHERE p.id = ANY (v_ids) ORDER BY p.id FOR NO KEY UPDATE;
+  GET DIAGNOSTICS v_bloqueados = ROW_COUNT;
+  IF v_bloqueados <> cardinality(v_ids) THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'conflicto');
+  END IF;
+
+  SELECT p.tournament_id INTO v_torneo FROM public.players p WHERE p.id = p_player_id;
+  IF EXISTS (SELECT 1 FROM public.players p WHERE p.id = ANY (v_ids) AND p.tournament_id IS DISTINCT FROM v_torneo) THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: p_base trae un jugador de otro torneo';
+  END IF;
+
+  -- Control optimista: todo lo que el plan leyó sigue igual.
+  IF NOT EXISTS (SELECT 1 FROM public.players p
+                  WHERE p.id = p_player_id AND p.handicap_at_registration IS NOT DISTINCT FROM p_esperado)
+     OR EXISTS (SELECT 1 FROM jsonb_array_elements(v_base) b
+                  JOIN public.players p ON p.id = (b->>'player_id')::uuid
+                 WHERE p.handicap_at_registration IS DISTINCT FROM (b->>'esperado')::numeric) THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'conflicto');
+  END IF;
+
+  -- Escrituras.
+  UPDATE public.players SET handicap_at_registration = p_valor WHERE id = p_player_id;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 1 THEN
+    RAISE EXCEPTION 'editar_handicap_inscrito: players actualizó % filas (esperaba 1)', v_n;
+  END IF;
+
+  IF p_tocar_tarjeta THEN
+    SELECT count(DISTINCT tgp.jugador_ronda_id) INTO v_esperadas
+      FROM public.tournament_group_players tgp
+     WHERE tgp.player_id = p_player_id AND tgp.jugador_ronda_id IS NOT NULL;
+    IF v_esperadas = 0 THEN
+      RAISE EXCEPTION 'editar_handicap_inscrito: p_tocar_tarjeta sin tarjeta enlazada';
+    END IF;
+    UPDATE public.ronda_libre_jugadores rlj
+       SET handicap = p_handicap_tarjeta, handicap_de_inscripcion = true
+     WHERE rlj.id IN (SELECT tgp.jugador_ronda_id FROM public.tournament_group_players tgp
+                       WHERE tgp.player_id = p_player_id AND tgp.jugador_ronda_id IS NOT NULL);
+    GET DIAGNOSTICS v_tarjetas = ROW_COUNT;
+    IF v_tarjetas <> v_esperadas THEN
+      RAISE EXCEPTION 'editar_handicap_inscrito: tarjeta actualizó % filas (esperaba %)', v_tarjetas, v_esperadas;
+    END IF;
+  END IF;
+
+  FOR v_e IN SELECT e FROM jsonb_array_elements(v_equipos) e LOOP
+    UPDATE public.ronda_equipos re
+       SET handicap_equipo = (v_e->>'handicap_equipo')::numeric,
+           handicap_equipo_juego = (v_e->>'handicap_equipo_juego')::smallint
+     WHERE re.id = (v_e->>'equipo_id')::uuid
+       AND EXISTS (SELECT 1 FROM public.tournament_groups tg
+                    WHERE tg.ronda_libre_id = re.ronda_id AND tg.tournament_id = v_torneo);
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    IF v_n <> 1 THEN
+      RAISE EXCEPTION 'editar_handicap_inscrito: el equipo % no es de un grupo del torneo (% filas)',
+        v_e->>'equipo_id', v_n;
+    END IF;
+  END LOOP;
+
+  RETURN jsonb_build_object('ok', true, 'tarjetas', v_tarjetas, 'equipos', jsonb_array_length(v_equipos));
 END;
 $function$;
 CREATE OR REPLACE FUNCTION public.eliminar_cuenta(p_user_id uuid)
@@ -3083,12 +3218,14 @@ revoke all on sequence public."external_priors_amateur_benchmarks_id_seq" from p
 revoke all on sequence public."external_priors_course_norms_id_seq" from public, anon, authenticated, service_role, postgres;
 revoke all on sequence public."external_priors_handicap_dist_id_seq" from public, anon, authenticated, service_role, postgres;
 revoke all on sequence public."pattern_observations_id_seq" from public, anon, authenticated, service_role, postgres;
+revoke all on function public.backfill_handicap_de_inscripcion() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.calcular_indice_golfers(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.cleanup_old_e2e_runs() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.course_name_canonical_ordered(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.course_name_canonical(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.course_name_tokens(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.descartar_ronda_libre(text) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.editar_handicap_inscrito(uuid,numeric,numeric,boolean,numeric,jsonb,jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.eliminar_cuenta(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.enroll_player(uuid,text,uuid,text,numeric,uuid,text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.exec_sql(text) from public, anon, authenticated, service_role, postgres;
@@ -3372,12 +3509,13 @@ grant UPDATE ("analysis_level", "avatar_url", "default_tee_color", "fecha_nacimi
 grant SELECT ("avatar_url", "id", "indice", "indice_golfers", "name", "nivel") on table public."profiles" to anon;
 grant SELECT ("equipo_id", "jugador_id", "orden") on table public."ronda_equipo_jugadores" to anon;
 grant SELECT ("created_at", "handicap_equipo", "handicap_equipo_juego", "id", "nombre", "ronda_id", "scores") on table public."ronda_equipos" to anon;
-grant SELECT ("created_at", "handicap", "id", "is_guest", "nombre", "nombre_invitado", "pending_user_id", "ronda_id", "scores", "tarjeta_aceptada", "tees", "user_id") on table public."ronda_libre_jugadores" to authenticated;
-grant SELECT ("handicap", "id", "nombre", "ronda_id", "scores", "tees", "user_id") on table public."ronda_libre_jugadores" to anon;
+grant SELECT ("created_at", "handicap", "handicap_de_inscripcion", "id", "is_guest", "nombre", "nombre_invitado", "pending_user_id", "ronda_id", "scores", "tarjeta_aceptada", "tees", "user_id") on table public."ronda_libre_jugadores" to authenticated;
+grant SELECT ("handicap", "handicap_de_inscripcion", "id", "nombre", "ronda_id", "scores", "tees", "user_id") on table public."ronda_libre_jugadores" to anon;
 grant SELECT ("admin_mode", "admin_user_id", "codigo", "course_id", "course_name", "creador_id", "created_at", "es_demo", "estado", "fecha", "formato_juego", "hcp_pct", "holes", "hoyo_inicio", "id", "modo_juego", "recorridos", "tees") on table public."rondas_libres" to anon;
 grant SELECT ("closed_at", "id", "player_id", "round_number", "status", "total_gross", "total_net", "total_points", "tournament_id") on table public."rounds" to anon;
 grant SELECT ("group_id", "id", "jugador_ronda_id", "player_id") on table public."tournament_group_players" to anon;
 grant SELECT ("id", "name", "ronda_libre_id", "sort_order", "tee_time", "tournament_id") on table public."tournament_groups" to anon;
+grant EXECUTE on function public.backfill_handicap_de_inscripcion() to postgres;
 grant EXECUTE on function public.calcular_indice_golfers(uuid) to authenticated;
 grant EXECUTE on function public.calcular_indice_golfers(uuid) to postgres;
 grant EXECUTE on function public.calcular_indice_golfers(uuid) to service_role;
@@ -3401,6 +3539,8 @@ grant EXECUTE on function public.course_name_tokens(text) to service_role;
 grant EXECUTE on function public.descartar_ronda_libre(text) to authenticated;
 grant EXECUTE on function public.descartar_ronda_libre(text) to postgres;
 grant EXECUTE on function public.descartar_ronda_libre(text) to service_role;
+grant EXECUTE on function public.editar_handicap_inscrito(uuid,numeric,numeric,boolean,numeric,jsonb,jsonb) to postgres;
+grant EXECUTE on function public.editar_handicap_inscrito(uuid,numeric,numeric,boolean,numeric,jsonb,jsonb) to service_role;
 grant EXECUTE on function public.eliminar_cuenta(uuid) to postgres;
 grant EXECUTE on function public.eliminar_cuenta(uuid) to service_role;
 grant EXECUTE on function public.enroll_player(uuid,text,uuid,text,numeric,uuid,text) to postgres;

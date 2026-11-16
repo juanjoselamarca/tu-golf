@@ -60,6 +60,12 @@ Nunca 400 ni bloqueo.
   `src/__tests__/helpers/migration-sql.ts`; backfill flag (true en filas enlazadas por jugador_ronda_id con handicap NOT NULL;
   no toca valores); RPC; rollback. Tests SQL en `scripts/ci/pruebas-sql/`.
 - **B — predicados + inicio** (requiere A aplicada en prod ANTES de promover: B selecciona la columna → 42703).
+  Con B ya en prod: migración nueva con solo `SELECT public.backfill_handicap_de_inscripcion();` (los torneos
+  iniciados entre A y B quedan con handicap y flag false → su hándicap inscrito se vería sin sesión).
+- **C — pendiente de la revisión de A:** la RPC valida que el equipo sea de un grupo del torneo, no que el editado
+  sea miembro. Si C lo necesita, endurecer con `CREATE OR REPLACE` (EXISTS en `ronda_equipo_jugadores`) tras
+  confirmar que el inicio materializa esos miembros en todo formato de bola compartida. Verificar también que solo
+  la ronda 1 materializa tarjeta de grupo (la RPC reescribe todas las tarjetas enlazadas del jugador).
 - **C — ruta de edición**.
 
 ## Riesgos
