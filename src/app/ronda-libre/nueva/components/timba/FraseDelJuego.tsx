@@ -9,6 +9,28 @@ import { fraseDelJuego, type TrozoDeFrase } from './frase-del-juego'
 
 type Valor = Extract<TrozoDeFrase, { tipo: 'valor' }>
 
+/** Alto táctil mínimo de cada valor de la frase (se usa con guante y al sol). */
+const ALTO_TACTIL = 44
+
+type Pieza = { tipo: 'texto'; texto: string } | { tipo: 'valor'; valor: Valor; puntuacion: string }
+
+/** Pega a cada valor la puntuación con que empieza el texto que lo sigue (".", ",", ":"…). */
+export function renglonesConPuntuacion(trozos: readonly TrozoDeFrase[]): Pieza[] {
+  const piezas: Pieza[] = []
+  for (const t of trozos) {
+    if (t.tipo === 'valor') {
+      piezas.push({ tipo: 'valor', valor: t, puntuacion: '' })
+      continue
+    }
+    const previa = piezas[piezas.length - 1]
+    const signos = previa?.tipo === 'valor' ? (/^[.,;:!?)]+/.exec(t.texto)?.[0] ?? '') : ''
+    if (signos && previa?.tipo === 'valor') previa.puntuacion = signos
+    const resto = t.texto.slice(signos.length)
+    if (resto) piezas.push({ tipo: 'texto', texto: resto })
+  }
+  return piezas
+}
+
 interface Props {
   config: ConfigJuego
   holes: number
@@ -22,25 +44,29 @@ export function FraseDelJuego({ config, holes, onConfig }: Props) {
 
   return (
     <>
-      <p style={{ margin: 0, fontSize: '17px', lineHeight: 1.9, color: colores.texto }}>
-        {trozos.map((t, i) => t.tipo === 'texto'
+      {/* Cada renglón mide 44px (el alto táctil del valor): así dos valores en renglones seguidos no se pisan. */}
+      <p style={{ margin: 0, fontSize: '17px', lineHeight: `${ALTO_TACTIL}px`, color: colores.texto }}>
+        {renglonesConPuntuacion(trozos).map((t, i) => t.tipo === 'texto'
           ? <span key={i}>{t.texto}</span>
           : (
-            <button
-              key={i}
-              type="button"
-              aria-haspopup="dialog"
-              aria-label={`${t.titulo}: ${t.texto}. Cambiar`}
-              onClick={() => setAbierto(t)}
-              style={{
-                border: 0, borderBottom: `2px dotted ${colores.oroTexto}`, background: 'transparent',
-                // Alto táctil ≥44px sin romper el renglón: el padding crece hacia arriba y abajo, el margen lo compensa.
-                padding: '11px 2px 2px', margin: '-11px 0 0', font: 'inherit', fontWeight: 700,
-                color: colores.oroTexto, cursor: 'pointer', lineHeight: 1.4,
-              }}
-            >
-              {t.texto}
-            </button>
+            // El valor y la puntuación que lo sigue van juntos: nunca queda un "." huérfano al inicio del renglón.
+            <span key={i} style={{ whiteSpace: 'nowrap' }}>
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                aria-label={`${t.valor.titulo}: ${t.valor.texto}. Cambiar`}
+                onClick={() => setAbierto(t.valor)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', minHeight: `${ALTO_TACTIL}px`, verticalAlign: 'top',
+                  border: 0, background: 'transparent', padding: '0 2px', margin: 0, font: 'inherit', fontWeight: 700,
+                  lineHeight: 1.2, color: colores.oroTexto, cursor: 'pointer',
+                  textDecoration: `underline dotted ${colores.oroTexto}`, textDecorationThickness: '2px', textUnderlineOffset: '4px',
+                }}
+              >
+                {t.valor.texto}
+              </button>
+              {t.puntuacion}
+            </span>
           ))}
       </p>
       <BottomSheet abierto={abierto != null} onCerrar={() => setAbierto(null)} etiqueta={abierto?.titulo ?? ''}>
