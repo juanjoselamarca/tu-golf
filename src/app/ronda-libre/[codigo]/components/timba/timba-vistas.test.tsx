@@ -23,7 +23,7 @@ const tabla: TablaDelJuego = {
   filas: [
     { tipo: 'tramo', indice: 0, marcador: { parejas: ['Juan y Diego', 'Pedro y Tomás'], puntos: [2, 2] } },
     { tipo: 'hoyo', numero: 1, pendiente: false, celdas: [{ jugadorId: 'a', texto: '+1', golpesRecibidos: 1 }, { jugadorId: 'b', texto: '−1', golpesRecibidos: 0 }] },
-    { tipo: 'hoyo', numero: 2, pendiente: true, celdas: [{ jugadorId: 'a', texto: '·', golpesRecibidos: 0 }, { jugadorId: 'b', texto: '·', golpesRecibidos: 0 }] },
+    { tipo: 'hoyo', numero: 2, pendiente: true, celdas: [{ jugadorId: 'a', texto: 'falta anotar', golpesRecibidos: 1 }, { jugadorId: 'b', texto: 'falta anotar', golpesRecibidos: 0 }] },
   ],
   esNeto: true, sinHandicap: [],
 }
@@ -37,7 +37,10 @@ describe('JuegoDeLaTimba', () => {
     expect(ranking.map(li => li.textContent)).toEqual(['1Juan+2', '1Pedro+2'])
     expect(screen.getAllByLabelText('Juan y Diego 2, Pedro y Tomás 2')).toHaveLength(2)
     expect(screen.getByRole('cell', { name: '+1, recibe 1 golpe' })).toBeTruthy()
-    expect(screen.getAllByRole('cell', { name: 'pendiente' })).toHaveLength(2)
+    // Hoyo pendiente: una sola leyenda, sin la marca de golpe recibido (no queda "• ·").
+    const pendiente = screen.getAllByRole('cell', { name: 'falta anotar' })
+    expect(pendiente).toHaveLength(1)
+    expect(within(pendiente[0].parentElement as HTMLElement).queryByTestId('golpe-recibido')).toBeNull()
     expect(screen.getByText(/golpe recibido en el hoyo/)).toBeTruthy()
   })
 

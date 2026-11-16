@@ -73,7 +73,7 @@ describe('armarTablaDelJuego — La Colombiana a mitad de ronda', () => {
     ])
   })
 
-  it('separador por tramo con su marcador, y el hoyo pendiente en "·"', () => {
+  it('separador por tramo con su marcador, y el hoyo pendiente en "falta anotar"', () => {
     const tipos = tabla.filas.map(f => (f.tipo === 'tramo' ? `T${f.indice}` : String(f.numero)))
     expect(tipos).toEqual(['T0', '1', '2', '3', '4', '5', '6', 'T1', '7', '8'])
     const t0 = tabla.filas[0]
@@ -82,7 +82,7 @@ describe('armarTablaDelJuego — La Colombiana a mitad de ronda', () => {
     expect(h1.tipo === 'hoyo' && h1.celdas.map(c => c.texto)).toEqual(['+2', '+2', '+1', '+1'])
     const h8 = tabla.filas.at(-1)
     expect(h8?.tipo === 'hoyo' && h8.pendiente).toBe(true)
-    expect(h8?.tipo === 'hoyo' && h8.celdas.map(c => c.texto)).toEqual(['·', '·', '·', '·'])
+    expect(h8?.tipo === 'hoyo' && h8.celdas.map(c => c.texto)).toEqual(Array(4).fill('falta anotar'))
   })
 
   it('marcador actual = el tramo del hoyo en que va el scorer', () => {

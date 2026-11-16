@@ -46,6 +46,8 @@ import { HojaDeRetiro } from '../components/timba/HojaDeRetiro'
 import { AvisoMarcasRechazadas } from '../components/timba/AvisoMarcasRechazadas'
 
 const SIN_JUGADORES: Jugador[] = []
+/** Padding superior del panel Juego: el encabezado fijo de la tabla sube lo mismo para pegarse al borde. */
+const PADDING_PANEL_JUEGO_PX = 16
 
 /* ── Main ── */
 export default function ScoreGrupoPage() {
@@ -208,11 +210,12 @@ export default function ScoreGrupoPage() {
       )}
 
       {esTimba && pestana === 'juego' ? (
-        <div id={PANEL_DE_PESTANA('juego')} role="tabpanel" style={{ flex: 1, overflowY: 'auto', padding: '16px 12px', minHeight: 0, userSelect: 'text' }}>
+        <div id={PANEL_DE_PESTANA('juego')} role="tabpanel" style={{ flex: 1, overflowY: 'auto', padding: `${PADDING_PANEL_JUEGO_PX}px 12px`, minHeight: 0, userSelect: 'text' }}>
           <PanelDelJuego
             juego={timba.juego}
             nombres={timba.nombres}
             hoyoActual={currentHole}
+            encabezadoFijoEn={`-${PADDING_PANEL_JUEGO_PX}px`}
             onReintentar={() => { void timba.recargar() }}
             pie={(
               <RetiroDeJugadores

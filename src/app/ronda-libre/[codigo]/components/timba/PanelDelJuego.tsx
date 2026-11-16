@@ -34,14 +34,16 @@ export function PanelDelJuego(props: {
   onReintentar: () => void
   onIngresar?: () => void
   pie?: ReactNode
+  /** `JuegoDeLaTimba.encabezadoFijoEn`. */
+  encabezadoFijoEn?: string
 }) {
-  const { juego, nombres, hoyoActual, onReintentar, onIngresar, pie } = props
+  const { juego, nombres, hoyoActual, onReintentar, onIngresar, pie, encabezadoFijoEn } = props
   const tabla = useMemo(
     () => (juego.estado === 'ok' ? armarTablaDelJuego(juego.vista, nombres, hoyoActual) : null),
     [juego, nombres, hoyoActual],
   )
 
-  if (juego.estado === 'ok' && tabla) return <JuegoDeLaTimba tabla={tabla} desactualizado={juego.desactualizado} pie={pie} />
+  if (juego.estado === 'ok' && tabla) return <JuegoDeLaTimba tabla={tabla} desactualizado={juego.desactualizado} pie={pie} encabezadoFijoEn={encabezadoFijoEn} />
   if (juego.estado === 'cargando') return <p role="status" style={caja}>Cargando los puntos…</p>
   if (juego.estado === 'sin_juego') return <p role="note" style={caja}>{TEXTO_SIN_JUEGO[juego.motivo]}</p>
   if (juego.estado === 'sin_sesion') {

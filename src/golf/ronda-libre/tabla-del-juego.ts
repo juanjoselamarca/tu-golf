@@ -59,7 +59,8 @@ export interface TablaDelJuego {
   sinHandicap: string[]
 }
 
-export const TEXTO_HOYO_PENDIENTE = '·'
+/** Hoyo que alguien todavía no anota: no se puntúa (spec, "Hoyo pendiente y retiro"). */
+export const TEXTO_HOYO_PENDIENTE = 'falta anotar'
 
 /** Primer nombre de cada uno; si dos empiezan igual, se agrega la inicial del apellido. */
 export function nombresCortos(nombres: readonly string[]): string[] {

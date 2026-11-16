@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { CeldaDelJuego, MarcadorDeParejas, TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
+import { TEXTO_HOYO_PENDIENTE, type CeldaDelJuego, type MarcadorDeParejas, type TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
 
 const MONO = 'var(--font-dm-mono), "DM Mono", monospace'
 
@@ -29,9 +29,9 @@ function Marcador({ marcador, compacto }: { marcador: MarcadorDeParejas; compact
   )
 }
 
-function Celda({ celda, pendiente }: { celda: CeldaDelJuego; pendiente: boolean }) {
+function Celda({ celda }: { celda: CeldaDelJuego }) {
   const golpes = celda.golpesRecibidos
-  const etiqueta = pendiente ? 'pendiente' : celda.texto
+  const etiqueta = celda.texto
   return (
     <span
       role="cell"
@@ -52,7 +52,16 @@ function Celda({ celda, pendiente }: { celda: CeldaDelJuego; pendiente: boolean 
  * Pestaña Juego de una Timba libre (maqueta ScorerC aprobada por Juanjo): encabezado, ranking de puntos, marcador
  * del tramo en juego y tabla hoyo a hoyo. Todo viene armado de `armarTablaDelJuego` (que lee solo `GET /juego`).
  */
-export function JuegoDeLaTimba({ tabla, desactualizado, pie }: { tabla: TablaDelJuego; desactualizado?: boolean; pie?: ReactNode }) {
+export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn }: {
+  tabla: TablaDelJuego
+  desactualizado?: boolean
+  pie?: ReactNode
+  /**
+   * `top` del encabezado de nombres fijo al bajar por la tabla, según el contenedor que hace scroll (en el scorer,
+   * el panel con 16px de padding: '-16px'). Sin él, el encabezado no queda fijo.
+   */
+  encabezadoFijoEn?: string
+}) {
   const columnas = `minmax(44px, 0.8fr) repeat(${tabla.columnas.length}, minmax(0, 1fr))`
   const faltan = tabla.sinHandicap
   return (
@@ -99,7 +108,8 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie }: { tabla: TablaDel
         </p>
       ) : (
         <div role="table" aria-label="Puntos por hoyo" style={{ display: 'flex', flexDirection: 'column', fontSize: '14px', color: 'var(--text)' }}>
-          <div role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '6px 4px', color: 'var(--text-2)', fontSize: '12px', fontWeight: 600 }}>
+          {/* Fijo arriba al bajar por la tabla: si no, en el hoyo 15 ya no se sabe de quién es cada columna. */}
+          <div role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '6px 4px', color: 'var(--text-2)', fontSize: '12px', fontWeight: 600, ...(encabezadoFijoEn != null && { position: 'sticky', top: encabezadoFijoEn, zIndex: 1, background: 'var(--bg)', borderBottom: '1px solid var(--border)' }) }}>
             <span role="columnheader">Hoyo</span>
             {tabla.columnas.map(c => (
               <span key={c.jugadorId} role="columnheader" style={{ textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>
@@ -115,11 +125,16 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie }: { tabla: TablaDel
               role="row"
               style={{
                 display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '8px 4px', borderBottom: '1px solid var(--border)',
-                fontFamily: MONO, color: f.pendiente ? 'var(--text-3)' : 'var(--text)',
+                fontFamily: MONO, color: f.pendiente ? 'var(--text-2)' : 'var(--text)',
               }}
             >
               <span role="rowheader">{f.numero}</span>
-              {f.celdas.map(c => <Celda key={c.jugadorId} celda={c} pendiente={f.pendiente} />)}
+              {f.pendiente ? (
+                // Una sola leyenda para el hoyo (ni puntos ni marcas de golpe: todavía no se juega).
+                <span role="cell" aria-colspan={f.celdas.length} style={{ gridColumn: '2 / -1', textAlign: 'right', fontFamily: 'inherit', fontSize: '14px' }}>
+                  {TEXTO_HOYO_PENDIENTE}
+                </span>
+              ) : f.celdas.map(c => <Celda key={c.jugadorId} celda={c} />)}
             </div>
           ))}
         </div>
