@@ -178,7 +178,7 @@ export function jugadoresSinIndice(
 export function avisoSinIndice(sinIndice: JugadorSinIndice[], hcpCalcMode: string | null | undefined): string | null {
   if (sinIndice.length === 0) return null
   const cero = esModoHcpWhs(hcpCalcMode) ? 'índice 0' : 'hándicap 0'
-  return `Sin índice: ${listaCorta(sinIndice.map((j) => j.nombre))}. Jugarán con ${cero} hasta que lo corrijas en Scoring → Resumen.`
+  return `Sin índice: ${listaCorta(sinIndice.map((j) => j.nombre))}. Jugarán con ${cero}.`
 }
 
 /** Código del 409 de la ruta de inicio cuando hay sin índice que el organizador no vio. */

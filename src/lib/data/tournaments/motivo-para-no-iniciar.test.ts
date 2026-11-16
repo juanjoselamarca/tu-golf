@@ -44,7 +44,7 @@ describe('avisoSinIndice', () => {
 
   it('WHS: dice "índice 0" (con índice 0 el hándicap de cancha puede no ser 0)', () => {
     expect(avisoSinIndice(sin, 'whs')).toBe(
-      'Sin índice: Carla, Diego. Jugarán con índice 0 hasta que lo corrijas en Scoring → Resumen.',
+      'Sin índice: Carla, Diego. Jugarán con índice 0.',
     )
   })
 
