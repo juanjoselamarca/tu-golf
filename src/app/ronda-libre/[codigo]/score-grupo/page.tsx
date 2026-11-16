@@ -7,7 +7,7 @@ import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
 import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
 import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
-import { detalleHoyosSinAnotarTimba, textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
+import { hojaFinalizarTimba, textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
 import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
 import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
@@ -123,7 +123,7 @@ export default function ScoreGrupoPage() {
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
-    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, getPlayerTotal, maxStrokesOnHole,
+    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, parEnPantallaTimba, getPlayerTotal, maxStrokesOnHole,
     hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
   } = board
 
@@ -399,8 +399,9 @@ export default function ScoreGrupoPage() {
 
       {confirmFinalize && (
         <ConfirmarFinalizarHoja
-          titulo={textoConfirmarFinalizar(hoyosPorMarcar)}
-          detalle={detalleHoyosSinAnotarTimba(hoyosSinJugarTimba)}
+          {...(esTimba
+            ? hojaFinalizarTimba({ hoyosSinJugar: hoyosSinJugarTimba, parEnPantalla: parEnPantallaTimba })
+            : { titulo: textoConfirmarFinalizar(hoyosPorMarcar), detalle: undefined })}
           onConfirmar={finalizeRound}
           onCancelar={() => setConfirmFinalize(false)}
         />

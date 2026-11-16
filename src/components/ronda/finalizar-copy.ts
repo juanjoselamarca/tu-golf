@@ -87,3 +87,23 @@ export function detalleHoyosSinAnotarTimba(hoyos: readonly number[]): string | u
   if (hoyos.length === 1) return `Hoyo ${hoyos[0]} sin anotar: cuenta como no jugado y quien no anotó lo pierde.`
   return `Hoyos ${enumerar(hoyos.map(String))} sin anotar: cuentan como no jugados y quien no anotó los pierde.`
 }
+
+/**
+ * Timba libre: la hoja de Finalizar completa. No pregunta por "marcar como par" (casi todo lo vacío queda como
+ * no jugado): pregunta por la Timba, avisa los no jugados y, solo si aplica, quién queda con par en el hoyo en
+ * pantalla (el que alguien ya anotó, `hoyoEnPantallaQueSeRellenaEnLaTimba`). Copy decidido (16-nov-2026).
+ */
+export function hojaFinalizarTimba(input: {
+  hoyosSinJugar: readonly number[]
+  parEnPantalla: { hoyo: number; nombres: readonly string[] } | null
+}): { titulo: string; detalle: string | undefined } {
+  const { hoyosSinJugar, parEnPantalla } = input
+  const lineas: string[] = []
+  const noJugados = detalleHoyosSinAnotarTimba(hoyosSinJugar)
+  if (noJugados) lineas.push(noJugados)
+  if (parEnPantalla && parEnPantalla.nombres.length > 0) {
+    const verbo = parEnPantalla.nombres.length > 1 ? 'quedan' : 'queda'
+    lineas.push(`En el hoyo ${parEnPantalla.hoyo}, ${enumerar(parEnPantalla.nombres)} ${verbo} con par.`)
+  }
+  return { titulo: '¿Finalizar la Timba?', detalle: lineas.length > 0 ? lineas.join(' ') : undefined }
+}

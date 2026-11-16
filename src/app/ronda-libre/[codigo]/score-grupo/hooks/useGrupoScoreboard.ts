@@ -42,6 +42,8 @@ export interface GrupoScoreboard {
   hoyosPorMarcar: number
   /** Timba libre: hoyos que al cerrar quedan "no jugados" (`hoyosQueQuedanSinJugarEnLaTimba`); `[]` fuera de una Timba. */
   hoyosSinJugarTimba: number[]
+  /** Timba libre: hoyo en pantalla y quienes quedan con par en él al cerrar; `null` si nadie (o fuera de una Timba). */
+  parEnPantallaTimba: { hoyo: number; nombres: string[] } | null
   getPlayerTotal: (jugadorId: string) => TotalesDeTarjeta
   /** Golpes que recibe el jugador en el hoyo actual. */
   strokesOnHole: (jugadorId: string) => number
@@ -133,18 +135,22 @@ export function useGrupoScoreboard(input: {
     const maxThru = Math.max(...tarjetas.map(t => hoyosAnotados(t.scores, ordenHoyos)), 0)
     const canFinalize = puedeFinalizar(maxThru, isLastHole)
     const esTimba = esFormatoPersonalizado(formatoJuego)
-    const hoyosPorMarcar = hoyosPorMarcarAlFinalizar(
-      bolaCompartida
-        ? tarjetas
-        : jugadores.map(j => ({
-          scores: scores[j.id],
-          noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores }),
-        })),
-      ordenHoyos,
-    ).length
+    const tarjetasConRelleno = jugadores.map(j => ({
+      jugador: j,
+      scores: scores[j.id],
+      noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores }),
+    }))
+    const hoyosPorMarcar = hoyosPorMarcarAlFinalizar(bolaCompartida ? tarjetas : tarjetasConRelleno, ordenHoyos).length
     const hoyosSinJugarTimba = esTimba
       ? hoyosQueQuedanSinJugarEnLaTimba({ jugadores, scores, retiros, ordenHoyos, hoyoEnPantalla: currentHole })
       : []
+    // Timba: quienes reciben el par gris del hoyo en pantalla al cerrar (las mismas tarjetas que rellena el cierre).
+    const nombresConPar = esTimba
+      ? tarjetasConRelleno
+        .filter(t => !t.noRellenar.includes(currentHole) && t.scores?.[currentHole] == null)
+        .map(t => t.jugador.nombre)
+      : []
+    const parEnPantallaTimba = nombresConPar.length > 0 ? { hoyo: currentHole, nombres: nombresConPar } : null
     // Timba libre: el scorer no sabe el hándicap de los otros (`/live` no lo entrega), así que los golpes
     // recibidos genéricos saldrían de un hándicap inventado. Los de la Timba viajan en GET /juego (spec, "Para el PR C").
     const maxStrokesOnHole = esTimba ? 0 : Math.max(...tarjetas.map(t => t.golpesEnHoyo(currentHole)), 0)
@@ -154,7 +160,7 @@ export function useGrupoScoreboard(input: {
 
     return {
       totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford, isMatchPlay,
-      siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, getPlayerTotal,
+      siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, parEnPantallaTimba, getPlayerTotal,
       strokesOnHole, maxStrokesOnHole, hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
     }
   }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros])
