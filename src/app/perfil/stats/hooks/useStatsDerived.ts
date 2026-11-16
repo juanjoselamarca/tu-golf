@@ -80,9 +80,8 @@ export function useStatsDerived(allRondas: RondaNormalizada[], range: RangeKey) 
     + scoringCounts.pars + scoringCounts.bogeys + scoringCounts.doubles
 
   const serie = useMemo(() => serieScoreVsPar(rondas), [rondas])
-  const promedioSerie = serie.length > 0
-    ? Math.round((serie.reduce((s, p) => s + p.vsPar18, 0) / serie.length) * 10) / 10
-    : null
+  // Sin línea de promedio en el gráfico: mezclaría 9h×2 con 18h y contradiría el
+  // "Promedio vs par" de la cifra héroe (que es de un solo bucket). Un número, una fuente.
 
   // Front/Back: solo 18 hoyos exactos que cuentan (una de 27 no tiene un "back 9" único).
   const nineHoleData = useMemo(
@@ -113,7 +112,6 @@ export function useStatsDerived(allRondas: RondaNormalizada[], range: RangeKey) 
     scoringCounts,
     scoringTotal,
     serie,
-    promedioSerie,
     nineHoleData,
     topRounds,
     trendData,

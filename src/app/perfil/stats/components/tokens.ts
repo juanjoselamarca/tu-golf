@@ -7,12 +7,8 @@ export const C = {
   bg: 'var(--bg)',
   card: 'var(--bg-surface)',
   cardBorder: 'var(--border)',
-  /* Relleno (gauge, barras): celeste Garmin. Como TEXTO usar greenText: --birdie
-     sobre fondo claro da 2.5:1 (reprueba); --score-birdie-fg cambia por tema. */
-  green: 'var(--birdie)',
-  greenDim: 'rgba(20,179,217,0.15)',
+  /* Solo para el ícono de tendencia (delta con signo e ícono, DESIGN.md §13). */
   greenText: scoreFgVar(-1),
-  eagleText: scoreFgVar(-2),
   gold: 'var(--brand-on-bg)',
   red: scoreFgVar(2),
   ivory: 'var(--text)',
@@ -23,5 +19,5 @@ export const cardStyle: CSSProperties = {
   background: C.card,
   border: `1px solid ${C.cardBorder}`,
   borderRadius: 16,
-  padding: 20,
+  padding: 16,
 }

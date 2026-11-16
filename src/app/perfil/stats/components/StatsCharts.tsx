@@ -10,13 +10,13 @@
 
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
-  Tooltip, ReferenceLine,
+  Tooltip,
 } from 'recharts'
 import { formatOverUnder } from '@/golf/core/rules'
 import type { PuntoScoreVsPar } from '@/golf/stats/rondas-normalizadas'
 import { C } from './tokens'
 
-const axisTick = { fill: C.muted, fontSize: 11 }
+const axisTick = { fill: C.muted, fontSize: 13 }
 
 function fmtFecha(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })
@@ -34,10 +34,11 @@ function PuntoRonda({ cx, cy, index, payload }: DotProps) {
 
 /**
  * "Tu score vs par": Y = vsPar en escala de 18 hoyos (una de 9 vale el doble),
- * puntos en orden cronológico, línea de promedio. Las rondas fuera de los números
+ * puntos en orden cronológico. Sin línea de promedio: el promedio
+ * vive en la cifra héroe de StatsView (un solo bucket de hoyos). Las rondas fuera de los números
  * (bola compartida, match play, parciales, score imposible) no llegan acá.
  */
-export function ScoreVsParChart({ puntos, promedio }: { puntos: PuntoScoreVsPar[]; promedio: number | null }) {
+export function ScoreVsParChart({ puntos }: { puntos: PuntoScoreVsPar[] }) {
   const data = puntos.map(p => ({ ...p, fecha: fmtFecha(p.played_at) }))
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -54,14 +55,6 @@ export function ScoreVsParChart({ puntos, promedio }: { puntos: PuntoScoreVsPar[
             'Vs par',
           ]}
         />
-        {promedio != null && (
-          <ReferenceLine
-            y={promedio}
-            stroke={C.muted}
-            strokeDasharray="6 4"
-            label={{ value: `Promedio ${formatOverUnder(promedio)}`, fill: C.muted, fontSize: 10, position: 'insideTopRight' }}
-          />
-        )}
         <Line
           type="linear"
           dataKey="vsPar18"

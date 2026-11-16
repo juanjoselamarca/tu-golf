@@ -11,11 +11,10 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }))
 import { StatsView } from '../StatsView'
 import { normalizarRondas } from '@/golf/stats/rondas-normalizadas'
 
-const indice = { indice: null, indice_golfers: null }
 
 describe('StatsView — estados', () => {
   it('lectura fallida (null): error con reintento, no el estado vacío', () => {
-    const { container, getByRole } = render(<StatsView rondas={null} profileIndex={indice} />)
+    const { container, getByRole } = render(<StatsView rondas={null} />)
     expect(container.textContent).toContain('No pudimos cargar tus estadísticas')
     expect(container.textContent).not.toContain('Aún no tienes rondas')
     getByRole('button', { name: /reintentar/i }).click()
@@ -23,7 +22,7 @@ describe('StatsView — estados', () => {
   })
 
   it('sin rondas ([]): estado vacío', () => {
-    const { container } = render(<StatsView rondas={[]} profileIndex={indice} />)
+    const { container } = render(<StatsView rondas={[]} />)
     expect(container.textContent).toContain('Aún no tienes rondas')
   })
 
@@ -32,12 +31,13 @@ describe('StatsView — estados', () => {
       id: `r${i}`, course_name: 'Los Leones', course_id: null, played_at: `2026-03-0${i + 1}`,
       scores: Array(18).fill(5), total_gross: g, holes_played: 18, import_source: null, formato_juego: 'stroke_play',
     })), [], [])
-    const { container } = render(<StatsView rondas={rondas} profileIndex={indice} />)
+    const { container } = render(<StatsView rondas={rondas} />)
     const t = container.textContent ?? ''
     expect(t).toContain('Tu score vs par')
     expect(t).not.toMatch(/GWI|Wellness|Evolución de score|Tendencia de scoring/)
-    expect(t).toContain('Promedio vs par (18h)')
+    expect(t).toContain('Promedio vs par · 18 hoyos')
     expect(t).toContain('+13') // (8 + 13 + 18) / 3
-    expect(t).toContain('80 (+8)')
+    expect(t).toContain('Mejor ronda80 +8')
+    expect(t).not.toMatch(/Federación|Golfers\+|Peor ronda/)
   })
 })
