@@ -49,7 +49,8 @@ Predicado `sinIndiceEnNingunaParte(p) = p.handicap_at_registration == null && p.
 `handicapInscrito` (`src/golf/core/compute-player-course-hcp.ts`). `jugadoresSinIndice(aprobados)` en `motivo-para-no-iniciar.ts`.
 Servidor: `GET /api/torneos/[slug]/start` → `{ motivo, sinIndice }` (lector `leerParaIniciar(svc, slug, userId)` compartido con
 el POST). Cliente: `handleStartTournament` hace el GET y muestra UN modal de confirmación que, si hay sin índice, agrega
-"Sin índice: A, B. Jugarán con hándicap 0 hasta que lo corrijas en Scoring → Resumen." POST lleva `{ sinIndiceVistos }`; si el
+(copy final, revisada) WHS: "Sin índice: A, B. Jugarán con índice 0." · raw: "Sin hándicap inscrito: A, B. Su neto puede salir mal."
+(en raw la tarjeta toma el perfil y el board lo inscrito: no se afirma número; "corrígelo en Scoring → Resumen" vuelve con el PR C). POST lleva `{ sinIndiceVistos }`; si el
 servidor encuentra alguien fuera → 409 `{codigo:'confirmar-sin-indice', sinIndice}` ANTES del rate limit y de toda escritura.
 Nunca 400 ni bloqueo.
 
