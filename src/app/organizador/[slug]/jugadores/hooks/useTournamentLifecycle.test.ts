@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 
 // ─── Mock de supabase que registra los inserts por tabla ───
 //
@@ -431,11 +431,25 @@ describe('useTournamentLifecycle — confirmación con jugadores sin índice', (
     expect(fetchMock.mock.calls[0]).toEqual(['/api/torneos/test/start', { method: 'GET' }])
     expect(confirmMock).toHaveBeenCalledTimes(1)
     expect(confirmMock.mock.calls[0][0].description).toBe(
-      'Sin índice: Beto. Jugarán con índice 0. ¿Iniciar con 2 jugadores? Se crearán las rondas para todos.',
+      'Sin índice: Beto. Jugará con índice 0. ¿Iniciar con 2 jugadores? Se crearán las rondas para todos.',
     )
     expect(posts()).toHaveLength(1)
     expect(vistosDel(0)).toEqual(['p2'])
     expect(pushMock).toHaveBeenCalledWith('/organizador/test/scoring')
+  })
+
+  it('mientras consulta al servidor el botón dice Preparando, no Iniciando', async () => {
+    let soltarGet: (r: unknown) => void = () => {}
+    fetchMock.mockReturnValueOnce(new Promise((r) => { soltarGet = r }))
+    confirmMock.mockResolvedValueOnce(false)
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [1])))
+    let pendiente: Promise<void> = Promise.resolve()
+    act(() => { pendiente = result.current.handleStartTournament() })
+    await waitFor(() => expect(result.current.preparandoInicio).toBe(true))
+    expect(result.current.starting).toBe(false)
+    await act(async () => { soltarGet(respuesta(200, { motivo: null, sinIndice: [] })); await pendiente })
+    expect(result.current.preparandoInicio).toBe(false)
+    expect(result.current.starting).toBe(false)
   })
 
   it('nadie sin índice → el modal de siempre, sin aviso', async () => {
@@ -457,7 +471,8 @@ describe('useTournamentLifecycle — confirmación con jugadores sin índice', (
     await act(async () => { await result.current.handleStartTournament() })
 
     expect(confirmMock).toHaveBeenCalledTimes(2)
-    expect(confirmMock.mock.calls[1][0].description).toContain('Sin índice: Carla. Jugarán con hándicap 0')
+    // El fixture no fija hcp_calc_mode (raw): en raw lo que falta es el hándicap.
+    expect(confirmMock.mock.calls[1][0].description).toContain('Sin hándicap: Carla. Jugará con hándicap 0')
     expect(vistosDel(0)).toEqual([])
     expect(vistosDel(1)).toEqual(['p9'])
     expect(showErrorMock).not.toHaveBeenCalled()

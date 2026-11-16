@@ -65,6 +65,9 @@ export function useTournamentLifecycle({
   const { confirm, modalProps } = useConfirmModal()
 
   const [starting, setStarting] = useState(false)
+  // Antes de confirmar (GET de lo que ve el servidor): el botón no dice
+  // "Iniciando..." porque todavía no se inició nada.
+  const [preparandoInicio, setPreparandoInicio] = useState(false)
   const [closing, setClosing] = useState(false)
   const [opening, setOpening] = useState(false)
   const [allRoundsClosed, setAllRoundsClosed] = useState(false)
@@ -189,7 +192,7 @@ export function useTournamentLifecycle({
     }
     const url = `/api/torneos/${tournament.slug}/start`
 
-    setStarting(true)
+    setPreparandoInicio(true)
     try {
       const pre = await fetch(url, { method: 'GET' })
       const preData = await pre.json().catch(() => ({}))
@@ -205,6 +208,7 @@ export function useTournamentLifecycle({
       let sinIndice = listaSinIndice(preData.sinIndice)
 
       for (let intento = 0; intento < MAX_CONFIRMACIONES_DE_INICIO; intento++) {
+        setPreparandoInicio(false)
         setStarting(false)
         const ok = await confirm({
           title: 'Iniciar torneo',
@@ -240,6 +244,7 @@ export function useTournamentLifecycle({
     } catch {
       showError('Sin conexión', 'No se pudo iniciar el torneo. Revisa tu conexión e intenta de nuevo.')
     } finally {
+      setPreparandoInicio(false)
       setStarting(false)
     }
   }
@@ -307,7 +312,7 @@ export function useTournamentLifecycle({
   }
 
   return {
-    starting, closing, opening, allRoundsClosed,
+    starting, preparandoInicio, closing, opening, allRoundsClosed,
     checkAllRoundsClosed, handleStartTournament,
     motivoNoIniciar, aprobadosCount,
     handleOpenInscriptions, handleRevertToDraft,

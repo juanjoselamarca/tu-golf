@@ -106,7 +106,9 @@ export async function POST(
   if (noVistos.length > 0) {
     return NextResponse.json(
       {
-        error: avisoSinIndice(lectura.sinIndice, t.hcp_calc_mode),
+        // El panel actual usa `codigo` y no muestra `error`; un panel abierto antes
+        // del deploy solo conoce `error`: tiene que decirle cómo seguir.
+        error: `${avisoSinIndice(lectura.sinIndice, t.hcp_calc_mode)} Recarga la página para confirmar e iniciar.`,
         codigo: CODIGO_CONFIRMAR_SIN_INDICE,
         sinIndice: lectura.sinIndice,
       },

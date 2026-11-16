@@ -97,6 +97,6 @@ export async function leerParaIniciar(
     aprobados,
     grupos,
     motivo: motivoParaNoIniciar(resolveFormatoJuego(torneo), aprobados, grupos, torneo.team_config),
-    sinIndice: jugadoresSinIndice(aprobados),
+    sinIndice: jugadoresSinIndice(aprobados, torneo.hcp_calc_mode),
   }
 }

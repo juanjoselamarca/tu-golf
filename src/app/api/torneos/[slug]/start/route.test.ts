@@ -84,7 +84,7 @@ beforeEach(() => {
     error: null,
   })
   tables.tournaments = {
-    data: { id: 't1', slug: 'mi-torneo', organizer_id: 'org', status: 'open', format: 'stroke_play', total_rounds: 1, courses: null },
+    data: { id: 't1', slug: 'mi-torneo', organizer_id: 'org', status: 'open', format: 'stroke_play', total_rounds: 1, courses: null, hcp_calc_mode: 'whs' },
     error: null,
   }
   tables.players = {
@@ -356,6 +356,8 @@ describe('POST /api/torneos/[slug]/start — confirmación de sin índice', () =
     expect(data.codigo).toBe('confirmar-sin-indice')
     expect(data.sinIndice).toEqual([{ id: 'p2', nombre: 'Beto' }])
     expect(data.error).toContain('Sin índice: Beto.')
+    // El panel viejo solo muestra `error`: tiene que decir cómo seguir.
+    expect(data.error).toContain('Recarga la página para confirmar e iniciar.')
     expect(mockRateLimit).not.toHaveBeenCalled()
     expect(mockEnsure).not.toHaveBeenCalled()
     expect(mockMaterialize).not.toHaveBeenCalled()

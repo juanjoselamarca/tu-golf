@@ -275,13 +275,17 @@ export interface InscritoConIndice {
 }
 
 /**
- * El inscrito no tiene índice en ninguna parte: ni inscrito ni en su perfil. Es
- * el único caso en que `handicapInscrito` cae al `?? 0` al iniciar (en WHS, el
- * índice del perfil se copia a la inscripción con `completarIndicesInscritos`).
- * Un 0 tipeado (invitado scratch) SÍ es un índice: no cuenta.
+ * El inscrito va a puntuar con 0 porque no hay nada que lo reemplace: el caso
+ * en que `handicapInscrito` cae al `?? 0` (puntaje individual, de equipo y board).
+ * - WHS: sin índice inscrito NI en el perfil (el del perfil se copia a la
+ *   inscripción al iniciar con `completarIndicesInscritos`).
+ * - Otro modo (raw): sin hándicap inscrito, tenga o no índice en el perfil — en
+ *   raw nadie copia el del perfil y lo inscrito es lo que puntúa.
+ * Un 0 tipeado (invitado scratch) SÍ es un valor: no cuenta.
  */
-export function sinIndiceEnNingunaParte(player: InscritoConIndice): boolean {
-  return player.handicap_at_registration == null && player.profiles?.indice == null
+export function sinIndiceEnNingunaParte(player: InscritoConIndice, hcpCalcMode: string | null | undefined): boolean {
+  if (player.handicap_at_registration != null) return false
+  return esModoHcpWhs(hcpCalcMode) ? player.profiles?.indice == null : true
 }
 
 /**

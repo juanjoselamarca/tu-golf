@@ -22,14 +22,19 @@ describe('jugadoresSinIndice', () => {
       jugador('p4', null, null, 'Carla'), // invitado sin índice
       jugador('p5', null, { name: 'Diego', indice: null }), // cuenta sin índice
     ]
-    expect(jugadoresSinIndice(aprobados)).toEqual([
+    expect(jugadoresSinIndice(aprobados, 'whs')).toEqual([
       { id: 'p4', nombre: 'Carla' },
       { id: 'p5', nombre: 'Diego' },
     ])
   })
 
   it('todos con índice → lista vacía', () => {
-    expect(jugadoresSinIndice([jugador('p1', 5, null, 'Ana')])).toEqual([])
+    expect(jugadoresSinIndice([jugador('p1', 5, null, 'Ana')], 'whs')).toEqual([])
+  })
+
+  it('raw: también avisa al que tiene índice en el perfil pero no hándicap inscrito', () => {
+    const aprobados = [jugador('p2', null, { name: 'Beto', indice: 9.1 }), jugador('p3', 0, null, 'Scratch')]
+    expect(jugadoresSinIndice(aprobados, 'raw')).toEqual([{ id: 'p2', nombre: 'Beto' }])
   })
 
   it('no cambia el motivo para no iniciar: sin índice NUNCA bloquea', () => {
@@ -49,7 +54,11 @@ describe('avisoSinIndice', () => {
   })
 
   it('raw: lo inscrito ya es el hándicap → "hándicap 0"', () => {
-    expect(avisoSinIndice(sin, 'raw')).toContain('Jugarán con hándicap 0')
+    expect(avisoSinIndice(sin, 'raw')).toBe('Sin hándicap: Carla, Diego. Jugarán con hándicap 0.')
+  })
+
+  it('uno solo: singular', () => {
+    expect(avisoSinIndice([{ id: 'p4', nombre: 'Carla' }], 'whs')).toBe('Sin índice: Carla. Jugará con índice 0.')
   })
 
   it('nadie sin índice → sin aviso', () => {

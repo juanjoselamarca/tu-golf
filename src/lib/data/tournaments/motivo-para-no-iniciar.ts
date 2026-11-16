@@ -132,9 +132,9 @@ export function motivoHandicapDeEquipo(
     Array.isArray(handicap.porcentajes) &&
     handicap.porcentajes.length !== primero.players.length
   ) {
-    return `El equipo "${primero.name}" tiene ${primero.players.length} jugadores y el handicap personalizado está definido para ${handicap.porcentajes.length}. Ajusta los porcentajes o el equipo antes de iniciar.`
+    return `El equipo "${primero.name}" tiene ${primero.players.length} jugadores y el hándicap personalizado está definido para ${handicap.porcentajes.length}. Ajusta los porcentajes o el equipo antes de iniciar.`
   }
-  return `No se puede calcular el handicap de ${listaCorta(sinHandicap.map((g) => `"${g.name}"`))} con la configuración del torneo. Revisa el handicap de equipo antes de iniciar.`
+  return `No se puede calcular el hándicap de ${listaCorta(sinHandicap.map((g) => `"${g.name}"`))} con la configuración del torneo. Revisa el hándicap de equipo antes de iniciar.`
 }
 
 /**
@@ -165,8 +165,11 @@ export interface JugadorSinIndice {
  */
 export function jugadoresSinIndice(
   approvedPlayers: Array<JugadorParaIniciar & InscritoConIndice>,
+  hcpCalcMode: string | null | undefined,
 ): JugadorSinIndice[] {
-  return approvedPlayers.filter(sinIndiceEnNingunaParte).map((p) => ({ id: p.id, nombre: playerName(p) }))
+  return approvedPlayers
+    .filter((p) => sinIndiceEnNingunaParte(p, hcpCalcMode))
+    .map((p) => ({ id: p.id, nombre: playerName(p) }))
 }
 
 /**
@@ -177,8 +180,9 @@ export function jugadoresSinIndice(
  */
 export function avisoSinIndice(sinIndice: JugadorSinIndice[], hcpCalcMode: string | null | undefined): string | null {
   if (sinIndice.length === 0) return null
-  const cero = esModoHcpWhs(hcpCalcMode) ? 'índice 0' : 'hándicap 0'
-  return `Sin índice: ${listaCorta(sinIndice.map((j) => j.nombre))}. Jugarán con ${cero}.`
+  const dato = esModoHcpWhs(hcpCalcMode) ? 'índice' : 'hándicap'
+  const verbo = sinIndice.length === 1 ? 'Jugará' : 'Jugarán'
+  return `Sin ${dato}: ${listaCorta(sinIndice.map((j) => j.nombre))}. ${verbo} con ${dato} 0.`
 }
 
 /** Código del 409 de la ruta de inicio cuando hay sin índice que el organizador no vio. */
