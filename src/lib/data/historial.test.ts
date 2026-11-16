@@ -7,7 +7,7 @@
  *    (course_id, numero) — clave única, fix #254 — y loop hasta página corta.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { fetchHistorialRounds, fetchHistorialStats, SELECT_COLUMNS, OR_EXCLUDE_FEDEGOLF } from './historial'
+import { fetchHistorialRounds, fetchHistorialStats, fetchRondasNormalizadas, SELECT_COLUMNS, OR_EXCLUDE_FEDEGOLF } from './historial'
 
 vi.mock('@/lib/error-tracking', () => ({
   captureError: vi.fn(async () => {}),
@@ -160,6 +160,23 @@ describe('fetchHistorialStats', () => {
     const { supabase } = buildSupabase({ holePages: [[]], roundsError: true })
     const stats = await fetchHistorialStats(mockSupabase(supabase), 'u1')
     expect(stats).toBeNull()
+  })
+
+  it('fetchRondasNormalizadas: error → null, nunca [] (la UI no debe decir "aún no tienes rondas")', async () => {
+    const { supabase } = buildSupabase({ holePages: [[]], roundsError: true })
+    expect(await fetchRondasNormalizadas(mockSupabase(supabase), 'u1')).toBeNull()
+  })
+
+  it('fetchRondasNormalizadas: devuelve las rondas con pares reales por posición', async () => {
+    const { supabase } = buildSupabase({ holePages: [[
+      { course_id: 'cA', numero: 1, par: 4 },
+      { course_id: 'cA', numero: 2, par: 4 },
+      { course_id: 'cA', numero: 3, par: 5 },
+    ]] })
+    const rondas = await fetchRondasNormalizadas(mockSupabase(supabase), 'u1')
+    expect(rondas).toHaveLength(1)
+    expect(rondas![0].pares).toEqual([4, 4, 5])
+    expect(rondas![0].fueraDePromedios).toBe('parcial')
   })
 
   it('acota course_holes a las canchas de las rondas del usuario (.in course_id), no todo el catálogo', async () => {
