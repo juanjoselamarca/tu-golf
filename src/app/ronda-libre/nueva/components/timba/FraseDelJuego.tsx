@@ -11,6 +11,8 @@ type Valor = Extract<TrozoDeFrase, { tipo: 'valor' }>
 
 /** Alto táctil mínimo de cada valor de la frase (se usa con guante y al sol). */
 const ALTO_TACTIL = 44
+/** Cuánto del ancho táctil se le devuelve al texto a cada lado (el valor se ve pegado a la frase). */
+const MARGEN_TACTIL_PX = 13
 
 type Pieza = { tipo: 'texto'; texto: string } | { tipo: 'valor'; valor: Valor; puntuacion: string }
 
@@ -57,8 +59,12 @@ export function FraseDelJuego({ config, holes, onConfig }: Props) {
                 aria-label={`${t.valor.titulo}: ${t.valor.texto}. Cambiar`}
                 onClick={() => setAbierto(t.valor)}
                 style={{
-                  display: 'inline-flex', alignItems: 'center', minHeight: `${ALTO_TACTIL}px`, verticalAlign: 'top',
-                  border: 0, background: 'transparent', padding: '0 2px', margin: 0, font: 'inherit', fontWeight: 700,
+                  // 44×44 de toque, pero la frase se lee corrida ("vale 2, peor bola 1"): el valor va centrado
+                  // y el margen negativo devuelve a la línea el ancho extra del área táctil.
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  minHeight: `${ALTO_TACTIL}px`, minWidth: `${ALTO_TACTIL}px`, verticalAlign: 'top',
+                  margin: `0 -${MARGEN_TACTIL_PX}px`, position: 'relative',
+                  border: 0, background: 'transparent', padding: 0, font: 'inherit', fontWeight: 700,
                   lineHeight: 1.2, color: colores.oroTexto, cursor: 'pointer',
                   textDecoration: `underline dotted ${colores.oroTexto}`, textDecorationThickness: '2px', textUnderlineOffset: '4px',
                 }}
