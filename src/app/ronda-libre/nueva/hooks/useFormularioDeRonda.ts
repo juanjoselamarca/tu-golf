@@ -28,6 +28,17 @@ import {
 } from './equipos-del-formulario'
 import { nombreDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 
+/** El aviso único de "falta escribir un nombre" del asistente (formatos de equipo y Timba libre). */
+export function problemaPorNombresQueFaltan(cuantos: number): ProblemaDeLaRonda | null {
+  if (cuantos <= 0) return null
+  return {
+    titulo: 'Falta un nombre',
+    detalle: cuantos === 1
+      ? 'Escribe el nombre del jugador que falta.'
+      : `Escribe el nombre de los ${cuantos} jugadores que faltan.`,
+  }
+}
+
 export { ID_DEL_CREADOR } from './equipos-del-formulario'
 export type { EquipoDeLaRonda } from './equipos-del-formulario'
 
@@ -389,14 +400,9 @@ export function useFormularioDeRonda() {
   const sinNombreEnEquipos = esFormatoDeEquipo
     ? rivalesEnJuego.filter(r => !r.nombre.trim() && equipos.some(e => e.miembros.includes(r.id))).length
     : 0
-  const problemaDelFormulario: ProblemaDeLaRonda | null = sinNombreEnEquipos > 0
-    ? {
-        titulo: 'Falta un nombre',
-        detalle: sinNombreEnEquipos === 1
-          ? 'Escribe el nombre del jugador que falta.'
-          : `Escribe el nombre de los ${sinNombreEnEquipos} jugadores que faltan.`,
-      }
-    : null
+  const problemaDelFormulario = problemaPorNombresQueFaltan(sinNombreEnEquipos)
+  /** Tarjetas de rival agregadas sin nombre (no viajan a la ronda). */
+  const filasSinNombre = rivalesEnJuego.length - rivalesConNombre.length
 
   return {
     paso, setPaso,
@@ -406,7 +412,7 @@ export function useFormularioDeRonda() {
     formato, elegirFormato, esFormatoDeEquipo,
     modo, setModo, netoBloqueado,
     llevaElScoreDelGrupo, preguntaQuienAnota, anotaPorTodos, elegirQuienAnota,
-    rivales, rivalesEnJuego, rivalesConNombre, agregarRival, actualizarRival, quitarRival,
+    rivales, rivalesEnJuego, rivalesConNombre, filasSinNombre, agregarRival, actualizarRival, quitarRival,
     problemaDelFormulario,
     repetirRonda,
     equipos, agregarEquipoRival, quitarEquipo, renombrarEquipo, moverAlEquipo,
