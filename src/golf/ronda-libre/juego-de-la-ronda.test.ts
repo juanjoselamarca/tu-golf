@@ -250,7 +250,7 @@ describe('decisión de Juanjo 27-oct — lo que ve el grupo en una Timba neto', 
     const vista = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
     const json = JSON.stringify(vista)
     expect(json).not.toMatch(/courseHandicap|courseHcp|indice|handicapIndex/i)
-    expect(Object.keys(vista).sort()).toEqual(['config', 'golpesRecibidos', 'jugadorIds', 'resultado'])
+    expect(Object.keys(vista).sort()).toEqual(['config', 'golpesRecibidos', 'jugadorIds', 'marcas', 'resultado', 'retiros'])
     // A la diferencia del más bajo: Diego 0, Juan 4, Pedro 8, Tomás 12 en 18 hoyos (caso dorado 5).
     const total = (id: string) => Object.values(vista.golpesRecibidos[id]).reduce((a, b) => a + b, 0)
     expect(IDS.map(total)).toEqual([4, 8, 0, 12])
@@ -267,5 +267,22 @@ describe('datos de cancha', () => {
     const r = armar(datos({ ronda: { holes: 9, hoyo_inicio: 10, estado: 'en_curso' } }))
     expect(r.entrada.hoyos.map(h => h.numero)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
     expect([...r.entrada.hoyos.map(h => h.strokeIndex)].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+  })
+})
+
+describe('PR C2 — la vista trae las marcas y los retiros para el scorer', () => {
+  it('marcas en orden (también las de un hoyo pendiente) y retiros con hoyo numérico', () => {
+    const r = armar(datos({
+      marcas: [marca(JUAN, '3', 'greenie', '2026-10-27T15:00:02Z', 'b'), marca(DIEGO, 4, 'sandy', '2026-10-27T15:00:01Z', 'a')],
+      retiros: [{ jugador_id: TOMAS, desde_hoyo: '8' }],
+    }))
+    const vista = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
+    expect(vista.marcas).toEqual([
+      { jugadorId: DIEGO, hoyo: 4, puntitoId: 'sandy' },
+      { jugadorId: JUAN, hoyo: 3, puntitoId: 'greenie' },
+    ])
+    expect(vista.retiros).toEqual({ [TOMAS]: 8 })
+    // Los hoyos siguen pendientes (nadie anotó): la marca existe aunque el resultado no la evalúe todavía.
+    expect(vista.resultado.hoyos.find(h => h.numero === 3)?.especiales).toEqual([])
   })
 })

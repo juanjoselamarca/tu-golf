@@ -87,7 +87,7 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('cache-control')).toMatch(/no-store/)
     const cuerpo = await res.json()
-    expect(Object.keys(cuerpo).sort()).toEqual(['config', 'estado', 'golpesRecibidos', 'jugadorIds', 'resultado'])
+    expect(Object.keys(cuerpo).sort()).toEqual(['config', 'estado', 'golpesRecibidos', 'jugadorIds', 'marcas', 'resultado', 'retiros'])
     expect(JSON.stringify(cuerpo)).not.toMatch(/courseHandicap|courseHcp|handicapIndex|"indice"|sinIndice/i)
     expect(cuerpo.jugadorIds).toEqual(IDS)
     expect(Object.values(cuerpo.golpesRecibidos[TOMAS] as Record<string, number>).reduce((a, b) => a + b, 0)).toBe(12) // la diferencia con el más bajo (18 − 6), no su CH

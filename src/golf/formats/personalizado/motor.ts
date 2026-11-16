@@ -9,6 +9,7 @@
 import { strokesRecibidosEnHoyo } from '../../core/stableford-score'
 import { esHandicapUsable, golpesALaDiferenciaDelMasBajo } from '../match-play'
 import { TRAMOS_ROTATIVOS, hoyosPorTramo } from './tramos'
+import { estaRetiradoEn } from './retiro'
 import {
   COMBINACIONES_DE_4,
   type ConfigJuego,
@@ -223,7 +224,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
   const { config, jugadores, hoyos, scores, marcas } = entrada
   const ids = jugadores.map(j => j.id)
   const totalHoyos = hoyos.length
-  const ordenDe = new Map(hoyos.map((h, i) => [h.numero, i]))
+  const ordenHoyos = hoyos.map(h => h.numero)
 
   const golpesBase = golpesDelJuego(config, jugadores)
 
@@ -236,13 +237,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
   const resultadoHoyos: ResultadoHoyoDelJuego[] = []
   const pendientes: number[] = []
 
-  const retiradoEn = (id: string, numero: number): boolean => {
-    const desde = entrada.retiros?.[id]
-    if (desde == null) return false
-    const ordenDesde = ordenDe.get(desde)
-    const ordenHoyo = ordenDe.get(numero)
-    return ordenDesde != null && ordenHoyo != null && ordenHoyo >= ordenDesde
-  }
+  const retiradoEn = (id: string, numero: number): boolean => estaRetiradoEn(entrada.retiros?.[id], numero, ordenHoyos)
 
   hoyos.forEach((hoyo, orden) => {
     const { tramo, parejas } = parejasDelTramo(config, orden, totalHoyos)

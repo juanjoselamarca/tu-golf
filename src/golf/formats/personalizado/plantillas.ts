@@ -2,7 +2,7 @@
  * Plantillas del catálogo de Timba libre. Cada una es una config armada con las piezas de `config.ts`:
  * el motor no sabe de plantillas, solo de piezas.
  */
-import { LIMITES_JUEGO, VERSION_CONFIG_JUEGO, type ConfigJuego, type Pareja, type PuntitoConfig, type TipoDueloPareja } from './config'
+import { LIMITES_JUEGO, VERSION_CONFIG_JUEGO, type ConfigJuego, type Pareja, type PuntitoConfig, type TipoDueloPareja, type TipoPuntito } from './config'
 
 export type PlantillaJuego = ConfigJuego['plantilla']
 
@@ -31,6 +31,19 @@ export const NOMBRE_DUELO: Record<TipoDueloPareja, string> = {
   mejor_bola: 'mejor bola',
   peor_bola: 'peor bola',
   suma: 'suma',
+}
+
+/** Nombre de cada punto especial del catálogo para mostrar (el propio lleva el nombre que le puso el grupo). */
+export const NOMBRE_PUNTITO: Record<Exclude<TipoPuntito, 'propio'>, string> = {
+  birdie: 'Birdie',
+  sandy: 'Sandy',
+  chipingo: 'Chipingo',
+  greenie: 'Greenie',
+}
+
+/** Cómo se llama un punto especial del juego en pantalla: el del catálogo, o el nombre del propio. */
+export function nombreDelPuntito(p: Pick<PuntitoConfig, 'tipo' | 'nombre'>): string {
+  return p.tipo === 'propio' ? p.nombre?.trim() || 'Punto propio' : NOMBRE_PUNTITO[p.tipo]
 }
 
 /** Jugadores que pide cada plantilla (mínimo y máximo). */
