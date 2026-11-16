@@ -13,6 +13,7 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { handicapQueJuega, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import {
   construirRespuestaGWI,
+  formatoTieneGWI,
   filasDelVisorGWI,
   marcadorEnCursoGWI,
   redactarGWIParaPublico,
@@ -71,7 +72,9 @@ export async function gwiDeRondaLibre(
   // publica (inputs vacíos, como `boardPublicoRondaLibre`). La página lo oculta con
   // `hayGWIParaMostrar`.
   const vista = vistaPublica({ visorConSesion: !!viewerUserId, caminoRondaLibre: true, modoJuego: modo, formatoJuego: formato })
-  if (vista.soloBruto) {
+  // Timba libre (formato `personalizado`): no hay ranking por golpes ni neto genérico (gana quien suma puntos,
+  // que se leen solo de GET /juego). El GWI modela golpes/neto: no se calcula ni se publica.
+  if (vista.soloBruto || !formatoTieneGWI(ronda.formato_juego as string | null)) {
     return construirRespuestaGWI([], { totalHoyos, modoJuego: modo, formatoJuego: formato }, SIN_FILAS_DEL_VISOR)
   }
   const parTotal = parTotalEstandar(totalHoyos)

@@ -31,7 +31,7 @@ import { AvisoSoloBruto } from '@/app/torneo/[slug]/components/AvisoSoloBruto'
 import { etiquetaDelFormato } from '@/lib/data/tournaments/vista-publica'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { useGWI } from './hooks/useGWI'
-import { hayGWIParaMostrar } from '@/golf/stats/gwi'
+import { formatoTieneGWI, hayGWIParaMostrar } from '@/golf/stats/gwi'
 import { useViewer } from './hooks/useViewer'
 
 import { LoadingView, FetchErrorView, NotFoundView } from './components/RondaStates'
@@ -350,7 +350,7 @@ function RondaLibrePageContent() {
           />
         )}
 
-        {ronda.formato_juego !== 'match_play' && !isFinished && hayGWIParaMostrar(gwi.jugadores) && (
+        {ronda.formato_juego !== 'match_play' && formatoTieneGWI(ronda.formato_juego) && !isFinished && hayGWIParaMostrar(gwi.jugadores) && (
           <GwiPanel ronda={ronda} jugadores={gwi.jugadores} results={gwi.results} />
         )}
 

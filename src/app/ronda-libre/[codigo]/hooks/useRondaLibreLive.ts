@@ -134,7 +134,8 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     // neto caería a 0). No se avisa cambio de líder (spec, "Para el PR C").
     const avisaLider = conLider && !esFormatoPersonalizado(r.formato_juego)
     const hoyos = hoyosDeLaRonda(r.hoyo_inicio, r.holes)
-    const lb = [...r.ronda_libre_jugadores]
+    // Sin líder que avisar no se arma la tabla: en una Timba el `?? handicap` de abajo sería un neto inventado.
+    const lb = !avisaLider ? [] : [...r.ronda_libre_jugadores]
       .map(j => {
         const ch = chs[j.id] ?? Math.round(j.handicap ?? 0)
         const vsPar = isNeto

@@ -9,6 +9,7 @@ import type { MatchResult } from '@/golf/formats/match-play'
 import { hoyosAnotados, puedeFinalizar, totalesDeTarjeta, type TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
 import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida, type TotalesBolaCompartida } from '@/golf/formats'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import type { FormatoJuego, HoleData, Jugador, ModoJuego, RondaLibre } from '@/types/ronda'
 
 export interface GrupoScoreboard {
@@ -133,9 +134,12 @@ export function useGrupoScoreboard(input: {
         : jugadores.map(j => ({ scores: scores[j.id], noRellenar: hoyosSinTerminarDeJugador(matchResult, jugadores, j.id) })),
       ordenHoyos,
     ).length
-    const maxStrokesOnHole = Math.max(...tarjetas.map(t => t.golpesEnHoyo(currentHole)), 0)
+    // Timba libre: el scorer no sabe el hándicap de los otros (`/live` no lo entrega), así que los golpes
+    // recibidos genéricos saldrían de un hándicap inventado. Los de la Timba viajan en GET /juego (spec, "Para el PR C").
+    const esTimba = esFormatoPersonalizado(formatoJuego)
+    const maxStrokesOnHole = esTimba ? 0 : Math.max(...tarjetas.map(t => t.golpesEnHoyo(currentHole)), 0)
     const hoyoCompleto = (h: number) => tarjetas.length > 0 && tarjetas.every(t => t.scores?.[h] != null)
-    const hoyoConGolpe = (h: number) => showNetStableford && tarjetas.some(t => t.golpesEnHoyo(h) > 0)
+    const hoyoConGolpe = (h: number) => !esTimba && showNetStableford && tarjetas.some(t => t.golpesEnHoyo(h) > 0)
     const totalesDeEquipo = (id: string) => totalesPorEquipo.get(id) ?? null
 
     return {

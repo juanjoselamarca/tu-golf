@@ -2,7 +2,7 @@
 // falso (spec docs/specs/formato-personalizado.md, "Para el PR C"). Un test por cada entrada de la lista.
 // Anotar golpes sigue igual: la tarjeta del scorer muestra los golpes y el resultado vs par del hoyo.
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, renderHook, screen } from '@testing-library/react'
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
@@ -12,6 +12,9 @@ import type { FormatoJuego, HoleData, Jugador, RondaLibre } from '@/types/ronda'
 import { IndividualLeaderboard } from './components/IndividualLeaderboard'
 import { TeamLeaderboards } from './components/TeamLeaderboards'
 import { TEXTO_PUNTOS_DE_LA_TIMBA } from './components/AvisoPuntosDeLaTimba'
+import { formatoTieneGWI } from '@/golf/stats/gwi'
+import { gwiDeRondaLibre } from '@/lib/data/gwi-ronda-libre'
+import { useGrupoScoreboard } from './score-grupo/hooks/useGrupoScoreboard'
 import { PlayerSelectorScreen } from './score/components/PlayerSelectorScreen'
 import { PlayerScoreCard } from './score-grupo/components/PlayerScoreCard'
 
@@ -118,5 +121,37 @@ describe('Timba libre — sin ranking ni neto genérico', () => {
     expect(screen.queryByText(/HCP/)).toBeNull()
     expect(screen.queryByText(/Net/)).toBeNull()
     expect(screen.queryByTestId('golpes-recibidos-genericos')).toBeNull()
+  })
+
+  it('GwiPanel: la página no lo monta en una Timba (formatoTieneGWI)', () => {
+    expect(formatoTieneGWI('personalizado')).toBe(false)
+    expect(formatoTieneGWI('stroke_play')).toBe(true)
+    expect(formatoTieneGWI('best_ball')).toBe(true)
+  })
+
+  it('gwiDeRondaLibre (servidor): en una Timba no calcula ni publica el GWI, aunque el visor tenga sesión', async () => {
+    const leerIndices = async () => { throw new Error('no debería leer índices en una Timba') }
+    for (const modo of ['neto', 'gross']) {
+      const supabase = { from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: { ...ronda, modo_juego: modo } }) }) }) }) }
+      const r = await gwiDeRondaLibre(supabase as never, 'TIMBA1', 'u1', leerIndices as never)
+      expect(r?.jugadores).toEqual([])
+      expect(r?.results).toEqual([])
+    }
+  })
+
+  it('useGrupoScoreboard: sin golpes recibidos genéricos (hint GOLPES ni punto dorado) aunque haya hándicap', () => {
+    const orden = [1, 2, 3]
+    const holeDataMap: Record<number, HoleData> = Object.fromEntries(orden.map(h => [h, { numero: h, par: 4, stroke_index: h, yardaje: null }]))
+    const b = renderHook(() => useGrupoScoreboard({
+      ronda: { holes: 18, modo_juego: 'neto', formato_juego: TIMBA } as never,
+      jugadores: jugadores as unknown as Jugador[], scores: {}, parMap, holeDataMap, playerHcp: { j1: 30, j2: 30, j3: 30 },
+      equipos: [], ordenHoyos: orden, currentHole: 1, isLastHole: false, matchResult: null,
+    })).result.current
+    expect(b.maxStrokesOnHole).toBe(0)
+    expect(orden.some(h => b.hoyoConGolpe(h))).toBe(false)
+  })
+
+  it('el aviso no nombra una pestaña que todavía no existe', () => {
+    expect(TEXTO_PUNTOS_DE_LA_TIMBA).not.toMatch(/pestaña/i)
   })
 })
