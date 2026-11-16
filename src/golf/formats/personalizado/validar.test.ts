@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  JUGADORES_POR_PLANTILLA,
+  LIMITES_JUEGO,
   crearConfigDePlantilla,
   sortearOrdenDeParejas,
   sortearParejasFijas,
@@ -44,6 +46,16 @@ describe('plantillas', () => {
 describe('validador', () => {
   it('Colombiana con 3 jugadores: lo bloquea con un mensaje', () => {
     expect(errores(crearConfigDePlantilla('colombiana'), 3)).toEqual(['La Colombiana es para 4 jugadores.'])
+  })
+  it('Colombiana o Subterránea con 2 o 5: primero el mensaje propio del juego, no el general "3 o 4"', () => {
+    expect(errores(crearConfigDePlantilla('colombiana'), 2)).toEqual(['La Colombiana es para 4 jugadores.'])
+    expect(errores(crearConfigDePlantilla('subterranea'), 5)).toEqual(['La Subterránea es para 4 jugadores.'])
+  })
+  it('el rango de cada plantilla cabe en el general (por eso basta mirar el de la plantilla)', () => {
+    for (const r of Object.values(JUGADORES_POR_PLANTILLA)) {
+      expect(r.min).toBeGreaterThanOrEqual(LIMITES_JUEGO.jugadores.min)
+      expect(r.max).toBeLessThanOrEqual(LIMITES_JUEGO.jugadores.max)
+    }
   })
   it('menos de 3 o más de 4 jugadores', () => {
     expect(errores(crearConfigDePlantilla('dos_cero_dos'), 2)).toEqual(['Timba libre es para 3 o 4 jugadores.'])
