@@ -242,6 +242,9 @@ export async function setWebhook(params: {
       secret_token: params.secretToken,
       allowed_updates: params.allowedUpdates ?? ['message', 'edited_message'],
       drop_pending_updates: params.dropPendingUpdates ?? true,
+      // De a un update a la vez: las fotos de un álbum se fusionan con leer-modificar-escribir
+      // sobre fotos_paths; en paralelo (default 40) una podía pisar a otra y perderse.
+      max_connections: 1,
     }),
   });
   return await resp.json();

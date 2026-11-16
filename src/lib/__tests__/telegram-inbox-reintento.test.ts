@@ -20,6 +20,7 @@ import {
   pendingFileIds,
   removePending,
   nextStatus,
+  fusionConAlbum,
   redact,
 } from '../../../scripts/inbox-recuperar-archivos.mjs';
 
@@ -101,6 +102,35 @@ describe('scripts/inbox-recuperar-archivos.mjs', () => {
     expect(nextStatus('error', 1)).toBe('error');
     expect(nextStatus('triaged', 0)).toBe('triaged');
     expect(nextStatus('en_progreso', 0)).toBe('en_progreso');
+  });
+
+  it('álbum de 3 donde falló la 1ª (la del caption): al fusionar queda 1 reporte con 3 fotos y el caption', () => {
+    const hermana = {
+      fotos_paths: ['reports/2026/11/b.jpg', 'reports/2026/11/c.jpg'],
+      caption: null,
+      texto: null,
+      audio_path: null,
+    };
+    const fusion = fusionConAlbum(hermana, {
+      fotos: ['reports/2026/11/a.jpg'],
+      audio: null,
+      caption: 'scroll roto en inscripción',
+      texto: null,
+    });
+    expect(fusion.fotos_paths).toEqual([
+      'reports/2026/11/b.jpg',
+      'reports/2026/11/c.jpg',
+      'reports/2026/11/a.jpg',
+    ]);
+    expect(fusion.caption).toBe('scroll roto en inscripción');
+  });
+
+  it('la fusión nunca pisa el caption que el álbum ya tiene', () => {
+    const fusion = fusionConAlbum(
+      { fotos_paths: [], caption: 'el del álbum', texto: null, audio_path: null },
+      { fotos: ['x.jpg'], audio: null, caption: 'otro', texto: null },
+    );
+    expect(fusion.caption).toBe('el del álbum');
   });
 
   it('lo que imprime el script nunca lleva el token del bot', () => {

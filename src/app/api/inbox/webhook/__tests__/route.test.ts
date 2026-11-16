@@ -67,6 +67,7 @@ type Captured = {
   uploads: { bucket: string; path: string; contentType: string }[];
   uploadError: { message: string } | null;
   insertError: { code: string; message: string } | null;
+  maybeSingleFilters: Record<string, unknown>[];
 };
 
 let captured: Captured;
@@ -90,6 +91,10 @@ function makeMockSupabase() {
       state.filters[col] = val;
       return api;
     };
+    api.neq = (col: string, val: unknown) => {
+      state.filters[`${col}__neq`] = val;
+      return api;
+    };
     api.gte = (col: string, val: unknown) => {
       state.filters[`${col}__gte`] = val;
       return api;
@@ -98,6 +103,7 @@ function makeMockSupabase() {
     api.limit = () => api;
     api.maybeSingle = async () => {
       if (captured.throwOnMaybeSingle) throw new Error('boom inesperado');
+      captured.maybeSingleFilters.push({ ...state.filters });
       return { data: captured.selectMaybeSingleReturn, error: null };
     };
     api.insert = async (payload: unknown) => {
@@ -169,6 +175,10 @@ function makeMockSupabase() {
             state.filters[col] = val;
             return listApi;
           },
+          neq: (col: string, val: unknown) => {
+            state.filters[`${col}__neq`] = val;
+            return listApi;
+          },
           gte: (col: string, val: unknown) => {
             state.filters[`${col}__gte`] = val;
             return listApi;
@@ -177,6 +187,7 @@ function makeMockSupabase() {
           limit: () => listApi,
           maybeSingle: async () => {
             if (captured.throwOnMaybeSingle) throw new Error('boom inesperado');
+            captured.maybeSingleFilters.push({ ...state.filters });
             return { data: captured.selectMaybeSingleReturn, error: null };
           },
           then: (resolve: (r: { data: unknown[]; error: null }) => unknown) =>
@@ -273,6 +284,7 @@ beforeEach(() => {
     uploads: [],
     uploadError: null,
     insertError: null,
+    maybeSingleFilters: [],
   };
   sendMessageSpy.mockClear();
   getFileSpy.mockReset();
@@ -491,7 +503,7 @@ describe('POST /api/inbox/webhook', () => {
     expect(aviso?.[0]).toBe(ALLOWED_CHAT);
   });
 
-  it('11. falla una foto de un álbum ya creado → fila PROPIA de error (sin media_group), el álbum no se toca', async () => {
+  it('11. falla una foto de un álbum ya creado → fila PROPIA de error (con su media_group), el álbum no se toca', async () => {
     // Anotar en la fila del álbum sería leer-modificar-escribir: otra foto del mismo álbum
     // procesada en paralelo podía borrar la nota y perder la foto en silencio.
     captured.selectMaybeSingleReturn = {
@@ -524,7 +536,8 @@ describe('POST /api/inbox/webhook', () => {
     };
     expect(ins.status).toBe('error');
     expect(ins.notas).toBe('archivo pendiente: file_id=foto-album-2');
-    expect(ins.telegram_media_group_id).toBeNull();
+    // Conserva el grupo: el script de recuperación fusiona la foto con su álbum.
+    expect(ins.telegram_media_group_id).toBe('grupo-1');
     expect(ins.telegram_message_id).toBe(110);
     expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('Quedó anotado'))).toBe(true);
   });
@@ -548,6 +561,9 @@ describe('POST /api/inbox/webhook', () => {
     const merge = captured.updates.find((u) => u.match.id === 'uuid-album');
     expect(merge).toBeDefined();
     expect(Object.keys(merge?.payload as object)).not.toContain('notas');
+    // La búsqueda del álbum ignora las filas de error (archivo pendiente) del mismo grupo.
+    const busqueda = captured.maybeSingleFilters.find((f) => f.telegram_media_group_id === 'grupo-1');
+    expect(busqueda?.status__neq).toBe('error');
   });
 
   it('11c. Telegram rechaza el archivo con 4xx (>20 MB, file_id inválido) → error definitivo, sin nota pendiente', async () => {

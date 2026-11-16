@@ -116,8 +116,9 @@ const MSG_ARCHIVO_PENDIENTE =
  * después; se avisa. Nunca se pierde en silencio.
  *
  * Fila propia aunque sea parte de un álbum: anotar en la fila del álbum sería un
- * leer-modificar-escribir que otra foto del mismo álbum puede pisar. Sin media_group_id para
- * que las demás fotos del álbum no se fusionen en esta fila de error.
+ * leer-modificar-escribir que otra foto del mismo álbum puede pisar. Conserva el media_group_id
+ * para que el script la fusione con su álbum al recuperarla (y el caption, que Telegram pone
+ * solo en la 1ª foto, no quede separado); findRecentMediaGroup excluye las filas en error.
  */
 async function registrarArchivoPendiente(
   supabase: ReturnType<typeof createAdminClient>,
@@ -131,7 +132,7 @@ async function registrarArchivoPendiente(
     telegram_message_id: msg.message_id,
     telegram_chat_id: msg.chat.id,
     telegram_user_id: msg.from?.id ?? null,
-    telegram_media_group_id: null,
+    telegram_media_group_id: msg.media_group_id ?? null,
     telegram_msg_date: isoFromUnix(msg.date),
     texto: msg.text ?? null,
     caption: msg.caption ?? null,
@@ -281,6 +282,9 @@ async function findRecentMediaGroup(
     .select('id, fotos_paths, caption')
     .eq('telegram_media_group_id', groupId)
     .eq('telegram_chat_id', msg.chat.id)
+    // Las filas de archivo pendiente (status error) llevan el grupo para que el script de
+    // recuperación las fusione con su álbum, pero las fotos que sí bajan no se suman a ellas.
+    .neq('status', 'error')
     .gte('telegram_msg_date', cutoff)
     .order('recibido_en', { ascending: false })
     .limit(1)
@@ -421,6 +425,12 @@ async function insertOrUpdateReport(
  * INSERT idempotente: si Telegram reentrega un update que ya se guardó (p. ej. tras un
  * timeout de la función), la UNIQUE (telegram_message_id, telegram_chat_id) responde 23505
  * y eso es "ya guardado", no un error que haga pedir un reenvío.
+ *
+ * Límite conocido (raro: la función tiene que morir justo entre guardar y responder): si la
+ * 1ª entrega sumó la foto a un álbum (sin fila propia) y en la reentrega la descarga falla,
+ * queda además una fila pendiente y al recuperarla la foto aparece dos veces. Al revés, si la
+ * 1ª insertó y la 2ª falla la descarga, el 23505 hace que avise "lo recupero" sin pendiente.
+ * Ninguno pierde información.
  */
 async function insertReport(
   supabase: ReturnType<typeof createAdminClient>,
