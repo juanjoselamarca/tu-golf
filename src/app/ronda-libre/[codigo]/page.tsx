@@ -327,6 +327,7 @@ function RondaLibrePageContent() {
             hoyoInicio={ronda.hoyo_inicio}
             holes={ronda.holes}
             firma={`${currentUserId ?? ''}:${ronda.estado}:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.scores))}`}
+            cerrada={esRondaCerrada(ronda.estado)}
             onIngresar={() => { requireAuth('Ve los puntos de la Timba') }}
           />
         ) : (<>

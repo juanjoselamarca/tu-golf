@@ -51,11 +51,13 @@ export function TimbaEnVivo(props: {
   holes: number
   /** Cambia con cada actualización en vivo (y al iniciar sesión): vuelve a pedir el juego. */
   firma: string
+  /** Ronda finalizada: los puntos ya no cambian; no se vuelve a pedir el juego cada 20 s. */
+  cerrada: boolean
   onIngresar: () => void
 }) {
-  const { codigo, jugadores, hoyoInicio, holes, firma, onIngresar } = props
+  const { codigo, jugadores, hoyoInicio, holes, firma, cerrada, onIngresar } = props
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('juego')
-  const { juego, recargar } = useJuegoDeLaTimba(codigo, { activo: true, firma })
+  const { juego, recargar } = useJuegoDeLaTimba(codigo, { activo: true, firma, intervaloS: cerrada ? 0 : undefined })
   const nombres = useMemo(() => Object.fromEntries(jugadores.map(j => [j.id, j.nombre])), [jugadores])
   const hoyos = useMemo(() => hoyosDeLaRonda(hoyoInicio ?? 1, holes), [hoyoInicio, holes])
 
