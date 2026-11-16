@@ -16,7 +16,7 @@ import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { formatOverUnder } from '@/constants/golf'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { NOMBRE_FORMATO_PERSONALIZADO, esFormatoPersonalizado } from '@/golf/formats/personalizado'
 
 export interface BuildShareDataArgs {
   ronda: RondaLibre
@@ -91,7 +91,7 @@ export function buildShareText(
   const jugadores = ronda.ronda_libre_jugadores
   if (jugadores.length === 0) return `Ronda en ${ronda.course_name} — Golfers+`
   // Timba libre: sin líder por golpes ni por neto (sin el hándicap de los otros, el neto sería falso).
-  if (esFormatoPersonalizado(ronda.formato_juego)) return `Timba libre en ${ronda.course_name} — Síguela en vivo`
+  if (esFormatoPersonalizado(ronda.formato_juego)) return `${NOMBRE_FORMATO_PERSONALIZADO} en ${ronda.course_name} — Síguela en vivo`
 
   // Match Play
   const mr = buildMatchResult(ronda, parMap, siMap, courseHcpMap)

@@ -55,6 +55,11 @@ describe('FORMAT_META completeness', () => {
 })
 
 describe('formatLabel', () => {
+  it('Timba libre se nombra como tal, nunca como Stroke Play', () => {
+    expect(formatLabel('personalizado', 'gross')).toBe('Timba libre')
+    expect(formatLabel('personalizado', 'neto')).toBe('Timba libre Neto')
+    expect(formatLabel('personalizado')).toBe('Timba libre')
+  })
   it('stroke_play gross → Stroke Play Gross', () => {
     expect(formatLabel('stroke_play', 'gross')).toBe('Stroke Play Gross')
   })

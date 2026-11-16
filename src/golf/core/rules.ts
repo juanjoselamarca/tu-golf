@@ -1,3 +1,6 @@
+// Solo `config` (que no importa nada del motor): sin ciclo core ↔ formats.
+import { NOMBRE_FORMATO_PERSONALIZADO, esFormatoPersonalizado } from '../formats/personalizado/config'
+
 /**
  * Reglas universales de golf — types y utilidades base.
  * Fuente de verdad para ModoJuego, FormatoJuego, labels y formateo.
@@ -124,6 +127,8 @@ export const FORMAT_META: Record<FormatoJuego, {
  * sepa exactamente qué modalidad se está jugando.
  */
 export function formatLabel(formato: FormatoJuego | string, modo?: ModoJuego | string | null): string {
+  // Timba libre no es un formato de FORMAT_META: sin esto caía en "Stroke Play" en encabezados y tarjetas.
+  if (esFormatoPersonalizado(formato)) return modo === 'neto' ? `${NOMBRE_FORMATO_PERSONALIZADO} Neto` : NOMBRE_FORMATO_PERSONALIZADO
   const meta = FORMAT_META[formato as FormatoJuego]
   const base = meta?.label ?? 'Stroke Play'
   // Stableford + Match Play son SIEMPRE neto en Golfers+ (cultura Chile / R&A)
