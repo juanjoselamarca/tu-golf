@@ -7,6 +7,7 @@ import { JuegoDeLaTimba, avisoNetoComoGross } from './JuegoDeLaTimba'
 import { PanelDelJuego, TEXTO_JUEGO_SIN_SESION, TEXTO_SIN_JUEGO } from './PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from './PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from './RetiroDeJugadores'
+import { HojaDeRetiro } from './HojaDeRetiro'
 import { AvisoMarcasRechazadas } from './AvisoMarcasRechazadas'
 import { PestanasDeLaTimba } from './PestanasDeLaTimba'
 import { TarjetaDeGolpes } from './TimbaEnVivo'
@@ -93,24 +94,36 @@ describe('PuntosEspecialesDelHoyo', () => {
 })
 
 describe('RetiroDeJugadores', () => {
-  it('retira solo después de confirmar, desde el hoyo indicado; el retirado se puede deshacer', async () => {
+  it('pide el retiro (la hoja la abre quien lo usa) y el retirado se puede deshacer', () => {
+    const onPedirRetiro = vi.fn()
+    const onDeshacer = vi.fn()
+    render(
+      <RetiroDeJugadores ocupado={false} onPedirRetiro={onPedirRetiro} onDeshacer={onDeshacer} jugadores={[
+        { id: 'a', nombre: 'Juan', retiradoDesde: null, desdeSiSeVa: 8 },
+        { id: 'b', nombre: 'Pedro', retiradoDesde: 5, desdeSiSeVa: 8 },
+      ]} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Retirar a Juan' }))
+    expect(onPedirRetiro).toHaveBeenCalledWith('a')
+    fireEvent.click(screen.getByRole('button', { name: 'Deshacer' }))
+    expect(onDeshacer).toHaveBeenCalledWith('b')
+  })
+})
+
+describe('HojaDeRetiro', () => {
+  it('confirma desde el hoyo calculado, o desde otro si se acordaron tarde', () => {
     vi.useFakeTimers()
     try {
-      const onRetirar = vi.fn(async () => true)
-      render(
-        <RetiroDeJugadores ocupado={false} onRetirar={onRetirar} jugadores={[
-          { id: 'a', nombre: 'Juan', retiradoDesde: null, desdeSiSeVa: 8 },
-          { id: 'b', nombre: 'Pedro', retiradoDesde: 5, desdeSiSeVa: 8 },
-        ]} />,
-      )
-      fireEvent.click(screen.getByRole('button', { name: 'Retirar a Juan' }))
-      expect(onRetirar).not.toHaveBeenCalled()
-      expect(screen.getByRole('dialog').textContent).toContain('¿Juan se retira desde el hoyo 8?')
+      const onConfirmar = vi.fn()
+      render(<HojaDeRetiro jugador={{ nombre: 'Juan', desdeSiSeVa: 8, hoyosParaElegir: [1, 2, 3, 4, 5, 6, 7, 8] }} onConfirmar={onConfirmar} onCancelar={vi.fn()} />)
+      const hoja = screen.getByRole('dialog')
+      expect(hoja.textContent).toContain('¿Juan se retira desde el hoyo 8?')
+      expect(within(hoja).getByRole('radio', { name: 'Hoyo 8' }).getAttribute('aria-checked')).toBe('true')
+      fireEvent.click(within(hoja).getByRole('radio', { name: 'Hoyo 6' }))
+      expect(hoja.textContent).toContain('¿Juan se retira desde el hoyo 6?')
       act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
       fireEvent.click(screen.getByRole('button', { name: 'Retirar' }))
-      expect(onRetirar).toHaveBeenCalledWith('a', 8)
-      fireEvent.click(screen.getByRole('button', { name: 'Deshacer' }))
-      expect(onRetirar).toHaveBeenCalledWith('b', null)
+      expect(onConfirmar).toHaveBeenCalledWith(6)
     } finally {
       vi.useRealTimers()
     }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
 
 interface ConfirmarFinalizarHojaProps {
@@ -10,6 +10,8 @@ interface ConfirmarFinalizarHojaProps {
   detalle?: string
   /** Botón de confirmar; por defecto "Finalizar". La misma hoja confirma el retiro de un jugador en la Timba. */
   textoConfirmar?: string
+  /** Algo para elegir antes de confirmar (el retiro elige desde qué hoyo), entre el detalle y los botones. */
+  children?: ReactNode
   onConfirmar: () => void
   onCancelar: () => void
 }
@@ -26,7 +28,7 @@ export const MS_ANTES_DE_ARMAR = 400
  * que tocó "Finalizar ronda" y, según lo alta que esté la barra (sube si debajo está
  * "Descartar ronda"), el segundo toque de un doble toque caía justo en él y cerraba la ronda.
  */
-export function ConfirmarFinalizarHoja({ titulo, detalle, textoConfirmar = 'Finalizar', onConfirmar, onCancelar }: ConfirmarFinalizarHojaProps) {
+export function ConfirmarFinalizarHoja({ titulo, detalle, textoConfirmar = 'Finalizar', children, onConfirmar, onCancelar }: ConfirmarFinalizarHojaProps) {
   const tituloId = useId()
   const confirmarRef = useRef<HTMLButtonElement>(null)
   const [armada, setArmada] = useState(false)
@@ -75,6 +77,7 @@ export function ConfirmarFinalizarHoja({ titulo, detalle, textoConfirmar = 'Fina
               {detalle}
             </p>
           )}
+          {children}
           <button
             ref={confirmarRef}
             onClick={onConfirmar}

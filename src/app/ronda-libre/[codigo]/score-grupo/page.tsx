@@ -42,6 +42,7 @@ import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from '../c
 import { PanelDelJuego } from '../components/timba/PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from '../components/timba/PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from '../components/timba/RetiroDeJugadores'
+import { HojaDeRetiro } from '../components/timba/HojaDeRetiro'
 import { AvisoMarcasRechazadas } from '../components/timba/AvisoMarcasRechazadas'
 
 const SIN_JUGADORES: Jugador[] = []
@@ -94,6 +95,8 @@ export default function ScoreGrupoPage() {
   // Timba libre: puntos, marcas y retiros (todo de GET /juego). Fuera de una Timba no pide nada.
   const esTimba = esFormatoPersonalizado(ronda?.formato_juego)
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('tarjeta')
+  // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
+  const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
   const timba = useTimbaDelScorer({
     codigo, activo: esTimba, conexion, jugadores, scores, firma: `${saveStatus}:${JSON.stringify(scores)}`,
     currentHole, ordenHoyos, par: parMap[currentHole] ?? 4,
@@ -212,7 +215,12 @@ export default function ScoreGrupoPage() {
             hoyoActual={currentHole}
             onReintentar={() => { void timba.recargar() }}
             pie={(
-              <RetiroDeJugadores jugadores={timba.jugadoresParaRetiro} ocupado={timba.marcas.retirando || finalizing} onRetirar={timba.marcas.retirar} />
+              <RetiroDeJugadores
+                jugadores={timba.jugadoresParaRetiro}
+                ocupado={timba.marcas.retirando || finalizing}
+                onPedirRetiro={setRetiroPedido}
+                onDeshacer={(id) => { void timba.marcas.retirar(id, null) }}
+              />
             )}
           />
         </div>
@@ -332,6 +340,17 @@ export default function ScoreGrupoPage() {
               pending={pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole}
               onChange={(delta) => anotar(j.id, delta)}
               theme={theme}
+              accion={esTimba && !finalizing && timba.jugadoresParaRetiro.some(r => r.id === j.id && r.desdeSiSeVa != null) ? (
+                <button
+                  type="button"
+                  onClick={() => setRetiroPedido(j.id)}
+                  disabled={timba.marcas.retirando}
+                  aria-label={`Retirar a ${j.nombre}`}
+                  style={{ minHeight: '44px', minWidth: '44px', margin: '-14px 0', padding: '0 8px', border: 'none', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit', fontSize: '13px', textDecoration: 'underline', textUnderlineOffset: '3px', cursor: 'pointer' }}
+                >
+                  Retirar
+                </button>
+              ) : undefined}
             />
           ))}
 
@@ -362,6 +381,17 @@ export default function ScoreGrupoPage() {
       />
       </>
       )}
+
+      {(() => {
+        const jugador = retiroPedido ? timba.jugadoresParaRetiro.find(j => j.id === retiroPedido) : undefined
+        return jugador ? (
+          <HojaDeRetiro
+            jugador={jugador}
+            onConfirmar={(desde) => { setRetiroPedido(null); void timba.marcas.retirar(jugador.id, desde) }}
+            onCancelar={() => setRetiroPedido(null)}
+          />
+        ) : null
+      })()}
 
       {confirmFinalize && (
         <ConfirmarFinalizarHoja

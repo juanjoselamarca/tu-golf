@@ -1,10 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
-
-export const DETALLE_RETIRO = 'Pierde los hoyos que no juegue: en cada uno queda último. Los demás siguen jugando.'
-
 interface Jugador {
   id: string
   nombre: string
@@ -15,20 +10,21 @@ interface Jugador {
 }
 
 /**
- * Retiro de un jugador desde el scorer de grupo de una Timba (spec, "Hoyo pendiente y retiro"): siempre con
- * confirmación, porque le hace perder los hoyos que quedan. Se puede deshacer (se equivocaron de jugador).
+ * Retiros al pie de la pestaña Juego de una Timba (spec, "Hoyo pendiente y retiro"). Retirar abre la hoja de
+ * confirmación (`HojaDeRetiro`, la misma que desde la tarjeta del jugador), porque le hace perder los hoyos que
+ * quedan. Se puede deshacer (se equivocaron de jugador). Separado de "Descartar ronda" con aire de sobra.
  */
-export function RetiroDeJugadores({ jugadores, ocupado, onRetirar }: {
+export function RetiroDeJugadores({ jugadores, ocupado, onPedirRetiro, onDeshacer }: {
   jugadores: readonly Jugador[]
   ocupado: boolean
-  onRetirar: (jugadorId: string, desde: number | null) => Promise<boolean>
+  onPedirRetiro: (jugadorId: string) => void
+  onDeshacer: (jugadorId: string) => void
 }) {
-  const [confirmando, setConfirmando] = useState<{ id: string; nombre: string; desde: number } | null>(null)
   const candidatos = jugadores.filter(j => j.retiradoDesde != null || j.desdeSiSeVa != null)
   if (candidatos.length === 0) return null
 
   return (
-    <section aria-label="Retiros" style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+    <section aria-label="Retiros" style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '12px', marginBottom: '32px', borderTop: '1px solid var(--border)' }}>
       <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-2)' }}>¿Alguien se va antes?</h3>
       {candidatos.map(j => j.retiradoDesde != null ? (
         <div key={j.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minHeight: '48px' }}>
@@ -36,7 +32,7 @@ export function RetiroDeJugadores({ jugadores, ocupado, onRetirar }: {
           <button
             type="button"
             disabled={ocupado}
-            onClick={() => { void onRetirar(j.id, null) }}
+            onClick={() => onDeshacer(j.id)}
             style={{ minHeight: '44px', padding: '0 14px', borderRadius: '10px', border: '1px solid var(--border-md)', background: 'transparent', color: 'var(--text)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
           >
             Deshacer
@@ -47,26 +43,12 @@ export function RetiroDeJugadores({ jugadores, ocupado, onRetirar }: {
           key={j.id}
           type="button"
           disabled={ocupado}
-          onClick={() => setConfirmando({ id: j.id, nombre: j.nombre, desde: j.desdeSiSeVa as number })}
+          onClick={() => onPedirRetiro(j.id)}
           style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid var(--border-md)', background: 'transparent', color: 'var(--text)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 500, textAlign: 'left', padding: '0 14px', cursor: 'pointer' }}
         >
           Retirar a {j.nombre}
         </button>
       ))}
-
-      {confirmando && (
-        <ConfirmarFinalizarHoja
-          titulo={`¿${confirmando.nombre} se retira desde el hoyo ${confirmando.desde}?`}
-          detalle={DETALLE_RETIRO}
-          textoConfirmar="Retirar"
-          onConfirmar={() => {
-            const { id, desde } = confirmando
-            setConfirmando(null)
-            void onRetirar(id, desde)
-          }}
-          onCancelar={() => setConfirmando(null)}
-        />
-      )}
     </section>
   )
 }
