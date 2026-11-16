@@ -42,8 +42,6 @@ export { calcularGWIMatch } from './stats/gwi-match'
 export type { MatchGWIInput, MatchGWIResult } from './stats/gwi-match'
 export { calcularCPI, nivelCPI, validarRonda } from './stats/cpi'
 export type { RondaCPI, ResultadoCPI } from './stats/cpi'
-export { calcPersonalStats } from './stats/personal'
-export type { PersonalStats } from './stats/personal'
 
 // Courses
 export * from './courses/types'
