@@ -15,6 +15,7 @@ import type { FormatoJuego } from '@/golf/core/rules'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
 import { leerHandicapDeEquipo } from '@/lib/draft/team-config-legacy'
+import { esModoHcpWhs, sinIndiceEnNingunaParte, type InscritoConIndice } from '@/golf/core/compute-player-course-hcp'
 
 /** Lo que el motivo necesita de un jugador aprobado. `StartPlayer` lo cumple. */
 export interface JugadorParaIniciar {
@@ -149,4 +150,42 @@ export function motivoParaNoIniciarDesdeInscritos(
 ): string | null {
   const aprobados = players.filter((p) => inscritoAprobado(p.status))
   return motivoParaNoIniciar(format, aprobados, soloAprobados(groups, aprobados), teamConfig)
+}
+
+/** Aprobado que jugará sin índice: lo que viaja entre la ruta de inicio y el panel. */
+export interface JugadorSinIndice {
+  id: string
+  nombre: string
+}
+
+/**
+ * Los aprobados sin índice en ninguna parte (`sinIndiceEnNingunaParte`). NO
+ * impide iniciar (decisión de producto, 16-nov-2026): el organizador los ve en
+ * la confirmación de inicio y puede iniciar igual.
+ */
+export function jugadoresSinIndice(
+  approvedPlayers: Array<JugadorParaIniciar & InscritoConIndice>,
+): JugadorSinIndice[] {
+  return approvedPlayers.filter(sinIndiceEnNingunaParte).map((p) => ({ id: p.id, nombre: playerName(p) }))
+}
+
+/**
+ * El aviso que acompaña la confirmación de inicio (y el 409 de la ruta para un
+ * panel que no lo pidió). En WHS lo inscrito es el ÍNDICE: con índice 0 el
+ * hándicap de cancha puede no ser 0 (rating ≠ par), así que se dice "índice 0".
+ * En raw lo inscrito ya es el hándicap.
+ */
+export function avisoSinIndice(sinIndice: JugadorSinIndice[], hcpCalcMode: string | null | undefined): string | null {
+  if (sinIndice.length === 0) return null
+  const cero = esModoHcpWhs(hcpCalcMode) ? 'índice 0' : 'hándicap 0'
+  return `Sin índice: ${listaCorta(sinIndice.map((j) => j.nombre))}. Jugarán con ${cero} hasta que lo corrijas en Scoring → Resumen.`
+}
+
+/** Código del 409 de la ruta de inicio cuando hay sin índice que el organizador no vio. */
+export const CODIGO_CONFIRMAR_SIN_INDICE = 'confirmar-sin-indice'
+
+/** Los sin índice que el organizador NO vio en la confirmación (por id). */
+export function sinIndiceNoVistos(sinIndice: JugadorSinIndice[], vistos: readonly string[]): JugadorSinIndice[] {
+  const v = new Set(vistos)
+  return sinIndice.filter((j) => !v.has(j.id))
 }
