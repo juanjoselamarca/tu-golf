@@ -27,6 +27,7 @@ import type { TournamentConfig } from '@/lib/draft/types'
 import { rondasSonSecuenciales } from './tournament-rounds'
 import { validarFechasDeTorneo } from './tournament-fechas'
 import { isTeamFormat } from './formats'
+import { formatLabel } from './core/rules'
 import { avisoSumaScramble, esPorcentajeDeEquipo } from './formats/team-handicap'
 import type { TeamConfig } from '@/lib/draft/types'
 import { HCP_PCT_OPCIONES, esHcpPctValido } from './core/playing-handicap'
@@ -61,7 +62,7 @@ export function validateGolfRules(
     errors.push({
       code: `${config.format}_requires_team_config`,
       field: 'team_config',
-      message: `${config.format} requiere team_config (tamaño y armado de equipos)`,
+      message: `${formatLabel(config.format)}: elige el tamaño de los equipos y cómo se arman`,
     })
   }
 
@@ -69,7 +70,7 @@ export function validateGolfRules(
     errors.push({
       code: 'match_play_requires_config',
       field: 'match_play_config',
-      message: 'match_play requiere match_play_config (bracket_mode)',
+      message: 'Match Play: elige el modo de bracket',
     })
   }
 
@@ -99,7 +100,7 @@ export function validateGolfRules(
       errors.push({
         code: 'duplicate_round_number',
         field: 'rounds',
-        message: `Hay dos rondas con round_number=${r.round_number}`,
+        message: `Hay dos rondas con el número ${r.round_number}`,
       })
     }
     roundNumbers.add(r.round_number)

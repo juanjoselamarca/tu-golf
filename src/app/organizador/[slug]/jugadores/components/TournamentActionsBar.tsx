@@ -2,9 +2,30 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { CSSProperties } from 'react'
+import { useTecladoAbierto } from '../hooks/useTecladoAbierto'
 
 /** id del texto con el motivo para no iniciar (lo referencia el botón con aria-describedby). */
 const MOTIVO_ID = 'motivo-no-iniciar'
+
+/** Acción secundaria de la barra (Abrir inscripciones / Compartir link).
+ *  Variante nav (DESIGN §5): sin relleno, borde y texto --brand-on-bg (con el
+ *  tinte dorado de fondo el texto bajaba a 4,37:1 en claro). */
+const estiloSecundario: CSSProperties = {
+  background: 'transparent',
+  color: 'var(--brand-on-bg)',
+  fontWeight: 600,
+  fontSize: '14px',
+  lineHeight: 1.25,
+  padding: '12px 14px',
+  minHeight: '48px',
+  borderRadius: '8px',
+  border: '1px solid var(--brand-on-bg)',
+  cursor: 'pointer',
+  transition: 'all 200ms',
+  flex: '1 1 0',
+  minWidth: 0,
+}
 
 interface Props {
   tournamentStatus: string
@@ -19,8 +40,6 @@ interface Props {
   allRoundsClosed: boolean
   onStart: () => void
   onOpenInscriptions: () => void
-  onRevertToDraft: () => void
-  onCancel: () => void
   onClose: () => void
   onReopen: () => void
   /** Altura real de la barra (cambia con el motivo y el ancho): la página la usa de holgura inferior. */
@@ -28,15 +47,18 @@ interface Props {
 }
 
 /** Barra de acciones fija inferior: cambia según estado del torneo
- *  (draft → eliminar/iniciar; in_progress → salida/scoring/cerrar;
- *  closed → leaderboard). Extraído verbatim de JugadoresPanel. */
+ *  (draft → abrir inscripciones/iniciar; open → compartir link/iniciar;
+ *  in_progress → salida/scoring/cerrar; closed → reabrir/leaderboard). */
 export function TournamentActionsBar({
   tournamentStatus, slug, playersCount, motivoNoIniciar, starting, closing, opening, allRoundsClosed,
-  onStart, onOpenInscriptions, onRevertToDraft, onCancel, onClose, onReopen, onAltura,
+  onStart, onOpenInscriptions, onClose, onReopen, onAltura,
 }: Props) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
   const barraRef = useRef<HTMLDivElement>(null)
+  // Con el teclado abierto la barra fija sube con él y tapa el campo que se
+  // está escribiendo: se esconde (y su alto pasa a 0) mientras dure.
+  const tecladoAbierto = useTecladoAbierto()
 
   // La barra es fija y su alto depende del motivo (largo variable) y de cuántas
   // filas ocupan los botones: se mide en vez de estimarlo, para que nunca tape
@@ -65,11 +87,17 @@ export function TournamentActionsBar({
     }
   }
 
+  // Antes de iniciar, la barra fija lleva UNA fila: la acción que sigue + Iniciar.
+  // Eliminar y "Volver a borrador" viven al final de la página
+  // (`AccionesDeGestion`): con 3 botones apilados + el motivo en caja, la barra
+  // tapaba media pantalla en un teléfono (inbox 16-nov).
+  const preInicio = tournamentStatus === 'draft' || tournamentStatus === 'open'
+
   return (
-    <div ref={barraRef} className="organizador-barra-acciones" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', zIndex: 50 }}>
-      {(tournamentStatus === 'draft' || tournamentStatus === 'open') && motivoNoIniciar && (
+    <div ref={barraRef} className="organizador-barra-acciones" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: preInicio ? '10px 16px' : '16px 24px', paddingBottom: `calc(${preInicio ? 22 : 16}px + env(safe-area-inset-bottom, 0px))` /* ≥20: el botón JUGAR del nav sobresale ~15 px hacia arriba */, display: tecladoAbierto ? 'none' : 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: preInicio ? '8px' : '12px', zIndex: 50 }}>
+      {preInicio && motivoNoIniciar && (
         // El motivo se ve ANTES de apretar "Iniciar" (antes llegaba como toast
-        // del 400 recién al apretarlo). Ocupa la fila completa sobre los botones.
+        // del 400 recién al apretarlo). Una línea de texto, sin caja.
         <p
           id={MOTIVO_ID}
           role="status"
@@ -77,111 +105,35 @@ export function TournamentActionsBar({
             flexBasis: '100%',
             maxWidth: '640px',
             margin: 0,
-            padding: '10px 14px',
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-md)',
-            borderLeft: '3px solid var(--brand-on-bg)',
-            borderRadius: '8px',
-            color: 'var(--text)',
-            fontSize: '14px',
-            lineHeight: 1.45,
+            color: 'var(--text-2)',
+            fontSize: '13px',
+            lineHeight: 1.4,
+            textAlign: 'center',
           }}
         >
-          <strong style={{ fontWeight: 600 }}>Aún no puedes iniciar: </strong>
+          <strong style={{ fontWeight: 600, color: 'var(--text)' }}>Aún no puedes iniciar: </strong>
           {motivoNoIniciar}
         </p>
       )}
 
-      {tournamentStatus === 'draft' && (
-        <>
-          <button
-            onClick={onCancel}
-            style={{
-              background: 'rgba(220,38,38,0.1)',
-              color: '#fca5a5',
-              fontWeight: 600,
-              fontSize: '14px',
-              padding: '14px 24px',
-              borderRadius: '8px',
-              border: '1px solid rgba(220,38,38,0.25)',
-              cursor: 'pointer',
-              transition: 'all 200ms',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            Eliminar torneo
-          </button>
-          <button
-            onClick={onOpenInscriptions}
-            disabled={opening}
-            style={{
-              background: 'rgba(196,153,42,0.12)',
-              color: 'var(--brand-on-bg)',
-              fontWeight: 600,
-              fontSize: '14px',
-              padding: '14px 24px',
-              borderRadius: '8px',
-              border: '1px solid rgba(196,153,42,0.3)',
-              cursor: opening ? 'not-allowed' : 'pointer',
-              transition: 'all 200ms',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {opening ? 'Abriendo...' : 'Abrir inscripciones'}
-          </button>
+      {preInicio && (
+        <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '640px' }}>
+          {tournamentStatus === 'draft' ? (
+            <button
+              onClick={onOpenInscriptions}
+              disabled={opening}
+              style={{ ...estiloSecundario, cursor: opening ? 'not-allowed' : 'pointer' }}
+            >
+              {opening ? 'Abriendo...' : 'Abrir inscripciones'}
+            </button>
+          ) : (
+            // En 'open' el estado ya lo dice el badge del header ("Inscripciones abiertas").
+            <button onClick={handleShareLink} style={estiloSecundario}>
+              {copied ? '¡Link copiado!' : 'Compartir link'}
+            </button>
+          )}
           <BotonIniciar playersCount={playersCount} motivo={motivoNoIniciar} starting={starting} onStart={onStart} />
-        </>
-      )}
-
-      {tournamentStatus === 'open' && (
-        // En 'open' el estado ya se comunica con el badge del header
-        // ("Inscripciones abiertas"), así que la barra no repite el indicador.
-        // Tampoco expone "Eliminar": para borrar, primero "Volver a borrador"
-        // (un paso extra para lo destructivo = CERO FALLOS). Quedan 3 botones.
-        <>
-          <button
-            onClick={onRevertToDraft}
-            disabled={opening}
-            style={{
-              background: 'rgba(122,143,168,0.12)',
-              color: 'var(--text-2)',
-              fontWeight: 600,
-              fontSize: '14px',
-              padding: '14px 20px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-md)',
-              cursor: opening ? 'not-allowed' : 'pointer',
-              transition: 'all 200ms',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {opening ? '...' : 'Volver a borrador'}
-          </button>
-          <button
-            onClick={handleShareLink}
-            style={{
-              // Variante nav (DESIGN §5): sin relleno. Con el tinte dorado el texto
-              // --brand-on-bg bajaba a 4,37:1 en claro.
-              background: 'transparent',
-              color: 'var(--brand-on-bg)',
-              fontWeight: 600,
-              fontSize: '14px',
-              padding: '14px 24px',
-              borderRadius: '8px',
-              border: '1px solid var(--brand-on-bg)',
-              cursor: 'pointer',
-              transition: 'all 200ms',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {copied ? '¡Link copiado!' : 'Compartir link'}
-          </button>
-          <BotonIniciar playersCount={playersCount} motivo={motivoNoIniciar} starting={starting} onStart={onStart} />
-        </>
+        </div>
       )}
 
       {tournamentStatus === 'in_progress' && (
@@ -311,16 +263,18 @@ function BotonIniciar({ playersCount, motivo, starting, onStart }: {
         background: !motivo ? 'var(--brand)' : 'rgba(122,143,168,0.2)',
         color: !motivo ? '#070d18' : 'var(--text-2)',
         fontWeight: 700,
-        fontSize: '16px',
-        padding: '14px 40px',
+        fontSize: '15px',
+        lineHeight: 1.25,
+        padding: '12px 14px',
         minHeight: '48px',
         borderRadius: '8px',
         border: 'none',
         cursor: habilitado ? 'pointer' : 'not-allowed',
         transition: 'all 200ms',
-        minWidth: '200px',
-        whiteSpace: 'nowrap',
-        flexShrink: 0,
+        // Comparte la fila con la acción secundaria: en 390 px el texto puede
+        // partirse en dos líneas antes que empujar la barra a dos filas.
+        flex: '1.3 1 0',
+        minWidth: 0,
       }}
     >
       {starting ? 'Iniciando...' : `Iniciar torneo (${playersCount} jugador${playersCount !== 1 ? 'es' : ''})`}

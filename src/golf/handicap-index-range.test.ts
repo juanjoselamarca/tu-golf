@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  presentacionHandicapInscrito,
   leerCampoHandicap,
   campoHandicapEnviable,
   avisoCampoHandicap,
@@ -254,5 +255,24 @@ describe('mensajeIndiceQueBloquea — aviso bajo "Revisar" en ronda libre', () =
   it('nombra al creador como "tu índice" y a un rival por su nombre', () => {
     expect(mensajeIndiceQueBloquea(null)).toBe('Revisa tu índice: escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
     expect(mensajeIndiceQueBloquea('Pedro')).toBe('Revisa el índice de Pedro: escribe un número (12.4, o +2 si es plus) o déjalo vacío.')
+  })
+})
+
+describe('presentacionHandicapInscrito', () => {
+  it('WHS: rótulo Índice y un decimal fijo, plus con "+"', () => {
+    const p = presentacionHandicapInscrito('whs')
+    expect(p.rotulo).toBe('Índice')
+    expect(p.formatear(8.5)).toBe('8.5')
+    expect(p.formatear(18)).toBe('18.0')
+    expect(p.formatear(-2)).toBe('+2.0')
+  })
+
+  it('fuera de WHS (o sin modo): rótulo HCP y el número tal cual', () => {
+    for (const modo of ['raw', null, undefined]) {
+      const p = presentacionHandicapInscrito(modo)
+      expect(p.rotulo).toBe('HCP')
+      expect(p.formatear(9)).toBe('9')
+      expect(p.formatear(-2)).toBe('+2')
+    }
   })
 })

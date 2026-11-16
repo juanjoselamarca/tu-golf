@@ -5,6 +5,7 @@
 // Sección "Match Play" — visible solo si format === 'match_play'.
 // Edita config.match_play_config.
 
+import { useEffect } from 'react'
 import type { TournamentConfig, MatchPlayConfig } from '@/lib/draft/types'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
 
@@ -19,6 +20,13 @@ const DEFAULT_MATCH_PLAY: MatchPlayConfig = {
 }
 
 export function MatchPlaySection({ config, applyChange }: MatchPlaySectionProps) {
+  // El default que la sección muestra se guarda al elegir Match Play: si no,
+  // "Crear torneo" quedaba bloqueado por un bracket que se veía elegido.
+  const faltaGuardar = config.format === 'match_play' && config.match_play_config == null
+  useEffect(() => {
+    if (faltaGuardar) applyChange({ match_play_config: DEFAULT_MATCH_PLAY })
+  }, [faltaGuardar, applyChange])
+
   if (config.format !== 'match_play') return null
 
   const mp: MatchPlayConfig = config.match_play_config ?? DEFAULT_MATCH_PLAY

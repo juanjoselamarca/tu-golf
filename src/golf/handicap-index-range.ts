@@ -99,6 +99,22 @@ export function formatearIndice(v: number): string {
 }
 
 /**
+ * Cómo rotular y formatear el handicap CON QUE SE INSCRIBIÓ un jugador
+ * (`handicap_at_registration`) según el modo del torneo: en WHS se guarda el
+ * índice ("Índice", un decimal fijo); en el resto, el handicap tal cual ("HCP").
+ * Una sola fuente para que el formulario y la tabla del organizador no llamen
+ * distinto al mismo número (inbox 16-nov: "Course HCP" mostraba el índice).
+ */
+export function presentacionHandicapInscrito(hcpCalcMode: string | null | undefined): {
+  rotulo: 'Índice' | 'HCP'
+  formatear: (v: number) => string
+} {
+  return esModoHcpWhs(hcpCalcMode)
+    ? { rotulo: 'Índice', formatear: formatearIndice }
+    : { rotulo: 'HCP', formatear: (v) => formatearHandicap(v) }
+}
+
+/**
  * Lo que tipea el usuario → número. Acepta el plus con signo ("+2" → −2, la
  * notación del golf), el negativo con que lo guarda la app ("-2" → −2) y la
  * coma decimal ("18,5"). Devuelve NaN si no es un número: el caller decide el

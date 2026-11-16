@@ -31,7 +31,7 @@ const boton = () => screen.getAllByRole('button', { name: 'Agregar invitado' }).
 describe('InscribirPlayerForm — hándicap del invitado', () => {
   it('el campo es de texto (acepta el "+" del plus; el teclado decimal del iPhone no tiene signo)', () => {
     pintar('')
-    const input = screen.getByLabelText('Handicap (opcional)') as HTMLInputElement
+    const input = screen.getByLabelText('HCP (opcional)') as HTMLInputElement
     expect(input.type).toBe('text')
     expect(input.inputMode).not.toBe('decimal')
   })
@@ -59,12 +59,12 @@ describe('InscribirPlayerForm — hándicap a medio escribir', () => {
     fireEvent.click(boton())
     expect(onInscribirGuest).not.toHaveBeenCalled()
     expect(screen.getByRole('alert').textContent).toBe(AVISO)
-    expect(document.activeElement).toBe(screen.getByLabelText('Handicap (opcional)'))
+    expect(document.activeElement).toBe(screen.getByLabelText('HCP (opcional)'))
   })
 
   it('el aviso queda enlazado al campo (aria-describedby + aria-invalid)', () => {
     pintar('abc')
-    const input = screen.getByLabelText('Handicap (opcional)')
+    const input = screen.getByLabelText('HCP (opcional)')
     expect(input.getAttribute('aria-invalid')).toBe('true')
     expect(input.getAttribute('aria-describedby')).toBe(screen.getByRole('alert').id)
   })

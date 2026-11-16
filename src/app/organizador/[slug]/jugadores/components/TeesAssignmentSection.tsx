@@ -12,7 +12,7 @@ import { ChevronDown, Loader2, Users } from '@/components/icons'
 import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { inscritoAprobado } from '@/golf/tournament-status'
 import type { PlayerRow } from '@/lib/data/tournaments/players'
-import { formatearIndice } from '@/golf/handicap-index-range'
+import { presentacionHandicapInscrito } from '@/golf/handicap-index-range'
 
 // Mapa nombre tee → color hex (no canónicamente exportado del módulo de colors —
 // estos son los colores estándar de tees chilenos. Si no matchea cae a neutro gris).
@@ -36,6 +36,11 @@ function colorOf(nombre: string | null | undefined): string {
   return TEE_HEX[nombre.toLowerCase()] ?? '#6b7280'
 }
 
+/** Nombre a mostrar: el del perfil, o el del invitado sin cuenta. */
+function nombreDe(p: PlayerRow): string | null {
+  return p.profiles?.name || p.player_name || null
+}
+
 export interface TeesAssignmentSectionProps {
   players: PlayerRow[]
   courseTees: CourseTeeRow[]
@@ -43,6 +48,8 @@ export interface TeesAssignmentSectionProps {
   loading: Set<string>
   errors: Map<string, string>
   onAssign: (playerId: string, teeId: string | null) => void
+  /** `tournaments.hcp_calc_mode`: el número se muestra como en la tabla de jugadores. */
+  hcpCalcMode: string | null | undefined
 }
 
 export function TeesAssignmentSection({
@@ -52,7 +59,11 @@ export function TeesAssignmentSection({
   loading,
   errors,
   onAssign,
+  hcpCalcMode,
 }: TeesAssignmentSectionProps) {
+  // El mismo número que la tabla de jugadores (el inscrito, el que puntúa), no el
+  // índice de hoy del perfil: antes el panel mostraba dos números distintos.
+  const { formatear: formatearHcp } = presentacionHandicapInscrito(hcpCalcMode)
   if (courseTees.length === 0) {
     return (
       <section style={sectionStyle}>
@@ -98,7 +109,7 @@ export function TeesAssignmentSection({
             const displayName = r.tee?.nombre ?? '—'
             const c = colorOf(r.tee?.nombre)
             const isAssigned = r.source === 'manual'
-            const hcp = p.profiles?.indice
+            const hcp = p.handicap_at_registration
 
             return (
               <li
@@ -115,7 +126,7 @@ export function TeesAssignmentSection({
                   transition: 'opacity 200ms ease, border-left-color 300ms ease',
                 }}
               >
-                <Avatar name={p.profiles?.name || '?'} size="sm" />
+                <Avatar name={nombreDe(p) ?? '?'} size="sm" />
                 <span
                   style={{
                     flex: 1,
@@ -128,7 +139,7 @@ export function TeesAssignmentSection({
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {p.profiles?.name || 'Jugador'}
+                  {nombreDe(p) ?? 'Jugador'}
                 </span>
                 <span
                   style={{
@@ -139,7 +150,7 @@ export function TeesAssignmentSection({
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >
-                  {hcp != null ? formatearIndice(hcp) : '—'}
+                  {hcp != null ? formatearHcp(hcp) : '—'}
                 </span>
                 <label
                   style={{
@@ -191,7 +202,7 @@ export function TeesAssignmentSection({
                       appearance: 'none',
                       fontSize: 16,
                     }}
-                    aria-label={`Tee de ${p.profiles?.name || 'jugador'}`}
+                    aria-label={`Tee de ${nombreDe(p) ?? 'jugador'}`}
                   >
                     <option value="">— Sin asignar (hereda) —</option>
                     {courseTees.map(t => (

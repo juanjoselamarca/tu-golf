@@ -38,6 +38,8 @@ export interface Tournament {
   date_start?: string
   total_rounds?: number
   rounds?: Array<{ tee_assignment_mode?: string }>
+  /** 'whs': lo inscrito es el índice; 'raw' (torneos viejos): un hándicap ya convertido. */
+  hcp_calc_mode?: string | null
 }
 
 /**

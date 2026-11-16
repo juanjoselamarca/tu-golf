@@ -11,6 +11,7 @@ const players: PlayerRow[] = [
     tournament_id: 't1',
     user_id: 'u1',
     category_id: null,
+    player_name: null,
     handicap_at_registration: 12.3,
     status: 'approved',
     tee_id: 't-azul',
@@ -23,6 +24,7 @@ const players: PlayerRow[] = [
     tournament_id: 't1',
     user_id: 'u2',
     category_id: 'cat-damas',
+    player_name: null,
     handicap_at_registration: 18.4,
     status: 'approved',
     tee_id: null,
@@ -45,6 +47,7 @@ describe('TeesAssignmentSection', () => {
         players={players}
         courseTees={courseTees}
         tournamentTeesGlobal={null}
+        hcpCalcMode={null}
         loading={new Set()}
         errors={new Map()}
         onAssign={vi.fn()}
@@ -60,6 +63,7 @@ describe('TeesAssignmentSection', () => {
         players={players}
         courseTees={courseTees}
         tournamentTeesGlobal={null}
+        hcpCalcMode={null}
         loading={new Set()}
         errors={new Map()}
         onAssign={vi.fn()}
@@ -76,6 +80,7 @@ describe('TeesAssignmentSection', () => {
         players={players}
         courseTees={courseTees}
         tournamentTeesGlobal={null}
+        hcpCalcMode={null}
         loading={new Set()}
         errors={new Map()}
         onAssign={vi.fn()}
@@ -95,6 +100,7 @@ describe('TeesAssignmentSection', () => {
         players={conNegras}
         courseTees={courseTees}
         tournamentTeesGlobal={null}
+        hcpCalcMode={null}
         loading={new Set()}
         errors={new Map()}
         onAssign={vi.fn()}
@@ -111,6 +117,7 @@ describe('TeesAssignmentSection', () => {
         players={players}
         courseTees={courseTees}
         tournamentTeesGlobal={null}
+        hcpCalcMode={null}
         loading={new Set()}
         errors={new Map()}
         onAssign={onAssign}
@@ -128,6 +135,7 @@ describe('TeesAssignmentSection', () => {
         players={players}
         courseTees={courseTees}
         tournamentTeesGlobal={null}
+        hcpCalcMode={null}
         loading={new Set()}
         errors={new Map()}
         onAssign={onAssign}
@@ -144,6 +152,7 @@ describe('TeesAssignmentSection', () => {
         players={[]}
         courseTees={courseTees}
         tournamentTeesGlobal={null}
+        hcpCalcMode={null}
         loading={new Set()}
         errors={new Map()}
         onAssign={vi.fn()}
@@ -158,6 +167,7 @@ describe('TeesAssignmentSection', () => {
         players={players}
         courseTees={[]}
         tournamentTeesGlobal={null}
+        hcpCalcMode={null}
         loading={new Set()}
         errors={new Map()}
         onAssign={vi.fn()}
@@ -176,11 +186,45 @@ describe('TeesAssignmentSection', () => {
         players={playersConWD}
         courseTees={courseTees}
         tournamentTeesGlobal={null}
+        hcpCalcMode={null}
         loading={new Set()}
         errors={new Map()}
         onAssign={vi.fn()}
       />
     )
     expect(screen.queryByText('Pedro Sale')).toBeNull()
+  })
+})
+
+describe('TeesAssignmentSection — hándicap y nombre del inscrito', () => {
+  const conDesfase: PlayerRow[] = [
+    { ...players[0], handicap_at_registration: 8.5, profiles: { id: 'u1', name: 'Juan Pérez', indice: 10.4 } },
+    { ...players[0], id: 'p3', user_id: null, player_name: 'Pedro Invitado', handicap_at_registration: 18, profiles: null, tee_id: null },
+  ]
+  const renderCon = (hcpCalcMode: string | null) => render(
+    <TeesAssignmentSection
+      players={conDesfase}
+      courseTees={courseTees}
+      tournamentTeesGlobal={null}
+      hcpCalcMode={hcpCalcMode}
+      loading={new Set()}
+      errors={new Map()}
+      onAssign={vi.fn()}
+    />
+  )
+
+  it('muestra el hándicap inscrito (el de la tabla), no el índice de hoy del perfil', () => {
+    renderCon('whs')
+    expect(screen.getByText('8.5')).toBeTruthy()
+    expect(screen.queryByText('10.4')).toBeNull()
+  })
+
+  it('el invitado sin cuenta sale con su nombre y su hándicap, formateado según el modo', () => {
+    const { unmount } = renderCon('whs')
+    expect(screen.getByText('Pedro Invitado')).toBeTruthy()
+    expect(screen.getByText('18.0')).toBeTruthy()
+    unmount()
+    renderCon(null)
+    expect(screen.getByText('18')).toBeTruthy()
   })
 })
