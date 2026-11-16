@@ -61,10 +61,13 @@ type Captured = {
   updates: { match: Record<string, unknown>; payload: unknown }[];
   deletes: { match: Record<string, unknown> }[];
   selectMaybeSingleReturn: unknown;
+  throwOnMaybeSingle: boolean;
   selectListReturn: unknown[];
   selectCountReturn: number;
   uploads: { bucket: string; path: string; contentType: string }[];
   uploadError: { message: string } | null;
+  insertError: { code: string; message: string } | null;
+  maybeSingleFilters: Record<string, unknown>[];
 };
 
 let captured: Captured;
@@ -88,19 +91,24 @@ function makeMockSupabase() {
       state.filters[col] = val;
       return api;
     };
+    api.neq = (col: string, val: unknown) => {
+      state.filters[`${col}__neq`] = val;
+      return api;
+    };
     api.gte = (col: string, val: unknown) => {
       state.filters[`${col}__gte`] = val;
       return api;
     };
     api.order = () => api;
     api.limit = () => api;
-    api.maybeSingle = async () => ({
-      data: captured.selectMaybeSingleReturn,
-      error: null,
-    });
+    api.maybeSingle = async () => {
+      if (captured.throwOnMaybeSingle) throw new Error('boom inesperado');
+      captured.maybeSingleFilters.push({ ...state.filters });
+      return { data: captured.selectMaybeSingleReturn, error: null };
+    };
     api.insert = async (payload: unknown) => {
       captured.inserts.push(payload);
-      return { data: null, error: null };
+      return { data: null, error: captured.insertError };
     };
     api.update = (payload: unknown) => {
       state.isUpdate = { payload };
@@ -167,16 +175,21 @@ function makeMockSupabase() {
             state.filters[col] = val;
             return listApi;
           },
+          neq: (col: string, val: unknown) => {
+            state.filters[`${col}__neq`] = val;
+            return listApi;
+          },
           gte: (col: string, val: unknown) => {
             state.filters[`${col}__gte`] = val;
             return listApi;
           },
           order: () => listApi,
           limit: () => listApi,
-          maybeSingle: async () => ({
-            data: captured.selectMaybeSingleReturn,
-            error: null,
-          }),
+          maybeSingle: async () => {
+            if (captured.throwOnMaybeSingle) throw new Error('boom inesperado');
+            captured.maybeSingleFilters.push({ ...state.filters });
+            return { data: captured.selectMaybeSingleReturn, error: null };
+          },
           then: (resolve: (r: { data: unknown[]; error: null }) => unknown) =>
             Promise.resolve({
               data: captured.selectListReturn,
@@ -213,6 +226,7 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 // ──────────────────────────────────────────────
 // eslint-disable-next-line import/first
 import { POST } from '../route';
+import { TelegramHttpError } from '@/lib/telegram-inbox';
 
 // ──────────────────────────────────────────────
 // Helpers para construir requests
@@ -264,10 +278,13 @@ beforeEach(() => {
     updates: [],
     deletes: [],
     selectMaybeSingleReturn: null,
+    throwOnMaybeSingle: false,
     selectListReturn: [],
     selectCountReturn: 0,
     uploads: [],
     uploadError: null,
+    insertError: null,
+    maybeSingleFilters: [],
   };
   sendMessageSpy.mockClear();
   getFileSpy.mockReset();
@@ -458,5 +475,138 @@ describe('POST /api/inbox/webhook', () => {
     const fotos = (mergeUpdate?.payload as { fotos_paths: string[] }).fotos_paths;
     expect(fotos.length).toBe(2); // 1 existing + 1 nuevo
     expect(captured.inserts).toHaveLength(0);
+  });
+
+  // REGRESSION 16-nov-2026: las 6 fotos de un reporte murieron con el timeout de Telegram,
+  // la excepción subió al catch general y se perdieron sin aviso ni registro.
+  it('10. Telegram no entrega la foto (timeout) → reporte con file_id anotado + aviso, nunca silencio', async () => {
+    getFileSpy.mockRejectedValue(new Error('This operation was aborted'));
+    const req = buildRequest({
+      update_id: 10,
+      message: {
+        message_id: 100,
+        date: nowUnix(),
+        chat: { id: ALLOWED_CHAT },
+        from: { id: ALLOWED_CHAT },
+        photo: [{ file_id: 'chica' }, { file_id: 'grande-xyz' }],
+        caption: 'pantalla rota',
+      },
+    });
+    const resp = await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(resp.status).toBe(200);
+    expect(captured.inserts).toHaveLength(1);
+    const ins = captured.inserts[0] as { status: string; notas: string; caption: string };
+    expect(ins.status).toBe('error');
+    expect(ins.notas).toBe('archivo pendiente: file_id=grande-xyz');
+    expect(ins.caption).toBe('pantalla rota');
+    const aviso = sendMessageSpy.mock.calls.find((c) => String(c[1]).includes('Quedó anotado'));
+    expect(aviso?.[0]).toBe(ALLOWED_CHAT);
+  });
+
+  it('11. falla una foto de un álbum ya creado → fila PROPIA de error (con su media_group), el álbum no se toca', async () => {
+    // Anotar en la fila del álbum sería leer-modificar-escribir: otra foto del mismo álbum
+    // procesada en paralelo podía borrar la nota y perder la foto en silencio.
+    captured.selectMaybeSingleReturn = {
+      id: 'uuid-album',
+      fotos_paths: ['reports/2026/11/ok.jpg'],
+      caption: 'álbum',
+    };
+    getFileSpy.mockResolvedValue({ filePath: 'photos/x.jpg', fileSize: 1000, mimeType: null });
+    downloadFileSpy.mockRejectedValue(new Error('This operation was aborted'));
+    const req = buildRequest({
+      update_id: 11,
+      message: {
+        message_id: 110,
+        date: nowUnix(),
+        chat: { id: ALLOWED_CHAT },
+        from: { id: ALLOWED_CHAT },
+        photo: [{ file_id: 'foto-album-2' }],
+        media_group_id: 'grupo-1',
+      },
+    });
+    const resp = await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(resp.status).toBe(200);
+    expect(captured.updates.find((u) => u.match.id === 'uuid-album')).toBeUndefined();
+    expect(captured.inserts).toHaveLength(1);
+    const ins = captured.inserts[0] as {
+      status: string;
+      notas: string;
+      telegram_media_group_id: string | null;
+      telegram_message_id: number;
+    };
+    expect(ins.status).toBe('error');
+    expect(ins.notas).toBe('archivo pendiente: file_id=foto-album-2');
+    // Conserva el grupo: el script de recuperación fusiona la foto con su álbum.
+    expect(ins.telegram_media_group_id).toBe('grupo-1');
+    expect(ins.telegram_message_id).toBe(110);
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('Quedó anotado'))).toBe(true);
+  });
+
+  it('11b. foto exitosa de un álbum → el merge no escribe notas (no pisa nada)', async () => {
+    captured.selectMaybeSingleReturn = { id: 'uuid-album', fotos_paths: [], caption: null };
+    getFileSpy.mockResolvedValue({ filePath: 'photos/x.jpg', fileSize: 1000, mimeType: null });
+    downloadFileSpy.mockResolvedValue(new ArrayBuffer(1000));
+    const req = buildRequest({
+      update_id: 111,
+      message: {
+        message_id: 111,
+        date: nowUnix(),
+        chat: { id: ALLOWED_CHAT },
+        from: { id: ALLOWED_CHAT },
+        photo: [{ file_id: 'ok' }],
+        media_group_id: 'grupo-1',
+      },
+    });
+    await POST(req as unknown as Parameters<typeof POST>[0]);
+    const merge = captured.updates.find((u) => u.match.id === 'uuid-album');
+    expect(merge).toBeDefined();
+    expect(Object.keys(merge?.payload as object)).not.toContain('notas');
+    // La búsqueda del álbum ignora las filas de error (archivo pendiente) del mismo grupo.
+    const busqueda = captured.maybeSingleFilters.find((f) => f.telegram_media_group_id === 'grupo-1');
+    expect(busqueda?.status__neq).toBe('error');
+  });
+
+  it('11c. Telegram rechaza el archivo con 4xx (>20 MB, file_id inválido) → error definitivo, sin nota pendiente', async () => {
+    getFileSpy.mockRejectedValue(new TelegramHttpError('telegram getFile HTTP 400'));
+    const req = buildRequest({
+      update_id: 112,
+      message: {
+        message_id: 112,
+        date: nowUnix(),
+        chat: { id: ALLOWED_CHAT },
+        from: { id: ALLOWED_CHAT },
+        photo: [{ file_id: 'gigante' }],
+      },
+    });
+    await POST(req as unknown as Parameters<typeof POST>[0]);
+    const ins = captured.inserts[0] as { status: string; notas?: string | null };
+    expect(ins.status).toBe('error');
+    expect(ins.notas ?? null).toBeNull();
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('no me entrega'))).toBe(true);
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('Quedó anotado'))).toBe(false);
+  });
+
+  it('11d. Telegram reentrega un update ya guardado (23505) → "✓ recibido", no "no pude guardar"', async () => {
+    captured.insertError = { code: '23505', message: 'duplicate key' };
+    const req = buildRequest(textMessage('ya estaba'));
+    await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(sendMessageSpy).toHaveBeenCalledWith(ALLOWED_CHAT, '✓ recibido');
+  });
+
+  it('11e. un error real de insert sí avisa que no se guardó', async () => {
+    captured.insertError = { code: '08006', message: 'connection failure' };
+    const req = buildRequest(textMessage('se cae la base'));
+    await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('no pude guardar'))).toBe(true);
+  });
+
+  it('12. error inesperado en un chat autorizado → avisa que no se guardó (antes: 200 mudo)', async () => {
+    captured.throwOnMaybeSingle = true;
+    getFileSpy.mockResolvedValue({ filePath: 'photos/x.jpg', fileSize: 1000, mimeType: null });
+    downloadFileSpy.mockResolvedValue(new ArrayBuffer(1000));
+    const req = buildRequest(textMessage('x', ALLOWED_CHAT, { media_group_id: 'g', photo: [{ file_id: 'f' }] }));
+    const resp = await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(resp.status).toBe(200);
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('no guardé este mensaje'))).toBe(true);
   });
 });

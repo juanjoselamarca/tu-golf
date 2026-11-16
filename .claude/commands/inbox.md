@@ -45,7 +45,14 @@ esperando y va al resumen en "Esperando promoción". Si lo es, ya está en prod:
 
 ### PASO 1 — Snapshot de pendientes
 
-Ejecutá:
+Primero recupera los archivos que el webhook no pudo bajar de Telegram (quedan anotados con su
+`file_id` en `notas`; un reporte que solo tenía eso pendiente pasa de `error` a `nuevo`):
+
+```bash
+node --env-file=.env.local scripts/inbox-recuperar-archivos.mjs
+```
+
+Si alguno sigue pendiente, va al resumen. Después ejecutá:
 
 ```bash
 cd "C:/Users/juanj/OneDrive/Escritorio/Proyectos IA/tu-golf" && \

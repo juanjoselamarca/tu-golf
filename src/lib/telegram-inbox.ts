@@ -16,6 +16,21 @@ import { log } from './inbox-logger';
 
 const TG_BASE = 'https://api.telegram.org';
 const DEFAULT_TIMEOUT_MS = 8000;
+// Archivos (getFile + descarga): timeout propio y un reintento. El 16-nov-2026 las 6 fotos de
+// un reporte murieron con el timeout de 8 s en una sola pasada y se perdieron. Peor caso de
+// archivos: 2×8 s + 2×12 s = 40 s; deja ~20 s del maxDuration de 60 s de la ruta para la base
+// (upload + insert) y el sendMessage final. Si la función se pasara, Telegram reentrega el
+// update y el insert es idempotente (23505 = ya guardado).
+const FILE_META_TIMEOUT_MS = 8_000;
+const FILE_DOWNLOAD_TIMEOUT_MS = 12_000;
+const FILE_ATTEMPTS = 2;
+
+/**
+ * Marca en `inbox_reports.notas` de un archivo que no se pudo bajar de Telegram (falla
+ * transitoria). Guarda el file_id para recuperarlo después con
+ * `scripts/inbox-recuperar-archivos.mjs` (que repite este literal; un test los ata).
+ */
+export const INBOX_PENDING_FILE_PREFIX = 'archivo pendiente: file_id=';
 
 // ──────────────────────────────────────────────
 // MIME whitelist — fuente de verdad para extensión de archivos.
@@ -82,6 +97,44 @@ async function fetchWithTimeout(
   }
 }
 
+/** Error HTTP definitivo (4xx): reintentar no lo arregla. */
+export class TelegramHttpError extends Error {}
+
+/**
+ * GET con timeout que cubre la petición COMPLETA (headers + lectura del cuerpo) y un
+ * reintento ante falla transitoria (timeout, red, 5xx, 429). Un 4xx no se reintenta.
+ */
+async function getWithRetry<T>(
+  url: string,
+  timeoutMs: number,
+  label: string,
+  read: (resp: Response) => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    const isLast = attempt >= FILE_ATTEMPTS;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const resp = await fetch(url, { method: 'GET', signal: ctrl.signal });
+      if (!resp.ok) {
+        const transient = resp.status >= 500 || resp.status === 429;
+        const err = new Error(`telegram ${label} HTTP ${resp.status}`);
+        if (!transient) throw new TelegramHttpError(err.message);
+        throw err;
+      }
+      return await read(resp);
+    } catch (err) {
+      if (isLast || err instanceof TelegramHttpError) throw err;
+      log('warn', `telegram ${label} failed, retrying`, {
+        attempt,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 // ──────────────────────────────────────────────
 // API surface
 // ──────────────────────────────────────────────
@@ -141,21 +194,18 @@ export type GetFileResult = {
 };
 
 /**
- * Consulta metadata de un archivo. Throws si Telegram retorna error.
+ * Consulta metadata de un archivo. Reintenta 1× ante falla transitoria; throws si igual falla.
  */
 export async function getFile(fileId: string): Promise<GetFileResult> {
-  const resp = await fetchWithTimeout(
+  const body = await getWithRetry(
     tgApiUrl(`/getFile?file_id=${encodeURIComponent(fileId)}`),
-    { method: 'GET' },
+    FILE_META_TIMEOUT_MS,
+    'getFile',
+    (resp) =>
+      resp.json() as Promise<
+        TelegramApiResponse<{ file_path: string; file_size?: number; mime_type?: string }>
+      >,
   );
-  if (!resp.ok) {
-    throw new Error(`telegram getFile HTTP ${resp.status}`);
-  }
-  const body = (await resp.json()) as TelegramApiResponse<{
-    file_path: string;
-    file_size?: number;
-    mime_type?: string;
-  }>;
   if (!body.ok || !body.result) {
     throw new Error(`telegram getFile not ok: ${body.description ?? 'unknown'}`);
   }
@@ -167,14 +217,12 @@ export async function getFile(fileId: string): Promise<GetFileResult> {
 }
 
 /**
- * Descarga el contenido del archivo. Throws si HTTP no-OK.
+ * Descarga el contenido del archivo. Reintenta 1× ante falla transitoria; throws si HTTP no-OK.
  */
 export async function downloadFile(filePath: string): Promise<ArrayBuffer> {
-  const resp = await fetchWithTimeout(tgFileUrl(filePath), { method: 'GET' });
-  if (!resp.ok) {
-    throw new Error(`telegram downloadFile HTTP ${resp.status}`);
-  }
-  return await resp.arrayBuffer();
+  return getWithRetry(tgFileUrl(filePath), FILE_DOWNLOAD_TIMEOUT_MS, 'downloadFile', (resp) =>
+    resp.arrayBuffer(),
+  );
 }
 
 /**
@@ -194,6 +242,9 @@ export async function setWebhook(params: {
       secret_token: params.secretToken,
       allowed_updates: params.allowedUpdates ?? ['message', 'edited_message'],
       drop_pending_updates: params.dropPendingUpdates ?? true,
+      // De a un update a la vez: las fotos de un álbum se fusionan con leer-modificar-escribir
+      // sobre fotos_paths; en paralelo (default 40) una podía pisar a otra y perderse.
+      max_connections: 1,
     }),
   });
   return await resp.json();

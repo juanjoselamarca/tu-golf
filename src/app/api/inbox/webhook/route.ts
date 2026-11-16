@@ -21,17 +21,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabaseAdmin';
 import {
   sendMessage,
-  getFile,
-  downloadFile,
-  extFromMime,
   safeEqualHeader,
+  INBOX_PENDING_FILE_PREFIX,
 } from '@/lib/telegram-inbox';
 import { log } from '@/lib/inbox-logger';
+import { downloadAndStore, errMessage } from '@/lib/inbox-archivos';
+import { PG_UNIQUE_VIOLATION } from '@/lib/pg-errors';
 import type {
   InboxReportInsert,
   InboxReportRow,
@@ -41,9 +40,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const STORAGE_BUCKET = 'inbox-photos';
 const MEDIA_GROUP_WINDOW_SECONDS = 60;
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
 // ──────────────────────────────────────────────
 // Zod schemas (estricto sobre lo que usamos, permissive con resto)
@@ -110,62 +107,48 @@ function isAuthorizedChat(chatId: number): boolean {
   return allowed !== null && allowed === chatId;
 }
 
-function storagePathForUpload(ext: string): string {
-  const now = new Date();
-  const yyyy = now.getUTCFullYear();
-  const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-  return `reports/${yyyy}/${mm}/${randomUUID()}.${ext}`;
+const MSG_ARCHIVO_PENDIENTE =
+  '⚠️ Telegram no me dejó bajar este archivo a tiempo. Quedó anotado en tu reporte y lo recupero después; si es urgente, reenvíalo.';
+
+/**
+ * Archivo que Telegram no entregó (falla transitoria): queda en un reporte PROPIO con status
+ * `error` y su file_id en notas, para que `scripts/inbox-recuperar-archivos.mjs` lo baje
+ * después; se avisa. Nunca se pierde en silencio.
+ *
+ * Fila propia aunque sea parte de un álbum: anotar en la fila del álbum sería un
+ * leer-modificar-escribir que otra foto del mismo álbum puede pisar. Conserva el media_group_id
+ * para que el script la fusione con su álbum al recuperarla (y el caption, que Telegram pone
+ * solo en la 1ª foto, no quede separado); findRecentMediaGroup excluye las filas en error.
+ */
+async function registrarArchivoPendiente(
+  supabase: ReturnType<typeof createAdminClient>,
+  msg: TelegramMessage,
+  fileId: string,
+  detail: string,
+  photosPaths: string[],
+): Promise<void> {
+  log('error', 'inbox file download failed', { detail, mediaGroup: msg.media_group_id ?? null });
+  const saved = await insertReport(supabase, {
+    telegram_message_id: msg.message_id,
+    telegram_chat_id: msg.chat.id,
+    telegram_user_id: msg.from?.id ?? null,
+    telegram_media_group_id: msg.media_group_id ?? null,
+    telegram_msg_date: isoFromUnix(msg.date),
+    texto: msg.text ?? null,
+    caption: msg.caption ?? null,
+    fotos_paths: photosPaths,
+    reply_to_report_id: await resolveReplyTo(supabase, msg),
+    status: 'error',
+    notas: `${INBOX_PENDING_FILE_PREFIX}${fileId}`,
+  });
+  await sendMessage(
+    msg.chat.id,
+    saved.ok ? MSG_ARCHIVO_PENDIENTE : '⚠️ no pude guardar tu archivo. Reenvíalo en un momento.',
+  );
 }
 
 function isoFromUnix(secs: number): string {
   return new Date(secs * 1000).toISOString();
-}
-
-async function uploadToBucket(
-  supabase: ReturnType<typeof createAdminClient>,
-  storagePath: string,
-  buffer: ArrayBuffer,
-  mime: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .upload(storagePath, buffer, {
-      contentType: mime,
-      upsert: false,
-    });
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-  return { ok: true };
-}
-
-async function downloadAndStore(
-  supabase: ReturnType<typeof createAdminClient>,
-  fileId: string,
-  chatId: number,
-  fallbackMime: string,
-): Promise<{ ok: true; path: string } | { ok: false; reason: 'too_large' | 'mime_blocked' | 'error' }> {
-  const meta = await getFile(fileId);
-  if (meta.fileSize > MAX_FILE_SIZE_BYTES) {
-    await sendMessage(chatId, '❌ archivo muy grande (máx 10MB)');
-    return { ok: false, reason: 'too_large' };
-  }
-  // Telegram NO retorna mime_type en getFile para fotos (las normaliza a JPEG).
-  // Solo retorna mime para documents/audio. Usamos fallback explícito del caller.
-  const effectiveMime = meta.mimeType ?? fallbackMime;
-  const ext = extFromMime(effectiveMime);
-  if (!ext) {
-    await sendMessage(chatId, '❌ tipo de archivo no soportado');
-    return { ok: false, reason: 'mime_blocked' };
-  }
-  const buffer = await downloadFile(meta.filePath);
-  const path = storagePathForUpload(ext);
-  const up = await uploadToBucket(supabase, path, buffer, effectiveMime);
-  if (!up.ok) {
-    log('error', 'inbox upload failed', { error: up.error, path });
-    return { ok: false, reason: 'error' };
-  }
-  return { ok: true, path };
 }
 
 // ──────────────────────────────────────────────
@@ -299,6 +282,9 @@ async function findRecentMediaGroup(
     .select('id, fotos_paths, caption')
     .eq('telegram_media_group_id', groupId)
     .eq('telegram_chat_id', msg.chat.id)
+    // Las filas de archivo pendiente (status error) llevan el grupo para que el script de
+    // recuperación las fusione con su álbum, pero las fotos que sí bajan no se suman a ellas.
+    .neq('status', 'error')
     .gte('telegram_msg_date', cutoff)
     .order('recibido_en', { ascending: false })
     .limit(1)
@@ -348,6 +334,10 @@ async function processNonCommand(
       msg.chat.id,
       'image/jpeg',
     );
+    if (!result.ok && result.reason === 'telegram_unavailable') {
+      await registrarArchivoPendiente(supabase, msg, largest.file_id, result.detail, []);
+      return;
+    }
     if (!result.ok) {
       // El sendMessage de error ya se mandó dentro de downloadAndStore.
       // Marcamos status=error con un INSERT mínimo solo si no es álbum.
@@ -370,6 +360,10 @@ async function processNonCommand(
       msg.chat.id,
       fallback,
     );
+    if (!result.ok && result.reason === 'telegram_unavailable') {
+      await registrarArchivoPendiente(supabase, msg, audioObj.file_id, result.detail, photosPaths);
+      return;
+    }
     if (!result.ok) {
       await insertOrUpdateReport(supabase, msg, photosPaths, null, 'error');
       return;
@@ -424,17 +418,38 @@ async function insertOrUpdateReport(
     reply_to_report_id: replyToId,
     status,
   };
-  const { error } = await supabase.from('inbox_reports').insert(insertPayload);
-  if (error) {
+  return insertReport(supabase, insertPayload);
+}
+
+/**
+ * INSERT idempotente: si Telegram reentrega un update que ya se guardó (p. ej. tras un
+ * timeout de la función), la UNIQUE (telegram_message_id, telegram_chat_id) responde 23505
+ * y eso es "ya guardado", no un error que haga pedir un reenvío.
+ *
+ * Límite conocido (raro: la función tiene que morir justo entre guardar y responder): si la
+ * 1ª entrega sumó la foto a un álbum (sin fila propia) y en la reentrega la descarga falla,
+ * queda además una fila pendiente y al recuperarla la foto aparece dos veces. Al revés, si la
+ * 1ª insertó y la 2ª falla la descarga, el 23505 hace que avise "lo recupero" sin pendiente.
+ * Ninguno pierde información.
+ */
+async function insertReport(
+  supabase: ReturnType<typeof createAdminClient>,
+  payload: InboxReportInsert,
+): Promise<{ ok: boolean }> {
+  const { error } = await supabase.from('inbox_reports').insert(payload);
+  if (error && error.code !== PG_UNIQUE_VIOLATION) {
     log('error', 'inbox insert failed', { error: error.message });
+    return { ok: false };
   }
-  return { ok: !error };
+  return { ok: true };
 }
 
 // ──────────────────────────────────────────────
 // POST handler
 // ──────────────────────────────────────────────
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Chat autorizado del mensaje en curso: si algo revienta, el catch avisa en vez de callar.
+  let chatToNotify: number | null = null;
   try {
     // 1. Auth header timing-safe
     const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -480,6 +495,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
+    chatToNotify = msg.chat.id;
     const supabase = createAdminClient();
 
     // 3c. Comandos autorizados
@@ -500,9 +516,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await processNonCommand(supabase, msg, isEdit);
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
-    log('error', 'inbox webhook unhandled', {
-      err: err instanceof Error ? err.message : String(err),
-    });
+    log('error', 'inbox webhook unhandled', { err: errMessage(err) });
+    if (chatToNotify !== null) {
+      await sendMessage(chatToNotify, '⚠️ algo falló y no guardé este mensaje. Reenvíalo, por favor.');
+    }
     // SIEMPRE 200 — no propagar a Telegram para evitar retries infinitos.
     return NextResponse.json({ ok: true }, { status: 200 });
   }
