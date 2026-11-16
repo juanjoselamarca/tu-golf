@@ -38,7 +38,7 @@ export function useHcpEditor({ onSaved, hcpCalcMode, course }: UseHcpEditorArgs)
   )
 
   // Rótulo y formato del panel (Índice en WHS, HCP en el resto): el editor habla igual que la columna.
-  const { rotulo, formatear } = useMemo(() => presentacionHandicapInscrito(hcpCalcMode), [hcpCalcMode])
+  const { rotulo, enFrase, formatear } = useMemo(() => presentacionHandicapInscrito(hcpCalcMode), [hcpCalcMode])
 
   const startEdit = useCallback((playerId: string, current: number | null) => {
     setEditingId(playerId)
@@ -63,11 +63,11 @@ export function useHcpEditor({ onSaved, hcpCalcMode, course }: UseHcpEditorArgs)
         showSuccess(`${rotulo} actualizado`, '', { duration: 1500 })
       } catch (e) {
         void captureError(e, { context: 'scoring.useHcpEditor.save', meta: { playerId } })
-        showError('Error', `No se pudo actualizar el ${rotulo === 'HCP' ? 'HCP' : 'índice'}.`)
+        showError('Error', `No se pudo actualizar el ${enFrase}.`)
       }
       setEditingId(null)
     },
-    [editValue, onSaved, rango, rotulo, showError, showSuccess, showWarning],
+    [editValue, enFrase, onSaved, rango, rotulo, showError, showSuccess, showWarning],
   )
 
   return { editingId, editValue, setEditValue, startEdit, cancel, save }

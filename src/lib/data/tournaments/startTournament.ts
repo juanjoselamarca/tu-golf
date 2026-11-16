@@ -58,7 +58,6 @@ export interface StartPlayer extends PlayerForCourseHcp {
   profiles: { name: string; indice: number | null } | null
 }
 
-/** Columnas de `players` que lee el inicio del torneo. */
 /**
  * Handicap de la fila del jugador en la tarjeta del grupo (`ronda_libre_jugadores.handicap`),
  * que el scorer y el board tratan SIEMPRE como índice.
@@ -80,7 +79,9 @@ export function handicapDeLaTarjeta(player: StartPlayer, hcpCalcMode: string | n
  * tiene en su perfil queda con ese índice en `players.handicap_at_registration` (lo
  * que la inscripción habría guardado), para que tarjeta, equipo y leaderboard
  * puntúen con el mismo número. Sin esto la tarjeta y el equipo jugarían con 0.
- * Muta `players` en memoria con lo guardado. Devuelve false si una escritura falla.
+ * Muta `players` en memoria con lo que quedó en la base. Devuelve false si una escritura
+ * falla o si otro (el organizador desde otra pestaña) ya lo llenó entre la lectura y acá:
+ * el reintento lee el valor nuevo, en vez de armar la tarjeta con uno que la base no tiene.
  */
 export async function completarIndicesInscritos(
   svc: SupabaseClient,
@@ -91,20 +92,24 @@ export async function completarIndicesInscritos(
   for (const p of players) {
     const indice = p.profiles?.indice
     if (p.handicap_at_registration != null || indice == null) continue
-    const { error } = await svc
+    const { data, error } = await svc
       .from('players')
       .update({ handicap_at_registration: indice })
       .eq('id', p.id)
       .is('handicap_at_registration', null)
+      .select('handicap_at_registration')
     if (error) {
       void captureError(error, { context: 'start-tournament.completar-indice', level: 'error', meta: { playerId: p.id } })
       return false
     }
-    p.handicap_at_registration = indice
+    const guardado = (data as Array<{ handicap_at_registration: number | null }> | null)?.[0]?.handicap_at_registration
+    if (guardado == null) return false
+    p.handicap_at_registration = guardado
   }
   return true
 }
 
+/** Columnas de `players` que lee el inicio del torneo. */
 export const START_PLAYER_SELECT =
   'id, user_id, player_name, handicap_at_registration, status, tee_id, genero, ' +
   'profiles(name, indice), categories(default_tee_color, gender)'

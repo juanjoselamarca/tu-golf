@@ -98,7 +98,7 @@ export function ResumenTab({ board, roster, hcpEditor, hcpCalcMode }: ResumenTab
       <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '12px', overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--surface-border)' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: 'var(--text)' }}>Jugadores</span>
-          <span style={{ fontSize: '12px', color: 'var(--text-2)', marginLeft: '8px' }}>Toca el handicap para editar</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-2)', marginLeft: '8px' }}>Toca el {presentacionHcp.enFrase} para editar</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -137,7 +137,7 @@ export function ResumenTab({ board, roster, hcpEditor, hcpCalcMode }: ResumenTab
                         <button
                           onClick={() => row.id && hcpEditor.startEdit(row.id, rosterPlayer?.handicap_at_registration ?? null)}
                           style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--brand-on-bg)', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
-                          title={`Editar ${presentacionHcp.rotulo === 'HCP' ? 'HCP' : 'índice'}`}
+                          title={`Editar ${presentacionHcp.enFrase}`}
                         >
                           {(() => { const v = rosterPlayer?.handicap_at_registration ?? row.hcpDisplay; return v != null ? presentacionHcp.formatear(v) : '--' })()}
                         </button>

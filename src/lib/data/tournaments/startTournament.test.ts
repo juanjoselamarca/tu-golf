@@ -77,7 +77,7 @@ function fakeDb(opts: {
             select: () => Promise.resolve(
               fail
                 ? { data: null, error: { message: `boom ${table}` } }
-                : { data: opts.grupoYaEnlazado ? [] : [{ id: 'g1' }], error: null },
+                : { data: opts.grupoYaEnlazado ? [] : [{ id: 'g1', ...(payload as object) }], error: null },
             ),
             then: (resolve: (r: unknown) => unknown) =>
               Promise.resolve({ error: fail ? { message: `boom ${table}` } : null }).then(resolve),
@@ -531,5 +531,13 @@ describe('completarIndicesInscritos — inscrito sin índice que hoy lo tiene', 
     const db = fakeDb({ failUpdate: 'players' })
     const players = [player('p1', { handicap_at_registration: null, profiles: { name: 'Ana', indice: 14 } })]
     expect(await completarIndicesInscritos(db.svc, 'whs', players)).toBe(false)
+  })
+
+  it('si otro lo llenó entre la lectura y la escritura (0 filas), devuelve false y no inventa el valor en memoria', async () => {
+    // `grupoYaEnlazado` hace que el update condicional no afecte filas.
+    const db = fakeDb({ grupoYaEnlazado: true })
+    const players = [player('p1', { handicap_at_registration: null, profiles: { name: 'Ana', indice: 14 } })]
+    expect(await completarIndicesInscritos(db.svc, 'whs', players)).toBe(false)
+    expect(players[0].handicap_at_registration).toBeNull()
   })
 })
