@@ -106,19 +106,24 @@ describe('propiedades del motor (miles de juegos y tarjetas al azar)', () => {
       // Golpes recibidos: lo que bajó el neto en toda la ronda = los golpes del juego (tope: 3 vueltas; plus: 1).
       const minimo = Math.min(...jugadores.map(j => j.courseHandicap))
       ids.forEach((id, i) => {
-        if (!hoyos.every(h => typeof scores[id][h.numero] === 'number')) return
+        if (retiros?.[id] != null || !hoyos.every(h => typeof scores[id][h.numero] === 'number')) return
         const ch = jugadores[i].courseHandicap
         const base = config.modo === 'gross' ? 0 : config.handicap === 'completo' ? ch : ch - minimo
         const esperado = base >= 0 ? Math.min(base, 3 * cantidadHoyos) : -Math.min(-base, cantidadHoyos)
         const recibidos = res.hoyos.reduce((acc, h) => acc + (scores[id][h.numero] - (h.scoreDeJuego[id] as number)), 0)
         expect(recibidos, `semilla ${semilla}`).toBe(esperado)
       })
+      // El retiro manda sobre el score: desde su hoyo, el retirado no juega aunque tenga golpes anotados.
+      for (const [id, desde] of Object.entries(retiros ?? {})) {
+        const orden = hoyos.findIndex(h => h.numero === desde)
+        res.hoyos.slice(orden).forEach(h => expect(h.scoreDeJuego[id], `semilla ${semilla}`).toBeNull())
+      }
       // `golpesRecibidosPorHoyo` (lo que ve el grupo) es exactamente lo que el motor le restó a cada uno.
       const recibidosPorHoyo = golpesRecibidosPorHoyo({ config, jugadores, hoyos })
       for (const h of res.hoyos) {
         for (const id of ids) {
           const g = scores[id][h.numero]
-          if (typeof g === 'number') expect(g - (h.scoreDeJuego[id] as number), `semilla ${semilla}`).toBe(recibidosPorHoyo[id][h.numero])
+          if (typeof h.scoreDeJuego[id] === 'number') expect(g - (h.scoreDeJuego[id] as number), `semilla ${semilla}`).toBe(recibidosPorHoyo[id][h.numero])
         }
       }
       // Lo que suma cada pareja en un duelo cuadra con lo que ganó: entero a cada uno, o la mitad con dividir.

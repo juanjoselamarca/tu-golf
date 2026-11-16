@@ -243,11 +243,14 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
     const { tramo, parejas } = parejasDelTramo(config, orden, totalHoyos)
 
     // Gross de cada uno: número, `null` = no jugó (retirado o ronda cerrada sin score), `undefined` = falta.
+    // El retiro manda sobre el score: un golpe anotado después del retiro (p. ej. un par rellenado sin señal)
+    // no devuelve al retirado al juego.
     const gross: Record<string, number | null | undefined> = {}
     ids.forEach(id => {
       const g = scores[id]?.[hoyo.numero]
-      if (typeof g === 'number' && Number.isFinite(g) && g > 0) gross[id] = g
-      else if (retiradoEn(id, hoyo.numero) || entrada.rondaCerrada) gross[id] = null
+      if (retiradoEn(id, hoyo.numero)) gross[id] = null
+      else if (typeof g === 'number' && Number.isFinite(g) && g > 0) gross[id] = g
+      else if (entrada.rondaCerrada) gross[id] = null
       else gross[id] = undefined
     })
 

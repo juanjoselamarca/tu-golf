@@ -205,6 +205,14 @@ describe('retiro y cierre', () => {
     expect(r.hoyos[0].puntos.tomas).toBe(0) // hoyo 10: jugó y empató
     expect(r.totales.tomas).toBe(-17)
   })
+  it('el retiro manda sobre el score: un par anotado después del retiro no lo hace jugar', () => {
+    // Un "Siguiente" sin señal pudo rellenar con par al retirado: ese golpe no lo devuelve al juego.
+    const { h } = unHoyo(plantilla('dos_cero_dos'), CUATRO, { juan: 4, pedro: 5, diego: 6, tomas: 3 }, {}, { retiros: { tomas: 1 } })
+    expect(h.estado).toBe('puntuado')
+    expect(h.scoreDeJuego.tomas).toBeNull()
+    expect(h.puntos.tomas).toBe(-2)
+    expect(h.especiales.filter(e => e.jugadorId === 'tomas')).toEqual([])
+  })
   it('ronda cerrada: un hoyo sin score cuenta como "no jugó"', () => {
     const { h } = unHoyo(plantilla('dos_cero_dos'), CUATRO, { juan: 4, pedro: 5, diego: 6 }, {}, { rondaCerrada: true })
     expect(h.estado).toBe('puntuado')
