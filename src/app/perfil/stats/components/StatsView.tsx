@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { BarChart3 } from '@/components/icons'
 import { formatOverUnder } from '@/golf/core/rules'
 import { SCORE_STYLES } from '@/golf/core/colors'
-import { vsPar } from '@/golf/core/compare'
-import type { StatsRound } from '@/lib/data/stats'
+import type { RondaNormalizada } from '@/golf/stats/rondas-normalizadas'
+import { ErrorState } from '@/components/ui/ErrorState'
 import { useStatsDerived, type RangeKey } from '../hooks/useStatsDerived'
 import { C, cardStyle } from './tokens'
 import { ProGate } from '@/components/billing/ProGate'
@@ -17,14 +18,12 @@ import { UpsellCard } from '@/components/billing/UpsellCard'
 import { UpsellCardSkeleton } from '@/components/billing/UpsellCardSkeleton'
 
 /**
- * recharts lazy: los charts se bajan en un chunk aparte DESPUÉS del primer
+ * recharts lazy: el chart se baja en un chunk aparte DESPUÉS del primer
  * pintado (ssr:false — recharts necesita medidas del viewport igual que el
  * viejo guard `mounted`). Sin loading placeholder: replica el estado pre-mount
  * original (contenedor con altura fija, chart aparece al hidratar).
  */
-const GwiGauge = dynamic(() => import('./StatsCharts').then((m) => m.GwiGauge), { ssr: false })
-const ScoreEvolutionChart = dynamic(() => import('./StatsCharts').then((m) => m.ScoreEvolutionChart), { ssr: false })
-const ScoringTrendChart = dynamic(() => import('./StatsCharts').then((m) => m.ScoringTrendChart), { ssr: false })
+const ScoreVsParChart = dynamic(() => import('./StatsCharts').then((m) => m.ScoreVsParChart), { ssr: false })
 
 export interface ProfileIndexPair {
   indice: number | null
@@ -32,7 +31,8 @@ export interface ProfileIndexPair {
 }
 
 interface Props {
-  allRounds: StatsRound[]
+  /** null = la lectura falló: estado de error con reintento, nunca "aún no tienes rondas". */
+  rondas: RondaNormalizada[] | null
   profileIndex: ProfileIndexPair
 }
 
@@ -45,15 +45,18 @@ function fmtDate(d: string) {
   return dt.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })
 }
 
-export function StatsView({ allRounds, profileIndex }: Props) {
+export function StatsView({ rondas: rondasOError, profileIndex }: Props) {
+  const router = useRouter()
   const [range, setRange] = useState<RangeKey>('all')
+  const allRounds = rondasOError ?? []
   const {
-    rounds, hasRounds, avgScore, avgBucketHoles,
-    bestRoundData, bestRound, bestRoundVsPar, worstRoundData,
-    scoringCounts, scoringTotal, gwiValue, nineHoleData, topRounds, trendData,
+    rondas: rounds, hasRounds, cifras,
+    scoringCounts, scoringTotal, serie, promedioSerie, nineHoleData, topRounds, trendData,
   } = useStatsDerived(allRounds, range)
 
   const { birdies, eagles } = scoringCounts
+  const mejor = cifras?.mejorRonda ?? null
+  const peor = cifras?.peorRonda ?? null
 
   /* ── Range toggle ── */
   const ranges: { key: RangeKey; label: string }[] = [
@@ -63,17 +66,20 @@ export function StatsView({ allRounds, profileIndex }: Props) {
     { key: 'all', label: 'Todo' },
   ]
 
-  /* ── Chart data ── */
-  const lineChartData = rounds.map(r => ({
-    date: fmtDate(r.played_at),
-    gross: r.total_gross,
-  }))
-
-  const scoringTrendChartData = rounds.map(r => ({
-    date: fmtDate(r.played_at),
-    score: r.total_gross,
-    promedio: Math.round(avgScore),
-  }))
+  if (rondasOError === null) {
+    return (
+      <div style={{ background: C.bg, minHeight: '100vh', padding: '24px 16px' }}>
+        <div style={{ maxWidth: 800, margin: '0 auto' }}>
+          <Link href="/perfil" style={{ color: C.muted, fontSize: 14, textDecoration: 'none' }}>
+            ← Perfil
+          </Link>
+          <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ErrorState message="No pudimos cargar tus estadísticas. Revisa tu conexión." onRetry={() => router.refresh()} />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   /* ── Render ── */
   return (
@@ -104,7 +110,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               Aún no tienes rondas registradas
             </p>
             <p style={{ color: C.muted, fontSize: 14, margin: '0 auto 20px', maxWidth: 360, lineHeight: 1.5 }}>
-              Registra {MIN_RONDAS_ESTADISTICAS} rondas para ver tus estadísticas: tendencia de scoring, GWI, birdies, eagles y más.
+              Registra {MIN_RONDAS_ESTADISTICAS} rondas para ver tus estadísticas: tu score vs par, birdies, eagles y más.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/ronda-libre/nueva" style={{
@@ -198,68 +204,14 @@ export function StatsView({ allRounds, profileIndex }: Props) {
           ))}
         </div>
 
-        {/* ── GWI Hero ── */}
-        <div style={{ ...cardStyle, marginBottom: 16, textAlign: 'center' }}>
-          <p style={{ color: C.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 12px' }}>
-            Golf Wellness Index
-          </p>
-          <div style={{ position: 'relative', width: 160, height: 160, margin: '0 auto' }}>
-            {hasRounds ? (
-              <>
-                <GwiGauge value={gwiValue} />
-                <div style={{
-                  position: 'absolute', top: '50%', left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  textAlign: 'center',
-                }}>
-                  <span style={{ color: C.greenText, fontSize: 36, fontWeight: 700, fontFamily: '"DM Mono", monospace' }}>
-                    {Math.round(gwiValue)}
-                  </span>
-                  <br />
-                  <span style={{ color: C.muted, fontSize: 11 }}>GWI</span>
-                </div>
-              </>
-            ) : (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '100%', height: '100%',
-                border: `3px solid ${C.cardBorder}`, borderRadius: '50%',
-              }}>
-                <span style={{ color: C.muted, fontSize: 32, fontWeight: 700 }}>--</span>
-              </div>
-            )}
-          </div>
-          {!hasRounds && (
-            <p style={{ color: C.muted, fontSize: 13, marginTop: 16, fontStyle: 'italic' }}>
-              Registra tu primera ronda para ver tu GWI
-            </p>
-          )}
-        </div>
-
-        {/* ── Handicap evolution ── */}
+        {/* ── Tu score vs par ── */}
         <div style={{ ...cardStyle, marginBottom: 16 }}>
           <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 12px' }}>
-            Evolución de score
+            Tu score vs par
           </p>
-          {hasRounds ? (
+          {serie.length > 0 ? (
             <div style={{ height: 200 }}>
-              <ScoreEvolutionChart data={lineChartData} />
-            </div>
-          ) : (
-            <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: C.muted, fontSize: 13 }}>Sin datos aún</span>
-            </div>
-          )}
-        </div>
-
-        {/* ── Scoring trend ── */}
-        <div style={{ ...cardStyle, marginBottom: 16 }}>
-          <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 12px' }}>
-            Tendencia de scoring
-          </p>
-          {hasRounds ? (
-            <div style={{ height: 200 }}>
-              <ScoringTrendChart data={scoringTrendChartData} avgScore={Math.round(avgScore)} />
+              <ScoreVsParChart puntos={serie} promedio={promedioSerie} />
             </div>
           ) : (
             <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -276,8 +228,8 @@ export function StatsView({ allRounds, profileIndex }: Props) {
           marginBottom: 16,
         }}>
           {[
-            { label: avgBucketHoles ? `Promedio (${avgBucketHoles}h)` : 'Promedio', value: hasRounds ? avgScore.toFixed(1) : '--', color: C.ivory },
-            { label: 'Mejor ronda', value: hasRounds ? `${bestRound} (${formatOverUnder(bestRoundVsPar)})` : '--', color: C.gold },
+            { label: cifras ? `Promedio vs par (${cifras.bucket}h)` : 'Promedio vs par', value: cifras?.promedioVsPar != null ? formatOverUnder(cifras.promedioVsPar) : '--', color: C.ivory },
+            { label: cifras ? `Mejor ronda (${cifras.bucket}h)` : 'Mejor ronda', value: mejor ? `${mejor.score} (${formatOverUnder(mejor.vsPar)})` : '--', color: C.gold },
             { label: 'Birdies', value: hasRounds ? birdies : '--', color: C.greenText },
             { label: 'Eagles', value: hasRounds ? eagles : '--', color: C.eagleText },
           ].map((s, i) => (
@@ -384,23 +336,23 @@ export function StatsView({ allRounds, profileIndex }: Props) {
         )}
 
         {/* ── Best & Worst Rounds ── */}
-        {hasRounds && bestRoundData && worstRoundData && rounds.length >= MIN_RONDAS_ESTADISTICAS && (
+        {mejor && peor && rounds.length >= MIN_RONDAS_ESTADISTICAS && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div style={{ ...cardStyle, textAlign: 'center' }}>
               <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
                 Mejor ronda
               </p>
               <p style={{ color: C.greenText, fontSize: 28, fontWeight: 700, margin: '0 0 2px', fontFamily: '"DM Mono", monospace' }}>
-                {bestRoundData.total_gross}
+                {mejor.score}
               </p>
               <p style={{ color: C.greenText, fontSize: 13, fontWeight: 600, margin: '0 0 6px', fontFamily: '"DM Mono", monospace' }}>
-                {formatOverUnder(vsPar(bestRoundData))}
+                {formatOverUnder(mejor.vsPar)}
               </p>
               <p style={{ color: C.muted, fontSize: 11, margin: '0 0 2px', lineHeight: 1.3 }}>
-                {bestRoundData.course_name}
+                {mejor.course}
               </p>
               <p style={{ color: C.muted, fontSize: 10, margin: 0 }}>
-                {fmtDate(bestRoundData.played_at)}
+                {fmtDate(mejor.date)}
               </p>
             </div>
             <div style={{ ...cardStyle, textAlign: 'center' }}>
@@ -408,16 +360,16 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 Peor ronda
               </p>
               <p style={{ color: C.red, fontSize: 28, fontWeight: 700, margin: '0 0 2px', fontFamily: '"DM Mono", monospace' }}>
-                {worstRoundData.total_gross}
+                {peor.score}
               </p>
               <p style={{ color: C.red, fontSize: 13, fontWeight: 600, margin: '0 0 6px', fontFamily: '"DM Mono", monospace' }}>
-                {formatOverUnder(vsPar(worstRoundData))}
+                {formatOverUnder(peor.vsPar)}
               </p>
               <p style={{ color: C.muted, fontSize: 11, margin: '0 0 2px', lineHeight: 1.3 }}>
-                {worstRoundData.course_name}
+                {peor.course}
               </p>
               <p style={{ color: C.muted, fontSize: 10, margin: 0 }}>
-                {fmtDate(worstRoundData.played_at)}
+                {fmtDate(peor.date)}
               </p>
             </div>
           </div>
