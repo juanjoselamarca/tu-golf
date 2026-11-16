@@ -5,6 +5,7 @@ import { Users } from '@/components/icons'
 import { inputStyle } from '../styles'
 import type { Player, TournamentGroup } from '../types'
 import { formatearHandicap, formatearIndice } from '@/golf/handicap-index-range'
+import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
 
 type StatusFilter = 'all' | 'approved' | 'withdrawn' | 'disqualified'
 
@@ -19,18 +20,29 @@ interface Props {
   players: Player[]
   groups: TournamentGroup[]
   tournamentStatus: string
+  /** `tournaments.hcp_calc_mode`: decide si lo inscrito es índice o hándicap. */
+  hcpCalcMode: string | null | undefined
   getPlayerGroupId: (playerId: string) => string
   onAssignPlayer: (playerId: string, groupId: string) => void
   onWithdraw: (playerId: string) => void
   onDisqualify: (playerId: string) => void
 }
 
-/** Tabla de jugadores inscritos: índice, course hcp, categoría, selector de
- *  grupo, acciones WD/DQ. Extraído verbatim de JugadoresPanel. */
+/** Tabla de jugadores inscritos: hándicap inscrito, categoría, selector de
+ *  grupo, acciones WD/DQ.
+ *
+ *  Una sola columna de hándicap: `handicap_at_registration`, lo mismo que usan
+ *  el leaderboard (`build-from-legacy`) y la puntuación (`handicapInscrito`).
+ *  Antes había dos ("Índice" del perfil y "Course HCP"), pero la segunda era el
+ *  índice inscrito con otro nombre: el organizador veía "Course HCP 8.5" y la
+ *  página pública "HCP 9" (el hándicap de cancha real). En un torneo WHS lo
+ *  inscrito es el índice; en uno 'raw' (viejo), un hándicap ya convertido. */
 export function PlayersTable({
-  players, groups, tournamentStatus,
+  players, groups, tournamentStatus, hcpCalcMode,
   getPlayerGroupId, onAssignPlayer, onWithdraw, onDisqualify,
 }: Props) {
+  const esWhs = esModoHcpWhs(hcpCalcMode)
+  const formatear = esWhs ? formatearIndice : formatearHandicap
   const [loadingPlayerId, setLoadingPlayerId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -134,7 +146,7 @@ export function PlayersTable({
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['#', 'Nombre', 'Índice', 'Course HCP', 'Categoría', 'Grupo', ''].map((h) => (
+                {['#', 'Nombre', esWhs ? 'Índice' : 'HCP', 'Categoría', 'Grupo', ''].map((h) => (
                   <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                     {h}
                   </th>
@@ -144,7 +156,7 @@ export function PlayersTable({
             <tbody>
               {filteredPlayers.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: '14px' }}>
+                  <td colSpan={6}style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: '14px' }}>
                     No se encontraron jugadores{searchQuery ? ` con "${searchQuery}"` : ''}
                   </td>
                 </tr>
@@ -166,8 +178,7 @@ export function PlayersTable({
                       <span style={{ marginLeft: '8px', fontSize: '12px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'var(--error-bg)', color: 'var(--error-fg)', letterSpacing: '0.05em' }}>DQ</span>
                     )}
                   </td>
-                  <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px', fontFamily: '"DM Mono", monospace' }}>{p.profiles?.indice != null ? formatearIndice(p.profiles.indice) : '—'}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{p.handicap_at_registration != null ? formatearHandicap(p.handicap_at_registration) : '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{p.handicap_at_registration != null ? formatear(p.handicap_at_registration) : '—'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     {groups.length > 0 ? (
