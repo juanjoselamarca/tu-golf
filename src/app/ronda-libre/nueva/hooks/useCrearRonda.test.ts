@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { jugadoresDeLaRonda, equiposConIndices, jugadoresParaLaApi } from './useCrearRonda'
+import { jugadoresDeLaRonda, equiposConIndices, formatoQueViaja, jugadoresParaLaApi } from './useCrearRonda'
+import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from './useFormularioDeRonda'
 
 function rival(id: string, nombre: string, over: Partial<RivalDelCreador> = {}): RivalDelCreador {
@@ -151,3 +152,17 @@ describe('jugadoresParaLaApi', () => {
     expect(jugadoresParaLaApi(jugadores, USER)[1]).toMatchObject({ user_id: null, perfil_sugerido_id: null, is_guest: true })
   })
 })
+
+describe('formatoQueViaja', () => {
+  it('con Timba viaja y se valida como personalizado (lo mismo que corre la API), no con el formato de base', () => {
+    expect(formatoQueViaja('stroke_play', true)).toBe('personalizado')
+    expect(formatoQueViaja('stroke_play', false)).toBe('stroke_play')
+    expect(formatoQueViaja('best_ball', false)).toBe('best_ball')
+    // El validador de la ronda no frena una Timba por reglas de otro formato (el juego lo valida su validador).
+    const jugadores = ['Juan', 'Pedro', 'Diego', 'Tomás'].map(nombre => ({ nombre, indice: 10, perfilId: null }))
+    expect(validarNuevaRonda({
+      cancha: 'Los Leones', formato: formatoQueViaja('stroke_play', true), modo: 'gross', jugadores, equipos: [], creadorId: 'u1',
+    })).toBeNull()
+  })
+})
+

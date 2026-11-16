@@ -47,7 +47,6 @@ export function PasoFormato(props: Props) {
           onTimba={props.timba.onTimba}
           modo={props.modo}
           onModo={props.onModo}
-          netoBloqueado={props.netoBloqueado}
           holes={props.holes}
         />
       )}

@@ -31,13 +31,11 @@ interface Props {
   onTimba: (t: TimbaDelFormulario) => void
   modo: ModoJuego
   onModo: (m: ModoJuego) => void
-  /** Neto pide plan Pro (lo decide `modoPermitidoPorPlan`, igual que en el selector de formato). */
-  netoBloqueado: boolean
   holes: number
 }
 
 /** "Elegir el juego" (maqueta Main): catálogo, frase tocable, ejemplo con el motor, puntos especiales y reglas. */
-export function ElegirJuegoTimba({ timba, onTimba, modo, onModo, netoBloqueado, holes }: Props) {
+export function ElegirJuegoTimba({ timba, onTimba, modo, onModo, holes }: Props) {
   const [masReglas, setMasReglas] = useState(false)
   const { config } = timba
   const cambiar = (c: ConfigJuego) => onTimba(conConfig(timba, c))
@@ -120,16 +118,17 @@ export function ElegirJuegoTimba({ timba, onTimba, modo, onModo, netoBloqueado, 
       <div role="group" aria-label="Modo de scoring" style={{
         display: 'flex', gap: '8px', background: colores.tarjeta, border: `1px solid ${colores.borde}`, borderRadius: '12px', padding: '4px',
       }}>
-        {(['gross', 'neto'] as const).map(m => (
+        {/* Neto | Gross, el mismo orden que el selector estándar. Sin candado Pro: Timba neto no es una feature
+            Pro (`NETO_FEATURE_BY_FORMAT` no la incluye), así que el neto nunca está bloqueado por plan acá. */}
+        {(['neto', 'gross'] as const).map(m => (
           <button
             key={m}
             type="button"
             aria-pressed={modo === m}
-            aria-disabled={m === 'neto' && netoBloqueado ? true : undefined}
-            onClick={() => { if (!(m === 'neto' && netoBloqueado)) onModo(m) }}
+            onClick={() => onModo(m)}
             style={{ ...pastilla(modo === m), flex: 1, border: 0, borderRadius: '9px' }}
           >
-            {m === 'gross' ? 'Gross' : (netoBloqueado ? 'Neto · Pro' : 'Neto')}
+            {m === 'neto' ? 'Neto' : 'Gross'}
           </button>
         ))}
       </div>
