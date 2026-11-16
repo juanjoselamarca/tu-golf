@@ -178,13 +178,14 @@ export function jugadoresSinIndice(
  * hándicap de cancha puede no ser 0 (rating ≠ par), así que se dice "índice 0".
  * En raw NO se afirma un número: la tarjeta del grupo toma el índice del perfil
  * (`handicapDeLaTarjeta`) y lo que pasa por `handicapInscrito` toma 0; el aviso
- * pide cargar el hándicap, que es lo que deja todo consistente.
+ * solo lo advierte (en la lista de jugadores el hándicap no se edita, así que no se
+ * da una orden que ahí no se puede cumplir). Unificar esa fuente es otro PR.
  */
 export function avisoSinIndice(sinIndice: JugadorSinIndice[], hcpCalcMode: string | null | undefined): string | null {
   if (sinIndice.length === 0) return null
   const nombres = listaCorta(sinIndice.map((j) => j.nombre))
   if (!esModoHcpWhs(hcpCalcMode)) {
-    return `Sin hándicap inscrito: ${nombres}. Cárgalo antes de iniciar o su neto puede salir mal.`
+    return `Sin hándicap inscrito: ${nombres}. Su neto puede salir mal.`
   }
   const verbo = sinIndice.length === 1 ? 'Jugará' : 'Jugarán'
   return `Sin índice: ${nombres}. ${verbo} con índice 0.`

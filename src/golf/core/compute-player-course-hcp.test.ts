@@ -357,7 +357,7 @@ describe('sinIndiceEnNingunaParte — aviso al iniciar el torneo', () => {
     expect(sinIndiceEnNingunaParte({ handicap_at_registration: null }, 'whs')).toBe(true)
     expect(sinIndiceEnNingunaParte({ handicap_at_registration: null, profiles: { indice: null } }, 'whs')).toBe(true)
   })
-  it('raw: sin hándicap inscrito puntúa con 0 aunque el perfil tenga índice (nadie lo copia en raw)', () => {
+  it('raw: sin hándicap inscrito se avisa aunque el perfil tenga índice (nadie lo copia en raw)', () => {
     expect(sinIndiceEnNingunaParte({ handicap_at_registration: null, profiles: { indice: 12 } }, 'raw')).toBe(true)
     expect(sinIndiceEnNingunaParte({ handicap_at_registration: null, profiles: { indice: 12 } }, null)).toBe(true)
     expect(sinIndiceEnNingunaParte({ handicap_at_registration: 0, profiles: null }, 'raw')).toBe(false)

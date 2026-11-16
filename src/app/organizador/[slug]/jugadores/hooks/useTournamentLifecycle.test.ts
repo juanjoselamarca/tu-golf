@@ -473,7 +473,7 @@ describe('useTournamentLifecycle — confirmación con jugadores sin índice', (
     await act(async () => { await result.current.handleStartTournament() })
 
     expect(confirmMock).toHaveBeenCalledTimes(2)
-    expect(confirmMock.mock.calls[1][0].description).toContain('Sin hándicap inscrito: Carla. Cárgalo antes de iniciar')
+    expect(confirmMock.mock.calls[1][0].description).toContain('Sin hándicap inscrito: Carla. Su neto puede salir mal.')
     expect(vistosDel(0)).toEqual([])
     expect(vistosDel(1)).toEqual(['p9'])
     expect(showErrorMock).not.toHaveBeenCalled()
