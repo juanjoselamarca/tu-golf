@@ -71,17 +71,21 @@ describe('fetchHistorialRounds', () => {
 })
 
 /**
- * Mock de `.order(...)` de historical_rounds: exige el desempate determinista
- * (played_at, created_at, id) y después resuelve con `.limit()` o con await directo.
+ * Mock de `.order(...)` de historical_rounds: exige el desempate determinista con su
+ * dirección (played_at DESC, created_at DESC NULLS LAST, id DESC) y después resuelve con `.limit()` o con await directo.
  */
 function ordenRondas(res: unknown) {
-  const cols: string[] = []
+  const cols: Array<[string, unknown]> = []
   const fin = () => {
-    expect(cols).toEqual(['played_at', 'created_at', 'id'])
+    expect(cols).toEqual([
+      ['played_at', { ascending: false }],
+      ['created_at', { ascending: false, nullsFirst: false }],
+      ['id', { ascending: false }],
+    ])
     return res
   }
   const chain = {
-    order: (col: string) => { cols.push(col); return chain },
+    order: (col: string, opts?: unknown) => { cols.push([col, opts]); return chain },
     limit: async () => fin(),
     then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve().then(fin).then(ok, ko),
   }

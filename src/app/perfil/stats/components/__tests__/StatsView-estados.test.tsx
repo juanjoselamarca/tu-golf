@@ -40,4 +40,17 @@ describe('StatsView — estados', () => {
     expect(t).toContain('Mejor ronda80 +8')
     expect(t).not.toMatch(/Federación|Golfers\+|Peor ronda/)
   })
+
+  it('solo rondas "solo total": promedio y mejor ronda sí; birdies/eagles "—", nunca un 0 falso', () => {
+    const rondas = normalizarRondas([85, 90].map((g, i) => ({
+      id: `t${i}`, course_name: 'Los Leones', course_id: null, played_at: `2026-03-0${i + 1}`,
+      scores: null, total_gross: g, holes_played: 18, import_source: 'manual', formato_juego: 'stroke_play',
+    })), [], [])
+    const { container } = render(<StatsView rondas={rondas} />)
+    const t = container.textContent ?? ''
+    expect(t).toContain('Mejor ronda85 +13')
+    expect(t).toContain('Birdies—')
+    expect(t).toContain('Eagles—')
+    expect(t).not.toContain('Resultado por hoyo')
+  })
 })

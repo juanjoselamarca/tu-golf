@@ -189,8 +189,8 @@ export function StatsView({ rondas: rondasOError }: Props) {
                   valor={mejor ? <>{mejor.score} <span style={{ fontSize: 16, fontWeight: 500, color: C.muted }}>{formatOverUnder(mejor.vsPar)}</span></> : '—'}
                   detalle={mejor ? mejor.course : undefined}
                 />
-                <Cifra etiqueta="Birdies" valor={cifras ? scoringCounts.birdies : '—'} />
-                <Cifra etiqueta="Eagles" valor={cifras ? scoringCounts.eagles : '—'} />
+                <Cifra etiqueta="Birdies" valor={scoringTotal > 0 ? scoringCounts.birdies : '—'} />
+                <Cifra etiqueta="Eagles" valor={scoringTotal > 0 ? scoringCounts.eagles : '—'} />
               </div>
             </section>
 
