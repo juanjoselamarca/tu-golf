@@ -38,6 +38,7 @@ import {
   motivoParaNoIniciar,
   ponerEnJuego,
   soloAprobados,
+  completarIndicesInscritos,
   START_PLAYER_SELECT,
   type StartPlayer,
 } from '@/lib/data/tournaments/startTournament'
@@ -60,6 +61,7 @@ interface TournamentRow {
   total_rounds: number | null
   courses: { nombre?: string } | null
   team_config: unknown
+  hcp_calc_mode: string | null
 }
 
 export async function POST(
@@ -79,7 +81,7 @@ export async function POST(
 
   const { data: tournament, error: tErr } = await svc
     .from('tournaments')
-    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, hcp_pct, course_id, course_name, tees, hole_count, date_start, total_rounds, team_config, courses(nombre)')
+    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, hcp_pct, course_id, course_name, tees, hole_count, date_start, total_rounds, team_config, hcp_calc_mode, courses(nombre)')
     .eq('slug', slug)
     .single()
 
@@ -152,6 +154,11 @@ export async function POST(
   }
 
   try {
+    // WHS: un aprobado sin índice inscrito que hoy lo tiene en su perfil queda con él,
+    // antes de armar tarjetas y equipos (si no, jugaría con 0 sin aviso).
+    if (!(await completarIndicesInscritos(svc, t.hcp_calc_mode, approvedPlayers))) {
+      return NextResponse.json({ error: 'No se pudo guardar el índice de los jugadores. Intenta de nuevo.' }, { status: 500 })
+    }
     if (!(await ensureRound1Cards(svc, t.id, approvedPlayers))) {
       return NextResponse.json({ error: 'No se pudieron crear las tarjetas de los jugadores. Intenta de nuevo.' }, { status: 500 })
     }

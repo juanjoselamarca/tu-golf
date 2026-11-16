@@ -87,7 +87,7 @@ describe('useHcpEditor', () => {
       const { onSaved } = await editar(texto)
       expect(updatePlayerHandicap).not.toHaveBeenCalled()
       expect(onSaved).not.toHaveBeenCalled()
-      expect(showWarning).toHaveBeenCalledWith('Handicap inválido', MENSAJE_INDICE_FUERA_DE_RANGO)
+      expect(showWarning).toHaveBeenCalledWith('Índice inválido', MENSAJE_INDICE_FUERA_DE_RANGO)
     },
   )
 
@@ -129,18 +129,21 @@ describe('useHcpEditor', () => {
     expect(onSaved).toHaveBeenCalledWith('p1', 50)
   })
 
-  it('abre el editor con el plus como se muestra ("+2"), no como lo guarda la base', () => {
+  it('abre el editor con el plus como se muestra ("+2.0" en WHS, "+2" en raw), no como lo guarda la base', () => {
     const { result } = renderHook(() => useHcpEditor({ onSaved: vi.fn(), hcpCalcMode: 'whs', course: null }))
     act(() => result.current.startEdit('p1', -2))
-    expect(result.current.editValue).toBe('+2')
+    expect(result.current.editValue).toBe('+2.0')
     act(() => result.current.startEdit('p1', null))
     expect(result.current.editValue).toBe('')
+    const raw = renderHook(() => useHcpEditor({ onSaved: vi.fn(), hcpCalcMode: 'raw', course: null }))
+    act(() => raw.result.current.startEdit('p1', -2))
+    expect(raw.result.current.editValue).toBe('+2')
   })
 
   it('el mensaje del toast no promete un rango que la app no valida', async () => {
     await editar('99')
     expect(showWarning).toHaveBeenCalledWith(
-      'Handicap inválido',
+      'Índice inválido',
       expect.stringContaining('54'),
     )
     // El rango viejo "entre 0 y 54" mentía: −10..54 es el que valida el resto.

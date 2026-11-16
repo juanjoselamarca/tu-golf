@@ -101,7 +101,7 @@ describe('ResumenTab · handicap', () => {
         hcpEditor={editor({ editingId: 'p1', editValue: '+2' })}
       />,
     )
-    const input = screen.getByRole('textbox', { name: 'Handicap de inscripción' })
+    const input = screen.getByRole('textbox', { name: 'Índice de inscripción' })
     expect(input.getAttribute('type')).toBe('text')
     expect((input as HTMLInputElement).value).toBe('+2')
   })
@@ -121,8 +121,9 @@ describe('ResumenTab · editar el handicap en el DOM', () => {
     updatePlayerHandicap.mockClear()
     render(<ResumenConEditor roster={[jugador('p1', -2)]} />)
     fireEvent.click(screen.getByRole('button', { name: '+2.0' }))
-    const input = screen.getByRole('textbox', { name: 'Handicap de inscripción' }) as HTMLInputElement
-    expect(input.value).toBe('+2')
+    const input = screen.getByRole('textbox', { name: 'Índice de inscripción' }) as HTMLInputElement
+    // Precarga igual que el botón: "+2.0", no "+2".
+    expect(input.value).toBe('+2.0')
     fireEvent.change(input, { target: { value: texto } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await vi.waitFor(() => expect(updatePlayerHandicap).toHaveBeenCalled())

@@ -122,7 +122,7 @@ export function ResumenTab({ board, roster, hcpEditor, hcpCalcMode }: ResumenTab
                       {isEditingThis && row.id ? (
                         <input
                           type="text"
-                          aria-label="Handicap de inscripción"
+                          aria-label={`${presentacionHcp.rotulo} de inscripción`}
                           autoFocus
                           value={hcpEditor.editValue}
                           onChange={(e) => hcpEditor.setEditValue(e.target.value)}
@@ -137,7 +137,7 @@ export function ResumenTab({ board, roster, hcpEditor, hcpCalcMode }: ResumenTab
                         <button
                           onClick={() => row.id && hcpEditor.startEdit(row.id, rosterPlayer?.handicap_at_registration ?? null)}
                           style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--brand-on-bg)', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
-                          title="Editar handicap"
+                          title={`Editar ${presentacionHcp.rotulo === 'HCP' ? 'HCP' : 'índice'}`}
                         >
                           {(() => { const v = rosterPlayer?.handicap_at_registration ?? row.hcpDisplay; return v != null ? presentacionHcp.formatear(v) : '--' })()}
                         </button>
