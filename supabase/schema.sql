@@ -1257,7 +1257,7 @@ BEGIN
   END IF;
 
   -- Bloqueo en orden fijo (dos ediciones simultáneas de compañeros no se cruzan en deadlock).
-  PERFORM 1 FROM public.players p WHERE p.id = ANY (v_ids) ORDER BY p.id FOR UPDATE;
+  PERFORM 1 FROM public.players p WHERE p.id = ANY (v_ids) ORDER BY p.id FOR NO KEY UPDATE;
   GET DIAGNOSTICS v_bloqueados = ROW_COUNT;
   IF v_bloqueados <> cardinality(v_ids) THEN
     RETURN jsonb_build_object('ok', false, 'motivo', 'conflicto');

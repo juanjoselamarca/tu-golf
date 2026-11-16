@@ -24,6 +24,9 @@
 -- Rollback: supabase/migrations/rollback/20261116_handicap_de_inscripcion_rollback.sql
 
 -- ── 1. Columna ───────────────────────────────────────────────────────────────────────────────────────────────
+-- Solo metadatos, pero si el ALTER queda en cola detrás de una transacción larga bloquearía todas las lecturas
+-- de tarjetas: mejor fallar rápido y reintentar la corrida.
+SET LOCAL lock_timeout = '5s';
 ALTER TABLE public.ronda_libre_jugadores
   ADD COLUMN IF NOT EXISTS handicap_de_inscripcion boolean NOT NULL DEFAULT false;
 
@@ -48,7 +51,8 @@ BEGIN
 END;
 $$;
 
--- Privada: solo la corre esta migración (y la prueba SQL, como postgres).
+-- Privada: la corren esta migración, la prueba SQL (como postgres) y una migración posterior que la re-ejecuta
+-- con el PR B ya en prod (los torneos iniciados entre A y B quedan con handicap y flag false).
 REVOKE ALL ON FUNCTION public.backfill_handicap_de_inscripcion() FROM PUBLIC, anon, authenticated, service_role;
 
 SELECT public.backfill_handicap_de_inscripcion();
@@ -146,7 +150,7 @@ BEGIN
   END IF;
 
   -- Bloqueo en orden fijo (dos ediciones simultáneas de compañeros no se cruzan en deadlock).
-  PERFORM 1 FROM public.players p WHERE p.id = ANY (v_ids) ORDER BY p.id FOR UPDATE;
+  PERFORM 1 FROM public.players p WHERE p.id = ANY (v_ids) ORDER BY p.id FOR NO KEY UPDATE;
   GET DIAGNOSTICS v_bloqueados = ROW_COUNT;
   IF v_bloqueados <> cardinality(v_ids) THEN
     RETURN jsonb_build_object('ok', false, 'motivo', 'conflicto');
