@@ -18,6 +18,7 @@ import { CupoSection } from './components/CupoSection'
 import { GroupsSection } from './components/GroupsSection'
 import { PlayersTable } from './components/PlayersTable'
 import { TournamentActionsBar } from './components/TournamentActionsBar'
+import { AccionesDeGestion } from './components/AccionesDeGestion'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
 import { tournamentStatusBadge } from '@/golf/tournament-status'
 
@@ -221,10 +222,18 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           players={players}
           groups={groups}
           tournamentStatus={tournamentStatus}
+          hcpCalcMode={tournament.hcp_calc_mode}
           getPlayerGroupId={getPlayerGroupId}
           onAssignPlayer={handleAssignPlayer}
           onWithdraw={handleDesinscribir}
           onDisqualify={handleDescalificar}
+        />
+
+        <AccionesDeGestion
+          tournamentStatus={tournamentStatus}
+          opening={opening}
+          onCancel={handleCancelTournament}
+          onRevertToDraft={handleRevertToDraft}
         />
       </div>
 
@@ -239,8 +248,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         allRoundsClosed={allRoundsClosed}
         onStart={handleStartTournament}
         onOpenInscriptions={handleOpenInscriptions}
-        onRevertToDraft={handleRevertToDraft}
-        onCancel={handleCancelTournament}
         onClose={handleCloseTournament}
         onReopen={handleReopenTournament}
         onAltura={setAltoBarra}
