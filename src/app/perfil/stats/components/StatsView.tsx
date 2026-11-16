@@ -71,7 +71,7 @@ export function StatsView({ rondas: rondasOError }: Props) {
   const [range, setRange] = useState<RangeKey>('all')
   const allRounds = rondasOError ?? []
   const {
-    hasRounds, cifras, fueraDePromedios, scoringCounts, scoringTotal, serie, nineHoleData, topRounds, trendData,
+    hasRounds, cifras, fueraDePromedios, delOtroBucket, scoringCounts, scoringTotal, serie, nineHoleData, topRounds, trendData,
   } = useStatsDerived(allRounds, range)
 
   const mejor = cifras?.mejorRonda ?? null
@@ -137,6 +137,15 @@ export function StatsView({ rondas: rondasOError }: Props) {
         {fueraDePromedios > 0 && (
           <p style={{ color: C.muted, fontSize: 14, margin: '-8px 0 16px', lineHeight: 1.5 }}>
             {fueraDePromedios === 1 ? '1 no entra' : `${fueraDePromedios} no entran`} a los promedios: de equipo, match play, incompletas o con un error de carga.
+          </p>
+        )}
+
+        {cifras && delOtroBucket && (
+          <p style={{ color: C.muted, fontSize: 14, margin: '-8px 0 16px', lineHeight: 1.5 }}>
+            Aquí ves tus rondas de {cifras.bucket} hoyos, las que más juegas.{' '}
+            {delOtroBucket.n === 1
+              ? `La de ${delOtroBucket.bucket} está en tu historial.`
+              : `Las ${delOtroBucket.n} de ${delOtroBucket.bucket} están en tu historial.`}
           </p>
         )}
 
@@ -251,7 +260,7 @@ export function StatsView({ rondas: rondasOError }: Props) {
 
             {/* ── Distribución: barras neutras; el resultado lo dice la etiqueta ── */}
             {hasRounds && scoringTotal > 0 && (
-              <Seccion titulo="Resultado por hoyo">
+              <Seccion titulo={cifras ? `Resultado por hoyo · ${cifras.bucket} hoyos` : 'Resultado por hoyo'}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
                     { label: 'Eagle o mejor', count: scoringCounts.eagles },

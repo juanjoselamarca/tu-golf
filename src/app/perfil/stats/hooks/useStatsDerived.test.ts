@@ -63,6 +63,20 @@ describe('useStatsDerived', () => {
     expect(d.trendData?.bucketHoles).toBe(9)
   })
 
+  it('el rango se aplica DESPUÉS del bucket: "Últimas 5" son las últimas 5 que cuentan', () => {
+    // seq creciente → las de 18 y el scramble son las MÁS recientes.
+    const d = derivar([
+      ...Array.from({ length: 7 }, () => raw({ scores: Array(9).fill(5), total_gross: 45, holes_played: 9 })),
+      raw({ total_gross: 80 }), raw({ total_gross: 82 }),
+      raw({ total_gross: 62, formato_juego: 'scramble' }),
+    ], '5')
+    expect(d.cifras?.bucket).toBe(9)
+    expect(d.cifras?.rondasEnPromedio).toBe(5)
+    expect(d.serie).toHaveLength(5)
+    expect(d.delOtroBucket).toEqual({ bucket: 18, n: 2 })
+    expect(d.nineHoleData).toBeNull()
+  })
+
   it('usuario solo-9h: las cifras caen al bucket 9 (rotulado), nunca vacías', () => {
     const d = derivar([
       raw({ scores: Array(9).fill(5), total_gross: 45, holes_played: 9 }),

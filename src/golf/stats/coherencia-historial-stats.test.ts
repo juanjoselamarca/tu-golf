@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { computeHistorialStats } from './historial'
-import { normalizarRondas, type CourseHoleRow, type RawStatsRound } from './rondas-normalizadas'
+import { contarHoyoAHoyo, normalizarRondas, rondasQueCuentan, type CourseHoleRow, type RawStatsRound } from './rondas-normalizadas'
 import { useStatsDerived } from '@/app/perfil/stats/hooks/useStatsDerived'
 
 // Cancha A: par 72 (pares 4,4,3,5 repetidos de forma irregular), por course_id.
@@ -79,8 +79,15 @@ describe('coherencia historial == stats', () => {
   const { result } = renderHook(() => useStatsDerived(normalizarRondas(raw, courses, holesA), 'all'))
   const stats = result.current
 
-  it('mismo conteo hoyo a hoyo', () => {
-    expect(stats.scoringCounts).toEqual({
+  it('mismo conteo hoyo a hoyo sobre el mismo set; la pantalla de stats cuenta solo su bucket', () => {
+    expect(stats.scoringCounts).toEqual(contarHoyoAHoyo(rondasQueCuentan(normalizarRondas(raw, courses, holesA), 18)))
+    expect({
+      eagles: stats.agregados.totalEagles,
+      birdies: stats.agregados.totalBirdies,
+      pars: stats.agregados.totalPars,
+      bogeys: stats.agregados.totalBogeys,
+      doubles: stats.agregados.totalDoubles,
+    }).toEqual({
       eagles: historial.totalEagles,
       birdies: historial.totalBirdies,
       pars: historial.totalPars,

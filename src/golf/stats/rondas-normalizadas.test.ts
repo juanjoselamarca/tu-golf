@@ -25,11 +25,10 @@ describe('normalizarRondas', () => {
     expect(r.fueraDePromedios).toBeNull()
   })
 
-  it('9 hoyos: vsPar18 es el doble del vsPar (9h +5 → +10)', () => {
+  it('9 hoyos: vsPar en su propia escala (9h +5 → +5, sin duplicar)', () => {
     const r = una(raw({ scores: Array(9).fill(4).map((s, i) => (i < 5 ? 5 : s)), total_gross: 41, holes_played: 9 }))
     expect(r.bucket).toBe(9)
     expect(r.vsPar).toBe(5)
-    expect(r.vsPar18).toBe(10)
   })
 
   it('score imposible (menos de 3 golpes por hoyo): fuera de números y del conteo hoyo a hoyo', () => {
@@ -73,6 +72,14 @@ describe('normalizarRondas', () => {
     expect(ag.totalBirdies).toBe(0)
   })
 
+  it('solo total con catálogo: usa su par; con un hoyo faltante (mapa disperso) cae a 72', () => {
+    const hoyos = (sin?: number) => Array.from({ length: 18 }, (_, i) => ({ course_id: 'c1', numero: i + 1, par: i === 0 ? 5 : 4 }))
+      .filter(h => h.numero !== sin)
+    const ronda = raw({ scores: null, total_gross: 85, holes_played: 18, course_id: 'c1' })
+    expect(normalizarRondas([ronda], [], hoyos())[0].vsPar).toBe(12)
+    expect(normalizarRondas([ronda], [], hoyos(7))[0].vsPar).toBe(13)
+  })
+
   it('solo total con holes_played raro queda parcial; scramble solo total queda fuera', () => {
     expect(una(raw({ scores: null, total_gross: 60, holes_played: 12 })).fueraDePromedios).toBe('parcial')
     expect(una(raw({ scores: [], total_gross: 62, formato_juego: 'scramble' })).fueraDePromedios).toBe('bola_compartida')
@@ -114,5 +121,18 @@ describe('par estándar', () => {
     const [r] = normalizarRondas([raw({ scores: Array(27).fill(5), total_gross: 135, holes_played: 27 })], [], [])
     expect(r.bucket).toBe(18)
     expect(r.vsPar).toBeNull()
+  })
+
+  it('una ronda sin vsPar no entra a promedio, mejor ronda, breakdown ni bucket', () => {
+    const rondas = normalizarRondas([
+      raw({ id: 'larga', played_at: '2026-06-02', scores: Array(27).fill(5), total_gross: 130, holes_played: 27 }),
+      raw({ id: 'normal', played_at: '2026-06-01', total_gross: 80 }),
+    ], [], [])
+    const ag = agregarRondas(rondas)
+    expect(ag.totalRounds18).toBe(1)
+    expect(ag.avgOverPar18).toBe(8)
+    expect(ag.bestRound18?.roundId).toBe('normal')
+    expect(ag.courseBreakdown[0].bestVsPar).toBe(8)
+    expect(bucketPrincipal(rondas.slice(0, 1))).toBeNull()
   })
 })
