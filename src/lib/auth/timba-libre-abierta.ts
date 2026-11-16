@@ -1,13 +1,13 @@
 // ─── ¿Está abierta la Timba libre en la app? ─────────────────────────────────
 //
-// Fuente única del interruptor de producto. Con `false`, NADIE (tampoco un admin) puede elegir Timba libre en
-// el asistente de Nueva Ronda: la fila muestra "Próximamente" a todos y la "i" sigue abriendo el banner. Motivo:
-// la pestaña Juego (los puntos en vivo, PR C2) todavía no existe; sin ella, una Timba creada no muestra sus puntos.
+// Fuente única del interruptor de producto. Con `true` (desde el PR C2, que trajo la pestaña Juego con los puntos
+// en vivo), Timba libre se puede elegir en el asistente de Nueva Ronda, pero solo quien tiene permiso
+// (`usePuedeCrearTimba` pregunta a la ruta; hoy, los admins): al resto la fila le sigue mostrando "Próximamente".
+// Con `false`, NADIE (tampoco un admin) la puede elegir; la "i" sigue abriendo el banner.
 //
-// Lo que NO cambia con esto: la API de crear (`POST /api/ronda-libre/create`) sigue aceptando `personalizado` a
-// los admins (`puedeCrearJuegoPersonalizado`, en `./juego-personalizado.ts`, desde el PR B).
+// Lo que NO cambia con esto: la API de crear (`POST /api/ronda-libre/create`) acepta `personalizado` solo a quien
+// `puedeCrearJuegoPersonalizado` (en `./juego-personalizado.ts`, desde el PR B) deja.
 //
-// El PR C2 la da vuelta a `true` cuando la pestaña Juego exista; todo el flujo (elegir el juego, parejas, crear)
-// ya está construido y testeado con `true` (los tests la fuerzan con `vi.mock` de este módulo).
+// Los tests fuerzan los dos valores con `vi.mock` de este módulo (`usePuedeCrearTimba.test.ts`).
 // Sin 'server-only': la leen componentes de cliente.
-export const TIMBA_LIBRE_ABIERTA: boolean = false
+export const TIMBA_LIBRE_ABIERTA: boolean = true

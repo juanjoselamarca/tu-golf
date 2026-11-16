@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 
-// El interruptor de producto se fuerza por test: así el flujo completo queda probado con la Timba abierta
-// (lo que hará el PR C2) y también cerrada (hoy).
+// El interruptor de producto se fuerza por test: así el flujo queda probado con la Timba abierta (desde el PR C2)
+// y también cerrada (si hubiera que volver a cerrarla).
 const interruptor = vi.hoisted(() => ({ abierta: true }))
 vi.mock('@/lib/auth/timba-libre-abierta', () => ({ get TIMBA_LIBRE_ABIERTA() { return interruptor.abierta } }))
 
