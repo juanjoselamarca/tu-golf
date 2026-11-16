@@ -12,12 +12,16 @@ import { PasoCancha } from './components/PasoCancha'
 import { PasoConfirmar } from './components/PasoConfirmar'
 import { PasoFormato } from './components/PasoFormato'
 import { PasoJugadores } from './components/PasoJugadores'
+import { ParejasDeLaTimba } from './components/timba/ParejasDeLaTimba'
 import { useCreadorDeRonda, recordarUltimaCancha } from './hooks/useCreadorDeRonda'
 import { useCrearRonda, jugadoresDeLaRonda } from './hooks/useCrearRonda'
 import { useFormularioDeRonda, volverDeEtapa } from './hooks/useFormularioDeRonda'
 import { useHandicapDeCancha } from './hooks/useHandicapDeCancha'
 import { useSetupDeCancha } from './hooks/useSetupDeCancha'
 import { useTeesCoherentes } from './hooks/useTeesCoherentes'
+import { configParaEnviar } from './hooks/timba-del-formulario'
+import { problemaDeLaTimbaEnJugadores, problemaParaCrearLaTimba, useTimbaDeLaRonda } from './hooks/useTimbaDeLaRonda'
+import { NOMBRE_FORMATO_PERSONALIZADO, NOMBRE_PLANTILLA } from '@/golf/formats/personalizado'
 
 // Cancha → formato → jugadores. El formato va antes que la gente porque decide
 // cuánta hace falta y quién anota; antes el asistente abría preguntando "¿quién
@@ -35,6 +39,7 @@ export default function NuevaRondaLibrePage() {
   const router = useRouter()
   const creador = useCreadorDeRonda()
   const form = useFormularioDeRonda()
+  const timba = useTimbaDeLaRonda()
 
   const setup = useSetupDeCancha({ courseId: form.courseId })
 
@@ -85,6 +90,19 @@ export default function NuevaRondaLibrePage() {
     teesEnJuego: jugadores.map(j => j.tees),
   })
 
+  // Timba libre: el juego se valida con la MISMA función que la API. En Jugadores todavía no frenan las parejas
+  // (se eligen en Confirmar); en Confirmar, todo.
+  const jugadoresDeLaTimba = jugadores.map(j => ({ id: j.id, nombre: j.nombre, indice: j.indice }))
+  const problemaTimbaJugadores = timba.timba
+    ? problemaDeLaTimbaEnJugadores(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId)
+    : null
+  const juegoTimba = timba.timba
+    ? {
+        reglasJuego: configParaEnviar(timba.timba, jugadoresDeLaTimba.map(j => j.id), form.modo),
+        problema: problemaParaCrearLaTimba(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId),
+      }
+    : null
+
   const { crear, creando, creada, problema } = useCrearRonda({
     userId: creador.userId,
     courseId: form.courseId,
@@ -98,6 +116,7 @@ export default function NuevaRondaLibrePage() {
     forma,
     recorridos: setup.recorridosElegidos,
     llevaElScoreDelGrupo: form.llevaElScoreDelGrupo,
+    timba: juegoTimba,
   })
 
   if (creada) {
@@ -180,10 +199,18 @@ export default function NuevaRondaLibrePage() {
         {form.paso === 2 && (
           <PasoFormato
             formato={form.formato}
-            onFormato={form.elegirFormato}
+            onFormato={f => { timba.soltar(); form.elegirFormato(f) }}
             modo={form.modo}
             onModo={form.setModo}
             netoBloqueado={form.netoBloqueado}
+            holes={forma.holes}
+            timba={{
+              puedeElegir: timba.puedeElegir,
+              actual: timba.timba,
+              // Timba libre se arma sobre la ronda individual base (cada uno con su tarjeta).
+              onElegir: () => { form.elegirFormato('stroke_play'); timba.elegir() },
+              onTimba: timba.setTimba,
+            }}
             onAtras={() => form.setPaso(1)}
             onSiguiente={() => form.setPaso(3)}
           />
@@ -216,7 +243,7 @@ export default function NuevaRondaLibrePage() {
             hcpVisibleDe={hcpVisibleDe}
             hoyos={forma.holes}
             rondasRecientes={creador.rondasRecientes}
-            problema={form.problemaDelFormulario ?? problema}
+            problema={form.problemaDelFormulario ?? problemaTimbaJugadores ?? problema}
             onAtras={() => form.setPaso(2)}
             onSiguiente={() => form.setPaso(4)}
           />
@@ -238,6 +265,17 @@ export default function NuevaRondaLibrePage() {
             hcpVisibleDe={hcpVisibleDe}
             hayVariosTees={setup.tees.length > 1}
             problema={form.problemaDelFormulario ?? problema}
+            timba={timba.timba ? {
+              nombre: `${NOMBRE_FORMATO_PERSONALIZADO} · ${NOMBRE_PLANTILLA[timba.timba.config.plantilla]}`,
+              juego: (
+                <ParejasDeLaTimba
+                  timba={timba.timba}
+                  onTimba={timba.setTimba}
+                  jugadores={jugadoresDeLaTimba}
+                  holes={forma.holes}
+                />
+              ),
+            } : undefined}
             creando={creando}
             onEditar={() => form.setPaso(3)}
             onCrear={crear}

@@ -7,7 +7,8 @@ import { captureError } from '@/lib/error-tracking'
 import { useToast } from '@/hooks/useToast'
 import { isTeamFormat } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
-import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { validarNuevaRonda, type ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { FORMATO_PERSONALIZADO, type ConfigJuego } from '@/golf/formats/personalizado'
 import { MENSAJE_NETO_PRO, MENSAJE_PLAN_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import type { FormaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
 import { nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
@@ -136,6 +137,11 @@ interface Args {
   forma: FormaDeLaRonda
   recorridos: string[]
   llevaElScoreDelGrupo: boolean
+  /**
+   * Timba libre elegida: la ronda viaja como `personalizado` con su `reglas_juego`. `problema` lo calcula
+   * `problemaParaCrearLaTimba`, la misma función que corre la API. `formato` sigue siendo el individual de base.
+   */
+  timba?: { reglasJuego: ConfigJuego; problema: ProblemaDeLaRonda | null } | null
 }
 
 export interface RondaCreada {
@@ -163,7 +169,7 @@ export function useCrearRonda(args: Args) {
     })),
     equipos,
     creadorId: args.userId,
-  })
+  }) ?? args.timba?.problema ?? null
 
   const crear = async () => {
     if (creando) return
@@ -209,12 +215,13 @@ export function useCrearRonda(args: Args) {
           holes: args.forma.holes,
           fecha: args.fecha,
           hoyo_inicio: args.forma.hoyoInicio,
-          formato_juego: args.formato,
+          formato_juego: args.timba ? FORMATO_PERSONALIZADO : args.formato,
           modo_juego: args.modo,
           admin_mode: args.llevaElScoreDelGrupo,
           recorridos: args.recorridos.length > 0 ? args.recorridos : undefined,
           jugadores: jugadoresParaLaApi(args.jugadores, args.userId),
           equipos: isTeamFormat(args.formato) ? equipos : undefined,
+          reglas_juego: args.timba?.reglasJuego,
         }),
       })
 
@@ -247,7 +254,7 @@ export function useCrearRonda(args: Args) {
       captureError(err, {
         context: 'ronda-libre.nueva.crear',
         userId: args.userId,
-        meta: { cancha: args.cancha, formato: args.formato },
+        meta: { cancha: args.cancha, formato: args.timba ? FORMATO_PERSONALIZADO : args.formato },
       })
       showError('Error al crear la ronda', 'No pudimos contactar el servidor. Revisa tu conexión.')
     } finally {

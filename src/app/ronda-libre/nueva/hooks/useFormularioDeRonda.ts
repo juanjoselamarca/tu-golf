@@ -14,6 +14,7 @@ import {
 import type { MitadDeCancha } from '@/golf/ronda-libre/forma-de-la-ronda'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { RondaReciente } from '@/lib/data/ronda-libre-nueva'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { modoPermitidoPorPlan, netoBloqueadoPorPlan } from '@/golf/billing/modo-por-plan'
 import type { NetoFeature } from '@/golf/billing/plans'
 import { useAccesoNeto } from '@/hooks/useAccesoNeto'
@@ -364,7 +365,8 @@ export function useFormularioDeRonda() {
     setCourseId(r.course_id)
     setTees(r.tees)
     elegirHoyos(r.holes === 9 ? 9 : 18)
-    const formatoRepetido = (r.formato_juego as FormatoJuego) ?? 'stroke_play'
+    // Timba libre no es un formato del formulario (su juego se arma de nuevo): se repite la ronda individual base.
+    const formatoRepetido = esFormatoPersonalizado(r.formato_juego) ? 'stroke_play' : ((r.formato_juego as FormatoJuego) ?? 'stroke_play')
     // Se guarda lo pedido; `modo` le aplica formato y plan (un Match Play
     // Neto viejo, repetido por alguien sin Pro, queda en Gross a la vista).
     if (r.modo_juego === 'gross' || r.modo_juego === 'neto') setModo(r.modo_juego)
