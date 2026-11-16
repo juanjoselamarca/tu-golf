@@ -92,8 +92,27 @@ describe('useTeamConfig', () => {
 
   it('elegir el modo vigente no escribe el borrador', () => {
     const applyChange = vi.fn()
-    const { result } = renderHook(() => useTeamConfig(cfg(undefined), applyChange))
+    const { result } = renderHook(() => useTeamConfig(cfg({ size: 2, formation_mode: 'manual' }), applyChange))
     result.current.setModo('oficial')
+    expect(applyChange).not.toHaveBeenCalled()
+  })
+
+  it('formato por equipos sin team_config: guarda al montar el default que muestra la sección', () => {
+    const applyChange = vi.fn()
+    renderHook(() => useTeamConfig(cfg(null), applyChange))
+    expect(applyChange).toHaveBeenCalledTimes(1)
+    expect(applyChange).toHaveBeenCalledWith({ team_config: { size: 2, formation_mode: 'manual' } })
+  })
+
+  it('formato individual sin team_config: no escribe nada', () => {
+    const applyChange = vi.fn()
+    renderHook(() => useTeamConfig(cfg(null, 'stroke_play'), applyChange))
+    expect(applyChange).not.toHaveBeenCalled()
+  })
+
+  it('con team_config ya guardado: no lo pisa al montar', () => {
+    const applyChange = vi.fn()
+    renderHook(() => useTeamConfig(cfg({ size: 4, formation_mode: 'random' }), applyChange))
     expect(applyChange).not.toHaveBeenCalled()
   })
 

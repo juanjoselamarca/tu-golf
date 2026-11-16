@@ -12,10 +12,15 @@
 //     oficiales del nuevo tamaño: un % por jugador, nunca un largo distinto.
 //   - Un personalizado sin % (lo puede proponer la IA) se muestra vacío; el
 //     primer % que se escribe completa el resto con los oficiales.
+//   - Un formato por equipos sin `team_config` guardado recibe al montar el
+//     default que la sección ya muestra. Antes la pantalla mostraba "equipos de
+//     2, armado manual" sin guardarlo y "Crear torneo" quedaba bloqueado por una
+//     configuración que el organizador creía haber elegido (inbox 16-nov).
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { TeamConfig, TeamHandicapConfig, TournamentConfig } from '@/lib/draft/types'
 import { leerTeamConfig } from '@/lib/draft/team-config-legacy'
+import { isTeamFormat } from '@/golf/formats'
 import {
   asignacionOficialScramble, FOURSOME_PCT_SUMA_OFICIAL, type TamanoEquipo,
 } from '@/golf/formats/team-handicap'
@@ -88,6 +93,11 @@ export function useTeamConfig(
 ) {
   const tc = useMemo(() => resolverTeamConfig(config.team_config), [config.team_config])
   const guardar = (next: TeamConfig) => applyChange({ team_config: next })
+  const faltaGuardar = isTeamFormat(config.format) && config.team_config == null
+
+  useEffect(() => {
+    if (faltaGuardar) applyChange({ team_config: resolverTeamConfig(null) })
+  }, [faltaGuardar, applyChange])
 
   return {
     tc,
