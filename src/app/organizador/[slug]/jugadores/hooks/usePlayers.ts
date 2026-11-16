@@ -88,7 +88,7 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
   /**
    * Inscribe un INVITADO sin cuenta: una fila en `players` con `user_id = null`
    * y `player_name`. El índice lo tipea el organizador y se guarda en
-   * `handicap_at_registration` (resolvePlayerHandicap cae a esa columna cuando no
+   * `handicap_at_registration` (`handicapInscrito` la lleva a la tarjeta al iniciar; sin
    * hay perfil → el índice viaja a ronda_libre_jugadores.handicap y el leaderboard
    * calcula el neto). Server-side vía `enrollPlayer` (valida cupo).
    */

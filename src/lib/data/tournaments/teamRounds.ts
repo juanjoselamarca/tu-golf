@@ -108,19 +108,3 @@ export function handicapsDeEquipoDelGrupo(args: {
   if (!esModoHcpWhs(ctx.mode)) return { completo, juego: null }
   return { completo, juego: holeCount >= 18 ? completo : equipoEn(parTotal, holeCount) }
 }
-
-/**
- * Handicap de un jugador del torneo para `ronda_libre_jugadores.handicap` (la
- * fila del jugador en la tarjeta del grupo). NO es el que puntúa en el equipo:
- * ese es `handicapsDeEquipoDelGrupo`.
- *
- * Precedencia: `profiles.indice` (índice WHS vivo) → `handicap_at_registration`
- * (snapshot al inscribirse) → 0 (invitado sin índice ni registro). El índice 0
- * es válido y no cae al fallback.
- */
-export function resolvePlayerHandicap(player: {
-  handicap_at_registration?: number | null
-  profiles?: { indice?: number | null } | null
-}): number {
-  return player.profiles?.indice ?? player.handicap_at_registration ?? 0
-}

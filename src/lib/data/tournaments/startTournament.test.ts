@@ -427,6 +427,22 @@ describe('materializeGroupScorecard — handicap de equipo en ronda_equipos', ()
       tournament: tournament(formato, { formato_juego: formato, team_config }), group: group(['p1', 'p2']), players: pareja(), ronda1, creatorId: 'org', hcpEquipos: ctx,
     })
 
+  it('la tarjeta de cada integrante lleva lo inscrito, no el índice de hoy del perfil', async () => {
+    // El perfil se actualizó después de inscribirse (FedeGolf): 10 → 8.5. El equipo
+    // puntúa con lo inscrito; la tarjeta tiene que mostrar ese mismo número.
+    const db = fakeDb()
+    await materializeGroupScorecard(db.svc, {
+      tournament: tournament('scramble', { formato_juego: 'scramble' }), group: group(['p1', 'p2']),
+      players: [
+        player('p1', { handicap_at_registration: 10, profiles: { name: 'Juan', indice: 8.5 } }),
+        player('p2', { handicap_at_registration: 20, profiles: { name: 'Juanito', indice: 20 } }),
+      ],
+      ronda1, creatorId: 'org', hcpEquipos: hcpEquipos(),
+    })
+    const filas = db.ops.filter((o) => o.kind === 'insert' && o.table === 'ronda_libre_jugadores').map((o) => o.payload as Record<string, unknown>)
+    expect(filas.map((f) => f.handicap)).toEqual([10, 20])
+  })
+
   it('scramble WHS 18 hoyos: completo y de juego iguales (35 % × 10 + 15 % × 20 = 6,5 → 7)', async () => {
     const db = fakeDb()
     expect((await armar(db, 'scramble', hcpEquipos())).ok).toBe(true)

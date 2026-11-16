@@ -25,7 +25,7 @@ import { modoDeJuego } from '@/golf/core/rules'
 import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
-import type { PlayerForCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { handicapInscrito, type PlayerForCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import type { LegacyHcpContext } from '@/golf/leaderboard/types'
 import { leerHandicapDeEquipo } from '@/lib/draft/team-config-legacy'
 import { formatoDeLaTarjetaDelGrupo } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
@@ -34,7 +34,6 @@ import { fetchCourseHoles, fetchLegacyHcpContext, type Client } from './leaderbo
 import {
   handicapsDeEquipoDelGrupo,
   isProducerTeamFormat,
-  resolvePlayerHandicap,
 } from './teamRounds'
 import { grupoEnlazadoIncompleto, playerName } from './motivo-para-no-iniciar'
 
@@ -364,7 +363,11 @@ export async function materializeGroupScorecard(
       if (!player) {
         return abortar('jugador-del-grupo-no-existe', new Error(`player ${gp.player_id} no está en el torneo`))
       }
-      const handicap = resolvePlayerHandicap(player)
+      // Lo inscrito (`handicapInscrito`), el mismo número con que el leaderboard y el
+      // handicap de equipo puntúan y el que ve el organizador. Antes la tarjeta tomaba
+      // el índice de HOY del perfil: si FedeGolf lo actualizó entre la inscripción y
+      // el inicio, el jugador veía un número y el torneo puntuaba con otro.
+      const handicap = handicapInscrito(player)
       const { data: jugador, error } = await svc
         .from('ronda_libre_jugadores')
         .insert({
