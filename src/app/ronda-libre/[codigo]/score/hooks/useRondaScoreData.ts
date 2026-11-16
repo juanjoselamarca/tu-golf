@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { RondaLibre, HoleData } from '@/types/ronda'
 import { isTeamFormat } from '@/golf/formats'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { hoyoParaRetomar, hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import {
   fetchRondaLibreParaScorer,
@@ -113,6 +114,14 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       // Demo rondas son spectator-only: cualquier usuario es redirigido al leaderboard.
       // El scoring usa la UI real en /score, no queremos que toquen demo data.
       if (r.es_demo) { router.replace(`/ronda-libre/${codigo}`); return }
+      // Timba libre: se juega con UN celular, el de quien lleva el score del grupo (score-grupo). El individual no
+      // revisa marcas pendientes ni retiros y rellenaría con par al finalizar: nunca se usa en una Timba, aunque la
+      // ronda llegara sin admin_mode.
+      if (esFormatoPersonalizado(r.formato_juego)) {
+        const anota = (r.admin_user_id ?? r.creador_id) === authUser?.id
+        router.replace(anota ? `/ronda-libre/${codigo}/score-grupo` : `/ronda-libre/${codigo}`)
+        return
+      }
       // Team formats must use score-grupo (individual scoring doesn't support teams)
       if (isTeamFormat(r.formato_juego)) {
         router.replace(`/ronda-libre/${codigo}/score-grupo`)
