@@ -3,6 +3,8 @@
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { primario, secundario } from './estilos'
 import { SelectorFormato } from './SelectorFormato'
+import { ElegirJuegoTimba } from './timba/ElegirJuegoTimba'
+import type { TimbaDelFormulario } from '../hooks/timba-del-formulario'
 
 interface Props {
   formato: FormatoJuego
@@ -10,6 +12,14 @@ interface Props {
   modo: ModoJuego
   onModo: (m: ModoJuego) => void
   netoBloqueado: boolean
+  holes: number
+  /** Timba libre: `actual` null = no elegida. Elegirla depende del permiso (`puedeElegir`). */
+  timba: {
+    puedeElegir: boolean
+    actual: TimbaDelFormulario | null
+    onElegir: () => void
+    onTimba: (t: TimbaDelFormulario) => void
+  }
   onAtras: () => void
   onSiguiente: () => void
 }
@@ -28,7 +38,19 @@ export function PasoFormato(props: Props) {
         modo={props.modo}
         onModo={props.onModo}
         netoBloqueado={props.netoBloqueado}
+        timba={{ puedeElegir: props.timba.puedeElegir, activa: props.timba.actual != null, onElegir: props.timba.onElegir }}
       />
+
+      {props.timba.actual && (
+        <ElegirJuegoTimba
+          timba={props.timba.actual}
+          onTimba={props.timba.onTimba}
+          modo={props.modo}
+          onModo={props.onModo}
+          netoBloqueado={props.netoBloqueado}
+          holes={props.holes}
+        />
+      )}
 
       <div style={{ display: 'flex', gap: '10px' }}>
         <button type="button" onClick={props.onAtras} style={secundario}>
