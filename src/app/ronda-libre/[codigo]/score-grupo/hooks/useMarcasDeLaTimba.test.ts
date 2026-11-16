@@ -30,12 +30,14 @@ const vista = {
 } as unknown as VistaDelJuego
 
 beforeEach(() => {
+  localStorage.clear()
   cola.length = 0
   Object.values(mocks).forEach(m => m.mockReset())
 })
 
+const RECARGAR = vi.fn(async () => {})
 const montar = (conexion = 'ok', recargar = vi.fn(async () => {})) =>
-  renderHook(() => useMarcasDeLaTimba({ codigo: 'ABC123', activo: true, vista, recargar, conexion }))
+  renderHook(() => useMarcasDeLaTimba({ codigo: 'ABC123', activo: true, vista, vistaPedidaEn: 1, recargar, conexion }))
 
 describe('useMarcasDeLaTimba', () => {
   it('marcar escribe en la cola y se ve al toque, aunque el envío no responda', async () => {
@@ -72,7 +74,7 @@ describe('useMarcasDeLaTimba', () => {
     cola.push({ jugadorId: 'b', puntitoId: 's', hoyo: 4, marcar: true, valor: 1 })
     mocks.reenviar.mockImplementation(async () => {
       const marca = cola.shift()!
-      return { enviadas: 0, rechazadas: [{ marca, code: 'P0003' }], pendientes: 0 }
+      return { enviadas: 0, confirmadas: [], rechazadas: [{ marca, code: 'P0003' }], pendientes: 0 }
     })
     const { result } = montar('ok')
     await waitFor(() => expect(result.current.rechazadas).toHaveLength(1))
@@ -81,8 +83,9 @@ describe('useMarcasDeLaTimba', () => {
 
   it('sin señal no reenvía; enviarPendientes dice si quedó algo (cerrar lo exige)', async () => {
     cola.push({ jugadorId: 'b', puntitoId: 's', hoyo: 4, marcar: true, valor: 1 })
-    mocks.reenviar.mockResolvedValue({ enviadas: 0, rechazadas: [], pendientes: 1 })
-    const { result } = montar('sin_conexion')
+    mocks.reenviar.mockResolvedValue({ enviadas: 0, confirmadas: [], rechazadas: [], pendientes: 1 })
+    // Sin señal tampoco hay juego nuevo (el GET falló): nada dispara el reenvío.
+    const { result } = renderHook(() => useMarcasDeLaTimba({ codigo: 'ABC123', activo: true, vista: null, vistaPedidaEn: null, recargar: RECARGAR, conexion: 'sin_conexion' }))
     expect(mocks.reenviar).not.toHaveBeenCalled()
     let listo = true
     await act(async () => { listo = await result.current.enviarPendientes() })
@@ -102,5 +105,54 @@ describe('useMarcasDeLaTimba', () => {
     expect(ok).toBe(false)
     expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', title: 'No se deshizo el retiro' }))
     expect(recargar).toHaveBeenCalledTimes(1)
+  })
+
+  it('el ✓ de una marca enviada no se apaga entre que la cola se vacía y llega el juego nuevo', async () => {
+    mocks.marcar.mockImplementation(async () => {
+      cola.push({ jugadorId: 'b', puntitoId: 's', hoyo: 4, marcar: true, valor: 1 })
+      cola.length = 0 // el servidor la guardó: sale de la cola
+      return { error: null }
+    })
+    let props = { vista, vistaPedidaEn: 1 as number | null }
+    const recargar = vi.fn(async () => {})
+    const { result, rerender } = renderHook(() => useMarcasDeLaTimba({ codigo: 'ABC123', activo: true, ...props, recargar, conexion: 'ok' }))
+    act(() => result.current.alternar('b', SANDY, 4))
+    await waitFor(() => expect(recargar).toHaveBeenCalled())
+    expect(result.current.hayPendientes).toBe(false)
+    expect(result.current.marcas).toContainEqual({ jugadorId: 'b', hoyo: 4, puntitoId: 's' })
+    // Llega una vista pedida DESPUÉS del envío: manda ella (acá no la trae: el ✓ se va).
+    props = { vista: { ...vista } as VistaDelJuego, vistaPedidaEn: Date.now() + 1000 }
+    rerender()
+    await waitFor(() => expect(result.current.marcas).not.toContainEqual({ jugadorId: 'b', hoyo: 4, puntitoId: 's' }))
+  })
+
+  it('con cola pendiente, cada juego nuevo que llega reintenta el envío solo', async () => {
+    cola.push({ jugadorId: 'b', puntitoId: 's', hoyo: 4, marcar: true, valor: 1 })
+    mocks.reenviar.mockResolvedValue({ enviadas: 0, confirmadas: [], rechazadas: [], pendientes: 1 })
+    let props: { vista: VistaDelJuego | null; vistaPedidaEn: number | null } = { vista: null, vistaPedidaEn: null }
+    const recargar = vi.fn(async () => {})
+    const { rerender } = renderHook(() => useMarcasDeLaTimba({ codigo: 'ABC123', activo: true, ...props, recargar, conexion: 'sin_conexion' }))
+    expect(mocks.reenviar).not.toHaveBeenCalled()
+    props = { vista, vistaPedidaEn: 1 }
+    rerender()
+    await waitFor(() => expect(mocks.reenviar).toHaveBeenCalledTimes(1))
+    props = { vista: { ...vista } as VistaDelJuego, vistaPedidaEn: 2 }
+    rerender()
+    await waitFor(() => expect(mocks.reenviar).toHaveBeenCalledTimes(2))
+  })
+
+  it('retiro confirmado con la recarga caída: queda en el teléfono hasta que la vista lo traiga', async () => {
+    mocks.retiro.mockResolvedValue({ error: null })
+    let props = { vista, vistaPedidaEn: 1 as number | null }
+    const recargar = vi.fn(async () => {})
+    const { result, rerender } = renderHook(() => useMarcasDeLaTimba({ codigo: 'ABC123', activo: true, ...props, recargar, conexion: 'ok' }))
+    await act(async () => { await result.current.retirar('d', 8) })
+    expect(result.current.retirosConfirmados).toEqual({ d: 8 })
+    // Otro montaje (recargó la página sin señal): lo sigue sabiendo.
+    const otro = renderHook(() => useMarcasDeLaTimba({ codigo: 'ABC123', activo: true, vista: null, vistaPedidaEn: null, recargar, conexion: 'sin_conexion' }))
+    expect(otro.result.current.retirosConfirmados).toEqual({ d: 8 })
+    props = { vista: { ...vista, retiros: { d: 8 } } as VistaDelJuego, vistaPedidaEn: 2 }
+    rerender()
+    await waitFor(() => expect(result.current.retirosConfirmados).toEqual({}))
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { estaRetiradoEn, hoyosNoJugadosPorRetiro, hoyoDesdeElQueSeRetira } from './retiro'
+import { estaRetiradoEn, hoyosNoJugadosPorRetiro, hoyoDesdeElQueSeRetira, hoyosParaElegirElRetiro } from './retiro'
 
 // Salida en el 10: el orden de juego es 10..18, 1..9 (spec, "Hoyo pendiente y retiro").
 const ORDEN = [10, 11, 12, 13, 14, 15, 16, 17, 18, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -27,5 +27,18 @@ describe('retiro de un jugador (orden de juego, no número de hoyo)', () => {
     // Último hoyo ya anotado: no queda ninguno que perder.
     const todos = Object.fromEntries(ORDEN.map(h => [h, 4]))
     expect(hoyoDesdeElQueSeRetira(todos, 9, ORDEN)).toBeNull()
+  })
+})
+
+describe('hoyos para elegir desde cuál se retira (se acordaron tarde)', () => {
+  it('de la salida hasta el hoyo actual, en orden de juego', () => {
+    expect(hoyosParaElegirElRetiro(ORDEN, 12, 12)).toEqual([10, 11, 12])
+  })
+  it('incluye el calculado si quedó después del actual (ya anotó el actual)', () => {
+    expect(hoyosParaElegirElRetiro(ORDEN, 12, 13)).toEqual([10, 11, 12, 13])
+  })
+  it('hoyo fuera de la ronda: hasta el calculado, o nada', () => {
+    expect(hoyosParaElegirElRetiro(ORDEN, 99, null)).toEqual([])
+    expect(hoyosParaElegirElRetiro([1, 2, 3], 99, 2)).toEqual([1, 2])
   })
 })

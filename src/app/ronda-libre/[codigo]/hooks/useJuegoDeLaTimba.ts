@@ -16,7 +16,8 @@ import type { MotivoSinJuego, VistaDelJuego } from '@/golf/ronda-libre/juego-de-
  */
 export type EstadoDelJuego =
   | { estado: 'cargando' }
-  | { estado: 'ok'; vista: VistaDelJuego; desactualizado: boolean }
+  /** `pedidaEn`: cuándo se PIDIÓ la vista (ms): lo enviado antes de ese momento ya viene en ella. */
+  | { estado: 'ok'; vista: VistaDelJuego; desactualizado: boolean; pedidaEn: number }
   | { estado: 'sin_juego'; motivo: MotivoSinJuego }
   | { estado: 'sin_sesion' }
   | { estado: 'error' }
@@ -28,6 +29,8 @@ export interface JuegoDeLaTimba {
   juego: EstadoDelJuego
   /** Lo último que llegó bien (también si el último pedido falló: va con `desactualizado`). */
   vista: VistaDelJuego | null
+  /** Cuándo se pidió `vista` (ms); `null` sin vista. */
+  vistaPedidaEn: number | null
   recargar: () => Promise<void>
 }
 
@@ -37,12 +40,13 @@ export function useJuegoDeLaTimba(
 ): JuegoDeLaTimba {
   const { activo, firma = '', intervaloS = 20 } = opciones
   const [juego, setJuego] = useState<EstadoDelJuego>({ estado: 'cargando' })
-  const ultimaVista = useRef<VistaDelJuego | null>(null)
+  const ultimaVista = useRef<{ vista: VistaDelJuego; pedidaEn: number } | null>(null)
   const pedido = useRef(0)
 
   const recargar = useCallback(async () => {
     if (!activo) return
     const mio = ++pedido.current
+    const pedidaEn = Date.now()
     const control = new AbortController()
     const plazo = setTimeout(() => control.abort(), PLAZO_JUEGO_MS)
     let siguiente: EstadoDelJuego
@@ -53,19 +57,19 @@ export function useJuegoDeLaTimba(
         if (res.status >= 500 && res.status !== 503) {
           void captureError(new Error(`GET /juego ${res.status}`), { context: 'ronda-libre.juego.leer', level: 'warning', meta: { codigo } })
         }
-        siguiente = ultimaVista.current ? { estado: 'ok', vista: ultimaVista.current, desactualizado: true } : { estado: 'error' }
+        siguiente = ultimaVista.current ? { estado: 'ok', ...ultimaVista.current, desactualizado: true } : { estado: 'error' }
       } else {
         const cuerpo = await res.json() as ({ estado: 'ok' } & VistaDelJuego) | { estado: 'sin_juego'; motivo: MotivoSinJuego }
         if (cuerpo.estado === 'sin_juego') siguiente = { estado: 'sin_juego', motivo: cuerpo.motivo }
         else {
           const { estado: _estado, ...vista } = cuerpo
-          ultimaVista.current = vista
-          siguiente = { estado: 'ok', vista, desactualizado: false }
+          ultimaVista.current = { vista, pedidaEn }
+          siguiente = { estado: 'ok', vista, desactualizado: false, pedidaEn }
         }
       }
     } catch {
       // Sin señal o plazo vencido: no es un error de la app, se reintenta solo.
-      siguiente = ultimaVista.current ? { estado: 'ok', vista: ultimaVista.current, desactualizado: true } : { estado: 'error' }
+      siguiente = ultimaVista.current ? { estado: 'ok', ...ultimaVista.current, desactualizado: true } : { estado: 'error' }
     } finally {
       clearTimeout(plazo)
     }
@@ -88,5 +92,10 @@ export function useJuegoDeLaTimba(
     return () => clearInterval(id)
   }, [activo, intervaloS, recargar])
 
-  return { juego, vista: juego.estado === 'ok' ? juego.vista : null, recargar }
+  return {
+    juego,
+    vista: juego.estado === 'ok' ? juego.vista : null,
+    vistaPedidaEn: juego.estado === 'ok' ? juego.pedidaEn : null,
+    recargar,
+  }
 }

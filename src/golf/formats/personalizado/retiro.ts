@@ -32,3 +32,16 @@ export function hoyoDesdeElQueSeRetira(
   const desde = Math.max(0, ordenHoyos.indexOf(hoyoActual))
   return ordenHoyos.slice(desde).find(h => scores?.[h] == null) ?? null
 }
+
+/**
+ * Hoyos que se ofrecen para elegir desde cuál se retira alguien (por si el grupo se acordó tarde): de la salida
+ * hasta el hoyo actual, en orden de juego, más el calculado por `hoyoDesdeElQueSeRetira` si quedó después.
+ */
+export function hoyosParaElegirElRetiro(
+  ordenHoyos: readonly number[],
+  hoyoActual: number,
+  porDefecto: number | null,
+): number[] {
+  const hasta = Math.max(ordenHoyos.indexOf(hoyoActual), porDefecto == null ? -1 : ordenHoyos.indexOf(porDefecto))
+  return ordenHoyos.slice(0, hasta + 1)
+}

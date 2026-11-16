@@ -56,7 +56,7 @@ describe('marcas de Timba con respaldo offline', () => {
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 5, marcar: true, esGreenie: false })
     expect(marcasPendientes(COD)).toMatchObject([{ jugadorId: 'juan', puntitoId: 'sandy', hoyo: 5, marcar: true }])
     red = 'ok'
-    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 1, rechazadas: [], pendientes: 0 })
+    expect(await reenviarPuntitosPendientes(c, COD)).toMatchObject({ enviadas: 1, rechazadas: [], pendientes: 0 })
     expect(llamadas.at(-1)?.args).toMatchObject({ p_jugador_id: 'juan', p_puntito_id: 'sandy', p_hoyo: 5, p_marcar: true })
   })
 
@@ -135,7 +135,7 @@ describe('marcas de Timba con respaldo offline', () => {
     // Reabierta: el reenvío la sube.
     red = 'ok'
     const antes = llamadas.length
-    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 1, rechazadas: [], pendientes: 0 })
+    expect(await reenviarPuntitosPendientes(c, COD)).toMatchObject({ enviadas: 1, rechazadas: [], pendientes: 0 })
     expect(llamadas.slice(antes).map(l => l.args.p_jugador_id)).toEqual(['pedro'])
   })
 
@@ -145,7 +145,7 @@ describe('marcas de Timba con respaldo offline', () => {
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 1, marcar: true, esGreenie: false })
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 2, marcar: true, esGreenie: false })
     red = 'sin_senal'
-    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 0, rechazadas: [], pendientes: 2 })
+    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 0, confirmadas: [], rechazadas: [], pendientes: 2 })
   })
 
   it('el reenvío se detiene en la primera sin respuesta y conserva el resto', async () => {
@@ -153,7 +153,7 @@ describe('marcas de Timba con respaldo offline', () => {
     const { c } = cliente(() => red)
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 1, marcar: true, esGreenie: false })
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 2, marcar: true, esGreenie: false })
-    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 0, rechazadas: [], pendientes: 2 })
+    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 0, confirmadas: [], rechazadas: [], pendientes: 2 })
   })
 
   it('las marcas no se mezclan con los golpes pendientes, y limpiar la copia del grupo borra ambas', async () => {

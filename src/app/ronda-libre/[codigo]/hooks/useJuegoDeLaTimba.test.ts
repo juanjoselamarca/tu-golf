@@ -43,7 +43,7 @@ describe('useJuegoDeLaTimba', () => {
     const { result } = renderHook(() => useJuegoDeLaTimba('ABC123', { activo: true, intervaloS: 0 }))
     await waitFor(() => expect(result.current.juego.estado).toBe('ok'))
     await act(() => result.current.recargar())
-    expect(result.current.juego).toEqual({ estado: 'ok', vista: VISTA, desactualizado: true })
+    expect(result.current.juego).toMatchObject({ estado: 'ok', vista: VISTA, desactualizado: true })
   })
 
   it('sin nada que mostrar y sin señal: error', async () => {

@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import { estaRetiradoEn, hoyoDesdeElQueSeRetira, nombreDelPuntito } from '@/golf/formats/personalizado'
+import { estaRetiradoEn, hoyoDesdeElQueSeRetira, hoyosParaElegirElRetiro, nombreDelPuntito } from '@/golf/formats/personalizado'
+import { retirosVigentes } from '@/golf/ronda-libre/retiros-de-la-timba'
 import { marcasDelHoyo, puntitosMarcables, type MarcasDeUnPuntito } from '@/golf/ronda-libre/marcas-de-la-timba'
 import { useJuegoDeLaTimba, type EstadoDelJuego } from '../../hooks/useJuegoDeLaTimba'
 import { useMarcasDeLaTimba, type MarcasDeLaTimba } from './useMarcasDeLaTimba'
@@ -12,7 +13,10 @@ export interface JugadorParaRetiro {
   id: string
   nombre: string
   retiradoDesde: number | null
+  /** Por defecto: el hoyo actual si no lo anotó, o el primero sin anotar después (`hoyoDesdeElQueSeRetira`). */
   desdeSiSeVa: number | null
+  /** Para elegir otro si se acordaron tarde: de la salida hasta el actual (`hoyosParaElegirElRetiro`). */
+  hoyosParaElegir: number[]
 }
 
 export interface TimbaDelScorer {
@@ -20,7 +24,7 @@ export interface TimbaDelScorer {
   recargar: () => Promise<void>
   marcas: MarcasDeLaTimba
   nombres: Record<string, string>
-  /** jugadorId → hoyo desde el que se retiró (lo último que llegó de `GET /juego`). */
+  /** jugadorId → hoyo desde el que se retiró: lo último de `GET /juego` más lo confirmado en este teléfono. */
   retiros: Readonly<Record<string, number>>
   retiradoEn: (jugadorId: string, hoyo: number) => boolean
   /** Puntos especiales para marcar en el hoyo actual (vacío si no hay juego o si el hoyo no tiene ninguno). */
@@ -49,11 +53,17 @@ export function useTimbaDelScorer(input: {
   par: number
 }): TimbaDelScorer {
   const { codigo, activo, conexion, jugadores, scores, firma, currentHole, ordenHoyos, par } = input
-  const { juego, vista, recargar } = useJuegoDeLaTimba(codigo, { activo, firma })
-  const marcas = useMarcasDeLaTimba({ codigo, activo, vista, recargar, conexion })
+  const { juego, vista, vistaPedidaEn, recargar } = useJuegoDeLaTimba(codigo, { activo, firma })
+  const marcas = useMarcasDeLaTimba({ codigo, activo, vista, vistaPedidaEn, recargar, conexion })
 
   const nombres = useMemo(() => Object.fromEntries(jugadores.map(j => [j.id, j.nombre])), [jugadores])
-  const retiros = vista?.retiros ?? SIN_RETIROS
+  // El retiro confirmado en el teléfono vale aunque `GET /juego` falle: si no, "Siguiente" le pondría par.
+  const servidor = vista?.retiros ?? SIN_RETIROS
+  const confirmados = marcas.retirosConfirmados
+  const retiros = useMemo(
+    () => (Object.keys(confirmados).length === 0 ? servidor : retirosVigentes(servidor, confirmados)),
+    [servidor, confirmados],
+  )
 
   const derivados = useMemo(() => {
     const retiradoEn = (jugadorId: string, hoyo: number) => estaRetiradoEn(retiros[jugadorId], hoyo, ordenHoyos)
@@ -76,12 +86,16 @@ export function useTimbaDelScorer(input: {
       const base = `${nombrePuntito} de ${jugador} en el hoyo ${m.hoyo}`
       return m.marcar ? base : `Quitar: ${base}`
     })
-    const jugadoresParaRetiro = jugadores.map(j => ({
-      id: j.id,
-      nombre: j.nombre,
-      retiradoDesde: retiros[j.id] ?? null,
-      desdeSiSeVa: hoyoDesdeElQueSeRetira(scores[j.id], currentHole, ordenHoyos),
-    }))
+    const jugadoresParaRetiro = jugadores.map(j => {
+      const desdeSiSeVa = hoyoDesdeElQueSeRetira(scores[j.id], currentHole, ordenHoyos)
+      return {
+        id: j.id,
+        nombre: j.nombre,
+        retiradoDesde: retiros[j.id] ?? null,
+        desdeSiSeVa,
+        hoyosParaElegir: hoyosParaElegirElRetiro(ordenHoyos, currentHole, desdeSiSeVa),
+      }
+    })
     return { retiradoEn, retiradosDelHoyo, puntosDelHoyo, birdieAutomatico, lineasRechazadas, jugadoresParaRetiro }
   }, [retiros, ordenHoyos, jugadores, currentHole, vista, par, marcas.marcas, marcas.enCola, marcas.rechazadas, nombres, scores])
 
