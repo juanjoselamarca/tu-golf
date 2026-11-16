@@ -488,13 +488,13 @@ describe('useFinalizeGrupo', () => {
   })
 
   describe('Timba libre', () => {
-    it('al cerrar solo rellena el hoyo en pantalla: el resto sin score es "no jugó" (regla 26-oct)', async () => {
+    it('al cerrar solo rellena el hoyo en pantalla si alguien ya lo anotó: el resto sin score es "no jugó" (regla 26-oct)', async () => {
       const enviarMarcas = vi.fn(async () => true)
       const { result } = montar({ timba: { retiros: { p2: 14 }, enviarMarcas, hoyoEnPantalla: 18 } })
       await act(async () => { await result.current.fin.finalizeRound() })
       await act(async () => { await result.current.fin.finalizeRound() })
-      // Ana (p1) anotó del 10 al 17: el 18 en pantalla queda con par.
-      expect(result.current.scores.p1[18]).toBe(5)
+      // Nadie anotó el 18 en pantalla: no se jugó, nadie recibe par ahí.
+      expect(result.current.scores.p1[18]).toBeUndefined()
       // Beto (p2) se retiró desde el 14: ni sus hoyos previos sin anotar ni el 18 reciben par.
       expect(result.current.scores.p2[13]).toBeUndefined()
       expect(result.current.scores.p2[18]).toBeUndefined()
@@ -503,7 +503,9 @@ describe('useFinalizeGrupo', () => {
     })
 
     it('sin retiro: el que no anotó del 11 al 17 los pierde (sin par inventado) y el 18 en pantalla sí lleva par', async () => {
-      const { result } = montar({ timba: { retiros: {}, enviarMarcas: vi.fn(async () => true), hoyoEnPantalla: 18 } })
+      // Ana ya anotó el 18 en pantalla: se jugó, y el par gris de Beto se rellena.
+      const scores = { p1: { 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5, 18: 6 }, p2: { 10: 5 } }
+      const { result } = montar({ scores, timba: { retiros: {}, enviarMarcas: vi.fn(async () => true), hoyoEnPantalla: 18 } })
       await act(async () => { await result.current.fin.finalizeRound() })
       await act(async () => { await result.current.fin.finalizeRound() })
       expect(result.current.scores.p2).toEqual({ 10: 5, 18: 5 })

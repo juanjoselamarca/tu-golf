@@ -138,7 +138,7 @@ export function useGrupoScoreboard(input: {
         ? tarjetas
         : jugadores.map(j => ({
           scores: scores[j.id],
-          noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole }),
+          noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores }),
         })),
       ordenHoyos,
     ).length

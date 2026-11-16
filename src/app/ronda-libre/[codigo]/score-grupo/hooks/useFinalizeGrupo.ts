@@ -196,10 +196,10 @@ export function useFinalizeGrupo(input: {
       for (const j of ronda.ronda_libre_jugadores) {
         // Match play: los hoyos que el rival concedió y los posteriores a decidirse el
         // match no se jugaron: no se inventan con par (el historial los estima con par neto).
-        // Timba: solo el hoyo en pantalla (el resto sin score es "no jugó") y nunca desde el retiro.
+        // Timba: solo el hoyo en pantalla si alguien ya lo anotó (el resto sin score es "no jugó") y nunca desde el retiro.
         const noRellenar = hoyosQueNoSeRellenan({
           matchResult, jugadores: ronda.ronda_libre_jugadores, jugadorId: j.id, retiros: timba?.retiros, ordenHoyos: hoyos,
-          esTimba: timba != null, hoyoEnPantalla: timba?.hoyoEnPantalla,
+          esTimba: timba != null, hoyoEnPantalla: timba?.hoyoEnPantalla, scores,
         })
         const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap, noRellenar)
         if (rellenados.length > 0) filledScores[j.id] = completos
