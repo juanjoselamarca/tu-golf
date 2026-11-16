@@ -27,6 +27,8 @@ const HISTORIAL_STATS      = path.join(ROOT, 'src/app/api/historial/stats/route.
 // sobre "stats" leen las 3 fuentes combinadas.
 const HISTORIAL_DATA       = path.join(ROOT, 'src/lib/data/historial.ts')
 const HISTORIAL_STATS_GOLF = path.join(ROOT, 'src/golf/stats/historial.ts')
+// Fuente única de agregados de historial y stats (Ola 1, PR1): la lógica se movió acá.
+const RONDAS_NORMALIZADAS  = path.join(ROOT, 'src/golf/stats/rondas-normalizadas.ts')
 const SCORE_PAGE           = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/page.tsx')
 const FINALIZE_RONDA_HOOK  = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts')
 // Post-refactor (oct-2026): el INSERT en historical_rounds vive en la capa de
@@ -81,7 +83,7 @@ function readHistorialModule(): string {
 
 /** Read the stats sources: thin route + data layer + golf math (post-RSC split). */
 function readStatsModule(): string {
-  return [HISTORIAL_STATS, HISTORIAL_DATA, HISTORIAL_STATS_GOLF].map(readSrc).join('\n')
+  return [HISTORIAL_STATS, HISTORIAL_DATA, HISTORIAL_STATS_GOLF, RONDAS_NORMALIZADAS].map(readSrc).join('\n')
 }
 
 // ─── DB snapshots (verified live via Supabase Management API) ─────────────────
@@ -326,8 +328,8 @@ describe('F6 | Stats (peso 2)', () => {
 
   it('[ST-2] Stats route computes birdies per-hole, not per-round', () => {
     // Must iterate holes (posiciones jugadas de la tarjeta) and count diff per hole
-    expect(statsSource).toMatch(/for \(const i of .*jugadas\)|for.*let i.*scores\.length/)
-    expect(statsSource).toMatch(/diff.*<=.*-2.*totalEagles|diff.*-1.*totalBirdies/)
+    expect(statsSource).toMatch(/for \(const i of .*jugadas\)|for.*let i.*scores\.length|for \(let i = 0; i < r\.tarjeta\.length/)
+    expect(statsSource).toMatch(/diff.*<=.*-2.*totalEagles|diff.*-1.*totalBirdies|diff <= -2\) c\.eagles\+\+/)
   })
 
   it('[ST-3] Stats query trae formato_juego y par_per_hole (inbox 4b73b0b6)', () => {
