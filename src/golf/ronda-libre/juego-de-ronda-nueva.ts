@@ -10,6 +10,16 @@
  */
 import { armarReglasGuardadas, validarJuegoPersonalizado, type ReglasJuegoGuardadas } from '@/golf/formats/personalizado'
 
+/** Título de todo problema del juego de la Timba (UI y API lo muestran igual). */
+export const TITULO_REVISA_EL_JUEGO = 'Revisa el juego'
+
+/**
+ * Una Timba se anota en un solo celular (`admin_mode`): sus jugadores quedan fijos al crearla (los puntos van por
+ * identidad), así que nadie puede sumarse después por el link a anotar su tarjeta.
+ */
+export const MENSAJE_TIMBA_UN_CELULAR =
+  'Timba libre se anota en un solo celular: elige «Yo anoto por todos» y suma a los jugadores.'
+
 export interface JugadorDeTimbaNueva {
   nombre: string
   /** Índice declarado en la tarjeta (`null` = sin índice). */
@@ -26,8 +36,11 @@ export function prepararJuegoDeRondaNueva(input: {
   jugadores: readonly JugadorDeTimbaNueva[]
   holes: number
   courseId: string | null
+  /** `admin_mode` de la ronda: una persona anota por todos. Sin él, no hay Timba. */
+  adminMode: boolean
   nuevoId: () => string
 }): JuegoDeRondaNueva {
+  if (!input.adminMode) return { ok: false, error: MENSAJE_TIMBA_UN_CELULAR }
   // Sin cancha no hay par por hoyo: ni birdie ni greenie (par 3) tendrían referencia.
   if (!input.courseId) return { ok: false, error: 'Timba libre necesita una cancha del catálogo. Elige la cancha de la lista.' }
 

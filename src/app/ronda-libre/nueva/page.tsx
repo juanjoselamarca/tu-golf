@@ -95,13 +95,13 @@ export default function NuevaRondaLibrePage() {
   const jugadoresDeLaTimba = jugadores.map(j => ({ id: j.id, nombre: j.nombre, indice: j.indice }))
   // Los jugadores de la Timba quedan fijos al crearla (sus puntos van por identidad): no pueden sumarse después
   // por el link, así que se anota en un solo celular.
-  const problemaTimbaJugadores = !timba.timba ? null : !form.llevaElScoreDelGrupo
-    ? { titulo: 'Revisa el juego', detalle: 'Timba libre se anota en un solo celular: elige «Yo anoto por todos» y suma a los jugadores.' }
-    : problemaDeLaTimbaEnJugadores(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId)
+  const problemaTimbaJugadores = timba.timba
+    ? problemaDeLaTimbaEnJugadores(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId, form.llevaElScoreDelGrupo)
+    : null
   const juegoTimba = timba.timba
     ? {
         reglasJuego: configParaEnviar(timba.timba, jugadoresDeLaTimba.map(j => j.id), form.modo),
-        problema: problemaParaCrearLaTimba(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId),
+        problema: problemaParaCrearLaTimba(timba.timba, jugadoresDeLaTimba, forma.holes, form.modo, form.courseId, form.llevaElScoreDelGrupo),
       }
     : null
 

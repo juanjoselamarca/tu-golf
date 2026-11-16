@@ -2,14 +2,14 @@
 
 import { useState } from 'react'
 import type { ModoJuego } from '@/golf/core/rules'
-import { prepararJuegoDeRondaNueva } from '@/golf/ronda-libre/juego-de-ronda-nueva'
+import {
+  MENSAJE_TIMBA_UN_CELULAR, TITULO_REVISA_EL_JUEGO, prepararJuegoDeRondaNueva,
+} from '@/golf/ronda-libre/juego-de-ronda-nueva'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { usePuedeCrearTimba } from './usePuedeCrearTimba'
 import {
   configParaEnviar, problemaDeLaTimba, timbaDePlantilla, type JugadorDeLaTimba, type TimbaDelFormulario,
 } from './timba-del-formulario'
-
-const TITULO = 'Revisa el juego'
 
 /** Plantilla con la que abre "elegir el juego" (la primera del catálogo, como en la maqueta). */
 export const PLANTILLA_INICIAL = 'colombiana' as const
@@ -20,6 +20,7 @@ export const PLANTILLA_INICIAL = 'colombiana' as const
  */
 export function problemaParaCrearLaTimba(
   timba: TimbaDelFormulario, jugadores: readonly JugadorDeLaTimba[], holes: number, modo: ModoJuego, courseId: string | null,
+  adminMode: boolean,
 ): ProblemaDeLaRonda | null {
   const r = prepararJuegoDeRondaNueva({
     reglasJuego: configParaEnviar(timba, jugadores.map(j => j.id), modo),
@@ -27,17 +28,20 @@ export function problemaParaCrearLaTimba(
     jugadores,
     holes,
     courseId,
+    adminMode,
     nuevoId: () => '',
   })
-  return r.ok ? null : { titulo: TITULO, detalle: r.error }
+  return r.ok ? null : { titulo: TITULO_REVISA_EL_JUEGO, detalle: r.error }
 }
 
 /** Lo que frena el paso Jugadores: todo menos las parejas, que se eligen en Confirmar. */
 export function problemaDeLaTimbaEnJugadores(
   timba: TimbaDelFormulario, jugadores: readonly JugadorDeLaTimba[], holes: number, modo: ModoJuego, courseId: string | null,
+  adminMode: boolean,
 ): ProblemaDeLaRonda | null {
-  // Mismo texto que la API (prepararJuegoDeRondaNueva): sin cancha del catálogo no hay par por hoyo.
-  if (!courseId) return problemaParaCrearLaTimba(timba, jugadores, holes, modo, courseId)
+  // Mismos textos que la API (prepararJuegoDeRondaNueva): un solo celular, y sin cancha del catálogo no hay par por hoyo.
+  if (!adminMode) return { titulo: TITULO_REVISA_EL_JUEGO, detalle: MENSAJE_TIMBA_UN_CELULAR }
+  if (!courseId) return problemaParaCrearLaTimba(timba, jugadores, holes, modo, courseId, adminMode)
   return problemaDeLaTimba(timba, jugadores, holes, modo, { conParejas: false })
 }
 

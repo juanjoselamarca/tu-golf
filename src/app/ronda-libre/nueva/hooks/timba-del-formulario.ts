@@ -11,6 +11,7 @@ import {
   type Azar, type ConfigJuego, type Pareja, type PlantillaJuego,
 } from '@/golf/formats/personalizado'
 import type { ModoJuego } from '@/golf/core/rules'
+import { TITULO_REVISA_EL_JUEGO } from '@/golf/ronda-libre/juego-de-ronda-nueva'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 
 export interface TimbaDelFormulario {
@@ -114,5 +115,5 @@ export function problemaDeLaTimba(
     jugadores: jugadores.map(j => ({ nombre: j.nombre.trim(), courseHandicap: j.indice })),
     cantidadHoyos: holes,
   })
-  return r.ok ? null : { titulo: 'Revisa el juego', detalle: r.errores.join(' ') }
+  return r.ok ? null : { titulo: TITULO_REVISA_EL_JUEGO, detalle: r.errores.join(' ') }
 }

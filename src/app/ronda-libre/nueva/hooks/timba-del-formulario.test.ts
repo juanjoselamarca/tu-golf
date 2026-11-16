@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { cambiarUnidad, formatPuntosTimba } from '@/golf/formats/personalizado'
-import { prepararJuegoDeRondaNueva } from '@/golf/ronda-libre/juego-de-ronda-nueva'
+import {
+  MENSAJE_TIMBA_UN_CELULAR, TITULO_REVISA_EL_JUEGO, prepararJuegoDeRondaNueva,
+} from '@/golf/ronda-libre/juego-de-ronda-nueva'
+import { problemaDeLaTimbaEnJugadores, problemaParaCrearLaTimba } from './useTimbaDeLaRonda'
 import {
   configParaEnviar, conCompanero, conConfig, parejasFijas, problemaDeLaTimba, sortear, sorteoVigente,
   timbaDePlantilla, tramosDelSorteo,
@@ -67,10 +70,23 @@ describe('Timba en el asistente', () => {
     const t = conCompanero(timbaDePlantilla('subterranea'), 'r1')
     const r = prepararJuegoDeRondaNueva({
       reglasJuego: configParaEnviar(t, CUATRO, 'gross'), modoDeLaRonda: 'gross',
-      jugadores: jug(CUATRO).map(j => ({ nombre: j.nombre, indice: j.indice })), holes: 18, courseId: 'c1',
+      jugadores: jug(CUATRO).map(j => ({ nombre: j.nombre, indice: j.indice })), holes: 18, courseId: 'c1', adminMode: true,
       nuevoId: () => crypto.randomUUID(),
     })
     expect(r.ok).toBe(true)
     expect(formatPuntosTimba(-2)).toBe('−2')
+  })
+
+  it('sin «Yo anoto por todos» (admin_mode) la Timba no se crea: mismo mensaje en la UI y en la API', () => {
+    const t = conCompanero(timbaDePlantilla('subterranea'), 'r1')
+    const r = prepararJuegoDeRondaNueva({
+      reglasJuego: configParaEnviar(t, CUATRO, 'gross'), modoDeLaRonda: 'gross',
+      jugadores: jug(CUATRO).map(j => ({ nombre: j.nombre, indice: j.indice })), holes: 18, courseId: 'c1', adminMode: false,
+      nuevoId: () => crypto.randomUUID(),
+    })
+    expect(r).toEqual({ ok: false, error: MENSAJE_TIMBA_UN_CELULAR })
+    expect(problemaParaCrearLaTimba(t, jug(CUATRO), 18, 'gross', 'c1', false)).toEqual({ titulo: TITULO_REVISA_EL_JUEGO, detalle: MENSAJE_TIMBA_UN_CELULAR })
+    expect(problemaDeLaTimbaEnJugadores(t, jug(CUATRO), 18, 'gross', 'c1', false)).toEqual({ titulo: TITULO_REVISA_EL_JUEGO, detalle: MENSAJE_TIMBA_UN_CELULAR })
+    expect(problemaDeLaTimbaEnJugadores(t, jug(CUATRO), 18, 'gross', 'c1', true)).toBeNull()
   })
 })

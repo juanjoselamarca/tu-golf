@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
           jugadores: body.jugadores.map(j => ({ nombre: j.nombre, indice: j.handicap })),
           holes: body.holes,
           courseId: body.course_id,
+          adminMode: body.admin_mode,
           nuevoId: () => crypto.randomUUID(),
         })
       : null
