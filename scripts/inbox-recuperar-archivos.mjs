@@ -267,13 +267,16 @@ export async function recuperarPendientes(s, bot) {
       let aplicada = !e2 && !!sumada?.length;
       if (e2) {
         // Error de red: el UPDATE pudo aplicarse igual. Si el álbum ya tiene las fotos, listo.
-        const { data: rel, error: eRel } = await s.from('inbox_reports').select('fotos_paths').eq('id', hermana.id).maybeSingle();
+        const { data: rel, error: eRel } = await s.from('inbox_reports').select('fotos_paths, audio_path').eq('id', hermana.id).maybeSingle();
         if (eRel || !rel) {
           err(`⚠ ${row.id}: no sé si las fotos entraron al álbum ${hermana.id}; NO revierto ni borro ${subidos.join(', ')} (revisar a mano)`);
           fallidos += subidos.length;
           continue;
         }
-        aplicada = nuevas.length > 0 && nuevas.every((p) => (rel?.fotos_paths ?? []).includes(p));
+        aplicada =
+          subidos.length > 0 &&
+          nuevas.every((p) => (rel.fotos_paths ?? []).includes(p)) &&
+          (!audio || rel.audio_path === audio);
       }
       if (!aplicada) {
         const { data: revertida, error: e3 } = await s

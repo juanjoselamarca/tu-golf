@@ -16,6 +16,7 @@ function fakeSupabase(rows: Row[], opts: { antesDeUpdate?: (id: string) => void 
     let payload: Record<string, unknown> | null = null;
     let order: string | null = null;
     let limit = Infinity;
+    let conSelect = false;
     const run = () => {
       if (payload) {
         const idFilter = preds.length ? rows.find((r) => preds[0](r))?.id : undefined;
@@ -26,12 +27,13 @@ function fakeSupabase(rows: Row[], opts: { antesDeUpdate?: (id: string) => void 
       hits = hits.slice(0, limit);
       if (payload) {
         for (const h of hits) Object.assign(h, structuredClone(payload));
-        return { data: hits.map((h) => ({ id: h.id })), error: null };
+        // Como PostgREST: un update solo devuelve filas si se encadenó .select().
+        return { data: conSelect ? hits.map((h) => ({ id: h.id })) : null, error: null };
       }
       return { data: hits.map((h) => structuredClone(h)), error: null };
     };
     const q: Record<string, unknown> = {
-      select: () => q,
+      select: () => ((conSelect = true), q),
       update: (p: Record<string, unknown>) => ((payload = p), q),
       like: (c: string, pat: string) => (preds.push((r) => String(r[c] ?? '').includes(pat.replace(/%/g, ''))), q),
       eq: (c: string, v: unknown) => (preds.push((r) => r[c] === v), q),
