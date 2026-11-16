@@ -176,13 +176,18 @@ export function jugadoresSinIndice(
  * El aviso que acompaña la confirmación de inicio (y el 409 de la ruta para un
  * panel que no lo pidió). En WHS lo inscrito es el ÍNDICE: con índice 0 el
  * hándicap de cancha puede no ser 0 (rating ≠ par), así que se dice "índice 0".
- * En raw lo inscrito ya es el hándicap.
+ * En raw NO se afirma un número: la tarjeta del grupo toma el índice del perfil
+ * (`handicapDeLaTarjeta`) y lo que pasa por `handicapInscrito` toma 0; el aviso
+ * pide cargar el hándicap, que es lo que deja todo consistente.
  */
 export function avisoSinIndice(sinIndice: JugadorSinIndice[], hcpCalcMode: string | null | undefined): string | null {
   if (sinIndice.length === 0) return null
-  const dato = esModoHcpWhs(hcpCalcMode) ? 'índice' : 'hándicap'
+  const nombres = listaCorta(sinIndice.map((j) => j.nombre))
+  if (!esModoHcpWhs(hcpCalcMode)) {
+    return `Sin hándicap inscrito: ${nombres}. Cárgalo antes de iniciar o su neto puede salir mal.`
+  }
   const verbo = sinIndice.length === 1 ? 'Jugará' : 'Jugarán'
-  return `Sin ${dato}: ${listaCorta(sinIndice.map((j) => j.nombre))}. ${verbo} con ${dato} 0.`
+  return `Sin índice: ${nombres}. ${verbo} con índice 0.`
 }
 
 /** Código del 409 de la ruta de inicio cuando hay sin índice que el organizador no vio. */

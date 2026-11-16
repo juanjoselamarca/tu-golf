@@ -467,12 +467,13 @@ describe('useTournamentLifecycle — confirmación con jugadores sin índice', (
       .mockResolvedValueOnce(respuesta(200, { motivo: null, sinIndice: [] }))
       .mockResolvedValueOnce(respuesta(409, { codigo: 'confirmar-sin-indice', sinIndice: [{ id: 'p9', nombre: 'Carla' }], error: 'x' }))
       .mockResolvedValueOnce(respuesta(200, { success: true }))
-    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [2])))
+    const args = buildArgsSizes('stroke_play', [2])
+    args.tournament.hcp_calc_mode = 'raw'
+    const { result } = renderHook(() => useTournamentLifecycle(args))
     await act(async () => { await result.current.handleStartTournament() })
 
     expect(confirmMock).toHaveBeenCalledTimes(2)
-    // El fixture no fija hcp_calc_mode (raw): en raw lo que falta es el hándicap.
-    expect(confirmMock.mock.calls[1][0].description).toContain('Sin hándicap: Carla. Jugará con hándicap 0')
+    expect(confirmMock.mock.calls[1][0].description).toContain('Sin hándicap inscrito: Carla. Cárgalo antes de iniciar')
     expect(vistosDel(0)).toEqual([])
     expect(vistosDel(1)).toEqual(['p9'])
     expect(showErrorMock).not.toHaveBeenCalled()

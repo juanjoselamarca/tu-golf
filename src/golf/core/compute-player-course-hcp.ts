@@ -275,12 +275,13 @@ export interface InscritoConIndice {
 }
 
 /**
- * El inscrito va a puntuar con 0 porque no hay nada que lo reemplace: el caso
- * en que `handicapInscrito` cae al `?? 0` (puntaje individual, de equipo y board).
+ * Al inscrito le falta el dato que lo hace puntuar bien: el aviso de inicio lo nombra.
  * - WHS: sin índice inscrito NI en el perfil (el del perfil se copia a la
- *   inscripción al iniciar con `completarIndicesInscritos`).
- * - Otro modo (raw): sin hándicap inscrito, tenga o no índice en el perfil — en
- *   raw nadie copia el del perfil y lo inscrito es lo que puntúa.
+ *   inscripción al iniciar con `completarIndicesInscritos`); juega con índice 0.
+ * - Otro modo (raw): sin hándicap inscrito, tenga o no índice en el perfil. En raw
+ *   nadie copia el perfil a la inscripción: la tarjeta del grupo toma el índice del
+ *   perfil (`handicapDeLaTarjeta`) y lo que pasa por `handicapInscrito` toma 0, así
+ *   que se avisa para que lo carguen (unificar esa fuente es otro PR).
  * Un 0 tipeado (invitado scratch) SÍ es un valor: no cuenta.
  */
 export function sinIndiceEnNingunaParte(player: InscritoConIndice, hcpCalcMode: string | null | undefined): boolean {

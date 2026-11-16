@@ -54,7 +54,8 @@ describe('avisoSinIndice', () => {
   })
 
   it('raw: lo inscrito ya es el hándicap → "hándicap 0"', () => {
-    expect(avisoSinIndice(sin, 'raw')).toBe('Sin hándicap: Carla, Diego. Jugarán con hándicap 0.')
+    // raw: la tarjeta toma el perfil y el board lo inscrito → no se afirma un número.
+    expect(avisoSinIndice(sin, 'raw')).toBe('Sin hándicap inscrito: Carla, Diego. Cárgalo antes de iniciar o su neto puede salir mal.')
   })
 
   it('uno solo: singular', () => {
