@@ -12,7 +12,9 @@
 // con la misma cuenta): el estado pasa a 'in_progress' con compare-and-set y
 // nadie deshace tarjetas de un torneo que ya está en juego.
 //
-// Auth: solo el organizer_id del torneo puede iniciar.
+// GET — Lo que la confirmación de inicio muestra (motivo + jugadores sin índice).
+//
+// Auth: solo el organizer_id del torneo puede iniciar (y consultar el GET).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/utils/supabase/server'
@@ -20,8 +22,6 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
-import { inscritoAprobado, torneoSinEmpezar } from '@/golf/tournament-status'
-import { resolveFormatoJuego } from '@/golf/formats'
 import {
   deshacerGrupo,
   ensureRound1Cards,
@@ -35,37 +35,51 @@ import {
   gruposSinTarjeta,
   materializeGroupScorecard,
   type GrupoArmado,
-  motivoParaNoIniciar,
   ponerEnJuego,
   soloAprobados,
   completarIndicesInscritos,
-  START_PLAYER_SELECT,
-  type StartPlayer,
 } from '@/lib/data/tournaments/startTournament'
+import { leerParaIniciar } from '@/lib/data/tournaments/leer-para-iniciar'
+import {
+  avisoSinIndice,
+  CODIGO_CONFIRMAR_SIN_INDICE,
+  sinIndiceNoVistos,
+} from '@/lib/data/tournaments/motivo-para-no-iniciar'
 
 export const dynamic = 'force-dynamic'
 
-interface TournamentRow {
-  id: string
-  slug: string
-  organizer_id: string
-  status: string
-  format: string | null
-  formato_juego: string | null
-  modo_juego: string | null
-  course_id: string | null
-  course_name: string | null
-  tees: string | null
-  hole_count: number | null
-  date_start: string | null
-  total_rounds: number | null
-  courses: { nombre?: string } | null
-  team_config: unknown
-  hcp_calc_mode: string | null
+/**
+ * GET — Lo que el panel muestra en la confirmación de inicio: por qué no se puede
+ * iniciar (`motivo`, o null) y quiénes jugarán sin índice (`sinIndice`). Misma
+ * lectura que el POST. Solo lee: no gasta cupo de rate limit.
+ */
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> },
+) {
+  const { slug } = await params
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
+
+  const lectura = await leerParaIniciar(createAdminClient(), slug, user.id)
+  if (!lectura.ok) return NextResponse.json({ error: lectura.error }, { status: lectura.status })
+  return NextResponse.json({ motivo: lectura.motivo, sinIndice: lectura.sinIndice })
+}
+
+/** Ids de los sin índice que el organizador vio en la confirmación. Body ausente o malo → ninguno. */
+async function leerSinIndiceVistos(request: NextRequest): Promise<string[]> {
+  try {
+    const body = (await request.json()) as { sinIndiceVistos?: unknown } | null
+    const v = body?.sinIndiceVistos
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params
@@ -78,48 +92,29 @@ export async function POST(
   }
 
   const svc = createAdminClient()
+  const lectura = await leerParaIniciar(svc, slug, user.id)
+  if (!lectura.ok) return NextResponse.json({ error: lectura.error }, { status: lectura.status })
+  const { torneo: t, aprobados: approvedPlayers, grupos: groups, motivo } = lectura
 
-  const { data: tournament, error: tErr } = await svc
-    .from('tournaments')
-    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, hcp_pct, course_id, course_name, tees, hole_count, date_start, total_rounds, team_config, hcp_calc_mode, courses(nombre)')
-    .eq('slug', slug)
-    .single()
+  if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
 
-  if (tErr || !tournament) {
-    return NextResponse.json({ error: 'Torneo no encontrado' }, { status: 404 })
-  }
-  const t = tournament as unknown as TournamentRow
-
-  if (t.organizer_id !== user.id) {
-    return NextResponse.json({ error: 'Solo el organizador puede iniciar el torneo' }, { status: 403 })
-  }
-
-  if (!torneoSinEmpezar(t.status)) {
+  // Sin índice NO bloquea (decisión de producto 16-nov-2026), pero el organizador
+  // tiene que haberlos visto: si alguno no estaba en su confirmación (se inscribió
+  // o cambió entre el GET y el POST, o el panel es una versión vieja), 409 con la
+  // lista para que confirme de nuevo. Antes del rate limit y de toda escritura.
+  const noVistos = sinIndiceNoVistos(lectura.sinIndice, await leerSinIndiceVistos(request))
+  if (noVistos.length > 0) {
     return NextResponse.json(
-      { error: 'Solo se puede iniciar un torneo en borrador o con inscripciones abiertas' },
+      {
+        // El panel actual usa `codigo` y no muestra `error`; un panel abierto antes
+        // del deploy solo conoce `error`: tiene que decirle cómo seguir.
+        error: `${avisoSinIndice(lectura.sinIndice, t.hcp_calc_mode)} Recarga la página para confirmar e iniciar.`,
+        codigo: CODIGO_CONFIRMAR_SIN_INDICE,
+        sinIndice: lectura.sinIndice,
+      },
       { status: 409 },
     )
   }
-
-  const [{ data: rawPlayers, error: pErr }, { groups: allGroups, error: gErr }] = await Promise.all([
-    svc
-      .from('players')
-      .select(START_PLAYER_SELECT)
-      .eq('tournament_id', t.id),
-    fetchStartGroups(svc, t.id),
-  ])
-  // Sin esto, un error de lectura se veía como "0 jugadores" o "0 grupos".
-  if (pErr || gErr) {
-    void captureError(pErr ?? gErr, { context: 'start-tournament.leer', level: 'error', meta: { slug } })
-    return NextResponse.json({ error: 'No se pudo leer el torneo. Intenta de nuevo.' }, { status: 500 })
-  }
-
-  const players = (rawPlayers || []) as unknown as StartPlayer[]
-  const approvedPlayers = players.filter((p) => inscritoAprobado(p.status))
-  const groups = soloAprobados(allGroups, approvedPlayers)
-
-  const motivo = motivoParaNoIniciar(resolveFormatoJuego(t), approvedPlayers, groups, t.team_config)
-  if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
 
   // Después de las validaciones: corregir un grupo y reintentar no gasta cupo.
   // Holgado porque reintentar es seguro; solo frena un bucle.

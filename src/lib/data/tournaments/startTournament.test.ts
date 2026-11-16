@@ -389,7 +389,7 @@ describe('motivoParaNoIniciar', () => {
 
   it('scramble personalizado definido para 4 y un equipo de 3: no inicia (no inventa el % que falta)', () => {
     const msg = motivoParaNoIniciar('scramble', trio.map((id) => player(id)), [group(trio, 'Equipo A')], config({ modo: 'personalizado', porcentajes: [25, 20, 15, 10] }))
-    expect(msg).toBe('El equipo "Equipo A" tiene 3 jugadores y el handicap personalizado está definido para 4. Ajusta los porcentajes o el equipo antes de iniciar.')
+    expect(msg).toBe('El equipo "Equipo A" tiene 3 jugadores y el hándicap personalizado está definido para 4. Ajusta los porcentajes o el equipo antes de iniciar.')
   })
 
   it('scramble oficial con un equipo de 3: inicia (la asignación oficial usa los jugadores reales)', () => {
@@ -403,9 +403,9 @@ describe('motivoParaNoIniciar', () => {
 
   it('foursome personalizado sin % de la suma: no inicia', () => {
     const msg = motivoParaNoIniciar('foursome', [player('p1'), player('p2')], [group(['p1', 'p2'], 'Pareja 1')], config({ modo: 'personalizado', porcentajes: [50, 50] }))
-    expect(msg).toBe('No se puede calcular el handicap de "Pareja 1" con la configuración del torneo. Revisa el handicap de equipo antes de iniciar.')
+    expect(msg).toBe('No se puede calcular el hándicap de "Pareja 1" con la configuración del torneo. Revisa el hándicap de equipo antes de iniciar.')
     const msg2 = motivoParaNoIniciar('foursome', [player('p1'), player('p2')], [group(['p1', 'p2'], 'Pareja 1')], config({ modo: 'raro' }))
-    expect(msg2).toBe('No se puede calcular el handicap de "Pareja 1" con la configuración del torneo. Revisa el handicap de equipo antes de iniciar.')
+    expect(msg2).toBe('No se puede calcular el hándicap de "Pareja 1" con la configuración del torneo. Revisa el hándicap de equipo antes de iniciar.')
   })
 
   it('5 jugadores en scramble: no inicia (tamaño fuera de rango)', () => {

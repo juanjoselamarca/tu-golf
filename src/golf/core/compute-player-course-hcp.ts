@@ -268,6 +268,27 @@ export function handicapInscrito(player: Pick<PlayerForCourseHcp, 'handicap_at_r
   return player.handicap_at_registration ?? 0
 }
 
+/** Lo que `sinIndiceEnNingunaParte` necesita de un inscrito. `StartPlayer` lo cumple. */
+export interface InscritoConIndice {
+  handicap_at_registration: number | null
+  profiles?: { indice?: number | null } | null
+}
+
+/**
+ * Al inscrito le falta el dato que lo hace puntuar bien: el aviso de inicio lo nombra.
+ * - WHS: sin índice inscrito NI en el perfil (el del perfil se copia a la
+ *   inscripción al iniciar con `completarIndicesInscritos`); juega con índice 0.
+ * - Otro modo (raw): sin hándicap inscrito, tenga o no índice en el perfil. En raw
+ *   nadie copia el perfil a la inscripción: la tarjeta del grupo toma el índice del
+ *   perfil (`handicapDeLaTarjeta`) y lo que pasa por `handicapInscrito` toma 0, así
+ *   que se avisa para que lo carguen (unificar esa fuente es otro PR).
+ * Un 0 tipeado (invitado scratch) SÍ es un valor: no cuenta.
+ */
+export function sinIndiceEnNingunaParte(player: InscritoConIndice, hcpCalcMode: string | null | undefined): boolean {
+  if (player.handicap_at_registration != null) return false
+  return esModoHcpWhs(hcpCalcMode) ? player.profiles?.indice == null : true
+}
+
 /**
  * Course handicap del jugador en el torneo, SIN redondear y SIN el porcentaje
  * del torneo: la materia prima del handicap de juego individual

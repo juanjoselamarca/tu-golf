@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 
 // ─── Mock de supabase que registra los inserts por tabla ───
 //
@@ -61,13 +61,17 @@ vi.mock('@/lib/supabase', () => ({
   createClient: () => makeSupabase(recorded),
 }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: pushMock }) }))
+const { confirmMock, showErrorMock } = vi.hoisted(() => ({
+  confirmMock: vi.fn(async (_o: { description: string }) => true),
+  showErrorMock: vi.fn(),
+}))
 vi.mock('@/hooks/useToast', () => ({
-  useToast: () => ({ showError: vi.fn(), showSuccess: vi.fn() }),
+  useToast: () => ({ showError: showErrorMock, showSuccess: vi.fn() }),
 }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 vi.mock('@/hooks/useConfirmModal', () => ({
   useConfirmModal: () => ({
-    confirm: async () => true,
+    confirm: confirmMock,
     modalProps: { isOpen: false, onConfirm: vi.fn(), onCancel: vi.fn(), title: '', description: '', confirmText: '', variant: 'warning' as const },
   }),
 }))
@@ -398,5 +402,139 @@ describe('useTournamentLifecycle — motivo para no iniciar', () => {
     expect(result.current.motivoNoIniciar).toBeNull()
     await act(async () => { await result.current.handleStartTournament() })
     expect(fetchMock).toHaveBeenCalledWith('/api/torneos/test/start', expect.objectContaining({ method: 'POST' }))
+  })
+})
+
+// ── Aviso de jugadores sin índice (plan 2026-11-16 §3) ─────────────────────────
+describe('useTournamentLifecycle — confirmación con jugadores sin índice', () => {
+  const fetchMock = vi.fn()
+  const respuesta = (status: number, body: unknown) => ({ ok: status < 400, status, json: async () => body })
+  const posts = () => fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+  const vistosDel = (n: number) => JSON.parse(posts()[n][1].body).sinIndiceVistos
+  beforeEach(() => {
+    fetchMock.mockReset()
+    confirmMock.mockReset().mockResolvedValue(true)
+    showErrorMock.mockReset()
+    pushMock.mockReset()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  it('hay sin índice → UN solo modal que los nombra, y el POST lleva los vistos', async () => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta(200, { motivo: null, sinIndice: [{ id: 'p2', nombre: 'Beto' }] }))
+      .mockResolvedValueOnce(respuesta(200, { success: true }))
+    const args = buildArgsSizes('stroke_play', [2])
+    args.tournament.hcp_calc_mode = 'whs'
+    const { result } = renderHook(() => useTournamentLifecycle(args))
+    await act(async () => { await result.current.handleStartTournament() })
+
+    expect(fetchMock.mock.calls[0]).toEqual(['/api/torneos/test/start', { method: 'GET' }])
+    expect(confirmMock).toHaveBeenCalledTimes(1)
+    expect(confirmMock.mock.calls[0][0].description).toBe(
+      'Sin índice: Beto. Jugará con índice 0. ¿Iniciar con 2 jugadores? Se crearán las rondas para todos.',
+    )
+    expect(posts()).toHaveLength(1)
+    expect(vistosDel(0)).toEqual(['p2'])
+    expect(pushMock).toHaveBeenCalledWith('/organizador/test/scoring')
+  })
+
+  it('mientras consulta al servidor el botón dice Preparando, no Iniciando', async () => {
+    let soltarGet: (r: unknown) => void = () => {}
+    fetchMock.mockReturnValueOnce(new Promise((r) => { soltarGet = r }))
+    confirmMock.mockResolvedValueOnce(false)
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [1])))
+    let pendiente: Promise<void> = Promise.resolve()
+    act(() => { pendiente = result.current.handleStartTournament() })
+    await waitFor(() => expect(result.current.preparandoInicio).toBe(true))
+    expect(result.current.starting).toBe(false)
+    await act(async () => { soltarGet(respuesta(200, { motivo: null, sinIndice: [] })); await pendiente })
+    expect(result.current.preparandoInicio).toBe(false)
+    expect(result.current.starting).toBe(false)
+  })
+
+  it('nadie sin índice → el modal de siempre, sin aviso', async () => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta(200, { motivo: null, sinIndice: [] }))
+      .mockResolvedValueOnce(respuesta(200, { success: true }))
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [1])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(confirmMock.mock.calls[0][0].description).toBe('¿Iniciar con 1 jugador? Se crearán las rondas para todos.')
+    expect(vistosDel(0)).toEqual([])
+  })
+
+  it('409 confirmar-sin-indice → vuelve a preguntar con la lista nueva y reintenta con ella', async () => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta(200, { motivo: null, sinIndice: [] }))
+      .mockResolvedValueOnce(respuesta(409, { codigo: 'confirmar-sin-indice', sinIndice: [{ id: 'p9', nombre: 'Carla' }], error: 'x' }))
+      .mockResolvedValueOnce(respuesta(200, { success: true }))
+    const args = buildArgsSizes('stroke_play', [2])
+    args.tournament.hcp_calc_mode = 'raw'
+    const { result } = renderHook(() => useTournamentLifecycle(args))
+    await act(async () => { await result.current.handleStartTournament() })
+
+    expect(confirmMock).toHaveBeenCalledTimes(2)
+    expect(confirmMock.mock.calls[1][0].description).toContain('Sin hándicap inscrito: Carla. Su neto puede salir mal.')
+    expect(vistosDel(0)).toEqual([])
+    expect(vistosDel(1)).toEqual(['p9'])
+    expect(showErrorMock).not.toHaveBeenCalled()
+    expect(pushMock).toHaveBeenCalledWith('/organizador/test/scoring')
+  })
+
+  it('tras el 409 el organizador cancela → no hay segundo POST', async () => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta(200, { motivo: null, sinIndice: [] }))
+      .mockResolvedValueOnce(respuesta(409, { codigo: 'confirmar-sin-indice', sinIndice: [{ id: 'p9', nombre: 'Carla' }] }))
+    confirmMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [2])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(posts()).toHaveLength(1)
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(result.current.starting).toBe(false)
+  })
+
+  it('cancelar el modal → no hay POST', async () => {
+    fetchMock.mockResolvedValueOnce(respuesta(200, { motivo: null, sinIndice: [{ id: 'p2', nombre: 'Beto' }] }))
+    confirmMock.mockResolvedValueOnce(false)
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [2])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(posts()).toHaveLength(0)
+    expect(result.current.starting).toBe(false)
+  })
+
+  it('la lista cambia en cada intento → se rinde tras 3 confirmaciones, sin bucle infinito', async () => {
+    fetchMock.mockResolvedValueOnce(respuesta(200, { motivo: null, sinIndice: [] }))
+    fetchMock.mockResolvedValue(respuesta(409, { codigo: 'confirmar-sin-indice', sinIndice: [{ id: 'p9', nombre: 'Carla' }] }))
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [2])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(confirmMock).toHaveBeenCalledTimes(3)
+    expect(posts()).toHaveLength(3)
+    expect(showErrorMock).toHaveBeenCalledWith('No se pudo iniciar', expect.stringContaining('Recarga'))
+  })
+
+  it('el GET trae un motivo que el panel no ve → error, sin modal ni POST', async () => {
+    fetchMock.mockResolvedValueOnce(respuesta(200, { motivo: 'Jugadores sin grupo: Ana.', sinIndice: [] }))
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [1])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(showErrorMock).toHaveBeenCalledWith('Aún no se puede iniciar', 'Jugadores sin grupo: Ana.')
+    expect(confirmMock).not.toHaveBeenCalled()
+    expect(posts()).toHaveLength(0)
+  })
+
+  it('un 409 de otro tipo (torneo ya en juego) se muestra como error, sin reintentar', async () => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta(200, { motivo: null, sinIndice: [] }))
+      .mockResolvedValueOnce(respuesta(409, { error: 'Otro inicio ganó' }))
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [1])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(confirmMock).toHaveBeenCalledTimes(1)
+    expect(showErrorMock).toHaveBeenCalledWith('Error al iniciar', 'Otro inicio ganó')
+  })
+
+  it('sin conexión en el GET → error de conexión y starting vuelve a false', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('offline'))
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [1])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(showErrorMock).toHaveBeenCalledWith('Sin conexión', expect.any(String))
+    expect(result.current.starting).toBe(false)
   })
 })

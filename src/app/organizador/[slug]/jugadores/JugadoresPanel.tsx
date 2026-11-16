@@ -83,7 +83,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   }
 
   const {
-    starting, closing, opening, allRoundsClosed,
+    starting, preparandoInicio, closing, opening, allRoundsClosed,
     checkAllRoundsClosed, handleStartTournament,
     motivoNoIniciar, aprobadosCount,
     handleOpenInscriptions, handleRevertToDraft,
@@ -244,6 +244,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         playersCount={aprobadosCount}
         motivoNoIniciar={motivoNoIniciar}
         starting={starting}
+        preparandoInicio={preparandoInicio}
         closing={closing}
         opening={opening}
         allRoundsClosed={allRoundsClosed}

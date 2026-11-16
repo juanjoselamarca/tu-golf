@@ -5,6 +5,7 @@ import {
   courseHandicapSinRedondearDelTorneo,
   handicapInscrito,
   resolveScoringCourseHcp,
+  sinIndiceEnNingunaParte,
 } from './compute-player-course-hcp'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 
@@ -335,5 +336,31 @@ describe('courseHandicapSinRedondearDelTorneo — materia prima del handicap de 
     expect(handicapInscrito({ handicap_at_registration: null })).toBe(0)
     expect(handicapInscrito({ handicap_at_registration: 0 })).toBe(0)
     expect(handicapInscrito({ handicap_at_registration: -2 })).toBe(-2)
+  })
+})
+
+describe('sinIndiceEnNingunaParte — aviso al iniciar el torneo', () => {
+  it('invitado con 0 tipeado: tiene índice (scratch), no cuenta', () => {
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: 0, profiles: null }, 'whs')).toBe(false)
+  })
+  it('sin índice inscrito pero con índice en el perfil: tiene índice', () => {
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: null, profiles: { indice: 12.4 } }, 'whs')).toBe(false)
+  })
+  it('índice 0 en el perfil también es un índice', () => {
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: null, profiles: { indice: 0 } }, 'whs')).toBe(false)
+  })
+  it('con índice inscrito y perfil sin índice: tiene índice', () => {
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: 18, profiles: { indice: null } }, 'whs')).toBe(false)
+  })
+  it('sin índice inscrito ni perfil (invitado) o con perfil sin índice: sin índice', () => {
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: null, profiles: null }, 'whs')).toBe(true)
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: null }, 'whs')).toBe(true)
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: null, profiles: { indice: null } }, 'whs')).toBe(true)
+  })
+  it('raw: sin hándicap inscrito se avisa aunque el perfil tenga índice (nadie lo copia en raw)', () => {
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: null, profiles: { indice: 12 } }, 'raw')).toBe(true)
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: null, profiles: { indice: 12 } }, null)).toBe(true)
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: 0, profiles: null }, 'raw')).toBe(false)
+    expect(sinIndiceEnNingunaParte({ handicap_at_registration: 14, profiles: { indice: null } }, 'raw')).toBe(false)
   })
 })

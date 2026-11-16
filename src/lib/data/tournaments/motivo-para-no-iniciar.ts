@@ -15,6 +15,7 @@ import type { FormatoJuego } from '@/golf/core/rules'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
 import { leerHandicapDeEquipo } from '@/lib/draft/team-config-legacy'
+import { esModoHcpWhs, sinIndiceEnNingunaParte, type InscritoConIndice } from '@/golf/core/compute-player-course-hcp'
 
 /** Lo que el motivo necesita de un jugador aprobado. `StartPlayer` lo cumple. */
 export interface JugadorParaIniciar {
@@ -131,9 +132,9 @@ export function motivoHandicapDeEquipo(
     Array.isArray(handicap.porcentajes) &&
     handicap.porcentajes.length !== primero.players.length
   ) {
-    return `El equipo "${primero.name}" tiene ${primero.players.length} jugadores y el handicap personalizado está definido para ${handicap.porcentajes.length}. Ajusta los porcentajes o el equipo antes de iniciar.`
+    return `El equipo "${primero.name}" tiene ${primero.players.length} jugadores y el hándicap personalizado está definido para ${handicap.porcentajes.length}. Ajusta los porcentajes o el equipo antes de iniciar.`
   }
-  return `No se puede calcular el handicap de ${listaCorta(sinHandicap.map((g) => `"${g.name}"`))} con la configuración del torneo. Revisa el handicap de equipo antes de iniciar.`
+  return `No se puede calcular el hándicap de ${listaCorta(sinHandicap.map((g) => `"${g.name}"`))} con la configuración del torneo. Revisa el hándicap de equipo antes de iniciar.`
 }
 
 /**
@@ -149,4 +150,52 @@ export function motivoParaNoIniciarDesdeInscritos(
 ): string | null {
   const aprobados = players.filter((p) => inscritoAprobado(p.status))
   return motivoParaNoIniciar(format, aprobados, soloAprobados(groups, aprobados), teamConfig)
+}
+
+/** Aprobado que jugará sin índice: lo que viaja entre la ruta de inicio y el panel. */
+export interface JugadorSinIndice {
+  id: string
+  nombre: string
+}
+
+/**
+ * Los aprobados sin índice en ninguna parte (`sinIndiceEnNingunaParte`). NO
+ * impide iniciar (decisión de producto, 16-nov-2026): el organizador los ve en
+ * la confirmación de inicio y puede iniciar igual.
+ */
+export function jugadoresSinIndice(
+  approvedPlayers: Array<JugadorParaIniciar & InscritoConIndice>,
+  hcpCalcMode: string | null | undefined,
+): JugadorSinIndice[] {
+  return approvedPlayers
+    .filter((p) => sinIndiceEnNingunaParte(p, hcpCalcMode))
+    .map((p) => ({ id: p.id, nombre: playerName(p) }))
+}
+
+/**
+ * El aviso que acompaña la confirmación de inicio (y el 409 de la ruta para un
+ * panel que no lo pidió). En WHS lo inscrito es el ÍNDICE: con índice 0 el
+ * hándicap de cancha puede no ser 0 (rating ≠ par), así que se dice "índice 0".
+ * En raw NO se afirma un número: la tarjeta del grupo toma el índice del perfil
+ * (`handicapDeLaTarjeta`) y lo que pasa por `handicapInscrito` toma 0; el aviso
+ * solo lo advierte (en la lista de jugadores el hándicap no se edita, así que no se
+ * da una orden que ahí no se puede cumplir). Unificar esa fuente es otro PR.
+ */
+export function avisoSinIndice(sinIndice: JugadorSinIndice[], hcpCalcMode: string | null | undefined): string | null {
+  if (sinIndice.length === 0) return null
+  const nombres = listaCorta(sinIndice.map((j) => j.nombre))
+  if (!esModoHcpWhs(hcpCalcMode)) {
+    return `Sin hándicap inscrito: ${nombres}. Su neto puede salir mal.`
+  }
+  const verbo = sinIndice.length === 1 ? 'Jugará' : 'Jugarán'
+  return `Sin índice: ${nombres}. ${verbo} con índice 0.`
+}
+
+/** Código del 409 de la ruta de inicio cuando hay sin índice que el organizador no vio. */
+export const CODIGO_CONFIRMAR_SIN_INDICE = 'confirmar-sin-indice'
+
+/** Los sin índice que el organizador NO vio en la confirmación (por id). */
+export function sinIndiceNoVistos(sinIndice: JugadorSinIndice[], vistos: readonly string[]): JugadorSinIndice[] {
+  const v = new Set(vistos)
+  return sinIndice.filter((j) => !v.has(j.id))
 }

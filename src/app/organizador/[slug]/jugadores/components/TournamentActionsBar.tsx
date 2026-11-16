@@ -35,6 +35,7 @@ interface Props {
   /** Por qué todavía no se puede iniciar (`motivoParaNoIniciar`), o null si se puede. */
   motivoNoIniciar: string | null
   starting: boolean
+  preparandoInicio: boolean
   closing: boolean
   opening: boolean
   allRoundsClosed: boolean
@@ -50,7 +51,7 @@ interface Props {
  *  (draft → abrir inscripciones/iniciar; open → compartir link/iniciar;
  *  in_progress → salida/scoring/cerrar; closed → reabrir/leaderboard). */
 export function TournamentActionsBar({
-  tournamentStatus, slug, playersCount, motivoNoIniciar, starting, closing, opening, allRoundsClosed,
+  tournamentStatus, slug, playersCount, motivoNoIniciar, starting, preparandoInicio, closing, opening, allRoundsClosed,
   onStart, onOpenInscriptions, onClose, onReopen, onAltura,
 }: Props) {
   const router = useRouter()
@@ -132,7 +133,7 @@ export function TournamentActionsBar({
               {copied ? '¡Link copiado!' : 'Compartir link'}
             </button>
           )}
-          <BotonIniciar playersCount={playersCount} motivo={motivoNoIniciar} starting={starting} onStart={onStart} />
+          <BotonIniciar playersCount={playersCount} motivo={motivoNoIniciar} starting={starting} preparando={preparandoInicio} onStart={onStart} />
         </div>
       )}
 
@@ -247,13 +248,14 @@ export function TournamentActionsBar({
  * "Iniciar torneo": deshabilitado mientras haya un motivo para no iniciar (el
  * mismo que valida la ruta). El conteo es de jugadores aprobados.
  */
-function BotonIniciar({ playersCount, motivo, starting, onStart }: {
+function BotonIniciar({ playersCount, motivo, starting, preparando, onStart }: {
   playersCount: number
   motivo: string | null
   starting: boolean
+  preparando: boolean
   onStart: () => void
 }) {
-  const habilitado = !motivo && !starting
+  const habilitado = !motivo && !starting && !preparando
   return (
     <button
       onClick={onStart}
@@ -277,7 +279,7 @@ function BotonIniciar({ playersCount, motivo, starting, onStart }: {
         minWidth: 0,
       }}
     >
-      {starting ? 'Iniciando...' : `Iniciar torneo (${playersCount} jugador${playersCount !== 1 ? 'es' : ''})`}
+      {preparando ? 'Preparando...' : starting ? 'Iniciando...' : `Iniciar torneo (${playersCount} jugador${playersCount !== 1 ? 'es' : ''})`}
     </button>
   )
 }
