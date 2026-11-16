@@ -61,6 +61,7 @@ type Captured = {
   updates: { match: Record<string, unknown>; payload: unknown }[];
   deletes: { match: Record<string, unknown> }[];
   selectMaybeSingleReturn: unknown;
+  throwOnMaybeSingle: boolean;
   selectListReturn: unknown[];
   selectCountReturn: number;
   uploads: { bucket: string; path: string; contentType: string }[];
@@ -94,10 +95,10 @@ function makeMockSupabase() {
     };
     api.order = () => api;
     api.limit = () => api;
-    api.maybeSingle = async () => ({
-      data: captured.selectMaybeSingleReturn,
-      error: null,
-    });
+    api.maybeSingle = async () => {
+      if (captured.throwOnMaybeSingle) throw new Error('boom inesperado');
+      return { data: captured.selectMaybeSingleReturn, error: null };
+    };
     api.insert = async (payload: unknown) => {
       captured.inserts.push(payload);
       return { data: null, error: null };
@@ -173,10 +174,10 @@ function makeMockSupabase() {
           },
           order: () => listApi,
           limit: () => listApi,
-          maybeSingle: async () => ({
-            data: captured.selectMaybeSingleReturn,
-            error: null,
-          }),
+          maybeSingle: async () => {
+            if (captured.throwOnMaybeSingle) throw new Error('boom inesperado');
+            return { data: captured.selectMaybeSingleReturn, error: null };
+          },
           then: (resolve: (r: { data: unknown[]; error: null }) => unknown) =>
             Promise.resolve({
               data: captured.selectListReturn,
@@ -264,6 +265,7 @@ beforeEach(() => {
     updates: [],
     deletes: [],
     selectMaybeSingleReturn: null,
+    throwOnMaybeSingle: false,
     selectListReturn: [],
     selectCountReturn: 0,
     uploads: [],
@@ -458,5 +460,72 @@ describe('POST /api/inbox/webhook', () => {
     const fotos = (mergeUpdate?.payload as { fotos_paths: string[] }).fotos_paths;
     expect(fotos.length).toBe(2); // 1 existing + 1 nuevo
     expect(captured.inserts).toHaveLength(0);
+  });
+
+  // REGRESSION 16-nov-2026: las 6 fotos de un reporte murieron con el timeout de Telegram,
+  // la excepción subió al catch general y se perdieron sin aviso ni registro.
+  it('10. Telegram no entrega la foto (timeout) → reporte con file_id anotado + aviso, nunca silencio', async () => {
+    getFileSpy.mockRejectedValue(new Error('This operation was aborted'));
+    const req = buildRequest({
+      update_id: 10,
+      message: {
+        message_id: 100,
+        date: nowUnix(),
+        chat: { id: ALLOWED_CHAT },
+        from: { id: ALLOWED_CHAT },
+        photo: [{ file_id: 'chica' }, { file_id: 'grande-xyz' }],
+        caption: 'pantalla rota',
+      },
+    });
+    const resp = await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(resp.status).toBe(200);
+    expect(captured.inserts).toHaveLength(1);
+    const ins = captured.inserts[0] as { status: string; notas: string; caption: string };
+    expect(ins.status).toBe('error');
+    expect(ins.notas).toBe('archivo pendiente: file_id=grande-xyz');
+    expect(ins.caption).toBe('pantalla rota');
+    const aviso = sendMessageSpy.mock.calls.find((c) => String(c[1]).includes('Quedó anotado'));
+    expect(aviso?.[0]).toBe(ALLOWED_CHAT);
+  });
+
+  it('11. falla la descarga de una foto de un álbum ya creado → la anota en el álbum, sin INSERT ni cambio de status', async () => {
+    captured.selectMaybeSingleReturn = {
+      id: 'uuid-album',
+      fotos_paths: ['reports/2026/11/ok.jpg'],
+      caption: 'álbum',
+      notas: 'archivo pendiente: file_id=otra',
+    };
+    getFileSpy.mockResolvedValue({ filePath: 'photos/x.jpg', fileSize: 1000, mimeType: null });
+    downloadFileSpy.mockRejectedValue(new Error('This operation was aborted'));
+    const req = buildRequest({
+      update_id: 11,
+      message: {
+        message_id: 110,
+        date: nowUnix(),
+        chat: { id: ALLOWED_CHAT },
+        from: { id: ALLOWED_CHAT },
+        photo: [{ file_id: 'foto-album-2' }],
+        media_group_id: 'grupo-1',
+      },
+    });
+    const resp = await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(resp.status).toBe(200);
+    expect(captured.inserts).toHaveLength(0);
+    const merge = captured.updates.find((u) => u.match.id === 'uuid-album');
+    const payload = merge?.payload as { notas: string; fotos_paths: string[]; status?: string };
+    expect(payload.notas).toBe('archivo pendiente: file_id=otra\narchivo pendiente: file_id=foto-album-2');
+    expect(payload.fotos_paths).toEqual(['reports/2026/11/ok.jpg']);
+    expect(payload.status).toBeUndefined();
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('Quedó anotado'))).toBe(true);
+  });
+
+  it('12. error inesperado en un chat autorizado → avisa que no se guardó (antes: 200 mudo)', async () => {
+    captured.throwOnMaybeSingle = true;
+    getFileSpy.mockResolvedValue({ filePath: 'photos/x.jpg', fileSize: 1000, mimeType: null });
+    downloadFileSpy.mockResolvedValue(new ArrayBuffer(1000));
+    const req = buildRequest(textMessage('x', ALLOWED_CHAT, { media_group_id: 'g', photo: [{ file_id: 'f' }] }));
+    const resp = await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(resp.status).toBe(200);
+    expect(sendMessageSpy.mock.calls.some((c) => String(c[1]).includes('no guardé este mensaje'))).toBe(true);
   });
 });

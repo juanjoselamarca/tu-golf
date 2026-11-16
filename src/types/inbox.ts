@@ -57,4 +57,5 @@ export type InboxReportInsert = {
   audio_path?: string | null;
   reply_to_report_id?: string | null;
   status?: InboxStatus;
+  notas?: string | null;
 };
