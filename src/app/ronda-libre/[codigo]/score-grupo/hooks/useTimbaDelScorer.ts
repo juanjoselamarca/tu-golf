@@ -50,7 +50,8 @@ export function useTimbaDelScorer(input: {
   firma: string
   currentHole: number
   ordenHoyos: readonly number[]
-  par: number
+  /** Par del hoyo actual; `undefined` si no se conoce (el greenie, solo par 3, no se ofrece). */
+  par: number | undefined
 }): TimbaDelScorer {
   const { codigo, activo, conexion, jugadores, scores, firma, currentHole, ordenHoyos, par } = input
   const { juego, vista, vistaPedidaEn, recargar } = useJuegoDeLaTimba(codigo, { activo, firma })

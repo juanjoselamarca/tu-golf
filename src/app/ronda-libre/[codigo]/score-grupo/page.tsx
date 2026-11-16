@@ -101,7 +101,8 @@ export default function ScoreGrupoPage() {
   const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
   const timba = useTimbaDelScorer({
     codigo, activo: esTimba, conexion, jugadores, scores, firma: `${saveStatus}:${JSON.stringify(scores)}`,
-    currentHole, ordenHoyos, par: parMap[currentHole] ?? 4,
+    // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
+    currentHole, ordenHoyos, par: parMap[currentHole],
   })
   const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
     useFinalizeGrupo({

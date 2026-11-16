@@ -27,7 +27,7 @@ const vistaBase = {
 
 const jugadores = [{ id: 'a', nombre: 'Juan' }, { id: 'b', nombre: 'Diego' }]
 const orden = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-const montar = (currentHole: number, par: number, scores: Record<string, Record<number, number>> = { a: { 1: 4, 2: 4, 3: 5 }, b: { 1: 4, 2: 4, 3: 5 } }) =>
+const montar = (currentHole: number, par: number | undefined, scores: Record<string, Record<number, number>> = { a: { 1: 4, 2: 4, 3: 5 }, b: { 1: 4, 2: 4, 3: 5 } }) =>
   renderHook(() => useTimbaDelScorer({ codigo: 'X', activo: true, conexion: 'ok', jugadores, scores, firma: '', currentHole, ordenHoyos: orden, par })).result.current
 
 beforeEach(() => {
@@ -45,6 +45,10 @@ describe('useTimbaDelScorer', () => {
 
   it('el greenie solo aparece en par 3', () => {
     expect(montar(3, 3).puntosDelHoyo.map(g => g.puntito.id)).toEqual(['s', 'g'])
+  })
+
+  it('sin par conocido no se ofrece el greenie (no se finge un par 3)', () => {
+    expect(montar(3, undefined).puntosDelHoyo.map(g => g.puntito.id)).toEqual(['s'])
   })
 
   it('retiros: quién está retirado en el hoyo y desde dónde se iría cada uno', () => {

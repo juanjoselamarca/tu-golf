@@ -19,8 +19,11 @@ export interface MarcaEnCola extends MarcaPuntito {
   marcar: boolean
 }
 
-/** Los puntos especiales que se marcan en un hoyo: manuales y activos; el greenie solo en par 3. */
-export function puntitosMarcables(config: Pick<ConfigJuego, 'puntitos'>, par: number): PuntitoConfig[] {
+/**
+ * Los puntos especiales que se marcan en un hoyo: manuales y activos; el greenie solo en un par 3 conocido (sin
+ * par, no se ofrece: no se finge un par 3).
+ */
+export function puntitosMarcables(config: Pick<ConfigJuego, 'puntitos'>, par: number | null | undefined): PuntitoConfig[] {
   return config.puntitos.filter(p => p.activo && PUNTITOS_MANUALES.includes(p.tipo) && (p.tipo !== 'greenie' || par === 3))
 }
 
