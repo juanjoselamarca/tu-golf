@@ -12,9 +12,9 @@ const ronda = {
   modo_juego: 'gross', formato_juego: 'stroke_play', creador_id: 'u-otro', admin_user_id: null, recorridos: null,
   ronda_libre_jugadores: [
     // Ana: cuenta, SIN handicap en la tarjeta → su índice (18) sale del perfil.
-    { id: 'A', nombre: 'Ana', user_id: 'u-ana', scores: TARJETAS_LEONES.A, handicap: null, tees: 'azul' },
+    { id: 'A', nombre: 'Ana', user_id: 'u-ana', scores: TARJETAS_LEONES.A, handicap: null as number | null, handicap_de_inscripcion: false, tees: 'azul' },
     // Beto: invitado con índice 7 tipeado en la tarjeta.
-    { id: 'B', nombre: 'Beto', user_id: null, scores: TARJETAS_LEONES.B, handicap: 7, tees: 'azul' },
+    { id: 'B', nombre: 'Beto', user_id: null, scores: TARJETAS_LEONES.B, handicap: 7, handicap_de_inscripcion: false, tees: 'azul' },
   ],
 }
 
@@ -48,7 +48,11 @@ async function pedir() {
 }
 const fila = (j: Awaited<ReturnType<typeof pedir>>['json'], id: string) => j.results.find((r) => r.id === id)!
 
-beforeEach(() => { visor = null; ronda.modo_juego = 'gross' })
+beforeEach(() => {
+  visor = null
+  ronda.modo_juego = 'gross'
+  Object.assign(ronda.ronda_libre_jugadores[0], { handicap: null, handicap_de_inscripcion: false })
+})
 
 describe('GET /api/gwi/ronda-libre — handicap según el visor', () => {
   it('sin sesión: el handicap de Ana (cuenta) no viaja; el de Beto (invitado) sí', async () => {
@@ -73,6 +77,19 @@ describe('GET /api/gwi/ronda-libre — handicap según el visor', () => {
     const { json } = await pedir()
     expect(json.results).toHaveLength(2)
     expect(fila(json, 'B').breakdown.handicapInfo?.handicap).toBe(7)
+  })
+
+  it('tarjeta de torneo: Ana con hándicap inscrito (marca true) tampoco viaja sin sesión', async () => {
+    Object.assign(ronda.ronda_libre_jugadores[0], { handicap: 18, handicap_de_inscripcion: true })
+    const { json, texto } = await pedir()
+    expect(fila(json, 'A').breakdown.handicapInfo).toBeNull()
+    expect(texto).not.toMatch(/"handicap":18/)
+  })
+
+  it('ronda libre: Ana creadora con índice tipeado (marca false) viaja sin sesión, como hoy', async () => {
+    Object.assign(ronda.ronda_libre_jugadores[0], { handicap: 18, handicap_de_inscripcion: false })
+    const { json } = await pedir()
+    expect(fila(json, 'A').breakdown.handicapInfo?.handicap).toBe(18)
   })
 
   it('con sesión: viaja el de los dos', async () => {

@@ -32,7 +32,7 @@ const DON_JORGE_SCORES: Record<string, number> = {
 }
 
 function jugador(id: string, scores: Record<string, number>, handicap: number): Jugador {
-  return { id, nombre: id, user_id: null, scores, handicap }
+  return { id, nombre: id, user_id: null, handicap_de_inscripcion: false, scores, handicap }
 }
 
 describe('stroke index corrupto → normalización del net (bug Don Jorge)', () => {

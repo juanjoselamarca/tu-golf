@@ -143,8 +143,8 @@ describe('resolverHandicapsDelScorer', () => {
     const r = await resolverHandicapsDelScorer(sb as never, {
       ...ronda,
       ronda_libre_jugadores: [
-        { id: 'a', nombre: 'A', user_id: 'u1', scores: {}, handicap: 11.1, tees: null },
-        { id: 'b', nombre: 'B', user_id: 'u2', scores: {}, handicap: null, tees: null },
+        { id: 'a', nombre: 'A', user_id: 'u1', handicap_de_inscripcion: false, scores: {}, handicap: 11.1, tees: null },
+        { id: 'b', nombre: 'B', user_id: 'u2', handicap_de_inscripcion: false, scores: {}, handicap: null, tees: null },
       ],
     }, 72, null)
     expect(sb.llamadas.map(l => l.tabla)).not.toContain('profiles')
@@ -157,9 +157,9 @@ describe('resolverHandicapsDelScorer', () => {
     const { hcpMap, displayMap } = await resolverHandicapsDelScorer(sb as never, {
       ...ronda,
       ronda_libre_jugadores: [
-        { id: 'a', nombre: 'A', user_id: 'u1', scores: {}, handicap: 11.1, tees: 'Blanco' },
-        { id: 'b', nombre: 'B', user_id: 'u2', scores: {}, handicap: null, tees: null },
-        { id: 'c', nombre: 'C', user_id: null, scores: {}, handicap: null, tees: null },
+        { id: 'a', nombre: 'A', user_id: 'u1', handicap_de_inscripcion: false, scores: {}, handicap: 11.1, tees: 'Blanco' },
+        { id: 'b', nombre: 'B', user_id: 'u2', handicap_de_inscripcion: false, scores: {}, handicap: null, tees: null },
+        { id: 'c', nombre: 'C', user_id: null, handicap_de_inscripcion: false, scores: {}, handicap: null, tees: null },
       ],
     }, 72, leerIndicesDelCliente(sb as never))
     expect(hcpMap).toEqual({ a: 11, b: 15, c: 0 })
@@ -174,8 +174,8 @@ describe('resolverHandicapsDelScorer', () => {
 
 describe('fetchEquiposDelScorer', () => {
   const jugadores = [
-    { id: 'p1', nombre: 'Ana', user_id: null, scores: {} },
-    { id: 'p2', nombre: 'Beto', user_id: null, scores: {} },
+    { id: 'p1', nombre: 'Ana', user_id: null, handicap_de_inscripcion: false, scores: {} },
+    { id: 'p2', nombre: 'Beto', user_id: null, handicap_de_inscripcion: false, scores: {} },
   ]
   it('formato individual: [] sin consultar', async () => {
     const sb = fakeSupabase({})
@@ -205,8 +205,8 @@ describe('fetchEquiposDelScorer', () => {
 describe('tarjetasDesdeLaRonda', () => {
   it('claves JSONB string → número, por jugador', () => {
     expect(tarjetasDesdeLaRonda({ ronda_libre_jugadores: [
-      { id: 'p1', nombre: 'A', user_id: null, scores: { '10': 4, '11': 5 } },
-      { id: 'p2', nombre: 'B', user_id: null, scores: null as never },
+      { id: 'p1', nombre: 'A', user_id: null, handicap_de_inscripcion: false, scores: { '10': 4, '11': 5 } },
+      { id: 'p2', nombre: 'B', user_id: null, handicap_de_inscripcion: false, scores: null as never },
     ] })).toEqual({ p1: { 10: 4, 11: 5 }, p2: {} })
   })
 })
@@ -217,9 +217,9 @@ describe('fetchRondaLibreParaScorer — orden de los jugadores', () => {
     const sb = fakeSupabase({ rondas_libres: { data: {
       id: 'r1', codigo: 'ABC', creador_id: 'u-c',
       ronda_libre_jugadores: [
-        { id: 'a', nombre: 'Inv Uno', user_id: null },
-        { id: 'b', nombre: 'Inv Tres', user_id: null },
-        { id: 'c', nombre: 'E2E Test', user_id: 'u-c' },
+        { id: 'a', nombre: 'Inv Uno', user_id: null, handicap_de_inscripcion: false },
+        { id: 'b', nombre: 'Inv Tres', user_id: null, handicap_de_inscripcion: false },
+        { id: 'c', nombre: 'E2E Test', user_id: 'u-c', handicap_de_inscripcion: false },
       ],
     } } })
     const r = await fetchRondaLibreParaScorer(sb as never, 'ABC')

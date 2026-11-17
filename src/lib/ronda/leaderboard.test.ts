@@ -6,7 +6,7 @@ const parMap = { 1: 4, 2: 4 }
 const siMap = { 1: 1, 2: 2 }
 
 function jugador(id: string, nombre: string, scores: Record<string, number>, handicap = 0): Jugador {
-  return { id, nombre, user_id: null, scores, handicap }
+  return { id, nombre, user_id: null, handicap_de_inscripcion: false, scores, handicap }
 }
 
 describe('buildLeaderboard', () => {

@@ -16,11 +16,11 @@ describe('HcpCelda — plus', () => {
 
 describe('crearHcpAMostrar — redondeo del motor', () => {
   it.each([-1.5, -2.5, 12.5, 12.4])('handicap %s sin display → redondearHandicapWHS', h => {
-    const hcp = crearHcpAMostrar([{ id: 'a', handicap: h }], {}, [], 'todos')
+    const hcp = crearHcpAMostrar([{ id: 'a', handicap: h, handicap_de_inscripcion: false }], {}, [], 'todos')
     expect(hcp('a')).toBe(redondearHandicapWHS(h))
   })
   it('−1.5 → −1 ("+1"), no −2', () => {
-    expect(crearHcpAMostrar([{ id: 'a', handicap: -1.5 }], {}, [], 'todos')('a')).toBe(-1)
+    expect(crearHcpAMostrar([{ id: 'a', handicap: -1.5, handicap_de_inscripcion: false }], {}, [], 'todos')('a')).toBe(-1)
   })
 })
 

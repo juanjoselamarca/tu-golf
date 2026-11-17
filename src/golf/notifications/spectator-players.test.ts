@@ -49,7 +49,7 @@ describe('buildSpectatorPlayers', () => {
 
   it('ronda individual NETO: el aviso lleva el vs-par BRUTO, idéntico al que empuja el servidor', () => {
     // Pedro, course hcp 9 en 9 hoyos: un golpe por hoyo. Bruto +3 (5,5,4 en pares 4,4,3), neto E.
-    const jugadores = [{ id: 'p', nombre: 'Pedro Silva', user_id: null, scores: { '1': 5, '2': 5, '3': 4 }, handicap: 9 }]
+    const jugadores = [{ id: 'p', nombre: 'Pedro Silva', user_id: null, handicap_de_inscripcion: false, scores: { '1': 5, '2': 5, '3': 4 }, handicap: 9 }]
     const leaderboard = buildLeaderboard({
       jugadores, holes: 9, hoyoInicio: 1, parMap, siMap, courseHcpMap: { p: 9 }, modoJuego: 'neto', formatoJuego: 'stroke_play',
     })

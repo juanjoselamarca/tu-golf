@@ -29,7 +29,7 @@ function jugador(over: Partial<DBRondaLibreJugador>): DBRondaLibreJugador {
   return {
     id: 'j1',
     nombre: 'Matías',
-    user_id: null,
+    user_id: null, handicap_de_inscripcion: false,
     scores: { '1': 5, '2': 4, '3': 5, '4': 4, '5': 5, '6': 4, '7': 5, '8': 4, '9': 5 },
     handicap: 8,
     handicap_index: 11,

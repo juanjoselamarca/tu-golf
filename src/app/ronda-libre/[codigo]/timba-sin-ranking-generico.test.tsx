@@ -25,9 +25,9 @@ const siMap = { 1: 1, 2: 2, 3: 3 }
 // Sin course handicap en el mapa (en una Timba `/live` no lo entrega) e índices declarados distintos:
 // el viejo fallback `Math.round(j.handicap ?? 0)` daría un neto inventado.
 const jugadores = [
-  { id: 'j1', nombre: 'Juan', user_id: null, handicap: 10, tees: null, scores: { 1: 4, 2: 5, 3: 4 } },
-  { id: 'j2', nombre: 'Pedro', user_id: null, handicap: 14, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
-  { id: 'j3', nombre: 'Diego', user_id: null, handicap: 6, tees: null, scores: { 1: 6, 2: 4, 3: 4 } },
+  { id: 'j1', nombre: 'Juan', user_id: null, handicap_de_inscripcion: false, handicap: 10, tees: null, scores: { 1: 4, 2: 5, 3: 4 } },
+  { id: 'j2', nombre: 'Pedro', user_id: null, handicap_de_inscripcion: false, handicap: 14, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
+  { id: 'j3', nombre: 'Diego', user_id: null, handicap_de_inscripcion: false, handicap: 6, tees: null, scores: { 1: 6, 2: 4, 3: 4 } },
 ]
 const ronda = {
   id: 'r1', codigo: 'TIMBA1', course_name: 'Los Leones', course_id: 'c1', tees: 'azul', holes: 18, hoyo_inicio: 1,
@@ -108,7 +108,7 @@ describe('Timba libre — sin ranking ni neto genérico', () => {
     const HOYO: HoleData = { numero: 1, par: 4, stroke_index: 1, yardaje: null }
     render(
       <PlayerScoreCard
-        jugador={{ id: 'j1', nombre: 'Juan', user_id: null, scores: {}, handicap: 18 }}
+        jugador={{ id: 'j1', nombre: 'Juan', user_id: null, handicap_de_inscripcion: false, scores: {}, handicap: 18 }}
         playerScores={{ 1: 5 }} currentHole={1} par={4} holeData={HOYO}
         totals={{ gross: 5, vsPar: 1, out: 5, inn: 0, holesPlayed: 1, parJugado: 4 }} played={1}
         hcp={18} displayHcp={18} dotHcp={18} siAllocByHole={{ 1: 1 }} ordenHoyos={[1]} holeDataMap={{ 1: HOYO }}

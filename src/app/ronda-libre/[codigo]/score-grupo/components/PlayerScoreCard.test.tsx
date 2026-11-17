@@ -9,7 +9,7 @@ const HOYO: HoleData = { numero: 12, par: 4, stroke_index: 13, yardaje: null }
 const JUGADOR: Jugador = {
   id: 'j1',
   nombre: 'Juan Pérez',
-  user_id: null,
+  user_id: null, handicap_de_inscripcion: false,
   scores: {},
   handicap: 18,
 }
