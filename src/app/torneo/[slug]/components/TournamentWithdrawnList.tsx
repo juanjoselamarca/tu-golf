@@ -68,7 +68,8 @@ export function TournamentWithdrawnList({ withdrawnPlayers }: TournamentWithdraw
                     padding: '2px 7px',
                     borderRadius: '6px',
                     flexShrink: 0,
-                    minWidth: '34px',
+                    width: '42px',
+                    boxSizing: 'border-box',
                     textAlign: 'center',
                   }}
                 >
