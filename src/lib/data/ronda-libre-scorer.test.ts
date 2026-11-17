@@ -61,7 +61,7 @@ describe('fetchRondaLibreParaScorer', () => {
     expect(COLUMNAS_RONDA_SCORER).toContain('es_demo')
     // `creador_id`: la UI sólo ofrece "Descartar ronda" al creador (puedeDescartarRonda).
     expect(COLUMNAS_RONDA_SCORER).toContain('creador_id')
-    expect(COLUMNAS_RONDA_SCORER).toContain('ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
+    expect(COLUMNAS_RONDA_SCORER).toContain('ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)')
   })
   it('no_existe sólo cuando PostgREST dice que no hay fila (PGRST116)', async () => {
     const sb = fakeSupabase({ rondas_libres: { data: null, error: { code: 'PGRST116', message: 'no rows' } } })
