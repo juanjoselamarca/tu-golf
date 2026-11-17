@@ -228,7 +228,7 @@ describe('fechaDeJuegoDeLaRonda (played_at del historial)', () => {
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-14', numeroDeRonda: 2, torneo: { date_start: '2026-11-13' } }, martes)).toBe('2026-11-14')
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 1, torneo: { date_start: '2026-11-14' } }, martes)).toBe('2026-11-14')
   })
-  it('ronda 2+ sin fecha cargada: el último día del torneo, no el inicio (acotado a hoy)', () => {
+  it('ronda 2+ sin fecha cargada: inicio + (N−1) días, acotado al fin y a hoy', () => {
     const torneo = { date_start: '2026-11-13', date_end: '2026-11-14' }
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 2, torneo }, martes)).toBe('2026-11-14')
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 1, torneo }, martes)).toBe('2026-11-13')
@@ -245,6 +245,9 @@ describe('fechaDeJuegoDeLaRonda (played_at del historial)', () => {
     const movido = { date_start: '2026-11-14', date_end: '2026-11-15' }
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-08', numeroDeRonda: 2, torneo: movido }, martes)).toBe('2026-11-15')
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-08', numeroDeRonda: 1, torneo: movido }, martes)).toBe('2026-11-14')
+    // Lo que deja /editar hoy: mueve date_start y no date_end → fechas invertidas (fin = inicio).
+    const editado = { date_start: '2026-11-14', date_end: '2026-11-09' }
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-09', numeroDeRonda: 2, torneo: editado }, martes)).toBe('2026-11-14')
   })
   it('fecha de la ronda futura (cerrado antes de tiempo) → hoy', () => {
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-20', numeroDeRonda: 1, torneo: { date_start: null } }, martes)).toBe('2026-11-17')
