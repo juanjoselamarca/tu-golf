@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { formatearHandicap } from '@/golf/handicap-index-range'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -8,23 +8,22 @@ import { TorneoNoEncontrado } from '@/components/torneo/TorneoNoEncontrado'
 import { SCORE_STYLES, getScoreResult } from '@/golf/core/colors'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
-import { addToast } from '@/hooks/useToast'
-import { useScoreSync } from '@/hooks/useScoreSync'
 import { formatLabel } from '@/golf/core/rules'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { HCP_PCT_DEFAULT, hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
+import { esTarjetaCerrada } from '@/golf/tournament-rounds'
 import { motivoSinScores } from '@/golf/tournament-status'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
+import { useGuardadoTorneo } from './hooks/useGuardadoTorneo'
+import { elegirJugadorInicial, urlSinJugador } from './hooks/jugador-del-link'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import {
   fetchScoringTournament,
   fetchScoringRoster,
   fetchScoringCourseContext,
-  fetchRoundHoleScores,
   type ScoringPlayer,
   type ScoringTournament,
 } from '@/lib/data/tournaments/scoring'
@@ -74,20 +73,12 @@ export default function PlayerScoringPage() {
   // slope/CR del jugador y caería al camino seguro (índice crudo).
   const [courseTees,    setCourseTees]    = useState<CourseTeeRow[]>([])
   const [selectedId,    setSelectedId]    = useState<string>('')
-  const [currentScores, setCurrentScores] = useState<Record<number, number>>({})
-  const [saving,        setSaving]        = useState(false)
-  const [saveError,     setSaveError]     = useState<string | null>(null)
   const [loading,       setLoading]       = useState(true)
   // Falló la carga (red, no "torneo inexistente"). `loadNonce` re-dispara el
   // efecto sin recargar la página: en cancha, recargar es perder el teclado
   // abierto y varios segundos.
   const [loadError,     setLoadError]     = useState(false)
   const [loadNonce,     setLoadNonce]     = useState(0)
-  const [savedHoles,    setSavedHoles]    = useState<Set<number>>(new Set())
-  const [isOnline,      setIsOnline]      = useState(true)
-  type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error'
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
-  const retryCountRef = useRef(0)
   // Modal de registro post-ronda para invitados
   const [showRegisterModal, setShowRegisterModal] = useState(false)
 
@@ -109,7 +100,6 @@ export default function PlayerScoringPage() {
   // organizador cerró la ronda o el torneo; al abrir la siguiente, el roster
   // recargado trae la tarjeta nueva y el scorer vuelve a escribir.
   const rondaCerrada = esTarjetaCerrada(ronda.round?.status)
-  const scoreSync = useScoreSync(slug, roundIdForSync)
 
   /** Recarga sólo el roster (tarjetas/status), sin la pantalla de "Cargando". */
   const reloadRoster = useCallback(async () => {
@@ -135,16 +125,6 @@ export default function PlayerScoringPage() {
     }, 30_000)
     return () => clearInterval(id)
   }, [rondaCerrada, hayRondaSiguiente, reloadRoster])
-
-  // Al cambiar de tarjeta (otro jugador u otra ronda), los "✓ guardado" son de
-  // la tarjeta anterior.
-  useEffect(() => {
-    setSavedHoles(new Set())
-  }, [roundIdForSync])
-
-  // El torneo dejó de aceptar scores (cerrado/cancelado): tarjeta deshabilitada
-  // y UN aviso, no uno por cada blur.
-  const [torneoInactivo, setTorneoInactivo] = useState(false)
 
   /**
    * El handicap con el que se REPARTEN los golpes en este torneo.
@@ -172,6 +152,19 @@ export default function PlayerScoringPage() {
       hcpPct: hcpPctDelTorneo(tournament),
     })
   }, [tournament, rondaCtx])
+
+  // Guardado de la tarjeta: carga, envío por hoyo, cola local y reenvío (401/403 con aviso y salida).
+  const {
+    currentScores, savedHoles, isOnline, saveStatus, saveError, limpiarSaveError,
+    sinAcceso, torneoInactivo, guardarHoyo, hoyosEnCola,
+  } = useGuardadoTorneo({
+    slug, tournament, player: selectedPlayerEarly, roundId: roundIdForSync, contextoListo: !!rondaCtx,
+    hoyosRonda, holeCount: holeCountRonda, courseHcpDe,
+    bloqueado: rondaCerrada || (!!tournament && !!motivoSinScores(tournament.status)),
+    guestId, guestToken: guestTokenValue,
+    onRondaCerrada: () => { void reloadRoster() },
+    onInvitadoCompleto: () => setShowRegisterModal(true),
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -220,20 +213,24 @@ export default function PlayerScoringPage() {
 
         setLoading(false)
 
-        // Auto-selección del invitado: FUERA del Promise.all de arriba a propósito. Es una
-        // comodidad que depende de la red; adentro, una respuesta lenta de /guest-player
-        // retrasaba la pantalla completa aunque el roster y la cancha ya hubieran llegado.
-        // Sin auto-selección si falla: el invitado elige su nombre en la lista.
-        if (guestId && guestTokenValue) {
-          void fetchMiJugadorInvitado(slug, guestId, guestTokenValue)
-            .then((guestPlayerId) => {
-              if (cancelled) return
-              if (guestPlayerId && roster.some(p => p.id === guestPlayerId)) setSelectedId(guestPlayerId)
-            })
-            .catch((e) => {
-              void captureError(e, { context: 'torneo.score.guestPlayer', meta: { slug } })
-            })
-        }
+        // Tarjeta que se abre sola: la del link `?jugador=` (vuelta del login del aviso "Inicia sesión
+        // para guardar", reenvía sola lo pendiente) y, sin link, la del invitado. Va FUERA del
+        // Promise.all de arriba a propósito: /guest-player depende de la red y no debe retrasar la
+        // pantalla. Sin auto-selección si falla: el jugador elige su nombre en la lista.
+        void elegirJugadorInicial({
+          search: window.location.search,
+          roster,
+          buscarInvitado: guestId && guestTokenValue ? () => fetchMiJugadorInvitado(slug, guestId, guestTokenValue) : null,
+        })
+          .then((eleccion) => {
+            if (cancelled || !eleccion) return
+            setSelectedId(eleccion.id)
+            // Usado una vez: recargar el roster después no vuelve a forzar esa tarjeta.
+            if (eleccion.desdeLink) window.history.replaceState(window.history.state, '', urlSinJugador(window.location.href))
+          })
+          .catch((e) => {
+            void captureError(e, { context: 'torneo.score.guestPlayer', meta: { slug } })
+          })
       } catch (e) {
         void captureError(e, { context: 'torneo.score.load', meta: { slug } })
         if (!cancelled) {
@@ -246,212 +243,12 @@ export default function PlayerScoringPage() {
     return () => { cancelled = true }
   }, [slug, loadNonce, guestId, guestTokenValue])
 
-  const loadScores = useCallback(async (playerId: string) => {
-    const player = players.find(p => p.id === playerId)
-    const roundId = activeRoundOf(player?.rounds)?.id
-    if (!roundId) { setCurrentScores({}); return }
-    const map: Record<number, number> = {}
-    try {
-      const supabase = createClient()
-      const data = await fetchRoundHoleScores(supabase, roundId)
-      data.forEach((s) => { if (s.gross_score != null) map[s.hole_number] = s.gross_score })
-    } catch (e) {
-      void captureError(e, { context: 'torneo.score.loadScores', meta: { slug, roundId } })
-    }
-    // Merge pending local scores (offline/failed saves) so no input is lost on reload
-    try {
-      const raw = localStorage.getItem(`golfers_score_${slug}_${roundId}`)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed && parsed.sincronizado === false && parsed.scores) {
-          Object.entries(parsed.scores as Record<string, number>).forEach(([h, g]) => { map[Number(h)] = Number(g) })
-          setSaveStatus(typeof navigator !== 'undefined' && navigator.onLine ? 'error' : 'offline')
-        }
-      }
-    } catch { /* silent */ }
-    setCurrentScores(map)
-  }, [players, slug])
-
-  useEffect(() => { if (selectedId) loadScores(selectedId) }, [selectedId, loadScores])
   // "Podrás anotar cuando el organizador lo inicie": se cumple sin recargar (en el tee nadie recarga).
   useEsperarInicioDelTorneo({
     tournamentId: tournament?.id,
     esperando: !!tournament && !torneoInactivo && motivoSinScores(tournament.status) === 'no_empezo',
     onCambio: () => setLoadNonce(n => n + 1),
   })
-
-  const submitHoleScore = useCallback(async (
-    tourneyId: string,
-    roundId: string,
-    holeNumber: number,
-    gross: number,
-    par: number,
-    netScore: number,
-    points: number,
-  ): Promise<'ok' | 'closed' | 'inactive' | 'error'> => {
-    // Headers base + headers de invitado si aplica
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (isGuest && guestId && guestTokenValue) {
-      headers['x-guest-id'] = guestId
-      headers['x-guest-token'] = guestTokenValue
-    }
-
-    let attempts = 0
-    while (attempts < 3) {
-      try {
-        const res = await fetch('/api/game', {
-          method: 'POST', headers,
-          body: JSON.stringify({ action: 'upsert_score', tournament_id: tourneyId, round_id: roundId, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }),
-        })
-        if (res.ok) return 'ok'
-        // 409 = no se puede escribir, y no va a cambiar reintentando. El
-        // `code` del cuerpo distingue la tarjeta cerrada (el organizador cerró
-        // la ronda: puede venir otra) del torneo inactivo (cerrado/cancelado).
-        if (res.status === 409) {
-          const body = (await res.json().catch(() => ({}))) as { code?: string }
-          return body.code === 'round_closed' ? 'closed' : 'inactive'
-        }
-      } catch {
-        // network error — retry
-      }
-      attempts++
-      if (attempts < 3) await new Promise(r => setTimeout(r, 400 * attempts))
-    }
-    return 'error'
-  }, [isGuest, guestId, guestTokenValue])
-
-  const handleScoreChange = async (holeNumber: number, value: string) => {
-    const gross = parseInt(value)
-    if (isNaN(gross) || gross < 1 || gross > 20 || !tournament || !selectedId || rondaCerrada || torneoInactivo || motivoSinScores(tournament.status)) return
-    const player = players.find(p => p.id === selectedId)
-    const round  = activeRoundOf(player?.rounds)
-    // Sin la cancha de la ronda resuelta NO se escribe: el neto quedaría
-    // persistido con el par/slope de otra cancha.
-    if (!player || !round || !rondaCtx) return
-    const hole       = hoyosRonda.find(h => h.numero === holeNumber)
-    const par        = hole?.par ?? 4
-    const si         = normalizedStrokeIndexByHole(hoyosRonda, holeCountRonda)[holeNumber] ?? holeNumber
-    const holeCount  = holeCountRonda
-    const { neto: netScore, puntos: points } = puntajeDeHoyo({
-      gross, par, courseHandicap: courseHcpDe(player), strokeIndex: si, holeCount,
-      formato: tournament, modo: tournament.modo_juego,
-    })
-
-    const nextScores = { ...currentScores, [holeNumber]: gross }
-    setCurrentScores(nextScores)
-    scoreSync.guardarLocal(nextScores)
-    retryCountRef.current = 0
-
-    if (!isOnline) {
-      setSaveStatus('offline')
-      return
-    }
-
-    setSaving(true)
-    setSaveStatus('saving')
-    setSaveError(null)
-    const resultado = await submitHoleScore(tournament.id, round.id, holeNumber, gross, par, netScore, points)
-    if (resultado === 'closed') {
-      // La ronda se cerró mientras se escribía: no se encola nada (no hay a
-      // dónde escribirlo) y se recarga el roster para pasar a la tarjeta nueva
-      // si el organizador ya abrió la siguiente.
-      scoreSync.marcarSincronizado()
-      setSaveStatus('idle')
-      setSaving(false)
-      addToast({ type: 'error', title: 'Ronda cerrada', message: 'El organizador cerró esta ronda. El score no se guardó.', duration: 6000 })
-      void reloadRoster()
-      return
-    }
-    if (resultado === 'inactive') {
-      scoreSync.marcarSincronizado()
-      setSaveStatus('idle')
-      setSaving(false)
-      if (!torneoInactivo) {
-        setTorneoInactivo(true)
-        addToast({ type: 'error', title: 'Torneo cerrado', message: 'El torneo ya no acepta scores. El score no se guardó.', duration: 6000 })
-      }
-      return
-    }
-    if (resultado === 'ok') {
-      setSavedHoles(prev => new Set(prev).add(holeNumber))
-      setSaveStatus('saved')
-      scoreSync.marcarSincronizado()
-
-      // Si el invitado completó todos los hoyos, mostrar el modal de registro
-      if (isGuest) {
-        const allFilled = Object.keys({ ...nextScores }).length >= holeCount
-        if (allFilled) {
-          setShowRegisterModal(true)
-        }
-      }
-    } else {
-      setSaveStatus('error')
-      addToast({ type: 'error', title: `Error hoyo ${holeNumber}`, message: 'Score guardado localmente. Se sincronizará al recuperar la conexión.', duration: 6000 })
-      setSaveError(`Error guardando hoyo ${holeNumber}. Reintentando al reconectar.`)
-    }
-    setSaving(false)
-  }
-
-  /* ── Online/offline + auto-sync al reconectar ── */
-  useEffect(() => {
-    const up = () => {
-      setIsOnline(true)
-      if (!tournament || !roundIdForSync || !selectedPlayerEarly || !rondaCtx) return
-      if (!scoreSync.tienePendientes() || scoreSync.syncInProgressRef.current) return
-      scoreSync.syncInProgressRef.current = true
-      const pending = scoreSync.obtenerLocal()
-      ;(async () => {
-        try {
-          if (!pending) return
-          const holeCount = holeCountRonda
-          const courseHandicap = courseHcpDe(selectedPlayerEarly)
-          const siAlloc = normalizedStrokeIndexByHole(hoyosRonda, holeCount)
-          let failed = 0
-          for (const [h, g] of Object.entries(pending)) {
-            const holeNumber = Number(h)
-            const hole = hoyosRonda.find(ch => ch.numero === holeNumber)
-            const par = hole?.par ?? 4
-            const si = siAlloc[holeNumber] ?? holeNumber
-            const { neto: netScore, puntos: points } = puntajeDeHoyo({
-              gross: g, par, courseHandicap, strokeIndex: si, holeCount,
-              formato: tournament, modo: tournament.modo_juego,
-            })
-            const resultado = await submitHoleScore(tournament.id, roundIdForSync, holeNumber, g, par, netScore, points)
-            if (resultado === 'closed') {
-              // Tarjeta cerrada: lo pendiente no tiene a dónde ir. Se descarta
-              // y se recarga el roster (la ronda siguiente puede ya existir).
-              scoreSync.marcarSincronizado()
-              addToast({ type: 'error', title: 'Ronda cerrada', message: 'El organizador cerró esta ronda. Los scores pendientes no se guardaron.', duration: 6000 })
-              void reloadRoster()
-              return
-            }
-            if (resultado === 'inactive') {
-              scoreSync.marcarSincronizado()
-              setTorneoInactivo(true)
-              addToast({ type: 'error', title: 'Torneo cerrado', message: 'El torneo ya no acepta scores. Los scores pendientes no se guardaron.', duration: 6000 })
-              return
-            }
-            if (resultado !== 'ok') failed++
-            else setSavedHoles(prev => new Set(prev).add(holeNumber))
-          }
-          if (failed === 0) {
-            scoreSync.marcarSincronizado()
-            setSaveStatus('saved')
-            addToast({ type: 'success', title: 'Sincronizado', message: `${Object.keys(pending).length} hoyos guardados`, duration: 3000 })
-          } else {
-            setSaveStatus('error')
-          }
-        } finally {
-          scoreSync.syncInProgressRef.current = false
-        }
-      })()
-    }
-    const down = () => { setIsOnline(false); setSaveStatus('offline') }
-    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true)
-    window.addEventListener('online', up)
-    window.addEventListener('offline', down)
-    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
-  }, [tournament, roundIdForSync, selectedPlayerEarly, rondaCtx, hoyosRonda, holeCountRonda, scoreSync, submitHoleScore, courseHcpDe])
 
   if (loading) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Cargando...</div>
   if (loadError) return (
@@ -481,13 +278,13 @@ export default function PlayerScoringPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
           <Link href={`/torneo/${tournament.slug}`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
           {saveStatus !== 'idle' && (() => {
-            const pending = !isOnline || saveStatus === 'error' ? scoreSync.obtenerLocal() : null
-            const pendingCount = pending ? Object.keys(pending).length : 0
+            const pendingCount = !isOnline || saveStatus === 'error' ? hoyosEnCola() : 0
             const colors = {
               saving:  { bg: 'rgba(196,153,42,0.15)', fg: 'var(--brand-on-bg)', label: 'Guardando...' },
               saved:   { bg: 'rgba(0,230,118,0.15)',  fg: 'var(--status-live-fg)', label: '✓ Guardado' },
               offline: { bg: 'rgba(252,211,77,0.15)', fg: 'var(--bogey)', label: pendingCount > 0 ? `Offline — ${pendingCount} en cola` : 'Sin conexión' },
               error:   { bg: 'rgba(239,68,68,0.15)',  fg: 'var(--double)', label: pendingCount > 0 ? `Reintentando (${pendingCount})` : 'Error' },
+              sin_acceso: { bg: 'rgba(239,68,68,0.15)', fg: 'var(--double)', label: 'No guardado' },
               idle:    { bg: 'transparent', fg: 'transparent', label: '' },
             } as const
             const s = colors[saveStatus]
@@ -498,7 +295,7 @@ export default function PlayerScoringPage() {
             )
           })()}
           {saveError && (
-            <button onClick={() => setSaveError(null)} style={{ fontSize: '12px', color: 'var(--double)', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer', marginLeft: '8px' }}>
+            <button onClick={limpiarSaveError} style={{ fontSize: '12px', color: 'var(--double)', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer', marginLeft: '8px' }}>
               {saveError}
             </button>
           )}
@@ -566,10 +363,18 @@ export default function PlayerScoringPage() {
         )}
         {selectedPlayer && rondaCtx && (
           <>
-            <button type="button" onClick={() => { setSelectedId(''); setCurrentScores({}); setSavedHoles(new Set()) }}
-              style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
+            <button type="button" onClick={() => setSelectedId('')}
+              style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '14px', cursor: 'pointer', marginBottom: '8px', padding: '0 12px 0 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
               ← Cambiar jugador
             </button>
+            {sinAcceso && (
+              <div role="alert" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
+                <strong>{sinAcceso.titulo}.</strong> {sinAcceso.detalle}
+                <Link href={sinAcceso.href} style={{ display: 'flex', width: 'fit-content', alignItems: 'center', minHeight: '44px', marginTop: '2px', color: 'var(--brand-on-bg)', fontWeight: 700, textDecoration: 'none' }}>
+                  {sinAcceso.cta} →
+                </Link>
+              </div>
+            )}
             {sinScores === 'no_empezo' && !rondaCerrada && (
               <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
                 <strong>El torneo todavía no empieza.</strong> Podrás anotar tu score cuando el organizador lo inicie.
@@ -626,7 +431,7 @@ export default function PlayerScoringPage() {
                         disabled={rondaCerrada || sinScores !== null}
                         defaultValue={gross ?? ''}
                         key={`${selectedId}-${holeNum}-${gross}`}
-                        onBlur={(e) => handleScoreChange(holeNum, e.target.value)}
+                        onBlur={(e) => { void guardarHoyo(holeNum, e.target.value) }}
                         style={{ width: '64px', height: '56px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '10px', color: 'var(--text)', textAlign: 'center', fontSize: '24px', fontWeight: 700, outline: 'none', appearance: 'textfield' as React.CSSProperties['appearance'] }}
                         placeholder="—"
                       />

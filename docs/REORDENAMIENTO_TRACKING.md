@@ -452,7 +452,7 @@ invitados de `torneo/[slug]/score/page.tsx` (cambio trivial: import + envolver +
 ### Concepto "hole_scores → mapa hoyo→gross" → `grossPorHoyo()` en `src/golf/core/hole-scoring.ts` (4-oct-2026, PR #506)
 
 Creada canónica al ver la 3ª copia (`gwi-torneo.ts`, que ya la usa). Un hoyo con `gross_score` null no entra. Quedan dos copias inline:
-- [ ] `src/app/torneo/[slug]/score/page.tsx:208` (`loadScores`: `data.forEach(s => { if (s.gross_score != null) map[s.hole_number] = … })`).
+- [x] `src/app/torneo/[slug]/score/page.tsx:208` (`loadScores`) — migrada a `grossPorHoyo` en `hooks/useGuardadoTorneo.ts` (PR #754, 17-nov-2026).
 - [ ] `src/app/organizador/[slug]/scoring/hooks/useScoreEntry.ts:129` (mismo mapa, junto con putts/fairway/gir).
 Migrarlas a `grossPorHoyo` cuando se toquen (ambos archivos están en pantallas de cancha: probar el scorer al migrar).
 
@@ -914,3 +914,40 @@ Fuera de alcance (pendiente):
   - `src/app/torneo/[slug]/page.tsx` (`teeTime` de los grupos): `toLocaleTimeString` sin `timeZone`; en el
     servidor (UTC) la hora se muestra corrida. Usar `timeZone: 'America/Santiago'`.
   - Admin (`admin/golf-ops`) compara status a mano; herramienta interna, fuera del canario.
+
+## PR #754 (17-nov-2026) — scorer del torneo: `torneo/[slug]/score/page.tsx` 737 → 506
+
+- **"El que toca, ordena":** la carga de la tarjeta, el envío por hoyo, la cola local y el reenvío salen a
+  `src/app/torneo/[slug]/score/hooks/useGuardadoTorneo.ts` (15 tests). La lectura de `/api/game` es
+  fuente única en `hooks/acceso-guardado.ts` (`clasificarRespuestaScore` / `avisoSinAcceso`).
+- **Bugs cerrados de paso:** un "ok" de un hoyo confirmaba la tarjeta entera (hoyos fallidos antes quedaban
+  marcados como enviados sin llegar) → `marcarSincronizado(enviados)`; el reenvío corría en cada cambio de
+  identidad del roster → una vez por tarjeta; `/api/game` respondía 401/403 con Auth o la base caídos →
+  503 (`esFalloTransitorioDeAuth` en `src/lib/auth/`).
+- **Tripwire** de "cargar no conserva los hoyos del jugador anterior" (`canary-scorer-jugador-handicap`):
+  anclas movidas al hook + test de conducta en `useGuardadoTorneo.test.ts`. El follow-up
+  `scoresParaMostrar` (arriba) queda cubierto por ese test.
+- **Pendiente anotado:** `/api/game` responde 404 `round_not_in_tournament` (permanente) y el cliente lo trata
+  como reintentable ("Reintentando" para siempre). Mismo patrón que el 401/403: falta clasificarlo.
+- **Vuelta 2 (revisión Fable):** el reenvío manda sólo lo que el servidor no tiene (`confirmadosRef` +
+  `enVueloRef`; antes cada "ok" reenviaba la tarjeta entera → decenas de POST/min y 429). Los 403 de
+  `/api/game` traen `code` (`src/lib/api/codigos-game.ts`: `player_withdrawn`, `guest_not_owner`); el
+  `round_closed` del 409 sigue como literal suelto — moverlo ahí es follow-up.
+- **Hallazgo (sin arreglar, fuera de alcance):** `/torneo/[slug]/unirse` con el token de invitado roto
+  (`useInscripcionTorneo`, 403 `guest_token_required`) borra la sesión e inscribe con un guestId NUEVO →
+  jugador duplicado en el torneo. Por eso ningún aviso del scorer manda a `/unirse`. Falta: que la
+  inscripción reconozca al invitado existente antes de crear otro.
+- **Follow-up:** adoptar `src/lib/auth/aviso-sesion-cerrada.ts` (PR #789) en `avisoSinAcceso('sin_sesion')`.
+- **Vuelta 3:** el 403 de invitado distingue `guest_token_invalid` (acceso roto) de `guest_not_owner`
+  (tarjeta ajena → "no está a tu nombre"). `?jugador=` gana sobre la auto-selección del invitado
+  (`hooks/jugador-del-link.ts`). Guardar antes de terminar la carga ya no pisa el respaldo pendiente.
+- **Residual (requiere migración, no hecho):** `upsertScore` (`src/app/api/game/actions.ts`) es un
+  `upsert` por `(round_id, hole_number)` sin versión: si el servidor procesa dos POST del mismo hoyo
+  en desorden (el viejo después del nuevo) gana el viejo, y el cliente no lo puede ver porque los dos
+  "ok" llegan en orden. El cliente cubre el caso visible (un reintento viejo que entra después de la
+  corrección devuelve la cola a pendiente y reenvía el valor vigente). El arreglo de raíz es una
+  columna de secuencia del cliente (o `updated_at` del cliente) en `hole_scores` y un upsert condicional
+  (`where excluded.seq > hole_scores.seq`), vía migración.
+- **Hallazgo (fuera de alcance):** en un torneo en curso, un jugador del roster SIN fila en `rounds`
+  ve la tarjeta habilitada; lo que anota no se guarda ni se avisa (`guardarHoyo` sale sin `roundId`).
+  Visto en `copa-cabros-mo7nce53` (4 de 5 jugadores sin ronda).
