@@ -8,7 +8,7 @@ import { loginUrl } from '@/lib/auth/login-url'
 /**
  * PR #789 (hunter 13-nov): en el scorer de ronda libre, con la sesión cerrada en plena ronda el RPC corre como
  * anónimo y responde P0003. Antes: "No puedes anotar esta tarjeta…" al propio jugador en cada golpe, sin salida.
- * Ahora: un aviso persistente "Tu sesión se cerró" con "Iniciar sesión" que vuelve a esta tarjeta, sin toast ni
+ * Ahora: un aviso persistente ("Tu sesión se cerró", o "Inicia sesión para guardar" si la página abrió sin sesión) con "Iniciar sesión" que vuelve a esta tarjeta, sin toast ni
  * redirección sola, y el respaldo local sigue pendiente para que useOfflineResync lo reenvíe al volver.
  */
 
@@ -117,7 +117,7 @@ describe('useScoreSave — P0003 con la sesión cerrada', () => {
     expect(result.current.sesionCerrada).toBeNull()
   })
 
-  it('Finalizar sin sesión: devuelve sin_permiso (Finalizar no cierra) y deja el aviso', async () => {
+  it('Finalizar sin sesión: devuelve sin_permiso (Finalizar no cierra), deja el aviso y el toque tiene respuesta', async () => {
     mockRpc.mockResolvedValue(P0003)
     mockGetSession.mockResolvedValue(SIN_SESION)
     const { result } = montar()
@@ -125,6 +125,27 @@ describe('useScoreSave — P0003 con la sesión cerrada', () => {
     await act(async () => { r = await result.current.guardarAhora('p1', { 1: 4 }) })
     expect(r).toBe('sin_permiso')
     expect(result.current.sesionCerrada?.cta).toBe('Iniciar sesión')
+    expect(addToast).toHaveBeenCalledTimes(1)
+    expect(addToast).toHaveBeenCalledWith({
+      type: 'error', duration: 7000,
+      title: 'Tu sesión se cerró',
+      message: 'Inicia sesión para finalizar. Tus golpes quedaron en este teléfono.',
+    })
+    expect(toastsCon(TITULO_PERMISO)).toHaveLength(0)
+  })
+
+  it('la página abrió ya sin sesión (iOS descartó la PWA, link sin entrar): mismo aviso, "Inicia sesión para guardar"', async () => {
+    mockRpc.mockResolvedValue(P0003)
+    mockGetSession.mockResolvedValue(SIN_SESION)
+    const { result } = montar(null)
+    await anotar(result, 'p1', { 1: 4 })
+    expect(result.current.sesionCerrada).toEqual({
+      titulo: 'Inicia sesión para guardar',
+      detalle: expect.stringContaining('quedaron en este teléfono'),
+      cta: 'Iniciar sesión',
+      href: loginUrl('/ronda-libre/ABC123/score?j=p1'),
+    })
+    expect(addToast).not.toHaveBeenCalled()
   })
 })
 
@@ -137,12 +158,10 @@ describe('useScoreSave — P0003 que NO es sesión cerrada', () => {
     expect(result.current.sesionCerrada).toBeNull()
   })
 
-  it('nunca hubo sesión (link abierto sin entrar): aviso de permiso, ni se consulta la sesión', async () => {
+  it('la página abrió sin sesión pero ahora la hay (tarjeta ajena): aviso de permiso', async () => {
     mockRpc.mockResolvedValue(P0003)
-    mockGetSession.mockResolvedValue(SIN_SESION)
     const { result } = montar(null)
     await anotar(result, 'p1', { 1: 4 })
-    expect(mockGetSession).not.toHaveBeenCalled()
     expect(toastsCon(TITULO_PERMISO)).toHaveLength(1)
     expect(result.current.sesionCerrada).toBeNull()
   })
@@ -152,6 +171,7 @@ describe('useScoreSave — P0003 que NO es sesión cerrada', () => {
     mockGetSession.mockResolvedValue(SIN_SESION)
     const { result } = montar()
     await anotar(result, 'p1', { 1: 4 })
+    expect(mockGetSession).not.toHaveBeenCalled()
     expect(toastsCon(TITULO_PERMISO)).toHaveLength(1)
     expect(result.current.sesionCerrada).toBeNull()
   })

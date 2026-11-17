@@ -304,9 +304,6 @@ function ScorePageContent() {
 
       <SaveStatusBadge saveStatus={saveStatus} />
 
-      {/* ── La sesión se cerró en plena ronda: aviso fijo con "Iniciar sesión" ── */}
-      <AvisoSesionCerradaBanner aviso={sesionCerrada} />
-
       <ScorerHeader
         currentHole={currentHole}
         modoLabel={modoLabel}
@@ -326,6 +323,9 @@ function ScorePageContent() {
       />
 
       {vistaBruta && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}/score`} />}
+
+      {/* ── Sin sesión al guardar: aviso fijo con "Iniciar sesión" (bajo la cabecera, fuera del indicador de guardado) ── */}
+      <AvisoSesionCerradaBanner aviso={sesionCerrada} />
 
       <MiniScorecardGrid
         totalHoles={totalHoles}

@@ -20,6 +20,12 @@ export const RONDA_ERRCODE = {
 } as const
 
 /**
+ * DETAIL del P0003 que `upsert_ronda_libre_scores` da para la ronda demo (migración
+ * 20261020190000_orden_guardados_ronda_libre.sql): es de permiso, no de sesión.
+ */
+export const RONDA_DEMO_DETAIL = 'ronda demo'
+
+/**
  * Respuesta firme de `finalizar_ronda_libre`: el servidor decidió (ya estaba cerrada, sin permiso, no existe).
  * Cualquier otro error deja sin saber si cerró (sin red: `{ code: '' }`; plazo vencido; 5xx; sesión caída), y
  * quien finaliza tiene que poder reintentar. No es `esNoReintentable`: esa considera reintentable a P0003.

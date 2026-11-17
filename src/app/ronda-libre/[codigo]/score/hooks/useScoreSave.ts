@@ -7,10 +7,10 @@ import { saveRondaLibreScores, nuevaSecuencia } from '@/lib/data/ronda-libre-sco
 import { addToast } from '@/hooks/useToast'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
-import { RONDA_ERRCODE, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_DEMO_DETAIL, RONDA_ERRCODE, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cierre'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE, AVISO_TARJETA_RECHAZADA } from '@/components/ronda/finalizar-copy'
-import { avisoSesionCerrada, type AvisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
+import { AVISO_FINALIZAR_SIN_SESION, avisoSesionCerrada, type AvisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
@@ -28,9 +28,8 @@ interface UseScoreSaveOptions {
   /** La ronda ya no existe (P0001): las copias locales ya se borraron; sacar al jugador. */
   onRondaNoExiste?: () => void
   /**
-   * Quién tenía sesión al abrir el scorer (`useRondaScoreData`). Sólo si había sesión y ya no la hay, un
-   * P0003 es "se cerró la sesión" (aviso persistente con "Iniciar sesión"); quien nunca entró ve el aviso de
-   * permiso de siempre.
+   * Quién tenía sesión al abrir el scorer (`useRondaScoreData`). Un P0003 sin sesión en el teléfono da el aviso
+   * persistente con "Iniciar sesión": "Tu sesión se cerró" si la había al abrir, "Inicia sesión para guardar" si no.
    */
   authUserId?: string | null
 }
@@ -58,7 +57,7 @@ export interface UseScoreSaveResult {
   marcarFinalizando: (enCurso: boolean) => void
   saveStatus: SaveStatus
   /**
-   * La sesión se cerró en plena ronda (P0003 sin sesión, habiendo entrado al abrir): aviso persistente con
+   * Hay que iniciar sesión para guardar (P0003 sin sesión en el teléfono, ronda no demo): aviso persistente con
    * "Iniciar sesión" que vuelve a la última tarjeta rechazada. Se apaga con el siguiente guardado que llega.
    */
   sesionCerrada: AvisoSesionCerrada | null
@@ -170,9 +169,10 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       // se cerró en otro dispositivo), el RPC corrió como anónimo: no es la tarjeta, es la sesión.
       else if (error.code === RONDA_ERRCODE.FORBIDDEN) {
         forbiddenRpc = true
-        // Sólo cuenta si al abrir había sesión (quien nunca entró ve el aviso de permiso) y no es la ronda demo
-        // (también responde P0003). Sin poder confirmar la sesión (red), como falta de conexión: no se va al login.
-        if (authUserId && error.details !== 'ronda demo') {
+        // La ronda demo también responde P0003 y es de permiso. Si no, se mira la sesión del teléfono: sin sesión
+        // (la perdió o la página abrió ya sin ella) es el aviso de iniciar sesión; con sesión, la tarjeta es ajena
+        // de verdad; sin poder confirmarla (red), como falta de conexión.
+        if (error.details !== RONDA_DEMO_DETAIL) {
           const sesion = await sesionDelScorer(supabase)
           if (sesion.estado === 'sin_sesion') sinSesion = true
           else if (sesion.estado === 'sin_conexion') forbiddenRpc = false  // cae en !success → 'sin_conexion'
@@ -243,9 +243,12 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       // Antes: "No puedes anotar esta tarjeta… inicia sesión con la cuenta del jugador" a quien ES el jugador,
       // sin salida, repetido en cada golpe. El respaldo local queda pendiente (P0003 no lo descarta) y
       // useOfflineResync lo reenvía al volver al scorer con la sesión. Sin toast ni redirección sola: un aviso
-      // persistente con "Iniciar sesión" (como el scorer del torneo), y el jugador sigue anotando mientras.
+      // persistente con "Iniciar sesión", y el jugador sigue anotando mientras. "Tu sesión se cerró" sólo si la
+      // tenía al abrir; si la página abrió sin ella, "Inicia sesión para guardar".
       // Vuelve a ESTA tarjeta (?j): el reenvío es por tarjeta abierta; sin ?j el scorer abre la del dueño.
-      setSesionCerrada(avisoSesionCerrada(`/ronda-libre/${codigo}/score?j=${encodeURIComponent(jugadorId)}`))
+      setSesionCerrada(avisoSesionCerrada(`/ronda-libre/${codigo}/score?j=${encodeURIComponent(jugadorId)}`, { habiaSesion: !!authUserId }))
+      // Finalizar se detiene sin cerrar: que el toque tenga respuesta en el momento (el aviso fijo ya está).
+      if (paraFinalizar) addToast({ ...AVISO_FINALIZAR_SIN_SESION, type: 'error', duration: 7000 })
       return 'sin_permiso'
     }
     if (forbiddenRpc) {
