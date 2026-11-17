@@ -4,12 +4,15 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { leerCampoHandicap } from '@/golf/handicap-index-range'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { captureError } from '@/lib/error-tracking'
+import { useToast } from '@/hooks/useToast'
 import { Flag } from '@/components/icons'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { useTees } from './hooks/useTees'
 import { useProfileSearch } from './hooks/useProfileSearch'
 import { usePlayers } from './hooks/usePlayers'
 import { useGroups } from './hooks/useGroups'
+import { desinscribir } from './hooks/desinscribir'
 import { useTournamentLifecycle } from './hooks/useTournamentLifecycle'
 import { TeesAssignmentSection } from './components/TeesAssignmentSection'
 import { TournamentInvitationCard } from './components/TournamentInvitationCard'
@@ -40,6 +43,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     reset: resetSearch,
   } = useProfileSearch()
 
+  const { showError } = useToast()
   const [selectedCat] = useState(categories[0]?.id || '')
   const [tournamentStatus, setTournamentStatus] = useState(tournament.status)
   const statusBadge = tournamentStatusBadge(tournamentStatus, 'organizer')
@@ -53,7 +57,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     players, setPlayers, loading,
     fetchPlayers, inscribirPlayer, inscribirGuest, inscribirBatch, withdrawPlayer, disqualifyPlayer,
     confirmModalProps: playersModalProps,
-  } = usePlayers({ tournament, categories, initialPlayers, tournamentStatus })
+  } = usePlayers({ tournament, categories, initialPlayers })
 
   const handleInscribir = () => inscribirPlayer(selectedProfile, selectedCat, resetSearch)
   const handleInscribirGuest = () =>
@@ -67,20 +71,25 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const handleDescalificar = disqualifyPlayer
 
   const {
-    groups, gruposCargados, newGroupName, setNewGroupName, newGroupTeeTime, setNewGroupTeeTime,
+    groups, gruposCargados, gruposFijos, newGroupName, setNewGroupName, newGroupTeeTime, setNewGroupTeeTime,
     creatingGroup, teeStartTime, setTeeStartTime, teeInterval, setTeeInterval,
     generatingTees, fetchGroups, handleCreateGroup, handleDeleteGroup,
     handleGenerateTeeTimes, handleAssignPlayer, getPlayerGroupId,
     removePlayerAndRebalance,
-  } = useGroups({ tournament, players })
+  } = useGroups({ tournament, players, tournamentStatus })
 
-  // Desinscribir + rebalancear grupos automáticamente.
-  const handleDesinscribir = async (playerId: string) => {
-    await withdrawPlayer(playerId)
-    if (groups.length > 0) {
-      await removePlayerAndRebalance(playerId)
-    }
-  }
+  // Antes del inicio: eliminar y rebalancear. En juego: WD, sin tocar los grupos (#810).
+  const handleDesinscribir = (playerId: string) =>
+    desinscribir({
+      playerId,
+      status: tournamentStatus,
+      grupos: groups,
+      retirar: (id) => withdrawPlayer(id, gruposFijos),
+      rebalancear: removePlayerAndRebalance,
+    }).catch((err) => {
+      void captureError(err, { context: 'organizador-jugadores.desinscribir', level: 'error', meta: { playerId } })
+      showError('No se pudieron ordenar los grupos', 'Recarga la página y revisa los grupos.')
+    })
 
   const {
     starting, preparandoInicio, closing, opening, allRoundsClosed,
@@ -215,6 +224,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           generatingTees={generatingTees}
           onGenerateTeeTimes={handleGenerateTeeTimes}
           onDeleteGroup={handleDeleteGroup}
+          gruposFijos={gruposFijos}
           isTeam={teamFormat}
           teamSize={teamSize}
         />
@@ -225,6 +235,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           tournamentStatus={tournamentStatus}
           hcpCalcMode={tournament.hcp_calc_mode}
           getPlayerGroupId={getPlayerGroupId}
+          gruposFijos={gruposFijos}
           onAssignPlayer={handleAssignPlayer}
           onWithdraw={handleDesinscribir}
           onDisqualify={handleDescalificar}

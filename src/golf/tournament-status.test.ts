@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  tournamentStatusLabel, tournamentStatusTone, tournamentStatusBadge, torneoAceptaScores, jugadorFueraDelTorneo, visorPuedeAnotar, motivoSinScores,
+  tournamentStatusLabel, tournamentStatusTone, tournamentStatusBadge, torneoAceptaScores, jugadorFueraDelTorneo, visorPuedeAnotar, motivoSinScores, gruposFijos,
 } from './tournament-status'
 
 describe('tournamentStatusLabel', () => {
@@ -134,5 +134,31 @@ describe('motivoSinScores', () => {
     for (const s of ['draft', 'open', 'in_progress', 'active', 'closed', 'published', null]) {
       expect(motivoSinScores(s) === null).toBe(torneoAceptaScores(s))
     }
+  })
+})
+
+describe('gruposFijos (#810)', () => {
+  const sinTarjeta = [{ ronda_libre_id: null }, { ronda_libre_id: null }]
+  const conTarjeta = [{ ronda_libre_id: null }, { ronda_libre_id: 'r1' }]
+
+  it('antes del inicio, sin tarjetas, los grupos se pueden rearmar', () => {
+    expect(gruposFijos('draft', sinTarjeta)).toBe(false)
+    expect(gruposFijos('open', sinTarjeta)).toBe(false)
+    expect(gruposFijos('open', [])).toBe(false)
+  })
+
+  it('con el torneo en juego o terminado quedan fijos, aunque la lista no traiga tarjetas', () => {
+    for (const s of ['in_progress', 'active', 'closed', 'published']) {
+      expect(gruposFijos(s, sinTarjeta)).toBe(true)
+    }
+  })
+
+  it('un grupo con tarjeta los fija aunque el estado leído siga en "open" (pestaña vieja)', () => {
+    expect(gruposFijos('open', conTarjeta)).toBe(true)
+  })
+
+  it('status desconocido o vacío: fijos (no se afirma que se puede rearmar)', () => {
+    expect(gruposFijos(null, sinTarjeta)).toBe(true)
+    expect(gruposFijos('raro', sinTarjeta)).toBe(true)
   })
 })

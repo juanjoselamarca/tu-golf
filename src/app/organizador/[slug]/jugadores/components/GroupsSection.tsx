@@ -2,6 +2,7 @@
 
 import { inputStyle } from '../styles'
 import type { TournamentGroup } from '../types'
+import { grupoConJuego } from '../hooks/useGroups'
 
 interface Props {
   tournamentStatus: string
@@ -19,6 +20,8 @@ interface Props {
   generatingTees: boolean
   onGenerateTeeTimes: () => void
   onDeleteGroup: (groupId: string) => void
+  /** Torneo iniciado (`gruposFijos`): un grupo con tarjeta o jugadores ya no se borra (#810). */
+  gruposFijos: boolean
   /** En formatos de equipo (scramble/best ball/foursome), el grupo ES el
    *  equipo: la sección se re-etiqueta y valida el tamaño esperado. */
   isTeam: boolean
@@ -32,7 +35,7 @@ export function GroupsSection({
   newGroupName, setNewGroupName, newGroupTeeTime, setNewGroupTeeTime,
   creatingGroup, onCreateGroup,
   teeStartTime, setTeeStartTime, teeInterval, setTeeInterval,
-  generatingTees, onGenerateTeeTimes, onDeleteGroup,
+  generatingTees, onGenerateTeeTimes, onDeleteGroup, gruposFijos,
   isTeam, teamSize,
 }: Props) {
   const noun = isTeam ? 'equipo' : 'grupo'
@@ -188,7 +191,7 @@ export function GroupsSection({
                       {g.tee_time.includes('T') ? new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : g.tee_time}
                     </span>
                   )}
-                  {tournamentStatus !== 'closed' && (
+                  {tournamentStatus !== 'closed' && !(gruposFijos && grupoConJuego(g)) && (
                     <button
                       aria-label={`Eliminar ${noun} ${g.name}`}
                       onClick={() => {
