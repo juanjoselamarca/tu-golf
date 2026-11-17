@@ -73,8 +73,11 @@ export interface FilaIndice {
  * Jugador con cuenta, sin `handicap` en la tarjeta y cuya fila NO la gobierna la
  * inscripción de un torneo. Una fila de torneo sin hándicap inscrito (WHS sin índice)
  * no cae al perfil: juega con índice 0, como en el board del torneo (que lo puntúa con
- * `handicap_at_registration ?? 0`). La tarjeta lo MUESTRA "S/Ind"; el board todavía
- * pinta "0" (pendiente fuera de este PR: llevar la señal de sin índice al board).
+ * `handicap_at_registration ?? 0`). La tarjeta lo MUESTRA "S/Ind"; el board individual
+ * del torneo todavía muestra "0" en la columna de índice
+ * (`torneo/[slug]/en-vivo/formats/IndividualLeaderboard.tsx`) y, en la de hándicap de
+ * juego, el CH de un índice 0, que según rating/slope/par puede ser "2" o "-1"
+ * (pendiente: issue #804, llevar la señal de sin índice al board).
  * Decide de dónde se lee el índice (`profiles.indice`, que un anónimo no puede leer
  * por RLS: el board lo lee con el cliente de servicio, `indicesDePerfil`).
  * Lo que se le MUESTRA a un visor sin sesión es otra pregunta: `handicapOcultoSinSesion`.
