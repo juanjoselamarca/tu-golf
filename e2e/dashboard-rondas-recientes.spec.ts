@@ -185,8 +185,8 @@ test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
     await expect(filaA.getByText('93', { exact: true }), 'la ronda A muestra SU score').toBeVisible()
     await expect(filaA).toContainText('+21 vs par')
     await expect(filaB.getByText('81', { exact: true }), 'la ronda B muestra SU score').toBeVisible()
-    // 81 es la mejor del mes (+9 < +21): la fila lo destaca en vez del vs-par.
-    await expect(filaB).toContainText('Tu mejor del mes')
+    // 81 es la mejor del mes (+9 < +21): la fila lo destaca en vez del vs-par, rotulada con sus hoyos.
+    await expect(filaB).toContainText('Tu mejor del mes · 18 hoyos')
     await expect(filaA).not.toContainText('Tu mejor del mes')
 
     // Hero "Última ronda" = la más nueva del día (B), con su score, su vs-par y el detalle de SU tarjeta (18 hoyos).
@@ -223,9 +223,10 @@ test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
     const sinTarjeta = await crearRonda({ estado: 'finalizada', fecha: hoy })
     const conTarjeta = await crearRonda({ estado: 'finalizada', fecha: anteayer })
     await crearHistorico({ fecha: anteayer, scores: tarjeta(9, 4), vinculo: conTarjeta.jugadorId })
-    // Tarjeta mejor (70 = -2) en otra cancha, sin ronda libre: así el 40 NO es "Tu mejor del mes" y su fila tiene que
-    // mostrar el vs-par (si no, la fila mostraría "Tu mejor del mes" y el assert del vs-par no probaría nada).
-    await crearHistorico({ fecha: anteayer, scores: tarjeta(18, -2), vinculo: null, cancha: 'Otra cancha E2E' })
+    // Tarjeta mejor DE 9 HOYOS (34 = -2) en otra cancha, sin ronda libre: así el 40 NO es "Tu mejor del mes" y su fila
+    // tiene que mostrar el vs-par. Tiene que ser de 9: la mejor del mes se elige contra rondas de los mismos hoyos
+    // (golf/stats/mejor-del-mes.ts), así que una de 18 no le quitaría el destacado a una de 9.
+    await crearHistorico({ fecha: anteayer, scores: tarjeta(9, -2), vinculo: null, cancha: 'Otra cancha E2E' })
 
     await abrirDashboard(hoy)
 
