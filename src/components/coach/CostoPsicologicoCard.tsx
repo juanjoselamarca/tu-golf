@@ -69,7 +69,7 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--text-2)', lineHeight: 1.55 }}>
         Conteniendo {holesAffected.length === 1 ? (
-          <>la <b style={{ color: 'var(--text)', fontWeight: 600 }}>espiral</b> en ({holesAffected[0]})</>
+          <>la <b style={{ color: 'var(--text)', fontWeight: 600 }}>espiral</b> de {holesAffected[0]}</>
         ) : (
           <>las <b style={{ color: 'var(--text)', fontWeight: 600 }}>{holesAffected.length} espirales</b> ({holesAffected.join(', ')})</>
         )} terminabas en <b style={{ color: 'var(--text)', fontWeight: 600 }}>{ghostScore}</b>.

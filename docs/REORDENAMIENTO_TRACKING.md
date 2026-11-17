@@ -876,5 +876,4 @@ Fuera de alcance (pendiente):
   `golf/ronda-libre/tarjeta-historica.ts`), así que la espiral cruza 9→10 (último y primer hoyo jugados) y no
   cruza 18→1 (consecutivos en juego). Caso borde aceptado y documentado; corregirlo exige el orden de juego
   (hoyo de salida) en `RondaNormalizada`.
-- Copy con juicio que queda en `/coach`: "El resto son donde la cabeza paga el precio." (`PlanActivo`, línea de
-  correlación del plan). Misma regla que sacó "La cabeza paga, no el swing." → decisión de copy para Juanjo.
+- ~~Copy con juicio en `PlanActivo` ("El resto son donde la cabeza paga el precio.")~~ — resuelto en ad5d5ddc.

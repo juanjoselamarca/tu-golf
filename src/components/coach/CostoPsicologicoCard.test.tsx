@@ -16,7 +16,13 @@ describe('CostoPsicologicoCard — ventana rotulada con su bucket', () => {
   it('18 hoyos: "últimas 5 rondas de 18 hoyos" y la espiral por hoyos', () => {
     render(<CostoPsicologicoCard {...base} ventana="tus últimas 5 rondas de 18 hoyos" />)
     expect(screen.getByText(/en tus últimas 5 rondas de 18 hoyos/)).toBeTruthy()
-    expect(screen.getByText(/\(H6–H7\)/)).toBeTruthy()
+    expect(document.body.textContent).toMatch(/la espiral de H6–H7/)
+    expect(document.body.textContent).not.toMatch(/\(H6–H7\)/)
+  })
+
+  it('varias espirales: "las 2 espirales (H1–H2, H6–H7)"', () => {
+    const { container } = render(<CostoPsicologicoCard {...base} espirales={['H1–H2', 'H6–H7']} ventana="tus últimas 5 rondas de 18 hoyos" />)
+    expect(container.textContent).toMatch(/las 2 espirales \(H1–H2, H6–H7\)/)
   })
 
   it('9 hoyos: nunca se presenta como ronda de 18', () => {

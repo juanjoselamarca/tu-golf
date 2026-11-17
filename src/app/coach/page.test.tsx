@@ -49,6 +49,15 @@ describe('/coach — falló la lectura de rondas', () => {
   })
 })
 
+describe('/coach — falló la lectura de rondas, con conversación en curso', () => {
+  it('el CTA abre la conversación principal, no un chat vacío', async () => {
+    home.data = datos({ rondas: null, sessions: [sesion], primarySessionId: 's1' })
+    await pintar()
+    const cta = screen.getByRole('link', { name: 'Hablar con mi coach' })
+    expect(cta.getAttribute('href')).toBe('/coach/sesion/s1')
+  })
+})
+
 describe('/coach — con rondas pero sin datos para el Mental Index', () => {
   it('pinta la tarjeta del índice con qué falta, sin número', async () => {
     // Ronda de 18 sin par hoyo a hoyo: se lee, pero no entra a la ventana mental.

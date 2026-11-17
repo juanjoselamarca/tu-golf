@@ -282,7 +282,7 @@ export const TITULO_BANDA_MENTAL: Record<BandaMental, string> = {
 export function fraseMentalIndex(i: MentalIndexResult): string {
   if (i.status === 'insufficient_data') {
     if (i.windowSize === 0) return 'Necesitamos tarjetas hoyo a hoyo con par para medir tu recuperación'
-    return `Necesitamos al menos ${MIN_BOGEYS_ESPIRAL} bogeys para medir tu recuperación: ${textoVentanaMentalPosesivo(i.windowSize, i.bucket)} ${concordar(i.windowSize, 'suma', 'suman')} ${contar(i.oportunidades, 'bogey', 'bogeys')}`
+    return `Necesitamos al menos ${MIN_BOGEYS_ESPIRAL} bogeys con un hoyo jugado después para medir tu recuperación: ${textoVentanaMentalPosesivo(i.windowSize, i.bucket)} ${concordar(i.windowSize, 'suma', 'suman')} ${contar(i.oportunidades, 'bogey', 'bogeys')}`
   }
   return `Cortaste ${i.cortes} de tus ${i.oportunidades} bogeys en el hoyo siguiente · ${textoVentanaMental(i.windowSize, i.bucket)}`
 }

@@ -77,6 +77,8 @@ export default async function CoachDashboard() {
   // Card "Tu plan activo": misma derivación canónica que el estado vacío del chat
   // (un concepto, una fuente). `outcomes` ya viene scopeado al plan + 4 semanas.
   const planSummary = buildActivePlanSummary(plan, outcomes)
+  // La conversación principal si existe: el CTA nunca abre un chat vacío a quien ya conversa.
+  const ctaHref = `/coach/sesion/${primarySessionId ?? 'nueva'}`
 
   // Falló la lectura de rondas: se dice y se reintenta, pero el coach sigue
   // accesible (CTA, plan y sesiones se leen aparte). Nunca "Bienvenido" a quien
@@ -84,12 +86,13 @@ export default async function CoachDashboard() {
   if (rondas === null) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 0 100px' }}>
+        <PageTracker page="/coach" />
         <CoachBetaBanner />
         <div style={{ padding: '0 16px' }}>
           <TaigerHero subtitle="Tu coach de rendimiento con inteligencia artificial" />
           <RondasNoLeidas />
           <div style={{ textAlign: 'center', margin: '16px 0 24px' }}>
-            <HablarConMiCoach />
+            <HablarConMiCoach href={ctaHref} />
           </div>
         </div>
         {planSummary && <PlanActivo plan={planSummary} />}
@@ -124,7 +127,6 @@ export default async function CoachDashboard() {
   // principal, con pares reales) y con UNA definición de espiral.
   const { indice, costo, curva } = resumenMentalDelCoach(rondas)
 
-  const ctaHref = `/coach/sesion/${primarySessionId ?? 'nueva'}`
   const ctaLabel = primarySessionId ? 'Conversar con tAIger+' : 'Iniciar conversación con tAIger+'
 
   return (

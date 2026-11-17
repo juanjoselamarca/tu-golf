@@ -208,8 +208,15 @@ describe('copy (descriptivo, con datos, sin voseo)', () => {
       expect(una.status).toBe('insufficient_data')
       expect(una.oportunidades).toBe(5)
       expect(fraseMentalIndex(una)).toBe(
-        'Necesitamos al menos 10 bogeys para medir tu recuperación: tu última ronda de 18 hoyos suma 5 bogeys',
+        'Necesitamos al menos 10 bogeys con un hoyo jugado después para medir tu recuperación: tu última ronda de 18 hoyos suma 5 bogeys',
       )
+    })
+
+    it('un bogey en el último hoyo no se cuenta (no tiene hoyo siguiente) y el copy lo nombra así', () => {
+      const conUltimo = [...B.slice(0, 17), 1] // 6 bogeys en la tarjeta, el último en el 18
+      const i = resumenMentalDelCoach([ronda(conUltimo)]).indice
+      expect(i.oportunidades).toBe(5)
+      expect(fraseMentalIndex(i)).toMatch(/bogeys con un hoyo jugado después.*suma 5 bogeys/)
     })
 
     it('el copy de datos insuficientes no usa voseo', () => {
