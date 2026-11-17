@@ -120,6 +120,12 @@ describe('decisionDeCierre: el cron falla o la fecha cambia', () => {
     expect(decisionDeCierre(t, null, chile('2026-11-16'))).toBe('avisar')
   })
 
+  it('aviso con fecha futura (reloj corrido): no vale, se vuelve a avisar; nunca cierra con él', () => {
+    const t = con({ aviso_cierre_enviado_at: avisadoEl('2026-11-19') })
+    expect(decisionDeCierre(t, null, chile('2026-11-17'))).toBe('avisar')
+    expect(decisionDeCierre(t, null, chile('2026-11-18'))).toBe('avisar')
+  })
+
   it('aviso con fecha ilegible: se vuelve a avisar', () => {
     expect(decisionDeCierre(con({ aviso_cierre_enviado_at: 'basura' }), null, chile('2026-11-17'))).toBe('avisar')
   })

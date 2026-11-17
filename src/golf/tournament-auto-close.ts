@@ -11,8 +11,8 @@
  *  1. No acepta scores (open, draft, cerrado…), demo, excluido (`cierre_automatico = false`) o sin fecha → nada.
  *  2. Hoy (Chile) antes del día de aviso → nada.
  *  3. Alguien anotó en las últimas 24 h (o la fecha de la anotación es futura o ilegible) → aplazar.
- *  4. Aviso no vigente: nunca se envió, o se envió antes del día de aviso actual (la fecha se movió al futuro
- *     después de avisar) → avisar, aunque ya sea el día de cierre.
+ *  4. Aviso no vigente: nunca se envió, tiene fecha futura o ilegible, o se envió antes del día de aviso actual
+ *     (la fecha se movió al futuro después de avisar) → avisar, aunque ya sea el día de cierre.
  *  5. Día de cierre o después y aviso con ≥ 20 h → cerrar.
  *  6. Si no → esperar el aviso.
  */
@@ -58,7 +58,8 @@ export function decisionDeCierre(t: TorneoParaCierre, ultimaAnotacion: string | 
   }
 
   const avisoMs = t.aviso_cierre_enviado_at ? Date.parse(t.aviso_cierre_enviado_at) : NaN
-  if (Number.isNaN(avisoMs) || fechaHoyChile(new Date(avisoMs)) < diaDeAviso) return 'avisar'
+  // Un aviso con fecha futura (reloj corrido o dato manipulado) no prueba que el organizador lo recibió.
+  if (Number.isNaN(avisoMs) || avisoMs > ahora.getTime() || fechaHoyChile(new Date(avisoMs)) < diaDeAviso) return 'avisar'
 
   if (hoy >= diaDeCierre && ahora.getTime() - avisoMs >= HORAS_MINIMAS_DE_AVISO * HORA_MS) return 'cerrar'
   return 'esperar_aviso'
