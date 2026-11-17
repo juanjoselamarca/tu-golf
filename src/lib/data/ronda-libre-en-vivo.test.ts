@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { parYSiDeLaRonda, cargarRondaLibreEnVivo } from './ronda-libre'
 import { leerIndicesDelCliente } from './indices-de-perfil-lectura'
+import { armarEntradaDelJuego, vistaDelJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
+import { armarReglasGuardadas, calcularJuegoPersonalizado, crearConfigDePlantilla } from '@/golf/formats/personalizado'
 
 vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/golf/core/course-handicap')>()
@@ -28,6 +30,44 @@ describe('parYSiDeLaRonda (pura)', () => {
     expect(r.parTotal).toBe(72)
     // SI permutación 1..18
     expect(Object.values(r.siMap).sort((a, b) => a - b)).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
+  })
+
+  // QA Timba 17-nov (ronda 251825): una ronda de 9 desde el 10 en una cancha de 18 rankeaba el SI sobre 1..9 —
+  // hoyos que no se juegan— y el siMap salía sin 10..18. La Timba neto no calculaba ("faltan datos de la cancha") y
+  // el leaderboard repartía los golpes por número de hoyo (10, 11, 12…) en vez de por dificultad.
+  const CANCHA_18 = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: [7, 6, 1, 9, 4, 2, 8, 3, 5, 10, 18, 12, 14, 16, 11, 13, 15, 17][i] }))
+  it('9 hoyos desde el 10: SI de los hoyos 10..18 (los que se juegan), permutación 1..9 en su orden de dificultad', () => {
+    const r = parYSiDeLaRonda(CANCHA_18, 9, 10)
+    expect(Object.keys(r.siMap).map(Number).sort((a, b) => a - b)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
+    // SI de catálogo 10,18,12,14,16,11,13,15,17 → rango 1,9,3,5,7,2,4,6,8
+    expect([10, 11, 12, 13, 14, 15, 16, 17, 18].map(h => r.siMap[h])).toEqual([1, 9, 3, 5, 7, 2, 4, 6, 8])
+  })
+  it('9 hoyos con salida en el 14: hoyos 14..18 y 1..4', () => {
+    const r = parYSiDeLaRonda(CANCHA_18, 9, 14)
+    expect(Object.keys(r.siMap).map(Number).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 14, 15, 16, 17, 18])
+    expect(Object.values(r.siMap).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+  })
+  it('9 hoyos desde el 1 y 18 desde el 10: igual que antes', () => {
+    expect(parYSiDeLaRonda(CANCHA_18, 9, 1).siMap).toEqual(parYSiDeLaRonda(CANCHA_18, 9).siMap)
+    expect(parYSiDeLaRonda(CANCHA_18, 18, 10).siMap).toEqual(parYSiDeLaRonda(CANCHA_18, 18).siMap)
+  })
+  it('la Timba neto de 9 desde el 10 arma el juego y reparte los golpes por dificultad (el bug de QA, compuesto)', () => {
+    const { parMap, siMap } = parYSiDeLaRonda(CANCHA_18, 9, 10)
+    const [a, b, c, d] = ['a', 'b', 'c', 'd'].map(x => `00000000-0000-4000-8000-00000000000${x}`)
+    const ids = [a, b, c, d]
+    const r = armarEntradaDelJuego({
+      reglasJuego: armarReglasGuardadas({ ...crearConfigDePlantilla('dos_cero_dos'), modo: 'neto' }, ids),
+      ronda: { holes: 9, hoyo_inicio: 10, estado: 'en_curso' },
+      jugadores: ids.map(id => ({ id, scores: {} })),
+      mapasHandicap: { courseHcpMap: { [a]: 3, [b]: 0, [c]: 9, [d]: 5 }, sinIndice: [] },
+      parMap, siMap, marcas: [], retiros: [],
+    })
+    expect(r.ok ? 'ok' : r.motivo).toBe('ok')
+    if (!r.ok) return
+    const golpes = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada)).golpesRecibidos
+    // CH 3: los hoyos de SI de catálogo 10, 11 y 12 → 10, 15 y 12 (no 10, 11, 12 por número).
+    expect(Object.entries(golpes[a] ?? {}).filter(([, g]) => g > 0).map(([h]) => Number(h)).sort((x, y) => x - y)).toEqual([10, 12, 15])
+    expect(Object.values(golpes[c] ?? {}).reduce((x, y) => x + y, 0)).toBe(9)
   })
 
   it('SI corrupto (duplicados) sale normalizado a permutación válida', () => {
@@ -86,6 +126,16 @@ describe('cargarRondaLibreEnVivo', () => {
     expect(r.sinIndice).toEqual(['j3'])
     expect(r.equipos).toEqual([])
     expect(r.parMap).toEqual({})
+  })
+
+  it('ronda de 9 desde el 10 con cancha: el siMap trae los hoyos 10..18 (cablea hoyo_inicio)', async () => {
+    const CANCHA = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: 18 - i, recorrido: null }))
+    const anon = fakeSupabase({ rondas_libres: { data: { ...RONDA, course_id: 'c1', holes: 9, hoyo_inicio: 10 } }, course_holes: { data: CANCHA } })
+    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', leerIndicesDelCliente(fakeSupabase({ profiles: { data: [] } }) as never))
+    expect(r.status).toBe('ok')
+    if (r.status !== 'ok') return
+    expect(Object.keys(r.siMap).map(Number).sort((a, b) => a - b)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
+    expect(r.siMap[18]).toBe(1)
   })
 
   it('código inexistente → not_found; error de la base → transient', async () => {
