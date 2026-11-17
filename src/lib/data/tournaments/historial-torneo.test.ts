@@ -108,6 +108,18 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect((sb.insertados[0].metadata as { tournament_round_id: string }).tournament_round_id).toBe('r1')
   })
 
+  it('el torneo se cerró días después (cierre manual o automático): played_at es la fecha de la ronda, no la del cierre', async () => {
+    const sb = fake(tablas({ rounds: ronda({ closed_at: null }) }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0].played_at).toBe('2026-10-01')
+  })
+
+  it('el jugador la finalizó a las 23:00 de Chile: played_at es ese día, no el de UTC', async () => {
+    const sb = fake(tablas({ rounds: ronda({ closed_at: '2026-10-02T02:00:00Z' }) }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0].played_at).toBe('2026-10-01')
+  })
+
   it('volver a finalizar la ronda tras reabrir el torneo corrige su fila: no agrega otra ni cambia fecha ni privacidad', async () => {
     const sb = fake(tablas({ historical_rounds: { count: 3, data: { id: 'h1', user_id: 'u1' } } }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
@@ -136,7 +148,8 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     // Índice 12 → CH 13 → tope del hoyo 4 = 8 → 92 (con el 20 de hoy: CH 22 → tope 9 → 93)
     expect(conPrevia.actualizados[0]).toMatchObject({ adjusted_gross: 92, metadata: { ajuste_whs: { indice: 12 } } })
 
-    const primeraVez = fake(tablas({ indice_historial, profiles: { data: { indice: 20 } } }))
+    // La primera vez, el del día en que el jugador la finalizó (25-oct: ya con el 20).
+    const primeraVez = fake(tablas({ indice_historial, profiles: { data: { indice: 20 } }, rounds: ronda({ closed_at: '2026-10-25T15:00:00Z' }) }))
     await guardarRondaDeTorneoEnHistorial(primeraVez as never, 'r1')
     expect(primeraVez.insertados[0]).toMatchObject({ adjusted_gross: 93, metadata: { ajuste_whs: { indice: 20 } } })
   })

@@ -28,6 +28,7 @@ import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { esTarjetaCompletaOMitad, hoyosConGolpes } from '@/golf/core/hoyos-jugados'
 import { esModoHcpWhs, ratingsDeLaRondaDelJugador } from '@/golf/core/compute-player-course-hcp'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import { fechaDeJuegoDeLaRonda } from '@/golf/tournament-live-status'
 import {
   fetchIndiceParaTope,
   grossAjustadoAlGuardar,
@@ -203,7 +204,12 @@ async function escribirEnElHistorial(svc: SupabaseClient, roundId: string): Prom
   const courseRating = ratings?.cr ?? null
 
   const formato = resolveFormatoJuego(torneo)
-  const playedAt = new Date().toISOString().split('T')[0]
+  // El día en que se jugó (Chile), no el del cierre: un torneo cerrado días después (a mano o por el cierre
+  // automático) no corre la ronda ni el índice del día al día del cierre.
+  const playedAt = fechaDeJuegoDeLaRonda(
+    { closedAt: round.closed_at, fechaRonda: ronda.date, fechaTorneo: torneo.date_start },
+    new Date(),
+  )
   // Reabrir el torneo y volver a finalizar la ronda corrige su fila, sin tocar la fecha ni la privacidad que eligió el jugador.
   // Se busca sólo por la ronda: la misma clave del índice único y del borrado.
   const { data: previa, error: errorPrevia } = await svc

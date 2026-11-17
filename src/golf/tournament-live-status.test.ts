@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { torneoEnVivo, estadoDelTorneo, fechaHoyChile, GRACE_DIAS_TORNEO, fechasAlIniciar, sumarDias, diaDeCierreDelTorneo } from './tournament-live-status'
+import { torneoEnVivo, estadoDelTorneo, fechaHoyChile, GRACE_DIAS_TORNEO, fechasAlIniciar, sumarDias, diaDeCierreDelTorneo, fechaDeJuegoDeLaRonda } from './tournament-live-status'
 
 const HOY = new Date('2026-06-11T15:00:00') // hora local del test
 
@@ -219,5 +219,23 @@ describe('diaDeCierreDelTorneo (fuente única del día de cierre)', () => {
     // 00:01 del martes 17 en Chile.
     expect(estadoDelTorneo(t, new Date('2026-11-17T03:01:00Z'))).toBe('finalizado')
     expect(fechaHoyChile(new Date('2026-11-17T03:01:00Z'))).toBe(diaDeCierreDelTorneo(t))
+  })
+})
+
+describe('fechaDeJuegoDeLaRonda (played_at del historial)', () => {
+  const martes = new Date('2026-11-17T13:00:00Z')
+  it('cerrada por el cierre del torneo 3 días después: la fecha de la ronda, no la del cierre', () => {
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-14', fechaTorneo: '2026-11-13' }, martes)).toBe('2026-11-14')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, fechaTorneo: '2026-11-14' }, martes)).toBe('2026-11-14')
+  })
+  it('fecha de la ronda futura (cerrado antes de tiempo) → hoy', () => {
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-20', fechaTorneo: null }, martes)).toBe('2026-11-17')
+  })
+  it('finalizada por el jugador a las 22:00 de Chile: ese día, no el de UTC', () => {
+    expect(fechaDeJuegoDeLaRonda({ closedAt: '2026-11-15T01:00:00Z', fechaRonda: '2026-11-14', fechaTorneo: null }, martes)).toBe('2026-11-14')
+  })
+  it('sin fechas legibles → hoy en Chile', () => {
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, fechaTorneo: null }, new Date('2026-11-18T01:00:00Z'))).toBe('2026-11-17')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: 'basura', fechaRonda: null, fechaTorneo: null }, martes)).toBe('2026-11-17')
   })
 })
