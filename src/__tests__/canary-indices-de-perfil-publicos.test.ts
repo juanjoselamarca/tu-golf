@@ -13,8 +13,11 @@ const leer = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8')
 
 describe('canario: índices de perfil en servidor público = lector de servicio', () => {
   it('/torneo/[slug]: equipos best ball con indicesDePerfil', () => {
-    const src = leer('src/app/torneo/[slug]/page.tsx')
-    expect(src).toMatch(/fetchBestBallTeams\(\s*supabase,\s*tournament\.id,\s*parTotal,\s*indicesDePerfil\s*\)/)
+    // La cadena: page → armarEquiposDelBoard (único armado de equipos, #813) → fetchBestBallTeams.
+    const page = leer('src/app/torneo/[slug]/page.tsx')
+    expect(page).toMatch(/armarEquiposDelBoard\(\s*supabase,\s*\{[^}]*\bleerIndices:\s*indicesDePerfil\s*,/)
+    const armado = leer('src/lib/data/tournaments/equipos-del-board.ts')
+    expect(armado).toMatch(/fetchBestBallTeams\(\s*supabase,\s*args\.tournamentId,\s*parTotal,\s*args\.leerIndices\s*,/)
   })
 
   it('scramble/foursome no leen índices: usan el handicap de equipo guardado (PR-C)', () => {
