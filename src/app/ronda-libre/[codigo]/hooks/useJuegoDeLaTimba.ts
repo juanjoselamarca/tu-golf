@@ -25,7 +25,8 @@ export type EstadoDelJuego =
    * antes de pedirla: ni `pedidaEn` ni `firma` prueban que traiga lo último (ver `vistaPedidaEn`, `vista.rondaCerrada`).
    */
   | { estado: 'ok'; vista: VistaDelJuego; desactualizado: boolean; pedidaEn: number; firma: string; publica: boolean }
-  | { estado: 'sin_juego'; motivo: MotivoSinJuego }
+  /** `rondaCerrada`: la ronda ya estaba cerrada al calcularlo (falta en respuestas de antes de este campo). */
+  | { estado: 'sin_juego'; motivo: MotivoSinJuego; rondaCerrada?: boolean }
   | { estado: 'error' }
 
 export const PLAZO_JUEGO_MS = 12_000
@@ -80,8 +81,10 @@ export function useJuegoDeLaTimba(
         }
         siguiente = ultimaVista.current ? { estado: 'ok', ...ultimaVista.current, desactualizado: true } : { estado: 'error' }
       } else {
-        const cuerpo = await res.json() as ({ estado: 'ok' } & VistaDelJuego) | { estado: 'sin_juego'; motivo: MotivoSinJuego }
-        if (cuerpo.estado === 'sin_juego') siguiente = { estado: 'sin_juego', motivo: cuerpo.motivo }
+        const cuerpo = await res.json() as ({ estado: 'ok' } & VistaDelJuego) | { estado: 'sin_juego'; motivo: MotivoSinJuego; rondaCerrada?: boolean }
+        if (cuerpo.estado === 'sin_juego') {
+          siguiente = { estado: 'sin_juego', motivo: cuerpo.motivo, ...(cuerpo.rondaCerrada !== undefined && { rondaCerrada: cuerpo.rondaCerrada }) }
+        }
         else {
           const { estado: _estado, ...vista } = cuerpo
           ultimaVista.current = { vista, pedidaEn, firma: firmaPedida, publica: esPublica }

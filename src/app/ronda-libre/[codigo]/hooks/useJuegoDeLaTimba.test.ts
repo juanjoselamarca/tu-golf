@@ -52,6 +52,29 @@ describe('useJuegoDeLaTimba', () => {
     expect(fetchMock.mock.calls[2][0]).toBe('/api/ronda-libre/ABC123/juego/publico')
   })
 
+  // Revisión Fable (2ª vuelta): un 401 puntual (refresh del token) no deja al scorer para siempre en la pública.
+  it('el 401 recordado se olvida al cambiar la firma: el pedido siguiente vuelve a /juego', async () => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta(401, { error: 'Requiere sesión' }))
+      .mockResolvedValueOnce(respuesta(200, { estado: 'ok', ...VISTA }))
+      .mockResolvedValue(respuesta(200, { estado: 'ok', ...VISTA }))
+    const { result, rerender } = renderHook(
+      ({ firma }) => useJuegoDeLaTimba('ABC123', { activo: true, intervaloS: 0, firma }),
+      { initialProps: { firma: 'a' } },
+    )
+    await waitFor(() => expect(result.current.juego).toMatchObject({ estado: 'ok', publica: true }))
+    rerender({ firma: 'b' })
+    await waitFor(() => expect(result.current.juego).toMatchObject({ estado: 'ok', publica: false }))
+    expect(fetchMock.mock.calls[2][0]).toBe('/api/ronda-libre/ABC123/juego')
+    expect(typeof result.current.vistaPedidaEn).toBe('number')
+  })
+
+  it('sin juego trae si la ronda ya estaba cerrada', async () => {
+    fetchMock.mockResolvedValue(respuesta(200, { estado: 'sin_juego', motivo: 'reglas_invalidas', rondaCerrada: false }))
+    const { result } = renderHook(() => useJuegoDeLaTimba('ABC123', { activo: true, intervaloS: 0 }))
+    await waitFor(() => expect(result.current.juego).toEqual({ estado: 'sin_juego', motivo: 'reglas_invalidas', rondaCerrada: false }))
+  })
+
   it('con sesión la vista es privada: vistaPedidaEn es cuándo se pidió', async () => {
     fetchMock.mockResolvedValue(respuesta(200, { estado: 'ok', ...VISTA }))
     const { result } = renderHook(() => useJuegoDeLaTimba('ABC123', { activo: true, intervaloS: 0 }))

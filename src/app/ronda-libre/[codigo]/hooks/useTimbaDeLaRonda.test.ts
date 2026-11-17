@@ -17,6 +17,7 @@ import {
   juegoDeLaRondaCerrada,
   REINTENTO_CERRADA_BASE_MS,
   REINTENTO_CERRADA_MAX_MS,
+  REINTENTO_CERRADA_VIEJA_MS,
   useTimbaDeLaRonda,
 } from './useTimbaDeLaRonda'
 
@@ -76,11 +77,36 @@ describe('useTimbaDeLaRonda', () => {
     const { result, rerender } = renderHook(() => useTimbaDeLaRonda('ABC', ronda('finalizada'), 'u1'))
     expect(result.current.juego).toEqual({ estado: 'cargando' })
     expect(result.current.retiros).toBeNull()
-    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CERRADA_BASE_MS) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CERRADA_VIEJA_MS) })
     expect(juego.recargar).toHaveBeenCalledTimes(1)
     juego.estado = ok(CERRADA)
     rerender()
     expect(result.current.juego).toMatchObject({ estado: 'ok' })
+  })
+
+  // Revisión Fable (2ª vuelta): respondió pero vieja (CDN) → ritmo fijo, no la espera creciente de la falta de señal.
+  it('cerrada: si sigue llegando vieja, reintenta cada REINTENTO_CERRADA_VIEJA_MS sin crecer', async () => {
+    juego.estado = ok(CERRADA, false, false)
+    renderHook(() => useTimbaDeLaRonda('ABC', ronda('finalizada'), 'u1'))
+    const avanzarYa = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+    await avanzarYa(REINTENTO_CERRADA_VIEJA_MS)
+    expect(juego.recargar).toHaveBeenCalledTimes(1)
+    await avanzarYa(REINTENTO_CERRADA_VIEJA_MS)
+    expect(juego.recargar).toHaveBeenCalledTimes(2)
+    await avanzarYa(REINTENTO_CERRADA_VIEJA_MS)
+    expect(juego.recargar).toHaveBeenCalledTimes(3)
+  })
+
+  it('cerrada: un "sin juego" calculado antes del cierre (CDN) carga y reintenta; uno del cierre se muestra', async () => {
+    juego.estado = { estado: 'sin_juego', motivo: 'jugadores_cambiaron', rondaCerrada: false }
+    const { result, rerender } = renderHook(() => useTimbaDeLaRonda('ABC', ronda('finalizada'), 'u1'))
+    expect(result.current.juego).toEqual({ estado: 'cargando' })
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CERRADA_VIEJA_MS) })
+    expect(juego.recargar).toHaveBeenCalledTimes(1)
+    juego.estado = { estado: 'sin_juego', motivo: 'jugadores_cambiaron', rondaCerrada: true }
+    rerender()
+    expect(result.current.juego).toMatchObject({ estado: 'sin_juego' })
+    expect(result.current.retiros).toEqual({})
   })
 
   it('cerrada: la última vista buena tras un pedido fallido es error (Reintentar), aunque sea de después del cierre', () => {

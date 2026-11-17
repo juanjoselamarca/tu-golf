@@ -19,11 +19,13 @@ import {
   type VistaDelJuego,
 } from '@/golf/ronda-libre/juego-de-la-ronda'
 import { cargarRondaLibreEnVivo } from './ronda-libre'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 
 export type JuegoDeLaRonda =
   | { status: 'ok'; vista: VistaDelJuego }
-  | { status: 'sin_juego'; motivo: MotivoSinJuego }
+  /** `rondaCerrada`: como en `VistaDelJuego`, prueba de que el motivo es el del cierre (la pública sale del CDN). */
+  | { status: 'sin_juego'; motivo: MotivoSinJuego; rondaCerrada: boolean }
   | { status: 'no_es_timba' }
   | { status: 'not_found' }
   | { status: 'error' }
@@ -62,6 +64,6 @@ export async function cargarJuegoDeLaRonda(
     marcas: (marcas.data ?? []) as FilaMarcaPuntito[],
     retiros: (retiros.data ?? []) as FilaRetiro[],
   })
-  if (!armada.ok) return { status: 'sin_juego', motivo: armada.motivo }
+  if (!armada.ok) return { status: 'sin_juego', motivo: armada.motivo, rondaCerrada: esRondaCerrada(ronda.estado) }
   return { status: 'ok', vista: vistaDelJuego(armada.entrada, armada.jugadorIds, calcularJuegoPersonalizado(armada.entrada)) }
 }

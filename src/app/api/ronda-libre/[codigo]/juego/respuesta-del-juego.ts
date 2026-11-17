@@ -14,7 +14,7 @@ export function respuestaDelJuego(
     case 'ok':
       return NextResponse.json({ estado: 'ok', ...juego.vista }, { headers: headers.ok })
     case 'sin_juego':
-      return NextResponse.json({ estado: 'sin_juego', motivo: juego.motivo }, { headers: headers.ok })
+      return NextResponse.json({ estado: 'sin_juego', motivo: juego.motivo, rondaCerrada: juego.rondaCerrada }, { headers: headers.ok })
     case 'no_es_timba':
     case 'not_found':
       return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: headers.noEncontrada })

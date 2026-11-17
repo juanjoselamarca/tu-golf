@@ -103,7 +103,7 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
   it('reglas_juego inválido no calcula: estado sin_juego con el motivo', async () => {
     reglasJuego = null
     const cuerpo = await (await llamar()).json()
-    expect(cuerpo).toEqual({ estado: 'sin_juego', motivo: 'reglas_invalidas' })
+    expect(cuerpo).toEqual({ estado: 'sin_juego', motivo: 'reglas_invalidas', rondaCerrada: false })
   })
 
   it('un código con caracteres raros es 404 sin tocar la base', async () => {

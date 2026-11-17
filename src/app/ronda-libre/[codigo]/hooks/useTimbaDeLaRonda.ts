@@ -11,9 +11,14 @@ interface RondaParaLaTimba {
   ronda_libre_jugadores: readonly { scores: unknown }[]
 }
 
-/** Reintento del juego con la ronda cerrada mientras no llegue una vista fresca: 3 s, 6 s, 12 s… hasta 30 s. */
+/** Reintento del juego con la ronda cerrada si el pedido falla: 3 s, 6 s, 12 s… hasta 30 s. */
 export const REINTENTO_CERRADA_BASE_MS = 3_000
 export const REINTENTO_CERRADA_MAX_MS = 30_000
+/**
+ * Si el pedido responde bien pero con una vista de antes del cierre (sin sesión sale del CDN, que la renueva en
+ * segundos), se reintenta a ritmo fijo: la espera creciente es para la falta de señal, no para esto.
+ */
+export const REINTENTO_CERRADA_VIEJA_MS = 5_000
 
 /**
  * Con la ronda cerrada, el resultado final solo se arma con una vista pedida con la `firma` de ahora (la ronda ya
@@ -24,6 +29,8 @@ export const REINTENTO_CERRADA_MAX_MS = 30_000
  * falló, error (con Reintentar).
  */
 export function juegoDeLaRondaCerrada(juego: EstadoDelJuego, firma: string): EstadoDelJuego {
+  // Un motivo calculado antes del cierre (CDN) puede ya no ser el de ahora. Sin el campo (respuesta anterior), pasa.
+  if (juego.estado === 'sin_juego') return juego.rondaCerrada === false ? { estado: 'cargando' } : juego
   if (juego.estado !== 'ok') return juego
   if (juego.desactualizado) return { estado: 'error' }
   return juego.firma === firma && juego.vista.rondaCerrada ? juego : { estado: 'cargando' }
@@ -57,8 +64,10 @@ export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null
   })
   const juego = cerrada ? juegoDeLaRondaCerrada(crudo, firma) : crudo
 
-  // Cerrada y sin vista fresca porque el pedido falló o llegó una vieja: reintenta solo hasta lograrlo.
-  const reintentar = cerrada && (crudo.estado === 'error' || (crudo.estado === 'ok' && juego.estado !== 'ok'))
+  // Cerrada y sin vista fresca porque el pedido falló o llegó una vieja: reintenta solo hasta lograrlo
+  // (`juegoDeLaRondaCerrada` devuelve el mismo objeto cuando lo acepta). Llegó vieja pero respondió: ritmo fijo.
+  const reintentar = cerrada && crudo.estado !== 'cargando' && (crudo.estado === 'error' || juego !== crudo)
+  const respondioViejo = reintentar && juego.estado === 'cargando'
   // La espera siguiente se cuenta desde que el pedido anterior TERMINA (con mala señal un pedido dura hasta
   // PLAZO_JUEGO_MS: contarla desde que se lanza encadenaría pedidos). Lograda la vista, el contador vuelve a 0.
   const intento = useRef(0)
@@ -70,7 +79,9 @@ export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null
     let vivo = true
     let t: ReturnType<typeof setTimeout> | undefined
     const ciclo = () => {
-      const espera = Math.min(REINTENTO_CERRADA_BASE_MS * 2 ** intento.current, REINTENTO_CERRADA_MAX_MS)
+      const espera = respondioViejo
+        ? REINTENTO_CERRADA_VIEJA_MS
+        : Math.min(REINTENTO_CERRADA_BASE_MS * 2 ** intento.current, REINTENTO_CERRADA_MAX_MS)
       t = setTimeout(async () => {
         intento.current += 1
         await recargar()
@@ -82,7 +93,7 @@ export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null
       vivo = false
       clearTimeout(t)
     }
-  }, [reintentar, recargar])
+  }, [reintentar, respondioViejo, recargar])
 
   const retiros = !esTimba
     ? {}
