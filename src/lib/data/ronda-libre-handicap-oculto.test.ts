@@ -32,7 +32,7 @@ describe('courseHandicapsDeRonda — respuesta pública (leerIndices = null)', (
 
 describe('courseHandicapsDeRonda — con lector de índices (con sesión o servicio)', () => {
   it('la tarjeta manda; sólo el de FUENTE perfil lee el perfil; el WHS sin índice no cae al perfil', async () => {
-    const leer = vi.fn(async (ids: string[]) => new Map(ids.map((id) => [id, 11] as [string, number])))
+    const leer = vi.fn(async (ids: readonly string[]) => new Map(ids.map((id) => [id, 11] as [string, number])))
     const r = await courseHandicapsDeRonda(sb, ronda(jugadores), 72, leer)
     expect(leer).toHaveBeenCalledWith(['u2'])
     expect(r.indexByJugador).toMatchObject({ creador: 8.4, perfil: 11, inscrito: 14.2, sinIndice: 0, invitado: 20 })
