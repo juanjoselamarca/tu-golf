@@ -154,5 +154,8 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.asegurar_tarjeta_vigente(uuid, uuid) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.asegurar_tarjeta_vigente(uuid, uuid) TO service_role;
+-- enroll_player se recrea: sus privilegios se declaran igual que hoy en prod (solo service_role).
+REVOKE ALL ON FUNCTION public.enroll_player(uuid, text, uuid, text, numeric, uuid, text) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.enroll_player(uuid, text, uuid, text, numeric, uuid, text) TO service_role;
 
 COMMIT;
