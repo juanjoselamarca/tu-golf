@@ -14,11 +14,12 @@ import { guardarRondasDelCierre, historialDelCierre } from './historial-del-cier
 async function setStatus(
   supabase: SupabaseClient,
   tournamentId: string,
-  status: string
+  status: string,
+  extra: Record<string, unknown> = {},
 ): Promise<void> {
   const { error } = await supabase
     .from('tournaments')
-    .update({ status })
+    .update({ ...extra, status })
     .eq('id', tournamentId)
   if (error) throw new Error(error.message)
 }
@@ -56,8 +57,15 @@ export function revertToDraft(supabase: SupabaseClient, id: string): Promise<voi
  * abiertas; el organizador reintenta (idempotente) y el board nunca cambia tras
  * un cierre "exitoso". Con el torneo cerrado, las rondas que cerró el cierre pasan
  * al historial en el workflow `historialDelCierre`; si no arranca, después de responder (`after`).
+ *
+ * `avisarSeguidores` (default true): push "Resultado final" a quienes siguen las rondas de equipo. El cierre
+ * automático lo apaga: llega días después del juego y sería ruido.
  */
-export async function closeTournament(supabase: SupabaseClient, id: string): Promise<void> {
+export async function closeTournament(
+  supabase: SupabaseClient,
+  id: string,
+  { avisarSeguidores = true }: { avisarSeguidores?: boolean } = {},
+): Promise<void> {
   // 1. Cerrar las rondas individuales del torneo.
   const { data: cerradas, error: rErr } = await supabase
     .from('rounds')
@@ -80,7 +88,7 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
     .map((g) => (g as { ronda_libre_id: string | null }).ronda_libre_id)
     .filter((rid): rid is string => rid != null)
   if (rondaIds.length > 0) {
-    const { data: cerradas, error: rlErr } = await supabase
+    const { data: finalizadas, error: rlErr } = await supabase
       .from('rondas_libres')
       .update({ estado: 'finalizada' })
       .in('id', rondaIds)
@@ -89,8 +97,8 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
     // Cerrar el torneo es el "Resultado final" de sus rondas para quienes las siguen.
     // Best-effort: un push que falla NUNCA bloquea el cierre del torneo. Usa el
     // mismo service client que recibe closeTournament (api/game/actions.ts pasa svc).
-    try {
-      await Promise.allSettled((cerradas ?? []).map(r =>
+    if (avisarSeguidores) try {
+      await Promise.allSettled((finalizadas ?? []).map(r =>
         pushRoundUpdate(supabase, (r as { codigo: string }).codigo).catch(err =>
           captureError(err, { context: 'push.round-update.close-tournament', meta: { codigo: (r as { codigo: string }).codigo } }))))
     } catch (err) {
@@ -116,10 +124,13 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
  * Orden: primero se marca in_progress, luego se descongelan las rondas. Si el
  * descongelo falla, el torneo queda in_progress con rondas cerradas — que es
  * preferible a que quede closed con rondas abiertas (inconsistencia peor).
+ *
+ * Limpia las marcas del cierre automático (`aviso_cierre_enviado_at`, `cerrado_automaticamente_at`): un torneo
+ * reabierto ya no "se cerró solo", y si se vuelve a cerrar solo será con un aviso nuevo.
  */
 export async function reopenTournament(supabase: SupabaseClient, id: string): Promise<void> {
   // 1. Reabrir el torneo primero
-  await setStatus(supabase, id, 'in_progress')
+  await setStatus(supabase, id, 'in_progress', { aviso_cierre_enviado_at: null, cerrado_automaticamente_at: null })
 
   // 2. Reabrir las rondas individuales que estaban cerradas (no tocar 'official')
   const { error: rErr } = await supabase
