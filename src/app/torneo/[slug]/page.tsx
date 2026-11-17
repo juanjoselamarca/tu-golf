@@ -41,8 +41,8 @@ import {
   fetchRoundContexts,
   fetchTournamentBySlug,
   fetchTournamentGroups,
-  fetchWithdrawnPlayers,
 } from '@/lib/data/tournaments/leaderboard'
+import { fetchWithdrawnPlayers, separarTarjetasFueraDelRanking } from '@/lib/data/tournaments/fuera-del-ranking'
 import {
   buildLeaderboardFromLegacy,
   computeStats,
@@ -220,8 +220,13 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
     if (hasRondaLibreGroups) {
       const rondaIds = groups.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
-      const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, indicesDePerfil)
-      const out = boardPublicoRondaLibre(jugadores, ctx, vista)
+      const tarjetas = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, indicesDePerfil)
+      // El WD/DQ sale del ranking (y del podio, los resultados y el GWI) y va al pie con sus golpes (#813).
+      const { enRanking, fuera } = await separarTarjetasFueraDelRanking(supabase, {
+        tournamentId: tournament.id, grupos: groups, tarjetas, courseHoles, totalHoyos,
+      })
+      withdrawnPlayers = fuera
+      const out = boardPublicoRondaLibre(enRanking, ctx, vista)
       players = out.players
       playersByGross = out.playersByGross
       playersByNeto = out.playersByNeto
@@ -542,6 +547,13 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         )}
       </div>
 
+      {/* Retirados y descalificados: al pie de la tabla, fuera del ranking (#813). */}
+      {withdrawnPlayers.length > 0 && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
+          <TournamentWithdrawnList withdrawnPlayers={withdrawnPlayers} />
+        </div>
+      )}
+
       {resultados && <TournamentResults resultados={resultados} />}
 
       {isClosed && (players.length > 0 || orderedTeams.length > 0) && (
@@ -574,8 +586,6 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
       {/* Footer CTA registro/demo -- solo a usuarios sin sesion Y sin data */}
       {!viewer && players.length === 0 && teamStandings.length === 0 && <TournamentFooter />}
-
-      <TournamentWithdrawnList withdrawnPlayers={withdrawnPlayers} />
 
       {tournament && (
         <TournamentBottomSheet slug={tournament.slug} isLive={isLive} isDemo={!!tournament.es_demo} scoreHref={scoreHref} />

@@ -27,6 +27,7 @@ import type { StatusAudience } from '@/golf/tournament-status'
 import LiveTabs, { type LiveTabValue } from './LiveTabs'
 import LiveFilterBar from './LiveFilterBar'
 import TVMode from './TVMode'
+import { TournamentWithdrawnList } from '../components/TournamentWithdrawnList'
 import IndividualLeaderboard from './formats/IndividualLeaderboard'
 import TeamLeaderboard from './formats/TeamLeaderboard'
 import {
@@ -178,6 +179,9 @@ export default function LiveView({
     </p>
   ) : null
 
+  // Retirados (WD) y descalificados (DQ): al pie, fuera del ranking (#813). Misma pieza que /torneo.
+  const pie = data.fuera?.length ? <TournamentWithdrawnList withdrawnPlayers={data.fuera} /> : null
+
   if (tvMode) {
     return (
       <TVMode
@@ -187,6 +191,7 @@ export default function LiveView({
       >
         {avisoEquipos}
         {body}
+        {pie}
       </TVMode>
     )
   }
@@ -247,6 +252,7 @@ export default function LiveView({
       />
       {avisoEquipos}
       <div>{body}</div>
+      {pie}
 
       {/* Hint sutil cuando hay pocos jugadores en curso */}
       {(filteredPlayers.length + filteredTeams.length) > 0

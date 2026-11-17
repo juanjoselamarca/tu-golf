@@ -80,7 +80,8 @@ export interface DBTournamentGroupRow {
   name: string
   tee_time: string | null
   sort_order: number | null
-  tournament_group_players: { player_id: string }[]
+  /** `jugador_ronda_id`: la tarjeta de ronda libre del inscrito (enlace para saber si está WD/DQ, #813). */
+  tournament_group_players: { player_id: string; jugador_ronda_id?: string | null }[]
 }
 
 export interface DBRondaLibreJugador {
@@ -124,6 +125,7 @@ export interface DBRondaLibreJugador {
 }
 
 export interface DBWithdrawnPlayer {
+  id?: string
   user_id?: string | null
   status: 'withdrawn' | 'disqualified'
   status_reason: string | null
@@ -135,6 +137,8 @@ export interface WithdrawnEntry {
   name: string
   status: 'withdrawn' | 'disqualified'
   reason: string | null
+  /** Golpes brutos al retirarse (camino de ronda libre). Sin esto (legacy) el pie muestra sólo el nombre. */
+  golpes?: { golpes: number; hoyos: number; vsPar: number }
 }
 
 /**

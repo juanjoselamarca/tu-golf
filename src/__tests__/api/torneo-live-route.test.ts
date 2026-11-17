@@ -140,6 +140,26 @@ describe('GET /api/torneo/[slug]/live', () => {
     for (const p of json.players) expect(p.net_total).toBeUndefined()
   })
 
+  it('#813 camino de RONDA LIBRE: el WD sale del ranking y va al pie marcado, con sus golpes', async () => {
+    // Ana se retiró: va mejor que la invitada en golpes pero no puede seguir rankeada.
+    const jugadores = [
+      { ...JUGADORES[0], scores: { 1: 3, 2: 4, 3: 4 } },
+      { ...JUGADORES[1], scores: { 1: 4, 2: 5, 3: 5, 4: 4 } },
+    ]
+    tablas = {
+      ...tablas,
+      tournaments: { ...RL, modo_juego: 'gross', tournament_groups: [{ id: 'g1', name: 'Grupo 1', ronda_libre_id: 'rl1', tournament_group_players: [
+        { player_id: 'p-ana', jugador_ronda_id: 'j-ana' }, { player_id: 'p-inv', jugador_ronda_id: 'j-inv' },
+      ] }] },
+      players: [{ id: 'p-ana', user_id: 'u-ana', status: 'withdrawn', status_reason: null, player_name: null, profiles: null }],
+      ronda_libre_jugadores: jugadores,
+      rondas_libres: [{ id: 'rl1', course_id: 'cancha-1', holes: 9, recorridos: null, tees: 'azul' }],
+    }
+    const json = await (await pedir()).json()
+    expect(json.players.map((p: { name: string }) => p.name)).toEqual(['Invitada'])
+    expect(json.fuera).toEqual([{ name: 'Ana', status: 'withdrawn', reason: null, golpes: { golpes: 11, hoyos: 3, vsPar: -1 } }])
+  })
+
   it('scramble NETO (ronda libre), sin sesión: equipos en BRUTO, sin handicap; el índice de perfil sólo por la canónica', async () => {
     tablas = {
       ...tablas,
