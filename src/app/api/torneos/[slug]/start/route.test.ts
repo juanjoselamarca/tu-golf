@@ -319,6 +319,7 @@ describe('POST /api/torneos/[slug]/start', () => {
       const patch = (statusUpdates.find((u) => (u as { table: string }).table === 'tournaments') as { patch: unknown }).patch
       expect(patch).toEqual({ status: 'in_progress', date_start: '2026-06-11', date_end: '2026-06-12' })
       // La tarjeta de cada grupo (rondas_libres.fecha) nace con la fecha corrida, no con la vieja.
+      expect(mockMaterialize).toHaveBeenCalledTimes(2)
       for (const [, args] of mockMaterialize.mock.calls) expect((args as { ronda1: { date: string } }).ronda1.date).toBe('2026-06-11')
       expect((await res.json()).fechaMovidaA).toBe('2026-06-11')
     } finally {
@@ -326,14 +327,15 @@ describe('POST /api/torneos/[slug]/start', () => {
     }
   })
 
-  it('dentro de la gracia (cargado desde papel al día siguiente) no toca las fechas', async () => {
+  it('dentro del rango (sábado–domingo iniciado el domingo) no toca las fechas', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-06-11T16:00:00Z'))
     try {
-      tables.tournaments = { data: { ...(tables.tournaments.data as object), date_start: '2026-06-10', date_end: '2026-06-10' }, error: null }
+      tables.tournaments = { data: { ...(tables.tournaments.data as object), date_start: '2026-06-10', date_end: '2026-06-11' }, error: null }
       const res = await call()
       const patch = (statusUpdates.find((u) => (u as { table: string }).table === 'tournaments') as { patch: unknown }).patch
       expect(patch).toEqual({ status: 'in_progress' })
+      expect(mockMaterialize).toHaveBeenCalledTimes(2)
       for (const [, args] of mockMaterialize.mock.calls) expect((args as { ronda1: { date: string } }).ronda1.date).toBe('2026-06-10')
       expect((await res.json()).fechaMovidaA).toBeNull()
     } finally {

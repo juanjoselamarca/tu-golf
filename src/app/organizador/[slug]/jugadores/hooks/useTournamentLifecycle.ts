@@ -18,6 +18,15 @@ import { inscritoAprobado } from '@/golf/tournament-status'
 const MAX_CONFIRMACIONES_DE_INICIO = 3
 
 /** La lista `sinIndice` de la ruta, tolerante a una respuesta sin ella. */
+/** Respuesta de POST /api/torneos/[slug]/start (éxito o error). */
+interface RespuestaInicio {
+  error?: string
+  codigo?: string
+  sinIndice?: unknown
+  /** Fecha (YYYY-MM-DD) a la que se corrió el torneo, o null si no se movió. */
+  fechaMovidaA?: string | null
+}
+
 function listaSinIndice(v: unknown): JugadorSinIndice[] {
   if (!Array.isArray(v)) return []
   return v.filter(
@@ -224,7 +233,7 @@ export function useTournamentLifecycle({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sinIndiceVistos: sinIndice.map((j) => j.id) }),
         })
-        const data = await res.json().catch(() => ({}))
+        const data: RespuestaInicio = await res.json().catch(() => ({}))
 
         if (res.status === 409 && data.codigo === CODIGO_CONFIRMAR_SIN_INDICE) {
           sinIndice = listaSinIndice(data.sinIndice)
@@ -236,8 +245,8 @@ export function useTournamentLifecycle({
         }
 
         setTournamentStatus('in_progress')
-        // La fecha programada ya había pasado (más de 2 días): el servidor la corrió a hoy.
-        const movida = data.fechaMovidaA ? ' Movimos la fecha del torneo a hoy.' : ''
+        // Se inició después de su última fecha: el servidor la corrió a hoy.
+        const movida = typeof data.fechaMovidaA === 'string' ? ' Movimos la fecha del torneo a hoy.' : ''
         showSuccess('Torneo iniciado', `Las rondas fueron creadas. Los jugadores ya pueden cargar scores.${movida}`)
         router.push(`/organizador/${tournament.slug}/scoring`)
         return

@@ -147,7 +147,7 @@ describe('estadoDelTorneo — fuente única del estado que se muestra', () => {
 describe('fechasAlIniciar — postergado por lluvia e iniciado en la cancha', () => {
   const MEDIODIA = new Date('2026-06-11T16:00:00Z') // 12:00 en Chile, 11-jun
 
-  it('fuera de la gracia: iniciado con la fecha 3 días atrás → se corre a hoy y queda EN CURSO', () => {
+  it('iniciado 3 días después → se corre a hoy y queda EN CURSO', () => {
     const t = { status: 'open', date_start: '2026-06-08', date_end: '2026-06-08' }
     expect(estadoDelTorneo({ ...t, status: 'in_progress' }, MEDIODIA)).toBe('finalizado') // el bug sin correr fechas
     const f = fechasAlIniciar(t, MEDIODIA)
@@ -155,23 +155,32 @@ describe('fechasAlIniciar — postergado por lluvia e iniciado en la cancha', ()
     expect(estadoDelTorneo({ status: 'in_progress', ...f! }, MEDIODIA)).toBe('en_curso')
   })
 
-  it('fuera de la gracia: conserva la duración de un torneo de varios días', () => {
+  it('después de la última fecha: conserva la duración de un torneo de varios días', () => {
     expect(fechasAlIniciar({ date_start: '2026-06-05', date_end: '2026-06-06' }, MEDIODIA))
       .toEqual({ date_start: '2026-06-11', date_end: '2026-06-12', delta: 6 })
   })
 
-  it('fuera de la gracia sin date_end: corre solo date_start', () => {
+  it('después de la última fecha sin date_end: corre solo date_start', () => {
     expect(fechasAlIniciar({ date_start: '2026-06-01', date_end: null }, MEDIODIA))
       .toEqual({ date_start: '2026-06-11', date_end: null, delta: 10 })
   })
 
-  it('dentro de la gracia: un torneo de un día cargado desde papel al día siguiente conserva su fecha', () => {
-    expect(fechasAlIniciar({ date_start: '2026-06-10', date_end: '2026-06-10' }, MEDIODIA)).toBeNull()
-    expect(fechasAlIniciar({ date_start: '2026-06-09', date_end: '2026-06-09' }, MEDIODIA)).toBeNull() // justo 2 días
+  it('un día iniciado al día siguiente (carga desde papel): se corre a hoy', () => {
+    expect(fechasAlIniciar({ date_start: '2026-06-10', date_end: '2026-06-10' }, MEDIODIA))
+      .toEqual({ date_start: '2026-06-11', date_end: '2026-06-11', delta: 1 })
+  })
+
+  it('sábado–domingo 06-06/06-07 iniciado el 06-09: corre a 06-09/06-10', () => {
+    expect(fechasAlIniciar({ date_start: '2026-06-06', date_end: '2026-06-07' }, new Date('2026-06-09T16:00:00Z')))
+      .toEqual({ date_start: '2026-06-09', date_end: '2026-06-10', delta: 3 })
   })
 
   it('dentro del rango: sábado–domingo iniciado el domingo no se desplaza', () => {
     expect(fechasAlIniciar({ date_start: '2026-06-10', date_end: '2026-06-11' }, MEDIODIA)).toBeNull()
+  })
+
+  it('un día iniciado el mismo día no se desplaza', () => {
+    expect(fechasAlIniciar({ date_start: '2026-06-11', date_end: '2026-06-11' }, MEDIODIA)).toBeNull()
   })
 
   it('hoy, futuro o sin fecha → no mueve nada', () => {

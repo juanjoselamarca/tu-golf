@@ -166,7 +166,7 @@ export async function POST(
     // la fuente única (`@/golf/tournament-rounds`), que para la ronda 1 es el
     // torneo mismo. (Las rondas 2..N de un torneo por equipos no se
     // materializan todavía — ver follow-up en REORDENAMIENTO_TRACKING.)
-    // Fecha vencida (postergado y jugado hoy, pasada la gracia): el torneo se corre a hoy con su
+    // Fecha vencida (postergado: se inicia después de su última fecha): el torneo se corre a hoy con su
     // duración. Se calcula UNA vez: la tarjeta de cada grupo (ronda1.date) y el update del torneo
     // (`ponerEnJuego`) usan la misma fecha.
     const fechas = fechasAlIniciar(t, new Date())

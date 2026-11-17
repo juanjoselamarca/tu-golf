@@ -893,6 +893,17 @@ Fuera de alcance (pendiente):
   - Panel operativo del organizador (`organizador/[slug]/jugadores`, `scoring`) sigue con `badgeDelStatusEscrito`
     (status escrito, a propósito). Con un torneo pasado de fecha sin cerrar, la lista dice "Por cerrar" y el panel
     "En curso": coherente, pero un aviso "Ciérralo para publicar los resultados" ahí sería mejor (copy: Juanjo).
-  - Inscripción (`esInscribible`, `AvisoInscripcion`, `joinFlow`) sigue por status escrito: un torneo `open` con
-    fecha pasada acepta inscripciones. Decidir si se bloquea (producto).
+  - (Resuelto en la vuelta 2: la inscripción usa `torneoInscribible`/`motivoNoInscribible`, status + fecha.)
+  - `src/lib/data/tournaments/historial-torneo.ts` (`playedAt`): usa el día UTC
+    (`new Date().toISOString()`); debe ser `fechaHoyChile` (de noche en Chile ya es mañana en UTC).
+  - Posible duplicado en `historical_rounds`: la tarjeta de grupo de un torneo es un `rondas_libres` y el jugador
+    puede finalizarla por `/ronda-libre/<codigo>/score` (`useFinalizeRonda` → `guardarTarjetaEnHistorial`), además
+    del camino de torneo (`historial-torneo.ts`). Investigar si se insertan dos filas; `rondas_libres` no marca que
+    es de torneo (el enlace vive en `tournament_groups.ronda_libre_id`).
+  - RPC `enroll_player` sin gate de status/fecha: hoy solo la ejecuta service_role y el gate está en
+    `enrollPlayer.ts`; endurecerla (defensa en profundidad) es migración → PR aparte.
+  - Horas de salida: los `tee_time` de grupos creados antes de iniciar quedan en la fecha vieja cuando el inicio
+    corre la fecha (`useGroups` usa `date_start` como base, con fallback UTC).
+  - `src/app/torneo/[slug]/page.tsx` (`teeTime` de los grupos): `toLocaleTimeString` sin `timeZone`; en el
+    servidor (UTC) la hora se muestra corrida. Usar `timeZone: 'America/Santiago'`.
   - Admin (`admin/golf-ops`) compara status a mano; herramienta interna, fuera del canario.
