@@ -276,7 +276,8 @@ export const TITULO_BANDA_MENTAL: Record<BandaMental, string> = {
 }
 
 /**
- * "Cortaste 6 de tus 14 bogeys en el hoyo siguiente · últimas 5 rondas de 18 hoyos".
+ * "Tras un bogey o peor, cortaste en el hoyo siguiente 6 de 14 veces · últimas 5 rondas de 18 hoyos".
+ * Cuenta oportunidades (bogey+ con un hoyo jugado después), no los bogeys de la tarjeta: por eso no dice "tus N bogeys".
  * Sin datos suficientes dice qué falta (la home lo pinta sin número ni barra).
  */
 export function fraseMentalIndex(i: MentalIndexResult): string {
@@ -284,5 +285,5 @@ export function fraseMentalIndex(i: MentalIndexResult): string {
     if (i.windowSize === 0) return 'Necesitamos tarjetas hoyo a hoyo con par para medir tu recuperación'
     return `Necesitamos al menos ${MIN_BOGEYS_ESPIRAL} bogeys con un hoyo jugado después para medir tu recuperación: ${textoVentanaMentalPosesivo(i.windowSize, i.bucket)} ${concordar(i.windowSize, 'suma', 'suman')} ${contar(i.oportunidades, 'bogey', 'bogeys')}`
   }
-  return `Cortaste ${i.cortes} de tus ${i.oportunidades} bogeys en el hoyo siguiente · ${textoVentanaMental(i.windowSize, i.bucket)}`
+  return `Tras un bogey o peor, cortaste en el hoyo siguiente ${i.cortes} de ${i.oportunidades} veces · ${textoVentanaMental(i.windowSize, i.bucket)}`
 }

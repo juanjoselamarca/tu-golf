@@ -180,12 +180,12 @@ describe('bordes', () => {
 describe('copy (descriptivo, con datos, sin voseo)', () => {
   it('frase con cortes, oportunidades y ventana con su bucket', () => {
     const { indice } = resumenMentalDelCoach(repetir(5, () => ronda(C)))
-    expect(fraseMentalIndex(indice)).toBe('Cortaste 30 de tus 50 bogeys en el hoyo siguiente · últimas 5 rondas de 18 hoyos')
+    expect(fraseMentalIndex(indice)).toBe('Tras un bogey o peor, cortaste en el hoyo siguiente 30 de 50 veces · últimas 5 rondas de 18 hoyos')
   })
 
   it('una sola ronda en singular; 9 hoyos rotulado', () => {
     const { indice } = resumenMentalDelCoach([ronda(A)])
-    expect(fraseMentalIndex(indice)).toBe('Cortaste 2 de tus 14 bogeys en el hoyo siguiente · última ronda de 18 hoyos')
+    expect(fraseMentalIndex(indice)).toBe('Tras un bogey o peor, cortaste en el hoyo siguiente 2 de 14 veces · última ronda de 18 hoyos')
     const nueve = resumenMentalDelCoach(repetir(4, () => ronda(D9))).indice
     expect(fraseMentalIndex(nueve)).toContain('últimas 4 rondas de 9 hoyos')
   })

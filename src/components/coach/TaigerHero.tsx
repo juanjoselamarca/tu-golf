@@ -133,16 +133,18 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
                 key={i}
                 type="button"
                 onClick={() => setCurrent(i)}
-                aria-label={`Ver mensaje ${i + 1} de ${SLIDES.length}`}
+                aria-label={`Ver imagen ${i + 1} de ${SLIDES.length}`}
                 aria-current={i === current ? 'true' : undefined}
-                // El botón es el área táctil (44 px de alto); el punto es el span de adentro.
-                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '0 6px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                // El botón es el área táctil (44×44 declarada acá); el punto es el span de adentro,
+                // pegado al borde izquierdo para alinear con el título.
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start', minHeight: 44, minWidth: 44, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
               >
                 <span
                   aria-hidden="true"
                   style={{
                     display: 'block', width: i === current ? 20 : 6, height: 6, borderRadius: 3,
-                    backgroundColor: i === current ? 'var(--brand)' : 'rgba(196,153,42,0.25)',
+                    // ≥3:1 en ambos temas (WCAG 1.4.11): activo 4,8–7,4:1; inactivo al 80 % ≈3,4–4,6:1. El activo se distingue además por el ancho (20 vs 6 px).
+                    backgroundColor: i === current ? 'var(--brand-on-bg)' : 'color-mix(in srgb, var(--brand-on-bg) 80%, transparent)',
                     transition: 'all 0.4s ease',
                   }}
                 />

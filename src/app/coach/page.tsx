@@ -104,6 +104,7 @@ export default async function CoachDashboard() {
   if (rondas.length === 0) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
+        <PageTracker page="/coach" />
         <CoachBetaBanner />
         <TaigerHero subtitle="Tu coach de juego mental. Cuéntame sobre tu golf y empezamos." />
         <div style={{ background: 'var(--coach-brass-soft)', border: '1px solid var(--coach-brass)', borderRadius: '14px', padding: '24px', textAlign: 'center' }}>
@@ -113,7 +114,7 @@ export default async function CoachDashboard() {
           <div style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6, marginBottom: '18px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
             Soy tu coach de rendimiento con inteligencia artificial. Conozco cada golpe, cada patrón, cada tendencia de tu juego. Háblame y empezamos a trabajar juntos.
           </div>
-          <HablarConMiCoach />
+          <HablarConMiCoach href={ctaHref} />
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '14px' }}>
             <Link href="/ronda-libre/nueva" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: '13px', padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Nueva ronda</Link>
             <Link href="/importar" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: '13px', padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Importar historial</Link>

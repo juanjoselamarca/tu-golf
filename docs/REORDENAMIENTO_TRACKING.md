@@ -876,4 +876,8 @@ Fuera de alcance (pendiente):
   `golf/ronda-libre/tarjeta-historica.ts`), así que la espiral cruza 9→10 (último y primer hoyo jugados) y no
   cruza 18→1 (consecutivos en juego). Caso borde aceptado y documentado; corregirlo exige el orden de juego
   (hoyo de salida) en `RondaNormalizada`.
+- `TaigerHero` (fuera del PR3): el degradado tiene un tramo oscuro fijo `rgba(7,13,24,0.8)`; en tema claro el título
+  "tAIger+" (oscuro) queda con la mitad sobre esa banda. Y el carrusel avanza solo cada 5 s sin pausa ni
+  `prefers-reduced-motion` (WCAG 2.2.2); tocar un punto no reinicia el intervalo. Se resuelve junto con sacar el
+  tigre IA del coach (decisión de marca pendiente de Ola 2).
 - ~~Copy con juicio en `PlanActivo` ("El resto son donde la cabeza paga el precio.")~~ — resuelto en ad5d5ddc.
