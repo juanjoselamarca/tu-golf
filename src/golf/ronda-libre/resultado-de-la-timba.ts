@@ -61,6 +61,11 @@ export function unirNombres(nombres: readonly string[]): string {
   return `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}`
 }
 
+/** Cierra la oración con punto, sin duplicarlo si termina en un nombre abreviado ("Maximiliano U."). */
+function conPunto(frase: string): string {
+  return frase.endsWith('.') ? frase : `${frase}.`
+}
+
 /** "un punto", "3 puntos". */
 export function textoDePuntos(n: number): string {
   return n === 1 ? 'un punto' : `${n} puntos`
@@ -117,7 +122,7 @@ export function armarResultadoDeLaTimba(
     } else {
       const g = a > b ? 0 : 1
       titular = `Ganaron ${nombreDePareja(fijas.parejas[g])}`
-      bajada = `Por ${textoDePuntos(Math.abs(a - b))} sobre ${nombreDePareja(fijas.parejas[1 - g])}.`
+      bajada = conPunto(`Por ${textoDePuntos(Math.abs(a - b))} sobre ${nombreDePareja(fijas.parejas[1 - g])}`)
     }
   } else if (primeros.length === 1) {
     const ganador = primeros[0]
@@ -125,7 +130,7 @@ export function armarResultadoDeLaTimba(
     const segundos = ranking.filter(r => r.puesto === segundoPuesto)
     titular = `Ganó ${ganador.nombre}`
     bajada = segundos.length > 0
-      ? `Por ${textoDePuntos(ganador.puntos - segundos[0].puntos)} sobre ${unirNombres(segundos.map(s => s.nombre))}.`
+      ? conPunto(`Por ${textoDePuntos(ganador.puntos - segundos[0].puntos)} sobre ${unirNombres(segundos.map(s => s.nombre))}`)
       : `Con ${ganador.texto}.`
   } else {
     titular = primeros.length === ranking.length && ranking.length > 2
@@ -208,7 +213,7 @@ function lineaDelRanking(r: FilaDelResultado): string {
 export function textoParaCompartirLaTimba(r: ResultadoDeLaTimba, cancha: string): string {
   const lineas = [
     `${r.encabezado}${cancha ? ` · ${cancha}` : ''}`,
-    `${r.titular}. ${r.bajada}`,
+    `${conPunto(r.titular)} ${r.bajada}`,
     '',
     ...r.ranking.map(lineaDelRanking),
   ]

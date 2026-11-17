@@ -183,6 +183,16 @@ describe('armarResultadoDeLaTimba — ronda cerrada antes del final', () => {
   })
 })
 
+describe('armarResultadoDeLaTimba — nombres abreviados', () => {
+  it('un nombre que termina en inicial ("Maximiliano U.") no deja punto doble en la bajada ni al compartir', () => {
+    const largos = { [J]: 'Maximiliano Undurraga', [P]: 'Bartolomé Echeverría', [D]: 'Maximiliano Larraín', [T]: 'Cristóbal Errázuriz' }
+    const r = armarResultadoDeLaTimba(conRanking({ [P]: 9, [J]: 2, [D]: 1, [T]: 0 }), largos)
+    expect(r.bajada).toBe('Por 7 puntos sobre Maximiliano U.')
+    const ganaMax = armarResultadoDeLaTimba(conRanking({ [J]: 9, [P]: 2, [D]: 1, [T]: 0 }), largos)
+    expect(textoParaCompartirLaTimba(ganaMax, '').split('\n')[1]).toBe('Ganó Maximiliano U. Por 7 puntos sobre Bartolomé.')
+  })
+})
+
 describe('rangoDeHoyos', () => {
   it('consecutivos, uno solo y el que pasa del 18', () => {
     expect(rangoDeHoyos([1, 2, 3, 4, 5, 6])).toBe('1–6')
