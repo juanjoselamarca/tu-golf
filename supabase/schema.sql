@@ -1387,6 +1387,14 @@ BEGIN
   -- Sus torneos: sin otros jugadores (verificado arriba). Arrastra grupos, players, rounds y hole_scores.
   DELETE FROM tournaments WHERE organizer_id = p_user_id;
 
+  -- Rondas ajenas que él administraba (rondas_libres.admin_user_id → auth.users es NO ACTION). Va ANTES de tocar
+  -- tarjetas: la ronda antes que el jugador, el mismo orden que upsert_ronda_libre_scores (si no, deadlock con un
+  -- guardado de golpes en esa ronda; migración 20261118120000).
+  UPDATE rondas_libres
+  SET    admin_user_id = NULL, admin_mode = false
+  WHERE  admin_user_id = p_user_id
+    AND  creador_id IS DISTINCT FROM p_user_id;
+
   -- Su tarjeta en rondas ajenas: se desvincula y se anonimiza, no se borra (best ball, match play y el
   -- grupo de un torneo ajeno dependen de esa fila).
   UPDATE ronda_libre_jugadores j
@@ -1412,12 +1420,6 @@ BEGIN
   -- ON DELETE SET NULL cuando se borra el perfil, más abajo.
   UPDATE ronda_libre_jugadores SET nombre = c_anonimo
   WHERE  perfil_sugerido_id = p_user_id AND user_id IS NULL AND pending_user_id IS NULL;
-
-  -- Rondas ajenas que él administraba (rondas_libres.admin_user_id → auth.users es NO ACTION).
-  UPDATE rondas_libres
-  SET    admin_user_id = NULL, admin_mode = false
-  WHERE  admin_user_id = p_user_id
-    AND  creador_id IS DISTINCT FROM p_user_id;
 
   -- Las rondas libres que creó: sin otros usuarios (verificado arriba). Arrastra sus filas y las de
   -- sus invitados (ronda_libre_jugadores.user_id → profiles es NO ACTION).
