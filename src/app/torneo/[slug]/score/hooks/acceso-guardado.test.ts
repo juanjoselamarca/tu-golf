@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { avisoSinAcceso, clasificarRespuestaScore, esSinAcceso } from './acceso-guardado'
+import { avisoSinAcceso, avisoSinTarjeta, clasificarRespuestaScore, esSinAcceso } from './acceso-guardado'
 import { buscarVoseo } from '../../../../../../scripts/lib/voseo.mjs'
 
 const PROMESA_VACIA = /sincroniz|guardado localmente|reintent|anótalos de nuevo/i
@@ -86,5 +86,25 @@ describe('avisoSinAcceso', () => {
       expect(a.href).not.toMatch(/unirse/)
       expect(buscarVoseo(`${a.titulo} ${a.detalle} ${a.cta}`)).toEqual([])
     }
+  })
+})
+
+describe('avisoSinTarjeta (jugador del torneo sin fila en rounds)', () => {
+  const a = avisoSinTarjeta('copa-cabros-mo7nce53')
+  it('dice que no se guardaría y manda a papel + organizador, sin prometer sincronizar', () => {
+    expect(a.detalle).toMatch(/no se guardaría/)
+    expect(a.detalle).toMatch(/papel/)
+    expect(a.detalle).toMatch(/organizador/)
+    expect(`${a.titulo} ${a.detalle}`).not.toMatch(PROMESA_VACIA)
+  })
+  it('no manda al organizador a una acción que no existe (crear tarjeta con el torneo en juego)', () => {
+    expect(a.detalle).not.toMatch(/inscripci/)
+  })
+  it('sale al torneo, nunca a reinscribirse', () => {
+    expect(a.href).toBe('/torneo/copa-cabros-mo7nce53')
+    expect(a.href).not.toMatch(/unirse/)
+  })
+  it('sin voseo', () => {
+    expect(buscarVoseo(`${a.titulo} ${a.detalle} ${a.cta}`)).toEqual([])
   })
 })

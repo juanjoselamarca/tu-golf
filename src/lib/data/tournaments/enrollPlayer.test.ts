@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { enrollPlayer, tournamentCapacity } from './enrollPlayer'
 
@@ -173,5 +175,30 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
     })
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.reason).toBe('unknown')
+  })
+})
+
+// Invariante "todo jugador del roster tiene su tarjeta": el alta crea `players` y `rounds` en la MISMA
+// función (una transacción). Sin la tarjeta, el scorer del torneo no tiene dónde guardar
+// (copa-cabros-mo7nce53: 4 de 5 jugadores sin fila en `rounds`, creados antes de este RPC).
+describe('enroll_player (schema) — el alta crea la tarjeta en la misma transacción', () => {
+  const schema = readFileSync(join(process.cwd(), 'supabase/schema.sql'), 'utf8')
+  const inicio = schema.indexOf('CREATE OR REPLACE FUNCTION public.enroll_player(')
+  const cuerpo = inicio === -1 ? '' : schema.slice(inicio, schema.indexOf('$function$;', inicio))
+  const INSERT_ROUNDS = /INSERT INTO (public\.)?rounds/
+  const INSERT_PLAYERS = /INSERT INTO (public\.)?players/
+
+  it('existe y crea la fila de rounds después de insertar al jugador', () => {
+    expect(inicio).toBeGreaterThan(-1)
+    const insertRounds = cuerpo.search(INSERT_ROUNDS)
+    expect(insertRounds).toBeGreaterThan(-1)
+    expect(cuerpo.search(INSERT_PLAYERS)).toBeGreaterThan(-1)
+    expect(cuerpo.search(INSERT_PLAYERS)).toBeLessThan(insertRounds)
+  })
+
+  it('el único "ok: true" sale después de crear la tarjeta', () => {
+    const oks = [...cuerpo.matchAll(/'ok', true/g)].map((m) => m.index ?? -1)
+    expect(oks).toHaveLength(1)
+    expect(oks[0]).toBeGreaterThan(cuerpo.search(INSERT_ROUNDS))
   })
 })
