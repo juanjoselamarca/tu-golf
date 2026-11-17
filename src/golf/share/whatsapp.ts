@@ -8,9 +8,13 @@
 
 import type { SharePayload } from './types'
 
-/** Texto plano para wa.me / portapapeles: el texto y el link, separados por un espacio. */
+/**
+ * Texto plano para wa.me / portapapeles: el texto y el link, separados por un espacio. Un texto que termina en salto
+ * de línea deja el link en su propia línea, sin un espacio delante.
+ */
 export function shareableText(payload: SharePayload): string {
-  return `${payload.text} ${payload.url}`.trim()
+  const separador = payload.text.endsWith('\n') ? '' : ' '
+  return `${payload.text}${separador}${payload.url}`.trim()
 }
 
 /** URL de WhatsApp (wa.me) con el texto+url url-encodeados. */

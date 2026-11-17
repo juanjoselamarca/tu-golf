@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react'
-import { TEXTO_HOYO_PENDIENTE, type CeldaDelJuego, type MarcadorDeParejas, type TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
-
-const MONO = 'var(--font-dm-mono), "DM Mono", monospace'
+import { TEXTO_HOYO_PENDIENTE, TEXTO_NO_SE_JUGO, type CeldaDelJuego, type MarcadorDeParejas, type TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
 
 /** Marca de golpe recibido en un hoyo (neto): un punto por golpe. */
 export const MARCA_GOLPE_RECIBIDO = '•'
@@ -19,12 +17,12 @@ function Marcador({ marcador, compacto }: { marcador: MarcadorDeParejas; compact
     <div
       aria-label={`${a} ${pa}, ${b} ${pb}`}
       style={compacto
-        ? { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', marginTop: '6px', borderRadius: '8px', background: 'var(--surface-soft)', color: 'var(--text-2)', fontSize: '12px', fontWeight: 600 }
-        : { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '12px 14px', borderRadius: '12px', background: 'var(--text)', color: 'var(--bg)', fontSize: '14px', fontWeight: 600 }}
+        ? { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 12px', marginTop: '8px', borderRadius: '8px', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: '13px', fontWeight: 500 }
+        : { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '12px 16px', borderRadius: '12px', background: 'var(--text)', color: 'var(--bg)', fontSize: '16px', fontWeight: 600 }}
     >
-      <span style={{ flex: 1, minWidth: 0 }}>{a}</span>
-      <span style={{ fontFamily: MONO, fontSize: compacto ? '13px' : '18px', fontWeight: 500, whiteSpace: 'nowrap' }}>{pa} – {pb}</span>
-      <span style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>{b}</span>
+      <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{a}</span>
+      <span className="num" style={{ fontSize: compacto ? '14px' : '18px', fontWeight: 600, whiteSpace: 'nowrap' }}>{pa} – {pb}</span>
+      <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', textAlign: 'right' }}>{b}</span>
     </div>
   )
 }
@@ -39,7 +37,7 @@ function Celda({ celda }: { celda: CeldaDelJuego }) {
       style={{ textAlign: 'right', whiteSpace: 'nowrap' }}
     >
       {golpes > 0 && (
-        <span aria-hidden data-testid="golpe-recibido" style={{ color: 'var(--brand-on-bg)', fontSize: '12px', marginRight: '4px', letterSpacing: '1px' }}>
+        <span aria-hidden data-testid="golpe-recibido" style={{ color: 'var(--brand-on-bg)', fontSize: '13px', marginRight: '4px', letterSpacing: '1px' }}>
           {MARCA_GOLPE_RECIBIDO.repeat(golpes)}
         </span>
       )}
@@ -65,12 +63,12 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn }:
   const columnas = `minmax(44px, 0.8fr) repeat(${tabla.columnas.length}, minmax(0, 1fr))`
   const faltan = tabla.sinHandicap
   return (
-    <section aria-label={`Puntos de ${tabla.titulo}`} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+    <section aria-label={`Puntos de ${tabla.titulo}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
-        <h2 style={{ margin: 0, fontFamily: 'var(--font-playfair), "Playfair Display", serif', fontSize: '24px', fontWeight: 700, color: 'var(--text)' }}>
+        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>
           {tabla.titulo}
         </h2>
-        <span style={{ fontFamily: MONO, fontSize: '13px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+        <span className="num" style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
           {tabla.hoyosPuntuados} de {tabla.totalHoyos} hoyos
         </span>
       </div>
@@ -82,20 +80,20 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn }:
       )}
 
       {tabla.sinHandicap.length > 0 && (
-        <p role="note" style={{ margin: 0, padding: '10px 12px', borderRadius: '10px', background: 'var(--status-open-bg)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.45 }}>
+        <p role="note" style={{ margin: 0, padding: '12px', borderRadius: '12px', background: 'var(--status-open-bg)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.45 }}>
           {avisoNetoComoGross(faltan)}
         </p>
       )}
 
-      <ol aria-label="Ranking de puntos" style={{ listStyle: 'none', margin: 0, padding: '4px 14px', borderRadius: '14px', background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+      <ol aria-label="Ranking de puntos" style={{ listStyle: 'none', margin: 0, padding: '0 16px', borderRadius: '16px', background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
         {tabla.ranking.map((r, i) => (
           <li
             key={r.jugadorId}
             style={{ display: 'flex', alignItems: 'center', gap: '12px', minHeight: '48px', borderBottom: i < tabla.ranking.length - 1 ? '1px solid var(--border)' : 'none' }}
           >
-            <span style={{ width: '20px', fontFamily: MONO, fontSize: '14px', color: 'var(--text-2)' }}>{r.puesto}</span>
-            <span style={{ flex: 1, fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{r.nombre}</span>
-            <span style={{ fontFamily: MONO, fontSize: '20px', fontWeight: 500, color: 'var(--text)' }}>{r.texto}</span>
+            <span className="num" style={{ width: '20px', fontSize: '14px', color: 'var(--text-2)' }}>{r.puesto}</span>
+            <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{r.nombre}</span>
+            <span className="num" style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text)' }}>{r.texto}</span>
           </li>
         ))}
       </ol>
@@ -107,9 +105,9 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn }:
           Los puntos de cada hoyo aparecen al anotar el primero.
         </p>
       ) : (
-        <div role="table" aria-label="Puntos por hoyo" style={{ display: 'flex', flexDirection: 'column', fontSize: '14px', color: 'var(--text)' }}>
+        <div role="table" aria-label="Puntos por hoyo" style={{ display: 'flex', flexDirection: 'column', fontSize: '16px', color: 'var(--text)' }}>
           {/* Fijo arriba al bajar por la tabla: si no, en el hoyo 15 ya no se sabe de quién es cada columna. */}
-          <div role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '6px 4px', color: 'var(--text-2)', fontSize: '12px', fontWeight: 600, ...(encabezadoFijoEn != null && { position: 'sticky', top: encabezadoFijoEn, zIndex: 1, background: 'var(--bg)', borderBottom: '1px solid var(--border)' }) }}>
+          <div role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '6px 4px', color: 'var(--text-2)', fontSize: '13px', fontWeight: 500, ...(encabezadoFijoEn != null && { position: 'sticky', top: encabezadoFijoEn, zIndex: 1, background: 'var(--bg)', borderBottom: '1px solid var(--border)' }) }}>
             <span role="columnheader">Hoyo</span>
             {tabla.columnas.map(c => (
               <span key={c.jugadorId} role="columnheader" style={{ textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>
@@ -123,16 +121,17 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn }:
             <div
               key={f.numero}
               role="row"
+              className="num"
               style={{
                 display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '8px 4px', borderBottom: '1px solid var(--border)',
-                fontFamily: MONO, color: f.pendiente ? 'var(--text-2)' : 'var(--text)',
+                color: f.pendiente ? 'var(--text-2)' : 'var(--text)',
               }}
             >
               <span role="rowheader">{f.numero}</span>
               {f.pendiente ? (
-                // Una sola leyenda para el hoyo (ni puntos ni marcas de golpe: todavía no se juega).
-                <span role="cell" aria-colspan={f.celdas.length} style={{ gridColumn: '2 / -1', textAlign: 'right', fontFamily: 'inherit', fontSize: '14px' }}>
-                  {TEXTO_HOYO_PENDIENTE}
+                // Una sola leyenda para el hoyo (ni puntos ni marcas de golpe): falta anotar, o nadie lo jugó.
+                <span role="cell" aria-colspan={f.celdas.length} style={{ gridColumn: '2 / -1', textAlign: 'right', fontSize: '14px' }}>
+                  {f.sinJugar ? TEXTO_NO_SE_JUGO : TEXTO_HOYO_PENDIENTE}
                 </span>
               ) : f.celdas.map(c => <Celda key={c.jugadorId} celda={c} />)}
             </div>

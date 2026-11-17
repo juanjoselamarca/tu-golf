@@ -9,6 +9,7 @@ import type { CSSProperties } from 'react'
 import { scoreCellStyle } from '@/lib/score-tokens'
 import { MONTHS } from './constants'
 import type { HistoricalRound } from './types'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 
 export interface ComputedStats {
   total:       number
@@ -114,3 +115,12 @@ export function scoreColor(vsPar: number | null): string {
   return 'var(--text-2)'
 }
 
+
+/**
+ * ¿La tarjeta del historial lleva el chip "NETO"? Solo cuando el formato es una modalidad de golpes jugada en neto.
+ * Stableford y match play son siempre netos (el chip sobra). En una Timba libre el neto era el del juego de puntos:
+ * la tarjeta guardada son los golpes del jugador, y el chip la haría pasar por un neto que no es.
+ */
+export function llevaChipNeto(formato: string | null | undefined, modo: string | null | undefined): boolean {
+  return modo === 'neto' && formato !== 'stableford' && formato !== 'match_play' && !esFormatoPersonalizado(formato)
+}

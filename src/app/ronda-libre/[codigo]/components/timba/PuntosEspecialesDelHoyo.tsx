@@ -55,7 +55,7 @@ export function PuntosEspecialesDelHoyo(props: {
                   >
                     <span aria-hidden style={{ width: '16px', color: 'var(--brand-on-bg)' }}>{j.marcado ? '✓' : '+'}</span>
                     <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</span>
-                    {j.enEspera && <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-2)' }}>sin enviar</span>}
+                    {j.enEspera && <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-2)' }}>sin enviar</span>}
                   </button>
                   {j.noCuenta && (
                     <span style={{ fontSize: '12px', lineHeight: 1.3, color: 'var(--text-2)' }}>No cuenta: {j.noCuenta.charAt(0).toLowerCase() + j.noCuenta.slice(1)}</span>

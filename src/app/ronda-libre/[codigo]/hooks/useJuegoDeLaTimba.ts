@@ -16,8 +16,11 @@ import type { MotivoSinJuego, VistaDelJuego } from '@/golf/ronda-libre/juego-de-
  */
 export type EstadoDelJuego =
   | { estado: 'cargando' }
-  /** `pedidaEn`: cuándo se PIDIÓ la vista (ms): lo enviado antes de ese momento ya viene en ella. */
-  | { estado: 'ok'; vista: VistaDelJuego; desactualizado: boolean; pedidaEn: number }
+  /**
+   * `pedidaEn`: cuándo se PIDIÓ la vista (ms): lo enviado antes de ese momento ya viene en ella. `firma`: la `firma`
+   * vigente al pedirla (golpes y estado de la ronda que ya vienen en ella).
+   */
+  | { estado: 'ok'; vista: VistaDelJuego; desactualizado: boolean; pedidaEn: number; firma: string }
   | { estado: 'sin_juego'; motivo: MotivoSinJuego }
   | { estado: 'sin_sesion' }
   | { estado: 'error' }
@@ -40,13 +43,14 @@ export function useJuegoDeLaTimba(
 ): JuegoDeLaTimba {
   const { activo, firma = '', intervaloS = 20 } = opciones
   const [juego, setJuego] = useState<EstadoDelJuego>({ estado: 'cargando' })
-  const ultimaVista = useRef<{ vista: VistaDelJuego; pedidaEn: number } | null>(null)
+  const ultimaVista = useRef<{ vista: VistaDelJuego; pedidaEn: number; firma: string } | null>(null)
   const pedido = useRef(0)
 
   const recargar = useCallback(async () => {
     if (!activo) return
     const mio = ++pedido.current
     const pedidaEn = Date.now()
+    const firmaPedida = firma
     const control = new AbortController()
     const plazo = setTimeout(() => control.abort(), PLAZO_JUEGO_MS)
     let siguiente: EstadoDelJuego
@@ -63,8 +67,8 @@ export function useJuegoDeLaTimba(
         if (cuerpo.estado === 'sin_juego') siguiente = { estado: 'sin_juego', motivo: cuerpo.motivo }
         else {
           const { estado: _estado, ...vista } = cuerpo
-          ultimaVista.current = { vista, pedidaEn }
-          siguiente = { estado: 'ok', vista, desactualizado: false, pedidaEn }
+          ultimaVista.current = { vista, pedidaEn, firma: firmaPedida }
+          siguiente = { estado: 'ok', vista, desactualizado: false, pedidaEn, firma: firmaPedida }
         }
       }
     } catch {
@@ -74,7 +78,7 @@ export function useJuegoDeLaTimba(
       clearTimeout(plazo)
     }
     if (mio === pedido.current) setJuego(siguiente)
-  }, [activo, codigo])
+  }, [activo, codigo, firma])
 
   // Al abrir y cada vez que cambian los golpes (con respiro para juntar toques seguidos).
   useEffect(() => {

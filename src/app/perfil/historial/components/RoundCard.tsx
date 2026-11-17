@@ -21,7 +21,7 @@ import { ChevronDown, MoreVertical } from '@/components/icons'
 import { RoundMenu, ConfirmDeleteSheet } from './RoundMenu'
 import { InlineEditScores } from './InlineEditScores'
 import { TEE_COLORS } from '../lib/constants'
-import { computeStats, formatDateShort, formatOv, scoreColor } from '../lib/helpers'
+import { computeStats, formatDateShort, formatOv, llevaChipNeto, scoreColor } from '../lib/helpers'
 import type { HistoricalRound } from '../lib/types'
 
 interface Props {
@@ -133,7 +133,7 @@ export function RoundCard({
                 {formatLabel(r.formato_juego, r.modo_juego)}
               </span>
             )}
-            {r.modo_juego === 'neto' && r.formato_juego !== 'stableford' && r.formato_juego !== 'match_play' && (
+            {llevaChipNeto(r.formato_juego, r.modo_juego) && (
               <span style={{
                 display: 'inline-block',
                 padding: '2px 6px',

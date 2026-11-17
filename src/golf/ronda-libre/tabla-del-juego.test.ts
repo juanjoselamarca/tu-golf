@@ -83,6 +83,17 @@ describe('armarTablaDelJuego — La Colombiana a mitad de ronda', () => {
     const h8 = tabla.filas.at(-1)
     expect(h8?.tipo === 'hoyo' && h8.pendiente).toBe(true)
     expect(h8?.tipo === 'hoyo' && h8.celdas.map(c => c.texto)).toEqual(Array(4).fill('falta anotar'))
+    expect(h8?.tipo === 'hoyo' && h8.sinJugar).toBe(false)
+  })
+
+  it('un hoyo que nadie jugó (sin_jugar) dice "No se jugó", no "falta anotar"', () => {
+    const conHueco: VistaDelJuego = {
+      ...v,
+      resultado: { ...v.resultado, hoyos: v.resultado.hoyos.map(h => (h.numero === 2 ? { ...h, estado: 'sin_jugar' as const } : h)) },
+    }
+    const h2 = armarTablaDelJuego(conHueco, NOMBRES, null).filas.find(f => f.tipo === 'hoyo' && f.numero === 2)
+    expect(h2?.tipo === 'hoyo' && [h2.pendiente, h2.sinJugar]).toEqual([true, true])
+    expect(h2?.tipo === 'hoyo' && h2.celdas.map(c => c.texto)).toEqual(Array(4).fill('No se jugó'))
   })
 
   it('marcador actual = el tramo del hoyo en que va el scorer', () => {

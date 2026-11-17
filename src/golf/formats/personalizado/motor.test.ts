@@ -218,6 +218,18 @@ describe('retiro y cierre', () => {
     expect(h.estado).toBe('puntuado')
     expect(h.puntos.tomas).toBe(-2)
   })
+  it('ronda cerrada: un hoyo que nadie jugó no reparte puntos ni cuenta como puntuado', () => {
+    // Sin esto, el empate de todos en "no jugó" repartía la suma de la tabla: en la Colombiana, 1 punto por pareja
+    // en cada hoyo que quedó sin jugar al cerrar la ronda antes del 18.
+    for (const p of ['colombiana', 'dos_cero_dos', 'subterranea'] as const) {
+      const { r } = unHoyo(plantilla(p), CUATRO, { juan: 4, pedro: 5, diego: 6, tomas: 7 }, {}, { rondaCerrada: true })
+      const sinJugar = r.hoyos.slice(1)
+      expect(sinJugar.every(h => h.estado === 'sin_jugar'), p).toBe(true)
+      expect(r.hoyosPendientes, p).toEqual([])
+      expect(sinJugar.every(h => Object.values(h.puntos).every(v => v === 0)), p).toBe(true)
+      expect(r.totales, p).toEqual(r.hoyos[0].puntos)
+    }
+  })
   it('marcar el greenie a un retirado no se lo quita al que sí lo ganó', () => {
     const config = plantilla('dos_cero_dos', { duelos: [], puntitos: [puntito('greenie')] })
     const marcas: MarcaPuntito[] = [

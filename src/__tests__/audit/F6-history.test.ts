@@ -14,6 +14,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { llevaChipNeto } from '@/app/perfil/historial/lib/helpers'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -206,10 +207,13 @@ describe('F6 | Display Logic (peso 3)', () => {
   })
 
   it('[DL-4] Modo badge "NETO" shown when modo === neto AND not stableford/match_play', () => {
-    // The condition must exclude stableford and match_play from showing "NETO"
-    expect(pageSource).toMatch(/r\.modo_juego === ['"]neto['"]/)
-    expect(pageSource).toMatch(/r\.formato_juego !== ['"]stableford['"]/)
-    expect(pageSource).toMatch(/r\.formato_juego !== ['"]match_play['"]/)
+    // The condition lives in one place (llevaChipNeto): excludes stableford, match_play and Timba libre.
+    expect(pageSource).toMatch(/llevaChipNeto\(r\.formato_juego, r\.modo_juego\)/)
+    expect(llevaChipNeto('stroke_play', 'neto')).toBe(true)
+    expect(llevaChipNeto('stroke_play', 'gross')).toBe(false)
+    expect(llevaChipNeto('stableford', 'neto')).toBe(false)
+    expect(llevaChipNeto('match_play', 'neto')).toBe(false)
+    expect(llevaChipNeto('personalizado', 'neto')).toBe(false)
     // The badge text itself
     expect(pageSource).toMatch(/NETO/)
   })

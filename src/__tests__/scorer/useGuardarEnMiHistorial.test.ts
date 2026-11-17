@@ -193,3 +193,44 @@ describe('useGuardarEnMiHistorial — vista previa y corrección de hoyos estima
     expect(result.current.vistaPrevia?.scores[1]).toBe(6)
   })
 })
+
+describe('useGuardarEnMiHistorial — Timba libre con retiro', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const timba = {
+    id: 'r2', codigo: 'TIM', course_name: 'X', course_id: 'c1', tees: 'azul', holes: 9, hoyo_inicio: 1,
+    fecha: '2026-11-16', estado: 'finalizada', modo_juego: 'gross', formato_juego: 'personalizado',
+    ronda_libre_jugadores: [
+      { id: 'p1', nombre: 'Ana', user_id: 'u1', scores: { '1': 4, '2': 4, '3': 4 } },
+      // Beto se retiró desde el 2, pero alguien le alcanzó a anotar el 2 y el 3.
+      { id: 'p2', nombre: 'Beto', user_id: 'u2', scores: { '1': 5, '2': 6, '3': 7 } },
+    ],
+  } as never
+  const montarTimba = (retiros: Record<string, number> | null) =>
+    renderHook(() => useGuardarEnMiHistorial({
+      ronda: timba, isFinished: true, currentUserId: 'u2',
+      parMap: { 1: 4, 2: 4, 3: 4 }, siMap: { 1: 1, 2: 2, 3: 3 }, courseHcpMap: {}, courseHcpCompletoMap: {}, sinIndice: [], equipos: [],
+      retiros,
+    }))
+
+  it('los golpes desde el retiro no van al historial (ni en la vista previa ni al guardar)', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h2', tarjeta: {} })
+    const { result } = montarTimba({ p2: 2 })
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    expect(result.current.vistaPrevia?.scores[2]).not.toBe(6)
+    expect(result.current.vistaPrevia?.scores[3]).not.toBe(7)
+    await act(async () => { await result.current.guardar() })
+    const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, Record<string, unknown>]
+    expect(input.scores).toEqual({ '1': 5 })
+    expect(input.retiradoDesde).toBe(2)
+  })
+
+  it('sin los retiros todavía (el juego no cargó) → no se ofrece guardar', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    const { result } = montarTimba(null)
+    await new Promise(r => setTimeout(r, 0))
+    expect(result.current.estado).toBe('oculto')
+    expect(tarjetaYaEnMiHistorial).not.toHaveBeenCalled()
+  })
+})

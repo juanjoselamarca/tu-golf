@@ -125,3 +125,25 @@ describe('RoundCard — nombre de la cancha', () => {
     expect(nombre.style.webkitLineClamp || nombre.style.getPropertyValue('-webkit-line-clamp')).toBe('2')
   })
 })
+
+describe('RoundCard — Timba libre en el historial', () => {
+  const montar = (formato_juego: string, modo_juego: string) => render(
+    <RoundCard
+      round={{ ...round, formato_juego, modo_juego }} isExpanded={false} isEditing={false} isLast
+      deleting={false} savingEdit={false}
+      onToggleExpand={vi.fn()} onStartEdit={vi.fn()} onCancelEdit={vi.fn()} onSaveEdit={vi.fn()}
+      onToggleExcluded={vi.fn()} onDeleteRound={vi.fn()}
+    />,
+  )
+
+  it('Timba en neto: dice el juego, sin el chip NETO (la tarjeta son sus golpes, no un neto)', () => {
+    montar('personalizado', 'neto')
+    expect(screen.getByText('Timba libre Neto')).toBeTruthy()
+    expect(screen.queryByText('NETO')).toBeNull()
+  })
+
+  it('stroke play en neto sigue con su chip NETO', () => {
+    montar('best_ball', 'neto')
+    expect(screen.getByText('NETO')).toBeTruthy()
+  })
+})

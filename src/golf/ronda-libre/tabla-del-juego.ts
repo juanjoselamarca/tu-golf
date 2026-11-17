@@ -43,7 +43,8 @@ export interface CeldaDelJuego {
 
 export type FilaDelJuego =
   | { tipo: 'tramo'; indice: number; marcador: MarcadorDeParejas }
-  | { tipo: 'hoyo'; numero: number; pendiente: boolean; celdas: CeldaDelJuego[] }
+  /** `pendiente`: sin puntos que mostrar; `sinJugar`: además, nadie lo jugó (no es que falte anotar). */
+  | { tipo: 'hoyo'; numero: number; pendiente: boolean; sinJugar: boolean; celdas: CeldaDelJuego[] }
 
 export interface TablaDelJuego {
   titulo: string
@@ -61,6 +62,8 @@ export interface TablaDelJuego {
 
 /** Hoyo que alguien todavía no anota: no se puntúa (spec, "Hoyo pendiente y retiro"). */
 export const TEXTO_HOYO_PENDIENTE = 'falta anotar'
+/** Hoyo o tramo que nadie jugó (ronda cerrada antes de llegar): no reparte puntos. */
+export const TEXTO_NO_SE_JUGO = 'No se jugó'
 
 /** Primer nombre de cada uno; si dos empiezan igual, se agrega la inicial del apellido. */
 export function nombresCortos(nombres: readonly string[]): string[] {
@@ -108,14 +111,17 @@ export function armarTablaDelJuego(
       if (marcador) filas.push({ tipo: 'tramo', indice: h.tramo, marcador })
       tramoAnterior = h.tramo
     }
-    const pendiente = h.estado === 'pendiente'
+    // Pendiente o sin jugar: no hay puntos que mostrar en el hoyo.
+    const pendiente = h.estado !== 'puntuado'
+    const sinJugar = h.estado === 'sin_jugar'
     filas.push({
       tipo: 'hoyo',
       numero: h.numero,
       pendiente,
+      sinJugar,
       celdas: jugadorIds.map(id => ({
         jugadorId: id,
-        texto: pendiente ? TEXTO_HOYO_PENDIENTE : formatPuntosTimba(h.puntos[id] ?? 0),
+        texto: sinJugar ? TEXTO_NO_SE_JUGO : pendiente ? TEXTO_HOYO_PENDIENTE : formatPuntosTimba(h.puntos[id] ?? 0),
         golpesRecibidos: golpesRecibidos[id]?.[h.numero] ?? 0,
       })),
     })

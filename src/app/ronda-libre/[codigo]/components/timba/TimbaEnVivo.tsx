@@ -1,14 +1,15 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { nombresCortos } from '@/golf/ronda-libre/tabla-del-juego'
-import { useJuegoDeLaTimba } from '../../hooks/useJuegoDeLaTimba'
+import { armarResultadoDeLaTimba, textoParaCompartirLaTimba } from '@/golf/ronda-libre/resultado-de-la-timba'
+import { useShare } from '@/components/share/useShare'
+import type { EstadoDelJuego } from '../../hooks/useJuegoDeLaTimba'
 import { ALTO_NAVBAR_PX } from '@/lib/constants'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from './PestanasDeLaTimba'
 import { PanelDelJuego } from './PanelDelJuego'
-
-const MONO = 'var(--font-dm-mono), "DM Mono", monospace'
+import { ResultadoFinalDeLaTimba } from './ResultadoFinalDeLaTimba'
 
 interface Jugador { id: string; nombre: string; scores: Readonly<Record<string, number | null | undefined>> | null }
 
@@ -23,13 +24,13 @@ export function TarjetaDeGolpes({ jugadores, hoyos }: { jugadores: readonly Juga
     return <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-2)', textAlign: 'center' }}>Todavía no hay golpes anotados.</p>
   }
   return (
-    <div role="table" aria-label="Golpes por hoyo" style={{ display: 'flex', flexDirection: 'column', fontSize: '14px', color: 'var(--text)' }}>
-      <div role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '6px 4px', color: 'var(--text-2)', fontSize: '12px', fontWeight: 600 }}>
+    <div role="table" aria-label="Golpes por hoyo" style={{ display: 'flex', flexDirection: 'column', fontSize: '16px', color: 'var(--text)' }}>
+      <div role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '6px 4px', color: 'var(--text-2)', fontSize: '13px', fontWeight: 500 }}>
         <span role="columnheader">Hoyo</span>
-        {cortos.map((n, i) => <span key={jugadores[i].id} role="columnheader" style={{ textAlign: 'right' }}>{n}</span>)}
+        {cortos.map((n, i) => <span key={jugadores[i].id} role="columnheader" style={{ textAlign: 'right', overflowWrap: 'anywhere', minWidth: 0 }}>{n}</span>)}
       </div>
       {filas.map(h => (
-        <div key={h} role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '8px 4px', borderBottom: '1px solid var(--border)', fontFamily: MONO }}>
+        <div key={h} role="row" className="num" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>
           <span role="rowheader">{h}</span>
           {jugadores.map(j => {
             const g = golpes(j, h)
@@ -41,34 +42,91 @@ export function TarjetaDeGolpes({ jugadores, hoyos }: { jugadores: readonly Juga
   )
 }
 
+const VOLVER = {
+  alignSelf: 'flex-start', minHeight: '44px', padding: '0 4px', border: 0, background: 'transparent', cursor: 'pointer',
+  color: 'var(--brand-on-bg)', fontFamily: 'inherit', fontSize: '16px', fontWeight: 600,
+} as const
+
 /**
  * Ronda en vivo de una Timba libre: pestañas Juego (por defecto: es lo que el grupo vino a ver) y Tarjeta. Reemplaza
- * al ranking de golpes, que en una Timba diría un ganador falso. Los puntos se leen solo de `GET /juego`.
+ * al ranking de golpes, que en una Timba diría un ganador falso. Los puntos se leen solo de `GET /juego` (la página
+ * lo pide una vez con `useJuegoDeLaTimba`: los retiros también los usa "Guardar en mi historial").
+ *
+ * Finalizada (estado de la base, nunca `?finished`): primero el resultado final; "Hoyo a hoyo" abre las pestañas.
  */
 export function TimbaEnVivo(props: {
-  codigo: string
+  juego: EstadoDelJuego
+  onReintentar: () => void
   jugadores: readonly Jugador[]
   hoyoInicio: number | null | undefined
   holes: number
-  /** Cambia con cada actualización en vivo (y al iniciar sesión): vuelve a pedir el juego. */
-  firma: string
-  /** Ronda finalizada: los puntos ya no cambian; no se vuelve a pedir el juego cada 20 s. */
-  cerrada: boolean
+  /** `ronda.estado === 'finalizada'`: se muestra el resultado final. */
+  finalizada: boolean
+  cancha: string
+  /** Link a la ronda, para compartir. */
+  url: string
+  /** `false` mientras falte guardar en el historial: un solo dorado sólido por vista (DESIGN.md §5). */
+  compartirPrincipal?: boolean
   onIngresar: () => void
 }) {
-  const { codigo, jugadores, hoyoInicio, holes, firma, cerrada, onIngresar } = props
+  const { juego, onReintentar, jugadores, hoyoInicio, holes, finalizada, cancha, url, compartirPrincipal = true, onIngresar } = props
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('juego')
-  const { juego, recargar } = useJuegoDeLaTimba(codigo, { activo: true, firma, intervaloS: cerrada ? 0 : undefined })
+  const [hoyoAHoyo, setHoyoAHoyo] = useState(false)
+  // Al pasar del resultado a la tabla (y de vuelta), la vista parte arriba: si no, queda a mitad de la tabla y
+  // "Volver al resultado" fuera de la pantalla.
+  const inicio = useRef<HTMLDivElement>(null)
+  const montado = useRef(false)
+  useEffect(() => {
+    if (!montado.current) { montado.current = true; return }
+    const el = inicio.current
+    if (!el || typeof window === 'undefined') return
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - ALTO_NAVBAR_PX - 8) })
+  }, [hoyoAHoyo])
   const nombres = useMemo(() => Object.fromEntries(jugadores.map(j => [j.id, j.nombre])), [jugadores])
   const hoyos = useMemo(() => hoyosDeLaRonda(hoyoInicio ?? 1, holes), [hoyoInicio, holes])
+  const resultado = useMemo(
+    () => (finalizada && juego.estado === 'ok' ? armarResultadoDeLaTimba(juego.vista, nombres) : null),
+    [finalizada, juego, nombres],
+  )
+  const { share, isSharing } = useShare()
+  const [aviso, setAviso] = useState<string | null>(null)
+
+  const compartir = async () => {
+    if (!resultado) return
+    const r = await share({ title: resultado.encabezado, text: textoParaCompartirLaTimba(resultado, cancha), url })
+    if (r.method === 'clipboard') setAviso(r.ok ? 'Resultado copiado: pégalo en el grupo.' : 'No pudimos compartir. Intenta de nuevo.')
+    else setAviso(null)
+  }
+
+  if (resultado && !hoyoAHoyo) {
+    return (
+      <section style={{ marginBottom: '16px' }}>
+        <div ref={inicio} />
+        <ResultadoFinalDeLaTimba
+          resultado={resultado}
+          onHoyoAHoyo={() => { setPestana('juego'); setHoyoAHoyo(true) }}
+          onCompartir={() => { void compartir() }}
+          compartiendo={isSharing}
+          compartirPrincipal={compartirPrincipal}
+          aviso={aviso}
+        />
+      </section>
+    )
+  }
 
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '16px' }}>
+      <div ref={inicio} />
+      {resultado && (
+        <button type="button" onClick={() => setHoyoAHoyo(false)} style={VOLVER}>
+          Volver al resultado
+        </button>
+      )}
       <PestanasDeLaTimba activa={pestana} onCambiar={setPestana} />
       <div id={PANEL_DE_PESTANA(pestana)} role="tabpanel">
         {pestana === 'juego' ? (
           <PanelDelJuego
-            juego={juego} nombres={nombres} hoyoActual={null} onReintentar={() => { void recargar() }} onIngresar={onIngresar}
+            juego={juego} nombres={nombres} hoyoActual={null} onReintentar={onReintentar} onIngresar={onIngresar}
             encabezadoFijoEn={`${ALTO_NAVBAR_PX}px`}
           />
         ) : (
