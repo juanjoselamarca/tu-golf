@@ -11,14 +11,18 @@
 --   · cerrado_automaticamente_at: el cierre lo hizo el cron, no el organizador (para decírselo en la UI). Reabrir
 --     el torneo (`reopenTournament`) limpia ambas marcas.
 --   · cierre_automatico: interruptor por torneo. Default true (solo hacia adelante).
--- ronda_libre_jugadores.updated_at + trigger: la tarjeta de equipos guarda los golpes en `scores` (JSONB) sin
---   fecha; sin esta columna el cron no sabría si alguien sigue anotando y podría cerrar en plena corrección.
---   Las filas existentes quedan con now(): las primeras 24 h tras aplicar, el cron aplaza (lado seguro).
+-- ronda_libre_jugadores.updated_at y ronda_equipos.updated_at + trigger: las tarjetas de equipos guardan los golpes
+--   en `scores` (JSONB) sin fecha, por jugador (best ball, ronda libre) o por equipo (bola compartida:
+--   `upsert_ronda_equipos_scores` escribe ronda_equipos.scores). Sin estas columnas el cron no sabría si alguien
+--   sigue anotando y podría cerrar con un capitán corrigiendo. La actividad del torneo = el máximo de
+--   hole_scores.updated_at y estas dos. Las filas existentes quedan con now(): las primeras 24 h tras aplicar, el
+--   cron aplaza (lado seguro).
 --
 -- Permisos: sin policies nuevas ("Organizador edita torneos" ya limita la escritura). tournaments tiene SELECT de
 -- tabla para anon (ANON_TABLE_PRIVILEGES) y las columnas nuevas no son sensibles. ronda_libre_jugadores tiene SELECT
 -- por columna para anon y authenticated (ANON_COLUMN_SELECT): updated_at NO se agrega al grant; solo la lee el cron
--- con service_role.
+-- con service_role. ronda_equipos: anon lee por columna (ANON_COLUMN_SELECT, sin updated_at) y authenticated tiene
+-- SELECT de tabla (la columna no es sensible: cuándo se anotó por última vez).
 --
 -- Decisión de producto (Juanjo, 17-nov-2026): los torneos ya vencidos al salir quedan EXCLUIDOS. Se marcan con
 -- cierre_automatico = false los que aceptan scores y cuya última fecha (date_end ?? date_start; con fechas
@@ -42,6 +46,14 @@ REVOKE SELECT (updated_at) ON public.ronda_libre_jugadores FROM PUBLIC, anon, au
 DROP TRIGGER IF EXISTS update_ronda_libre_jugadores_updated_at ON public.ronda_libre_jugadores;
 CREATE TRIGGER update_ronda_libre_jugadores_updated_at
   BEFORE UPDATE ON public.ronda_libre_jugadores
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+ALTER TABLE public.ronda_equipos
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
+DROP TRIGGER IF EXISTS update_ronda_equipos_updated_at ON public.ronda_equipos;
+CREATE TRIGGER update_ronda_equipos_updated_at
+  BEFORE UPDATE ON public.ronda_equipos
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 UPDATE public.tournaments
