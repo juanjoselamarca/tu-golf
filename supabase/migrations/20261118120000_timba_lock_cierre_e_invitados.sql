@@ -63,7 +63,7 @@ BEGIN
   IF v_es_demo THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
   END IF;
-  IF v_estado <> 'en_curso' THEN
+  IF v_estado IS DISTINCT FROM 'en_curso' THEN  -- con estado NULL, <> no cortaría
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
   END IF;
 
@@ -129,7 +129,7 @@ BEGIN
   IF v_es_demo THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
   END IF;
-  IF v_estado <> 'en_curso' THEN
+  IF v_estado IS DISTINCT FROM 'en_curso' THEN  -- con estado NULL, <> no cortaría
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
   END IF;
   IF v_formato <> 'personalizado' OR v_reglas IS NULL THEN
