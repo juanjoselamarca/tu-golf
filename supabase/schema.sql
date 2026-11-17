@@ -1564,6 +1564,78 @@ BEGIN
   RETURN FOUND;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.grupos_fijos_guard_grupo()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF current_user NOT IN ('anon', 'authenticated') THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+  IF NOT COALESCE(public.torneo_con_grupos_fijos(OLD.tournament_id), false) THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.ronda_libre_id IS NOT NULL
+       OR EXISTS (SELECT 1 FROM public.tournament_group_players gp WHERE gp.group_id = OLD.id) THEN
+      RAISE EXCEPTION 'El torneo ya empezó: los grupos quedan fijos'
+        USING ERRCODE = 'P0001', HINT = 'grupos_fijos';
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF NEW.ronda_libre_id IS DISTINCT FROM OLD.ronda_libre_id
+     OR NEW.tournament_id IS DISTINCT FROM OLD.tournament_id THEN
+    RAISE EXCEPTION 'El torneo ya empezó: los grupos quedan fijos'
+      USING ERRCODE = 'P0001', HINT = 'grupos_fijos';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.grupos_fijos_guard_inscrito()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF current_user IN ('anon', 'authenticated')
+     AND COALESCE(public.torneo_con_grupos_fijos(OLD.tournament_id), false) THEN
+    RAISE EXCEPTION 'El torneo ya empezó: retira al jugador con WD'
+      USING ERRCODE = 'P0001', HINT = 'grupos_fijos';
+  END IF;
+  RETURN OLD;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.grupos_fijos_guard_jugadores_de_grupo()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_fijo boolean := false;
+BEGIN
+  IF current_user NOT IN ('anon', 'authenticated') THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    SELECT public.torneo_con_grupos_fijos(g.tournament_id) INTO v_fijo
+      FROM public.tournament_groups g WHERE g.id = OLD.group_id;
+  END IF;
+  IF NOT COALESCE(v_fijo, false) AND TG_OP IN ('INSERT', 'UPDATE') THEN
+    SELECT public.torneo_con_grupos_fijos(g.tournament_id) INTO v_fijo
+      FROM public.tournament_groups g WHERE g.id = NEW.group_id;
+  END IF;
+
+  IF COALESCE(v_fijo, false) THEN
+    RAISE EXCEPTION 'El torneo ya empezó: los grupos quedan fijos'
+      USING ERRCODE = 'P0001', HINT = 'grupos_fijos';
+  END IF;
+  RETURN COALESCE(NEW, OLD);
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.guard_tournament_drafts_owner_change()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -2131,6 +2203,23 @@ BEGIN
 
   RETURN QUERY SELECT v_ronda_id, v_reglas, v_holes;
 END;
+$function$;
+CREATE OR REPLACE FUNCTION public.torneo_con_grupos_fijos(p_tournament_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  SELECT EXISTS (
+           SELECT 1 FROM public.tournaments t
+            WHERE t.id = p_tournament_id
+              AND COALESCE(t.status, '') NOT IN ('draft', 'open')
+         )
+      OR EXISTS (
+           SELECT 1 FROM public.tournament_groups g
+            WHERE g.tournament_id = p_tournament_id
+              AND g.ronda_libre_id IS NOT NULL
+         );
 $function$;
 CREATE OR REPLACE FUNCTION public.touch_tournament_drafts_updated_at()
  RETURNS trigger
@@ -2829,6 +2918,7 @@ CREATE TRIGGER trg_cerebro_weights_notify AFTER INSERT OR UPDATE ON public.cereb
 CREATE TRIGGER update_courses_updated_at BEFORE UPDATE ON public.courses FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_hole_scores_updated_at BEFORE UPDATE ON public.hole_scores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER trg_knowledge_sources_updated_at BEFORE UPDATE ON public.knowledge_sources FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER grupos_fijos_inscrito BEFORE DELETE ON public.players FOR EACH ROW EXECUTE FUNCTION public.grupos_fijos_guard_inscrito();
 CREATE TRIGGER trigger_log_role_change BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.log_role_change();
 CREATE TRIGGER trigger_protect_last_admin BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.protect_last_admin();
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
@@ -2836,6 +2926,8 @@ CREATE TRIGGER update_taiger_sessions_updated_at BEFORE UPDATE ON public.taiger_
 CREATE TRIGGER trg_tournament_drafts_dueno_colaborador AFTER INSERT ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador();
 CREATE TRIGGER trg_tournament_drafts_owner_change BEFORE UPDATE OF owner_id ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.guard_tournament_drafts_owner_change();
 CREATE TRIGGER trg_tournament_drafts_updated_at BEFORE UPDATE ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.touch_tournament_drafts_updated_at();
+CREATE TRIGGER grupos_fijos_jugadores_de_grupo BEFORE INSERT OR DELETE OR UPDATE ON public.tournament_group_players FOR EACH ROW EXECUTE FUNCTION public.grupos_fijos_guard_jugadores_de_grupo();
+CREATE TRIGGER grupos_fijos_grupo BEFORE DELETE OR UPDATE ON public.tournament_groups FOR EACH ROW EXECUTE FUNCTION public.grupos_fijos_guard_grupo();
 CREATE TRIGGER update_tournaments_updated_at BEFORE UPDATE ON public.tournaments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 -- ===== 9. RLS =====
 alter table public."ai_usage" enable row level security;
@@ -3248,6 +3340,9 @@ revoke all on function public.eliminar_cuenta(uuid) from public, anon, authentic
 revoke all on function public.enroll_player(uuid,text,uuid,text,numeric,uuid,text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.exec_sql(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.finalizar_ronda_libre(text) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.grupos_fijos_guard_grupo() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.grupos_fijos_guard_inscrito() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.grupos_fijos_guard_jugadores_de_grupo() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.guard_tournament_drafts_owner_change() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.handle_new_user() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.is_draft_collaborator(uuid,uuid) from public, anon, authenticated, service_role, postgres;
@@ -3265,6 +3360,7 @@ revoke all on function public.rls_write_policies_audit() from public, anon, auth
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_ronda_para_escribir(text,uuid) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.torneo_con_grupos_fijos(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.touch_tournament_drafts_updated_at() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.tournament_drafts_asegurar_dueno_colaborador() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.unaccent_immutable(text) from public, anon, authenticated, service_role, postgres;
@@ -3572,6 +3668,12 @@ grant EXECUTE on function public.finalizar_ronda_libre(text) to anon;
 grant EXECUTE on function public.finalizar_ronda_libre(text) to authenticated;
 grant EXECUTE on function public.finalizar_ronda_libre(text) to postgres;
 grant EXECUTE on function public.finalizar_ronda_libre(text) to service_role;
+grant EXECUTE on function public.grupos_fijos_guard_grupo() to postgres;
+grant EXECUTE on function public.grupos_fijos_guard_grupo() to service_role;
+grant EXECUTE on function public.grupos_fijos_guard_inscrito() to postgres;
+grant EXECUTE on function public.grupos_fijos_guard_inscrito() to service_role;
+grant EXECUTE on function public.grupos_fijos_guard_jugadores_de_grupo() to postgres;
+grant EXECUTE on function public.grupos_fijos_guard_jugadores_de_grupo() to service_role;
 grant EXECUTE on function public.guard_tournament_drafts_owner_change() to postgres;
 grant EXECUTE on function public.guard_tournament_drafts_owner_change() to service_role;
 grant EXECUTE on function public.handle_new_user() to postgres;
@@ -3618,6 +3720,9 @@ grant EXECUTE on function public.timba_registrar_secuencia(uuid,text,bigint,uuid
 grant EXECUTE on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) to service_role;
 grant EXECUTE on function public.timba_ronda_para_escribir(text,uuid) to postgres;
 grant EXECUTE on function public.timba_ronda_para_escribir(text,uuid) to service_role;
+grant EXECUTE on function public.torneo_con_grupos_fijos(uuid) to authenticated;
+grant EXECUTE on function public.torneo_con_grupos_fijos(uuid) to postgres;
+grant EXECUTE on function public.torneo_con_grupos_fijos(uuid) to service_role;
 grant EXECUTE on function public.touch_tournament_drafts_updated_at() to anon;
 grant EXECUTE on function public.touch_tournament_drafts_updated_at() to authenticated;
 grant EXECUTE on function public.touch_tournament_drafts_updated_at() to postgres;
