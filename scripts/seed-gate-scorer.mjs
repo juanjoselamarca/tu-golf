@@ -16,17 +16,26 @@
  * best_ball lee scores por-jugador (`ronda_libre_jugadores.scores`);
  * scramble/foursome leen la bola compartida (`ronda_equipos.scores`).
  *
- * Uso:
- *   node --env-file=.env.local scripts/seed-gate-scorer.mjs          # sembrar
- *   node --env-file=.env.local scripts/seed-gate-scorer.mjs --limpiar # borrar
+ * Uso (contra la base de pruebas; ver scripts/test-db/seed-manifest.json):
+ *   node --env-file=<env de la base de pruebas> scripts/seed-gate-scorer.mjs          # sembrar
+ *   node --env-file=<env de la base de pruebas> scripts/seed-gate-scorer.mjs --limpiar # borrar
+ *
+ * Contra prod se niega: el 17-nov-2026 se borraron de prod todos los torneos de prueba, incluidos los "Gate ·"
+ * (migración 20261117200000_borrar_torneos_de_prueba_y_crear_demo). Solo con --permitir-prod, a sabiendas.
  *
  * Idempotente: re-sembrar borra primero por slug fijo. Cleanup por cascada.
  */
 import { createClient } from '@supabase/supabase-js'
+import { PROD_REF, projectRefDe } from './lib/supabase-ref.mjs'
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 if (!URL || !KEY) { console.error('Faltan NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY'); process.exit(1) }
+if (projectRefDe(URL) === PROD_REF && !process.argv.includes('--permitir-prod')) {
+  console.error(`✋ seed-gate-scorer apunta a PROD (${PROD_REF}). Los torneos "Gate ·" se borraron de prod el 17-nov-2026;`
+    + ' este script es para la base de pruebas. Si de verdad hay que sembrar prod, agrega --permitir-prod.')
+  process.exit(1)
+}
 const sb = createClient(URL, KEY, { auth: { persistSession: false } })
 
 const JUANJO = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'

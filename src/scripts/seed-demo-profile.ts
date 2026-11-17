@@ -51,7 +51,7 @@ async function seedCarlos() {
   const { data: users } = await sb.auth.admin.listUsers({ perPage: 1000 })
   const carlos = users?.users?.find(u => u.email === CARLOS_EMAIL)
   if (!carlos) {
-    console.error('❌ Carlos Méndez no encontrado en auth.users — ejecuta seed-demo-data primero')
+    console.error('❌ Carlos Méndez no encontrado en auth.users — la cuenta demo debe existir (la creó seed-demo-data.ts, hoy obsoleto)')
     process.exit(1)
   }
   const carlosId = carlos.id

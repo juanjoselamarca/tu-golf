@@ -13,7 +13,6 @@ Scripts que se ejecutan manualmente para tareas de mantenimiento, migración o t
 | `test-e2e-torneo40.mjs` | Smoke test de torneo con 40 jugadores | Stress test pre-torneo grande |
 | `fedegolf-sync.ts` | Sync manual de índices WHS desde FedeGolf | Si el sync automático falla |
 | `migrate-019-brisas.js` | Migración one-off para cancha Brisas (ejemplo) | Ya ejecutado — referencia |
-| `seed-demo-data.sql` | Seed de datos demo para dev | Manual en Supabase SQL editor |
 
 ## Reglas
 

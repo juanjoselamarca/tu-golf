@@ -14,6 +14,16 @@ const URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 if (!URL || !KEY) { console.error('❌ Faltan vars de entorno'); process.exit(1) }
 
+// OBSOLETO desde el 17-nov-2026: el torneo demo de /demo lo crea la migración
+// 20261117200000_borrar_torneos_de_prueba_y_crear_demo (organiza carlos-mendez@demo.golfers.plus, que ya existe en prod).
+// Este script sembraba en la base de .env.local (prod) otro torneo de prueba e inscripciones de cuentas demo: lo que
+// esa migración acaba de limpiar. Se deja como referencia de cómo se crearon las cuentas demo; no correr.
+if (!process.argv.includes('--permitir-obsoleto')) {
+  console.error('✋ seed-demo-data.ts está obsoleto: el demo lo crea la migración 20261117200000_borrar_torneos_de_prueba_y_crear_demo.'
+    + ' Correrlo volvería a sembrar torneos de prueba en la base de .env.local. Si de verdad hace falta, agrega --permitir-obsoleto.')
+  process.exit(1)
+}
+
 const sb = createClient(URL, KEY, { auth: { autoRefreshToken: false, persistSession: false } })
 
 // ── Dominio ──────────────────────────────────────────
