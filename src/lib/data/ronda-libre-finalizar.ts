@@ -40,6 +40,7 @@ import {
   type GrossAjustadoDeFila,
 } from '@/lib/data/ajuste-whs-fila'
 import type { Jugador, RondaLibre } from '@/types/ronda'
+import { golpesHastaElRetiro } from '@/golf/formats/personalizado/retiro'
 
 type Client = Pick<SupabaseClient, 'from' | 'rpc'>
 
@@ -135,6 +136,11 @@ export interface GuardarTarjetaInput {
   /** Hoyos de la ronda en orden de juego (`hoyosDeLaRonda`). */
   hoyos: readonly number[]
   parMap: Record<number, number>
+  /**
+   * Timba libre: hoyo desde el que el jugador se retiró (`VistaDelJuego.retiros`). Lo anotado desde ahí no va al
+   * historial (`golpesHastaElRetiro`); el servidor lo conserva.
+   */
+  retiradoDesde?: number | null
   /** Golpes corregidos por el jugador en hoyos estimados (sólo índice; ver `tarjetaParaHistorial`). */
   correcciones?: Readonly<Record<number, number>>
   ratingsPorTee: RatingsPorTee
@@ -165,10 +171,12 @@ export async function guardarTarjetaEnHistorial(
   // Nunca lanza: una lectura que falla (red) vuelve como `error` y el que llama
   // ofrece reintentar; un throw dejaba el botón "Guardando…" colgado para siempre.
   // El plazo no cancela el INSERT: si igual llega, el reintento cae en 23505 (`duplicada`).
+  // Timba: lo anotado desde el retiro no cuenta (el motor tampoco lo cuenta) y no llega al historial.
+  const sinRetiro = { ...input, scores: golpesHastaElRetiro(input.scores, input.retiradoDesde, input.hoyos) }
   try {
-    return await conTimeout(guardarTarjeta(supabase, input), PLAZO_GUARDAR_TARJETA_MS)
+    return await conTimeout(guardarTarjeta(supabase, sinRetiro), PLAZO_GUARDAR_TARJETA_MS)
   } catch (e) {
-    const tarjeta = armarTarjetaHistorica({ scores: input.scores, hoyos: input.hoyos, roundHoles: input.ronda.holes ?? 18, parMap: input.parMap })
+    const tarjeta = armarTarjetaHistorica({ scores: sinRetiro.scores, hoyos: input.hoyos, roundHoles: input.ronda.holes ?? 18, parMap: input.parMap })
     return { status: 'error', tarjeta, error: e instanceof Error ? e : new Error(String(e)) }
   }
 }

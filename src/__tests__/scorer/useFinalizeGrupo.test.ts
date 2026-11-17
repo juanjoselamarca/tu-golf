@@ -76,14 +76,14 @@ const completarEquiposConPar = vi.fn((eqs: EquipoT[], hoyos: readonly number[]) 
   const faltan = hoyos.filter(h => e.scores[String(h)] == null)
   return faltan.length === 0 ? e : { ...e, scores: { ...e.scores, ...Object.fromEntries(faltan.map(h => [String(h), PAR[h]])) } }
 }))
-function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record<number, number>>; teamEquipos?: unknown[]; authUserId?: string | null } = {}) {
+function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record<number, number>>; teamEquipos?: unknown[]; authUserId?: string | null; timba?: { retiros: Record<string, number>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number } } = {}) {
   const r = opts.ronda ?? rondaBase
   return renderHook(() => {
     const [scores, setScores] = useState(opts.scores ?? { p1: { 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5 }, p2: { 10: 5 } })
     const fin = useFinalizeGrupo({
       ronda: r as never, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR,
       teamEquipos: (opts.teamEquipos ?? []) as never, completarEquiposConPar: completarEquiposConPar as never, matchResult: null,
-      authUserId: opts.authUserId === undefined ? 'u1' : opts.authUserId, enviarPendientes,
+      authUserId: opts.authUserId === undefined ? 'u1' : opts.authUserId, enviarPendientes, timba: opts.timba,
     })
     return { scores, fin }
   })
@@ -485,5 +485,50 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.discardRound() })
     expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
+  })
+
+  describe('Timba libre', () => {
+    it('al cerrar solo rellena el hoyo en pantalla si alguien ya lo anotó: el resto sin score es "no jugó" (regla 26-oct)', async () => {
+      const enviarMarcas = vi.fn(async () => true)
+      const { result } = montar({ timba: { retiros: { p2: 14 }, enviarMarcas, hoyoEnPantalla: 18 } })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      // Nadie anotó el 18 en pantalla: no se jugó, nadie recibe par ahí.
+      expect(result.current.scores.p1[18]).toBeUndefined()
+      // Beto (p2) se retiró desde el 14: ni sus hoyos previos sin anotar ni el 18 reciben par.
+      expect(result.current.scores.p2[13]).toBeUndefined()
+      expect(result.current.scores.p2[18]).toBeUndefined()
+      expect(enviarMarcas).toHaveBeenCalledTimes(1)
+      expect(finalizarRondaLibre).toHaveBeenCalled()
+    })
+
+    it('sin retiro: el que no anotó del 11 al 17 los pierde (sin par inventado) y el 18 en pantalla sí lleva par', async () => {
+      // Ana ya anotó el 18 en pantalla: se jugó, y el par gris de Beto se rellena.
+      const scores = { p1: { 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5, 18: 6 }, p2: { 10: 5 } }
+      const { result } = montar({ scores, timba: { retiros: {}, enviarMarcas: vi.fn(async () => true), hoyoEnPantalla: 18 } })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      expect(result.current.scores.p2).toEqual({ 10: 5, 18: 5 })
+      expect(finalizarRondaLibre).toHaveBeenCalled()
+    })
+
+    it('la tarjeta propia al historial lleva el hoyo del retiro (para no subir lo anotado después)', async () => {
+      const { result } = montar({ timba: { retiros: { p1: 16 }, enviarMarcas: vi.fn(async () => true), hoyoEnPantalla: 18 } })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
+      expect(input.retiradoDesde).toBe(16)
+    })
+
+    it('con puntos especiales sin enviar NO cierra y lo avisa', async () => {
+      const enviarMarcas = vi.fn(async () => false)
+      const { result } = montar({ timba: { retiros: {}, enviarMarcas, hoyoEnPantalla: 18 } })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      await act(async () => { await result.current.fin.finalizeRound() })
+      expect(enviarMarcas).toHaveBeenCalledTimes(1)
+      expect(finalizarRondaLibre).not.toHaveBeenCalled()
+      expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+      expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Hay puntos especiales sin enviar', type: 'error' }))
+    })
   })
 })

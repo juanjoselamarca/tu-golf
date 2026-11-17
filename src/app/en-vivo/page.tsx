@@ -12,6 +12,7 @@ import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { cleanupFollowedRounds } from '@/lib/round-notifications'
 import { chipDeFormato, filasDeLaTarjeta, publicaPuntos, scoreDeLaFila } from '@/lib/ronda/feed-en-vivo'
 import { esPrimerLugar } from '@/golf/core/posiciones'
+import { ALTO_NAVBAR_PX } from '@/lib/constants'
 
 /** Fila de la tarjeta: un jugador, o un equipo en scramble/foursome (el puntaje es del equipo). */
 interface JugadorEnVivo {
@@ -124,7 +125,7 @@ export default function EnVivoPage() {
     <div style={{ background: 'var(--bg)', minHeight: '100dvh', padding: '0 0 100px' }}>
       {/* Header sticky */}
       <div style={{
-        position: 'sticky', top: 56, zIndex: 40,
+        position: 'sticky', top: ALTO_NAVBAR_PX, zIndex: 40,
         background: 'var(--bg-surface)', backdropFilter: 'blur(12px)',
         padding: '16px 16px 12px',
         borderBottom: '1px solid var(--border)',

@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { scoreChipStyle, scoreFgVar } from '@/lib/score-tokens'
 import { formatearHandicap } from '@/golf/handicap-index-range'
@@ -35,12 +36,14 @@ interface PlayerScoreCardProps {
   pending: boolean
   onChange: (delta: number) => void
   theme: ScorerTheme
+  /** Acción junto al nombre (Timba libre: "Retirar"). */
+  accion?: ReactNode
 }
 
 /** Tarjeta de UN jugador en el scorer de grupo (stroke play / stableford / match play). */
 export function PlayerScoreCard({
   jugador: j, playerScores, currentHole, par, holeData, totals, played, hcp, displayHcp, dotHcp,
-  siAllocByHole, ordenHoyos, holeDataMap, totalHoles, modoJuego, formatoJuego, showNetStableford, pending, onChange, theme,
+  siAllocByHole, ordenHoyos, holeDataMap, totalHoles, modoJuego, formatoJuego, showNetStableford, pending, onChange, theme, accion,
 }: PlayerScoreCardProps) {
   const playerScore = playerScores?.[currentHole]
   const displayScore = playerScore ?? par
@@ -88,7 +91,10 @@ export function PlayerScoreCard({
       {/* Player name + running total */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{j.nombre}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{j.nombre}</div>
+            {accion}
+          </div>
           {muestraNeto && played > 0 && (
             <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>
               HCP {formatearHandicap(displayHcp ?? hcp)}

@@ -9,6 +9,7 @@
 import { strokesRecibidosEnHoyo } from '../../core/stableford-score'
 import { esHandicapUsable, golpesALaDiferenciaDelMasBajo } from '../match-play'
 import { TRAMOS_ROTATIVOS, hoyosPorTramo } from './tramos'
+import { estaRetiradoEn } from './retiro'
 import {
   COMBINACIONES_DE_4,
   type ConfigJuego,
@@ -223,7 +224,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
   const { config, jugadores, hoyos, scores, marcas } = entrada
   const ids = jugadores.map(j => j.id)
   const totalHoyos = hoyos.length
-  const ordenDe = new Map(hoyos.map((h, i) => [h.numero, i]))
+  const ordenHoyos = hoyos.map(h => h.numero)
 
   const golpesBase = golpesDelJuego(config, jugadores)
 
@@ -236,23 +237,20 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
   const resultadoHoyos: ResultadoHoyoDelJuego[] = []
   const pendientes: number[] = []
 
-  const retiradoEn = (id: string, numero: number): boolean => {
-    const desde = entrada.retiros?.[id]
-    if (desde == null) return false
-    const ordenDesde = ordenDe.get(desde)
-    const ordenHoyo = ordenDe.get(numero)
-    return ordenDesde != null && ordenHoyo != null && ordenHoyo >= ordenDesde
-  }
+  const retiradoEn = (id: string, numero: number): boolean => estaRetiradoEn(entrada.retiros?.[id], numero, ordenHoyos)
 
   hoyos.forEach((hoyo, orden) => {
     const { tramo, parejas } = parejasDelTramo(config, orden, totalHoyos)
 
     // Gross de cada uno: número, `null` = no jugó (retirado o ronda cerrada sin score), `undefined` = falta.
+    // El retiro manda sobre el score: un golpe anotado después del retiro (p. ej. un par rellenado sin señal)
+    // no devuelve al retirado al juego.
     const gross: Record<string, number | null | undefined> = {}
     ids.forEach(id => {
       const g = scores[id]?.[hoyo.numero]
-      if (typeof g === 'number' && Number.isFinite(g) && g > 0) gross[id] = g
-      else if (retiradoEn(id, hoyo.numero) || entrada.rondaCerrada) gross[id] = null
+      if (retiradoEn(id, hoyo.numero)) gross[id] = null
+      else if (typeof g === 'number' && Number.isFinite(g) && g > 0) gross[id] = g
+      else if (entrada.rondaCerrada) gross[id] = null
       else gross[id] = undefined
     })
 

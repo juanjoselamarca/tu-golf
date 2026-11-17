@@ -17,6 +17,7 @@ import { compartirLeaderboard } from '@/lib/share-card'
 import { captureError } from '@/lib/error-tracking'
 import { buildLeaderboard, mostrarCopiarLink, rondaTieneDatos } from '@/lib/ronda/leaderboard'
 import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
+import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
@@ -52,6 +53,8 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
 import { GuardarEnMiHistorial } from './components/GuardarEnMiHistorial'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { TimbaEnVivo } from './components/timba/TimbaEnVivo'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
 
@@ -157,7 +160,7 @@ function RondaLibrePageContent() {
   const timelineEvents = buildTimelineEvents(ronda.ronda_libre_jugadores, ronda.holes, parMap)
   const mr = buildMatchResult(ronda, parMap, siMap, courseHcpMap)
 
-  const isAdmin = ronda.admin_mode && ronda.admin_user_id === currentUserId
+  const isAdmin = anotaLaRonda(ronda, currentUserId)
   const isAdminRound = !!ronda.admin_mode
   const adminPlayerName = isAdminRound
     ? ronda.ronda_libre_jugadores.find(j => j.user_id === ronda.admin_user_id)?.nombre ?? 'El admin'
@@ -317,6 +320,18 @@ function RondaLibrePageContent() {
           <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} hcpAMostrar={hcpAMostrar} />
         )}
 
+        {/* Timba libre: el juego son puntos (GET /juego), no golpes; los rankings de golpes darían un ganador falso. */}
+        {esFormatoPersonalizado(ronda.formato_juego) ? (
+          <TimbaEnVivo
+            codigo={codigo}
+            jugadores={ronda.ronda_libre_jugadores}
+            hoyoInicio={ronda.hoyo_inicio}
+            holes={ronda.holes}
+            firma={`${currentUserId ?? ''}:${ronda.estado}:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.scores))}`}
+            cerrada={esRondaCerrada(ronda.estado)}
+            onIngresar={() => { requireAuth('Ve los puntos de la Timba') }}
+          />
+        ) : (<>
         {isTeamFormat && (
           <TeamLeaderboards
             ronda={ronda}
@@ -349,6 +364,7 @@ function RondaLibrePageContent() {
             onToggleExpand={(id) => setExpanded(prev => prev === id ? null : id)}
           />
         )}
+        </>)}
 
         {ronda.formato_juego !== 'match_play' && formatoTieneGWI(ronda.formato_juego) && !isFinished && hayGWIParaMostrar(gwi.jugadores) && (
           <GwiPanel ronda={ronda} jugadores={gwi.jugadores} results={gwi.results} />

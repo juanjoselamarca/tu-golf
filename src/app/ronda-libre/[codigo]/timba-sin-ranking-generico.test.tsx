@@ -11,7 +11,6 @@ import { SCORER_THEME } from '@/components/ronda/scorer-theme'
 import type { FormatoJuego, HoleData, Jugador, RondaLibre } from '@/types/ronda'
 import { IndividualLeaderboard } from './components/IndividualLeaderboard'
 import { TeamLeaderboards } from './components/TeamLeaderboards'
-import { TEXTO_PUNTOS_DE_LA_TIMBA } from './components/AvisoPuntosDeLaTimba'
 import { formatoTieneGWI } from '@/golf/stats/gwi'
 import { gwiDeRondaLibre } from '@/lib/data/gwi-ronda-libre'
 import { useGrupoScoreboard } from './score-grupo/hooks/useGrupoScoreboard'
@@ -68,20 +67,20 @@ describe('Timba libre — sin ranking ni neto genérico', () => {
     expect(data.players).toEqual([])
   })
 
-  it('IndividualLeaderboard: muestra el aviso de la Timba, sin HCP ni neto', () => {
-    render(
+  it('IndividualLeaderboard: no dibuja nada en una Timba (la página muestra TimbaEnVivo)', () => {
+    const { container } = render(
       <IndividualLeaderboard
         ronda={ronda} leaderboard={[]} isNetoMode hasCourse parMap={parMap} siMap={siMap} courseHcpMap={{}}
         hcpAMostrar={hcpAMostrar} fechaDisplay="16 nov" expanded={null} onToggleExpand={() => {}}
       />,
     )
-    expect(screen.getByText(TEXTO_PUNTOS_DE_LA_TIMBA)).toBeTruthy()
+    expect(container.innerHTML).toBe('')
     expect(screen.queryByText('HCP')).toBeNull()
     expect(screen.queryByText(/Neto/)).toBeNull()
   })
 
-  it('TeamLeaderboards: muestra el aviso de la Timba, sin tabla', () => {
-    render(
+  it('TeamLeaderboards: no dibuja nada en una Timba', () => {
+    const { container } = render(
       <TeamLeaderboards
         ronda={ronda}
         equipos={[{ id: 'e1', nombre: 'Equipo 1', jugadorIds: ['j1', 'j2'], scores: { 1: 4 }, handicap_equipo: null, handicap_equipo_juego: null }] as never}
@@ -89,7 +88,7 @@ describe('Timba libre — sin ranking ni neto genérico', () => {
         expandedTeam={null} onToggleTeam={() => {}}
       />,
     )
-    expect(screen.getByText(TEXTO_PUNTOS_DE_LA_TIMBA)).toBeTruthy()
+    expect(container.innerHTML).toBe('')
     expect(screen.queryByText('Equipo 1')).toBeNull()
   })
 
@@ -151,7 +150,4 @@ describe('Timba libre — sin ranking ni neto genérico', () => {
     expect(orden.some(h => b.hoyoConGolpe(h))).toBe(false)
   })
 
-  it('el aviso no nombra una pestaña que todavía no existe', () => {
-    expect(TEXTO_PUNTOS_DE_LA_TIMBA).not.toMatch(/pestaña/i)
-  })
 })

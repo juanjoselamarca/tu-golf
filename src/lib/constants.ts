@@ -9,3 +9,10 @@ export const WHATSAPP_URL = process.env.NEXT_PUBLIC_WHATSAPP_URL || 'https://wa.
 export const VAPID_CONTACT = process.env.VAPID_CONTACT_EMAIL || 'mailto:juanjoselamarca@gmail.com'
 /** Correo de soporte que se le muestra al usuario (el mismo de /privacidad y /terminos). */
 export const SOPORTE_EMAIL = 'juanjoselamarca@gmail.com'
+
+/**
+ * Alto del Navbar global (sticky, `top: 0`): el `top` de lo que queda fijo bajo él al bajar en una página que hace
+ * scroll con la ventana. Espejo de `height: '56px'` en `src/components/Navbar.tsx` (archivo protegido: no importa
+ * esta constante; si cambia allá, cambia acá).
+ */
+export const ALTO_NAVBAR_PX = 56

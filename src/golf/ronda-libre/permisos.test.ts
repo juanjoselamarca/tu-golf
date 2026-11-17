@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { esMiTarjeta, indiceVieneDelPerfil, puedeDescartarRonda } from './permisos'
+import { esMiTarjeta, indiceVieneDelPerfil, puedeDescartarRonda, anotaLaRonda } from './permisos'
 
 describe('puedeDescartarRonda — espejo de descartar_ronda_libre (P0003)', () => {
   const ronda = { creador_id: 'u1', es_demo: false }
@@ -44,5 +44,19 @@ describe('indiceVieneDelPerfil — fuente única de "el índice sale del perfil"
   it('invitado (sin cuenta) → no, tenga o no índice', () => {
     expect(indiceVieneDelPerfil({ user_id: null, handicap: 7 })).toBe(false)
     expect(indiceVieneDelPerfil({ user_id: null, handicap: null })).toBe(false)
+  })
+})
+
+describe('anotaLaRonda (quién lleva el score del grupo: fuente única de las redirecciones del scorer)', () => {
+  it('solo el admin de una ronda en modo admin', () => {
+    expect(anotaLaRonda({ admin_mode: true, admin_user_id: 'u1' }, 'u1')).toBe(true)
+    expect(anotaLaRonda({ admin_mode: true, admin_user_id: 'u1' }, 'u2')).toBe(false)
+  })
+  it('sin modo admin nadie anota el grupo, aunque admin_user_id coincida (era el bucle /score ↔ /score-grupo)', () => {
+    expect(anotaLaRonda({ admin_mode: false, admin_user_id: 'u1' }, 'u1')).toBe(false)
+  })
+  it('sin sesión o sin ronda: no', () => {
+    expect(anotaLaRonda({ admin_mode: true, admin_user_id: null }, null)).toBe(false)
+    expect(anotaLaRonda(null, 'u1')).toBe(false)
   })
 })

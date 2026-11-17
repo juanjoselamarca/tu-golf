@@ -2,12 +2,17 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { useRondaScoreData } from '@/app/ronda-libre/[codigo]/score/hooks/useRondaScoreData'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
+import { FORMATO_PERSONALIZADO } from '@/golf/formats/personalizado'
 
 // Golpes que trae la BD para p1 (cada test los fija).
 let golpesEnLaBd: Record<string, number> = {}
 // Qué responde la lectura de la ronda: la fila, "no hay fila" (PGRST116) o una falla de red.
 let respuestaRonda: 'ok' | 'no_existe' | 'red' = 'ok'
-const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
+// Formato y quién anota (cada test los fija; por defecto stroke play sin modo grupo).
+let formatoRonda = 'stroke_play'
+let adminRonda: string | null = null
+let adminModeRonda = false
+const { routerPush, routerReplace } = vi.hoisted(() => ({ routerPush: vi.fn(), routerReplace: vi.fn() }))
 
 // Chainable query builder stub that supports .in(), .order(), .single()
 function makeQueryBuilder(table: string) {
@@ -49,8 +54,8 @@ function makeQueryBuilder(table: string) {
         data: {
           id: 'r1', codigo: 'ABC123', course_name: 'Los Leones',
           course_id: null, tees: 'azul', holes: 9, fecha: '2026-05-12',
-          estado: 'en_curso', modo_juego: 'gross', formato_juego: 'stroke_play',
-          hoyo_inicio: 1, admin_mode: false, admin_user_id: null, recorridos: null,
+          estado: 'en_curso', modo_juego: 'gross', formato_juego: formatoRonda,
+          hoyo_inicio: 1, admin_mode: adminModeRonda, admin_user_id: adminRonda, creador_id: 'u9', recorridos: null,
           ronda_libre_jugadores: [{
             id: 'p1', nombre: 'Juanjo', user_id: 'u1',
             scores: golpesEnLaBd, handicap: 11.1, tees: 'azul',
@@ -75,7 +80,7 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: routerPush, replace: vi.fn() }),
+  useRouter: () => ({ push: routerPush, replace: routerReplace }),
 }))
 
 vi.mock('@/golf/core/course-handicap', () => ({
@@ -106,9 +111,36 @@ beforeEach(() => {
   respuestaRonda = 'ok'
   routerPush.mockClear()
   localStorage.clear()
+  formatoRonda = 'stroke_play'
+  adminRonda = null
+  adminModeRonda = false
+  routerReplace.mockClear()
 })
 
 describe('useRondaScoreData', () => {
+  it('Timba libre (un solo celular): el que lleva el score va al scorer de grupo; el resto, a la ronda en vivo', async () => {
+    formatoRonda = FORMATO_PERSONALIZADO
+    adminModeRonda = true
+    adminRonda = 'u1'
+    renderHook(() => useRondaScoreData('ABC123', null))
+    await waitFor(() => expect(routerReplace).toHaveBeenCalledWith('/ronda-libre/ABC123/score-grupo'))
+    routerReplace.mockClear()
+    adminRonda = 'otro'
+    const { result } = renderHook(() => useRondaScoreData('ABC123', null))
+    await waitFor(() => expect(routerReplace).toHaveBeenCalledWith('/ronda-libre/ABC123'))
+    // Nunca llega a cargar el scorer individual (ni su Finalizar).
+    expect(result.current.ronda).toBeNull()
+  })
+
+  it('Timba sin modo admin: aunque admin_user_id sea el usuario, va a la ronda en vivo (no al grupo, que lo devolvería: bucle)', async () => {
+    formatoRonda = FORMATO_PERSONALIZADO
+    adminModeRonda = false
+    adminRonda = 'u1'
+    renderHook(() => useRondaScoreData('ABC123', null))
+    await waitFor(() => expect(routerReplace).toHaveBeenCalledWith('/ronda-libre/ABC123'))
+    expect(routerReplace).not.toHaveBeenCalledWith('/ronda-libre/ABC123/score-grupo')
+  })
+
   it('carga ronda + jugadores y deja loading en false', async () => {
     const { result } = renderHook(() => useRondaScoreData('ABC123', null))
     await waitFor(() => expect(result.current.loading).toBe(false))

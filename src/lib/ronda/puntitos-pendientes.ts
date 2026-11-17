@@ -103,6 +103,8 @@ export async function marcarPuntitoConRespaldo(
  * cola. En un juego con plata no pueden desaparecer en silencio: la pantalla (PR C) tiene que avisarlas. */
 export interface ResultadoReenvio {
   enviadas: number
+  /** Las que el servidor guardó, en orden (el scorer las sigue mostrando hasta que llegue un juego que las traiga). */
+  confirmadas: MarcaPendiente[]
   rechazadas: Array<{ marca: MarcaPendiente; code: string }>
   pendientes: number
 }
@@ -116,7 +118,7 @@ export async function reenviarPuntitosPendientes(
   codigo: string,
 ): Promise<ResultadoReenvio> {
   const lista = marcasPendientes(codigo)
-  let enviadas = 0
+  const confirmadas: MarcaPendiente[] = []
   const rechazadas: ResultadoReenvio['rechazadas'] = []
   for (const m of lista) {
     // Un toque nuevo durante el reenvío reemplazó (o, en el greenie, descartó) esta marca: mandarla la pisaría.
@@ -124,7 +126,7 @@ export async function reenviarPuntitosPendientes(
     const r = await enviar(supabase, codigo, m)
     if (quedaPendiente(r.error)) break
     if (r.error) rechazadas.push({ marca: m, code: r.error.code })
-    else enviadas++
+    else confirmadas.push(m)
   }
-  return { enviadas, rechazadas, pendientes: marcasPendientes(codigo).length }
+  return { enviadas: confirmadas.length, confirmadas, rechazadas, pendientes: marcasPendientes(codigo).length }
 }

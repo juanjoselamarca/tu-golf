@@ -21,14 +21,14 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { completarHoyosSinMarcarConPar, completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
-import { hoyosSinTerminarDeJugador } from '@/golf/ronda-libre/match-de-la-ronda'
+import { hoyosQueNoSeRellenan } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { RondaLibre } from '@/types/ronda'
@@ -86,8 +86,14 @@ export function useFinalizeGrupo(input: {
     overrideScores?: Record<string, Record<number, number>>,
     opciones?: { reintentarRechazados?: boolean },
   ) => Promise<ResultadoEnvio>
+  /**
+   * Timba libre: retiros (sus hoyos no se rellenan con par) y el reenvío de los puntos especiales. Con marcas sin
+   * enviar NO se cierra: después de cerrar la RPC las rechaza (P0002) y el juego quedaría sin esos puntos.
+   */
+  /** Timba libre (solo entonces): retiros, envío de marcas y el hoyo en pantalla (el único que se rellena con par). */
+  timba?: { retiros: Readonly<Record<string, number>>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number }
 }): FinalizeGrupo {
-  const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes } = input
+  const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes, timba } = input
   const router = useRouter()
 
   const [finalizing, setFinalizing] = useState(false)
@@ -190,7 +196,11 @@ export function useFinalizeGrupo(input: {
       for (const j of ronda.ronda_libre_jugadores) {
         // Match play: los hoyos que el rival concedió y los posteriores a decidirse el
         // match no se jugaron: no se inventan con par (el historial los estima con par neto).
-        const noRellenar = hoyosSinTerminarDeJugador(matchResult, ronda.ronda_libre_jugadores, j.id)
+        // Timba: solo el hoyo en pantalla si alguien ya lo anotó (el resto sin score es "no jugó") y nunca desde el retiro.
+        const noRellenar = hoyosQueNoSeRellenan({
+          matchResult, jugadores: ronda.ronda_libre_jugadores, jugadorId: j.id, retiros: timba?.retiros, ordenHoyos: hoyos,
+          esTimba: timba != null, hoyoEnPantalla: timba?.hoyoEnPantalla, scores,
+        })
         const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap, noRellenar)
         if (rellenados.length > 0) filledScores[j.id] = completos
       }
@@ -230,6 +240,11 @@ export function useFinalizeGrupo(input: {
         avisarSinServidor()
         return
       }
+      if (timba && !(await timba.enviarMarcas())) {
+        addToast({ ...AVISO_MARCAS_SIN_ENVIAR, type: 'error', duration: 8000 })
+        haptic([30, 60, 30])
+        return
+      }
     }
 
     // Historial: SÓLO la tarjeta de quien anota (`esMiTarjeta`, P0 01-oct-2026).
@@ -249,7 +264,7 @@ export function useFinalizeGrupo(input: {
         }
         const guardado = await guardarTarjetaEnHistorial(supabase, {
           ronda, jugador: j, userId: j.user_id, scores: playerScores, scoresPorJugador: filledScores,
-          hoyos, parMap, ratingsPorTee, conId: true,
+          hoyos, parMap, ratingsPorTee, conId: true, retiradoDesde: timba?.retiros[j.id],
         })
         if (guardado.status === 'sin_hoyos') continue // no jugó ningún hoyo
         if (guardado.status === 'duplicada') {

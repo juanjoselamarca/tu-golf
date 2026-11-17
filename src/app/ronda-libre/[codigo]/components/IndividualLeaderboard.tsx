@@ -1,7 +1,6 @@
 // Leaderboard individual (stroke/stableford) + scorecard expandible. Verbatim del monolito.
 // Se oculta (display:none) en match play, igual que en el original.
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
-import { AvisoPuntosDeLaTimba } from './AvisoPuntosDeLaTimba'
 import Scorecard from '@/components/Scorecard'
 import type { ScorecardProps } from '@/components/Scorecard'
 import { formatOverUnder } from '@/constants/golf'
@@ -39,7 +38,8 @@ export function IndividualLeaderboard({
   ronda, leaderboard, isNetoMode, sinNeto = false, hasCourse, parMap, siMap, courseHcpMap, hcpAMostrar, fechaDisplay, expanded, onToggleExpand,
 }: IndividualLeaderboardProps) {
   // Timba libre: no hay tabla por golpes ni neto; los puntos se ven en la pestaña Juego (spec, "Para el PR C").
-  if (esFormatoPersonalizado(ronda.formato_juego)) return <AvisoPuntosDeLaTimba />
+  // Timba libre: la página muestra `TimbaEnVivo` (puntos de GET /juego); esta tabla por golpes daría un ganador falso.
+  if (esFormatoPersonalizado(ronda.formato_juego)) return null
   // Colores de resultado theme-aware: la tabla va sobre --bg-surface (navy en oscuro), donde la
   // variante clara de Garmin quedaba bajo AA (bogey #92700e = 3.71:1).
   const resultScoreColor = (vsPar: number, played: number) => {

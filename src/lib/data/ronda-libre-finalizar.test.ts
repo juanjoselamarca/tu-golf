@@ -177,6 +177,14 @@ describe('guardarTarjetaEnHistorial', () => {
     expect(ins.cadena.map(c => c[0])).toEqual(['insert', 'select', 'single'])
   })
 
+  it('Timba: la tarjeta del retirado no lleva los golpes anotados desde su retiro (el motor tampoco los cuenta)', async () => {
+    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: c => (c[0][0] === 'insert' ? { data: { id: 'h1' } } : {}) })
+    const r = await guardarTarjetaEnHistorial(sb as never, { ...base(), retiradoDesde: 10 })
+    expect(r.status).toBe('insertada')
+    expect(r.tarjeta.holesPlayed).toBe(9)
+    expect(r.tarjeta.scores.slice(9).every(g => g == null)).toBe(true)
+  })
+
   it('scorer de grupo (conId=false): inserta sin pedir el id (no tropieza con RLS de otro usuario)', async () => {
     const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
     const r = await guardarTarjetaEnHistorial(sb as never, { ...base(), conId: false })

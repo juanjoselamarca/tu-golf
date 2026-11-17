@@ -137,6 +137,13 @@ export interface VistaDelJuego {
   jugadorIds: string[]
   resultado: ResultadoJuego
   golpesRecibidos: Record<string, Record<number, number>>
+  /**
+   * Marcas de puntos especiales guardadas, en orden (`created_at`, `id`). El scorer las muestra marcadas también
+   * en un hoyo pendiente, donde el resultado todavía no las evalúa.
+   */
+  marcas: MarcaPuntito[]
+  /** Jugador → hoyo desde el que se retiró (el scorer no le rellena esos hoyos con par). */
+  retiros: Record<string, number>
 }
 
 export function vistaDelJuego(entrada: EntradaJuego, jugadorIds: string[], resultado: ResultadoJuego): VistaDelJuego {
@@ -145,5 +152,7 @@ export function vistaDelJuego(entrada: EntradaJuego, jugadorIds: string[], resul
     jugadorIds,
     resultado,
     golpesRecibidos: golpesRecibidosPorHoyo(entrada),
+    marcas: entrada.marcas.map(m => ({ jugadorId: m.jugadorId, hoyo: m.hoyo, puntitoId: m.puntitoId })),
+    retiros: { ...(entrada.retiros ?? {}) },
   }
 }

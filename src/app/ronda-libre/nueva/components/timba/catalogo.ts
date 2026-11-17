@@ -4,7 +4,7 @@
  */
 import {
   JUGADORES_POR_PLANTILLA, NOMBRE_FORMATO_PERSONALIZADO, NOMBRE_PLANTILLA, hoyosPorTramoParejo,
-  type PlantillaJuego, type PuntitoDelCatalogo,
+  type PlantillaJuego,
 } from '@/golf/formats/personalizado'
 
 export const TITULO_TIMBA = NOMBRE_FORMATO_PERSONALIZADO
@@ -42,9 +42,5 @@ export function jugadoresDePlantilla(p: PlantillaJuego): string {
   return min === max ? String(min) : `${min}–${max}`
 }
 
-export const NOMBRE_PUNTITO: Record<PuntitoDelCatalogo, string> = {
-  birdie: 'Birdie',
-  sandy: 'Sandy',
-  chipingo: 'Chipingo',
-  greenie: 'Greenie',
-}
+// Fuente única en el dominio (la usan también el scorer y la pestaña Juego).
+export { NOMBRE_PUNTITO } from '@/golf/formats/personalizado'

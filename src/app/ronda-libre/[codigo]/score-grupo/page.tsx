@@ -7,7 +7,7 @@ import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
 import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
 import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
-import { textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
+import { hojaFinalizarTimba, textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
 import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
 import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
@@ -36,8 +36,18 @@ import { useIrAlResultadoSiCerrada } from './hooks/useIrAlResultadoSiCerrada'
 import { useMatchPlayState } from '../hooks/useMatchPlayState'
 import { useGrupoScoreboard } from './hooks/useGrupoScoreboard'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
+import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
+import { PanelDelJuego } from '../components/timba/PanelDelJuego'
+import { PuntosEspecialesDelHoyo } from '../components/timba/PuntosEspecialesDelHoyo'
+import { RetiroDeJugadores } from '../components/timba/RetiroDeJugadores'
+import { HojaDeRetiro } from '../components/timba/HojaDeRetiro'
+import { AvisoMarcasRechazadas } from '../components/timba/AvisoMarcasRechazadas'
 
 const SIN_JUGADORES: Jugador[] = []
+/** Padding superior del panel Juego: el encabezado fijo de la tabla sube lo mismo para pegarse al borde. */
+const PADDING_PANEL_JUEGO_PX = 16
 
 /* ── Main ── */
 export default function ScoreGrupoPage() {
@@ -83,10 +93,22 @@ export default function ScoreGrupoPage() {
     useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio })
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
+  const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
+  // Timba libre: puntos, marcas y retiros (todo de GET /juego). Fuera de una Timba no pide nada.
+  const esTimba = esFormatoPersonalizado(ronda?.formato_juego)
+  const [pestana, setPestana] = useState<PestanaDeLaTimba>('tarjeta')
+  // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
+  const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
+  const timba = useTimbaDelScorer({
+    codigo, activo: esTimba, conexion, jugadores, scores, firma: `${saveStatus}:${JSON.stringify(scores)}`,
+    // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
+    currentHole, ordenHoyos, par: parMap[currentHole],
+  })
   const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
     useFinalizeGrupo({
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores,
+      timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
     })
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
   useBeforeUnloadWarning(hasUnsaved)
@@ -95,13 +117,13 @@ export default function ScoreGrupoPage() {
   const anotar = (jugadorId: string, delta: number) => { if (!finalizing) handleScoreChange(jugadorId, currentHole, delta) }
   const anotarEquipo = (equipoId: string, delta: number) => { if (!finalizing) handleTeamScoreChange(equipoId, currentHole, delta) }
 
-  const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
+    retiros: esTimba ? timba.retiros : undefined,
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
-    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, getPlayerTotal, maxStrokesOnHole,
+    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, parEnPantallaTimba, getPlayerTotal, maxStrokesOnHole,
     hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
   } = board
 
@@ -119,6 +141,8 @@ export default function ScoreGrupoPage() {
       // Auto-fill ALL players who don't have a score for the current hole with par
       const updatedScores = { ...scores }
       for (const j of jugadores) {
+        // Timba: un retirado no juega el hoyo; con par el motor se lo contaría como jugado.
+        if (esTimba && timba.retiradoEn(j.id, currentHole)) continue
         if (updatedScores[j.id]?.[currentHole] == null) {
           updatedScores[j.id] = { ...(updatedScores[j.id] ?? {}), [currentHole]: par }
         }
@@ -177,6 +201,35 @@ export default function ScoreGrupoPage() {
         theme={theme}
       />
 
+      {esTimba && (
+        <>
+          <AvisoMarcasRechazadas lineas={timba.lineasRechazadas} onEntendido={timba.marcas.descartarRechazadas} />
+          <div style={{ padding: '8px 8px 0' }}>
+            <PestanasDeLaTimba activa={pestana} onCambiar={setPestana} />
+          </div>
+        </>
+      )}
+
+      {esTimba && pestana === 'juego' ? (
+        <div id={PANEL_DE_PESTANA('juego')} role="tabpanel" style={{ flex: 1, overflowY: 'auto', padding: `${PADDING_PANEL_JUEGO_PX}px 12px`, minHeight: 0, userSelect: 'text' }}>
+          <PanelDelJuego
+            juego={timba.juego}
+            nombres={timba.nombres}
+            hoyoActual={currentHole}
+            encabezadoFijoEn={`-${PADDING_PANEL_JUEGO_PX}px`}
+            onReintentar={() => { void timba.recargar() }}
+            pie={(
+              <RetiroDeJugadores
+                jugadores={timba.jugadoresParaRetiro}
+                ocupado={timba.marcas.retirando || finalizing}
+                onPedirRetiro={setRetiroPedido}
+                onDeshacer={(id) => { void timba.marcas.retirar(id, null) }}
+              />
+            )}
+          />
+        </div>
+      ) : (
+      <>
       <HoleProgressRow
         ordenHoyos={ordenHoyos}
         currentHole={currentHole}
@@ -198,6 +251,8 @@ export default function ScoreGrupoPage() {
 
       {/* Player columns — scrollable main area */}
       <div
+        id={esTimba ? PANEL_DE_PESTANA('tarjeta') : undefined}
+        role={esTimba ? 'tabpanel' : undefined}
         style={{ flex: 1, overflowY: 'auto', padding: '12px 8px', minHeight: 0 }}
         {...nav.swipeHandlers}
       >
@@ -262,7 +317,11 @@ export default function ScoreGrupoPage() {
           ))}
 
           {/* Individual scoring (hidden for team scoring formats: scramble, foursome, best_ball) */}
-          {!isTeamFormat(formatoJuego) && jugadores.map(j => (
+          {!isTeamFormat(formatoJuego) && jugadores.map(j => esTimba && timba.retiradoEn(j.id, currentHole) ? (
+            <p key={j.id} style={{ margin: 0, padding: '12px 14px', borderRadius: '12px', border: '1px dashed var(--border-md)', color: 'var(--text-2)', fontSize: '14px' }}>
+              {j.nombre} se retiró en el hoyo {timba.retiros[j.id]}: no juega este hoyo.
+            </p>
+          ) : (
             <PlayerScoreCard
               key={j.id}
               jugador={j}
@@ -285,12 +344,34 @@ export default function ScoreGrupoPage() {
               pending={pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole}
               onChange={(delta) => anotar(j.id, delta)}
               theme={theme}
+              accion={esTimba && !finalizing && timba.jugadoresParaRetiro.some(r => r.id === j.id && r.desdeSiSeVa != null) ? (
+                <button
+                  type="button"
+                  onClick={() => setRetiroPedido(j.id)}
+                  disabled={timba.marcas.retirando}
+                  aria-label={`Retirar a ${j.nombre}`}
+                  style={{ minHeight: '44px', minWidth: '44px', margin: '-14px 0', padding: '0 8px', border: 'none', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit', fontSize: '13px', textDecoration: 'underline', textUnderlineOffset: '3px', cursor: 'pointer' }}
+                >
+                  Retirar
+                </button>
+              ) : undefined}
             />
           ))}
+
+          {esTimba && (
+            <PuntosEspecialesDelHoyo
+              hoyo={currentHole}
+              grupos={timba.puntosDelHoyo}
+              nombres={timba.nombres}
+              retirados={timba.retiradosDelHoyo}
+              birdieAutomatico={timba.birdieAutomatico}
+              onAlternar={(jugadorId, puntito) => { if (!finalizing) timba.marcas.alternar(jugadorId, puntito, currentHole) }}
+            />
+          )}
         </div>
       </div>
 
-      {canFinalize && <AvisoTarjetaCompleta completa={hoyosPorMarcar === 0 && !finalizing} enUltimoHoyo={isLastHole} />}
+      {canFinalize && <AvisoTarjetaCompleta completa={hoyosPorMarcar === 0 && hoyosSinJugarTimba.length === 0 && !finalizing} enUltimoHoyo={isLastHole} />}
 
       <GrupoNavBar
         currentHoleIdx={currentHoleIdx}
@@ -302,10 +383,25 @@ export default function ScoreGrupoPage() {
         onFinalize={finalizeRound}
         theme={theme}
       />
+      </>
+      )}
+
+      {(() => {
+        const jugador = retiroPedido ? timba.jugadoresParaRetiro.find(j => j.id === retiroPedido) : undefined
+        return jugador ? (
+          <HojaDeRetiro
+            jugador={jugador}
+            onConfirmar={(desde) => { setRetiroPedido(null); void timba.marcas.retirar(jugador.id, desde) }}
+            onCancelar={() => setRetiroPedido(null)}
+          />
+        ) : null
+      })()}
 
       {confirmFinalize && (
         <ConfirmarFinalizarHoja
-          titulo={textoConfirmarFinalizar(hoyosPorMarcar)}
+          {...(esTimba
+            ? hojaFinalizarTimba({ hoyosSinJugar: hoyosSinJugarTimba, parEnPantalla: parEnPantallaTimba })
+            : { titulo: textoConfirmarFinalizar(hoyosPorMarcar), detalle: undefined })}
           onConfirmar={finalizeRound}
           onCancelar={() => setConfirmFinalize(false)}
         />
