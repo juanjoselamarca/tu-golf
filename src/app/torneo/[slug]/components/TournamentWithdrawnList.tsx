@@ -10,16 +10,17 @@
 // borde rojo, nunca sólo por el color. El lector de pantalla oye "Retirado" o
 // "Descalificado" (texto oculto), no la sigla.
 //
-// 390 px: el nombre se corta con "…" antes de perder el score; el motivo usa hasta
-// dos líneas; el detalle del score puede partirse en dos.
+// 390 px: el nombre y el motivo usan hasta dos líneas (después "…") sin quitarle
+// espacio al score; el detalle del score puede partirse en dos.
 
 import { useId } from 'react'
 import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
+import { SIGLA_FUERA } from '@/golf/leaderboard/fuera-del-ranking'
 import type { WithdrawnEntry } from '../types'
 
 export interface TournamentWithdrawnListProps {
   withdrawnPlayers: WithdrawnEntry[]
-  /** Modo TV (pantalla grande a distancia): todo escala como el resto del modo TV. */
+  /** Modo TV: misma escala que las filas de la tabla, con aire arriba (va después de la tabla). */
   tv?: boolean
 }
 
@@ -40,25 +41,23 @@ const SR_ONLY = {
 export function TournamentWithdrawnList({ withdrawnPlayers, tv = false }: TournamentWithdrawnListProps) {
   const tituloId = useId()
   if (withdrawnPlayers.length === 0) return null
-  // TV: 1,5× en pantalla grande (desde ~850 px de ancho, a escala con el viewport);
-  // en un teléfono queda en el tamaño normal, que es el que cabe a 390 px.
-  const px = (n: number) => (tv ? `clamp(${n}px, ${((n * 1.5) / 12.8).toFixed(3)}vw, ${n * 1.5}px)` : `${n}px`)
 
   return (
-    <section aria-labelledby={tituloId}>
+    // TV: misma escala que las filas de la tabla (que no escalan) y separado de ella.
+    <section aria-labelledby={tituloId} style={tv ? { marginTop: '16px' } : undefined}>
       <div style={{
         background: 'var(--bg-surface)',
         border: '1px solid var(--border)',
-        borderRadius: px(12),
-        padding: `${px(14)} ${px(16)}`,
+        borderRadius: '12px',
+        padding: `14px 16px`,
       }}>
         <h2 id={tituloId} style={{
-          fontSize: px(12),
+          fontSize: '12px',
           color: 'var(--text-2)',
           letterSpacing: '0.08em',
           textTransform: 'uppercase' as const,
           fontWeight: 700,
-          margin: `0 0 ${px(6)}`,
+          margin: `0 0 6px`,
         }}>
           No compiten por posición
         </h2>
@@ -72,9 +71,9 @@ export function TournamentWithdrawnList({ withdrawnPlayers, tv = false }: Tourna
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: px(12),
-                  minHeight: px(48),
-                  padding: `${px(6)} 0`,
+                  gap: '12px',
+                  minHeight: '48px',
+                  padding: `6px 0`,
                   borderTop: i === 0 ? 'none' : '1px solid var(--border)',
                 }}
               >
@@ -82,24 +81,25 @@ export function TournamentWithdrawnList({ withdrawnPlayers, tv = false }: Tourna
                   style={{
                     color: 'var(--text)',
                     border: `1.5px solid ${dq ? 'var(--double)' : 'var(--text-3)'}`,
-                    fontSize: px(11),
+                    fontSize: '11px',
                     fontWeight: 700,
                     letterSpacing: '0.06em',
-                    padding: `${px(2)} 0`,
-                    borderRadius: px(6),
+                    padding: `2px 0`,
+                    borderRadius: '6px',
                     flexShrink: 0,
-                    width: px(42),
+                    width: '42px',
                     boxSizing: 'border-box',
                     textAlign: 'center',
                   }}
                 >
-                  <span aria-hidden="true">{dq ? 'DQ' : 'WD'}</span>
+                  <span aria-hidden="true">{SIGLA_FUERA[wp.status]}</span>
                   <span style={SR_ONLY}>{dq ? 'Descalificado' : 'Retirado'}</span>
                 </span>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{
-                    display: 'block', color: 'var(--text)', fontWeight: 600, fontSize: px(16),
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2,
+                    overflow: 'hidden', overflowWrap: 'anywhere',
+                    color: 'var(--text)', fontWeight: 600, fontSize: '16px', lineHeight: 1.3,
                   }}>
                     {wp.name}
                   </span>
@@ -107,7 +107,7 @@ export function TournamentWithdrawnList({ withdrawnPlayers, tv = false }: Tourna
                     <span style={{
                       display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2,
                       overflow: 'hidden',
-                      color: 'var(--text-2)', fontSize: px(13), lineHeight: 1.35,
+                      color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.35,
                     }}>
                       {wp.reason}
                     </span>
@@ -115,10 +115,10 @@ export function TournamentWithdrawnList({ withdrawnPlayers, tv = false }: Tourna
                 </span>
                 {score && (
                   <span style={{ textAlign: 'right', flexShrink: 1, minWidth: 0, maxWidth: '40%' }}>
-                    <span className="num" style={{ display: 'block', color: 'var(--text)', fontWeight: 700, fontSize: px(16), whiteSpace: 'nowrap' }}>
+                    <span className="num" style={{ display: 'block', color: 'var(--text)', fontWeight: 700, fontSize: '16px', whiteSpace: 'nowrap' }}>
                       {score.valor}
                     </span>
-                    <span className="num" style={{ display: 'block', color: 'var(--text-2)', fontSize: px(12), lineHeight: 1.3 }}>
+                    <span className="num" style={{ display: 'block', color: 'var(--text-2)', fontSize: '12px', lineHeight: 1.3 }}>
                       {score.detalle.map((pieza, j) => (
                         <span key={j}>{j > 0 ? ' ' : ''}<span style={{ whiteSpace: 'nowrap' }}>{pieza}{j < score.detalle.length - 1 ? ' ·' : ''}</span></span>
                       ))}

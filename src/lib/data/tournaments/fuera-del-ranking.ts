@@ -117,8 +117,8 @@ export function pieDeTarjetas(
 }
 
 /**
- * Foursome: los equipos con un miembro WD/DQ salen del ranking y van al pie
- * (Regla 22, decisión de Juanjo 17-nov). Se arman con el MISMO resultado del
+ * Equipos que salen del ranking y van al pie: foursome con un miembro WD/DQ
+ * (Regla 22) y mejor bola que queda DQ (R3.3c/23.2b; decisiones de Juanjo 17-nov). Se arman con el MISMO resultado del
  * motor que la tabla, así que el score del pie es el que tenía el equipo.
  */
 export function separarEquiposFuera<T extends Pick<FoursomeTeamResult, 'teamId' | 'teamNombre' | 'overUnderGross' | 'overUnderNeto' | 'totalGross' | 'holesPlayed'>>(

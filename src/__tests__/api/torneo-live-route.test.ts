@@ -202,6 +202,8 @@ describe('GET /api/torneo/[slug]/live', () => {
       expect(json.teams).toHaveLength(1)
       expect(json.teams[0]).toMatchObject({ id: 'e1', team_total: 7 })
       expect(json.fuera).toBeUndefined()
+      // El retirado va marcado en la fila de su equipo (decisión 17-nov).
+      expect(json.teams[0].players.map((p: { name: string }) => p.name)).toEqual(['Ana · WD', 'Invitada'])
     })
 
     it('mejor bola, WD: sin cambios — los hoyos que el retirado ya jugó cuentan (Regla 23.4)', async () => {
@@ -218,6 +220,26 @@ describe('GET /api/torneo/[slug]/live', () => {
       // Sin las 4-4-4 de la Invitada, queda la tarjeta de Ana: 5-5-5 → 15.
       expect(json.teams[0]).toMatchObject({ team_total: 15, thru: 3 })
       expect(json.fuera).toBeUndefined()
+      expect(json.teams[0].players.map((p: { name: string }) => p.name)).toEqual(['Ana', 'Invitada · DQ'])
+    })
+
+    it('mejor bola, DQ con un hoyo que sólo anotó el descalificado: el EQUIPO entero va al pie como DQ (R3.3c/23.2b)', async () => {
+      conEstado('best_ball', 'disqualified', 'inv')
+      tablas.ronda_libre_jugadores = [{ ...JUGADORES[0], scores: { 1: 5, 2: 5 } }, JUGADORES[1]]
+      const json = await (await pedir()).json()
+      expect(json.teams).toEqual([])
+      expect(json.fuera).toMatchObject([{ id: 'e1', name: 'Los Leones', status: 'disqualified' }])
+    })
+
+    it('mejor bola, ambos DQ: el equipo va al pie como DQ', async () => {
+      conEstado('best_ball', 'disqualified', 'inv')
+      tablas.players = [
+        { id: 'p-ana', user_id: 'u-ana', status: 'disqualified', status_reason: null, player_name: null, profiles: null },
+        { id: 'p-inv', user_id: null, status: 'disqualified', status_reason: null, player_name: null, profiles: null },
+      ]
+      const json = await (await pedir()).json()
+      expect(json.teams).toEqual([])
+      expect(json.fuera).toMatchObject([{ id: 'e1', status: 'disqualified' }])
     })
   })
 
