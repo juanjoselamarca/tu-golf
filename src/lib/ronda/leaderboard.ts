@@ -148,3 +148,16 @@ export function rondaTieneDatos(
 export function mostrarCopiarLink(hayDatos: boolean, tieneCancha: boolean): boolean {
   return hayDatos || !tieneCancha
 }
+
+/**
+ * ¿La ronda cerrada ofrece "Ver mis estadísticas →"? Con sesión, solo a quien jugó la ronda: a un espectador
+ * (siguió el link del grupo) la ronda no le suma nada a sus estadísticas (QA Timba 17-nov). Sin sesión se ofrece:
+ * puede ser un jugador sin cuenta y el botón lo lleva a crearla.
+ */
+export function mostrarVerMisEstadisticas(
+  currentUserId: string | null | undefined,
+  jugadores: ReadonlyArray<{ user_id?: string | null }>,
+): boolean {
+  if (!currentUserId) return true
+  return jugadores.some(j => j.user_id === currentUserId)
+}
