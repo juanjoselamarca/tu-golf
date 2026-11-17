@@ -1,0 +1,21 @@
+-- Rollback de 20261117200000_borrar_torneos_de_prueba.sql: es un borrado de datos, no hay SQL que lo deshaga.
+-- Se vuelve atrás restaurando el respaldo dirigido que se tomó antes de aplicar (fuera del repo, que es público):
+--   %USERPROFILE%\OneDrive\GolfersPlus-Respaldos-borrado-torneos\<AAAA-MM-DD>\  (exportar.mjs en la carpeta padre lo
+--   re-genera en solo lectura; correrlo de nuevo justo antes de aprobar migraciones-prod).
+-- El respaldo diario completo (%USERPROFILE%\OneDrive\GolfersPlus-Respaldos\) también trae todas estas filas.
+--
+-- Restaurar con scripts/respaldo/restaurar.mjs (docs/claude/respaldos.md: token de la Management API a demanda,
+-- primero sin --aplicar para la prueba en tabla temporal, --mostrar-sql por revisor-fable, y recién ahí --aplicar),
+-- modo faltantes, padres antes que hijos:
+--   O=%USERPROFILE%\OneDrive\GolfersPlus-Respaldos-borrado-torneos  F=<AAAA-MM-DD>
+--   for t in tournaments categories flights players tournament_groups tournament_group_players rounds hole_scores \
+--            score_audit_log tournament_rounds tournament_prizes tournament_drafts tournament_draft_collaborators \
+--            tournament_draft_events tournament_draft_share_tokens rondas_libres ronda_libre_jugadores ronda_equipos \
+--            ronda_equipo_jugadores ronda_equipos_scores_orden ronda_libre_puntitos ronda_libre_retiros \
+--            ronda_libre_juego_orden ronda_libre_scores_orden match_pairings; do
+--     node --env-file=.env.local scripts/respaldo/restaurar.mjs --origen "$O" --fecha "$F" --tabla public.$t --aplicar
+--   done
+-- ⚠️ tournament_groups referencia rondas_libres (ronda_libre_id) y tournament_group_players a ronda_libre_jugadores
+--   (jugador_ronda_id): restaurar rondas_libres y ronda_libre_jugadores ANTES que tournament_groups si fallan por FK.
+-- Las taiger_sessions desvinculadas (0 el 17-nov) se re-vinculan con --modo actualizar --ids.
+SELECT 1;
