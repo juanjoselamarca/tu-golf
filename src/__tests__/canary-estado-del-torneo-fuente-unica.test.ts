@@ -54,14 +54,30 @@ const enAlcance = (ruta: string) =>
   (ruta.startsWith('src/lib/') && !ruta.startsWith('src/lib/data/'))
 
 /**
- * Usos que leen el status ESCRITO a propósito, cada uno con su porqué. Agregar una
- * entrada exige el mismo nivel de justificación.
+ * Líneas que leen el status ESCRITO a propósito, cada una con su porqué. La excepción es
+ * por LÍNEA (regex sobre la línea), no por archivo: el resto del archivo sigue vigilado.
+ * Agregar una entrada exige el mismo nivel de justificación.
  */
-const PERMITIDOS: Record<string, string> = {
-  // Podio y resultados oficiales solo con el torneo CERRADO por el organizador (un torneo
-  // pasado de fecha sin cerrar puede tener tarjetas a medio anotar). La pestaña "En vivo"
-  // se ofrece mientras el status lo permite.
-  'src/app/torneo/[slug]/page.tsx': 'resultados oficiales = cierre escrito',
+const PERMITIDOS: Record<string, Array<{ linea: RegExp; porque: string }>> = {
+  'src/app/torneo/[slug]/page.tsx': [
+    {
+      linea: /^\s*isClosed\s*=\s*tournament\.status === 'closed' \|\| tournament\.status === 'published'\s*$/,
+      porque: 'podio y resultados oficiales solo con el torneo CERRADO por el organizador (tarjetas a medio anotar)',
+    },
+  ],
+}
+
+/** Hallazgos de un archivo: cada línea que matchea un patrón y no está permitida. */
+function hallazgosDe(ruta: string, fuente: string): string[] {
+  const permitidas = PERMITIDOS[ruta] ?? []
+  const out: string[] = []
+  sinComentarios(fuente).split('\n').forEach((linea, i) => {
+    if (permitidas.some(({ linea: re }) => re.test(linea))) return
+    for (const { nombre, re } of PATRONES) {
+      if (re.test(linea)) out.push(`${ruta}:${i + 1}: ${nombre}`)
+    }
+  })
+  return out
 }
 
 describe('canario: estado del torneo con una sola fuente (estadoDelTorneo)', () => {
@@ -77,23 +93,27 @@ describe('canario: estado del torneo con una sola fuente (estadoDelTorneo)', () 
 
   it('ninguna pantalla decide el estado de un torneo con un predicado propio', () => {
     const hallazgos: string[] = []
-    for (const { p, ruta } of rutas) {
-      if (PERMITIDOS[ruta]) continue
-      const src = sinComentarios(readFileSync(p, 'utf8'))
-      for (const { nombre, re } of PATRONES) {
-        if (re.test(src)) hallazgos.push(`${ruta}: ${nombre}`)
-      }
-    }
+    for (const { p, ruta } of rutas) hallazgos.push(...hallazgosDe(ruta, readFileSync(p, 'utf8')))
     expect(hallazgos, 'Usa estadoDelTorneo / badgeDelTorneo / torneoEnVivo (src/golf/tournament-live-status.ts)').toEqual([])
   })
 
-  it('cada permitido sigue usando el status escrito (si ya no, sale la entrada)', () => {
-    for (const ruta of Object.keys(PERMITIDOS)) {
+  it('cada línea permitida sigue existiendo (si ya no, sale la entrada)', () => {
+    for (const [ruta, lineas] of Object.entries(PERMITIDOS)) {
       const r = rutas.find((x) => x.ruta === ruta)
       expect(r, ruta).toBeDefined()
-      const src = sinComentarios(readFileSync(r!.p, 'utf8'))
-      expect(PATRONES.some(({ re }) => re.test(src)), ruta).toBe(true)
+      const src = sinComentarios(readFileSync(r!.p, 'utf8')).split('\n')
+      for (const { linea } of lineas) expect(src.some((l) => linea.test(l)), `${ruta} ${linea}`).toBe(true)
     }
+  })
+
+  it('la excepción es por línea: habría cazado la pestaña "En vivo" por status escrito (vuelta 1 de Fable)', () => {
+    const antes = [
+      "    isClosed       = tournament.status === 'closed' || tournament.status === 'published'",
+      "          showLiveTab={isLive || (tournament.status === 'in_progress')}",
+    ].join('\n')
+    expect(hallazgosDe('src/app/torneo/[slug]/page.tsx', antes)).toEqual([
+      'src/app/torneo/[slug]/page.tsx:2: status del torneo comparado con un literal',
+    ])
   })
 
   it('los patrones cazan los predicados que causaron el bug', () => {
