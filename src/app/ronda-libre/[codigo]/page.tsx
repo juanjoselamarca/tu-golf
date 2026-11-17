@@ -217,7 +217,8 @@ function RondaLibrePageContent() {
     }
   }
 
-  const timbaFinalizada = ronda.estado === 'finalizada'
+  // El mismo predicado que corta el polling y habilita guardar (`useTimbaDeLaRonda`, `useGuardarEnMiHistorial`).
+  const timbaFinalizada = esRondaCerrada(ronda.estado)
   const timbaEnVivo = timba.esTimba && (
     <TimbaEnVivo
       juego={timba.juego}
