@@ -127,26 +127,56 @@ export async function fetchRondasNormalizadas(
   // 1000 rows por request) — sin paginar, canchas con id alto quedaban fuera del
   // map y la query reportaba "0 birdies" aunque hubiera muchas rondas matcheadas.
   // Ver bug P12 (auditoría 22-abr-2026).
-  const PAGE_SIZE = MAX_FILAS_POSTGREST
-  const [roundsRes, coursesRes] = await Promise.all([
-    supabase
-      .from('historical_rounds')
-      .select('id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, garmin_scorecard_id, metadata, par_per_hole, formato_juego')
-      .eq('user_id', userId)
-      .or(OR_EXCLUDE_FEDEGOLF)
-      // Desempate determinista: stats corta "Últimas 5" y calcula la tendencia sobre este orden.
-      .order('played_at', { ascending: false })
-      .order('created_at', { ascending: false, nullsFirst: false })
-      .order('id', { ascending: false }),
-    supabase
-      .from('courses')
-      .select('id, nombre, fuente, canonical_course_id'),
-  ])
+  // El catálogo se pide en paralelo con las rondas (antes iban en el mismo Promise.all).
+  const catalogo = leerCatalogoDeCanchas(supabase)
+  const roundsRes = await supabase
+    .from('historical_rounds')
+    .select(`${COLUMNAS_RONDA_NORMALIZABLE}, garmin_scorecard_id`)
+    .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF)
+    // Desempate determinista: stats corta "Últimas 5" y calcula la tendencia sobre este orden.
+    .order('played_at', { ascending: false })
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
 
-  const rawRounds = (roundsRes.data ?? []) as unknown as RawStatsRound[]
-  // Paridad con el route original: un error en courses NO es fatal — el
-  // matching por nombre simplemente no encuentra candidatos.
-  const allCourses = (coursesRes.data ?? []) as CourseCandidate[]
+  if (roundsRes.error) {
+    await captureError(roundsRes.error, { context: 'fetchRondasNormalizadas', userId })
+    return null
+  }
+  return normalizarFilasDeHistorial(supabase, (roundsRes.data ?? []) as unknown as RawStatsRound[], userId, catalogo)
+}
+
+/**
+ * Catálogo de canchas para el matching por nombre. Un error NO es fatal (paridad con
+ * el route original): el matching simplemente no encuentra candidatos.
+ */
+export async function leerCatalogoDeCanchas(supabase: SupabaseClient): Promise<CourseCandidate[]> {
+  const { data } = await supabase.from('courses').select('id, nombre, fuente, canonical_course_id')
+  return (data ?? []) as CourseCandidate[]
+}
+
+/**
+ * Columnas de historical_rounds que necesita normalizarRondas. Quien quiera
+ * RondaNormalizada (historial, stats, dashboard) las pide con esta constante.
+ */
+export const COLUMNAS_RONDA_NORMALIZABLE =
+  'id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, metadata, par_per_hole, formato_juego'
+
+/**
+ * Normaliza filas ya leídas de historical_rounds (con COLUMNAS_RONDA_NORMALIZABLE)
+ * contra el catálogo: trae los course_holes de las canchas que esas filas matchean
+ * y llama a normalizarRondas. Mismo orden de entrada. null si falla la lectura de
+ * hoyos (nunca pares inventados en silencio).
+ */
+export async function normalizarFilasDeHistorial(
+  supabase: SupabaseClient,
+  rawRounds: RawStatsRound[],
+  userId: string,
+  catalogo: Promise<CourseCandidate[]> = leerCatalogoDeCanchas(supabase),
+): Promise<RondaNormalizada[] | null> {
+  const PAGE_SIZE = MAX_FILAS_POSTGREST
+  const allCourses = await catalogo
+  if (rawRounds.length === 0) return []
 
   // Solo se necesitan los hoyos de las canchas que las rondas del usuario
   // matchean: por course_id directo, o por nombre vía el MISMO matcher que usa
@@ -187,8 +217,8 @@ export async function fetchRondasNormalizadas(
     }
   }
 
-  if (roundsRes.error || holesError) {
-    await captureError(roundsRes.error ?? holesError, { context: 'fetchRondasNormalizadas', userId })
+  if (holesError) {
+    await captureError(holesError, { context: 'normalizarFilasDeHistorial', userId })
     return null
   }
 

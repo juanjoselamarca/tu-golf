@@ -15,7 +15,7 @@ const base = {
   organizingTournaments: [],
   recentFinishedTournaments: [],
   finishedRondas: [],
-  historico: [],
+  mejoresDelMes: [],
   comunidad: null,
   fechaHoy: '2026-11-16',
 }

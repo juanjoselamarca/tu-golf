@@ -3,10 +3,10 @@ import type { PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 import Link from 'next/link'
 import { Flag, Trophy, Check } from '@/components/icons'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
-import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
+import type { Tournament, RondaLibre, ComunidadMensaje } from '@/lib/mi-golf/types'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
-import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
-import { textoVsPar } from '@/lib/mi-golf/par'
+import type { MejorDelMes } from '@/golf/stats/mejor-del-mes'
+import { textoVsPar } from '@/golf/share/vs-par'
 import { fechaDeCalendario } from '@/lib/format'
 import { ROTULO_INDICE, CTA_SIN_INDICE, type IndiceVisible } from '@/golf/core/indice-visible'
 import { RUTA_EDITAR_INDICE } from '@/lib/rutas'
@@ -26,7 +26,8 @@ type Props = {
   organizingTournaments: (Tournament & { inscritos: number; hoyoActual: number | null })[]
   recentFinishedTournaments: (Tournament & { posicionFinal: string | null; totalJugadores: number | null })[]
   finishedRondas: RondaConScores[]
-  historico: HistoricalRound[]
+  /** Mejor ronda del mes por bucket de hoyos (`mejoresDelMes`). */
+  mejoresDelMes: MejorDelMes[]
   comunidad: ComunidadMensaje
   fechaHoy: string
 }
@@ -42,7 +43,7 @@ export function CompetenciaTab(props: Props) {
     organizingTournaments,
     recentFinishedTournaments,
     finishedRondas,
-    historico,
+    mejoresDelMes,
     comunidad,
     fechaHoy,
   } = props
@@ -97,7 +98,7 @@ export function CompetenciaTab(props: Props) {
       )}
 
       {/* RONDAS */}
-      {finishedRondas.length > 0 && <Rondas rondas={finishedRondas} historico={historico} fechaHoy={fechaHoy} />}
+      {finishedRondas.length > 0 && <Rondas rondas={finishedRondas} mejoresDelMes={mejoresDelMes} fechaHoy={fechaHoy} />}
 
       {/* COMUNIDAD */}
       {comunidad && <Comunidad comunidad={comunidad} />}
@@ -311,19 +312,18 @@ function Chip({ variant, children }: { variant: 'live' | 'upcoming' | 'finished'
 
 function Rondas({
   rondas,
-  historico,
+  mejoresDelMes,
   fechaHoy,
 }: {
   rondas: RondaConScores[]
-  historico: HistoricalRound[]
+  mejoresDelMes: MejorDelMes[]
   fechaHoy: string
 }) {
   return (
     <div style={{ marginBottom: '24px' }}>
       <SectionLabel label="Últimas rondas" linkText="Ver todas →" linkHref="/perfil/historial" />
       {rondas.slice(0, 3).map((r) => {
-        const matchingHist = r.historicoId ? historico.find((h) => h.id === r.historicoId) : undefined
-        const esMejor = matchingHist ? esMejorDelMes(matchingHist, historico, fechaHoy) : false
+        const mejor = r.historicoId ? mejoresDelMes.find((m) => m.roundId === r.historicoId) : undefined
         const fechaContextual = formatFechaContextual(r.fecha, fechaHoy)
 
         return (
@@ -352,8 +352,8 @@ function Rondas({
                   <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '16px', fontWeight: 700, color: TEXT }}>
                     {r.total_gross}
                   </div>
-                  {esMejor ? (
-                    <div style={{ fontSize: '11px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes</div>
+                  {mejor ? (
+                    <div style={{ fontSize: '13px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes · {mejor.bucket} hoyos</div>
                   ) : r.vsPar != null ? (
                     <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
                       {textoVsPar(r.vsPar)}

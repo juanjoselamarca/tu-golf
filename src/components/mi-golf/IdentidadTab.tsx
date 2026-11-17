@@ -5,6 +5,7 @@ import type { Nivel, StatsForma, TaigerLine } from '@/lib/mi-golf/types'
 import { LevelsBar } from '@/components/perfil/LevelsBar'
 import { ROTULO_INDICE, CTA_SIN_INDICE, type IndiceVisible } from '@/golf/core/indice-visible'
 import { RUTA_EDITAR_INDICE } from '@/lib/rutas'
+import { textoVsPar } from '@/golf/share/vs-par'
 
 type Props = {
   userName: string
@@ -161,7 +162,7 @@ function TuJuego({ stats, ultimasGross }: { stats: StatsForma; ultimasGross: num
             icon={<Trophy size={14} />}
             label="Mejor score"
             value={String(stats.mejorScore.gross)}
-            sub={`${stats.mejorScore.vsPar >= 0 ? '+' : ''}${stats.mejorScore.vsPar} vs par`}
+            sub={`${textoVsPar(stats.mejorScore.vsPar)} · ${stats.mejorScore.hoyos} hoyos`}
             accent
           />
         )}

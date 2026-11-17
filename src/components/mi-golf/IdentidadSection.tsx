@@ -17,7 +17,7 @@ export async function IdentidadSection({ userId, userName }: { userId: string; u
   // El índice que se ve fuera de /perfil es el oficial (profiles.indice); la categoría sale del mismo número.
   const indice = indiceVisible({ indice: data.indice })
   const nivel = indice.estado === 'con-indice' ? getNivel(indice.valor) : null
-  const stats = calcularStatsForma(data.historico)
+  const stats = calcularStatsForma(data.historico, data.rondasNormalizadas ?? [])
   const tendencia = calcularTendencia(data.indice, data.historico)
   const ultimasGross = data.historico
     .slice(0, 5)

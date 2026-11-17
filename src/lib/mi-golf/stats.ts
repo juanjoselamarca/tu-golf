@@ -1,13 +1,25 @@
 // src/lib/mi-golf/stats.ts
 import type { HistoricalRound, StatsForma } from './types'
-import { getVsPar } from './par'
 import { inferHoles } from '@/golf/core/holes'
+import { agregarRondas, bucketPrincipal, type RondaNormalizada } from '@/golf/stats/rondas-normalizadas'
 
-export function calcularStatsForma(rondas: HistoricalRound[]): StatsForma {
+/**
+ * Mejor score: el de /perfil/stats (agregarRondas sobre rondas normalizadas, en el
+ * bucket que más juega el jugador). Nunca un scramble ni un par inventado.
+ */
+function mejorScoreDe(normalizadas: RondaNormalizada[]): StatsForma['mejorScore'] {
+  const bucket = bucketPrincipal(normalizadas)
+  if (bucket == null) return null
+  const agregados = agregarRondas(normalizadas)
+  const mejor = bucket === 18 ? agregados.bestRound18 : agregados.bestRound9
+  return mejor ? { gross: mejor.score, vsPar: mejor.vsPar, hoyos: bucket } : null
+}
+
+export function calcularStatsForma(rondas: HistoricalRound[], normalizadas: RondaNormalizada[]): StatsForma {
   if (rondas.length === 0) {
     return {
       promedioUltimas5: null,
-      mejorScore: null,
+      mejorScore: mejorScoreDe(normalizadas),
       rondasJugadas: 0,
       canchaFavorita: null,
     }
@@ -36,18 +48,7 @@ export function calcularStatsForma(rondas: HistoricalRound[]): StatsForma {
       ? ultimas5.reduce((s, r) => s + (r.total_gross ?? 0), 0) / ultimas5.length
       : null
 
-  // Mejor score = el que tiene MENOR vsPar (mejor performance), no el menor gross.
-  // Esto compara 9 hoyos con 18 hoyos correctamente.
-  const conGross = rondas.filter((r) => r.total_gross != null)
-  let mejorScore: StatsForma['mejorScore'] = null
-  let mejorVsPar = Infinity
-  for (const r of conGross) {
-    const vsPar = getVsPar(r.total_gross, r.holes_played)
-    if (vsPar != null && vsPar < mejorVsPar) {
-      mejorVsPar = vsPar
-      mejorScore = { gross: r.total_gross!, vsPar }
-    }
-  }
+  const mejorScore = mejorScoreDe(normalizadas)
 
   const contador = new Map<string, number>()
   for (const r of rondas) {

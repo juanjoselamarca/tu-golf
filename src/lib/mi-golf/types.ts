@@ -17,7 +17,8 @@ export type Insight = {
 
 export type StatsForma = {
   promedioUltimas5: number | null
-  mejorScore: { gross: number; vsPar: number } | null
+  /** Mejor ronda del bucket principal (`agregarRondas` + `bucketPrincipal`), rotulada con sus hoyos. */
+  mejorScore: { gross: number; vsPar: number; hoyos: 18 | 9 } | null
   rondasJugadas: number
   canchaFavorita: { nombre: string; vecesJugada: number } | null
 }

@@ -50,6 +50,13 @@ export function formatVsParLabel(vs: number): string {
   return vs > 0 ? `+${vs}` : String(vs)
 }
 
+/** Texto de vs-par del dashboard: "par", "+12 vs par", "-1 vs par" ("—" sin dato). */
+export function textoVsPar(vsPar: number | null): string {
+  if (vsPar == null) return '—'
+  if (vsPar === 0) return 'par'
+  return `${formatVsParLabel(vsPar)} vs par`
+}
+
 /**
  * vs-par compacto para leaderboards/notificaciones: `'E'`, `'+3'`, `'-2'`.
  * Usa "E" (even) en vez de "Par" — estándar PGA para marcadores en vivo.
