@@ -8,6 +8,8 @@ import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
 import { textoVsPar } from '@/lib/mi-golf/par'
 import { fechaDeCalendario } from '@/lib/format'
+import { ROTULO_INDICE, CTA_SIN_INDICE, type IndiceVisible } from '@/golf/core/indice-visible'
+import { RUTA_EDITAR_INDICE } from '@/lib/rutas'
 import { UltimaRondaHero } from '@/components/mi-golf/UltimaRondaHero'
 import { getUltimaRondaReciente, type RondaConScores } from '@/lib/mi-golf/ultima-ronda'
 import { HeroActiva, HeroProximo, HeroVacio, Acciones } from './CompetenciaHero'
@@ -15,7 +17,8 @@ import { GOLD, TEXT, TEXT_2, TEXT_3, BORDER_SOFT, BG_SOFT, GREEN } from './compe
 
 type Props = {
   userName: string
-  hcpDisplay: string | null
+  /** Índice oficial del jugador (`indiceVisible`); el Golfers+ se ve solo en /perfil. */
+  indice: IndiceVisible
   activeRonda: RondaLibre | null
   activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null
   torneoInminente: (Tournament & { horaSalida: string | null; diasRestantes: number }) | null
@@ -31,7 +34,7 @@ type Props = {
 export function CompetenciaTab(props: Props) {
   const {
     userName,
-    hcpDisplay,
+    indice,
     activeRonda,
     activeRondaSummary,
     torneoInminente,
@@ -51,13 +54,20 @@ export function CompetenciaTab(props: Props) {
         <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '22px', color: TEXT, fontWeight: 600 }}>
           Hola, {userName}
         </div>
-        {hcpDisplay && (
-          <div style={{ fontSize: '12px', color: TEXT_2, fontWeight: 500 }}>
-            HCP{' '}
-            <span style={{ fontFamily: '"DM Mono", monospace', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '14px' }}>
-              {hcpDisplay}
+        {indice.estado === 'con-indice' ? (
+          <div style={{ fontSize: '13px', color: TEXT_2, fontWeight: 500 }}>
+            {ROTULO_INDICE}{' '}
+            <span className="num" style={{ fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '16px' }}>
+              {indice.texto}
             </span>
           </div>
+        ) : (
+          <Link
+            href={RUTA_EDITAR_INDICE}
+            style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', fontSize: '13px', fontWeight: 600, color: GOLD, textDecoration: 'none' }}
+          >
+            {CTA_SIN_INDICE} →
+          </Link>
         )}
       </div>
 

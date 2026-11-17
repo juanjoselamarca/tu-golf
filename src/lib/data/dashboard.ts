@@ -15,7 +15,6 @@ import type { Tournament, RondaLibre, HistoricalRound } from '@/lib/mi-golf/type
 import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 import { normalizeScores } from '@/lib/data/focus'
 import { captureError } from '@/lib/error-tracking'
-import { fetchRondasIndice } from '@/lib/data/rondas-indice'
 
 // Campos slim de historical_rounds: lo necesario para stats/tendencia/listado.
 // `scores`/`par_per_hole` se omiten a propósito (se traen aparte solo para la
@@ -56,7 +55,8 @@ export type CompetenciaData = {
   activeTournaments: Tournament[]
   rondasLibres: RondaLibre[]
   historico: HistoricalRound[]
-  indiceGolfers: number | null
+  /** `profiles.indice`, el índice oficial: el único que se muestra fuera de /perfil (`indiceVisible`). */
+  indice: number | null
 }
 
 export async function loadCompetenciaData(
@@ -77,7 +77,7 @@ export async function loadCompetenciaData(
     supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado, holes, hoyo_inicio, formato_juego, ronda_libre_jugadores(id, user_id)').eq('creador_id', userId).order('created_at', { ascending: false }).limit(5),
     // created_at desempata las rondas del mismo día en el mismo orden que rondas_libres.
     supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).order('created_at', { ascending: false }).limit(50),
-    supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
+    supabase.from('profiles').select('indice').eq('id', userId).single(),
   ])
 
   return {
@@ -86,7 +86,7 @@ export async function loadCompetenciaData(
     activeTournaments: ((activeRaw || []).map((p) => (p as unknown as { tournaments: Tournament | null }).tournaments).filter(Boolean)) as Tournament[],
     rondasLibres: mapRondasLibres(rondasRaw, userId),
     historico: mapHistoricoSlim(historicoRaw),
-    indiceGolfers: (profile?.indice_golfers as number | null) ?? null,
+    indice: (profile?.indice as number | null) ?? null,
   }
 }
 
@@ -168,10 +168,9 @@ export async function isNewUser(
 // ─────────────────────────── IDENTIDAD ───────────────────────────
 
 export type IdentidadData = {
-  indiceGolfers: number | null
+  /** `profiles.indice`, el índice oficial: el único que se muestra fuera de /perfil (`indiceVisible`). */
+  indice: number | null
   totalRounds: number
-  /** Rondas que promedia el índice (`fetchRondasIndice`, tope 20); null = no se pudo leer. */
-  rondasValidasIndice: number | null
   taigerSessionCount: number
   historico: HistoricalRound[]
 }
@@ -183,21 +182,18 @@ export async function loadIdentidadData(
   const [
     { data: profile },
     { count: totalRounds },
-    rondasIndice,
     { count: taigerSessionCount },
     { data: historicoRaw },
   ] = await Promise.all([
-    supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
+    supabase.from('profiles').select('indice').eq('id', userId).single(),
     supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF),
-    fetchRondasIndice(supabase, userId),
     supabase.from('taiger_sessions').select('*', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).limit(50),
   ])
 
   return {
-    indiceGolfers: (profile?.indice_golfers as number | null) ?? null,
+    indice: (profile?.indice as number | null) ?? null,
     totalRounds: totalRounds ?? 0,
-    rondasValidasIndice: rondasIndice?.length ?? null,
     taigerSessionCount: taigerSessionCount ?? 0,
     historico: mapHistoricoSlim(historicoRaw),
   }

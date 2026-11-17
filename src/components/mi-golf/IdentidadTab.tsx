@@ -2,16 +2,15 @@
 import Link from 'next/link'
 import { Trophy, MapPin, Flag, BarChart3 } from '@/components/icons'
 import type { Nivel, StatsForma, TaigerLine } from '@/lib/mi-golf/types'
-import { NIVELES_ORDEN } from '@/lib/mi-golf/niveles'
-import { MIN_DIFERENCIALES_INDICE } from '@/golf/core/whs-index'
-import { formatearIndice } from '@/golf/handicap-index-range'
+import { LevelsBar } from '@/components/perfil/LevelsBar'
+import { ROTULO_INDICE, CTA_SIN_INDICE, type IndiceVisible } from '@/golf/core/indice-visible'
+import { RUTA_EDITAR_INDICE } from '@/lib/rutas'
 
 type Props = {
   userName: string
-  indiceGolfers: number | null
+  /** Índice oficial del jugador (`indiceVisible`); el Golfers+ se ve solo en /perfil. */
+  indice: IndiceVisible
   nivel: Nivel | null
-  /** Rondas que cuentan para el índice (mismo predicado que el RPC); null = no se pudo leer. */
-  rondasValidasIndice: number | null
   totalRounds: number
   taigerSessionCount: number
   stats: StatsForma
@@ -30,9 +29,8 @@ const BG_SOFT = 'var(--bg-surface)'
 export function IdentidadTab(props: Props) {
   const {
     userName,
-    indiceGolfers,
+    indice,
     nivel,
-    rondasValidasIndice,
     totalRounds,
     taigerSessionCount,
     stats,
@@ -41,9 +39,7 @@ export function IdentidadTab(props: Props) {
   } = props
   void userName
 
-  const mostrarBarraCalibracion = rondasValidasIndice != null && rondasValidasIndice < MIN_DIFERENCIALES_INDICE
   const mostrarBarraTaiger = totalRounds < 5 || taigerSessionCount === 0
-  const mostrarSeccionProgresos = mostrarBarraCalibracion || mostrarBarraTaiger
 
   const mostrarSeccionTuJuego =
     stats.mejorScore != null ||
@@ -53,19 +49,14 @@ export function IdentidadTab(props: Props) {
 
   return (
     <main style={{ padding: '32px 24px 32px', maxWidth: '640px', margin: '0 auto' }}>
-      <Hero indice={indiceGolfers} nivel={nivel} />
+      <Hero indice={indice} />
 
       {nivel && <LevelsBar nivel={nivel} />}
 
-      {mostrarSeccionProgresos && (
+      {mostrarBarraTaiger && (
         <div style={{ margin: '40px 0 0' }}>
           <SectionLabel>Progresos</SectionLabel>
-          {mostrarBarraCalibracion && (
-            <Progreso label="Calibración del índice" actual={rondasValidasIndice} total={MIN_DIFERENCIALES_INDICE} />
-          )}
-          {mostrarBarraTaiger && (
-            <Progreso label="Desbloqueo tAIger+" actual={Math.min(totalRounds, 5)} total={5} />
-          )}
+          <Progreso label="Desbloqueo tAIger+" actual={Math.min(totalRounds, 5)} total={5} />
         </div>
       )}
 
@@ -76,170 +67,49 @@ export function IdentidadTab(props: Props) {
   )
 }
 
-function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null }) {
-  if (indice == null || !nivel) {
-    return (
-      <div style={{ textAlign: 'center', marginBottom: '36px' }}>
-        <div
-          style={{
-            fontFamily: 'var(--font-playfair)',
-            fontSize: '72px',
-            fontWeight: 700,
-            color: TEXT_3,
-            lineHeight: 1,
-            letterSpacing: '-0.02em',
-          }}
-        >
-          —
-        </div>
-        <div
-          style={{
-            fontSize: '11px',
-            fontFamily: 'var(--font-dm-mono)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            color: TEXT_2,
-            fontWeight: 600,
-            marginTop: '8px',
-          }}
-        >
-          Índice Golfers+
-        </div>
-        <div
-          style={{
-            fontFamily: 'var(--font-playfair)',
-            fontSize: '20px',
-            color: TEXT,
-            fontWeight: 600,
-            marginTop: '20px',
-          }}
-        >
-          Sin calibrar
-        </div>
-        <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>
-          Juega {MIN_DIFERENCIALES_INDICE} rondas válidas (canchas con slope y rating) para desbloquear
-        </div>
-      </div>
-    )
-  }
-
+/**
+ * El índice oficial (profiles.indice), rotulado "Índice". Sin índice no se inventa
+ * número: el CTA lleva a /perfil a cargarlo. El Índice Golfers+ vive solo en /perfil.
+ */
+function Hero({ indice }: { indice: IndiceVisible }) {
+  const conIndice = indice.estado === 'con-indice'
   return (
     <div style={{ textAlign: 'center', marginBottom: '24px' }}>
       <div
+        className="num"
         style={{
-          fontFamily: 'var(--font-playfair)',
-          fontSize: '72px',
+          fontSize: '40px',
           fontWeight: 700,
-          color: GOLD,
+          color: conIndice ? GOLD : TEXT_3,
           lineHeight: 1,
           letterSpacing: '-0.02em',
         }}
       >
-        {formatearIndice(indice)}
+        {conIndice ? indice.texto : '—'}
       </div>
-      <div
-        style={{
-          fontSize: '11px',
-          fontFamily: 'var(--font-dm-mono)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          color: TEXT_2,
-          fontWeight: 600,
-          marginTop: '8px',
-        }}
-      >
-        Índice Golfers+
+      <div style={{ fontSize: '13px', color: TEXT_2, fontWeight: 600, marginTop: '8px' }}>
+        {ROTULO_INDICE}
       </div>
-    </div>
-  )
-}
-
-function LevelsBar({ nivel }: { nivel: Nivel }) {
-  const currentIdx = NIVELES_ORDEN.indexOf(nivel.nombre)
-  const pct = Math.round(nivel.posicion_en_banda * 100)
-
-  return (
-    <div style={{ margin: '28px 0 0' }}>
-      {/* Nombre del nivel actual — grande, protagonista */}
-      <div style={{ textAlign: 'center', marginBottom: '14px' }}>
-        <div
+      {!conIndice && (
+        <Link
+          href={RUTA_EDITAR_INDICE}
           style={{
-            fontFamily: 'var(--font-playfair)',
-            fontSize: '28px',
-            color: TEXT,
-            fontWeight: 700,
-            letterSpacing: '-0.01em',
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '44px',
+            marginTop: '8px',
+            padding: '0 18px',
+            border: '1px solid rgba(196,153,42,0.6)',
+            borderRadius: '12px',
+            color: GOLD,
+            fontSize: '14px',
+            fontWeight: 600,
+            textDecoration: 'none',
           }}
         >
-          {nivel.nombre}
-        </div>
-        {nivel.nombre_siguiente && nivel.golpes_hasta_siguiente != null && (
-          <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>
-            <span style={{ fontFamily: 'var(--font-dm-mono)', fontWeight: 700, color: GOLD }}>
-              {nivel.golpes_hasta_siguiente.toFixed(1)}
-            </span>{' '}
-            golpes para pasar a {nivel.nombre_siguiente}
-          </div>
-        )}
-      </div>
-
-      {/* Barra — segmento actual más grueso con glow */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '4px',
-          marginBottom: '10px',
-          alignItems: 'center',
-          height: '12px',
-        }}
-      >
-        {NIVELES_ORDEN.map((n, i) => {
-          const isPast = i < currentIdx
-          const isCurrent = i === currentIdx
-          const segHeight = isCurrent ? '8px' : '4px'
-          const style: React.CSSProperties = {
-            height: segHeight,
-            borderRadius: isCurrent ? '4px' : '2px',
-            position: 'relative',
-            background: isPast
-              ? GOLD
-              : isCurrent
-              ? `linear-gradient(to right, ${GOLD} ${pct}%, ${BORDER} ${pct}%)`
-              : BORDER,
-            boxShadow: isCurrent ? `0 0 10px rgba(196,153,42,0.4)` : 'none',
-            transition: 'all 400ms ease',
-          }
-          return <div key={n} style={style} />
-        })}
-      </div>
-
-      {/* Labels — activo destacado */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '4px',
-          fontSize: '9px',
-          fontFamily: 'var(--font-dm-mono)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          fontWeight: 600,
-          textAlign: 'center',
-        }}
-      >
-        {NIVELES_ORDEN.map((n) => (
-          <div
-            key={n}
-            style={{
-              color: n === nivel.nombre ? GOLD : TEXT_3,
-              fontWeight: n === nivel.nombre ? 700 : 600,
-            }}
-          >
-            {n}
-          </div>
-        ))}
-      </div>
+          {CTA_SIN_INDICE} →
+        </Link>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ExperiencePanel } from '@/components/ExperienceSetup'
 import { LevelsBar } from '@/components/perfil/LevelsBar'
@@ -21,15 +21,23 @@ import { DeleteAccountModal } from './DeleteAccountModal'
 import { GapNote, NivelBadge, SyncHistorialBlock } from './EditorialBlocks'
 import NotificationSettings from '@/components/NotificationSettings'
 
+/** Lleva la vista al formulario de edición y el foco al campo del índice (ya montado). */
+function enfocarCampoIndice() {
+  document.getElementById('edit-form')?.scrollIntoView({ behavior: 'smooth' })
+  document.getElementById('perfil-indice')?.focus({ preventScroll: true })
+}
+
 interface Props {
   initialProfile: Profile
   userEmail: string | null
   tourneysPlayed: number
   cpiData: ResultadoCPI | null
   initialFedegolfStatus: FedegolfStatus
+  /** Llegó desde el CTA "Agrega tu índice" (`RUTA_EDITAR_INDICE`): abre la edición en el campo del índice. */
+  abrirEdicionIndice?: boolean
 }
 
-export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData, initialFedegolfStatus }: Props) {
+export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData, initialFedegolfStatus, abrirEdicionIndice = false }: Props) {
   const [profile, setProfile] = useState<Profile>(initialProfile)
   const [breakdownOpen, setBreakdownOpen] = useState(false)
   const [oficialOpen, setOficialOpen] = useState(false)
@@ -54,6 +62,22 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
     },
     onUnlinked: () => setFedegolfStatus(FEDEGOLF_SIN_VINCULO),
   })
+
+  // Abre el formulario de edición en el campo del índice oficial. Lo usan el botón
+  // "+ Agregar índice" del header y el CTA "Agrega tu índice" de otras pantallas.
+  const { setEditing } = edit
+  const irAEditarIndice = () => {
+    setEditing(true)
+    setTimeout(enfocarCampoIndice, 100)
+  }
+  const edicionIndiceAbierta = useRef(false)
+  useEffect(() => {
+    if (!abrirEdicionIndice || edicionIndiceAbierta.current) return
+    edicionIndiceAbierta.current = true
+    setEditing(true)
+    const t = setTimeout(enfocarCampoIndice, 100)
+    return () => clearTimeout(t)
+  }, [abrirEdicionIndice, setEditing])
 
   // Niveles Golfers+ por skill (handicap). Prioriza Índice Golfers+
   // si está calculado (rendimiento real); fallback a Federación.
@@ -95,7 +119,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
         <ProfileHeaderCard
           profile={profile}
           tourneysPlayed={tourneysPlayed}
-          onAddIndice={() => { edit.setEditing(true); setTimeout(() => document.getElementById('edit-form')?.scrollIntoView({ behavior: 'smooth' }), 100) }}
+          onAddIndice={irAEditarIndice}
         />
 
         <DualIndexCards

@@ -84,7 +84,6 @@ const PERMITIDOS: Array<{ archivo: string; fragmento: string; veces: number; por
   { archivo: 'lib/fedegolf/tarjetas.ts', fragmento: 'promedioCrudo.toFixed(2) !== indice.toFixed(2)', veces: 1, porque: 'compara dos números a la centésima; no se muestra' },
   // Regla 2 ({…} / ${…})
   { archivo: 'app/api/cron/taiger-insights/route.ts', fragmento: 'con índice ${range}', veces: 2, porque: 'range es el tramo en texto de getHandicapRange ("10-18"), no un índice' },
-  { archivo: 'components/mi-golf/CompetenciaTab.tsx', fragmento: '{hcpDisplay}', veces: 1, porque: 'ya es texto: lo arma CompetenciaSection con formatearIndice' },
   { archivo: 'app/coach/progreso/components/MetaResumen.tsx', fragmento: '>{indiceTexto}</div>', veces: 2, porque: 'ya es texto: indiceTexto = formatearIndice(currentHandicap)' },
   { archivo: 'components/Scorecard.tsx', fragmento: "HCP {typeof displayHandicap === 'string' ? displayHandicap : formatearHandicap(", veces: 1, porque: 'la rama cruda es el texto ya armado ("S/Ind", el de 9h); la numérica pasa por formatearHandicap' },
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: '`Índice actual: ${indice}`', veces: 1, porque: PROMPT },

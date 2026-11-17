@@ -8,15 +8,17 @@ import { getNivel } from '@/lib/mi-golf/niveles'
 import { calcularStatsForma } from '@/lib/mi-golf/stats'
 import { calcularTendencia } from '@/lib/mi-golf/tendencia'
 import { getTaigerLine } from '@/lib/mi-golf/taiger-line'
+import { indiceVisible } from '@/golf/core/indice-visible'
 
 export async function IdentidadSection({ userId, userName }: { userId: string; userName: string }) {
   const supabase = await createClient()
   const data = await loadIdentidadData(supabase, userId)
 
-  const indiceGolfers = data.indiceGolfers
-  const nivel = indiceGolfers != null ? getNivel(indiceGolfers) : null
+  // El índice que se ve fuera de /perfil es el oficial (profiles.indice); la categoría sale del mismo número.
+  const indice = indiceVisible({ indice: data.indice })
+  const nivel = indice.estado === 'con-indice' ? getNivel(indice.valor) : null
   const stats = calcularStatsForma(data.historico)
-  const tendencia = calcularTendencia(indiceGolfers, data.historico)
+  const tendencia = calcularTendencia(data.indice, data.historico)
   const ultimasGross = data.historico
     .slice(0, 5)
     .map((r) => r.total_gross)
@@ -34,9 +36,8 @@ export async function IdentidadSection({ userId, userName }: { userId: string; u
   return (
     <IdentidadTab
       userName={userName}
-      indiceGolfers={indiceGolfers}
+      indice={indice}
       nivel={nivel}
-      rondasValidasIndice={data.rondasValidasIndice}
       totalRounds={data.totalRounds}
       taigerSessionCount={data.taigerSessionCount}
       stats={stats}
