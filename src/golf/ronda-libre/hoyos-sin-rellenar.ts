@@ -90,3 +90,15 @@ export function hoyosQueQuedanSinJugarEnLaTimba(input: HoyoEnPantallaDeLaTimba):
     !tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos),
   ))
 }
+
+/**
+ * Timba libre al cerrar: de `hoyosQueQuedanSinJugarEnLaTimba`, los que NADIE de los que seguían jugando anotó. El motor
+ * no los puntúa ("sin_jugar": nadie gana ni pierde); en los demás, quien no anotó pierde contra quien sí. La hoja
+ * de Finalizar los avisa distinto (decisión de Juanjo, 17-nov).
+ */
+export function hoyosQueNadieJugoEnLaTimba(input: HoyoEnPantallaDeLaTimba): number[] {
+  const { jugadores, scores, retiros, ordenHoyos } = input
+  return hoyosQueQuedanSinJugarEnLaTimba(input).filter(h => !jugadores.some(j =>
+    !estaRetiradoEn(retiros?.[j.id], h, ordenHoyos) && scoreDelHoyo(scores[j.id] ?? {}, h) !== undefined,
+  ))
+}

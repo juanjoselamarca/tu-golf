@@ -132,7 +132,7 @@ export default function ScoreGrupoPage() {
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
-    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, parEnPantallaTimba, getPlayerTotal, maxStrokesOnHole,
+    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal, maxStrokesOnHole,
     hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
   } = board
 
@@ -407,7 +407,7 @@ export default function ScoreGrupoPage() {
       {confirmFinalize && (
         <ConfirmarFinalizarHoja
           {...(esTimba
-            ? hojaFinalizarTimba({ hoyosSinJugar: hoyosSinJugarTimba, parEnPantalla: parEnPantallaTimba })
+            ? hojaFinalizarTimba({ hoyosSinJugar: hoyosSinJugarTimba, hoyosQueNadieJugo: hoyosNadieJugoTimba, parEnPantalla: parEnPantallaTimba })
             : { titulo: textoConfirmarFinalizar(hoyosPorMarcar), detalle: undefined })}
           onConfirmar={finalizeRound}
           onCancelar={() => setConfirmFinalize(false)}

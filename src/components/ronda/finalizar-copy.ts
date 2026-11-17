@@ -1,3 +1,5 @@
+import { rangoDeHoyos } from '@/golf/ronda-libre/resultado-de-la-timba'
+
 /** "A", "A y B", "A, B y C": la enumeración de los avisos de Finalizar. */
 function enumerar(items: readonly string[]): string {
   return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`
@@ -78,14 +80,21 @@ export function textoConfirmarFinalizar(hoyosPorMarcar: number): string {
 }
 
 /**
- * Timba libre: la línea bajo la pregunta de Finalizar cuando quedan hoyos sin anotar (fuera del que está en
- * pantalla): al cerrar cuentan como "no jugó" (regla de Juanjo, 26-oct). Copy decidido (16-nov-2026).
- * `hoyos` sale de `hoyosQueQuedanSinJugarEnLaTimba`; vacío → sin línea.
+ * Timba libre: las líneas bajo la pregunta de Finalizar cuando quedan hoyos sin anotar (fuera del que está en
+ * pantalla). Al cerrar cuentan como "no jugó" (regla de Juanjo, 26-oct), pero no es lo mismo para todos
+ * (decisión de Juanjo, 17-nov): un hoyo que nadie jugó no reparte puntos; uno que algunos anotaron lo pierde
+ * quien no anotó. `hoyosSinJugar` sale de `hoyosQueQuedanSinJugarEnLaTimba` y `hoyosQueNadieJugo` de
+ * `hoyosQueNadieJugoEnLaTimba` (subconjunto, en orden de juego). Sin hoyos, sin líneas.
  */
-export function detalleHoyosSinAnotarTimba(hoyos: readonly number[]): string | undefined {
-  if (hoyos.length === 0) return undefined
-  if (hoyos.length === 1) return `Hoyo ${hoyos[0]} sin anotar: cuenta como no jugado y quien no anotó lo pierde.`
-  return `Hoyos ${enumerar(hoyos.map(String))} sin anotar: cuentan como no jugados y quien no anotó los pierde.`
+export function detalleHoyosSinAnotarTimba(hoyosSinJugar: readonly number[], hoyosQueNadieJugo: readonly number[]): string[] {
+  const nadie = hoyosSinJugar.filter(h => hoyosQueNadieJugo.includes(h))
+  const algunos = hoyosSinJugar.filter(h => !hoyosQueNadieJugo.includes(h))
+  const lineas: string[] = []
+  if (nadie.length === 1) lineas.push(`Hoyo ${nadie[0]} sin jugar: no reparte puntos.`)
+  if (nadie.length > 1) lineas.push(`Hoyos ${rangoDeHoyos(nadie)} sin jugar: no reparten puntos.`)
+  if (algunos.length === 1) lineas.push(`Quien no anotó el hoyo ${algunos[0]} lo pierde.`)
+  if (algunos.length > 1) lineas.push(`Quien no anotó los hoyos ${rangoDeHoyos(algunos)} los pierde.`)
+  return lineas
 }
 
 /**
@@ -95,12 +104,11 @@ export function detalleHoyosSinAnotarTimba(hoyos: readonly number[]): string | u
  */
 export function hojaFinalizarTimba(input: {
   hoyosSinJugar: readonly number[]
+  hoyosQueNadieJugo: readonly number[]
   parEnPantalla: { hoyo: number; nombres: readonly string[] } | null
 }): { titulo: string; detalle: string | undefined } {
-  const { hoyosSinJugar, parEnPantalla } = input
-  const lineas: string[] = []
-  const noJugados = detalleHoyosSinAnotarTimba(hoyosSinJugar)
-  if (noJugados) lineas.push(noJugados)
+  const { hoyosSinJugar, hoyosQueNadieJugo, parEnPantalla } = input
+  const lineas = detalleHoyosSinAnotarTimba(hoyosSinJugar, hoyosQueNadieJugo)
   if (parEnPantalla && parEnPantalla.nombres.length > 0) {
     const verbo = parEnPantalla.nombres.length > 1 ? 'quedan' : 'queda'
     lineas.push(`En el hoyo ${parEnPantalla.hoyo}, ${enumerar(parEnPantalla.nombres)} ${verbo} con par.`)
