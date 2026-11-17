@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { esMiTarjeta, indiceVieneDelPerfil, puedeDescartarRonda, anotaLaRonda } from './permisos'
+import { esMiTarjeta, handicapOcultoSinSesion, indiceVieneDelPerfil, puedeDescartarRonda, anotaLaRonda } from './permisos'
 
 describe('puedeDescartarRonda — espejo de descartar_ronda_libre (P0003)', () => {
   const ronda = { creador_id: 'u1', es_demo: false }
@@ -32,18 +32,40 @@ describe('esMiTarjeta — fuente única de "es mi tarjeta" (finalizadores y más
   })
 })
 
-describe('indiceVieneDelPerfil — fuente única de "el índice sale del perfil"', () => {
-  it('cuenta sin handicap en la tarjeta → sí', () => {
-    expect(indiceVieneDelPerfil({ user_id: 'u1', handicap: null })).toBe(true)
-    expect(indiceVieneDelPerfil({ user_id: 'u1' })).toBe(true)
+// Tabla completa: user_id (con/sin) × handicap (null/0/número) × marca (true/false/null).
+// [user_id, handicap, marca, indiceVieneDelPerfil, handicapOcultoSinSesion, caso]
+const TABLA: Array<[string | null, number | null, boolean | null, boolean, boolean, string]> = [
+  ['u1', null, false, true, true, 'cuenta sin handicap en la tarjeta (torneo raw individual): perfil y oculto'],
+  ['u1', null, null, true, true, 'ídem con la marca null'],
+  ['u1', null, true, false, true, 'torneo WHS sin índice inscrito: no cae al perfil (S/Ind), oculto'],
+  ['u1', 12, false, false, false, 'creador de ronda libre que tipeó su índice: manda la tarjeta y se ve'],
+  ['u1', 12, null, false, false, 'ídem con la marca null'],
+  ['u1', 0, false, false, false, 'cuenta con handicap 0 tipeado: se ve'],
+  ['u1', 12, true, false, true, 'torneo con hándicap inscrito: manda la tarjeta, pero oculto'],
+  ['u1', 0, true, false, true, 'torneo con hándicap inscrito 0: oculto'],
+  [null, 7, false, false, false, 'invitado de ronda libre'],
+  [null, 7, true, false, false, 'invitado de torneo: su número se ve'],
+  [null, 0, true, false, false, 'invitado de torneo con 0'],
+  [null, null, false, false, false, 'invitado sin índice'],
+  [null, null, true, false, false, 'invitado de torneo sin índice'],
+  [null, null, null, false, false, 'invitado sin índice, marca null'],
+]
+
+describe('indiceVieneDelPerfil (FUENTE) y handicapOcultoSinSesion (PRIVACIDAD) — tabla completa', () => {
+  it.each(TABLA)('user_id=%s handicap=%s marca=%s → perfil=%s oculto=%s (%s)', (user_id, handicap, marca, perfil, oculto) => {
+    const fila = { user_id, handicap, handicap_de_inscripcion: marca }
+    expect(indiceVieneDelPerfil(fila)).toBe(perfil)
+    expect(handicapOcultoSinSesion(fila)).toBe(oculto)
   })
-  it('cuenta con handicap en la tarjeta (también 0) → no: manda la tarjeta', () => {
-    expect(indiceVieneDelPerfil({ user_id: 'u1', handicap: 12 })).toBe(false)
-    expect(indiceVieneDelPerfil({ user_id: 'u1', handicap: 0 })).toBe(false)
+  it('handicap ausente (undefined) equivale a null', () => {
+    expect(indiceVieneDelPerfil({ user_id: 'u1', handicap_de_inscripcion: false })).toBe(true)
+    expect(handicapOcultoSinSesion({ user_id: 'u1', handicap_de_inscripcion: false })).toBe(true)
   })
-  it('invitado (sin cuenta) → no, tenga o no índice', () => {
-    expect(indiceVieneDelPerfil({ user_id: null, handicap: 7 })).toBe(false)
-    expect(indiceVieneDelPerfil({ user_id: null, handicap: null })).toBe(false)
+  it('invariante: todo índice que sale del perfil está oculto sin sesión', () => {
+    for (const [user_id, handicap, marca] of TABLA) {
+      const fila = { user_id, handicap, handicap_de_inscripcion: marca }
+      if (indiceVieneDelPerfil(fila)) expect(handicapOcultoSinSesion(fila)).toBe(true)
+    }
   })
 })
 

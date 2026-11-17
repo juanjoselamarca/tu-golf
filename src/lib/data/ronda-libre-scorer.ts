@@ -37,7 +37,7 @@ type Client = Pick<SupabaseClient, 'from'>
 
 /** Columnas que necesitan los scorers. Fuente única del SELECT de los dos. */
 export const COLUMNAS_RONDA_SCORER =
-  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
+  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
 
 /** Plazo para leer la ronda: con la base saturada PostgREST tardaba 20-80 s (caída 04-oct-2026). */
 export const PLAZO_CARGA_SCORER_MS = 10_000

@@ -3,7 +3,7 @@
 // del GWI — incluidos los privados (historial, patrones) cuando quien pregunta
 // participa — calcula el GWI aquí y devuelve SOLO la respuesta pública.
 
-import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
+import { handicapOcultoSinSesion } from '@/golf/ronda-libre/permisos'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { publicarGWIParaVisor, vistaPublica } from './tournaments/vista-publica'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
@@ -32,6 +32,7 @@ interface DBJugador {
   id: string; nombre: string; user_id: string | null
   scores: Record<string, number>
   handicap: number | null
+  handicap_de_inscripcion: boolean | null
 }
 
 /** Ventana del historial que mira el GWI de la ronda libre (más reciente primero). */
@@ -57,7 +58,7 @@ export async function gwiDeRondaLibre(
 ): Promise<GWIResponse | null> {
   const { data: ronda } = await supabase
     .from('rondas_libres')
-    .select('id, course_name, course_id, tees, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
+    .select('id, course_name, course_id, tees, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)')
     .eq('codigo', codigo)
     .single()
 
@@ -152,11 +153,11 @@ export async function gwiDeRondaLibre(
   const respuesta = construirRespuestaGWI(participa ? inputs : redactarGWIParaPublico(inputs), {
     totalHoyos, modoJuego: modo, formatoJuego: formato,
   }, filasDelVisorGWI(jugadores, viewerUserId))
-  // Sin sesión, el handicap de un jugador con cuenta (índice del perfil, no de la
-  // tarjeta) no viaja: de ahí se deduce su índice (decisión de producto 08-oct).
-  // Se compone DESPUÉS de la máscara por visor (#506), que no toca `handicapInfo`.
+  // Sin sesión, el handicap de un jugador con cuenta (índice del perfil o de su
+  // inscripción en el torneo) no viaja: de ahí se deduce su índice (decisión de
+  // producto 08-oct). Se compone DESPUÉS de la máscara por visor (#506), que no toca `handicapInfo`.
   const ocultos = viewerUserId
     ? new Set<string>()
-    : new Set(jugadores.filter(indiceVieneDelPerfil).map(j => j.id))
+    : new Set(jugadores.filter(handicapOcultoSinSesion).map(j => j.id))
   return publicarGWIParaVisor(respuesta, ocultos)
 }

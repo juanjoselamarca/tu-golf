@@ -3,8 +3,8 @@ import { idsConHandicapOculto, vistaPublica, filaPublica, datosRondaLibrePublico
 import type { Player } from '@/lib/golf-data'
 
 const jugadores = [
-  { id: 'cuenta', handicap_de_perfil: true },
-  { id: 'invitado', handicap_de_perfil: false },
+  { id: 'cuenta', handicap_oculto_sin_sesion: true },
+  { id: 'invitado', handicap_oculto_sin_sesion: false },
   { id: 'plano' },
 ]
 const p = (id: string): Player => ({

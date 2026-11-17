@@ -22,6 +22,7 @@ import type { Player } from '@/lib/golf-data'
 import type { HcpConSesion } from '@/lib/data/ronda-libre-live-api'
 import { formatLabel, modoDeJuego, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { handicapOcultoSinSesion, type FilaIndice } from '@/golf/ronda-libre/permisos'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
 import {
   construirRespuestaGWI, hoyosJugadosGWI, narrativaNeutraGWI, SIN_FILAS_DEL_VISOR,
@@ -60,11 +61,11 @@ export function vistaPublica(args: {
 
 /** Ids de jugador (`Player.id`) cuyo handicap no se le muestra a este visor. */
 export function idsConHandicapOculto(
-  jugadores: ReadonlyArray<{ id: string; handicap_de_perfil?: boolean }>,
+  jugadores: ReadonlyArray<{ id: string; handicap_oculto_sin_sesion?: boolean }>,
   visorConSesion: boolean,
 ): Set<string> {
   if (visorConSesion) return new Set()
-  return new Set(jugadores.filter((j) => j.handicap_de_perfil).map((j) => j.id))
+  return new Set(jugadores.filter((j) => j.handicap_oculto_sin_sesion).map((j) => j.id))
 }
 
 /**
@@ -200,8 +201,9 @@ export function vistaPublicaDeRondaLibre(ronda: { modo_juego?: string | null; fo
  * cacheada `/api/ronda-libre/[codigo]/live`) viaja como datos CRUDOS (golpes +
  * handicap de tarjeta) y el navegador arma el ranking. Misma regla que el board de
  * torneo (`vistaPublica`): la respuesta pública es la de un visor SIN sesión.
- *  - Siempre: no se leen perfiles (el handicap de un jugador con cuenta sin índice
- *    en la tarjeta, `indiceVieneDelPerfil`, no viaja: queda en `sinIndice`).
+ *  - Siempre: no se leen perfiles y no viaja el handicap de quien lo tiene oculto sin
+ *    sesión (`handicapOcultoSinSesion`: cuenta con índice del perfil o inscrito de torneo):
+ *    queda en `sinIndice` y su `handicap` va en null.
  *  - Ronda NETO (`soloBruto`): no viaja el handicap de NADIE (ni de invitados), ni
  *    course handicap, ni el handicap de equipo: con cualquiera de ellos más el bruto
  *    se deduce el neto.
@@ -212,7 +214,7 @@ export function vistaPublicaDeRondaLibre(ronda: { modo_juego?: string | null; fo
  * `vista.modo`/`vista.formato`). El visor con sesión completa con su ruta privada.
  */
 export function datosRondaLibrePublicos<B extends {
-  ronda: { modo_juego?: string | null; formato_juego?: string | null; ronda_libre_jugadores: Array<{ handicap?: number | null }> }
+  ronda: { modo_juego?: string | null; formato_juego?: string | null; ronda_libre_jugadores: Array<FilaIndice> }
   courseHcpMap: Record<string, number>
   courseHcpCompletoMap?: Record<string, number>
   displayHcpMap: Record<string, number>
@@ -220,7 +222,18 @@ export function datosRondaLibrePublicos<B extends {
   equipos: Array<{ handicap_equipo: number | null; handicap_equipo_juego?: number | null }>
 }>(b: B): B & { vista: VistaPublica } {
   const vista = vistaPublicaDeRondaLibre(b.ronda)
-  if (!vista.soloBruto && !esFormatoPersonalizado(b.ronda.formato_juego)) return { ...b, vista }
+  if (!vista.soloBruto && !esFormatoPersonalizado(b.ronda.formato_juego)) {
+    // El hándicap de la fila de quien tiene oculto el suyo (inscrito de torneo con cuenta)
+    // no viaja; su course handicap ya salió en `sinIndice` (`courseHandicapsDeRonda` con `null`).
+    return {
+      ...b,
+      ronda: {
+        ...b.ronda,
+        ronda_libre_jugadores: b.ronda.ronda_libre_jugadores.map((j) => (handicapOcultoSinSesion(j) ? { ...j, handicap: null } : j)),
+      },
+      vista,
+    }
+  }
   return {
     ...b,
     ronda: { ...b.ronda, ronda_libre_jugadores: b.ronda.ronda_libre_jugadores.map((j) => ({ ...j, handicap: null })) },

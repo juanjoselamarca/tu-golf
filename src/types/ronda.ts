@@ -20,6 +20,12 @@ export interface Jugador {
   user_id: string | null
   scores: Record<string, number>
   handicap?: number | null
+  /**
+   * `true` = el `handicap` lo gobierna la inscripción de un torneo. OBLIGATORIO en el
+   * tipo: los predicados `indiceVieneDelPerfil`/`handicapOcultoSinSesion` la necesitan y
+   * todo select que alimente una `RondaLibre` tiene que traerla.
+   */
+  handicap_de_inscripcion: boolean | null
   tees?: string | null
 }
 
