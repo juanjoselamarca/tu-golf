@@ -105,6 +105,13 @@ export async function fetchHistorialRounds(
 }
 
 /**
+ * Columnas de historical_rounds que necesita normalizarRondas. Quien quiera
+ * RondaNormalizada (historial, stats, dashboard) las pide con esta constante.
+ */
+export const COLUMNAS_RONDA_NORMALIZABLE =
+  'id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, metadata, par_per_hole, formato_juego'
+
+/**
  * Rondas del usuario NORMALIZADAS (pares reales, bucket 9/18, motivo fuera de
  * números), más reciente primero. Fuente única de /perfil/historial y
  * /perfil/stats: las dos pantallas agregan estas mismas rondas.
@@ -154,13 +161,6 @@ export async function leerCatalogoDeCanchas(supabase: SupabaseClient): Promise<C
   const { data } = await supabase.from('courses').select('id, nombre, fuente, canonical_course_id')
   return (data ?? []) as CourseCandidate[]
 }
-
-/**
- * Columnas de historical_rounds que necesita normalizarRondas. Quien quiera
- * RondaNormalizada (historial, stats, dashboard) las pide con esta constante.
- */
-export const COLUMNAS_RONDA_NORMALIZABLE =
-  'id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, metadata, par_per_hole, formato_juego'
 
 /**
  * Normaliza filas ya leídas de historical_rounds (con COLUMNAS_RONDA_NORMALIZABLE)
