@@ -123,8 +123,7 @@ export default function LiveHeader({ tournament, lastUpdate, completedCount, tot
         name={tournament.name}
         format={tournament.format}
         modo={tournament.modo}
-        status={tournament.status}
-        live={tournament.live}
+        torneo={{ status: tournament.status, date_start: tournament.date_start, date_end: tournament.date_end }}
         courseName={tournament.course_name}
         holeCount={tournament.hole_count}
         audience="organizer"

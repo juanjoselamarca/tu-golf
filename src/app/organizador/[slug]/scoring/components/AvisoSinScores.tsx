@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { tournamentStatusLabel, type MotivoSinScores } from '@/golf/tournament-status'
+import { badgeDelStatusEscrito, type MotivoSinScores } from '@/golf/tournament-status'
 
 /**
  * Por qué el organizador no puede anotar en este torneo, y qué hacer. Sólo ofrece reabrir cuando se puede: el
@@ -14,7 +14,7 @@ export function AvisoSinScores({ motivo, status, slug }: {
 }) {
   const noEmpezo = motivo === 'no_empezo'
   const reabrible = status === 'closed'
-  const titulo = noEmpezo ? 'El torneo todavía no empieza' : reabrible ? 'Torneo cerrado' : tournamentStatusLabel(status, 'organizer')
+  const titulo = noEmpezo ? 'El torneo todavía no empieza' : reabrible ? 'Torneo cerrado' : badgeDelStatusEscrito(status, 'organizer').label
   const detalle = noEmpezo
     ? 'Inícialo desde Jugadores para anotar scores.'
     : reabrible

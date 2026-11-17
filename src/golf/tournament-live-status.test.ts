@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { torneoEnVivo, GRACE_DIAS_TORNEO } from './tournament-live-status'
+import { torneoEnVivo, estadoDelTorneo, fechaHoyChile, GRACE_DIAS_TORNEO } from './tournament-live-status'
 
 const HOY = new Date('2026-06-11T15:00:00') // hora local del test
 
@@ -53,5 +53,92 @@ describe('torneoEnVivo', () => {
   it('tolera timestamps completos en date_start/date_end (slice a YYYY-MM-DD)', () => {
     expect(torneoEnVivo('in_progress', '2026-06-11T08:00:00Z', null, HOY)).toBe(true)
     expect(torneoEnVivo('in_progress', '2026-10-30T00:00:00Z', null, HOY)).toBe(false)
+  })
+})
+
+describe('estadoDelTorneo — fuente única del estado que se muestra', () => {
+  // Mediodía de Chile del 17-nov-2026 (verano: UTC-3).
+  const AHORA = new Date('2026-11-17T15:00:00Z')
+  const e = (status: string | null, date_start: string | null, date_end: string | null = null, ahora = AHORA) =>
+    estadoDelTorneo({ status, date_start, date_end }, ahora)
+
+  it('zombie de abril (in_progress, nadie lo cerró) → finalizado', () => {
+    expect(e('in_progress', '2026-04-20')).toBe('finalizado')
+    expect(e('active', '2026-04-22')).toBe('finalizado')
+  })
+
+  it('open con fecha pasada hace más de 48 h → finalizado; dentro de la gracia → por jugar', () => {
+    expect(e('open', '2026-10-30')).toBe('finalizado')
+    expect(e('open', '2026-11-15')).toBe('por_jugar') // 2 días: aún dentro
+  })
+
+  it('cierre a las 48 h: un torneo del sábado 14 sigue en curso el lunes 16 y se cierra el martes 17', () => {
+    expect(e('in_progress', '2026-11-15')).toBe('en_curso') // terminó hace 2 días
+    expect(e('in_progress', '2026-11-14')).toBe('finalizado') // hace 3 días
+  })
+
+  it('varios días: cuenta desde la ÚLTIMA fecha, no desde la primera', () => {
+    expect(e('in_progress', '2026-11-01', '2026-11-16')).toBe('en_curso')
+    expect(e('in_progress', '2026-11-01', '2026-11-14')).toBe('finalizado')
+    // En la mitad del torneo, con la primera fecha hace semanas.
+    expect(e('in_progress', '2026-10-20', '2026-11-20')).toBe('en_curso')
+  })
+
+  it('sin fecha → respeta el status (no esconde un evento real ni inventa uno)', () => {
+    expect(e('in_progress', null)).toBe('en_curso')
+    expect(e('open', null)).toBe('por_jugar')
+    expect(e('closed', null)).toBe('finalizado')
+    expect(e('draft', null)).toBe('borrador')
+  })
+
+  it('fecha en el futuro (2028) → por jugar, aunque esté in_progress', () => {
+    expect(e('in_progress', '2028-03-01')).toBe('por_jugar')
+    expect(e('open', '2028-03-01')).toBe('por_jugar')
+  })
+
+  it('closed / published / finished → finalizado aunque la fecha sea hoy o futura', () => {
+    expect(e('closed', '2026-11-17')).toBe('finalizado')
+    expect(e('published', '2028-01-01')).toBe('finalizado')
+    expect(e('finished', '2026-11-17')).toBe('finalizado')
+  })
+
+  it('draft o status desconocido → borrador, sin importar la fecha', () => {
+    expect(e('draft', '2026-04-20')).toBe('borrador')
+    expect(e('lo_que_sea', '2026-11-17')).toBe('borrador')
+    expect(e(null, '2026-11-17')).toBe('borrador')
+  })
+
+  it('fechas invertidas (date_end < date_start) no cierran antes de tiempo', () => {
+    expect(e('in_progress', '2026-11-17', '2026-01-01')).toBe('en_curso')
+  })
+
+  it('rondas activas pasadas las 48 h no lo reviven: la regla no las mira (decisión documentada)', () => {
+    // "Copa cabros" en prod: ronda in_progress colgada desde abril. Solo status + fechas.
+    expect(estadoDelTorneo({ status: 'in_progress', date_start: '2026-04-20' }, AHORA)).toBe('finalizado')
+  })
+
+  describe('zona horaria: el día es el de Chile, no el del servidor (UTC)', () => {
+    it('22:30 de Chile del martes 17 = 01:30 UTC del miércoles 18: sigue siendo el 17', () => {
+      const nocheChile = new Date('2026-11-18T01:30:00Z')
+      expect(fechaHoyChile(nocheChile)).toBe('2026-11-17')
+      // Torneo del sábado 14: el martes en la noche de Chile se ve finalizado, pero uno
+      // del domingo 15 todavía está dentro de la gracia (el servidor en UTC lo cerraba).
+      expect(e('in_progress', '2026-11-15', null, nocheChile)).toBe('en_curso')
+    })
+
+    it('00:30 de Chile del miércoles 18 = 03:30 UTC: ya es el 18', () => {
+      const madrugada = new Date('2026-11-18T03:30:00Z')
+      expect(fechaHoyChile(madrugada)).toBe('2026-11-18')
+      expect(e('in_progress', '2026-11-15', null, madrugada)).toBe('finalizado')
+    })
+
+    it('torneo de mañana visto a las 23:00 de Chile (02:00 UTC de mañana) no se ve en curso', () => {
+      const noche = new Date('2026-11-18T02:00:00Z') // 23:00 del 17 en Chile
+      expect(e('in_progress', '2026-11-18', null, noche)).toBe('por_jugar')
+    })
+
+    it('invierno (UTC-4): 23:30 del 10-jun en Chile = 03:30 UTC del 11', () => {
+      expect(fechaHoyChile(new Date('2026-06-11T03:30:00Z'))).toBe('2026-06-10')
+    })
   })
 })

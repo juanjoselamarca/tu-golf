@@ -40,8 +40,8 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
 
   const enriquecidosPlaying = enrichPlaying(data.activeTournaments, now)
   const torneoInminente = findTorneoInminente(enriquecidosPlaying, now)
-  const enriquecidosOrganizing = enrichOrganizing(data.organizedTournaments)
-  const finalizadosRecientes = buildFinalizados(data.playedTournaments, data.organizedTournaments)
+  const enriquecidosOrganizing = enrichOrganizing(data.organizedTournaments, now)
+  const finalizadosRecientes = buildFinalizados(data.playedTournaments, data.organizedTournaments, now)
 
   const comunidad: ComunidadMensaje = null
 

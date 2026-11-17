@@ -211,6 +211,8 @@ export async function armarTorneoEnVivo(
     par_total: parTotal,
     course_name: row.courses?.nombre ?? undefined,
     status: normalizeStatus(row.status),
+    date_start: row.date_start ?? null,
+    date_end: row.date_end ?? null,
     // Fuente única de liveness (misma que /torneo): date-aware, no solo status.
     live: torneoEnVivo(row.status, row.date_start, row.date_end, new Date()),
   }

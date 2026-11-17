@@ -23,7 +23,7 @@ import { PlayersTable } from './components/PlayersTable'
 import { TournamentActionsBar } from './components/TournamentActionsBar'
 import { AccionesDeGestion } from './components/AccionesDeGestion'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
-import { tournamentStatusBadge } from '@/golf/tournament-status'
+import { badgeDelStatusEscrito } from '@/golf/tournament-status'
 
 import type { Tournament, Category, Player } from './types'
 import { isTeamFormat } from './types'
@@ -46,7 +46,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const { showError } = useToast()
   const [selectedCat] = useState(categories[0]?.id || '')
   const [tournamentStatus, setTournamentStatus] = useState(tournament.status)
-  const statusBadge = tournamentStatusBadge(tournamentStatus, 'organizer')
+  const statusBadge = badgeDelStatusEscrito(tournamentStatus, 'organizer')
 
   // Inscripción: modo búsqueda de perfil existente vs invitado sin cuenta.
   const [mode, setMode] = useState<InscribirMode>('search')

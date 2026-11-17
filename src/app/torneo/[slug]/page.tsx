@@ -18,7 +18,7 @@ import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
 import type { LiveTeam } from './en-vivo/types'
-import { torneoEnVivo } from '@/golf/tournament-live-status'
+import { torneoEnVivo, estadoDelTorneo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
@@ -141,6 +141,9 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     formatoJuego   = tournament.formato_juego ?? 'stroke_play'
     totalHoyos     = tournament.hole_count ?? 18
     isLive         = torneoEnVivo(tournament.status, tournament.date_start, tournament.date_end, new Date())
+    // Resultados oficiales (podio, compartir resultados, "crear otro igual"): solo con el torneo CERRADO por
+    // el organizador. Un torneo pasado de fecha que nadie cerró se MUESTRA finalizado (cabecera, listas) por
+    // `estadoDelTorneo`, pero su podio no se proclama: puede tener tarjetas a medio anotar.
     isClosed       = tournament.status === 'closed' || tournament.status === 'published'
 
     if (tournament.date_start) {
@@ -299,8 +302,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         format={formatoJuego}
         modo={modoJuego}
         clasificacionBruta={vista.soloBruto}
-        status={tournament?.status ?? null}
-        live={isLive}
+        torneo={{ status: tournament.status, date_start: tournament.date_start, date_end: tournament.date_end }}
         dateDisplay={dateDisplay}
         coverImageUrl={tournament?.cover_image_url ?? null}
         codigo={tournament?.codigo ?? null}
@@ -493,7 +495,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             etiquetaHcpPct={tournament ? etiquetaHcpPct(hcpPctDelTorneo(tournament)) : null}
           />
         ) : (
-          !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} status={tournament?.status} />
+          !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} estado={estadoDelTorneo(tournament, new Date())} />
         )}
 
         {/* Hint sutil cuando hay pocos jugadores y el torneo está en curso */}

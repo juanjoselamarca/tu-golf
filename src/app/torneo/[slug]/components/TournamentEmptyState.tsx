@@ -2,13 +2,17 @@
 //
 // Estado vacío: no hay scores registrados aún. Mensaje neutro y esperanzador.
 
+import type { EstadoDelTorneo } from '@/golf/tournament-live-status'
+
 export interface TournamentEmptyStateProps {
   tournamentFound: boolean
-  status?: string
+  /** De `estadoDelTorneo`. Antes recibía el status crudo y lo comparaba con 'finalizado'/'cerrado',
+   *  valores que `tournaments.status` nunca toma: el texto de torneo finalizado no salía jamás. */
+  estado?: EstadoDelTorneo
 }
 
-export function TournamentEmptyState({ tournamentFound, status }: TournamentEmptyStateProps) {
-  const isFinalized = status === 'finalizado' || status === 'cerrado'
+export function TournamentEmptyState({ tournamentFound, estado }: TournamentEmptyStateProps) {
+  const isFinalized = estado === 'finalizado'
   return (
     <div
       style={{

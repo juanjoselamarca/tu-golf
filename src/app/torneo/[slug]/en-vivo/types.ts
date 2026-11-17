@@ -67,6 +67,9 @@ export interface LiveTournament {
   par_total: number
   course_name?: string
   status: LiveStatus
+  /** Fechas del torneo (YYYY-MM-DD): con el status alimentan `estadoDelTorneo` en la cabecera. */
+  date_start: string | null
+  date_end: string | null
   /**
    * "En vivo" con noción de fecha (torneoEnVivo) — fuente única de liveness,
    * la misma que usa /torneo. El status por sí solo no alcanza: un torneo futuro

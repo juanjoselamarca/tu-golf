@@ -6,6 +6,8 @@
 // /en-vivo y scoring) + codigo de inscripcion.
 
 import { TorneoHeader } from '@/components/torneo/TorneoHeader'
+import { badgeDelTorneo } from '@/golf/tournament-status'
+import type { TorneoConFechas } from '@/golf/tournament-live-status'
 import { TournamentShareButton } from './TournamentShareButton'
 
 export interface TournamentHeaderProps {
@@ -17,10 +19,8 @@ export interface TournamentHeaderProps {
   modo: 'gross' | 'neto'
   /** Vista pública "solo bruto": ver `TorneoHeader.clasificacionBruta`. */
   clasificacionBruta?: boolean
-  /** Estado crudo del torneo (draft|open|in_progress|closed|published). */
-  status: string | null
-  /** "En vivo" con nocion de fecha (torneoEnVivo) -- decide navy vs claro. */
-  live: boolean
+  /** Status + fechas: el estado que se muestra sale de `estadoDelTorneo`. */
+  torneo: TorneoConFechas
   dateDisplay: string
   coverImageUrl: string | null
   codigo: string | null
@@ -28,7 +28,7 @@ export interface TournamentHeaderProps {
 }
 
 export function TournamentHeader(props: TournamentHeaderProps) {
-  const { tournamentName, courseName, totalHoyos, format, modo, clasificacionBruta, status, live, dateDisplay, coverImageUrl, codigo, slug } = props
+  const { tournamentName, courseName, totalHoyos, format, modo, clasificacionBruta, torneo, dateDisplay, coverImageUrl, codigo, slug } = props
 
   return (
     <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
@@ -106,13 +106,12 @@ export function TournamentHeader(props: TournamentHeaderProps) {
         format={format}
         modo={modo}
         clasificacionBruta={clasificacionBruta}
-        status={status}
-        live={live}
+        torneo={torneo}
         courseName={courseName}
         holeCount={totalHoyos}
         dateStr={dateDisplay}
         audience="player"
-        right={<TournamentShareButton slug={slug} tournamentName={tournamentName} status={status} />}
+        right={<TournamentShareButton slug={slug} tournamentName={tournamentName} estadoTexto={badgeDelTorneo(torneo, new Date()).label} />}
       />
 
       {codigo && (

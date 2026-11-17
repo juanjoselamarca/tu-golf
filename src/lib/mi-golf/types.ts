@@ -34,7 +34,11 @@ export type Tournament = {
   slug: string
   status: string
   date_start: string | null
+  /** Última fecha si es de varios días; con status y date_start alimenta `estadoDelTorneo`. */
+  date_end?: string | null
   courses?: { nombre: string } | null
+  /** Solo en los torneos que organiza: estados de los inscritos, para `contarInscritos`. */
+  players?: { status: string | null }[]
 }
 
 export type RondaLibre = {

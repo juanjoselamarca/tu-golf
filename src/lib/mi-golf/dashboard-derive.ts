@@ -7,46 +7,67 @@
 import type { Tournament, HistoricalRound, RondaLibre } from './types'
 import type { RondaNormalizada } from '@/golf/stats/rondas-normalizadas'
 import type { RondaConScores } from './ultima-ronda'
-import { fechaDeCalendario } from '@/lib/format'
+import { estadoDelTorneo, diasHastaFecha, type EstadoDelTorneo } from '@/golf/tournament-live-status'
+import { contarInscritos } from '@/golf/tournament-status'
 
-const UN_DIA_MS = 86400000
-const SIETE_DIAS_MS = 7 * UN_DIA_MS
+const DIAS_INMINENTE = 7
 
-export type PlayingTournament = Tournament & { horaSalida: string | null; diasRestantes: number }
-export type OrganizingTournament = Tournament & { inscritos: number; hoyoActual: number | null }
+export type PlayingTournament = Tournament & { horaSalida: string | null; diasRestantes: number; estado: EstadoDelTorneo }
+export type OrganizingTournament = Tournament & { inscritos: number; hoyoActual: number | null; estado: EstadoDelTorneo }
 export type FinishedTournament = Tournament & { posicionFinal: string | null; totalJugadores: number | null }
 
-/** Torneos donde el usuario juega, enriquecidos con días restantes. */
+/** Por jugar o en curso según `estadoDelTorneo` (la fuente única): lo que sigue vivo para el usuario. */
+const sigueVivo = (estado: EstadoDelTorneo) => estado === 'por_jugar' || estado === 'en_curso'
+
+/**
+ * Torneos donde el usuario juega que siguen vivos (por jugar o en curso), con días
+ * restantes en días calendario de Chile. Un torneo de abril que nadie cerró ya no
+ * aparece en "Jugando en": sale por `estadoDelTorneo` y cae en finalizados.
+ */
 export function enrichPlaying(activeTournaments: Tournament[], now: number): PlayingTournament[] {
-  return activeTournaments.map((t) => {
-    const diasRestantes = t.date_start
-      ? Math.floor((fechaDeCalendario(t.date_start).getTime() - now) / UN_DIA_MS)
-      : 0
-    return { ...t, horaSalida: null, diasRestantes }
-  })
+  const ahora = new Date(now)
+  return activeTournaments
+    .map((t) => ({ t, estado: estadoDelTorneo(t, ahora) }))
+    .filter(({ estado }) => sigueVivo(estado))
+    .map(({ t, estado }) => ({ ...t, horaSalida: null, diasRestantes: diasHastaFecha(t.date_start, ahora) ?? 0, estado }))
 }
 
-/** Primer torneo dentro de la ventana de 7 días (inminente). */
-export function findTorneoInminente(enrichedPlaying: PlayingTournament[], now: number): PlayingTournament | null {
+/** Primer torneo por jugar (o de hoy) dentro de la ventana de 7 días (inminente). */
+export function findTorneoInminente(enrichedPlaying: PlayingTournament[], _now: number): PlayingTournament | null {
   return enrichedPlaying.find(
-    (t) => t.diasRestantes >= 0 && new Date(t.date_start ?? '').getTime() - now <= SIETE_DIAS_MS,
+    (t) => !!t.date_start && t.diasRestantes >= 0 && t.diasRestantes <= DIAS_INMINENTE,
   ) ?? null
 }
 
-/** Torneos que el usuario organiza y siguen activos. */
-export function enrichOrganizing(organizedTournaments: Tournament[]): OrganizingTournament[] {
+/** Torneos que el usuario organiza y siguen vivos, con la cantidad de inscritos (`contarInscritos`). */
+export function enrichOrganizing(organizedTournaments: Tournament[], now: number): OrganizingTournament[] {
+  const ahora = new Date(now)
   return organizedTournaments
-    .filter((t) => t.status === 'open' || t.status === 'in_progress' || t.status === 'active')
-    .map((t) => ({ ...t, inscritos: 0, hoyoActual: null }))
+    .map((t) => ({ t, estado: estadoDelTorneo(t, ahora) }))
+    .filter(({ estado }) => sigueVivo(estado))
+    .map(({ t, estado }) => ({ ...t, inscritos: contarInscritos(t.players), hoyoActual: null, estado }))
 }
 
-/** Últimos 2 torneos finalizados (jugados u organizados). */
+/**
+ * Últimos 2 torneos finalizados (jugados u organizados), del más reciente al más
+ * viejo. Finalizado = `estadoDelTorneo`: incluye los que nadie cerró pasada la fecha.
+ * Un torneo que el usuario juega Y organiza aparece una vez.
+ */
 export function buildFinalizados(
   playedTournaments: Tournament[],
   organizedTournaments: Tournament[],
+  now: number,
 ): FinishedTournament[] {
+  const ahora = new Date(now)
+  const vistos = new Set<string>()
+  const fin = (t: Tournament) => (t.date_end ?? t.date_start ?? '').slice(0, 10)
   return [...playedTournaments, ...organizedTournaments]
-    .filter((t) => t.status === 'finished' || t.status === 'closed')
+    .filter((t) => {
+      if (vistos.has(t.id) || estadoDelTorneo(t, ahora) !== 'finalizado') return false
+      vistos.add(t.id)
+      return true
+    })
+    .sort((a, b) => fin(b).localeCompare(fin(a)))
     .slice(0, 2)
     .map((t) => ({ ...t, posicionFinal: null, totalJugadores: null }))
 }

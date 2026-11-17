@@ -1,26 +1,12 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/utils/supabase/server'
-import { tournamentStatusLabel } from '@/golf/tournament-status'
-
-interface TournamentRow {
-  name: string
-  format: string
-  status: string
-  date_start: string | null
-  courses: { nombre: string } | null
-  /** La tabla es `players`. NO existe `tournament_players` — pedirla devolvía
-   *  PGRST200 y tumbaba TODO el metadata al fallback genérico (bug 20-jul). */
-  players: { id: string }[]
-}
+import { badgeDelTorneo, contarInscritos } from '@/golf/tournament-status'
+import { fetchTorneoParaMetadata } from '@/lib/data/tournaments/metadata'
 
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await props.params
   const supabase = await createClient()
-  const { data: torneo } = await supabase
-    .from('tournaments')
-    .select('name, format, status, date_start, courses(nombre), players(id)')
-    .eq('slug', params.slug)
-    .single<TournamentRow>()
+  const torneo = await fetchTorneoParaMetadata(supabase, params.slug)
 
   if (!torneo) {
     return {
@@ -29,13 +15,13 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
     }
   }
 
-  const nJugadores = torneo.players?.length ?? 0
+  const nJugadores = contarInscritos(torneo.players)
   const courseName = torneo.courses?.nombre ?? ''
   const fecha = torneo.date_start
     ? new Date(torneo.date_start + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
     : ''
 
-  const statusLabel = tournamentStatusLabel(torneo.status)
+  const statusLabel = badgeDelTorneo(torneo, new Date()).label
 
   const parts = [courseName, fecha].filter(Boolean).join(' · ')
   const title = `${torneo.name} — Golfers+`
