@@ -6,7 +6,8 @@
 // torneo decía "Hoy" y desde las 21:00 de Chile del día anterior desaparecía. Las horas
 // ("y M horas") se calculaban contra esa medianoche UTC, no contra la hora de salida.
 
-import { estadoDelTorneo, diasHastaFecha } from '@/golf/tournament-live-status'
+import { diasHastaFecha } from '@/golf/tournament-live-status'
+import { torneoInscribible } from '@/golf/tournament-status'
 
 export interface TournamentCountdownProps {
   dateStart: string | null
@@ -16,8 +17,8 @@ export interface TournamentCountdownProps {
 
 /** Texto del countdown, o null si no corresponde mostrarlo. Exportado para test. */
 export function textoCountdown(p: TournamentCountdownProps, ahora: Date): string | null {
-  if (p.status !== 'open') return null
-  if (estadoDelTorneo({ status: p.status, date_start: p.dateStart, date_end: p.dateEnd }, ahora) !== 'por_jugar') return null
+  // Mismo predicado que el CTA de inscripción: el countdown acompaña a un torneo inscribible.
+  if (!torneoInscribible({ status: p.status, date_start: p.dateStart, date_end: p.dateEnd }, ahora)) return null
   const dias = diasHastaFecha(p.dateStart, ahora)
   if (dias == null || dias < 0) return null
   if (dias === 0) return 'Hoy'

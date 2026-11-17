@@ -44,6 +44,8 @@ const PATRONES: Array<{ nombre: string; re: RegExp }> = [
   },
   { nombre: 'mapa de labels por status', re: /\b(?:in_progress|published)\s*:\s*['"`]/ },
   { nombre: '"en curso" por días restantes negativos', re: /diasRestantes\s*<\s*0/ },
+  // Cualquier objeto (p.status, props.status, status suelto): "¿inscribible?" se arma con torneoInscribible.
+  { nombre: 'inscribible armado a mano con status open', re: /(?:^|[^\w])(?:\w+\??\.)?status\s*[!=]==?\s*'open'/ },
 ]
 
 const enAlcance = (ruta: string) =>
@@ -128,11 +130,16 @@ describe('canario: estado del torneo con una sola fuente (estadoDelTorneo)', () 
   })
 
   it('los patrones cazan los predicados que causaron el bug', () => {
-    const [literal, mapa, dias] = PATRONES.map((x) => x.re)
+    const [literal, mapa, dias, abierto] = PATRONES.map((x) => x.re)
     expect(literal.test("const isLive = t.status === 'in_progress'")).toBe(true)
     expect(literal.test("tournament?.status !== 'closed'")).toBe(true)
     expect(literal.test("match.status === 'in_progress'")).toBe(false)
     expect(mapa.test("const L = { in_progress: 'En vivo' }")).toBe(true)
     expect(dias.test("t.diasRestantes < 0 ? 'En curso'")).toBe(true)
+    // Vuelta 3 de Fable: el countdown armaba "inscribible" con p.status + estado, sin pasar por torneoInscribible.
+    expect(abierto.test("  if (p.status !== 'open') return null")).toBe(true)
+    expect(abierto.test("status === 'open' && estado === 'por_jugar'")).toBe(true)
+    expect(abierto.test("props?.status === 'open'")).toBe(true)
+    expect(abierto.test("const x = substatus === 'open'")).toBe(false)
   })
 })
