@@ -40,7 +40,7 @@ const montar = (finalizada: boolean, juego: EstadoDelJuego = OK) =>
   )
 
 describe('TimbaEnVivo', () => {
-  beforeEach(() => { panel.props.length = 0; compartir.share.mockClear() })
+  beforeEach(() => { panel.props.length = 0; compartir.share.mockClear(); window.scrollTo = vi.fn() as never })
 
   it('los nombres de la tabla quedan fijos bajo el navbar al bajar (la página hace scroll con la ventana)', () => {
     montar(false)

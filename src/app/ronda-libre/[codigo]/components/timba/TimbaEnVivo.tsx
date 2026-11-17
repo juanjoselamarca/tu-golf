@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { nombresCortos } from '@/golf/ronda-libre/tabla-del-juego'
 import { armarResultadoDeLaTimba, textoParaCompartirLaTimba } from '@/golf/ronda-libre/resultado-de-la-timba'
@@ -69,6 +69,16 @@ export function TimbaEnVivo(props: {
   const { juego, onReintentar, jugadores, hoyoInicio, holes, finalizada, cancha, url, compartirPrincipal = true, onIngresar } = props
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('juego')
   const [hoyoAHoyo, setHoyoAHoyo] = useState(false)
+  // Al pasar del resultado a la tabla (y de vuelta), la vista parte arriba: si no, queda a mitad de la tabla y
+  // "Volver al resultado" fuera de la pantalla.
+  const inicio = useRef<HTMLDivElement>(null)
+  const montado = useRef(false)
+  useEffect(() => {
+    if (!montado.current) { montado.current = true; return }
+    const el = inicio.current
+    if (!el || typeof window === 'undefined') return
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - ALTO_NAVBAR_PX - 8) })
+  }, [hoyoAHoyo])
   const nombres = useMemo(() => Object.fromEntries(jugadores.map(j => [j.id, j.nombre])), [jugadores])
   const hoyos = useMemo(() => hoyosDeLaRonda(hoyoInicio ?? 1, holes), [hoyoInicio, holes])
   const resultado = useMemo(
@@ -88,6 +98,7 @@ export function TimbaEnVivo(props: {
   if (resultado && !hoyoAHoyo) {
     return (
       <section style={{ marginBottom: '16px' }}>
+        <div ref={inicio} />
         <ResultadoFinalDeLaTimba
           resultado={resultado}
           onHoyoAHoyo={() => { setPestana('juego'); setHoyoAHoyo(true) }}
@@ -102,6 +113,7 @@ export function TimbaEnVivo(props: {
 
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '16px' }}>
+      <div ref={inicio} />
       {resultado && (
         <button type="button" onClick={() => setHoyoAHoyo(false)} style={VOLVER}>
           Volver al resultado
