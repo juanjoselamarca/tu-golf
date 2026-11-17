@@ -25,29 +25,15 @@ export async function fetchTorneosDelOrganizador(
   supabase: SupabaseClient,
   organizerId: string,
 ): Promise<TorneoDelOrganizador[]> {
+  // Los inscritos van EMBEBIDOS por torneo (como `loadCompetenciaData`): una consulta plana a `players` con
+  // `.in(ids)` la corta el tope de filas de PostgREST y el conteo saldría bajo sin aviso.
   const { data: rawTournaments } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, status, date_start, date_end, hole_count')
+    .select('id, name, slug, format, status, date_start, date_end, hole_count, players(status)')
     .eq('organizer_id', organizerId)
     .order('date_start', { ascending: false })
 
   const rows = rawTournaments ?? []
-  const ids = rows.map((t) => t.id as string)
-  const jugadoresPorTorneo = new Map<string, { status: string | null }[]>()
-  if (ids.length > 0) {
-    // Una sola query para todos los torneos.
-    const { data: playerData } = await supabase
-      .from('players')
-      .select('tournament_id, status')
-      .in('tournament_id', ids)
-    for (const p of playerData ?? []) {
-      const tid = p.tournament_id as string
-      const lista = jugadoresPorTorneo.get(tid) ?? []
-      lista.push({ status: (p.status as string | null) ?? null })
-      jugadoresPorTorneo.set(tid, lista)
-    }
-  }
-
   return rows.map((t) => ({
     id: t.id as string,
     name: (t.name as string) ?? 'Sin nombre',
@@ -57,7 +43,7 @@ export async function fetchTorneosDelOrganizador(
     date_start: t.date_start as string | null,
     date_end: (t.date_end as string | null) ?? null,
     hole_count: (t.hole_count as number) ?? 18,
-    player_count: contarInscritos(jugadoresPorTorneo.get(t.id as string)),
+    player_count: contarInscritos(t.players as { status: string | null }[] | null),
   }))
 }
 
