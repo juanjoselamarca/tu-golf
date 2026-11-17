@@ -5,7 +5,6 @@ import { Users } from '@/components/icons'
 import { inputStyle } from '../styles'
 import type { Player, TournamentGroup } from '../types'
 import { presentacionHandicapInscrito } from '@/golf/handicap-index-range'
-import { GRUPOS_FIJOS_NOTA } from '../hooks/useGroups'
 
 type StatusFilter = 'all' | 'approved' | 'withdrawn' | 'disqualified'
 
@@ -23,8 +22,9 @@ interface Props {
   /** `tournaments.hcp_calc_mode`: decide si lo inscrito es índice o hándicap. */
   hcpCalcMode: string | null | undefined
   getPlayerGroupId: (playerId: string) => string
-  /** Torneo iniciado (`gruposFijos`): el grupo de cada jugador ya no se cambia (#810). */
-  gruposFijos: boolean
+  /** Con los grupos fijos (`notaDeGruposFijos`), por qué el grupo de cada jugador ya no se cambia: se
+   *  muestra como texto, no como select (#810). `null` = todavía se rearman. */
+  notaGruposFijos: string | null
   onAssignPlayer: (playerId: string, groupId: string) => void
   onWithdraw: (playerId: string) => void
   onDisqualify: (playerId: string) => void
@@ -41,7 +41,7 @@ interface Props {
  *  inscrito es el índice; en uno 'raw' (viejo), un hándicap ya convertido. */
 export function PlayersTable({
   players, groups, tournamentStatus, hcpCalcMode,
-  getPlayerGroupId, gruposFijos, onAssignPlayer, onWithdraw, onDisqualify,
+  getPlayerGroupId, notaGruposFijos, onAssignPlayer, onWithdraw, onDisqualify,
 }: Props) {
   const { rotulo: rotuloHcp, formatear } = presentacionHandicapInscrito(hcpCalcMode)
   const [loadingPlayerId, setLoadingPlayerId] = useState<string | null>(null)
@@ -144,9 +144,9 @@ export function PlayersTable({
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          {gruposFijos && groups.length > 0 && (
-            <p id="grupos-fijos-nota" style={{ margin: 0, padding: '10px 16px', fontSize: '13px', color: 'var(--text-2)' }}>
-              {GRUPOS_FIJOS_NOTA}
+          {notaGruposFijos && groups.length > 0 && (
+            <p style={{ margin: 0, padding: '10px 16px', fontSize: '13px', color: 'var(--text-2)' }}>
+              {notaGruposFijos}
             </p>
           )}
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -187,14 +187,16 @@ export function PlayersTable({
                   <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{p.handicap_at_registration != null ? formatear(p.handicap_at_registration) : '—'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
                   <td style={{ padding: '12px 16px' }}>
-                    {groups.length > 0 ? (
+                    {groups.length > 0 && notaGruposFijos ? (
+                      // Grupos fijos: el nombre como texto pleno (legible al sol), no un select apagado.
+                      <span style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>
+                        {groups.find((g) => g.id === getPlayerGroupId(p.id))?.name ?? 'Sin grupo'}
+                      </span>
+                    ) : groups.length > 0 ? (
                       <select
                         value={getPlayerGroupId(p.id)}
                         onChange={(e) => onAssignPlayer(p.id, e.target.value)}
-                        disabled={gruposFijos}
-                        aria-describedby={gruposFijos ? 'grupos-fijos-nota' : undefined}
-                        title={gruposFijos ? GRUPOS_FIJOS_NOTA : undefined}
-                        style={{ ...inputStyle, padding: '6px 8px', minWidth: '120px', minHeight: '44px', ...(gruposFijos ? { opacity: 0.6, cursor: 'not-allowed' } : null) }}
+                        style={{ ...inputStyle, padding: '6px 8px', minWidth: '120px', minHeight: '44px' }}
                       >
                         <option value="">Sin grupo</option>
                         {groups.map((g) => (

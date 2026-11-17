@@ -13,9 +13,10 @@ type Fila = { id: string; name: string; tee_time: null; sort_order: number; rond
 let filas: Fila[] = []
 const assignPlayerToGroup = vi.fn(async () => {})
 const deleteGroup = vi.fn(async () => {})
+const createGroup = vi.fn(async () => {})
 vi.mock('@/lib/data/tournaments/groups', () => ({
   listGroups: vi.fn(async () => filas),
-  createGroup: vi.fn(),
+  createGroup: (...a: unknown[]) => createGroup(...(a as [])),
   deleteGroup: (...a: unknown[]) => deleteGroup(...(a as [])),
   setGroupTeeTime: vi.fn(),
   assignPlayerToGroup: (...a: unknown[]) => assignPlayerToGroup(...(a as [])),
@@ -23,7 +24,7 @@ vi.mock('@/lib/data/tournaments/groups', () => ({
   esErrorGruposFijos: (e: unknown) => e instanceof Error && e.message.startsWith('El torneo ya empezó'),
 }))
 
-import { useGroups } from './useGroups'
+import { useGroups, notaDeGruposFijos, NOTA_GRUPOS_FIJOS } from './useGroups'
 
 const tournament = { id: 't1', slug: 's', format: 'stroke_play' } as never
 const players = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }] as never
@@ -45,6 +46,7 @@ beforeEach(() => {
   showWarning.mockClear()
   assignPlayerToGroup.mockClear()
   deleteGroup.mockClear()
+  createGroup.mockClear()
 })
 
 describe('useGroups con el torneo iniciado (#810)', () => {
@@ -99,5 +101,26 @@ describe('useGroups con el torneo iniciado (#810)', () => {
     assignPlayerToGroup.mockRejectedValueOnce(new Error('El torneo ya empezó: los grupos quedan fijos'))
     await act(async () => { await h.result.current.handleAssignPlayer('p1', 'g2') })
     expect(showWarning).toHaveBeenCalledWith('Grupos fijos', expect.any(String))
+  })
+
+  it('en juego: no se crean grupos que nadie podría poblar', async () => {
+    filas = [grupo('g1', 'r1', ['p1'])]
+    const h = await montar('in_progress')
+    act(() => { h.result.current.setNewGroupName('Nuevo') })
+    await act(async () => { await h.result.current.handleCreateGroup() })
+    expect(createGroup).not.toHaveBeenCalled()
+    expect(showWarning).toHaveBeenCalledWith('Grupos fijos', NOTA_GRUPOS_FIJOS.torneoEmpezado)
+  })
+})
+
+describe('notaDeGruposFijos (#810)', () => {
+  it('sin grupos fijos no hay nota', () => {
+    expect(notaDeGruposFijos('open', [{ ronda_libre_id: null }])).toBeNull()
+  })
+  it('torneo en juego: "El torneo ya empezó"', () => {
+    expect(notaDeGruposFijos('in_progress', [])).toBe(NOTA_GRUPOS_FIJOS.torneoEmpezado)
+  })
+  it('torneo leído "open" con una tarjeta enlazada: dice que los grupos ya tienen tarjeta, no que empezó', () => {
+    expect(notaDeGruposFijos('open', [{ ronda_libre_id: 'r1' }])).toBe(NOTA_GRUPOS_FIJOS.conTarjeta)
   })
 })

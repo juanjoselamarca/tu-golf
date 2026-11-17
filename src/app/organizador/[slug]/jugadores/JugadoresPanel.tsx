@@ -11,7 +11,7 @@ import { ConfirmModal } from '@/components/ConfirmModal'
 import { useTees } from './hooks/useTees'
 import { useProfileSearch } from './hooks/useProfileSearch'
 import { usePlayers } from './hooks/usePlayers'
-import { useGroups } from './hooks/useGroups'
+import { useGroups, NOTA_GRUPOS_FIJOS } from './hooks/useGroups'
 import { desinscribir } from './hooks/desinscribir'
 import { useTournamentLifecycle } from './hooks/useTournamentLifecycle'
 import { TeesAssignmentSection } from './components/TeesAssignmentSection'
@@ -71,7 +71,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const handleDescalificar = disqualifyPlayer
 
   const {
-    groups, gruposCargados, gruposFijos, newGroupName, setNewGroupName, newGroupTeeTime, setNewGroupTeeTime,
+    groups, gruposCargados, gruposFijos, notaGruposFijos, newGroupName, setNewGroupName, newGroupTeeTime, setNewGroupTeeTime,
     creatingGroup, teeStartTime, setTeeStartTime, teeInterval, setTeeInterval,
     generatingTees, fetchGroups, handleCreateGroup, handleDeleteGroup,
     handleGenerateTeeTimes, handleAssignPlayer, getPlayerGroupId,
@@ -206,6 +206,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           onInscribirGuest={handleInscribirGuest}
           onInscribirBatch={handleInscribirBatch}
           hcpCalcMode={tournament.hcp_calc_mode}
+          avisoSinGrupo={gruposFijos ? NOTA_GRUPOS_FIJOS.altaSinGrupo : null}
         />
 
         <GroupsSection
@@ -224,7 +225,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           generatingTees={generatingTees}
           onGenerateTeeTimes={handleGenerateTeeTimes}
           onDeleteGroup={handleDeleteGroup}
-          gruposFijos={gruposFijos}
+          notaGruposFijos={notaGruposFijos}
           isTeam={teamFormat}
           teamSize={teamSize}
         />
@@ -235,7 +236,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           tournamentStatus={tournamentStatus}
           hcpCalcMode={tournament.hcp_calc_mode}
           getPlayerGroupId={getPlayerGroupId}
-          gruposFijos={gruposFijos}
+          notaGruposFijos={notaGruposFijos}
           onAssignPlayer={handleAssignPlayer}
           onWithdraw={handleDesinscribir}
           onDisqualify={handleDescalificar}

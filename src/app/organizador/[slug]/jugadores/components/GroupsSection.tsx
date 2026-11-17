@@ -20,8 +20,9 @@ interface Props {
   generatingTees: boolean
   onGenerateTeeTimes: () => void
   onDeleteGroup: (groupId: string) => void
-  /** Torneo iniciado (`gruposFijos`): un grupo con tarjeta o jugadores ya no se borra (#810). */
-  gruposFijos: boolean
+  /** Con los grupos fijos (`notaDeGruposFijos`), por qué: no se crean grupos ni se borra uno con tarjeta o
+   *  jugadores (#810). `null` = todavía se rearman. */
+  notaGruposFijos: string | null
   /** En formatos de equipo (scramble/best ball/foursome), el grupo ES el
    *  equipo: la sección se re-etiqueta y valida el tamaño esperado. */
   isTeam: boolean
@@ -35,7 +36,7 @@ export function GroupsSection({
   newGroupName, setNewGroupName, newGroupTeeTime, setNewGroupTeeTime,
   creatingGroup, onCreateGroup,
   teeStartTime, setTeeStartTime, teeInterval, setTeeInterval,
-  generatingTees, onGenerateTeeTimes, onDeleteGroup, gruposFijos,
+  generatingTees, onGenerateTeeTimes, onDeleteGroup, notaGruposFijos,
   isTeam, teamSize,
 }: Props) {
   const noun = isTeam ? 'equipo' : 'grupo'
@@ -59,9 +60,12 @@ export function GroupsSection({
         </div>
       )}
 
-      {/* Create group form — disponible en draft, open e in_progress.
-       *  El organizador necesita crear grupos DESPUÉS de que los jugadores se inscriben. */}
-      {tournamentStatus !== 'closed' && (
+      {/* Crear grupo: mientras los grupos se puedan rearmar (antes del inicio). Con los grupos fijos nadie
+       *  podría poblar uno nuevo: en su lugar, la nota de por qué (#810). */}
+      {notaGruposFijos && tournamentStatus !== 'closed' && (
+        <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 20px' }}>{notaGruposFijos}</p>
+      )}
+      {tournamentStatus !== 'closed' && !notaGruposFijos && (
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px' }}>
           <div style={{ flex: '1 1 180px' }}>
             <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre del {noun}</label>
@@ -191,7 +195,7 @@ export function GroupsSection({
                       {g.tee_time.includes('T') ? new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : g.tee_time}
                     </span>
                   )}
-                  {tournamentStatus !== 'closed' && !(gruposFijos && grupoConJuego(g)) && (
+                  {tournamentStatus !== 'closed' && !(notaGruposFijos && grupoConJuego(g)) && (
                     <button
                       aria-label={`Eliminar ${noun} ${g.name}`}
                       onClick={() => {

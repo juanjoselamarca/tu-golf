@@ -11,7 +11,7 @@ import {
   esErrorGruposFijos,
 } from '@/lib/data/tournaments/groups'
 import { isTeamFormat } from '@/golf/formats'
-import { gruposFijos as calcularGruposFijos } from '@/golf/tournament-status'
+import { gruposFijos as calcularGruposFijos, torneoSinEmpezar } from '@/golf/tournament-status'
 import { captureError } from '@/lib/error-tracking'
 import type { Player, Tournament, TournamentGroup } from '../types'
 
@@ -47,7 +47,9 @@ export function useGroups({ tournament, players, tournamentStatus }: UseGroupsAr
 
   // Con el torneo en juego los grupos no se rearman: cada uno ya tiene su tarjeta (#810).
   const gruposFijos = calcularGruposFijos(tournamentStatus, groups)
-  const avisarGruposFijos = () => showWarning('Grupos fijos', GRUPOS_FIJOS_NOTA)
+  const notaGruposFijos = notaDeGruposFijos(tournamentStatus, groups)
+  const avisarGruposFijos = () =>
+    showWarning('Grupos fijos', notaGruposFijos ?? NOTA_GRUPOS_FIJOS.torneoEmpezado)
 
   const fetchGroups = async () => {
     try {
@@ -84,6 +86,8 @@ export function useGroups({ tournament, players, tournamentStatus }: UseGroupsAr
   }
 
   const handleCreateGroup = async () => {
+    // Con los grupos fijos nadie puede poblar un grupo nuevo (#810).
+    if (gruposFijos) { avisarGruposFijos(); return }
     if (!newGroupName.trim()) { showWarning('Nombre requerido', 'Escribe un nombre para el grupo.'); return }
     setCreatingGroup(true)
     // Convierte "HH:MM" a TIMESTAMPTZ usando la fecha del torneo.
@@ -273,7 +277,7 @@ export function useGroups({ tournament, players, tournamentStatus }: UseGroupsAr
   }
 
   return {
-    groups, gruposCargados, gruposFijos,
+    groups, gruposCargados, gruposFijos, notaGruposFijos,
     newGroupName, setNewGroupName,
     newGroupTeeTime, setNewGroupTeeTime,
     creatingGroup,
@@ -286,8 +290,23 @@ export function useGroups({ tournament, players, tournamentStatus }: UseGroupsAr
   }
 }
 
-/** Por qué el organizador ya no puede mover a nadie de grupo (select deshabilitado y aviso). */
-export const GRUPOS_FIJOS_NOTA = 'El torneo ya empezó: los grupos quedan fijos y un WD no mueve a nadie.'
+/** Por qué el organizador ya no puede mover a nadie de grupo, crear ni borrar grupos (nota y aviso). */
+export const NOTA_GRUPOS_FIJOS = {
+  torneoEmpezado: 'El torneo ya empezó: los grupos quedan fijos y un WD no mueve a nadie.',
+  // Torneo leído como "open" pero algún grupo ya tiene tarjeta (pestaña vieja o inicio a medias).
+  conTarjeta: 'Los grupos ya tienen tarjeta: quedan fijos.',
+  // Alta con el torneo iniciado: se permite, pero no entra a ningún grupo (decisión de producto, #810).
+  altaSinGrupo: 'El torneo ya empezó: quedará sin grupo y sin tarjeta.',
+} as const
+
+/** Nota para el organizador con los grupos fijos (`gruposFijos`), o `null` si todavía se pueden rearmar. */
+export function notaDeGruposFijos(
+  status: string | null | undefined,
+  grupos: ReadonlyArray<{ ronda_libre_id?: string | null }>,
+): string | null {
+  if (!calcularGruposFijos(status, grupos)) return null
+  return torneoSinEmpezar(status) ? NOTA_GRUPOS_FIJOS.conTarjeta : NOTA_GRUPOS_FIJOS.torneoEmpezado
+}
 
 /**
  * Grupo que no se puede borrar con los grupos fijos: tiene tarjeta o jugadores. Un grupo vacío y sin tarjeta
