@@ -151,7 +151,8 @@ function ScorePageContent() {
 
   // Con el cierre en pantalla tampoco: la tarjeta ya está en el historial y la ronda puede estar cerrada.
   useOfflineResync({ isOnline, activeJugadorId, finalizando: finalizando || roundDone, scoreSync, saveImmediately })
-  useBeforeUnloadWarning(hasUnsaved)
+  // Con el aviso de sesión cerrada, "Iniciar sesión" navega a propósito y los golpes quedan en el teléfono.
+  useBeforeUnloadWarning(hasUnsaved && sesionCerrada === null)
 
   const { scoreAnimating, handleScoreChange, handleConcedeHole } = useHoleScoreInput({
     codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved,

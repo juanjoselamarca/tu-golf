@@ -46,8 +46,9 @@ export function nuevaSecuencia(): number {
   return ++ultimaSecuencia
 }
 
-/** Código del error sintético de "venció el plazo". Sin red postgrest-js no lanza: devuelve `code: ''`. */
-export const ERRCODE_SIN_RESPUESTA = 'SIN_RESPUESTA'
+// Código del error sintético de "venció el plazo": vive en ronda-libre-cierre (lo usa `rechazoQuePuedeSerSesion`).
+export { ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-cierre'
+import { ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-cierre'
 
 /** Corre la RPC con plazo; red caída o timeout vuelven como error (nunca lanza). */
 async function rpcConPlazo(llamada: () => RpcResult): Promise<{ data?: unknown; error: PostgrestError | null }> {

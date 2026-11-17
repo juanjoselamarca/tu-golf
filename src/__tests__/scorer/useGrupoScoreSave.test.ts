@@ -512,6 +512,40 @@ describe('useGrupoScoreSave — sesión perdida en plena ronda (P0003)', () => {
     expect(result.current.save.pendienteDeEnvio).toBe(false)
   })
 
+  it('sin sesión no repite los 3 intentos (daría lo mismo): un envío y el reintento queda para los 15 s', async () => {
+    saveRondaLibreScores.mockResolvedValue(P0003)
+    sesion.valor = { data: { session: null }, error: null }
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    expect(saveRondaLibreScores).toHaveBeenCalledTimes(1)
+    const r = await act(async () => result.current.save.saveAllScores())
+    expect(r.sesionPerdida).toBe(true)
+  })
+
+  it('scramble/foursome: la RPC de equipos rebota con 42501 (anon sin EXECUTE) y sin sesión también es sesión perdida', async () => {
+    const { saveRondaEquiposScores } = await import('@/lib/data/ronda-libre-scores')
+    const { marcarPendientes } = await import('@/lib/ronda/score-storage')
+    vi.mocked(saveRondaEquiposScores).mockResolvedValue({ error: { code: '42501', message: 'permission denied for function' } } as never)
+    sesion.valor = { data: { session: null }, error: null }
+    marcarPendientes('ABC', 'eq:e1', { 3: 4 })
+    const { result } = montar()
+    await act(async () => { await result.current.save.saveAllScores() })
+    expect(result.current.save.sesionPerdida).toBe(true)
+    vi.mocked(saveRondaEquiposScores).mockResolvedValue({ error: null })
+  })
+
+  it('scramble/foursome: 42501 con sesión válida no es sesión perdida', async () => {
+    const { saveRondaEquiposScores } = await import('@/lib/data/ronda-libre-scores')
+    const { marcarPendientes } = await import('@/lib/ronda/score-storage')
+    vi.mocked(saveRondaEquiposScores).mockResolvedValue({ error: { code: '42501', message: 'permission denied for function' } } as never)
+    marcarPendientes('ABC', 'eq:e1', { 3: 4 })
+    const { result } = montar()
+    await act(async () => { void result.current.save.saveAllScores(); await vi.advanceTimersByTimeAsync(3000) })
+    expect(result.current.save.sesionPerdida).toBe(false)
+    vi.mocked(saveRondaEquiposScores).mockResolvedValue({ error: null })
+  })
+
   it('con sesión (P0003 de verdad): no es sesión perdida', async () => {
     saveRondaLibreScores.mockResolvedValue(P0003)
     const { result } = montar()

@@ -120,7 +120,8 @@ export default function ScoreGrupoPage() {
       timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
     })
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
-  useBeforeUnloadWarning(hasUnsaved)
+  // Con el aviso de sesión, "Iniciar sesión" navega a propósito y los golpes quedan en el teléfono: sin advertencia.
+  useBeforeUnloadWarning(hasUnsaved && !sesionPerdida)
   // Mientras se finaliza no se aceptan golpes: un tap tardío llegaría después del cierre
   // (P0002), no entraría al historial y mostraría "se cerró desde otro dispositivo".
   const anotar = (jugadorId: string, delta: number) => { if (!finalizing) { marcarInteraccion(); handleScoreChange(jugadorId, currentHole, delta) } }

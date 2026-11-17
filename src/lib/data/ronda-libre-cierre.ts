@@ -25,13 +25,19 @@ export const RONDA_ERRCODE = {
  */
 export const RONDA_DEMO_DETAIL = 'ronda demo'
 
+/** Código del error sintético de "venció el plazo". Sin red postgrest-js no lanza: devuelve `code: ''`. */
+export const ERRCODE_SIN_RESPUESTA = 'SIN_RESPUESTA'
+
 /**
- * Un P0003 que puede ser la sesión y no la tarjeta: todo P0003 menos el de la ronda demo. Lo típico es la sesión
- * vencida o cerrada (el RPC corrió como anónimo); quien lo recibe mira la sesión del teléfono (`sesionDelScorer`)
- * antes de decir "sin permiso". Lo usan los dos scorers de ronda libre.
+ * Un rechazo que puede ser la sesión: cualquier respuesta del servidor (no de transporte: ni `''` sin red ni
+ * `SIN_RESPUESTA`) salvo el P0003 de la ronda demo. No se decide por el código porque cada RPC rebota distinto
+ * sin sesión: `upsert_ronda_libre_scores` (anon puede ejecutarla) da P0003; `upsert_ronda_equipos_scores` (anon
+ * sin EXECUTE) da 42501. Quien lo recibe mira la sesión del teléfono (`sesionDelScorer`) y sólo `sin_sesion`
+ * cuenta como sesión perdida. Lo usan los dos scorers de ronda libre.
  */
 export function rechazoQuePuedeSerSesion(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
-  return error?.code === RONDA_ERRCODE.FORBIDDEN && error.details !== RONDA_DEMO_DETAIL
+  if (!error?.code || error.code === ERRCODE_SIN_RESPUESTA) return false
+  return !(error.code === RONDA_ERRCODE.FORBIDDEN && error.details === RONDA_DEMO_DETAIL)
 }
 
 /**
