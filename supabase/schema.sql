@@ -861,6 +861,10 @@ create table public."taiger_sessions" (
   "is_primary" boolean default false not null,
   "updated_at" timestamp with time zone default now() not null
 );
+create table public."timba_probadores" (
+  "user_id" uuid not null,
+  "creado_en" timestamp with time zone default now() not null
+);
 create table public."tournament_draft_collaborators" (
   "draft_id" uuid not null,
   "user_id" uuid not null,
@@ -2307,6 +2311,16 @@ AS $function$
   SELECT auth.uid() IS NOT NULL
      AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin');
 $function$;
+CREATE OR REPLACE FUNCTION public.usuario_puede_crear_timba()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT auth.uid() IS NOT NULL
+     AND (public.usuario_es_admin()
+          OR EXISTS (SELECT 1 FROM public.timba_probadores t WHERE t.user_id = auth.uid()));
+$function$;
 CREATE OR REPLACE FUNCTION public.validate_score_delta(p_delta jsonb)
  RETURNS void
  LANGUAGE plpgsql
@@ -2539,6 +2553,7 @@ alter table public."taiger_recommendations" add constraint "taiger_recommendatio
 alter table public."taiger_sessions" add constraint "taiger_sessions_pkey" PRIMARY KEY (id);
 alter table public."taiger_sessions" add constraint "taiger_sessions_rating_check" CHECK (((rating >= 1) AND (rating <= 5)));
 alter table public."taiger_sessions" add constraint "taiger_sessions_session_type_check" CHECK ((session_type = ANY (ARRAY['continuous'::text, 'post_round'::text, 'weekly_plan'::text, 'pre_tournament'::text, 'onboarding'::text, 'free'::text])));
+alter table public."timba_probadores" add constraint "timba_probadores_pkey" PRIMARY KEY (user_id);
 alter table public."tournament_draft_collaborators" add constraint "tournament_draft_collaborators_pkey" PRIMARY KEY (draft_id, user_id);
 alter table public."tournament_draft_collaborators" add constraint "tournament_draft_collaborators_role_check" CHECK ((role = ANY (ARRAY['owner'::text, 'collaborator'::text])));
 alter table public."tournament_draft_events" add constraint "tournament_draft_events_pkey" PRIMARY KEY (id);
@@ -2653,6 +2668,7 @@ alter table public."taiger_recommendations" add constraint "taiger_recommendatio
 alter table public."taiger_sessions" add constraint "taiger_sessions_ronda_libre_id_fkey" FOREIGN KEY (ronda_libre_id) REFERENCES public.rondas_libres(id);
 alter table public."taiger_sessions" add constraint "taiger_sessions_tournament_id_fkey" FOREIGN KEY (tournament_id) REFERENCES public.tournaments(id);
 alter table public."taiger_sessions" add constraint "taiger_sessions_user_id_fkey" FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+alter table public."timba_probadores" add constraint "timba_probadores_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public."tournament_draft_collaborators" add constraint "tournament_draft_collaborators_added_by_fkey" FOREIGN KEY (added_by) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public."tournament_draft_collaborators" add constraint "tournament_draft_collaborators_draft_id_fkey" FOREIGN KEY (draft_id) REFERENCES public.tournament_drafts(id) ON DELETE CASCADE;
 alter table public."tournament_draft_collaborators" add constraint "tournament_draft_collaborators_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
@@ -2886,6 +2902,7 @@ alter table public."taiger_feedback" enable row level security;
 alter table public."taiger_message_feedback" enable row level security;
 alter table public."taiger_recommendations" enable row level security;
 alter table public."taiger_sessions" enable row level security;
+alter table public."timba_probadores" enable row level security;
 alter table public."tournament_draft_collaborators" enable row level security;
 alter table public."tournament_draft_events" enable row level security;
 alter table public."tournament_draft_share_tokens" enable row level security;
@@ -3064,8 +3081,8 @@ create policy "crear_ronda" on "public"."rondas_libres" as permissive for insert
 create policy "eliminar_ronda" on "public"."rondas_libres" as permissive for delete to "authenticated" using ((auth.uid() = creador_id));
 create policy "rondas_libres_demo_readonly_delete" on "public"."rondas_libres" as restrictive for delete to public using ((es_demo = false));
 create policy "rondas_libres_demo_readonly_update" on "public"."rondas_libres" as restrictive for update to public using ((es_demo = false)) with check ((es_demo = false));
-create policy "rondas_libres_personalizado_solo_admin_insert" on "public"."rondas_libres" as restrictive for insert to public with check (((formato_juego <> 'personalizado'::text) OR public.usuario_es_admin()));
-create policy "rondas_libres_personalizado_solo_admin_update" on "public"."rondas_libres" as restrictive for update to public using (true) with check (((formato_juego <> 'personalizado'::text) OR public.usuario_es_admin()));
+create policy "rondas_libres_personalizado_solo_admin_insert" on "public"."rondas_libres" as restrictive for insert to public with check (((formato_juego <> 'personalizado'::text) OR public.usuario_puede_crear_timba()));
+create policy "rondas_libres_personalizado_solo_admin_update" on "public"."rondas_libres" as restrictive for update to public using (true) with check (((formato_juego <> 'personalizado'::text) OR public.usuario_puede_crear_timba()));
 create policy "ver_rondas" on "public"."rondas_libres" as permissive for select to public using (true);
 create policy "round_metrics_owner_read" on "public"."round_metrics" as permissive for select to public using ((auth.uid() = user_id));
 create policy "round_metrics_service_write" on "public"."round_metrics" as permissive for all to "service_role" using (true) with check (true);
@@ -3201,6 +3218,7 @@ revoke all on table public."taiger_feedback" from public, anon, authenticated, s
 revoke all on table public."taiger_message_feedback" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."taiger_recommendations" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."taiger_sessions" from public, anon, authenticated, service_role, postgres;
+revoke all on table public."timba_probadores" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."tournament_draft_collaborators" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."tournament_draft_events" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."tournament_draft_share_tokens" from public, anon, authenticated, service_role, postgres;
@@ -3254,6 +3272,7 @@ revoke all on function public.update_updated_at() from public, anon, authenticat
 revoke all on function public.upsert_ronda_equipos_scores(uuid,text,jsonb,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.upsert_ronda_libre_scores(uuid,text,jsonb,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.usuario_es_admin() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.usuario_puede_crear_timba() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.validate_score_delta(jsonb) from public, anon, authenticated, service_role, postgres;
 grant DELETE, INSERT, SELECT, UPDATE on table public."ai_usage" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ai_usage" to postgres;
@@ -3468,6 +3487,8 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."taiger_sessions" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_sessions" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_sessions" to service_role;
+grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."timba_probadores" to postgres;
+grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."timba_probadores" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_draft_collaborators" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_draft_collaborators" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_draft_collaborators" to service_role;
@@ -3622,6 +3643,10 @@ grant EXECUTE on function public.usuario_es_admin() to anon;
 grant EXECUTE on function public.usuario_es_admin() to authenticated;
 grant EXECUTE on function public.usuario_es_admin() to postgres;
 grant EXECUTE on function public.usuario_es_admin() to service_role;
+grant EXECUTE on function public.usuario_puede_crear_timba() to anon;
+grant EXECUTE on function public.usuario_puede_crear_timba() to authenticated;
+grant EXECUTE on function public.usuario_puede_crear_timba() to postgres;
+grant EXECUTE on function public.usuario_puede_crear_timba() to service_role;
 grant EXECUTE on function public.validate_score_delta(jsonb) to anon;
 grant EXECUTE on function public.validate_score_delta(jsonb) to authenticated;
 grant EXECUTE on function public.validate_score_delta(jsonb) to postgres;
