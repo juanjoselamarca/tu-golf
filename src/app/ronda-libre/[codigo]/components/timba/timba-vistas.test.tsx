@@ -4,7 +4,7 @@ import type { TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
 import type { PuntitoConfig } from '@/golf/formats/personalizado'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/ConfirmarFinalizarHoja'
 import { JuegoDeLaTimba, avisoNetoComoGross } from './JuegoDeLaTimba'
-import { PanelDelJuego, TEXTO_JUEGO_SIN_SESION, TEXTO_SIN_JUEGO } from './PanelDelJuego'
+import { PanelDelJuego, TEXTO_SIN_JUEGO } from './PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from './PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from './RetiroDeJugadores'
 import { AVISO_GOLPES_DESDE_EL_RETIRO, DETALLE_RETIRO, HojaDeRetiro } from './HojaDeRetiro'
@@ -65,13 +65,6 @@ describe('PanelDelJuego', () => {
   it('sin juego: el motivo', () => {
     render(<PanelDelJuego {...comun} juego={{ estado: 'sin_juego', motivo: 'jugadores_cambiaron' }} />)
     expect(screen.getByText(TEXTO_SIN_JUEGO.jugadores_cambiaron)).toBeTruthy()
-  })
-  it('sin sesión: pide ingresar', () => {
-    const onIngresar = vi.fn()
-    render(<PanelDelJuego {...comun} juego={{ estado: 'sin_sesion' }} onIngresar={onIngresar} />)
-    expect(screen.getByText(TEXTO_JUEGO_SIN_SESION)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Ingresar' }))
-    expect(onIngresar).toHaveBeenCalled()
   })
   it('error: reintentar', () => {
     const onReintentar = vi.fn()

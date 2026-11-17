@@ -8,6 +8,9 @@ import type { MotivoSinJuego, VistaDelJuego } from '@/golf/ronda-libre/juego-de-
  * El juego de una Timba libre, leído SOLO de `GET /api/ronda-libre/[codigo]/juego` (spec, "Para el PR C"): ni el
  * neto ni el hándicap salen de `/live` ni de `/hcp`.
  *
+ * - Sin sesión (401) se lee el mismo juego de `/juego/publico` (decisión de Juanjo, 17-nov: el link muestra los
+ *   puntos sin hándicaps). Esa ruta se cachea en el CDN: se pide sin cookies y sin `no-store` (ver `api-en-vivo.ts`).
+ *
  * - Se vuelve a pedir cuando cambia `firma` (los golpes que anotó el scorer), con un respiro para juntar toques,
  *   y cada `intervaloS` mientras la pantalla está a la vista.
  * - Una respuesta vieja nunca pisa a una más nueva (número de pedido).
@@ -22,7 +25,6 @@ export type EstadoDelJuego =
    */
   | { estado: 'ok'; vista: VistaDelJuego; desactualizado: boolean; pedidaEn: number; firma: string }
   | { estado: 'sin_juego'; motivo: MotivoSinJuego }
-  | { estado: 'sin_sesion' }
   | { estado: 'error' }
 
 export const PLAZO_JUEGO_MS = 12_000
@@ -55,9 +57,10 @@ export function useJuegoDeLaTimba(
     const plazo = setTimeout(() => control.abort(), PLAZO_JUEGO_MS)
     let siguiente: EstadoDelJuego
     try {
-      const res = await fetch(`/api/ronda-libre/${encodeURIComponent(codigo)}/juego`, { cache: 'no-store', signal: control.signal })
-      if (res.status === 401) siguiente = { estado: 'sin_sesion' }
-      else if (!res.ok) {
+      const base = `/api/ronda-libre/${encodeURIComponent(codigo)}/juego`
+      let res = await fetch(base, { cache: 'no-store', signal: control.signal })
+      if (res.status === 401) res = await fetch(`${base}/publico`, { credentials: 'omit', signal: control.signal })
+      if (!res.ok) {
         if (res.status >= 500 && res.status !== 503) {
           void captureError(new Error(`GET /juego ${res.status}`), { context: 'ronda-libre.juego.leer', level: 'warning', meta: { codigo } })
         }

@@ -13,7 +13,6 @@ export const TEXTO_SIN_JUEGO: Record<MotivoSinJuego, string> = {
   neto_no_disponible: 'El juego en neto todavía no está disponible en 27 hoyos. Los golpes de cada uno quedan guardados.',
   sin_datos_de_cancha: 'Faltan datos de la cancha (par o hándicap de hoyo) para calcular los puntos. Los golpes quedan guardados.',
 }
-export const TEXTO_JUEGO_SIN_SESION = 'Ingresa con tu cuenta para ver los puntos de la Timba.'
 export const TEXTO_JUEGO_ERROR = 'No pudimos cargar los puntos. Revisa la señal.'
 
 const caja = {
@@ -26,18 +25,17 @@ const boton = {
   background: 'transparent', color: 'var(--text)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 600, cursor: 'pointer',
 } as const
 
-/** Pestaña Juego con todos sus estados: cargando, sin juego (motivo), sin sesión, sin señal, y el juego. */
+/** Pestaña Juego con todos sus estados: cargando, sin juego (motivo), sin señal, y el juego. Sin sesión se ve igual. */
 export function PanelDelJuego(props: {
   juego: EstadoDelJuego
   nombres: Readonly<Record<string, string>>
   hoyoActual: number | null
   onReintentar: () => void
-  onIngresar?: () => void
   pie?: ReactNode
   /** `JuegoDeLaTimba.encabezadoFijoEn`. */
   encabezadoFijoEn?: string
 }) {
-  const { juego, nombres, hoyoActual, onReintentar, onIngresar, pie, encabezadoFijoEn } = props
+  const { juego, nombres, hoyoActual, onReintentar, pie, encabezadoFijoEn } = props
   const tabla = useMemo(
     () => (juego.estado === 'ok' ? armarTablaDelJuego(juego.vista, nombres, hoyoActual) : null),
     [juego, nombres, hoyoActual],
@@ -46,14 +44,6 @@ export function PanelDelJuego(props: {
   if (juego.estado === 'ok' && tabla) return <JuegoDeLaTimba tabla={tabla} desactualizado={juego.desactualizado} pie={pie} encabezadoFijoEn={encabezadoFijoEn} />
   if (juego.estado === 'cargando') return <p role="status" style={caja}>Cargando los puntos…</p>
   if (juego.estado === 'sin_juego') return <p role="note" style={caja}>{TEXTO_SIN_JUEGO[juego.motivo]}</p>
-  if (juego.estado === 'sin_sesion') {
-    return (
-      <div style={caja}>
-        <p style={{ margin: 0 }}>{TEXTO_JUEGO_SIN_SESION}</p>
-        {onIngresar && <button type="button" onClick={onIngresar} style={boton}>Ingresar</button>}
-      </div>
-    )
-  }
   return (
     <div role="alert" style={caja}>
       <p style={{ margin: 0 }}>{TEXTO_JUEGO_ERROR}</p>

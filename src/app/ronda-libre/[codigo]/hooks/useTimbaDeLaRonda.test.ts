@@ -144,6 +144,6 @@ describe('juegoDeLaRondaCerrada', () => {
     expect(juegoDeLaRondaCerrada(ok(CERRADA) as never, CERRADA)).toMatchObject({ estado: 'ok' })
     expect(juegoDeLaRondaCerrada(ok(EN_CURSO) as never, CERRADA)).toEqual({ estado: 'cargando' })
     expect(juegoDeLaRondaCerrada(ok(CERRADA, true) as never, CERRADA)).toEqual({ estado: 'error' })
-    expect(juegoDeLaRondaCerrada({ estado: 'sin_sesion' }, CERRADA)).toEqual({ estado: 'sin_sesion' })
+    expect(juegoDeLaRondaCerrada({ estado: 'error' }, CERRADA)).toEqual({ estado: 'error' })
   })
 })

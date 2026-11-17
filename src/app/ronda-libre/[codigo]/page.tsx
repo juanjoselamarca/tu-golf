@@ -230,7 +230,6 @@ function RondaLibrePageContent() {
       cancha={ronda.course_name}
       url={shareUrl}
       compartirPrincipal={shareVariant === 'commit'}
-      onIngresar={() => { requireAuth('Ve los puntos de la Timba') }}
     />
   )
 
