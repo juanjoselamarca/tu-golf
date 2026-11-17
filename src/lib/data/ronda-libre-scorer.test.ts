@@ -11,6 +11,8 @@ import {
 } from './ronda-libre-scorer'
 import { leerIndicesDelCliente } from './indices-de-perfil-lectura'
 import { ANON_COLUMN_SELECT } from '@/__tests__/helpers/migration-sql'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 
 vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/golf/core/course-handicap')>()
@@ -248,5 +250,15 @@ describe('COLUMNAS_RONDA_SCORER — legibles sin sesión', () => {
     const sb = fakeSupabase({ rondas_libres: { data: { id: 'r1', codigo: 'ABC', ronda_libre_jugadores: [] } } })
     await fetchRondaLibreParaScorer(sb as never, 'ABC', { conReglasDelJuego: true })
     expect(sb.llamadas[0].cadena[0]).toEqual(['select', [COLUMNAS_RONDA_SCORER_CON_REGLAS]])
+  })
+})
+
+// Revisión Fable (2ª vuelta): la regresión más probable del P0 es que el scorer individual (que lee sin sesión)
+// pida las reglas. Ese archivo no debe pasar `conReglasDelJuego`.
+describe('scorer individual — nunca pide reglas_juego', () => {
+  it('useRondaScoreData no usa conReglasDelJuego ni COLUMNAS_RONDA_SCORER_CON_REGLAS', () => {
+    const fuente = readFileSync(path.resolve(process.cwd(), 'src/app/ronda-libre/[codigo]/score/hooks/useRondaScoreData.ts'), 'utf8')
+    expect(fuente).toContain('fetchRondaLibreParaScorer(')
+    expect(fuente).not.toMatch(/conReglasDelJuego|COLUMNAS_RONDA_SCORER_CON_REGLAS/)
   })
 })

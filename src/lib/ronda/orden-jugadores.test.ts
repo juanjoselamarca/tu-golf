@@ -105,5 +105,7 @@ describe('conOrdenEnPantalla', () => {
     const nueva = { ronda_libre_jugadores: [j('c'), j('a')] }
     expect(conOrdenEnPantalla({ ronda_libre_jugadores: [j('a'), j('b')] }, nueva)).toBe(nueva)
     expect(conOrdenEnPantalla({ ronda_libre_jugadores: [j('a')] }, nueva)).toBe(nueva)
+    // Ids repetidos en pantalla no se aceptan como "los mismos" (perdería a un jugador).
+    expect(conOrdenEnPantalla({ ronda_libre_jugadores: [j('a'), j('a'), j('c')] }, { ronda_libre_jugadores: [j('a'), j('b'), j('c')] }).ronda_libre_jugadores.map(x => x.id)).toEqual(['a', 'b', 'c'])
   })
 })

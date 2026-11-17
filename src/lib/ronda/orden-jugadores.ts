@@ -74,6 +74,7 @@ export function conOrdenEnPantalla<R extends { ronda_libre_jugadores: ReadonlyAr
   const ahora = nueva.ronda_libre_jugadores
   if (!Array.isArray(antes) || !Array.isArray(ahora) || antes.length !== ahora.length) return nueva
   const porId = new Map(ahora.map(j => [j.id, j]))
-  if (porId.size !== ahora.length || !antes.every(j => porId.has(j.id))) return nueva
+  if (porId.size !== ahora.length || new Set(antes.map(j => j.id)).size !== antes.length) return nueva
+  if (!antes.every(j => porId.has(j.id))) return nueva
   return { ...nueva, ronda_libre_jugadores: antes.map(j => porId.get(j.id)!) }
 }
