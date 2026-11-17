@@ -7,9 +7,11 @@ import { saveRondaLibreScores, nuevaSecuencia } from '@/lib/data/ronda-libre-sco
 import { addToast } from '@/hooks/useToast'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
-import { RONDA_ERRCODE, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE, AVISO_TARJETA_RECHAZADA } from '@/components/ronda/finalizar-copy'
+import { avisoFinalizarSinSesion, avisoSesionCerrada, type AvisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
+import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 
@@ -25,6 +27,11 @@ interface UseScoreSaveOptions {
   onRondaFinalized?: () => void
   /** La ronda ya no existe (P0001): las copias locales ya se borraron; sacar al jugador. */
   onRondaNoExiste?: () => void
+  /**
+   * Quién tenía sesión al abrir el scorer (`useRondaScoreData`). Un P0003 sin sesión en el teléfono da el aviso
+   * persistente con "Iniciar sesión": "Tu sesión se cerró" si la había al abrir, "Inicia sesión para guardar" si no.
+   */
+  authUserId?: string | null
 }
 
 /**
@@ -49,6 +56,11 @@ export interface UseScoreSaveResult {
   /** Finalizar en curso, desde el toque hasta el cierre: mientras tanto ningún guardado avisa ni redirige. */
   marcarFinalizando: (enCurso: boolean) => void
   saveStatus: SaveStatus
+  /**
+   * Hay que iniciar sesión para guardar (P0003 sin sesión en el teléfono, ronda no demo): aviso persistente con
+   * "Iniciar sesión" que vuelve a la última tarjeta rechazada. Se apaga con el siguiente guardado que llega.
+   */
+  sesionCerrada: AvisoSesionCerrada | null
   hasUnsaved: boolean
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
 }
@@ -62,7 +74,7 @@ export interface UseScoreSaveResult {
  * - Callbacks para UI feedback (onSaveSuccess) y navegacion (onRondaFinalized)
  */
 export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
-  const { codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste } = opts
+  const { codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste, authUserId = null } = opts
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
@@ -76,6 +88,8 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   // El servidor dijo que la ronda ya no existe (P0001) y las copias locales se borraron: desde acá
   // nada vuelve a escribir el respaldo (un toque más lo recrearía y el banner volvería para siempre).
   const rondaBorradaRef = useRef(false)
+  // Un solo aviso persistente: los guardados siguientes lo actualizan (a qué tarjeta vuelve), no lo repiten.
+  const [sesionCerrada, setSesionCerrada] = useState<AvisoSesionCerrada | null>(null)
 
   // Cleanup: si el componente se desmonta con un save pendiente, disparar
   // inmediatamente para no perder el último tap (CERO FALLOS).
@@ -140,6 +154,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     let success = false
     let rondaFinalizedRpc = false
     let forbiddenRpc = false
+    let sinSesion = false
     let noExisteRpc = false
     let rechazadoRpc = false
     let intentos = 0
@@ -150,8 +165,20 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       const { error } = await saveRondaLibreScores(supabase, { codigo, jugadorId: jugadorId, delta: scoresObj, seq })
       if (!error) { success = true }
       else if (error.code === RONDA_ERRCODE.FINALIZED) { rondaFinalizedRpc = true; break }
-      // Sin permiso sobre esta tarjeta: reintentar no cambia nada.
-      else if (error.code === RONDA_ERRCODE.FORBIDDEN) { forbiddenRpc = true; break }
+      // Sin permiso sobre esta tarjeta: reintentar no cambia nada. Si el teléfono ya no tiene sesión (expiró o
+      // se cerró en otro dispositivo), el RPC corrió como anónimo: no es la tarjeta, es la sesión.
+      else if (error.code === RONDA_ERRCODE.FORBIDDEN) {
+        forbiddenRpc = true
+        // La ronda demo también responde P0003 y es de permiso. Si no, se mira la sesión del teléfono: sin sesión
+        // (la perdió o la página abrió ya sin ella) es el aviso de iniciar sesión; con sesión, la tarjeta es ajena
+        // de verdad; sin poder confirmarla (red), como falta de conexión.
+        if (rechazoQuePuedeSerSesion(error)) {
+          const sesion = await sesionDelScorer(supabase)
+          if (sesion.estado === 'sin_sesion') sinSesion = true
+          else if (sesion.estado === 'sin_conexion') forbiddenRpc = false  // cae en !success → 'sin_conexion'
+        }
+        break
+      }
       // No encontró ronda+jugador: se confirma con la ronda antes de tratarla como borrada.
       // Borrada → salir (reintentar no la trae de vuelta). Cerrada → como P0002. Viva → rechazo de
       // esta tarjeta. Sin señal para confirmarlo → como falta de conexión, sin limpiar nada.
@@ -211,6 +238,19 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       if (paraFinalizar || !finalizandoRef.current) addToast({ ...AVISO_TARJETA_RECHAZADA, type: 'error', duration: 8000 })
       return 'rechazado'
     }
+    if (forbiddenRpc && sinSesion) {
+      setSaveStatus('error')
+      // Antes: "No puedes anotar esta tarjeta… inicia sesión con la cuenta del jugador" a quien ES el jugador,
+      // sin salida, repetido en cada golpe. El respaldo local queda pendiente (P0003 no lo descarta) y
+      // useOfflineResync lo reenvía al volver al scorer con la sesión. Sin toast ni redirección sola: un aviso
+      // persistente con "Iniciar sesión", y el jugador sigue anotando mientras. "Tu sesión se cerró" sólo si la
+      // tenía al abrir; si la página abrió sin ella, "Inicia sesión para guardar".
+      // Vuelve a ESTA tarjeta (?j): el reenvío es por tarjeta abierta; sin ?j el scorer abre la del dueño.
+      setSesionCerrada(avisoSesionCerrada(`/ronda-libre/${codigo}/score?j=${encodeURIComponent(jugadorId)}`, { habiaSesion: !!authUserId }))
+      // Finalizar se detiene sin cerrar: que el toque tenga respuesta en el momento (el aviso fijo ya está).
+      if (paraFinalizar) addToast({ ...avisoFinalizarSinSesion({ habiaSesion: !!authUserId }), type: 'error', duration: 7000 })
+      return 'sin_permiso'
+    }
     if (forbiddenRpc) {
       setSaveStatus('error')
       addToast({ type: 'error', title: 'No puedes anotar esta tarjeta', message: 'Inicia sesión con la cuenta del jugador o pídele a quien creó la ronda que anote. Tus scores están guardados en tu dispositivo.', duration: 8000 })
@@ -222,13 +262,15 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       return 'sin_conexion'
     } else {
       setSaveStatus('saved'); setHasUnsaved(false)
+      // Un guardado llegó: hay sesión de nuevo (o nunca faltó para esta tarjeta), el aviso ya no aplica.
+      setSesionCerrada(null)
       scoreSync.marcarSincronizado(holeScores)
       // UI feedback delegado al caller (page.tsx) via onSaveSuccess
       onSaveSuccess?.()
       setTimeout(() => setSaveStatus('idle'), 1500)
       return 'guardado'
     }
-  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste])
+  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste, authUserId])
 
   const executeSave = useCallback((
     jugadorId: string,
@@ -284,5 +326,5 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
 
   const marcarFinalizando = useCallback((enCurso: boolean) => { finalizandoRef.current = enCurso }, [])
 
-  return { saveScores, saveImmediately: executeSave, guardarAhora, marcarFinalizando, saveStatus, hasUnsaved, setHasUnsaved }
+  return { saveScores, saveImmediately: executeSave, guardarAhora, marcarFinalizando, saveStatus, sesionCerrada, hasUnsaved, setHasUnsaved }
 }

@@ -353,6 +353,22 @@ describe('useFinalizeGrupo', () => {
     expect(contarHoyosPendientes()).toBe(0)
   })
 
+  it('sesión perdida en plena ronda: Finalizar no cierra y pide iniciar sesión (no "sin conexión")', async () => {
+    enviarPendientes.mockResolvedValueOnce({ estado: 'ronda_abierta', rechazadas: [], sesionPerdida: true })
+    pendientes.hay = true
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(addToast).toHaveBeenCalledWith({
+      type: 'error', duration: 7000,
+      title: 'Tu sesión se cerró',
+      message: 'Inicia sesión para finalizar. Tus golpes quedaron en este teléfono.',
+    })
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo finalizar todavía' }))
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    pendientes.hay = false
+  })
+
   it('scramble con la ronda cerrada por otro (envío de equipos P0002): tampoco avisa "sin servidor"', async () => {
     enviarPendientes.mockResolvedValueOnce({ estado: 'ronda_cerrada', rechazadas: [] })
     pendientes.hay = true

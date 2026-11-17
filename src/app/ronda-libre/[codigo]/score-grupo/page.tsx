@@ -78,7 +78,7 @@ export default function ScoreGrupoPage() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
-  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste } =
+  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
@@ -120,7 +120,8 @@ export default function ScoreGrupoPage() {
       timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
     })
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
-  useBeforeUnloadWarning(hasUnsaved)
+  // Con el aviso de sesión, "Iniciar sesión" navega a propósito y los golpes quedan en el teléfono: sin advertencia.
+  useBeforeUnloadWarning(hasUnsaved && !sesionPerdida)
   // Mientras se finaliza no se aceptan golpes: un tap tardío llegaría después del cierre
   // (P0002), no entraría al historial y mostraría "se cerró desde otro dispositivo".
   const anotar = (jugadorId: string, delta: number) => { if (!finalizing) { marcarInteraccion(); handleScoreChange(jugadorId, currentHole, delta) } }
@@ -195,7 +196,7 @@ export default function ScoreGrupoPage() {
         }} />
       )}
 
-      <ConexionScorerBanner conexion={conexion} pendienteDeEnvio={pendienteDeEnvio} codigo={codigo} />
+      <ConexionScorerBanner conexion={conexion} pendienteDeEnvio={pendienteDeEnvio} codigo={codigo} sesionPerdida={sesionPerdida} />
 
       <GrupoScorerHeader
         currentHole={currentHole}

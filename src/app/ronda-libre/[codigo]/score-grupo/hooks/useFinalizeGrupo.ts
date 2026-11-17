@@ -24,6 +24,7 @@ import { haptic } from '@/lib/ronda/helpers'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
+import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
@@ -235,6 +236,10 @@ export function useFinalizeGrupo(input: {
         const nombres = envio.rechazadas.map(({ id }) => nombreDeTarjeta(ronda, teamEquipos, id))
         addToast({ ...avisoTarjetasNoGuardadas(nombres), type: 'error', duration: 10000 })
         haptic([30, 60, 30])
+        return
+      } else if (envio.sesionPerdida) {
+        // Sin sesión el cierre no sale: lo mismo que dice el aviso fijo, no "sin conexión".
+        addToast({ ...avisoFinalizarSinSesion({ habiaSesion: true }), type: 'error', duration: 7000 })
         return
       } else if (hayPendientes(codigo)) {
         avisarSinServidor()

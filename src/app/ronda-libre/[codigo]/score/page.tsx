@@ -49,6 +49,7 @@ import { scoresAnotadosEnEsteTelefono } from './scores-anotados-aqui'
 import { ScorerNavBar } from './components/ScorerNavBar'
 import { DiscardRoundButton } from './components/DiscardRoundButton'
 import { SaveStatusBadge } from './components/SaveStatusBadge'
+import { AvisoSesionCerradaBanner } from './components/AvisoSesionCerradaBanner'
 import { ScorerCelebrations } from './components/ScorerCelebrations'
 import { ScorerViewTabs } from './components/ScorerViewTabs'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
@@ -111,7 +112,7 @@ function ScorePageContent() {
     router.push('/dashboard')
   }, [router])
 
-  const { saveScores, saveImmediately, guardarAhora, marcarFinalizando, saveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
+  const { saveScores, saveImmediately, guardarAhora, marcarFinalizando, saveStatus, sesionCerrada, hasUnsaved, setHasUnsaved } = useScoreSave({
     codigo,
     isOnline,
     scoreSync,
@@ -119,6 +120,7 @@ function ScorePageContent() {
     onRondaFinalized,
     // La ronda se borró mientras se anotaba: el aviso y la limpieza ya los hizo el guardado.
     onRondaNoExiste: onDiscardSuccess,
+    authUserId,
   })
 
   const { view, setView, gwi } = useGwiLeaderboard(codigo)
@@ -149,7 +151,8 @@ function ScorePageContent() {
 
   // Con el cierre en pantalla tampoco: la tarjeta ya está en el historial y la ronda puede estar cerrada.
   useOfflineResync({ isOnline, activeJugadorId, finalizando: finalizando || roundDone, scoreSync, saveImmediately })
-  useBeforeUnloadWarning(hasUnsaved)
+  // Con el aviso de sesión cerrada, "Iniciar sesión" navega a propósito y los golpes quedan en el teléfono.
+  useBeforeUnloadWarning(hasUnsaved && sesionCerrada === null)
 
   const { scoreAnimating, handleScoreChange, handleConcedeHole } = useHoleScoreInput({
     codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved,
@@ -300,7 +303,7 @@ function ScorePageContent() {
         </div>
       )}
 
-      <SaveStatusBadge saveStatus={saveStatus} />
+      <SaveStatusBadge saveStatus={saveStatus} oculto={sesionCerrada !== null} />
 
       <ScorerHeader
         currentHole={currentHole}
@@ -321,6 +324,9 @@ function ScorePageContent() {
       />
 
       {vistaBruta && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}/score`} />}
+
+      {/* ── Sin sesión al guardar: aviso fijo con "Iniciar sesión" (bajo la cabecera, fuera del indicador de guardado) ── */}
+      <AvisoSesionCerradaBanner aviso={sesionCerrada} />
 
       <MiniScorecardGrid
         totalHoles={totalHoles}
