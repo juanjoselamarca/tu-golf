@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
-import { hoyosPorMarcarAlFinalizar } from '@/golf/ronda-libre/tarjeta-historica'
+import { hoyosPorMarcarAlFinalizar, scoreDelHoyo } from '@/golf/ronda-libre/tarjeta-historica'
 import { hoyosQueNoSeRellenan, hoyosQueQuedanSinJugarEnLaTimba } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import type { MatchResult } from '@/golf/formats/match-play'
 import { hoyosAnotados, puedeFinalizar, totalesDeTarjeta, type TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
@@ -147,7 +147,7 @@ export function useGrupoScoreboard(input: {
     // Timba: quienes reciben el par gris del hoyo en pantalla al cerrar (las mismas tarjetas que rellena el cierre).
     const nombresConPar = esTimba
       ? tarjetasConRelleno
-        .filter(t => !t.noRellenar.includes(currentHole) && t.scores?.[currentHole] == null)
+        .filter(t => !t.noRellenar.includes(currentHole) && scoreDelHoyo(t.scores ?? {}, currentHole) === undefined)
         .map(t => t.jugador.nombre)
       : []
     const parEnPantallaTimba = nombresConPar.length > 0 ? { hoyo: currentHole, nombres: nombresConPar } : null
