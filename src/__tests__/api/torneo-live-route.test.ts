@@ -157,7 +157,98 @@ describe('GET /api/torneo/[slug]/live', () => {
     }
     const json = await (await pedir()).json()
     expect(json.players.map((p: { name: string }) => p.name)).toEqual(['Invitada'])
-    expect(json.fuera).toEqual([{ name: 'Ana', status: 'withdrawn', reason: null, bruto: { grossTotal: 11, hoyos: 3, vsPar: -1 } }])
+    expect(json.fuera).toEqual([{
+      id: 'j-ana', name: 'Ana', status: 'withdrawn', reason: null, group_id: 'g1',
+      score: { valor: -1, esPuntos: false, grossTotal: 11, hoyos: 3 },
+    }])
+  })
+
+  describe('#813 equipos con un WD/DQ (decisiones de Juanjo, 17-nov)', () => {
+    const conEstado = (formato: string, estado: 'withdrawn' | 'disqualified', quien: 'ana' | 'inv') => {
+      const grupo = { id: 'g1', name: 'Grupo 1', ronda_libre_id: 'rl1', tournament_group_players: [
+        { player_id: 'p-ana', jugador_ronda_id: 'j-ana' }, { player_id: 'p-inv', jugador_ronda_id: 'j-inv' },
+      ] }
+      tablas = {
+        ...tablas,
+        tournaments: { ...RL, modo_juego: 'gross', format: formato, formato_juego: formato, tournament_groups: [grupo] },
+        players: [{ id: `p-${quien}`, user_id: quien === 'ana' ? 'u-ana' : null, status: estado, status_reason: 'Lesión', player_name: null, profiles: null }],
+        ronda_libre_jugadores: JUGADORES,
+        rondas_libres: [{ id: 'rl1', course_id: 'cancha-1', holes: 9, recorridos: null, tees: 'azul' }],
+        tournament_groups: [grupo],
+        ronda_equipos: [{ id: 'e1', nombre: 'Los Leones', handicap_equipo: null, scores: { 1: 4, 2: 3 }, ronda_id: 'rl1', ronda_equipo_jugadores: [{ jugador_id: 'j-ana', orden: 0 }, { jugador_id: 'j-inv', orden: 1 }] }],
+      }
+    }
+
+    it('foursome: un miembro WD saca al EQUIPO del ranking y lo deja al pie con su score (Regla 22)', async () => {
+      conEstado('foursome', 'withdrawn', 'ana')
+      const json = await (await pedir()).json()
+      expect(json.teams).toEqual([])
+      expect(json.fuera).toEqual([{
+        id: 'e1', name: 'Los Leones', status: 'withdrawn', reason: null,
+        score: { valor: -1, esPuntos: false, grossTotal: 7, hoyos: 2 },
+      }])
+    })
+
+    it('foursome con un DQ: el equipo va al pie como DQ', async () => {
+      conEstado('foursome', 'disqualified', 'inv')
+      const json = await (await pedir()).json()
+      expect(json.teams).toEqual([])
+      expect(json.fuera).toMatchObject([{ id: 'e1', status: 'disqualified' }])
+    })
+
+    it('scramble: con un WD el equipo SIGUE rankeado con quien queda, sin pie', async () => {
+      conEstado('scramble', 'withdrawn', 'ana')
+      const json = await (await pedir()).json()
+      expect(json.teams).toHaveLength(1)
+      expect(json.teams[0]).toMatchObject({ id: 'e1', team_total: 7 })
+      expect(json.fuera).toBeUndefined()
+    })
+
+    it('mejor bola, WD: sin cambios — los hoyos que el retirado ya jugó cuentan (Regla 23.4)', async () => {
+      conEstado('best_ball', 'withdrawn', 'inv')
+      const json = await (await pedir()).json()
+      // Mejor bola por hoyo: Invitada 4-4-4 gana a Ana 5-5-5 → 12.
+      expect(json.teams[0]).toMatchObject({ team_total: 12, thru: 3 })
+      expect(json.fuera).toBeUndefined()
+    })
+
+    it('mejor bola, DQ: los golpes del descalificado no cuentan en NINGÚN hoyo; el equipo sigue con el compañero', async () => {
+      conEstado('best_ball', 'disqualified', 'inv')
+      const json = await (await pedir()).json()
+      // Sin las 4-4-4 de la Invitada, queda la tarjeta de Ana: 5-5-5 → 15.
+      expect(json.teams[0]).toMatchObject({ team_total: 15, thru: 3 })
+      expect(json.fuera).toBeUndefined()
+    })
+  })
+
+  it('#813 si el estado WD/DQ no se puede leer, el board sale igual (sin pie) y queda reportado', async () => {
+    errorEn = 'players'
+    tablas = {
+      ...tablas,
+      tournaments: { ...RL, modo_juego: 'gross', tournament_groups: [{ id: 'g1', name: 'Grupo 1', ronda_libre_id: 'rl1', tournament_group_players: [{ player_id: 'p-ana', jugador_ronda_id: 'j-ana' }] }] },
+      ronda_libre_jugadores: JUGADORES,
+      rondas_libres: [{ id: 'rl1', course_id: 'cancha-1', holes: 9, recorridos: null, tees: 'azul' }],
+    }
+    const res = await pedir()
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.players).toHaveLength(2)
+    expect(json.fuera).toBeUndefined()
+    expect(captureError).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'inscritos-fuera.leerEstadosFuera' }))
+  })
+
+  it('#813 Stableford: el pie muestra PUNTOS, no vs par', async () => {
+    tablas = {
+      ...tablas,
+      tournaments: { ...RL, modo_juego: 'gross', format: 'stableford', formato_juego: 'stableford', tournament_groups: [{ id: 'g1', name: 'Grupo 1', ronda_libre_id: 'rl1', tournament_group_players: [{ player_id: 'p-inv', jugador_ronda_id: 'j-inv' }] }] },
+      players: [{ id: 'p-inv', user_id: null, status: 'withdrawn', status_reason: null, player_name: null, profiles: null }],
+      ronda_libre_jugadores: JUGADORES,
+      rondas_libres: [{ id: 'rl1', course_id: 'cancha-1', holes: 9, recorridos: null, tees: 'azul' }],
+    }
+    const json = await (await pedir()).json()
+    expect(json.fuera).toHaveLength(1)
+    expect(json.fuera[0].score).toMatchObject({ esPuntos: true, hoyos: 3 })
+    expect(json.fuera[0].score.valor).toBeGreaterThan(0)
   })
 
   it('scramble NETO (ronda libre), sin sesión: equipos en BRUTO, sin handicap; el índice de perfil sólo por la canónica', async () => {

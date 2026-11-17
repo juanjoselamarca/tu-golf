@@ -75,3 +75,25 @@ export function posicionesDeLaCompetencia(
 export function posicionesDeEquiposEnLaCompetencia(teams: ExtendedTeam[], categoryFilter: string | null): PosicionesPorId {
   return posicionesDeEquipos(applyFiltersTeams(teams, { categoryFilter, groupFilter: null }))
 }
+
+/**
+ * El pie (WD/DQ, #813) con los MISMOS filtros que la tabla: con un filtro de
+ * grupo o "Solo mi grupo" se ve sólo el pie de ese grupo. Con un filtro activo,
+ * la fila cuyo grupo no se conoce (legacy, equipos) no se muestra: la tabla de
+ * arriba es sólo ese subconjunto. `players` es la tabla SIN filtrar (para ubicar
+ * el grupo del visor, como `applyFilters`).
+ */
+export function applyFiltersFuera<T extends { group_id?: string | null }>(
+  fuera: T[],
+  players: ExtendedPlayer[],
+  f: PlayerFilters,
+): T[] {
+  let out = fuera
+  if (f.categoryFilter) out = []
+  if (f.groupFilter) out = out.filter((w) => w.group_id === f.groupFilter)
+  if (f.myViewEnabled && f.userId) {
+    const me = players.find((p) => p.id === f.userId)
+    if (me?.group_id) out = out.filter((w) => w.group_id === me.group_id)
+  }
+  return out
+}

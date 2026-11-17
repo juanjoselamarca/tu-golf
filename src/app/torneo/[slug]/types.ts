@@ -125,7 +125,6 @@ export interface DBRondaLibreJugador {
 }
 
 export interface DBWithdrawnPlayer {
-  id?: string
   user_id?: string | null
   status: 'withdrawn' | 'disqualified'
   status_reason: string | null
@@ -137,8 +136,15 @@ export interface WithdrawnEntry {
   name: string
   status: 'withdrawn' | 'disqualified'
   reason: string | null
-  /** Golpes brutos al retirarse (camino de ronda libre). Sin esto (legacy) el pie muestra sólo el nombre. */
-  bruto?: { grossTotal: number; hoyos: number; vsPar: number }
+  /** Tarjeta (o equipo) del pie; los filtros de /en-vivo la usan. Sin él (legacy), no hay id. */
+  id?: string
+  /** Grupo de salida, para el filtro de grupo y "Solo mi grupo" de /en-vivo. */
+  group_id?: string | null
+  /**
+   * Score al retirarse, en la unidad de la tabla para este visor: puntos Stableford
+   * (`esPuntos`) o vs par. Sin esto (legacy, o sin hoyos jugados) el pie va sin score.
+   */
+  score?: { valor: number; esPuntos: boolean; grossTotal: number | null; hoyos: number }
 }
 
 /**

@@ -42,7 +42,7 @@ import {
   fetchTournamentBySlug,
   fetchTournamentGroups,
 } from '@/lib/data/tournaments/leaderboard'
-import { fetchWithdrawnPlayers, separarTarjetasFueraDelRanking } from '@/lib/data/tournaments/fuera-del-ranking'
+import { fetchWithdrawnPlayers, pieDeTarjetas, separarEquiposFuera, separarTarjetasFueraDelRanking } from '@/lib/data/tournaments/fuera-del-ranking'
 import {
   buildLeaderboardFromLegacy,
   computeStats,
@@ -221,11 +221,11 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     if (hasRondaLibreGroups) {
       const rondaIds = groups.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
       const tarjetas = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, indicesDePerfil)
-      // El WD/DQ sale del ranking (y del podio, los resultados y el GWI) y va al pie con sus golpes (#813).
+      // El WD/DQ sale del ranking (y del podio, los resultados y el GWI) y va al pie con su score (#813).
       const { enRanking, fuera } = await separarTarjetasFueraDelRanking(supabase, {
-        tournamentId: tournament.id, grupos: groups, tarjetas, courseHoles, totalHoyos,
+        tournamentId: tournament.id, grupos: groups, tarjetas,
       })
-      withdrawnPlayers = fuera
+      withdrawnPlayers = pieDeTarjetas(fuera, ctx, vista)
       const out = boardPublicoRondaLibre(enRanking, ctx, vista)
       players = out.players
       playersByGross = out.playersByGross
@@ -261,11 +261,15 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     // Standings de equipos
     // Equipos: en la vista bruta, ranking y totales en gross (`vista.modo`).
     if (isSharedBallFormat(formatoJuego)) {
-      const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
+      const { teams, memberNames, estadoPorEquipo } = await fetchScrambleTeams(supabase, tournament.id)
       if (teams.length > 0) {
-        const ordered = formatoJuego === 'foursome'
-          ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
-          : computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
+        // Foursome: el equipo con un WD/DQ va al pie (Regla 22). Scramble: sigue rankeado (decisión 17-nov).
+        const equipos = formatoJuego === 'foursome'
+          ? separarEquiposFuera(computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos), estadoPorEquipo, vista.modo)
+          : { enRanking: computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos), fuera: [] }
+        const ordered = equipos.enRanking
+        // Con tabla de equipos, el pie es de equipos: el jugador WD de un scramble no compite solo.
+        withdrawnPlayers = equipos.fuera
         teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, vista.modo)
         orderedTeams = ordered
         teamMemberNames = memberNames
@@ -275,6 +279,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       if (teams.length > 0) {
         const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
         teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, vista.modo)
+        // Mejor bola: el equipo sigue (R23.4; los golpes del DQ ya no cuentan, `fetchBestBallTeams`).
+        withdrawnPlayers = []
         orderedTeams = ordered
         teamMemberNames = memberNames
       }

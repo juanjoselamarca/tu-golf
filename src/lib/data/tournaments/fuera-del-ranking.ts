@@ -1,53 +1,55 @@
 // src/lib/data/tournaments/fuera-del-ranking.ts
 //
-// Lecturas del pie de la tabla: los inscritos retirados (WD) o descalificados
-// (DQ), que no compiten por posición (#813). La regla vive en
-// `src/golf/leaderboard/fuera-del-ranking.ts`; acá sólo se lee y se proyecta.
-//
-// Lo usan /torneo/[slug] y /en-vivo (y sus rutas cacheables): un solo lugar
-// que decide qué tarjeta entra al ranking.
+// El pie de la tabla: retirados (WD) y descalificados (DQ), que no compiten por
+// posición (#813). La regla vive en `src/golf/leaderboard/fuera-del-ranking.ts`;
+// acá se lee y se proyecta. Lo usan /torneo/[slug], /en-vivo (y sus rutas
+// cacheables) y /tv: un solo lugar decide qué tarjeta entra al ranking.
 
-import type { DBRondaLibreJugador, DBTournamentGroupRow, DBWithdrawnPlayer, WithdrawnEntry } from '@/app/torneo/[slug]/types'
-import type { CourseHole } from '@/golf/leaderboard/types'
+import type { DBRondaLibreJugador, WithdrawnEntry } from '@/app/torneo/[slug]/types'
+import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import type { LeerNombresDePerfil } from '@/lib/data/nombres-de-perfil-lectura'
+import type { FoursomeTeamResult } from '@/golf/formats'
 import { JUGADOR_FUERA_STATUSES, jugadorFueraDelTorneo } from '@/golf/tournament-status'
-import { separarFueraDelRanking, type GrupoConTarjetas } from '@/golf/leaderboard/fuera-del-ranking'
+import {
+  ordenDelPie,
+  separarFueraDelRanking,
+  type EstadoFueraDelRanking,
+  type GrupoConTarjetas,
+  type InscritoFuera,
+} from '@/golf/leaderboard/fuera-del-ranking'
 import { captureError } from '@/lib/error-tracking'
+import { boardPublicoRondaLibre, type VistaPublica } from './vista-publica'
+import { leerEstadosFuera } from './inscritos-fuera'
 import { nombresFaltantes, type Client } from './leaderboard'
 
-type InscritoFuera = DBWithdrawnPlayer & { id: string }
-
-/**
- * Inscritos WD/DQ del torneo. El filtro se repite en código: si la consulta
- * trajera de más (o un doble de test ignora el `.in`), un aprobado nunca termina
- * en el pie. Un error de la base se PROPAGA: con la tabla viva, "no pude saber
- * quién se retiró" no es "nadie se retiró" (el WD quedaría rankeado).
- */
-async function fetchInscritosFuera(supabase: Client, tournamentId: string): Promise<InscritoFuera[]> {
-  const { data, error } = await supabase
-    .from('players')
-    .select('id, user_id, status, status_reason, player_name, profiles(name)')
-    .eq('tournament_id', tournamentId)
-    .in('status', [...JUGADOR_FUERA_STATUSES])
-  if (error) throw error
-  return ((data as unknown as InscritoFuera[] | null) ?? []).filter((p) => jugadorFueraDelTorneo(p.status))
+interface InscritoFueraConNombre {
+  user_id: string | null
+  status: string | null
+  status_reason: string | null
+  player_name: string | null
+  profiles: { name: string } | null
 }
 
 /**
- * Pie de la tabla del camino LEGACY: el nombre sale de la inscripción (no hay
- * tarjeta). Sin golpes: el legacy no los separa del board todavía. Si la
- * lectura falla se reporta y el pie queda vacío: el board legacy ya excluye a
- * los WD/DQ por su cuenta (`fetchLegacyPlayers`), así que no se rankea a nadie
- * de más; sólo se pierde el pie (antes, igual: el error se ignoraba).
+ * Pie de la tabla del camino LEGACY (y de /tv): el nombre sale de la inscripción
+ * (no hay tarjeta) y el pie va sin score. Si la lectura falla se reporta y el pie
+ * queda vacío: el board legacy ya excluye a los WD/DQ por su cuenta
+ * (`fetchLegacyPlayers`), así que no se rankea a nadie de más.
  */
 export async function fetchWithdrawnPlayers(
   supabase: Client,
   tournamentId: string,
   leerNombres: LeerNombresDePerfil,
 ): Promise<WithdrawnEntry[]> {
-  let raw: InscritoFuera[]
+  let raw: InscritoFueraConNombre[]
   try {
-    raw = await fetchInscritosFuera(supabase, tournamentId)
+    const { data, error } = await supabase
+      .from('players')
+      .select('user_id, status, status_reason, player_name, profiles(name)')
+      .eq('tournament_id', tournamentId)
+      .in('status', [...JUGADOR_FUERA_STATUSES])
+    if (error) throw error
+    raw = ((data as unknown as InscritoFueraConNombre[] | null) ?? []).filter((p) => jugadorFueraDelTorneo(p.status))
   } catch (e) {
     void captureError(e, { context: 'fuera-del-ranking.fetchWithdrawnPlayers', meta: { tournamentId } })
     return []
@@ -58,7 +60,7 @@ export async function fetchWithdrawnPlayers(
   const out: WithdrawnEntry[] = []
   for (const p of raw) {
     const displayName = p.profiles?.name ?? (p.user_id ? nombres.get(p.user_id) : null) ?? p.player_name
-    if (displayName) out.push({ name: displayName, status: p.status, reason: p.status_reason })
+    if (displayName) out.push({ name: displayName, status: p.status as EstadoFueraDelRanking, reason: p.status_reason })
   }
   return out
 }
@@ -66,35 +68,74 @@ export async function fetchWithdrawnPlayers(
 /**
  * Camino de RONDA LIBRE: separa las tarjetas que compiten de las del pie. Lo que
  * devuelve `enRanking` es lo ÚNICO que entra al motor del board (ranking, podio,
- * resultados del cierre y GWI). El pie lleva el nombre de la tarjeta (el mismo
- * que mostraba el board) y sus golpes brutos.
+ * resultados del cierre y GWI). Si el estado no se pudo leer, nadie sale (y quedó
+ * reportado): la tabla no se cae.
  */
 export async function separarTarjetasFueraDelRanking(
   supabase: Client,
-  args: {
-    tournamentId: string
-    grupos: ReadonlyArray<GrupoConTarjetas> | ReadonlyArray<DBTournamentGroupRow>
-    tarjetas: DBRondaLibreJugador[]
-    courseHoles: CourseHole[]
-    totalHoyos: number
-  },
-): Promise<{ enRanking: DBRondaLibreJugador[]; fuera: WithdrawnEntry[] }> {
-  if (args.tarjetas.length === 0) return { enRanking: args.tarjetas, fuera: [] }
-  const inscritos = await fetchInscritosFuera(supabase, args.tournamentId)
-  const { enRanking, fuera } = separarFueraDelRanking({
-    tarjetas: args.tarjetas,
-    grupos: args.grupos as ReadonlyArray<GrupoConTarjetas>,
-    inscritos,
-    courseHoles: args.courseHoles,
-    totalHoyos: args.totalHoyos,
-  })
-  return {
-    enRanking,
-    fuera: fuera.map((f) => ({
-      name: f.nombre,
-      status: f.status,
-      reason: f.reason,
-      bruto: { grossTotal: f.grossTotal, hoyos: f.hoyos, vsPar: f.vsPar },
-    })),
+  args: { tournamentId: string; grupos: ReadonlyArray<GrupoConTarjetas>; tarjetas: DBRondaLibreJugador[] },
+): Promise<{ enRanking: DBRondaLibreJugador[]; fuera: Array<{ tarjeta: DBRondaLibreJugador; inscrito: InscritoFuera }> }> {
+  const { porTarjeta } = await leerEstadosFuera(supabase, args.tournamentId, args.grupos, args.tarjetas)
+  return separarFueraDelRanking(args.tarjetas, porTarjeta)
+}
+
+/**
+ * Las filas del pie, con el score que muestra la tabla para ESTE visor: el MISMO
+ * motor y la misma vista pública (`boardPublicoRondaLibre`), así que en
+ * Stableford va en puntos, en la vista bruta en golpes brutos y lo que el visor
+ * no puede ver no viaja. `grupoDeTarjeta`: para los filtros de /en-vivo.
+ */
+export function pieDeTarjetas(
+  fuera: ReadonlyArray<{ tarjeta: DBRondaLibreJugador; inscrito: InscritoFuera }>,
+  ctx: TournamentLeaderboardContext,
+  vista: VistaPublica,
+  grupoDeTarjeta?: (t: DBRondaLibreJugador) => string | null,
+): WithdrawnEntry[] {
+  if (fuera.length === 0) return []
+  const filas = new Map(boardPublicoRondaLibre(fuera.map((f) => f.tarjeta), ctx, vista).players.map((p) => [p.id, p]))
+  const esPuntos = vista.formato === 'stableford'
+  return fuera
+    .map(({ tarjeta, inscrito }): WithdrawnEntry => {
+      const p = filas.get(tarjeta.id)
+      return {
+        id: tarjeta.id,
+        name: tarjeta.nombre,
+        status: inscrito.status,
+        reason: inscrito.status_reason ?? null,
+        ...(grupoDeTarjeta ? { group_id: grupoDeTarjeta(tarjeta) } : {}),
+        ...(p && p.holes > 0
+          ? { score: { valor: p.total, esPuntos, grossTotal: p.grossTotal ?? null, hoyos: p.holes } }
+          : {}),
+      }
+    })
+    .sort((a, b) => ordenDelPie({ ...a, hoyos: a.score?.hoyos ?? 0 }, { ...b, hoyos: b.score?.hoyos ?? 0 }))
+}
+
+/**
+ * Foursome: los equipos con un miembro WD/DQ salen del ranking y van al pie
+ * (Regla 22, decisión de Juanjo 17-nov). Se arman con el MISMO resultado del
+ * motor que la tabla, así que el score del pie es el que tenía el equipo.
+ */
+export function separarEquiposFuera<T extends Pick<FoursomeTeamResult, 'teamId' | 'teamNombre' | 'overUnderGross' | 'overUnderNeto' | 'totalGross' | 'holesPlayed'>>(
+  ordenados: T[],
+  estadoPorEquipo: Readonly<Record<string, EstadoFueraDelRanking>>,
+  modo: 'gross' | 'neto',
+): { enRanking: T[]; fuera: WithdrawnEntry[] } {
+  const enRanking: T[] = []
+  const fuera: WithdrawnEntry[] = []
+  for (const t of ordenados) {
+    const status = estadoPorEquipo[t.teamId]
+    if (!status) { enRanking.push(t); continue }
+    fuera.push({
+      id: t.teamId,
+      name: t.teamNombre,
+      status,
+      reason: null,
+      ...(t.holesPlayed > 0
+        ? { score: { valor: modo === 'neto' ? t.overUnderNeto : t.overUnderGross, esPuntos: false, grossTotal: t.totalGross, hoyos: t.holesPlayed } }
+        : {}),
+    })
   }
+  fuera.sort((a, b) => ordenDelPie({ ...a, hoyos: a.score?.hoyos ?? 0 }, { ...b, hoyos: b.score?.hoyos ?? 0 }))
+  return { enRanking, fuera }
 }

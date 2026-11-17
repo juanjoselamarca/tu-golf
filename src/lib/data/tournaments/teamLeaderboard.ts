@@ -7,11 +7,25 @@ import {
   type CourseData,
 } from '@/golf/core/course-handicap'
 import { hcpPctDeRonda, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
+import {
+  estadoDelEquipoFoursome,
+  scoresQueCuentanEnMejorBola,
+  type EstadoFueraDelRanking,
+  type GrupoConTarjetas,
+  type TarjetaDelTorneo,
+} from '@/golf/leaderboard/fuera-del-ranking'
+import { leerEstadosFuera } from './inscritos-fuera'
 
 export interface ScrambleTeamsResult {
   teams: ScrambleTeam[]
   /** Nombres de los jugadores por teamId (columna "Jugadores" del leaderboard). */
   memberNames: Record<string, string[]>
+  /**
+   * Equipos con un miembro WD/DQ (`estadoDelEquipoFoursome`). Sólo lo APLICA el
+   * foursome (Regla 22: el equipo va al pie); en scramble el equipo sigue
+   * rankeado con quien queda (decisión de Juanjo, 17-nov).
+   */
+  estadoPorEquipo: Record<string, EstadoFueraDelRanking>
 }
 
 export interface BestBallTeamsResult {
@@ -48,12 +62,12 @@ export async function fetchScrambleTeams(
   supabase: SupabaseClient,
   tournamentId: string,
 ): Promise<ScrambleTeamsResult> {
-  const empty: ScrambleTeamsResult = { teams: [], memberNames: {} }
+  const empty: ScrambleTeamsResult = { teams: [], memberNames: {}, estadoPorEquipo: {} }
 
   // 1) Grupos del torneo con su ronda_libre.
   const { data: groups, error: gErr } = await supabase
     .from('tournament_groups')
-    .select('id, name, ronda_libre_id')
+    .select('id, name, ronda_libre_id, tournament_group_players(player_id, jugador_ronda_id)')
     .eq('tournament_id', tournamentId)
   // Un error de la base NO es "no hay equipos": se lanza (la vista lo muestra como
   // tabla no disponible). Armar equipos a medias daría nombres '?' y handicaps 0.
@@ -74,14 +88,18 @@ export async function fetchScrambleTeams(
   // 3) Jugadores de la ronda (nombre).
   const { data: rlj, error: rErr } = await supabase
     .from('ronda_libre_jugadores')
-    .select('id, nombre')
+    .select('id, nombre, user_id, ronda_id')
     .in('ronda_id', rondaIds)
   if (rErr) throw rErr
   const rljById = new Map((rlj ?? []).map((j) => [j.id as string, j]))
+  const { porTarjeta } = await leerEstadosFuera(
+    supabase, tournamentId, groups as GrupoConTarjetas[], (rlj ?? []) as TarjetaDelTorneo[],
+  )
 
   // 4) Map a ScrambleTeam + nombres.
   const teams: ScrambleTeam[] = []
   const memberNames: Record<string, string[]> = {}
+  const estadoPorEquipo: Record<string, EstadoFueraDelRanking> = {}
 
   for (const eq of eqRows) {
     const members = ((eq.ronda_equipo_jugadores ?? []) as Array<{ jugador_id: string; orden: number }>)
@@ -100,9 +118,11 @@ export async function fetchScrambleTeams(
       const j = rljById.get(m.jugador_id)
       return (j?.nombre as string | undefined) || '?'
     })
+    const estado = estadoDelEquipoFoursome(members.map((m) => m.jugador_id), porTarjeta)
+    if (estado) estadoPorEquipo[id] = estado
   }
 
-  return { teams, memberNames }
+  return { teams, memberNames, estadoPorEquipo }
 }
 
 /**
@@ -142,7 +162,7 @@ export async function fetchBestBallTeams(
   // 1) Grupos del torneo con su ronda_libre.
   const { data: groups, error: gErr } = await supabase
     .from('tournament_groups')
-    .select('id, name, ronda_libre_id')
+    .select('id, name, ronda_libre_id, tournament_group_players(player_id, jugador_ronda_id)')
     .eq('tournament_id', tournamentId)
   // Un error de la base NO es "no hay equipos": se lanza (la vista lo muestra como
   // tabla no disponible). Armar equipos a medias daría nombres '?' y handicaps 0.
@@ -182,6 +202,11 @@ export async function fetchBestBallTeams(
     new Set((rlj ?? []).map((j) => j.user_id).filter((x): x is string => !!x)),
   )
   const indiceByUser = await leerIndices(userIds)
+  // Mejor bola con un DQ: sus golpes no cuentan en ningún hoyo; el WD conserva los
+  // hoyos que jugó (Regla 23.4). Decisión de Juanjo, 17-nov.
+  const { porTarjeta } = await leerEstadosFuera(
+    supabase, tournamentId, groups as GrupoConTarjetas[], (rlj ?? []) as TarjetaDelTorneo[],
+  )
 
   // 6) Course handicap por jugador, cacheado por (course_id|tee|holes) — mismas
   //    claves que el scorer, mismo resolverCourseData → mismo resultado.
@@ -232,7 +257,7 @@ export async function fetchBestBallTeams(
         // El motor pasa este valor a strokesRecibidosEnHoyo → debe ser el course
         // handicap (golpes que recibe), NO el índice. Ver BestBallPlayer.handicapIndex.
         handicapIndex: courseHcp,
-        scores: (j.scores as Record<string, number>) ?? {},
+        scores: scoresQueCuentanEnMejorBola((j.scores as Record<string, number>) ?? {}, porTarjeta.get(j.id as string)?.status),
       })
     }
     if (jugadores.length === 0) continue

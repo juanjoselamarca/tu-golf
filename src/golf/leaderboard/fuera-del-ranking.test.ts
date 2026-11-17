@@ -1,83 +1,129 @@
-import { describe, it, expect } from 'vitest'
-import { separarFueraDelRanking, estadoFueraPorTarjeta, brutoDeLaTarjeta } from './fuera-del-ranking'
+import { describe, expect, it } from 'vitest'
+import {
+  estadoDelEquipoFoursome,
+  estadoFueraPorTarjeta,
+  ordenDelPie,
+  scoresQueCuentanEnMejorBola,
+  separarFueraDelRanking,
+  type GrupoConTarjetas,
+  type InscritoConEstado,
+  type TarjetaDelTorneo,
+} from './fuera-del-ranking'
 
-const HOYOS = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
-const golpes = (n: number, g = 4) => Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), g]))
+const T = (id: string, ronda_id: string, user_id: string | null): TarjetaDelTorneo => ({ id, ronda_id, user_id })
+const G = (ronda_libre_id: string | null, gps: Array<[string, string | null]>): GrupoConTarjetas => ({
+  ronda_libre_id,
+  tournament_group_players: gps.map(([player_id, jugador_ronda_id]) => ({ player_id, jugador_ronda_id })),
+})
+const P = (id: string, status: string, user_id: string | null = null, status_reason: string | null = null): InscritoConEstado =>
+  ({ id, status, user_id, status_reason })
 
-const tarjeta = (id: string, nombre: string, scores: Record<string, number>, user_id: string | null = null) =>
-  ({ id, ronda_id: 'rl1', user_id, nombre, scores })
-
-describe('separarFueraDelRanking (#813)', () => {
-  it('el WD sale del ranking y va al pie con sus golpes (hoyo 12 yendo -2)', () => {
-    const wdScores = { ...golpes(12), '3': 3, '7': 3 } // 12 hoyos, -2
-    const out = separarFueraDelRanking({
-      tarjetas: [tarjeta('t-wd', 'Retirado', wdScores), tarjeta('t-ok', 'Termina', golpes(18, 5))],
-      grupos: [{ ronda_libre_id: 'rl1', tournament_group_players: [
-        { player_id: 'p-wd', jugador_ronda_id: 't-wd' }, { player_id: 'p-ok', jugador_ronda_id: 't-ok' },
-      ] }],
-      inscritos: [{ id: 'p-wd', status: 'withdrawn', status_reason: 'Lesión' }],
-      courseHoles: HOYOS,
-      totalHoyos: 18,
-    })
-    expect(out.enRanking.map((t) => t.id)).toEqual(['t-ok'])
-    expect(out.fuera).toEqual([
-      { tarjetaId: 't-wd', nombre: 'Retirado', status: 'withdrawn', reason: 'Lesión', grossTotal: 46, hoyos: 12, vsPar: -2 },
-    ])
-  })
-
-  it('el DQ también sale; un inscrito aprobado no', () => {
-    const out = separarFueraDelRanking({
-      tarjetas: [tarjeta('t-dq', 'Descalificado', golpes(5)), tarjeta('t-ok', 'Ok', golpes(5))],
-      grupos: [{ ronda_libre_id: 'rl1', tournament_group_players: [
-        { player_id: 'p-dq', jugador_ronda_id: 't-dq' }, { player_id: 'p-ok', jugador_ronda_id: 't-ok' },
-      ] }],
-      inscritos: [{ id: 'p-dq', status: 'disqualified' }, { id: 'p-ok', status: 'approved' }],
-      courseHoles: HOYOS,
-      totalHoyos: 18,
-    })
-    expect(out.enRanking.map((t) => t.id)).toEqual(['t-ok'])
-    expect(out.fuera[0]).toMatchObject({ tarjetaId: 't-dq', status: 'disqualified', reason: null })
-  })
-
-  it('sin enlace jugador_ronda_id, resuelve por user_id SOLO dentro de la ronda de su grupo', () => {
-    const tarjetas = [
-      { id: 't-a', ronda_id: 'rl1', user_id: 'u1', nombre: 'A', scores: {} },
-      { id: 't-otra', ronda_id: 'rl2', user_id: 'u1', nombre: 'A en otra', scores: {} },
-    ]
-    const estados = estadoFueraPorTarjeta(
-      [{ ronda_libre_id: 'rl1', tournament_group_players: [{ player_id: 'p1', jugador_ronda_id: null }] }],
-      [{ id: 'p1', user_id: 'u1', status: 'withdrawn' }],
-      tarjetas,
+describe('estadoFueraPorTarjeta (#813)', () => {
+  it('resuelve por el enlace jugador_ronda_id; el aprobado no sale', () => {
+    const r = estadoFueraPorTarjeta(
+      [G('r1', [['p-ana', 'j-ana'], ['p-beto', 'j-beto'], ['p-caro', 'j-caro']])],
+      [P('p-ana', 'withdrawn'), P('p-beto', 'disqualified'), P('p-caro', 'approved')],
+      [T('j-ana', 'r1', null), T('j-beto', 'r1', null), T('j-caro', 'r1', null)],
     )
-    expect([...estados.keys()]).toEqual(['t-a'])
+    expect([...r.porTarjeta.keys()].sort()).toEqual(['j-ana', 'j-beto'])
+    expect(r.porTarjeta.get('j-beto')?.status).toBe('disqualified')
+    expect(r.sinResolver).toEqual([])
   })
 
-  it('sin nadie fuera devuelve las mismas tarjetas', () => {
-    const tarjetas = [tarjeta('t1', 'Uno', golpes(3))]
-    const out = separarFueraDelRanking({ tarjetas, grupos: [], inscritos: [], courseHoles: HOYOS, totalHoyos: 18 })
-    expect(out.enRanking).toBe(tarjetas)
-    expect(out.fuera).toEqual([])
+  it('sin enlace, por user_id SÓLO en la ronda de su grupo', () => {
+    const r = estadoFueraPorTarjeta(
+      [G('r1', [['p-ana', null]]), G('r2', [])],
+      [P('p-ana', 'withdrawn', 'u-ana')],
+      // La misma cuenta tiene otra tarjeta en otra ronda (otro torneo / otra salida): no se toca.
+      [T('j-r1', 'r1', 'u-ana'), T('j-r2', 'r2', 'u-ana')],
+    )
+    expect([...r.porTarjeta.keys()]).toEqual(['j-r1'])
   })
 
-  it('pie ordenado: más hoyos primero; a igualdad WD antes que DQ', () => {
-    const out = separarFueraDelRanking({
-      tarjetas: [tarjeta('a', 'Ana', golpes(4)), tarjeta('b', 'Beto', golpes(9)), tarjeta('c', 'Caro', golpes(4))],
-      grupos: [{ ronda_libre_id: 'rl1', tournament_group_players: [
-        { player_id: 'pa', jugador_ronda_id: 'a' }, { player_id: 'pb', jugador_ronda_id: 'b' }, { player_id: 'pc', jugador_ronda_id: 'c' },
-      ] }],
-      inscritos: [{ id: 'pa', status: 'disqualified' }, { id: 'pb', status: 'withdrawn' }, { id: 'pc', status: 'withdrawn' }],
-      courseHoles: HOYOS,
-      totalHoyos: 18,
-    })
-    expect(out.fuera.map((f) => f.nombre)).toEqual(['Beto', 'Caro', 'Ana'])
+  it('INVITADO sin enlace (sin cuenta): no se adivina por nombre, se REPORTA como sin resolver', () => {
+    const r = estadoFueraPorTarjeta(
+      [G('r1', [['p-inv', null]])],
+      [P('p-inv', 'withdrawn', null)],
+      [T('j-inv', 'r1', null)],
+    )
+    expect(r.porTarjeta.size).toBe(0)
+    expect(r.sinResolver.map((p) => p.id)).toEqual(['p-inv'])
+  })
+
+  it('dos tarjetas de la misma cuenta en la ronda: ambiguo, se reporta y no se elige una', () => {
+    const r = estadoFueraPorTarjeta(
+      [G('r1', [['p-ana', null]])],
+      [P('p-ana', 'withdrawn', 'u-ana')],
+      [T('j-1', 'r1', 'u-ana'), T('j-2', 'r1', 'u-ana')],
+    )
+    expect(r.porTarjeta.size).toBe(0)
+    expect(r.sinResolver.map((p) => p.id)).toEqual(['p-ana'])
+  })
+
+  it('WD sin fila de grupo pero con UNA tarjeta suya en el torneo: sale igual', () => {
+    const r = estadoFueraPorTarjeta([G('r1', [])], [P('p-ana', 'withdrawn', 'u-ana')], [T('j-ana', 'r1', 'u-ana')])
+    expect([...r.porTarjeta.keys()]).toEqual(['j-ana'])
+  })
+
+  it('WD sin fila de grupo y sin tarjeta (se retiró antes de jugar): nada que sacar ni reportar', () => {
+    const r = estadoFueraPorTarjeta([G('r1', [])], [P('p-ana', 'withdrawn', 'u-ana')], [T('j-otro', 'r1', 'u-otro')])
+    expect(r.porTarjeta.size).toBe(0)
+    expect(r.sinResolver).toEqual([])
+  })
+
+  it('grupo sin ronda (legacy) sin enlace: no es un pendiente del camino de ronda libre', () => {
+    const r = estadoFueraPorTarjeta([G(null, [['p-ana', null]])], [P('p-ana', 'withdrawn')], [T('j-x', 'r1', null)])
+    expect(r.sinResolver).toEqual([])
   })
 })
 
-describe('brutoDeLaTarjeta', () => {
-  it('sin hoyos: 0 golpes y vsPar 0', () => {
-    expect(brutoDeLaTarjeta(null, HOYOS, 18)).toEqual({ grossTotal: 0, hoyos: 0, vsPar: 0 })
+describe('separarFueraDelRanking', () => {
+  it('sin nadie fuera devuelve el MISMO arreglo', () => {
+    const tarjetas = [T('a', 'r1', null)]
+    expect(separarFueraDelRanking(tarjetas, new Map()).enRanking).toBe(tarjetas)
   })
-  it('ignora hoyos fuera de la vuelta', () => {
-    expect(brutoDeLaTarjeta({ '1': 5, '10': 4 }, HOYOS, 9)).toEqual({ grossTotal: 5, hoyos: 1, vsPar: 1 })
+
+  it('el WD va al pie con su inscripción; el resto queda en el ranking en orden', () => {
+    const { porTarjeta } = estadoFueraPorTarjeta(
+      [G('r1', [['p-b', 'b']])], [P('p-b', 'withdrawn', null, 'Lesión')], [T('a', 'r1', null), T('b', 'r1', null), T('c', 'r1', null)],
+    )
+    const r = separarFueraDelRanking([T('a', 'r1', null), T('b', 'r1', null), T('c', 'r1', null)], porTarjeta)
+    expect(r.enRanking.map((t) => t.id)).toEqual(['a', 'c'])
+    expect(r.fuera.map((f) => [f.tarjeta.id, f.inscrito.status_reason])).toEqual([['b', 'Lesión']])
+  })
+})
+
+describe('ordenDelPie', () => {
+  it('más hoyos primero; a igualdad WD antes que DQ y luego por nombre', () => {
+    const filas = [
+      { name: 'Zoe', status: 'withdrawn' as const, hoyos: 5 },
+      { name: 'Ana', status: 'disqualified' as const, hoyos: 12 },
+      { name: 'Beto', status: 'disqualified' as const, hoyos: 5 },
+      { name: 'Ana', status: 'withdrawn' as const, hoyos: 5 },
+    ]
+    expect(filas.sort(ordenDelPie).map((f) => `${f.name}-${f.status}`)).toEqual([
+      'Ana-disqualified', 'Ana-withdrawn', 'Zoe-withdrawn', 'Beto-disqualified',
+    ])
+  })
+})
+
+describe('equipos (decisiones de Juanjo, 17-nov)', () => {
+  const { porTarjeta } = estadoFueraPorTarjeta(
+    [G('r1', [['p-a', 'j-a'], ['p-b', 'j-b'], ['p-c', 'j-c']])],
+    [P('p-a', 'withdrawn'), P('p-b', 'disqualified'), P('p-c', 'approved')],
+    [T('j-a', 'r1', null), T('j-b', 'r1', null), T('j-c', 'r1', null)],
+  )
+
+  it('foursome: un miembro WD deja al equipo WD; con un DQ, DQ; sin nadie fuera, compite', () => {
+    expect(estadoDelEquipoFoursome(['j-a', 'j-c'], porTarjeta)).toBe('withdrawn')
+    expect(estadoDelEquipoFoursome(['j-a', 'j-b'], porTarjeta)).toBe('disqualified')
+    expect(estadoDelEquipoFoursome(['j-c', 'j-z'], porTarjeta)).toBeNull()
+  })
+
+  it('mejor bola: los golpes del DQ no cuentan en NINGÚN hoyo; los del WD (R23.4) y del resto, sí', () => {
+    const scores = { '1': 4, '2': 3, '3': 5 }
+    expect(scoresQueCuentanEnMejorBola(scores, 'disqualified')).toEqual({})
+    expect(scoresQueCuentanEnMejorBola(scores, 'withdrawn')).toBe(scores)
+    expect(scoresQueCuentanEnMejorBola(scores, undefined)).toBe(scores)
   })
 })
