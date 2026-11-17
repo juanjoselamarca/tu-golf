@@ -938,3 +938,16 @@ Fuera de alcance (pendiente):
   jugador duplicado en el torneo. Por eso ningún aviso del scorer manda a `/unirse`. Falta: que la
   inscripción reconozca al invitado existente antes de crear otro.
 - **Follow-up:** adoptar `src/lib/auth/aviso-sesion-cerrada.ts` (PR #789) en `avisoSinAcceso('sin_sesion')`.
+- **Vuelta 3:** el 403 de invitado distingue `guest_token_invalid` (acceso roto) de `guest_not_owner`
+  (tarjeta ajena → "no está a tu nombre"). `?jugador=` gana sobre la auto-selección del invitado
+  (`hooks/jugador-del-link.ts`). Guardar antes de terminar la carga ya no pisa el respaldo pendiente.
+- **Residual (requiere migración, no hecho):** `upsertScore` (`src/app/api/game/actions.ts`) es un
+  `upsert` por `(round_id, hole_number)` sin versión: si el servidor procesa dos POST del mismo hoyo
+  en desorden (el viejo después del nuevo) gana el viejo, y el cliente no lo puede ver porque los dos
+  "ok" llegan en orden. El cliente cubre el caso visible (un reintento viejo que entra después de la
+  corrección devuelve la cola a pendiente y reenvía el valor vigente). El arreglo de raíz es una
+  columna de secuencia del cliente (o `updated_at` del cliente) en `hole_scores` y un upsert condicional
+  (`where excluded.seq > hole_scores.seq`), vía migración.
+- **Hallazgo (fuera de alcance):** en un torneo en curso, un jugador del roster SIN fila en `rounds`
+  ve la tarjeta habilitada; lo que anota no se guarda ni se avisa (`guardarHoyo` sale sin `roundId`).
+  Visto en `copa-cabros-mo7nce53` (4 de 5 jugadores sin ronda).
