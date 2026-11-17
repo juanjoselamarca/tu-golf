@@ -308,6 +308,27 @@ describe('POST /api/torneos/[slug]/start', () => {
     expect(g1.players.map((p: { id: string }) => p.id)).not.toContain('p3')
   })
 
+  it('fecha vencida (postergado e iniciado en la cancha): se corre a hoy con su duración en el mismo update', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-06-11T16:00:00Z'))
+    try {
+      tables.tournaments = { data: { ...(tables.tournaments.data as object), date_start: '2026-06-08', date_end: '2026-06-09' }, error: null }
+      const res = await call()
+      expect(res.status).toBe(200)
+      const patch = (statusUpdates.find((u) => (u as { table: string }).table === 'tournaments') as { patch: unknown }).patch
+      expect(patch).toEqual({ status: 'in_progress', date_start: '2026-06-11', date_end: '2026-06-12' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('con la fecha de hoy o futura no toca las fechas', async () => {
+    tables.tournaments = { data: { ...(tables.tournaments.data as object), date_start: '2999-01-01', date_end: '2999-01-01' }, error: null }
+    await call()
+    const patch = (statusUpdates.find((u) => (u as { table: string }).table === 'tournaments') as { patch: unknown }).patch
+    expect(patch).toEqual({ status: 'in_progress' })
+  })
+
   it('torneo ya en juego → 409', async () => {
     ;(tables.tournaments.data as { status: string }).status = 'in_progress'
     expect((await call()).status).toBe(409)

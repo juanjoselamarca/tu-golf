@@ -38,10 +38,12 @@ import {
   materializeGroupScorecard,
   type GrupoArmado,
   ponerEnJuego,
+  moverFechasDeRondas,
   soloAprobados,
   completarIndicesInscritos,
 } from '@/lib/data/tournaments/startTournament'
 import { leerParaIniciar } from '@/lib/data/tournaments/leer-para-iniciar'
+import { fechasAlIniciar } from '@/golf/tournament-live-status'
 import {
   avisoSinIndice,
   CODIGO_CONFIRMAR_SIN_INDICE,
@@ -195,12 +197,15 @@ export async function POST(
 
     // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas
     // y el torneo sigue sin iniciar. Si otro inicio ganó, lo propio no se deshace.
-    const enJuego = await ponerEnJuego(svc, t.id)
+    // Fecha vencida (postergado y jugado hoy): se corre a hoy con su duración en el mismo update.
+    const fechas = fechasAlIniciar(t, new Date())
+    const enJuego = await ponerEnJuego(svc, t.id, fechas)
     if (enJuego === 'otro-gano') {
       const ahora = await estadoAntesDeDeshacer(svc, t.id)
       return NextResponse.json({ error: ahora === 'otro-estado' ? ERROR_CAMBIO_DE_ESTADO : ERROR_OTRO_INICIO }, { status: 409 })
     }
     if (enJuego === 'error') return fallar('No se pudo actualizar el estado del torneo. Intenta de nuevo.', 500)
+    if (fechas) await moverFechasDeRondas(svc, t.id, fechas.delta)
 
     return NextResponse.json({ success: true, status: 'in_progress' })
   } catch (err) {

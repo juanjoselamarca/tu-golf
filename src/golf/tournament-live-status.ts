@@ -106,3 +106,30 @@ function diffDias(desde: string, hasta: string): number {
   const b = Date.parse(`${hasta}T00:00:00Z`)
   return Math.round((b - a) / 86_400_000)
 }
+
+/** `fecha` (YYYY-MM-DD) más `dias` días calendario. */
+export function sumarDias(fecha: string, dias: number): string {
+  return new Date(Date.parse(`${fecha.slice(0, 10)}T00:00:00Z`) + dias * 86_400_000).toISOString().slice(0, 10)
+}
+
+/**
+ * Fechas con que queda un torneo que el organizador inicia HOY. Si la fecha programada
+ * ya pasó (postergado por lluvia y jugado otro día, o un "Iniciar" olvidado), el torneo
+ * se corre a hoy conservando su duración: sin esto quedaba in_progress con la fecha de
+ * hace 3 días y `estadoDelTorneo` lo daba por finalizado al instante (sin scorer, en
+ * "Finalizados" de Mi Golf). `tournaments` no guarda cuándo se inició, así que la fecha
+ * real del torneo pasa a ser la del inicio.
+ *
+ * `delta` = días que se corrió (lo usan las fechas por ronda). `null` = no hay que mover
+ * nada (sin fecha, o fecha de hoy o futura: iniciar antes de la fecha no la cambia).
+ */
+export function fechasAlIniciar(
+  t: { date_start: string | null | undefined; date_end?: string | null },
+  ahora: Date,
+): { date_start: string; date_end: string | null; delta: number } | null {
+  const fechas = rangoDelTorneo({ status: null, date_start: t.date_start, date_end: t.date_end })
+  if (!fechas) return null
+  const delta = diffDias(fechas.inicio, fechaHoyChile(ahora))
+  if (delta <= 0) return null
+  return { date_start: sumarDias(fechas.inicio, delta), date_end: t.date_end ? sumarDias(fechas.fin, delta) : null, delta }
+}

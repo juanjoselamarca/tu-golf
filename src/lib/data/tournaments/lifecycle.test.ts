@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { startTournament, closeTournament, cancelTournament, openTournament, revertToDraft } from './lifecycle'
+import { closeTournament, cancelTournament, openTournament, revertToDraft } from './lifecycle'
 import { after } from 'next/server'
 import { start } from 'workflow/api'
 import { guardarRondasDelCierre, historialDelCierre } from './historial-del-cierre'
@@ -11,25 +11,13 @@ vi.mock('./historial-del-cierre', () => ({ historialDelCierre: vi.fn(), guardarR
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 
 const mockFrom = vi.fn()
-const mockSupabase = { from: mockFrom } as unknown as Parameters<typeof startTournament>[0]
+const mockSupabase = { from: mockFrom } as unknown as Parameters<typeof closeTournament>[0]
 beforeEach(() => {
   mockFrom.mockReset()
   vi.mocked(start).mockReset().mockResolvedValue({ runId: 'wrun_1' } as Awaited<ReturnType<typeof start>>)
   vi.mocked(guardarRondasDelCierre).mockClear()
   vi.mocked(captureError).mockClear()
   vi.mocked(after).mockClear()
-})
-
-describe('startTournament', () => {
-  it('marca tournaments.status = in_progress', async () => {
-    const update = vi.fn().mockReturnThis()
-    const eq = vi.fn().mockResolvedValue({ data: null, error: null })
-    mockFrom.mockReturnValue({ update, eq })
-    await startTournament(mockSupabase, 't1')
-    expect(mockFrom).toHaveBeenCalledWith('tournaments')
-    expect(update).toHaveBeenCalledWith({ status: 'in_progress' })
-    expect(eq).toHaveBeenCalledWith('id', 't1')
-  })
 })
 
 describe('closeTournament', () => {

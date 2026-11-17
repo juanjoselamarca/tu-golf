@@ -41,10 +41,6 @@ export function revertToDraft(supabase: SupabaseClient, id: string): Promise<voi
   return setStatus(supabase, id, 'draft')
 }
 
-export function startTournament(supabase: SupabaseClient, id: string): Promise<void> {
-  return setStatus(supabase, id, 'in_progress')
-}
-
 /**
  * Cierra el torneo y lo CONGELA: además de marcar el estado 'closed', finaliza
  * todas sus rondas para que no se puedan editar scores tras el cierre ("los

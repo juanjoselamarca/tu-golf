@@ -21,6 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
+import { sumarDias } from '@/golf/tournament-live-status'
 import { modoDeJuego } from '@/golf/core/rules'
 import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
@@ -335,14 +336,19 @@ export async function handicapsCambiaronAlIniciar(
  * Pone el torneo en juego solo si sigue sin iniciar (compare-and-set, igual que
  * `publishDraft`). 'otro-gano' = otro inicio lo puso en juego primero (o cambió de
  * estado entretanto): lo armado aquí no se deshace.
+ *
+ * `fechas` (de `fechasAlIniciar`): si la fecha programada ya pasó, el torneo se corre
+ * a hoy en el MISMO update que lo pone en juego (nunca queda in_progress con la fecha
+ * vieja, que lo mostraría finalizado).
  */
 export async function ponerEnJuego(
   svc: SupabaseClient,
   tournamentId: string,
+  fechas: { date_start: string; date_end: string | null } | null = null,
 ): Promise<'ok' | 'otro-gano' | 'error'> {
   const { data, error } = await svc
     .from('tournaments')
-    .update({ status: 'in_progress' })
+    .update(fechas ? { status: 'in_progress', date_start: fechas.date_start, date_end: fechas.date_end } : { status: 'in_progress' })
     .eq('id', tournamentId)
     .in('status', [...TORNEO_SIN_EMPEZAR_STATUSES])
     .select('id')
@@ -351,6 +357,36 @@ export async function ponerEnJuego(
     return 'error'
   }
   return (data ?? []).length > 0 ? 'ok' : 'otro-gano'
+}
+
+/**
+ * Corre `delta` días las fechas por ronda (`tournament_rounds.date`, rondas 2..N) de un
+ * torneo que se inició después de su fecha, para que el calendario siga consistente
+ * con `date_start`/`date_end`. Va DESPUÉS de ponerlo en juego y no lo revierte si falla:
+ * el estado del torneo solo depende de date_start/date_end (ya corridos); una fecha de
+ * ronda vieja es cosmética y queda en Sentry.
+ */
+export async function moverFechasDeRondas(svc: SupabaseClient, tournamentId: string, delta: number): Promise<boolean> {
+  if (delta === 0) return true
+  const { data, error } = await svc.from('tournament_rounds').select('round_number, date').eq('tournament_id', tournamentId)
+  if (error) {
+    void captureError(error, { context: 'start-tournament.mover-fechas-rondas', level: 'warning' })
+    return false
+  }
+  let ok = true
+  for (const r of (data ?? []) as Array<{ round_number: number; date: string | null }>) {
+    if (!r.date) continue
+    const { error: uErr } = await svc
+      .from('tournament_rounds')
+      .update({ date: sumarDias(r.date, delta) })
+      .eq('tournament_id', tournamentId)
+      .eq('round_number', r.round_number)
+    if (uErr) {
+      ok = false
+      void captureError(uErr, { context: 'start-tournament.mover-fechas-rondas', level: 'warning', meta: { tournamentId, round: r.round_number } })
+    }
+  }
+  return ok
 }
 
 /** Lo que hace falta para deshacer un grupo ya armado (`deshacerGrupo`). */

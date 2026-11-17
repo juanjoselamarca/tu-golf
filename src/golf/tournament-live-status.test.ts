@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { torneoEnVivo, estadoDelTorneo, fechaHoyChile, GRACE_DIAS_TORNEO } from './tournament-live-status'
+import { torneoEnVivo, estadoDelTorneo, fechaHoyChile, GRACE_DIAS_TORNEO, fechasAlIniciar, sumarDias } from './tournament-live-status'
 
 const HOY = new Date('2026-06-11T15:00:00') // hora local del test
 
@@ -141,5 +141,41 @@ describe('estadoDelTorneo — fuente única del estado que se muestra', () => {
     it('invierno (UTC-4): 23:30 del 10-jun en Chile = 03:30 UTC del 11', () => {
       expect(fechaHoyChile(new Date('2026-06-11T03:30:00Z'))).toBe('2026-06-10')
     })
+  })
+})
+
+describe('fechasAlIniciar — postergado por lluvia e iniciado en la cancha', () => {
+  const MEDIODIA = new Date('2026-06-11T16:00:00Z') // 12:00 en Chile, 11-jun
+
+  it('iniciado con la fecha 3 días atrás → queda EN CURSO (no finalizado al instante)', () => {
+    const t = { status: 'open', date_start: '2026-06-08', date_end: '2026-06-08' }
+    expect(estadoDelTorneo({ ...t, status: 'in_progress' }, MEDIODIA)).toBe('finalizado') // el bug sin correr fechas
+    const f = fechasAlIniciar(t, MEDIODIA)
+    expect(f).toEqual({ date_start: '2026-06-11', date_end: '2026-06-11', delta: 3 })
+    expect(estadoDelTorneo({ status: 'in_progress', ...f! }, MEDIODIA)).toBe('en_curso')
+  })
+
+  it('conserva la duración de un torneo de varios días', () => {
+    expect(fechasAlIniciar({ date_start: '2026-06-06', date_end: '2026-06-07' }, MEDIODIA))
+      .toEqual({ date_start: '2026-06-11', date_end: '2026-06-12', delta: 5 })
+  })
+
+  it('sin date_end: corre solo date_start', () => {
+    expect(fechasAlIniciar({ date_start: '2026-06-10', date_end: null }, MEDIODIA))
+      .toEqual({ date_start: '2026-06-11', date_end: null, delta: 1 })
+  })
+
+  it('hoy o futuro (iniciar antes de la fecha) → no mueve nada', () => {
+    expect(fechasAlIniciar({ date_start: '2026-06-11' }, MEDIODIA)).toBeNull()
+    expect(fechasAlIniciar({ date_start: '2026-06-20' }, MEDIODIA)).toBeNull()
+    expect(fechasAlIniciar({ date_start: null }, MEDIODIA)).toBeNull()
+  })
+
+  it('usa el día de Chile: 23:30 del 10-jun en Chile sigue siendo 10-jun', () => {
+    expect(fechasAlIniciar({ date_start: '2026-06-10' }, new Date('2026-06-11T03:30:00Z'))).toBeNull()
+  })
+
+  it('sumarDias cruza fin de mes', () => {
+    expect(sumarDias('2026-06-29', 3)).toBe('2026-07-02')
   })
 })

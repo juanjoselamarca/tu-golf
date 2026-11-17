@@ -36,6 +36,7 @@ export interface TorneoParaIniciar {
   tees: string | null
   hole_count: number | null
   date_start: string | null
+  date_end: string | null
   total_rounds: number | null
   courses: { nombre?: string } | null
   team_config: unknown
@@ -63,7 +64,7 @@ export async function leerParaIniciar(
 ): Promise<LecturaParaIniciar> {
   const { data: tournament, error: tErr } = await svc
     .from('tournaments')
-    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, hcp_pct, course_id, course_name, tees, hole_count, date_start, total_rounds, team_config, hcp_calc_mode, courses(nombre)')
+    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, hcp_pct, course_id, course_name, tees, hole_count, date_start, date_end, total_rounds, team_config, hcp_calc_mode, courses(nombre)')
     .eq('slug', slug)
     .single()
 
