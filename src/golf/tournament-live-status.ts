@@ -170,9 +170,9 @@ export function fechasAlIniciar(
  * índice "del día"). Antes era `new Date()` en UTC: desde las 21:00 de Chile la ronda quedaba con fecha de mañana,
  * y una ronda que cerró el cierre del torneo (manual o automático, días después) quedaba con el día del cierre.
  *  - La finalizó el jugador (`closedAt`): el día de Chile en que la finalizó.
- *  - No la finalizó (la cerró el cierre del torneo): la fecha de la ronda (`fechaRonda`). Sin ella: la ronda 1 es
- *    el inicio del torneo; una ronda 2+ sin fecha cargada, su último día (date_end ?? date_start), porque se jugó
- *    después del inicio. Nunca futura (un torneo cerrado antes de su fecha queda con hoy).
+ *  - No la finalizó (la cerró el cierre del torneo): la fecha de la ronda (`fechaRonda`), salvo que sea anterior
+ *    al inicio del torneo (quedó vieja tras mover el torneo en /editar). Sin fecha vigente: inicio + (N−1) días,
+ *    acotado al último día del torneo (una ronda por día; 36 hoyos en un día caen en el inicio). Nunca futura.
  *  - Sin ninguna fecha legible → hoy en Chile.
  */
 export function fechaDeJuegoDeLaRonda(
@@ -190,8 +190,16 @@ export function fechaDeJuegoDeLaRonda(
     if (!Number.isNaN(ms)) return fechaHoyChile(new Date(Math.min(ms, ahora.getTime())))
     return hoy
   }
-  const delTorneo = (r.numeroDeRonda ?? 1) > 1 ? rangoDelTorneo({ status: null, ...r.torneo })?.fin : r.torneo.date_start
-  const fecha = (r.fechaRonda ?? delTorneo ?? '').slice(0, 10)
+  const rango = rangoDelTorneo({ status: null, ...r.torneo })
+  let delTorneo: string | null = null
+  if (rango) {
+    const porNumero = sumarDias(rango.inicio, Math.max(1, r.numeroDeRonda ?? 1) - 1)
+    delTorneo = porNumero < rango.fin ? porNumero : rango.fin
+  }
+  // Una fecha de ronda anterior al inicio quedó vieja (el organizador movió el torneo en /editar): no es el día jugado.
+  const fechaRonda = r.fechaRonda?.slice(0, 10)
+  const rondaVigente = fechaRonda && (!rango || fechaRonda >= rango.inicio) ? fechaRonda : null
+  const fecha = (rondaVigente ?? delTorneo ?? '').slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return hoy
   return fecha < hoy ? fecha : hoy
 }

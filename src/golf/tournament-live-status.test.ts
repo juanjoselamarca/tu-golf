@@ -235,6 +235,17 @@ describe('fechaDeJuegoDeLaRonda (played_at del historial)', () => {
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 2, torneo: { date_start: '2026-11-13', date_end: null } }, martes)).toBe('2026-11-13')
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 3, torneo: { date_start: '2026-11-16', date_end: '2026-11-20' } }, martes)).toBe('2026-11-17')
   })
+  it('ronda 2+ sin fecha: inicio + (N−1) días, acotado al último día', () => {
+    const viernesADomingo = { date_start: '2026-11-13', date_end: '2026-11-15' }
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 2, torneo: viernesADomingo }, martes)).toBe('2026-11-14')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 3, torneo: viernesADomingo }, martes)).toBe('2026-11-15')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 4, torneo: viernesADomingo }, martes)).toBe('2026-11-15')
+  })
+  it('fecha de ronda anterior al inicio (torneo movido en /editar) se descarta', () => {
+    const movido = { date_start: '2026-11-14', date_end: '2026-11-15' }
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-08', numeroDeRonda: 2, torneo: movido }, martes)).toBe('2026-11-15')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-08', numeroDeRonda: 1, torneo: movido }, martes)).toBe('2026-11-14')
+  })
   it('fecha de la ronda futura (cerrado antes de tiempo) → hoy', () => {
     expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-20', numeroDeRonda: 1, torneo: { date_start: null } }, martes)).toBe('2026-11-17')
   })
