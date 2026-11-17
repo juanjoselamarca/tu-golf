@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
 import { activeRoundOf } from '@/golf/tournament-rounds'
+import { torneoAceptaScores } from '@/golf/tournament-status'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import {
@@ -39,6 +40,12 @@ export interface RondaActivaDelJugador {
   ctx: RoundScoringContext | null
   error: boolean
   retry: () => void
+  /**
+   * El torneo recibe golpes y el jugador NO tiene tarjeta (`rounds`) donde guardarlos.
+   * La pantalla no muestra inputs: sin `round_id` el guardado no tiene a dónde ir, y antes
+   * la tarjeta quedaba editable y lo anotado se perdía sin aviso.
+   */
+  sinTarjeta: boolean
 }
 
 export function useRondaActivaDelJugador({ slug, tournament, player, base }: Args): RondaActivaDelJugador {
@@ -48,6 +55,7 @@ export function useRondaActivaDelJugador({ slug, tournament, player, base }: Arg
   // devuelve una referencia nueva en cada carga del roster y eso disparaba un
   // refetch por render.
   const playerId = player?.id ?? null
+  const sinTarjeta = !!player && !!tournament && !round && torneoAceptaScores(tournament.status)
   // Una cancha por ronda: el contexto se resuelve una vez por número de ronda
   // y se DERIVA en render (nada de setState síncrono dentro del efecto).
   const [porRonda, setPorRonda] = useState<ReadonlyMap<number, RoundScoringContext>>(new Map())
@@ -100,5 +108,17 @@ export function useRondaActivaDelJugador({ slug, tournament, player, base }: Arg
     setNonce((n) => n + 1)
   }
 
-  return { round, ctx, error, retry }
+  // Todo alta de jugador crea su tarjeta en la misma transacción (RPC `enroll_player`) y el inicio
+  // asegura la de la ronda 1 (`ensureRound1Cards`). Si igual aparece uno sin tarjeta, es un camino
+  // que se saltó eso: se reporta como error para encontrarlo, no sólo se le avisa al jugador.
+  useEffect(() => {
+    if (!sinTarjeta) return
+    void captureError(new Error('Jugador del torneo sin tarjeta con el torneo en juego'), {
+      context: 'torneo.score.sinTarjeta',
+      level: 'error',
+      meta: { slug, playerId },
+    })
+  }, [sinTarjeta, slug, playerId])
+
+  return { round, ctx, error, retry, sinTarjeta }
 }

@@ -7,7 +7,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
-vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
+const captureError = vi.fn()
+vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 const fetchRoundScoringContext = vi.fn()
 vi.mock('@/lib/data/tournaments/scoring', () => ({
   fetchRoundScoringContext: (...args: unknown[]) => fetchRoundScoringContext(...args),
@@ -24,6 +25,7 @@ const player = (rounds: ReturnType<typeof round>[]) =>
   ({ id: 'p1', rounds } as unknown as ScoringPlayer)
 
 beforeEach(() => {
+  captureError.mockReset()
   fetchRoundScoringContext.mockReset()
   fetchRoundScoringContext.mockImplementation(async (_c: unknown, _t: unknown, n: number) => ({
     roundNumber: n, holeCount: 18, courseHoles: [], parTotal: 72, courseTees: [], tournament: TOURNAMENT,
@@ -102,5 +104,48 @@ describe('useRondaActivaDelJugador', () => {
     rerender({ p: player([round(1, 'in_progress')]) })
     rerender({ p: player([round(1, 'in_progress')]) })
     expect(fetchRoundScoringContext).toHaveBeenCalledTimes(1)
+  })
+})
+
+// copa-cabros-mo7nce53: 4 de 5 jugadores del roster sin fila en `rounds` con el torneo en juego.
+// La tarjeta quedaba editable, `guardarHoyo` salía en silencio por `roundId` null y los golpes se perdían.
+describe('useRondaActivaDelJugador — jugador sin tarjeta', () => {
+  const EN_JUEGO = { ...TOURNAMENT, status: 'in_progress' } as unknown as ScoringTournament
+
+  it('torneo en juego y jugador sin rondas → sinTarjeta, y se reporta como error con el jugador', async () => {
+    const { result } = renderHook(() =>
+      useRondaActivaDelJugador({ slug: 'copa', tournament: EN_JUEGO, player: player([]), base: BASE }),
+    )
+    expect(result.current.round).toBeUndefined()
+    expect(result.current.sinTarjeta).toBe(true)
+    await waitFor(() => expect(captureError).toHaveBeenCalledTimes(1))
+    expect(captureError.mock.calls[0][1]).toMatchObject({
+      context: 'torneo.score.sinTarjeta', level: 'error', meta: { slug: 'copa', playerId: 'p1' },
+    })
+  })
+
+  it('rounds null (embed vacío) también es sin tarjeta', () => {
+    const p = { id: 'p1', rounds: null } as unknown as ScoringPlayer
+    const { result } = renderHook(() => useRondaActivaDelJugador({ slug: 's', tournament: EN_JUEGO, player: p, base: BASE }))
+    expect(result.current.sinTarjeta).toBe(true)
+  })
+
+  it('con tarjeta, o con el torneo sin empezar o cerrado, NO es sinTarjeta ni se reporta', () => {
+    const casos: Array<[ScoringTournament, ScoringPlayer]> = [
+      [EN_JUEGO, player([round(1, 'in_progress')])],
+      [{ ...TOURNAMENT, status: 'open' } as unknown as ScoringTournament, player([])],
+      [{ ...TOURNAMENT, status: 'closed' } as unknown as ScoringTournament, player([])],
+    ]
+    for (const [t, p] of casos) {
+      const { result, unmount } = renderHook(() => useRondaActivaDelJugador({ slug: 's', tournament: t, player: p, base: BASE }))
+      expect(result.current.sinTarjeta).toBe(false)
+      unmount()
+    }
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('sin jugador elegido no hay aviso', () => {
+    const { result } = renderHook(() => useRondaActivaDelJugador({ slug: 's', tournament: EN_JUEGO, player: undefined, base: BASE }))
+    expect(result.current.sinTarjeta).toBe(false)
   })
 })

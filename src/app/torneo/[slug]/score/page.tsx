@@ -18,6 +18,7 @@ import { motivoSinScores } from '@/golf/tournament-status'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
 import { useGuardadoTorneo } from './hooks/useGuardadoTorneo'
+import { avisoSinTarjeta } from './hooks/acceso-guardado'
 import { elegirJugadorInicial, urlSinJugador } from './hooks/jugador-del-link'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import {
@@ -160,7 +161,7 @@ export default function PlayerScoringPage() {
   } = useGuardadoTorneo({
     slug, tournament, player: selectedPlayerEarly, roundId: roundIdForSync, contextoListo: !!rondaCtx,
     hoyosRonda, holeCount: holeCountRonda, courseHcpDe,
-    bloqueado: rondaCerrada || (!!tournament && !!motivoSinScores(tournament.status)),
+    bloqueado: rondaCerrada || ronda.sinTarjeta || (!!tournament && !!motivoSinScores(tournament.status)),
     guestId, guestToken: guestTokenValue,
     onRondaCerrada: () => { void reloadRoster() },
     onInvitadoCompleto: () => setShowRegisterModal(true),
@@ -270,6 +271,8 @@ export default function PlayerScoringPage() {
   const holes = Array.from({ length: holeCount }, (_, i) => i + 1)
   // Se sabe desde que carga, no después de un 409: un torneo con inscripciones abiertas no es un torneo cerrado.
   const sinScores = torneoInactivo ? 'cerrado' : motivoSinScores(tournament.status)
+  // Sin tarjeta donde guardar no se dibujan hoyos editables: lo anotado se perdía sin aviso.
+  const sinTarjeta = ronda.sinTarjeta && sinScores === null ? avisoSinTarjeta(slug) : null
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
@@ -346,7 +349,21 @@ export default function PlayerScoringPage() {
         {/* Scorecard */}
         {/* Sin la cancha de la ronda no se muestra la tarjeta: puntuar con el
             par/slope de otra cancha deja el neto mal guardado. */}
-        {selectedPlayer && !rondaCtx && (
+        {selectedPlayer && sinTarjeta && (
+          <>
+            <button type="button" onClick={() => setSelectedId('')}
+              style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '14px', cursor: 'pointer', marginBottom: '8px', padding: '0 12px 0 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
+              ← Cambiar jugador
+            </button>
+            <div role="alert" data-testid="tarjeta-sin-ronda" style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
+              <strong>{sinTarjeta.titulo}.</strong> {sinTarjeta.detalle}
+              <Link href={sinTarjeta.href} style={{ display: 'flex', width: 'fit-content', alignItems: 'center', minHeight: '44px', marginTop: '2px', color: 'var(--brand-on-bg)', fontWeight: 700, textDecoration: 'none' }}>
+                {sinTarjeta.cta} →
+              </Link>
+            </div>
+          </>
+        )}
+        {selectedPlayer && !sinTarjeta && !rondaCtx && (
           <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-2)', fontSize: '15px' }}>
             {ronda.error ? (
               <>
@@ -361,7 +378,7 @@ export default function PlayerScoringPage() {
             )}
           </div>
         )}
-        {selectedPlayer && rondaCtx && (
+        {selectedPlayer && !sinTarjeta && rondaCtx && (
           <>
             <button type="button" onClick={() => setSelectedId('')}
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '14px', cursor: 'pointer', marginBottom: '8px', padding: '0 12px 0 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
@@ -445,7 +462,7 @@ export default function PlayerScoringPage() {
       </div>
 
       {/* Aviso "No molestar": una vez por ronda del torneo, cuando la tarjeta ya acepta golpes. */}
-      <AvisoNoMolestar claveRonda={selectedPlayer && rondaCtx && !rondaCerrada && !sinScores ? claveAvisoTorneo(ronda.round?.id) : null} />
+      <AvisoNoMolestar claveRonda={selectedPlayer && rondaCtx && !sinTarjeta && !rondaCerrada && !sinScores ? claveAvisoTorneo(ronda.round?.id) : null} />
 
       {/* Modal de registro post-ronda para invitados */}
       {showRegisterModal && isGuest && (

@@ -57,6 +57,20 @@ export interface AvisoSinAcceso {
   href: string
 }
 
+/**
+ * El jugador no tiene tarjeta (`rounds`) en un torneo que recibe golpes: no hay dónde guardar.
+ * La pantalla muestra esto EN VEZ de los hoyos. Papel primero: el jugador está en la cancha y
+ * los golpes no pueden esperar a que el organizador lo resuelva.
+ */
+export function avisoSinTarjeta(slug: string): AvisoSinAcceso {
+  return {
+    titulo: 'Esta tarjeta no está en el torneo',
+    detalle: 'Lo que anotes acá no se guardaría. Anota tus golpes en papel y pídele al organizador que revise tu inscripción.',
+    cta: 'Ver el torneo',
+    href: `/torneo/${slug}`,
+  }
+}
+
 const EN_EL_TELEFONO = 'Los golpes de esta tarjeta quedaron en este teléfono, no en el torneo.'
 
 /**
