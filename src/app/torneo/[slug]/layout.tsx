@@ -21,7 +21,7 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
     ? new Date(torneo.date_start + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
     : ''
 
-  const statusLabel = badgeDelTorneo(torneo, new Date()).label
+  const statusLabel = badgeDelTorneo(torneo, new Date(), 'player', 'ficha').label
 
   const parts = [courseName, fecha].filter(Boolean).join(' · ')
   const title = `${torneo.name} — Golfers+`

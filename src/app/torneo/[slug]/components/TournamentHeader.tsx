@@ -112,7 +112,7 @@ export function TournamentHeader(props: TournamentHeaderProps) {
         dateStr={dateDisplay}
         audience="player"
         vista="ficha"
-        right={<TournamentShareButton slug={slug} tournamentName={tournamentName} estadoTexto={badgeDelTorneo(torneo, new Date()).label} />}
+        right={<TournamentShareButton slug={slug} tournamentName={tournamentName} estadoTexto={badgeDelTorneo(torneo, new Date(), 'player', 'ficha').label} />}
       />
 
       {codigo && (
