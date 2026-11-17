@@ -431,7 +431,7 @@ describe('useTournamentLifecycle — confirmación con jugadores sin índice', (
     expect(fetchMock.mock.calls[0]).toEqual(['/api/torneos/test/start', { method: 'GET' }])
     expect(confirmMock).toHaveBeenCalledTimes(1)
     expect(confirmMock.mock.calls[0][0].description).toBe(
-      'Sin índice: Beto. Jugará con índice 0. ¿Iniciar con 2 jugadores? Se crearán las rondas para todos.',
+      'Sin índice: Beto. Jugará con índice 0. Corrígelo en Scoring → Resumen. ¿Iniciar con 2 jugadores? Se crearán las rondas para todos.',
     )
     expect(posts()).toHaveLength(1)
     expect(vistosDel(0)).toEqual(['p2'])
