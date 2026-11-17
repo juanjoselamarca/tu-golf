@@ -12,7 +12,7 @@ export function PlanActivo({ plan }: { plan: ActivePlanSummary }) {
       correlationLine={
         plan.total > 0 ? (
           <>
-            Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace' }}>{plan.appliedPct}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{plan.total}</b> rondas con plan activo. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son donde la cabeza paga el precio.</b>
+            Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace' }}>{plan.appliedPct}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{plan.total}</b> rondas con plan activo.
           </>
         ) : (
           <>Aún no registras rondas con este plan. La próxima cuenta.</>
