@@ -17,40 +17,10 @@
  * Ver [[feedback_un_concepto_una_fuente]].
  */
 
+import { estadoDelTorneo, type EstadoDelTorneo, type TorneoConFechas } from './tournament-live-status'
+
 /** Audiencia del label: el jugador y el organizador no leen lo mismo. */
 export type StatusAudience = 'player' | 'organizer'
-
-const PLAYER_LABELS: Record<string, string> = {
-  draft: 'Inscripciones aún no abiertas',
-  open: 'Inscripciones abiertas',
-  in_progress: 'En vivo',
-  active: 'En vivo',
-  closed: 'Finalizado',
-  published: 'Finalizado',
-}
-
-const ORGANIZER_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  open: 'Inscripciones abiertas',
-  in_progress: 'En curso',
-  active: 'En curso',
-  closed: 'Cerrado',
-  published: 'Publicado',
-}
-
-/**
- * Nunca inventa: un status desconocido devuelve el fallback neutro en vez de
- * afirmar algo falso. Anunciar "Inscripciones abiertas" sobre un torneo que no
- * las tiene abiertas es peor que no decir nada (CERO FALLOS).
- */
-export function tournamentStatusLabel(
-  status: string | null | undefined,
-  audience: StatusAudience = 'player',
-): string {
-  const table = audience === 'organizer' ? ORGANIZER_LABELS : PLAYER_LABELS
-  if (!status) return audience === 'organizer' ? 'Borrador' : 'Torneo'
-  return table[status] ?? (audience === 'organizer' ? 'Borrador' : 'Torneo')
-}
 
 /**
  * Tono cromático del badge de estado. Vive acá y no en cada componente porque
@@ -58,20 +28,6 @@ export function tournamentStatusLabel(
  * otro, el jugador aprende dos idiomas para la misma cosa.
  */
 export type StatusTone = 'neutral' | 'live' | 'open' | 'closed'
-
-const TONES: Record<string, StatusTone> = {
-  draft: 'neutral',
-  open: 'open',
-  in_progress: 'live',
-  active: 'live',
-  closed: 'closed',
-  published: 'closed',
-}
-
-export function tournamentStatusTone(status: string | null | undefined): StatusTone {
-  if (!status) return 'neutral'
-  return TONES[status] ?? 'neutral'
-}
 
 /** Tokens CSS del tono. Definidos en globals.css (light + dark), nunca hex
  *  inline — si no, el badge no sigue el modo color del sistema. */
@@ -82,12 +38,75 @@ const TONE_VARS: Record<StatusTone, { bg: string; fg: string }> = {
   closed: { bg: 'var(--status-closed-bg)', fg: 'var(--status-closed-fg)' },
 }
 
-/** Badge completo (label + colores) desde una sola llamada. */
-export function tournamentStatusBadge(
+const TONO_DEL_ESTADO: Record<EstadoDelTorneo, StatusTone> = {
+  borrador: 'neutral',
+  por_jugar: 'open',
+  en_curso: 'live',
+  finalizado: 'closed',
+  vencido: 'neutral',
+}
+
+/**
+ * Dónde se muestra el badge: en las listas, un torneo cerrado por fecha dice
+ * "Finalizado"; en la ficha del torneo (`/torneo/[slug]` y su en-vivo) el jugador lee
+ * "Resultados provisorios" mientras el organizador no lo cierre (copy de Juanjo, 17-nov).
+ */
+export type VistaDelBadge = 'lista' | 'ficha'
+
+/**
+ * Label del estado.
+ * - Fecha pasada sin cierre escrito (in_progress): jugador "Finalizado" (lista) o
+ *   "Resultados provisorios" (ficha); organizador "Por cerrar" — solo ahí, porque
+ *   `closeTournamentAction` solo cierra un torneo in_progress.
+ * - `open` vencido (nunca se inició): jugador "Sin iniciar", organizador "Fecha vencida".
+ */
+function labelDelEstado(estado: EstadoDelTorneo, status: string, audience: StatusAudience, vista: VistaDelBadge): string {
+  const escritoCerrado = status === 'closed' || status === 'published' || status === 'finished'
+  if (audience === 'organizer') {
+    switch (estado) {
+      case 'borrador': return 'Borrador'
+      case 'por_jugar': return status === 'open' ? 'Inscripciones abiertas' : 'Por jugar'
+      case 'en_curso': return 'En curso'
+      case 'finalizado': return status === 'published' ? 'Publicado' : escritoCerrado ? 'Cerrado' : 'Por cerrar'
+      case 'vencido': return 'Fecha vencida'
+    }
+  }
+  switch (estado) {
+    case 'borrador': return status === 'draft' ? 'Inscripciones aún no abiertas' : 'Torneo'
+    case 'por_jugar': return status === 'open' ? 'Inscripciones abiertas' : 'Por jugar'
+    case 'en_curso': return 'En vivo'
+    case 'finalizado': return escritoCerrado || vista === 'lista' ? 'Finalizado' : 'Resultados provisorios'
+    case 'vencido': return 'Sin iniciar'
+  }
+}
+
+/**
+ * Badge del torneo (label + colores) — lo que MUESTRAN las pantallas. Usa
+ * `estadoDelTorneo` (status + fechas + cierre automático), nunca el status crudo:
+ * un torneo de abril que nadie cerró no puede decir "En vivo".
+ */
+export function badgeDelTorneo(
+  torneo: TorneoConFechas,
+  ahora: Date,
+  audience: StatusAudience = 'player',
+  vista: VistaDelBadge = 'lista',
+): { label: string; bg: string; fg: string; tone: StatusTone; estado: EstadoDelTorneo } {
+  const estado = estadoDelTorneo(torneo, ahora)
+  const tone = TONO_DEL_ESTADO[estado]
+  return { label: labelDelEstado(estado, torneo.status ?? '', audience, vista), ...TONE_VARS[tone], tone, estado }
+}
+
+/**
+ * Badge del status ESCRITO, sin fechas. Solo para las pantallas operativas del
+ * organizador (panel de jugadores y de scoring): ahí el badge tiene que coincidir con
+ * lo que el servidor acepta (`torneoAceptaScores`) y con los botones de cerrar/reabrir.
+ * Cualquier otra pantalla usa `badgeDelTorneo`.
+ */
+export function badgeDelStatusEscrito(
   status: string | null | undefined,
   audience: StatusAudience = 'player',
-): { label: string; bg: string; fg: string } {
-  return { label: tournamentStatusLabel(status, audience), ...TONE_VARS[tournamentStatusTone(status)] }
+): { label: string; bg: string; fg: string; tone: StatusTone } {
+  return badgeDelTorneo({ status, date_start: null }, new Date(0), audience)
 }
 
 /**
@@ -139,14 +158,28 @@ export function inscritoAprobado(status: string | null | undefined): boolean {
 }
 
 /**
- * ¿El visor anota su propia tarjeta en este torneo? Inscrito, no retirado/descalificado, torneo en curso y no demo
- * (los demo son solo para mirar). Espeja la condición con que `/api/game` acepta el score de un jugador.
+ * Cantidad de jugadores de un torneo — FUENTE ÚNICA de lo que muestran las pantallas:
+ * los inscritos aprobados (los que ocupan cupo, se arman en grupos y juegan). Antes
+ * la lista del organizador contaba también retirados, pendientes y lista de espera, el
+ * panel contaba aprobados y Mi Golf mostraba 0 fijo: tres números para el mismo torneo.
+ */
+export function contarInscritos(jugadores: ReadonlyArray<{ status: string | null | undefined }> | null | undefined): number {
+  return (jugadores ?? []).filter((j) => inscritoAprobado(j.status)).length
+}
+
+/**
+ * ¿Se le ofrece al visor "Anotar mi score"? Inscrito, no retirado/descalificado, torneo en curso según el status
+ * escrito (lo que acepta `/api/game`), no demo (los demo son solo para mirar) y que la pantalla no lo muestre
+ * finalizado: anotar tarde se ofrece dentro de los 2 días de gracia; pasada la gracia el torneo se ve
+ * "Resultados provisorios" y el botón desaparece (el organizador sigue pudiendo cargar desde su panel).
  */
 export function visorPuedeAnotar(
   inscripcion: { status: string | null } | null,
-  torneo: { status: string | null; es_demo?: boolean | null },
+  torneo: TorneoConFechas & { es_demo?: boolean | null },
+  ahora: Date,
 ): boolean {
-  return !!inscripcion && !jugadorFueraDelTorneo(inscripcion.status) && torneoAceptaScores(torneo.status) && !torneo.es_demo
+  return !!inscripcion && !jugadorFueraDelTorneo(inscripcion.status) && torneoAceptaScores(torneo.status) && !torneo.es_demo &&
+    estadoDelTorneo(torneo, ahora) !== 'finalizado'
 }
 
 /**
@@ -164,4 +197,26 @@ export function gruposFijos(
   grupos: ReadonlyArray<{ ronda_libre_id?: string | null }>,
 ): boolean {
   return !torneoSinEmpezar(status) || grupos.some((g) => g.ronda_libre_id != null)
+}
+
+/** Status escritos que aceptan auto-inscripción (self-service). Solo se usan dentro de `motivoNoInscribible`. */
+const INSCRIBIBLE_STATUSES: readonly string[] = ['open']
+
+/** Por qué un torneo no acepta inscripciones: 'borrador' (aún no abre), 'fecha_vencida' (open con la fecha pasada), 'cerrado'. */
+export type MotivoNoInscribible = 'borrador' | 'fecha_vencida' | 'cerrado'
+
+/**
+ * FUENTE ÚNICA de "¿se puede inscribir?" — la usan la ficha (`/torneo/[slug]`), `/unirse`
+ * (con y sin sesión) y el gate del servidor (`enrollPlayer`), para que el botón nunca
+ * contradiga al backend. Status `open` Y el torneo todavía por jugar: un `open` cuya fecha
+ * pasó hace más de la gracia ("Sin iniciar") ya no inscribe.
+ */
+export function motivoNoInscribible(t: TorneoConFechas, ahora: Date): MotivoNoInscribible | null {
+  const status = t.status ?? ''
+  if (!INSCRIBIBLE_STATUSES.includes(status)) return status === 'draft' ? 'borrador' : 'cerrado'
+  return estadoDelTorneo(t, ahora) === 'por_jugar' ? null : 'fecha_vencida'
+}
+
+export function torneoInscribible(t: TorneoConFechas, ahora: Date): boolean {
+  return motivoNoInscribible(t, ahora) === null
 }

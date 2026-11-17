@@ -881,3 +881,29 @@ Fuera de alcance (pendiente):
   `prefers-reduced-motion` (WCAG 2.2.2); tocar un punto no reinicia el intervalo. Se resuelve junto con sacar el
   tigre IA del coach (decisión de marca pendiente de Ola 2).
 - ~~Copy con juicio en `PlanActivo` ("El resto son donde la cabeza paga el precio.")~~ — resuelto en ad5d5ddc.
+
+## fix/torneos-ola2-juanjo · PR4 Ola 2 (17-nov-2026) — estado del torneo con una sola regla
+
+- **Concepto unificado:** estado que se muestra → `estadoDelTorneo` (`src/golf/tournament-live-status.ts`), badge →
+  `badgeDelTorneo`, jugadores → `contarInscritos` (`src/golf/tournament-status.ts`). Canario:
+  `src/__tests__/canary-estado-del-torneo-fuente-unica.test.ts`.
+- **Ordenados al tocar:** `src/app/organizador/page.tsx` (queries → `src/lib/data/tournaments/lista-organizador.ts`) y
+  `src/app/torneo/[slug]/layout.tsx` (query → `src/lib/data/tournaments/metadata.ts`). Sin `supabase.from()` en `src/app/`.
+- **Follow-ups:**
+  - Panel operativo del organizador (`organizador/[slug]/jugadores`, `scoring`) sigue con `badgeDelStatusEscrito`
+    (status escrito, a propósito). Con un torneo pasado de fecha sin cerrar, la lista dice "Por cerrar" y el panel
+    "En curso": coherente, pero un aviso "Ciérralo para publicar los resultados" ahí sería mejor (copy: Juanjo).
+  - (Resuelto en la vuelta 2: la inscripción usa `torneoInscribible`/`motivoNoInscribible`, status + fecha.)
+  - `src/lib/data/tournaments/historial-torneo.ts` (`playedAt`): usa el día UTC
+    (`new Date().toISOString()`); debe ser `fechaHoyChile` (de noche en Chile ya es mañana en UTC).
+  - Posible duplicado en `historical_rounds`: la tarjeta de grupo de un torneo es un `rondas_libres` y el jugador
+    puede finalizarla por `/ronda-libre/<codigo>/score` (`useFinalizeRonda` → `guardarTarjetaEnHistorial`), además
+    del camino de torneo (`historial-torneo.ts`). Investigar si se insertan dos filas; `rondas_libres` no marca que
+    es de torneo (el enlace vive en `tournament_groups.ronda_libre_id`).
+  - RPC `enroll_player` sin gate de status/fecha: hoy solo la ejecuta service_role y el gate está en
+    `enrollPlayer.ts`; endurecerla (defensa en profundidad) es migración → PR aparte.
+  - Horas de salida: los `tee_time` de grupos creados antes de iniciar quedan en la fecha vieja cuando el inicio
+    corre la fecha (`useGroups` usa `date_start` como base, con fallback UTC).
+  - `src/app/torneo/[slug]/page.tsx` (`teeTime` de los grupos): `toLocaleTimeString` sin `timeZone`; en el
+    servidor (UTC) la hora se muestra corrida. Usar `timeZone: 'America/Santiago'`.
+  - Admin (`admin/golf-ops`) compara status a mano; herramienta interna, fuera del canario.

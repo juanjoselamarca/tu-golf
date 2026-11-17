@@ -101,7 +101,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   const { data: t, error: errT } = await admin
     .from('tournaments')
     .select(
-      'id, status, organizer_id, hcp_calc_mode, courses(slope_rating, course_rating, par_total)'
+      'id, status, date_start, date_end, organizer_id, hcp_calc_mode, courses(slope_rating, course_rating, par_total)'
     )
     .eq('slug', params.slug)
     .single()
@@ -111,6 +111,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   const tournament = t as unknown as {
     id: string
     status: string
+    date_start: string | null
+    date_end: string | null
     organizer_id: string
     hcp_calc_mode: string | null
     courses: { slope_rating: number | null; course_rating: number | null; par_total: number | null } | null
@@ -152,7 +154,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
       : null
     result = await enrollPlayer(admin, {
       tournamentId: tournament.id,
-      tournamentStatus: tournament.status,
+      torneo: tournament,
       identity: { kind: 'registered', userId: body.userId },
       handicapAtRegistration: handicapValue,
       // Congelado en players.genero (elige el tee de la fila VARONES/DAMAS).
@@ -169,7 +171,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     // leaderboard lo convierte a course handicap con el tee del jugador).
     result = await enrollPlayer(admin, {
       tournamentId: tournament.id,
-      tournamentStatus: tournament.status,
+      torneo: tournament,
       identity: { kind: 'guest', guestName: body.guestName },
       handicapAtRegistration: body.handicapIndex,
       // Un invitado no tiene perfil: queda null y el género sale de la

@@ -10,7 +10,8 @@ import { Trophy, Plus, Calendar, Users, Flag } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
 import { FORMATS } from '@/golf/formats'
-import { tournamentStatusBadge } from '@/golf/tournament-status'
+import { badgeDelTorneo } from '@/golf/tournament-status'
+import { fetchBorradoresDelOrganizador, fetchTorneosDelOrganizador, type TorneoDelOrganizador } from '@/lib/data/tournaments/lista-organizador'
 import { loginUrl } from '@/lib/auth/login-url'
 import { formatDate } from '@/lib/format'
 
@@ -22,16 +23,7 @@ export const dynamic = 'force-dynamic'
 
 // ─── Types ───
 
-interface TournamentRow {
-  id: string
-  name: string
-  slug: string
-  format: string
-  status: string
-  date_start: string | null
-  hole_count: number
-  player_count: number
-}
+type TournamentRow = TorneoDelOrganizador
 
 // ─── Helpers ───
 
@@ -47,51 +39,10 @@ export default async function OrganizadorPage() {
   const user = await getPageUser(supabase)
   if (!user) redirect(loginUrl('/organizador'))
 
-  const { data: rawTournaments } = await supabase
-    .from('tournaments')
-    .select('id, name, slug, format, status, date_start, hole_count')
-    .eq('organizer_id', user.id)
-    .order('date_start', { ascending: false })
-
-  const tournamentRows = rawTournaments ?? []
-
-  // Contar jugadores por torneo en una sola query
-  const tournamentIds = tournamentRows.map((t) => t.id as string)
-  const playerCounts: Record<string, number> = {}
-  if (tournamentIds.length > 0) {
-    const { data: playerData } = await supabase
-      .from('players')
-      .select('tournament_id')
-      .in('tournament_id', tournamentIds)
-    if (playerData) {
-      for (const p of playerData) {
-        const tid = p.tournament_id as string
-        playerCounts[tid] = (playerCounts[tid] ?? 0) + 1
-      }
-    }
-  }
-
-  const tournaments: TournamentRow[] = tournamentRows.map((t) => ({
-    id: t.id as string,
-    name: (t.name as string) ?? 'Sin nombre',
-    slug: (t.slug as string) ?? '',
-    format: (t.format as string) ?? 'stroke_play',
-    status: (t.status as string | null) ?? 'draft',
-    date_start: t.date_start as string | null,
-    hole_count: (t.hole_count as number) ?? 18,
-    player_count: playerCounts[t.id as string] ?? 0,
-  }))
-
-  // Borradores sin publicar
-  const { data: rawDrafts } = await supabase
-    .from('tournament_drafts')
-    .select('id, name, updated_at')
-    .eq('owner_id', user.id)
-    .eq('status', 'draft')
-    .order('updated_at', { ascending: false })
-    .limit(10)
-
-  const drafts = rawDrafts ?? []
+  const [tournaments, drafts] = await Promise.all([
+    fetchTorneosDelOrganizador(supabase, user.id),
+    fetchBorradoresDelOrganizador(supabase, user.id),
+  ])
 
   return (
     <div
@@ -153,7 +104,7 @@ export default async function OrganizadorPage() {
 // ─── Components ───
 
 function TournamentCard({ tournament: t }: { tournament: TournamentRow }) {
-  const { label, bg, fg } = tournamentStatusBadge(t.status, 'organizer')
+  const { label, bg, fg } = badgeDelTorneo(t, new Date(), 'organizer')
   const formatName = FORMATS[t.format]?.name ?? t.format
 
   return (

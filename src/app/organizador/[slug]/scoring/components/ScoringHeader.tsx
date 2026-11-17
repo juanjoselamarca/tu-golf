@@ -5,7 +5,7 @@
 // del hilo principal, no de este refactor.
 
 import Link from 'next/link'
-import { tournamentStatusBadge, torneoAceptaScores } from '@/golf/tournament-status'
+import { badgeDelStatusEscrito, torneoAceptaScores } from '@/golf/tournament-status'
 import type { LastAction } from '../hooks/useScoreEntry'
 
 interface ScoringHeaderProps {
@@ -32,7 +32,7 @@ export function ScoringHeader({
   lastAction,
   onUndo,
 }: ScoringHeaderProps) {
-  const badge = tournamentStatusBadge(status, 'organizer')
+  const badge = badgeDelStatusEscrito(status, 'organizer')
   const enCurso = torneoAceptaScores(status)
   return (
     <div style={{ background: 'var(--card-bg)', borderBottom: '1px solid var(--border-md)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>

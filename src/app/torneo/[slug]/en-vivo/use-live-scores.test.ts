@@ -18,6 +18,8 @@ const jugador = (id: string, name: string, gross: number) => ({
 })
 const torneo = (players: ReturnType<typeof jugador>[]): TorneoEnVivo => ({
   tournament: { id: 't1', slug: 'copa', name: 'Copa', format: 'stroke_play', modo: 'gross', hole_count: 18, total_rounds: 1, par_total: 72, status: 'in_progress', live: true,
+  date_start: null,
+  date_end: null,
     modoReal: 'gross', caminoRondaLibre: false,
     vista: vistaPublica({ visorConSesion: true, caminoRondaLibre: false, modoJuego: 'gross', formatoJuego: 'stroke_play' }) },
   players, teams: [], categories: [], groups: [],

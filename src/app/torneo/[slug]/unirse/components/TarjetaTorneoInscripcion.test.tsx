@@ -10,7 +10,7 @@ afterEach(cleanup)
 
 const torneo = (format: string, formato_juego: string | null = null): JoinInfoTournament => ({
   id: 't1', name: 'Copa', slug: 'copa', format, formato_juego, status: 'open', organizer_id: 'o',
-  hcp_calc_mode: null, date_start: '2026-10-30', codigo: null, course_name: 'Club', courses: null,
+  hcp_calc_mode: null, date_end: null, date_start: '2026-10-30', codigo: null, course_name: 'Club', courses: null,
 })
 
 describe('TarjetaTorneoInscripcion · formato', () => {

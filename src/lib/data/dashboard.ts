@@ -91,9 +91,9 @@ export async function loadCompetenciaData(
     { data: historicoRaw },
     { data: profile },
   ] = await Promise.all([
-    supabase.from('tournaments').select('id, name, slug, status, date_start, courses(nombre)').eq('organizer_id', userId).order('created_at', { ascending: false }),
-    supabase.from('players').select('tournaments(id, name, slug, status, date_start, courses(nombre))').eq('user_id', userId).order('created_at', { ascending: false }),
-    supabase.from('players').select('tournaments!inner(id, name, slug, status, date_start, courses(nombre))').eq('user_id', userId).in('tournaments.status', ['open', 'in_progress']),
+    supabase.from('tournaments').select('id, name, slug, status, date_start, date_end, courses(nombre), players(status)').eq('organizer_id', userId).order('created_at', { ascending: false }),
+    supabase.from('players').select('tournaments(id, name, slug, status, date_start, date_end, courses(nombre))').eq('user_id', userId).order('created_at', { ascending: false }),
+    supabase.from('players').select('tournaments!inner(id, name, slug, status, date_start, date_end, courses(nombre))').eq('user_id', userId).in('tournaments.status', ['open', 'in_progress']),
     supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado, holes, hoyo_inicio, formato_juego, ronda_libre_jugadores(id, user_id)').eq('creador_id', userId).order('created_at', { ascending: false }).limit(5),
     // created_at desempata las rondas del mismo día en el mismo orden que rondas_libres.
     supabase.from('historical_rounds').select(HISTORICO_COMPETENCIA_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).order('created_at', { ascending: false }).limit(50),

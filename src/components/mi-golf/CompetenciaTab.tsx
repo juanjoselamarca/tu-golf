@@ -3,9 +3,9 @@ import type { PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 import Link from 'next/link'
 import { Flag, Trophy, Check } from '@/components/icons'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
-import type { Tournament, RondaLibre, ComunidadMensaje } from '@/lib/mi-golf/types'
-import { torneoEnVivo } from '@/golf/tournament-live-status'
+import type { RondaLibre, ComunidadMensaje } from '@/lib/mi-golf/types'
 import type { MejorDelMes } from '@/golf/stats/mejor-del-mes'
+import type { PlayingTournament, OrganizingTournament, FinishedTournament } from '@/lib/mi-golf/dashboard-derive'
 import { textoVsPar } from '@/golf/share/vs-par'
 import { fechaDeCalendario } from '@/lib/format'
 import { ROTULO_INDICE, CTA_SIN_INDICE, type IndiceVisible } from '@/golf/core/indice-visible'
@@ -21,10 +21,10 @@ type Props = {
   indice: IndiceVisible
   activeRonda: RondaLibre | null
   activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null
-  torneoInminente: (Tournament & { horaSalida: string | null; diasRestantes: number }) | null
-  playingInTournaments: (Tournament & { horaSalida: string | null; diasRestantes: number })[]
-  organizingTournaments: (Tournament & { inscritos: number; hoyoActual: number | null })[]
-  recentFinishedTournaments: (Tournament & { posicionFinal: string | null; totalJugadores: number | null })[]
+  torneoInminente: PlayingTournament | null
+  playingInTournaments: PlayingTournament[]
+  organizingTournaments: OrganizingTournament[]
+  recentFinishedTournaments: FinishedTournament[]
   finishedRondas: RondaConScores[]
   /** Mejor ronda del mes por bucket de hoyos (`mejoresDelMes`). */
   mejoresDelMes: MejorDelMes[]
@@ -111,9 +111,9 @@ function Torneos({
   organizing,
   finished,
 }: {
-  playing: (Tournament & { horaSalida: string | null; diasRestantes: number })[]
-  organizing: (Tournament & { inscritos: number; hoyoActual: number | null })[]
-  finished: (Tournament & { posicionFinal: string | null; totalJugadores: number | null })[]
+  playing: PlayingTournament[]
+  organizing: OrganizingTournament[]
+  finished: FinishedTournament[]
 }) {
   return (
     <div style={{ marginBottom: '28px' }}>
@@ -158,15 +158,19 @@ function Torneos({
   )
 }
 
-function TorneoRowPlaying({ t }: { t: Tournament & { horaSalida: string | null; diasRestantes: number } }) {
+function TorneoRowPlaying({ t }: { t: PlayingTournament }) {
+  // El estado sale de `estadoDelTorneo` (enrichPlaying): "En curso" solo si lo está de verdad. Por jugar con la
+  // fecha ya pasada (dentro de la gracia, sin iniciar): sin chip, nunca "Hoy".
   const chipText =
-    t.diasRestantes === 0
+    t.estado === 'en_curso'
+      ? 'En curso'
+      : t.diasRestantes === 0
       ? 'Hoy'
       : t.diasRestantes === 1
       ? 'Mañana'
-      : t.diasRestantes < 0
-      ? 'En curso'
-      : `En ${t.diasRestantes} días`
+      : t.diasRestantes > 1
+      ? `En ${t.diasRestantes} días`
+      : null
 
   return (
     <Link
@@ -186,7 +190,7 @@ function TorneoRowPlaying({ t }: { t: Tournament & { horaSalida: string | null; 
           {t.name}
         </div>
         <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Chip variant="upcoming">{chipText}</Chip>
+          {chipText && <Chip variant="upcoming">{chipText}</Chip>}
           <span>{t.courses?.nombre}</span>
         </div>
       </div>
@@ -198,8 +202,8 @@ function TorneoRowPlaying({ t }: { t: Tournament & { horaSalida: string | null; 
   )
 }
 
-function TorneoRowOrganizing({ t }: { t: Tournament & { inscritos: number; hoyoActual: number | null } }) {
-  const isLive = torneoEnVivo(t.status, t.date_start, null, new Date())
+function TorneoRowOrganizing({ t }: { t: OrganizingTournament }) {
+  const isLive = t.estado === 'en_curso'
   return (
     <div
       style={{
@@ -223,12 +227,16 @@ function TorneoRowOrganizing({ t }: { t: Tournament & { inscritos: number; hoyoA
           {t.name}
         </div>
         <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {isLive ? <Chip variant="live">En curso</Chip> : <Chip variant="upcoming">Abierto</Chip>}
+          {isLive
+            ? <Chip variant="live">En curso</Chip>
+            : t.estado === 'vencido'
+              ? <Chip variant="finished">{t.etiqueta}</Chip>
+              : <Chip variant="upcoming">Abierto</Chip>}
           <span>{t.courses?.nombre}</span>
         </div>
       </Link>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, fontFamily: '"DM Mono", monospace' }}>{t.inscritos} jugadores</div>
+        <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, fontFamily: '"DM Mono", monospace' }}>{t.inscritos} {t.inscritos === 1 ? 'jugador' : 'jugadores'}</div>
         {t.hoyoActual != null && (
           <div style={{ fontSize: '11px', color: TEXT, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>Hoyo {t.hoyoActual}/18</div>
         )}
@@ -241,7 +249,7 @@ function TorneoRowOrganizing({ t }: { t: Tournament & { inscritos: number; hoyoA
 function TorneoRowFinished({
   t,
 }: {
-  t: Tournament & { posicionFinal: string | null; totalJugadores: number | null }
+  t: FinishedTournament
 }) {
   return (
     <Link

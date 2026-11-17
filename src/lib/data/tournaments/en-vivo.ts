@@ -19,7 +19,6 @@ import type { Player } from '@/lib/golf-data'
 import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
 import type { LeerNombresDePerfil } from '@/lib/data/nombres-de-perfil-lectura'
 import { boardPublicoRondaLibre, vistaPublica, type VistaPublica } from './vista-publica'
-import { normalizeStatus } from '@/app/torneo/[slug]/en-vivo/normalize-status'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from '@/app/torneo/[slug]/en-vivo/scrambleTeamsToLive'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from './teamLeaderboard'
@@ -59,6 +58,8 @@ export interface TorneoEnVivoRow {
   status: string | null
   date_start: string | null
   date_end: string | null
+  /** Para la audiencia de la cabecera (organizador vs espectador). */
+  organizer_id: string | null
   course_id: string | null
   tees: string | null
   hcp_calc_mode: string | null
@@ -69,7 +70,7 @@ export interface TorneoEnVivoRow {
 }
 
 const TORNEO_EN_VIVO_SELECT =
-  'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, tees, hcp_calc_mode, hcp_pct, ' +
+  'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, organizer_id, course_id, tees, hcp_calc_mode, hcp_pct, ' +
   'courses(nombre, par_total), categories(id, name), tournament_groups(id, name, ronda_libre_id, tournament_group_players(player_id))'
 
 /**
@@ -210,7 +211,9 @@ export async function armarTorneoEnVivo(
     total_rounds: row.total_rounds ?? 1,
     par_total: parTotal,
     course_name: row.courses?.nombre ?? undefined,
-    status: normalizeStatus(row.status),
+    status: row.status,
+    date_start: row.date_start ?? null,
+    date_end: row.date_end ?? null,
     // Fuente única de liveness (misma que /torneo): date-aware, no solo status.
     live: torneoEnVivo(row.status, row.date_start, row.date_end, new Date()),
   }

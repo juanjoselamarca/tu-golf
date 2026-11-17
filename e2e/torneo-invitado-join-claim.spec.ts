@@ -325,7 +325,7 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
 
   test('con su token anota de verdad; con el token de otro invitado no escribe nada', async () => {
     // El segundo invitado entra mientras el torneo sigue 'open': una vez en juego ya no se admiten
-    // inscripciones (`INSCRIBIBLE_STATUSES`), y su token se usa abajo para intentar anotar en la ronda ajena.
+    // inscripciones (`motivoNoInscribible`), y su token se usa abajo para intentar anotar en la ronda ajena.
     const rOtro = await guestJoin(torneo, { guestId: otro, name: 'E2E Otro Invitado' })
     expect(rOtro.status, rOtro.body.error ?? '').toBe(200)
     tokenDeOtro = rOtro.body.guestToken!

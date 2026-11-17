@@ -13,15 +13,8 @@ import { SITE_URL } from '@/lib/site-url'
 interface Props {
   slug: string
   tournamentName: string
-  status: string | null
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  open: 'Inscripciones abiertas',
-  in_progress: 'En vivo',
-  closed: 'Finalizado',
-  published: 'Resultados publicados',
-  draft: 'Borrador',
+  /** Label del estado (de `badgeDelTorneo`); vacío = no se menciona. */
+  estadoTexto: string
 }
 
 function ShareIcon() {
@@ -34,15 +27,14 @@ function ShareIcon() {
   )
 }
 
-export function TournamentShareButton({ slug, tournamentName, status }: Props) {
+export function TournamentShareButton({ slug, tournamentName, estadoTexto }: Props) {
   const { share, isSharing } = useShare()
   const [toast, setToast] = useState(false)
 
   const handleShare = useCallback(async () => {
     const url = `${SITE_URL}/torneo/${slug}`
-    const statusText = status ? STATUS_LABELS[status] ?? '' : ''
-    const text = statusText
-      ? `${tournamentName} - ${statusText} en Golfers+`
+    const text = estadoTexto
+      ? `${tournamentName} - ${estadoTexto} en Golfers+`
       : `${tournamentName} en Golfers+`
 
     const result = await share({ title: tournamentName, text, url })
@@ -50,7 +42,7 @@ export function TournamentShareButton({ slug, tournamentName, status }: Props) {
       setToast(true)
       setTimeout(() => setToast(false), 2000)
     }
-  }, [share, slug, tournamentName, status])
+  }, [share, slug, tournamentName, estadoTexto])
 
   return (
     <button

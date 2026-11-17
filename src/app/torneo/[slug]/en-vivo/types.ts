@@ -14,9 +14,6 @@ export type LiveFormat =
 
 export type LiveMode = 'gross' | 'neto'
 
-// 'open' = inscripciones abiertas, torneo aún no arrancado (NO es "en vivo").
-export type LiveStatus = 'draft' | 'open' | 'in_progress' | 'closed'
-
 export interface LivePlayer {
   id: string
   name: string
@@ -66,7 +63,15 @@ export interface LiveTournament {
   total_rounds: number
   par_total: number
   course_name?: string
-  status: LiveStatus
+  /**
+   * Status ESCRITO tal cual (draft|open|in_progress|closed|published, y los históricos).
+   * No se normaliza: el label sale de `badgeDelTorneo` (status + fechas), que distingue
+   * "Cerrado" de "Publicado" para el organizador y no dice "en vivo" a un open.
+   */
+  status: string | null
+  /** Fechas del torneo (YYYY-MM-DD): con el status alimentan `estadoDelTorneo` en la cabecera. */
+  date_start: string | null
+  date_end: string | null
   /**
    * "En vivo" con noción de fecha (torneoEnVivo) — fuente única de liveness,
    * la misma que usa /torneo. El status por sí solo no alcanza: un torneo futuro

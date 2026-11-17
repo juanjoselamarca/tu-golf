@@ -18,7 +18,7 @@ import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
 import type { LiveTeam } from './en-vivo/types'
-import { torneoEnVivo } from '@/golf/tournament-live-status'
+import { estadoDelTorneo, type EstadoDelTorneo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
@@ -56,7 +56,6 @@ import {
   type TeamStandingForPodium,
 } from '@/golf/leaderboard'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
-import { esInscribible } from '@/lib/data/tournaments/joinFlow'
 
 import { TournamentHeader } from './components/TournamentHeader'
 import { TournamentCountdown } from './components/TournamentCountdown'
@@ -76,7 +75,25 @@ import { Suspense } from 'react'
 import { GuestClaim } from './components/GuestClaim'
 import { SITE_URL } from '@/lib/site-url'
 import { fetchInscripcionDelVisor, destinoDelScorer, fetchCodigoSiSeAnota, inscritoSinGrupo } from '@/lib/data/tournaments/players'
-import { inscritoAprobado, visorPuedeAnotar } from '@/golf/tournament-status'
+import { inscritoAprobado, visorPuedeAnotar, torneoInscribible } from '@/golf/tournament-status'
+
+/** ¿Alguien anotó al menos un hoyo? (individual: `holes`; equipos: `thru`). */
+function hayScoresEn(players: Player[], teams: LiveTeam[]): boolean {
+  return players.some((p) => p.holes > 0) || teams.some((t) => t.thru > 0)
+}
+
+/**
+ * ¿La ficha es la tarjeta del evento? Inscribible, siempre. Si no, igual que antes de PR4: sin
+ * nadie en la tabla y sin cerrar (borrador o en curso sin jugadores). Un vencido o un finalizado
+ * nunca: sin hoyos muestra el estado vacío honesto, no la invitación de un torneo que ya pasó.
+ */
+function muestraTarjetaDelEvento(
+  isOpen: boolean, isClosed: boolean, estado: EstadoDelTorneo, players: Player[], teams: LiveTeam[],
+): boolean {
+  if (isOpen) return true
+  if (isClosed || estado === 'vencido' || estado === 'finalizado') return false
+  return players.length === 0 && teams.length === 0
+}
 
 export default async function TorneoPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
@@ -95,7 +112,14 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   // ── Check si el viewer ya esta inscrito ─────────────────────────────
   const inscripcion = viewer ? await fetchInscripcionDelVisor(supabase, tournament.id, viewer.id) : null
   const viewerIsParticipant = !!inscripcion
-  const isOpen = esInscribible(tournament.status ?? '')
+  // Un solo `ahora` y un solo estado para toda la ficha (estadoDelTorneo: status + fechas).
+  const ahora = new Date()
+  const estado = estadoDelTorneo(tournament, ahora)
+  // Inscribible (fuente única con /unirse y el servidor): un `open` vencido ("Sin iniciar") o un torneo
+  // finalizado no muestran CTA, cuenta regresiva ni pestaña de unirse.
+  const isOpen = torneoInscribible(tournament, ahora)
+  // Antes de jugarse (por jugar o borrador) la ficha es la tarjeta del evento con los inscritos.
+  const antesDeJugarse = estado === 'por_jugar' || estado === 'borrador'
   const canJoin = isOpen && !viewerIsParticipant
   // El jugador inscrito con el torneo en curso anota su tarjeta. Antes ninguna pantalla lo llevaba al scorer:
   // solo veía "Ver leaderboard" (hunter 16-oct-2026). Se resuelve con los grupos (más abajo).
@@ -140,7 +164,10 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     modoJuego      = tournament.modo_juego ?? 'gross'
     formatoJuego   = tournament.formato_juego ?? 'stroke_play'
     totalHoyos     = tournament.hole_count ?? 18
-    isLive         = torneoEnVivo(tournament.status, tournament.date_start, tournament.date_end, new Date())
+    isLive         = estado === 'en_curso'
+    // Resultados oficiales (podio, compartir resultados, "crear otro igual"): solo con el torneo CERRADO por
+    // el organizador. Un torneo pasado de fecha que nadie cerró se MUESTRA finalizado (cabecera, listas) por
+    // `estadoDelTorneo`, pero su podio no se proclama: puede tener tarjetas a medio anotar.
     isClosed       = tournament.status === 'closed' || tournament.status === 'published'
 
     if (tournament.date_start) {
@@ -161,7 +188,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
     // El scorer al que va "Anotar mi score" es el que lee este leaderboard: la ronda de su grupo
     // si el torneo juega con rondas de grupo; el camino legacy si no.
-    if (inscripcion && visorPuedeAnotar(inscripcion, tournament)) {
+    if (inscripcion && visorPuedeAnotar(inscripcion, tournament, ahora)) {
       const destino = destinoDelScorer(inscripcion.id, groups)
       // Pendiente o en lista de espera: no le falta grupo, le falta que lo aprueben.
       avisoSinGrupo = inscritoAprobado(inscripcion.status) && destino === null && inscritoSinGrupo(inscripcion.id, groups)
@@ -248,8 +275,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       }
     }
 
-    // Info de inscritos para la tarjeta de evento (torneos abiertos/sin scores)
-    if (isOpen || (players.length === 0 && teamStandings.length === 0 && !isClosed)) {
+    // Info de inscritos para la tarjeta de evento (la misma función que `showEventCard`, abajo)
+    if (muestraTarjetaDelEvento(isOpen, isClosed, estado, players, teamStandings)) {
       const [count, names] = await Promise.all([
         fetchEnrolledPlayerCount(supabase, tournament.id),
         fetchEnrolledPlayerNames(supabase, tournament.id, nombresDePerfil),
@@ -285,8 +312,12 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   }
   const podiumEntries = isClosed ? podio(3) : []
 
-  const hasData = players.length > 0 || teamStandings.length > 0
-  const showEventCard = isOpen || (!hasData && !isClosed)
+  // Un inscrito con tarjeta vacía no es un resultado: un vencido ("Sin iniciar") o un finalizado sin un
+  // solo hoyo muestran el estado vacío honesto, no una tabla de inscritos en cero. Por jugar o en curso
+  // la tabla de inscritos sí sirve (quién juega, antes del primer hoyo).
+  const hayScores = hayScoresEn(players, teamStandings)
+  const hasData = (players.length > 0 || teamStandings.length > 0) && (hayScores || antesDeJugarse || estado === 'en_curso')
+  const showEventCard = muestraTarjetaDelEvento(isOpen, isClosed, estado, players, teamStandings)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -299,8 +330,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         format={formatoJuego}
         modo={modoJuego}
         clasificacionBruta={vista.soloBruto}
-        status={tournament?.status ?? null}
-        live={isLive}
+        torneo={{ status: tournament.status, date_start: tournament.date_start, date_end: tournament.date_end }}
         dateDisplay={dateDisplay}
         coverImageUrl={tournament?.cover_image_url ?? null}
         codigo={tournament?.codigo ?? null}
@@ -332,6 +362,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       {isOpen && (
         <TournamentCountdown
           dateStart={tournament.date_start}
+          dateEnd={tournament.date_end}
           status={tournament.status}
         />
       )}
@@ -342,7 +373,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
           slug={params.slug}
           activeTab="info"
           showJoinTab={canJoin}
-          showLiveTab={isLive || (tournament.status === 'in_progress')}
+          showLiveTab={isLive}
         />
       </div>
 
@@ -469,9 +500,9 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       {/* ── Leaderboard / Empty state ── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
         {vista.soloBruto && hasData && <AvisoSoloBruto slug={params.slug} />}
-        {teamStandings.length > 0 ? (
+        {hasData && teamStandings.length > 0 ? (
           <TeamLeaderboard teams={teamStandings} holeCount={totalHoyos} />
-        ) : players.length > 0 ? (
+        ) : hasData && players.length > 0 ? (
           <TournamentTabs
             players={players}
             playersByGross={playersByGross}
@@ -493,7 +524,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             etiquetaHcpPct={tournament ? etiquetaHcpPct(hcpPctDelTorneo(tournament)) : null}
           />
         ) : (
-          !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} status={tournament?.status} />
+          !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} estado={estado} />
         )}
 
         {/* Hint sutil cuando hay pocos jugadores y el torneo está en curso */}

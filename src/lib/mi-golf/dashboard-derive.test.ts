@@ -36,9 +36,23 @@ describe('enrichPlaying', () => {
     const [r] = enrichPlaying([t], NOW)
     expect(r.diasRestantes).toBe(3)
     expect(r.horaSalida).toBeNull()
+    expect(r.estado).toBe('por_jugar')
   })
   it('diasRestantes = 0 si no hay date_start', () => {
     expect(enrichPlaying([torneo()], NOW)[0].diasRestantes).toBe(0)
+  })
+  it('auditoría 16-nov: un in_progress de abril que nadie cerró NO aparece en "Jugando en"', () => {
+    const res = enrichPlaying([
+      torneo({ id: 'zombie', status: 'in_progress', date_start: '2026-04-20' }),
+      torneo({ id: 'hoy', status: 'in_progress', date_start: '2026-06-03' }),
+    ], NOW)
+    expect(res.map((t) => t.id)).toEqual(['hoy'])
+    expect(res[0].estado).toBe('en_curso')
+  })
+  it('diasRestantes en días de Chile: 23:00 del 2-jun en Chile (03:00 UTC del 3) ve el torneo del 3 como "mañana"', () => {
+    const nocheChile = new Date('2026-06-03T03:00:00Z').getTime()
+    const [r] = enrichPlaying([torneo({ date_start: '2026-06-03' })], nocheChile)
+    expect(r.diasRestantes).toBe(1)
   })
 })
 
@@ -51,6 +65,24 @@ describe('findTorneoInminente', () => {
     const enriched = enrichPlaying([torneo({ date_start: '2026-06-20T12:00:00Z' })], NOW)
     expect(findTorneoInminente(enriched, NOW)).toBeNull()
   })
+  it('vuelta 1 Fable: un in_progress que empezó AYER (sábado sin cerrar, visto el domingo) llega al hero como en curso', () => {
+    const enriched = enrichPlaying([torneo({ status: 'in_progress', date_start: '2026-06-02' })], NOW)
+    const hero = findTorneoInminente(enriched, NOW)
+    expect(hero?.estado).toBe('en_curso')
+    expect(hero?.diasRestantes).toBe(-1)
+  })
+  it('día 2 de un torneo de varios días: en curso gana sobre uno por jugar en 3 días', () => {
+    const enriched = enrichPlaying([
+      torneo({ id: 'prox', status: 'open', date_start: '2026-06-06' }),
+      torneo({ id: 'multi', status: 'in_progress', date_start: '2026-06-02', date_end: '2026-06-04' }),
+    ], NOW)
+    expect(findTorneoInminente(enriched, NOW)?.id).toBe('multi')
+  })
+  it('open vencido no aparece ni en "Jugando en" ni en finalizados (nunca se jugó)', () => {
+    const vencido = torneo({ id: 'v', status: 'open', date_start: '2026-05-01' })
+    expect(enrichPlaying([vencido], NOW)).toEqual([])
+    expect(buildFinalizados([vencido], [], NOW)).toEqual([])
+  })
   it('ignora torneo ya pasado (diasRestantes < 0)', () => {
     const enriched = enrichPlaying([torneo({ date_start: '2026-06-01T12:00:00Z' })], NOW)
     expect(findTorneoInminente(enriched, NOW)).toBeNull()
@@ -58,25 +90,50 @@ describe('findTorneoInminente', () => {
 })
 
 describe('enrichOrganizing', () => {
-  it('filtra solo open/in_progress/active', () => {
+  it('filtra por estadoDelTorneo: por jugar o en curso; nunca finalizados ni zombies', () => {
     const res = enrichOrganizing([
-      torneo({ id: 'a', status: 'open' }),
+      torneo({ id: 'a', status: 'open', date_start: '2026-06-10' }),
       torneo({ id: 'b', status: 'finished' }),
-      torneo({ id: 'c', status: 'active' }),
-    ])
+      torneo({ id: 'c', status: 'active', date_start: '2026-06-03' }),
+      torneo({ id: 'z', status: 'in_progress', date_start: '2026-04-20' }),
+    ], NOW)
     expect(res.map((t) => t.id)).toEqual(['a', 'c'])
-    expect(res[0].inscritos).toBe(0)
+    expect(res.map((t) => t.estado)).toEqual(['por_jugar', 'en_curso'])
     expect(res[0].hoyoActual).toBeNull()
+  })
+  it('el organizador ve su open vencido con "Fecha vencida" (es quien lo inicia o lo borra); el jugador no', () => {
+    const vencido = torneo({ id: 'v', status: 'open', date_start: '2026-05-01' })
+    const [r] = enrichOrganizing([vencido], NOW)
+    expect(r.estado).toBe('vencido')
+    expect(r.etiqueta).toBe('Fecha vencida')
+    expect(enrichPlaying([vencido], NOW)).toEqual([])
+  })
+  it('etiqueta del organizador en los vivos sale de badgeDelTorneo', () => {
+    const [r] = enrichOrganizing([torneo({ status: 'open', date_start: '2026-06-10' })], NOW)
+    expect(r.etiqueta).toBe('Inscripciones abiertas')
+  })
+  it('inscritos = contarInscritos (aprobados), no 0 fijo', () => {
+    const [r] = enrichOrganizing([
+      torneo({ status: 'open', date_start: '2026-06-10', players: [{ status: 'approved' }, { status: 'approved' }, { status: 'withdrawn' }] }),
+    ], NOW)
+    expect(r.inscritos).toBe(2)
   })
 })
 
 describe('buildFinalizados', () => {
-  it('toma finished/closed de jugados + organizados, máx 2', () => {
-    const played = [torneo({ id: 'p1', status: 'finished' }), torneo({ id: 'p2', status: 'closed' })]
-    const organized = [torneo({ id: 'o1', status: 'finished' }), torneo({ id: 'o2', status: 'open' })]
-    const res = buildFinalizados(played, organized)
-    expect(res).toHaveLength(2)
-    expect(res.map((t) => t.id)).toEqual(['p1', 'p2'])
+  it('toma los finalizados (estadoDelTorneo) de jugados + organizados, máx 2, el más reciente primero', () => {
+    const played = [
+      torneo({ id: 'p1', status: 'finished', date_start: '2026-05-01' }),
+      torneo({ id: 'p2', status: 'closed', date_start: '2026-05-20' }),
+    ]
+    const organized = [torneo({ id: 'o1', status: 'finished', date_start: '2026-03-01' }), torneo({ id: 'o2', status: 'open', date_start: '2026-06-10' })]
+    const res = buildFinalizados(played, organized, NOW)
+    expect(res.map((t) => t.id)).toEqual(['p2', 'p1'])
+  })
+  it('incluye el torneo que nadie cerró pasada la fecha, y uno jugado Y organizado aparece una vez', () => {
+    const zombie = torneo({ id: 'z', status: 'in_progress', date_start: '2026-04-20' })
+    const res = buildFinalizados([zombie], [zombie], NOW)
+    expect(res.map((t) => t.id)).toEqual(['z'])
   })
 })
 

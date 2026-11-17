@@ -5,7 +5,7 @@
 // /torneo/[slug], /torneo/[slug]/en-vivo, organizador/scoring, ronda-libre.
 //
 // Un solo componente con dos estados (decisión PM 21-jul):
-//  - EN VIVO (tone === 'live') → bloque navy "broadcast" (energía de transmisión,
+//  - EN VIVO (estado en_curso, tone 'live') → bloque navy "broadcast" (energía de transmisión,
 //    el look PGA que la calle valoró), reusa `--brand-dark`.
 //  - borrador / finalizado → editorial claro con filete dorado.
 //
@@ -17,8 +17,9 @@
 import type { ReactNode } from 'react'
 import { getFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
-import { tournamentStatusBadge, tournamentStatusTone } from '@/golf/tournament-status'
-import type { StatusAudience } from '@/golf/tournament-status'
+import { badgeDelTorneo } from '@/golf/tournament-status'
+import type { StatusAudience, VistaDelBadge } from '@/golf/tournament-status'
+import type { TorneoConFechas } from '@/golf/tournament-live-status'
 
 /** CSS keyframes para el punto pulsante del badge "En vivo". Inyectado inline
  *  para no depender de globals.css ni de Tailwind @keyframes. */
@@ -35,7 +36,8 @@ export interface TorneoHeaderProps {
   name: string
   format: string
   modo: 'gross' | 'neto'
-  status: string | null | undefined
+  /** Status + fechas: el estado sale de `estadoDelTorneo` (cierre automático incluido). */
+  torneo: TorneoConFechas
   courseName?: string | null
   holeCount?: number | null
   /** Ej. "20 jul". Fecha ya formateada por el caller. */
@@ -44,16 +46,10 @@ export interface TorneoHeaderProps {
   note?: string | null
   /** Vocabulario del estado: el jugador y el organizador no leen lo mismo. */
   audience?: StatusAudience
+  /** 'ficha' en /torneo/[slug] y su en-vivo: un cerrado por fecha dice "Resultados provisorios". */
+  vista?: VistaDelBadge
   /** Slot opcional a la derecha (acciones). En vivo suele ir el chip solo. */
   right?: ReactNode
-  /**
-   * Override de "en vivo" (decide V2 navy vs V1 claro). Por defecto se deriva del
-   * tono del estado (`in_progress`). Los callers con noción de fecha (ej. /torneo
-   * usa `torneoEnVivo(status, fechas)`) lo pasan explícito para que la cabecera
-   * coincida con el resto de la página — un torneo in_progress pero pasado de
-   * fecha no debe verse "en vivo" en un lado y cerrado en otro.
-   */
-  live?: boolean
   /**
    * Vista pública "solo bruto" (torneo neto, visor sin sesión): en vez de
    * "<Formato> Neto" dice "<Formato> · Clasificación bruta". El formato es el REAL
@@ -107,11 +103,12 @@ function StatusChip({ label, bg, fg, tone, onDark }: { label: string; bg: string
 }
 
 export function TorneoHeader(props: TorneoHeaderProps) {
-  const { name, status, audience = 'player', note, right } = props
-  const tone = tournamentStatusTone(status)
-  const badge = tournamentStatusBadge(status, audience)
-  // "en vivo" (V2 navy) = override explícito del caller, o el tono del estado.
-  const isNavy = props.live ?? (tone === 'live')
+  const { name, torneo, audience = 'player', vista = 'lista', note, right } = props
+  // Una sola regla para el chip y para navy vs claro: un torneo in_progress pero
+  // pasado de fecha no puede verse "en vivo" en un lado y cerrado en otro.
+  const badge = badgeDelTorneo(torneo, new Date(), audience, vista)
+  const tone = badge.tone
+  const isNavy = tone === 'live'
   const meta = metaLine(props)
 
   const serif = "var(--font-playfair, Georgia, serif)"

@@ -38,10 +38,12 @@ import {
   materializeGroupScorecard,
   type GrupoArmado,
   ponerEnJuego,
+  moverFechasDeRondas,
   soloAprobados,
   completarIndicesInscritos,
 } from '@/lib/data/tournaments/startTournament'
 import { leerParaIniciar } from '@/lib/data/tournaments/leer-para-iniciar'
+import { fechasAlIniciar } from '@/golf/tournament-live-status'
 import {
   avisoSinIndice,
   CODIGO_CONFIRMAR_SIN_INDICE,
@@ -164,7 +166,11 @@ export async function POST(
     // la fuente única (`@/golf/tournament-rounds`), que para la ronda 1 es el
     // torneo mismo. (Las rondas 2..N de un torneo por equipos no se
     // materializan todavía — ver follow-up en REORDENAMIENTO_TRACKING.)
-    const ronda1 = await fetchRoundPlayConfig(svc, t, 1)
+    // Fecha vencida (postergado: se inicia después de su última fecha): el torneo se corre a hoy con su
+    // duración. Se calcula UNA vez: la tarjeta de cada grupo (ronda1.date) y el update del torneo
+    // (`ponerEnJuego`) usan la misma fecha.
+    const fechas = fechasAlIniciar(t, new Date())
+    const ronda1 = await fetchRoundPlayConfig(svc, { ...t, date_start: fechas?.date_start ?? t.date_start }, 1)
     // Scramble/foursome: ratings, tees y par de la ronda para el handicap de
     // equipo, una sola vez para todos los grupos (null en otros formatos).
     const hcpEquipos = await fetchContextoHcpDeEquipos(svc, t, ronda1)
@@ -195,14 +201,18 @@ export async function POST(
 
     // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas
     // y el torneo sigue sin iniciar. Si otro inicio ganó, lo propio no se deshace.
-    const enJuego = await ponerEnJuego(svc, t.id)
+    // Las fechas corridas van en el mismo update compare-and-set.
+    const enJuego = await ponerEnJuego(svc, t.id, fechas)
     if (enJuego === 'otro-gano') {
       const ahora = await estadoAntesDeDeshacer(svc, t.id)
       return NextResponse.json({ error: ahora === 'otro-estado' ? ERROR_CAMBIO_DE_ESTADO : ERROR_OTRO_INICIO }, { status: 409 })
     }
     if (enJuego === 'error') return fallar('No se pudo actualizar el estado del torneo. Intenta de nuevo.', 500)
+    // Cosmético y a prueba de fallas (nunca lanza): el torneo YA está en juego, el inicio no responde error.
+    if (fechas) await moverFechasDeRondas(svc, t.id, fechas.delta)
 
-    return NextResponse.json({ success: true, status: 'in_progress' })
+    // `fechaMovidaA`: el panel le avisa al organizador que la fecha se corrió a hoy.
+    return NextResponse.json({ success: true, status: 'in_progress', fechaMovidaA: fechas?.date_start ?? null })
   } catch (err) {
     void captureError(err, { context: 'start-tournament', level: 'error', meta: { slug } })
     return fallar('Error interno al iniciar el torneo. Intenta de nuevo.', 500)
