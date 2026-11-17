@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/useToast'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
 import { captureError } from '@/lib/error-tracking'
 import { deletePlayer, listInscritosDelPanel } from '@/lib/data/tournaments/players'
+import { esErrorGruposFijos } from '@/lib/data/tournaments/groups'
 import type { Category, Player, Tournament } from '../types'
 import type { Profile } from './useProfileSearch'
 
@@ -11,7 +12,6 @@ interface UsePlayersArgs {
   tournament: Tournament & { codigo?: string | null }
   categories: Category[]
   initialPlayers: Player[]
-  tournamentStatus: string
 }
 
 /**
@@ -21,7 +21,7 @@ interface UsePlayersArgs {
  * desde el componente (que los obtiene de useProfileSearch) para mantener el
  * orquestador delgado.
  */
-export function usePlayers({ tournament, categories, initialPlayers, tournamentStatus }: UsePlayersArgs) {
+export function usePlayers({ tournament, categories, initialPlayers }: UsePlayersArgs) {
   const { showError, showWarning, showSuccess } = useToast()
   const { confirm, modalProps } = useConfirmModal()
   const [players, setPlayers] = useState<Player[]>(initialPlayers)
@@ -123,28 +123,40 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
     }
   }
 
-  const withdrawPlayer = async (playerId: string) => {
+  /**
+   * Saca a un jugador del torneo. `gruposFijos` (ver `@/golf/tournament-status`): con el torneo en juego se
+   * marca WD por `/api/game` y se conservan su grupo y sus golpes; antes del inicio se elimina la inscripción.
+   * Devuelve `true` solo si se hizo: cancelar el confirm o un error devuelven `false` (#810).
+   */
+  const withdrawPlayer = async (playerId: string, gruposFijos: boolean): Promise<boolean> => {
     const _pl = players.find(p => p.id === playerId)
     const playerName = _pl?.profiles?.name ?? _pl?.player_name ?? 'este jugador'
 
-    if (tournamentStatus === 'in_progress') {
+    if (gruposFijos) {
       const ok = await confirm({
         title: 'Retirar jugador (WD)',
         description: `¿Retirar a ${playerName}? Sus scores se conservan en el historial.`,
         confirmText: 'Retirar (WD)',
         variant: 'warning',
       })
-      if (!ok) return
+      if (!ok) return false
       // Marca status='withdrawn' — preserva scores
-      const res = await fetch('/api/game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'withdraw_player', tournament_id: tournament.id, player_id: playerId }),
-      })
+      let res: Response
+      try {
+        res = await fetch('/api/game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'withdraw_player', tournament_id: tournament.id, player_id: playerId }),
+        })
+      } catch (err) {
+        void captureError(err, { context: 'organizador-jugadores.retirar', level: 'error', meta: { playerId } })
+        showError('Error', 'No se pudo retirar al jugador. Revisa tu conexión.')
+        return false
+      }
       if (!res.ok) {
-        const data = await res.json()
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
         showError('Error', data.error || 'No se pudo retirar al jugador.')
-        return
+        return false
       }
       showSuccess('Jugador retirado (WD)', `${playerName} fue marcado como retirado.`)
     } else {
@@ -152,12 +164,18 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
       try {
         await deletePlayer(createClient(), playerId)
       } catch (err) {
+        // Pestaña abierta antes del inicio: la base ya no deja eliminar, solo WD (#810).
+        if (esErrorGruposFijos(err)) {
+          showError('El torneo ya empezó', 'Recarga la página y retira al jugador con WD.')
+          return false
+        }
         void captureError(err, { context: 'organizador-jugadores.eliminar', level: 'error', meta: { playerId } })
         showError('Error', 'No se pudo eliminar la inscripción. Intenta de nuevo.')
-        return
+        return false
       }
     }
     await fetchPlayers()
+    return true
   }
 
   const disqualifyPlayer = async (playerId: string) => {

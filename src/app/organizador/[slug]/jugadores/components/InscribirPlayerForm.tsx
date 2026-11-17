@@ -63,6 +63,9 @@ interface Props {
   onInscribirBatch?: (entries: Array<{ name: string; hcp: number | null }>) => Promise<number>
   /** `tournaments.hcp_calc_mode`: decide si el número del lote se rotula Índice o HCP. */
   hcpCalcMode?: string | null
+  /** Con los grupos fijos (torneo iniciado), el alta no entra a ningún grupo ni tarjeta: se avisa, no se
+   *  bloquea (#810). `null` = sin aviso. */
+  avisoSinGrupo?: string | null
 }
 
 /** Formulario de inscripcion: buscar un perfil existente, agregar un invitado,
@@ -71,7 +74,7 @@ export function InscribirPlayerForm({
   dropdownRef, search, setSearch, results, showResults, setShowResults,
   selectedProfile, setSelectedProfile, loading, onInscribir,
   mode, setMode, guestName, setGuestName, guestHcp, setGuestHcp, onInscribirGuest,
-  onInscribirBatch, hcpCalcMode,
+  onInscribirBatch, hcpCalcMode, avisoSinGrupo = null,
 }: Props) {
   const { allowed: guestAllowed } = useEntitlement('guest-tournament')
   const presentacionHcp = presentacionHandicapInscrito(hcpCalcMode)
@@ -150,6 +153,9 @@ export function InscribirPlayerForm({
       <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: '0 0 16px' }}>
         Inscribir jugador
       </h2>
+      {avisoSinGrupo && (
+        <p role="note" style={{ fontSize: '13px', color: 'var(--text-2)', margin: '-8px 0 16px' }}>{avisoSinGrupo}</p>
+      )}
 
       {/* Toggle: buscar perfil vs invitado vs batch */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', maxWidth: '540px' }}>

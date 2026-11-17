@@ -8,14 +8,18 @@ import {
   setGroupTeeTime,
   assignPlayerToGroup,
   teeTimeDesdeHoraLocal,
+  esErrorGruposFijos,
 } from '@/lib/data/tournaments/groups'
 import { isTeamFormat } from '@/golf/formats'
+import { gruposFijos as calcularGruposFijos, torneoSinEmpezar } from '@/golf/tournament-status'
 import { captureError } from '@/lib/error-tracking'
 import type { Player, Tournament, TournamentGroup } from '../types'
 
 interface UseGroupsArgs {
   tournament: Tournament & { codigo?: string | null }
   players: Player[]
+  /** Estado vivo del torneo (el panel lo actualiza al iniciar/cerrar). */
+  tournamentStatus: string
 }
 
 /**
@@ -27,7 +31,7 @@ interface UseGroupsArgs {
  * dispara `fetchGroups` lo mantiene el componente (orquesta con
  * checkAllRoundsClosed).
  */
-export function useGroups({ tournament, players }: UseGroupsArgs) {
+export function useGroups({ tournament, players, tournamentStatus }: UseGroupsArgs) {
   const { showError, showWarning, showSuccess } = useToast()
 
   const [groups, setGroups] = useState<TournamentGroup[]>([])
@@ -40,6 +44,12 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
   const [teeStartTime, setTeeStartTime] = useState('08:00')
   const [teeInterval, setTeeInterval] = useState(10)
   const [generatingTees, setGeneratingTees] = useState(false)
+
+  // Con el torneo en juego los grupos no se rearman: cada uno ya tiene su tarjeta (#810).
+  const gruposFijos = calcularGruposFijos(tournamentStatus, groups)
+  const notaGruposFijos = notaDeGruposFijos(tournamentStatus, groups)
+  const avisarGruposFijos = () =>
+    showWarning('Grupos fijos', notaGruposFijos ?? NOTA_GRUPOS_FIJOS.torneoEmpezado)
 
   const fetchGroups = async () => {
     try {
@@ -76,6 +86,8 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
   }
 
   const handleCreateGroup = async () => {
+    // Con los grupos fijos nadie puede poblar un grupo nuevo (#810).
+    if (gruposFijos) { avisarGruposFijos(); return }
     if (!newGroupName.trim()) { showWarning('Nombre requerido', 'Escribe un nombre para el grupo.'); return }
     setCreatingGroup(true)
     // Convierte "HH:MM" a TIMESTAMPTZ usando la fecha del torneo.
@@ -103,6 +115,8 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
   }
 
   const handleDeleteGroup = async (groupId: string) => {
+    const grupo = groups.find((g) => g.id === groupId)
+    if (gruposFijos && (!grupo || grupoConJuego(grupo))) { avisarGruposFijos(); return }
     try {
       await deleteGroup(createClient(), groupId)
     } catch (e) {
@@ -137,10 +151,17 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
   }
 
   const handleAssignPlayer = async (playerId: string, groupId: string) => {
+    if (gruposFijos) { avisarGruposFijos(); return }
     try {
       // groupId vacío ('') = quitar del grupo → null.
       await assignPlayerToGroup(createClient(), playerId, groupId || null)
     } catch (e) {
+      // Pestaña abierta antes del inicio: la base ya no deja mover (#810). No es una falla.
+      if (esErrorGruposFijos(e)) {
+        await fetchGroups()
+        avisarGruposFijos()
+        return
+      }
       // NO tragamos el error (histórico: un `catch {}` ciego dejó 4 fallos de campo
       // sin traza — reporte inbox e637b979). Lo mandamos a error_logs con contexto y
       // refrescamos la lista: la causa típica es un jugador stale (fila fantasma en la
@@ -186,6 +207,8 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
    * Retorna true si hubo rebalanceo, false si solo se quitó.
    */
   const removePlayerAndRebalance = async (playerId: string): Promise<boolean> => {
+    // Defensa: el WD en juego no pasa por acá (`desinscribir`), pero nunca se rearma un torneo iniciado.
+    if (gruposFijos) return false
     const supabase = createClient()
     const groupId = getPlayerGroupId(playerId)
     if (!groupId) return false // jugador no estaba en ningún grupo
@@ -254,7 +277,7 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
   }
 
   return {
-    groups, gruposCargados,
+    groups, gruposCargados, gruposFijos, notaGruposFijos,
     newGroupName, setNewGroupName,
     newGroupTeeTime, setNewGroupTeeTime,
     creatingGroup,
@@ -265,4 +288,30 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
     handleGenerateTeeTimes, handleAssignPlayer, getPlayerGroupId,
     removePlayerAndRebalance,
   }
+}
+
+/** Por qué el organizador ya no puede mover a nadie de grupo, crear ni borrar grupos (nota y aviso). */
+export const NOTA_GRUPOS_FIJOS = {
+  torneoEmpezado: 'El torneo ya empezó: los grupos quedan fijos y un WD no mueve a nadie.',
+  // Torneo leído como "open" pero algún grupo ya tiene tarjeta (pestaña vieja o inicio a medias).
+  conTarjeta: 'Los grupos ya tienen tarjeta: quedan fijos.',
+  // Alta con el torneo iniciado: se permite, pero no entra a ningún grupo (decisión de producto, #810).
+  altaSinGrupo: 'El torneo ya empezó: quedará sin grupo y sin tarjeta.',
+} as const
+
+/** Nota para el organizador con los grupos fijos (`gruposFijos`), o `null` si todavía se pueden rearmar. */
+export function notaDeGruposFijos(
+  status: string | null | undefined,
+  grupos: ReadonlyArray<{ ronda_libre_id?: string | null }>,
+): string | null {
+  if (!calcularGruposFijos(status, grupos)) return null
+  return torneoSinEmpezar(status) ? NOTA_GRUPOS_FIJOS.conTarjeta : NOTA_GRUPOS_FIJOS.torneoEmpezado
+}
+
+/**
+ * Grupo que no se puede borrar con los grupos fijos: tiene tarjeta o jugadores. Un grupo vacío y sin tarjeta
+ * (creado después del inicio) sí se borra: no rompe ningún enlace.
+ */
+export function grupoConJuego(g: Pick<TournamentGroup, 'ronda_libre_id' | 'players'>): boolean {
+  return g.ronda_libre_id != null || g.players.length > 0
 }

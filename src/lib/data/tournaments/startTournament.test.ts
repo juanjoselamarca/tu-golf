@@ -37,6 +37,8 @@ function fakeDb(opts: {
   failUpdate?: string
   failUpsert?: boolean
   failDelete?: boolean
+  /** El inscrito ya no está en el grupo (lo movieron entretanto): su UPDATE de enlace afecta 0 filas. */
+  jugadorMovido?: string
 } = {}) {
   const ops: Op[] = []
   const insertCount: Record<string, number> = {}
@@ -77,7 +79,13 @@ function fakeDb(opts: {
             select: () => Promise.resolve(
               fail
                 ? { data: null, error: { message: `boom ${table}` } }
-                : { data: opts.grupoYaEnlazado ? [] : [{ id: 'g1', ...(payload as object) }], error: null },
+                : {
+                    data: opts.grupoYaEnlazado
+                      || (table === 'tournament_group_players' && op.filters.some((f) => f[1] === 'player_id' && f[2] === opts.jugadorMovido))
+                      ? []
+                      : [{ id: 'g1', ...(payload as object) }],
+                    error: null,
+                  },
             ),
             then: (resolve: (r: unknown) => unknown) =>
               Promise.resolve({ error: fail ? { message: `boom ${table}` } : null }).then(resolve),
@@ -273,6 +281,20 @@ describe('materializeGroupScorecard', () => {
       (o) => o.kind === 'update' && o.table === 'tournament_groups' && (o.payload as { ronda_libre_id: unknown }).ronda_libre_id === null,
     )!
     expect(desenlazar.filters).toContainEqual(['eq', 'ronda_libre_id', 'rondas_libres-1'])
+    expect(rondaBorrada(db.ops)).toBe(true)
+  })
+
+  it('si un integrante ya no está en el grupo (lo movieron entretanto), no lo da por enlazado: deshace todo (#810)', async () => {
+    const db = fakeDb({ jugadorMovido: 'p2' })
+    const res = await run(db, group(['p1', 'p2']), [player('p1'), player('p2')])
+    expect(res.ok).toBe(false)
+    const soltar = db.ops.find(
+      (o) => o.kind === 'update' && o.table === 'tournament_group_players' && (o.payload as { jugador_ronda_id: unknown }).jugador_ronda_id === null,
+    )!
+    expect(soltar.filters.find((f) => f[0] === 'in')?.[2]).toEqual(['ronda_libre_jugadores-2', 'ronda_libre_jugadores-3'])
+    expect(db.ops.some(
+      (o) => o.kind === 'update' && o.table === 'tournament_groups' && (o.payload as { ronda_libre_id: unknown }).ronda_libre_id === null,
+    )).toBe(true)
     expect(rondaBorrada(db.ops)).toBe(true)
   })
 

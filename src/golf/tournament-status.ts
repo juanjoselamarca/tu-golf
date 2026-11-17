@@ -148,3 +148,20 @@ export function visorPuedeAnotar(
 ): boolean {
   return !!inscripcion && !jugadorFueraDelTorneo(inscripcion.status) && torneoAceptaScores(torneo.status) && !torneo.es_demo
 }
+
+/**
+ * ¿Los grupos del torneo ya no se pueden rearmar? Desde el inicio cada grupo tiene su tarjeta
+ * (`tournament_groups.ronda_libre_id`) y cada inscrito está enlazado a su fila
+ * (`tournament_group_players.jugador_ronda_id`). Mover, sacar o borrar en ese punto rompe el enlace: el
+ * board se arma desde las tarjetas de los grupos, así que un grupo borrado se lleva todos sus golpes (#810).
+ *
+ * Fijos = el torneo ya no está sin empezar, o algún grupo ya tiene tarjeta (cubre una pestaña abierta antes
+ * del inicio que todavía lee "open"). Un status desconocido cuenta como fijo. Espejo en la base:
+ * trigger `grupos_fijos_*` (migración 20261117120000).
+ */
+export function gruposFijos(
+  status: string | null | undefined,
+  grupos: ReadonlyArray<{ ronda_libre_id?: string | null }>,
+): boolean {
+  return !torneoSinEmpezar(status) || grupos.some((g) => g.ronda_libre_id != null)
+}

@@ -146,3 +146,13 @@ describe('teeTimeDesdeHoraLocal', () => {
     expect(() => teeTimeDesdeHoraLocal('2026-12-20', '25:99')).toThrow(/inválida/)
   })
 })
+
+describe('esErrorGruposFijos (#810)', () => {
+  it('reconoce el error de los triggers grupos_fijos_* y nada más', async () => {
+    const { esErrorGruposFijos } = await import('./groups')
+    expect(esErrorGruposFijos(new Error('El torneo ya empezó: los grupos quedan fijos'))).toBe(true)
+    expect(esErrorGruposFijos(new Error('El torneo ya empezó: retira al jugador con WD'))).toBe(true)
+    expect(esErrorGruposFijos(new Error('violates foreign key constraint'))).toBe(false)
+    expect(esErrorGruposFijos(null)).toBe(false)
+  })
+})

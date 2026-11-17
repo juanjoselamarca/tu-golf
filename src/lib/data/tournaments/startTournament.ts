@@ -523,15 +523,21 @@ export async function materializeGroupScorecard(
       return { ok: false, conflicto: true, error: ERROR_OTRO_INICIO }
     }
 
-    // 5. Cada jugador del grupo apunta a su fila en la tarjeta (el scorer del torneo lo lee)
+    // 5. Cada jugador del grupo apunta a su fila en la tarjeta (el scorer del torneo lo lee).
+    //    0 filas = ya no está en este grupo (lo movieron mientras se armaba): sin enlace, su
+    //    "Anotar" iría a otra tarjeta. Se deshace igual que ante un error (#810).
     for (const m of members) {
-      const { error } = await svc
+      const { data: enlazado, error } = await svc
         .from('tournament_group_players')
         .update({ jugador_ronda_id: m.jugadorRondaId })
         .eq('group_id', group.id)
         .eq('player_id', m.playerId)
+        .select('id')
       if (error) {
         return abortar('enlazar-jugador-grupo', error)
+      }
+      if (!enlazado || enlazado.length === 0) {
+        return abortar('enlazar-jugador-grupo-sin-fila', new Error(`player ${m.playerId} ya no está en "${group.name}"`))
       }
     }
   } catch (err) {
