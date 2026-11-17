@@ -27,6 +27,6 @@ describe('/en-vivo — el pie WD/DQ desde el PRIMER render (#813)', () => {
     expect(within(pie).getByText('Ana')).toBeTruthy()
     expect(within(pie).getByText('Retirado')).toBeTruthy()
     expect(within(pie).getByText('-2')).toBeTruthy()
-    expect(within(pie).getByText('46 golpes · 12 hoyos')).toBeTruthy()
+    expect(pie.textContent).toContain('46 golpes · 12 hoyos')
   })
 })

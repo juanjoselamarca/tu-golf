@@ -23,11 +23,12 @@ export interface TournamentWithdrawnListProps {
   tv?: boolean
 }
 
-function scoreDelPie(s: NonNullable<WithdrawnEntry['score']>): { valor: string; detalle: string } {
+function scoreDelPie(s: NonNullable<WithdrawnEntry['score']>): { valor: string; detalle: string[] } {
   const hoyos = `${s.hoyos} ${s.hoyos === 1 ? 'hoyo' : 'hoyos'}`
   return {
     valor: formatScoreDelRanking(s.valor, s.esPuntos, { conUnidad: s.esPuntos }),
-    detalle: s.esPuntos || s.grossTotal == null ? hoyos : `${s.grossTotal} golpes · ${hoyos}`,
+    // En piezas: si no cabe en una línea, se parte en el "·", nunca dentro de "12 hoyos".
+    detalle: s.esPuntos || s.grossTotal == null ? [hoyos] : [`${s.grossTotal} golpes`, hoyos],
   }
 }
 
@@ -39,8 +40,9 @@ const SR_ONLY = {
 export function TournamentWithdrawnList({ withdrawnPlayers, tv = false }: TournamentWithdrawnListProps) {
   const tituloId = useId()
   if (withdrawnPlayers.length === 0) return null
-  const k = tv ? 1.5 : 1
-  const px = (n: number) => `${n * k}px`
+  // TV: 1,5× en pantalla grande (desde ~850 px de ancho, a escala con el viewport);
+  // en un teléfono queda en el tamaño normal, que es el que cabe a 390 px.
+  const px = (n: number) => (tv ? `clamp(${n}px, ${((n * 1.5) / 12.8).toFixed(3)}vw, ${n * 1.5}px)` : `${n}px`)
 
   return (
     <section aria-labelledby={tituloId}>
@@ -104,7 +106,7 @@ export function TournamentWithdrawnList({ withdrawnPlayers, tv = false }: Tourna
                   {wp.reason && (
                     <span style={{
                       display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2,
-                      overflow: 'hidden', overflowWrap: 'anywhere',
+                      overflow: 'hidden',
                       color: 'var(--text-2)', fontSize: px(13), lineHeight: 1.35,
                     }}>
                       {wp.reason}
@@ -117,7 +119,9 @@ export function TournamentWithdrawnList({ withdrawnPlayers, tv = false }: Tourna
                       {score.valor}
                     </span>
                     <span className="num" style={{ display: 'block', color: 'var(--text-2)', fontSize: px(12), lineHeight: 1.3 }}>
-                      {score.detalle}
+                      {score.detalle.map((pieza, j) => (
+                        <span key={j}>{j > 0 ? ' ' : ''}<span style={{ whiteSpace: 'nowrap' }}>{pieza}{j < score.detalle.length - 1 ? ' ·' : ''}</span></span>
+                      ))}
                     </span>
                   </span>
                 )}
