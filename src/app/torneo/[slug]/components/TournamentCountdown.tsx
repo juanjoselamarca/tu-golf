@@ -1,43 +1,33 @@
 // src/app/torneo/[slug]/components/TournamentCountdown.tsx
 //
-// Countdown sutil para torneos abiertos con fecha futura.
-// Formato humano: >7d → "Faltan N días", <7d → "Faltan N días y M horas",
-// <24h → "Mañana" o "Hoy".
+// Countdown sutil para torneos con inscripciones abiertas que todavía no se juegan.
+// Cuenta días calendario de Chile (`diasHastaFecha`): "Hoy", "Mañana", "Faltan N días".
+// Antes restaba milisegundos contra la medianoche UTC de date_start: el día antes del
+// torneo decía "Hoy" y desde las 21:00 de Chile del día anterior desaparecía. Las horas
+// ("y M horas") se calculaban contra esa medianoche UTC, no contra la hora de salida.
+
+import { estadoDelTorneo, diasHastaFecha } from '@/golf/tournament-live-status'
 
 export interface TournamentCountdownProps {
   dateStart: string | null
+  dateEnd: string | null
   status: string | null
 }
 
-export function TournamentCountdown({ dateStart, status }: TournamentCountdownProps) {
-  if (!dateStart) return null
-  if (status !== 'open') return null
+/** Texto del countdown, o null si no corresponde mostrarlo. Exportado para test. */
+export function textoCountdown(p: TournamentCountdownProps, ahora: Date): string | null {
+  if (p.status !== 'open') return null
+  if (estadoDelTorneo({ status: p.status, date_start: p.dateStart, date_end: p.dateEnd }, ahora) !== 'por_jugar') return null
+  const dias = diasHastaFecha(p.dateStart, ahora)
+  if (dias == null || dias < 0) return null
+  if (dias === 0) return 'Hoy'
+  if (dias === 1) return 'Mañana'
+  return `Faltan ${dias} días`
+}
 
-  const now = new Date()
-  const target = new Date(dateStart)
-  const diffMs = target.getTime() - now.getTime()
-
-  // Fecha ya pasó — no mostrar nada
-  if (diffMs <= 0) return null
-
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  const remainingHours = diffHours - diffDays * 24
-
-  let label: string
-  if (diffHours < 1) {
-    label = 'Comienza pronto'
-  } else if (diffHours < 24) {
-    label = 'Hoy'
-  } else if (diffHours < 48) {
-    label = 'Mañana'
-  } else if (diffDays <= 7) {
-    label = remainingHours > 0
-      ? `Faltan ${diffDays} días y ${remainingHours} hora${remainingHours !== 1 ? 's' : ''}`
-      : `Faltan ${diffDays} días`
-  } else {
-    label = `Faltan ${diffDays} días`
-  }
+export function TournamentCountdown(props: TournamentCountdownProps) {
+  const label = textoCountdown(props, new Date())
+  if (!label) return null
 
   return (
     <div

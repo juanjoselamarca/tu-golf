@@ -334,6 +334,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       {isOpen && (
         <TournamentCountdown
           dateStart={tournament.date_start}
+          dateEnd={tournament.date_end}
           status={tournament.status}
         />
       )}

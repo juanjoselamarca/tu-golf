@@ -71,7 +71,8 @@ export default function LiveView({
   void selectedRound
 
   // ── Polling a la ruta cacheable (sin Supabase Realtime, incidente Los Leones 04-oct-2026) ──
-  const isLive = tournamentInicial.live && tournamentInicial.status === 'in_progress'
+  // `live` ya es `estadoDelTorneo(...) === 'en_curso'` (status + fechas): no se re-filtra por status.
+  const isLive = tournamentInicial.live
   const { data, lastUpdate, refresh, countdown, sinSesion, equiposFallaDesde } = useTorneoEnVivo(
     tournamentInicial.slug,
     { tournament: tournamentInicial, players: playersInicial, teams: teamsInicial, categories: categoriesInicial, groups: groupsInicial },
