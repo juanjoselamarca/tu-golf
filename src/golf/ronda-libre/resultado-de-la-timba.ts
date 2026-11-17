@@ -32,7 +32,7 @@ export interface TramoDelResultado {
 }
 
 export interface PuntoEspecialDelResultado {
-  /** "Chipingo · Pedro 1": cuántas veces lo hizo (solo los que cuentan). */
+  /** "Chipingo · Pedro ×2" ("Chipingo · Pedro" si una vez): cuántas veces lo hizo (solo los que cuentan). */
   texto: string
   puntitoId: string
   jugadorId: string
@@ -40,9 +40,9 @@ export interface PuntoEspecialDelResultado {
 }
 
 export interface ResultadoDeLaTimba {
-  /** "La Colombiana · 18 hoyos · Gross". */
+  /** "La Colombiana · 18 hoyos · Gross"; cerrada antes, "La Colombiana · 12 de 18 hoyos · Gross". */
   encabezado: string
-  /** "Ganó Pedro" o, con empate en el primer puesto, "Empate entre Pedro y Juan". */
+  /** "Ganó Pedro", "Empate entre Pedro y Juan"; en parejas fijas, "Ganaron Juan y Pedro" o "Empate entre las parejas". */
   titular: string
   /** "Por un punto sobre Juan." · "Con +12 cada uno." */
   bajada: string
@@ -66,10 +66,28 @@ export function textoDePuntos(n: number): string {
   return n === 1 ? 'un punto' : `${n} puntos`
 }
 
-/** Hoyos de un tramo en orden de juego: [1..6] → "1–6"; saliendo del 10, [16,17,18,1,2,3] → "16–3". */
-function rangoDeHoyos(hoyos: readonly number[]): string {
-  if (hoyos.length <= 1) return String(hoyos[0] ?? '')
-  return `${hoyos[0]}–${hoyos.at(-1)}`
+/**
+ * Hoyos de un tramo en orden de juego, en tramos consecutivos: [1..6] → "1–6"; saliendo del 10, el que pasa del 18,
+ * [16,17,18,1,2,3] → "16–18 y 1–3" (nunca "16–3", que se lee como 16 a 3 hacia atrás).
+ */
+export function rangoDeHoyos(hoyos: readonly number[]): string {
+  const tramos: number[][] = []
+  for (const h of hoyos) {
+    const actual = tramos.at(-1)
+    if (actual && h === actual.at(-1)! + 1) actual.push(h)
+    else tramos.push([h])
+  }
+  return unirNombres(tramos.map(t => (t.length === 1 ? String(t[0]) : `${t[0]}–${t.at(-1)}`)))
+}
+
+/** Tramos de la nota: con "y" salvo que alguno ya tenga una "y" adentro (el que pasa del 18), ahí con " · ". */
+function unirTramos(rangos: readonly string[]): string {
+  return rangos.some(r => r.includes(' y ')) ? rangos.join(' · ') : unirNombres(rangos)
+}
+
+/** "18 hoyos"; cerrada antes del final, "12 de 18 hoyos" (los que se jugaron de verdad). */
+function textoDeHoyos(jugados: number, total: number): string {
+  return jugados < total ? `${jugados} de ${total} hoyos` : `${total} hoyos`
 }
 
 export function armarResultadoDeLaTimba(
@@ -84,11 +102,24 @@ export function armarResultadoDeLaTimba(
 
   const ranking: FilaDelResultado[] = tabla.ranking.map(r => ({ ...r, retiradoDesde: retiros[r.jugadorId] ?? null }))
 
-  // Titular: el ganador y por cuánto; con empate arriba, los empatados y sus puntos.
+  // Titular: el ganador y por cuánto; con empate arriba, los empatados y sus puntos. En parejas fijas manda el
+  // marcador de las parejas: dos compañeros empatan siempre en el ranking individual y no son "empate".
+  const nombreDePareja = ([a, b]: Pareja) => `${nombre(jugadorIds[a])} y ${nombre(jugadorIds[b])}`
   const primeros = ranking.filter(r => r.puesto === 1)
+  const fijas = config.unidad === 'parejas_fijas' ? resultado.tramos[0] : undefined
   let titular: string
   let bajada: string
-  if (primeros.length === 1) {
+  if (fijas) {
+    const [a, b] = fijas.marcador
+    if (a === b) {
+      titular = 'Empate entre las parejas'
+      bajada = `Con ${textoDePuntos(a)} cada una.`
+    } else {
+      const g = a > b ? 0 : 1
+      titular = `Ganaron ${nombreDePareja(fijas.parejas[g])}`
+      bajada = `Por ${textoDePuntos(Math.abs(a - b))} sobre ${nombreDePareja(fijas.parejas[1 - g])}.`
+    }
+  } else if (primeros.length === 1) {
     const ganador = primeros[0]
     const segundoPuesto = ranking.find(r => r.puesto > 1)?.puesto
     const segundos = ranking.filter(r => r.puesto === segundoPuesto)
@@ -104,7 +135,6 @@ export function armarResultadoDeLaTimba(
   }
 
   // Parejas: cada tramo con su marcador y la pareja que lo ganó.
-  const nombreDePareja = ([a, b]: Pareja) => `${nombre(jugadorIds[a])} y ${nombre(jugadorIds[b])}`
   const conParejas = config.unidad !== 'individual' && resultado.tramos.length > 0
   const tramos: TramoDelResultado[] | null = conParejas
     ? resultado.tramos.map(t => ({
@@ -117,7 +147,7 @@ export function armarResultadoDeLaTimba(
   const notaTramos = !conParejas
     ? null
     : resultado.tramos.length > 1
-      ? `Hoyos ${unirNombres(resultado.tramos.map(t => rangoDeHoyos(t.hoyos)))}. Ganador de cada tramo en negrita.`
+      ? `Hoyos ${unirTramos(resultado.tramos.map(t => rangoDeHoyos(t.hoyos)))}. Ganador de cada tramo en negrita.`
       : 'Ganador en negrita.'
 
   // Puntos especiales: cuántas veces lo hizo cada uno (solo los que cuentan), en el orden de la config.
@@ -147,13 +177,15 @@ export function armarResultadoDeLaTimba(
         .filter(x => x.n > 0)
         .sort((a, b) => b.n - a.n)
       for (const x of deEste) {
-        puntosEspeciales.push({ texto: `${p.nombre} · ${nombre(x.id)} ${x.n}`, puntitoId: p.id, jugadorId: x.id, veces: x.n })
+        // "Pedro ×2": veces, no puntos (un "Pedro 2" se lee como 2 puntos).
+        const veces = x.n > 1 ? ` ×${x.n}` : ''
+        puntosEspeciales.push({ texto: `${p.nombre} · ${nombre(x.id)}${veces}`, puntitoId: p.id, jugadorId: x.id, veces: x.n })
       }
     }
   }
 
   return {
-    encabezado: `${tabla.titulo} · ${resultado.hoyos.length} hoyos · ${config.modo === 'neto' ? 'Neto' : 'Gross'}`,
+    encabezado: `${tabla.titulo} · ${textoDeHoyos(tabla.hoyosPuntuados, resultado.hoyos.length)} · ${config.modo === 'neto' ? 'Neto' : 'Gross'}`,
     titular,
     bajada,
     ranking,

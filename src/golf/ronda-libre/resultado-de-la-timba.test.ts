@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest'
 import { armarReglasGuardadas, calcularJuegoPersonalizado, crearConfigDePlantilla, type ConfigJuego } from '@/golf/formats/personalizado'
 import { armarEntradaDelJuego, vistaDelJuego, type VistaDelJuego } from './juego-de-la-ronda'
 import { shareableText } from '@/golf/share/whatsapp'
-import { armarResultadoDeLaTimba, textoDePuntos, textoParaCompartirLaTimba, unirNombres } from './resultado-de-la-timba'
+import { armarResultadoDeLaTimba, rangoDeHoyos, textoDePuntos, textoParaCompartirLaTimba, unirNombres } from './resultado-de-la-timba'
 
 const J = '00000000-0000-4000-8000-00000000000a'
 const P = '00000000-0000-4000-8000-00000000000b'
@@ -128,14 +128,14 @@ describe('armarResultadoDeLaTimba — La Colombiana con el motor', () => {
 
   it('saliendo del 10, los tramos siguen el orden de juego', () => {
     const r = armarResultadoDeLaTimba(vista(golpes, colombiana, { hoyoInicio: 10 }), NOMBRES)
-    expect(r.notaTramos).toBe('Hoyos 10–15, 16–3 y 4–9. Ganador de cada tramo en negrita.')
+    expect(r.notaTramos).toBe('Hoyos 10–15 · 16–18 y 1–3 · 4–9. Ganador de cada tramo en negrita.')
   })
 
   it('puntos especiales: agregados por tipo y jugador, solo los que cuentan', () => {
     const r = armarResultadoDeLaTimba(vista(golpes, colombiana, {
       marcas: [{ jugador: P, hoyo: 3, puntito: 'chip' }, { jugador: P, hoyo: 5, puntito: 'chip' }, { jugador: D, hoyo: 4, puntito: 'chip' }],
     }), NOMBRES)
-    expect(r.puntosEspeciales!.map(p => p.texto)).toEqual(['Chipingo · Pedro 2', 'Chipingo · Diego 1'])
+    expect(r.puntosEspeciales!.map(p => p.texto)).toEqual(['Chipingo · Pedro ×2', 'Chipingo · Diego'])
   })
 
   it('un punto que no cuenta no aparece (greenie en un par 4)', () => {
@@ -153,6 +153,44 @@ describe('armarResultadoDeLaTimba — La Colombiana con el motor', () => {
   })
 })
 
+describe('armarResultadoDeLaTimba — parejas fijas (La Subterránea)', () => {
+  const sub: ConfigJuego = { ...crearConfigDePlantilla('subterranea'), parejas: [[0, 1], [2, 3]] }
+
+  it('manda el marcador de las parejas, no el empate individual de los compañeros', () => {
+    // Juan y Pedro (4 y 4) contra Diego y Tomás (5 y 6): los compañeros empatan en el ranking individual.
+    const r = armarResultadoDeLaTimba(vista(parejo({ [J]: 4, [P]: 4, [D]: 5, [T]: 6 }), sub), NOMBRES)
+    const [a, b] = r.tramos![0].puntos
+    expect(a).not.toBe(b)
+    const ganan = a > b ? 'Juan y Pedro' : 'Diego y Tomás'
+    const pierden = a > b ? 'Diego y Tomás' : 'Juan y Pedro'
+    expect(r.titular).toBe(`Ganaron ${ganan}`)
+    expect(r.bajada).toBe(`Por ${textoDePuntos(Math.abs(a - b))} sobre ${pierden}.`)
+  })
+
+  it('marcador igual: empate entre las parejas', () => {
+    const r = armarResultadoDeLaTimba(vista(parejo({ [J]: 4, [P]: 5, [D]: 4, [T]: 5 }), sub), NOMBRES)
+    expect(r.tramos![0].puntos[0]).toBe(r.tramos![0].puntos[1])
+    expect(r.titular).toBe('Empate entre las parejas')
+    expect(r.bajada).toBe(`Con ${textoDePuntos(r.tramos![0].puntos[0])} cada una.`)
+  })
+})
+
+describe('armarResultadoDeLaTimba — ronda cerrada antes del final', () => {
+  it('el encabezado dice cuántos hoyos se jugaron', () => {
+    const doce = Object.fromEntries(IDS.map(id => [id, Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, 4]))]))
+    const r = armarResultadoDeLaTimba(vista(doce, crearConfigDePlantilla('dos_cero_dos')), NOMBRES)
+    expect(r.encabezado).toMatch(/ · 12 de 18 hoyos · Gross$/)
+  })
+})
+
+describe('rangoDeHoyos', () => {
+  it('consecutivos, uno solo y el que pasa del 18', () => {
+    expect(rangoDeHoyos([1, 2, 3, 4, 5, 6])).toBe('1–6')
+    expect(rangoDeHoyos([7])).toBe('7')
+    expect(rangoDeHoyos([16, 17, 18, 1, 2, 3])).toBe('16–18 y 1–3')
+  })
+})
+
 describe('textoParaCompartirLaTimba', () => {
   it('juego, ranking de puntos, parejas, puntos especiales y link', () => {
     const colombiana: ConfigJuego = { ...crearConfigDePlantilla('colombiana'), sorteo: [0, 1, 2], puntitos: [CHIPINGO] }
@@ -166,11 +204,12 @@ describe('textoParaCompartirLaTimba', () => {
     expect(lineas[1]).toMatch(/^Ganó Pedro\. Por \d+ puntos? sobre /)
     expect(lineas).toContain('Parejas')
     expect(lineas.some(l => /^Juan y Pedro \d+ – \d+ Diego y Tomás$/.test(l))).toBe(true)
-    expect(texto).toContain('Puntos especiales: Chipingo · Pedro 1')
+    expect(texto).toContain('Puntos especiales: Chipingo · Pedro')
+    expect(texto).not.toMatch(/Chipingo · Pedro \d/)
     // El link lo agrega la cascada de compartir, una sola vez y en su propia línea.
     const compartido = shareableText({ title: '', text: texto, url })
     expect(compartido.split(url)).toHaveLength(2)
-    expect(compartido.split('\n').at(-1)?.trim()).toBe(url)
+    expect(compartido.split('\n').at(-1)).toBe(url)
     // Puntos de la Timba, nunca golpes ni neto.
     expect(texto).not.toMatch(/neto|golpes|HCP/i)
   })

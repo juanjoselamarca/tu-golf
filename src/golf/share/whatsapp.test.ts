@@ -20,6 +20,12 @@ describe('shareableText', () => {
     )
   })
 
+  it('texto que termina en salto de línea: el link queda en su propia línea, sin espacio delante', () => {
+    expect(shareableText({ ...payload, text: 'Ganó Pedro\n' })).toBe(
+      'Ganó Pedro\nhttps://golfersplus.vercel.app/tarjeta/abc',
+    )
+  })
+
   it('sin url no deja espacio colgando', () => {
     expect(shareableText({ ...payload, url: '' })).toBe('Jugué 82 (+10) en Los Leones')
   })
