@@ -24,10 +24,12 @@
 -- con service_role. ronda_equipos: anon lee por columna (ANON_COLUMN_SELECT, sin updated_at) y authenticated tiene
 -- SELECT de tabla (la columna no es sensible: cuándo se anotó por última vez).
 --
--- Decisión de producto (Juanjo, 17-nov-2026): los torneos ya vencidos al salir quedan EXCLUIDOS. Se marcan con
--- cierre_automatico = false los que aceptan scores y cuya última fecha (date_end ?? date_start; con fechas
--- invertidas, date_start, igual que `rangoDelTorneo`) es anterior a hoy − 3 en Chile. Medido el 17-nov: 8 torneos
--- (7 demo y "Copa cabros", abril).
+-- Decisión de producto (Juanjo, 17-nov-2026): los torneos ya vencidos al salir quedan EXCLUIDOS. Vencido = la
+-- misma expresión que `diaDeCierreDelTorneo` / `estadoDelTorneo`: hoy (Chile) >= fin + GRACE_DIAS_TORNEO + 1, con
+-- fin = date_end ?? date_start (con fechas invertidas, date_start, igual que `rangoDelTorneo`) y
+-- GRACE_DIAS_TORNEO = 2. Es decir, los que la app ya muestra finalizados. Se marcan con cierre_automatico = false
+-- los que aceptan scores. Medido el 17-nov: 8 torneos (7 demo y "Copa cabros", abril). La migración de PR2 repite
+-- este UPDATE al encender el cron, para los que venzan entre ambas.
 --
 -- Rollback: supabase/migrations/rollback/20261118_cierre_automatico_torneos_rollback.sql
 
@@ -59,4 +61,5 @@ CREATE TRIGGER update_ronda_equipos_updated_at
 UPDATE public.tournaments
 SET cierre_automatico = false
 WHERE status IN ('in_progress', 'active')
-  AND greatest(date_start, coalesce(date_end, date_start)) < (now() AT TIME ZONE 'America/Santiago')::date - 3;
+  -- + 3 = GRACE_DIAS_TORNEO (2) + 1: el día de cierre (src/golf/tournament-live-status.ts).
+  AND (now() AT TIME ZONE 'America/Santiago')::date >= greatest(date_start, coalesce(date_end, date_start)) + 3;
