@@ -302,7 +302,7 @@ function ScorePageContent() {
         </div>
       )}
 
-      <SaveStatusBadge saveStatus={saveStatus} />
+      <SaveStatusBadge saveStatus={saveStatus} oculto={sesionCerrada !== null} />
 
       <ScorerHeader
         currentHole={currentHole}

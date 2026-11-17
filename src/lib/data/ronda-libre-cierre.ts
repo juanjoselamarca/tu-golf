@@ -26,6 +26,15 @@ export const RONDA_ERRCODE = {
 export const RONDA_DEMO_DETAIL = 'ronda demo'
 
 /**
+ * Un P0003 que puede ser la sesión y no la tarjeta: todo P0003 menos el de la ronda demo. Lo típico es la sesión
+ * vencida o cerrada (el RPC corrió como anónimo); quien lo recibe mira la sesión del teléfono (`sesionDelScorer`)
+ * antes de decir "sin permiso". Lo usan los dos scorers de ronda libre.
+ */
+export function rechazoQuePuedeSerSesion(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
+  return error?.code === RONDA_ERRCODE.FORBIDDEN && error.details !== RONDA_DEMO_DETAIL
+}
+
+/**
  * Respuesta firme de `finalizar_ronda_libre`: el servidor decidió (ya estaba cerrada, sin permiso, no existe).
  * Cualquier otro error deja sin saber si cerró (sin red: `{ code: '' }`; plazo vencido; 5xx; sesión caída), y
  * quien finaliza tiene que poder reintentar. No es `esNoReintentable`: esa considera reintentable a P0003.

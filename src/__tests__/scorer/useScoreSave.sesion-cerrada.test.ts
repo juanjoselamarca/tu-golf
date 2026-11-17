@@ -134,6 +134,22 @@ describe('useScoreSave — P0003 con la sesión cerrada', () => {
     expect(toastsCon(TITULO_PERMISO)).toHaveLength(0)
   })
 
+  it('Finalizar con la página abierta ya sin sesión: el toast no afirma que "se cerró", coincide con el aviso', async () => {
+    mockRpc.mockResolvedValue(P0003)
+    mockGetSession.mockResolvedValue(SIN_SESION)
+    const { result } = montar(null)
+    let r: string | undefined
+    await act(async () => { r = await result.current.guardarAhora('p1', { 1: 4 }) })
+    expect(r).toBe('sin_permiso')
+    expect(result.current.sesionCerrada?.titulo).toBe('Inicia sesión para guardar')
+    expect(addToast).toHaveBeenCalledTimes(1)
+    expect(addToast).toHaveBeenCalledWith({
+      type: 'error', duration: 7000,
+      title: 'Inicia sesión para finalizar',
+      message: 'Tus golpes quedaron en este teléfono.',
+    })
+  })
+
   it('la página abrió ya sin sesión (iOS descartó la PWA, link sin entrar): mismo aviso, "Inicia sesión para guardar"', async () => {
     mockRpc.mockResolvedValue(P0003)
     mockGetSession.mockResolvedValue(SIN_SESION)

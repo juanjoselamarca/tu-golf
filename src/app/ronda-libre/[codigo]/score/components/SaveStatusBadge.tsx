@@ -3,9 +3,12 @@
 import type { SaveStatus } from '../types'
 import { Portal } from '@/components/ui/Portal'
 
-/** Indicador fijo arriba a la derecha: Guardando / Guardado / Offline / Error. */
-export function SaveStatusBadge({ saveStatus }: { saveStatus: SaveStatus }) {
-  if (saveStatus === 'idle') return null
+/**
+ * Indicador fijo arriba a la derecha: Guardando / Guardado / Offline / Error.
+ * `oculto`: otro aviso ya explica el estado (sesión cerrada) y el "Error al guardar" lo contradiría y taparía el header.
+ */
+export function SaveStatusBadge({ saveStatus, oculto = false }: { saveStatus: SaveStatus; oculto?: boolean }) {
+  if (saveStatus === 'idle' || oculto) return null
   return (
     <Portal>
       <div style={{

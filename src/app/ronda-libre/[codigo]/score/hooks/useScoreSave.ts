@@ -7,10 +7,10 @@ import { saveRondaLibreScores, nuevaSecuencia } from '@/lib/data/ronda-libre-sco
 import { addToast } from '@/hooks/useToast'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
-import { RONDA_DEMO_DETAIL, RONDA_ERRCODE, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE, AVISO_TARJETA_RECHAZADA } from '@/components/ronda/finalizar-copy'
-import { AVISO_FINALIZAR_SIN_SESION, avisoSesionCerrada, type AvisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
+import { avisoFinalizarSinSesion, avisoSesionCerrada, type AvisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { marcarRespaldoRechazado, marcarRespaldoSincronizado, marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
@@ -172,7 +172,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
         // La ronda demo también responde P0003 y es de permiso. Si no, se mira la sesión del teléfono: sin sesión
         // (la perdió o la página abrió ya sin ella) es el aviso de iniciar sesión; con sesión, la tarjeta es ajena
         // de verdad; sin poder confirmarla (red), como falta de conexión.
-        if (error.details !== RONDA_DEMO_DETAIL) {
+        if (rechazoQuePuedeSerSesion(error)) {
           const sesion = await sesionDelScorer(supabase)
           if (sesion.estado === 'sin_sesion') sinSesion = true
           else if (sesion.estado === 'sin_conexion') forbiddenRpc = false  // cae en !success → 'sin_conexion'
@@ -248,7 +248,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       // Vuelve a ESTA tarjeta (?j): el reenvío es por tarjeta abierta; sin ?j el scorer abre la del dueño.
       setSesionCerrada(avisoSesionCerrada(`/ronda-libre/${codigo}/score?j=${encodeURIComponent(jugadorId)}`, { habiaSesion: !!authUserId }))
       // Finalizar se detiene sin cerrar: que el toque tenga respuesta en el momento (el aviso fijo ya está).
-      if (paraFinalizar) addToast({ ...AVISO_FINALIZAR_SIN_SESION, type: 'error', duration: 7000 })
+      if (paraFinalizar) addToast({ ...avisoFinalizarSinSesion({ habiaSesion: !!authUserId }), type: 'error', duration: 7000 })
       return 'sin_permiso'
     }
     if (forbiddenRpc) {

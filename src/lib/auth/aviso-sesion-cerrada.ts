@@ -32,8 +32,12 @@ export function avisoSesionCerrada(volverA: string, { habiaSesion }: { habiaSesi
   }
 }
 
-/** Finalizar sin sesión: el cierre no sale y el aviso fijo ya está; esto lo dice en el momento del toque. */
-export const AVISO_FINALIZAR_SIN_SESION = {
-  title: 'Tu sesión se cerró',
-  message: 'Inicia sesión para finalizar. Tus golpes quedaron en este teléfono.',
-} as const
+/**
+ * Finalizar sin sesión: el cierre no sale y el aviso fijo ya está; esto lo dice en el momento del toque, con la
+ * misma distinción que el aviso (si la página abrió ya sin sesión, no se afirma que "se cerró").
+ */
+export function avisoFinalizarSinSesion({ habiaSesion }: { habiaSesion: boolean }): { title: string; message: string } {
+  return habiaSesion
+    ? { title: 'Tu sesión se cerró', message: 'Inicia sesión para finalizar. Tus golpes quedaron en este teléfono.' }
+    : { title: 'Inicia sesión para finalizar', message: 'Tus golpes quedaron en este teléfono.' }
+}
