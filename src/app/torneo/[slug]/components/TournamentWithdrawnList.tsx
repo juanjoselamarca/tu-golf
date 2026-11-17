@@ -15,9 +15,9 @@ export interface TournamentWithdrawnListProps {
   withdrawnPlayers: WithdrawnEntry[]
 }
 
-function golpesDelPie(g: NonNullable<WithdrawnEntry['golpes']>): { score: string; detalle: string } | null {
+function brutoDelPie(g: NonNullable<WithdrawnEntry['bruto']>): { score: string; detalle: string } | null {
   if (g.hoyos === 0) return null
-  return { score: formatVsPar(g.vsPar), detalle: `${g.golpes} golpes · ${g.hoyos} ${g.hoyos === 1 ? 'hoyo' : 'hoyos'}` }
+  return { score: formatVsPar(g.vsPar), detalle: `${g.grossTotal} golpes · ${g.hoyos} ${g.hoyos === 1 ? 'hoyo' : 'hoyos'}` }
 }
 
 export function TournamentWithdrawnList({ withdrawnPlayers }: TournamentWithdrawnListProps) {
@@ -44,7 +44,7 @@ export function TournamentWithdrawnList({ withdrawnPlayers }: TournamentWithdraw
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {withdrawnPlayers.map((wp, i) => {
             const dq = wp.status === 'disqualified'
-            const golpes = wp.golpes ? golpesDelPie(wp.golpes) : null
+            const bruto = wp.bruto ? brutoDelPie(wp.bruto) : null
             return (
               <li
                 key={`${wp.name}-${i}`}
@@ -90,13 +90,13 @@ export function TournamentWithdrawnList({ withdrawnPlayers }: TournamentWithdraw
                     </span>
                   )}
                 </span>
-                {golpes && (
+                {bruto && (
                   <span style={{ textAlign: 'right', flexShrink: 0 }}>
                     <span className="num" style={{ display: 'block', color: 'var(--text)', fontWeight: 700, fontSize: '16px' }}>
-                      {golpes.score}
+                      {bruto.score}
                     </span>
                     <span className="num" style={{ display: 'block', color: 'var(--text-2)', fontSize: '12px' }}>
-                      {golpes.detalle}
+                      {bruto.detalle}
                     </span>
                   </span>
                 )}

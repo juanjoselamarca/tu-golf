@@ -138,7 +138,7 @@ export interface WithdrawnEntry {
   status: 'withdrawn' | 'disqualified'
   reason: string | null
   /** Golpes brutos al retirarse (camino de ronda libre). Sin esto (legacy) el pie muestra sólo el nombre. */
-  golpes?: { golpes: number; hoyos: number; vsPar: number }
+  bruto?: { grossTotal: number; hoyos: number; vsPar: number }
 }
 
 /**

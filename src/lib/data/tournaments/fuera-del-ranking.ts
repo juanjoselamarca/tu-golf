@@ -94,7 +94,7 @@ export async function separarTarjetasFueraDelRanking(
       name: f.nombre,
       status: f.status,
       reason: f.reason,
-      golpes: { golpes: f.golpes, hoyos: f.hoyos, vsPar: f.vsPar },
+      bruto: { grossTotal: f.grossTotal, hoyos: f.hoyos, vsPar: f.vsPar },
     })),
   }
 }

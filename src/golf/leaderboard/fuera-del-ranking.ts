@@ -48,7 +48,7 @@ export interface FueraDelRanking {
   status: EstadoFueraDelRanking
   reason: string | null
   /** Golpes brutos anotados. */
-  golpes: number
+  grossTotal: number
   /** Hoyos con golpes anotados. */
   hoyos: number
   /** Golpes brutos contra el par de los hoyos jugados (0 sin hoyos). */
@@ -87,21 +87,21 @@ export function estadoFueraPorTarjeta(
 }
 
 /** Golpes brutos, hoyos jugados y vs par de una tarjeta, en los hoyos 1..totalHoyos. */
-export function golpesDeLaTarjeta(
+export function brutoDeLaTarjeta(
   scores: Record<string, number> | null,
   courseHoles: CourseHole[],
   totalHoyos: number,
-): { golpes: number; hoyos: number; vsPar: number } {
-  let golpes = 0
+): { grossTotal: number; hoyos: number; vsPar: number } {
+  let grossTotal = 0
   const jugados: number[] = []
   for (let h = 1; h <= totalHoyos; h++) {
     const g = scores?.[String(h)]
     if (g == null) continue
-    golpes += g
+    grossTotal += g
     jugados.push(h)
   }
-  const vsPar = jugados.length > 0 ? golpes - parOfPlayedHoles(courseHoles, jugados) : 0
-  return { golpes, hoyos: jugados.length, vsPar }
+  const vsPar = jugados.length > 0 ? grossTotal - parOfPlayedHoles(courseHoles, jugados) : 0
+  return { grossTotal, hoyos: jugados.length, vsPar }
 }
 
 /**
@@ -131,7 +131,7 @@ export function separarFueraDelRanking<T extends TarjetaDelTorneo>(args: {
       nombre: t.nombre,
       status: inscrito.status,
       reason: inscrito.status_reason ?? null,
-      ...golpesDeLaTarjeta(t.scores, args.courseHoles, args.totalHoyos),
+      ...brutoDeLaTarjeta(t.scores, args.courseHoles, args.totalHoyos),
     })
   }
   fuera.sort((a, b) =>

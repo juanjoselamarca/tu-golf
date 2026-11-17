@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { separarFueraDelRanking, estadoFueraPorTarjeta, golpesDeLaTarjeta } from './fuera-del-ranking'
+import { separarFueraDelRanking, estadoFueraPorTarjeta, brutoDeLaTarjeta } from './fuera-del-ranking'
 
 const HOYOS = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
 const golpes = (n: number, g = 4) => Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), g]))
@@ -21,7 +21,7 @@ describe('separarFueraDelRanking (#813)', () => {
     })
     expect(out.enRanking.map((t) => t.id)).toEqual(['t-ok'])
     expect(out.fuera).toEqual([
-      { tarjetaId: 't-wd', nombre: 'Retirado', status: 'withdrawn', reason: 'Lesión', golpes: 46, hoyos: 12, vsPar: -2 },
+      { tarjetaId: 't-wd', nombre: 'Retirado', status: 'withdrawn', reason: 'Lesión', grossTotal: 46, hoyos: 12, vsPar: -2 },
     ])
   })
 
@@ -73,11 +73,11 @@ describe('separarFueraDelRanking (#813)', () => {
   })
 })
 
-describe('golpesDeLaTarjeta', () => {
+describe('brutoDeLaTarjeta', () => {
   it('sin hoyos: 0 golpes y vsPar 0', () => {
-    expect(golpesDeLaTarjeta(null, HOYOS, 18)).toEqual({ golpes: 0, hoyos: 0, vsPar: 0 })
+    expect(brutoDeLaTarjeta(null, HOYOS, 18)).toEqual({ grossTotal: 0, hoyos: 0, vsPar: 0 })
   })
   it('ignora hoyos fuera de la vuelta', () => {
-    expect(golpesDeLaTarjeta({ '1': 5, '10': 4 }, HOYOS, 9)).toEqual({ golpes: 5, hoyos: 1, vsPar: 1 })
+    expect(brutoDeLaTarjeta({ '1': 5, '10': 4 }, HOYOS, 9)).toEqual({ grossTotal: 5, hoyos: 1, vsPar: 1 })
   })
 })

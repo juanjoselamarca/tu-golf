@@ -157,7 +157,7 @@ describe('GET /api/torneo/[slug]/live', () => {
     }
     const json = await (await pedir()).json()
     expect(json.players.map((p: { name: string }) => p.name)).toEqual(['Invitada'])
-    expect(json.fuera).toEqual([{ name: 'Ana', status: 'withdrawn', reason: null, golpes: { golpes: 11, hoyos: 3, vsPar: -1 } }])
+    expect(json.fuera).toEqual([{ name: 'Ana', status: 'withdrawn', reason: null, bruto: { grossTotal: 11, hoyos: 3, vsPar: -1 } }])
   })
 
   it('scramble NETO (ronda libre), sin sesión: equipos en BRUTO, sin handicap; el índice de perfil sólo por la canónica', async () => {
