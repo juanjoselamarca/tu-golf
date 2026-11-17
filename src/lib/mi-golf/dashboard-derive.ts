@@ -32,11 +32,16 @@ export function enrichPlaying(activeTournaments: Tournament[], now: number): Pla
     .map(({ t, estado }) => ({ ...t, horaSalida: null, diasRestantes: diasHastaFecha(t.date_start, ahora) ?? 0, estado }))
 }
 
-/** Primer torneo por jugar (o de hoy) dentro de la ventana de 7 días (inminente). */
+/**
+ * Torneo del hero: primero uno EN CURSO (aunque haya empezado ayer: sábado sin cerrar
+ * visto el domingo, o el día 2 de un torneo de varios días); si no, el primero por
+ * jugar dentro de 7 días. Sin esto el hero decía "Sin torneos ni rondas en curso"
+ * mientras la lista decía "Jugando en: En curso".
+ */
 export function findTorneoInminente(enrichedPlaying: PlayingTournament[], _now: number): PlayingTournament | null {
-  return enrichedPlaying.find(
-    (t) => !!t.date_start && t.diasRestantes >= 0 && t.diasRestantes <= DIAS_INMINENTE,
-  ) ?? null
+  return enrichedPlaying.find((t) => t.estado === 'en_curso')
+    ?? enrichedPlaying.find((t) => !!t.date_start && t.diasRestantes >= 0 && t.diasRestantes <= DIAS_INMINENTE)
+    ?? null
 }
 
 /** Torneos que el usuario organiza y siguen vivos, con la cantidad de inscritos (`contarInscritos`). */

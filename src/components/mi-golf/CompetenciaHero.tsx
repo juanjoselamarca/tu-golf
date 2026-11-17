@@ -5,7 +5,8 @@ import type { PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { Plus } from '@/components/icons'
-import type { Tournament, RondaLibre } from '@/lib/mi-golf/types'
+import type { RondaLibre } from '@/lib/mi-golf/types'
+import type { PlayingTournament } from '@/lib/mi-golf/dashboard-derive'
 import { GOLD, TEXT, TEXT_2, BORDER, BG_SOFT } from './competencia-tokens'
 
 export function HeroActiva({
@@ -87,8 +88,10 @@ export function HeroActiva({
 export function HeroProximo({
   torneo,
 }: {
-  torneo: Tournament & { horaSalida: string | null; diasRestantes: number }
+  torneo: PlayingTournament
 }) {
+  // En curso (estadoDelTorneo): sin cuenta regresiva; empezó ayer daría "-1d restantes".
+  const enCurso = torneo.estado === 'en_curso'
   const countdown = torneo.diasRestantes === 0 ? 'Hoy' : torneo.diasRestantes === 1 ? '1d' : `${torneo.diasRestantes}d`
   const sub = torneo.horaSalida
     ? `${torneo.courses?.nombre ?? 'Cancha'} · Salida ${torneo.horaSalida}`
@@ -114,19 +117,19 @@ export function HeroProximo({
     >
       <div>
         <div style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, color: GOLD, marginBottom: '6px' }}>
-          Próximo compromiso
+          {enCurso ? 'En curso' : 'Próximo compromiso'}
         </div>
         <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{torneo.name}</div>
         <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>{sub}</div>
       </div>
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+      {!enCurso && <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '32px', fontWeight: 700, lineHeight: 1, color: GOLD }}>
           {countdown}
         </div>
         <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, color: TEXT_2 }}>
           restantes
         </div>
-      </div>
+      </div>}
     </Link>
   )
 }

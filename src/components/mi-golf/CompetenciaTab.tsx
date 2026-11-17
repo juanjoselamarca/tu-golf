@@ -159,15 +159,18 @@ function Torneos({
 }
 
 function TorneoRowPlaying({ t }: { t: PlayingTournament }) {
-  // El estado sale de `estadoDelTorneo` (enrichPlaying): "En curso" solo si lo está de verdad.
+  // El estado sale de `estadoDelTorneo` (enrichPlaying): "En curso" solo si lo está de verdad. Por jugar con la
+  // fecha ya pasada (dentro de la gracia, sin iniciar): sin chip, nunca "Hoy".
   const chipText =
     t.estado === 'en_curso'
       ? 'En curso'
-      : t.diasRestantes <= 0
+      : t.diasRestantes === 0
       ? 'Hoy'
       : t.diasRestantes === 1
       ? 'Mañana'
-      : `En ${t.diasRestantes} días`
+      : t.diasRestantes > 1
+      ? `En ${t.diasRestantes} días`
+      : null
 
   return (
     <Link
@@ -187,7 +190,7 @@ function TorneoRowPlaying({ t }: { t: PlayingTournament }) {
           {t.name}
         </div>
         <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Chip variant="upcoming">{chipText}</Chip>
+          {chipText && <Chip variant="upcoming">{chipText}</Chip>}
           <span>{t.courses?.nombre}</span>
         </div>
       </div>

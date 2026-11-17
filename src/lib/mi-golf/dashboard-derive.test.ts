@@ -65,6 +65,24 @@ describe('findTorneoInminente', () => {
     const enriched = enrichPlaying([torneo({ date_start: '2026-06-20T12:00:00Z' })], NOW)
     expect(findTorneoInminente(enriched, NOW)).toBeNull()
   })
+  it('vuelta 1 Fable: un in_progress que empezó AYER (sábado sin cerrar, visto el domingo) llega al hero como en curso', () => {
+    const enriched = enrichPlaying([torneo({ status: 'in_progress', date_start: '2026-06-02' })], NOW)
+    const hero = findTorneoInminente(enriched, NOW)
+    expect(hero?.estado).toBe('en_curso')
+    expect(hero?.diasRestantes).toBe(-1)
+  })
+  it('día 2 de un torneo de varios días: en curso gana sobre uno por jugar en 3 días', () => {
+    const enriched = enrichPlaying([
+      torneo({ id: 'prox', status: 'open', date_start: '2026-06-06' }),
+      torneo({ id: 'multi', status: 'in_progress', date_start: '2026-06-02', date_end: '2026-06-04' }),
+    ], NOW)
+    expect(findTorneoInminente(enriched, NOW)?.id).toBe('multi')
+  })
+  it('open vencido no aparece ni en "Jugando en" ni en finalizados (nunca se jugó)', () => {
+    const vencido = torneo({ id: 'v', status: 'open', date_start: '2026-05-01' })
+    expect(enrichPlaying([vencido], NOW)).toEqual([])
+    expect(buildFinalizados([vencido], [], NOW)).toEqual([])
+  })
   it('ignora torneo ya pasado (diasRestantes < 0)', () => {
     const enriched = enrichPlaying([torneo({ date_start: '2026-06-01T12:00:00Z' })], NOW)
     expect(findTorneoInminente(enriched, NOW)).toBeNull()
