@@ -21,6 +21,7 @@ import { useGuardadoTorneo } from './hooks/useGuardadoTorneo'
 import { avisoSinTarjeta } from './hooks/acceso-guardado'
 import { elegirJugadorInicial, urlSinJugador } from './hooks/jugador-del-link'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
+import { useBuscarTarjeta, MENSAJE_BUSQUEDA_TARJETA } from './hooks/useBuscarTarjeta'
 import {
   fetchScoringTournament,
   fetchScoringRoster,
@@ -104,8 +105,9 @@ export default function PlayerScoringPage() {
   // ronda 2 puede ser otra cancha). Nunca `rounds[0]` ni la cancha de la ronda 1.
   const base = useMemo(() => ({ holes: courseHoles, tees: courseTees }), [courseHoles, courseTees])
   // `rosterListo`: `load()` deja el torneo nuevo antes que su roster; en ese intervalo el jugador elegido
-  // todavía trae las tarjetas viejas y no se puede concluir que no tiene.
-  const ronda = useRondaActivaDelJugador({ slug, tournament, player: selectedPlayerEarly, base, rosterListo: !loading })
+  // todavía trae las tarjetas viejas y no se puede concluir que no tiene. Con la carga fallida el roster
+  // tampoco es confiable (puede ser el de antes o ninguno).
+  const ronda = useRondaActivaDelJugador({ slug, tournament, player: selectedPlayerEarly, base, rosterListo: !loading && !loadError })
   const rondaCtx = ronda.ctx
   const hoyosRonda = useMemo(() => rondaCtx?.courseHoles ?? [], [rondaCtx])
   const holeCountRonda = rondaCtx?.holeCount ?? (tournament?.hole_count || 18)
@@ -115,38 +117,22 @@ export default function PlayerScoringPage() {
   // recargado trae la tarjeta nueva y el scorer vuelve a escribir.
   const rondaCerrada = esTarjetaCerrada(ronda.round?.status)
 
-  /** Recarga sólo el roster (tarjetas/status), sin la pantalla de "Cargando". */
-  const reloadRoster = useCallback(async () => {
-    if (!tournament) return
+  /** Recarga sólo el roster (tarjetas/status), sin la pantalla de "Cargando". `true` si se pudo. */
+  const reloadRoster = useCallback(async (): Promise<boolean> => {
+    if (!tournament) return false
     try {
       setPlayers(await fetchScoringRoster(createClient(), tournament.id))
+      return true
     } catch (e) {
       void captureError(e, { context: 'torneo.score.reloadRoster', meta: { slug } })
+      return false
     }
   }, [tournament, slug])
 
-  // "Reintentar" del aviso sin tarjeta: relee el roster sin la pantalla de carga.
-  const [buscandoTarjeta, setBuscandoTarjeta] = useState(false)
-  const buscarTarjeta = async () => {
-    setBuscandoTarjeta(true)
-    try { await reloadRoster() } finally { setBuscandoTarjeta(false) }
-  }
-
-  // Con la tarjeta cerrada, el jugador suele estar esperando que el organizador
-  // abra la ronda siguiente: se refresca el roster cada 30 s para no quedar
-  // escribiendo (o mirando) la ronda 1.
-  // Sólo si QUEDA una ronda por abrir (en la última, o en un torneo de una
-  // ronda, no hay nada que esperar) y sólo con la pestaña visible.
-  // Sin tarjeta también: si aparece (la crea el servidor o un reintento), la pantalla vuelve sola.
-  const hayRondaSiguiente = (ronda.round?.round_number ?? 1) < (tournament?.total_rounds ?? 1)
-  useEffect(() => {
-    if (!(rondaCerrada && hayRondaSiguiente) && !ronda.sinTarjeta) return
-    const id = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return
-      void reloadRoster()
-    }, 30_000)
-    return () => clearInterval(id)
-  }, [rondaCerrada, hayRondaSiguiente, ronda.sinTarjeta, reloadRoster])
+  // "Buscar mi tarjeta" del aviso sin tarjeta: el servidor la asegura y después se relee el roster.
+  const busqueda = useBuscarTarjeta({
+    slug, playerId: selectedPlayerEarly?.id ?? null, guestId, guestToken: guestTokenValue, reloadRoster,
+  })
 
   /**
    * El handicap con el que se REPARTEN los golpes en este torneo.
@@ -187,6 +173,23 @@ export default function PlayerScoringPage() {
     onRondaCerrada: () => { void reloadRoster() },
     onInvitadoCompleto: () => setShowRegisterModal(true),
   })
+
+  // Con la tarjeta cerrada, el jugador suele estar esperando que el organizador
+  // abra la ronda siguiente: se refresca el roster cada 30 s para no quedar
+  // escribiendo (o mirando) la ronda 1.
+  // Sólo si QUEDA una ronda por abrir (en la última, o en un torneo de una
+  // ronda, no hay nada que esperar) y sólo con la pestaña visible.
+  // Sin tarjeta también: si aparece (la crea el servidor o un reintento), la pantalla vuelve sola.
+  // Con el torneo ya cerrado (el servidor lo dijo al guardar) no hay nada que esperar.
+  const hayRondaSiguiente = (ronda.round?.round_number ?? 1) < (tournament?.total_rounds ?? 1)
+  useEffect(() => {
+    if ((!(rondaCerrada && hayRondaSiguiente) && !ronda.sinTarjeta) || torneoInactivo) return
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      void reloadRoster()
+    }, 30_000)
+    return () => clearInterval(id)
+  }, [rondaCerrada, hayRondaSiguiente, ronda.sinTarjeta, torneoInactivo, reloadRoster])
 
   useEffect(() => {
     let cancelled = false
@@ -379,11 +382,15 @@ export default function PlayerScoringPage() {
             <div role="alert" data-testid="tarjeta-sin-ronda" style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
               <strong>{sinTarjeta.titulo}.</strong> {sinTarjeta.detalle}
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 16px', marginTop: '10px' }}>
-                <button type="button" onClick={() => { void buscarTarjeta() }} disabled={buscandoTarjeta} style={{ ...CTA_RELLENO, cursor: buscandoTarjeta ? 'wait' : 'pointer', opacity: buscandoTarjeta ? 0.7 : 1 }}>
-                  {buscandoTarjeta ? 'Buscando...' : 'Reintentar'}
+                <button type="button" onClick={() => { void busqueda.buscar() }} disabled={busqueda.buscando} style={{ ...CTA_RELLENO, cursor: busqueda.buscando ? 'wait' : 'pointer', opacity: busqueda.buscando ? 0.7 : 1 }}>
+                  {busqueda.buscando ? 'Buscando...' : 'Buscar mi tarjeta'}
                 </button>
                 <Link href={sinTarjeta.href} style={CTA_SECUNDARIO}>{sinTarjeta.cta}</Link>
               </div>
+              {/* Siempre montado: aria-live anuncia el cambio de texto, no un nodo que aparece. */}
+              <p aria-live="polite" data-testid="resultado-buscar-tarjeta" style={{ margin: busqueda.resultado ? '8px 0 0' : 0, fontSize: '14px', color: 'var(--text-2)' }}>
+                {busqueda.resultado ? MENSAJE_BUSQUEDA_TARJETA[busqueda.resultado] : ''}
+              </p>
             </div>
           </>
         )}
