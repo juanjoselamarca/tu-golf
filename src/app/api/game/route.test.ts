@@ -18,6 +18,8 @@ let rondaNoExiste = false
 // Sólo la lectura del estado del jugador (`players(status)`) falla / devuelve este estado.
 let estadoLookupError: unknown = null
 let estadoJugador = 'active'
+let tokenValido = true
+let pendienteDe = GUEST
 
 function chain(result: (sel: string) => { data: unknown; error: unknown }) {
   const obj: Record<string, unknown> = {}
@@ -43,7 +45,7 @@ const tablas: Record<string, (sel: string) => { data: unknown; error: unknown }>
           data: {
             tournament_id: torneoDeLaRonda,
             player_id: 'player-1',
-            players: { pending_user_id: GUEST, user_id: 'otro-usuario', status: estadoJugador },
+            players: { pending_user_id: pendienteDe, user_id: 'otro-usuario', status: estadoJugador },
           },
           error: null,
         },
@@ -58,7 +60,7 @@ vi.mock('@supabase/ssr', () => ({
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ from }) }))
 vi.mock('next/headers', () => ({ cookies: () => ({ getAll: () => [], set: () => {} }) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn().mockResolvedValue(undefined) }))
-vi.mock('@/lib/guest-token', () => ({ verifyGuestToken: () => true }))
+vi.mock('@/lib/guest-token', () => ({ verifyGuestToken: () => tokenValido }))
 
 const ok = () => NextResponse.json({ success: true })
 const upsertScore = vi.fn(async () => ok())
@@ -97,6 +99,8 @@ beforeEach(() => {
   rondaNoExiste = false
   estadoLookupError = null
   estadoJugador = 'active'
+  tokenValido = true
+  pendienteDe = GUEST
   upsertScore.mockClear()
   finalizeRound.mockClear()
   mockGetUser.mockResolvedValue({ data: { user: { id: ORG_A } } })
@@ -259,6 +263,22 @@ describe('/api/game — códigos de los 403 y round_id malformado (PR #754 vuelt
     const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
     expect(res.status).toBe(403)
     expect((await res.json()).code).toBe('player_withdrawn')
+  })
+
+  it('token de invitado que no verifica → 403 guest_token_invalid, no escribe', async () => {
+    tokenValido = false
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }, invitado))
+    expect(res.status).toBe(403)
+    expect((await res.json()).code).toBe('guest_token_invalid')
+    expect(upsertScore).not.toHaveBeenCalled()
+  })
+
+  it('invitado sano con la tarjeta de otro jugador → 403 guest_not_owner, no escribe', async () => {
+    pendienteDe = 'otro-invitado'
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }, invitado))
+    expect(res.status).toBe(403)
+    expect((await res.json()).code).toBe('guest_not_owner')
+    expect(upsertScore).not.toHaveBeenCalled()
   })
 
   it('invitado que no es dueño de la tarjeta → 403 guest_not_owner', async () => {

@@ -9,7 +9,7 @@ import { captureError } from '@/lib/error-tracking'
 import { fetchTorneoDeLaRonda } from '@/lib/data/tournaments/round-scope'
 import { isUuid } from '@/lib/uuid'
 import { esFalloTransitorioDeAuth } from '@/lib/auth/fallo-transitorio-auth'
-import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO } from '@/lib/api/codigos-game'
+import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO, CODIGO_TOKEN_INVITADO_INVALIDO } from '@/lib/api/codigos-game'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,8 +99,10 @@ async function verifyGuestOwnership(
   guestToken: string,
   roundId: string,
   tournamentId: string,
-): Promise<string | null> {
-  if (!verifyGuestToken(guestId, guestToken)) return null
+): Promise<{ playerId: string } | { rechazo: typeof CODIGO_TOKEN_INVITADO_INVALIDO | typeof CODIGO_INVITADO_NO_DUENO }> {
+  // Token que no verifica ≠ tarjeta ajena: el scorer le dice cosas distintas a cada uno.
+  if (!verifyGuestToken(guestId, guestToken)) return { rechazo: CODIGO_TOKEN_INVITADO_INVALIDO }
+  const ajena = { rechazo: CODIGO_INVITADO_NO_DUENO } as const
   // `maybeSingle`: sin filas es null sin error; cualquier `error` es una falla de la base, no un permiso.
   const { data: round, error } = await svc
     .from('rounds')
@@ -108,10 +110,10 @@ async function verifyGuestOwnership(
     .eq('id', roundId)
     .maybeSingle()
   if (error) throw new LecturaTarjetaFallida(error.message)
-  if (round?.tournament_id !== tournamentId) return null
+  if (round?.tournament_id !== tournamentId) return ajena
   const pendingUserId = (round?.players as unknown as { pending_user_id: string | null } | null)?.pending_user_id
-  if (pendingUserId !== guestId) return null
-  return round?.player_id ?? null
+  if (pendingUserId !== guestId || !round?.player_id) return ajena
+  return { playerId: round.player_id }
 }
 
 export async function POST(request: NextRequest) {
@@ -174,17 +176,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el guest token es válido y que el guestId es dueño de esta ronda
-    let playerId: string | null
+    let dueno: Awaited<ReturnType<typeof verifyGuestOwnership>>
     try {
-      playerId = await verifyGuestOwnership(svc, guestId, guestToken, body.round_id, tournament_id)
+      dueno = await verifyGuestOwnership(svc, guestId, guestToken, body.round_id, tournament_id)
     } catch (err) {
       void captureError(err, { context: 'game-engine.guest-ownership', level: 'error', meta: { roundId: body.round_id, tournamentId: tournament_id } })
       // Un 403 acá le diría al invitado "tu acceso ya no sirve" con la base caída.
       return NextResponse.json({ error: NO_PUDIMOS_VERIFICAR }, { status: 503 })
     }
-    if (!playerId) {
-      return NextResponse.json({ error: 'Token de invitado inválido o no autorizado', code: CODIGO_INVITADO_NO_DUENO }, { status: 403 })
+    if ('rechazo' in dueno) {
+      return NextResponse.json({ error: 'Token de invitado inválido o no autorizado', code: dueno.rechazo }, { status: 403 })
     }
+    const { playerId } = dueno
 
     // Verificar que el jugador no esté retirado/descalificado
     const { data: guestPlayerStatus, error: guestStatusError } = await svc
