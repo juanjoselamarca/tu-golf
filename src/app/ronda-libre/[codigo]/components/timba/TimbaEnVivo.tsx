@@ -11,8 +11,6 @@ import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from './Pe
 import { PanelDelJuego } from './PanelDelJuego'
 import { ResultadoFinalDeLaTimba } from './ResultadoFinalDeLaTimba'
 
-const MONO = 'var(--font-dm-mono), "DM Mono", monospace'
-
 interface Jugador { id: string; nombre: string; scores: Readonly<Record<string, number | null | undefined>> | null }
 
 /** Tarjeta de golpes (gross) hoyo a hoyo de una Timba: los golpes de cada uno, sin puntos. */
@@ -26,13 +24,13 @@ export function TarjetaDeGolpes({ jugadores, hoyos }: { jugadores: readonly Juga
     return <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-2)', textAlign: 'center' }}>Todavía no hay golpes anotados.</p>
   }
   return (
-    <div role="table" aria-label="Golpes por hoyo" style={{ display: 'flex', flexDirection: 'column', fontSize: '14px', color: 'var(--text)' }}>
-      <div role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '6px 4px', color: 'var(--text-2)', fontSize: '12px', fontWeight: 600 }}>
+    <div role="table" aria-label="Golpes por hoyo" style={{ display: 'flex', flexDirection: 'column', fontSize: '16px', color: 'var(--text)' }}>
+      <div role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '6px 4px', color: 'var(--text-2)', fontSize: '13px', fontWeight: 500 }}>
         <span role="columnheader">Hoyo</span>
-        {cortos.map((n, i) => <span key={jugadores[i].id} role="columnheader" style={{ textAlign: 'right' }}>{n}</span>)}
+        {cortos.map((n, i) => <span key={jugadores[i].id} role="columnheader" style={{ textAlign: 'right', overflowWrap: 'anywhere', minWidth: 0 }}>{n}</span>)}
       </div>
       {filas.map(h => (
-        <div key={h} role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '8px 4px', borderBottom: '1px solid var(--border)', fontFamily: MONO }}>
+        <div key={h} role="row" className="num" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>
           <span role="rowheader">{h}</span>
           {jugadores.map(j => {
             const g = golpes(j, h)
@@ -46,7 +44,7 @@ export function TarjetaDeGolpes({ jugadores, hoyos }: { jugadores: readonly Juga
 
 const VOLVER = {
   alignSelf: 'flex-start', minHeight: '44px', padding: '0 4px', border: 0, background: 'transparent', cursor: 'pointer',
-  color: 'var(--brand-on-bg)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 600,
+  color: 'var(--brand-on-bg)', fontFamily: 'inherit', fontSize: '16px', fontWeight: 600,
 } as const
 
 /**
