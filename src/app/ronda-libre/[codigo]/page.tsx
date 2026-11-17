@@ -53,8 +53,8 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
 import { GuardarEnMiHistorial } from './components/GuardarEnMiHistorial'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { TimbaEnVivo } from './components/timba/TimbaEnVivo'
+import { useTimbaDeLaRonda } from './hooks/useTimbaDeLaRonda'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
 
@@ -101,10 +101,12 @@ function RondaLibrePageContent() {
 
   /* ── Derivados (null-safe para que los hooks de abajo siempre se llamen) ── */
   const isFinished = finishedParam || esRondaCerrada(ronda?.estado)
+  // Timba libre: el juego se pide una vez (GET /juego) para la pestaña Juego, el resultado y los retiros.
+  const timba = useTimbaDeLaRonda(codigo, ronda, currentUserId)
   const guardarHistorial = useGuardarEnMiHistorial({
     // Sin el neto (anónimo o falla al traerlo) no se ofrece guardar: la tarjeta iría sin handicaps.
     ronda: vistaVisor ? null : rondaLive, isFinished: esRondaCerrada(rondaLive?.estado), currentUserId, parMap, siMap,
-    courseHcpMap, courseHcpCompletoMap, sinIndice, equipos,
+    courseHcpMap, courseHcpCompletoMap, sinIndice, equipos, retiros: timba.retiros,
   })
   // Un solo dorado sólido por vista (DESIGN.md §5): mientras falte guardar, guardar es la acción principal.
   const shareVariant = guardarHistorial.estado === 'disponible' || guardarHistorial.estado === 'guardando' ? 'nav' : 'commit'
@@ -215,6 +217,22 @@ function RondaLibrePageContent() {
     }
   }
 
+  const timbaFinalizada = ronda.estado === 'finalizada'
+  const timbaEnVivo = timba.esTimba && (
+    <TimbaEnVivo
+      juego={timba.juego}
+      onReintentar={timba.recargar}
+      jugadores={ronda.ronda_libre_jugadores}
+      hoyoInicio={ronda.hoyo_inicio}
+      holes={ronda.holes}
+      finalizada={timbaFinalizada}
+      cancha={ronda.course_name}
+      url={shareUrl}
+      compartirPrincipal={shareVariant === 'commit'}
+      onIngresar={() => { requireAuth('Ve los puntos de la Timba') }}
+    />
+  )
+
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
       <RondaHeader
@@ -237,6 +255,8 @@ function RondaLibrePageContent() {
         {isAdminRound && !isAdmin && currentUserId && adminPlayerName && (
           <AdminInfoBanner adminPlayerName={adminPlayerName} />
         )}
+
+        {timba.esTimba && timbaFinalizada && timbaEnVivo}
 
         {isFinished && ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2 && mr && (
           <MatchPlayWinner ronda={ronda} mr={mr} onShare={handleShare} shareVariant={shareVariant} />
@@ -320,18 +340,9 @@ function RondaLibrePageContent() {
           <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} hcpAMostrar={hcpAMostrar} />
         )}
 
-        {/* Timba libre: el juego son puntos (GET /juego), no golpes; los rankings de golpes darían un ganador falso. */}
-        {esFormatoPersonalizado(ronda.formato_juego) ? (
-          <TimbaEnVivo
-            codigo={codigo}
-            jugadores={ronda.ronda_libre_jugadores}
-            hoyoInicio={ronda.hoyo_inicio}
-            holes={ronda.holes}
-            firma={`${currentUserId ?? ''}:${ronda.estado}:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.scores))}`}
-            cerrada={esRondaCerrada(ronda.estado)}
-            onIngresar={() => { requireAuth('Ve los puntos de la Timba') }}
-          />
-        ) : (<>
+        {/* Timba libre: el juego son puntos (GET /juego), no golpes; los rankings de golpes darían un ganador falso.
+            Finalizada, el resultado va arriba (es lo que el grupo vino a ver). */}
+        {timba.esTimba ? (!timbaFinalizada && timbaEnVivo) : (<>
         {isTeamFormat && (
           <TeamLeaderboards
             ronda={ronda}
