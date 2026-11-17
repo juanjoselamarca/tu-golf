@@ -55,6 +55,16 @@ describe('calcularTendencia', () => {
       .toBe('Tu diferencial promedio subió 2.0 frente a los 30 días anteriores.')
   })
 
+  it('ignora rondas excluidas del índice, match play y equipo aunque tengan diferencial', () => {
+    const base = [r('1', 2, 10), r('2', 10, 11), r('3', 20, 12), r('4', 35, 14), r('5', 40, 15), r('6', 50, 13)]
+    const ruido = [
+      { ...r('x1', 5, 40), excluded_from_handicap: true },
+      { ...r('x2', 6, 40), formato_juego: 'match_play' },
+      { ...r('x3', 7, 40), formato_juego: 'scramble' },
+    ]
+    expect(calcularTendencia([...base, ...ruido], AHORA)).toEqual(calcularTendencia(base, AHORA))
+  })
+
   it('no depende de ningún índice: un índice oficial viejo no inventa tendencia', () => {
     // Juego estable: mismo diferencial en ambas ventanas → flat, aunque el índice cargado diga otra cosa.
     const t = calcularTendencia([r('1', 2, 12), r('2', 10, 12), r('3', 20, 12), r('4', 35, 12), r('5', 40, 12), r('6', 50, 12)], AHORA)

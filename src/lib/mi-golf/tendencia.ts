@@ -1,4 +1,5 @@
 // src/lib/mi-golf/tendencia.ts
+import { isMatchPlayFormat, isTeamFormat } from '@/golf/formats'
 import type { HistoricalRound, Tendencia } from './types'
 
 const VENTANA_DIAS = 30
@@ -22,6 +23,9 @@ export function calcularTendencia(historico: HistoricalRound[], ahora: number = 
   const anteriores: number[] = []
   for (const r of historico) {
     if (!r.played_at || r.diferencial == null) continue
+    // Las mismas que no cuentan para el índice: excluidas a mano, match play (hoyos
+    // concedidos: el gross no es real) y formatos de equipo. Conservan su diferencial en la tabla.
+    if (r.excluded_from_handicap || isMatchPlayFormat(r.formato_juego) || isTeamFormat(r.formato_juego)) continue
     const edad = ahora - new Date(r.played_at + 'T12:00:00').getTime()
     // `played_at` es fecha sin hora y el servidor corre en UTC: la ronda de hoy puede caer
     // unas horas "en el futuro". Hasta un día adelante cuenta como reciente.

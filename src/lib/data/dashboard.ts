@@ -28,7 +28,7 @@ import type { RawStatsRound, RondaNormalizada } from '@/golf/stats/rondas-normal
 // `scores`/`par_per_hole` se omiten a propósito (se traen aparte solo para la
 // última ronda del día vía loadUltimaRondaDetalle).
 const HISTORICO_SLIM_COLS =
-  'id, total_gross, course_name, played_at, diferencial, holes_played, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id'
+  'id, total_gross, course_name, played_at, diferencial, holes_played, excluded_from_handicap, formato_juego, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id'
 
 function mapHistoricoSlim(rows: unknown): HistoricalRound[] {
   return ((rows as Array<Record<string, unknown>>) || []).map((row) => ({
@@ -38,6 +38,8 @@ function mapHistoricoSlim(rows: unknown): HistoricalRound[] {
     played_at: (row.played_at as string | null) ?? null,
     diferencial: (row.diferencial as number | null) ?? null,
     holes_played: (row.holes_played as number | null) ?? null,
+    excluded_from_handicap: (row.excluded_from_handicap as boolean | null) ?? null,
+    formato_juego: (row.formato_juego as string | null) ?? null,
     rondaLibreJugadorId: (row.ronda_libre_jugador_id as string | null) ?? null,
     scores: null,
     parPerHole: null,

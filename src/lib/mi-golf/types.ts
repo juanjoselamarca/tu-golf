@@ -58,6 +58,9 @@ export type HistoricalRound = {
   played_at: string | null
   diferencial: number | null
   holes_played: number | null
+  /** El jugador la sacó del cálculo de índice (historial). Opcional: fixtures previos. */
+  excluded_from_handicap?: boolean | null
+  formato_juego?: string | null
   /** `metadata.ronda_libre_jugador_id`: la tarjeta en vivo de la que salió esta fila (vínculo exacto). */
   rondaLibreJugadorId?: string | null
   // v6 Última Ronda Express: alimentan UltimaRondaHero.tsx (activity bar).

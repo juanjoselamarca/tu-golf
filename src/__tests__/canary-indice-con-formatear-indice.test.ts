@@ -75,7 +75,6 @@ const PERMITIDOS: Array<{ archivo: string; fragmento: string; veces: number; por
   { archivo: 'app/admin/golf-ops/page.tsx', fragmento: 'defaultValue={editHcp}', veces: 1, porque: 'BUG conocido, issue #775 (solo admins; archivo de 1.033 LOC a refactorizar primero)' },
   // Regla 1 (.toFixed(1))
   { archivo: 'components/GWIDisplay.tsx', fragmento: 'vsIndex.toFixed(1)', veces: 1, porque: 'delta con signo explícito (golpes vs esperado), no un índice' },
-  { archivo: 'app/perfil/components/EditorialBlocks.tsx', fragmento: 'Math.abs(profile.indice - profile.indice_golfers).toFixed(1)', veces: 2, porque: 'distancia entre dos índices, siempre positiva (calza en las dos reglas)' },
   { archivo: 'lib/fedegolf/tarjetas.ts', fragmento: 'indiceDerivado.toFixed(1) === oficialDelMismoInstante.toFixed(1)', veces: 1, porque: 'compara dos números a la décima; no se muestra' },
   { archivo: 'lib/fedegolf/tarjetas.ts', fragmento: 'valor: indice.toFixed(1)', veces: 1, porque: 'paso de la cuenta (suma → promedio → truncado): va con el signo aritmético de los pasos anteriores' },
   { archivo: 'app/demo/taiger/page.tsx', fragmento: 'PLAYER.indiceGolfers.toFixed(1)', veces: 1, porque: 'maqueta con constantes positivas fijas, sin datos de usuario' },
