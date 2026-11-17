@@ -1,0 +1,31 @@
+-- Rollback de 20261117200000_borrar_torneos_de_prueba_y_crear_demo.sql.
+--
+-- 1. Demo nuevo: este archivo lo borra (id fijo; cascada a jugadores, grupos, rondas y golpes, todos ficticios).
+--    Corre como postgres (las guardas de grupos fijos solo cortan a anon/authenticated). Va primero: el demo viejo
+--    vuelve con el mismo slug.
+-- 2. Borrado: es un borrado de datos, no hay SQL que lo deshaga. Se restaura el respaldo dirigido que se tomó antes de
+--    aplicar (fuera del repo, que es público):
+--      %USERPROFILE%\OneDrive\GolfersPlus-Respaldos-borrado-torneos\<AAAA-MM-DD>\  (exportar.mjs en la carpeta padre
+--      lo re-genera en solo lectura; correrlo de nuevo justo antes de aprobar migraciones-prod).
+--    El respaldo diario completo (%USERPROFILE%\OneDrive\GolfersPlus-Respaldos\) también trae todas estas filas.
+--    Con scripts/respaldo/restaurar.mjs (docs/claude/respaldos.md: token de la Management API a demanda, primero sin
+--    --aplicar para la prueba en tabla temporal, --mostrar-sql por revisor-fable, y recién ahí --aplicar), modo
+--    faltantes, cada tabla después de las que referencia (tournament_groups apunta a rondas_libres y
+--    tournament_group_players a ronda_libre_jugadores: las tarjetas van antes que los grupos):
+--   O=%USERPROFILE%\OneDrive\GolfersPlus-Respaldos-borrado-torneos  F=<AAAA-MM-DD>
+--   for t in tournaments categories flights players rondas_libres ronda_libre_jugadores ronda_equipos \
+--            ronda_equipo_jugadores tournament_groups tournament_group_players rounds hole_scores score_audit_log \
+--            tournament_rounds tournament_prizes tournament_drafts tournament_draft_collaborators \
+--            tournament_draft_events tournament_draft_share_tokens ronda_equipos_scores_orden ronda_libre_puntitos \
+--            ronda_libre_retiros ronda_libre_juego_orden ronda_libre_scores_orden match_pairings round_watchers; do
+--     node --env-file=.env.local scripts/respaldo/restaurar.mjs --origen "$O" --fecha "$F" --tabla public.$t --aplicar
+--   done
+--   (tournament_draft_collaborators: el trigger de tournament_drafts ya re-crea al dueño; restaurar.mjs hace
+--   ON CONFLICT, así que no choca.)
+-- 3. taiger_sessions que el borrado desvinculó (tournament_id / ronda_libre_id en NULL; 0 el 17-nov) se re-vinculan
+--    con --modo actualizar --ids desde su archivo del respaldo. plan_outcomes no se toca nunca: una fila que citara
+--    una tarjeta habría hecho abortar el borrado (CHECK plan_outcomes_one_round_source), así que no hay nada que
+--    re-vincular.
+-- Probado en PGlite el 17-nov con las filas reales del respaldo: borrar → paso 1 → paso 2 en este orden → los conteos
+-- de todas las tablas vuelven a los de antes.
+DELETE FROM public.tournaments WHERE id = '00000000-0000-4000-8000-00000d000000' AND es_demo = true;
