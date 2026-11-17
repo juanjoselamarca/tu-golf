@@ -190,6 +190,37 @@ describe('copy (descriptivo, con datos, sin voseo)', () => {
     expect(fraseMentalIndex(nueve)).toContain('últimas 4 rondas de 9 hoyos')
   })
 
+  it('mid no exagera: "Cerca de la mitad" (50–59 % de cortes)', () => {
+    expect(TITULO_BANDA_MENTAL.mid).toBe('Cerca de la mitad de tus bogeys traen otro detrás')
+  })
+
+  // Vuelta 1: la home pinta esta frase cuando no hay número; tiene que decir qué falta.
+  describe('sin datos suficientes', () => {
+    it('rondas sin par hoyo a hoyo → pide tarjetas hoyo a hoyo con par', () => {
+      const { indice } = resumenMentalDelCoach([ronda(B, { pares: B.map(() => null) })])
+      expect(indice.status).toBe('insufficient_data')
+      expect(indice.windowSize).toBe(0)
+      expect(fraseMentalIndex(indice)).toBe('Necesitamos tarjetas hoyo a hoyo con par para medir tu recuperación')
+    })
+
+    it('pocos bogeys → cuántos hay y cuántos hacen falta, con la ventana concordada', () => {
+      const una = resumenMentalDelCoach([ronda(B)]).indice
+      expect(una.status).toBe('insufficient_data')
+      expect(una.oportunidades).toBe(5)
+      expect(fraseMentalIndex(una)).toBe(
+        'Necesitamos al menos 10 bogeys para medir tu recuperación: tu última ronda de 18 hoyos suma 5 bogeys',
+      )
+    })
+
+    it('el copy de datos insuficientes no usa voseo', () => {
+      const frases = [
+        fraseMentalIndex(resumenMentalDelCoach([ronda(B, { pares: B.map(() => null) })]).indice),
+        fraseMentalIndex(resumenMentalDelCoach([ronda(B)]).indice),
+      ]
+      for (const t of frases) expect(buscarVoseo(t)).toEqual([])
+    })
+  })
+
   it('los títulos de banda no juzgan ni usan voseo', () => {
     const frases = [...Object.values(TITULO_BANDA_MENTAL), fraseMentalIndex(resumenMentalDelCoach([ronda(A)]).indice)]
     for (const t of frases) {

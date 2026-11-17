@@ -22,6 +22,7 @@ import {
   rondasQueCuentan,
   type RondaNormalizada,
 } from '@/golf/stats/rondas-normalizadas'
+import { concordar, contar } from '@/lib/text/contar'
 
 /** Lo que el motor mental lee de una ronda normalizada. */
 export type RondaMental = Pick<
@@ -270,15 +271,18 @@ export function resumenMentalDelCoach(rondas: RondaNormalizada[]): ResumenMental
 
 export const TITULO_BANDA_MENTAL: Record<BandaMental, string> = {
   high: 'Cortas la mayoría de tus malos hoyos',
-  mid: 'La mitad de tus bogeys traen otro detrás',
+  mid: 'Cerca de la mitad de tus bogeys traen otro detrás',
   low: 'Más de la mitad de tus bogeys traen otro detrás',
 }
 
-/** "Cortaste 6 de tus 14 bogeys en el hoyo siguiente · últimas 5 rondas de 18 hoyos". */
+/**
+ * "Cortaste 6 de tus 14 bogeys en el hoyo siguiente · últimas 5 rondas de 18 hoyos".
+ * Sin datos suficientes dice qué falta (la home lo pinta sin número ni barra).
+ */
 export function fraseMentalIndex(i: MentalIndexResult): string {
   if (i.status === 'insufficient_data') {
-    if (i.windowSize === 0) return 'Todavía no hay rondas con tarjeta hoyo a hoyo para medir cuántos bogeys cortas'
-    return `Todavía no hay ${MIN_BOGEYS_ESPIRAL} bogeys en tus ${textoVentanaMental(i.windowSize, i.bucket)} para medir cuántos cortas`
+    if (i.windowSize === 0) return 'Necesitamos tarjetas hoyo a hoyo con par para medir tu recuperación'
+    return `Necesitamos al menos ${MIN_BOGEYS_ESPIRAL} bogeys para medir tu recuperación: ${textoVentanaMentalPosesivo(i.windowSize, i.bucket)} ${concordar(i.windowSize, 'suma', 'suman')} ${contar(i.oportunidades, 'bogey', 'bogeys')}`
   }
   return `Cortaste ${i.cortes} de tus ${i.oportunidades} bogeys en el hoyo siguiente · ${textoVentanaMental(i.windowSize, i.bucket)}`
 }

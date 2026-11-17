@@ -12,7 +12,7 @@ import { PatternTile } from '@/components/coach/PatternTile'
 import { PlanActiveCard } from '@/components/coach/PlanActiveCard'
 import { ConversarStickyCTA } from '@/components/coach/ConversarStickyCTA'
 import { DefaultTeeBanner } from '@/components/DefaultTeeBanner'
-import { etiquetaEspiral, fraseMentalIndex, resumenMentalDelCoach, textoVentanaMentalPosesivo, TITULO_BANDA_MENTAL } from '@/golf/coach/mental-index'
+import { BANDA_MENTAL_ALTA, BANDA_MENTAL_MEDIA, etiquetaEspiral, fraseMentalIndex, resumenMentalDelCoach, textoVentanaMentalPosesivo, TITULO_BANDA_MENTAL } from '@/golf/coach/mental-index'
 import { buildActivePlanSummary } from '@/golf/coach/intro'
 import { fetchCoachHome } from '@/lib/data/coach-home'
 import { textoPlano } from '@/lib/text/texto-plano'
@@ -173,14 +173,18 @@ export default async function CoachDashboard() {
         </Link>
       </div>
 
-      {indice.score != null && indice.band != null && (
+      {/* Sin datos suficientes no queda mudo: tarjeta sobria que dice qué falta. */}
+      {indice.score != null && indice.band != null ? (
         <MentalRecoveryCard
           score={indice.score}
           band={indice.band}
           delta={null}
           title={TITULO_BANDA_MENTAL[indice.band]}
           description={fraseMentalIndex(indice)}
+          umbrales={{ media: BANDA_MENTAL_MEDIA, alta: BANDA_MENTAL_ALTA }}
         />
+      ) : (
+        <MentalRecoveryCard score={null} description={fraseMentalIndex(indice)} />
       )}
 
       {patterns.length > 0 && (
