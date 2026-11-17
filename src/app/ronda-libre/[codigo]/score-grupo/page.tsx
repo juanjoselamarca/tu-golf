@@ -107,6 +107,8 @@ export default function ScoreGrupoPage() {
     currentHole, ordenHoyos, par: parMap[currentHole],
   })
   // Con un retirado, el hoyo de la carga no sabe del retiro: al llegar los retiros, el scorer va al hoyo que falta.
+  // Abrir "Finalizar" a propósito NO cuenta como interacción: si el salto llega con la hoja abierta, la hoja se
+  // recalcula con el mismo estado que usará finalizeRound (el hoyo que de verdad falta), que es lo correcto.
   const { marcarInteraccion } = useRetomarConLosRetiros({
     ronda, listo: !loading, scores, equipos: teamEquipos, retiros: esTimba && timba.juego.estado === 'ok' ? timba.retiros : null,
     currentHole, setCurrentHole,
@@ -227,7 +229,7 @@ export default function ScoreGrupoPage() {
               <RetiroDeJugadores
                 jugadores={timba.jugadoresParaRetiro}
                 ocupado={timba.marcas.retirando || finalizing}
-                onPedirRetiro={setRetiroPedido}
+                onPedirRetiro={id => { marcarInteraccion(); setRetiroPedido(id) }}
                 onDeshacer={(id) => { void timba.marcas.retirar(id, null) }}
               />
             )}
@@ -352,7 +354,7 @@ export default function ScoreGrupoPage() {
               accion={esTimba && !finalizing && timba.jugadoresParaRetiro.some(r => r.id === j.id && r.desdeSiSeVa != null) ? (
                 <button
                   type="button"
-                  onClick={() => setRetiroPedido(j.id)}
+                  onClick={() => { marcarInteraccion(); setRetiroPedido(j.id) }}
                   disabled={timba.marcas.retirando}
                   aria-label={`Retirar a ${j.nombre}`}
                   style={{ minHeight: '44px', minWidth: '44px', margin: '-14px 0', padding: '0 8px', border: 'none', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit', fontSize: '13px', textDecoration: 'underline', textUnderlineOffset: '3px', cursor: 'pointer' }}
