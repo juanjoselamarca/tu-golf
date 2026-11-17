@@ -27,6 +27,7 @@ import type { HoyoEstimado } from '@/golf/core/ajuste-whs'
 import { tarjetaParaHistorial } from '@/golf/ronda-libre/tarjeta-para-historial'
 import { buildHolesArr } from '@/lib/ronda/match'
 import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
+import { golpesHastaElRetiro } from '@/golf/formats/personalizado/retiro'
 import {
   guardarTarjetaEnHistorial,
   tarjetaYaEnMiHistorial,
@@ -61,13 +62,19 @@ export function useGuardarEnMiHistorial(input: {
   courseHcpCompletoMap: Record<string, number>
   sinIndice: readonly string[]
   equipos: Equipo[]
+  /**
+   * Timba libre: jugador → hoyo desde el que se retiró (`VistaDelJuego.retiros`, de `GET /juego`). Lo anotado desde
+   * ahí no va al historial (igual que al cerrar desde el scorer). `null` = todavía no se saben (el juego no cargó):
+   * no se ofrece guardar, para no guardar golpes que el juego no cuenta. Sin Timba: `{}` (por defecto).
+   */
+  retiros?: Readonly<Record<string, number>> | null
 }): {
   estado: Estado
   guardar: () => Promise<void>
   vistaPrevia: VistaPreviaTarjeta | null
   corregir: (hoyo: number, golpes: number) => void
 } {
-  const { ronda, isFinished, currentUserId, parMap, siMap, courseHcpMap, courseHcpCompletoMap, sinIndice, equipos } = input
+  const { ronda, isFinished, currentUserId, parMap, siMap, courseHcpMap, courseHcpCompletoMap, sinIndice, equipos, retiros = {} } = input
   const miJugador = ronda?.ronda_libre_jugadores.find(j => !!currentUserId && j.user_id === currentUserId) ?? null
   const [estado, setEstado] = useState<Estado>('oculto')
   const [correcciones, setCorrecciones] = useState<Record<number, number>>({})
@@ -75,11 +82,12 @@ export function useGuardarEnMiHistorial(input: {
   const equipo = ronda && miJugador && isSharedBallFormat(ronda.formato_juego)
     ? equipos.find(e => e.jugadorIds.includes(miJugador.id))
     : undefined
-  const misScores = useMemo(
-    () => (equipo?.scores ?? miJugador?.scores ?? {}) as Record<string | number, number>,
-    [equipo, miJugador],
-  )
   const hoyos = useMemo(() => (ronda ? hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes ?? 18) : []), [ronda])
+  const retiradoDesde = (miJugador && retiros?.[miJugador.id]) ?? null
+  const misScores = useMemo(
+    () => golpesHastaElRetiro((equipo?.scores ?? miJugador?.scores ?? {}) as Record<string | number, number>, retiradoDesde, hoyos),
+    [equipo, miJugador, retiradoDesde, hoyos],
+  )
 
   const base = useMemo(() => {
     if (!ronda || !miJugador) return null
@@ -109,8 +117,9 @@ export function useGuardarEnMiHistorial(input: {
   }, [setCorrecciones])
 
   const miJugadorId = miJugador?.id ?? null
+  const retirosListos = retiros != null
   useEffect(() => {
-    if (!isFinished || !miJugadorId) { setEstado('oculto'); return }
+    if (!isFinished || !miJugadorId || !retirosListos) { setEstado('oculto'); return }
     let vivo = true
     void tarjetaYaEnMiHistorial(createClient(), miJugadorId).then(ya => {
       // Lectura fallida (null, p. ej. sin señal): se ofrece igual. El guardado es idempotente
@@ -118,7 +127,7 @@ export function useGuardarEnMiHistorial(input: {
       if (vivo) setEstado(ya === true ? 'guardado' : 'disponible')
     })
     return () => { vivo = false }
-  }, [isFinished, miJugadorId])
+  }, [isFinished, miJugadorId, retirosListos])
 
   const guardar = useCallback(async () => {
     if (!ronda || !miJugador || !currentUserId || estado !== 'disponible') return
@@ -138,6 +147,7 @@ export function useGuardarEnMiHistorial(input: {
       parMap,
       ratingsPorTee: new Map(),
       conId: true,
+      retiradoDesde,
     })
     if (resultado.status === 'error') {
       void captureError(resultado.error, { context: 'ronda-terminada.guardar-en-mi-historial', meta: { codigo: ronda.codigo } })
@@ -165,7 +175,7 @@ export function useGuardarEnMiHistorial(input: {
     void actualizarNivelDelJugador(supabase, currentUserId).catch(() => {})
     addToast({ title: 'Ronda guardada en tu historial', type: 'success' })
     setEstado('guardado')
-  }, [ronda, miJugador, currentUserId, estado, misScores, correcciones, hoyos, parMap, setEstado])
+  }, [ronda, miJugador, currentUserId, estado, misScores, correcciones, hoyos, parMap, retiradoDesde, setEstado])
 
   return { estado, guardar, vistaPrevia, corregir }
 }
