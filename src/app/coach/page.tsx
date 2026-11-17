@@ -12,7 +12,7 @@ import { PatternTile } from '@/components/coach/PatternTile'
 import { PlanActiveCard } from '@/components/coach/PlanActiveCard'
 import { ConversarStickyCTA } from '@/components/coach/ConversarStickyCTA'
 import { DefaultTeeBanner } from '@/components/DefaultTeeBanner'
-import { fraseMentalIndex, resumenMentalDelCoach, TITULO_BANDA_MENTAL } from '@/golf/coach/mental-index'
+import { etiquetaEspiral, fraseMentalIndex, resumenMentalDelCoach, textoVentanaMentalPosesivo, TITULO_BANDA_MENTAL } from '@/golf/coach/mental-index'
 import { buildActivePlanSummary } from '@/golf/coach/intro'
 import { fetchCoachHome } from '@/lib/data/coach-home'
 import { textoPlano } from '@/lib/text/texto-plano'
@@ -208,12 +208,11 @@ export default async function CoachDashboard() {
           evitables={costo.evitables}
           promedioReal={costo.promedioReal}
           promedioContenido={costo.promedioContenido}
-          windowSize={costo.windowSize}
-          bucket={costo.bucket}
+          ventana={textoVentanaMentalPosesivo(costo.windowSize, costo.bucket)}
           realScore={costo.lastRound.realScore}
           ghostScore={costo.lastRound.ghostScore}
           delta={costo.lastRound.strokes_saved}
-          espirales={costo.lastRound.espirales}
+          espirales={costo.lastRound.espirales.map(etiquetaEspiral)}
         />
       )}
 

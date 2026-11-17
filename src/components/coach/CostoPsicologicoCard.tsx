@@ -2,7 +2,6 @@
 
 import type { CSSProperties } from 'react'
 import { concordar } from '@/lib/text/contar'
-import { etiquetaEspiral, textoVentanaMental, type BucketMental, type Espiral } from '@/golf/coach/mental-index'
 
 interface Props {
   evitables: number
@@ -11,19 +10,21 @@ interface Props {
   realScore: number
   ghostScore: number
   delta: number
-  /** Espirales de la última ronda que costaron golpes. */
-  espirales: Espiral[]
   /**
-   * Tamaño real de la ventana usada para `evitables` y los promedios, con su
-   * bucket: "últimas 5 rondas de 18 hoyos" (nunca mezcla 9 y 18).
+   * Espirales de la última ronda que costaron golpes, ya rotuladas por el server
+   * ("H8–H9", `etiquetaEspiral`). El componente cliente no importa el motor.
    */
-  windowSize: number
-  bucket: BucketMental | null
+  espirales: string[]
+  /**
+   * Ventana usada para `evitables` y los promedios, ya rotulada con su bucket y
+   * posesivo por el server (`textoVentanaMentalPosesivo`): "tus últimas 5 rondas
+   * de 18 hoyos" / "tu última ronda de 9 hoyos".
+   */
+  ventana: string
 }
 
-export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenido, realScore, ghostScore, delta, espirales, windowSize, bucket }: Props) {
-  const windowLabel = textoVentanaMental(windowSize, bucket)
-  const holesAffected = espirales.map(etiquetaEspiral)
+export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenido, realScore, ghostScore, delta, espirales, ventana }: Props) {
+  const holesAffected = espirales
   const cardStyle: CSSProperties = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--line)',
@@ -54,7 +55,7 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
         {concordar(evitables, 'golpe evitable', 'golpes evitables')}
       </div>
       <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.55, paddingBottom: '18px', borderBottom: '1px solid var(--line)', marginBottom: '18px' }}>
-        Si hubieras contenido las espirales post-bogey en tus {windowLabel}, tu promedio hubiera bajado de <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioReal.toFixed(1)}</b> a <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioContenido.toFixed(1)}</b>.
+        Si hubieras contenido las espirales post-bogey en {ventana}, tu promedio hubiera bajado de <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioReal.toFixed(1)}</b> a <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioContenido.toFixed(1)}</b>.
       </div>
 
       <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700, marginBottom: '8px', fontFamily: '"DM Mono", monospace' }}>

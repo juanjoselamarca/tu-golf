@@ -198,6 +198,11 @@ export function textoVentanaMental(windowSize: number, bucket: BucketMental | nu
   return bucket == null ? base : `${base} de ${bucket} hoyos`
 }
 
+/** "tus últimas 5 rondas de 18 hoyos" / "tu última ronda de 9 hoyos" (posesivo concordado). */
+export function textoVentanaMentalPosesivo(windowSize: number, bucket: BucketMental | null): string {
+  return `${windowSize === 1 ? 'tu' : 'tus'} ${textoVentanaMental(windowSize, bucket)}`
+}
+
 export function bandaMental(score: number): BandaMental {
   return score >= BANDA_MENTAL_ALTA ? 'high' : score >= BANDA_MENTAL_MEDIA ? 'mid' : 'low'
 }

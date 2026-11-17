@@ -51,6 +51,18 @@ describe('canario /coach: una espiral, una ventana', () => {
     expect(violaciones).toEqual([])
   })
 
+  it('ningún componente cliente de /coach importa el motor mental en runtime (solo `import type`)', () => {
+    // Vuelta 1 de revisión del PR3: el server resuelve etiquetas y ventana y las pasa
+    // como strings; el motor no viaja al bundle del cliente.
+    // Sin `;` en el repo: el cuerpo del import no puede cruzar a otro `import`.
+    const IMPORT_MOTOR = /^\s*import\s+(?!type\b)(?:(?!\bimport\b)[^;])*?from\s+['"]@\/golf\/coach\/mental-index['"]/m
+    const violaciones = VISTA_COACH
+      .filter(p => /^\s*['"]use client['"]/.test(fs.readFileSync(p, 'utf8')))
+      .filter(p => IMPORT_MOTOR.test(fs.readFileSync(p, 'utf8')))
+      .map(rel)
+    expect(violaciones).toEqual([])
+  })
+
   it('las espirales viejas (strokesEvitables, clasificarHoyo) no existen en ningún archivo de src', () => {
     const conViejas = archivos(SRC)
       .filter(p => path.resolve(p) !== ESTE_ARCHIVO)
