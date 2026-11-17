@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ExperiencePanel } from '@/components/ExperienceSetup'
 import { LevelsBar } from '@/components/perfil/LevelsBar'
-import { getNivel } from '@/lib/mi-golf/niveles'
+import { nivelDelIndice } from '@/lib/mi-golf/niveles'
+import { indiceVisible } from '@/golf/core/indice-visible'
 import IndiceBreakdownModal from '@/components/IndiceBreakdownModal'
 import FedegolfIndiceModal from '@/components/FedegolfIndiceModal'
 import InstallAppCard from '@/components/InstallAppCard'
@@ -18,8 +19,14 @@ import { DualIndexCards } from './DualIndexCards'
 import { CpiCard } from './CpiCard'
 import { AccountSection } from './AccountSection'
 import { DeleteAccountModal } from './DeleteAccountModal'
-import { GapNote, NivelBadge, SyncHistorialBlock } from './EditorialBlocks'
+import { SyncHistorialBlock } from './EditorialBlocks'
 import NotificationSettings from '@/components/NotificationSettings'
+
+/** Lleva la vista al formulario de edición y el foco al campo del índice (ya montado). */
+function enfocarCampoIndice() {
+  document.getElementById('edit-form')?.scrollIntoView({ behavior: 'smooth' })
+  document.getElementById('perfil-indice')?.focus({ preventScroll: true })
+}
 
 interface Props {
   initialProfile: Profile
@@ -27,9 +34,11 @@ interface Props {
   tourneysPlayed: number
   cpiData: ResultadoCPI | null
   initialFedegolfStatus: FedegolfStatus
+  /** Llegó desde el CTA "Agrega tu índice" (`RUTA_EDITAR_INDICE`): abre la edición en el campo del índice. */
+  abrirEdicionIndice?: boolean
 }
 
-export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData, initialFedegolfStatus }: Props) {
+export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData, initialFedegolfStatus, abrirEdicionIndice = false }: Props) {
   const [profile, setProfile] = useState<Profile>(initialProfile)
   const [breakdownOpen, setBreakdownOpen] = useState(false)
   const [oficialOpen, setOficialOpen] = useState(false)
@@ -55,9 +64,24 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
     onUnlinked: () => setFedegolfStatus(FEDEGOLF_SIN_VINCULO),
   })
 
-  // Niveles Golfers+ por skill (handicap). Prioriza Índice Golfers+
-  // si está calculado (rendimiento real); fallback a Federación.
-  const indiceParaNivel = profile.indice_golfers ?? profile.indice
+  // Abre el formulario de edición en el campo del índice oficial. Lo usan el botón
+  // "+ Agregar índice" del header y el CTA "Agrega tu índice" de otras pantallas.
+  const { setEditing } = edit
+  const irAEditarIndice = () => {
+    setEditing(true)
+    setTimeout(enfocarCampoIndice, 100)
+  }
+  // Deps estables (setEditing es setter de useState): corre una vez por montaje. Sin ref
+  // de "ya abierto": en StrictMode el cleanup cancelaba el foco y la segunda pasada salía.
+  useEffect(() => {
+    if (!abrirEdicionIndice) return
+    setEditing(true)
+    const t = setTimeout(enfocarCampoIndice, 100)
+    return () => clearTimeout(t)
+  }, [abrirEdicionIndice, setEditing])
+
+  // Categoría: del índice oficial, la misma regla que el dashboard (nivelDelIndice).
+  const nivel = nivelDelIndice(indiceVisible({ indice: profile.indice }))
 
   const showSyncBlock = cpiData?.status !== 'insufficient_data'
 
@@ -95,7 +119,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
         <ProfileHeaderCard
           profile={profile}
           tourneysPlayed={tourneysPlayed}
-          onAddIndice={() => { edit.setEditing(true); setTimeout(() => document.getElementById('edit-form')?.scrollIntoView({ behavior: 'smooth' }), 100) }}
+          onAddIndice={irAEditarIndice}
         />
 
         <DualIndexCards
@@ -123,11 +147,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
 
         <CpiCard cpiData={cpiData} />
 
-        <GapNote profile={profile} />
-
-        <NivelBadge profile={profile} />
-
-        {indiceParaNivel != null && <LevelsBar nivel={getNivel(indiceParaNivel)} />}
+        {nivel && <LevelsBar nivel={nivel} />}
 
         {/* ── Grupo 2: Pendientes — lo que debe HACER ── */}
         <div style={{ marginTop: '8px', marginBottom: '16px' }}>

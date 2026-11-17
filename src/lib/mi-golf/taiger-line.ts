@@ -24,7 +24,7 @@ export function getTaigerLine(inp: Input): TaigerLine {
   if (tendencia && tendencia.direccion === 'up') {
     return {
       source: 'tendencia_mejora',
-      texto: `Tu diferencial bajó ${tendencia.delta.toFixed(1)} en los últimos ${tendencia.dias} días.`,
+      texto: `Tu diferencial promedio bajó ${tendencia.delta.toFixed(1)} frente a los ${tendencia.dias} días anteriores.`,
       cta_texto: CTA_ANALISIS.texto,
       cta_href: CTA_ANALISIS.href,
     }
@@ -32,7 +32,7 @@ export function getTaigerLine(inp: Input): TaigerLine {
   if (tendencia && tendencia.direccion === 'down') {
     return {
       source: 'tendencia_empeora',
-      texto: `Tu diferencial subió ${tendencia.delta.toFixed(1)} en los últimos ${tendencia.dias} días.`,
+      texto: `Tu diferencial promedio subió ${tendencia.delta.toFixed(1)} frente a los ${tendencia.dias} días anteriores.`,
       cta_texto: CTA_ANALISIS.texto,
       cta_href: CTA_ANALISIS.href,
     }

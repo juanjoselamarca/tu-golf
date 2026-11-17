@@ -1,4 +1,5 @@
 import type { Nivel, NivelNombre } from './types'
+import type { IndiceVisible } from '@/golf/core/indice-visible'
 
 type NivelDef = {
   nombre: NivelNombre
@@ -15,6 +16,15 @@ const NIVELES: NivelDef[] = [
   { nombre: 'Amateur', min: 18, max: 28 },
   { nombre: 'Novato', min: 28, max: Infinity },
 ]
+
+/**
+ * Categoría Golfers+ del jugador: sale del índice que se le muestra (el oficial, vía
+ * `indiceVisible`), así el dashboard y /perfil no muestran categorías distintas.
+ * Sin índice, sin categoría.
+ */
+export function nivelDelIndice(indice: IndiceVisible): Nivel | null {
+  return indice.estado === 'con-indice' ? getNivel(indice.valor) : null
+}
 
 export function getNivel(indice: number): Nivel {
   const idxClamp = Math.max(0, indice)

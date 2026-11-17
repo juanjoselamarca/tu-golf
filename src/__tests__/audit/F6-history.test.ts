@@ -336,8 +336,9 @@ describe('F6 | Stats (peso 2)', () => {
     // Antes este test documentaba el gap (la query no traía formato_juego). Cerrado:
     // match play queda fuera de avgOverPar18/9 y de mejor ronda; total_gross es
     // golpes también en Stableford, así que esas rondas sí cuentan vs par.
-    const queryLine = statsSource.match(/\.select\(['"][^'"]*['"]\)/g) ?? []
-    const mainQuery = queryLine.find(q => q.includes('total_gross') && q.includes('import_source')) ?? ''
+    // La query usa la constante COLUMNAS_RONDA_NORMALIZABLE (src/lib/data/historial.ts).
+    const mainQuery = statsSource.match(/COLUMNAS_RONDA_NORMALIZABLE\s*=\s*['"][^'"]*['"]/)?.[0] ?? ''
+    expect(mainQuery).toContain('total_gross')
     expect(mainQuery).toContain('formato_juego')
     expect(mainQuery).toContain('par_per_hole')
   })

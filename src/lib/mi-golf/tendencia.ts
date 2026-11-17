@@ -1,38 +1,44 @@
 // src/lib/mi-golf/tendencia.ts
+import { isIndexEligible } from '@/golf/core/index-window'
 import type { HistoricalRound, Tendencia } from './types'
 
 const VENTANA_DIAS = 30
-const MINIMO_RONDAS = 5
-const UMBRAL_FLAT = 0.2
+const MINIMO_RONDAS_POR_VENTANA = 3
+// Con 3 rondas por ventana el ruido entre rondas es de varios golpes: menos de 1 golpe de
+// diferencia en el promedio no es tendencia (y esta línea tiene prioridad en tAIger+).
+const UMBRAL_FLAT = 1
+const DIA_MS = 86400000
 
-export function calcularTendencia(
-  indiceActual: number | null | undefined,
-  historico: HistoricalRound[]
-): Tendencia {
-  if (indiceActual == null) return null
-
-  const limiteTimestamp = Date.now() - VENTANA_DIAS * 86400000
-  const enVentana = historico.filter((r) => {
-    if (!r.played_at || r.diferencial == null) return false
-    const t = new Date(r.played_at + 'T12:00:00').getTime()
-    return t >= limiteTimestamp
-  })
-
-  if (enVentana.length < MINIMO_RONDAS) return null
-
-  const promedioDiferencial =
-    enVentana.reduce((sum, r) => sum + (r.diferencial ?? 0), 0) / enVentana.length
-
-  const delta = indiceActual - promedioDiferencial
-
-  let direccion: 'up' | 'down' | 'flat'
-  if (Math.abs(delta) < UMBRAL_FLAT) direccion = 'flat'
-  else if (delta > 0) direccion = 'up'
-  else direccion = 'down'
-
-  return {
-    direccion,
-    delta: Math.abs(delta),
-    dias: VENTANA_DIAS,
+/**
+ * Tendencia del juego: promedio de diferenciales de los últimos 30 días contra el de
+ * los 30 anteriores. Compara rondas con rondas y NO recibe ningún índice: antes restaba
+ * `índice − promedio de diferenciales`, y con el índice oficial (que las rondas no
+ * mueven, o que el jugador cargó a mano hace meses) decía "tu diferencial bajó 4.2"
+ * sin que nada hubiera bajado (revisión PR2 Ola 1, 16-nov-2026).
+ *
+ * `up` = mejora (los diferenciales recientes son más bajos).
+ */
+export function calcularTendencia(historico: HistoricalRound[], ahora: number = Date.now()): Tendencia {
+  const recientes: number[] = []
+  const anteriores: number[] = []
+  for (const r of historico) {
+    // Solo las rondas que cuentan para el índice (isIndexEligible, misma regla que la RPC):
+    // fuera las excluidas a mano y los scores imposibles. Match play y best ball SÍ cuentan
+    // (WHS 2024, Regla 2.1a); la bola compartida ya llega sin diferencial.
+    if (!r.played_at || r.diferencial == null || !isIndexEligible(r)) continue
+    const edad = ahora - new Date(r.played_at + 'T12:00:00').getTime()
+    // `played_at` es fecha sin hora y el servidor corre en UTC: la ronda de hoy puede caer
+    // unas horas "en el futuro". Hasta un día adelante cuenta como reciente.
+    if (edad < -DIA_MS) continue
+    if (edad < VENTANA_DIAS * DIA_MS) recientes.push(r.diferencial)
+    else if (edad < 2 * VENTANA_DIAS * DIA_MS) anteriores.push(r.diferencial)
   }
+  if (recientes.length < MINIMO_RONDAS_POR_VENTANA || anteriores.length < MINIMO_RONDAS_POR_VENTANA) return null
+
+  const prom = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length
+  const delta = prom(anteriores) - prom(recientes)
+
+  const direccion: 'up' | 'down' | 'flat' =
+    Math.abs(delta) < UMBRAL_FLAT ? 'flat' : delta > 0 ? 'up' : 'down'
+  return { direccion, delta: Math.abs(delta), dias: VENTANA_DIAS }
 }

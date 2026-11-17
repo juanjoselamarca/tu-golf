@@ -1,10 +1,12 @@
-// Mi Golf: el Hero muestra un índice plus con "+" (−1.0 → "+1.0") y la barra "Calibración del índice"
-// cuenta las rondas válidas contra el mínimo de la tabla WHS, no contra un 3 escrito a mano.
+// Mi Golf: el Hero muestra el índice OFICIAL (profiles.indice vía indiceVisible) rotulado "Índice",
+// un plus con "+" (−1.0 → "+1.0"), y sin índice ofrece cargarlo en vez de inventar un número.
+// El Índice Golfers+ (y su "Calibración") vive solo en /perfil (decisión de Juanjo, 16-nov-2026).
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 import { IdentidadTab } from '../IdentidadTab'
 import { getNivel } from '@/lib/mi-golf/niveles'
-import { MIN_DIFERENCIALES_INDICE } from '@/golf/core/whs-index'
+import { indiceVisible } from '@/golf/core/indice-visible'
+import { RUTA_EDITAR_INDICE } from '@/lib/rutas'
 
 const base = {
   userName: 'Ana',
@@ -12,24 +14,21 @@ const base = {
   taigerSessionCount: 1,
   stats: { promedioUltimas5: null, mejorScore: null, rondasJugadas: 0, canchaFavorita: null },
   taigerLine: { source: 'fallback' as const, texto: 'x', cta_texto: 'y', cta_href: '/coach' },
-  ultimasGross: [],
 }
 
 describe('IdentidadTab — índice', () => {
-  it('índice plus: el Hero dice "+1.0", nunca "-1.0"', () => {
-    const { container } = render(<IdentidadTab {...base} indiceGolfers={-1} nivel={getNivel(-1)} rondasValidasIndice={8} />)
+  it('índice plus: el Hero dice "+1.0", nunca "-1.0", rotulado "Índice"', () => {
+    const { container } = render(<IdentidadTab {...base} indice={indiceVisible({ indice: -1 })} nivel={getNivel(-1)} />)
     expect(container.textContent).toContain('+1.0')
     expect(container.textContent).not.toContain('-1.0')
+    expect(container.textContent).toContain('Índice')
+    expect(container.textContent).not.toContain('Índice Golfers+')
   })
 
-  it('con menos rondas válidas que el mínimo, la barra va de 0 al mínimo WHS', () => {
-    const { container } = render(<IdentidadTab {...base} indiceGolfers={null} nivel={null} rondasValidasIndice={1} />)
-    expect(container.textContent).toContain('Calibración del índice')
-    expect(container.textContent).toContain(`${Math.round(100 / MIN_DIFERENCIALES_INDICE)}%`)
-  })
-
-  it('sin el conteo (la base no respondió) no inventa una barra', () => {
-    const { container } = render(<IdentidadTab {...base} indiceGolfers={null} nivel={null} rondasValidasIndice={null} />)
+  it('sin índice: sin número, con el CTA que lleva a cargarlo', () => {
+    const { container, getByRole } = render(<IdentidadTab {...base} indice={indiceVisible({ indice: null })} nivel={null} />)
+    expect(container.textContent).toContain('Agrega tu índice')
+    expect(getByRole('link', { name: /Agrega tu índice/ }).getAttribute('href')).toBe(RUTA_EDITAR_INDICE)
     expect(container.textContent).not.toContain('Calibración del índice')
   })
 })

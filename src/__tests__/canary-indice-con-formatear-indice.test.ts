@@ -75,7 +75,6 @@ const PERMITIDOS: Array<{ archivo: string; fragmento: string; veces: number; por
   { archivo: 'app/admin/golf-ops/page.tsx', fragmento: 'defaultValue={editHcp}', veces: 1, porque: 'BUG conocido, issue #775 (solo admins; archivo de 1.033 LOC a refactorizar primero)' },
   // Regla 1 (.toFixed(1))
   { archivo: 'components/GWIDisplay.tsx', fragmento: 'vsIndex.toFixed(1)', veces: 1, porque: 'delta con signo explícito (golpes vs esperado), no un índice' },
-  { archivo: 'app/perfil/components/EditorialBlocks.tsx', fragmento: 'Math.abs(profile.indice - profile.indice_golfers).toFixed(1)', veces: 2, porque: 'distancia entre dos índices, siempre positiva (calza en las dos reglas)' },
   { archivo: 'lib/fedegolf/tarjetas.ts', fragmento: 'indiceDerivado.toFixed(1) === oficialDelMismoInstante.toFixed(1)', veces: 1, porque: 'compara dos números a la décima; no se muestra' },
   { archivo: 'lib/fedegolf/tarjetas.ts', fragmento: 'valor: indice.toFixed(1)', veces: 1, porque: 'paso de la cuenta (suma → promedio → truncado): va con el signo aritmético de los pasos anteriores' },
   { archivo: 'app/demo/taiger/page.tsx', fragmento: 'PLAYER.indiceGolfers.toFixed(1)', veces: 1, porque: 'maqueta con constantes positivas fijas, sin datos de usuario' },
@@ -84,7 +83,6 @@ const PERMITIDOS: Array<{ archivo: string; fragmento: string; veces: number; por
   { archivo: 'lib/fedegolf/tarjetas.ts', fragmento: 'promedioCrudo.toFixed(2) !== indice.toFixed(2)', veces: 1, porque: 'compara dos números a la centésima; no se muestra' },
   // Regla 2 ({…} / ${…})
   { archivo: 'app/api/cron/taiger-insights/route.ts', fragmento: 'con índice ${range}', veces: 2, porque: 'range es el tramo en texto de getHandicapRange ("10-18"), no un índice' },
-  { archivo: 'components/mi-golf/CompetenciaTab.tsx', fragmento: '{hcpDisplay}', veces: 1, porque: 'ya es texto: lo arma CompetenciaSection con formatearIndice' },
   { archivo: 'app/coach/progreso/components/MetaResumen.tsx', fragmento: '>{indiceTexto}</div>', veces: 2, porque: 'ya es texto: indiceTexto = formatearIndice(currentHandicap)' },
   { archivo: 'components/Scorecard.tsx', fragmento: "HCP {typeof displayHandicap === 'string' ? displayHandicap : formatearHandicap(", veces: 1, porque: 'la rama cruda es el texto ya armado ("S/Ind", el de 9h); la numérica pasa por formatearHandicap' },
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: '`Índice actual: ${indice}`', veces: 1, porque: PROMPT },

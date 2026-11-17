@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import type { RondaConScores } from '@/lib/mi-golf/ultima-ronda'
-import { textoVsPar } from '@/lib/mi-golf/par'
+import { textoVsPar } from '@/golf/share/vs-par'
 
 const GOLD = 'var(--brand-on-bg)'
 const GOLD_BORDER = 'var(--brand)'

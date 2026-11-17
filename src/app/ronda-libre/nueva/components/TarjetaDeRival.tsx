@@ -9,6 +9,7 @@ import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
 import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
+import { ROTULO_INDICE } from '@/golf/core/indice-visible'
 
 interface Props {
   rival: RivalDelCreador
@@ -166,7 +167,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, t
                 <span style={{ fontWeight: 500 }}>{profile.name}</span>
                 {profile.indice != null && (
                   <span style={{ fontSize: '12px', color: colores.texto3, marginLeft: '8px', flexShrink: 0 }}>
-                    HCP {formatearIndice(profile.indice)}
+                    {ROTULO_INDICE} {formatearIndice(profile.indice)}
                   </span>
                 )}
               </button>

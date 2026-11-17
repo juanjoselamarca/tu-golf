@@ -4,10 +4,11 @@
  * filas y las normaliza al shape de `@/lib/mi-golf/types`.
  *
  * Diseño para streaming: las queries están agrupadas por TAB (Competencia /
- * Identidad) para que cada sección streamee independiente. El query de
- * `historical_rounds` es SLIM (sin `scores`/`par_per_hole`) porque esas
- * columnas JSONB pesadas solo las consume `UltimaRondaHero` para UNA ronda —
- * ver `loadUltimaRondaDetalle`.
+ * Identidad) para que cada sección streamee independiente.
+ *
+ * Los números de golf (vs par, mejor del mes, mejor score) salen de rondas
+ * NORMALIZADAS (`normalizarFilasDeHistorial`, la misma fuente que /perfil/historial
+ * y /perfil/stats): pares reales, bucket 9/18 y qué rondas quedan fuera.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
@@ -15,13 +16,19 @@ import type { Tournament, RondaLibre, HistoricalRound } from '@/lib/mi-golf/type
 import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 import { normalizeScores } from '@/lib/data/focus'
 import { captureError } from '@/lib/error-tracking'
-import { fetchRondasIndice } from '@/lib/data/rondas-indice'
+import {
+  COLUMNAS_RONDA_NORMALIZABLE,
+  fetchRondasNormalizadas,
+  leerCatalogoDeCanchas,
+  normalizarFilasDeHistorial,
+} from '@/lib/data/historial'
+import type { RawStatsRound, RondaNormalizada } from '@/golf/stats/rondas-normalizadas'
 
 // Campos slim de historical_rounds: lo necesario para stats/tendencia/listado.
 // `scores`/`par_per_hole` se omiten a propósito (se traen aparte solo para la
 // última ronda del día vía loadUltimaRondaDetalle).
 const HISTORICO_SLIM_COLS =
-  'id, total_gross, course_name, played_at, diferencial, holes_played, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id'
+  'id, total_gross, course_name, played_at, diferencial, holes_played, slope_rating, course_rating, excluded_from_handicap, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id'
 
 function mapHistoricoSlim(rows: unknown): HistoricalRound[] {
   return ((rows as Array<Record<string, unknown>>) || []).map((row) => ({
@@ -31,6 +38,9 @@ function mapHistoricoSlim(rows: unknown): HistoricalRound[] {
     played_at: (row.played_at as string | null) ?? null,
     diferencial: (row.diferencial as number | null) ?? null,
     holes_played: (row.holes_played as number | null) ?? null,
+    slope_rating: (row.slope_rating as number | null) ?? null,
+    course_rating: (row.course_rating as number | null) ?? null,
+    excluded_from_handicap: (row.excluded_from_handicap as boolean | null) ?? null,
     rondaLibreJugadorId: (row.ronda_libre_jugador_id as string | null) ?? null,
     scores: null,
     parPerHole: null,
@@ -56,13 +66,23 @@ export type CompetenciaData = {
   activeTournaments: Tournament[]
   rondasLibres: RondaLibre[]
   historico: HistoricalRound[]
-  indiceGolfers: number | null
+  /** Las mismas filas de `historico`, normalizadas ([] si falló la lectura de hoyos: sin vs par, nunca inventado). */
+  rondasNormalizadas: RondaNormalizada[]
+  /** `profiles.indice`, el índice oficial: el único que se muestra fuera de /perfil (`indiceVisible`). */
+  indice: number | null
 }
+
+// Historial reciente de la pestaña Competencia: lo que normalizarRondas necesita, más
+// el vínculo exacto con la tarjeta en vivo (emparejarConHistorial) y los campos de
+// isIndexEligible (mismo `historico` que Identidad: sirve para calcularTendencia).
+const HISTORICO_COMPETENCIA_COLS =
+  `${COLUMNAS_RONDA_NORMALIZABLE}, diferencial, slope_rating, course_rating, excluded_from_handicap, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id`
 
 export async function loadCompetenciaData(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<CompetenciaData> {
+  const catalogo = leerCatalogoDeCanchas(supabase)
   const [
     { data: organizedRaw },
     { data: playedRaw },
@@ -76,8 +96,8 @@ export async function loadCompetenciaData(
     supabase.from('players').select('tournaments!inner(id, name, slug, status, date_start, courses(nombre))').eq('user_id', userId).in('tournaments.status', ['open', 'in_progress']),
     supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado, holes, hoyo_inicio, formato_juego, ronda_libre_jugadores(id, user_id)').eq('creador_id', userId).order('created_at', { ascending: false }).limit(5),
     // created_at desempata las rondas del mismo día en el mismo orden que rondas_libres.
-    supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).order('created_at', { ascending: false }).limit(50),
-    supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
+    supabase.from('historical_rounds').select(HISTORICO_COMPETENCIA_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).order('created_at', { ascending: false }).limit(50),
+    supabase.from('profiles').select('indice').eq('id', userId).single(),
   ])
 
   return {
@@ -86,7 +106,9 @@ export async function loadCompetenciaData(
     activeTournaments: ((activeRaw || []).map((p) => (p as unknown as { tournaments: Tournament | null }).tournaments).filter(Boolean)) as Tournament[],
     rondasLibres: mapRondasLibres(rondasRaw, userId),
     historico: mapHistoricoSlim(historicoRaw),
-    indiceGolfers: (profile?.indice_golfers as number | null) ?? null,
+    rondasNormalizadas:
+      (await normalizarFilasDeHistorial(supabase, (historicoRaw ?? []) as unknown as RawStatsRound[], userId, catalogo)) ?? [],
+    indice: (profile?.indice as number | null) ?? null,
   }
 }
 
@@ -168,12 +190,13 @@ export async function isNewUser(
 // ─────────────────────────── IDENTIDAD ───────────────────────────
 
 export type IdentidadData = {
-  indiceGolfers: number | null
+  /** `profiles.indice`, el índice oficial: el único que se muestra fuera de /perfil (`indiceVisible`). */
+  indice: number | null
   totalRounds: number
-  /** Rondas que promedia el índice (`fetchRondasIndice`, tope 20); null = no se pudo leer. */
-  rondasValidasIndice: number | null
   taigerSessionCount: number
   historico: HistoricalRound[]
+  /** TODAS las rondas normalizadas (mejor score igual que /perfil/stats); null si falló la lectura. */
+  rondasNormalizadas: RondaNormalizada[] | null
 }
 
 export async function loadIdentidadData(
@@ -183,22 +206,22 @@ export async function loadIdentidadData(
   const [
     { data: profile },
     { count: totalRounds },
-    rondasIndice,
     { count: taigerSessionCount },
     { data: historicoRaw },
+    rondasNormalizadas,
   ] = await Promise.all([
-    supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
+    supabase.from('profiles').select('indice').eq('id', userId).single(),
     supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF),
-    fetchRondasIndice(supabase, userId),
     supabase.from('taiger_sessions').select('*', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).limit(50),
+    fetchRondasNormalizadas(supabase, userId),
   ])
 
   return {
-    indiceGolfers: (profile?.indice_golfers as number | null) ?? null,
+    indice: (profile?.indice as number | null) ?? null,
     totalRounds: totalRounds ?? 0,
-    rondasValidasIndice: rondasIndice?.length ?? null,
     taigerSessionCount: taigerSessionCount ?? 0,
     historico: mapHistoricoSlim(historicoRaw),
+    rondasNormalizadas,
   }
 }

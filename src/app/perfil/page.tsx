@@ -5,6 +5,7 @@ import { getPageUser } from '@/lib/auth/getPageUser'
 import { fetchProfile, countTournaments, fetchCpi, fetchFedegolfStatus } from '@/lib/data/perfil'
 import { PerfilView } from './components/PerfilView'
 import { loginUrl } from '@/lib/auth/login-url'
+import { PARAM_EDITAR_INDICE, RUTA_EDITAR_INDICE } from '@/lib/rutas'
 
 export const metadata: Metadata = { title: 'Perfil — Golfers+' }
 export const dynamic = 'force-dynamic'
@@ -17,10 +18,16 @@ export const dynamic = 'force-dynamic'
  * fetch al endpoint de CPI que re-autenticaba) → waterfall + spinner. Ahora
  * PerfilView pinta con datos al instante. Capa de datos: src/lib/data/perfil.ts.
  */
-export default async function PerfilPage() {
+export default async function PerfilPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect(loginUrl('/perfil'))
+  // Llegada desde el CTA "Agrega tu índice": abre la edición en el campo del índice.
+  const editarIndice = (await searchParams)[PARAM_EDITAR_INDICE.clave] === PARAM_EDITAR_INDICE.valor
+  if (!user) redirect(loginUrl(editarIndice ? RUTA_EDITAR_INDICE : '/perfil'))
 
   const [profile, tourneysPlayed, cpiData, fedegolfStatus] = await Promise.all([
     fetchProfile(supabase, user.id),
@@ -43,6 +50,7 @@ export default async function PerfilPage() {
       tourneysPlayed={tourneysPlayed}
       cpiData={cpiData}
       initialFedegolfStatus={fedegolfStatus}
+      abrirEdicionIndice={editarIndice}
     />
   )
 }

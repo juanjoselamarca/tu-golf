@@ -2,7 +2,6 @@
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import type { Profile } from '@/lib/data/perfil'
-import { getPlayerTier } from '../perfilFormat'
 import { formatearIndice } from '@/golf/handicap-index-range'
 
 interface Props {
@@ -12,8 +11,6 @@ interface Props {
 }
 
 export function ProfileHeaderCard({ profile, tourneysPlayed, onAddIndice }: Props) {
-  const playerTier = getPlayerTier(profile.indice)
-
   return (
     <div
       style={{
@@ -30,15 +27,6 @@ export function ProfileHeaderCard({ profile, tourneysPlayed, onAddIndice }: Prop
 
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-            <span style={{ background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.28)', color: 'var(--brand-on-bg)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Perfil de jugador
-            </span>
-            <span style={{ background: 'transparent', border: 'none', color: 'var(--text-2)', padding: '0', fontSize: '10px', fontWeight: 600, fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
-              {playerTier}
-            </span>
-          </div>
-
           <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.1 }}>
             {profile.name || 'Golfista'}
           </h1>

@@ -11,3 +11,11 @@
 export function esRutaDeScoring(pathname: string | null | undefined): boolean {
   return !!pathname && (pathname.includes('/score') || pathname.includes('/scoring'))
 }
+
+/**
+ * Donde el jugador agrega o corrige su índice oficial (`profiles.indice`): /perfil
+ * abre el formulario de edición y lleva el foco al campo del índice. Lo usa el CTA
+ * "Agrega tu índice" de las pantallas que muestran el índice (`indiceVisible`).
+ */
+export const PARAM_EDITAR_INDICE = { clave: 'editar', valor: 'indice' } as const
+export const RUTA_EDITAR_INDICE = `/perfil?${PARAM_EDITAR_INDICE.clave}=${PARAM_EDITAR_INDICE.valor}`

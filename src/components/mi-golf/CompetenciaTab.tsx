@@ -3,11 +3,13 @@ import type { PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 import Link from 'next/link'
 import { Flag, Trophy, Check } from '@/components/icons'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
-import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
+import type { Tournament, RondaLibre, ComunidadMensaje } from '@/lib/mi-golf/types'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
-import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
-import { textoVsPar } from '@/lib/mi-golf/par'
+import type { MejorDelMes } from '@/golf/stats/mejor-del-mes'
+import { textoVsPar } from '@/golf/share/vs-par'
 import { fechaDeCalendario } from '@/lib/format'
+import { ROTULO_INDICE, CTA_SIN_INDICE, type IndiceVisible } from '@/golf/core/indice-visible'
+import { RUTA_EDITAR_INDICE } from '@/lib/rutas'
 import { UltimaRondaHero } from '@/components/mi-golf/UltimaRondaHero'
 import { getUltimaRondaReciente, type RondaConScores } from '@/lib/mi-golf/ultima-ronda'
 import { HeroActiva, HeroProximo, HeroVacio, Acciones } from './CompetenciaHero'
@@ -15,7 +17,8 @@ import { GOLD, TEXT, TEXT_2, TEXT_3, BORDER_SOFT, BG_SOFT, GREEN } from './compe
 
 type Props = {
   userName: string
-  hcpDisplay: string | null
+  /** Índice oficial del jugador (`indiceVisible`); el Golfers+ se ve solo en /perfil. */
+  indice: IndiceVisible
   activeRonda: RondaLibre | null
   activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null
   torneoInminente: (Tournament & { horaSalida: string | null; diasRestantes: number }) | null
@@ -23,7 +26,8 @@ type Props = {
   organizingTournaments: (Tournament & { inscritos: number; hoyoActual: number | null })[]
   recentFinishedTournaments: (Tournament & { posicionFinal: string | null; totalJugadores: number | null })[]
   finishedRondas: RondaConScores[]
-  historico: HistoricalRound[]
+  /** Mejor ronda del mes por bucket de hoyos (`mejoresDelMes`). */
+  mejoresDelMes: MejorDelMes[]
   comunidad: ComunidadMensaje
   fechaHoy: string
 }
@@ -31,7 +35,7 @@ type Props = {
 export function CompetenciaTab(props: Props) {
   const {
     userName,
-    hcpDisplay,
+    indice,
     activeRonda,
     activeRondaSummary,
     torneoInminente,
@@ -39,7 +43,7 @@ export function CompetenciaTab(props: Props) {
     organizingTournaments,
     recentFinishedTournaments,
     finishedRondas,
-    historico,
+    mejoresDelMes,
     comunidad,
     fechaHoy,
   } = props
@@ -51,13 +55,20 @@ export function CompetenciaTab(props: Props) {
         <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '22px', color: TEXT, fontWeight: 600 }}>
           Hola, {userName}
         </div>
-        {hcpDisplay && (
-          <div style={{ fontSize: '12px', color: TEXT_2, fontWeight: 500 }}>
-            HCP{' '}
-            <span style={{ fontFamily: '"DM Mono", monospace', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '14px' }}>
-              {hcpDisplay}
+        {indice.estado === 'con-indice' ? (
+          <div style={{ fontSize: '13px', color: TEXT_2, fontWeight: 500 }}>
+            {ROTULO_INDICE}{' '}
+            <span className="num" style={{ fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '16px' }}>
+              {indice.texto}
             </span>
           </div>
+        ) : (
+          <Link
+            href={RUTA_EDITAR_INDICE}
+            style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', fontSize: '13px', fontWeight: 600, color: GOLD, textDecoration: 'none' }}
+          >
+            {CTA_SIN_INDICE} →
+          </Link>
         )}
       </div>
 
@@ -87,7 +98,7 @@ export function CompetenciaTab(props: Props) {
       )}
 
       {/* RONDAS */}
-      {finishedRondas.length > 0 && <Rondas rondas={finishedRondas} historico={historico} fechaHoy={fechaHoy} />}
+      {finishedRondas.length > 0 && <Rondas rondas={finishedRondas} mejoresDelMes={mejoresDelMes} fechaHoy={fechaHoy} />}
 
       {/* COMUNIDAD */}
       {comunidad && <Comunidad comunidad={comunidad} />}
@@ -301,19 +312,18 @@ function Chip({ variant, children }: { variant: 'live' | 'upcoming' | 'finished'
 
 function Rondas({
   rondas,
-  historico,
+  mejoresDelMes,
   fechaHoy,
 }: {
   rondas: RondaConScores[]
-  historico: HistoricalRound[]
+  mejoresDelMes: MejorDelMes[]
   fechaHoy: string
 }) {
   return (
     <div style={{ marginBottom: '24px' }}>
       <SectionLabel label="Últimas rondas" linkText="Ver todas →" linkHref="/perfil/historial" />
       {rondas.slice(0, 3).map((r) => {
-        const matchingHist = r.historicoId ? historico.find((h) => h.id === r.historicoId) : undefined
-        const esMejor = matchingHist ? esMejorDelMes(matchingHist, historico, fechaHoy) : false
+        const mejor = r.historicoId ? mejoresDelMes.find((m) => m.roundId === r.historicoId) : undefined
         const fechaContextual = formatFechaContextual(r.fecha, fechaHoy)
 
         return (
@@ -334,7 +344,7 @@ function Rondas({
               <div style={{ fontSize: '14px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {r.course_name}
               </div>
-              <div style={{ fontSize: '11px', color: TEXT_3, marginTop: '3px' }}>{fechaContextual}</div>
+              <div style={{ fontSize: '13px', color: TEXT_3, marginTop: '3px' }}>{fechaContextual}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
               {r.total_gross != null && (
@@ -342,13 +352,14 @@ function Rondas({
                   <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '16px', fontWeight: 700, color: TEXT }}>
                     {r.total_gross}
                   </div>
-                  {esMejor ? (
-                    <div style={{ fontSize: '11px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes</div>
-                  ) : r.vsPar != null ? (
-                    <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
+                  {r.vsPar != null && (
+                    <div style={{ fontSize: '13px', color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
                       {textoVsPar(r.vsPar)}
                     </div>
-                  ) : null}
+                  )}
+                  {mejor && (
+                    <div style={{ fontSize: '13px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes · {mejor.bucket} hoyos</div>
+                  )}
                 </>
               )}
             </div>

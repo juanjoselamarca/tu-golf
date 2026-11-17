@@ -4,8 +4,8 @@
  * Verifica que el dashboard del usuario autenticado muestra datos reales:
  * 1. Tabs Competencia/Identidad visibles y conmutables
  * 2. Saludo con nombre del usuario ("Hola, <nombre>")
- * 3. HCP (índice) visible o "Sin calibrar"
- * 4. Tab Identidad muestra "Índice Golfers+" con valor numérico
+ * 3. Índice oficial visible o el CTA "Agrega tu índice"
+ * 4. Tab Identidad muestra "Índice" (el oficial) con valor numérico o el CTA; nunca el Golfers+
  * 5. Secciones clave: rondas, torneos, niveles
  * 6. Sin errores JS ni 5xx
  *
@@ -168,7 +168,7 @@ test.describe('Dashboard — /dashboard', () => {
     expect(bodyBack).toMatch(/Hola,|ronda|Nueva ronda|score|EN VIVO/i)
   })
 
-  test('tab Identidad muestra "Índice Golfers+" con valor', async ({ page }) => {
+  test('tab Identidad muestra el "Índice" oficial con valor o el CTA', async ({ page }) => {
     const loaded = await gotoDashboardReady(page)
     test.fixme(!loaded, 'Vercel Security Checkpoint bloqueó el headless browser')
 
@@ -181,12 +181,13 @@ test.describe('Dashboard — /dashboard', () => {
     // Esperar contenido visible
     const identidadPanel = page.locator('[role="tabpanel"]:not([aria-hidden="true"])')
     const panelText = await identidadPanel.innerText({ timeout: 10_000 })
-    // CSS text-transform: uppercase → innerText devuelve "ÍNDICE GOLFERS+"
-    expect(panelText.toUpperCase()).toContain('ÍNDICE GOLFERS+')
+    // Fuera de /perfil se ve el índice oficial (decisión 16-nov-2026); el Golfers+ vive solo en /perfil.
+    expect(panelText.toUpperCase()).toContain('ÍNDICE')
+    expect(panelText.toUpperCase()).not.toContain('ÍNDICE GOLFERS+')
 
-    // Debe tener un valor numérico o "Sin calibrar" o "—"
-    const hasIndex = /\d+\.\d|Sin calibrar|—/.test(panelText)
-    expect(hasIndex, 'Identidad debe mostrar índice numérico, "Sin calibrar" o "—"').toBe(true)
+    // Debe tener un valor numérico o el CTA para cargarlo
+    const hasIndex = /\d+\.\d|Agrega tu índice/.test(panelText)
+    expect(hasIndex, 'Identidad debe mostrar índice numérico o "Agrega tu índice"').toBe(true)
   })
 
   test('tab Identidad muestra nivel de juego', async ({ page }) => {
@@ -200,11 +201,12 @@ test.describe('Dashboard — /dashboard', () => {
 
     const identidadPanel = page.locator('[role="tabpanel"]:not([aria-hidden="true"])')
     const panelText = await identidadPanel.innerText({ timeout: 10_000 })
-    const levelNames = ['Principiante', 'Intermedio', 'Avanzado', 'Experto', 'Scratch', 'Elite', 'Bogey']
-    const hasLevel = levelNames.some(l => panelText.includes(l))
-    // Si no hay nivel, al menos debe mostrar progreso de calibración
-    const hasCalibration = /calibr|rondas con|desbloquear/i.test(panelText)
-    expect(hasLevel || hasCalibration, 'Identidad debe mostrar nivel de juego o progreso de calibración').toBe(true)
+    // Categorías de src/lib/mi-golf/niveles.ts (NIVELES_ORDEN); innerText puede venir en mayúsculas por CSS.
+    const levelNames = ['Novato', 'Amateur', 'Intermedio', 'Avanzado', 'Scratch']
+    const hasLevel = levelNames.some(l => panelText.toUpperCase().includes(l.toUpperCase()))
+    // Sin índice oficial no hay categoría: debe ofrecer cargarlo
+    const hasCta = /Agrega tu índice/i.test(panelText)
+    expect(hasLevel || hasCta, 'Identidad debe mostrar la categoría o "Agrega tu índice"').toBe(true)
   })
 
   test('no muestra "Iniciar sesión" ni formulario de login', async ({ page }) => {

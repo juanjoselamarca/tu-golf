@@ -16,8 +16,14 @@ export type Insight = {
 }
 
 export type StatsForma = {
-  promedioUltimas5: number | null
-  mejorScore: { gross: number; vsPar: number } | null
+  /**
+   * Promedio de las últimas 5 rondas que cuentan del MISMO bucket que mejorScore
+   * (bucketPrincipal): sin scrambles, match play ni parciales, sin mezclar 9 y 18.
+   * `serie` = esos gross en orden cronológico (sparkline).
+   */
+  promedioUltimas5: { promedio: number; hoyos: 18 | 9; serie: number[] } | null
+  /** Mejor ronda del bucket principal (`agregarRondas` + `bucketPrincipal`), rotulada con sus hoyos. */
+  mejorScore: { gross: number; vsPar: number; hoyos: 18 | 9 } | null
   rondasJugadas: number
   canchaFavorita: { nombre: string; vecesJugada: number } | null
 }
@@ -52,6 +58,11 @@ export type HistoricalRound = {
   played_at: string | null
   diferencial: number | null
   holes_played: number | null
+  // Campos de isIndexEligible (la tendencia usa solo las rondas que cuentan para el índice).
+  // Opcionales: fixtures previos.
+  slope_rating?: number | null
+  course_rating?: number | null
+  excluded_from_handicap?: boolean | null
   /** `metadata.ronda_libre_jugador_id`: la tarjeta en vivo de la que salió esta fila (vínculo exacto). */
   rondaLibreJugadorId?: string | null
   // v6 Última Ronda Express: alimentan UltimaRondaHero.tsx (activity bar).

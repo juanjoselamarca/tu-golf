@@ -45,16 +45,14 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
       {/* Eyebrow */}
       <div
         style={{
-          fontSize: '10px',
-          fontFamily: '"DM Mono", monospace',
-          fontWeight: 700,
-          color: TEXT_3,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
+          fontSize: '13px',
+          fontWeight: 600,
+          color: TEXT_2,
           marginBottom: '8px',
         }}
       >
-        Tu categoría · Golfers+
+        {/* La categoría sale del índice oficial (profiles.indice), no del Golfers+. */}
+        Tu categoría
       </div>
 
       {/* Hero del nivel */}

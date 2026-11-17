@@ -9,6 +9,7 @@ import {
   injectUltimaRondaDetalle,
 } from './dashboard-derive'
 import type { Tournament, HistoricalRound, RondaLibre } from './types'
+import type { RondaNormalizada, MotivoFueraDeNumeros } from '@/golf/stats/rondas-normalizadas'
 
 const NOW = new Date('2026-06-03T12:00:00Z').getTime()
 
@@ -17,6 +18,13 @@ function torneo(over: Partial<Tournament> = {}): Tournament {
 }
 function ronda(over: Partial<RondaLibre> = {}): RondaLibre {
   return { id: 'r1', codigo: 'ABC', course_name: 'Los Leones', fecha: '2026-06-03', estado: 'finalizada', holes: 18, hoyo_inicio: 1, formato_juego: null, ...over }
+}
+function normalizada(id: string, vsPar: number | null, fueraDePromedios: MotivoFueraDeNumeros | null = null): RondaNormalizada {
+  return {
+    id, course_name: 'Los Leones', played_at: '2026-06-03', scores: [], total_gross: 85, holes_played: 18,
+    import_source: null, parPerHole: null, vsPar, tarjeta: [], pares: [], hoyosEstimados: [],
+    bucket: 18, fueraDePromedios, cuentaHoyoAHoyo: false,
+  }
 }
 function hist(over: Partial<HistoricalRound> = {}): HistoricalRound {
   return { id: 'h1', total_gross: 85, course_name: 'Los Leones', played_at: '2026-06-03', diferencial: 12, holes_played: 18, ...over }
@@ -76,9 +84,10 @@ describe('buildFinishedRondas', () => {
   it('matchea por course_name + fecha y deja scores/parPerHole en null (historico slim)', () => {
     const rondas = [ronda()]
     const historico = [hist()]
-    const [r] = buildFinishedRondas(rondas, historico)
+    // Par real 71 en la normalizada: 85 → +14 (el par 72 inventado daba +13).
+    const [r] = buildFinishedRondas(rondas, historico, [normalizada('h1', 14)])
     expect(r.total_gross).toBe(85)
-    expect(r.vsPar).not.toBeNull()
+    expect(r.vsPar).toBe(14)
     expect(r.scores).toBeNull()
     expect(r.parPerHole).toBeNull()
   })
@@ -90,7 +99,7 @@ describe('buildFinishedRondas', () => {
       hist({ id: 'h48', total_gross: 48, holes_played: 9, rondaLibreJugadorId: 'j1' }),
       hist({ id: 'h36', total_gross: 36, holes_played: 9, rondaLibreJugadorId: 'j2' }),
     ]
-    const res = buildFinishedRondas(rondas, historico)
+    const res = buildFinishedRondas(rondas, historico, [])
     expect(res.map((r) => [r.id, r.total_gross, r.historicoId])).toEqual([['nueva', 36, 'h36'], ['vieja', 48, 'h48']])
   })
   it('filas viejas sin vínculo: cancha + fecha, cada fila una sola vez y en orden', () => {
@@ -103,19 +112,26 @@ describe('buildFinishedRondas', () => {
   it('nunca toma la fila vinculada a OTRA ronda (aunque coincidan cancha y fecha)', () => {
     const rondas = [ronda({ id: 'sin-tarjeta', miJugadorId: 'j9' })]
     const historico = [hist({ id: 'ajena', rondaLibreJugadorId: 'j1' })]
-    const [r] = buildFinishedRondas(rondas, historico)
+    const [r] = buildFinishedRondas(rondas, historico, [normalizada('ajena', 3)])
     expect(r.historicoId).toBeNull()
     expect(r.total_gross).toBeNull()
   })
   it('sin match deja total_gross/vsPar en null', () => {
-    const [r] = buildFinishedRondas([ronda({ course_name: 'Otra' })], [hist()])
+    const [r] = buildFinishedRondas([ronda({ course_name: 'Otra' })], [hist()], [normalizada('h1', 3)])
     expect(r.total_gross).toBeNull()
     expect(r.vsPar).toBeNull()
+  })
+  it('ronda fuera de los números (scramble) o sin normalizar: sin vs par, nunca uno inventado', () => {
+    const [scramble] = buildFinishedRondas([ronda()], [hist()], [normalizada('h1', -9, 'bola_compartida')])
+    expect(scramble.total_gross).toBe(85)
+    expect(scramble.vsPar).toBeNull()
+    const [sinNormalizar] = buildFinishedRondas([ronda()], [hist()], [])
+    expect(sinNormalizar.vsPar).toBeNull()
   })
 })
 
 describe('injectUltimaRondaDetalle', () => {
-  const base = buildFinishedRondas([ronda({ id: 'r1' }), ronda({ id: 'r2', codigo: 'XYZ' })], [hist(), hist({ id: 'h2' })])
+  const base = buildFinishedRondas([ronda({ id: 'r1' }), ronda({ id: 'r2', codigo: 'XYZ' })], [hist(), hist({ id: 'h2' })], [])
   it('inyecta scores/parPerHole solo en la ronda con id coincidente', () => {
     const detalle = { scores: [4, 5, 3], parPerHole: [4, 4, 3] }
     const res = injectUltimaRondaDetalle(base, 'r1', detalle)

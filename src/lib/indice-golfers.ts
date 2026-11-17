@@ -83,14 +83,6 @@ export const NIVEL_LABELS: Record<number, string> = {
   5: 'Golfer+',
 }
 
-export const NIVEL_DESCRIPCION: Record<number, string> = {
-  1: 'Registra tu primera ronda para empezar.',
-  2: 'Estás en cancha. Sigue jugando.',
-  3: 'Jugador consistente. tAIger+ te conoce bien.',
-  4: 'Nivel avanzado. Tus datos alimentan análisis profundos.',
-  5: 'El nivel más alto de Golfers+. Embajador del juego.',
-}
-
 /**
  * Cuenta cuántas rondas le faltan al usuario para activar el Índice Golfers+.
  * Retorna 0 si ya tiene suficientes.

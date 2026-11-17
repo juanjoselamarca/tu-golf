@@ -15,8 +15,9 @@ import {
 import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
 import type { ComunidadMensaje } from '@/lib/mi-golf/types'
 import { posicionDeRondaEnCurso, type PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
-import { formatearIndice } from '@/golf/handicap-index-range'
+import { indiceVisible } from '@/golf/core/indice-visible'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
+import { mejoresDelMes } from '@/golf/stats/mejor-del-mes'
 
 export async function CompetenciaSection({ userId, userName }: { userId: string; userName: string }) {
   const supabase = await createClient()
@@ -27,7 +28,7 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
 
   const activeRonda = data.rondasLibres.find((r) => !esRondaCerrada(r.estado)) ?? null
   const finishedRondasRaw = data.rondasLibres.filter((r) => esRondaCerrada(r.estado))
-  let finishedRondas = buildFinishedRondas(finishedRondasRaw, data.historico)
+  let finishedRondas = buildFinishedRondas(finishedRondasRaw, data.historico, data.rondasNormalizadas)
 
   // Detalle hoyo-por-hoyo solo de la última ronda del día (UltimaRondaHero), por el
   // `id` de la fila histórica que ya se emparejó con ESA ronda (buildFinishedRondas).
@@ -42,7 +43,6 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
   const enriquecidosOrganizing = enrichOrganizing(data.organizedTournaments)
   const finalizadosRecientes = buildFinalizados(data.playedTournaments, data.organizedTournaments)
 
-  const hcpDisplay = data.indiceGolfers != null ? formatearIndice(data.indiceGolfers) : null
   const comunidad: ComunidadMensaje = null
 
   let activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null = null
@@ -55,7 +55,7 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
   return (
     <CompetenciaTab
       userName={userName}
-      hcpDisplay={hcpDisplay}
+      indice={indiceVisible({ indice: data.indice })}
       activeRonda={activeRonda}
       activeRondaSummary={activeRondaSummary}
       torneoInminente={torneoInminente}
@@ -63,7 +63,7 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
       organizingTournaments={enriquecidosOrganizing}
       recentFinishedTournaments={finalizadosRecientes}
       finishedRondas={finishedRondas}
-      historico={data.historico}
+      mejoresDelMes={mejoresDelMes(data.rondasNormalizadas, fechaHoy)}
       comunidad={comunidad}
       fechaHoy={fechaHoy}
     />

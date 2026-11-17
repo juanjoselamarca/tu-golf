@@ -1,53 +1,48 @@
 // src/lib/mi-golf/stats.ts
 import type { HistoricalRound, StatsForma } from './types'
-import { getVsPar } from './par'
-import { inferHoles } from '@/golf/core/holes'
+import { agregarRondas, bucketPrincipal, rondasQueCuentan, type RondaNormalizada } from '@/golf/stats/rondas-normalizadas'
 
-export function calcularStatsForma(rondas: HistoricalRound[]): StatsForma {
+/**
+ * Mejor score: el de /perfil/stats (agregarRondas sobre rondas normalizadas, en el
+ * bucket que más juega el jugador). Nunca un scramble ni un par inventado.
+ */
+function mejorScoreDe(normalizadas: RondaNormalizada[]): StatsForma['mejorScore'] {
+  const bucket = bucketPrincipal(normalizadas)
+  if (bucket == null) return null
+  const agregados = agregarRondas(normalizadas)
+  const mejor = bucket === 18 ? agregados.bestRound18 : agregados.bestRound9
+  return mejor ? { gross: mejor.score, vsPar: mejor.vsPar, hoyos: bucket } : null
+}
+
+/**
+ * Promedio de las últimas 5: mismas rondas que cuentan y mismo bucket que el mejor score
+ * (antes usaba otra regla de bucket y metía scrambles y match play en el promedio).
+ */
+function promedioUltimas5De(normalizadas: RondaNormalizada[]): StatsForma['promedioUltimas5'] {
+  const bucket = bucketPrincipal(normalizadas)
+  if (bucket == null) return null
+  // Más reciente primero; sort estable: con la misma fecha conserva el orden de la capa de datos.
+  const ultimas = rondasQueCuentan(
+    [...normalizadas].sort((a, b) => (a.played_at < b.played_at ? 1 : a.played_at > b.played_at ? -1 : 0)),
+    bucket,
+  ).slice(0, 5)
+  if (ultimas.length === 0) return null
+  const promedio = ultimas.reduce((s, r) => s + r.total_gross, 0) / ultimas.length
+  return { promedio, hoyos: bucket, serie: ultimas.map(r => r.total_gross).reverse() }
+}
+
+export function calcularStatsForma(rondas: HistoricalRound[], normalizadas: RondaNormalizada[]): StatsForma {
   if (rondas.length === 0) {
     return {
-      promedioUltimas5: null,
-      mejorScore: null,
+      promedioUltimas5: promedioUltimas5De(normalizadas),
+      mejorScore: mejorScoreDe(normalizadas),
       rondasJugadas: 0,
       canchaFavorita: null,
     }
   }
 
-  const ordenadas = [...rondas].sort((a, b) => {
-    const ta = a.played_at ? new Date(a.played_at).getTime() : 0
-    const tb = b.played_at ? new Date(b.played_at).getTime() : 0
-    return tb - ta
-  })
-
-  // Filtrar a un solo bucket de hoyos antes de promediar — mezclar 9h con 18h
-  // contamina el promedio (un 45 de 9h y un 90 de 18h NO promedian a 67.5).
-  // Estrategia: preferir 18h; si no hay 5 rondas 18h, usar 9h como fallback.
-  const conGrossOrdenadas = ordenadas.filter((r) => r.total_gross != null)
-  const rondas18 = conGrossOrdenadas.filter((r) => inferHoles(r) === 18)
-  const rondas9 = conGrossOrdenadas.filter((r) => inferHoles(r) === 9)
-  const bucketParaPromedio =
-    rondas18.length >= 5 ? rondas18
-    : rondas9.length >= 5 ? rondas9
-    : rondas18.length >= rondas9.length ? rondas18
-    : rondas9
-  const ultimas5 = bucketParaPromedio.slice(0, 5)
-  const promedioUltimas5 =
-    ultimas5.length > 0
-      ? ultimas5.reduce((s, r) => s + (r.total_gross ?? 0), 0) / ultimas5.length
-      : null
-
-  // Mejor score = el que tiene MENOR vsPar (mejor performance), no el menor gross.
-  // Esto compara 9 hoyos con 18 hoyos correctamente.
-  const conGross = rondas.filter((r) => r.total_gross != null)
-  let mejorScore: StatsForma['mejorScore'] = null
-  let mejorVsPar = Infinity
-  for (const r of conGross) {
-    const vsPar = getVsPar(r.total_gross, r.holes_played)
-    if (vsPar != null && vsPar < mejorVsPar) {
-      mejorVsPar = vsPar
-      mejorScore = { gross: r.total_gross!, vsPar }
-    }
-  }
+  const promedioUltimas5 = promedioUltimas5De(normalizadas)
+  const mejorScore = mejorScoreDe(normalizadas)
 
   const contador = new Map<string, number>()
   for (const r of rondas) {

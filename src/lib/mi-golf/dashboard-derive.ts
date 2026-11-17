@@ -5,7 +5,7 @@
  * Sin I/O: reciben datos ya traídos por la capa `src/lib/data/dashboard.ts`.
  */
 import type { Tournament, HistoricalRound, RondaLibre } from './types'
-import { getVsPar } from './par'
+import type { RondaNormalizada } from '@/golf/stats/rondas-normalizadas'
 import type { RondaConScores } from './ultima-ronda'
 import { fechaDeCalendario } from '@/lib/format'
 
@@ -81,22 +81,28 @@ export function emparejarConHistorial(
 
 /**
  * Enriquece las rondas libres finalizadas con su fila de `historical_rounds`
- * (ver `emparejarConHistorial`). `scores`/`parPerHole` arrancan en null
- * porque el historico es slim — se inyectan después solo para la última ronda
- * vía `injectUltimaRondaDetalle`.
+ * (ver `emparejarConHistorial`). `scores`/`parPerHole` arrancan en null:
+ * se inyectan después solo para la última ronda vía `injectUltimaRondaDetalle`.
+ *
+ * vsPar: el de la ronda NORMALIZADA (pares reales, misma fuente que historial y
+ * stats), y solo si la ronda entra a los números. Un scramble, un match play o una
+ * parcial no muestran "vs par" (antes se inventaba par 36/72 por hoyos jugados).
  */
 export function buildFinishedRondas(
   finishedRondasRaw: RondaLibre[],
   historico: HistoricalRound[],
+  rondasNormalizadas: RondaNormalizada[],
 ): RondaConScores[] {
   const pares = emparejarConHistorial(finishedRondasRaw, historico)
+  const normalizada = new Map(rondasNormalizadas.map((n) => [n.id, n]))
   return finishedRondasRaw.map((r) => {
     const match = pares.get(r.id)
+    const n = match ? normalizada.get(match.id) : undefined
     return {
       ...r,
       historicoId: match?.id ?? null,
       total_gross: match?.total_gross ?? null,
-      vsPar: match ? getVsPar(match.total_gross, match.holes_played) : null,
+      vsPar: n && n.fueraDePromedios == null ? n.vsPar : null,
       scores: null,
       parPerHole: null,
     }

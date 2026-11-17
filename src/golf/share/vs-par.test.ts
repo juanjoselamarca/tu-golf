@@ -1,4 +1,14 @@
 import { describe, it, expect } from 'vitest'
+import { textoVsPar } from './vs-par'
+
+describe('textoVsPar', () => {
+  it('al par dice "par" (no "+0 vs par"); con signo fuera del par', () => {
+    expect(textoVsPar(0)).toBe('par')
+    expect(textoVsPar(12)).toBe('+12 vs par')
+    expect(textoVsPar(-1)).toBe('-1 vs par')
+    expect(textoVsPar(null)).toBe('—')
+  })
+})
 import {
   parNominal,
   resolveParTotal,
