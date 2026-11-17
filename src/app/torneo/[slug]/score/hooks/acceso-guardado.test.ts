@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { avisoSinAcceso, clasificarRespuestaScore, esSinAcceso } from './acceso-guardado'
+import { buscarVoseo } from '../../../../../../scripts/lib/voseo.mjs'
 
 const PROMESA_VACIA = /sincroniz|guardado localmente|reintent|anótalos de nuevo/i
 
@@ -61,7 +62,7 @@ describe('avisoSinAcceso', () => {
     for (const a of avisos) {
       expect(`${a.titulo} ${a.detalle} ${a.cta}`).not.toMatch(PROMESA_VACIA)
       expect(a.detalle).toMatch(/en este teléfono, no en el torneo/)
-      expect(a.detalle).not.toMatch(/\b(anotá|ingresá|vos)\b/i)
+      expect(buscarVoseo(`${a.titulo} ${a.detalle} ${a.cta}`)).toEqual([])
     }
   })
 })
