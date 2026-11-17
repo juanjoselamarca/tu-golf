@@ -9,31 +9,23 @@ import { HighlightCard } from '@/components/coach/HighlightCard'
 import { CostoPsicologicoCard } from '@/components/coach/CostoPsicologicoCard'
 import { CurvaMentalCard } from '@/components/coach/CurvaMentalCard'
 import { PatternTile } from '@/components/coach/PatternTile'
-import { PlanActiveCard } from '@/components/coach/PlanActiveCard'
 import { ConversarStickyCTA } from '@/components/coach/ConversarStickyCTA'
 import { DefaultTeeBanner } from '@/components/DefaultTeeBanner'
 import { BANDA_MENTAL_ALTA, BANDA_MENTAL_MEDIA, etiquetaEspiral, fraseMentalIndex, resumenMentalDelCoach, textoVentanaMentalPosesivo, TITULO_BANDA_MENTAL } from '@/golf/coach/mental-index'
 import { buildActivePlanSummary } from '@/golf/coach/intro'
 import { fetchCoachHome } from '@/lib/data/coach-home'
-import { textoPlano } from '@/lib/text/texto-plano'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
 import { CoachBetaBanner } from './components/CoachBetaBanner'
 import { RondasNoLeidas } from './components/RondasNoLeidas'
+import { HablarConMiCoach } from './components/HablarConMiCoach'
+import { PlanActivo } from './components/PlanActivo'
+import { SesionesAnteriores } from './components/SesionesAnteriores'
 import { canUseCoach } from './lib/checkCoachAccess'
 import { loginUrl } from '@/lib/auth/login-url'
 import { fechaDeCalendario } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
-
-const SESSION_LABELS: Record<string, string> = {
-  continuous: 'Conversación continua',
-  post_round: 'Análisis post-ronda',
-  weekly_plan: 'Plan semanal',
-  pre_tournament: 'Pre-torneo',
-  free: 'Consulta libre',
-  onboarding: 'Onboarding',
-}
 
 const PATTERN_NAMES: Record<string, string> = {
   post_bogey_spiral: 'Espiral post-bogey',
@@ -86,13 +78,22 @@ export default async function CoachDashboard() {
   // (un concepto, una fuente). `outcomes` ya viene scopeado al plan + 4 semanas.
   const planSummary = buildActivePlanSummary(plan, outcomes)
 
-  // Falló la lectura: se dice y se reintenta. Nunca "Bienvenido" a quien sí tiene rondas.
+  // Falló la lectura de rondas: se dice y se reintenta, pero el coach sigue
+  // accesible (CTA, plan y sesiones se leen aparte). Nunca "Bienvenido" a quien
+  // sí tiene rondas.
   if (rondas === null) {
     return (
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 0 100px' }}>
         <CoachBetaBanner />
-        <TaigerHero subtitle="Tu coach de rendimiento con inteligencia artificial" />
-        <RondasNoLeidas />
+        <div style={{ padding: '0 16px' }}>
+          <TaigerHero subtitle="Tu coach de rendimiento con inteligencia artificial" />
+          <RondasNoLeidas />
+          <div style={{ textAlign: 'center', margin: '16px 0 24px' }}>
+            <HablarConMiCoach />
+          </div>
+        </div>
+        {planSummary && <PlanActivo plan={planSummary} />}
+        <SesionesAnteriores sesiones={sessions} />
       </div>
     )
   }
@@ -109,12 +110,7 @@ export default async function CoachDashboard() {
           <div style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6, marginBottom: '18px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
             Soy tu coach de rendimiento con inteligencia artificial. Conozco cada golpe, cada patrón, cada tendencia de tu juego. Háblame y empezamos a trabajar juntos.
           </div>
-          <Link
-            href="/coach/sesion/nueva"
-            style={{ display: 'inline-block', background: 'var(--coach-brass)', color: 'var(--bg)', fontWeight: 700, fontSize: '14px', padding: '12px 28px', borderRadius: '10px', textDecoration: 'none' }}
-          >
-            Hablar con mi coach
-          </Link>
+          <HablarConMiCoach />
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '14px' }}>
             <Link href="/ronda-libre/nueva" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: '13px', padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Nueva ronda</Link>
             <Link href="/importar" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: '13px', padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Importar historial</Link>
@@ -136,7 +132,7 @@ export default async function CoachDashboard() {
       <CoachBetaBanner />
       <PageTracker page="/coach" />
       <div style={{ padding: '0 16px' }}>
-        <TaigerHero subtitle={indice.band === 'low' ? 'Tu coach detectó algo importante esta semana' : indice.band === 'mid' ? 'Tu coach está leyendo tu juego' : 'Tu coach de rendimiento con inteligencia artificial'} />
+        <TaigerHero subtitle={indice.band === 'low' ? 'Tu coach detectó algo importante en tus últimas rondas' : indice.band === 'mid' ? 'Tu coach está leyendo tu juego' : 'Tu coach de rendimiento con inteligencia artificial'} />
       </div>
 
       {/* Red de seguridad: si importó tarjetas sin tee y no fijó su tee habitual,
@@ -188,7 +184,7 @@ export default async function CoachDashboard() {
       )}
 
       {patterns.length > 0 && (
-        <HighlightsCarousel label="Highlights · esta semana">
+        <HighlightsCarousel label="Highlights">
           {patterns.slice(0, 3).map(p => (
             <HighlightCard
               key={p.id}
@@ -239,14 +235,17 @@ export default async function CoachDashboard() {
           <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '14px' }}>Patrones detectados</div>
           {patterns.map(p => {
             const isActive = p.status === 'active'
+            // La espiral ya tiene su número: el Mental Index. Un segundo "47/100" con
+            // el sentido opuesto competía con él (vuelta 1 de revisión del PR3).
+            const conNumero = p.pattern_type !== 'post_bogey_spiral'
             return (
               <PatternTile
                 key={p.id}
                 category={patternCategory(p.pattern_type)}
                 state={isActive ? 'active' : 'latente'}
                 name={PATTERN_NAMES[p.pattern_type] ?? p.pattern_type}
-                score={patternScore(p)}
-                scoreSuffix="/100"
+                score={conNumero ? patternScore(p) : undefined}
+                scoreSuffix={conNumero ? '/100' : undefined}
                 spark={isActive ? [
                   { height: 30, tone: 'ink' }, { height: 60, tone: 'ink' }, { height: 80, tone: 'ink' }, { height: 100, tone: 'ink' },
                   { height: 80, tone: 'ink' }, { height: 75, tone: 'ink' }, { height: 90, tone: 'ink' },
@@ -258,42 +257,10 @@ export default async function CoachDashboard() {
         </div>
       )}
 
-      {planSummary && (
-        <PlanActiveCard
-          title={planSummary.title}
-          description={planSummary.description}
-          status={planSummary.status}
-          dots={planSummary.dots}
-          correlationLine={
-            planSummary.total > 0 ? (
-              <>
-                Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace' }}>{planSummary.appliedPct}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{planSummary.total}</b> rondas con plan activo. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son donde la cabeza paga el precio.</b>
-              </>
-            ) : (
-              <>Aún no registras rondas con este plan. La próxima cuenta.</>
-            )
-          }
-        />
-      )}
+      {planSummary && <PlanActivo plan={planSummary} />}
 
-      {sessions.filter(s => s.id !== primarySessionId).length > 0 && (
-        <div style={{ padding: '0 20px', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', fontFamily: 'var(--font-dm-mono), monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>
-            Sesiones anteriores
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {sessions.filter(s => s.id !== primarySessionId).map(s => (
-              <Link key={s.id} href={`/coach/sesion/${s.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '12px', padding: '14px 16px', textDecoration: 'none' }}>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{SESSION_LABELS[s.session_type] ?? s.session_type}</div>
-                  {s.next_focus && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Foco: {textoPlano(s.next_focus, 90)}</div>}
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{new Date(s.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', timeZone: 'America/Santiago' })}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* La sesión principal ya la abre el CTA fijo de abajo. */}
+      <SesionesAnteriores sesiones={sessions.filter(s => s.id !== primarySessionId)} />
 
       <ConversarStickyCTA href={ctaHref} label={ctaLabel} />
     </div>
