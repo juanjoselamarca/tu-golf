@@ -6,9 +6,11 @@ import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 import { CODIGO_RONDA_VALIDO } from '@/lib/api-en-vivo'
+import { respuestaDelJuego } from './respuesta-del-juego'
 
 // GET /api/ronda-libre/[codigo]/juego — el juego de una Timba libre (formato `personalizado`), calculado en el
-// servidor. Requiere sesión, privada y no-store (como `/hcp`).
+// servidor. Con sesión, privada y no-store (como `/hcp`): el scorer ve al tiro lo que acaba de anotar. Sin sesión,
+// 401 y el cliente lee el mismo cuerpo de `/juego/publico` (cacheada en el CDN).
 //
 // Qué ve el grupo en una Timba neto: los puntos y la marca de golpe recibido por hoyo de cada jugador. La respuesta
 // es `VistaDelJuego`, que hoy no trae el índice ni el hándicap de juego (por espacio y diseño, no por privacidad:
@@ -28,17 +30,7 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     if (!sesion?.claims?.sub) return NextResponse.json({ error: 'Requiere sesión' }, { status: 401, headers: PRIVADO })
 
     const juego = await cargarJuegoDeLaRonda(createAdminClient(), codigo, indicesDePerfil)
-    switch (juego.status) {
-      case 'ok':
-        return NextResponse.json({ estado: 'ok', ...juego.vista }, { headers: PRIVADO })
-      case 'sin_juego':
-        return NextResponse.json({ estado: 'sin_juego', motivo: juego.motivo }, { headers: PRIVADO })
-      case 'no_es_timba':
-      case 'not_found':
-        return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: PRIVADO })
-      default:
-        return NextResponse.json({ error: 'No disponible' }, { status: 503, headers: PRIVADO })
-    }
+    return respuestaDelJuego(juego, { ok: PRIVADO, noEncontrada: PRIVADO })
   } catch (err) {
     void captureError(err, { context: 'api.ronda-libre.juego', meta: { codigo } })
     return NextResponse.json({ error: 'Algo salió mal' }, { status: 500, headers: PRIVADO })

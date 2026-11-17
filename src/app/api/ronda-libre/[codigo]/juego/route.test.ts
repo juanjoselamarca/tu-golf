@@ -44,6 +44,7 @@ function tabla(nombre: string) {
 vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => ({ from: tabla }) }))
 
 import { GET } from './route'
+import { GET as GET_PUBLICO } from './publico/route'
 
 const PAR = Object.fromEntries(Array.from({ length: 18 }, (_, i) => [i + 1, 4]))
 const SI = Object.fromEntries(Array.from({ length: 18 }, (_, i) => [i + 1, i + 1]))
@@ -87,7 +88,7 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('cache-control')).toMatch(/no-store/)
     const cuerpo = await res.json()
-    expect(Object.keys(cuerpo).sort()).toEqual(['config', 'estado', 'golpesRecibidos', 'jugadorIds', 'marcas', 'resultado', 'retiros'])
+    expect(Object.keys(cuerpo).sort()).toEqual(['config', 'estado', 'golpesRecibidos', 'jugadorIds', 'marcas', 'resultado', 'retiros', 'rondaCerrada'])
     expect(JSON.stringify(cuerpo)).not.toMatch(/courseHandicap|courseHcp|handicapIndex|"indice"|sinIndice/i)
     expect(cuerpo.jugadorIds).toEqual(IDS)
     expect(Object.values(cuerpo.golpesRecibidos[TOMAS] as Record<string, number>).reduce((a, b) => a + b, 0)).toBe(12) // la diferencia con el más bajo (18 − 6), no su CH
@@ -102,11 +103,55 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
   it('reglas_juego inválido no calcula: estado sin_juego con el motivo', async () => {
     reglasJuego = null
     const cuerpo = await (await llamar()).json()
-    expect(cuerpo).toEqual({ estado: 'sin_juego', motivo: 'reglas_invalidas' })
+    expect(cuerpo).toEqual({ estado: 'sin_juego', motivo: 'reglas_invalidas', rondaCerrada: false })
   })
 
   it('un código con caracteres raros es 404 sin tocar la base', async () => {
     expect((await llamar('a b')).status).toBe(404)
     expect(cargarRondaLibreEnVivo).not.toHaveBeenCalled()
+  })
+})
+
+// Decisión de Juanjo (17-nov): el link sin sesión muestra el juego en vivo y el resultado, con puntos y sin hándicaps.
+describe('GET /api/ronda-libre/[codigo]/juego/publico', () => {
+  const llamarPublico = (codigo = 'ABC123', query = '') =>
+    GET_PUBLICO(new Request(`http://test/api/ronda-libre/${codigo}/juego/publico${query}`), { params: Promise.resolve({ codigo }) })
+
+  it('sin sesión entrega el mismo cuerpo que /juego (sin CH ni índice), cacheado en el CDN', async () => {
+    conSesion = false
+    const res = await llamarPublico()
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('public, max-age=0, must-revalidate')
+    expect(res.headers.get('vercel-cdn-cache-control')).toMatch(/max-age=10/)
+    const cuerpo = await res.json()
+    conSesion = true
+    const privado = await (await llamar()).json()
+    expect(cuerpo).toEqual(privado)
+    expect(JSON.stringify(cuerpo)).not.toMatch(/courseHandicap|courseHcp|handicapIndex|"indice"|sinIndice/i)
+  })
+
+  it('el neto también sale del lector real de índices (nunca del mapa vacío de /live)', async () => {
+    await llamarPublico()
+    expect(cargarRondaLibreEnVivo).toHaveBeenCalledWith(expect.anything(), 'ABC123', expect.any(Function))
+  })
+
+  it('un query string es 400 sin tocar la base (saltaría el CDN)', async () => {
+    const res = await llamarPublico('ABC123', '?x=1')
+    expect(res.status).toBe(400)
+    expect(cargarRondaLibreEnVivo).not.toHaveBeenCalled()
+  })
+
+  it('una ronda que no es Timba es 404', async () => {
+    formato = 'stroke_play'
+    expect((await llamarPublico()).status).toBe(404)
+    expect(tablasLeidas).toEqual([])
+  })
+
+  it('un error de la base nunca va al CDN', async () => {
+    cargarRondaLibreEnVivo.mockImplementation(async () => ({ status: 'error' }))
+    const res = await llamarPublico()
+    expect(res.status).toBe(503)
+    expect(res.headers.get('cache-control')).toMatch(/no-store/)
+    expect(res.headers.get('vercel-cdn-cache-control')).toBeNull()
   })
 })

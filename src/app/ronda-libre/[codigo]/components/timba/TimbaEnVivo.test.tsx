@@ -29,15 +29,15 @@ const vista: VistaDelJuego = {
     tramos: [], totales: { a: 3, b: 2 }, hoyosPendientes: [], sinHandicap: [],
     ranking: [{ jugadorId: 'a', puntos: 3, puesto: 1 }, { jugadorId: 'b', puntos: 2, puesto: 2 }],
   },
-  golpesRecibidos: {}, marcas: [], retiros: {},
+  golpesRecibidos: {}, marcas: [], retiros: {}, rondaCerrada: true,
 }
-const OK: EstadoDelJuego = { estado: 'ok', vista, desactualizado: false, pedidaEn: 1, firma: '' }
+const OK: EstadoDelJuego = { estado: 'ok', vista, desactualizado: false, pedidaEn: 1, firma: '', publica: false }
 
 const montar = (finalizada: boolean, juego: EstadoDelJuego = OK) =>
   render(
     <TimbaEnVivo
       juego={juego} onReintentar={vi.fn()} jugadores={JUGADORES} hoyoInicio={1} holes={9}
-      finalizada={finalizada} cancha="Los Leones" url="https://golfersplus.vercel.app/ronda-libre/ABC" onIngresar={vi.fn()}
+      finalizada={finalizada} cancha="Los Leones" url="https://golfersplus.vercel.app/ronda-libre/ABC"
     />,
   )
 
@@ -81,6 +81,19 @@ describe('TimbaEnVivo', () => {
     expect(payload.text).toContain('Ganó Pedro. Por un punto sobre Juan.')
     expect(payload.text).toContain('Los Leones')
     expect(payload.text).not.toContain('https://')
+  })
+
+  // Decisión de Juanjo (17-nov): el orden del juego en todo. `/live` no trae reglas_juego: sale de la vista del juego.
+  it('la Tarjeta muestra a los jugadores en el orden del juego, no en el que trae la ronda', () => {
+    render(
+      <TimbaEnVivo
+        juego={{ ...OK, vista: { ...vista, jugadorIds: ['b', 'a'] } } as EstadoDelJuego} onReintentar={vi.fn()}
+        jugadores={JUGADORES} hoyoInicio={1} holes={9} finalizada={false} cancha="Los Leones" url="u"
+      />,
+    )
+    fireEvent.click(screen.getByRole('tab', { name: 'Tarjeta' }))
+    const encabezados = screen.getAllByRole('columnheader').slice(1).map(e => e.textContent)
+    expect(encabezados).toEqual(['Juan', 'Pedro'])
   })
 
   it('si terminó copiado al portapapeles, lo avisa', async () => {

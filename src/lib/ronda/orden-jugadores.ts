@@ -42,10 +42,18 @@ export function ordenDelJuego(
 ): string[] | null {
   const reglas = leerReglasGuardadas(reglasJuego)
   if (!reglas) return null
-  const ids = reglas.jugadorIds
+  return enElOrden(reglas.jugadorIds, jugadores)?.map(j => j.id) ?? null
+}
+
+/**
+ * `jugadores` en el orden de `ids` (el del juego: `reglas_juego.jugadorIds` o `VistaDelJuego.jugadorIds`). `null` si
+ * `ids` no nombra exactamente a esos jugadores, sin repetir: un orden a medias pondría a alguien en un lugar inventado.
+ */
+export function enElOrden<J extends { id: string }>(ids: readonly string[], jugadores: readonly J[]): J[] | null {
   if (ids.length !== jugadores.length || new Set(ids).size !== ids.length) return null
-  if (!jugadores.every(j => ids.includes(j.id))) return null
-  return [...ids]
+  const porId = new Map(jugadores.map(j => [j.id, j]))
+  if (porId.size !== jugadores.length || !ids.every(id => porId.has(id))) return null
+  return ids.map(id => porId.get(id)!)
 }
 
 /**
@@ -58,10 +66,8 @@ export function conJugadoresOrdenados<R extends { creador_id?: string | null; fo
   if (!Array.isArray(ronda.ronda_libre_jugadores)) return ronda
   // Solo en una Timba: en otro formato el orden decide quién es el jugador A (match play), igual que la vista en vivo.
   const delJuego = esFormatoPersonalizado(ronda.formato_juego) ? ordenDelJuego(ronda.reglas_juego, ronda.ronda_libre_jugadores) : null
-  if (delJuego) {
-    const porId = new Map(ronda.ronda_libre_jugadores.map(j => [j.id, j]))
-    return { ...ronda, ronda_libre_jugadores: delJuego.map(id => porId.get(id)!) }
-  }
+  const enOrden = delJuego && enElOrden(delJuego, ronda.ronda_libre_jugadores)
+  if (enOrden) return { ...ronda, ronda_libre_jugadores: enOrden }
   return { ...ronda, ronda_libre_jugadores: ordenarJugadoresDeLaRonda(ronda.ronda_libre_jugadores, ronda.creador_id) }
 }
 

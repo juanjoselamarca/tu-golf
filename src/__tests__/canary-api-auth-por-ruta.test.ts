@@ -59,6 +59,10 @@ const SIN_GUARD: Record<string, string> = {
   'GET ronda-libre/[codigo]/live':
     'board público de la ronda para quien tiene el código; no lee perfiles: el handicap sale del índice anotado en la tarjeta, ' +
     'el de jugadores con cuenta sin índice en la tarjeta va por /hcp (con sesión), y en ronda neta va solo el bruto',
+  'GET ronda-libre/[codigo]/juego/publico':
+    'juego de una Timba para quien abre el link sin sesión (decisión de Juanjo 17-nov): puntos, marcas, retiros, quién ' +
+    'juega sin hándicap y golpes recibidos por hoyo (de los que se deduce el hándicap de juego, aceptado por Juanjo 27-oct); ' +
+    'no viaja el índice ni nada del perfil; mismo cuerpo que /juego, cacheado en el CDN y sin query strings',
   'GET torneo/[slug]/live':
     'board público del torneo; en un torneo neto el visor sin sesión ve solo el bruto (el neto va por /neto, con sesión)',
   'GET tarjeta/[id]/jugador': 'nombre del dueño de una tarjeta que él mismo hizo pública',
