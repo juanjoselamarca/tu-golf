@@ -21,13 +21,13 @@ INSERT INTO public.tournaments (id, name, slug, organizer_id, date_start, status
   -- En juego: grupos con tarjeta y jugadores enlazados.
   ('b8100000-0000-4000-8000-000000000002', 'En juego', 'gf-en-juego', 'a8100000-0000-4000-8000-000000000000', current_date, 'in_progress');
 
-INSERT INTO public.players (id, tournament_id, player_name, handicap_at_registration, status) VALUES
-  ('c8100000-0000-4000-8000-00000000000a', 'b8100000-0000-4000-8000-000000000001', 'A1', 10, 'approved'),
-  ('c8100000-0000-4000-8000-00000000000b', 'b8100000-0000-4000-8000-000000000001', 'A2', 12, 'approved'),
-  ('c8100000-0000-4000-8000-00000000000c', 'b8100000-0000-4000-8000-000000000001', 'A3', 14, 'approved'),
-  ('c8100000-0000-4000-8000-00000000001a', 'b8100000-0000-4000-8000-000000000002', 'J1', 10, 'approved'),
-  ('c8100000-0000-4000-8000-00000000001b', 'b8100000-0000-4000-8000-000000000002', 'J2', 12, 'approved'),
-  ('c8100000-0000-4000-8000-00000000001c', 'b8100000-0000-4000-8000-000000000002', 'J3', 14, 'approved');
+INSERT INTO public.players (id, tournament_id, player_name, handicap_at_registration, status, pending_user_id) VALUES
+  ('c8100000-0000-4000-8000-00000000000a', 'b8100000-0000-4000-8000-000000000001', 'A1', 10, 'approved', gen_random_uuid()),
+  ('c8100000-0000-4000-8000-00000000000b', 'b8100000-0000-4000-8000-000000000001', 'A2', 12, 'approved', gen_random_uuid()),
+  ('c8100000-0000-4000-8000-00000000000c', 'b8100000-0000-4000-8000-000000000001', 'A3', 14, 'approved', gen_random_uuid()),
+  ('c8100000-0000-4000-8000-00000000001a', 'b8100000-0000-4000-8000-000000000002', 'J1', 10, 'approved', gen_random_uuid()),
+  ('c8100000-0000-4000-8000-00000000001b', 'b8100000-0000-4000-8000-000000000002', 'J2', 12, 'approved', gen_random_uuid()),
+  ('c8100000-0000-4000-8000-00000000001c', 'b8100000-0000-4000-8000-000000000002', 'J3', 14, 'approved', gen_random_uuid());
 
 INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, formato_juego, holes, estado) VALUES
   ('d8100000-0000-4000-8000-000000000001', 'GF8101', 'Cancha', current_date,
