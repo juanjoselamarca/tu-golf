@@ -12,9 +12,9 @@ import { ResumenTab } from './ResumenTab'
 
 const updatePlayerHandicap = vi.fn(async (..._args: unknown[]) => {})
 vi.mock('@/lib/data/tournaments/scoring', () => ({
+  HandicapCambiadoError: class extends Error {},
   updatePlayerHandicap: (...args: unknown[]) => updatePlayerHandicap(...args),
 }))
-vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showWarning: vi.fn(), showError: vi.fn(), showSuccess: vi.fn() }),
 }))
@@ -109,7 +109,7 @@ describe('ResumenTab · handicap', () => {
 
 // El hook real detrás de la vista: lo que se tipea en el input es lo que llega a la base.
 function ResumenConEditor({ roster }: { roster: ScoringPlayer[] }) {
-  const hcpEditor = useHcpEditor({ onSaved: vi.fn(), hcpCalcMode: 'whs', course: null })
+  const hcpEditor = useHcpEditor({ slug: 's', onSaved: vi.fn(), hcpCalcMode: 'whs', course: null, onConflicto: vi.fn() })
   return <ResumenTab board={board([fila('p1', 'Ana', -2)])} roster={roster} hcpEditor={hcpEditor} hcpCalcMode="whs" />
 }
 
@@ -128,5 +128,7 @@ describe('ResumenTab · editar el handicap en el DOM', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     await vi.waitFor(() => expect(updatePlayerHandicap).toHaveBeenCalled())
     expect(updatePlayerHandicap.mock.calls[0][2]).toBe(valor)
+    // El esperado es lo que el organizador vio en la fila (plus 2 → −2).
+    expect(updatePlayerHandicap.mock.calls[0][3]).toBe(-2)
   })
 })

@@ -11,17 +11,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act } from 'react'
 import { renderHook } from '@testing-library/react'
 import { MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
-import type { ScoringCourse } from '@/lib/data/tournaments/scoring'
+import { HandicapCambiadoError, type ScoringCourse } from '@/lib/data/tournaments/scoring'
 
 const updatePlayerHandicap = vi.fn(async () => {})
 const showWarning = vi.fn()
 const showError = vi.fn()
 const showSuccess = vi.fn()
 
-vi.mock('@/lib/data/tournaments/scoring', () => ({
+vi.mock('@/lib/data/tournaments/scoring', async (orig) => ({
+  HandicapCambiadoError: (await orig<typeof import('@/lib/data/tournaments/scoring')>()).HandicapCambiadoError,
   updatePlayerHandicap: (...args: unknown[]) => updatePlayerHandicap(...(args as [])),
 }))
-vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showWarning, showError, showSuccess }),
 }))
@@ -37,15 +37,16 @@ interface Torneo {
 }
 
 /** Edita el handicap del jugador `p1` con el texto `texto` y devuelve el hook. */
-async function editar(texto: string, { hcpCalcMode = 'whs', course = null }: Torneo = {}) {
+async function editar(texto: string, { hcpCalcMode = 'whs', course = null }: Torneo = {}, actual: number | null = null) {
   const onSaved = vi.fn()
-  const { result } = renderHook(() => useHcpEditor({ onSaved, hcpCalcMode, course }))
-  act(() => result.current.startEdit('p1', null))
+  const onConflicto = vi.fn()
+  const { result } = renderHook(() => useHcpEditor({ slug: 'mi-torneo', onSaved, hcpCalcMode, course, onConflicto }))
+  act(() => result.current.startEdit('p1', actual))
   act(() => result.current.setEditValue(texto))
   await act(async () => {
     await result.current.save('p1')
   })
-  return { onSaved, result }
+  return { onSaved, onConflicto, result }
 }
 
 beforeEach(() => {
@@ -65,7 +66,7 @@ describe('useHcpEditor', () => {
     ['54', 54],
   ])('guarda %s como %p (incluye los PLUS, que el rango viejo 0..54 rechazaba)', async (texto, valor) => {
     const { onSaved } = await editar(texto)
-    expect(updatePlayerHandicap).toHaveBeenCalledWith({}, 'p1', valor, expect.objectContaining({ guarda: 'indice' }))
+    expect(updatePlayerHandicap).toHaveBeenCalledWith('mi-torneo', 'p1', valor, null, expect.objectContaining({ guarda: 'indice' }))
     expect(onSaved).toHaveBeenCalledWith('p1', valor)
     expect(showWarning).not.toHaveBeenCalled()
   })
@@ -99,9 +100,10 @@ describe('useHcpEditor', () => {
       const { onSaved } = await editar('60', { hcpCalcMode: 'raw', course: CANCHA })
       expect(onSaved).toHaveBeenCalledWith('p1', 60)
       expect(updatePlayerHandicap).toHaveBeenCalledWith(
-        {},
+        'mi-torneo',
         'p1',
         60,
+        null,
         expect.objectContaining({ guarda: 'course_handicap', max: 64 }),
       )
     })
@@ -130,12 +132,12 @@ describe('useHcpEditor', () => {
   })
 
   it('abre el editor con el plus como se muestra ("+2.0" en WHS, "+2" en raw), no como lo guarda la base', () => {
-    const { result } = renderHook(() => useHcpEditor({ onSaved: vi.fn(), hcpCalcMode: 'whs', course: null }))
+    const { result } = renderHook(() => useHcpEditor({ slug: 's', onSaved: vi.fn(), hcpCalcMode: 'whs', course: null, onConflicto: vi.fn() }))
     act(() => result.current.startEdit('p1', -2))
     expect(result.current.editValue).toBe('+2.0')
     act(() => result.current.startEdit('p1', null))
     expect(result.current.editValue).toBe('')
-    const raw = renderHook(() => useHcpEditor({ onSaved: vi.fn(), hcpCalcMode: 'raw', course: null }))
+    const raw = renderHook(() => useHcpEditor({ slug: 's', onSaved: vi.fn(), hcpCalcMode: 'raw', course: null, onConflicto: vi.fn() }))
     act(() => raw.result.current.startEdit('p1', -2))
     expect(raw.result.current.editValue).toBe('+2')
   })
@@ -155,5 +157,20 @@ describe('useHcpEditor', () => {
     const { onSaved } = await editar('12')
     expect(onSaved).not.toHaveBeenCalled()
     expect(showError).toHaveBeenCalled()
+  })
+
+  // Pieza C: la ruta exige el valor que el organizador vio; si otro cambio llegó primero, 409.
+  it('manda como esperado el valor con que se abrió el editor', async () => {
+    await editar('12', {}, 9.5)
+    expect(updatePlayerHandicap).toHaveBeenCalledWith('mi-torneo', 'p1', 12, 9.5, expect.anything())
+  })
+
+  it('409 (otro cambio llegó primero): toast de aviso, recarga y no llama a onSaved', async () => {
+    updatePlayerHandicap.mockRejectedValueOnce(new HandicapCambiadoError('409'))
+    const { onSaved, onConflicto } = await editar('12', {}, 9.5)
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(onConflicto).toHaveBeenCalledTimes(1)
+    expect(showWarning).toHaveBeenCalledWith('Otro cambio llegó primero', expect.any(String))
+    expect(showError).not.toHaveBeenCalled()
   })
 })

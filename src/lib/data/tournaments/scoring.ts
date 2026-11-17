@@ -318,33 +318,46 @@ export async function fetchRoundTotals(
   return (data as Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'> | null) ?? null
 }
 
+/** El hándicap ya no era el que vio el organizador (otro cambio llegó primero): el panel recarga. */
+export class HandicapCambiadoError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'HandicapCambiadoError'
+  }
+}
+
 /**
- * Handicap de inscripción de un jugador (lo edita el organizador desde el tab
- * Resumen). Este número REPARTE GOLPES en el board y en el neto que persiste el
- * scorer, así que se valida ACÁ y no sólo en el formulario: la validación del
- * navegador no es una garantía — se la salta cualquier otro caller (un script,
- * un endpoint futuro, la consola del organizador). Es la puerta por la que
- * entraron a prod los 7 jugadores con handicap entre −59 y −38 del torneo "a"
- * (12-may-2026, cerrado, 0 rondas).
+ * Handicap de inscripción de un jugador (lo edita el organizador desde Scoring →
+ * Resumen, antes o después de iniciar el torneo). Este número REPARTE GOLPES en
+ * el board y, con el torneo iniciado, en la tarjeta del grupo y el hándicap del
+ * equipo: lo escribe la ruta del servidor (`PUT /api/torneos/[slug]/players/
+ * [playerId]/handicap`, `editarHandicapInscrito`), que valida de nuevo y
+ * propaga todo en una transacción. `esperado` es el valor que vio el organizador:
+ * si ya no es ese, `HandicapCambiadoError` (409).
  *
- * Rango: `rango` viene de la fuente única `@/golf/handicap-index-range`
- * (`rangoDeHandicapDeInscripcion`): índice (−10..54, los plus incluidos) en
- * WHS, la MISMA que validan `players` y `guest-join`; en raw, lo que la fórmula
- * de la cancha produce para ese rango, porque ahí la columna guarda un course
- * handicap que pasa de 54 legítimamente.
+ * Se valida también ACÁ, antes de la red: es la puerta por la que entraron a
+ * prod los 7 jugadores con handicap entre −59 y −38 del torneo "a"
+ * (12-may-2026, cerrado, 0 rondas). Rango: `rangoDeHandicapDeInscripcion`
+ * (índice −10..54 en WHS; en raw, la imagen de la fórmula de la cancha).
  */
 export async function updatePlayerHandicap(
-  supabase: SupabaseClient,
+  slug: string,
   playerId: string,
   value: number,
+  esperado: number | null,
   rango: RangoHandicap,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   if (!esHandicapDeInscripcionValido(value, rango)) throw new Error(mensajeHandicapFueraDeRango(rango))
-  const { error } = await supabase
-    .from('players')
-    .update({ handicap_at_registration: value })
-    .eq('id', playerId)
-  if (error) throw error
+  const res = await fetchImpl(
+    `/api/torneos/${encodeURIComponent(slug)}/players/${encodeURIComponent(playerId)}/handicap`,
+    { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value, esperado }) },
+  )
+  if (res.ok) return
+  const body = (await res.json().catch(() => null)) as { error?: string } | null
+  const mensaje = body?.error || `HTTP ${res.status}`
+  if (res.status === 409) throw new HandicapCambiadoError(mensaje)
+  throw new Error(mensaje)
 }
 
 /**
