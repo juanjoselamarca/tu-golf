@@ -1,3 +1,5 @@
+import { leerReglasGuardadas } from '@/golf/formats/personalizado/reglas-guardadas'
+
 /**
  * FUENTE ÚNICA del orden de los jugadores de una ronda libre en pantalla.
  *
@@ -9,7 +11,8 @@
  * anotado al jugador equivocado; y en match play `[0]` es el jugador A.
  *
  * `created_at` no sirve: el alta inserta a todos en una transacción (mismo valor).
- * Orden estable: el creador primero, después por nombre y, a igual nombre, por id.
+ * Orden estable: el creador primero, después por nombre y, a igual nombre, por id. En una Timba libre, el del
+ * juego (`conJugadoresOrdenados` → `ordenDelJuego`).
  */
 export function ordenarJugadoresDeLaRonda<J extends { id: string; nombre?: string | null; user_id?: string | null }>(
   jugadores: readonly J[],
@@ -26,10 +29,36 @@ export function ordenarJugadoresDeLaRonda<J extends { id: string; nombre?: strin
   })
 }
 
-/** La ronda con sus jugadores en el orden canónico (no muta la original). */
-export function conJugadoresOrdenados<R extends { creador_id?: string | null; ronda_libre_jugadores: ReadonlyArray<{ id: string; nombre?: string | null; user_id?: string | null }> }>(
+/**
+ * Timba libre: el orden del juego (`reglas_juego.jugadorIds`), el mismo de la pestaña Juego y del resultado, para que
+ * el scorer no muestre a los jugadores en otro orden en la misma pantalla (decisión de Juanjo, 17-nov: "el del juego
+ * en todo"). `null` si la ronda no trae reglas válidas o si no nombran exactamente a sus jugadores: ahí manda el
+ * orden canónico (un orden a medias pondría a alguien en un lugar inventado).
+ */
+export function ordenDelJuego(
+  reglasJuego: unknown,
+  jugadores: ReadonlyArray<{ id: string }>,
+): string[] | null {
+  const reglas = leerReglasGuardadas(reglasJuego)
+  if (!reglas) return null
+  const ids = reglas.jugadorIds
+  if (ids.length !== jugadores.length || new Set(ids).size !== ids.length) return null
+  if (!jugadores.every(j => ids.includes(j.id))) return null
+  return [...ids]
+}
+
+/**
+ * La ronda con sus jugadores en el orden canónico (no muta la original). En una Timba con `reglas_juego` en la
+ * ronda, el del juego (`ordenDelJuego`).
+ */
+export function conJugadoresOrdenados<R extends { creador_id?: string | null; reglas_juego?: unknown; ronda_libre_jugadores: ReadonlyArray<{ id: string; nombre?: string | null; user_id?: string | null }> }>(
   ronda: R,
 ): R {
   if (!Array.isArray(ronda.ronda_libre_jugadores)) return ronda
+  const delJuego = ordenDelJuego(ronda.reglas_juego, ronda.ronda_libre_jugadores)
+  if (delJuego) {
+    const porId = new Map(ronda.ronda_libre_jugadores.map(j => [j.id, j]))
+    return { ...ronda, ronda_libre_jugadores: delJuego.map(id => porId.get(id)!) }
+  }
   return { ...ronda, ronda_libre_jugadores: ordenarJugadoresDeLaRonda(ronda.ronda_libre_jugadores, ronda.creador_id) }
 }

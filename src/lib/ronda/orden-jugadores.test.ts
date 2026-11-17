@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { ordenarJugadoresDeLaRonda, conJugadoresOrdenados } from './orden-jugadores'
+import { armarReglasGuardadas, crearConfigDePlantilla } from '@/golf/formats/personalizado'
+import { ordenarJugadoresDeLaRonda, conJugadoresOrdenados, ordenDelJuego } from './orden-jugadores'
 
 const creador = { id: 'c9', nombre: 'E2E Test', user_id: 'u-creador' }
 const uno = { id: 'a1', nombre: 'Inv Uno', user_id: null }
@@ -52,5 +53,34 @@ describe('nombre nulo (varios selects lo tipan string | null)', () => {
       null,
     )
     expect(out.map(j => j.id)).toEqual(['a', 'b'])
+  })
+})
+
+// QA Timba 17-nov (B1): el scorer ordenaba creador + alfabético y la pestaña Juego por `jugadorIds`: en la misma
+// pantalla dos órdenes y el compañero de pareja lejos. Decisión de Juanjo: en una Timba, el orden del juego en todo.
+describe('conJugadoresOrdenados — Timba libre: el orden del juego', () => {
+  const ids = ['00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-00000000000c', '00000000-0000-4000-8000-00000000000d']
+  const [A, B, C, D] = ids.map((id, i) => ({ id, nombre: ['Zeta', 'Ana', 'Mario', 'Beto'][i], user_id: i === 0 ? 'u-creador' : null }))
+  const reglas = (jugadorIds: string[]) => armarReglasGuardadas({ ...crearConfigDePlantilla('subterranea'), parejas: [[0, 1], [2, 3]] }, jugadorIds)
+
+  it('sigue `reglas_juego.jugadorIds`, llegue como llegue el embebido', () => {
+    for (const llegada of [[D, C, B, A], [B, D, A, C]]) {
+      const r = conJugadoresOrdenados({ creador_id: 'u-creador', reglas_juego: reglas(ids), ronda_libre_jugadores: llegada })
+      expect(r.ronda_libre_jugadores.map(j => j.nombre)).toEqual(['Zeta', 'Ana', 'Mario', 'Beto'])
+    }
+  })
+
+  it('reglas que no nombran exactamente a los jugadores (o inválidas): el orden canónico', () => {
+    const canonico = ['Zeta', 'Ana', 'Beto', 'Mario']
+    const con = (reglas_juego: unknown, jug = [D, C, B, A]) =>
+      conJugadoresOrdenados({ creador_id: 'u-creador', reglas_juego, ronda_libre_jugadores: jug }).ronda_libre_jugadores.map(j => j.nombre)
+    expect(con(reglas([ids[0], ids[1], ids[2], '00000000-0000-4000-8000-0000000000ff']))).toEqual(canonico)
+    expect(con(reglas(ids), [D, C, B])).toEqual(['Ana', 'Beto', 'Mario'])
+    expect(con({ basura: true })).toEqual(canonico)
+    expect(con(null)).toEqual(canonico)
+  })
+
+  it('ordenDelJuego: null sin reglas', () => {
+    expect(ordenDelJuego(undefined, [A])).toBeNull()
   })
 })

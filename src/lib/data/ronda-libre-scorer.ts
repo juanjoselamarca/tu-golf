@@ -37,7 +37,7 @@ type Client = Pick<SupabaseClient, 'from'>
 
 /** Columnas que necesitan los scorers. Fuente única del SELECT de los dos. */
 export const COLUMNAS_RONDA_SCORER =
-  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
+  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, hcp_pct, reglas_juego, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
 
 /** Plazo para leer la ronda: con la base saturada PostgREST tardaba 20-80 s (caída 04-oct-2026). */
 export const PLAZO_CARGA_SCORER_MS = 10_000
@@ -70,7 +70,8 @@ export async function fetchRondaLibreParaScorer(supabase: Client, codigo: string
         .single(),
       PLAZO_CARGA_SCORER_MS,
     )
-    // Orden estable de los jugadores: el embebido llega en orden físico, que cambia con cada guardado.
+    // Orden estable de los jugadores: el embebido llega en orden físico, que cambia con cada guardado. En una Timba,
+    // el del juego (`reglas_juego`, la misma lectura con sesión: el scorer exige sesión), sin esperar a `GET /juego`.
     if (data) return { estado: 'ok', ronda: conJugadoresOrdenados(data as unknown as RondaLibre) }
     if (error?.code === 'PGRST116') return { estado: 'no_existe' }
     return { estado: 'sin_conexion' }
