@@ -191,11 +191,11 @@ describe('useHcpEditor', () => {
     act(() => result.current.setEditValue('12'))
     let primero: Promise<void> = Promise.resolve()
     act(() => { primero = result.current.save('p1') })
-    expect(result.current.guardando).toBe(true)
+    expect(result.current.guardando.has('p1')).toBe(true)
     await act(async () => { await result.current.save('p1') })
     await act(async () => { soltar(12); await primero })
     expect(updatePlayerHandicap).toHaveBeenCalledTimes(1)
-    expect(result.current.guardando).toBe(false)
+    expect(result.current.guardando.size).toBe(0)
   })
 
   it('manda como esperado el valor con que se abrió el editor', async () => {

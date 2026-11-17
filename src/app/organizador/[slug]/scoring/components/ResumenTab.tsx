@@ -115,6 +115,7 @@ export function ResumenTab({ board, roster, hcpEditor, hcpCalcMode }: ResumenTab
                 const played = hasPlayData({ holesPlayed: row.holes })
                 const estado = estadoDe(row)
                 const isEditingThis = hcpEditor.editingId === row.id
+                const guardandoEsta = row.id != null && hcpEditor.guardando.has(row.id)
                 return (
                   <tr key={row.id ?? row.name} style={{ borderBottom: '1px solid var(--surface-soft)' }}>
                     <td style={{ padding: '10px 12px', color: 'var(--text)', fontWeight: 500 }}>{row.name}</td>
@@ -125,9 +126,9 @@ export function ResumenTab({ board, roster, hcpEditor, hcpCalcMode }: ResumenTab
                           <input
                             type="text"
                             aria-label={`${presentacionHcp.rotulo} de inscripción`}
-                            aria-busy={hcpEditor.guardando}
+                            aria-busy={guardandoEsta}
                             autoFocus
-                            disabled={hcpEditor.guardando}
+                            disabled={guardandoEsta}
                             value={hcpEditor.editValue}
                             onChange={(e) => hcpEditor.setEditValue(e.target.value)}
                             onBlur={() => hcpEditor.save(row.id!)}
@@ -135,9 +136,9 @@ export function ResumenTab({ board, roster, hcpEditor, hcpCalcMode }: ResumenTab
                               if (e.key === 'Enter') hcpEditor.save(row.id!)
                               if (e.key === 'Escape') hcpEditor.cancel()
                             }}
-                            style={{ width: '72px', minHeight: '44px', background: 'var(--bg)', border: '1px solid var(--brand-on-bg)', borderRadius: '8px', color: 'var(--text)', textAlign: 'center', fontSize: '16px', padding: '8px', outline: 'none', opacity: hcpEditor.guardando ? 0.6 : 1 }}
+                            style={{ width: '72px', minHeight: '44px', background: 'var(--bg)', border: '1px solid var(--brand-on-bg)', borderRadius: '8px', color: 'var(--text)', textAlign: 'center', fontSize: '16px', padding: '8px', outline: 'none', opacity: guardandoEsta ? 0.6 : 1 }}
                           />
-                          {hcpEditor.guardando && (
+                          {guardandoEsta && (
                             <div role="status" style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '4px' }}>Guardando…</div>
                           )}
                         </>

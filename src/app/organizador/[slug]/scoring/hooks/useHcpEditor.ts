@@ -43,8 +43,9 @@ export function useHcpEditor({ slug, onSaved, hcpCalcMode, course, onConflicto }
   const [esperado, setEsperado] = useState<number | null>(null)
   // Blur y Enter llaman los dos a `save`: el segundo, con el mismo esperado, sería un 409 falso.
   // El ref corta la reentrada en el mismo tick; `guardando` deshabilita el input y lo muestra.
-  const enVuelo = useRef(false)
-  const [guardando, setGuardando] = useState(false)
+  // Ambos son POR JUGADOR: mientras se guarda A (blur) el organizador ya puede estar editando B.
+  const enVuelo = useRef(new Set<string>())
+  const [guardando, setGuardando] = useState<ReadonlySet<string>>(() => new Set())
 
   // Rango desde la fuente única `@/golf/handicap-index-range`: índice (−10..54)
   // en WHS; en raw, también la imagen de ese rango por la fórmula de la cancha,
@@ -65,25 +66,26 @@ export function useHcpEditor({ slug, onSaved, hcpCalcMode, course, onConflicto }
   }, [formatear])
 
   const cancel = useCallback(() => setEditingId(null), [])
+  const cerrarSi = useCallback((playerId: string) => setEditingId((id) => (id === playerId ? null : id)), [])
 
   const save = useCallback(
     async (playerId: string) => {
-      if (enVuelo.current) return
+      if (enVuelo.current.has(playerId)) return
       // "+2" (notación del golf) y "-2" (como lo guarda la app) son el mismo plus.
       const value = parsearHandicap(editValue)
       if (!esHandicapDeInscripcionValido(value, rango)) {
         showWarning(`${rotulo} inválido`, mensajeHandicapFueraDeRango(rango))
-        setEditingId(null)
+        cerrarSi(playerId)
         return
       }
       // La columna es numeric(4,1): "12.45" se guardaría 12.5 y la tarjeta quedaría con otro número.
       if (!tieneUnDecimalComoMaximo(value)) {
         showWarning(`${rotulo} inválido`, MENSAJE_HANDICAP_UN_DECIMAL)
-        setEditingId(null)
+        cerrarSi(playerId)
         return
       }
-      enVuelo.current = true
-      setGuardando(true)
+      enVuelo.current.add(playerId)
+      setGuardando((s) => new Set(s).add(playerId))
       try {
         // El que quedó en la base (lo devuelve la ruta), no el tipeado.
         const guardado = await updatePlayerHandicap(slug, playerId, value, esperado, rango)
@@ -101,12 +103,17 @@ export function useHcpEditor({ slug, onSaved, hcpCalcMode, course, onConflicto }
           showError('Error', `No se pudo actualizar el ${enFrase}.`)
         }
       } finally {
-        enVuelo.current = false
-        setGuardando(false)
-        setEditingId(null)
+        enVuelo.current.delete(playerId)
+        setGuardando((s) => {
+          const n = new Set(s)
+          n.delete(playerId)
+          return n
+        })
+        // Cierra SU editor; si el organizador ya abrió otra fila, esa queda abierta.
+        cerrarSi(playerId)
       }
     },
-    [editValue, enFrase, esperado, onConflicto, onSaved, rango, rotulo, showError, showSuccess, showWarning, slug],
+    [cerrarSi, editValue, enFrase, esperado, onConflicto, onSaved, rango, rotulo, showError, showSuccess, showWarning, slug],
   )
 
   return { editingId, editValue, setEditValue, startEdit, cancel, save, guardando }
