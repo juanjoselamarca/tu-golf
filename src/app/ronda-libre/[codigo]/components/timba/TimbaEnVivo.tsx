@@ -44,6 +44,11 @@ export function TarjetaDeGolpes({ jugadores, hoyos }: { jugadores: readonly Juga
   )
 }
 
+const VOLVER = {
+  alignSelf: 'flex-start', minHeight: '44px', padding: '0 4px', border: 0, background: 'transparent', cursor: 'pointer',
+  color: 'var(--brand-on-bg)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 600,
+} as const
+
 /**
  * Ronda en vivo de una Timba libre: pestañas Juego (por defecto: es lo que el grupo vino a ver) y Tarjeta. Reemplaza
  * al ranking de golpes, que en una Timba diría un ganador falso. Los puntos se leen solo de `GET /juego` (la página
@@ -133,8 +138,3 @@ export function TimbaEnVivo(props: {
     </section>
   )
 }
-
-const VOLVER = {
-  alignSelf: 'flex-start', minHeight: '44px', padding: '0 4px', border: 0, background: 'transparent', cursor: 'pointer',
-  color: 'var(--brand-on-bg)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 600,
-} as const

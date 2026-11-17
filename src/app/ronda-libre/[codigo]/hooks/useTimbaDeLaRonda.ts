@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import { useJuegoDeLaTimba, type EstadoDelJuego } from './useJuegoDeLaTimba'
@@ -10,14 +11,31 @@ interface RondaParaLaTimba {
   ronda_libre_jugadores: readonly { scores: unknown }[]
 }
 
+/** Reintento del juego con la ronda cerrada mientras no llegue una vista fresca: 3 s, 6 s, 12 s… hasta 30 s. */
+export const REINTENTO_CERRADA_BASE_MS = 3_000
+export const REINTENTO_CERRADA_MAX_MS = 30_000
+
+/**
+ * Con la ronda cerrada, el resultado final solo se arma con una vista pedida con la `firma` de ahora (la ronda ya
+ * cerrada y sus golpes finales) y que no venga de un pedido fallido: una vista de antes del cierre (o la última buena
+ * tras un error) puede no tener los últimos golpes, y un "Ganó X" con puntos viejos es peor que esperar. Mientras
+ * tanto, cargando; si el último pedido falló, error (con Reintentar).
+ */
+export function juegoDeLaRondaCerrada(juego: EstadoDelJuego, firma: string): EstadoDelJuego {
+  if (juego.estado !== 'ok') return juego
+  if (juego.desactualizado) return { estado: 'error' }
+  return juego.firma === firma ? juego : { estado: 'cargando' }
+}
+
 /**
  * El juego de la Timba en la ronda en vivo, pedido UNA vez para toda la página: lo muestran la pestaña Juego y el
  * resultado final, y "Guardar en mi historial" necesita los retiros (lo anotado desde el retiro no va al historial).
  *
  * - Fuera de una Timba no pide nada y `retiros` es `{}`.
  * - Se vuelve a pedir cuando cambian los golpes, el estado o la sesión; cerrada, no cada 20 s (los puntos ya no cambian).
- * - `retiros` es `null` mientras no se saben (cargando, sin sesión, sin señal): así no se guarda una tarjeta con golpes
- *   que el juego no cuenta. Sin juego armable (`sin_juego`) no hay retiros que aplicar: `{}`.
+ * - Cerrada, solo vale una vista fresca (`juegoDeLaRondaCerrada`); sin ella se reintenta solo, con espera creciente.
+ * - `retiros` es `null` mientras no se saben (cargando, sin sesión, sin señal, vista vieja con la ronda cerrada): así
+ *   no se guarda una tarjeta con golpes que el juego no cuenta. Sin juego armable (`sin_juego`) no hay retiros: `{}`.
  */
 export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null, currentUserId: string | null | undefined): {
   esTimba: boolean
@@ -26,14 +44,30 @@ export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null
   retiros: Readonly<Record<string, number>> | null
 } {
   const esTimba = !!ronda && esFormatoPersonalizado(ronda.formato_juego)
+  const cerrada = esTimba && esRondaCerrada(ronda?.estado)
   const firma = ronda && esTimba
     ? `${currentUserId ?? ''}:${ronda.estado}:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.scores))}`
     : ''
-  const { juego, recargar } = useJuegoDeLaTimba(codigo, {
+  const { juego: crudo, recargar } = useJuegoDeLaTimba(codigo, {
     activo: esTimba,
     firma,
-    intervaloS: esRondaCerrada(ronda?.estado) ? 0 : undefined,
+    intervaloS: cerrada ? 0 : undefined,
   })
+  const juego = cerrada ? juegoDeLaRondaCerrada(crudo, firma) : crudo
+
+  // Cerrada y sin vista fresca porque el pedido falló o llegó una vieja: reintenta solo hasta lograrlo.
+  const reintentar = cerrada && (crudo.estado === 'error' || (crudo.estado === 'ok' && juego.estado !== 'ok'))
+  const [intento, setIntento] = useState(0)
+  useEffect(() => {
+    if (!reintentar) return
+    const espera = Math.min(REINTENTO_CERRADA_BASE_MS * 2 ** intento, REINTENTO_CERRADA_MAX_MS)
+    const t = setTimeout(() => {
+      setIntento(n => n + 1)
+      void recargar()
+    }, espera)
+    return () => clearTimeout(t)
+  }, [reintentar, intento, recargar])
+
   const retiros = !esTimba
     ? {}
     : juego.estado === 'ok' ? juego.vista.retiros : juego.estado === 'sin_juego' ? {} : null

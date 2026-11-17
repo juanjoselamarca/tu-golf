@@ -29,7 +29,7 @@ const vista: VistaDelJuego = {
   },
   golpesRecibidos: {}, marcas: [], retiros: {},
 }
-const OK: EstadoDelJuego = { estado: 'ok', vista, desactualizado: false, pedidaEn: 1 }
+const OK: EstadoDelJuego = { estado: 'ok', vista, desactualizado: false, pedidaEn: 1, firma: '' }
 
 const montar = (finalizada: boolean, juego: EstadoDelJuego = OK) =>
   render(
