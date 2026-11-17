@@ -49,6 +49,7 @@ import { scoresAnotadosEnEsteTelefono } from './scores-anotados-aqui'
 import { ScorerNavBar } from './components/ScorerNavBar'
 import { DiscardRoundButton } from './components/DiscardRoundButton'
 import { SaveStatusBadge } from './components/SaveStatusBadge'
+import { AvisoSesionCerradaBanner } from './components/AvisoSesionCerradaBanner'
 import { ScorerCelebrations } from './components/ScorerCelebrations'
 import { ScorerViewTabs } from './components/ScorerViewTabs'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
@@ -111,7 +112,7 @@ function ScorePageContent() {
     router.push('/dashboard')
   }, [router])
 
-  const { saveScores, saveImmediately, guardarAhora, marcarFinalizando, saveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
+  const { saveScores, saveImmediately, guardarAhora, marcarFinalizando, saveStatus, sesionCerrada, hasUnsaved, setHasUnsaved } = useScoreSave({
     codigo,
     isOnline,
     scoreSync,
@@ -302,6 +303,9 @@ function ScorePageContent() {
       )}
 
       <SaveStatusBadge saveStatus={saveStatus} />
+
+      {/* ── La sesión se cerró en plena ronda: aviso fijo con "Iniciar sesión" ── */}
+      <AvisoSesionCerradaBanner aviso={sesionCerrada} />
 
       <ScorerHeader
         currentHole={currentHole}
