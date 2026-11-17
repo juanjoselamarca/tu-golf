@@ -82,6 +82,8 @@ export interface RondaLibre {
   estado:                string
   modo_juego:            ModoJuego
   formato_juego:         FormatoJuego
+  /** Timba libre: `{ config, jugadorIds }` (lo lee `leerReglasGuardadas`). Solo lo trae el scorer de grupo, con sesión (`COLUMNAS_RONDA_SCORER_CON_REGLAS`; anon no la lee). */
+  reglas_juego?:         unknown
   hoyo_inicio?:          number | null
   admin_mode?:           boolean
   admin_user_id?:        string

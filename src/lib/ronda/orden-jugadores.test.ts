@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { ordenarJugadoresDeLaRonda, conJugadoresOrdenados } from './orden-jugadores'
+import { armarReglasGuardadas, crearConfigDePlantilla } from '@/golf/formats/personalizado'
+import { ordenarJugadoresDeLaRonda, conJugadoresOrdenados, conOrdenEnPantalla, ordenDelJuego } from './orden-jugadores'
 
 const creador = { id: 'c9', nombre: 'E2E Test', user_id: 'u-creador' }
 const uno = { id: 'a1', nombre: 'Inv Uno', user_id: null }
@@ -52,5 +53,59 @@ describe('nombre nulo (varios selects lo tipan string | null)', () => {
       null,
     )
     expect(out.map(j => j.id)).toEqual(['a', 'b'])
+  })
+})
+
+// QA Timba 17-nov (B1): el scorer ordenaba creador + alfabético y la pestaña Juego por `jugadorIds`: en la misma
+// pantalla dos órdenes y el compañero de pareja lejos. Decisión de Juanjo: en una Timba, el orden del juego en todo.
+describe('conJugadoresOrdenados — Timba libre: el orden del juego', () => {
+  const ids = ['00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-00000000000c', '00000000-0000-4000-8000-00000000000d']
+  const [A, B, C, D] = ids.map((id, i) => ({ id, nombre: ['Zeta', 'Ana', 'Mario', 'Beto'][i], user_id: i === 0 ? 'u-creador' : null }))
+  const reglas = (jugadorIds: string[]) => armarReglasGuardadas({ ...crearConfigDePlantilla('subterranea'), parejas: [[0, 1], [2, 3]] }, jugadorIds)
+
+  it('sigue `reglas_juego.jugadorIds`, llegue como llegue el embebido', () => {
+    for (const llegada of [[D, C, B, A], [B, D, A, C]]) {
+      const r = conJugadoresOrdenados({ creador_id: 'u-creador', formato_juego: 'personalizado', reglas_juego: reglas(ids), ronda_libre_jugadores: llegada })
+      expect(r.ronda_libre_jugadores.map(j => j.nombre)).toEqual(['Zeta', 'Ana', 'Mario', 'Beto'])
+    }
+  })
+
+  it('reglas que no nombran exactamente a los jugadores (o inválidas): el orden canónico', () => {
+    const canonico = ['Zeta', 'Ana', 'Beto', 'Mario']
+    const con = (reglas_juego: unknown, jug = [D, C, B, A]) =>
+      conJugadoresOrdenados({ creador_id: 'u-creador', formato_juego: 'personalizado', reglas_juego, ronda_libre_jugadores: jug }).ronda_libre_jugadores.map(j => j.nombre)
+    expect(con(reglas([ids[0], ids[1], ids[2], '00000000-0000-4000-8000-0000000000ff']))).toEqual(canonico)
+    expect(con(reglas(ids), [D, C, B])).toEqual(['Ana', 'Beto', 'Mario'])
+    expect(con({ basura: true })).toEqual(canonico)
+    expect(con(null)).toEqual(canonico)
+  })
+
+  it('ordenDelJuego: null sin reglas', () => {
+    expect(ordenDelJuego(undefined, [A])).toBeNull()
+  })
+
+  // Revisión Fable: en otro formato el orden decide al jugador A (match play); las reglas no mandan fuera de una Timba.
+  it('fuera de una Timba (o sin formato) las reglas no cambian el orden canónico', () => {
+    for (const formato_juego of ['match_play', null, undefined]) {
+      const r = conJugadoresOrdenados({ creador_id: 'u-creador', formato_juego, reglas_juego: reglas(ids), ronda_libre_jugadores: [D, C, B, A] })
+      expect(r.ronda_libre_jugadores.map(j => j.nombre)).toEqual(['Zeta', 'Ana', 'Beto', 'Mario'])
+    }
+  })
+})
+
+// Revisión Fable: una copia local de antes del orden del juego abre en el canónico; el refresco de fondo no mueve las filas.
+describe('conOrdenEnPantalla', () => {
+  const j = (id: string) => ({ id })
+  it('mismos jugadores: conserva el orden en pantalla con los datos nuevos', () => {
+    const enPantalla = { ronda_libre_jugadores: [j('a'), j('b'), j('c')] }
+    const nueva = { ronda_libre_jugadores: [{ id: 'c', x: 3 }, { id: 'a', x: 1 }, { id: 'b', x: 2 }] }
+    expect(conOrdenEnPantalla(enPantalla as typeof nueva, nueva).ronda_libre_jugadores).toEqual([{ id: 'a', x: 1 }, { id: 'b', x: 2 }, { id: 'c', x: 3 }])
+  })
+  it('cambió quién juega: manda el orden nuevo', () => {
+    const nueva = { ronda_libre_jugadores: [j('c'), j('a')] }
+    expect(conOrdenEnPantalla({ ronda_libre_jugadores: [j('a'), j('b')] }, nueva)).toBe(nueva)
+    expect(conOrdenEnPantalla({ ronda_libre_jugadores: [j('a')] }, nueva)).toBe(nueva)
+    // Ids repetidos en pantalla no se aceptan como "los mismos" (perdería a un jugador).
+    expect(conOrdenEnPantalla({ ronda_libre_jugadores: [j('a'), j('a'), j('c')] }, { ronda_libre_jugadores: [j('a'), j('b'), j('c')] }).ronda_libre_jugadores.map(x => x.id)).toEqual(['a', 'b', 'c'])
   })
 })

@@ -15,7 +15,7 @@ import { buildTimelineEvents } from '@/lib/ronda/helpers'
 import { buildMyHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
 import { captureError } from '@/lib/error-tracking'
-import { buildLeaderboard, mostrarCopiarLink, rondaTieneDatos } from '@/lib/ronda/leaderboard'
+import { buildLeaderboard, mostrarCopiarLink, mostrarVerMisEstadisticas, rondaTieneDatos } from '@/lib/ronda/leaderboard'
 import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
 import { buildMatchResult } from '@/lib/ronda/match'
@@ -417,7 +417,7 @@ function RondaLibrePageContent() {
           </button>
         )}
 
-        {isFinished && (
+        {isFinished && mostrarVerMisEstadisticas(isAnonymous ? null : currentUserId, ronda.ronda_libre_jugadores) && (
           <PostRondaLinks isAnonymous={isAnonymous} onRequireAuth={() => requireAuth('Ve tus estadísticas de golf')} />
         )}
       </div>

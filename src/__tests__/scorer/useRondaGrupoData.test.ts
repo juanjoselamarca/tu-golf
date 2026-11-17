@@ -37,12 +37,13 @@ const RONDA = {
   ronda_libre_jugadores: [{ id: 'j1', nombre: 'Juan José Lamarca', user_id: 'u1', scores: { 11: 4, 12: 6 }, handicap: 8.2, tees: 'azul' }],
 }
 const carga = { valor: { estado: 'ok', ronda: RONDA } as { estado: string; ronda?: unknown } }
+const opcionesDeCarga: unknown[] = []
 const lecturaDeEquipos = { falla: false }
 vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
   const real = await orig<typeof import('@/lib/data/ronda-libre-scorer')>()
   return {
     ...real,
-    fetchRondaLibreParaScorer: async () => carga.valor,
+    fetchRondaLibreParaScorer: async (_sb: unknown, _codigo: string, opciones?: unknown) => { opcionesDeCarga.push(opciones); return carga.valor },
     cargarHoyosDelScorer: async () => ({ parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, finalParTotal: 72 }),
     resolverHandicapsDelScorer: async () => ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 } }),
     fetchEquiposDelScorer: async () => {
@@ -60,6 +61,7 @@ function snapshotPrevio(teamEquipos: unknown[] = []) {
 }
 
 beforeEach(() => {
+  opcionesDeCarga.length = 0
   lecturaDeEquipos.falla = false
   localStorage.clear()
   push.mockClear()
@@ -235,5 +237,31 @@ describe('hoyoInicial', () => {
   it('salida del 10 en 18 hoyos: respeta el orden de juego', () => {
     const r = { ...base, holes: 18, hoyo_inicio: 10, formato_juego: 'stroke_play' } as never
     expect(hoyoInicial(r, { p1: { 10: 4, 11: 4 }, p2: { 10: 5, 11: 4 } })).toBe(12)
+  })
+})
+
+// Revisión Fable (17-nov): una copia local anterior al orden del juego abre en el orden canónico y el servidor trae
+// el del juego. El refresco de fondo no mueve las filas bajo el dedo, pero sí trae los datos nuevos de cada jugador.
+describe('useRondaGrupoData — orden de los jugadores al reconectar', () => {
+  const jug = (id: string, nombre: string, handicap: number) => ({ id, nombre, user_id: id === 'j1' ? 'u1' : null, scores: {}, handicap, tees: 'azul' })
+  it('pide reglas_juego (con sesión) y al reconectar conserva el orden en pantalla con los datos nuevos', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const enCopia = { ...RONDA, ronda_libre_jugadores: [jug('j1', 'Ana', 8.2), jug('j2', 'Beto', 12), jug('j3', 'Caro', 20)] }
+    saveScorerGrupoSnapshot('B4F5Y2', {
+      at: Date.now(), authUserId: 'u1', anotadorNombre: 'Ana', ronda: enCopia,
+      parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, playerHcp: { j1: 10 }, playerDisplayHcp: { j1: 10 }, teamEquipos: [],
+    })
+    carga.valor = { estado: 'sin_conexion' }
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.conexion).toBe('sin_conexion'))
+    expect(result.current.ronda?.ronda_libre_jugadores.map(j => j.id)).toEqual(['j1', 'j2', 'j3'])
+
+    carga.valor = { estado: 'ok', ronda: { ...RONDA, ronda_libre_jugadores: [jug('j3', 'Caro', 21), jug('j1', 'Ana', 8.2), jug('j2', 'Beto', 13)] } }
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
+    await waitFor(() => expect(result.current.conexion).toBe('ok'))
+    expect(result.current.ronda?.ronda_libre_jugadores.map(j => j.id)).toEqual(['j1', 'j2', 'j3'])
+    expect(result.current.ronda?.ronda_libre_jugadores.map(j => j.handicap)).toEqual([8.2, 13, 21])
+    expect(opcionesDeCarga.length).toBeGreaterThan(0)
+    expect(opcionesDeCarga.every(o => (o as { conReglasDelJuego?: boolean })?.conReglasDelJuego === true)).toBe(true)
   })
 })

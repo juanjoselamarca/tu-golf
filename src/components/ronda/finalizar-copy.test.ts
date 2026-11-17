@@ -24,37 +24,44 @@ describe('avisoTarjetasNoGuardadas (copy de Juanjo, 10-nov-2026)', () => {
   })
 })
 
+// Decisión de Juanjo (17-nov): un hoyo que nadie jugó no reparte puntos; uno que algunos anotaron lo pierde quien no anotó.
 describe('detalleHoyosSinAnotarTimba', () => {
-  it('sin hoyos no hay línea', () => {
-    expect(detalleHoyosSinAnotarTimba([])).toBeUndefined()
+  it('sin hoyos no hay líneas', () => {
+    expect(detalleHoyosSinAnotarTimba([], [])).toEqual([])
   })
-  it('un hoyo: singular', () => {
-    expect(detalleHoyosSinAnotarTimba([17])).toBe('Hoyo 17 sin anotar: cuenta como no jugado y quien no anotó lo pierde.')
+  it('nadie los jugó: no reparten puntos (rango y singular)', () => {
+    expect(detalleHoyosSinAnotarTimba([14, 15, 16, 17, 18], [14, 15, 16, 17, 18])).toEqual(['Hoyos 14–18 sin jugar: no reparten puntos.'])
+    expect(detalleHoyosSinAnotarTimba([18], [18])).toEqual(['Hoyo 18 sin jugar: no reparte puntos.'])
   })
-  it('varios: la lista real con "y"', () => {
-    expect(detalleHoyosSinAnotarTimba([15, 16, 17])).toBe('Hoyos 15, 16 y 17 sin anotar: cuentan como no jugados y quien no anotó los pierde.')
+  it('algunos los anotaron: quien no anotó los pierde (rango y singular)', () => {
+    expect(detalleHoyosSinAnotarTimba([14, 15, 16, 17, 18], [])).toEqual(['Quien no anotó los hoyos 14–18 los pierde.'])
+    expect(detalleHoyosSinAnotarTimba([7], [])).toEqual(['Quien no anotó el hoyo 7 lo pierde.'])
+  })
+  it('los dos casos juntos, y saliendo del 10 el rango sigue el orden de juego', () => {
+    expect(detalleHoyosSinAnotarTimba([3, 5, 6], [5, 6])).toEqual(['Hoyos 5–6 sin jugar: no reparten puntos.', 'Quien no anotó el hoyo 3 lo pierde.'])
+    expect(detalleHoyosSinAnotarTimba([17, 18, 1, 2], [17, 18, 1, 2])).toEqual(['Hoyos 17–18 y 1–2 sin jugar: no reparten puntos.'])
   })
 })
 
 describe('hojaFinalizarTimba (no habla de "marcar como par": en la Timba casi todo lo vacío es no jugado)', () => {
   it('sin nada pendiente: solo la pregunta', () => {
-    expect(hojaFinalizarTimba({ hoyosSinJugar: [], parEnPantalla: null })).toEqual({ titulo: '¿Finalizar la Timba?', detalle: undefined })
+    expect(hojaFinalizarTimba({ hoyosSinJugar: [], hoyosQueNadieJugo: [], parEnPantalla: null })).toEqual({ titulo: '¿Finalizar la Timba?', detalle: undefined })
   })
   it('hoyos no jugados sin par en pantalla (nadie anotó el hoyo en pantalla)', () => {
-    expect(hojaFinalizarTimba({ hoyosSinJugar: [10, 11], parEnPantalla: null })).toEqual({
+    expect(hojaFinalizarTimba({ hoyosSinJugar: [10, 11], hoyosQueNadieJugo: [10, 11], parEnPantalla: null })).toEqual({
       titulo: '¿Finalizar la Timba?',
-      detalle: 'Hoyos 10 y 11 sin anotar: cuentan como no jugados y quien no anotó los pierde.',
+      detalle: 'Hoyos 10–11 sin jugar: no reparten puntos.',
     })
   })
   it('un jugador queda con par en el hoyo en pantalla (singular)', () => {
-    expect(hojaFinalizarTimba({ hoyosSinJugar: [], parEnPantalla: { hoyo: 18, nombres: ['Beto'] } }).detalle)
+    expect(hojaFinalizarTimba({ hoyosSinJugar: [], hoyosQueNadieJugo: [], parEnPantalla: { hoyo: 18, nombres: ['Beto'] } }).detalle)
       .toBe('En el hoyo 18, Beto queda con par.')
   })
   it('varios jugadores con par (plural) junto a la línea de no jugados', () => {
-    expect(hojaFinalizarTimba({ hoyosSinJugar: [11], parEnPantalla: { hoyo: 18, nombres: ['Beto', 'Caro', 'Dani'] } }).detalle)
-      .toBe('Hoyo 11 sin anotar: cuenta como no jugado y quien no anotó lo pierde. En el hoyo 18, Beto, Caro y Dani quedan con par.')
+    expect(hojaFinalizarTimba({ hoyosSinJugar: [11], hoyosQueNadieJugo: [], parEnPantalla: { hoyo: 18, nombres: ['Beto', 'Caro', 'Dani'] } }).detalle)
+      .toBe('Quien no anotó el hoyo 11 lo pierde. En el hoyo 18, Beto, Caro y Dani quedan con par.')
   })
   it('par en pantalla sin nombres: sin línea', () => {
-    expect(hojaFinalizarTimba({ hoyosSinJugar: [], parEnPantalla: { hoyo: 18, nombres: [] } }).detalle).toBeUndefined()
+    expect(hojaFinalizarTimba({ hoyosSinJugar: [], hoyosQueNadieJugo: [], parEnPantalla: { hoyo: 18, nombres: [] } }).detalle).toBeUndefined()
   })
 })

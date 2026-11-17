@@ -29,6 +29,14 @@ describe('useGrupoScoreboard — Timba: par del hoyo en pantalla', () => {
     expect(b.parEnPantallaTimba).toBeNull()
     expect(b.hoyosSinJugarTimba).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
     expect(b.hoyosPorMarcar).toBe(0)
+    expect(b.hoyosNadieJugoTimba).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
+  })
+  it('Ana anotó hasta el 12 y el scorer quedó en el 14: el 11 y el 12 los pierde quien no anotó; del 13 al 18, nadie', () => {
+    const b = montar({ p1: { ...nueve, 10: 4, 11: 4, 12: 4 }, p2: { ...nueve, 10: 4 }, p3: { ...nueve, 10: 4 } }, 14)
+    expect(b.hoyosSinJugarTimba).toEqual([11, 12, 13, 14, 15, 16, 17, 18])
+    expect(b.hoyosNadieJugoTimba).toEqual([13, 14, 15, 16, 17, 18])
+    // Un retirado no cuenta como "alguien lo jugó" ni como "quien no anotó".
+    expect(montar({ p1: nueve, p2: nueve, p3: { ...nueve, 10: 4 } }, 10, { p3: 11 }).hoyosNadieJugoTimba).toEqual([11, 12, 13, 14, 15, 16, 17, 18])
   })
   it('Ana anotó el 10: Beto y Carla quedan con par (el retirado no)', () => {
     const b = montar({ p1: { ...nueve, 10: 5 }, p2: nueve, p3: nueve }, 10)

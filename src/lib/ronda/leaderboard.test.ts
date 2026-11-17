@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildLeaderboard, mostrarCopiarLink, posicionesDelLeaderboard, rondaTieneDatos } from './leaderboard'
+import { buildLeaderboard, mostrarCopiarLink, mostrarVerMisEstadisticas, posicionesDelLeaderboard, rondaTieneDatos } from './leaderboard'
 import type { Jugador } from '@/types/ronda'
 
 const parMap = { 1: 4, 2: 4 }
@@ -205,5 +205,16 @@ describe('posicionesDelLeaderboard — empates estilo golf', () => {
       ],
     })
     expect(posicionesDelLeaderboard(lb, 'stableford')).toEqual(['T1', 'T1', '3'])
+  })
+})
+
+describe('mostrarVerMisEstadisticas', () => {
+  const jugadores = [{ user_id: 'u1' }, { user_id: null }]
+  it('con sesión: solo a quien jugó la ronda (un espectador no)', () => {
+    expect(mostrarVerMisEstadisticas('u1', jugadores)).toBe(true)
+    expect(mostrarVerMisEstadisticas('u-espectador', jugadores)).toBe(false)
+  })
+  it('sin sesión: se ofrece (puede ser un jugador sin cuenta)', () => {
+    expect(mostrarVerMisEstadisticas(null, jugadores)).toBe(true)
   })
 })

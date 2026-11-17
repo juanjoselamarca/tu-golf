@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosPorMarcarAlFinalizar, scoreDelHoyo } from '@/golf/ronda-libre/tarjeta-historica'
-import { hoyosQueNoSeRellenan, hoyosQueQuedanSinJugarEnLaTimba, tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
+import { hoyosQueNadieJugoEnLaTimba, hoyosQueNoSeRellenan, hoyosQueQuedanSinJugarEnLaTimba, tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import type { MatchResult } from '@/golf/formats/match-play'
 import { hoyosAnotados, puedeFinalizar, totalesDeTarjeta, type TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
@@ -42,6 +42,8 @@ export interface GrupoScoreboard {
   hoyosPorMarcar: number
   /** Timba libre: hoyos que al cerrar quedan "no jugados" (`hoyosQueQuedanSinJugarEnLaTimba`); `[]` fuera de una Timba. */
   hoyosSinJugarTimba: number[]
+  /** Timba libre: de `hoyosSinJugarTimba`, los que nadie anotó (no reparten puntos); `[]` fuera de una Timba. */
+  hoyosNadieJugoTimba: number[]
   /** Timba libre: hoyo en pantalla y quienes quedan con par en él al cerrar; `null` si nadie (o fuera de una Timba). */
   parEnPantallaTimba: { hoyo: number; nombres: string[] } | null
   getPlayerTotal: (jugadorId: string) => TotalesDeTarjeta
@@ -141,9 +143,9 @@ export function useGrupoScoreboard(input: {
       noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores }),
     }))
     const hoyosPorMarcar = hoyosPorMarcarAlFinalizar(bolaCompartida ? tarjetas : tarjetasConRelleno, ordenHoyos).length
-    const hoyosSinJugarTimba = esTimba
-      ? hoyosQueQuedanSinJugarEnLaTimba({ jugadores, scores, retiros, ordenHoyos, hoyoEnPantalla: currentHole })
-      : []
+    const entradaTimba = { jugadores, scores, retiros, ordenHoyos, hoyoEnPantalla: currentHole }
+    const hoyosSinJugarTimba = esTimba ? hoyosQueQuedanSinJugarEnLaTimba(entradaTimba) : []
+    const hoyosNadieJugoTimba = esTimba ? hoyosQueNadieJugoEnLaTimba(entradaTimba) : []
     // Timba: quienes reciben el par gris del hoyo en pantalla al cerrar (las mismas tarjetas que rellena el cierre).
     const nombresConPar = esTimba
       ? tarjetasConRelleno
@@ -163,7 +165,7 @@ export function useGrupoScoreboard(input: {
 
     return {
       totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford, isMatchPlay,
-      siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, parEnPantallaTimba, getPlayerTotal,
+      siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal,
       strokesOnHole, maxStrokesOnHole, hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
     }
   }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros])

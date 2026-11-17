@@ -140,6 +140,28 @@ describe('armarResultadoDeLaTimba — La Colombiana con el motor', () => {
     expect(r.puntosEspeciales!.map(p => p.texto)).toEqual(['Chipingo · Pedro ×2', 'Chipingo · Diego'])
   })
 
+  // Decisión de Juanjo (17-nov): el eagle no se lee como "Birdie"; cada logro en su línea, con lo que vale.
+  it('birdie, eagle y hoyo en uno en líneas separadas, con lo que vale cada uno', () => {
+    const cfg: ConfigJuego = { ...colombiana, puntitos: [{ id: 'b', tipo: 'birdie', valor: 1, destino: 'individual', activo: true }] }
+    const g = parejo({ [J]: 4, [P]: 4, [D]: 5, [T]: 5 })
+    g[J][1] = 3; g[J][2] = 3; g[J][3] = 2; g[P][4] = 2; g[D][5] = 1
+    const r = armarResultadoDeLaTimba(vista(g, cfg), NOMBRES)
+    expect(r.puntosEspeciales!.map(p => p.texto)).toEqual([
+      'Birdie · Juan ×2', 'Eagle · Juan (vale 2)', 'Eagle · Pedro (vale 2)', 'Hoyo en uno · Diego (vale 3)',
+    ])
+    expect(new Set(r.puntosEspeciales!.map(p => `${p.puntitoId}-${p.jugadorId}-${p.logro}`)).size).toBe(4)
+  })
+
+  // Revisión Fable: una vista de un servidor anterior (sin `logro`) no pierde la línea del birdie.
+  it('un birdie sin logro (vista anterior) se lista como birdie', () => {
+    const cfg: ConfigJuego = { ...colombiana, puntitos: [{ id: 'b', tipo: 'birdie', valor: 1, destino: 'individual', activo: true }] }
+    const g = parejo({ [J]: 4, [P]: 4, [D]: 5, [T]: 5 })
+    g[J][1] = 3
+    const v = vista(g, cfg)
+    for (const h of v.resultado.hoyos) for (const e of h.especiales) delete (e as { logro?: unknown }).logro
+    expect(armarResultadoDeLaTimba(v, NOMBRES).puntosEspeciales!.map(p => p.texto)).toEqual(['Birdie · Juan'])
+  })
+
   it('un punto que no cuenta no aparece (greenie en un par 4)', () => {
     const cfg: ConfigJuego = { ...colombiana, puntitos: [{ id: 'g', tipo: 'greenie', valor: 1, destino: 'individual', activo: true }] }
     const r = armarResultadoDeLaTimba(vista(golpes, cfg, { marcas: [{ jugador: P, hoyo: 3, puntito: 'g' }] }), NOMBRES)

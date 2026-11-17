@@ -97,7 +97,7 @@ export function ResultadoFinalDeLaTimba({ resultado, onHoyoAHoyo, onCompartir, c
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {puntosEspeciales.map(p => (
                 <li
-                  key={`${p.puntitoId}-${p.jugadorId}`}
+                  key={`${p.puntitoId}-${p.jugadorId}-${p.logro ?? ''}`}
                   className="num"
                   style={{ ...NOMBRE, fontSize: '14px', color: 'var(--text)', border: '1px solid var(--border-md)', borderRadius: '8px', padding: '4px 12px' }}
                 >

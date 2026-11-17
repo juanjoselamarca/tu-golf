@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   COLUMNAS_RONDA_SCORER,
+  COLUMNAS_RONDA_SCORER_CON_REGLAS,
   fetchRondaLibreParaScorer,
   hoyosPorDefecto,
   cargarHoyosDelScorer,
@@ -9,6 +10,9 @@ import {
   tarjetasDesdeLaRonda,
 } from './ronda-libre-scorer'
 import { leerIndicesDelCliente } from './indices-de-perfil-lectura'
+import { ANON_COLUMN_SELECT } from '@/__tests__/helpers/migration-sql'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 
 vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/golf/core/course-handicap')>()
@@ -224,5 +228,37 @@ describe('fetchRondaLibreParaScorer — orden de los jugadores', () => {
     } } })
     const r = await fetchRondaLibreParaScorer(sb as never, 'ABC')
     expect(r.estado === 'ok' && r.ronda.ronda_libre_jugadores.map(j => j.nombre)).toEqual(['E2E Test', 'Inv Tres', 'Inv Uno'])
+  })
+})
+
+// Revisión Fable (17-nov): `reglas_juego` en el SELECT compartido dejaba al scorer individual sin sesión (#511) en
+// "sin conexión" para siempre: anon tiene grant por columnas y una columna fuera del grant hace fallar la lectura.
+describe('COLUMNAS_RONDA_SCORER — legibles sin sesión', () => {
+  const columnas = (select: string) => {
+    const m = /^(.*?),\s*ronda_libre_jugadores\(([^)]*)\)(.*)$/.exec(select)!
+    const lista = (x: string) => x.split(',').map(c => c.trim()).filter(Boolean)
+    return { ronda: [...lista(m[1]), ...lista(m[3])], jugadores: lista(m[2]) }
+  }
+  it('todas las columnas del SELECT por defecto están en el grant de anon', () => {
+    const { ronda, jugadores } = columnas(COLUMNAS_RONDA_SCORER)
+    expect(ronda.filter(c => !ANON_COLUMN_SELECT.rondas_libres.includes(c))).toEqual([])
+    expect(jugadores.filter(c => !ANON_COLUMN_SELECT.ronda_libre_jugadores.includes(c))).toEqual([])
+  })
+  it('reglas_juego solo con conReglasDelJuego (scorer de grupo, con sesión)', async () => {
+    expect(ANON_COLUMN_SELECT.rondas_libres).not.toContain('reglas_juego')
+    expect(columnas(COLUMNAS_RONDA_SCORER_CON_REGLAS).ronda).toContain('reglas_juego')
+    const sb = fakeSupabase({ rondas_libres: { data: { id: 'r1', codigo: 'ABC', ronda_libre_jugadores: [] } } })
+    await fetchRondaLibreParaScorer(sb as never, 'ABC', { conReglasDelJuego: true })
+    expect(sb.llamadas[0].cadena[0]).toEqual(['select', [COLUMNAS_RONDA_SCORER_CON_REGLAS]])
+  })
+})
+
+// Revisión Fable (2ª vuelta): la regresión más probable del P0 es que el scorer individual (que lee sin sesión)
+// pida las reglas. Ese archivo no debe pasar `conReglasDelJuego`.
+describe('scorer individual — nunca pide reglas_juego', () => {
+  it('useRondaScoreData no usa conReglasDelJuego ni COLUMNAS_RONDA_SCORER_CON_REGLAS', () => {
+    const fuente = readFileSync(path.resolve(process.cwd(), 'src/app/ronda-libre/[codigo]/score/hooks/useRondaScoreData.ts'), 'utf8')
+    expect(fuente).toContain('fetchRondaLibreParaScorer(')
+    expect(fuente).not.toMatch(/conReglasDelJuego|COLUMNAS_RONDA_SCORER_CON_REGLAS/)
   })
 })

@@ -80,6 +80,8 @@ export interface PuntoEspecialEvaluado {
   puntos: number
   cuenta: boolean
   razon?: string
+  /** Solo el birdie: qué fue de verdad (un eagle paga 2 y en el resultado se llama eagle, no birdie). */
+  logro?: LogroBajoPar
 }
 
 export interface ResultadoHoyoDelJuego {
@@ -178,6 +180,16 @@ function ganadoPorLaPareja(ganado: number, config: ConfigJuego): number {
 /** Lo que suma cada integrante de lo que ganó su pareja (siempre entero: ver `ganadoPorLaPareja`). */
 function aCadaIntegrante(puntosPareja: number, config: ConfigJuego): number {
   return config.repartoPareja === 'dividir' ? puntosPareja / 2 : puntosPareja
+}
+
+/** Lo que hizo un jugador bajo par, como se dice en la cancha. El hoyo en uno manda sobre el resto (paga 3). */
+export type LogroBajoPar = 'birdie' | 'eagle' | 'albatros' | 'hoyo_en_uno'
+
+export function logroBajoPar(gross: number, par: number): LogroBajoPar | null {
+  if (gross === 1) return 'hoyo_en_uno'
+  if (gross >= par) return null
+  const bajo = par - gross
+  return bajo === 1 ? 'birdie' : bajo === 2 ? 'eagle' : 'albatros'
 }
 
 function multiplicadorBirdie(gross: number, par: number): number {
@@ -328,7 +340,8 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
         const g = gross[id]
         if (typeof g !== 'number') return
         const mult = multiplicadorBirdie(g, hoyo.par)
-        if (mult > 0) especiales.push({ jugadorId: id, puntitoId: birdie.id, tipo: 'birdie', puntos: birdie.valor * mult, cuenta: true })
+        const logro = logroBajoPar(g, hoyo.par)
+        if (mult > 0 && logro) especiales.push({ jugadorId: id, puntitoId: birdie.id, tipo: 'birdie', puntos: birdie.valor * mult, cuenta: true, logro })
       })
     }
     const marcasDelHoyo = marcas.filter(m => m.hoyo === hoyo.numero && puntitoPorId.has(m.puntitoId) && ids.includes(m.jugadorId))

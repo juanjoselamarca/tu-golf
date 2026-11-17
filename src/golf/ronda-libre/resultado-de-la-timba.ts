@@ -5,7 +5,10 @@
  * Igual que la pestaña Juego (`tabla-del-juego.ts`), todo número sale de `VistaDelJuego` (`GET /juego`): acá no se
  * calcula ningún punto ni se repite una regla del motor; solo se ordena, se agrega y se le pone nombre.
  */
-import { nombreDelPuntito, NOMBRE_PUNTITO } from '@/golf/formats/personalizado'
+import { nombreDelPuntito, NOMBRE_LOGRO_BAJO_PAR, NOMBRE_PUNTITO, type LogroBajoPar, type TipoPuntito } from '@/golf/formats/personalizado'
+
+/** Orden de las líneas del punto birdie en el resultado: de lo más común a lo más raro. */
+const LOGROS_EN_ORDEN: LogroBajoPar[] = ['birdie', 'eagle', 'albatros', 'hoyo_en_uno']
 import type { Pareja } from '@/golf/formats/personalizado'
 import type { VistaDelJuego } from './juego-de-la-ronda'
 import { armarTablaDelJuego, nombresCortos, TEXTO_NO_SE_JUGO } from './tabla-del-juego'
@@ -34,11 +37,16 @@ export interface TramoDelResultado {
 }
 
 export interface PuntoEspecialDelResultado {
-  /** "Chipingo · Pedro ×2" ("Chipingo · Pedro" si una vez): cuántas veces lo hizo (solo los que cuentan). */
+  /**
+   * "Chipingo · Pedro ×2" ("Chipingo · Pedro" si una vez): cuántas veces lo hizo (solo los que cuentan). El punto
+   * birdie va en una línea por logro, con lo que vale si no es 1 vez el punto: "Eagle · Juan (vale 2)".
+   */
   texto: string
   puntitoId: string
   jugadorId: string
   veces: number
+  /** Solo el punto birdie: qué logro cuenta esta línea. */
+  logro?: LogroBajoPar
 }
 
 export interface ResultadoDeLaTimba {
@@ -170,31 +178,45 @@ export function armarResultadoDeLaTimba(
   let puntosEspeciales: PuntoEspecialDelResultado[] | null = null
   if (activos.length > 0) {
     const veces = new Map<string, number>()
+    // Lo que paga cada logro del birdie (eagle = 2 × el valor del punto), para el "(vale 2)".
+    const valeDelLogro = new Map<string, number>()
+    const clave = (puntitoId: string, jugadorId: string, logro?: LogroBajoPar) => `${puntitoId}\u0000${jugadorId}\u0000${logro ?? ''}`
     for (const h of resultado.hoyos) {
       if (h.estado !== 'puntuado') continue
       for (const e of h.especiales) {
         if (!e.cuenta) continue
-        const clave = `${e.puntitoId}\u0000${e.jugadorId}`
-        veces.set(clave, (veces.get(clave) ?? 0) + 1)
+        // Sin `logro` (vista de un servidor anterior a esta marca), un birdie se cuenta como birdie: no desaparece.
+        const k = clave(e.puntitoId, e.jugadorId, e.logro ?? (e.tipo === 'birdie' ? 'birdie' : undefined))
+        veces.set(k, (veces.get(k) ?? 0) + 1)
+        if (e.logro) valeDelLogro.set(`${e.puntitoId}\u0000${e.logro}`, e.puntos)
       }
     }
     puntosEspeciales = []
-    const puntitos = [...activos.map(p => ({ id: p.id, nombre: nombreDelPuntito(p) }))]
+    const puntitos: { id: string; nombre: string; tipo: TipoPuntito }[] = activos.map(p => ({ id: p.id, nombre: nombreDelPuntito(p), tipo: p.tipo }))
     // Una marca de un punto que ya no está en la config (no debería pasar) igual se muestra, con el nombre del tipo.
     for (const h of resultado.hoyos) for (const e of h.especiales) {
       if (e.cuenta && !puntitos.some(p => p.id === e.puntitoId)) {
-        puntitos.push({ id: e.puntitoId, nombre: e.tipo === 'propio' ? 'Punto propio' : NOMBRE_PUNTITO[e.tipo] })
+        puntitos.push({ id: e.puntitoId, nombre: e.tipo === 'propio' ? 'Punto propio' : NOMBRE_PUNTITO[e.tipo], tipo: e.tipo })
       }
     }
     for (const p of puntitos) {
-      const deEste = jugadorIds
-        .map(id => ({ id, n: veces.get(`${p.id}\u0000${id}`) ?? 0 }))
-        .filter(x => x.n > 0)
-        .sort((a, b) => b.n - a.n)
-      for (const x of deEste) {
-        // "Pedro ×2": veces, no puntos (un "Pedro 2" se lee como 2 puntos).
-        const veces = x.n > 1 ? ` ×${x.n}` : ''
-        puntosEspeciales.push({ texto: `${p.nombre} · ${nombre(x.id)}${veces}`, puntitoId: p.id, jugadorId: x.id, veces: x.n })
+      // El birdie se parte por logro (Birdie, Eagle, Albatros, Hoyo en uno); el resto es una sola línea por jugador.
+      const logros: (LogroBajoPar | undefined)[] = p.tipo === 'birdie' ? LOGROS_EN_ORDEN : [undefined]
+      for (const logro of logros) {
+        const deEste = jugadorIds
+          .map(id => ({ id, n: veces.get(clave(p.id, id, logro)) ?? 0 }))
+          .filter(x => x.n > 0)
+          .sort((a, b) => b.n - a.n)
+        const vale = logro && logro !== 'birdie' ? valeDelLogro.get(`${p.id}\u0000${logro}`) : undefined
+        for (const x of deEste) {
+          // "Pedro ×2": veces, no puntos (un "Pedro 2" se lee como 2 puntos). El "(vale 2)" dice los puntos de cada vez.
+          const veces = x.n > 1 ? ` ×${x.n}` : ''
+          const nombreLinea = logro ? NOMBRE_LOGRO_BAJO_PAR[logro] : p.nombre
+          puntosEspeciales.push({
+            texto: `${nombreLinea} · ${nombre(x.id)}${veces}${vale != null ? ` (vale ${vale})` : ''}`,
+            puntitoId: p.id, jugadorId: x.id, veces: x.n, ...(logro ? { logro } : {}),
+          })
+        }
       }
     }
   }
