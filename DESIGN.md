@@ -2,7 +2,7 @@
 
 Fuente de verdad del diseño visual e interaccional. Cualquier decisión de UI que contradiga este documento necesita propuesta explícita al CTO antes de implementarse.
 
-**Última revisión:** 22-abr-2026 — creado tras audit UI/UX general (`docs/audits/2026-04-22-ui-general.md`).
+**Última revisión:** 16-nov-2026 — §4 reescrito y §13 "Sobriedad" agregado tras auditoría anti-look-IA (decisión de Juanjo: restringir Playfair y sacar imágenes generadas por IA). Creado 22-abr-2026 tras audit UI/UX general (`docs/audits/2026-04-22-ui-general.md`).
 
 ---
 
@@ -13,7 +13,7 @@ Golfista amateur exigente de clubes chilenos. Usa la app en cancha bajo sol, con
 Implicancias de diseño:
 - **Contraste WCAG AA mínimo** en todo texto operativo (scoring, leaderboard, inputs). Preferir AAA en datos críticos.
 - **Touch targets ≥ 44×44 px**.
-- **Tipografía numérica mono** para códigos, scores, yardajes, ratings (evitar ambigüedad `I/1`, `O/0`, `B/8`).
+- **Números en cifras tabulares** (`tabular-nums`) para que columnas y scores alineen. Mono solo para códigos alfanuméricos (ver §4).
 - **Cero ornament infantil.** Nada de emojis cartoon (🏆🤝🔄) en UI chrome. Usar `@/components/icons` (line icons lucide).
 
 ---
@@ -77,28 +77,39 @@ Definida en `src/app/globals.css` como CSS custom properties. NO inventar colore
 
 ## 4. Tipografía
 
-Cinco familias activas en producción:
+**App interna: una familia, DM Sans, para todo — texto y números.** Los números van en DM Sans con
+`font-variant-numeric: tabular-nums lining-nums` (clase utilitaria `.num`). Mono y serif dejan de ser el "tono" de la app.
 
-| Variable CSS | Familia | Cargada en | Uso |
-|--------------|---------|------------|-----|
-| `--font-clash` | Clash Display (local woff2) | `src/components/home/fonts.ts` | **Landing/marketing** (`/`, `.home-mkt`). Headings hero, h1/h2 de secciones de venta, métricas de vitrina. Pesos: 500/600/700. |
-| `--font-playfair` | Playfair Display (serif, Google) | `src/app/layout.tsx` | **App interna**. Headings display en rutas operativas (scorer, historial, perfil), nombres de canchas, títulos de sección, números grandes narrativos (score final). |
-| `--font-dm-sans` | DM Sans | `src/app/layout.tsx` | Body default, UI chrome, labels. |
-| `--font-cormorant` | Cormorant Garamond | `src/app/layout.tsx` | Serif alternativo. Uso restringido — editorial. |
-| `--font-dm-mono` | DM Mono | `src/app/layout.tsx` | **Códigos de ronda, yardajes, ratings, slopes, scores tabulares. Cualquier dato que se lea/dicte en cancha.** |
+| Variable CSS | Familia | Uso permitido |
+|--------------|---------|---------------|
+| `--font-dm-sans` | DM Sans | **Todo** en la app interna: chrome, cuerpo, etiquetas, nav, números, scores, ratings, yardajes. |
+| `--font-playfair` | Playfair Display | **Solo el h1 de página, uno por pantalla.** Nunca números, tarjetas, sheets, botones, nav ni etiquetas. |
+| `--font-dm-mono` | DM Mono | **Solo códigos alfanuméricos** (`RoundCode`, códigos de invitación), donde sí importa `I/1`, `O/0`. |
+| `--font-clash` | Clash Display | Solo landing/marketing (`/`, `.home-mkt`). |
+| `--font-cormorant` | Cormorant Garamond | **Retirada.** No usar en código nuevo; eliminar al tocar. |
 
-**Regla de scope:** Clash Display es exclusivo de la superficie de marketing (`/.home-mkt`). Fuera de esa superficie, el heading font es Playfair Display (`--font-playfair`). No mezclar: Clash no entra en el scorer ni en formularios internos; Playfair no se usa en el hero de la landing.
+**Por qué (16-nov-2026):** el trío serif + sans + mono en la misma tarjeta y el cero tachado del mono en un "15.0" o un "$0"
+eran la firma visual más clara de "plantilla generada". Un score son dígitos: no hay ambigüedad `I/1` que justifique mono.
+Un solo wordmark en toda la app.
 
-**Regla general:** display geométrico (Clash) para marketing/brand, serif (Playfair) para narrativa operativa, mono para data, sans para chrome. Nunca ningún serif/display para un código de ronda o input de yardaje.
+**Escala** (px / peso, mobile-first). Solo estos siete tamaños existen (nada de 15, 12 o 11 px); **un número
+héroe por viewport**; y dentro de un mismo bloque (tarjeta, fila, sección) **máximo tres tamaños de texto**:
 
-**Size scale** (mobile-first, base 16px):
-- hero marketing: 52–104 px Clash Display (clamp)
-- hero display app: 48–64 px Playfair Display (serif)
-- h1 page: 32 px Playfair Display (serif)
-- h2 section: 20 px Playfair Display (serif)
-- body: 16 px DM Sans
-- caption: 12 px DM Sans uppercase tracking-wider
-- code/data: 14–18 px DM Mono
+| Rol | Tamaño / peso |
+|-----|---------------|
+| Número héroe (uno por viewport) | 40 / 700 |
+| h1 de página (Playfair permitido) | 28 / 600 |
+| Número secundario | 24 / 600 |
+| h2 de sección | 18 / 600 |
+| Cuerpo | 16 / 400 |
+| Secundario | 14 / 400 |
+| Etiqueta, nav, caption | 13 / 500 |
+
+- **Piso absoluto: 13 px.** Nada operativo por debajo (la app se lee al sol).
+- **Datos de cancha ≥ 16 px y en `--text`**, nunca `--text-3`.
+- **Mayúsculas:** oración por defecto ("Mejor ronda", no "MEJOR RONDA"). Mayúsculas solo en encabezados de tabla de ≤ 2
+  palabras, tracking ≤ 0.04em, **máximo una por pantalla**. Prohibido el caption "12 px uppercase tracking-wider".
+- Marketing (`.home-mkt`) conserva su escala propia (hero 52–104 px Clash).
 
 ---
 
@@ -183,6 +194,15 @@ Utility: `@/lib/round-code`.
 
 ---
 
+## 10b. Imágenes
+
+- **Prohibido:** imágenes generadas por IA, mascotas o personajes fotorrealistas (incluido el tigre del coach), logos de
+  terceros visibles (gorras, pelotas, bolsas) y fotos de jugadores profesionales reales.
+- **Permitido:** foto real de cancha, o nada. Una pantalla sin imagen es mejor que una con imagen decorativa.
+- La marca tAIger+ se mantiene como **nombre y wordmark**, no como ilustración.
+
+---
+
 ## 11. Protegido — protocolo estricto
 
 Archivos con protocolo de modificación en CLAUDE.md:
@@ -206,6 +226,58 @@ Cualquier PR que viola una regla acá tiene que:
 1. Proponer cambio al DESIGN.md primero.
 2. Tener approval del CTO.
 3. Actualizar este archivo en el mismo PR.
+
+---
+
+## 13. Sobriedad — reglas anti "look IA" (16-nov-2026)
+
+El look de plantilla no viene de una pantalla: viene de decoración repetida sin significado. Estas reglas son el sistema.
+
+**Color de números.** Un acento: el oro, solo para la acción `commit`, el estado activo y la marca. **Los números van en
+`--text`.** Los colores de resultado (eagle/birdie/bogey/doble) viven **solo dentro de `ScoreSymbol`**. Verde y rojo solo
+como delta o estado, y siempre con signo o ícono (WCAG 1.4.1). Oro como texto: siempre `--brand-on-bg`.
+
+**Radios.** 8 px (chips, badges) · 12 px (botones, inputs) · 16 px (tarjetas, sheets). Pill solo para badges de estado.
+
+**Bordes y sombras.** Borde 1 px **o** sombra, nunca ambos. Sombra solo en lo que flota (sheet, botón JUGAR). Sin
+degradados, glows, `backdrop-blur` ni "glass". El borde de input debe cumplir 3:1 (WCAG 1.4.11).
+
+**Tarjetas.** Una tarjeta solo si es tocable o agrupa ≥ 3 datos de un mismo objeto. El resto: filas con divisor (P6).
+Sobre fondo claro, si una tarjeta pierde el borde debe subir el contraste del fondo: blanco sobre `#fafaf7` (≈1.04:1)
+desaparece al sol.
+
+**Espaciado.** Escala 4 / 8 / 12 / 16 / 24 / 32. Margen lateral 16. Padding de tarjeta 16.
+
+**Iconos.** Lucide 24 px (20 inline), trazo 1.75, sin cuadrado redondeado teñido detrás.
+
+**Movimiento.** 150–200 ms ease-out; solo opacidad y translate ≤ 8 px. Sin pulsos, shimmer ni conteos animados.
+`prefers-reduced-motion` obligatorio. Celebración solo de birdie para abajo.
+
+**Gráficos.** Una serie = `--text` o `--brand-on-bg`; el resto en gris. Sin gauges ni anillos para mostrar un índice. Estado
+sin datos explícito (texto, no gráfico vacío).
+
+### Prohibido
+- Gauges, anillos de progreso o velocímetros para un índice.
+- Números de colores sin semántica (un 100 teal, un 36 oro, un 4 azul en la misma pantalla).
+- "Pills" de estadísticas en carrusel horizontal.
+- Etiqueta en mayúsculas espaciadas sobre número gigante dentro de tarjeta como patrón por defecto.
+- Mono fuera de códigos. Serif en números. Un cuarto tamaño de texto en la pantalla.
+- Emoji en chrome (ya regía en §10; no se cumplía).
+- Modales que nadie pidió sobre el primer contacto.
+- Un segundo botón flotante (solo JUGAR flota).
+
+### Simplificación (aplica a toda pantalla nueva o tocada)
+1. Una acción principal por pantalla.
+2. Un número héroe y como máximo tres secundarios por viewport; el resto, en tabla o fila.
+3. Un dato vive en una pantalla dueña; las demás enlazan, no repiten (P6).
+4. Ningún índice propio sin referencia: número + una línea de qué significa + tendencia. Si no se puede explicar en una
+   línea, no se muestra.
+5. Filtros: un control segmentado **o** un select, no ambos; máximo una fila.
+6. Texto de ayuda bajo un número solo si cambia una decisión del usuario.
+
+**Migración:** por "el que toca, ordena" — cada pantalla se lleva a §4/§13 cuando se modifica. Lo que vive en archivos
+protegidos (`layout.tsx`, `Navbar.tsx`) va por el protocolo de §11, en PR individual. Las pantallas de cancha (scorer,
+leaderboard, scorecard) se migran probando primero la alineación con `tabular-nums`.
 
 ---
 
@@ -290,17 +362,17 @@ Ni §1–12 ni los 7 precedentes dicen nada sobre:
 
 1. **Modo de modales, sheets y toasts lanzados desde la superficie del modo contrario.** `ShareSheet` es dark navy y se abre desde historial/resultados, que son light. §2 prohíbe "dos modos en mismo scroll" pero no dice si un overlay cuenta.
 2. **El toggle tri-state Auto/Light/Dark.** §2 asigna modos por superficie y nunca menciona que exista un toggle de usuario. Solo lo sabemos porque `2026-05-19` lo cita de pasada. Ver T2.
-3. **Escala de espaciado, radios, sombras y grosores de borde.** §4 tiene escala tipográfica; no hay equivalente para el resto. Los precedentes fijan valores caso a caso ("radius 16", "hairline 1px", "divisor 2px", "border-top sutil") y ninguno se canonizó.
+3. **[RESUELTO §13]** **Escala de espaciado, radios, sombras y grosores de borde.** §4 tiene escala tipográfica; no hay equivalente para el resto. Los precedentes fijan valores caso a caso ("radius 16", "hairline 1px", "divisor 2px", "border-top sutil") y ninguno se canonizó.
 4. **Estados vacíos.** Ni forma, ni copy, ni si llevan CTA — y si lo llevan, si ese CTA consume el único `commit` por vista que permite §5.
 5. **Carga.** Skeleton vs spinner vs nada. El widget PGA tiene "loading skeleton"; el patrón no está escrito.
 6. **Errores de campo y validación.** §2 solo resuelve de qué modo es un error. Nada sobre error inline, validación de formulario ni copy del mensaje.
 7. **Toasts y feedback de éxito.** Posición, duración, si conviven con el bottom nav de 64px. `ShareToast` figura como pendiente en `2026-06-28`.
-8. **Movimiento.** Cero: duración, easing, qué se anima, `prefers-reduced-motion`. `BirdieCelebration` se cita como excepción de emoji, no como contrato de motion.
+8. **[RESUELTO §13]** **Movimiento.** Cero: duración, easing, qué se anima, `prefers-reduced-motion`. `BirdieCelebration` se cita como excepción de emoji, no como contrato de motion.
 9. **Tokens de texto.** §3 lista brand/bg/scorecard pero no `--text`, `--text-2`, `--text-3` ni `--bg-surface` — justamente los que la jurisprudencia usa como autoridad para decidir contraste.
-10. **Colores de resultado fuera del Scorecard.** §3 los scopea a "Solo en Scorecard" y ahí termina. `HoleBar` construyó su propia paleta sin token ni doc. Ver T1.
+10. **[RESUELTO §13: solo dentro de ScoreSymbol]** **Colores de resultado fuera del Scorecard.** §3 los scopea a "Solo en Scorecard" y ahí termina. `HoleBar` construyó su propia paleta sin token ni doc. Ver T1.
 11. **Tablas fuera del chat del coach.** `2026-06-02` resolvió las del coach. Leaderboard, historial y admin no tienen regla.
 12. **Resto del markdown del coach.** Listas, headings, links, citas de fuente, longitud, streaming. Solo se legislaron las tablas.
 13. **La tarjeta PNG que se comparte.** `2026-06-28` la declara "el héroe" pero no especifica tipografía, marca, aspect ratio ni safe areas de la imagen misma.
-14. **Gráficos y dataviz** (`/perfil/stats` usa recharts): color de series, ejes, leyendas, estado sin data.
+14. **[RESUELTO parcial §13]** **Gráficos y dataviz** (`/perfil/stats` usa recharts): color de series, ejes, leyendas, estado sin data.
 15. **Accesibilidad más allá de contraste y touch.** Foco visible, orden de tab, teclado, screen readers, ARIA.
-16. **Tamaño y grosor de los iconos.** §10 fija el origen (`@/components/icons`), no la métrica.
+16. **[RESUELTO §13]** **Tamaño y grosor de los iconos.** §10 fija el origen (`@/components/icons`), no la métrica.

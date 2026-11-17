@@ -7,7 +7,7 @@
  *    (course_id, numero) — clave única, fix #254 — y loop hasta página corta.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { fetchHistorialRounds, fetchHistorialStats, SELECT_COLUMNS, OR_EXCLUDE_FEDEGOLF } from './historial'
+import { fetchHistorialRounds, fetchHistorialStats, fetchRondasNormalizadas, SELECT_COLUMNS, OR_EXCLUDE_FEDEGOLF } from './historial'
 
 vi.mock('@/lib/error-tracking', () => ({
   captureError: vi.fn(async () => {}),
@@ -39,9 +39,7 @@ describe('fetchHistorialRounds', () => {
                 or: (filter: string) => {
                   expect(filter).toBe(OR_EXCLUDE_FEDEGOLF)
                   return {
-                    order: () => ({
-                      limit: async () => ({ data: [{ id: 'r1', course_name: 'X' }], error: null }),
-                    }),
+                    order: ordenRondas({ data: [{ id: 'r1', course_name: 'X' }], error: null }),
                   }
                 },
               }
@@ -61,9 +59,7 @@ describe('fetchHistorialRounds', () => {
         select: () => ({
           eq: () => ({
             or: () => ({
-              order: () => ({
-                limit: async () => ({ data: null, error: { message: 'boom' } }),
-              }),
+              order: ordenRondas({ data: null, error: { message: 'boom' } }),
             }),
           }),
         }),
@@ -73,6 +69,28 @@ describe('fetchHistorialRounds', () => {
     expect(res).toEqual({ rounds: [], loadError: true })
   })
 })
+
+/**
+ * Mock de `.order(...)` de historical_rounds: exige el desempate determinista con su
+ * dirección (played_at DESC, created_at DESC NULLS LAST, id DESC) y después resuelve con `.limit()` o con await directo.
+ */
+function ordenRondas(res: unknown) {
+  const cols: Array<[string, unknown]> = []
+  const fin = () => {
+    expect(cols).toEqual([
+      ['played_at', { ascending: false }],
+      ['created_at', { ascending: false, nullsFirst: false }],
+      ['id', { ascending: false }],
+    ])
+    return res
+  }
+  const chain = {
+    order: (col: string, opts?: unknown) => { cols.push([col, opts]); return chain },
+    limit: async () => fin(),
+    then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve().then(fin).then(ok, ko),
+  }
+  return chain.order
+}
 
 describe('fetchHistorialStats', () => {
   /** Mock: rondas + courses ok; course_holes con paginación configurable. */
@@ -92,7 +110,7 @@ describe('fetchHistorialStats', () => {
             select: () => ({
               eq: () => ({
                 or: () => ({
-                order: async () => opts.roundsError
+                order: ordenRondas(opts.roundsError
                   ? { data: null, error: { message: 'boom' } }
                   : {
                       data: [{
@@ -101,7 +119,7 @@ describe('fetchHistorialStats', () => {
                         holes_played: 3, import_source: null,
                       }],
                       error: null,
-                    },
+                    }),
                 }),
               }),
             }),
@@ -160,6 +178,23 @@ describe('fetchHistorialStats', () => {
     const { supabase } = buildSupabase({ holePages: [[]], roundsError: true })
     const stats = await fetchHistorialStats(mockSupabase(supabase), 'u1')
     expect(stats).toBeNull()
+  })
+
+  it('fetchRondasNormalizadas: error → null, nunca [] (la UI no debe decir "aún no tienes rondas")', async () => {
+    const { supabase } = buildSupabase({ holePages: [[]], roundsError: true })
+    expect(await fetchRondasNormalizadas(mockSupabase(supabase), 'u1')).toBeNull()
+  })
+
+  it('fetchRondasNormalizadas: devuelve las rondas con pares reales por posición', async () => {
+    const { supabase } = buildSupabase({ holePages: [[
+      { course_id: 'cA', numero: 1, par: 4 },
+      { course_id: 'cA', numero: 2, par: 4 },
+      { course_id: 'cA', numero: 3, par: 5 },
+    ]] })
+    const rondas = await fetchRondasNormalizadas(mockSupabase(supabase), 'u1')
+    expect(rondas).toHaveLength(1)
+    expect(rondas![0].pares).toEqual([4, 4, 5])
+    expect(rondas![0].fueraDePromedios).toBe('parcial')
   })
 
   it('acota course_holes a las canchas de las rondas del usuario (.in course_id), no todo el catálogo', async () => {

@@ -5,7 +5,7 @@
  * 1. Carga sin errores y muestra "Mis estadísticas"
  * 2. Muestra conteo de rondas registradas
  * 3. Range toggles (5R, 10R, 20R, Todo) visibles y funcionales
- * 4. Secciones clave: GWI, Evolución de score, Tendencia, resumen cards
+ * 4. Un solo gráfico ("Tu score vs par"), sin GWI, y resumen cards
  * 5. Datos numéricos reales (no solo "carga")
  *
  * Fixture: reutiliza la ronda creada por historial-handicap-thursday
@@ -128,26 +128,16 @@ test.describe('Perfil Stats — /perfil/stats', () => {
     await expect(page.getByText('Algo salió mal')).toBeHidden({ timeout: 3000 })
   })
 
-  test('sección GWI visible con valor numérico', async ({ page }) => {
+  test('un solo gráfico "Tu score vs par" y sin GWI', async ({ page }) => {
     await page.goto('/perfil/stats', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Mis estadísticas' })).toBeVisible({ timeout: 15_000 })
     await esperarStreaming(page)
 
-    // GWI text should be visible
-    const gwiLabel = page.getByText('GWI', { exact: true }).first()
-    await expect(gwiLabel).toBeVisible({ timeout: 10_000 })
-  })
-
-  test('evolución de score y tendencia visibles', async ({ page }) => {
-    await page.goto('/perfil/stats', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { name: 'Mis estadísticas' })).toBeVisible({ timeout: 15_000 })
-    await esperarStreaming(page)
-
-    // "Evolución de score" section header
-    await expect(page.getByText('Evolución de score')).toBeVisible({ timeout: 10_000 })
-
-    // "Tendencia de scoring" section header
-    await expect(page.getByText('Tendencia de scoring')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Tu score vs par')).toHaveCount(1, { timeout: 10_000 })
+    // El Golf Wellness Index y los dos gráficos duplicados ya no existen (ola 1, 16-nov-2026).
+    await expect(page.getByText('GWI', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Evolución de score')).toHaveCount(0)
+    await expect(page.getByText('Tendencia de scoring')).toHaveCount(0)
   })
 
   test('resumen cards muestran datos reales (no --)', async ({ page }) => {
@@ -158,8 +148,8 @@ test.describe('Perfil Stats — /perfil/stats', () => {
     // Wait for data to load
     await page.waitForTimeout(2000)
 
-    // "Promedio" card should show a number, not '--'
-    const promedioCard = page.getByText('Promedio', { exact: false }).first()
+    // "Promedio vs par" card
+    const promedioCard = page.getByText('Promedio vs par', { exact: false }).first()
     await expect(promedioCard).toBeVisible({ timeout: 10_000 })
 
     // "Mejor ronda" card should show a score

@@ -1,11 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  calcPersonalStats,
-  aggregateScoringCounts,
-  avgScoreBucket,
   scoringTrendLast5,
   frontBackNine,
-  golfWellnessIndex,
   type BucketRound,
 } from './personal'
 
@@ -16,69 +12,6 @@ function r18(total_gross: number, over: Partial<BucketRound> = {}): BucketRound 
 function r9(total_gross: number, over: Partial<BucketRound> = {}): BucketRound {
   return { total_gross, holes_played: 9, scores: Array(9).fill(Math.round(total_gross / 9)), ...over }
 }
-
-describe('aggregateScoringCounts', () => {
-  it('cuenta con par real por hoyo cuando hay hole_pars', () => {
-    const counts = aggregateScoringCounts([{
-      total_gross: 13,
-      scores: [3, 4, 5, 1],          // vs pars [4,4,4,3]: birdie, par, bogey, eagle
-      hole_pars: [4, 4, 4, 3],
-    }])
-    expect(counts).toEqual({ eagles: 1, birdies: 1, pars: 1, bogeys: 1, doubles: 0 })
-  })
-
-  it('fallback a par 4 cuando no hay hole_pars (comportamiento histórico)', () => {
-    const counts = aggregateScoringCounts([{
-      total_gross: 12,
-      scores: [4, 5, 3],             // vs par 4: par, bogey, birdie
-      hole_pars: null,
-    }])
-    expect(counts).toEqual({ eagles: 0, birdies: 1, pars: 1, bogeys: 1, doubles: 0 })
-  })
-
-  it('ignora rondas sin scores', () => {
-    const counts = aggregateScoringCounts([{ total_gross: 80, scores: null }])
-    expect(counts).toEqual({ eagles: 0, birdies: 0, pars: 0, bogeys: 0, doubles: 0 })
-  })
-
-  it('calcPersonalStats delega en la misma fuente (totales idénticos)', () => {
-    const rounds = [
-      { total_gross: 13, scores: [3, 4, 5, 1], hole_pars: [4, 4, 4, 3] },
-      { total_gross: 12, scores: [4, 5, 3], hole_pars: null },
-    ]
-    const counts = aggregateScoringCounts(rounds)
-    const stats = calcPersonalStats(rounds)
-    expect(stats.totalEagles).toBe(counts.eagles)
-    expect(stats.totalBirdies).toBe(counts.birdies)
-    expect(stats.totalPars).toBe(counts.pars)
-    expect(stats.totalBogeys).toBe(counts.bogeys)
-    expect(stats.totalDoubles).toBe(counts.doubles)
-  })
-})
-
-describe('avgScoreBucket', () => {
-  it('promedia SOLO el bucket más poblado (no mezcla 9h con 18h)', () => {
-    const b = avgScoreBucket([r18(90), r18(80), r9(45)])
-    expect(b).toEqual({ avg: 85, holes: 18, count: 2 })
-  })
-
-  it('empate de buckets → gana 18h', () => {
-    const b = avgScoreBucket([r18(90), r9(45)])
-    expect(b?.holes).toBe(18)
-    expect(b?.avg).toBe(90)
-  })
-
-  it('solo 9h → bucket 9h', () => {
-    const b = avgScoreBucket([r9(45), r9(41)])
-    expect(b).toEqual({ avg: 43, holes: 9, count: 2 })
-  })
-
-  it('sin rondas clasificables → null', () => {
-    expect(avgScoreBucket([])).toBeNull()
-    // hole count no inferible (12 scores, sin holes_played 9/18) queda fuera
-    expect(avgScoreBucket([{ total_gross: 60, scores: Array(12).fill(5) }])).toBeNull()
-  })
-})
 
 describe('scoringTrendLast5', () => {
   it('null con menos de 5 rondas', () => {
@@ -131,19 +64,5 @@ describe('frontBackNine', () => {
     })
     const d = frontBackNine([mk(45, 54), mk(45, 54), mk(45, 54)])
     expect(d).toEqual({ front: '45.0', back: '54.0', count: 3 })
-  })
-})
-
-describe('golfWellnessIndex', () => {
-  it('62 golpes → 100', () => {
-    expect(golfWellnessIndex(62)).toBe(100)
-  })
-  it('cada golpe sobre 62 resta 5', () => {
-    expect(golfWellnessIndex(72)).toBe(50)
-    expect(golfWellnessIndex(80)).toBe(10)
-  })
-  it('clampa en [0, 100]', () => {
-    expect(golfWellnessIndex(100)).toBe(0)
-    expect(golfWellnessIndex(45)).toBe(100) // bucket 9h satura (heredado)
   })
 })

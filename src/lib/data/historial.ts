@@ -7,17 +7,18 @@
 import { MAX_FILAS_POSTGREST } from './postgrest-limites'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
+import { historialStatsDeRondas, type HistorialStats } from '@/golf/stats/historial'
 import {
-  computeHistorialStats,
+  normalizarRondas,
   type CourseHoleRow,
-  type HistorialStats,
   type RawStatsRound,
-} from '@/golf/stats/historial'
+  type RondaNormalizada,
+} from '@/golf/stats/rondas-normalizadas'
 import { findBestCourseMatch, type CourseCandidate } from '@/golf/courses/matching'
 
 /**
  * Fila de historical_rounds tal como la consume la lista del historial.
- * Canónica ACÁ (capa de datos, igual que StatsRound en lib/data/stats.ts);
+ * Canónica ACÁ (capa de datos);
  * src/app/perfil/historial/lib/types.ts la re-exporta para los componentes.
  */
 export interface HistoricalRound {
@@ -89,7 +90,11 @@ export async function fetchHistorialRounds(
     .select(SELECT_COLUMNS)
     .eq('user_id', userId)
     .or(OR_EXCLUDE_FEDEGOLF)
+    // Desempate determinista (mismo canónico que indice_golfers, migración 20261030140000):
+    // con dos rondas el mismo día, Postgres podía devolverlas en cualquier orden.
     .order('played_at', { ascending: false })
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
     .limit(500)
 
   if (error) {
@@ -100,8 +105,9 @@ export async function fetchHistorialRounds(
 }
 
 /**
- * Stats agregadas del historial (pills del header, PR grid, conteos
- * eagles/birdies/pares/bogeys/dobles+).
+ * Rondas del usuario NORMALIZADAS (pares reales, bucket 9/18, motivo fuera de
+ * números), más reciente primero. Fuente única de /perfil/historial y
+ * /perfil/stats: las dos pantallas agregan estas mismas rondas.
  *
  * Queries idénticas al route /api/historial/stats original — en particular el
  * fix del bug inbox 2268163d / PR #254: course_holes se pagina ordenando por
@@ -110,13 +116,13 @@ export async function fetchHistorialRounds(
  * forma estable entre requests `.range()` separados → filas dropeadas al
  * cruzar páginas → eagles/pares mal contados. NO cambiar este orden.
  *
- * Devuelve null si falla (rondas o hoyos): la página cae al cálculo local
- * (paridad con el fetch client no-bloqueante previo) y el route responde 500.
+ * Devuelve null si falla (rondas o hoyos): nunca un [] que la UI confunda con
+ * "aún no tienes rondas".
  */
-export async function fetchHistorialStats(
+export async function fetchRondasNormalizadas(
   supabase: SupabaseClient,
   userId: string,
-): Promise<HistorialStats | null> {
+): Promise<RondaNormalizada[] | null> {
   // Fetch rounds + courses in parallel. course_holes se pagina (Supabase limita a
   // 1000 rows por request) — sin paginar, canchas con id alto quedaban fuera del
   // map y la query reportaba "0 birdies" aunque hubiera muchas rondas matcheadas.
@@ -128,7 +134,10 @@ export async function fetchHistorialStats(
       .select('id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, garmin_scorecard_id, metadata, par_per_hole, formato_juego')
       .eq('user_id', userId)
       .or(OR_EXCLUDE_FEDEGOLF)
-      .order('played_at', { ascending: false }),
+      // Desempate determinista: stats corta "Últimas 5" y calcula la tendencia sobre este orden.
+      .order('played_at', { ascending: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false }),
     supabase
       .from('courses')
       .select('id, nombre, fuente, canonical_course_id'),
@@ -179,9 +188,22 @@ export async function fetchHistorialStats(
   }
 
   if (roundsRes.error || holesError) {
-    await captureError(roundsRes.error ?? holesError, { context: 'fetchHistorialStats', userId })
+    await captureError(roundsRes.error ?? holesError, { context: 'fetchRondasNormalizadas', userId })
     return null
   }
 
-  return computeHistorialStats(rawRounds, allCourses, allHoles)
+  return normalizarRondas(rawRounds, allCourses, allHoles)
+}
+
+/**
+ * Stats agregadas del historial (pills del header, PR grid, conteos
+ * eagles/birdies/pares/bogeys/dobles+). null si falla: la página cae al cálculo
+ * local (paridad con el fetch client no-bloqueante previo) y el route responde 500.
+ */
+export async function fetchHistorialStats(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<HistorialStats | null> {
+  const rondas = await fetchRondasNormalizadas(supabase, userId)
+  return rondas ? historialStatsDeRondas(rondas) : null
 }
