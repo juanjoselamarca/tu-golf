@@ -43,6 +43,7 @@ import { PanelDelJuego } from '../components/timba/PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from '../components/timba/PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from '../components/timba/RetiroDeJugadores'
 import { HojaDeRetiro } from '../components/timba/HojaDeRetiro'
+import { useRetomarConLosRetiros } from './hooks/useRetomarConLosRetiros'
 import { AvisoMarcasRechazadas } from '../components/timba/AvisoMarcasRechazadas'
 
 const SIN_JUGADORES: Jugador[] = []
@@ -103,6 +104,11 @@ export default function ScoreGrupoPage() {
     codigo, activo: esTimba, conexion, jugadores, scores, firma: `${saveStatus}:${JSON.stringify(scores)}`,
     // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
     currentHole, ordenHoyos, par: parMap[currentHole],
+  })
+  // Con un retirado, el hoyo de la carga no sabe del retiro: al llegar los retiros, el scorer va al hoyo que falta.
+  useRetomarConLosRetiros({
+    ronda, scores, equipos: teamEquipos, retiros: esTimba && timba.juego.estado === 'ok' ? timba.retiros : null,
+    currentHole, setCurrentHole,
   })
   const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
     useFinalizeGrupo({

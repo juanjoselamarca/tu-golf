@@ -40,6 +40,21 @@ export function hoyosQueNoSeRellenan(input: {
   return ordenHoyos.filter(h => match.includes(h) || retiro.includes(h))
 }
 
+/**
+ * ¿La tarjeta de `jugadorId` ya no espera golpes en `hoyo`? Anotada, o el jugador se retiró en ese hoyo o antes (Timba
+ * libre). Fuente única del ✓ de la fila de hoyos y del hoyo en que se retoma el scorer: sin el retiro, los hoyos del
+ * retirado quedaban "por anotar" para siempre y el scorer reabría en el hoyo del retiro (QA 17-nov, ronda 8722R3).
+ */
+export function tarjetaAlDiaEnHoyo(
+  scores: ScoresDeTarjeta | undefined,
+  jugadorId: string,
+  hoyo: number,
+  retiros: Readonly<Record<string, number>> | null | undefined,
+  ordenHoyos: readonly number[],
+): boolean {
+  return scoreDelHoyo(scores ?? {}, hoyo) !== undefined || estaRetiradoEn(retiros?.[jugadorId], hoyo, ordenHoyos)
+}
+
 interface HoyoEnPantallaDeLaTimba {
   jugadores: ReadonlyArray<{ id: string }>
   scores: Readonly<Record<string, ScoresDeTarjeta | undefined>>
