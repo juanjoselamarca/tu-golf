@@ -78,7 +78,7 @@ describe('TimbaEnVivo', () => {
     expect(payload.url).toBe('https://golfersplus.vercel.app/ronda-libre/ABC')
     expect(payload.text).toContain('Ganó Pedro. Por un punto sobre Juan.')
     expect(payload.text).toContain('Los Leones')
-    expect(payload.text.split('\n').at(-1)).toBe('https://golfersplus.vercel.app/ronda-libre/ABC')
+    expect(payload.text).not.toContain('https://')
   })
 
   it('si terminó copiado al portapapeles, lo avisa', async () => {

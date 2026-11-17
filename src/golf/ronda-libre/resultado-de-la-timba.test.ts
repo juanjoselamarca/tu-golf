@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import { armarReglasGuardadas, calcularJuegoPersonalizado, crearConfigDePlantilla, type ConfigJuego } from '@/golf/formats/personalizado'
 import { armarEntradaDelJuego, vistaDelJuego, type VistaDelJuego } from './juego-de-la-ronda'
+import { shareableText } from '@/golf/share/whatsapp'
 import { armarResultadoDeLaTimba, textoDePuntos, textoParaCompartirLaTimba, unirNombres } from './resultado-de-la-timba'
 
 const J = '00000000-0000-4000-8000-00000000000a'
@@ -147,8 +148,8 @@ describe('armarResultadoDeLaTimba — La Colombiana con el motor', () => {
     const r = armarResultadoDeLaTimba(vista(golpes, colombiana, { retiros: { [T]: 14 } }), NOMBRES)
     expect(r.ranking.find(f => f.jugadorId === T)?.retiradoDesde).toBe(14)
     expect(r.ranking.find(f => f.jugadorId === J)?.retiradoDesde).toBeNull()
-    expect(textoParaCompartirLaTimba(r, 'Club X', 'https://x/y')).toContain('Tomás')
-    expect(textoParaCompartirLaTimba(r, 'Club X', 'https://x/y')).toMatch(/Tomás [^\n]*\(se retiró en el hoyo 14\)/)
+    expect(textoParaCompartirLaTimba(r, 'Club X')).toContain('Tomás')
+    expect(textoParaCompartirLaTimba(r, 'Club X')).toMatch(/Tomás [^\n]*\(se retiró en el hoyo 14\)/)
   })
 })
 
@@ -158,21 +159,25 @@ describe('textoParaCompartirLaTimba', () => {
     const r = armarResultadoDeLaTimba(vista(parejo({ [J]: 4, [P]: 3, [D]: 5, [T]: 6 }), colombiana, {
       marcas: [{ jugador: P, hoyo: 3, puntito: 'chip' }],
     }), NOMBRES)
-    const texto = textoParaCompartirLaTimba(r, 'Los Leones', 'https://golfersplus.vercel.app/ronda-libre/ABC123')
+    const url = 'https://golfersplus.vercel.app/ronda-libre/ABC123'
+    const texto = textoParaCompartirLaTimba(r, 'Los Leones')
     const lineas = texto.split('\n')
     expect(lineas[0]).toBe('La Colombiana · 18 hoyos · Gross · Los Leones')
     expect(lineas[1]).toMatch(/^Ganó Pedro\. Por \d+ puntos? sobre /)
     expect(lineas).toContain('Parejas')
     expect(lineas.some(l => /^Juan y Pedro \d+ – \d+ Diego y Tomás$/.test(l))).toBe(true)
     expect(texto).toContain('Puntos especiales: Chipingo · Pedro 1')
-    expect(lineas.at(-1)).toBe('https://golfersplus.vercel.app/ronda-libre/ABC123')
+    // El link lo agrega la cascada de compartir, una sola vez y en su propia línea.
+    const compartido = shareableText({ title: '', text: texto, url })
+    expect(compartido.split(url)).toHaveLength(2)
+    expect(compartido.split('\n').at(-1)?.trim()).toBe(url)
     // Puntos de la Timba, nunca golpes ni neto.
     expect(texto).not.toMatch(/neto|golpes|HCP/i)
   })
 
   it('juego individual: sin parejas', () => {
     const r = armarResultadoDeLaTimba(conRanking({ [P]: 0, [J]: 0, [D]: -1 }, crearConfigDePlantilla('subterror')), NOMBRES)
-    const texto = textoParaCompartirLaTimba(r, '', 'https://x')
+    const texto = textoParaCompartirLaTimba(r, '')
     expect(texto).not.toContain('Parejas')
     expect(texto.split('\n')[0]).toBe('La Subterror · 0 hoyos · Gross')
   })

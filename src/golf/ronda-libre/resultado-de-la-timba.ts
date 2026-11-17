@@ -168,8 +168,12 @@ function lineaDelRanking(r: FilaDelResultado): string {
   return `${r.puesto}. ${r.nombre} ${r.texto}${r.retiradoDesde != null ? ` (se retiró en el hoyo ${r.retiradoDesde})` : ''}`
 }
 
-/** Texto para compartir al grupo por WhatsApp: el juego, el ranking de puntos, las parejas y el link a la ronda. */
-export function textoParaCompartirLaTimba(r: ResultadoDeLaTimba, cancha: string, url: string): string {
+/**
+ * Texto para compartir al grupo por WhatsApp: el juego, el ranking de puntos y las parejas. El link a la ronda NO va
+ * acá: viaja como `url` del `SharePayload` y la cascada de compartir lo agrega una sola vez (`shareableText`).
+ * Termina en salto de línea para que el link quede en su propia línea.
+ */
+export function textoParaCompartirLaTimba(r: ResultadoDeLaTimba, cancha: string): string {
   const lineas = [
     `${r.encabezado}${cancha ? ` · ${cancha}` : ''}`,
     `${r.titular}. ${r.bajada}`,
@@ -183,6 +187,5 @@ export function textoParaCompartirLaTimba(r: ResultadoDeLaTimba, cancha: string,
   if (r.puntosEspeciales?.length) {
     lineas.push('', `Puntos especiales: ${r.puntosEspeciales.map(p => p.texto).join(', ')}`)
   }
-  lineas.push('', url)
-  return lineas.join('\n')
+  return `${lineas.join('\n')}\n`
 }

@@ -80,7 +80,7 @@ export function TimbaEnVivo(props: {
 
   const compartir = async () => {
     if (!resultado) return
-    const r = await share({ title: resultado.encabezado, text: textoParaCompartirLaTimba(resultado, cancha, url), url })
+    const r = await share({ title: resultado.encabezado, text: textoParaCompartirLaTimba(resultado, cancha), url })
     if (r.method === 'clipboard') setAviso(r.ok ? 'Resultado copiado: pégalo en el grupo.' : 'No pudimos compartir. Intenta de nuevo.')
     else setAviso(null)
   }
