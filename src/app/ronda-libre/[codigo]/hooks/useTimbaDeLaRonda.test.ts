@@ -82,28 +82,59 @@ describe('useTimbaDeLaRonda', () => {
     expect(result.current.juego).toMatchObject({ estado: 'ok', desactualizado: true })
   })
 
-  it('cerrada sin vista fresca: reintenta solo, con espera creciente, hasta lograrlo', () => {
+  const avanzar = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+
+  it('cerrada sin vista fresca: reintenta solo, con espera creciente, hasta lograrlo', async () => {
     juego.estado = { estado: 'error' }
     const { result, rerender } = renderHook(() => useTimbaDeLaRonda('ABC', ronda('finalizada'), 'u1'))
     expect(juego.recargar).not.toHaveBeenCalled()
-    act(() => { vi.advanceTimersByTime(REINTENTO_CERRADA_BASE_MS) })
+    await avanzar(REINTENTO_CERRADA_BASE_MS)
     expect(juego.recargar).toHaveBeenCalledTimes(1)
-    act(() => { vi.advanceTimersByTime(REINTENTO_CERRADA_BASE_MS) })
+    await avanzar(REINTENTO_CERRADA_BASE_MS)
     expect(juego.recargar).toHaveBeenCalledTimes(1) // la segunda espera es el doble
-    act(() => { vi.advanceTimersByTime(REINTENTO_CERRADA_BASE_MS) })
+    await avanzar(REINTENTO_CERRADA_BASE_MS)
     expect(juego.recargar).toHaveBeenCalledTimes(2)
     // Llega la vista fresca: deja de reintentar.
     juego.estado = ok(CERRADA)
     rerender()
     expect(result.current.juego).toMatchObject({ estado: 'ok' })
-    act(() => { vi.advanceTimersByTime(REINTENTO_CERRADA_MAX_MS * 2) })
+    await avanzar(REINTENTO_CERRADA_MAX_MS * 2)
     expect(juego.recargar).toHaveBeenCalledTimes(2)
   })
 
-  it('en curso no reintenta por su cuenta (para eso está el intervalo)', () => {
+  it('la espera siguiente cuenta desde que el pedido termina, no desde que se lanzó', async () => {
+    juego.estado = { estado: 'error' }
+    const PEDIDO_LENTO_MS = 12_000
+    juego.recargar = vi.fn(() => new Promise<void>(r => { setTimeout(r, PEDIDO_LENTO_MS) }))
+    renderHook(() => useTimbaDeLaRonda('ABC', ronda('finalizada'), 'u1'))
+    await avanzar(REINTENTO_CERRADA_BASE_MS)
+    expect(juego.recargar).toHaveBeenCalledTimes(1)
+    // 6 s desde el lanzamiento: el pedido sigue en vuelo, no se encadena otro.
+    await avanzar(PEDIDO_LENTO_MS - 1)
+    expect(juego.recargar).toHaveBeenCalledTimes(1)
+    await avanzar(1 + 2 * REINTENTO_CERRADA_BASE_MS - 1)
+    expect(juego.recargar).toHaveBeenCalledTimes(1)
+    await avanzar(1)
+    expect(juego.recargar).toHaveBeenCalledTimes(2)
+  })
+
+  it('lograda la vista, el contador vuelve a 0: una nueva falla espera de nuevo 3 s', async () => {
+    juego.estado = { estado: 'error' }
+    const { rerender } = renderHook(() => useTimbaDeLaRonda('ABC', ronda('finalizada'), 'u1'))
+    await avanzar(REINTENTO_CERRADA_BASE_MS * 3) // 3 s + 6 s: dos intentos
+    expect(juego.recargar).toHaveBeenCalledTimes(2)
+    juego.estado = ok(CERRADA)
+    rerender()
+    juego.estado = { estado: 'error' }
+    rerender()
+    await avanzar(REINTENTO_CERRADA_BASE_MS)
+    expect(juego.recargar).toHaveBeenCalledTimes(3)
+  })
+
+  it('en curso no reintenta por su cuenta (para eso está el intervalo)', async () => {
     juego.estado = { estado: 'error' }
     renderHook(() => useTimbaDeLaRonda('ABC', ronda('en_curso'), 'u1'))
-    act(() => { vi.advanceTimersByTime(REINTENTO_CERRADA_MAX_MS * 2) })
+    await avanzar(REINTENTO_CERRADA_MAX_MS * 2)
     expect(juego.recargar).not.toHaveBeenCalled()
   })
 })

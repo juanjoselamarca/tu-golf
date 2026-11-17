@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import { useJuegoDeLaTimba, type EstadoDelJuego } from './useJuegoDeLaTimba'
@@ -57,16 +57,30 @@ export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null
 
   // Cerrada y sin vista fresca porque el pedido falló o llegó una vieja: reintenta solo hasta lograrlo.
   const reintentar = cerrada && (crudo.estado === 'error' || (crudo.estado === 'ok' && juego.estado !== 'ok'))
-  const [intento, setIntento] = useState(0)
+  // La espera siguiente se cuenta desde que el pedido anterior TERMINA (con mala señal un pedido dura hasta
+  // PLAZO_JUEGO_MS: contarla desde que se lanza encadenaría pedidos). Lograda la vista, el contador vuelve a 0.
+  const intento = useRef(0)
   useEffect(() => {
-    if (!reintentar) return
-    const espera = Math.min(REINTENTO_CERRADA_BASE_MS * 2 ** intento, REINTENTO_CERRADA_MAX_MS)
-    const t = setTimeout(() => {
-      setIntento(n => n + 1)
-      void recargar()
-    }, espera)
-    return () => clearTimeout(t)
-  }, [reintentar, intento, recargar])
+    if (!reintentar) {
+      intento.current = 0
+      return
+    }
+    let vivo = true
+    let t: ReturnType<typeof setTimeout> | undefined
+    const ciclo = () => {
+      const espera = Math.min(REINTENTO_CERRADA_BASE_MS * 2 ** intento.current, REINTENTO_CERRADA_MAX_MS)
+      t = setTimeout(async () => {
+        intento.current += 1
+        await recargar()
+        if (vivo) ciclo()
+      }, espera)
+    }
+    ciclo()
+    return () => {
+      vivo = false
+      clearTimeout(t)
+    }
+  }, [reintentar, recargar])
 
   const retiros = !esTimba
     ? {}
