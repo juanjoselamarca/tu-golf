@@ -17,6 +17,9 @@
 --
 -- A quién bloquea: solo a los roles del cliente (`anon`, `authenticated`). service_role (inicio, rollback del
 -- inicio, cancelar torneo, /api/admin) y postgres (migraciones, mantenimiento) quedan exentos.
+-- ⚠️ Falla ABIERTA: la guarda mira `current_user` y solo corta a anon/authenticated. Una función SECURITY DEFINER
+-- corre como su dueño (postgres), así que una RPC futura que escriba estas tablas quedaría exenta EN SILENCIO
+-- aunque la llame el cliente. Quien escriba esa RPC debe validar `torneo_con_grupos_fijos()` adentro.
 --
 -- "Grupos fijos" = mismo predicado que `gruposFijos` en TypeScript: el torneo ya no está en draft/open, o algún
 -- grupo del torneo ya tiene tarjeta. Bloquea:
