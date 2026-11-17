@@ -4,8 +4,9 @@
 --    `estado = 'en_curso'` sin bloquear la fila de la ronda: una escritura que leyó en curso justo antes del cierre
 --    confirmaba después, y el resultado final (que se arma con la ronda ya cerrada) no la incluía. Ahora toman
 --    FOR SHARE de la fila de `rondas_libres`: el cierre (FOR UPDATE en finalizar_ronda_libre, o el UPDATE directo
---    de force-close) espera a que confirmen, y las que llegan después ven la ronda cerrada (P0002). Sin triggers en
---    estas tablas que actualicen rondas_libres, así que no hay ciclo de locks entre escrituras.
+--    de force-close) espera a que confirmen, y las que llegan después ven la ronda cerrada (P0002). Orden: la ronda
+--    antes que el jugador, como el cierre y los borrados de ronda (descartar_ronda_libre, CASCADE), para no cruzarse
+--    en un deadlock (revisión Fable). Sin triggers en estas tablas que actualicen rondas_libres.
 -- 2. Marcas a invitados (pendiente antes de abrir la Timba a todos): `timba_ronda_para_escribir` dejaba a
 --    cualquier usuario con sesión y el código marcar puntos especiales o retiros a un jugador sin cuenta. Ahora
 --    solo quien anota la ronda (`puede_anotar_ronda`). Los golpes (`upsert_ronda_libre_scores`) no cambian de
@@ -32,15 +33,26 @@ DECLARE
 BEGIN
   PERFORM public.validate_score_delta(p_delta);
 
-  SELECT rl.id, rl.estado, rl.es_demo, rlj.user_id, rlj.scores
-    INTO v_ronda_id, v_estado, v_es_demo, v_user_id, v_scores
+  -- Primero la ronda (FOR SHARE), después el jugador (FOR UPDATE), en dos sentencias: el mismo orden que el cierre
+  -- y los borrados de ronda (descartar_ronda_libre, DELETE con CASCADE), para que no se crucen en un deadlock.
+  -- El cierre (finalizar_ronda_libre, FOR UPDATE; o un UPDATE directo) espera a que esta escritura confirme, y una
+  -- que llega después ve el estado ya cerrado. Varias escrituras a la vez no se bloquean (SHARE con SHARE).
+  SELECT rl.id, rl.estado, rl.es_demo
+    INTO v_ronda_id, v_estado, v_es_demo
   FROM public.rondas_libres rl
-  INNER JOIN public.ronda_libre_jugadores rlj ON rlj.ronda_id = rl.id
-  WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo
-  -- FOR SHARE de la ronda: el cierre (finalizar_ronda_libre, FOR UPDATE; o un UPDATE directo) espera a que esta
-  -- escritura confirme, y una escritura que llega después ve el estado ya cerrado. Varias escrituras a la vez no se
-  -- bloquean entre sí (SHARE es compatible con SHARE).
-  FOR UPDATE OF rlj FOR SHARE OF rl;
+  WHERE rl.codigo = p_codigo
+  FOR SHARE;
+
+  IF v_ronda_id IS NOT NULL THEN
+    SELECT rlj.user_id, rlj.scores
+      INTO v_user_id, v_scores
+    FROM public.ronda_libre_jugadores rlj
+    WHERE rlj.id = p_jugador_id AND rlj.ronda_id = v_ronda_id
+    FOR UPDATE;
+    IF NOT FOUND THEN
+      v_ronda_id := NULL;
+    END IF;
+  END IF;
 
   IF v_ronda_id IS NULL THEN
     RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
@@ -132,3 +144,9 @@ BEGIN
   RETURN QUERY SELECT v_ronda_id, v_reglas, v_holes;
 END;
 $function$;
+
+-- Privilegios (sin cambios respecto de prod; declarados por el canario privado-por-defecto).
+REVOKE ALL ON FUNCTION public.upsert_ronda_libre_scores(uuid, text, jsonb, bigint, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.upsert_ronda_libre_scores(uuid, text, jsonb, bigint, uuid) TO anon, authenticated, service_role;
+-- Interna: solo la llaman marcar_puntito_ronda_libre y marcar_retiro_ronda_libre (SECURITY DEFINER).
+REVOKE ALL ON FUNCTION public.timba_ronda_para_escribir(text, uuid) FROM PUBLIC, anon, authenticated;

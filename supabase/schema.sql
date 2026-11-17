@@ -2347,15 +2347,26 @@ DECLARE
 BEGIN
   PERFORM public.validate_score_delta(p_delta);
 
-  SELECT rl.id, rl.estado, rl.es_demo, rlj.user_id, rlj.scores
-    INTO v_ronda_id, v_estado, v_es_demo, v_user_id, v_scores
+  -- Primero la ronda (FOR SHARE), después el jugador (FOR UPDATE), en dos sentencias: el mismo orden que el cierre
+  -- y los borrados de ronda (descartar_ronda_libre, DELETE con CASCADE), para que no se crucen en un deadlock.
+  -- El cierre (finalizar_ronda_libre, FOR UPDATE; o un UPDATE directo) espera a que esta escritura confirme, y una
+  -- que llega después ve el estado ya cerrado. Varias escrituras a la vez no se bloquean (SHARE con SHARE).
+  SELECT rl.id, rl.estado, rl.es_demo
+    INTO v_ronda_id, v_estado, v_es_demo
   FROM public.rondas_libres rl
-  INNER JOIN public.ronda_libre_jugadores rlj ON rlj.ronda_id = rl.id
-  WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo
-  -- FOR SHARE de la ronda: el cierre (finalizar_ronda_libre, FOR UPDATE; o un UPDATE directo) espera a que esta
-  -- escritura confirme, y una escritura que llega después ve el estado ya cerrado. Varias escrituras a la vez no se
-  -- bloquean entre sí (SHARE es compatible con SHARE).
-  FOR UPDATE OF rlj FOR SHARE OF rl;
+  WHERE rl.codigo = p_codigo
+  FOR SHARE;
+
+  IF v_ronda_id IS NOT NULL THEN
+    SELECT rlj.user_id, rlj.scores
+      INTO v_user_id, v_scores
+    FROM public.ronda_libre_jugadores rlj
+    WHERE rlj.id = p_jugador_id AND rlj.ronda_id = v_ronda_id
+    FOR UPDATE;
+    IF NOT FOUND THEN
+      v_ronda_id := NULL;
+    END IF;
+  END IF;
 
   IF v_ronda_id IS NULL THEN
     RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
