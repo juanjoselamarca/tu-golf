@@ -864,5 +864,17 @@ Fuera de alcance (pendiente):
 - La escritura de `taiger_sessions.next_focus` (`chat-engine.ts:543`, `substring(0, 200)` de markdown crudo):
   la home lo limpia con `textoPlano`, pero se sigue guardando con markdown.
 - Barras decorativas fijas (`spark`) en `HighlightCard` y `PatternTile` de `coach/page.tsx`: no representan datos.
-- Copy con "esta semana" sin ventana semanal real: subtítulo del hero ("…detectó algo importante esta semana") y
-  "Highlights · esta semana". Decisión de copy para Juanjo.
+- ~~Copy con "esta semana" sin ventana semanal real~~ → resuelto en la vuelta 1 de revisión ("…en tus últimas
+  rondas", "Highlights").
+- Unificar el detector `post_bogey_spiral` (`golf/coach/patterns.ts`, tasa sobre par de respaldo) con
+  `espiralesDeRonda` (`golf/coach/mental-index.ts`). Mientras convivan, el tile del patrón no muestra número
+  (antes "47/100" competía con el Mental Index con sentido opuesto); queda nombre + "% conf".
+- Rótulos posicionales en rondas de 9 jugadas del 10 al 18: la curva dice "Front 9" y las espirales "H1–H2"
+  (deberían ser "Back 9" / "H10–H11"). Ya existía: `RondaNormalizada` no expone `metadata.hoyos`. Los números
+  (índice, costo) son correctos; solo falla el rótulo. Fix: exponer los hoyos reales en `RondaNormalizada`.
+- Ronda de 18 que sale por el 10: `historical_rounds.scores` va por NÚMERO de hoyo (convención de
+  `golf/ronda-libre/tarjeta-historica.ts`), así que la espiral cruza 9→10 (último y primer hoyo jugados) y no
+  cruza 18→1 (consecutivos en juego). Caso borde aceptado y documentado; corregirlo exige el orden de juego
+  (hoyo de salida) en `RondaNormalizada`.
+- Copy con juicio que queda en `/coach`: "El resto son donde la cabeza paga el precio." (`PlanActivo`, línea de
+  correlación del plan). Misma regla que sacó "La cabeza paga, no el swing." → decisión de copy para Juanjo.
