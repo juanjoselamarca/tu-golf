@@ -9,7 +9,10 @@ import { grossPorHoyo, puntajeDeHoyo } from '@/golf/core/hole-scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import { fetchRoundHoleScores, type ScoringPlayer, type ScoringTournament } from '@/lib/data/tournaments/scoring'
-import { avisoSinAcceso, clasificarRespuestaScore, esSinAcceso, type AvisoSinAcceso, type ResultadoGuardadoTorneo } from './acceso-guardado'
+import {
+  avisoSinAcceso, clasificarRespuestaScore, esSinAcceso, STATUS_CON_CODE,
+  type AvisoSinAcceso, type LecturaRespuestaScore, type MotivoSinAcceso, type ResultadoGuardadoTorneo,
+} from './acceso-guardado'
 
 export type EstadoGuardado = 'idle' | 'saving' | 'saved' | 'offline' | 'error' | 'sin_acceso'
 
@@ -18,6 +21,8 @@ export const INTENTOS_POR_HOYO = 3
 const ESPERA_BASE_MS = 400
 
 const estaOnline = () => typeof navigator === 'undefined' || navigator.onLine
+
+type Golpes = Record<number, number>
 
 export interface UseGuardadoTorneoArgs {
   slug: string
@@ -47,32 +52,53 @@ export interface UseGuardadoTorneoArgs {
  *
  * Respuestas del servidor (fuente única `clasificarRespuestaScore`):
  * - 409 → la tarjeta/torneo no acepta más: se descarta la cola con un aviso.
- * - 401/403 → el servidor no reconoce a quien anota: aviso con salida (`avisoSinAcceso`), SIN
- *   "reintentando" y con la cola conservada; se reenvía sola al volver a abrir la tarjeta.
+ * - 401/403 → aviso con salida (`avisoSinAcceso`), SIN "reintentando" y con la cola conservada;
+ *   se reenvía sola al volver a abrir la tarjeta. Un 403 `guest_not_owner` se reintenta una vez sin
+ *   headers de invitado (guestId viejo en un teléfono que hoy anota con cuenta).
  * - red/5xx/429 → reintenta y deja la cola para el próximo `online`.
  *
- * La cola sólo se marca enviada con la MISMA tarjeta que se envió (`marcarSincronizado(enviados)`):
- * un hoyo anotado mientras viajaba otro, o uno que falló antes, nunca queda marcado sin llegar.
+ * Lo que el servidor ya tiene (`confirmadosRef`: lo leído al cargar + cada "ok") no se vuelve a
+ * mandar: el respaldo local guarda la tarjeta ENTERA, y reenviarla completa en cada hoyo eran
+ * decenas de POST por minuto por jugador (429 y avisos falsos, como el 04-oct-2026). La cola sólo
+ * se marca enviada cuando todo el respaldo coincide con lo confirmado.
  */
 export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
   const { slug, tournament, player, roundId, contextoListo, hoyosRonda, holeCount, courseHcpDe, bloqueado, guestId, guestToken, onRondaCerrada, onInvitadoCompleto } = args
-  const isGuest = !!guestId && !!guestToken
   const scoreSync = useScoreSync(slug, roundId)
 
-  const [currentScores, setCurrentScores] = useState<Record<number, number>>({})
+  const [currentScores, setCurrentScores] = useState<Golpes>({})
   const [savedHoles, setSavedHoles] = useState<Set<number>>(new Set())
   const [isOnline, setIsOnline] = useState(true)
   const [saveStatus, setSaveStatus] = useState<EstadoGuardado>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
-  /** El servidor no reconoce a quien anota (401/403): aviso honesto con salida, sin "reintentando". */
+  /** El servidor no acepta a quien anota (401/403): aviso honesto con salida, sin "reintentando". */
   const [sinAcceso, setSinAcceso] = useState<AvisoSinAcceso | null>(null)
   /** El torneo dejó de aceptar scores (cerrado/cancelado): tarjeta deshabilitada y UN aviso. */
   const [torneoInactivo, setTorneoInactivo] = useState(false)
+  /** Tarjeta cuya carga terminó (lo del servidor ya está en `confirmadosRef`). */
+  const [tarjetaCargada, setTarjetaCargada] = useState<string | null>(null)
 
-  // Al cambiar de tarjeta (otro jugador u otra ronda), los "✓ guardado" y el aviso son de la anterior.
+  /** Golpes que el servidor ya tiene en ESTA tarjeta (hoyo → gross). */
+  const confirmadosRef = useRef<Golpes>({})
+  /** Golpes viajando ahora (hoyo → gross): otro envío no los duplica. */
+  const enVueloRef = useRef<Map<number, number>>(new Map())
+  /** Tarjeta con un reenvío en curso (por tarjeta: el de la anterior no bloquea a la nueva). */
+  const reenvioEnCursoRef = useRef<string | null>(null)
+  /** Tarjeta abierta ahora: lo que vuelve de un envío de otra tarjeta no toca la pantalla. */
+  const tarjetaVigenteRef = useRef<string | null>(roundId)
+  /** Un 403 `guest_not_owner` se resolvió sin headers de invitado: el teléfono anota con cuenta. */
+  const sinHeadersInvitadoRef = useRef(false)
+  const anotaComoInvitado = useCallback(() => !!guestId && !!guestToken && !sinHeadersInvitadoRef.current, [guestId, guestToken])
+
+  // Al cambiar de tarjeta (otro jugador u otra ronda) todo lo visible y lo confirmado es de la anterior.
   useEffect(() => {
+    tarjetaVigenteRef.current = roundId
+    confirmadosRef.current = {}
+    enVueloRef.current = new Map()
     setSavedHoles(new Set())
     setSinAcceso(null)
+    setSaveError(null)
+    setSaveStatus('idle')
   }, [roundId])
 
   /* ── Carga de la tarjeta: lo del servidor + lo que quedó en el teléfono sin confirmar ── */
@@ -82,7 +108,7 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     let cancelled = false
     void (async () => {
       if (!roundId) { setCurrentScores({}); return }
-      const map: Record<number, number> = {}
+      const map: Golpes = {}
       try {
         const data = await fetchRoundHoleScores(createClient(), roundId)
         Object.assign(map, grossPorHoyo(data))
@@ -90,6 +116,7 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
         void captureError(e, { context: 'torneo.score.loadScores', meta: { slug, roundId } })
       }
       if (cancelled) return
+      confirmadosRef.current = { ...confirmadosRef.current, ...map }
       // Lo pendiente (offline / guardado fallido) se mezcla para que ningún golpe se pierda al recargar.
       const pendiente = leerRespaldoPendiente(slug, roundId)
       if (pendiente) {
@@ -98,6 +125,7 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
         setSaveStatus(prev => prev === 'sin_acceso' ? prev : estaOnline() ? 'error' : 'offline')
       }
       setCurrentScores(map)
+      setTarjetaCargada(roundId)
     })()
     return () => { cancelled = true }
   }, [player, roundId, slug])
@@ -114,89 +142,143 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     return { par, neto, puntos }
   }, [tournament, hoyosRonda, holeCount, courseHcpDe])
 
-  const enviarHoyo = useCallback(async (
-    tourneyId: string, ronda: string, holeNumber: number, gross: number, par: number, netScore: number, points: number,
-  ): Promise<ResultadoGuardadoTorneo> => {
+  const postScore = useCallback(async (body: object, conInvitado: boolean): Promise<LecturaRespuestaScore> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (guestId && guestToken) {
+    if (conInvitado && guestId && guestToken) {
       headers['x-guest-id'] = guestId
       headers['x-guest-token'] = guestToken
     }
-    for (let intento = 1; intento <= INTENTOS_POR_HOYO; intento++) {
-      try {
-        const res = await fetch('/api/game', {
-          method: 'POST', headers,
-          body: JSON.stringify({ action: 'upsert_score', tournament_id: tourneyId, round_id: ronda, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }),
-        })
-        // 409 y 401/403 no cambian reintentando: se devuelven al tiro. El `code` del 409
-        // distingue la ronda cerrada (puede venir otra) del torneo inactivo.
-        const code = res.status === 409 ? ((await res.json().catch(() => ({}))) as { code?: string }).code : undefined
-        const resultado = clasificarRespuestaScore(res.status, code)
-        if (resultado !== 'reintentar') return resultado
-      } catch {
-        // red caída: se reintenta
-      }
-      if (intento < INTENTOS_POR_HOYO) await new Promise(r => setTimeout(r, ESPERA_BASE_MS * intento))
-    }
-    return 'error'
+    const res = await fetch('/api/game', { method: 'POST', headers, body: JSON.stringify(body) })
+    const code = STATUS_CON_CODE.includes(res.status)
+      ? ((await res.json().catch(() => ({}))) as { code?: string }).code
+      : undefined
+    return clasificarRespuestaScore(res.status, code)
   }, [guestId, guestToken])
 
-  const marcarSinAcceso = useCallback((motivo: Parameters<typeof avisoSinAcceso>[0]['motivo']) => {
-    setSaveStatus('sin_acceso')
-    setSinAcceso(avisoSinAcceso({ esInvitado: isGuest, slug, motivo }))
-  }, [isGuest, slug])
+  /** Envía UN hoyo y lo registra como confirmado / en vuelo. */
+  const enviarHoyo = useCallback(async (
+    tourneyId: string, ronda: string, holeNumber: number, gross: number, par: number, netScore: number, points: number,
+  ): Promise<ResultadoGuardadoTorneo> => {
+    const body = { action: 'upsert_score', tournament_id: tourneyId, round_id: ronda, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }
+    const enVuelo = enVueloRef.current
+    enVuelo.set(holeNumber, gross)
+    try {
+      for (let intento = 1; intento <= INTENTOS_POR_HOYO; intento++) {
+        try {
+          const conInvitado = anotaComoInvitado()
+          let r = await postScore(body, conInvitado)
+          if (r === 'invitado_no_dueno') {
+            if (!conInvitado) return 'invitado_sin_acceso'
+            // UNA vez sin headers de invitado: si el teléfono tiene sesión con cuenta, entra por ahí.
+            r = await postScore(body, false)
+            if (r === 'ok') sinHeadersInvitadoRef.current = true
+            else if (r === 'sin_sesion' || r === 'invitado_no_dueno') return 'invitado_sin_acceso'
+          }
+          if (r !== 'reintentar') {
+            if (r === 'ok' && tarjetaVigenteRef.current === ronda) confirmadosRef.current[holeNumber] = gross
+            return r
+          }
+        } catch {
+          // red caída: se reintenta
+        }
+        if (intento < INTENTOS_POR_HOYO) await new Promise(res => setTimeout(res, ESPERA_BASE_MS * intento))
+      }
+      return 'error'
+    } finally {
+      if (enVuelo.get(holeNumber) === gross) enVuelo.delete(holeNumber)
+    }
+  }, [postScore, anotaComoInvitado])
 
-  /** Reenvía la cola local de la tarjeta (al reconectar, al abrirla, o tras un guardado con cola previa). */
-  const reenviarPendientes = useCallback(async (): Promise<void> => {
-    if (!tournament || !roundId || !player || !contextoListo) return
-    if (!scoreSync.tienePendientes() || scoreSync.syncInProgressRef.current) return
-    const pending = scoreSync.obtenerLocal()
-    if (!pending) return
-    scoreSync.syncInProgressRef.current = true
+  const marcarSinAcceso = useCallback((motivo: MotivoSinAcceso) => {
+    setSaveStatus('sin_acceso')
+    setSinAcceso(avisoSinAcceso({ slug, motivo, jugadorId: player?.id }))
+  }, [slug, player?.id])
+
+  /** Hoyos del respaldo que el servidor no tiene y que no están viajando. */
+  const porEnviar = useCallback((local: Golpes): Golpes => {
+    const out: Golpes = {}
+    for (const [h, g] of Object.entries(local)) {
+      const hoyo = Number(h)
+      if (confirmadosRef.current[hoyo] === g || enVueloRef.current.get(hoyo) === g) continue
+      out[hoyo] = g
+    }
+    return out
+  }, [])
+
+  /** El respaldo coincide entero con lo confirmado: se marca enviado sin tocar la red. */
+  const cerrarSiTodoConfirmado = useCallback((local: Golpes | null): boolean => {
+    if (!local) return true
+    const todo = Object.entries(local).every(([h, g]) => confirmadosRef.current[Number(h)] === g)
+    if (todo) scoreSync.marcarSincronizado(local)
+    return todo
+  }, [scoreSync])
+
+  /**
+   * Reenvía SÓLO lo que falta de la cola local (al reconectar, al abrir la tarjeta, o tras un "ok"
+   * con hoyos sin confirmar). Devuelve false si no pudo arrancar porque ya hay uno en curso.
+   * `avisar`: toast "Sincronizado" (no cuando lo dispara el guardado de un hoyo).
+   */
+  const reenviarPendientes = useCallback(async (opciones: { avisar?: boolean } = {}): Promise<boolean> => {
+    const avisar = opciones.avisar ?? true
+    if (!tournament || !roundId || !player || !contextoListo) return true
+    if (!scoreSync.tienePendientes()) return true
+    if (reenvioEnCursoRef.current === roundId) return false
+    const local = scoreSync.obtenerLocal()
+    if (!local) return true
+    reenvioEnCursoRef.current = roundId
+    const vigente = () => tarjetaVigenteRef.current === roundId
     let otraVuelta = false
     try {
+      const faltan = porEnviar(local)
       let failed = 0
-      for (const [h, g] of Object.entries(pending)) {
+      let enviados = 0
+      for (const [h, g] of Object.entries(faltan)) {
         const holeNumber = Number(h)
         const p = puntajeDe(holeNumber, g, player)
-        if (!p) return
+        if (!p) return true
         const resultado = await enviarHoyo(tournament.id, roundId, holeNumber, g, p.par, p.neto, p.puntos)
         if (resultado === 'closed') {
           // Tarjeta cerrada: lo pendiente no tiene a dónde ir. Se descarta y se recarga el roster.
           scoreSync.marcarSincronizado()
           addToast({ type: 'error', title: 'Ronda cerrada', message: 'El organizador cerró esta ronda. Los scores pendientes no se guardaron.', duration: 6000 })
           onRondaCerrada()
-          return
+          return true
         }
         if (resultado === 'inactive') {
           scoreSync.marcarSincronizado()
           setTorneoInactivo(true)
           addToast({ type: 'error', title: 'Torneo cerrado', message: 'El torneo ya no acepta scores. Los scores pendientes no se guardaron.', duration: 6000 })
-          return
+          return true
         }
         if (esSinAcceso(resultado)) {
           // La cola se conserva: se reenvía al volver a abrir la tarjeta con acceso.
-          marcarSinAcceso(resultado)
-          return
+          if (vigente()) marcarSinAcceso(resultado)
+          return true
         }
         if (resultado !== 'ok') failed++
-        else setSavedHoles(prev => new Set(prev).add(holeNumber))
+        else {
+          enviados++
+          if (vigente()) setSavedHoles(prev => new Set(prev).add(holeNumber))
+        }
       }
+      if (!vigente()) return true
       if (failed === 0) {
-        scoreSync.marcarSincronizado(pending)
-        setSinAcceso(null)
-        setSaveStatus('saved')
-        addToast({ type: 'success', title: 'Sincronizado', message: `${Object.keys(pending).length} hoyos guardados`, duration: 3000 })
-        // Se anotó otro hoyo mientras se reenviaba: la cola cambió y sigue pendiente.
-        otraVuelta = scoreSync.tienePendientes()
+        if (cerrarSiTodoConfirmado(local)) {
+          setSinAcceso(null)
+          setSaveStatus('saved')
+          if (avisar && enviados > 0) addToast({ type: 'success', title: 'Sincronizado', message: `${enviados} hoyos guardados`, duration: 3000 })
+        }
+        // Se anotó otro hoyo mientras se reenviaba: la cola cambió y puede faltar algo.
+        otraVuelta = scoreSync.tienePendientes() && Object.keys(porEnviar(scoreSync.obtenerLocal() ?? {})).length > 0
       } else {
         setSaveStatus('error')
       }
     } finally {
-      scoreSync.syncInProgressRef.current = false
+      if (reenvioEnCursoRef.current === roundId) reenvioEnCursoRef.current = null
     }
-    if (otraVuelta) await reenviarPendientes()
-  }, [tournament, roundId, player, contextoListo, scoreSync, puntajeDe, enviarHoyo, onRondaCerrada, marcarSinAcceso])
+    if (otraVuelta) await reenviarPendientes({ avisar })
+    return true
+  }, [tournament, roundId, player, contextoListo, scoreSync, porEnviar, puntajeDe, enviarHoyo, onRondaCerrada, marcarSinAcceso, cerrarSiTodoConfirmado])
 
   /** Guarda el hoyo anotado (onBlur del input). */
   const guardarHoyo = useCallback(async (holeNumber: number, value: string) => {
@@ -207,8 +289,6 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     const p = puntajeDe(holeNumber, gross, player)
     if (!p) return
 
-    // ¿Quedaba algo sin confirmar ANTES de este hoyo? Entonces su "ok" no confirma la tarjeta entera.
-    const habiaPendiente = scoreSync.tienePendientes()
     const nextScores = { ...currentScores, [holeNumber]: gross }
     setCurrentScores(nextScores)
     scoreSync.guardarLocal(nextScores)
@@ -221,9 +301,13 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     setSaveStatus('saving')
     setSaveError(null)
     const resultado = await enviarHoyo(tournament.id, roundId, holeNumber, gross, p.par, p.neto, p.puntos)
+    // Se cambió de tarjeta mientras viajaba: el respaldo de ESA tarjeta se maneja abajo vía su
+    // propio scoreSync, pero la pantalla ya es de otra.
+    const vigente = tarjetaVigenteRef.current === roundId
     if (resultado === 'closed') {
       // La ronda se cerró mientras se escribía: no se encola (no hay a dónde) y se recarga el roster.
       scoreSync.marcarSincronizado()
+      if (!vigente) return
       setSaveStatus('idle')
       addToast({ type: 'error', title: 'Ronda cerrada', message: 'El organizador cerró esta ronda. El score no se guardó.', duration: 6000 })
       onRondaCerrada()
@@ -238,6 +322,7 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
       }
       return
     }
+    if (!vigente) return
     if (esSinAcceso(resultado)) {
       // Reintentar ahora no sirve, pero el golpe se CONSERVA en el teléfono: la carga lo vuelve a
       // mostrar y se reenvía solo al volver a abrir la tarjeta con acceso. El aviso dice eso.
@@ -248,15 +333,18 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
       setSavedHoles(prev => new Set(prev).add(holeNumber))
       setSaveStatus('saved')
       setSinAcceso(null)
-      if (habiaPendiente) void reenviarPendientes()
-      else scoreSync.marcarSincronizado(nextScores)
-      if (isGuest && Object.keys(nextScores).length >= holeCount) onInvitadoCompleto()
+      // Cola al día → se marca sin red. Si falta algo que no está viajando, se manda SÓLO eso.
+      const local = scoreSync.obtenerLocal()
+      if (!cerrarSiTodoConfirmado(local) && Object.keys(porEnviar(local ?? {})).length > 0) {
+        void reenviarPendientes({ avisar: false })
+      }
+      if (anotaComoInvitado() && Object.keys(nextScores).length >= holeCount) onInvitadoCompleto()
       return
     }
     setSaveStatus('error')
     addToast({ type: 'error', title: `Error hoyo ${holeNumber}`, message: 'Score guardado localmente. Se sincronizará al recuperar la conexión.', duration: 6000 })
     setSaveError(`Error guardando hoyo ${holeNumber}. Reintentando al reconectar.`)
-  }, [tournament, player, roundId, bloqueado, torneoInactivo, contextoListo, puntajeDe, scoreSync, currentScores, isOnline, enviarHoyo, onRondaCerrada, marcarSinAcceso, reenviarPendientes, isGuest, holeCount, onInvitadoCompleto])
+  }, [tournament, player, roundId, bloqueado, torneoInactivo, contextoListo, puntajeDe, scoreSync, currentScores, isOnline, enviarHoyo, onRondaCerrada, marcarSinAcceso, cerrarSiTodoConfirmado, porEnviar, reenviarPendientes, holeCount, onInvitadoCompleto, anotaComoInvitado])
 
   /* ── Online/offline: los listeners se registran UNA vez y llaman a la versión vigente ── */
   const reenviarRef = useRef(reenviarPendientes)
@@ -272,13 +360,16 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
 
   // Al abrir la tarjeta con conexión y cola pendiente (p. ej. golpes que quedaron en el teléfono tras
   // un 401 y el jugador volvió a entrar) se reenvía UNA vez por tarjeta: el evento `online` no va a
-  // llegar. Una sola vez: los cambios de identidad del roster/cancha no disparan reenvíos repetidos.
-  const listo = !!tournament && !!roundId && !!player && contextoListo
+  // llegar. El candado de reenvío es POR TARJETA: uno de la tarjeta anterior todavía en curso no
+  // bloquea este. Si lo bloquea uno de ESTA misma tarjeta, ese ya está mandando la cola (y repasa
+  // lo anotado mientras tanto), así que darlo por hecho es correcto.
+  // Espera a que termine la carga: antes no se sabe qué tiene el servidor y se reenviaría todo.
+  const listo = !!tournament && !!roundId && !!player && contextoListo && tarjetaCargada === roundId
   const reenviadoAlAbrirRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!listo || !roundId || reenviadoAlAbrirRef.current === roundId) return
+    if (!listo || !roundId || reenviadoAlAbrirRef.current === roundId || !estaOnline()) return
     reenviadoAlAbrirRef.current = roundId
-    if (estaOnline()) void reenviarPendientes()
+    void reenviarPendientes()
   }, [listo, roundId, reenviarPendientes])
 
   /** Hoyos en la cola local (badge "Offline — N en cola" / "Reintentando (N)"). */

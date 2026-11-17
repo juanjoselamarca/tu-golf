@@ -27,9 +27,14 @@ const hoyos = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, han
 type Respuesta = { status: number; body?: unknown } | 'red'
 let respuestas: Respuesta[] = []
 const enviados: Array<{ hole: number; gross: number }> = []
+const conHeadersInvitado: boolean[] = []
+/** Si se define, el próximo fetch queda colgado hasta que el test lo suelte. */
+let colgar: Promise<void> | null = null
 const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
   const body = JSON.parse(String(init.body)) as { hole_number: number; gross_score: number }
   enviados.push({ hole: body.hole_number, gross: body.gross_score })
+  conHeadersInvitado.push(!!(init.headers as Record<string, string>)['x-guest-id'])
+  if (colgar) { const c = colgar; colgar = null; await c }
   const r = respuestas.length > 1 ? respuestas.shift()! : respuestas[0]
   if (r === 'red' || r === undefined) throw new TypeError('Failed to fetch')
   return new Response(JSON.stringify(r.body ?? {}), { status: r.status })
@@ -60,6 +65,8 @@ beforeEach(() => {
   localStorage.clear()
   respuestas = [{ status: 200 }]
   enviados.length = 0
+  conHeadersInvitado.length = 0
+  colgar = null
   fetchMock.mockClear()
   addToast.mockReset()
   fetchRoundHoleScores.mockReset().mockResolvedValue([])
@@ -176,11 +183,61 @@ describe('useGuardadoTorneo — 401/403 (PR #754)', () => {
     expect(respaldo()).toEqual({ 7: 5 })
   })
 
-  it('403 de invitado: salida a reinscribirse', async () => {
-    respuestas = [{ status: 403 }]
+  it('403 guest_not_owner y sin sesión con cuenta: aviso de invitado al organizador, nunca a /unirse', async () => {
+    respuestas = [{ status: 403, body: { code: 'guest_not_owner' } }, { status: 401 }]
     const { result } = await montar({ guestId: 'g1', guestToken: 'tok' })
     await act(async () => { await result.current.guardarHoyo(7, '5') })
-    expect(result.current.sinAcceso?.href).toBe(`/torneo/${SLUG}/unirse`)
+    expect(conHeadersInvitado).toEqual([true, false])
+    expect(result.current.sinAcceso?.titulo).toMatch(/invitado/)
+    expect(result.current.sinAcceso?.href).toBe(`/torneo/${SLUG}`)
+    expect(respaldo()).toEqual({ 7: 5 })
+  })
+
+  it('403 guest_not_owner con sesión de cuenta (guestId viejo): entra sin headers y deja de mandarlos', async () => {
+    respuestas = [{ status: 403, body: { code: 'guest_not_owner' } }, { status: 200 }]
+    const onInvitadoCompleto = vi.fn()
+    const { result } = await montar({ guestId: 'g1', guestToken: 'tok', holeCount: 2, onInvitadoCompleto })
+    await act(async () => { await result.current.guardarHoyo(1, '5') })
+    expect(result.current.saveStatus).toBe('saved')
+    await act(async () => { await result.current.guardarHoyo(2, '4') })
+    expect(conHeadersInvitado).toEqual([true, false, false])
+    // No es invitado: no se le ofrece registrarse al completar.
+    expect(onInvitadoCompleto).not.toHaveBeenCalled()
+  })
+
+  it('403 player_withdrawn: aviso de retirado, sin reinscripción', async () => {
+    respuestas = [{ status: 403, body: { code: 'player_withdrawn' } }]
+    const { result } = await montar({ guestId: 'g1', guestToken: 'tok' })
+    await act(async () => { await result.current.guardarHoyo(7, '5') })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result.current.sinAcceso?.titulo).toMatch(/retirado/i)
+    expect(result.current.sinAcceso?.href).toBe(`/torneo/${SLUG}`)
+  })
+
+  it('el login vuelve a esta tarjeta con el jugador elegido', async () => {
+    respuestas = [{ status: 401 }]
+    const { result } = await montar()
+    await act(async () => { await result.current.guardarHoyo(7, '5') })
+    expect(result.current.sinAcceso?.href).toBe(`/login?next=${encodeURIComponent(`/torneo/${SLUG}/score?jugador=p1`)}`)
+  })
+
+  it('tras un 403, "Cambiar jugador" deja el badge en reposo (no "No guardado" sobre una tarjeta sana)', async () => {
+    respuestas = [{ status: 403 }]
+    const { result, rerender } = await montar()
+    await act(async () => { await result.current.guardarHoyo(7, '5') })
+    expect(result.current.saveStatus).toBe('sin_acceso')
+    rerender(args({ player: undefined, roundId: null }))
+    await waitFor(() => expect(result.current.saveStatus).toBe('idle'))
+    expect(result.current.sinAcceso).toBeNull()
+  })
+
+  it('al abrir, reenvía SÓLO lo que el servidor no tiene', async () => {
+    fetchRoundHoleScores.mockResolvedValue([{ hole_number: 7, gross_score: 5 }])
+    dejarPendiente({ 7: 5, 8: 4 })
+    const { result } = await montar()
+    await waitFor(() => expect(result.current.saveStatus).toBe('saved'))
+    expect(enviados).toEqual([{ hole: 8, gross: 4 }])
+    expect(respaldo()).toBeNull()
   })
 
   it('al volver a abrir la tarjeta con cola pendiente, la reenvía UNA vez y la confirma', async () => {
@@ -206,14 +263,43 @@ describe('useGuardadoTorneo — 401/403 (PR #754)', () => {
   })
 })
 
-describe('useGuardadoTorneo — la cola no se confirma con hoyos sin llegar', () => {
-  it('hoyo 3 falla (5xx) y el 4 entra: el 3 se reenvía, no queda marcado como enviado', async () => {
+describe('useGuardadoTorneo — la cola no se confirma con hoyos sin llegar ni se reenvía entera', () => {
+  it('hoyo 3 falla (5xx) y el 4 entra: se reenvía SÓLO el 3, y la cola queda confirmada', async () => {
     respuestas = [{ status: 500 }, { status: 500 }, { status: 500 }, { status: 200 }]
     const { result } = await montar()
     await act(async () => { await result.current.guardarHoyo(3, '5') })
     expect(respaldo()).toEqual({ 3: 5 })
     await act(async () => { await result.current.guardarHoyo(4, '4') })
     await waitFor(() => expect(respaldo()).toBeNull())
-    expect(enviados.filter(e => e.hole === 3).length).toBeGreaterThanOrEqual(4)
+    expect(enviados.filter(e => e.hole === 3)).toHaveLength(4)
+    expect(enviados.filter(e => e.hole === 4)).toHaveLength(1)
+  })
+
+  it('anotar rápido (dos blur solapados): un POST por hoyo, sin reenvíos ni toast "Sincronizado"', async () => {
+    const { result } = await montar()
+    let soltar!: () => void
+    colgar = new Promise<void>(r => { soltar = r })
+    let primero!: Promise<void>
+    act(() => { primero = result.current.guardarHoyo(1, '4') })
+    await act(async () => { await result.current.guardarHoyo(2, '5') })
+    await act(async () => { soltar(); await primero })
+    for (let h = 3; h <= 9; h++) await act(async () => { await result.current.guardarHoyo(h, '4') })
+    expect(fetchMock).toHaveBeenCalledTimes(9)
+    expect(respaldo()).toBeNull()
+    expect(addToast).not.toHaveBeenCalled()
+  })
+
+  it('un reenvío colgado de la tarjeta anterior no bloquea el de la nueva', async () => {
+    dejarPendiente({ 7: 5 })
+    let soltar!: () => void
+    colgar = new Promise<void>(r => { soltar = r })
+    const { rerender } = await montar()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    // Otra tarjeta con su propia cola, mientras la anterior sigue colgada.
+    localStorage.setItem(claveDelRespaldo(SLUG, 'ronda-2'), JSON.stringify({ scores: { 2: 6 }, timestamp: Date.now(), sincronizado: false, codigoRonda: SLUG, jugadorId: 'ronda-2' }))
+    const otro = { id: 'p2', rounds: [{ id: 'ronda-2' }] } as unknown as ScoringPlayer
+    rerender(args({ player: otro, roundId: 'ronda-2' }))
+    await waitFor(() => expect(enviados).toContainEqual({ hole: 2, gross: 6 }))
+    await act(async () => { soltar() })
   })
 })

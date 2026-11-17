@@ -212,6 +212,11 @@ export default function PlayerScoringPage() {
 
         setLoading(false)
 
+        // Vuelta desde el login del aviso "Inicia sesión para guardar" (`?jugador=<id>`): se reabre
+        // ESA tarjeta, que al abrirse reenvía sola los golpes que quedaron en el teléfono.
+        const jugadorDelLink = new URLSearchParams(window.location.search).get('jugador')
+        if (jugadorDelLink && roster.some(p => p.id === jugadorDelLink)) setSelectedId(jugadorDelLink)
+
         // Auto-selección del invitado: FUERA del Promise.all de arriba a propósito. Es una
         // comodidad que depende de la red; adentro, una respuesta lenta de /guest-player
         // retrasaba la pantalla completa aunque el roster y la cancha ya hubieran llegado.
@@ -359,7 +364,7 @@ export default function PlayerScoringPage() {
         {selectedPlayer && rondaCtx && (
           <>
             <button type="button" onClick={() => setSelectedId('')}
-              style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
+              style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '14px', cursor: 'pointer', marginBottom: '8px', padding: '0 12px 0 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
               ← Cambiar jugador
             </button>
             {sinAcceso && (
