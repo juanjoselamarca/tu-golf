@@ -97,6 +97,9 @@ describe('avisoSinTarjeta (jugador del torneo sin fila en rounds)', () => {
     expect(a.detalle).toMatch(/organizador/)
     expect(`${a.titulo} ${a.detalle}`).not.toMatch(PROMESA_VACIA)
   })
+  it('no manda al organizador a una acción que no existe (crear tarjeta con el torneo en juego)', () => {
+    expect(a.detalle).not.toMatch(/inscripci/)
+  })
   it('sale al torneo, nunca a reinscribirse', () => {
     expect(a.href).toBe('/torneo/copa-cabros-mo7nce53')
     expect(a.href).not.toMatch(/unirse/)

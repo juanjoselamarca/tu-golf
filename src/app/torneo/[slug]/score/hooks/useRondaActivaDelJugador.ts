@@ -31,6 +31,8 @@ interface Args {
   player: ScoringPlayer | undefined
   /** Catálogo CRUDO + tees de la cancha del torneo (ronda 1), ya cargados. */
   base: { holes: CourseHole[]; tees: CourseTeeRow[] }
+  /** El roster en memoria corresponde a `tournament`. Mientras no, no se concluye "sin tarjeta". */
+  rosterListo?: boolean
 }
 
 export interface RondaActivaDelJugador {
@@ -48,14 +50,14 @@ export interface RondaActivaDelJugador {
   sinTarjeta: boolean
 }
 
-export function useRondaActivaDelJugador({ slug, tournament, player, base }: Args): RondaActivaDelJugador {
+export function useRondaActivaDelJugador({ slug, tournament, player, base, rosterListo = true }: Args): RondaActivaDelJugador {
   const round = activeRoundOf(player?.rounds)
   const roundNumber = round?.round_number ?? 1
   // El efecto depende del ID del jugador, no del objeto: `players.find(...)`
   // devuelve una referencia nueva en cada carga del roster y eso disparaba un
   // refetch por render.
   const playerId = player?.id ?? null
-  const sinTarjeta = !!player && !!tournament && !round && torneoAceptaScores(tournament.status)
+  const sinTarjeta = rosterListo && !!player && !!tournament && !round && torneoAceptaScores(tournament.status)
   // Una cancha por ronda: el contexto se resuelve una vez por número de ronda
   // y se DERIVA en render (nada de setState síncrono dentro del efecto).
   const [porRonda, setPorRonda] = useState<ReadonlyMap<number, RoundScoringContext>>(new Map())

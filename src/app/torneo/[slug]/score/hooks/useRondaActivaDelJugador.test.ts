@@ -144,6 +144,31 @@ describe('useRondaActivaDelJugador — jugador sin tarjeta', () => {
     expect(captureError).not.toHaveBeenCalled()
   })
 
+  it('con el roster todavía del torneo anterior (load en curso) no concluye ni reporta', async () => {
+    const { result, rerender } = renderHook(
+      ({ listo }) => useRondaActivaDelJugador({ slug: 's', tournament: EN_JUEGO, player: player([]), base: BASE, rosterListo: listo }),
+      { initialProps: { listo: false } },
+    )
+    expect(result.current.sinTarjeta).toBe(false)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(captureError).not.toHaveBeenCalled()
+    // Llegó el roster nuevo y de verdad no tiene tarjeta: ahora sí.
+    rerender({ listo: true })
+    expect(result.current.sinTarjeta).toBe(true)
+    await waitFor(() => expect(captureError).toHaveBeenCalledTimes(1))
+  })
+
+  it('cuando el roster recargado trae la tarjeta, el aviso se va solo', () => {
+    const { result, rerender } = renderHook(
+      ({ p }) => useRondaActivaDelJugador({ slug: 's', tournament: EN_JUEGO, player: p, base: BASE }),
+      { initialProps: { p: player([]) } },
+    )
+    expect(result.current.sinTarjeta).toBe(true)
+    rerender({ p: player([round(1, 'in_progress')]) })
+    expect(result.current.sinTarjeta).toBe(false)
+    expect(result.current.round?.id).toBe('r1')
+  })
+
   it('sin jugador elegido no hay aviso', () => {
     const { result } = renderHook(() => useRondaActivaDelJugador({ slug: 's', tournament: EN_JUEGO, player: undefined, base: BASE }))
     expect(result.current.sinTarjeta).toBe(false)
