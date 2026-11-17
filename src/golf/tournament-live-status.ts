@@ -120,8 +120,12 @@ export function sumarDias(fecha: string, dias: number): string {
  * "Finalizados" de Mi Golf). `tournaments` no guarda cuándo se inició, así que la fecha
  * real del torneo pasa a ser la del inicio.
  *
- * `delta` = días que se corrió (lo usan las fechas por ronda). `null` = no hay que mover
- * nada (sin fecha, o fecha de hoy o futura: iniciar antes de la fecha no la cambia).
+ * Solo se corre cuando, sin correrlo, el torneo ya se vería cerrado por fecha (hoy > fin +
+ * GRACE_DIAS_TORNEO). Dentro del rango o de la gracia no se toca: un torneo de un día
+ * cargado al día siguiente desde papel conserva su fecha, y un sábado–domingo iniciado el
+ * domingo no se desplaza.
+ *
+ * `delta` = días que se corrió (lo usan las fechas por ronda). `null` = no hay que mover nada.
  */
 export function fechasAlIniciar(
   t: { date_start: string | null | undefined; date_end?: string | null },
@@ -129,7 +133,8 @@ export function fechasAlIniciar(
 ): { date_start: string; date_end: string | null; delta: number } | null {
   const fechas = rangoDelTorneo({ status: null, date_start: t.date_start, date_end: t.date_end })
   if (!fechas) return null
-  const delta = diffDias(fechas.inicio, fechaHoyChile(ahora))
-  if (delta <= 0) return null
+  const hoy = fechaHoyChile(ahora)
+  if (diffDias(fechas.fin, hoy) <= GRACE_DIAS_TORNEO) return null
+  const delta = diffDias(fechas.inicio, hoy)
   return { date_start: sumarDias(fechas.inicio, delta), date_end: t.date_end ? sumarDias(fechas.fin, delta) : null, delta }
 }

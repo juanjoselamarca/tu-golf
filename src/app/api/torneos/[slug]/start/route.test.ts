@@ -35,7 +35,8 @@ vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 const mockRateLimit = vi.fn()
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: (...a: unknown[]) => mockRateLimit(...a), rateLimitHeaders: () => ({}) }))
 vi.mock('@/lib/data/tournaments/rounds', () => ({
-  fetchRoundPlayConfig: async () => ({ courseId: 'c1', holeCount: 18, date: '2026-10-30' }),
+  // Ronda 1 = el torneo mismo: la fecha sale del `date_start` que le pasa la ruta (corrido o no).
+  fetchRoundPlayConfig: async (_svc: unknown, t: { date_start: string | null }) => ({ courseId: 'c1', holeCount: 18, date: t.date_start ?? '2026-10-30' }),
 }))
 
 const mockEnsure = vi.fn()
@@ -312,11 +313,29 @@ describe('POST /api/torneos/[slug]/start', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-06-11T16:00:00Z'))
     try {
-      tables.tournaments = { data: { ...(tables.tournaments.data as object), date_start: '2026-06-08', date_end: '2026-06-09' }, error: null }
+      tables.tournaments = { data: { ...(tables.tournaments.data as object), date_start: '2026-06-05', date_end: '2026-06-06' }, error: null }
       const res = await call()
       expect(res.status).toBe(200)
       const patch = (statusUpdates.find((u) => (u as { table: string }).table === 'tournaments') as { patch: unknown }).patch
       expect(patch).toEqual({ status: 'in_progress', date_start: '2026-06-11', date_end: '2026-06-12' })
+      // La tarjeta de cada grupo (rondas_libres.fecha) nace con la fecha corrida, no con la vieja.
+      for (const [, args] of mockMaterialize.mock.calls) expect((args as { ronda1: { date: string } }).ronda1.date).toBe('2026-06-11')
+      expect((await res.json()).fechaMovidaA).toBe('2026-06-11')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('dentro de la gracia (cargado desde papel al día siguiente) no toca las fechas', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-06-11T16:00:00Z'))
+    try {
+      tables.tournaments = { data: { ...(tables.tournaments.data as object), date_start: '2026-06-10', date_end: '2026-06-10' }, error: null }
+      const res = await call()
+      const patch = (statusUpdates.find((u) => (u as { table: string }).table === 'tournaments') as { patch: unknown }).patch
+      expect(patch).toEqual({ status: 'in_progress' })
+      for (const [, args] of mockMaterialize.mock.calls) expect((args as { ronda1: { date: string } }).ronda1.date).toBe('2026-06-10')
+      expect((await res.json()).fechaMovidaA).toBeNull()
     } finally {
       vi.useRealTimers()
     }

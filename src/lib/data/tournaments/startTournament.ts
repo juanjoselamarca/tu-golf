@@ -21,7 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
-import { sumarDias } from '@/golf/tournament-live-status'
+import { fechaHoyChile, sumarDias } from '@/golf/tournament-live-status'
 import { modoDeJuego } from '@/golf/core/rules'
 import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
@@ -368,25 +368,31 @@ export async function ponerEnJuego(
  */
 export async function moverFechasDeRondas(svc: SupabaseClient, tournamentId: string, delta: number): Promise<boolean> {
   if (delta === 0) return true
-  const { data, error } = await svc.from('tournament_rounds').select('round_number, date').eq('tournament_id', tournamentId)
-  if (error) {
-    void captureError(error, { context: 'start-tournament.mover-fechas-rondas', level: 'warning' })
+  // NUNCA lanza: corre con el torneo ya en juego y un error aquí no puede convertir un inicio exitoso en error.
+  try {
+    const { data, error } = await svc.from('tournament_rounds').select('round_number, date').eq('tournament_id', tournamentId)
+    if (error) {
+      void captureError(error, { context: 'start-tournament.mover-fechas-rondas', level: 'warning', meta: { tournamentId } })
+      return false
+    }
+    let ok = true
+    for (const r of (data ?? []) as Array<{ round_number: number; date: string | null }>) {
+      if (!r.date) continue
+      const { error: uErr } = await svc
+        .from('tournament_rounds')
+        .update({ date: sumarDias(r.date, delta) })
+        .eq('tournament_id', tournamentId)
+        .eq('round_number', r.round_number)
+      if (uErr) {
+        ok = false
+        void captureError(uErr, { context: 'start-tournament.mover-fechas-rondas', level: 'warning', meta: { tournamentId, round: r.round_number } })
+      }
+    }
+    return ok
+  } catch (e) {
+    void captureError(e, { context: 'start-tournament.mover-fechas-rondas', level: 'warning', meta: { tournamentId } })
     return false
   }
-  let ok = true
-  for (const r of (data ?? []) as Array<{ round_number: number; date: string | null }>) {
-    if (!r.date) continue
-    const { error: uErr } = await svc
-      .from('tournament_rounds')
-      .update({ date: sumarDias(r.date, delta) })
-      .eq('tournament_id', tournamentId)
-      .eq('round_number', r.round_number)
-    if (uErr) {
-      ok = false
-      void captureError(uErr, { context: 'start-tournament.mover-fechas-rondas', level: 'warning', meta: { tournamentId, round: r.round_number } })
-    }
-  }
-  return ok
 }
 
 /** Lo que hace falta para deshacer un grupo ya armado (`deshacerGrupo`). */
@@ -449,7 +455,8 @@ export async function materializeGroupScorecard(
         course_name: t.courses?.nombre || t.course_name || 'Cancha',
         tees: t.tees || 'blanco',
         holes: ronda1.holeCount,
-        fecha: ronda1.date || new Date().toISOString().split('T')[0],
+        // Sin fecha: el día de Chile (no el UTC, que de noche ya es mañana).
+        fecha: ronda1.date || fechaHoyChile(new Date()),
         estado: 'en_curso',
         formato_juego: formatoDeLaTarjetaDelGrupo(formato, group.players.length),
         modo_juego: modoDeJuego(t.modo_juego),

@@ -236,7 +236,9 @@ export function useTournamentLifecycle({
         }
 
         setTournamentStatus('in_progress')
-        showSuccess('Torneo iniciado', 'Las rondas fueron creadas. Los jugadores ya pueden cargar scores.')
+        // La fecha programada ya había pasado (más de 2 días): el servidor la corrió a hoy.
+        const movida = data.fechaMovidaA ? ' Movimos la fecha del torneo a hoy.' : ''
+        showSuccess('Torneo iniciado', `Las rondas fueron creadas. Los jugadores ya pueden cargar scores.${movida}`)
         router.push(`/organizador/${tournament.slug}/scoring`)
         return
       }
