@@ -327,9 +327,12 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
     // el catch de la lectura. El mapa tiene que aplicarse siempre, aunque
     // quede vacío — vacío es la verdad, "los de otro" es una mentira que además
     // se persiste.
+    //
+    // Desde el PR #754 la carga vive en `hooks/useGuardadoTorneo.ts` (efecto "Carga de la tarjeta")
+    // y la cubre además un test de conducta: "lectura caída al cambiar de jugador → tarjeta vacía".
     const cuerpo = fuente.slice(
-      fuente.indexOf('const loadScores'),
-      fuente.indexOf('const submitHoleScore'),
+      fuente.indexOf('fetchRoundHoleScores(createClient(), roundId)'),
+      fuente.indexOf('const puntajeDe = useCallback'),
     )
     expect(cuerpo).toContain('setCurrentScores(map)')
     // Las anclas se verifican ANTES de usarlas: con `indexOf` en -1, `slice`
@@ -338,11 +341,11 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
     // cambio más inocuo imaginable— dejaba este tripwire mudo y en verde, que
     // es exactamente el modo de falla que venimos persiguiendo.
     expect(cuerpo.indexOf('torneo.score.loadScores')).toBeGreaterThan(-1)
-    expect(cuerpo.indexOf('// Merge pending local scores')).toBeGreaterThan(-1)
+    expect(cuerpo.indexOf('if (cancelled) return')).toBeGreaterThan(-1)
     const catchDeLectura = cuerpo
       .slice(
         cuerpo.indexOf('torneo.score.loadScores'),
-        cuerpo.indexOf('// Merge pending local scores'),
+        cuerpo.indexOf('if (cancelled) return'),
       )
       .split('\n')
       // Los comentarios se descartan: el que documenta esta regla dice
