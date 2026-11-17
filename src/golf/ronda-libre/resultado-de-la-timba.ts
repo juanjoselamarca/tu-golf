@@ -1,0 +1,188 @@
+/**
+ * Resultado final de una Timba libre (maqueta Final aprobada por Juanjo): quién ganó y por cuánto, el ranking de
+ * puntos, cómo terminó cada tramo de parejas y los puntos especiales de cada uno. Función pura.
+ *
+ * Igual que la pestaña Juego (`tabla-del-juego.ts`), todo número sale de `VistaDelJuego` (`GET /juego`): acá no se
+ * calcula ningún punto ni se repite una regla del motor; solo se ordena, se agrega y se le pone nombre.
+ */
+import { nombreDelPuntito, NOMBRE_PUNTITO } from '@/golf/formats/personalizado'
+import type { Pareja } from '@/golf/formats/personalizado'
+import type { VistaDelJuego } from './juego-de-la-ronda'
+import { armarTablaDelJuego, nombresCortos } from './tabla-del-juego'
+
+export interface FilaDelResultado {
+  jugadorId: string
+  nombre: string
+  /** 1 = primero; los empatados comparten puesto (del motor). */
+  puesto: number
+  puntos: number
+  texto: string
+  /** Hoyo desde el que se retiró (`VistaDelJuego.retiros`); `null` si jugó hasta el final. */
+  retiradoDesde: number | null
+}
+
+export interface TramoDelResultado {
+  /** "Juan y Pedro", "Diego y Tomás". */
+  parejas: [string, string]
+  puntos: [number, number]
+  /** "14 – 8". */
+  marcador: string
+  /** Índice (0 o 1) de la pareja que ganó el tramo; `null` si empataron. */
+  ganadora: 0 | 1 | null
+}
+
+export interface PuntoEspecialDelResultado {
+  /** "Chipingo · Pedro 1": cuántas veces lo hizo (solo los que cuentan). */
+  texto: string
+  puntitoId: string
+  jugadorId: string
+  veces: number
+}
+
+export interface ResultadoDeLaTimba {
+  /** "La Colombiana · 18 hoyos · Gross". */
+  encabezado: string
+  /** "Ganó Pedro" o, con empate en el primer puesto, "Empate entre Pedro y Juan". */
+  titular: string
+  /** "Por un punto sobre Juan." · "Con +12 cada uno." */
+  bajada: string
+  ranking: FilaDelResultado[]
+  /** Parejas (rotativas o fijas); `null` en juegos individuales. */
+  tramos: TramoDelResultado[] | null
+  /** "Hoyos 1–6, 7–12 y 13–18. Ganador de cada tramo en negrita." */
+  notaTramos: string | null
+  /** `null` si el juego no tiene puntos especiales; `[]` si los tiene y nadie hizo ninguno. */
+  puntosEspeciales: PuntoEspecialDelResultado[] | null
+}
+
+/** "Pedro", "Pedro y Juan", "Pedro, Juan y Diego". */
+export function unirNombres(nombres: readonly string[]): string {
+  if (nombres.length <= 1) return nombres[0] ?? ''
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}`
+}
+
+/** "un punto", "3 puntos". */
+export function textoDePuntos(n: number): string {
+  return n === 1 ? 'un punto' : `${n} puntos`
+}
+
+/** Hoyos de un tramo en orden de juego: [1..6] → "1–6"; saliendo del 10, [16,17,18,1,2,3] → "16–3". */
+function rangoDeHoyos(hoyos: readonly number[]): string {
+  if (hoyos.length <= 1) return String(hoyos[0] ?? '')
+  return `${hoyos[0]}–${hoyos.at(-1)}`
+}
+
+export function armarResultadoDeLaTimba(
+  vista: VistaDelJuego,
+  nombres: Readonly<Record<string, string>>,
+): ResultadoDeLaTimba {
+  const { config, jugadorIds, resultado, retiros } = vista
+  const tabla = armarTablaDelJuego(vista, nombres, null)
+  const cortos = nombresCortos(jugadorIds.map(id => nombres[id] ?? ''))
+  const nombreDe = new Map(jugadorIds.map((id, i) => [id, cortos[i]]))
+  const nombre = (id: string) => nombreDe.get(id) ?? ''
+
+  const ranking: FilaDelResultado[] = tabla.ranking.map(r => ({ ...r, retiradoDesde: retiros[r.jugadorId] ?? null }))
+
+  // Titular: el ganador y por cuánto; con empate arriba, los empatados y sus puntos.
+  const primeros = ranking.filter(r => r.puesto === 1)
+  let titular: string
+  let bajada: string
+  if (primeros.length === 1) {
+    const ganador = primeros[0]
+    const segundoPuesto = ranking.find(r => r.puesto > 1)?.puesto
+    const segundos = ranking.filter(r => r.puesto === segundoPuesto)
+    titular = `Ganó ${ganador.nombre}`
+    bajada = segundos.length > 0
+      ? `Por ${textoDePuntos(ganador.puntos - segundos[0].puntos)} sobre ${unirNombres(segundos.map(s => s.nombre))}.`
+      : `Con ${ganador.texto}.`
+  } else {
+    titular = primeros.length === ranking.length && ranking.length > 2
+      ? 'Empate entre todos'
+      : `Empate entre ${unirNombres(primeros.map(p => p.nombre))}`
+    bajada = `Con ${primeros[0]?.texto ?? '0'} cada uno.`
+  }
+
+  // Parejas: cada tramo con su marcador y la pareja que lo ganó.
+  const nombreDePareja = ([a, b]: Pareja) => `${nombre(jugadorIds[a])} y ${nombre(jugadorIds[b])}`
+  const conParejas = config.unidad !== 'individual' && resultado.tramos.length > 0
+  const tramos: TramoDelResultado[] | null = conParejas
+    ? resultado.tramos.map(t => ({
+        parejas: [nombreDePareja(t.parejas[0]), nombreDePareja(t.parejas[1])],
+        puntos: [t.marcador[0], t.marcador[1]],
+        marcador: `${t.marcador[0]} – ${t.marcador[1]}`,
+        ganadora: t.marcador[0] === t.marcador[1] ? null : t.marcador[0] > t.marcador[1] ? 0 : 1,
+      }))
+    : null
+  const notaTramos = !conParejas
+    ? null
+    : resultado.tramos.length > 1
+      ? `Hoyos ${unirNombres(resultado.tramos.map(t => rangoDeHoyos(t.hoyos)))}. Ganador de cada tramo en negrita.`
+      : 'Ganador en negrita.'
+
+  // Puntos especiales: cuántas veces lo hizo cada uno (solo los que cuentan), en el orden de la config.
+  const activos = config.puntitos.filter(p => p.activo)
+  let puntosEspeciales: PuntoEspecialDelResultado[] | null = null
+  if (activos.length > 0) {
+    const veces = new Map<string, number>()
+    for (const h of resultado.hoyos) {
+      if (h.estado !== 'puntuado') continue
+      for (const e of h.especiales) {
+        if (!e.cuenta) continue
+        const clave = `${e.puntitoId}\u0000${e.jugadorId}`
+        veces.set(clave, (veces.get(clave) ?? 0) + 1)
+      }
+    }
+    puntosEspeciales = []
+    const puntitos = [...activos.map(p => ({ id: p.id, nombre: nombreDelPuntito(p) }))]
+    // Una marca de un punto que ya no está en la config (no debería pasar) igual se muestra, con el nombre del tipo.
+    for (const h of resultado.hoyos) for (const e of h.especiales) {
+      if (e.cuenta && !puntitos.some(p => p.id === e.puntitoId)) {
+        puntitos.push({ id: e.puntitoId, nombre: e.tipo === 'propio' ? 'Punto propio' : NOMBRE_PUNTITO[e.tipo] })
+      }
+    }
+    for (const p of puntitos) {
+      const deEste = jugadorIds
+        .map(id => ({ id, n: veces.get(`${p.id}\u0000${id}`) ?? 0 }))
+        .filter(x => x.n > 0)
+        .sort((a, b) => b.n - a.n)
+      for (const x of deEste) {
+        puntosEspeciales.push({ texto: `${p.nombre} · ${nombre(x.id)} ${x.n}`, puntitoId: p.id, jugadorId: x.id, veces: x.n })
+      }
+    }
+  }
+
+  return {
+    encabezado: `${tabla.titulo} · ${resultado.hoyos.length} hoyos · ${config.modo === 'neto' ? 'Neto' : 'Gross'}`,
+    titular,
+    bajada,
+    ranking,
+    tramos,
+    notaTramos,
+    puntosEspeciales,
+  }
+}
+
+/** "1. Pedro +35". El retirado lo dice, para que nadie lea sus puntos como de una ronda completa. */
+function lineaDelRanking(r: FilaDelResultado): string {
+  return `${r.puesto}. ${r.nombre} ${r.texto}${r.retiradoDesde != null ? ` (se retiró en el hoyo ${r.retiradoDesde})` : ''}`
+}
+
+/** Texto para compartir al grupo por WhatsApp: el juego, el ranking de puntos, las parejas y el link a la ronda. */
+export function textoParaCompartirLaTimba(r: ResultadoDeLaTimba, cancha: string, url: string): string {
+  const lineas = [
+    `${r.encabezado}${cancha ? ` · ${cancha}` : ''}`,
+    `${r.titular}. ${r.bajada}`,
+    '',
+    ...r.ranking.map(lineaDelRanking),
+  ]
+  if (r.tramos?.length) {
+    lineas.push('', 'Parejas')
+    for (const t of r.tramos) lineas.push(`${t.parejas[0]} ${t.marcador} ${t.parejas[1]}`)
+  }
+  if (r.puntosEspeciales?.length) {
+    lineas.push('', `Puntos especiales: ${r.puntosEspeciales.map(p => p.texto).join(', ')}`)
+  }
+  lineas.push('', url)
+  return lineas.join('\n')
+}
