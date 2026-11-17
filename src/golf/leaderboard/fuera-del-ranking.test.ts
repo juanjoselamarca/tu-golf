@@ -146,8 +146,8 @@ describe('equipos (decisiones de Juanjo, 17-nov)', () => {
   })
 
   it('marca en la fila del equipo: "Nombre · WD" / "· DQ"; sin estado, el nombre tal cual', () => {
-    expect(nombreConMarca('Pedro Pérez', 'withdrawn')).toBe('Pedro Pérez · WD')
-    expect(nombreConMarca('Pedro Pérez', 'disqualified')).toBe('Pedro Pérez · DQ')
+    expect(nombreConMarca('Pedro Pérez', 'withdrawn')).toBe('Pedro Pérez\u00a0·\u00a0WD')
+    expect(nombreConMarca('Pedro Pérez', 'disqualified')).toBe('Pedro Pérez\u00a0·\u00a0DQ')
     expect(nombreConMarca('Pedro Pérez', null)).toBe('Pedro Pérez')
   })
 })

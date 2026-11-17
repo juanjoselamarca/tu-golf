@@ -177,10 +177,11 @@ export const SIGLA_FUERA: Readonly<Record<EstadoFueraDelRanking, 'WD' | 'DQ'>> =
 /**
  * Nombre de un miembro de un equipo que SIGUE rankeado (scramble, mejor bola) con
  * su marca si se retiró o fue descalificado: "Pedro Pérez · WD". Texto, no color
- * (decisión de Juanjo, 17-nov).
+ * (decisión de Juanjo, 17-nov). Espacios duros: en una columna angosta la marca
+ * nunca queda sola en otra línea, separada del nombre.
  */
 export function nombreConMarca(nombre: string, estado: EstadoFueraDelRanking | null | undefined): string {
-  return estado ? `${nombre} · ${SIGLA_FUERA[estado]}` : nombre
+  return estado ? `${nombre}\u00a0·\u00a0${SIGLA_FUERA[estado]}` : nombre
 }
 
 const hoyoAnotado = (scores: Readonly<Record<string, number>>, hoyo: string) => {

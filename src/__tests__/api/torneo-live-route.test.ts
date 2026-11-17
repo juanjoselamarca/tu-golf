@@ -203,7 +203,7 @@ describe('GET /api/torneo/[slug]/live', () => {
       expect(json.teams[0]).toMatchObject({ id: 'e1', team_total: 7 })
       expect(json.fuera).toBeUndefined()
       // El retirado va marcado en la fila de su equipo (decisión 17-nov).
-      expect(json.teams[0].players.map((p: { name: string }) => p.name)).toEqual(['Ana · WD', 'Invitada'])
+      expect(json.teams[0].players.map((p: { name: string }) => p.name)).toEqual(['Ana\u00a0·\u00a0WD', 'Invitada'])
     })
 
     it('mejor bola, WD: sin cambios — los hoyos que el retirado ya jugó cuentan (Regla 23.4)', async () => {
@@ -220,7 +220,7 @@ describe('GET /api/torneo/[slug]/live', () => {
       // Sin las 4-4-4 de la Invitada, queda la tarjeta de Ana: 5-5-5 → 15.
       expect(json.teams[0]).toMatchObject({ team_total: 15, thru: 3 })
       expect(json.fuera).toBeUndefined()
-      expect(json.teams[0].players.map((p: { name: string }) => p.name)).toEqual(['Ana', 'Invitada · DQ'])
+      expect(json.teams[0].players.map((p: { name: string }) => p.name)).toEqual(['Ana', 'Invitada\u00a0·\u00a0DQ'])
     })
 
     it('mejor bola, DQ con un hoyo que sólo anotó el descalificado: el EQUIPO entero va al pie como DQ (R3.3c/23.2b)', async () => {
