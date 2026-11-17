@@ -36,17 +36,30 @@ describe('calcularStatsForma', () => {
     expect(s.canchaFavorita).toBeNull()
   })
 
-  it('promedia las últimas 5 rondas por played_at descendente', () => {
-    const rondas = [
-      mk('1', 85, 'A', 1),
-      mk('2', 80, 'A', 2),
-      mk('3', 90, 'B', 3),
-      mk('4', 78, 'A', 4),
-      mk('5', 82, 'B', 5),
-      mk('6', 100, 'C', 10),
-    ]
-    const s = calcularStatsForma(rondas, [])
-    expect(s.promedioUltimas5).toBe(83)
+  it('promedio de las últimas 5 que cuentan, del mismo bucket que el mejor score, más reciente primero', () => {
+    const n = (id: string, gross: number, fecha: string, bucket: 18 | 9 = 18, fuera: MotivoFueraDeNumeros | null = null) =>
+      ({ ...norm(id, gross, gross - 72, bucket, fuera), played_at: fecha })
+    const s = calcularStatsForma([mk('x', 1, 'A')], [
+      n('6', 100, '2026-10-01'),
+      n('1', 85, '2026-11-10'),
+      n('scr', 62, '2026-11-09', 18, 'bola_compartida'), // no entra al promedio
+      n('2', 80, '2026-11-08'),
+      n('nueve', 40, '2026-11-07', 9),                    // otro bucket
+      n('3', 90, '2026-11-06'),
+      n('4', 78, '2026-11-05'),
+      n('5', 82, '2026-11-04'),
+    ])
+    expect(s.promedioUltimas5).toEqual({ promedio: 83, hoyos: 18, serie: [82, 78, 90, 80, 85] })
+  })
+
+  it('jugador de 9 hoyos: el promedio es de 9 y lo dice', () => {
+    const s = calcularStatsForma([], [norm('a', 44, 8, 9), norm('b', 40, 4, 9), norm('c', 80, 8, 18)])
+    expect(s.promedioUltimas5?.hoyos).toBe(9)
+    expect(s.promedioUltimas5?.promedio).toBe(42)
+  })
+
+  it('solo scrambles: sin promedio', () => {
+    expect(calcularStatsForma([], [norm('a', 62, -10, 18, 'bola_compartida')]).promedioUltimas5).toBeNull()
   })
 
   // Mejor score: el de /perfil/stats (agregarRondas sobre rondas normalizadas, bucket principal).

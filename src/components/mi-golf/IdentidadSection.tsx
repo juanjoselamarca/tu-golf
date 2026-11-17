@@ -19,12 +19,6 @@ export async function IdentidadSection({ userId, userName }: { userId: string; u
   const nivel = nivelDelIndice(indice)
   const stats = calcularStatsForma(data.historico, data.rondasNormalizadas ?? [])
   const tendencia = calcularTendencia(data.indice, data.historico)
-  const ultimasGross = data.historico
-    .slice(0, 5)
-    .map((r) => r.total_gross)
-    .filter((g): g is number => g != null)
-    .reverse()
-
   const taigerLine = getTaigerLine({
     tendencia,
     golpesHastaSiguienteNivel: nivel?.golpes_hasta_siguiente ?? null,
@@ -42,7 +36,6 @@ export async function IdentidadSection({ userId, userName }: { userId: string; u
       taigerSessionCount={data.taigerSessionCount}
       stats={stats}
       taigerLine={taigerLine}
-      ultimasGross={ultimasGross}
     />
   )
 }

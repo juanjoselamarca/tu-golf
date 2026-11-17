@@ -14,7 +14,6 @@ const base = {
   taigerSessionCount: 1,
   stats: { promedioUltimas5: null, mejorScore: null, rondasJugadas: 0, canchaFavorita: null },
   taigerLine: { source: 'fallback' as const, texto: 'x', cta_texto: 'y', cta_href: '/coach' },
-  ultimasGross: [],
 }
 
 describe('IdentidadTab — índice', () => {

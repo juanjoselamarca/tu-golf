@@ -344,7 +344,7 @@ function Rondas({
               <div style={{ fontSize: '14px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {r.course_name}
               </div>
-              <div style={{ fontSize: '11px', color: TEXT_3, marginTop: '3px' }}>{fechaContextual}</div>
+              <div style={{ fontSize: '13px', color: TEXT_3, marginTop: '3px' }}>{fechaContextual}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
               {r.total_gross != null && (
@@ -352,13 +352,14 @@ function Rondas({
                   <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '16px', fontWeight: 700, color: TEXT }}>
                     {r.total_gross}
                   </div>
-                  {mejor ? (
-                    <div style={{ fontSize: '13px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes · {mejor.bucket} hoyos</div>
-                  ) : r.vsPar != null ? (
-                    <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
+                  {r.vsPar != null && (
+                    <div style={{ fontSize: '13px', color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
                       {textoVsPar(r.vsPar)}
                     </div>
-                  ) : null}
+                  )}
+                  {mejor && (
+                    <div style={{ fontSize: '13px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes · {mejor.bucket} hoyos</div>
+                  )}
                 </>
               )}
             </div>

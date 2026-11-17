@@ -16,7 +16,6 @@ type Props = {
   taigerSessionCount: number
   stats: StatsForma
   taigerLine: TaigerLine
-  ultimasGross: number[]
 }
 
 const GOLD = 'var(--brand-on-bg)'
@@ -36,7 +35,6 @@ export function IdentidadTab(props: Props) {
     taigerSessionCount,
     stats,
     taigerLine,
-    ultimasGross,
   } = props
   void userName
 
@@ -61,7 +59,7 @@ export function IdentidadTab(props: Props) {
         </div>
       )}
 
-      {mostrarSeccionTuJuego && <TuJuego stats={stats} ultimasGross={ultimasGross} />}
+      {mostrarSeccionTuJuego && <TuJuego stats={stats} />}
 
       <TaigerCard line={taigerLine} taigerSessionCount={taigerSessionCount} totalRounds={totalRounds} />
     </main>
@@ -146,7 +144,7 @@ function Progreso({ label, actual, total }: { label: string; actual: number; tot
   )
 }
 
-function TuJuego({ stats, ultimasGross }: { stats: StatsForma; ultimasGross: number[] }) {
+function TuJuego({ stats }: { stats: StatsForma }) {
   return (
     <div style={{ marginTop: '36px' }}>
       <SectionLabel>Tu juego</SectionLabel>
@@ -170,9 +168,9 @@ function TuJuego({ stats, ultimasGross }: { stats: StatsForma; ultimasGross: num
           <StatCard
             icon={<BarChart3 size={14} />}
             label="Promedio últimas 5"
-            value={stats.promedioUltimas5.toFixed(1)}
-            sub="golpes"
-            sparkline={ultimasGross}
+            value={stats.promedioUltimas5.promedio.toFixed(1)}
+            sub={`golpes · ${stats.promedioUltimas5.hoyos} hoyos`}
+            sparkline={stats.promedioUltimas5.serie}
           />
         )}
         {stats.rondasJugadas > 0 && (

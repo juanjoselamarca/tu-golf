@@ -25,7 +25,7 @@ describe('mejoresDelMes', () => {
   })
 
   it('compara 9 con 9 y 18 con 18: una mejor por bucket, cada una con sus hoyos', () => {
-    const r = mejoresDelMes([ronda('n1', '2026-11-12', 1, 9), ronda('d1', '2026-11-11', 6, 18), ronda('n2', '2026-11-05', 3, 9)], HOY)
+    const r = mejoresDelMes([ronda('n1', '2026-11-12', 1, 9), ronda('d1', '2026-11-11', 6, 18), ronda('d2', '2026-11-04', 9, 18), ronda('n2', '2026-11-05', 3, 9)], HOY)
     expect(r).toEqual([
       { roundId: 'd1', bucket: 18, vsPar: 6 },
       { roundId: 'n1', bucket: 9, vsPar: 1 },
@@ -39,13 +39,16 @@ describe('mejoresDelMes', () => {
       ronda('parcial', '2026-11-08', -20, null, 'parcial'),
       ronda('27h', '2026-11-07', null, 18),
       ronda('buena', '2026-11-06', 5),
+      ronda('otra', '2026-11-02', 8),
     ], HOY)
     expect(r).toEqual([{ roundId: 'buena', bucket: 18, vsPar: 5 }])
   })
 
   it('solo el mes calendario de hoy', () => {
-    expect(mejoresDelMes([ronda('oct', '2026-10-31', -2)], HOY)).toEqual([])
-    expect(mejoresDelMes([ronda('nov', '2026-11-01', 7)], HOY)).toEqual([{ roundId: 'nov', bucket: 18, vsPar: 7 }])
+    // La de octubre no cuenta ni como mejor ni como segunda ronda del mes.
+    expect(mejoresDelMes([ronda('oct', '2026-10-31', -2), ronda('nov', '2026-11-01', 7)], HOY)).toEqual([])
+    expect(mejoresDelMes([ronda('oct', '2026-10-31', -2), ronda('nov', '2026-11-01', 7), ronda('nov2', '2026-11-09', 9)], HOY))
+      .toEqual([{ roundId: 'nov', bucket: 18, vsPar: 7 }])
   })
 
   it('empate: gana la más antigua, sea cual sea el orden de entrada', () => {
@@ -58,6 +61,12 @@ describe('mejoresDelMes', () => {
   it('empate el mismo día: la posterior en la lista (la data llega más reciente primero)', () => {
     const r = mejoresDelMes([ronda('tarde', '2026-11-14', 3), ronda('manana', '2026-11-14', 3)], HOY)
     expect(r[0].roundId).toBe('manana')
+  })
+
+  it('una sola ronda del bucket en el mes: no hay "mejor del mes"', () => {
+    expect(mejoresDelMes([ronda('unica', '2026-11-08', 2)], HOY)).toEqual([])
+    // Las que no cuentan no completan el par: scramble + una buena = una sola que cuenta.
+    expect(mejoresDelMes([ronda('unica', '2026-11-08', 2), ronda('scr', '2026-11-09', -6, 18, 'bola_compartida')], HOY)).toEqual([])
   })
 
   it('sin rondas que cuenten: vacío', () => {

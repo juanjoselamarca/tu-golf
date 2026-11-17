@@ -16,7 +16,12 @@ export type Insight = {
 }
 
 export type StatsForma = {
-  promedioUltimas5: number | null
+  /**
+   * Promedio de las últimas 5 rondas que cuentan del MISMO bucket que mejorScore
+   * (bucketPrincipal): sin scrambles, match play ni parciales, sin mezclar 9 y 18.
+   * `serie` = esos gross en orden cronológico (sparkline).
+   */
+  promedioUltimas5: { promedio: number; hoyos: 18 | 9; serie: number[] } | null
   /** Mejor ronda del bucket principal (`agregarRondas` + `bucketPrincipal`), rotulada con sus hoyos. */
   mejorScore: { gross: number; vsPar: number; hoyos: 18 | 9 } | null
   rondasJugadas: number
