@@ -22,8 +22,8 @@ const tabla: TablaDelJuego = {
   marcadorActual: { parejas: ['Juan y Diego', 'Pedro y Tomás'], puntos: [2, 2] },
   filas: [
     { tipo: 'tramo', indice: 0, marcador: { parejas: ['Juan y Diego', 'Pedro y Tomás'], puntos: [2, 2] } },
-    { tipo: 'hoyo', numero: 1, pendiente: false, celdas: [{ jugadorId: 'a', texto: '+1', golpesRecibidos: 1 }, { jugadorId: 'b', texto: '−1', golpesRecibidos: 0 }] },
-    { tipo: 'hoyo', numero: 2, pendiente: true, celdas: [{ jugadorId: 'a', texto: 'falta anotar', golpesRecibidos: 1 }, { jugadorId: 'b', texto: 'falta anotar', golpesRecibidos: 0 }] },
+    { tipo: 'hoyo', numero: 1, pendiente: false, sinJugar: false, celdas: [{ jugadorId: 'a', texto: '+1', golpesRecibidos: 1 }, { jugadorId: 'b', texto: '−1', golpesRecibidos: 0 }] },
+    { tipo: 'hoyo', numero: 2, pendiente: true, sinJugar: false, celdas: [{ jugadorId: 'a', texto: 'falta anotar', golpesRecibidos: 1 }, { jugadorId: 'b', texto: 'falta anotar', golpesRecibidos: 0 }] },
   ],
   esNeto: true, sinHandicap: [],
 }
@@ -42,6 +42,13 @@ describe('JuegoDeLaTimba', () => {
     expect(pendiente).toHaveLength(1)
     expect(within(pendiente[0].parentElement as HTMLElement).queryByTestId('golpe-recibido')).toBeNull()
     expect(screen.getByText(/golpe recibido en el hoyo/)).toBeTruthy()
+  })
+
+  it('hoyo que nadie jugó: una sola leyenda "No se jugó", no "falta anotar"', () => {
+    const filas = tabla.filas.map(f => (f.tipo === 'hoyo' && f.numero === 2 ? { ...f, sinJugar: true, celdas: f.celdas.map(c => ({ ...c, texto: 'No se jugó' })) } : f))
+    render(<JuegoDeLaTimba tabla={{ ...tabla, filas }} />)
+    expect(screen.getAllByRole('cell', { name: 'No se jugó' })).toHaveLength(1)
+    expect(screen.queryByRole('cell', { name: 'falta anotar' })).toBeNull()
   })
 
   it('neto sin hándicap: avisa quién falta y no muestra la leyenda de golpes', () => {
