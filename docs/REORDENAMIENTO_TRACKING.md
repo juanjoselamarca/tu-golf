@@ -149,6 +149,13 @@ La canónica nació en #517 (`/api/game`). Quedan copias inline en: `api/admin/r
 
 `ratingsDe9DelDiferencial` (CR/slope de 9 hoyos de un diferencial: publicados o CR/2) vive en `src/lib/indice-golfers.ts` junto a `calcularDiferencial`, y lo usa el tope WHS 3.1 (`src/lib/data/ajuste-whs-fila.ts`). Es dominio de golf: candidato a moverse a `src/golf/core` junto con `calcularDiferencial` y `diferencialDeTarjeta`.
 
+### Concepto "quién queda fuera del ranking (WD/DQ)" → `src/golf/leaderboard/fuera-del-ranking.ts` (#813, 17-nov)
+
+- Regla (tarjeta/equipo fuera, foursome al pie, mejor bola DQ) en `src/golf/leaderboard/fuera-del-ranking.ts`;
+  lectura mínima no fatal en `src/lib/data/tournaments/inscritos-fuera.ts`; pie en `fuera-del-ranking.ts` (datos).
+- ~~`tvBoard.ts` tenía una 3ª copia de la consulta de retirados~~ — unificada: usa `fetchWithdrawnPlayers` (#813).
+- El score del pie sale del mismo motor que la tabla (`boardPublicoRondaLibre`): no hay bucle de bruto duplicado.
+
 ### Concepto "formato por equipos" → `TEAM_FORMAT_KEYS` / `isTeamFormat()` en `src/golf/formats`
 
 | Sitio | Estado |
