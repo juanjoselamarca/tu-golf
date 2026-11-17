@@ -30,6 +30,29 @@ describe('parYSiDeLaRonda (pura)', () => {
     expect(Object.values(r.siMap).sort((a, b) => a - b)).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
   })
 
+  // QA Timba 17-nov (ronda 251825): una ronda de 9 desde el 10 en una cancha de 18 rankeaba el SI sobre 1..9 —
+  // hoyos que no se juegan— y el siMap salía sin 10..18. La Timba neto no calculaba ("faltan datos de la cancha") y
+  // el leaderboard repartía los golpes por número de hoyo (10, 11, 12…) en vez de por dificultad.
+  const CANCHA_18 = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: [7, 6, 1, 9, 4, 2, 8, 3, 5, 10, 18, 12, 14, 16, 11, 13, 15, 17][i] }))
+  it('9 hoyos desde el 10: SI de los hoyos 10..18 (los que se juegan), permutación 1..9 en su orden de dificultad', () => {
+    const r = parYSiDeLaRonda(CANCHA_18, 9, 10)
+    expect(Object.keys(r.siMap).map(Number).sort((a, b) => a - b)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
+    // SI de catálogo 10,18,12,14,16,11,13,15,17 → rango 1,9,3,5,7,2,4,6,8
+    expect([10, 11, 12, 13, 14, 15, 16, 17, 18].map(h => r.siMap[h])).toEqual([1, 9, 3, 5, 7, 2, 4, 6, 8])
+  })
+  it('9 hoyos con salida en el 14: hoyos 14..18 y 1..4', () => {
+    const r = parYSiDeLaRonda(CANCHA_18, 9, 14)
+    expect(Object.keys(r.siMap).map(Number).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 14, 15, 16, 17, 18])
+    expect(Object.values(r.siMap).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+  })
+  it('9 hoyos desde el 1 y 18 desde el 10: igual que antes', () => {
+    expect(parYSiDeLaRonda(CANCHA_18, 9, 1).siMap).toEqual(parYSiDeLaRonda(CANCHA_18, 9).siMap)
+    expect(parYSiDeLaRonda(CANCHA_18, 18, 10).siMap).toEqual(parYSiDeLaRonda(CANCHA_18, 18).siMap)
+  })
+  it('cancha de 9 jugada 9 hoyos con salida en el 5: SI de sus 9 hoyos', () => {
+    expect(parYSiDeLaRonda(CANCHA_9, 9, 5).siMap).toEqual(parYSiDeLaRonda(CANCHA_9, 9).siMap)
+  })
+
   it('SI corrupto (duplicados) sale normalizado a permutación válida', () => {
     const corrupto = CANCHA_9.map(h => ({ ...h, stroke_index: 1 }))
     const r = parYSiDeLaRonda(corrupto, 9)
