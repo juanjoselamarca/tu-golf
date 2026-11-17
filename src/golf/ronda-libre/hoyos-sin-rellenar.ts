@@ -42,7 +42,8 @@ export function hoyosQueNoSeRellenan(input: {
 
 /**
  * ¿La tarjeta de `jugadorId` ya no espera golpes en `hoyo`? Anotada, o el jugador se retiró en ese hoyo o antes (Timba
- * libre). Fuente única del ✓ de la fila de hoyos y del hoyo en que se retoma el scorer: sin el retiro, los hoyos del
+ * libre). Fuente única del ✓ de la fila de hoyos, del hoyo en que se retoma el scorer, de a quién rellena con par
+ * "Siguiente" y de los hoyos que la hoja de Finalizar avisa como no jugados: sin el retiro, los hoyos del
  * retirado quedaban "por anotar" para siempre y el scorer reabría en el hoyo del retiro (QA 17-nov, ronda 8722R3).
  */
 export function tarjetaAlDiaEnHoyo(
@@ -86,6 +87,6 @@ export function hoyosQueQuedanSinJugarEnLaTimba(input: HoyoEnPantallaDeLaTimba):
   const { jugadores, scores, retiros, ordenHoyos } = input
   const seRellena = hoyoEnPantallaQueSeRellenaEnLaTimba(input)
   return ordenHoyos.filter(h => h !== seRellena && jugadores.some(j =>
-    !estaRetiradoEn(retiros?.[j.id], h, ordenHoyos) && scoreDelHoyo(scores[j.id] ?? {}, h) === undefined,
+    !tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos),
   ))
 }

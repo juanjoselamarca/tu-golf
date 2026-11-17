@@ -1,7 +1,7 @@
 // QA Timba 17-nov (ronda 8722R3): Tomás se retiró en el 9 y el resto jugó hasta el 18. Al reabrir el scorer (recarga,
 // teléfono bloqueado) volvía al hoyo 9, sin ✓ del 9 al 17, y "Finalizar" desde ahí dejaba sin par el 18 de los que no
 // tocaron +/− (perdían el hoyo). Los hoyos de un retirado no esperan golpes.
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import { useGrupoScoreboard } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreboard'
@@ -54,22 +54,43 @@ describe('useGrupoScoreboard: ✓ con un retirado', () => {
 })
 
 describe('useRetomarConLosRetiros', () => {
-  const montar = (props: { retirosListos: boolean; currentHole: number }) => {
+  type P = { retirosListos: boolean; currentHole: number; listo?: boolean }
+  const montar = (props: P) => {
     const setCurrentHole = vi.fn()
-    const r = renderHook((p: { retirosListos: boolean; currentHole: number }) => useRetomarConLosRetiros({
-      ronda, scores, equipos: [], retiros: p.retirosListos ? retiros : null, currentHole: p.currentHole, setCurrentHole,
+    const r = renderHook((p: P) => useRetomarConLosRetiros({
+      ronda, listo: p.listo ?? true, scores, equipos: [], retiros: p.retirosListos ? retiros : null, currentHole: p.currentHole, setCurrentHole,
     }), { initialProps: props })
     return { ...r, setCurrentHole }
   }
-  it('cuando llegan los retiros y el scorer sigue en el hoyo de la carga, lo lleva al que corresponde', () => {
+  it('cuando llegan los retiros y el anotador no tocó nada desde la carga, lo lleva al hoyo que falta', () => {
     const { rerender, setCurrentHole } = montar({ retirosListos: false, currentHole: 9 })
     expect(setCurrentHole).not.toHaveBeenCalled()
     rerender({ retirosListos: true, currentHole: 9 })
     expect(setCurrentHole).toHaveBeenCalledWith(18)
   })
-  it('si el anotador ya se movió de hoyo, no lo mueve', () => {
-    const { rerender, setCurrentHole } = montar({ retirosListos: false, currentHole: 4 })
-    rerender({ retirosListos: true, currentHole: 4 })
+  it('el hoyo de la carga es el de cuando termina de cargar (no el 1 inicial del estado)', () => {
+    const { rerender, setCurrentHole } = montar({ retirosListos: false, currentHole: 1, listo: false })
+    rerender({ retirosListos: false, currentHole: 9, listo: true })
+    rerender({ retirosListos: true, currentHole: 9, listo: true })
+    expect(setCurrentHole).toHaveBeenCalledWith(18)
+  })
+  it('si el anotador fue a otro hoyo y volvió al de la carga, no lo mueve', () => {
+    const { rerender, setCurrentHole } = montar({ retirosListos: false, currentHole: 9 })
+    rerender({ retirosListos: false, currentHole: 14 })
+    rerender({ retirosListos: false, currentHole: 9 })
+    rerender({ retirosListos: true, currentHole: 9 })
+    expect(setCurrentHole).not.toHaveBeenCalled()
+  })
+  it('si el anotador anotó o marcó en el hoyo de la carga antes de que llegaran los retiros, no lo mueve', () => {
+    const { result, rerender, setCurrentHole } = montar({ retirosListos: false, currentHole: 9 })
+    act(() => result.current.marcarInteraccion())
+    rerender({ retirosListos: true, currentHole: 9 })
+    expect(setCurrentHole).not.toHaveBeenCalled()
+  })
+  it('si avanzó con "Siguiente" antes de que llegaran los retiros, no lo mueve', () => {
+    const { rerender, setCurrentHole } = montar({ retirosListos: false, currentHole: 9 })
+    rerender({ retirosListos: false, currentHole: 10 })
+    rerender({ retirosListos: true, currentHole: 10 })
     expect(setCurrentHole).not.toHaveBeenCalled()
   })
   it('lo hace una sola vez (un retiro nuevo en la ronda no salta de hoyo)', () => {
