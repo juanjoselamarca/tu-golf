@@ -7,7 +7,8 @@
 // - Recibe el cliente Supabase ya creado por page.tsx (no lo importa el
 //   módulo para mantenerlo trivialmente testeable en jsdom si hace falta).
 
-import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
+import { handicapOcultoSinSesion, indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
+import { indiceDelMiembro } from './teamLeaderboard'
 import { captureError } from '@/lib/error-tracking'
 import type {
   DBTournament,
@@ -400,7 +401,7 @@ export async function fetchRondaLibreJugadores(
   if (rondaIds.length === 0) return []
   const { data } = await supabase
     .from('ronda_libre_jugadores')
-    .select('id, nombre, user_id, scores, handicap, tees, ronda_id')
+    .select('id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees, ronda_id')
     .in('ronda_id', rondaIds)
   return (data as unknown as DBRondaLibreJugador[] | null) ?? []
 }
@@ -457,10 +458,9 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
   const cache = new Map<string, CourseData | null>()
   const out: DBRondaLibreJugador[] = []
   for (const j of jugadores) {
-    // Índice crudo: handicap almacenado primero, luego profiles.indice (= scorer).
-    const index = j.handicap != null
-      ? j.handicap
-      : (j.user_id && indiceByUser.has(j.user_id) ? (indiceByUser.get(j.user_id) as number) : 0)
+    // Índice crudo: fuente única `indiceDelMiembro` (la tarjeta manda; el perfil sólo si
+    // `indiceVieneDelPerfil`; sin nada, 0) — la misma regla que el board de equipos y el scorer.
+    const index = indiceDelMiembro(j, indiceByUser)
 
     const ronda = rondaById.get(j.ronda_id)
     const courseId = (ronda?.course_id as string | null) ?? null
@@ -507,7 +507,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
       // misma fuente que el scorer (`courseHandicapsDeRonda`).
       handicap: resolverHandicapDeJuego(index, courseData, holesN, hcpPctDeRonda(ronda ?? {})),
       handicap_display: handicapDisplay,
-      handicap_de_perfil: indiceVieneDelPerfil(j),
+      handicap_oculto_sin_sesion: handicapOcultoSinSesion(j),
     })
   }
   return out

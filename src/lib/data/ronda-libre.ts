@@ -7,7 +7,7 @@
 // El índice de los jugadores se resuelve con un único query batch
 // `.in('id', userIds)` en vez de un query por jugador (sin N+1).
 
-import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
+import { handicapOcultoSinSesion, indiceVieneDelPerfil, type FilaIndice } from '@/golf/ronda-libre/permisos'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, resolverCourseData, type CourseData } from '@/golf/core/course-handicap'
 import { hcpPctDeRonda, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
@@ -84,7 +84,7 @@ export async function fetchEquiposDeRondas(
 }
 
 type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'recorridos' | 'hcp_pct'> & {
-  ronda_libre_jugadores: Array<{ id: string; user_id?: string | null; handicap?: number | null; tees?: string | null }>
+  ronda_libre_jugadores: Array<FilaIndice & { id: string; tees?: string | null }>
 }
 
 /**
@@ -113,7 +113,10 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
  * (neto puntuado como gross). Cada caller decide a conciencia:
  *  - servidor que atiende anónimos → `indicesDePerfil` (`indices-de-perfil.ts`, servicio);
  *  - navegador o ruta con sesión obligatoria → `leerIndicesDelCliente(supabase)` (`indices-de-perfil-lectura.ts`);
- *  - `null` = NO leer perfiles (respuesta pública cacheada): esos jugadores quedan en `sinIndice`.
+ *  - `null` = NO leer perfiles (respuesta pública cacheada): esos jugadores quedan en `sinIndice`,
+ *    y también los de hándicap oculto sin sesión (`handicapOcultoSinSesion`: el inscrito de un
+ *    torneo con cuenta). Su número está en la fila, pero su course handicap no puede viajar en
+ *    la respuesta pública: de él se deduce el índice.
  * Un jugador cuyo índice no se pudo leer NUNCA sale con índice silencioso: queda en `sinIndice`.
  */
 export async function courseHandicapsDeRonda(
@@ -153,7 +156,9 @@ export async function courseHandicapsDeRonda(
   const indexByJugador: Record<string, number> = {}
   const sinIndice = new Set<string>()
   for (const j of ronda.ronda_libre_jugadores) {
-    const declarado = indiceVieneDelPerfil(j) ? indexByUserId.get(j.user_id as string) : (j.handicap ?? undefined)
+    const declarado = leerIndices === null && handicapOcultoSinSesion(j)
+      ? undefined
+      : indiceVieneDelPerfil(j) ? indexByUserId.get(j.user_id as string) : (j.handicap ?? undefined)
     if (declarado == null) sinIndice.add(j.id)
     const index = declarado ?? 0
     indexByJugador[j.id] = index
@@ -211,7 +216,7 @@ export function parYSiDeLaRonda(
 
 /** Columnas de la ronda que viajan a la vista en vivo (las mismas que leía el navegador). */
 export const COLUMNAS_RONDA_EN_VIVO =
-  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
+  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
 
 /**
  * Arma TODO lo que muestra la vista en vivo de una ronda libre: la ronda + par/SI

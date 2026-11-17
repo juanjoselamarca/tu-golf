@@ -10,7 +10,7 @@ import { crearHcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 const back = (v: number) => Object.fromEntries(Array.from({ length: 9 }, (_, i) => [i + 10, v]))
 const parMap = back(4)
 const siMap = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [i + 10, 2 * i + 2]))
-const jugadores = [{ id: 'j1', nombre: 'Alberto', user_id: null, handicap: 10, tees: null, scores: back(5) }]
+const jugadores = [{ id: 'j1', nombre: 'Alberto', user_id: null, handicap_de_inscripcion: false, handicap: 10, tees: null, scores: back(5) }]
 const ronda = {
   id: 'r1', codigo: 'BACK9', course_name: 'Club de Polo', course_id: 'c1', tees: 'azul', holes: 9, hoyo_inicio: 10,
   fecha: '2026-10-19', estado: 'en_curso', modo_juego: 'gross', formato_juego: 'stroke_play', ronda_libre_jugadores: jugadores,

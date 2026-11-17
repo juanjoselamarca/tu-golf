@@ -13,9 +13,9 @@ const parMap = { 1: 4, 2: 4, 3: 4 }
 const siMap = { 1: 1, 2: 2, 3: 3 }
 const LARGO = 'Alberto Chadwick Larraín de la Fuente'
 const jugadores = [
-  { id: 'j1', nombre: 'Papa', user_id: null, handicap: null, tees: null, scores: { 1: 4, 2: 5, 3: 4 } },
-  { id: 'j2', nombre: LARGO, user_id: 'u2', handicap: 15, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
-  { id: 'j3', nombre: 'Sin jugar', user_id: null, handicap: 10, tees: null, scores: {} },
+  { id: 'j1', nombre: 'Papa', user_id: null, handicap_de_inscripcion: false, handicap: null, tees: null, scores: { 1: 4, 2: 5, 3: 4 } },
+  { id: 'j2', nombre: LARGO, user_id: 'u2', handicap_de_inscripcion: false, handicap: 15, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
+  { id: 'j3', nombre: 'Sin jugar', user_id: null, handicap_de_inscripcion: false, handicap: 10, tees: null, scores: {} },
 ]
 const ronda = {
   id: 'r1', codigo: 'ABC123', course_name: 'Club de Polo', course_id: 'c1', tees: 'azul', holes: 18, hoyo_inicio: 1,

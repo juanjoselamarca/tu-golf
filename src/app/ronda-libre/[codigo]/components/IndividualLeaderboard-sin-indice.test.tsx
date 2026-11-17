@@ -13,9 +13,9 @@ import { crearHcpAMostrar, SIN_INDICE } from '@/lib/data/ronda-libre-live-api'
 const parMap = { 1: 4, 2: 4, 3: 4 }
 const siMap = { 1: 1, 2: 2, 3: 3 }
 const jugadores = [
-  { id: 'j1', nombre: 'Ana Cuenta', user_id: 'u1', handicap: null, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
-  { id: 'j2', nombre: 'Bea Invitada', user_id: null, handicap: 12, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
-  { id: 'j3', nombre: 'Coni Invitada', user_id: null, handicap: null, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
+  { id: 'j1', nombre: 'Ana Cuenta', user_id: 'u1', handicap_de_inscripcion: false, handicap: null, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
+  { id: 'j2', nombre: 'Bea Invitada', user_id: null, handicap_de_inscripcion: false, handicap: 12, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
+  { id: 'j3', nombre: 'Coni Invitada', user_id: null, handicap_de_inscripcion: false, handicap: null, tees: null, scores: { 1: 5, 2: 5, 3: 5 } },
 ]
 const ronda = {
   id: 'r1', codigo: 'ABC123', course_name: 'Los Leones', course_id: 'c1', tees: 'azul', holes: 18, hoyo_inicio: 1,
@@ -63,10 +63,13 @@ describe('IndividualLeaderboard (ronda libre) — HCP de un jugador sin índice'
 
 describe('crearHcpAMostrar (fuente única del HCP a mostrar)', () => {
   const js = [
-    { id: 'a', user_id: 'u-a', handicap: null },
-    { id: 'b', handicap: 11.6 },
-    { id: 'c', handicap: null },
-    { id: 'd', user_id: null, handicap: null },
+    { id: 'a', user_id: 'u-a', handicap_de_inscripcion: false, handicap: null },
+    { id: 'b', handicap: 11.6, handicap_de_inscripcion: false },
+    { id: 'c', handicap: null, handicap_de_inscripcion: false },
+    { id: 'd', user_id: null, handicap_de_inscripcion: false, handicap: null },
+    { id: 'e', user_id: 'u-e', handicap_de_inscripcion: true, handicap: null },
+    { id: 'f', user_id: null, handicap_de_inscripcion: true, handicap: null },
+    { id: 'g', user_id: 'u-g', handicap_de_inscripcion: false, handicap: 9 },
   ]
   it('cuenta en sinIndice sin perfil leído → null aunque haya un 0 en el mapa (no se sabe si tiene)', () => {
     expect(crearHcpAMostrar(js, { a: 0 }, ['a'], new Set())('a')).toBeNull()
@@ -77,6 +80,16 @@ describe('crearHcpAMostrar (fuente única del HCP a mostrar)', () => {
   })
   it('invitado (índice no viene del perfil) en sinIndice → SIN_INDICE aunque el visor sea anónimo', () => {
     expect(crearHcpAMostrar(js, { d: 0 }, ['d'], new Set())('d')).toBe(SIN_INDICE)
+  })
+  it('inscrito de torneo con cuenta en sinIndice → null para un anónimo; con sesión → SIN_INDICE', () => {
+    expect(crearHcpAMostrar(js, { e: 0 }, ['e'], new Set())('e')).toBeNull()
+    expect(crearHcpAMostrar(js, { e: 0 }, ['e'], new Set(['e']))('e')).toBe(SIN_INDICE)
+  })
+  it('invitado de torneo sin índice → SIN_INDICE (su hándicap no está oculto)', () => {
+    expect(crearHcpAMostrar(js, { f: 0 }, ['f'], new Set())('f')).toBe(SIN_INDICE)
+  })
+  it('creador de ronda libre con índice tipeado en sinIndice (no debería) → SIN_INDICE: no está oculto', () => {
+    expect(crearHcpAMostrar(js, { g: 0 }, ['g'], new Set())('g')).toBe(SIN_INDICE)
   })
   it('course handicap a mostrar resuelto → ese número', () => {
     expect(crearHcpAMostrar(js, { b: 14 }, [], new Set())('b')).toBe(14)

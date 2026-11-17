@@ -41,7 +41,7 @@ const PAR_9 = 36
 const JUGADOR: DBRondaLibreJugador = {
   id: 'jug-1',
   nombre: 'Padre',
-  user_id: null,
+  user_id: null, handicap_de_inscripcion: false,
   handicap: 5,
   handicap_index: 10,
   tees: null,
@@ -81,7 +81,7 @@ describe('buildLeaderboardFromRondaLibre — SI 18h en 9h no pierde golpes (P0 N
     const jug18: DBRondaLibreJugador = {
       id: 'j18',
       nombre: 'Test18',
-      user_id: null,
+      user_id: null, handicap_de_inscripcion: false,
       handicap: 9,
       handicap_index: 9,
       tees: null,
@@ -111,7 +111,7 @@ describe('buildLeaderboardFromRondaLibre — SI 18h en 9h no pierde golpes (P0 N
     const BACK = [16, 14, 4, 12, 10, 2, 18, 8, 6]
     const holes18 = [...FRONT, ...BACK].map((si, i) => ({ numero: i + 1, par: 4, stroke_index: si }))
     const jugador: DBRondaLibreJugador = {
-      id: 'jt', nombre: 'Padre', user_id: null, handicap: 5, handicap_index: 10,
+      id: 'jt', nombre: 'Padre', user_id: null, handicap_de_inscripcion: false, handicap: 5, handicap_index: 10,
       tees: null, ronda_id: 'r1',
       scores: { '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8': 4, '9': 4 },
     }

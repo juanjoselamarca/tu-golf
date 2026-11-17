@@ -3,8 +3,8 @@ import { idsConHandicapOculto, vistaPublica, filaPublica, datosRondaLibrePublico
 import type { Player } from '@/lib/golf-data'
 
 const jugadores = [
-  { id: 'cuenta', handicap_de_perfil: true },
-  { id: 'invitado', handicap_de_perfil: false },
+  { id: 'cuenta', handicap_oculto_sin_sesion: true },
+  { id: 'invitado', handicap_oculto_sin_sesion: false },
   { id: 'plano' },
 ]
 const p = (id: string): Player => ({
@@ -59,14 +59,20 @@ describe('filaPublica', () => {
 
 describe('datosRondaLibrePublicos (vista en vivo de ronda libre, respuesta pública)', () => {
   const datos = (modo_juego: string, formato_juego = 'stroke_play') => ({
-    ronda: { modo_juego, formato_juego, ronda_libre_jugadores: [{ id: 'inv', handicap: 12 }, { id: 'cuenta', handicap: null }] },
+    ronda: { modo_juego, formato_juego, ronda_libre_jugadores: [
+      { id: 'inv', user_id: null, handicap: 12, handicap_de_inscripcion: false },
+      { id: 'cuenta', user_id: 'u1', handicap: null, handicap_de_inscripcion: false },
+      { id: 'creador', user_id: 'u2', handicap: 8.4, handicap_de_inscripcion: false },
+      { id: 'inscrito', user_id: 'u3', handicap: 14.2, handicap_de_inscripcion: true },
+      { id: 'invTorneo', user_id: null, handicap: 20, handicap_de_inscripcion: true },
+    ] },
     courseHcpMap: { inv: 13 }, courseHcpCompletoMap: { inv: 15 }, displayHcpMap: { inv: 13 }, sinIndice: ['cuenta'],
     equipos: [{ id: 'e', handicap_equipo: 7 }],
   })
   it('ronda NETO: sólo bruto, sin handicap de nadie (invitados incluidos), sin CH ni handicap de equipo', () => {
     const r = datosRondaLibrePublicos(datos('neto', 'stableford'))
     expect(r.vista).toMatchObject({ sinNeto: true, soloBruto: true, modo: 'gross', formato: 'stroke_play' })
-    expect(r.ronda.ronda_libre_jugadores.map((j) => j.handicap)).toEqual([null, null])
+    expect(r.ronda.ronda_libre_jugadores.map((j) => j.handicap)).toEqual([null, null, null, null, null])
     expect(r.courseHcpMap).toEqual({})
     expect(r.courseHcpCompletoMap).toEqual({})
     expect(r.displayHcpMap).toEqual({})
@@ -78,6 +84,18 @@ describe('datosRondaLibrePublicos (vista en vivo de ronda libre, respuesta públ
     expect(r.vista).toMatchObject({ sinNeto: true, soloBruto: false, modo: 'gross' })
     expect(r.courseHcpMap).toEqual({ inv: 13 })
     expect(r.ronda.ronda_libre_jugadores[0].handicap).toBe(12)
+  })
+  it('ronda GROSS: el hándicap de un inscrito de torneo con cuenta (marca true) NO viaja', () => {
+    const r = datosRondaLibrePublicos(datos('gross'))
+    expect(r.ronda.ronda_libre_jugadores.find((j) => j.id === 'inscrito')?.handicap).toBeNull()
+  })
+  it('ronda GROSS: el creador de una ronda libre con índice tipeado (marca false) se sigue viendo, como hoy', () => {
+    const r = datosRondaLibrePublicos(datos('gross'))
+    expect(r.ronda.ronda_libre_jugadores.find((j) => j.id === 'creador')?.handicap).toBe(8.4)
+  })
+  it('ronda GROSS: el invitado de torneo (sin cuenta) se sigue viendo', () => {
+    const r = datosRondaLibrePublicos(datos('gross'))
+    expect(r.ronda.ronda_libre_jugadores.find((j) => j.id === 'invTorneo')?.handicap).toBe(20)
   })
   it('match play neto: se ve el match en bruto (como el board de torneo), no se cambia de juego', () => {
     expect(datosRondaLibrePublicos(datos('neto', 'match_play')).vista).toMatchObject({ modo: 'gross', formato: 'match_play' })
@@ -108,7 +126,7 @@ describe('handicapsVisiblesParaElVisor — Timba libre (decisión 27-oct)', () =
     courseHcpMap: { a: 10, b: 14 }, courseHcpCompletoMap: { a: 10, b: 14 }, displayHcpMap: { a: 10, b: 14 },
     sinIndice: ['b'], handicapPorJugador: { a: 9, b: 13 }, handicapPorEquipo: { e: 5 }, handicapJuegoPorEquipo: { e: 4 },
   }
-  const jugadores = [{ id: 'a', user_id: 'yo' }, { id: 'b', user_id: null }]
+  const jugadores = [{ id: 'a', user_id: 'yo', handicap_de_inscripcion: false }, { id: 'b', user_id: null, handicap_de_inscripcion: false }]
   it('personalizado: solo lo del visor', () => {
     expect(handicapsVisiblesParaElVisor(h, { formato_juego: 'personalizado', ronda_libre_jugadores: jugadores }, 'yo')).toEqual({
       courseHcpMap: { a: 10 }, courseHcpCompletoMap: { a: 10 }, displayHcpMap: { a: 10 },

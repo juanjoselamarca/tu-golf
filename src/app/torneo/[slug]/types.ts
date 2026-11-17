@@ -108,11 +108,17 @@ export interface DBRondaLibreJugador {
    */
   handicap_display?: number | null
   /**
-   * `true` = jugador con cuenta cuyo índice NO está en la tarjeta: sale del perfil
-   * (`indicesDePerfil`). Su handicap no se le MUESTRA a un visor sin sesión (de ahí
-   * se deduce el índice) — `filaPublica`. Undefined en el fetch plano.
+   * Marca de la fila: el `handicap` lo gobierna la inscripción del torneo
+   * (`filaDeHandicapDeTorneo`). La traen los dos fetch; la usan los predicados de
+   * `@/golf/ronda-libre/permisos`.
    */
-  handicap_de_perfil?: boolean
+  handicap_de_inscripcion: boolean | null
+  /**
+   * `true` = su handicap no se le MUESTRA a un visor sin sesión (`handicapOcultoSinSesion`:
+   * jugador con cuenta cuyo índice sale del perfil o de su inscripción; de ahí se deduce
+   * el índice) — `filaPublica`. Undefined en el fetch plano.
+   */
+  handicap_oculto_sin_sesion?: boolean
   tees: string | null
   ronda_id: string
 }

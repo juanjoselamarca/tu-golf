@@ -5,8 +5,8 @@ import type { HoleData, Jugador } from '@/types/ronda'
 
 type RondaInput = Parameters<typeof useScoreboardCalc>[0]['ronda']
 
-const playerJuanjo: Jugador = { id: 'p1', nombre: 'Juanjo', user_id: 'u1', scores: {}, handicap: 11.1, tees: 'azul' }
-const playerRival: Jugador = { id: 'p2', nombre: 'Rival', user_id: 'u2', scores: {}, handicap: 5.0, tees: 'azul' }
+const playerJuanjo: Jugador = { id: 'p1', nombre: 'Juanjo', user_id: 'u1', handicap_de_inscripcion: false, scores: {}, handicap: 11.1, tees: 'azul' }
+const playerRival: Jugador = { id: 'p2', nombre: 'Rival', user_id: 'u2', handicap_de_inscripcion: false, scores: {}, handicap: 5.0, tees: 'azul' }
 
 describe('useScoreboardCalc', () => {
   const baseRonda: RondaInput = {

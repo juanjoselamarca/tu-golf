@@ -51,7 +51,7 @@ const anon = {
 beforeEach(() => {
   tablasAdmin.length = 0
   tablasAnon.length = 0
-  tarjetas = [{ id: 'j1', nombre: 'Ana', user_id: 'u1', scores: parEnLos18, handicap: null, tees: 'azul', ronda_id: 'r1' }]
+  tarjetas = [{ id: 'j1', nombre: 'Ana', user_id: 'u1', handicap_de_inscripcion: false, scores: parEnLos18, handicap: null, tees: 'azul', ronda_id: 'r1' }]
 })
 
 describe('fetchRondaLibreJugadoresConCourseHcp — visor anónimo', () => {
@@ -93,8 +93,8 @@ describe('board público — qué VIAJA según el visor (decisiones de producto 
     golpes: { ana?: Record<string, number>; beto?: Record<string, number> } = {},
   ) {
     tarjetas = [
-      { id: 'j1', nombre: 'Ana (cuenta)', user_id: 'u1', scores: golpes.ana ?? parEnLos18, handicap: null, tees: 'azul', ronda_id: 'r1' },
-      { id: 'j2', nombre: 'Beto (invitado)', user_id: null, scores: golpes.beto ?? beto, handicap: 12, tees: 'azul', ronda_id: 'r1' },
+      { id: 'j1', nombre: 'Ana (cuenta)', user_id: 'u1', handicap_de_inscripcion: false, scores: golpes.ana ?? parEnLos18, handicap: null, tees: 'azul', ronda_id: 'r1' },
+      { id: 'j2', nombre: 'Beto (invitado)', user_id: null, handicap_de_inscripcion: false, scores: golpes.beto ?? beto, handicap: 12, tees: 'azul', ronda_id: 'r1' },
     ]
     const vista = vistaPublica({ visorConSesion, caminoRondaLibre: true, modoJuego, formatoJuego })
     const jugadores = await fetchRondaLibreJugadoresConCourseHcp(anon, ['r1'], 72, indicesDePerfil)
@@ -166,8 +166,8 @@ describe('GWI del board público — el handicap del jugador con cuenta no viaja
   /** Mismas dos funciones que llama /torneo/[slug]/page.tsx. */
   async function gwi(visorConSesion: boolean) {
     tarjetas = [
-      { id: 'j1', nombre: 'Ana (cuenta)', user_id: 'u1', scores: nueve(4), handicap: null, tees: 'azul', ronda_id: 'r1' },
-      { id: 'j2', nombre: 'Beto (invitado)', user_id: null, scores: nueve(5), handicap: 7, tees: 'azul', ronda_id: 'r1' },
+      { id: 'j1', nombre: 'Ana (cuenta)', user_id: 'u1', handicap_de_inscripcion: false, scores: nueve(4), handicap: null, tees: 'azul', ronda_id: 'r1' },
+      { id: 'j2', nombre: 'Beto (invitado)', user_id: null, handicap_de_inscripcion: false, scores: nueve(5), handicap: 7, tees: 'azul', ronda_id: 'r1' },
     ]
     const vista = vistaPublica({ visorConSesion, caminoRondaLibre: true, modoJuego: 'gross', formatoJuego: 'stroke_play' })
     const jugadores = await fetchRondaLibreJugadoresConCourseHcp(anon, ['r1'], 72, indicesDePerfil)
@@ -194,5 +194,42 @@ describe('GWI del board público — el handicap del jugador con cuenta no viaja
     expect(fila(g, 'j1').volatilidad).toBe('alta')
     expect(fila(g, 'j1').narrativa).toBe('Lidera pero varianza deja puerta abierta')
     expect(JSON.stringify(g)).toMatch(/"handicap":18/)
+  })
+})
+
+describe('tarjeta de torneo con hándicap inscrito (marca handicap_de_inscripcion = true)', () => {
+  const courseHoles = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
+  async function board(visorConSesion: boolean, ana: { handicap: number | null }) {
+    tarjetas = [
+      { id: 'j1', nombre: 'Ana (cuenta)', user_id: 'u1', handicap_de_inscripcion: true, scores: parEnLos18, handicap: ana.handicap, tees: 'azul', ronda_id: 'r1' },
+      { id: 'j2', nombre: 'Beto (invitado)', user_id: null, handicap_de_inscripcion: true, scores: parEnLos18, handicap: 12, tees: 'azul', ronda_id: 'r1' },
+    ]
+    const vista = vistaPublica({ visorConSesion, caminoRondaLibre: true, modoJuego: 'gross', formatoJuego: 'stroke_play' })
+    const jugadores = await fetchRondaLibreJugadoresConCourseHcp(anon, ['r1'], 72, indicesDePerfil)
+    return { jugadores, ...boardPublicoRondaLibre(jugadores, { parTotal: 72, totalHoyos: 18, modoJuego: 'gross', formatoJuego: 'stroke_play', courseHoles }, vista) }
+  }
+  const de = <T extends { id?: string }>(ps: T[], id: string) => ps.find((p) => p.id === id)!
+
+  it('jugador con cuenta y hándicap inscrito: puntúa con lo inscrito (no lee el perfil) y queda OCULTO sin sesión', async () => {
+    const { jugadores, players, handicapOculto } = await board(false, { handicap: 14 })
+    expect(de(jugadores, 'j1').handicap_index).toBe(14)
+    expect(de(jugadores, 'j1').handicap_oculto_sin_sesion).toBe(true)
+    expect(tablasAdmin).toEqual([])
+    expect(handicapOculto.has('j1')).toBe(true)
+    expect(de(players, 'j1').hcp).toBeNull()
+    // El invitado del torneo (sin cuenta) se sigue viendo.
+    expect(de(jugadores, 'j2').handicap_oculto_sin_sesion).toBe(false)
+    expect(de(players, 'j2').hcp).toBe(12)
+  })
+
+  it('con sesión: el hándicap inscrito se ve', async () => {
+    const { players } = await board(true, { handicap: 14 })
+    expect(de(players, 'j1').hcp).toBe(14)
+  })
+
+  it('WHS sin índice inscrito (null + marca): NO cae al índice del perfil; juega con 0', async () => {
+    const { jugadores } = await board(true, { handicap: null })
+    expect(de(jugadores, 'j1').handicap_index).toBe(0)
+    expect(tablasAdmin).toEqual([])
   })
 })

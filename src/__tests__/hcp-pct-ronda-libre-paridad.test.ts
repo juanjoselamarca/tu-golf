@@ -49,8 +49,8 @@ function fakeSupabase(porTabla: Record<string, unknown[]>) {
 }
 
 const jugadores = [
-  { id: 'a', nombre: 'Ana', user_id: null, scores: {}, handicap: 8.6, tees: null, ronda_id: 'r1' },
-  { id: 'b', nombre: 'Beto', user_id: null, scores: {}, handicap: 10.3, tees: null, ronda_id: 'r1' },
+  { id: 'a', nombre: 'Ana', user_id: null, handicap_de_inscripcion: false, scores: {}, handicap: 8.6, tees: null, ronda_id: 'r1' },
+  { id: 'b', nombre: 'Beto', user_id: null, handicap_de_inscripcion: false, scores: {}, handicap: 10.3, tees: null, ronda_id: 'r1' },
 ]
 const rondaDelGrupo = (hcp_pct?: number) => ({
   id: 'r1', course_id: 'c1', holes: 18, tees: 'azul', recorridos: null,

@@ -69,7 +69,7 @@ function rondaLibreJugador(k: Clave, ch = CH, totalHoyos = 18): DBRondaLibreJuga
   return {
     id: k,
     nombre: `Jugador ${k}`,
-    user_id: null,
+    user_id: null, handicap_de_inscripcion: false,
     scores: soloHoyos(TARJETAS_LEONES[k], totalHoyos),
     handicap: ch,
     handicap_index: 18,

@@ -11,7 +11,7 @@ import type { Jugador } from '@/types/ronda'
 import { PAR_LEONES, SI_LEONES_BD, TARJETAS_LEONES, PUNTOS_ESPERADOS_LEONES } from '@/golf/core/__fixtures__/los-leones'
 
 function jugador(id: string, scores: Record<string, number>, handicap: number): Jugador {
-  return { id, nombre: `QA_LEONES_${id}`, user_id: null, scores, handicap }
+  return { id, nombre: `QA_LEONES_${id}`, user_id: null, handicap_de_inscripcion: false, scores, handicap }
 }
 
 function leaderboard(jugadores: Jugador[], courseHcpMap: Record<string, number>, modoJuego: 'gross' | 'neto' = 'gross') {

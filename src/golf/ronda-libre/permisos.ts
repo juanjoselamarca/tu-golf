@@ -55,31 +55,61 @@ export function esMiTarjeta<T extends { user_id?: string | null }>(
 }
 
 /**
- * ¿El índice de este jugador sale de su PERFIL y no de la tarjeta? FUENTE ÚNICA:
- * jugador con cuenta que no fijó `handicap` en su tarjeta (así las inserta
- * `/api/torneos/[slug]/start`). De esto dependen dos cosas:
- * - de dónde se lee el índice (`profiles.indice`, que un anónimo no puede leer
- *   por RLS: el board lo lee con el cliente de servicio, `indicesDePerfil`);
- * - si su handicap se le MUESTRA a un visor sin sesión (no: de ahí se deduce el
- *   índice; decisión de producto 08-oct-2026). Un invitado tipea su índice en la
- *   tarjeta y ése sí se muestra.
+ * Lo que los predicados de índice necesitan de una fila de `ronda_libre_jugadores`.
+ * `handicap_de_inscripcion` es OBLIGATORIO en el tipo (aunque admita null): así tsc
+ * obliga a cada consumidor a seleccionar la columna. Un select que la omita haría que
+ * una fila de torneo pareciera de ronda libre y su hándicap viajara a un visor sin
+ * sesión. Nunca castear para saltarse esto.
  */
-export function indiceVieneDelPerfil(
-  jugador: { user_id?: string | null; handicap?: number | null },
-): boolean {
-  return !!jugador.user_id && jugador.handicap == null
+export interface FilaIndice {
+  user_id?: string | null
+  handicap?: number | null
+  /** `true` = el `handicap` de la fila lo gobierna la inscripción del torneo (`filaDeHandicapDeTorneo`). */
+  handicap_de_inscripcion: boolean | null
+}
+
+/**
+ * FUENTE — ¿el índice de este jugador se lee de su PERFIL y no de la tarjeta?
+ * Jugador con cuenta, sin `handicap` en la tarjeta y cuya fila NO la gobierna la
+ * inscripción de un torneo. Una fila de torneo sin hándicap inscrito (WHS sin índice)
+ * no cae al perfil: juega con índice 0, como en el board del torneo (que lo puntúa con
+ * `handicap_at_registration ?? 0`). La tarjeta lo MUESTRA "S/Ind"; el board individual
+ * del torneo todavía muestra "0" en la columna de índice
+ * (`torneo/[slug]/en-vivo/formats/IndividualLeaderboard.tsx`) y, en la de hándicap de
+ * juego, el CH de un índice 0, que según rating/slope/par puede ser "2" o "-1"
+ * (pendiente: issue #804, llevar la señal de sin índice al board).
+ * Decide de dónde se lee el índice (`profiles.indice`, que un anónimo no puede leer
+ * por RLS: el board lo lee con el cliente de servicio, `indicesDePerfil`).
+ * Lo que se le MUESTRA a un visor sin sesión es otra pregunta: `handicapOcultoSinSesion`.
+ */
+export function indiceVieneDelPerfil(jugador: FilaIndice): boolean {
+  return !!jugador.user_id && jugador.handicap == null && !jugador.handicap_de_inscripcion
+}
+
+/**
+ * PRIVACIDAD — ¿el hándicap de este jugador se le OCULTA a un visor sin sesión?
+ * Jugador con cuenta cuyo número sale de su perfil o de su inscripción en un torneo
+ * (que es su índice de FedeGolf/perfil): de cualquiera de los dos se deduce el índice
+ * (decisión de producto 08-oct-2026). Un invitado sin cuenta, y el creador de una ronda
+ * libre que tipeó su propio índice en la tarjeta (`user_id` + `handicap`, marca en
+ * false), se siguen mostrando.
+ */
+export function handicapOcultoSinSesion(jugador: FilaIndice): boolean {
+  return !!jugador.user_id && (jugador.handicap == null || !!jugador.handicap_de_inscripcion)
 }
 
 /**
  * El neto de la ronda NO se puede calcular en este teléfono (#511): ronda neto, sin
- * sesión y con algún jugador cuyo índice vive en su perfil (`indiceVieneDelPerfil`).
- * `profiles` sólo es legible con sesión: sin ella ese jugador quedaría con índice 0
- * y su neto (o el match) se puntuaría como gross. En ese caso el scorer muestra la
- * clasificación bruta (`vistaPublica`) y pide iniciar sesión para ver el neto.
+ * sesión y con algún jugador cuyo hándicap no viaja a un visor sin sesión
+ * (`handicapOcultoSinSesion`): o vive en su perfil (`profiles` sólo es legible con
+ * sesión) o lo gobierna la inscripción del torneo (la respuesta pública lo anula,
+ * `datosRondaLibrePublicos`). Sin él ese jugador quedaría con índice 0 y su neto (o el
+ * match) se puntuaría como gross. En ese caso el scorer muestra la clasificación bruta
+ * (`vistaPublica`) y pide iniciar sesión para ver el neto.
  */
 export function netoNoDisponibleSinSesion(
-  ronda: { modo_juego?: string | null; ronda_libre_jugadores: ReadonlyArray<{ user_id?: string | null; handicap?: number | null }> },
+  ronda: { modo_juego?: string | null; ronda_libre_jugadores: ReadonlyArray<FilaIndice> },
   conSesion: boolean,
 ): boolean {
-  return !conSesion && ronda.modo_juego === 'neto' && ronda.ronda_libre_jugadores.some(indiceVieneDelPerfil)
+  return !conSesion && ronda.modo_juego === 'neto' && ronda.ronda_libre_jugadores.some(handicapOcultoSinSesion)
 }

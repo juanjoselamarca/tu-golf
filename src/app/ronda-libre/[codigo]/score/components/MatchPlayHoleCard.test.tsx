@@ -6,8 +6,8 @@ import type { MatchResult } from '@/golf/formats/match-play'
 import type { Jugador } from '@/types/ronda'
 
 const jugadores: Jugador[] = [
-  { id: 'a', nombre: 'Ana', user_id: 'u1', scores: {}, handicap: null },
-  { id: 'b', nombre: 'Beto', user_id: null, scores: {}, handicap: 12 },
+  { id: 'a', nombre: 'Ana', user_id: 'u1', handicap_de_inscripcion: false, scores: {}, handicap: null },
+  { id: 'b', nombre: 'Beto', user_id: null, handicap_de_inscripcion: false, scores: {}, handicap: 12 },
 ]
 const matchResult = {
   holes: [{ numero: 1, par: 4, strokeIndex: 1, grossA: 5, grossB: 4, strokesA: 0, strokesB: 0, netoA: 5, netoB: 4, result: 'won_b' }],

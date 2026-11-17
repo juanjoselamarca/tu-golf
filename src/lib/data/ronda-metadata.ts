@@ -14,7 +14,6 @@ import { fetchHoyosDeLaRonda } from './course-holes'
 export interface RondaMetadataJugador {
   nombre: string
   scores: Record<string, number> | null
-  handicap: number | null
 }
 
 export interface RondaMetadataLight {
@@ -42,7 +41,7 @@ export async function loadRondaMetadata(
 ): Promise<RondaMetadataBundle | null> {
   const { data } = await supabase
     .from('rondas_libres')
-    .select('id, course_name, course_id, estado, holes, hoyo_inicio, formato_juego, modo_juego, recorridos, ronda_libre_jugadores(nombre, scores, handicap)')
+    .select('id, course_name, course_id, estado, holes, hoyo_inicio, formato_juego, modo_juego, recorridos, ronda_libre_jugadores(nombre, scores)')
     .eq('codigo', codigo)
     .single()
 

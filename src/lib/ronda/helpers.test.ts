@@ -144,13 +144,13 @@ describe('buildTimelineEvents', () => {
   const parMap = { 1: 4, 2: 4, 3: 4, 4: 4 }
   it('retorna vacío cuando nadie tiene scores', () => {
     const jugadores: Jugador[] = [
-      { id: 'a', nombre: 'Ana', user_id: null, scores: {} },
+      { id: 'a', nombre: 'Ana', user_id: null, handicap_de_inscripcion: false, scores: {} },
     ]
     expect(buildTimelineEvents(jugadores, 18, parMap)).toEqual([])
   })
   it('retorna el hoyo más alto con score por jugador', () => {
     const jugadores: Jugador[] = [
-      { id: 'a', nombre: 'Ana', user_id: null, scores: { '1': 4, '2': 3 } },
+      { id: 'a', nombre: 'Ana', user_id: null, handicap_de_inscripcion: false, scores: { '1': 4, '2': 3 } },
     ]
     const events = buildTimelineEvents(jugadores, 18, parMap)
     expect(events).toHaveLength(1)
@@ -158,11 +158,11 @@ describe('buildTimelineEvents', () => {
   })
   it('ordena por hoyo descendente y limita a 4 eventos', () => {
     const jugadores: Jugador[] = [
-      { id: '1', nombre: 'P1', user_id: null, scores: { '1': 4 } },
-      { id: '2', nombre: 'P2', user_id: null, scores: { '1': 4, '2': 4 } },
-      { id: '3', nombre: 'P3', user_id: null, scores: { '1': 4, '2': 4, '3': 4 } },
-      { id: '4', nombre: 'P4', user_id: null, scores: { '4': 5 } },
-      { id: '5', nombre: 'P5', user_id: null, scores: { '1': 4, '2': 4, '3': 4, '4': 4, '5': 4 } },
+      { id: '1', nombre: 'P1', user_id: null, handicap_de_inscripcion: false, scores: { '1': 4 } },
+      { id: '2', nombre: 'P2', user_id: null, handicap_de_inscripcion: false, scores: { '1': 4, '2': 4 } },
+      { id: '3', nombre: 'P3', user_id: null, handicap_de_inscripcion: false, scores: { '1': 4, '2': 4, '3': 4 } },
+      { id: '4', nombre: 'P4', user_id: null, handicap_de_inscripcion: false, scores: { '4': 5 } },
+      { id: '5', nombre: 'P5', user_id: null, handicap_de_inscripcion: false, scores: { '1': 4, '2': 4, '3': 4, '4': 4, '5': 4 } },
     ]
     const events = buildTimelineEvents(jugadores, 18, parMap)
     expect(events).toHaveLength(4)

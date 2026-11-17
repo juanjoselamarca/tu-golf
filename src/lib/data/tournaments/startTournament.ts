@@ -25,10 +25,11 @@ import { modoDeJuego } from '@/golf/core/rules'
 import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
-import { esModoHcpWhs, handicapInscrito, type PlayerForCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { esModoHcpWhs, type PlayerForCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import type { LegacyHcpContext } from '@/golf/leaderboard/types'
 import { leerHandicapDeEquipo } from '@/lib/draft/team-config-legacy'
 import { formatoDeLaTarjetaDelGrupo } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
+import { filaDeHandicapDeTorneo } from '@/golf/ronda-libre/handicap-tarjeta-de-torneo'
 import { TORNEO_SIN_EMPEZAR_STATUSES, torneoAceptaScores, torneoSinEmpezar } from '@/golf/tournament-status'
 import { fetchCourseHoles, fetchLegacyHcpContext, type Client } from './leaderboard'
 import {
@@ -58,21 +59,9 @@ export interface StartPlayer extends PlayerForCourseHcp {
   profiles: { name: string; indice: number | null } | null
 }
 
-/**
- * Handicap de la fila del jugador en la tarjeta del grupo (`ronda_libre_jugadores.handicap`),
- * que el scorer y el board tratan SIEMPRE como índice.
- *  - WHS: lo inscrito (`handicapInscrito`), el mismo número con que puntúan el handicap
- *    de equipo y el Resumen y el que ve el organizador. Antes se tomaba el índice de HOY
- *    del perfil: si FedeGolf lo actualizó entre la inscripción y el inicio, la tarjeta
- *    mostraba un número y el equipo puntuaba con otro. Un inscrito sin snapshot lo
- *    completa antes `completarIndicesInscritos`.
- *  - raw (torneos viejos): lo inscrito es un course handicap ya convertido; escribirlo
- *    en un campo de índice lo convertiría dos veces. Se mantiene el índice del perfil.
- */
-export function handicapDeLaTarjeta(player: StartPlayer, hcpCalcMode: string | null | undefined): number {
-  if (esModoHcpWhs(hcpCalcMode)) return handicapInscrito(player)
-  return player.profiles?.indice ?? player.handicap_at_registration ?? 0
-}
+// La regla de qué hándicap lleva la tarjeta del grupo vive en `@/golf/ronda-libre/handicap-tarjeta-de-torneo`
+// (`filaDeHandicapDeTorneo`). Se re-exporta `handicapDeLaTarjeta` para no romper los imports existentes.
+export { handicapDeLaTarjeta } from '@/golf/ronda-libre/handicap-tarjeta-de-torneo'
 
 /**
  * WHS: el aprobado inscrito sin índice (no lo tenía al inscribirse) y que HOY sí lo
@@ -140,7 +129,7 @@ export interface StartTournamentInfo {
   courses: { nombre?: string } | null
   /** `tournaments.team_config` (JSONB, forma vieja o nueva): de acá sale el handicap de equipo. */
   team_config?: unknown
-  /** `tournaments.hcp_calc_mode`: decide qué número lleva la fila de la tarjeta (`handicapDeLaTarjeta`). */
+  /** `tournaments.hcp_calc_mode`: decide qué número lleva la fila de la tarjeta (`filaDeHandicapDeTorneo`). */
   hcp_calc_mode?: string | null
 }
 
@@ -416,14 +405,13 @@ export async function materializeGroupScorecard(
       if (!player) {
         return abortar('jugador-del-grupo-no-existe', new Error(`player ${gp.player_id} no está en el torneo`))
       }
-      const handicap = handicapDeLaTarjeta(player, t.hcp_calc_mode)
       const { data: jugador, error } = await svc
         .from('ronda_libre_jugadores')
         .insert({
           ronda_id: rondaId,
           nombre: playerName(player),
           user_id: player.user_id || null,
-          ...((teamFormat || !player.user_id) ? { handicap } : {}),
+          ...filaDeHandicapDeTorneo(player, t.hcp_calc_mode, teamFormat),
           scores: {},
         })
         .select('id')

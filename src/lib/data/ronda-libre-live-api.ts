@@ -7,7 +7,7 @@ import type { LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 import { TIMEOUT_EN_VIVO_MS } from '@/lib/red/plazos'
-import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
+import { handicapOcultoSinSesion, type FilaIndice } from '@/golf/ronda-libre/permisos'
 import { redondearHandicapWHS } from '@/golf/core/stroke-index'
 
 type RespuestaOk = Extract<LoadRondaResult, { status: 'ok' }>
@@ -172,10 +172,10 @@ export type HcpAMostrar = (jugadorId: string) => HcpMostrado
  * FUENTE ÚNICA del HCP a mostrar en la vista en vivo y el scorer (columna, scorecard
  * expandido, match play, equipos y selector — #511). Un jugador en `sinIndice` juega
  * con 0, pero ese 0 no es un handicap y nunca se pinta:
- *  - si SABEMOS que no tiene índice → `SIN_INDICE`: su índice no viene del perfil
- *    (invitado, o lo fijó la tarjeta), o el perfil se leyó (`perfilLeido`);
- *  - si no se pudo saber (jugador con cuenta y el visor no lee perfiles: anónimo,
- *    decisión de privacidad 08-oct) → `null`.
+ *  - si SABEMOS que no tiene índice → `SIN_INDICE`: su hándicap no está oculto sin sesión
+ *    (invitado, o lo tipeó en la tarjeta de una ronda libre), o se leyó con sesión (`perfilLeido`);
+ *  - si no se pudo saber (`handicapOcultoSinSesion`: cuenta con índice del perfil o inscrito
+ *    de torneo, y el visor es anónimo; decisión de privacidad 08-oct) → `null`.
  * Sin course handicap resuelto cae al handicap de la tarjeta redondeado; si tampoco
  * hay (ronda neto vista sin sesión: no viaja ninguno) → `null`, nunca un 0 de relleno.
  *
@@ -183,7 +183,7 @@ export type HcpAMostrar = (jugadorId: string) => HcpMostrado
  * o los ids de los jugadores cuyo índice resolvió la ruta con sesión.
  */
 export function crearHcpAMostrar(
-  jugadores: ReadonlyArray<{ id: string; user_id?: string | null; handicap?: number | null }>,
+  jugadores: ReadonlyArray<FilaIndice & { id: string }>,
   displayHcpMap: Readonly<Record<string, number>>,
   sinIndice: readonly string[],
   perfilLeido: ReadonlySet<string> | 'todos',
@@ -193,7 +193,7 @@ export function crearHcpAMostrar(
   return (id) => {
     const j = porId.get(id)
     if (sin.has(id)) {
-      const sabemos = !j || !indiceVieneDelPerfil(j) || perfilLeido === 'todos' || perfilLeido.has(id)
+      const sabemos = !j || !handicapOcultoSinSesion(j) || perfilLeido === 'todos' || perfilLeido.has(id)
       return sabemos ? SIN_INDICE : null
     }
     const display = displayHcpMap[id]

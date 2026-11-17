@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
-import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
+import { indiceVieneDelPerfil, type FilaIndice } from '@/golf/ronda-libre/permisos'
 import type { ScrambleTeam, BestBallTeam } from '@/golf/formats'
 import {
   resolverCourseData,
@@ -20,11 +20,12 @@ export interface BestBallTeamsResult {
   memberNames: Record<string, string[]>
 }
 
-type MiembroConIndice = { user_id: string | null; handicap: number | null }
+type MiembroConIndice = FilaIndice & { user_id: string | null; handicap: number | null }
 
 /**
- * Índice de un miembro de equipo de best ball (scramble y foursome no leen índices:
- * usan el handicap de equipo guardado). FUENTE ÚNICA:
+ * Índice de una fila de la tarjeta de un torneo: miembro de best ball (scramble y
+ * foursome no leen índices: usan el handicap de equipo guardado) y jugador del board
+ * individual (`fetchRondaLibreJugadoresConCourseHcp`). FUENTE ÚNICA:
  * la tarjeta manda; el índice del perfil sólo si `indiceVieneDelPerfil` (jugador con
  * cuenta sin índice en la tarjeta). Sin nada, 0.
  */
@@ -171,7 +172,7 @@ export async function fetchBestBallTeams(
   // 4) Jugadores de la ronda: scores individuales + tee + índice almacenado.
   const { data: rlj, error: rErr } = await supabase
     .from('ronda_libre_jugadores')
-    .select('id, user_id, handicap, nombre, scores, tees, ronda_id')
+    .select('id, user_id, handicap, handicap_de_inscripcion, nombre, scores, tees, ronda_id')
     .in('ronda_id', rondaIds)
   if (rErr) throw rErr
   const rljById = new Map((rlj ?? []).map((j) => [j.id as string, j]))
