@@ -90,7 +90,7 @@ type JugadorRow = {
 type TorneoRow = {
   id: string
   afecta_estadisticas: boolean | null; course_id: string | null
-  hole_count: number | null; date_start: string | null; total_rounds: number | null
+  hole_count: number | null; date_start: string | null; date_end: string | null; total_rounds: number | null
   format: string | null; formato_juego: string | null; modo_juego: string | null
   hcp_calc_mode: string | null
 }
@@ -128,7 +128,7 @@ async function escribirEnElHistorial(svc: SupabaseClient, roundId: string): Prom
   if (!round) return []
   const { data: tourneyData, error: torneoError } = await svc
     .from('tournaments')
-    .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, format, formato_juego, modo_juego, hcp_calc_mode')
+    .select('id, afecta_estadisticas, course_id, hole_count, date_start, date_end, total_rounds, format, formato_juego, modo_juego, hcp_calc_mode')
     .eq('id', round.tournament_id)
     .single()
   if (torneoError) throw torneoError
@@ -207,7 +207,7 @@ async function escribirEnElHistorial(svc: SupabaseClient, roundId: string): Prom
   // El día en que se jugó (Chile), no el del cierre: un torneo cerrado días después (a mano o por el cierre
   // automático) no corre la ronda ni el índice del día al día del cierre.
   const playedAt = fechaDeJuegoDeLaRonda(
-    { closedAt: round.closed_at, fechaRonda: ronda.date, fechaTorneo: torneo.date_start },
+    { closedAt: round.closed_at, fechaRonda: ronda.date, numeroDeRonda: round.round_number, torneo },
     new Date(),
   )
   // Reabrir el torneo y volver a finalizar la ronda corrige su fila, sin tocar la fecha ni la privacidad que eligió el jugador.

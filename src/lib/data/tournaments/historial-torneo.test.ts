@@ -114,6 +114,16 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(sb.insertados[0].played_at).toBe('2026-10-01')
   })
 
+  it('ronda 2 sin fecha cargada, cerrada por el cierre: played_at es el último día del torneo, no el inicio', async () => {
+    const sb = fake(tablas({
+      rounds: ronda({ closed_at: null, round_number: 2 }),
+      tournaments: { data: torneo({ total_rounds: 2, date_end: '2026-10-02' }) },
+      tournament_rounds: { data: [] },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0].played_at).toBe('2026-10-02')
+  })
+
   it('el jugador la finalizó a las 23:00 de Chile: played_at es ese día, no el de UTC', async () => {
     const sb = fake(tablas({ rounds: ronda({ closed_at: '2026-10-02T02:00:00Z' }) }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')

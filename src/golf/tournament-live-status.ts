@@ -170,12 +170,18 @@ export function fechasAlIniciar(
  * índice "del día"). Antes era `new Date()` en UTC: desde las 21:00 de Chile la ronda quedaba con fecha de mañana,
  * y una ronda que cerró el cierre del torneo (manual o automático, días después) quedaba con el día del cierre.
  *  - La finalizó el jugador (`closedAt`): el día de Chile en que la finalizó.
- *  - No la finalizó (la cerró el cierre del torneo): la fecha de la ronda (`fechaRonda`, si no la del torneo),
- *    nunca futura (un torneo cerrado antes de su fecha queda con hoy).
+ *  - No la finalizó (la cerró el cierre del torneo): la fecha de la ronda (`fechaRonda`). Sin ella: la ronda 1 es
+ *    el inicio del torneo; una ronda 2+ sin fecha cargada, su último día (date_end ?? date_start), porque se jugó
+ *    después del inicio. Nunca futura (un torneo cerrado antes de su fecha queda con hoy).
  *  - Sin ninguna fecha legible → hoy en Chile.
  */
 export function fechaDeJuegoDeLaRonda(
-  r: { closedAt: string | null | undefined; fechaRonda: string | null | undefined; fechaTorneo: string | null | undefined },
+  r: {
+    closedAt: string | null | undefined
+    fechaRonda: string | null | undefined
+    numeroDeRonda: number | null | undefined
+    torneo: { date_start: string | null | undefined; date_end?: string | null | undefined }
+  },
   ahora: Date,
 ): string {
   const hoy = fechaHoyChile(ahora)
@@ -184,7 +190,8 @@ export function fechaDeJuegoDeLaRonda(
     if (!Number.isNaN(ms)) return fechaHoyChile(new Date(Math.min(ms, ahora.getTime())))
     return hoy
   }
-  const fecha = (r.fechaRonda ?? r.fechaTorneo ?? '').slice(0, 10)
+  const delTorneo = (r.numeroDeRonda ?? 1) > 1 ? rangoDelTorneo({ status: null, ...r.torneo })?.fin : r.torneo.date_start
+  const fecha = (r.fechaRonda ?? delTorneo ?? '').slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return hoy
   return fecha < hoy ? fecha : hoy
 }
