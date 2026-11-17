@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { calcularTendencia } from './tendencia'
+import { getTaigerLine } from './taiger-line'
 import type { HistoricalRound } from './types'
 
 const AHORA = new Date('2026-11-16T12:00:00').getTime()
@@ -24,8 +25,8 @@ describe('calcularTendencia', () => {
     expect(t?.delta).toBe(2)
   })
 
-  it('diferencia menor a 0.2: flat', () => {
-    const t = calcularTendencia([r('1', 2, 12.1), r('2', 10, 12), r('3', 20, 12), r('4', 35, 12), r('5', 40, 12), r('6', 50, 12)], AHORA)
+  it('diferencia menor a 1 golpe: flat', () => {
+    const t = calcularTendencia([r('1', 2, 12.9), r('2', 10, 12), r('3', 20, 12), r('4', 35, 12), r('5', 40, 12), r('6', 50, 12)], AHORA)
     expect(t?.direccion).toBe('flat')
   })
 
@@ -36,6 +37,22 @@ describe('calcularTendencia', () => {
 
   it('rondas de hace más de 60 días no cuentan', () => {
     expect(calcularTendencia([r('1', 2, 10), r('2', 10, 11), r('3', 20, 12), r('4', 70, 14), r('5', 80, 15), r('6', 90, 13)], AHORA)).toBeNull()
+  })
+
+  it('la ronda de hoy cuenta aunque el servidor (UTC) todavía no llegue al mediodía', () => {
+    const madrugada = new Date('2026-11-16T00:30:00Z').getTime()
+    const hoy = { ...r('hoy', 0, 8), played_at: '2026-11-16' }
+    const t = calcularTendencia([hoy, r('2', 10, 11), r('3', 20, 12), r('4', 35, 14), r('5', 40, 15), r('6', 50, 13)], madrugada)
+    expect(t).toEqual({ direccion: 'up', delta: (14 + 15 + 13) / 3 - (8 + 11 + 12) / 3, dias: 30 })
+  })
+
+  it('de punta a punta: diferenciales que bajan → tAIger+ dice "bajó"; que suben → "subió"', () => {
+    const linea = (t: ReturnType<typeof calcularTendencia>) =>
+      getTaigerLine({ tendencia: t, golpesHastaSiguienteNivel: null, nombreSiguienteNivel: null, taigerSessionCount: 0, totalRounds: 20 }).texto
+    expect(linea(calcularTendencia([r('1', 2, 10), r('2', 10, 11), r('3', 20, 12), r('4', 35, 14), r('5', 40, 15), r('6', 50, 13)], AHORA)))
+      .toBe('Tu diferencial promedio bajó 3.0 frente a los 30 días anteriores.')
+    expect(linea(calcularTendencia([r('1', 2, 16), r('2', 10, 16), r('3', 20, 16), r('4', 35, 14), r('5', 40, 14), r('6', 50, 14)], AHORA)))
+      .toBe('Tu diferencial promedio subió 2.0 frente a los 30 días anteriores.')
   })
 
   it('no depende de ningún índice: un índice oficial viejo no inventa tendencia', () => {

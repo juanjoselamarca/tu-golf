@@ -14,6 +14,9 @@
 // 1. el nombre de la columna (`indice_golfers` / `indiceGolfers`);
 // 2. el número rotulado en un texto armado (`Golfers+ ${...}`), como el aviso post-ronda,
 //    que recibe el valor como `golfers` y nunca nombra la columna.
+// Límite conocido del patrón 2 (heurística): no caza JSX (`Golfers+ {valor}`) ni texto
+// intermedio (`Golfers+ subió a ${x}`). Ensancharlo choca con textos de marca legítimos
+// (`Golfers+ — ${SITE_DOMAIN}` en ShareRoundButton). Revisar a mano en code review.
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'fs'
 import { join, relative, sep } from 'path'

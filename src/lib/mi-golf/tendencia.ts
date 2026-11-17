@@ -3,7 +3,9 @@ import type { HistoricalRound, Tendencia } from './types'
 
 const VENTANA_DIAS = 30
 const MINIMO_RONDAS_POR_VENTANA = 3
-const UMBRAL_FLAT = 0.2
+// Con 3 rondas por ventana el ruido entre rondas es de varios golpes: menos de 1 golpe de
+// diferencia en el promedio no es tendencia (y esta línea tiene prioridad en tAIger+).
+const UMBRAL_FLAT = 1
 const DIA_MS = 86400000
 
 /**
@@ -21,7 +23,9 @@ export function calcularTendencia(historico: HistoricalRound[], ahora: number = 
   for (const r of historico) {
     if (!r.played_at || r.diferencial == null) continue
     const edad = ahora - new Date(r.played_at + 'T12:00:00').getTime()
-    if (edad < 0) continue
+    // `played_at` es fecha sin hora y el servidor corre en UTC: la ronda de hoy puede caer
+    // unas horas "en el futuro". Hasta un día adelante cuenta como reciente.
+    if (edad < -DIA_MS) continue
     if (edad < VENTANA_DIAS * DIA_MS) recientes.push(r.diferencial)
     else if (edad < 2 * VENTANA_DIAS * DIA_MS) anteriores.push(r.diferencial)
   }
