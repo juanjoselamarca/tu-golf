@@ -929,3 +929,12 @@ Fuera de alcance (pendiente):
   `scoresParaMostrar` (arriba) queda cubierto por ese test.
 - **Pendiente anotado:** `/api/game` responde 404 `round_not_in_tournament` (permanente) y el cliente lo trata
   como reintentable ("Reintentando" para siempre). Mismo patrón que el 401/403: falta clasificarlo.
+- **Vuelta 2 (revisión Fable):** el reenvío manda sólo lo que el servidor no tiene (`confirmadosRef` +
+  `enVueloRef`; antes cada "ok" reenviaba la tarjeta entera → decenas de POST/min y 429). Los 403 de
+  `/api/game` traen `code` (`src/lib/api/codigos-game.ts`: `player_withdrawn`, `guest_not_owner`); el
+  `round_closed` del 409 sigue como literal suelto — moverlo ahí es follow-up.
+- **Hallazgo (sin arreglar, fuera de alcance):** `/torneo/[slug]/unirse` con el token de invitado roto
+  (`useInscripcionTorneo`, 403 `guest_token_required`) borra la sesión e inscribe con un guestId NUEVO →
+  jugador duplicado en el torneo. Por eso ningún aviso del scorer manda a `/unirse`. Falta: que la
+  inscripción reconozca al invitado existente antes de crear otro.
+- **Follow-up:** adoptar `src/lib/auth/aviso-sesion-cerrada.ts` (PR #789) en `avisoSinAcceso('sin_sesion')`.
