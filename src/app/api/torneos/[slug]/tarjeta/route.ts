@@ -83,9 +83,9 @@ async function identificar(req: NextRequest, slug: string, playerId: string): Pr
   }
   if (user) return { tipo: 'usuario', userId: user.id, clave: `tarjeta:u:${user.id}` }
   if (rechazoInvitado) {
-    return { tipo: 'rechazo', res: responder({ error: 'No autorizado', code: rechazoInvitado }, 403) }
+    return { tipo: 'rechazo', res: NextResponse.json({ error: 'No autorizado', code: rechazoInvitado }, { status: 403, headers: PRIVADO }) }
   }
-  return { tipo: 'rechazo', res: responder({ error: 'Debes iniciar sesión para continuar' }, 401) }
+  return { tipo: 'rechazo', res: NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401, headers: PRIVADO }) }
 }
 
 export async function POST(req: NextRequest, props: { params: Promise<{ slug: string }> }) {
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
       if (errJugador) throw errJugador
       // Jugador de otro torneo, inexistente o ajeno: la misma respuesta (sin oráculo de ids).
       if ((jugador as { user_id: string | null } | null)?.user_id !== quien.userId) {
-        return responder({ error: 'Esta tarjeta no está a tu nombre.', code: CODIGO_TARJETA_AJENA }, 403)
+        return NextResponse.json({ error: 'Esta tarjeta no está a tu nombre.', code: CODIGO_TARJETA_AJENA }, { status: 403, headers: PRIVADO })
       }
     }
 
