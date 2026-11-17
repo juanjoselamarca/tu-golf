@@ -12,7 +12,7 @@ describe('MentalRecoveryCard', () => {
         band="high"
         delta={3}
         title="Cortas la mayoría de tus malos hoyos"
-        description="Cortaste 30 de tus 35 bogeys en el hoyo siguiente."
+        description="Tras un bogey o peor, hiciste par o mejor en el hoyo siguiente 30 de 35 veces."
         umbrales={umbrales}
       />
     )
@@ -29,7 +29,7 @@ describe('MentalRecoveryCard', () => {
         band="low"
         delta={null}
         title="Más de la mitad de tus bogeys traen otro detrás"
-        description="Cortaste 4 de tus 14 bogeys en el hoyo siguiente."
+        description="Tras un bogey o peor, hiciste par o mejor en el hoyo siguiente 4 de 14 veces."
         umbrales={umbrales}
       />
     )
