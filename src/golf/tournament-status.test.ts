@@ -222,6 +222,7 @@ describe('gruposFijos (#810)', () => {
     expect(gruposFijos(null, sinTarjeta)).toBe(true)
     expect(gruposFijos('raro', sinTarjeta)).toBe(true)
   })
+})
 
 describe('torneoInscribible / motivoNoInscribible — fuente única de la inscripción', () => {
   it('open por jugar (o sin fecha, o dentro de la gracia) → inscribible', () => {
