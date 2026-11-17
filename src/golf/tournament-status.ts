@@ -17,7 +17,7 @@
  * Ver [[feedback_un_concepto_una_fuente]].
  */
 
-import { estadoDelTorneo, type EstadoDelTorneo, type TorneoConFechas } from './tournament-live-status'
+import { estadoDelTorneo, torneoAceptaScores, type EstadoDelTorneo, type TorneoConFechas } from './tournament-live-status'
 
 /** Audiencia del label: el jugador y el organizador no leen lo mismo. */
 export type StatusAudience = 'player' | 'organizer'
@@ -109,17 +109,9 @@ export function badgeDelStatusEscrito(
   return badgeDelTorneo({ status, date_start: null }, new Date(0), audience)
 }
 
-/**
- * Estados del torneo en que se anotan golpes — FUENTE ÚNICA. Espeja lo que acepta `/api/game` (que rechaza el score
- * fuera de ellos; adoptar esta constante allí queda pendiente tras el PR #517) y la usan las pantallas que ofrecen
- * "Anotar mi score": si divergen, el botón lleva a un scorer que el servidor rechaza.
- * 'active' es el sinónimo histórico de 'in_progress' (ver arriba).
- */
-export const TORNEO_ACEPTA_SCORES_STATUSES = ['active', 'in_progress'] as const
-
-export function torneoAceptaScores(status: string | null | undefined): boolean {
-  return !!status && (TORNEO_ACEPTA_SCORES_STATUSES as readonly string[]).includes(status)
-}
+// Estados en que se anotan golpes: la fuente vive en tournament-live-status.ts (estadoDelTorneo la usa y este
+// archivo importa de allá; definirla acá crearía un ciclo). Se re-exporta para los que ya la importan de aquí.
+export { TORNEO_ACEPTA_SCORES_STATUSES, torneoAceptaScores } from './tournament-live-status'
 
 /**
  * Por qué un torneo NO acepta scores, para decírselo al jugador ANTES de que anote: `null` = sí los acepta.

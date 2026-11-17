@@ -44,12 +44,23 @@ export type TorneoConFechas = {
 }
 
 const FINALIZADO_STATUSES = new Set(['closed', 'published', 'finished'])
-const EN_JUEGO_STATUSES = new Set(['in_progress', 'active'])
+
+/**
+ * Estados del torneo en que se anotan golpes — FUENTE ÚNICA (re-exportada por `tournament-status.ts`). La usa
+ * `/api/game` para rechazar el score fuera de ellos y la usan las pantallas que ofrecen "Anotar mi score": si divergen, el botón lleva a un scorer que el
+ * servidor rechaza. También es "en juego" para `estadoDelTorneo` y lo que el cierre automático puede cerrar.
+ * 'active' es el sinónimo histórico de 'in_progress'.
+ */
+export const TORNEO_ACEPTA_SCORES_STATUSES = ['active', 'in_progress'] as const
+
+export function torneoAceptaScores(status: string | null | undefined): boolean {
+  return !!status && (TORNEO_ACEPTA_SCORES_STATUSES as readonly string[]).includes(status)
+}
 
 export function estadoDelTorneo(t: TorneoConFechas, ahora: Date): EstadoDelTorneo {
   const status = t.status ?? ''
   if (FINALIZADO_STATUSES.has(status)) return 'finalizado'
-  const enJuego = EN_JUEGO_STATUSES.has(status)
+  const enJuego = torneoAceptaScores(status)
   if (!enJuego && status !== 'open') return 'borrador'
 
   const fechas = rangoDelTorneo(t)
