@@ -4,7 +4,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { IdentidadTab } from './IdentidadTab'
 import { loadIdentidadData } from '@/lib/data/dashboard'
-import { getNivel } from '@/lib/mi-golf/niveles'
+import { nivelDelIndice } from '@/lib/mi-golf/niveles'
 import { calcularStatsForma } from '@/lib/mi-golf/stats'
 import { calcularTendencia } from '@/lib/mi-golf/tendencia'
 import { getTaigerLine } from '@/lib/mi-golf/taiger-line'
@@ -16,7 +16,7 @@ export async function IdentidadSection({ userId, userName }: { userId: string; u
 
   // El índice que se ve fuera de /perfil es el oficial (profiles.indice); la categoría sale del mismo número.
   const indice = indiceVisible({ indice: data.indice })
-  const nivel = indice.estado === 'con-indice' ? getNivel(indice.valor) : null
+  const nivel = nivelDelIndice(indice)
   const stats = calcularStatsForma(data.historico, data.rondasNormalizadas ?? [])
   const tendencia = calcularTendencia(data.indice, data.historico)
   const ultimasGross = data.historico

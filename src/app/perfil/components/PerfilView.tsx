@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ExperiencePanel } from '@/components/ExperienceSetup'
 import { LevelsBar } from '@/components/perfil/LevelsBar'
-import { getNivel } from '@/lib/mi-golf/niveles'
+import { nivelDelIndice } from '@/lib/mi-golf/niveles'
+import { indiceVisible } from '@/golf/core/indice-visible'
 import IndiceBreakdownModal from '@/components/IndiceBreakdownModal'
 import FedegolfIndiceModal from '@/components/FedegolfIndiceModal'
 import InstallAppCard from '@/components/InstallAppCard'
@@ -18,7 +19,7 @@ import { DualIndexCards } from './DualIndexCards'
 import { CpiCard } from './CpiCard'
 import { AccountSection } from './AccountSection'
 import { DeleteAccountModal } from './DeleteAccountModal'
-import { GapNote, NivelBadge, SyncHistorialBlock } from './EditorialBlocks'
+import { GapNote, SyncHistorialBlock } from './EditorialBlocks'
 import NotificationSettings from '@/components/NotificationSettings'
 
 /** Lleva la vista al formulario de edición y el foco al campo del índice (ya montado). */
@@ -79,9 +80,8 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
     return () => clearTimeout(t)
   }, [abrirEdicionIndice, setEditing])
 
-  // Niveles Golfers+ por skill (handicap). Prioriza Índice Golfers+
-  // si está calculado (rendimiento real); fallback a Federación.
-  const indiceParaNivel = profile.indice_golfers ?? profile.indice
+  // Categoría: del índice oficial, la misma regla que el dashboard (nivelDelIndice).
+  const nivel = nivelDelIndice(indiceVisible({ indice: profile.indice }))
 
   const showSyncBlock = cpiData?.status !== 'insufficient_data'
 
@@ -149,9 +149,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
 
         <GapNote profile={profile} />
 
-        <NivelBadge profile={profile} />
-
-        {indiceParaNivel != null && <LevelsBar nivel={getNivel(indiceParaNivel)} />}
+        {nivel && <LevelsBar nivel={nivel} />}
 
         {/* ── Grupo 2: Pendientes — lo que debe HACER ── */}
         <div style={{ marginTop: '8px', marginBottom: '16px' }}>
