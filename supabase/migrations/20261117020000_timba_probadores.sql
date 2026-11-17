@@ -41,6 +41,7 @@ REVOKE ALL ON FUNCTION public.usuario_puede_crear_timba() FROM PUBLIC, anon, aut
 GRANT EXECUTE ON FUNCTION public.usuario_puede_crear_timba() TO anon, authenticated, service_role;
 
 -- 3. Las guardas de rondas_libres usan el permiso nuevo ----------------------------------------------------------
+-- El nombre "…_solo_admin_…" es histórico: se conserva para no romper los canarios que las listan.
 DROP POLICY IF EXISTS "rondas_libres_personalizado_solo_admin_insert" ON public.rondas_libres;
 CREATE POLICY "rondas_libres_personalizado_solo_admin_insert" ON public.rondas_libres
   AS RESTRICTIVE FOR INSERT TO public

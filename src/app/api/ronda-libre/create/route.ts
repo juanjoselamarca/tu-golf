@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     const body = parsed.data
     const esTimba = esFormatoPersonalizado(body.formato_juego)
 
-    // Timba libre: solo admins (fuente única `puedeCrearJuegoPersonalizado`; la base lo repite con una guarda
+    // Timba libre: admins y probadores de la Timba (fuente única `puedeCrearJuegoPersonalizado`; la base lo repite con una guarda
     // RESTRICTIVE para el PATCH directo).
     if (esTimba && !(await puedeCrearJuegoPersonalizado(user.id))) {
       return NextResponse.json({ error: 'Timba libre todavía no está disponible para tu cuenta.' }, { status: 403 })

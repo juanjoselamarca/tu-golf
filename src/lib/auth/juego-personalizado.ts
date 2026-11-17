@@ -13,11 +13,14 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isAdmin } from '@/lib/admin'
+import { captureError } from '@/lib/error-tracking'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 
 async function esProbadorDeLaTimba(userId: string, supabase: SupabaseClient): Promise<boolean> {
   const { data, error } = await supabase.from('timba_probadores').select('user_id').eq('user_id', userId).maybeSingle()
-  return !error && data != null
+  // Un error queda registrado (no se confunde con un "no"); el 42P01 antes de aplicar la migración es esperado.
+  if (error) { void captureError(error, { context: 'timba.probadores', level: 'warning', userId }); return false }
+  return data != null
 }
 
 export async function puedeCrearJuegoPersonalizado(userId: string | null | undefined): Promise<boolean> {
