@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ExperiencePanel } from '@/components/ExperienceSetup'
 import { LevelsBar } from '@/components/perfil/LevelsBar'
@@ -19,7 +19,7 @@ import { DualIndexCards } from './DualIndexCards'
 import { CpiCard } from './CpiCard'
 import { AccountSection } from './AccountSection'
 import { DeleteAccountModal } from './DeleteAccountModal'
-import { GapNote, SyncHistorialBlock } from './EditorialBlocks'
+import { SyncHistorialBlock } from './EditorialBlocks'
 import NotificationSettings from '@/components/NotificationSettings'
 
 /** Lleva la vista al formulario de edición y el foco al campo del índice (ya montado). */
@@ -71,10 +71,10 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
     setEditing(true)
     setTimeout(enfocarCampoIndice, 100)
   }
-  const edicionIndiceAbierta = useRef(false)
+  // Deps estables (setEditing es setter de useState): corre una vez por montaje. Sin ref
+  // de "ya abierto": en StrictMode el cleanup cancelaba el foco y la segunda pasada salía.
   useEffect(() => {
-    if (!abrirEdicionIndice || edicionIndiceAbierta.current) return
-    edicionIndiceAbierta.current = true
+    if (!abrirEdicionIndice) return
     setEditing(true)
     const t = setTimeout(enfocarCampoIndice, 100)
     return () => clearTimeout(t)
@@ -146,8 +146,6 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
         </div>
 
         <CpiCard cpiData={cpiData} />
-
-        <GapNote profile={profile} />
 
         {nivel && <LevelsBar nivel={nivel} />}
 

@@ -6,8 +6,14 @@
 // diciendo "HCP 10.4" (el Golfers+) y el perfil "Índice 8.5" (el oficial): el mismo
 // jugador con dos índices según la pantalla.
 //
-// Alcance: código de pantallas (src/app fuera de api/ y src/components). Fuera de eso,
-// `indice_golfers` vive legítimamente en la capa de datos, el motor y el coach.
+// Alcance: lo que llega a la pantalla — src/app fuera de api/, src/components, src/hooks
+// y src/lib fuera de la capa de datos (data/, import/). `indice_golfers` vive legítimamente
+// en la capa de datos, el motor (src/golf) y las API.
+//
+// Dos patrones, porque el Golfers+ puede llegar a la pantalla con otro nombre:
+// 1. el nombre de la columna (`indice_golfers` / `indiceGolfers`);
+// 2. el número rotulado en un texto armado (`Golfers+ ${...}`), como el aviso post-ronda,
+//    que recibe el valor como `golfers` y nunca nombra la columna.
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'fs'
 import { join, relative, sep } from 'path'
@@ -29,8 +35,14 @@ const sinComentarios = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').rep
 
 const MENCIONA_INDICE_GOLFERS = /indice_golfers|indiceGolfers/
 
-/** /perfil es donde el Golfers+ se muestra, al lado del oficial y con su rótulo. */
-const esPerfil = (ruta: string) => ruta.startsWith('src/app/perfil/')
+/** Número del Golfers+ armado en un texto visible: "Golfers+ 12.3". */
+const ROTULA_NUMERO_GOLFERS = /Golfers\+\s*\$\{/
+
+/**
+ * /perfil (la pantalla, no sus subrutas /perfil/stats ni /perfil/historial) es donde el
+ * Golfers+ se muestra, al lado del oficial y con su rótulo.
+ */
+const esPerfil = (ruta: string) => ruta === 'src/app/perfil/page.tsx' || ruta.startsWith('src/app/perfil/components/')
 
 /**
  * Pantallas fuera de /perfil que hoy nombran el Golfers+, cada una con su porqué.
@@ -42,26 +54,40 @@ const PERMITIDOS: Record<string, string> = {
   'src/app/admin/usuarios/[id]/page.tsx': 'admin',
   // Demo con datos ficticios del coach, rotulado "Índice Golfers+".
   'src/app/demo/taiger/page.tsx': 'demo',
-  // Ranking con pestañas "Golfers+" / "Federación", cada una rotulada. Pendiente de
-  // decisión de producto (¿se queda la pestaña Golfers+ fuera de /perfil?).
-  'src/app/ranking/page.tsx': 'ranking rotulado, decisión pendiente',
+  // Ranking con pestañas "Golfers+" / "Federación", cada una rotulada. Juanjo (16-nov-2026):
+  // se queda así.
+  'src/app/ranking/page.tsx': 'ranking rotulado',
+  // Aviso al finalizar una ronda libre: los dos índices, cada uno rotulado ("Federación X ·
+  // Golfers+ Y"). Decisión de Juanjo 09-nov-2026, ratificada el 16-nov-2026.
+  'src/lib/ronda/aviso-indices-ronda.ts': 'aviso post-ronda rotulado',
+}
+
+const enAlcance = (ruta: string) =>
+  (ruta.startsWith('src/app/') && !ruta.startsWith('src/app/api/')) ||
+  ruta.startsWith('src/components/') ||
+  ruta.startsWith('src/hooks/') ||
+  (ruta.startsWith('src/lib/') && !ruta.startsWith('src/lib/data/') && !ruta.startsWith('src/lib/import/'))
+
+const muestraGolfers = (src: string) => {
+  const codigo = sinComentarios(src)
+  return MENCIONA_INDICE_GOLFERS.test(codigo) || ROTULA_NUMERO_GOLFERS.test(codigo)
 }
 
 const pantallas = archivos(join(ROOT, 'src'))
   .map((p) => ({ ruta: rel(p), src: readFileSync(p, 'utf8') }))
-  .filter((f) => (f.ruta.startsWith('src/app/') && !f.ruta.startsWith('src/app/api/')) || f.ruta.startsWith('src/components/'))
+  .filter((f) => enAlcance(f.ruta))
 
 describe('canario — el Índice Golfers+ se muestra solo en /perfil', () => {
   it('ninguna pantalla fuera de /perfil (salvo las permitidas) nombra indice_golfers', () => {
     const ofensores = pantallas
       .filter((f) => !esPerfil(f.ruta) && !(f.ruta in PERMITIDOS))
-      .filter((f) => MENCIONA_INDICE_GOLFERS.test(sinComentarios(f.src)))
+      .filter((f) => muestraGolfers(f.src))
       .map((f) => f.ruta)
     expect(ofensores).toEqual([])
   })
 
   it('la lista de permitidos no tiene entradas muertas', () => {
-    const vivos = new Set(pantallas.filter((f) => MENCIONA_INDICE_GOLFERS.test(sinComentarios(f.src))).map((f) => f.ruta))
+    const vivos = new Set(pantallas.filter((f) => muestraGolfers(f.src)).map((f) => f.ruta))
     expect(Object.keys(PERMITIDOS).filter((r) => !vivos.has(r))).toEqual([])
   })
 
@@ -70,6 +96,15 @@ describe('canario — el Índice Golfers+ se muestra solo en /perfil', () => {
     expect(MENCIONA_INDICE_GOLFERS.test(sinComentarios("select('indice_golfers')"))).toBe(true)
     expect(MENCIONA_INDICE_GOLFERS.test(sinComentarios('// igual que calcular_indice_golfers'))).toBe(false)
     expect(MENCIONA_INDICE_GOLFERS.test(sinComentarios('/* calcular_indice_golfers */ const x = 1'))).toBe(false)
+    // El número rotulado en un texto, aunque llegue con otro nombre.
+    expect(muestraGolfers('const m = `Golfers+ ${txt(golfers)}`')).toBe(true)
+    expect(muestraGolfers("const t = 'Golfers+ se activa con 3 rondas'")).toBe(false)
+    // Alcance: un helper de src/lib o src/hooks cuenta; la capa de datos no; las subrutas de /perfil tampoco son "perfil".
+    expect(enAlcance('src/lib/ronda/x.ts')).toBe(true)
+    expect(enAlcance('src/hooks/useX.ts')).toBe(true)
+    expect(enAlcance('src/lib/data/x.ts')).toBe(false)
+    expect(esPerfil('src/app/perfil/stats/components/StatsView.tsx')).toBe(false)
+    expect(esPerfil('src/app/perfil/components/DualIndexCards.tsx')).toBe(true)
   })
 
   it('el dashboard lee el índice oficial a través de indiceVisible', () => {

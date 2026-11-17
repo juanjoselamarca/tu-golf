@@ -18,7 +18,7 @@ export async function IdentidadSection({ userId, userName }: { userId: string; u
   const indice = indiceVisible({ indice: data.indice })
   const nivel = nivelDelIndice(indice)
   const stats = calcularStatsForma(data.historico, data.rondasNormalizadas ?? [])
-  const tendencia = calcularTendencia(data.indice, data.historico)
+  const tendencia = calcularTendencia(data.historico)
   const taigerLine = getTaigerLine({
     tendencia,
     golpesHastaSiguienteNivel: nivel?.golpes_hasta_siguiente ?? null,

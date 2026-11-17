@@ -1,71 +1,47 @@
-// src/lib/mi-golf/tendencia.test.ts
 import { describe, it, expect } from 'vitest'
 import { calcularTendencia } from './tendencia'
 import type { HistoricalRound } from './types'
 
-const mkRound = (id: string, daysAgo: number, diferencial: number): HistoricalRound => ({
+const AHORA = new Date('2026-11-16T12:00:00').getTime()
+const r = (id: string, diasAtras: number, diferencial: number | null): HistoricalRound => ({
   id,
-  total_gross: 80,
-  course_name: 'Test',
-  played_at: new Date(Date.now() - daysAgo * 86400000).toISOString().split('T')[0],
+  total_gross: 85,
+  course_name: 'A',
+  played_at: new Date(AHORA - diasAtras * 86400000).toISOString().slice(0, 10),
   diferencial,
   holes_played: 18,
 })
 
 describe('calcularTendencia', () => {
-  it('devuelve null si hay menos de 5 rondas históricas', () => {
-    const rondas = [mkRound('1', 5, 10), mkRound('2', 10, 11)]
-    expect(calcularTendencia(10.5, rondas)).toBeNull()
+  it('compara los últimos 30 días contra los 30 anteriores: diferenciales más bajos = mejora', () => {
+    const t = calcularTendencia([r('1', 2, 10), r('2', 10, 11), r('3', 20, 12), r('4', 35, 14), r('5', 40, 15), r('6', 50, 13)], AHORA)
+    expect(t).toEqual({ direccion: 'up', delta: 3, dias: 30 })
   })
 
-  it('detecta mejora cuando diferencial promedio reciente es menor al índice actual', () => {
-    const rondas = [
-      mkRound('1', 1, 9),
-      mkRound('2', 5, 9),
-      mkRound('3', 10, 9),
-      mkRound('4', 15, 9),
-      mkRound('5', 20, 9),
-    ]
-    const t = calcularTendencia(10.0, rondas)
-    expect(t).not.toBeNull()
-    expect(t!.direccion).toBe('up')
-    expect(t!.delta).toBeCloseTo(1.0, 1)
-    expect(t!.dias).toBe(30)
+  it('diferenciales más altos = empeora', () => {
+    const t = calcularTendencia([r('1', 2, 16), r('2', 10, 16), r('3', 20, 16), r('4', 35, 14), r('5', 40, 14), r('6', 50, 14)], AHORA)
+    expect(t?.direccion).toBe('down')
+    expect(t?.delta).toBe(2)
   })
 
-  it('detecta empeoramiento cuando diferencial reciente es mayor', () => {
-    const rondas = [
-      mkRound('1', 1, 12),
-      mkRound('2', 5, 12),
-      mkRound('3', 10, 12),
-      mkRound('4', 15, 12),
-      mkRound('5', 20, 12),
-    ]
-    const t = calcularTendencia(10.0, rondas)
-    expect(t!.direccion).toBe('down')
-    expect(t!.delta).toBeCloseTo(2.0, 1)
+  it('diferencia menor a 0.2: flat', () => {
+    const t = calcularTendencia([r('1', 2, 12.1), r('2', 10, 12), r('3', 20, 12), r('4', 35, 12), r('5', 40, 12), r('6', 50, 12)], AHORA)
+    expect(t?.direccion).toBe('flat')
   })
 
-  it('devuelve flat cuando delta es menor a 0.2', () => {
-    const rondas = [
-      mkRound('1', 1, 10.1),
-      mkRound('2', 5, 10.0),
-      mkRound('3', 10, 9.9),
-      mkRound('4', 15, 10.0),
-      mkRound('5', 20, 10.1),
-    ]
-    const t = calcularTendencia(10.0, rondas)
-    expect(t!.direccion).toBe('flat')
+  it('menos de 3 rondas con diferencial en alguna ventana: sin tendencia', () => {
+    expect(calcularTendencia([r('1', 2, 10), r('2', 10, 11), r('3', 20, 12), r('4', 35, 14), r('5', 40, 15)], AHORA)).toBeNull()
+    expect(calcularTendencia([r('1', 2, 10), r('2', 10, null), r('3', 20, 12), r('4', 35, 14), r('5', 40, 15), r('6', 50, 13)], AHORA)).toBeNull()
   })
 
-  it('ignora rondas fuera de la ventana de 30 días', () => {
-    const rondas = [
-      mkRound('1', 1, 9),
-      mkRound('2', 10, 9),
-      mkRound('3', 45, 9),
-      mkRound('4', 60, 9),
-      mkRound('5', 90, 9),
-    ]
-    expect(calcularTendencia(10.0, rondas)).toBeNull()
+  it('rondas de hace más de 60 días no cuentan', () => {
+    expect(calcularTendencia([r('1', 2, 10), r('2', 10, 11), r('3', 20, 12), r('4', 70, 14), r('5', 80, 15), r('6', 90, 13)], AHORA)).toBeNull()
+  })
+
+  it('no depende de ningún índice: un índice oficial viejo no inventa tendencia', () => {
+    // Juego estable: mismo diferencial en ambas ventanas → flat, aunque el índice cargado diga otra cosa.
+    const t = calcularTendencia([r('1', 2, 12), r('2', 10, 12), r('3', 20, 12), r('4', 35, 12), r('5', 40, 12), r('6', 50, 12)], AHORA)
+    expect(t?.direccion).toBe('flat')
+    expect(calcularTendencia.length).toBeLessThanOrEqual(2)
   })
 })
