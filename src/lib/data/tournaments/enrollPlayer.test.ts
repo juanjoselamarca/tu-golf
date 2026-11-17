@@ -72,7 +72,7 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
     const { client, rpc } = makeRpcMock({ data: { ok: true, player_id: 'p1' } })
     const res = await enrollPlayer(client, {
       tournamentId: 't1',
-      tournamentStatus: 'draft',
+      torneo: { status: 'draft', date_start: null },
       identity: { kind: 'registered', userId: 'u1' },
       handicapAtRegistration: 12,
       enforceStatusGate: true,
@@ -86,7 +86,7 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
     const { client, rpc } = makeRpcMock({ data: { ok: true, player_id: 'p-abc' } })
     const res = await enrollPlayer(client, {
       tournamentId: 't1',
-      tournamentStatus: 'draft',
+      torneo: { status: 'draft', date_start: null },
       identity: { kind: 'registered', userId: 'u1' },
       handicapAtRegistration: 12,
       enforceStatusGate: false,
@@ -100,7 +100,7 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
     const { client, rpc } = makeRpcMock({ data: { ok: true, player_id: 'p-reg' } })
     const res = await enrollPlayer(client, {
       tournamentId: 't1',
-      tournamentStatus: 'open',
+      torneo: { status: 'open', date_start: null },
       identity: { kind: 'registered', userId: 'u1' },
       handicapAtRegistration: 12,
       categoryId: 'cat1',
@@ -122,7 +122,7 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
     const { client, rpc } = makeRpcMock({ data: { ok: true, player_id: 'p-guest' } })
     const res = await enrollPlayer(client, {
       tournamentId: 't1',
-      tournamentStatus: 'draft',
+      torneo: { status: 'draft', date_start: null },
       identity: { kind: 'guest', guestName: 'Ana Gómez' },
       handicapAtRegistration: 20,
       enforceStatusGate: false,
@@ -143,7 +143,7 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
     const { client } = makeRpcMock({ data: { ok: false, reason: 'tournament_full', message: 'lleno' } })
     const res = await enrollPlayer(client, {
       tournamentId: 't1',
-      tournamentStatus: 'open',
+      torneo: { status: 'open', date_start: null },
       identity: { kind: 'registered', userId: 'u1' },
       handicapAtRegistration: 12,
     })
@@ -155,7 +155,7 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
     const { client } = makeRpcMock({ data: { ok: false, reason: 'already_registered', message: 'dup' } })
     const res = await enrollPlayer(client, {
       tournamentId: 't1',
-      tournamentStatus: 'open',
+      torneo: { status: 'open', date_start: null },
       identity: { kind: 'registered', userId: 'u1' },
       handicapAtRegistration: 12,
     })
@@ -167,7 +167,7 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
     const { client } = makeRpcMock({ data: null, error: { message: 'deadlock detected' } })
     const res = await enrollPlayer(client, {
       tournamentId: 't1',
-      tournamentStatus: 'open',
+      torneo: { status: 'open', date_start: null },
       identity: { kind: 'registered', userId: 'u1' },
       handicapAtRegistration: 12,
     })

@@ -91,6 +91,17 @@ describe('canario: estado del torneo con una sola fuente (estadoDelTorneo)', () 
     expect(rutas.some(({ ruta }) => ruta === 'src/components/mi-golf/CompetenciaTab.tsx')).toBe(true)
   })
 
+  it('"¿se puede inscribir?" tiene una sola fuente (motivoNoInscribible/torneoInscribible), también en el servidor', () => {
+    // Antes eran dos: `esInscribible`/`isInscribibleStatus` (solo status) y la ficha con status + fecha;
+    // /unirse y el gate del servidor dejaban inscribir un `open` vencido que la ficha ya no ofrecía.
+    const PREDICADO_SUELTO = /\b(?:esInscribible|isInscribibleStatus|INSCRIBIBLE_STATUSES)\b/
+    const todo = ['src/app', 'src/components', 'src/hooks', 'src/lib']
+      .flatMap((d) => archivos(join(ROOT, d)))
+      .filter((p) => PREDICADO_SUELTO.test(sinComentarios(readFileSync(p, 'utf8'))))
+      .map(rel)
+    expect(todo, 'Usa torneoInscribible / motivoNoInscribible (src/golf/tournament-status.ts)').toEqual([])
+  })
+
   it('ninguna pantalla decide el estado de un torneo con un predicado propio', () => {
     const hallazgos: string[] = []
     for (const { p, ruta } of rutas) hallazgos.push(...hallazgosDe(ruta, readFileSync(p, 'utf8')))

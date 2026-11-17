@@ -1,7 +1,7 @@
 'use client'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { esInscribible } from '@/lib/data/tournaments/joinFlow'
+import { motivoNoInscribible } from '@/golf/tournament-status'
 import { useInscripcionTorneo } from './hooks/useInscripcionTorneo'
 import { TarjetaTorneoInscripcion } from './components/TarjetaTorneoInscripcion'
 import { TarjetaPerfilInscripcion } from './components/TarjetaPerfilInscripcion'
@@ -40,6 +40,8 @@ export default function UnirsePage() {
   if (success && tournament) {
     return <InscripcionExitosa slug={slug} nombreTorneo={tournament.name} />
   }
+  // Fuente única con la ficha y el servidor (`enrollPlayer`): borrador, fecha vencida o cerrado.
+  const motivoCerrado = tournament ? motivoNoInscribible(tournament, new Date()) : null
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '0' }}>
@@ -119,8 +121,8 @@ export default function UnirsePage() {
               <AvisoInscripcion tono="ok" titulo="Ya estás inscrito en este torneo">
                 <LinkVerLeaderboard slug={slug} />
               </AvisoInscripcion>
-            ) : !esInscribible(tournament.status) ? (
-              <AvisoInscripcionesCerradas status={tournament.status} slug={slug} />
+            ) : motivoCerrado ? (
+              <AvisoInscripcionesCerradas motivo={motivoCerrado} slug={slug} />
             ) : capacity?.full ? (
               <AvisoTorneoCompleto capacity={capacity} slug={slug} />
             ) : profile && profile.indice == null ? (

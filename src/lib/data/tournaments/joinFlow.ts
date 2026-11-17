@@ -19,11 +19,12 @@ import { checkFeatureAccess, rechazoDeFeature, type RechazoFeature } from '@/gol
 import { MENSAJE_PLAN_ORGANIZADOR_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import {
   enrollPlayer,
-  isInscribibleStatus,
   tournamentCapacity,
   type EnrollResult,
   type CapacityInfo,
 } from './enrollPlayer'
+import { torneoInscribible } from '@/golf/tournament-status'
+import type { TorneoConFechas } from '@/golf/tournament-live-status'
 
 const PUBLIC_VISIBLE_STATUSES = ['open', 'in_progress', 'closed', 'published'] as const
 
@@ -47,6 +48,7 @@ export interface JoinInfoTournament {
   organizer_id: string
   hcp_calc_mode: string | null
   date_start: string | null
+  date_end: string | null
   codigo: string | null
   course_name: string | null
   courses: JoinInfoCourse | null
@@ -110,18 +112,9 @@ export async function buscarSlugPorCodigo(supabase: SupabaseClient, codigo: stri
   return slug ? { ok: true, slug } : { ok: false, motivo: 'no_existe' }
 }
 
-/**
- * ¿Un torneo en este estado acepta auto-inscripción? Fuente de verdad única
- * compartida con la UI (`/torneo/[slug]/unirse`) para que el botón nunca
- * contradiga al backend.
- */
-export function esInscribible(status: string): boolean {
-  return isInscribibleStatus(status)
-}
-
 /** Columnas de la ficha del torneo que ve quien se inscribe, con o sin sesión (una sola lista: antes eran dos y divergieron). */
 const COLUMNAS_FICHA =
-  'id, name, slug, format, formato_juego, status, organizer_id, hcp_calc_mode, date_start, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)'
+  'id, name, slug, format, formato_juego, status, organizer_id, hcp_calc_mode, date_start, date_end, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)'
 
 /** Ficha pública del torneo para un visitante sin sesión; null si no existe o no es visible públicamente. */
 export async function fetchJoinInfoPublica(admin: SupabaseClient, slug: string): Promise<JoinInfoTournament | null> {
@@ -210,13 +203,13 @@ export interface CondicionesInscripcionPublica {
 
 export async function condicionesInscripcionPublica(
   admin: SupabaseClient,
-  tournament: Pick<JoinInfoTournament, 'id' | 'organizer_id' | 'status'>,
+  tournament: Pick<JoinInfoTournament, 'id' | 'organizer_id' | 'status' | 'date_start' | 'date_end'>,
 ): Promise<CondicionesInscripcionPublica> {
   // Un torneo cerrado o en borrador no se inscribe: no se lee el plan del organizador por cada
   // espectador que llega al link (y una lectura fallida no ensucia error_logs en pleno evento).
   const [capacity, rechazo] = await Promise.all([
     tournamentCapacity(admin, tournament.id),
-    esInscribible(tournament.status) ? rechazoInvitados(admin, tournament.organizer_id) : null,
+    torneoInscribible(tournament, new Date()) ? rechazoInvitados(admin, tournament.organizer_id) : null,
   ])
   return { capacity, invitados: invitadosDesdeRechazo(rechazo) }
 }
@@ -234,7 +227,7 @@ export async function registerPlayerAndRound(
   admin: SupabaseClient,
   args: {
     tournamentId: string
-    tournamentStatus: string
+    torneo: TorneoConFechas
     userId: string
     courseHandicap: number | null
     /** `profiles.genero` del jugador; se congela en `players.genero`. */
@@ -243,7 +236,7 @@ export async function registerPlayerAndRound(
 ): Promise<RegisterResult> {
   return enrollPlayer(admin, {
     tournamentId: args.tournamentId,
-    tournamentStatus: args.tournamentStatus,
+    torneo: args.torneo,
     identity: { kind: 'registered', userId: args.userId },
     handicapAtRegistration: args.courseHandicap,
     genero: args.genero ?? null,

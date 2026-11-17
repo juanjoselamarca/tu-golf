@@ -18,8 +18,8 @@ import { randomBytes } from 'node:crypto'
 import {
   fetchJoinInfo,
   registerPlayerAndRound,
-  esInscribible,
 } from '../src/lib/data/tournaments/joinFlow'
+import { torneoInscribible } from '../src/golf/tournament-status'
 import {
   openTournament,
   revertToDraft,
@@ -114,14 +114,14 @@ async function main() {
 
     // ── T1: guard pre-open (canarios) ──
     console.log('\n=== T1: torneo en draft NO acepta inscripción ===')
-    assert(esInscribible('draft') === false, 'esInscribible(draft) === false')
-    assert(esInscribible('open') === true, 'esInscribible(open) === true')
+    assert(torneoInscribible({ status: 'draft', date_start: null }, new Date()) === false, 'torneoInscribible(draft) === false')
+    assert(torneoInscribible({ status: 'open', date_start: null }, new Date()) === true, 'torneoInscribible(open) === true')
     const visDraftJoiner = await fetchJoinInfo(admin, created.slug!, created.joinerId!)
     assert(visDraftJoiner === null, 'draft OCULTO al no-organizador (fetchJoinInfo null)')
     const visDraftOrg = await fetchJoinInfo(admin, created.slug!, created.orgId!)
     assert(visDraftOrg?.tournament.status === 'draft', 'organizador SÍ ve su draft')
     const regDraft = await registerPlayerAndRound(admin, {
-      tournamentId: tid, tournamentStatus: 'draft', userId: created.joinerId!, courseHandicap: 18,
+      tournamentId: tid, torneo: { status: 'draft', date_start: null }, userId: created.joinerId!, courseHandicap: 18,
     })
     assert(!regDraft.ok && (regDraft as { reason: string }).reason === 'not_inscribible',
       'registro en draft rechazado (not_inscribible)')
@@ -149,7 +149,7 @@ async function main() {
     assert(infoOpen?.tournament.status === 'open' && infoOpen?.alreadyRegistered === false,
       'joiner ve el torneo open y NO está inscrito aún')
     const reg = await registerPlayerAndRound(admin, {
-      tournamentId: tid, tournamentStatus: infoOpen!.tournament.status, userId: created.joinerId!, courseHandicap: 18,
+      tournamentId: tid, torneo: infoOpen!.tournament, userId: created.joinerId!, courseHandicap: 18,
     })
     assert(reg.ok === true, 'registerPlayerAndRound ok', reg.ok ? `playerId=${reg.playerId.slice(0, 8)}` : (reg as { reason: string }).reason)
     const { data: playerRow } = await admin
@@ -159,7 +159,7 @@ async function main() {
     // ── T5: idempotencia ──
     console.log('\n=== T5: doble inscripción → already_registered ===')
     const reg2 = await registerPlayerAndRound(admin, {
-      tournamentId: tid, tournamentStatus: 'open', userId: created.joinerId!, courseHandicap: 18,
+      tournamentId: tid, torneo: { status: 'open', date_start: null }, userId: created.joinerId!, courseHandicap: 18,
     })
     assert(!reg2.ok && (reg2 as { reason: string }).reason === 'already_registered', 'segundo registro → already_registered')
     const infoAgain = await fetchJoinInfo(admin, created.slug!, created.joinerId!)
@@ -182,7 +182,7 @@ async function main() {
     await admin.from('tournaments').update({ status: 'in_progress' }).eq('id', tid)
     assert((await reread()) === 'in_progress', 'open → in_progress (start funciona desde open)')
     const regAfterStart = await registerPlayerAndRound(admin, {
-      tournamentId: tid, tournamentStatus: 'in_progress', userId: created.orgId!, courseHandicap: 12,
+      tournamentId: tid, torneo: { status: 'in_progress', date_start: null }, userId: created.orgId!, courseHandicap: 12,
     })
     assert(!regAfterStart.ok && (regAfterStart as { reason: string }).reason === 'not_inscribible',
       'iniciado el torneo, ya NO acepta auto-inscripción')

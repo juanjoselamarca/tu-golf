@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  fetchJoinInfo, registerPlayerAndRound, esInscribible,
+  fetchJoinInfo, registerPlayerAndRound,
   buscarSlugPorCodigo, normalizarCodigoTorneo, esVisiblePublicamente,
 } from './joinFlow'
 
@@ -160,23 +160,12 @@ describe('fetchJoinInfo — visibility rules (espejo de RLS, post-bypass)', () =
   })
 })
 
-describe('esInscribible — fuente de verdad compartida UI/backend', () => {
-  it('SOLO open admite auto-inscripción', () => {
-    expect(esInscribible('open')).toBe(true)
-  })
-  it('draft / in_progress / closed / published / cancelled NO admiten auto-inscripción', () => {
-    for (const s of ['draft', 'in_progress', 'closed', 'published', 'cancelled', '']) {
-      expect(esInscribible(s)).toBe(false)
-    }
-  })
-})
-
 describe('registerPlayerAndRound — status gating + error mapping', () => {
   const base = { tournamentId: 't1', userId: 'u', courseHandicap: 12 }
 
   it('rechaza inscripcion en draft (I3 — defense in depth si POST se llama directo)', async () => {
     const c = makeMockClient({})
-    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'draft' })
+    const r = await registerPlayerAndRound(c, { ...base, torneo: { status: 'draft', date_start: null } })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('not_inscribible')
   })
@@ -184,14 +173,24 @@ describe('registerPlayerAndRound — status gating + error mapping', () => {
   it('rechaza inscripcion en closed/in_progress (solo open admite auto-inscripcion)', async () => {
     const c = makeMockClient({})
     for (const status of ['in_progress', 'closed', 'published']) {
-      const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: status })
+      const r = await registerPlayerAndRound(c, { ...base, torneo: { status, date_start: null } })
       expect(r.ok).toBe(false)
+    }
+  })
+
+  it('rechaza un open con la fecha vencida (gate del servidor = mismo predicado que la UI)', async () => {
+    const c = makeMockClient({})
+    const r = await registerPlayerAndRound(c, { ...base, torneo: { status: 'open', date_start: '2020-01-10', date_end: '2020-01-10' } })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.reason).toBe('not_inscribible')
+      expect(r.message).toBe('La fecha de este torneo ya pasó. Las inscripciones están cerradas.')
     }
   })
 
   it('inscribe OK si status=open y todo va bien', async () => {
     const c = makeMockClient({ rpc_result: { ok: true, player_id: 'p1' } })
-    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
+    const r = await registerPlayerAndRound(c, { ...base, torneo: { status: 'open', date_start: null } })
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.playerId).toBe('p1')
   })
@@ -202,28 +201,28 @@ describe('registerPlayerAndRound — status gating + error mapping', () => {
   // propague el resultado tipado del RPC sin alterarlo.
   it('propaga tournament_full del RPC (cupo lleno)', async () => {
     const c = makeMockClient({ rpc_result: { ok: false, reason: 'tournament_full', message: 'lleno' } })
-    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
+    const r = await registerPlayerAndRound(c, { ...base, torneo: { status: 'open', date_start: null } })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('tournament_full')
   })
 
   it('propaga already_registered del RPC (duplicado)', async () => {
     const c = makeMockClient({ rpc_result: { ok: false, reason: 'already_registered', message: 'dup' } })
-    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
+    const r = await registerPlayerAndRound(c, { ...base, torneo: { status: 'open', date_start: null } })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('already_registered')
   })
 
   it('propaga invalid_data del RPC (check / not-null violation)', async () => {
     const c = makeMockClient({ rpc_result: { ok: false, reason: 'invalid_data', message: 'faltan datos' } })
-    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
+    const r = await registerPlayerAndRound(c, { ...base, torneo: { status: 'open', date_start: null } })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('invalid_data')
   })
 
   it('un error de postgres del RPC → reason unknown', async () => {
     const c = makeMockClient({ rpc_result: null, rpc_error: { message: 'deadlock detected' } })
-    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
+    const r = await registerPlayerAndRound(c, { ...base, torneo: { status: 'open', date_start: null } })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('unknown')
   })

@@ -1,5 +1,6 @@
 import type { CapacityInfo } from '@/lib/data/tournaments/enrollPlayer'
-import { esInscribible, type InvitadosInfo, type JoinInfoTournament } from '@/lib/data/tournaments/joinFlow'
+import { motivoNoInscribible } from '@/golf/tournament-status'
+import { type InvitadosInfo, type JoinInfoTournament } from '@/lib/data/tournaments/joinFlow'
 import { Button } from '@/components/ui/Button'
 import { AvisoInscripcion, AvisoInscripcionesCerradas, AvisoTorneoCompleto } from './AvisoInscripcion'
 import { FormInvitado, LinkIniciarSesion } from './FormInvitado'
@@ -51,8 +52,9 @@ export function InscripcionSinSesion({
   onJoin: () => void
   onReintentar: () => void
 }) {
-  if (!esInscribible(tournament.status)) {
-    return <AvisoInscripcionesCerradas status={tournament.status} slug={slug} />
+  const motivo = motivoNoInscribible(tournament, new Date())
+  if (motivo) {
+    return <AvisoInscripcionesCerradas motivo={motivo} slug={slug} />
   }
   if (capacity?.full) {
     return <AvisoTorneoCompleto capacity={capacity} slug={slug} />

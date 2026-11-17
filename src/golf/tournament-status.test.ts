@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  badgeDelTorneo, badgeDelStatusEscrito, contarInscritos, torneoAceptaScores, jugadorFueraDelTorneo, visorPuedeAnotar, motivoSinScores, gruposFijos,
+  badgeDelTorneo, badgeDelStatusEscrito, contarInscritos, torneoAceptaScores, jugadorFueraDelTorneo, visorPuedeAnotar, motivoSinScores, torneoInscribible, motivoNoInscribible, gruposFijos,
 } from './tournament-status'
 
 // Mediodía de Chile del 17-nov-2026 (15:00 UTC).
@@ -221,5 +221,22 @@ describe('gruposFijos (#810)', () => {
   it('status desconocido o vacío: fijos (no se afirma que se puede rearmar)', () => {
     expect(gruposFijos(null, sinTarjeta)).toBe(true)
     expect(gruposFijos('raro', sinTarjeta)).toBe(true)
+  })
+
+describe('torneoInscribible / motivoNoInscribible — fuente única de la inscripción', () => {
+  it('open por jugar (o sin fecha, o dentro de la gracia) → inscribible', () => {
+    expect(torneoInscribible({ status: 'open', date_start: '2026-11-20' }, AHORA)).toBe(true)
+    expect(torneoInscribible({ status: 'open', date_start: null }, AHORA)).toBe(true)
+    expect(torneoInscribible({ status: 'open', date_start: '2026-11-15' }, AHORA)).toBe(true)
+  })
+  it('open vencido → fecha_vencida (caso "LB OPEN 30-oct")', () => {
+    expect(motivoNoInscribible({ status: 'open', date_start: '2026-10-30' }, AHORA)).toBe('fecha_vencida')
+    expect(torneoInscribible({ status: 'open', date_start: '2026-10-30' }, AHORA)).toBe(false)
+  })
+  it('draft → borrador; cualquier otro status → cerrado', () => {
+    expect(motivoNoInscribible({ status: 'draft', date_start: '2026-11-20' }, AHORA)).toBe('borrador')
+    for (const status of ['in_progress', 'active', 'closed', 'published', 'cancelled', '', null]) {
+      expect(motivoNoInscribible({ status, date_start: '2026-11-20' }, AHORA)).toBe('cerrado')
+    }
   })
 })

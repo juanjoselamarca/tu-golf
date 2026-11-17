@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   // Buscar torneo por slug
   const { data: tournament } = await admin
     .from('tournaments')
-    .select('id, status, organizer_id')
+    .select('id, status, organizer_id, date_start, date_end')
     .eq('slug', params.slug)
     .maybeSingle()
 
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   // Inscribir como invitado
   const result = await enrollPlayer(admin, {
     tournamentId: tournament.id,
-    tournamentStatus: tournament.status,
+    torneo: tournament,
     identity: { kind: 'guest', guestName: name.trim() },
     handicapAtRegistration: handicap ?? null,
     // Sin perfil no hay género: null (el motor no desambigua el tee).

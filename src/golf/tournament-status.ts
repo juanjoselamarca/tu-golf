@@ -198,3 +198,25 @@ export function gruposFijos(
 ): boolean {
   return !torneoSinEmpezar(status) || grupos.some((g) => g.ronda_libre_id != null)
 }
+
+/** Status escritos que aceptan auto-inscripción (self-service). Solo se usan dentro de `motivoNoInscribible`. */
+const INSCRIBIBLE_STATUSES: readonly string[] = ['open']
+
+/** Por qué un torneo no acepta inscripciones: 'borrador' (aún no abre), 'fecha_vencida' (open con la fecha pasada), 'cerrado'. */
+export type MotivoNoInscribible = 'borrador' | 'fecha_vencida' | 'cerrado'
+
+/**
+ * FUENTE ÚNICA de "¿se puede inscribir?" — la usan la ficha (`/torneo/[slug]`), `/unirse`
+ * (con y sin sesión) y el gate del servidor (`enrollPlayer`), para que el botón nunca
+ * contradiga al backend. Status `open` Y el torneo todavía por jugar: un `open` cuya fecha
+ * pasó hace más de la gracia ("Sin iniciar") ya no inscribe.
+ */
+export function motivoNoInscribible(t: TorneoConFechas, ahora: Date): MotivoNoInscribible | null {
+  const status = t.status ?? ''
+  if (!INSCRIBIBLE_STATUSES.includes(status)) return status === 'draft' ? 'borrador' : 'cerrado'
+  return estadoDelTorneo(t, ahora) === 'por_jugar' ? null : 'fecha_vencida'
+}
+
+export function torneoInscribible(t: TorneoConFechas, ahora: Date): boolean {
+  return motivoNoInscribible(t, ahora) === null
+}

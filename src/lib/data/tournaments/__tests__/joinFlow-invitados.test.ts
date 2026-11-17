@@ -58,14 +58,14 @@ describe('rechazoInvitados / invitadosDesdeRechazo', () => {
 describe('condicionesInscripcionPublica', () => {
   it('trae cupo real e invitados en una sola llamada para el visitante sin sesión', async () => {
     billing.checkFeatureAccess.mockResolvedValueOnce({ allowed: false, tier: 'free', requiredTier: 'pro' })
-    const c = await condicionesInscripcionPublica(admin(24, 24), { id: 't1', organizer_id: 'o1', status: 'open' })
+    const c = await condicionesInscripcionPublica(admin(24, 24), { id: 't1', organizer_id: 'o1', status: 'open', date_start: null, date_end: null })
     expect(c.capacity).toEqual({ full: true, maxPlayers: 24, approved: 24 })
     expect(c.invitados.permitido).toBe(false)
   })
 
   it('torneo cerrado o en borrador: no lee el plan del organizador (espectadores del link no ensucian error_logs)', async () => {
     for (const status of ['draft', 'closed', 'in_progress']) {
-      const c = await condicionesInscripcionPublica(admin(null, 3), { id: 't1', organizer_id: 'o1', status })
+      const c = await condicionesInscripcionPublica(admin(null, 3), { id: 't1', organizer_id: 'o1', status, date_start: null, date_end: null })
       expect(c.invitados).toEqual({ permitido: true })
     }
     expect(billing.checkFeatureAccess).not.toHaveBeenCalled()

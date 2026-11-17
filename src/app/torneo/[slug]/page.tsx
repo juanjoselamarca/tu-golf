@@ -56,7 +56,6 @@ import {
   type TeamStandingForPodium,
 } from '@/golf/leaderboard'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
-import { esInscribible } from '@/lib/data/tournaments/joinFlow'
 
 import { TournamentHeader } from './components/TournamentHeader'
 import { TournamentCountdown } from './components/TournamentCountdown'
@@ -76,7 +75,7 @@ import { Suspense } from 'react'
 import { GuestClaim } from './components/GuestClaim'
 import { SITE_URL } from '@/lib/site-url'
 import { fetchInscripcionDelVisor, destinoDelScorer, fetchCodigoSiSeAnota, inscritoSinGrupo } from '@/lib/data/tournaments/players'
-import { inscritoAprobado, visorPuedeAnotar } from '@/golf/tournament-status'
+import { inscritoAprobado, visorPuedeAnotar, torneoInscribible } from '@/golf/tournament-status'
 
 export default async function TorneoPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
@@ -98,9 +97,9 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   // Un solo `ahora` y un solo estado para toda la ficha (estadoDelTorneo: status + fechas).
   const ahora = new Date()
   const estado = estadoDelTorneo(tournament, ahora)
-  // Inscribible según el status escrito Y que todavía no se juegue: un `open` vencido ("Sin iniciar") o un
-  // torneo finalizado no muestran CTA, cuenta regresiva ni pestaña de unirse.
-  const isOpen = esInscribible(tournament.status ?? '') && estado === 'por_jugar'
+  // Inscribible (fuente única con /unirse y el servidor): un `open` vencido ("Sin iniciar") o un torneo
+  // finalizado no muestran CTA, cuenta regresiva ni pestaña de unirse.
+  const isOpen = torneoInscribible(tournament, ahora)
   const canJoin = isOpen && !viewerIsParticipant
   // El jugador inscrito con el torneo en curso anota su tarjeta. Antes ninguna pantalla lo llevaba al scorer:
   // solo veía "Ver leaderboard" (hunter 16-oct-2026). Se resuelve con los grupos (más abajo).

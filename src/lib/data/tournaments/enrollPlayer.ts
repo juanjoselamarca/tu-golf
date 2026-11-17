@@ -21,17 +21,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { normalizeGender } from '@/golf/courses/gender-variant'
+import { motivoNoInscribible, type MotivoNoInscribible } from '@/golf/tournament-status'
+import type { TorneoConFechas } from '@/golf/tournament-live-status'
 
-/**
- * Estados de torneo que aceptan auto-inscripción (self-service). FUENTE ÚNICA
- * del predicado "¿es inscribible?" — `joinFlow.esInscribible` (que gobierna el
- * botón de la UI `/torneo/[slug]/unirse`) delega acá para que backend y UI nunca
- * se contradigan.
- */
-export const INSCRIBIBLE_STATUSES = ['open'] as const
-
-export function isInscribibleStatus(status: string): boolean {
-  return (INSCRIBIBLE_STATUSES as readonly string[]).includes(status)
+/** Mensaje del rechazo por estado (lo ve el jugador que se inscribe). */
+export const MENSAJE_NO_INSCRIBIBLE: Record<MotivoNoInscribible, string> = {
+  borrador: 'Este torneo todavía no está disponible para inscripciones.',
+  fecha_vencida: 'La fecha de este torneo ya pasó. Las inscripciones están cerradas.',
+  cerrado: 'Este torneo ya no admite nuevas inscripciones.',
 }
 
 export type EnrollResult =
@@ -54,7 +51,8 @@ export type EnrollIdentity =
 
 export interface EnrollArgs {
   tournamentId: string
-  tournamentStatus: string
+  /** Status escrito + fechas: el gate es `motivoNoInscribible` (fuente única con la UI). */
+  torneo: TorneoConFechas
   identity: EnrollIdentity
   /**
    * Valor a guardar en `players.handicap_at_registration`:
@@ -78,6 +76,8 @@ export interface EnrollArgs {
    * Default true (fail-safe).
    */
   enforceStatusGate?: boolean
+  /** Reloj del gate (tests). Default: ahora. */
+  ahora?: Date
 }
 
 export interface CapacityInfo {
@@ -133,24 +133,18 @@ type EnrollRpcResult = {
  * Inscribe un jugador (registrado o invitado) al torneo. Fuente única del
  * gate de status + cupo + INSERT players + INSERT rounds.
  *
- * El gate de status vive acá (predicado `isInscribibleStatus`, compartido con la
+ * El gate de estado vive acá (predicado `motivoNoInscribible`, compartido con la
  * UI). El cupo + los dos INSERT viven en el RPC `enroll_player`
  * (migrations/20260713_enroll_player_rpc.sql): una sola transacción con lock de
  * fila del torneo → cupo atómico y CERO orphan-rounds (si la ronda falla, el
  * jugador se revierte con ella).
  */
 export async function enrollPlayer(admin: SupabaseClient, args: EnrollArgs): Promise<EnrollResult> {
-  // (a) Gate de status (self-service: sólo 'open'). Fuente única del predicado:
-  // `isInscribibleStatus` — la UI (joinFlow.esInscribible) delega en el mismo.
-  if ((args.enforceStatusGate ?? true) && !isInscribibleStatus(args.tournamentStatus)) {
-    return {
-      ok: false,
-      reason: 'not_inscribible',
-      message:
-        args.tournamentStatus === 'draft'
-          ? 'Este torneo todavía no está disponible para inscripciones.'
-          : 'Este torneo ya no admite nuevas inscripciones.',
-    }
+  // (a) Gate de estado (self-service: 'open' y todavía por jugar). Fuente única con la
+  // UI: `motivoNoInscribible` (src/golf/tournament-status.ts).
+  const motivo = (args.enforceStatusGate ?? true) ? motivoNoInscribible(args.torneo, args.ahora ?? new Date()) : null
+  if (motivo) {
+    return { ok: false, reason: 'not_inscribible', message: MENSAJE_NO_INSCRIBIBLE[motivo] }
   }
 
   // (b) Cupo + INSERT players + INSERT rounds — ATÓMICO en el RPC.

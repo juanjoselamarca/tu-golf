@@ -69,7 +69,7 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ slug: s
 
   const result = await registerPlayerAndRound(admin, {
     tournamentId: info.tournament.id,
-    tournamentStatus: info.tournament.status,
+    torneo: info.tournament,
     userId: user.id,
     courseHandicap: handicapValue,
     // Congelado en players.genero: el tee (y el rating) de la fila VARONES o
