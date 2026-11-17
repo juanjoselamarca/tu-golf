@@ -6,18 +6,23 @@
 --     hole_scores, score_audit_log, tournament_groups, tournament_group_players, tournament_prizes, tournament_rounds;
 --   · los tournament_drafts que los publicaron (11, status 'created'; con SET NULL quedarían borradores "creados"
 --     sin torneo) y en cascada sus colaboradores, eventos y tokens;
---   · 9 de las 11 tarjetas (rondas_libres) que el inicio del torneo creó por grupo: no tienen columna de torneo y
---     quedarían huérfanas (6 "en_curso"). Con ellas caen sus ronda_libre_jugadores y ronda_equipos.
+--   · las 11 tarjetas (rondas_libres) que el inicio del torneo creó por grupo: no tienen columna de torneo y
+--     quedarían huérfanas (6 "en_curso"). Con ellas caen en cascada sus ronda_libre_jugadores, ronda_equipos (y sus
+--     jugadores y órdenes), puntitos, retiros y match_pairings; plan_outcomes que las citen quedan con SET NULL
+--     (hoy 0). Incluye TQ398BX y TSS5SVF, que tienen jugadores con cuenta: Juanjo decidió el 17-nov que no quede
+--     rastro de estos torneos (12 jugadores con cuenta en total entre las 11; ninguna alimenta el historial);
+--   · los round_watchers ("seguir la ronda") de esas 11 tarjetas, por código explícito (hoy 0; sin FK, quedarían
+--     colgando).
 -- Qué NO toca:
 --   · historical_rounds (historial e índice): ninguna fila viene de estos torneos (0 con import_source 'tournament'
 --     o metadata.tournament_round_id, 0 con metadata.ronda_libre_jugador_id de sus tarjetas; medido el 17-nov);
---   · las 2 tarjetas con jugadores con cuenta real distintos de Juanjo (TQ398BX y TSS5SVF): quedan como rondas
---     libres finalizadas hasta que Juanjo decida (decisión de producto pendiente);
 --   · taiger_sessions: si alguna apunta a un torneo o tarjeta borrada, se desvincula (SET NULL), no se borra.
 --
 -- Guardas: si queda algo de la lista por borrar, aborta cuando hay más de 45 torneos, un torneo fuera de la lista o
--- uno creado desde el 17-nov-2026 (hora de Chile): un torneo real creado antes de aprobar `migraciones-prod` no se
--- toca nunca. Idempotente: corrida de nuevo (o en una base sin estos torneos, como la del check `esquema`) no hace
+-- cualquier actividad desde el 17-nov-2026 (hora de Chile) en lo que se borraría: torneo creado, inscrito nuevo,
+-- golpe anotado o editado, jugador nuevo en una tarjeta, un grupo enlazado a una tarjeta fuera de la lista, o un
+-- número de jugadores con cuenta en las tarjetas distinto de los 12 medidos. Si alguien usó algo de esto antes de
+-- aprobar `migraciones-prod`, no se borra nada y hay que volver a medir. Idempotente: corrida de nuevo (o en una base sin estos torneos, como la del check `esquema`) no hace
 -- nada.
 --
 -- Respaldo previo (fuera del repo, es público): %USERPROFILE%\OneDrive\GolfersPlus-Respaldos-borrado-torneos\.
@@ -74,9 +79,11 @@ DECLARE
   ]::uuid[];
   -- Tarjetas de grupo de esos torneos sin jugadores con cuenta real ajena a Juanjo (demo, test e invitados).
   tarjetas uuid[] := ARRAY[
+    '17c89a28-8ca8-4a78-b970-1366d0f591c5', -- TQ398BX · Copa cabros
     'cde606f7-7946-4941-8d78-644c51267831', -- TPZ5XBV · Copa cabros
     'cbadfdf9-7a11-4e41-a888-175b5bb432ff', -- TKPXKGW · Copa cabros
     'cb712b8d-64e4-4f02-aaec-09d036947be4', -- TGNJVW1 · a
+    'b09d973e-ef53-4128-9d09-530d9c6d4dc1', -- TSS5SVF · a
     'b482bd91-d79b-4b0e-911f-267b26e04aa5', -- GATEB2LL1 · Gate · Best Ball
     'b4ec54c5-1389-4f90-89dd-940e592eb436', -- GATEB2LL2 · Gate · Best Ball
     '7a9aa084-e6a8-4a2a-9f57-5eaef32073b2', -- GATEB2LE1 · Gate · Scramble
@@ -84,11 +91,15 @@ DECLARE
     '7a6ec4d9-127f-48c7-bb9b-b93244f9e071', -- GATEB2ME1 · Gate · Foursome
     '3e4f66b4-deac-4a61-82ae-fe3dfd56f1dd'  -- GATEB2ME2 · Gate · Foursome
   ]::uuid[];
+  -- Códigos de esas 11 tarjetas (round_watchers las sigue por código, sin FK).
+  codigos text[] := ARRAY['TQ398BX', 'TPZ5XBV', 'TKPXKGW', 'TGNJVW1', 'TSS5SVF',
+                          'GATEB2LL1', 'GATEB2LL2', 'GATEB2LE1', 'GATEB2LE2', 'GATEB2ME1', 'GATEB2ME2'];
+  corte timestamptz := timestamptz '2026-11-17 00:00:00-03';
   quedan int;
   n int;
 BEGIN
-  IF cardinality(torneos) <> 45 OR cardinality(tarjetas) <> 9 THEN
-    RAISE EXCEPTION 'borrar_torneos_de_prueba: la lista trae % torneos y % tarjetas (se esperaban 45 y 9)',
+  IF cardinality(torneos) <> 45 OR cardinality(tarjetas) <> 11 OR cardinality(codigos) <> 11 THEN
+    RAISE EXCEPTION 'borrar_torneos_de_prueba: la lista trae % torneos y % tarjetas (se esperaban 45 y 11)',
       cardinality(torneos), cardinality(tarjetas);
   END IF;
 
@@ -103,9 +114,37 @@ BEGIN
     IF n > 0 THEN
       RAISE EXCEPTION 'borrar_torneos_de_prueba: hay % torneo(s) fuera de la lista. Abortado sin borrar nada.', n;
     END IF;
-    SELECT count(*) INTO n FROM public.tournaments WHERE created_at >= timestamptz '2026-11-17 00:00:00-03';
+    SELECT count(*) INTO n FROM public.tournaments WHERE created_at >= corte;
     IF n > 0 THEN
       RAISE EXCEPTION 'borrar_torneos_de_prueba: % torneo(s) creados desde el 17-nov-2026. Abortado sin borrar nada.', n;
+    END IF;
+    -- Actividad nueva en lo que se borraría: alguien lo está usando; no se borra y se vuelve a medir.
+    SELECT count(*) INTO n FROM public.players WHERE tournament_id = ANY (torneos) AND created_at >= corte;
+    IF n > 0 THEN
+      RAISE EXCEPTION 'borrar_torneos_de_prueba: % inscrito(s) desde el 17-nov-2026. Abortado sin borrar nada.', n;
+    END IF;
+    SELECT count(*) INTO n FROM public.hole_scores s JOIN public.rounds r ON r.id = s.round_id
+     WHERE r.tournament_id = ANY (torneos) AND greatest(s.created_at, s.updated_at) >= corte;
+    IF n > 0 THEN
+      RAISE EXCEPTION 'borrar_torneos_de_prueba: % golpe(s) anotados o editados desde el 17-nov-2026. Abortado sin borrar nada.', n;
+    END IF;
+    SELECT count(*) INTO n FROM public.tournament_groups
+     WHERE tournament_id = ANY (torneos) AND ronda_libre_id IS NOT NULL AND NOT (ronda_libre_id = ANY (tarjetas));
+    IF n > 0 THEN
+      RAISE EXCEPTION 'borrar_torneos_de_prueba: % grupo(s) con una tarjeta fuera de la lista. Abortado sin borrar nada.', n;
+    END IF;
+    SELECT count(*) INTO n FROM public.rondas_libres WHERE id = ANY (tarjetas) AND NOT (codigo = ANY (codigos));
+    IF n > 0 THEN
+      RAISE EXCEPTION 'borrar_torneos_de_prueba: % tarjeta(s) con un código distinto del medido. Abortado sin borrar nada.', n;
+    END IF;
+    SELECT count(*) INTO n FROM public.ronda_libre_jugadores WHERE ronda_id = ANY (tarjetas) AND created_at >= corte;
+    IF n > 0 THEN
+      RAISE EXCEPTION 'borrar_torneos_de_prueba: % jugador(es) nuevos en las tarjetas desde el 17-nov-2026. Abortado sin borrar nada.', n;
+    END IF;
+    -- Jugadores con cuenta en las tarjetas: 12 medidos el 17-nov (Juanjo aprobó borrarlos). Otro número = otra gente.
+    SELECT count(*) INTO n FROM public.ronda_libre_jugadores WHERE ronda_id = ANY (tarjetas) AND user_id IS NOT NULL;
+    IF n <> 12 THEN
+      RAISE EXCEPTION 'borrar_torneos_de_prueba: las tarjetas tienen % jugador(es) con cuenta (se midieron 12). Abortado sin borrar nada.', n;
     END IF;
   END IF;
 
@@ -131,6 +170,11 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   RAISE NOTICE 'borrar_torneos_de_prueba: % rondas_libres', n;
 
+  -- Quienes seguían esas tarjetas (por código, sin FK).
+  DELETE FROM public.round_watchers WHERE ronda_codigo = ANY (codigos);
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RAISE NOTICE 'borrar_torneos_de_prueba: % round_watchers', n;
+
   -- Verificación: no queda ninguno de la lista ni nada colgando de ellos.
   SELECT (SELECT count(*) FROM public.tournaments WHERE id = ANY (torneos))
        + (SELECT count(*) FROM public.players WHERE tournament_id = ANY (torneos))
@@ -138,6 +182,8 @@ BEGIN
        + (SELECT count(*) FROM public.tournament_groups WHERE tournament_id = ANY (torneos))
        + (SELECT count(*) FROM public.tournament_drafts WHERE tournament_id = ANY (torneos) OR pending_tournament_id = ANY (torneos))
        + (SELECT count(*) FROM public.rondas_libres WHERE id = ANY (tarjetas))
+       + (SELECT count(*) FROM public.ronda_libre_jugadores WHERE ronda_id = ANY (tarjetas))
+       + (SELECT count(*) FROM public.round_watchers WHERE ronda_codigo = ANY (codigos))
     INTO n;
   IF n <> 0 THEN
     RAISE EXCEPTION 'borrar_torneos_de_prueba: quedaron % filas de la lista tras borrar', n;
