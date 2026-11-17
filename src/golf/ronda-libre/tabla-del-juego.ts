@@ -108,7 +108,8 @@ export function armarTablaDelJuego(
       if (marcador) filas.push({ tipo: 'tramo', indice: h.tramo, marcador })
       tramoAnterior = h.tramo
     }
-    const pendiente = h.estado === 'pendiente'
+    // Pendiente o sin jugar: no hay puntos que mostrar en el hoyo.
+    const pendiente = h.estado !== 'puntuado'
     filas.push({
       tipo: 'hoyo',
       numero: h.numero,

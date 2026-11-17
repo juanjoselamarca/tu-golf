@@ -58,7 +58,11 @@ export interface EntradaJuego {
   rondaCerrada?: boolean
 }
 
-export type EstadoHoyo = 'puntuado' | 'pendiente'
+/**
+ * `pendiente`: falta algún score (ronda en curso). `sin_jugar`: nadie lo jugó (ronda cerrada antes de llegar, o todos
+ * retirados); no reparte puntos ni cuenta como pendiente.
+ */
+export type EstadoHoyo = 'puntuado' | 'pendiente' | 'sin_jugar'
 
 export interface ResultadoDuelo {
   tipo: DueloPorPuesto['tipo'] | DueloPareja['tipo']
@@ -261,13 +265,16 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
         typeof g === 'number' ? g - strokesRecibidosEnHoyo(golpesBase[i], hoyo.strokeIndex, totalHoyos) : g
     })
 
+    // Un hoyo que nadie jugó (ronda cerrada antes de llegar, o todos retirados) no se puntúa: con todos empatados en
+    // "no jugó", el reparto por puesto les daría la suma de la tabla (en la Colombiana, 1 punto por pareja).
+    const nadieJugo = ids.every(id => scoreDeJuego[id] === null)
     const pendiente = ids.some(id => scoreDeJuego[id] === undefined)
-    if (pendiente) {
-      pendientes.push(hoyo.numero)
+    if (pendiente || nadieJugo) {
+      if (pendiente) pendientes.push(hoyo.numero)
       resultadoHoyos.push({
         numero: hoyo.numero,
         orden,
-        estado: 'pendiente',
+        estado: pendiente ? 'pendiente' : 'sin_jugar',
         tramo,
         parejas,
         scoreDeJuego,
