@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import type { MentalState } from '@/golf/coach/mental-index'
+import { contar } from '@/lib/text/contar'
 
 interface Props {
   fecha: string
@@ -90,7 +91,7 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
         <span style={{
           fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, padding: '3px 8px',
           borderRadius: '2px', ...chipTone, fontFamily: '"DM Mono", monospace',
-        }}>{espirales} espirales</span>
+        }}>{contar(espirales, 'espiral', 'espirales')}</span>
       </div>
       <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '18px' }}>
         {fecha} · {curso} · <span style={{ color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>{totalScore} ({overPar >= 0 ? '+' : ''}{overPar})</span>
@@ -100,9 +101,9 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
       {renderHalf('Back 9', b9Over, b9States, b9Scores, b9Pars, 9)}
 
       <div style={{ display: 'flex', gap: '12px', paddingTop: '14px', marginTop: '8px', borderTop: '1px solid var(--line)', fontSize: '12px', color: 'var(--text-2)', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-high)' }} aria-hidden />{calmCount} calmos</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-mid)' }} aria-hidden />{tenseCount} tensos</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-low)' }} aria-hidden />{enTilt} tilt</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-high)' }} aria-hidden />{contar(calmCount, 'calmo', 'calmos')}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-mid)' }} aria-hidden />{contar(tenseCount, 'tenso', 'tensos')}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-low)' }} aria-hidden />{contar(enTilt, 'tilt', 'tilt')}</div>
         {detalleHref && (
           <Link href={detalleHref} style={{ color: 'var(--text)', fontWeight: 600, fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px', margin: '-14px 0 -14px auto' }}>hoyo a hoyo →</Link>
         )}

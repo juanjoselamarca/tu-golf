@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { CurvaMentalCard } from './CurvaMentalCard'
+import type { MentalState } from '@/golf/coach/mental-index'
 
 const base = {
   fecha: 'Ronda 22 oct',
@@ -36,5 +37,27 @@ describe('CurvaMentalCard — sin par inventado', () => {
     const pares = [null, 4, 3, 5, 4, 4, 3, 5, 4]
     render(<CurvaMentalCard {...base} scores={scores} pares={pares} />)
     expect(screen.getByText('Front 9').nextElementSibling?.textContent).toBe('+1')
+  })
+})
+
+// Vuelta 1: número y sustantivo concuerdan ("1 espiral", nunca "1 espirales").
+describe('CurvaMentalCard — singular y plural', () => {
+  it('1 espiral, 1 calmo, 1 tenso, 1 tilt', () => {
+    const states: Array<MentalState | null> = ['calm', 'tense', 'tilt', null, null, null, null, null, null]
+    const { container } = render(<CurvaMentalCard {...base} states={states} espirales={1} />)
+    const t = container.textContent ?? ''
+    expect(t).toMatch(/1 espiral(?!es)/)
+    expect(t).toMatch(/1 calmo(?!s)/)
+    expect(t).toMatch(/1 tenso(?!s)/)
+    expect(t).toMatch(/1 tilt/)
+  })
+
+  it('plural con 0 y con varios', () => {
+    const { container } = render(<CurvaMentalCard {...base} espirales={2} />)
+    const t = container.textContent ?? ''
+    expect(t).toMatch(/2 espirales/)
+    expect(t).toMatch(/9 calmos/)
+    expect(t).toMatch(/0 tensos/)
+    expect(t).toMatch(/0 tilt/)
   })
 })
