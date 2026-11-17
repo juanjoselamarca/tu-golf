@@ -19,7 +19,9 @@ import type { CourseVariantRow } from '@/golf/courses/gender-variant'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import {
   esHandicapDeInscripcionValido,
+  MENSAJE_HANDICAP_UN_DECIMAL,
   mensajeHandicapFueraDeRango,
+  tieneUnDecimalComoMaximo,
   type RangoHandicap,
 } from '@/golf/handicap-index-range'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
@@ -318,33 +320,59 @@ export async function fetchRoundTotals(
   return (data as Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'> | null) ?? null
 }
 
+/** La ruta rechazó el hándicap con un mensaje para el organizador (400 fuera de rango o decimales, 429, 404). */
+export class HandicapNoGuardadoError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'HandicapNoGuardadoError'
+  }
+}
+
+/** El hándicap ya no era el que vio el organizador (otro cambio llegó primero): el panel recarga. */
+export class HandicapCambiadoError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'HandicapCambiadoError'
+  }
+}
+
 /**
- * Handicap de inscripción de un jugador (lo edita el organizador desde el tab
- * Resumen). Este número REPARTE GOLPES en el board y en el neto que persiste el
- * scorer, así que se valida ACÁ y no sólo en el formulario: la validación del
- * navegador no es una garantía — se la salta cualquier otro caller (un script,
- * un endpoint futuro, la consola del organizador). Es la puerta por la que
- * entraron a prod los 7 jugadores con handicap entre −59 y −38 del torneo "a"
- * (12-may-2026, cerrado, 0 rondas).
+ * Handicap de inscripción de un jugador (lo edita el organizador desde Scoring →
+ * Resumen, antes o después de iniciar el torneo). Este número REPARTE GOLPES en
+ * el board y, con el torneo iniciado, en la tarjeta del grupo y el hándicap del
+ * equipo: lo escribe la ruta del servidor (`PUT /api/torneos/[slug]/players/
+ * [playerId]/handicap`, `editarHandicapInscrito`), que valida de nuevo y
+ * propaga todo en una transacción. `esperado` es el valor que vio el organizador:
+ * si ya no es ese, `HandicapCambiadoError` (409). Devuelve el valor que guardó la ruta.
  *
- * Rango: `rango` viene de la fuente única `@/golf/handicap-index-range`
- * (`rangoDeHandicapDeInscripcion`): índice (−10..54, los plus incluidos) en
- * WHS, la MISMA que validan `players` y `guest-join`; en raw, lo que la fórmula
- * de la cancha produce para ese rango, porque ahí la columna guarda un course
- * handicap que pasa de 54 legítimamente.
+ * Se valida también ACÁ, antes de la red: es la puerta por la que entraron a
+ * prod los 7 jugadores con handicap entre −59 y −38 del torneo "a"
+ * (12-may-2026, cerrado, 0 rondas). Rango: `rangoDeHandicapDeInscripcion`
+ * (índice −10..54 en WHS; en raw, la imagen de la fórmula de la cancha).
  */
 export async function updatePlayerHandicap(
-  supabase: SupabaseClient,
+  slug: string,
   playerId: string,
   value: number,
+  esperado: number | null,
   rango: RangoHandicap,
-): Promise<void> {
+  fetchImpl: typeof fetch = fetch,
+): Promise<number> {
   if (!esHandicapDeInscripcionValido(value, rango)) throw new Error(mensajeHandicapFueraDeRango(rango))
-  const { error } = await supabase
-    .from('players')
-    .update({ handicap_at_registration: value })
-    .eq('id', playerId)
-  if (error) throw error
+  if (!tieneUnDecimalComoMaximo(value)) throw new Error(MENSAJE_HANDICAP_UN_DECIMAL)
+  const res = await fetchImpl(
+    `/api/torneos/${encodeURIComponent(slug)}/players/${encodeURIComponent(playerId)}/handicap`,
+    { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value, esperado }) },
+  )
+  const body = (await res.json().catch(() => null)) as { error?: string; value?: unknown } | null
+  if (res.ok) {
+    if (typeof body?.value !== 'number') throw new Error('respuesta sin el valor guardado')
+    return body.value
+  }
+  if (res.status === 409) throw new HandicapCambiadoError(body?.error || 'HTTP 409')
+  // 4xx con mensaje de la ruta: es para el organizador. 5xx o sin mensaje: error genérico.
+  if (res.status < 500 && body?.error) throw new HandicapNoGuardadoError(body.error)
+  throw new Error(body?.error || `HTTP ${res.status}`)
 }
 
 /**

@@ -115,28 +115,37 @@ export function ResumenTab({ board, roster, hcpEditor, hcpCalcMode }: ResumenTab
                 const played = hasPlayData({ holesPlayed: row.holes })
                 const estado = estadoDe(row)
                 const isEditingThis = hcpEditor.editingId === row.id
+                const guardandoEsta = row.id != null && hcpEditor.guardando.has(row.id)
                 return (
                   <tr key={row.id ?? row.name} style={{ borderBottom: '1px solid var(--surface-soft)' }}>
                     <td style={{ padding: '10px 12px', color: 'var(--text)', fontWeight: 500 }}>{row.name}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       {isEditingThis && row.id ? (
-                        <input
-                          type="text"
-                          aria-label={`${presentacionHcp.rotulo} de inscripción`}
-                          autoFocus
-                          value={hcpEditor.editValue}
-                          onChange={(e) => hcpEditor.setEditValue(e.target.value)}
-                          onBlur={() => hcpEditor.save(row.id!)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') hcpEditor.save(row.id!)
-                            if (e.key === 'Escape') hcpEditor.cancel()
-                          }}
-                          style={{ width: '56px', background: 'var(--bg)', border: '1px solid var(--brand-on-bg)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none' }}
-                        />
+                        <>
+                          {/* ≥44 px de alto y 16 px de fuente: tocable con guante y sin el zoom de iOS al enfocar. */}
+                          <input
+                            type="text"
+                            aria-label={`${presentacionHcp.rotulo} de inscripción`}
+                            aria-busy={guardandoEsta}
+                            autoFocus
+                            disabled={guardandoEsta}
+                            value={hcpEditor.editValue}
+                            onChange={(e) => hcpEditor.setEditValue(e.target.value)}
+                            onBlur={() => hcpEditor.save(row.id!)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') hcpEditor.save(row.id!)
+                              if (e.key === 'Escape') hcpEditor.cancel()
+                            }}
+                            style={{ width: '72px', minHeight: '44px', background: 'var(--bg)', border: '1px solid var(--brand-on-bg)', borderRadius: '8px', color: 'var(--text)', textAlign: 'center', fontSize: '16px', padding: '8px', outline: 'none', opacity: guardandoEsta ? 0.6 : 1 }}
+                          />
+                          {guardandoEsta && (
+                            <div role="status" style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '4px' }}>Guardando…</div>
+                          )}
+                        </>
                       ) : (
                         <button
                           onClick={() => row.id && hcpEditor.startEdit(row.id, rosterPlayer?.handicap_at_registration ?? null)}
-                          style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: 'var(--brand-on-bg)', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
+                          style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '8px', color: 'var(--brand-on-bg)', cursor: 'pointer', minHeight: '44px', minWidth: '44px', padding: '8px 12px', fontSize: '16px', fontWeight: 600 }}
                           title={`Editar ${presentacionHcp.enFrase}`}
                         >
                           {(() => { const v = rosterPlayer?.handicap_at_registration ?? row.hcpDisplay; return v != null ? presentacionHcp.formatear(v) : '--' })()}

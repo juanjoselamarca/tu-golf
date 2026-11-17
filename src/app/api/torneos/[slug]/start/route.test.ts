@@ -61,6 +61,7 @@ import { GET, POST } from './route'
 import {
   ERROR_CAMBIO_DE_ESTADO,
   ERROR_ESTADO_DESCONOCIDO,
+  ERROR_HANDICAP_CAMBIO_AL_INICIAR,
   ERROR_OTRO_INICIO,
   ERROR_SIN_DESHACER,
 } from '@/lib/data/tournaments/startTournament'
@@ -145,6 +146,22 @@ describe('POST /api/torneos/[slug]/start', () => {
     const res = await call()
     expect(res.status).toBe(409)
     expect(mockDeshacer).not.toHaveBeenCalled()
+    expect(statusPuesto()).toBe(false)
+  })
+
+  it('el organizador corrige un hándicap mientras se arman las tarjetas → 409, deshace lo armado y NO inicia', async () => {
+    mockMaterialize.mockImplementation(async (_svc: unknown, a: { group: { id: string } }) => {
+      // La corrección (Scoring → Resumen) escribe entre la lectura del inicio y la relectura final.
+      tables.players = {
+        data: (tables.players.data as Array<Record<string, unknown>>).map((p) => (p.id === 'p1' ? { ...p, handicap_at_registration: 12 } : p)),
+        error: null,
+      }
+      return armado(a.group.id)
+    })
+    const res = await call()
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toBe(ERROR_HANDICAP_CAMBIO_AL_INICIAR)
+    expect(mockDeshacer).toHaveBeenCalledTimes(2)
     expect(statusPuesto()).toBe(false)
   })
 

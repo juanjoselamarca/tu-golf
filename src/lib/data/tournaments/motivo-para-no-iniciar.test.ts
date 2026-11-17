@@ -49,17 +49,21 @@ describe('avisoSinIndice', () => {
 
   it('WHS: dice "índice 0" (con índice 0 el hándicap de cancha puede no ser 0)', () => {
     expect(avisoSinIndice(sin, 'whs')).toBe(
-      'Sin índice: Carla, Diego. Jugarán con índice 0.',
+      'Sin índice: Carla, Diego. Jugarán con índice 0. Corrígelos en Scoring → Resumen.',
     )
   })
 
   it('raw: no afirma un número (la tarjeta toma el perfil, el board lo inscrito)', () => {
     // raw: la tarjeta toma el perfil y el board lo inscrito → no se afirma un número.
-    expect(avisoSinIndice(sin, 'raw')).toBe('Sin hándicap inscrito: Carla, Diego. Su neto puede salir mal.')
+    expect(avisoSinIndice(sin, 'raw')).toBe(
+      'Sin hándicap inscrito: Carla, Diego. Su neto puede salir mal. Corrígelos en Scoring → Resumen.',
+    )
   })
 
   it('uno solo: singular', () => {
-    expect(avisoSinIndice([{ id: 'p4', nombre: 'Carla' }], 'whs')).toBe('Sin índice: Carla. Jugará con índice 0.')
+    expect(avisoSinIndice([{ id: 'p4', nombre: 'Carla' }], 'whs')).toBe(
+      'Sin índice: Carla. Jugará con índice 0. Corrígelo en Scoring → Resumen.',
+    )
   })
 
   it('nadie sin índice → sin aviso', () => {

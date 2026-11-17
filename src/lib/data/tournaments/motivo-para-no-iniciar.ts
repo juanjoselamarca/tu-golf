@@ -178,17 +178,23 @@ export function jugadoresSinIndice(
  * hándicap de cancha puede no ser 0 (rating ≠ par), así que se dice "índice 0".
  * En raw NO se afirma un número: la tarjeta del grupo toma el índice del perfil
  * (`handicapDeLaTarjeta`) y lo que pasa por `handicapInscrito` toma 0; el aviso
- * solo lo advierte (en la lista de jugadores el hándicap no se edita, así que no se
- * da una orden que ahí no se puede cumplir). Unificar esa fuente es otro PR.
+ * solo lo advierte. Unificar esa fuente es otro PR.
+ *
+ * Los dos dicen dónde se corrige: con el torneo iniciado, el link "Scoring" del panel
+ * del organizador → pestaña "Resumen" → tocar el hándicap del jugador
+ * (`useHcpEditor`). Esa corrección llega al board, a la tarjeta del grupo y al
+ * hándicap del equipo (`editarHandicapInscrito`; en raw, a la tarjeta de un individual
+ * con cuenta no, porque ahí la tarjeta toma el índice del perfil).
  */
 export function avisoSinIndice(sinIndice: JugadorSinIndice[], hcpCalcMode: string | null | undefined): string | null {
   if (sinIndice.length === 0) return null
   const nombres = listaCorta(sinIndice.map((j) => j.nombre))
+  const corrige = `${sinIndice.length === 1 ? 'Corrígelo' : 'Corrígelos'} en Scoring → Resumen.`
   if (!esModoHcpWhs(hcpCalcMode)) {
-    return `Sin hándicap inscrito: ${nombres}. Su neto puede salir mal.`
+    return `Sin hándicap inscrito: ${nombres}. Su neto puede salir mal. ${corrige}`
   }
   const verbo = sinIndice.length === 1 ? 'Jugará' : 'Jugarán'
-  return `Sin índice: ${nombres}. ${verbo} con índice 0.`
+  return `Sin índice: ${nombres}. ${verbo} con índice 0. ${corrige}`
 }
 
 /** Código del 409 de la ruta de inicio cuando hay sin índice que el organizador no vio. */

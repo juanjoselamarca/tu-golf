@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  tieneUnDecimalComoMaximo,
   presentacionHandicapInscrito,
   leerCampoHandicap,
   campoHandicapEnviable,
@@ -275,4 +276,9 @@ describe('presentacionHandicapInscrito', () => {
       expect(p.formatear(-2)).toBe('+2')
     }
   })
+})
+
+describe('tieneUnDecimalComoMaximo (la columna es numeric(4,1))', () => {
+  it.each([12, 12.4, -2, -2.5, 0, 54, 0.1, 36.3])('%s → sí', (v) => expect(tieneUnDecimalComoMaximo(v)).toBe(true))
+  it.each([12.45, -2.25, 0.05, NaN, Infinity])('%s → no', (v) => expect(tieneUnDecimalComoMaximo(v)).toBe(false))
 })

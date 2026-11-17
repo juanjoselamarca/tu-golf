@@ -90,7 +90,7 @@ const PERMITIDOS: Array<{ archivo: string; fragmento: string; veces: number; por
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: '${indice ?? (indiceGolfers != null ?', veces: 2, porque: PROMPT },
   { archivo: 'golf/coach/prompts/contexto.ts', fragmento: 'el índice ${anyIndice} refleja', veces: 3, porque: PROMPT },
   { archivo: 'golf/coach/v3/exam/build-exam-system.ts', fragmento: '${seed.handicap.indice}', veces: 1, porque: PROMPT },
-  { archivo: 'lib/data/tournaments/motivo-para-no-iniciar.ts', fragmento: 'con índice 0.`', veces: 1, porque: 'el 0 es texto fijo del aviso (jugará con índice 0), no un número guardado' },
+  { archivo: 'lib/data/tournaments/motivo-para-no-iniciar.ts', fragmento: 'con índice 0. ${corrige}`', veces: 1, porque: 'el 0 es texto fijo del aviso (jugará con índice 0), no un número guardado' },
   { archivo: 'app/api/torneos/[slug]/start/route.ts', fragmento: '${avisoSinIndice(lectura.sinIndice, t.hcp_calc_mode)}', veces: 1, porque: 'interpola la frase ya armada por avisoSinIndice, no un índice' },
   { archivo: 'golf/coach/v3/exam/mock-executor.ts', fragmento: 'DISTINTO del índice (${h.indice})', veces: 2, porque: PROMPT },
   { archivo: 'lib/data/coach-handicap.ts', fragmento: 'DISTINTO del índice (${indice})', veces: 2, porque: PROMPT },

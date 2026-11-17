@@ -3,18 +3,19 @@
 // plus 2 se mostraba "-2", invitando al organizador a "corregirlo" a 2.
 
 import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { Player } from '@/lib/golf-data'
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
 import { useHcpEditor, type UseHcpEditorReturn } from '../hooks/useHcpEditor'
 import type { UseResumenBoardReturn } from '../hooks/useResumenBoard'
 import { ResumenTab } from './ResumenTab'
 
-const updatePlayerHandicap = vi.fn(async (..._args: unknown[]) => {})
+const updatePlayerHandicap = vi.fn(async (...args: unknown[]) => args[2] as number)
 vi.mock('@/lib/data/tournaments/scoring', () => ({
+  HandicapCambiadoError: class extends Error {},
+  HandicapNoGuardadoError: class extends Error {},
   updatePlayerHandicap: (...args: unknown[]) => updatePlayerHandicap(...args),
 }))
-vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showWarning: vi.fn(), showError: vi.fn(), showSuccess: vi.fn() }),
 }))
@@ -41,6 +42,7 @@ function editor(over: Partial<UseHcpEditorReturn> = {}): UseHcpEditorReturn {
     setEditValue: vi.fn(),
     startEdit: vi.fn(),
     cancel: vi.fn(),
+    guardando: new Set<string>(),
     save: vi.fn(),
     ...over,
   }
@@ -109,9 +111,46 @@ describe('ResumenTab · handicap', () => {
 
 // El hook real detrás de la vista: lo que se tipea en el input es lo que llega a la base.
 function ResumenConEditor({ roster }: { roster: ScoringPlayer[] }) {
-  const hcpEditor = useHcpEditor({ onSaved: vi.fn(), hcpCalcMode: 'whs', course: null })
+  const hcpEditor = useHcpEditor({ slug: 's', onSaved: vi.fn(), hcpCalcMode: 'whs', course: null, onConflicto: vi.fn() })
   return <ResumenTab board={board([fila('p1', 'Ana', -2)])} roster={roster} hcpEditor={hcpEditor} hcpCalcMode="whs" />
 }
+
+function ResumenConEditorDos() {
+  const hcpEditor = useHcpEditor({ slug: 's', onSaved: vi.fn(), hcpCalcMode: 'whs', course: null, onConflicto: vi.fn() })
+  return (
+    <ResumenTab
+      board={board([fila('p1', 'Ana', -2), fila('p2', 'Bea', 8)])}
+      roster={[jugador('p1', -2), jugador('p2', 8)]}
+      hcpEditor={hcpEditor}
+      hcpCalcMode="whs"
+    />
+  )
+}
+
+describe('ResumenTab · uso en cancha', () => {
+  it('el botón y el input miden ≥44 px de alto con fuente de 16 px (sin zoom de iOS)', () => {
+    const { rerender } = render(
+      <ResumenTab board={board([fila('p1', 'Ana', -2)])} roster={[jugador('p1', -2)]} hcpEditor={editor()} hcpCalcMode="whs" />,
+    )
+    const boton = screen.getByRole('button', { name: '+2.0' })
+    expect(boton.style.minHeight).toBe('44px')
+    expect(boton.style.fontSize).toBe('16px')
+    rerender(
+      <ResumenTab board={board([fila('p1', 'Ana', -2)])} roster={[jugador('p1', -2)]} hcpEditor={editor({ editingId: 'p1', editValue: '+2' })} hcpCalcMode="whs" />,
+    )
+    const input = screen.getByRole('textbox', { name: 'Índice de inscripción' }) as HTMLInputElement
+    expect(input.style.minHeight).toBe('44px')
+    expect(input.style.fontSize).toBe('16px')
+  })
+
+  it('guardando: input deshabilitado y "Guardando…" visible', () => {
+    render(
+      <ResumenTab board={board([fila('p1', 'Ana', -2)])} roster={[jugador('p1', -2)]} hcpEditor={editor({ editingId: 'p1', editValue: '+2', guardando: new Set(['p1']) })} hcpCalcMode="whs" />,
+    )
+    expect((screen.getByRole('textbox', { name: 'Índice de inscripción' }) as HTMLInputElement).disabled).toBe(true)
+    expect(screen.getByRole('status').textContent).toBe('Guardando…')
+  })
+})
 
 describe('ResumenTab · editar el handicap en el DOM', () => {
   it.each([
@@ -128,5 +167,47 @@ describe('ResumenTab · editar el handicap en el DOM', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     await vi.waitFor(() => expect(updatePlayerHandicap).toHaveBeenCalled())
     expect(updatePlayerHandicap.mock.calls[0][2]).toBe(valor)
+    // El esperado es lo que el organizador vio en la fila (plus 2 → −2).
+    expect(updatePlayerHandicap.mock.calls[0][3]).toBe(-2)
+  })
+
+  // Revisión Fable vuelta 2: escribir en A y tocar B → el blur guarda A y el click abre B.
+  // B queda editable (sin "Guardando…") y NO se cierra cuando termina A.
+  it('abrir B mientras A guarda: B editable y sigue abierto al terminar A', async () => {
+    updatePlayerHandicap.mockClear()
+    let soltar: (v: number) => void = () => {}
+    updatePlayerHandicap.mockImplementationOnce(() => new Promise<number>((r) => { soltar = r }))
+    render(<ResumenConEditorDos />)
+    fireEvent.click(screen.getByRole('button', { name: '+2.0' }))
+    const inputA = screen.getByRole('textbox', { name: 'Índice de inscripción' }) as HTMLInputElement
+    fireEvent.change(inputA, { target: { value: '12' } })
+    fireEvent.blur(inputA)
+    fireEvent.click(screen.getByRole('button', { name: '8.0' }))
+    const inputB = screen.getByRole('textbox', { name: 'Índice de inscripción' }) as HTMLInputElement
+    expect(inputB.value).toBe('8.0')
+    expect(inputB.disabled).toBe(false)
+    expect(screen.queryByRole('status')).toBeNull()
+    // Deja terminar el guardado de A (promesa + finally + re-render).
+    await act(async () => { soltar(12); await new Promise((r) => setTimeout(r, 0)) })
+    const sigue = screen.getByRole('textbox', { name: 'Índice de inscripción' }) as HTMLInputElement
+    expect(sigue.value).toBe('8.0')
+    expect(sigue.disabled).toBe(false)
+    expect(updatePlayerHandicap).toHaveBeenCalledTimes(1)
+  })
+
+  // Revisión Fable P1-1: Enter guarda y el blur que sigue NO manda un segundo PUT (sería un 409 falso).
+  it('Enter y después blur: un solo guardado', async () => {
+    updatePlayerHandicap.mockClear()
+    let soltar: (v: number) => void = () => {}
+    updatePlayerHandicap.mockImplementationOnce(() => new Promise<number>((r) => { soltar = r }))
+    render(<ResumenConEditor roster={[jugador('p1', -2)]} />)
+    fireEvent.click(screen.getByRole('button', { name: '+2.0' }))
+    const input = screen.getByRole('textbox', { name: 'Índice de inscripción' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '12' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.blur(input)
+    soltar(12)
+    await vi.waitFor(() => expect(screen.queryByRole('textbox')).toBeNull())
+    expect(updatePlayerHandicap).toHaveBeenCalledTimes(1)
   })
 })

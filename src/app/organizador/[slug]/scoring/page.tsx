@@ -63,6 +63,7 @@ export default function ScoringPage() {
   })
 
   const hcpEditor = useHcpEditor({
+    slug,
     // Qué guarda `handicap_at_registration` en este torneo (índice en WHS,
     // course handicap en raw) decide el rango del editor.
     hcpCalcMode: tournament?.hcp_calc_mode,
@@ -70,6 +71,10 @@ export default function ScoringPage() {
     onSaved: (playerId, value) => {
       data.setPlayerHandicap(playerId, value)
       // El board reparte golpes con este número: se rearma con el motor.
+      resumen.reload()
+    },
+    onConflicto: () => {
+      void data.reloadRoster()
       resumen.reload()
     },
   })

@@ -10,6 +10,8 @@ import {
   fetchResumenBoardInputs,
   fetchScoringRoster,
   fetchScoringTournament,
+  HandicapCambiadoError,
+  HandicapNoGuardadoError,
   updatePlayerHandicap,
 } from './scoring'
 import { LEGACY_PLAYER_SELECT } from './leaderboard'
@@ -128,53 +130,77 @@ describe('fetchResumenBoardInputs', () => {
 })
 
 describe('updatePlayerHandicap', () => {
-  it('error de update → propaga (el hook muestra el toast)', async () => {
-    const { client } = supabaseMock({ players: { data: null, error: { message: 'rls' } } })
-    await expect(updatePlayerHandicap(client, 'p1', 12.4, RANGO_INDICE)).rejects.toBeTruthy()
+  /** fetch que registra lo que se mandó a la ruta y responde con `status`. */
+  function fetchQueRegistra(status = 200, body: unknown = null) {
+    const llamadas: Array<{ url: string; init: RequestInit }> = []
+    const impl = vi.fn(async (url: string, init: RequestInit) => {
+      llamadas.push({ url, init })
+      const enviado = JSON.parse(String(init.body)) as { value: number }
+      return new Response(JSON.stringify(body ?? { ok: true, value: enviado.value }), { status })
+    }) as unknown as typeof fetch
+    const enviados = () => llamadas.map((l) => JSON.parse(String(l.init.body)) as unknown)
+    return { impl, llamadas, enviados }
+  }
+
+  it('va por la ruta del servidor (PUT) con valor y esperado', async () => {
+    const { impl, llamadas, enviados } = fetchQueRegistra()
+    await updatePlayerHandicap('mi torneo', 'p1', 12.4, 10, RANGO_INDICE, impl)
+    expect(llamadas[0].url).toBe('/api/torneos/mi%20torneo/players/p1/handicap')
+    expect(llamadas[0].init.method).toBe('PUT')
+    expect(enviados()).toEqual([{ value: 12.4, esperado: 10 }])
+  })
+
+  it('devuelve el valor que guardó la ruta', async () => {
+    const { impl } = fetchQueRegistra(200, { ok: true, value: 12.5 })
+    expect(await updatePlayerHandicap('s', 'p1', 12.4, null, RANGO_INDICE, impl)).toBe(12.5)
+  })
+
+  it('más de un decimal: rechaza sin llamar a la ruta', async () => {
+    const { impl, llamadas } = fetchQueRegistra()
+    await expect(updatePlayerHandicap('s', 'p1', 12.45, null, RANGO_INDICE, impl)).rejects.toThrow(/un decimal/)
+    expect(llamadas).toEqual([])
+  })
+
+  it('4xx con mensaje (429, 400) → HandicapNoGuardadoError con el mensaje de la ruta', async () => {
+    const { impl } = fetchQueRegistra(429, { error: 'Demasiados cambios seguidos.' })
+    const err = await updatePlayerHandicap('s', 'p1', 12.4, null, RANGO_INDICE, impl).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(HandicapNoGuardadoError)
+    expect((err as Error).message).toBe('Demasiados cambios seguidos.')
+  })
+
+  it('409 → HandicapCambiadoError (el panel recarga)', async () => {
+    const { impl } = fetchQueRegistra(409, { error: 'Otro cambio llegó primero.' })
+    await expect(updatePlayerHandicap('s', 'p1', 12.4, null, RANGO_INDICE, impl)).rejects.toBeInstanceOf(HandicapCambiadoError)
+  })
+
+  it('error del servidor → propaga (el hook muestra el toast)', async () => {
+    const { impl } = fetchQueRegistra(500, { error: 'No se pudo guardar el hándicap.' })
+    await expect(updatePlayerHandicap('s', 'p1', 12.4, null, RANGO_INDICE, impl)).rejects.toThrow('No se pudo guardar el hándicap.')
   })
 
   /**
    * El handicap de inscripción REPARTE GOLPES en el board y en el neto que
-   * persiste el scorer. La validación del formulario no alcanza: la capa de
-   * datos no puede escribir un número fuera del rango WHS venga de donde venga.
+   * persiste el scorer. La validación del formulario no alcanza: ni la capa de
+   * datos ni la ruta escriben un número fuera del rango WHS venga de donde venga.
    * Es la puerta por la que entraron a prod los 7 jugadores con handicap entre
    * −59 y −38 del torneo "a" (12-may-2026).
    */
   describe('rango WHS (fuente única @/golf/handicap-index-range)', () => {
-    /** Mock que registra si hubo UPDATE y con qué payload. */
-    function clienteQueRegistra() {
-      const updates: unknown[] = []
-      const chain = {
-        update: vi.fn((payload: unknown) => {
-          updates.push(payload)
-          return chain
-        }),
-        eq: vi.fn(() => Promise.resolve({ data: null, error: null })),
-      }
-      return { client: { from: vi.fn(() => chain) } as never, updates }
-    }
-
     it.each([55, 54.1, -10.1, -59, 999, NaN, Infinity])(
-      'rechaza %p SIN tocar la base',
+      'rechaza %p SIN llamar a la ruta',
       async (valor) => {
-        const { client, updates } = clienteQueRegistra()
-        await expect(updatePlayerHandicap(client, 'p1', valor as number, RANGO_INDICE)).rejects.toThrow(
+        const { impl, llamadas } = fetchQueRegistra()
+        await expect(updatePlayerHandicap('s', 'p1', valor as number, null, RANGO_INDICE, impl)).rejects.toThrow(
           MENSAJE_INDICE_FUERA_DE_RANGO,
         )
-        expect(updates).toEqual([])
+        expect(llamadas).toEqual([])
       },
     )
 
-    it.each([-10, -2, 0, 12.4, 54])('acepta %p y lo escribe tal cual', async (valor) => {
-      const { client, updates } = clienteQueRegistra()
-      await updatePlayerHandicap(client, 'p1', valor, RANGO_INDICE)
-      expect(updates).toEqual([{ handicap_at_registration: valor }])
-    })
-
-    it('un índice PLUS (−2) es válido: el organizador puede asignarlo', async () => {
-      const { client, updates } = clienteQueRegistra()
-      await updatePlayerHandicap(client, 'p1', -2, RANGO_INDICE)
-      expect(updates).toEqual([{ handicap_at_registration: -2 }])
+    it.each([-10, -2, 0, 12.4, 54])('acepta %p y lo manda tal cual (incluye el PLUS −2)', async (valor) => {
+      const { impl, enviados } = fetchQueRegistra()
+      await updatePlayerHandicap('s', 'p1', valor, null, RANGO_INDICE, impl)
+      expect(enviados()).toEqual([{ value: valor, esperado: null }])
     })
 
     // Revisión del PR #720 (P2): en los torneos raw la columna guarda el COURSE
@@ -183,17 +209,17 @@ describe('updatePlayerHandicap', () => {
       const raw = rangoDeHandicapDeInscripcion('raw', { slope: 130, courseRating: 73.5, par: 72 })
 
       it('acepta un course handicap mayor que 54 que el rango de índice rechazaría', async () => {
-        const { client, updates } = clienteQueRegistra()
-        await updatePlayerHandicap(client, 'p1', 60, raw)
-        expect(updates).toEqual([{ handicap_at_registration: 60 }])
+        const { impl, enviados } = fetchQueRegistra()
+        await updatePlayerHandicap('s', 'p1', 60, null, raw, impl)
+        expect(enviados()).toEqual([{ value: 60, esperado: null }])
       })
 
       it('rechaza lo que ni un índice 54 produce en esa cancha, con el mensaje del rango real', async () => {
-        const { client, updates } = clienteQueRegistra()
-        await expect(updatePlayerHandicap(client, 'p1', 65, raw)).rejects.toThrow(
+        const { impl, llamadas } = fetchQueRegistra()
+        await expect(updatePlayerHandicap('s', 'p1', 65, null, raw, impl)).rejects.toThrow(
           mensajeHandicapFueraDeRango(raw),
         )
-        expect(updates).toEqual([])
+        expect(llamadas).toEqual([])
       })
     })
   })
