@@ -185,7 +185,8 @@ export function armarResultadoDeLaTimba(
       if (h.estado !== 'puntuado') continue
       for (const e of h.especiales) {
         if (!e.cuenta) continue
-        const k = clave(e.puntitoId, e.jugadorId, e.logro)
+        // Sin `logro` (vista de un servidor anterior a esta marca), un birdie se cuenta como birdie: no desaparece.
+        const k = clave(e.puntitoId, e.jugadorId, e.logro ?? (e.tipo === 'birdie' ? 'birdie' : undefined))
         veces.set(k, (veces.get(k) ?? 0) + 1)
         if (e.logro) valeDelLogro.set(`${e.puntitoId}\u0000${e.logro}`, e.puntos)
       }

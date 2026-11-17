@@ -35,6 +35,7 @@ import {
 } from '@/lib/ronda/score-storage'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import type { HoleData, RondaLibre } from '@/types/ronda'
+import { conOrdenEnPantalla } from '@/lib/ronda/orden-jugadores'
 import { loginUrl } from '@/lib/auth/login-url'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 
@@ -117,7 +118,8 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
   if (sesion.estado === 'sin_conexion') return { tipo: 'sin_conexion', userId: null }
   const userId = sesion.userId
 
-  const carga = await fetchRondaLibreParaScorer(supabase, codigo)
+  // Con sesión ya confirmada: puede pedir `reglas_juego` (el orden del juego de una Timba; anon no la lee).
+  const carga = await fetchRondaLibreParaScorer(supabase, codigo, { conReglasDelJuego: true })
   // Ronda borrada (PGRST116, confirmado por el servidor): su copia local ya no tiene dónde subirse.
   if (carga.estado === 'no_existe') { limpiarCopiaLocalDeRonda(codigo); return { tipo: 'redirigir', a: '/dashboard', reemplazar: false } }
   if (carga.estado === 'sin_conexion') return { tipo: 'sin_conexion', userId }
@@ -200,7 +202,10 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const enCursoRef = useRef(false)
 
   const aplicarMetadatos = useCallback((s: Omit<ScorerGrupoSnapshot, 'v'>) => {
-    setRonda(s.ronda as RondaLibre)
+    const nueva = s.ronda as RondaLibre
+    // Ya en pantalla: las filas no se mueven bajo el dedo (una copia local de antes del orden del juego abre en el
+    // canónico y el servidor trae el del juego). Mismos jugadores → se conserva el orden en pantalla.
+    setRonda(prev => cargadaRef.current && prev ? conOrdenEnPantalla(prev, nueva) : nueva)
     setParMap(s.parMap)
     setHoleDataMap(s.holeDataMap as Record<number, HoleData>)
     setPlayerHcp(s.playerHcp)

@@ -1,4 +1,5 @@
 import { leerReglasGuardadas } from '@/golf/formats/personalizado/reglas-guardadas'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado/config'
 
 /**
  * FUENTE ÚNICA del orden de los jugadores de una ronda libre en pantalla.
@@ -51,14 +52,28 @@ export function ordenDelJuego(
  * La ronda con sus jugadores en el orden canónico (no muta la original). En una Timba con `reglas_juego` en la
  * ronda, el del juego (`ordenDelJuego`).
  */
-export function conJugadoresOrdenados<R extends { creador_id?: string | null; reglas_juego?: unknown; ronda_libre_jugadores: ReadonlyArray<{ id: string; nombre?: string | null; user_id?: string | null }> }>(
+export function conJugadoresOrdenados<R extends { creador_id?: string | null; formato_juego?: string | null; reglas_juego?: unknown; ronda_libre_jugadores: ReadonlyArray<{ id: string; nombre?: string | null; user_id?: string | null }> }>(
   ronda: R,
 ): R {
   if (!Array.isArray(ronda.ronda_libre_jugadores)) return ronda
-  const delJuego = ordenDelJuego(ronda.reglas_juego, ronda.ronda_libre_jugadores)
+  // Solo en una Timba: en otro formato el orden decide quién es el jugador A (match play), igual que la vista en vivo.
+  const delJuego = esFormatoPersonalizado(ronda.formato_juego) ? ordenDelJuego(ronda.reglas_juego, ronda.ronda_libre_jugadores) : null
   if (delJuego) {
     const porId = new Map(ronda.ronda_libre_jugadores.map(j => [j.id, j]))
     return { ...ronda, ronda_libre_jugadores: delJuego.map(id => porId.get(id)!) }
   }
   return { ...ronda, ronda_libre_jugadores: ordenarJugadoresDeLaRonda(ronda.ronda_libre_jugadores, ronda.creador_id) }
+}
+
+/**
+ * Refresco de fondo del scorer: `nueva` con sus jugadores en el orden de `enPantalla` si son exactamente los mismos
+ * (las filas no se mueven bajo el dedo). Si cambió quién juega, manda el orden de `nueva`.
+ */
+export function conOrdenEnPantalla<R extends { ronda_libre_jugadores: ReadonlyArray<{ id: string }> }>(enPantalla: R, nueva: R): R {
+  const antes = enPantalla.ronda_libre_jugadores
+  const ahora = nueva.ronda_libre_jugadores
+  if (!Array.isArray(antes) || !Array.isArray(ahora) || antes.length !== ahora.length) return nueva
+  const porId = new Map(ahora.map(j => [j.id, j]))
+  if (porId.size !== ahora.length || !antes.every(j => porId.has(j.id))) return nueva
+  return { ...nueva, ronda_libre_jugadores: antes.map(j => porId.get(j.id)!) }
 }
