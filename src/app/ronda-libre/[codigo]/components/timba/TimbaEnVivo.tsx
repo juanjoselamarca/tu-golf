@@ -7,6 +7,7 @@ import { armarResultadoDeLaTimba, textoParaCompartirLaTimba } from '@/golf/ronda
 import { useShare } from '@/components/share/useShare'
 import type { EstadoDelJuego } from '../../hooks/useJuegoDeLaTimba'
 import { ALTO_NAVBAR_PX } from '@/lib/constants'
+import { enElOrden } from '@/lib/ronda/orden-jugadores'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from './PestanasDeLaTimba'
 import { PanelDelJuego } from './PanelDelJuego'
 import { ResultadoFinalDeLaTimba } from './ResultadoFinalDeLaTimba'
@@ -67,9 +68,8 @@ export function TimbaEnVivo(props: {
   url: string
   /** `false` mientras falte guardar en el historial: un solo dorado sólido por vista (DESIGN.md §5). */
   compartirPrincipal?: boolean
-  onIngresar: () => void
 }) {
-  const { juego, onReintentar, jugadores, hoyoInicio, holes, finalizada, cancha, url, compartirPrincipal = true, onIngresar } = props
+  const { juego, onReintentar, jugadores, hoyoInicio, holes, finalizada, cancha, url, compartirPrincipal = true } = props
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('juego')
   const [hoyoAHoyo, setHoyoAHoyo] = useState(false)
   // Al pasar del resultado a la tabla (y de vuelta), la vista parte arriba: si no, queda a mitad de la tabla y
@@ -83,6 +83,12 @@ export function TimbaEnVivo(props: {
     window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - ALTO_NAVBAR_PX - 8) })
   }, [hoyoAHoyo])
   const nombres = useMemo(() => Object.fromEntries(jugadores.map(j => [j.id, j.nombre])), [jugadores])
+  // La tarjeta en el orden del juego, igual que la pestaña Juego y el scorer (decisión de Juanjo, 17-nov). `/live`
+  // no trae `reglas_juego` (anon no la lee): el orden sale de la vista del juego cuando ya llegó.
+  const jugadoresEnOrden = useMemo(
+    () => (juego.estado === 'ok' ? enElOrden(juego.vista.jugadorIds, jugadores) : null) ?? jugadores,
+    [juego, jugadores],
+  )
   const hoyos = useMemo(() => hoyosDeLaRonda(hoyoInicio ?? 1, holes), [hoyoInicio, holes])
   const resultado = useMemo(
     () => (finalizada && juego.estado === 'ok' ? armarResultadoDeLaTimba(juego.vista, nombres) : null),
@@ -126,11 +132,11 @@ export function TimbaEnVivo(props: {
       <div id={PANEL_DE_PESTANA(pestana)} role="tabpanel">
         {pestana === 'juego' ? (
           <PanelDelJuego
-            juego={juego} nombres={nombres} hoyoActual={null} onReintentar={onReintentar} onIngresar={onIngresar}
+            juego={juego} nombres={nombres} hoyoActual={null} onReintentar={onReintentar}
             encabezadoFijoEn={`${ALTO_NAVBAR_PX}px`}
           />
         ) : (
-          <TarjetaDeGolpes jugadores={jugadores} hoyos={hoyos} />
+          <TarjetaDeGolpes jugadores={jugadoresEnOrden} hoyos={hoyos} />
         )}
       </div>
     </section>

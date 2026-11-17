@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { armarReglasGuardadas, crearConfigDePlantilla } from '@/golf/formats/personalizado'
-import { ordenarJugadoresDeLaRonda, conJugadoresOrdenados, conOrdenEnPantalla, ordenDelJuego } from './orden-jugadores'
+import { ordenarJugadoresDeLaRonda, conJugadoresOrdenados, conOrdenEnPantalla, ordenDelJuego, enElOrden } from './orden-jugadores'
 
 const creador = { id: 'c9', nombre: 'E2E Test', user_id: 'u-creador' }
 const uno = { id: 'a1', nombre: 'Inv Uno', user_id: null }
@@ -82,6 +82,15 @@ describe('conJugadoresOrdenados — Timba libre: el orden del juego', () => {
 
   it('ordenDelJuego: null sin reglas', () => {
     expect(ordenDelJuego(undefined, [A])).toBeNull()
+  })
+
+  it('enElOrden: los jugadores en el orden de los ids; null si los ids no los nombran exactamente', () => {
+    const j = (id: string) => ({ id, n: id.toUpperCase() })
+    expect(enElOrden(['c', 'a', 'b'], [j('a'), j('b'), j('c')])?.map(x => x.n)).toEqual(['C', 'A', 'B'])
+    expect(enElOrden(['a', 'b'], [j('a'), j('b'), j('c')])).toBeNull()
+    expect(enElOrden(['a', 'a', 'b'], [j('a'), j('b'), j('c')])).toBeNull()
+    expect(enElOrden(['a', 'b', 'x'], [j('a'), j('b'), j('c')])).toBeNull()
+    expect(enElOrden(['a', 'b'], [j('a'), j('a')])).toBeNull()
   })
 
   // Revisión Fable: en otro formato el orden decide al jugador A (match play); las reglas no mandan fuera de una Timba.
