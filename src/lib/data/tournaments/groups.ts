@@ -133,3 +133,14 @@ export async function assignPlayerToGroup(
     throw new Error(insErr.message)
   }
 }
+
+/**
+ * Prefijo del error con que la base rechaza mover, sacar o borrar con el torneo iniciado (triggers
+ * `grupos_fijos_*`, migración 20261117120000). Lo ve, por ejemplo, una pestaña abierta antes del inicio (#810).
+ */
+export const ERROR_GRUPOS_FIJOS_PREFIJO = 'El torneo ya empezó'
+
+export function esErrorGruposFijos(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+  return msg.startsWith(ERROR_GRUPOS_FIJOS_PREFIJO)
+}

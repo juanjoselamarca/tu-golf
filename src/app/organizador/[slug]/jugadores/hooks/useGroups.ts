@@ -8,6 +8,7 @@ import {
   setGroupTeeTime,
   assignPlayerToGroup,
   teeTimeDesdeHoraLocal,
+  esErrorGruposFijos,
 } from '@/lib/data/tournaments/groups'
 import { isTeamFormat } from '@/golf/formats'
 import { gruposFijos as calcularGruposFijos } from '@/golf/tournament-status'
@@ -151,6 +152,12 @@ export function useGroups({ tournament, players, tournamentStatus }: UseGroupsAr
       // groupId vacío ('') = quitar del grupo → null.
       await assignPlayerToGroup(createClient(), playerId, groupId || null)
     } catch (e) {
+      // Pestaña abierta antes del inicio: la base ya no deja mover (#810). No es una falla.
+      if (esErrorGruposFijos(e)) {
+        await fetchGroups()
+        avisarGruposFijos()
+        return
+      }
       // NO tragamos el error (histórico: un `catch {}` ciego dejó 4 fallos de campo
       // sin traza — reporte inbox e637b979). Lo mandamos a error_logs con contexto y
       // refrescamos la lista: la causa típica es un jugador stale (fila fantasma en la

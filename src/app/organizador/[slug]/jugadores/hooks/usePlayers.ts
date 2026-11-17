@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/useToast'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
 import { captureError } from '@/lib/error-tracking'
 import { deletePlayer, listInscritosDelPanel } from '@/lib/data/tournaments/players'
+import { esErrorGruposFijos } from '@/lib/data/tournaments/groups'
 import type { Category, Player, Tournament } from '../types'
 import type { Profile } from './useProfileSearch'
 
@@ -163,6 +164,11 @@ export function usePlayers({ tournament, categories, initialPlayers }: UsePlayer
       try {
         await deletePlayer(createClient(), playerId)
       } catch (err) {
+        // Pestaña abierta antes del inicio: la base ya no deja eliminar, solo WD (#810).
+        if (esErrorGruposFijos(err)) {
+          showError('El torneo ya empezó', 'Recarga la página y retira al jugador con WD.')
+          return false
+        }
         void captureError(err, { context: 'organizador-jugadores.eliminar', level: 'error', meta: { playerId } })
         showError('Error', 'No se pudo eliminar la inscripción. Intenta de nuevo.')
         return false

@@ -20,6 +20,7 @@ vi.mock('@/lib/data/tournaments/groups', () => ({
   setGroupTeeTime: vi.fn(),
   assignPlayerToGroup: (...a: unknown[]) => assignPlayerToGroup(...(a as [])),
   teeTimeDesdeHoraLocal: vi.fn(),
+  esErrorGruposFijos: (e: unknown) => e instanceof Error && e.message.startsWith('El torneo ya empezó'),
 }))
 
 import { useGroups } from './useGroups'
@@ -90,5 +91,13 @@ describe('useGroups con el torneo iniciado (#810)', () => {
     expect(assignPlayerToGroup).toHaveBeenCalledWith({}, 'p1', 'g2')
     await act(async () => { await h.result.current.handleDeleteGroup('g1') })
     expect(deleteGroup).toHaveBeenCalledWith({}, 'g1')
+  })
+
+  it('pestaña vieja sin tarjetas a la vista: si la base rechaza (trigger), avisa grupos fijos sin reportar falla', async () => {
+    filas = [grupo('g1', null, ['p1', 'p2']), grupo('g2', null, ['p3'])]
+    const h = await montar('open')
+    assignPlayerToGroup.mockRejectedValueOnce(new Error('El torneo ya empezó: los grupos quedan fijos'))
+    await act(async () => { await h.result.current.handleAssignPlayer('p1', 'g2') })
+    expect(showWarning).toHaveBeenCalledWith('Grupos fijos', expect.any(String))
   })
 })
