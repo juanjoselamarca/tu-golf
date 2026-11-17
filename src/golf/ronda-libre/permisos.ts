@@ -72,7 +72,9 @@ export interface FilaIndice {
  * FUENTE — ¿el índice de este jugador se lee de su PERFIL y no de la tarjeta?
  * Jugador con cuenta, sin `handicap` en la tarjeta y cuya fila NO la gobierna la
  * inscripción de un torneo. Una fila de torneo sin hándicap inscrito (WHS sin índice)
- * no cae al perfil: queda sin índice ("S/Ind"), igual que en el board del torneo.
+ * no cae al perfil: juega con índice 0, como en el board del torneo (que lo puntúa con
+ * `handicap_at_registration ?? 0`). La tarjeta lo MUESTRA "S/Ind"; el board todavía
+ * pinta "0" (pendiente fuera de este PR: llevar la señal de sin índice al board).
  * Decide de dónde se lee el índice (`profiles.indice`, que un anónimo no puede leer
  * por RLS: el board lo lee con el cliente de servicio, `indicesDePerfil`).
  * Lo que se le MUESTRA a un visor sin sesión es otra pregunta: `handicapOcultoSinSesion`.

@@ -23,8 +23,9 @@ export interface BestBallTeamsResult {
 type MiembroConIndice = FilaIndice & { user_id: string | null; handicap: number | null }
 
 /**
- * Índice de un miembro de equipo de best ball (scramble y foursome no leen índices:
- * usan el handicap de equipo guardado). FUENTE ÚNICA:
+ * Índice de una fila de la tarjeta de un torneo: miembro de best ball (scramble y
+ * foursome no leen índices: usan el handicap de equipo guardado) y jugador del board
+ * individual (`fetchRondaLibreJugadoresConCourseHcp`). FUENTE ÚNICA:
  * la tarjeta manda; el índice del perfil sólo si `indiceVieneDelPerfil` (jugador con
  * cuenta sin índice en la tarjeta). Sin nada, 0.
  */
