@@ -431,12 +431,12 @@ describe('Canary: tournament drafts API + frontend (feat/organizar-campeonato)',
  * el error vía captureError().
  */
 describe('Canary: /coach no rompe con par_per_hole como JSONB objeto (19-may-2026)', () => {
-  it('coach/page.tsx importa parPerHoleArray para normalizar par_per_hole', () => {
+  it('coach/page.tsx no menciona par_per_hole (lee rondas normalizadas, PR3 Ola 1)', () => {
     const content = rootRead('src/app/coach/page.tsx')
     expect(
-      /from\s+['"]@\/golf\/core\/compare['"]/.test(content) && /parPerHoleArray/.test(content),
-      'coach/page.tsx debe importar parPerHoleArray — par_per_hole en BD es objeto, no array',
-    ).toBe(true)
+      /par_per_hole/.test(content),
+      'coach/page.tsx no lee par_per_hole: los pares llegan normalizados (fetchRondasNormalizadas → resumenMentalDelCoach)',
+    ).toBe(false)
   })
 
   it('coach/page.tsx no llama métodos de Array directo sobre par_per_hole', () => {

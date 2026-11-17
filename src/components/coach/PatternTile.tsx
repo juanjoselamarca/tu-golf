@@ -9,7 +9,8 @@ interface Props {
   category: PatternCategory
   state: PatternState
   name: string
-  score: number | string
+  /** Sin `score` el tile no pinta número (p. ej. la espiral: su número es el Mental Index). */
+  score?: number | string
   scoreSuffix?: string
   spark: Array<{ height: number; tone?: 'ink' | 'pos' | 'neg' | 'faded' }>
   footMeta: string
@@ -60,9 +61,11 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
           </div>
           <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: 1.2, color: isLatent ? 'var(--text-2)' : 'var(--text)' }}>{name}</div>
         </div>
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '28px', fontWeight: 500, color: scoreColor, lineHeight: 1, flexShrink: 0 }}>
-          {score}{scoreSuffix && <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>{scoreSuffix}</span>}
-        </div>
+        {score != null && (
+          <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '28px', fontWeight: 500, color: scoreColor, lineHeight: 1, flexShrink: 0 }}>
+            {score}{scoreSuffix && <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>{scoreSuffix}</span>}
+          </div>
+        )}
       </div>
       {!isLatent && spark.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '18px', marginBottom: '14px' }} aria-hidden>

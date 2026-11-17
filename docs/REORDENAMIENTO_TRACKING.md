@@ -850,3 +850,34 @@ conviven los dos nombres. Los puntos Stableford tienen su fuente única: `format
 Ruta delgada; la materialización vive en `src/lib/data/tournaments/startTournament.ts` (todo o nada, rollback, relectura antes de `in_progress`).
 - [ ] Bloqueo de inicio por torneo (migración: p. ej. `tournaments.start_lock_until` tomado con update condicional, o el inicio entero como RPC plpgsql en una transacción). Cierra la ventana entre la relectura y el cambio de estado y el caso "grupo completo enlazado en borrador" tras un conflicto.
 - [ ] Barrido de rondas `T*` `en_curso` sin grupo con más de 1 h (si la función muere a mitad del loop no corre ningún rollback).
+
+## fix/coach-ola1-juanjo · PR3 Ola 1 (17-nov-2026) — /coach: una espiral, una ventana
+
+Ordenado: `src/app/coach/page.tsx` sin `supabase.from()` (lecturas en `src/lib/data/coach-home.ts`), sin
+`par_per_hole` y sin par inventado; Mental Index, costo psicológico y curva salen de `resumenMentalDelCoach`
+(`src/golf/coach/mental-index.ts`) sobre `fetchRondasNormalizadas`. Canario: `canary-coach-una-espiral.test.ts`.
+
+Fuera de alcance (pendiente):
+- Detector y Cerebro V3 siguen con par de respaldo (`parForHoleWithFallback`): `golf/coach/patterns.ts`,
+  `golf/coach/metrics/post-bogey-avg.ts`, `golf/coach/context.ts`, `/api/taiger/intro`. Su semántica no se tocó
+  (solo `patterns.ts` toma `TASA_ESPIRAL_UMBRAL` y `MIN_BOGEYS_ESPIRAL` del motor).
+- La escritura de `taiger_sessions.next_focus` (`chat-engine.ts:543`, `substring(0, 200)` de markdown crudo):
+  la home lo limpia con `textoPlano`, pero se sigue guardando con markdown.
+- Barras decorativas fijas (`spark`) en `HighlightCard` y `PatternTile` de `coach/page.tsx`: no representan datos.
+- ~~Copy con "esta semana" sin ventana semanal real~~ → resuelto en la vuelta 1 de revisión ("…en tus últimas
+  rondas", "Highlights").
+- Unificar el detector `post_bogey_spiral` (`golf/coach/patterns.ts`, tasa sobre par de respaldo) con
+  `espiralesDeRonda` (`golf/coach/mental-index.ts`). Mientras convivan, el tile del patrón no muestra número
+  (antes "47/100" competía con el Mental Index con sentido opuesto); queda nombre + "% conf".
+- Rótulos posicionales en rondas de 9 jugadas del 10 al 18: la curva dice "Front 9" y las espirales "H1–H2"
+  (deberían ser "Back 9" / "H10–H11"). Ya existía: `RondaNormalizada` no expone `metadata.hoyos`. Los números
+  (índice, costo) son correctos; solo falla el rótulo. Fix: exponer los hoyos reales en `RondaNormalizada`.
+- Ronda de 18 que sale por el 10: `historical_rounds.scores` va por NÚMERO de hoyo (convención de
+  `golf/ronda-libre/tarjeta-historica.ts`), así que la espiral cruza 9→10 (último y primer hoyo jugados) y no
+  cruza 18→1 (consecutivos en juego). Caso borde aceptado y documentado; corregirlo exige el orden de juego
+  (hoyo de salida) en `RondaNormalizada`.
+- `TaigerHero` (fuera del PR3): el degradado tiene un tramo oscuro fijo `rgba(7,13,24,0.8)`; en tema claro el título
+  "tAIger+" (oscuro) queda con la mitad sobre esa banda. Y el carrusel avanza solo cada 5 s sin pausa ni
+  `prefers-reduced-motion` (WCAG 2.2.2); tocar un punto no reinicia el intervalo. Se resuelve junto con sacar el
+  tigre IA del coach (decisión de marca pendiente de Ola 2).
+- ~~Copy con juicio en `PlanActivo` ("El resto son donde la cabeza paga el precio.")~~ — resuelto en ad5d5ddc.

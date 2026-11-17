@@ -1,7 +1,8 @@
 /**
  * CANARIO — las superficies del CPI leen las mismas rondas (#545, revisión 1).
  *
- * /perfil, /api/cpi, /coach y el caché que escribe import-confirm mostraban CPI
+ * /perfil, /api/cpi, /coach (hasta el PR3 de la Ola 1, cuando el Mental Index dejó
+ * de usar el CPI) y el caché que escribe import-confirm mostraban CPI
  * distintos: dos no excluían las tarjetas FedeGolf, ninguna excluía las rondas
  * que el usuario sacó del índice y cada una leía una ventana distinta. La fuente
  * única es `fetchRondasCPI` (src/lib/data/perfil.ts); si alguien vuelve a armar
@@ -16,7 +17,6 @@ const leer = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8')
 
 const SUPERFICIES = [
   'app/api/cpi/route.ts',
-  'app/coach/page.tsx',
   'lib/import/confirmar.ts',
   'lib/data/perfil.ts',
 ]

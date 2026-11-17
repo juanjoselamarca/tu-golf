@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import type { MentalState } from '@/golf/coach/mental-index'
+import { contar } from '@/lib/text/contar'
 
 interface Props {
   fecha: string
@@ -11,7 +12,8 @@ interface Props {
   overPar: number
   states: Array<MentalState | null>
   scores: Array<number | null>
-  hole_pars: number[]
+  /** Par real por posición de la tarjeta; null donde no se sabe (nunca se inventa). */
+  pares: Array<number | null>
   espirales: number
   /** Detalle de la ronda (tarjeta hoyo a hoyo completa). Sin él, no se ofrece el enlace. */
   detalleHref?: string
@@ -23,7 +25,7 @@ const STATE_COLOR: Record<MentalState, string> = {
   tilt: 'var(--coach-recovery-low)',
 }
 
-function renderHalf(label: string, overParHalf: number, states: Array<MentalState | null>, scores: Array<number | null>, pars: number[], startIdx: number) {
+function renderHalf(label: string, overParHalf: number, states: Array<MentalState | null>, scores: Array<number | null>, pars: Array<number | null>, startIdx: number) {
   const n = scores.length
   if (n === 0) return null
   const gridCols: CSSProperties = { display: 'grid', gridTemplateColumns: `repeat(${n}, 1fr)`, gap: '2px' }
@@ -35,9 +37,9 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
       </div>
       <div style={{ ...gridCols, height: '18px', alignItems: 'flex-end', marginBottom: '4px' }} aria-hidden>
         {scores.map((s, i) => {
-          const par = pars[i] ?? 4
-          const over = s != null ? s - par : 0
-          const h = Math.min(100, 20 + over * 20)
+          const par = pars[i]
+          // Sin score o sin par real: sin barra (nunca un par 4 inventado).
+          const h = s != null && par != null ? Math.max(0, Math.min(100, 20 + (s - par) * 20)) : 0
           return <div key={`s-${startIdx + i}`} style={{ height: `${h}%`, background: 'var(--text)' }} />
         })}
       </div>
@@ -55,7 +57,7 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
   )
 }
 
-export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, scores, hole_pars, espirales, detalleHref }: Props) {
+export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, scores, pares, espirales, detalleHref }: Props) {
   const cardStyle: CSSProperties = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--line)',
@@ -67,14 +69,16 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
   const b9States = states.slice(9, 18)
   const f9Scores = scores.slice(0, 9)
   const b9Scores = scores.slice(9, 18)
-  const f9Pars = hole_pars.slice(0, 9)
-  const b9Pars = hole_pars.slice(9, 18)
-  const f9Over = f9Scores.reduce<number>((acc, s, i) => acc + (s != null ? s - (f9Pars[i] ?? 4) : 0), 0)
-  const b9Over = b9Scores.reduce<number>((acc, s, i) => acc + (s != null ? s - (b9Pars[i] ?? 4) : 0), 0)
+  const f9Pars = pares.slice(0, 9)
+  const b9Pars = pares.slice(9, 18)
+  const sobreParDe = (sc: Array<number | null>, ps: Array<number | null>) =>
+    sc.reduce<number>((acc, s, i) => { const par = ps[i]; return acc + (s != null && par != null ? s - par : 0) }, 0)
+  const f9Over = sobreParDe(f9Scores, f9Pars)
+  const b9Over = sobreParDe(b9Scores, b9Pars)
 
   const calmCount = states.filter(s => s === 'calm').length
   const tenseCount = states.filter(s => s === 'tense').length
-  const tiltCount = states.filter(s => s === 'tilt').length
+  const enTilt = states.filter(s => s === 'tilt').length
   // Rojo solo si hubo espirales: "0 espirales" es una buena noticia, no una alarma.
   const chipTone = espirales > 0
     ? { border: '1px solid var(--coach-recovery-low)', background: 'var(--coach-recovery-low-soft)', color: 'var(--coach-recovery-low)' }
@@ -87,7 +91,7 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
         <span style={{
           fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, padding: '3px 8px',
           borderRadius: '2px', ...chipTone, fontFamily: '"DM Mono", monospace',
-        }}>{espirales} espirales</span>
+        }}>{contar(espirales, 'espiral', 'espirales')}</span>
       </div>
       <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '18px' }}>
         {fecha} · {curso} · <span style={{ color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>{totalScore} ({overPar >= 0 ? '+' : ''}{overPar})</span>
@@ -97,9 +101,9 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
       {renderHalf('Back 9', b9Over, b9States, b9Scores, b9Pars, 9)}
 
       <div style={{ display: 'flex', gap: '12px', paddingTop: '14px', marginTop: '8px', borderTop: '1px solid var(--line)', fontSize: '12px', color: 'var(--text-2)', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-high)' }} aria-hidden />{calmCount} calmos</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-mid)' }} aria-hidden />{tenseCount} tensos</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-low)' }} aria-hidden />{tiltCount} tilt</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-high)' }} aria-hidden />{contar(calmCount, 'calmo', 'calmos')}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-mid)' }} aria-hidden />{contar(tenseCount, 'tenso', 'tensos')}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-low)' }} aria-hidden />{contar(enTilt, 'tilt', 'tilt')}</div>
         {detalleHref && (
           <Link href={detalleHref} style={{ color: 'var(--text)', fontWeight: 600, fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px', margin: '-14px 0 -14px auto' }}>hoyo a hoyo →</Link>
         )}

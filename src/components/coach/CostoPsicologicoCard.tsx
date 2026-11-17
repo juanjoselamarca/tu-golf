@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { concordar } from '@/lib/text/contar'
 
 interface Props {
   evitables: number
@@ -9,17 +10,21 @@ interface Props {
   realScore: number
   ghostScore: number
   delta: number
-  holesAffected: string[]
   /**
-   * Tamaño real del universo de rondas usado para calcular `evitables` y los
-   * promedios. La card renderea "ÚLTIMAS N RONDAS" en vez del viejo "30D"
-   * (que era falso: nunca hubo ventana temporal real).
+   * Espirales de la última ronda que costaron golpes, ya rotuladas por el server
+   * ("H8–H9", `etiquetaEspiral`). El componente cliente no importa el motor.
    */
-  windowSize: number
+  espirales: string[]
+  /**
+   * Ventana usada para `evitables` y los promedios, ya rotulada con su bucket y
+   * posesivo por el server (`textoVentanaMentalPosesivo`): "tus últimas 5 rondas
+   * de 18 hoyos" / "tu última ronda de 9 hoyos".
+   */
+  ventana: string
 }
 
-export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenido, realScore, ghostScore, delta, holesAffected, windowSize }: Props) {
-  const windowLabel = windowSize === 1 ? 'última ronda' : `últimas ${windowSize} rondas`
+export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenido, realScore, ghostScore, delta, espirales, ventana }: Props) {
+  const holesAffected = espirales
   const cardStyle: CSSProperties = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--line)',
@@ -41,16 +46,16 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
     <div style={cardStyle}>
       <div style={accent} aria-hidden />
       <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-recovery-low)', fontWeight: 700, marginBottom: '14px', fontFamily: '"DM Mono", monospace' }}>
-        Costo psicológico · {windowLabel}
+        Costo psicológico
       </div>
       <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '72px', fontWeight: 700, lineHeight: 0.92, color: 'var(--coach-recovery-low)', letterSpacing: '-0.03em', marginBottom: '4px' }}>
         {evitables}
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--text-2)', marginBottom: '16px', fontWeight: 500, letterSpacing: '0.02em' }}>
-        strokes evitables
+        {concordar(evitables, 'golpe evitable', 'golpes evitables')}
       </div>
       <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.55, paddingBottom: '18px', borderBottom: '1px solid var(--line)', marginBottom: '18px' }}>
-        Si hubieras contenido las espirales post-bogey en tus {windowLabel}, tu promedio hubiera bajado de <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioReal.toFixed(1)}</b> a <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioContenido.toFixed(1)}</b>. La cabeza paga, no el swing.
+        Si hubieras contenido las espirales post-bogey en {ventana}, tu promedio hubiera bajado de <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioReal.toFixed(1)}</b> a <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioContenido.toFixed(1)}</b>.
       </div>
 
       <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700, marginBottom: '8px', fontFamily: '"DM Mono", monospace' }}>
@@ -64,7 +69,7 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--text-2)', lineHeight: 1.55 }}>
         Conteniendo {holesAffected.length === 1 ? (
-          <>la <b style={{ color: 'var(--text)', fontWeight: 600 }}>espiral</b> en ({holesAffected[0]})</>
+          <>la <b style={{ color: 'var(--text)', fontWeight: 600 }}>espiral</b> de {holesAffected[0]}</>
         ) : (
           <>las <b style={{ color: 'var(--text)', fontWeight: 600 }}>{holesAffected.length} espirales</b> ({holesAffected.join(', ')})</>
         )} terminabas en <b style={{ color: 'var(--text)', fontWeight: 600 }}>{ghostScore}</b>.

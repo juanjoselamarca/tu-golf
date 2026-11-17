@@ -49,9 +49,9 @@ function daysAgo(n) {
   return d.toISOString()
 }
 
-// Rondas con espirales detectables — necesario para que strokesEvitables tenga
-// instancias y CostoPsicologicoCard renderee. Scores diseñadas para activar
-// post_bogey_spiral pattern (>40% de bogeys seguidos por otro bogey).
+// Rondas con espirales detectables — necesario para que el costo psicológico
+// (resumenMentalDelCoach) tenga golpes evitables y CostoPsicologicoCard renderee.
+// Scores diseñadas para activar el patrón post_bogey_spiral (>40% de bogeys seguidos por otro bogey).
 const ROUNDS = [
   {
     played_at: daysAgo(23),  // 18 abr — mejor ronda mental
