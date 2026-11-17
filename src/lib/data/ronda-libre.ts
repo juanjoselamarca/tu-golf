@@ -13,7 +13,7 @@ import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, resolverCourseD
 import { hcpPctDeRonda, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
-import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { hoyosJugadosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
 import { conJugadoresOrdenados } from '@/lib/ronda/orden-jugadores'
@@ -194,7 +194,8 @@ export interface HoyoDeCatalogoEnVivo {
  * tarjeta de compartir (que no) mostraran netos distintos. Idempotente sobre un SI
  * ya válido. Bug de campo "net +12 Don Jorge" (inbox e6408e3c).
  *
- * El rango se toma sobre los hoyos que SE JUEGAN (`hoyosDeLaRonda` desde `hoyoInicio`), no sobre 1..N: una
+ * El rango se toma sobre los hoyos que SE JUEGAN (`hoyosJugadosDeLaRonda`, el mismo criterio del scorer y de
+ * todos los consumidores), no sobre 1..N: una
  * ronda de 9 desde el 10 rankeaba los hoyos 1..9 y el siMap salía sin 10..18 (QA Timba 17-nov, ronda 251825:
  * la Timba neto no calculaba y el leaderboard repartía los golpes por número de hoyo).
  *
@@ -215,9 +216,7 @@ export function parYSiDeLaRonda(
     parMap[h.numero] = h.par
     siMap[h.numero] = h.stroke_index
   }
-  // El wrap de la salida es sobre los hoyos que tiene la vuelta (una cancha de 9 jugada desde el 5 vuelve al 1).
-  const jugados = hoyosDeLaRonda(hoyoInicio, totalHoyos, Math.max(totalHoyos, Object.keys(parMap).length))
-  if (Object.keys(siMap).length > 0) siMap = normalizeStrokeIndexMap(siMap, totalHoyos, jugados)
+  if (Object.keys(siMap).length > 0) siMap = normalizeStrokeIndexMap(siMap, totalHoyos, hoyosJugadosDeLaRonda(hoyoInicio, totalHoyos))
   const parTotal = Object.values(parMap).reduce((a, b) => a + b, 0)
   return { parMap, siMap, parTotal }
 }

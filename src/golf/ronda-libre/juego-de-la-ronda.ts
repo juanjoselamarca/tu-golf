@@ -11,7 +11,7 @@
  *  9. Retiros persistidos; uno desde un hoyo que no está en la ronda lo ignora el motor.
  * 10. `rondaCerrada` = `esRondaCerrada(estado)` leído de la base.
  */
-import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { hoyosJugadosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import {
   golpesRecibidosPorHoyo,
@@ -69,10 +69,6 @@ const numeroValido = (v: unknown): number | null => {
   return typeof n === 'number' && Number.isFinite(n) ? n : null
 }
 
-/** Hoyos en orden de juego. `courseHoles` 27 en un 27 h: con el default 18 los hoyos 19-27 serían 1-9 otra vez. */
-function hoyosEnOrdenDeJuego(ronda: DatosDelJuego['ronda']): number[] {
-  return hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes, Math.max(18, ronda.holes))
-}
 
 export function armarEntradaDelJuego(datos: DatosDelJuego): EntradaDelJuego {
   const reglas = leerReglasGuardadas(datos.reglasJuego)
@@ -85,7 +81,7 @@ export function armarEntradaDelJuego(datos: DatosDelJuego): EntradaDelJuego {
   }
   if (config.modo === 'neto' && !netoDisponibleEnHoyos(datos.ronda.holes)) return { ok: false, motivo: 'neto_no_disponible' }
 
-  const numeros = hoyosEnOrdenDeJuego(datos.ronda)
+  const numeros = hoyosJugadosDeLaRonda(datos.ronda.hoyo_inicio, datos.ronda.holes)
   if (numeros.some(n => numeroValido(datos.parMap[n]) == null)) return { ok: false, motivo: 'sin_datos_de_cancha' }
   const conSi = numeros.every(n => numeroValido(datos.siMap[n]) != null)
   if (config.modo === 'neto' && !conSi) return { ok: false, motivo: 'sin_datos_de_cancha' }

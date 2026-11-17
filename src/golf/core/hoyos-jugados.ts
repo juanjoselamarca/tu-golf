@@ -46,6 +46,15 @@ export function hoyosDeLaRonda(
   return orden
 }
 
+/**
+ * Los hoyos de una RONDA guardada (`hoyo_inicio`, `holes`), en orden de juego: `hoyosDeLaRonda` sobre una cancha de
+ * 18, o de `holes` si son más (27 en un 27 h: con 18 los hoyos 19-27 serían 1-9 otra vez). Es el criterio del scorer y
+ * de todos los consumidores del siMap; la capa de datos lo usa para rankear el SI sobre los mismos hoyos.
+ */
+export function hoyosJugadosDeLaRonda(hoyoInicio: number | null | undefined, holes: number): number[] {
+  return hoyosDeLaRonda(hoyoInicio, holes, Math.max(18, holes))
+}
+
 /** 1..N — los hoyos de una ronda que parte en el 1. Default de las funciones con `hoyos?`. */
 export function hoyosDesdeElUno(totalHoles: number): number[] {
   return Array.from({ length: Math.max(0, Math.trunc(totalHoles) || 0) }, (_, i) => i + 1)
