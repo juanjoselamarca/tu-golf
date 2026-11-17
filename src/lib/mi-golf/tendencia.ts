@@ -1,5 +1,5 @@
 // src/lib/mi-golf/tendencia.ts
-import { isMatchPlayFormat, isTeamFormat } from '@/golf/formats'
+import { isIndexEligible } from '@/golf/core/index-window'
 import type { HistoricalRound, Tendencia } from './types'
 
 const VENTANA_DIAS = 30
@@ -22,10 +22,10 @@ export function calcularTendencia(historico: HistoricalRound[], ahora: number = 
   const recientes: number[] = []
   const anteriores: number[] = []
   for (const r of historico) {
-    if (!r.played_at || r.diferencial == null) continue
-    // Las mismas que no cuentan para el índice: excluidas a mano, match play (hoyos
-    // concedidos: el gross no es real) y formatos de equipo. Conservan su diferencial en la tabla.
-    if (r.excluded_from_handicap || isMatchPlayFormat(r.formato_juego) || isTeamFormat(r.formato_juego)) continue
+    // Solo las rondas que cuentan para el índice (isIndexEligible, misma regla que la RPC):
+    // fuera las excluidas a mano y los scores imposibles. Match play y best ball SÍ cuentan
+    // (WHS 2024, Regla 2.1a); la bola compartida ya llega sin diferencial.
+    if (!r.played_at || r.diferencial == null || !isIndexEligible(r)) continue
     const edad = ahora - new Date(r.played_at + 'T12:00:00').getTime()
     // `played_at` es fecha sin hora y el servidor corre en UTC: la ronda de hoy puede caer
     // unas horas "en el futuro". Hasta un día adelante cuenta como reciente.

@@ -11,6 +11,8 @@ const r = (id: string, diasAtras: number, diferencial: number | null): Historica
   played_at: new Date(AHORA - diasAtras * 86400000).toISOString().slice(0, 10),
   diferencial,
   holes_played: 18,
+  slope_rating: 130,
+  course_rating: 72,
 })
 
 describe('calcularTendencia', () => {
@@ -55,14 +57,18 @@ describe('calcularTendencia', () => {
       .toBe('Tu diferencial promedio subió 2.0 frente a los 30 días anteriores.')
   })
 
-  it('ignora rondas excluidas del índice, match play y equipo aunque tengan diferencial', () => {
+  it('usa solo las rondas que cuentan para el índice (isIndexEligible)', () => {
     const base = [r('1', 2, 10), r('2', 10, 11), r('3', 20, 12), r('4', 35, 14), r('5', 40, 15), r('6', 50, 13)]
-    const ruido = [
+    // No cuentan: excluida a mano, score imposible (gross < 3 por hoyo), sin slope/rating.
+    const fuera = [
       { ...r('x1', 5, 40), excluded_from_handicap: true },
-      { ...r('x2', 6, 40), formato_juego: 'match_play' },
-      { ...r('x3', 7, 40), formato_juego: 'scramble' },
+      { ...r('x2', 6, 40), total_gross: 40 },
+      { ...r('x3', 7, 40), slope_rating: null },
     ]
-    expect(calcularTendencia([...base, ...ruido], AHORA)).toEqual(calcularTendencia(base, AHORA))
+    expect(calcularTendencia([...base, ...fuera], AHORA)).toEqual(calcularTendencia(base, AHORA))
+    // Control positivo: una ronda válida (match play, best ball o stableford: el formato no
+    // filtra) con diferencial 40 sí mueve el promedio reciente.
+    expect(calcularTendencia([...base, r('ok', 5, 40)], AHORA)?.direccion).toBe('down')
   })
 
   it('no depende de ningún índice: un índice oficial viejo no inventa tendencia', () => {

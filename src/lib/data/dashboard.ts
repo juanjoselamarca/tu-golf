@@ -28,7 +28,7 @@ import type { RawStatsRound, RondaNormalizada } from '@/golf/stats/rondas-normal
 // `scores`/`par_per_hole` se omiten a propósito (se traen aparte solo para la
 // última ronda del día vía loadUltimaRondaDetalle).
 const HISTORICO_SLIM_COLS =
-  'id, total_gross, course_name, played_at, diferencial, holes_played, excluded_from_handicap, formato_juego, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id'
+  'id, total_gross, course_name, played_at, diferencial, holes_played, slope_rating, course_rating, excluded_from_handicap, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id'
 
 function mapHistoricoSlim(rows: unknown): HistoricalRound[] {
   return ((rows as Array<Record<string, unknown>>) || []).map((row) => ({
@@ -38,8 +38,9 @@ function mapHistoricoSlim(rows: unknown): HistoricalRound[] {
     played_at: (row.played_at as string | null) ?? null,
     diferencial: (row.diferencial as number | null) ?? null,
     holes_played: (row.holes_played as number | null) ?? null,
+    slope_rating: (row.slope_rating as number | null) ?? null,
+    course_rating: (row.course_rating as number | null) ?? null,
     excluded_from_handicap: (row.excluded_from_handicap as boolean | null) ?? null,
-    formato_juego: (row.formato_juego as string | null) ?? null,
     rondaLibreJugadorId: (row.ronda_libre_jugador_id as string | null) ?? null,
     scores: null,
     parPerHole: null,
@@ -72,9 +73,10 @@ export type CompetenciaData = {
 }
 
 // Historial reciente de la pestaña Competencia: lo que normalizarRondas necesita, más
-// el vínculo exacto con la tarjeta en vivo (emparejarConHistorial) y el diferencial.
+// el vínculo exacto con la tarjeta en vivo (emparejarConHistorial) y los campos de
+// isIndexEligible (mismo `historico` que Identidad: sirve para calcularTendencia).
 const HISTORICO_COMPETENCIA_COLS =
-  `${COLUMNAS_RONDA_NORMALIZABLE}, diferencial, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id`
+  `${COLUMNAS_RONDA_NORMALIZABLE}, diferencial, slope_rating, course_rating, excluded_from_handicap, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id`
 
 export async function loadCompetenciaData(
   supabase: SupabaseClient,
