@@ -78,7 +78,7 @@ export default function ScoreGrupoPage() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
-  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste } =
+  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
@@ -195,7 +195,7 @@ export default function ScoreGrupoPage() {
         }} />
       )}
 
-      <ConexionScorerBanner conexion={conexion} pendienteDeEnvio={pendienteDeEnvio} codigo={codigo} />
+      <ConexionScorerBanner conexion={conexion} pendienteDeEnvio={pendienteDeEnvio} codigo={codigo} sesionPerdida={sesionPerdida} />
 
       <GrupoScorerHeader
         currentHole={currentHole}

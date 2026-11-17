@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
 import { useGrupoScoreSave } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
+import { leerPendientes } from '@/lib/ronda/score-storage'
 
 const saveRondaLibreScores = vi.fn(async () => ({ error: null as unknown }))
 vi.mock('@/lib/data/ronda-libre-scores', () => ({
@@ -10,10 +11,15 @@ vi.mock('@/lib/data/ronda-libre-scores', () => ({
   ERRCODE_SIN_RESPUESTA: 'SIN_RESPUESTA',
 }))
 // Lectura del estado de la ronda (confirma un P0001): por defecto la ronda existe y está en curso.
-const { estadoRonda, cliente } = vi.hoisted(() => {
+// Sesión del teléfono (`sesionDelScorer` lee getSession): por defecto hay sesión.
+const { estadoRonda, sesion, cliente } = vi.hoisted(() => {
   const estadoRonda = { valor: { data: { estado: 'en_curso' }, error: null } as { data: unknown; error: unknown } }
-  const cliente = { from: () => ({ select: () => ({ eq: () => ({ single: async () => estadoRonda.valor }) }) }) }
-  return { estadoRonda, cliente }
+  const sesion = { valor: { data: { session: { user: { id: 'u1' } } }, error: null } as { data: unknown; error: unknown } }
+  const cliente = {
+    from: () => ({ select: () => ({ eq: () => ({ single: async () => estadoRonda.valor }) }) }),
+    auth: { getSession: async () => sesion.valor },
+  }
+  return { estadoRonda, sesion, cliente }
 })
 vi.mock('@/lib/supabase', () => ({ createClient: () => cliente }))
 const addToast = vi.fn()
@@ -57,6 +63,7 @@ beforeEach(() => {
   addToast.mockClear()
   saveGroupScores.mockClear()
   estadoRonda.valor = { data: { estado: 'en_curso' }, error: null }
+  sesion.valor = { data: { session: { user: { id: 'u1' } } }, error: null }
 })
 afterEach(() => vi.useRealTimers())
 
@@ -482,5 +489,53 @@ describe('useGrupoScoreSave — ronda borrada por su creador (P0001, PR #763)', 
     await act(async () => { await vi.advanceTimersByTimeAsync(16_000) })
     expect(result.current.save.rondaNoExiste).toBe(true)
     expect(localStorage.getItem('ronda_grupo_ABC')).toBeNull()
+  })
+})
+
+describe('useGrupoScoreSave — sesión perdida en plena ronda (P0003)', () => {
+  const P0003 = { error: { code: 'P0003', message: 'RONDA_FORBIDDEN' } }
+
+  it('sin sesión en el teléfono: sesionPerdida (aviso de iniciar sesión, no "Sin conexión") y los golpes siguen pendientes', async () => {
+    saveRondaLibreScores.mockResolvedValue(P0003)
+    sesion.valor = { data: { session: null }, error: null }
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    expect(result.current.save.sesionPerdida).toBe(true)
+    expect(result.current.save.pendienteDeEnvio).toBe(true)
+    expect(leerPendientes('ABC').p1).toEqual({ 1: 4 })
+    // Vuelve la sesión: el reintento automático sube los golpes y el aviso se va.
+    saveRondaLibreScores.mockResolvedValue({ error: null })
+    sesion.valor = { data: { session: { user: { id: 'u1' } } }, error: null }
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+    expect(result.current.save.sesionPerdida).toBe(false)
+    expect(result.current.save.pendienteDeEnvio).toBe(false)
+  })
+
+  it('con sesión (P0003 de verdad): no es sesión perdida', async () => {
+    saveRondaLibreScores.mockResolvedValue(P0003)
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    expect(result.current.save.sesionPerdida).toBe(false)
+  })
+
+  it('ronda demo (P0003 "ronda demo"): no mira la sesión ni pide iniciarla', async () => {
+    saveRondaLibreScores.mockResolvedValue({ error: { ...P0003.error, details: 'ronda demo' } })
+    sesion.valor = { data: { session: null }, error: null }
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    expect(result.current.save.sesionPerdida).toBe(false)
+  })
+
+  it('sesión sin poder confirmarse (red): sigue siendo falta de señal', async () => {
+    saveRondaLibreScores.mockResolvedValue(P0003)
+    sesion.valor = { data: { session: null }, error: { message: 'Failed to fetch' } }
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    expect(result.current.save.sesionPerdida).toBe(false)
+    expect(result.current.save.pendienteDeEnvio).toBe(true)
   })
 })

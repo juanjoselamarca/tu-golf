@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { saveRondaLibreScores, saveRondaEquiposScores, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
-import { RONDA_ERRCODE, esNoReintentable, esRechazoQueDescarta } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, esNoReintentable, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
+import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { addToast } from '@/hooks/useToast'
 import { haptic } from '@/lib/ronda/helpers'
 import {
@@ -81,6 +82,11 @@ export interface GrupoScoreSave {
   rondaCerrada: boolean
   /** La ronda ya no existe (P0001): las copias locales se borraron y se avisó; hay que salir. */
   rondaNoExiste: boolean
+  /**
+   * El servidor rechazó el envío (P0003) y el teléfono ya no tiene sesión: se perdió en plena ronda. No es falta
+   * de señal: el aviso pide iniciar sesión (los golpes siguen pendientes y suben al volver).
+   */
+  sesionPerdida: boolean
 }
 
 /**
@@ -136,6 +142,7 @@ export function useGrupoScoreSave(input: {
   const [sinEnviar, setSinEnviar] = useState(false)
   const sinEnviarRef = useRef(false)
   const marcarSinEnviar = useCallback((v: boolean) => { sinEnviarRef.current = v; setSinEnviar(v) }, [])
+  const [sesionPerdida, setSesionPerdida] = useState(false)
   const pendingConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const editWindowRef = useRef<PendingScoreConfirm | null>(null)
   const editWindowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -220,6 +227,7 @@ export function useGrupoScoreSave(input: {
       let rechazoDefinitivo: string | null = null
       let vioRondaCerrada = false
       let noExiste = false
+      let rechazoDeSesion = false
       // La ronda se cerró en otro dispositivo / golpe fuera de rango: no se reintenta, pero tampoco
       // se informa como guardado. Sólo lo que el servidor no va a aceptar nunca sale de pendientes: con
       // la ronda cerrada (P0002) los golpes se quedan en el teléfono, porque se puede reabrir (reabrir un
@@ -266,7 +274,8 @@ export function useGrupoScoreSave(input: {
           else if (esNoReintentable(r.error)) { rechazar(id, golpes, r.error.code); return { error: null } }
           return r
         })
-        const results: { error: { code?: string } | null }[] = await Promise.all(envios)
+        const results: { error: { code?: string; details?: string } | null }[] = await Promise.all(envios)
+        rechazoDeSesion = results.some(r => rechazoQuePuedeSerSesion(r.error))
         if (noEncontrados.length > 0) {
           // Borrada → limpiar y salir. Viva (falta ese jugador o equipo) → rechazo de esas tarjetas.
           // Sin señal para confirmarlo → como servidor sin respuesta: nada se limpia y se reintenta.
@@ -303,6 +312,7 @@ export function useGrupoScoreSave(input: {
       } else if (ok && !hayPendientes(codigo)) {
         // Entró todo: la ronda está abierta (se reabrió, si un envío anterior la vio cerrada).
         rondaCerradaRef.current = false
+        setSesionPerdida(false)
         // El próximo rechazo firme vuelve a avisar.
         avisoDefinitivoRef.current = false
         const veniaDeCaida = sinEnviarRef.current
@@ -323,6 +333,9 @@ export function useGrupoScoreSave(input: {
       } else if (!ok) {
         marcarSinEnviar(true)
         setSaveStatus('error')
+        // P0003: lo típico es la sesión vencida o cerrada en plena ronda. Sin sesión en el teléfono el aviso es
+        // el de iniciar sesión, no "Sin conexión" (sin poder confirmarla, sí es falta de señal y se reintenta).
+        if (rechazoDeSesion && (await sesionDelScorer(supabase)).estado === 'sin_sesion') setSesionPerdida(true)
       }
     } finally {
       enVueloRef.current = false
@@ -465,6 +478,6 @@ export function useGrupoScoreSave(input: {
 
   return {
     saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm,
-    handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste,
+    handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida,
   }
 }

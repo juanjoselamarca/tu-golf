@@ -10,17 +10,19 @@ import { avisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
  * estaban a salvo y la app lo sacaba de la ronda. Ahora el scorer sigue anotando
  * en el teléfono y este aviso dice exactamente eso, en una línea, sin bloquear.
  * Devuelve null si todo está al día. Sin sesión, el copy es el canónico de los scorers (`avisoSesionCerrada`):
- * acá no se sabe si la tuvo al abrir, así que va la variante "Inicia sesión para guardar".
+ * abierta ya sin sesión (`conexion === 'sin_sesion'`) va "Inicia sesión para guardar"; perdida en plena ronda
+ * (`sesionPerdida`: un envío rebotó y el teléfono ya no la tiene), "Tu sesión se cerró".
  */
-export function avisoSinSesionGrupo(codigo: string) {
-  return avisoSesionCerrada(`/ronda-libre/${codigo}/score-grupo`, { habiaSesion: false })
+export function avisoSinSesionGrupo(codigo: string, conexion: ConexionScorer, sesionPerdida: boolean) {
+  if (!sesionPerdida && conexion !== 'sin_sesion') return null
+  return avisoSesionCerrada(`/ronda-libre/${codigo}/score-grupo`, { habiaSesion: sesionPerdida && conexion !== 'sin_sesion' })
 }
 
-export function textoConexionScorer(conexion: ConexionScorer, pendienteDeEnvio: boolean, codigo: string): string | null {
-  if (conexion === 'sin_sesion') {
-    const aviso = avisoSinSesionGrupo(codigo)
-    return `${aviso.titulo}. ${aviso.detalle}`
-  }
+export function textoConexionScorer(
+  conexion: ConexionScorer, pendienteDeEnvio: boolean, codigo: string, sesionPerdida = false,
+): string | null {
+  const aviso = avisoSinSesionGrupo(codigo, conexion, sesionPerdida)
+  if (aviso) return `${aviso.titulo}. ${aviso.detalle}`
   if (conexion === 'sin_conexion' || pendienteDeEnvio) {
     return 'Sin conexión con el servidor. Tus golpes quedan guardados en este teléfono y se envían solos.'
   }
@@ -31,14 +33,16 @@ export function ConexionScorerBanner({
   conexion,
   pendienteDeEnvio,
   codigo,
+  sesionPerdida = false,
 }: {
   conexion: ConexionScorer
   pendienteDeEnvio: boolean
   codigo: string
+  sesionPerdida?: boolean
 }) {
-  const texto = textoConexionScorer(conexion, pendienteDeEnvio, codigo)
+  const texto = textoConexionScorer(conexion, pendienteDeEnvio, codigo, sesionPerdida)
   if (!texto) return null
-  const sinSesion = conexion === 'sin_sesion' ? avisoSinSesionGrupo(codigo) : null
+  const sinSesion = avisoSinSesionGrupo(codigo, conexion, sesionPerdida)
   return (
     <div
       role="status"
