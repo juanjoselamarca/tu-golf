@@ -1,4 +1,4 @@
--- Rollback de 20261118120000_cierre_automatico_torneos.sql. Antes, revertir el código que lee estas columnas
+-- Rollback de 20261118130000_cierre_automatico_torneos.sql. Antes, revertir el código que lee estas columnas
 -- (closeTournament/reopenTournament y el cron de cierre): un SELECT o UPDATE con una columna que no existe falla.
 -- Se pierden las marcas de aviso y de cierre automático (no cambia el status de ningún torneo).
 
