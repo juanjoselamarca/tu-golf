@@ -74,7 +74,8 @@ function tarjetaUnicaDelUsuario(
  * enlace, por `user_id` sólo si hay UNA tarjeta de ese usuario en la ronda de su
  * grupo (`(ronda_id, user_id)` no tiene restricción de unicidad). Un WD/DQ sin
  * fila de grupo (se retiró antes de empezar: no debería tener tarjeta) se busca
- * igual por `user_id` en todo el torneo; si no aparece, no jugó y no se reporta.
+ * igual por `user_id` en todo el torneo: con una, sale; sin ninguna, no jugó y no
+ * se reporta; con 2+ o sin cuenta (invitado), se reporta como sin resolver.
  */
 export function estadoFueraPorTarjeta(
   grupos: ReadonlyArray<GrupoConTarjetas>,
@@ -102,8 +103,11 @@ export function estadoFueraPorTarjeta(
   }
   for (const inscrito of fuera) {
     if (conFila.has(inscrito.id)) continue
-    const tarjetaId = tarjetaUnicaDelUsuario(tarjetas, inscrito.user_id)
-    if (tarjetaId) porTarjeta.set(tarjetaId, inscrito)
+    // Invitado sin cuenta: no hay forma segura de saber si tiene tarjeta → se reporta.
+    if (!inscrito.user_id) { sinResolver.push(inscrito); continue }
+    const suyas = tarjetas.filter((t) => t.user_id === inscrito.user_id)
+    if (suyas.length === 1) porTarjeta.set(suyas[0].id, inscrito)
+    else if (suyas.length > 1) sinResolver.push(inscrito) // ambiguo: no se elige una
   }
   return { porTarjeta, sinResolver }
 }
@@ -162,4 +166,50 @@ export function scoresQueCuentanEnMejorBola(
   estado: EstadoFueraDelRanking | null | undefined,
 ): Record<string, number> {
   return estado === 'disqualified' ? {} : scores
+}
+
+/** Sigla que se muestra de cada estado (pie, marca en la fila del equipo). */
+export const SIGLA_FUERA: Readonly<Record<EstadoFueraDelRanking, 'WD' | 'DQ'>> = {
+  withdrawn: 'WD',
+  disqualified: 'DQ',
+}
+
+/**
+ * Nombre de un miembro de un equipo que SIGUE rankeado (scramble, mejor bola) con
+ * su marca si se retiró o fue descalificado: "Pedro Pérez · WD". Texto, no color
+ * (decisión de Juanjo, 17-nov).
+ */
+export function nombreConMarca(nombre: string, estado: EstadoFueraDelRanking | null | undefined): string {
+  return estado ? `${nombre} · ${SIGLA_FUERA[estado]}` : nombre
+}
+
+const hoyoAnotado = (scores: Readonly<Record<string, number>>, hoyo: string) => {
+  const g = scores[hoyo]
+  return typeof g === 'number' && g > 0
+}
+
+/**
+ * Mejor bola con un DQ (decisión de Juanjo, 17-nov; Reglas 3.3c y 23.2b): los
+ * golpes del descalificado no cuentan, y si con eso queda algún hoyo anotado sin
+ * el score de un compañero NO descalificado, el equipo entero queda DQ (incluye
+ * "ambos DQ" y "el compañero no jugó ningún hoyo"). Si el compañero cubrió todos
+ * los hoyos, el equipo sigue (`null`). Un WD no cambia nada (Regla 23.4).
+ * `miembros`: las tarjetas con sus golpes CRUDOS (antes de quitar los del DQ).
+ */
+export function estadoDelEquipoMejorBola(
+  miembros: ReadonlyArray<{ id: string; scores: Readonly<Record<string, number>> }>,
+  porTarjeta: ReadonlyMap<string, InscritoFuera>,
+): 'disqualified' | null {
+  const esDq = (id: string) => porTarjeta.get(id)?.status === 'disqualified'
+  const dqs = miembros.filter((m) => esDq(m.id))
+  if (dqs.length === 0) return null
+  const validos = miembros.filter((m) => !esDq(m.id))
+  const cubiertos = new Set(validos.flatMap((m) => Object.keys(m.scores).filter((h) => hoyoAnotado(m.scores, h))))
+  if (cubiertos.size === 0) return 'disqualified'
+  for (const m of dqs) {
+    for (const h of Object.keys(m.scores)) {
+      if (hoyoAnotado(m.scores, h) && !cubiertos.has(h)) return 'disqualified'
+    }
+  }
+  return null
 }

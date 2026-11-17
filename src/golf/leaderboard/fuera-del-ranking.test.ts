@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   estadoDelEquipoFoursome,
+  estadoDelEquipoMejorBola,
+  nombreConMarca,
   estadoFueraPorTarjeta,
   ordenDelPie,
   scoresQueCuentanEnMejorBola,
@@ -65,6 +67,22 @@ describe('estadoFueraPorTarjeta (#813)', () => {
     expect([...r.porTarjeta.keys()]).toEqual(['j-ana'])
   })
 
+  it('WD sin fila de grupo y con DOS tarjetas de su cuenta: ambiguo, se reporta y no se elige una', () => {
+    const r = estadoFueraPorTarjeta(
+      [G('r1', []), G('r2', [])],
+      [P('p-ana', 'withdrawn', 'u-ana')],
+      [T('j-1', 'r1', 'u-ana'), T('j-2', 'r2', 'u-ana')],
+    )
+    expect(r.porTarjeta.size).toBe(0)
+    expect(r.sinResolver.map((p) => p.id)).toEqual(['p-ana'])
+  })
+
+  it('INVITADO WD sin fila de grupo (sin cuenta): no se adivina, se reporta', () => {
+    const r = estadoFueraPorTarjeta([G('r1', [])], [P('p-inv', 'disqualified')], [T('j-x', 'r1', null)])
+    expect(r.porTarjeta.size).toBe(0)
+    expect(r.sinResolver.map((p) => p.id)).toEqual(['p-inv'])
+  })
+
   it('WD sin fila de grupo y sin tarjeta (se retiró antes de jugar): nada que sacar ni reportar', () => {
     const r = estadoFueraPorTarjeta([G('r1', [])], [P('p-ana', 'withdrawn', 'u-ana')], [T('j-otro', 'r1', 'u-otro')])
     expect(r.porTarjeta.size).toBe(0)
@@ -125,5 +143,43 @@ describe('equipos (decisiones de Juanjo, 17-nov)', () => {
     expect(scoresQueCuentanEnMejorBola(scores, 'disqualified')).toEqual({})
     expect(scoresQueCuentanEnMejorBola(scores, 'withdrawn')).toBe(scores)
     expect(scoresQueCuentanEnMejorBola(scores, undefined)).toBe(scores)
+  })
+
+  it('marca en la fila del equipo: "Nombre · WD" / "· DQ"; sin estado, el nombre tal cual', () => {
+    expect(nombreConMarca('Pedro Pérez', 'withdrawn')).toBe('Pedro Pérez · WD')
+    expect(nombreConMarca('Pedro Pérez', 'disqualified')).toBe('Pedro Pérez · DQ')
+    expect(nombreConMarca('Pedro Pérez', null)).toBe('Pedro Pérez')
+  })
+})
+
+describe('estadoDelEquipoMejorBola (R3.3c / 23.2b, decisión 17-nov)', () => {
+  const { porTarjeta } = estadoFueraPorTarjeta(
+    [G('r1', [['p-a', 'j-a'], ['p-b', 'j-b'], ['p-c', 'j-c']])],
+    [P('p-a', 'withdrawn'), P('p-b', 'disqualified'), P('p-c', 'approved')],
+    [T('j-a', 'r1', null), T('j-b', 'r1', null), T('j-c', 'r1', null)],
+  )
+  const M = (id: string, scores: Record<string, number>) => ({ id, scores })
+
+  it('el compañero cubrió todos los hoyos que anotó el DQ: el equipo sigue', () => {
+    expect(estadoDelEquipoMejorBola([M('j-b', { '1': 4, '2': 5 }), M('j-c', { '1': 5, '2': 6, '3': 4 })], porTarjeta)).toBeNull()
+  })
+
+  it('el compañero levantó un hoyo que sólo anotó el DQ: el equipo entero queda DQ', () => {
+    expect(estadoDelEquipoMejorBola([M('j-b', { '1': 4, '2': 5 }), M('j-c', { '1': 5, '2': 0 })], porTarjeta)).toBe('disqualified')
+  })
+
+  it('el compañero no jugó ningún hoyo: DQ', () => {
+    expect(estadoDelEquipoMejorBola([M('j-b', { '1': 4 }), M('j-c', {})], porTarjeta)).toBe('disqualified')
+  })
+
+  it('ambos DQ: DQ', () => {
+    const ambos = new Map(porTarjeta)
+    ambos.set('j-c', { ...porTarjeta.get('j-b')!, id: 'p-c' })
+    expect(estadoDelEquipoMejorBola([M('j-b', { '1': 4 }), M('j-c', { '1': 5 })], ambos)).toBe('disqualified')
+  })
+
+  it('un WD no cambia nada (R23.4), ni sin DQ en el equipo', () => {
+    expect(estadoDelEquipoMejorBola([M('j-a', { '1': 4 }), M('j-c', {})], porTarjeta)).toBeNull()
+    expect(estadoDelEquipoMejorBola([M('j-c', { '1': 4 })], porTarjeta)).toBeNull()
   })
 })

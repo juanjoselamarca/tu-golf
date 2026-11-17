@@ -69,14 +69,19 @@ export async function fetchWithdrawnPlayers(
  * Camino de RONDA LIBRE: separa las tarjetas que compiten de las del pie. Lo que
  * devuelve `enRanking` es lo ÚNICO que entra al motor del board (ranking, podio,
  * resultados del cierre y GWI). Si el estado no se pudo leer, nadie sale (y quedó
- * reportado): la tabla no se cae.
+ * reportado): la tabla no se cae. `porTarjeta` se reusa para los equipos: el
+ * estado se lee UNA vez por armado del board.
  */
 export async function separarTarjetasFueraDelRanking(
   supabase: Client,
   args: { tournamentId: string; grupos: ReadonlyArray<GrupoConTarjetas>; tarjetas: DBRondaLibreJugador[] },
-): Promise<{ enRanking: DBRondaLibreJugador[]; fuera: Array<{ tarjeta: DBRondaLibreJugador; inscrito: InscritoFuera }> }> {
+): Promise<{
+  enRanking: DBRondaLibreJugador[]
+  fuera: Array<{ tarjeta: DBRondaLibreJugador; inscrito: InscritoFuera }>
+  porTarjeta: ReadonlyMap<string, InscritoFuera>
+}> {
   const { porTarjeta } = await leerEstadosFuera(supabase, args.tournamentId, args.grupos, args.tarjetas)
-  return separarFueraDelRanking(args.tarjetas, porTarjeta)
+  return { ...separarFueraDelRanking(args.tarjetas, porTarjeta), porTarjeta }
 }
 
 /**
