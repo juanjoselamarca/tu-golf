@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { etiquetaEspiral, textoVentanaMental, type BucketMental, type Espiral } from '@/golf/coach/mental-index'
 
 interface Props {
   evitables: number
@@ -9,17 +10,19 @@ interface Props {
   realScore: number
   ghostScore: number
   delta: number
-  holesAffected: string[]
+  /** Espirales de la última ronda que costaron golpes. */
+  espirales: Espiral[]
   /**
-   * Tamaño real del universo de rondas usado para calcular `evitables` y los
-   * promedios. La card renderea "ÚLTIMAS N RONDAS" en vez del viejo "30D"
-   * (que era falso: nunca hubo ventana temporal real).
+   * Tamaño real de la ventana usada para `evitables` y los promedios, con su
+   * bucket: "últimas 5 rondas de 18 hoyos" (nunca mezcla 9 y 18).
    */
   windowSize: number
+  bucket: BucketMental | null
 }
 
-export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenido, realScore, ghostScore, delta, holesAffected, windowSize }: Props) {
-  const windowLabel = windowSize === 1 ? 'última ronda' : `últimas ${windowSize} rondas`
+export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenido, realScore, ghostScore, delta, espirales, windowSize, bucket }: Props) {
+  const windowLabel = textoVentanaMental(windowSize, bucket)
+  const holesAffected = espirales.map(etiquetaEspiral)
   const cardStyle: CSSProperties = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--line)',

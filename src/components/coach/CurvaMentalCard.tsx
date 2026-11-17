@@ -11,7 +11,8 @@ interface Props {
   overPar: number
   states: Array<MentalState | null>
   scores: Array<number | null>
-  hole_pars: number[]
+  /** Par real por posición de la tarjeta; null donde no se sabe (nunca se inventa). */
+  pares: Array<number | null>
   espirales: number
   /** Detalle de la ronda (tarjeta hoyo a hoyo completa). Sin él, no se ofrece el enlace. */
   detalleHref?: string
@@ -23,7 +24,7 @@ const STATE_COLOR: Record<MentalState, string> = {
   tilt: 'var(--coach-recovery-low)',
 }
 
-function renderHalf(label: string, overParHalf: number, states: Array<MentalState | null>, scores: Array<number | null>, pars: number[], startIdx: number) {
+function renderHalf(label: string, overParHalf: number, states: Array<MentalState | null>, scores: Array<number | null>, pars: Array<number | null>, startIdx: number) {
   const n = scores.length
   if (n === 0) return null
   const gridCols: CSSProperties = { display: 'grid', gridTemplateColumns: `repeat(${n}, 1fr)`, gap: '2px' }
@@ -35,9 +36,9 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
       </div>
       <div style={{ ...gridCols, height: '18px', alignItems: 'flex-end', marginBottom: '4px' }} aria-hidden>
         {scores.map((s, i) => {
-          const par = pars[i] ?? 4
-          const over = s != null ? s - par : 0
-          const h = Math.min(100, 20 + over * 20)
+          const par = pars[i]
+          // Sin score o sin par real: sin barra (nunca un par 4 inventado).
+          const h = s != null && par != null ? Math.max(0, Math.min(100, 20 + (s - par) * 20)) : 0
           return <div key={`s-${startIdx + i}`} style={{ height: `${h}%`, background: 'var(--text)' }} />
         })}
       </div>
@@ -55,7 +56,7 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
   )
 }
 
-export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, scores, hole_pars, espirales, detalleHref }: Props) {
+export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, scores, pares, espirales, detalleHref }: Props) {
   const cardStyle: CSSProperties = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--line)',
@@ -67,10 +68,12 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
   const b9States = states.slice(9, 18)
   const f9Scores = scores.slice(0, 9)
   const b9Scores = scores.slice(9, 18)
-  const f9Pars = hole_pars.slice(0, 9)
-  const b9Pars = hole_pars.slice(9, 18)
-  const f9Over = f9Scores.reduce<number>((acc, s, i) => acc + (s != null ? s - (f9Pars[i] ?? 4) : 0), 0)
-  const b9Over = b9Scores.reduce<number>((acc, s, i) => acc + (s != null ? s - (b9Pars[i] ?? 4) : 0), 0)
+  const f9Pars = pares.slice(0, 9)
+  const b9Pars = pares.slice(9, 18)
+  const sobreParDe = (sc: Array<number | null>, ps: Array<number | null>) =>
+    sc.reduce<number>((acc, s, i) => { const par = ps[i]; return acc + (s != null && par != null ? s - par : 0) }, 0)
+  const f9Over = sobreParDe(f9Scores, f9Pars)
+  const b9Over = sobreParDe(b9Scores, b9Pars)
 
   const calmCount = states.filter(s => s === 'calm').length
   const tenseCount = states.filter(s => s === 'tense').length

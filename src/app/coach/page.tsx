@@ -12,20 +12,14 @@ import { PatternTile } from '@/components/coach/PatternTile'
 import { PlanActiveCard } from '@/components/coach/PlanActiveCard'
 import { ConversarStickyCTA } from '@/components/coach/ConversarStickyCTA'
 import { DefaultTeeBanner } from '@/components/DefaultTeeBanner'
-import {
-  calcularMentalIndex,
-  calcularCostoPsicologico,
-  clasificarHoyo,
-  type MentalIndexResult,
-} from '@/golf/coach/mental-index-legado'
-import type { MentalState } from '@/golf/coach/mental-index'
-import { buildActivePlanSummary, describeRecoveryStatus } from '@/golf/coach/intro'
-import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
+import { fraseMentalIndex, resumenMentalDelCoach, TITULO_BANDA_MENTAL } from '@/golf/coach/mental-index'
+import { buildActivePlanSummary } from '@/golf/coach/intro'
 import { fetchCoachHome } from '@/lib/data/coach-home'
-import { parPerHoleArray } from '@/golf/core/compare'
+import { textoPlano } from '@/lib/text/texto-plano'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
 import { CoachBetaBanner } from './components/CoachBetaBanner'
+import { RondasNoLeidas } from './components/RondasNoLeidas'
 import { canUseCoach } from './lib/checkCoachAccess'
 import { loginUrl } from '@/lib/auth/login-url'
 import { fechaDeCalendario } from '@/lib/format'
@@ -87,12 +81,23 @@ export default async function CoachDashboard() {
     return <CoachGatePage />
   }
 
-  const { sessions, primarySessionId, rounds, patterns, plan, outcomes, totalRounds, rondasCPI } = await fetchCoachHome(supabase, user.id)
+  const { sessions, primarySessionId, patterns, plan, outcomes, rondas } = await fetchCoachHome(supabase, user.id)
   // Card "Tu plan activo": misma derivación canónica que el estado vacío del chat
   // (un concepto, una fuente). `outcomes` ya viene scopeado al plan + 4 semanas.
   const planSummary = buildActivePlanSummary(plan, outcomes)
 
-  if (totalRounds === 0) {
+  // Falló la lectura: se dice y se reintenta. Nunca "Bienvenido" a quien sí tiene rondas.
+  if (rondas === null) {
+    return (
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
+        <CoachBetaBanner />
+        <TaigerHero subtitle="Tu coach de rendimiento con inteligencia artificial" />
+        <RondasNoLeidas />
+      </div>
+    )
+  }
+
+  if (rondas.length === 0) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
         <CoachBetaBanner />
@@ -119,61 +124,19 @@ export default async function CoachDashboard() {
     )
   }
 
-  const cpi: ResultadoCPI | null = rondasCPI ? calcularCPI(rondasCPI) : null
-
-  const mentalIndex: MentalIndexResult = calcularMentalIndex({
-    activePatterns: patterns.filter(p => p.status === 'active').map(p => ({ pattern_type: p.pattern_type, confidence: p.confidence })),
-    activePlan: plan ? { id: plan.id } : null,
-    outcomes,
-    cpi,
-    totalRounds,
-    previousScore: null,
-  })
-
-  const hasActivePatterns = patterns.some(p => p.status === 'active')
-  // Costo Psicológico: se calcula sobre UN solo universo (últimas 5 rondas).
-  // Antes se activaba SOLO para post_bogey_spiral — ahora se muestra cuando hay
-  // CUALQUIER patrón activo. strokesEvitables detecta secuencias de bogey
-  // consecutivos independientemente de qué patrón los cataloga.
-  // Invariante: evitables === windowSize × (real − contenido).
-  // Ver mental-index.ts:calcularCostoPsicologico para la lógica.
-  const costoPsicologico = hasActivePatterns
-    ? calcularCostoPsicologico(rounds.map(r => ({
-        id: r.id,
-        total_gross: r.total_gross,
-        scores: r.scores ?? [],
-        hole_pars: parPerHoleArray(r.par_per_hole, r.scores?.length ?? 0) ?? null,
-      })), 5)
-    : null
-
-  const recoveryTitle = mentalIndex.band === 'high' ? 'Tu cabeza está equilibrada' : mentalIndex.band === 'mid' ? 'Tu cabeza está bajo presión' : 'Tu cabeza necesita reset'
-  const recoveryDesc = describeRecoveryStatus(patterns.filter(p => p.status === 'active').length, planSummary)
+  // Índice, costo y curva sobre UNA ventana (las últimas 5 rondas del bucket
+  // principal, con pares reales) y con UNA definición de espiral.
+  const { indice, costo, curva } = resumenMentalDelCoach(rondas)
 
   const ctaHref = `/coach/sesion/${primarySessionId ?? 'nueva'}`
   const ctaLabel = primarySessionId ? 'Conversar con tAIger+' : 'Iniciar conversación con tAIger+'
-
-  const lastRound = rounds[0]
-  // par_per_hole viene como objeto JSONB {"1":4,...} — normalizar a array
-  // ANTES de cualquier .reduce/.slice/.map. Sin esto, /coach crashea con
-  // TypeError porque objetos no tienen .reduce.
-  const lastRoundParArr: number[] | null = lastRound
-    ? parPerHoleArray(lastRound.par_per_hole, lastRound.scores?.length ?? 0) ?? null
-    : null
-  const lastRoundParTotal = lastRoundParArr?.reduce((a, b) => a + b, 0) ?? 72
-  let curvaStates: Array<MentalState | null> = []
-  if (lastRound && lastRound.scores) {
-    const roundForAnalysis = { id: lastRound.id, scores: lastRound.scores, hole_pars: lastRoundParArr }
-    // length real (9 o 18) — evita estados null falsos para hoyos no jugados.
-    curvaStates = Array.from({ length: lastRound.scores.length }, (_, i) => clasificarHoyo(roundForAnalysis, i))
-  }
-  const tiltCount = curvaStates.filter(s => s === 'tilt').length
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 0 0' }}>
       <CoachBetaBanner />
       <PageTracker page="/coach" />
       <div style={{ padding: '0 16px' }}>
-        <TaigerHero subtitle={mentalIndex.band === 'low' ? 'Tu coach detectó algo importante esta semana' : mentalIndex.band === 'mid' ? 'Tu coach está leyendo tu juego' : 'Tu coach de rendimiento con inteligencia artificial'} />
+        <TaigerHero subtitle={indice.band === 'low' ? 'Tu coach detectó algo importante esta semana' : indice.band === 'mid' ? 'Tu coach está leyendo tu juego' : 'Tu coach de rendimiento con inteligencia artificial'} />
       </div>
 
       {/* Red de seguridad: si importó tarjetas sin tee y no fijó su tee habitual,
@@ -210,13 +173,13 @@ export default async function CoachDashboard() {
         </Link>
       </div>
 
-      {mentalIndex.status !== 'insufficient_data' && (
+      {indice.score != null && indice.band != null && (
         <MentalRecoveryCard
-          score={mentalIndex.score}
-          band={mentalIndex.band}
-          delta={mentalIndex.delta}
-          title={recoveryTitle}
-          description={recoveryDesc}
+          score={indice.score}
+          band={indice.band}
+          delta={null}
+          title={TITULO_BANDA_MENTAL[indice.band]}
+          description={fraseMentalIndex(indice)}
         />
       )}
 
@@ -227,7 +190,7 @@ export default async function CoachDashboard() {
               key={p.id}
               narrative={
                 <>
-                  El patrón <b style={{ color: 'var(--coach-recovery-low)', fontWeight: 600 }}>{PATTERN_NAMES[p.pattern_type] ?? p.pattern_type}</b> apareció con confianza <b style={{ color: 'var(--text)', fontWeight: 600 }}>{Math.round(p.confidence * 100)}%</b> sobre <b>{p.data_points}</b> rondas.
+                  El patrón <b style={{ color: 'var(--coach-recovery-low)', fontWeight: 600 }}>{PATTERN_NAMES[p.pattern_type] ?? p.pattern_type}</b> apareció con confianza <b style={{ color: 'var(--text)', fontWeight: 600 }}>{Math.round(p.confidence * 100)}%</b>.
                 </>
               }
               spark={[
@@ -239,30 +202,32 @@ export default async function CoachDashboard() {
         </HighlightsCarousel>
       )}
 
-      {costoPsicologico && costoPsicologico.evitables > 0 && costoPsicologico.lastRound && (
+      {/* Misma ventana y mismo umbral que el Mental Index; solo si la última ronda costó golpes. */}
+      {indice.status !== 'insufficient_data' && costo.lastRound && (
         <CostoPsicologicoCard
-          evitables={costoPsicologico.evitables}
-          promedioReal={costoPsicologico.promedioReal}
-          promedioContenido={costoPsicologico.promedioContenido}
-          windowSize={costoPsicologico.windowSize}
-          realScore={costoPsicologico.lastRound.realScore}
-          ghostScore={costoPsicologico.lastRound.ghostScore}
-          delta={costoPsicologico.lastRound.strokes_saved}
-          holesAffected={costoPsicologico.lastRound.holes}
+          evitables={costo.evitables}
+          promedioReal={costo.promedioReal}
+          promedioContenido={costo.promedioContenido}
+          windowSize={costo.windowSize}
+          bucket={costo.bucket}
+          realScore={costo.lastRound.realScore}
+          ghostScore={costo.lastRound.ghostScore}
+          delta={costo.lastRound.strokes_saved}
+          espirales={costo.lastRound.espirales}
         />
       )}
 
-      {lastRound && lastRound.scores && lastRoundParArr && (
+      {curva && (
         <CurvaMentalCard
-          fecha={`Ronda ${fechaDeCalendario(lastRound.played_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', timeZone: 'America/Santiago' })}`}
-          curso={lastRound.course_name ?? 'la cancha'}
-          totalScore={lastRound.total_gross ?? 0}
-          overPar={(lastRound.total_gross ?? 0) - lastRoundParTotal}
-          states={curvaStates}
-          scores={lastRound.scores}
-          hole_pars={lastRoundParArr}
-          espirales={tiltCount}
-          detalleHref={`/perfil/historial/${lastRound.id}`}
+          fecha={`Ronda ${fechaDeCalendario(curva.ronda.played_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', timeZone: 'America/Santiago' })}`}
+          curso={curva.ronda.course_name || 'la cancha'}
+          totalScore={curva.ronda.total_gross}
+          overPar={curva.ronda.vsPar}
+          states={curva.estados}
+          scores={curva.ronda.tarjeta}
+          pares={curva.ronda.pares}
+          espirales={curva.espirales.length}
+          detalleHref={`/perfil/historial/${curva.ronda.id}`}
         />
       )}
 
@@ -283,7 +248,7 @@ export default async function CoachDashboard() {
                   { height: 30, tone: 'ink' }, { height: 60, tone: 'ink' }, { height: 80, tone: 'ink' }, { height: 100, tone: 'ink' },
                   { height: 80, tone: 'ink' }, { height: 75, tone: 'ink' }, { height: 90, tone: 'ink' },
                 ] : []}
-                footMeta={`${p.data_points} rondas · ${Math.round(p.confidence * 100)}% conf`}
+                footMeta={`${Math.round(p.confidence * 100)}% conf`}
               />
             )
           })}
@@ -318,7 +283,7 @@ export default async function CoachDashboard() {
               <Link key={s.id} href={`/coach/sesion/${s.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '12px', padding: '14px 16px', textDecoration: 'none' }}>
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{SESSION_LABELS[s.session_type] ?? s.session_type}</div>
-                  {s.next_focus && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Foco: {s.next_focus}</div>}
+                  {s.next_focus && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Foco: {textoPlano(s.next_focus, 90)}</div>}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{new Date(s.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', timeZone: 'America/Santiago' })}</div>
               </Link>

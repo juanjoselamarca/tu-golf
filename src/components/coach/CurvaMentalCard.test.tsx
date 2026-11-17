@@ -9,7 +9,7 @@ const base = {
   overPar: 1,
   states: Array(9).fill('calm'),
   scores: [4, 4, 3, 5, 4, 4, 3, 5, 5],
-  hole_pars: [4, 4, 3, 5, 4, 4, 3, 5, 4],
+  pares: [4, 4, 3, 5, 4, 4, 3, 5, 4],
   espirales: 0,
 }
 
@@ -25,5 +25,16 @@ describe('CurvaMentalCard — enlace "hoyo a hoyo"', () => {
   it('sin destino no muestra un "hoyo a hoyo" que no hace nada', () => {
     render(<CurvaMentalCard {...base} />)
     expect(screen.queryByText(/hoyo a hoyo/)).toBeNull()
+  })
+})
+
+// PR3 Ola 1: la vista no inventa par 4 donde no hay par real.
+describe('CurvaMentalCard — sin par inventado', () => {
+  it('un hoyo sin par real no suma al sobre-par de la vuelta', () => {
+    // H1: 7 golpes sin par conocido. Con el viejo "?? 4" sumaba +3 al front 9.
+    const scores = [7, 4, 3, 5, 4, 4, 3, 5, 5]
+    const pares = [null, 4, 3, 5, 4, 4, 3, 5, 4]
+    render(<CurvaMentalCard {...base} scores={scores} pares={pares} />)
+    expect(screen.getByText('Front 9').nextElementSibling?.textContent).toBe('+1')
   })
 })

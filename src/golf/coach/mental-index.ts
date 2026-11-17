@@ -51,13 +51,16 @@ export const VENTANA_MENTAL = 5
 export const BANDA_MENTAL_ALTA = 60
 export const BANDA_MENTAL_MEDIA = 50
 
+/** Ronda que entra a los números (rondasQueCuentan): vsPar siempre conocido. */
+export type RondaDeVentana = RondaNormalizada & { vsPar: number }
+
 export type BandaMental = 'low' | 'mid' | 'high'
 export type BucketMental = 18 | 9
 
 export interface VentanaMental {
   bucket: BucketMental | null
   /** Más reciente primero. Solo rondas del bucket, con pares reales y que cuentan. */
-  rondas: RondaNormalizada[]
+  rondas: RondaDeVentana[]
 }
 
 export interface MentalIndexResult {
@@ -91,7 +94,7 @@ export interface CostoPsicologicoResult {
 }
 
 export interface CurvaMental {
-  ronda: RondaNormalizada
+  ronda: RondaDeVentana
   estados: (MentalState | null)[]
   espirales: Espiral[]
 }
