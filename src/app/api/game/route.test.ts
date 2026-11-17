@@ -190,3 +190,46 @@ describe('/api/game — la tarjeta tiene que ser del torneo autorizado', () => {
     expect(upsertScore).toHaveBeenCalledTimes(1)
   })
 })
+
+// PR #754: el scorer del torneo deja de reintentar ante 401/403 (lo lee como "sin sesión" / "sin
+// permiso"). Una falla pasajera de Auth o de la base NO puede salir como 401/403: tiene que ser 503.
+describe('/api/game — falla pasajera no se disfraza de 401/403', () => {
+  it('Auth caído (AuthRetryableFetchError) → 503, no 401', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: { name: 'AuthRetryableFetchError', status: 0 } })
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
+    expect(res.status).toBe(503)
+    expect(upsertScore).not.toHaveBeenCalled()
+  })
+
+  it('Auth responde 5xx → 503', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: { name: 'AuthApiError', status: 502 } })
+    expect((await POST(req({ ...score, tournament_id: TORNEO_A }))).status).toBe(503)
+  })
+
+  it('getUser lanza → 503', async () => {
+    mockGetUser.mockRejectedValue(new Error('fetch failed'))
+    expect((await POST(req({ ...score, tournament_id: TORNEO_A }))).status).toBe(503)
+  })
+
+  it('sin sesión de verdad (AuthSessionMissingError) → 401', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: { name: 'AuthSessionMissingError', status: 400 } })
+    expect((await POST(req({ ...score, tournament_id: TORNEO_A }))).status).toBe(401)
+  })
+
+  it('jugador (no organizador) con la lectura de su tarjeta caída → 503, no 403', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'otro-usuario' } } })
+    rondaLookupError = new Error('timeout')
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
+    expect(res.status).toBe(503)
+    expect(upsertScore).not.toHaveBeenCalled()
+  })
+
+  it('invitado con la lectura de su tarjeta caída → 503, no 403', async () => {
+    rondaLookupError = new Error('timeout')
+    const res = await POST(
+      req({ ...score, tournament_id: TORNEO_A }, { 'x-guest-id': GUEST, 'x-guest-token': 't' }),
+    )
+    expect(res.status).toBe(503)
+    expect(upsertScore).not.toHaveBeenCalled()
+  })
+})

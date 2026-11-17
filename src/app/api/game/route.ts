@@ -8,8 +8,12 @@ import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
 import { fetchTorneoDeLaRonda } from '@/lib/data/tournaments/round-scope'
 import { isUuid } from '@/lib/uuid'
+import { esFalloTransitorioDeAuth } from '@/lib/auth/fallo-transitorio-auth'
 
 export const dynamic = 'force-dynamic'
+
+/** 503: falla pasajera al leer la tarjeta; el scorer reintenta solo. */
+const NO_PUDIMOS_VERIFICAR = 'No pudimos verificar la tarjeta. Intenta de nuevo.'
 
 // Acciones que escriben sobre UNA tarjeta (`round_id`). El permiso se decide
 // con el torneo del body, así que la tarjeta tiene que ser de ese torneo: si
@@ -33,7 +37,7 @@ async function rechazoSiRondaAjena(
   } catch (err) {
     void captureError(err, { context: 'game-engine.round-scope', level: 'error', meta: { roundId, tournamentId } })
     // 503: fallo transitorio; el scorer del jugador lo reintenta y el del organizador avisa.
-    return NextResponse.json({ error: 'No pudimos verificar la tarjeta. Intenta de nuevo.' }, { status: 503 })
+    return NextResponse.json({ error: NO_PUDIMOS_VERIFICAR }, { status: 503 })
   }
   if (torneoDeLaRonda !== tournamentId) {
     return NextResponse.json(
@@ -62,8 +66,12 @@ async function getAuthUser() {
       },
     }
   )
-  const { data: { user } } = await supabase.auth.getUser()
-  return { user, supabase }
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser()
+    return { user, supabase, authCaido: !user && esFalloTransitorioDeAuth(error) }
+  } catch {
+    return { user: null, supabase, authCaido: true }
+  }
 }
 
 function serviceClient() {
@@ -81,6 +89,9 @@ function serviceClient() {
  * null si algo falla. El cruce va acá, después del token y en la misma lectura:
  * sin oráculo sin autenticar y sin una query extra por hoyo.
  */
+/** La lectura de la tarjeta falló (red / timeout): no es "no autorizado", es reintentable (503). */
+class LecturaTarjetaFallida extends Error {}
+
 async function verifyGuestOwnership(
   svc: ReturnType<typeof serviceClient>,
   guestId: string,
@@ -89,11 +100,13 @@ async function verifyGuestOwnership(
   tournamentId: string,
 ): Promise<string | null> {
   if (!verifyGuestToken(guestId, guestToken)) return null
-  const { data: round } = await svc
+  // `maybeSingle`: sin filas es null sin error; cualquier `error` es una falla de la base, no un permiso.
+  const { data: round, error } = await svc
     .from('rounds')
     .select('player_id, tournament_id, players(pending_user_id)')
     .eq('id', roundId)
-    .single()
+    .maybeSingle()
+  if (error) throw new LecturaTarjetaFallida(error.message)
   if (round?.tournament_id !== tournamentId) return null
   const pendingUserId = (round?.players as unknown as { pending_user_id: string | null } | null)?.pending_user_id
   if (pendingUserId !== guestId) return null
@@ -154,7 +167,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el guest token es válido y que el guestId es dueño de esta ronda
-    const playerId = await verifyGuestOwnership(svc, guestId, guestToken, body.round_id, tournament_id)
+    let playerId: string | null
+    try {
+      playerId = await verifyGuestOwnership(svc, guestId, guestToken, body.round_id, tournament_id)
+    } catch (err) {
+      void captureError(err, { context: 'game-engine.guest-ownership', level: 'error', meta: { roundId: body.round_id, tournamentId: tournament_id } })
+      // Un 403 acá le diría al invitado "tu acceso ya no sirve" con la base caída.
+      return NextResponse.json({ error: NO_PUDIMOS_VERIFICAR }, { status: 503 })
+    }
     if (!playerId) {
       return NextResponse.json({ error: 'Token de invitado inválido o no autorizado' }, { status: 403 })
     }
@@ -192,7 +212,9 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Authenticated path (original) ──
-  const { user, supabase } = await getAuthUser()
+  const { user, supabase, authCaido } = await getAuthUser()
+  // Auth caído no es "sin sesión": con 401 el scorer deja de reintentar y le pide login a quien ya lo tiene.
+  if (authCaido) return NextResponse.json({ error: 'No pudimos verificar tu sesión. Intenta de nuevo.' }, { status: 503 })
   if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
 
   // Rate limit para upsert_score: 120 requests/min por jugador-ronda
@@ -241,11 +263,16 @@ export async function POST(request: NextRequest) {
   let isAllowed = tournament.organizer_id === user.id
   if (!isAllowed && action === 'upsert_score') {
     const { round_id } = body
-    const { data: round } = await supabase
+    const { data: round, error: roundError } = await supabase
       .from('rounds')
       .select('player_id, players(user_id, status)')
       .eq('id', round_id)
-      .single()
+      .maybeSingle()
+    if (roundError) {
+      // Falla de la base, no de permiso: un 403 cortaría los reintentos del scorer.
+      void captureError(roundError, { context: 'game-engine.player-auth', level: 'error', meta: { roundId: round_id, tournamentId: tournament_id } })
+      return NextResponse.json({ error: NO_PUDIMOS_VERIFICAR }, { status: 503 })
+    }
     const playerInfo = round?.players as unknown as { user_id: string; status: string | null } | null
     isAllowed = playerInfo?.user_id === user.id
 
