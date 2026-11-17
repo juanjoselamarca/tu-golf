@@ -125,22 +125,28 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
 
           {/* Slide indicators */}
           <div style={{
-            display: 'flex', gap: 6, marginTop: 14,
+            display: 'flex', gap: 0, marginTop: 6,
             animation: mounted ? 'textUp 0.6s ease-out 0.8s both' : 'none',
           }}>
             {SLIDES.map((_, i) => (
               <button
                 key={i}
+                type="button"
                 onClick={() => setCurrent(i)}
-                style={{
-                  width: i === current ? 20 : 6, height: 6,
-                  borderRadius: 3, border: 'none', cursor: 'pointer',
-                  background: i === current ? 'var(--brand)' : 'rgba(196,153,42,0.25)',
-                  transition: 'all 0.4s ease',
-                  padding: '19px 12px',
-                  backgroundClip: 'content-box',
-                }}
-              />
+                aria-label={`Ver mensaje ${i + 1} de ${SLIDES.length}`}
+                aria-current={i === current ? 'true' : undefined}
+                // El botón es el área táctil (44 px de alto); el punto es el span de adentro.
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '0 6px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: 'block', width: i === current ? 20 : 6, height: 6, borderRadius: 3,
+                    backgroundColor: i === current ? 'var(--brand)' : 'rgba(196,153,42,0.25)',
+                    transition: 'all 0.4s ease',
+                  }}
+                />
+              </button>
             ))}
           </div>
         </div>
