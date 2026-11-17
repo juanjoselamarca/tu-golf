@@ -77,7 +77,7 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
 
   const calmCount = states.filter(s => s === 'calm').length
   const tenseCount = states.filter(s => s === 'tense').length
-  const tiltCount = states.filter(s => s === 'tilt').length
+  const enTilt = states.filter(s => s === 'tilt').length
   // Rojo solo si hubo espirales: "0 espirales" es una buena noticia, no una alarma.
   const chipTone = espirales > 0
     ? { border: '1px solid var(--coach-recovery-low)', background: 'var(--coach-recovery-low-soft)', color: 'var(--coach-recovery-low)' }
@@ -102,7 +102,7 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
       <div style={{ display: 'flex', gap: '12px', paddingTop: '14px', marginTop: '8px', borderTop: '1px solid var(--line)', fontSize: '12px', color: 'var(--text-2)', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-high)' }} aria-hidden />{calmCount} calmos</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-mid)' }} aria-hidden />{tenseCount} tensos</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-low)' }} aria-hidden />{tiltCount} tilt</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-low)' }} aria-hidden />{enTilt} tilt</div>
         {detalleHref && (
           <Link href={detalleHref} style={{ color: 'var(--text)', fontWeight: 600, fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px', margin: '-14px 0 -14px auto' }}>hoyo a hoyo →</Link>
         )}

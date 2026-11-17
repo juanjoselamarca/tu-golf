@@ -850,3 +850,19 @@ conviven los dos nombres. Los puntos Stableford tienen su fuente única: `format
 Ruta delgada; la materialización vive en `src/lib/data/tournaments/startTournament.ts` (todo o nada, rollback, relectura antes de `in_progress`).
 - [ ] Bloqueo de inicio por torneo (migración: p. ej. `tournaments.start_lock_until` tomado con update condicional, o el inicio entero como RPC plpgsql en una transacción). Cierra la ventana entre la relectura y el cambio de estado y el caso "grupo completo enlazado en borrador" tras un conflicto.
 - [ ] Barrido de rondas `T*` `en_curso` sin grupo con más de 1 h (si la función muere a mitad del loop no corre ningún rollback).
+
+## fix/coach-ola1-juanjo · PR3 Ola 1 (17-nov-2026) — /coach: una espiral, una ventana
+
+Ordenado: `src/app/coach/page.tsx` sin `supabase.from()` (lecturas en `src/lib/data/coach-home.ts`), sin
+`par_per_hole` y sin par inventado; Mental Index, costo psicológico y curva salen de `resumenMentalDelCoach`
+(`src/golf/coach/mental-index.ts`) sobre `fetchRondasNormalizadas`. Canario: `canary-coach-una-espiral.test.ts`.
+
+Fuera de alcance (pendiente):
+- Detector y Cerebro V3 siguen con par de respaldo (`parForHoleWithFallback`): `golf/coach/patterns.ts`,
+  `golf/coach/metrics/post-bogey-avg.ts`, `golf/coach/context.ts`, `/api/taiger/intro`. Su semántica no se tocó
+  (solo `patterns.ts` toma `TASA_ESPIRAL_UMBRAL` y `MIN_BOGEYS_ESPIRAL` del motor).
+- La escritura de `taiger_sessions.next_focus` (`chat-engine.ts:543`, `substring(0, 200)` de markdown crudo):
+  la home lo limpia con `textoPlano`, pero se sigue guardando con markdown.
+- Barras decorativas fijas (`spark`) en `HighlightCard` y `PatternTile` de `coach/page.tsx`: no representan datos.
+- Copy con "esta semana" sin ventana semanal real: subtítulo del hero ("…detectó algo importante esta semana") y
+  "Highlights · esta semana". Decisión de copy para Juanjo.
