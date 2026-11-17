@@ -295,6 +295,42 @@ export async function estadoAntesDeDeshacer(
   return torneoAceptaScores(status) ? 'en-juego' : 'otro-estado'
 }
 
+/** Copy cuando el organizador corrigió un hándicap mientras el torneo se iniciaba. */
+export const ERROR_HANDICAP_CAMBIO_AL_INICIAR =
+  'Un hándicap cambió mientras se iniciaba el torneo. Intenta iniciar de nuevo.'
+
+/**
+ * Antes de poner el torneo en juego: ¿algún aprobado tiene hoy otro `handicap_at_registration`
+ * que el que se usó para armar tarjetas y equipos? Si la corrección del hándicap
+ * (`editarHandicapInscrito`) escribió entre la lectura del inicio y acá, sin tarjeta enlazada
+ * todavía, la tarjeta y el equipo quedaron con el número viejo: el inicio falla y se reintenta.
+ * 'error' si la relectura falla (tampoco se inicia a ciegas).
+ */
+export async function handicapsCambiaronAlIniciar(
+  svc: SupabaseClient,
+  aprobados: StartPlayer[],
+): Promise<boolean | 'error'> {
+  if (aprobados.length === 0) return false
+  const { data, error } = await svc
+    .from('players')
+    .select('id, handicap_at_registration')
+    .in('id', aprobados.map((p) => p.id))
+  if (error || !data) {
+    void captureError(error ?? new Error('sin datos'), { context: 'start-tournament.releer-handicaps', level: 'error' })
+    return 'error'
+  }
+  const ahora = new Map(
+    (data as Array<{ id: string; handicap_at_registration: number | string | null }>).map((p) => [
+      p.id,
+      p.handicap_at_registration == null ? null : Number(p.handicap_at_registration),
+    ]),
+  )
+  return aprobados.some((p) => {
+    const antes = p.handicap_at_registration == null ? null : Number(p.handicap_at_registration)
+    return !ahora.has(p.id) || ahora.get(p.id) !== antes
+  })
+}
+
 /**
  * Pone el torneo en juego solo si sigue sin iniciar (compare-and-set, igual que
  * `publishDraft`). 'otro-gano' = otro inicio lo puso en juego primero (o cambió de

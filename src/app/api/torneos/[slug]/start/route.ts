@@ -29,7 +29,9 @@ import {
   ERROR_CAMBIO_DE_ESTADO,
   ERROR_ESTADO_DESCONOCIDO,
   ERROR_SIN_DESHACER,
+  ERROR_HANDICAP_CAMBIO_AL_INICIAR,
   estadoAntesDeDeshacer,
+  handicapsCambiaronAlIniciar,
   fetchContextoHcpDeEquipos,
   fetchStartGroups,
   gruposSinTarjeta,
@@ -183,6 +185,13 @@ export async function POST(
     const { groups: finales, error: fErr } = await fetchStartGroups(svc, t.id)
     if (fErr) return fallar('No se pudo verificar las tarjetas. Intenta de nuevo.', 500)
     if (gruposSinTarjeta(soloAprobados(finales, approvedPlayers)).length > 0) return NextResponse.json({ error: ERROR_OTRO_INICIO }, { status: 409 })
+
+    // Una corrección de hándicap (Scoring → Resumen) que llegó mientras se armaban las
+    // tarjetas dejó tarjeta o equipo con el número viejo: se deshace lo armado y se reintenta.
+    // La que llegue DESPUÉS de esta relectura ya ve las tarjetas enlazadas y las corrige ella.
+    const cambiaron = await handicapsCambiaronAlIniciar(svc, approvedPlayers)
+    if (cambiaron === 'error') return fallar('No se pudo verificar los hándicaps. Intenta de nuevo.', 500)
+    if (cambiaron) return fallar(ERROR_HANDICAP_CAMBIO_AL_INICIAR, 409)
 
     // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas
     // y el torneo sigue sin iniciar. Si otro inicio ganó, lo propio no se deshace.
