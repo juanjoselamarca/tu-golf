@@ -10,6 +10,7 @@ import { fetchTorneoDeLaRonda } from '@/lib/data/tournaments/round-scope'
 import { isUuid } from '@/lib/uuid'
 import { esFalloTransitorioDeAuth } from '@/lib/auth/fallo-transitorio-auth'
 import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO, CODIGO_TOKEN_INVITADO_INVALIDO } from '@/lib/api/codigos-game'
+import { torneoAceptaScores } from '@/golf/tournament-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -167,8 +168,7 @@ export async function POST(request: NextRequest) {
       .single()
     if (!tournament) return NextResponse.json({ error: 'Torneo no encontrado' }, { status: 404 })
 
-    const scorableStatuses = ['active', 'in_progress']
-    if (!scorableStatuses.includes(tournament.status)) {
+    if (!torneoAceptaScores(tournament.status)) {
       return NextResponse.json(
         { error: 'El torneo no está activo. No se pueden registrar scores.', code: 'tournament_inactive' },
         { status: 409 },
@@ -256,8 +256,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Block scoring on inactive tournaments
-  const scorableStatuses = ['active', 'in_progress']
-  if (!scorableStatuses.includes(tournament.status) && action === 'upsert_score') {
+  if (!torneoAceptaScores(tournament.status) && action === 'upsert_score') {
     return NextResponse.json(
       { error: 'El torneo no está activo. No se pueden registrar scores.', code: 'tournament_inactive' },
       { status: 409 },

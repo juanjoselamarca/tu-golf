@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { torneoEnVivo, estadoDelTorneo, fechaHoyChile, GRACE_DIAS_TORNEO, fechasAlIniciar, sumarDias } from './tournament-live-status'
+import { torneoEnVivo, estadoDelTorneo, fechaHoyChile, GRACE_DIAS_TORNEO, fechasAlIniciar, sumarDias, diaDeCierreDelTorneo, fechaDeJuegoDeLaRonda } from './tournament-live-status'
 
 const HOY = new Date('2026-06-11T15:00:00') // hora local del test
 
@@ -195,5 +195,68 @@ describe('fechasAlIniciar — postergado por lluvia e iniciado en la cancha', ()
 
   it('sumarDias cruza fin de mes', () => {
     expect(sumarDias('2026-06-29', 3)).toBe('2026-07-02')
+  })
+})
+
+describe('diaDeCierreDelTorneo (fuente única del día de cierre)', () => {
+  it('torneo del sábado → martes (fin + gracia + 1)', () => {
+    expect(diaDeCierreDelTorneo({ status: 'in_progress', date_start: '2026-11-14' })).toBe('2026-11-17')
+    expect(diaDeCierreDelTorneo({ status: 'in_progress', date_start: '2026-11-13', date_end: '2026-11-14' })).toBe('2026-11-17')
+  })
+
+  it('fechas invertidas: cuenta desde date_start (no cierra antes de tiempo)', () => {
+    expect(diaDeCierreDelTorneo({ status: 'in_progress', date_start: '2026-11-14', date_end: '2026-11-10' })).toBe('2026-11-17')
+  })
+
+  it('sin fecha → null', () => {
+    expect(diaDeCierreDelTorneo({ status: 'in_progress', date_start: null })).toBeNull()
+  })
+
+  it('estadoDelTorneo cambia exactamente el día de cierre (hora de Chile)', () => {
+    const t = { status: 'in_progress', date_start: '2026-11-14' }
+    // 23:59 del lunes 16 en Chile (UTC-3) = 02:59Z del 17.
+    expect(estadoDelTorneo(t, new Date('2026-11-17T02:59:00Z'))).toBe('en_curso')
+    // 00:01 del martes 17 en Chile.
+    expect(estadoDelTorneo(t, new Date('2026-11-17T03:01:00Z'))).toBe('finalizado')
+    expect(fechaHoyChile(new Date('2026-11-17T03:01:00Z'))).toBe(diaDeCierreDelTorneo(t))
+  })
+})
+
+describe('fechaDeJuegoDeLaRonda (played_at del historial)', () => {
+  const martes = new Date('2026-11-17T13:00:00Z')
+  it('cerrada por el cierre del torneo 3 días después: la fecha de la ronda, no la del cierre', () => {
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-14', numeroDeRonda: 2, torneo: { date_start: '2026-11-13' } }, martes)).toBe('2026-11-14')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 1, torneo: { date_start: '2026-11-14' } }, martes)).toBe('2026-11-14')
+  })
+  it('ronda 2+ sin fecha cargada: inicio + (N−1) días, acotado al fin y a hoy', () => {
+    const torneo = { date_start: '2026-11-13', date_end: '2026-11-14' }
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 2, torneo }, martes)).toBe('2026-11-14')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 1, torneo }, martes)).toBe('2026-11-13')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 2, torneo: { date_start: '2026-11-13', date_end: null } }, martes)).toBe('2026-11-13')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 3, torneo: { date_start: '2026-11-16', date_end: '2026-11-20' } }, martes)).toBe('2026-11-17')
+  })
+  it('ronda 2+ sin fecha: inicio + (N−1) días, acotado al último día', () => {
+    const viernesADomingo = { date_start: '2026-11-13', date_end: '2026-11-15' }
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 2, torneo: viernesADomingo }, martes)).toBe('2026-11-14')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 3, torneo: viernesADomingo }, martes)).toBe('2026-11-15')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 4, torneo: viernesADomingo }, martes)).toBe('2026-11-15')
+  })
+  it('fecha de ronda anterior al inicio (torneo movido en /editar) se descarta', () => {
+    const movido = { date_start: '2026-11-14', date_end: '2026-11-15' }
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-08', numeroDeRonda: 2, torneo: movido }, martes)).toBe('2026-11-15')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-08', numeroDeRonda: 1, torneo: movido }, martes)).toBe('2026-11-14')
+    // Lo que deja /editar hoy: mueve date_start y no date_end → fechas invertidas (fin = inicio).
+    const editado = { date_start: '2026-11-14', date_end: '2026-11-09' }
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-09', numeroDeRonda: 2, torneo: editado }, martes)).toBe('2026-11-14')
+  })
+  it('fecha de la ronda futura (cerrado antes de tiempo) → hoy', () => {
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: '2026-11-20', numeroDeRonda: 1, torneo: { date_start: null } }, martes)).toBe('2026-11-17')
+  })
+  it('finalizada por el jugador a las 22:00 de Chile: ese día, no el de UTC', () => {
+    expect(fechaDeJuegoDeLaRonda({ closedAt: '2026-11-15T01:00:00Z', fechaRonda: '2026-11-14', numeroDeRonda: 1, torneo: { date_start: null } }, martes)).toBe('2026-11-14')
+  })
+  it('sin fechas legibles → hoy en Chile', () => {
+    expect(fechaDeJuegoDeLaRonda({ closedAt: null, fechaRonda: null, numeroDeRonda: 1, torneo: { date_start: null } }, new Date('2026-11-18T01:00:00Z'))).toBe('2026-11-17')
+    expect(fechaDeJuegoDeLaRonda({ closedAt: 'basura', fechaRonda: null, numeroDeRonda: 1, torneo: { date_start: null } }, martes)).toBe('2026-11-17')
   })
 })

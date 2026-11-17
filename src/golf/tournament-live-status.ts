@@ -44,22 +44,46 @@ export type TorneoConFechas = {
 }
 
 const FINALIZADO_STATUSES = new Set(['closed', 'published', 'finished'])
-const EN_JUEGO_STATUSES = new Set(['in_progress', 'active'])
+
+/**
+ * Estados del torneo en que se anotan golpes — FUENTE ÚNICA (re-exportada por `tournament-status.ts`). La usa
+ * `/api/game` para rechazar el score fuera de ellos y la usan las pantallas que ofrecen "Anotar mi score": si divergen, el botón lleva a un scorer que el
+ * servidor rechaza. También es "en juego" para `estadoDelTorneo` y lo que el cierre automático puede cerrar.
+ * 'active' es el sinónimo histórico de 'in_progress'.
+ */
+export const TORNEO_ACEPTA_SCORES_STATUSES = ['active', 'in_progress'] as const
+
+export function torneoAceptaScores(status: string | null | undefined): boolean {
+  return !!status && (TORNEO_ACEPTA_SCORES_STATUSES as readonly string[]).includes(status)
+}
 
 export function estadoDelTorneo(t: TorneoConFechas, ahora: Date): EstadoDelTorneo {
   const status = t.status ?? ''
   if (FINALIZADO_STATUSES.has(status)) return 'finalizado'
-  const enJuego = EN_JUEGO_STATUSES.has(status)
+  const enJuego = torneoAceptaScores(status)
   if (!enJuego && status !== 'open') return 'borrador'
 
   const fechas = rangoDelTorneo(t)
   if (fechas) {
     const hoy = fechaHoyChile(ahora)
-    if (diffDias(fechas.fin, hoy) > GRACE_DIAS_TORNEO) return enJuego ? 'finalizado' : 'vencido'
+    if (hoy >= diaDeCierreDesdeFin(fechas.fin)) return enJuego ? 'finalizado' : 'vencido'
     if (fechas.inicio > hoy) return 'por_jugar'
   }
   return enJuego ? 'en_curso' : 'por_jugar'
 }
+
+/**
+ * Día de Chile (YYYY-MM-DD) desde el que un torneo sin cerrar deja de estar "en curso": el fin
+ * (date_end ?? date_start) más GRACE_DIAS_TORNEO + 1. Torneo del sábado → martes. FUENTE ÚNICA del día
+ * de cierre: la usan `estadoDelTorneo` (lo muestra finalizado) y el cierre automático
+ * (`src/golf/tournament-auto-close.ts`, que lo cierra de verdad), para que nunca difieran. Sin fecha → null.
+ */
+export function diaDeCierreDelTorneo(t: TorneoConFechas): string | null {
+  const fechas = rangoDelTorneo(t)
+  return fechas ? diaDeCierreDesdeFin(fechas.fin) : null
+}
+
+const diaDeCierreDesdeFin = (fin: string): string => sumarDias(fin, GRACE_DIAS_TORNEO + 1)
 
 /** ¿El torneo está en curso ahora? Atajo de `estadoDelTorneo` (misma regla). */
 export function torneoEnVivo(
@@ -139,4 +163,43 @@ export function fechasAlIniciar(
   if (diffDias(fechas.fin, hoy) <= 0) return null
   const delta = diffDias(fechas.inicio, hoy)
   return { date_start: sumarDias(fechas.inicio, delta), date_end: t.date_end ? sumarDias(fechas.fin, delta) : null, delta }
+}
+
+/**
+ * Día (YYYY-MM-DD, Chile) en que se jugó una ronda de torneo, para `historical_rounds.played_at` (de ahí sale el
+ * índice "del día"). Antes era `new Date()` en UTC: desde las 21:00 de Chile la ronda quedaba con fecha de mañana,
+ * y una ronda que cerró el cierre del torneo (manual o automático, días después) quedaba con el día del cierre.
+ *  - La finalizó el jugador (`closedAt`): el día de Chile en que la finalizó.
+ *  - No la finalizó (la cerró el cierre del torneo): la fecha de la ronda (`fechaRonda`), salvo que sea anterior
+ *    al inicio del torneo (quedó vieja tras mover el torneo en /editar). Sin fecha vigente: inicio + (N−1) días,
+ *    acotado al último día del torneo (una ronda por día; 36 hoyos en un día caen en el inicio). Nunca futura.
+ *  - Sin ninguna fecha legible → hoy en Chile.
+ */
+export function fechaDeJuegoDeLaRonda(
+  r: {
+    closedAt: string | null | undefined
+    fechaRonda: string | null | undefined
+    numeroDeRonda: number | null | undefined
+    torneo: { date_start: string | null | undefined; date_end?: string | null | undefined }
+  },
+  ahora: Date,
+): string {
+  const hoy = fechaHoyChile(ahora)
+  if (r.closedAt) {
+    const ms = Date.parse(r.closedAt)
+    if (!Number.isNaN(ms)) return fechaHoyChile(new Date(Math.min(ms, ahora.getTime())))
+    return hoy
+  }
+  const rango = rangoDelTorneo({ status: null, ...r.torneo })
+  let delTorneo: string | null = null
+  if (rango) {
+    const porNumero = sumarDias(rango.inicio, Math.max(1, r.numeroDeRonda ?? 1) - 1)
+    delTorneo = porNumero < rango.fin ? porNumero : rango.fin
+  }
+  // Una fecha de ronda anterior al inicio quedó vieja (el organizador movió el torneo en /editar): no es el día jugado.
+  const fechaRonda = r.fechaRonda?.slice(0, 10)
+  const rondaVigente = fechaRonda && (!rango || fechaRonda >= rango.inicio) ? fechaRonda : null
+  const fecha = (rondaVigente ?? delTorneo ?? '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return hoy
+  return fecha < hoy ? fecha : hoy
 }

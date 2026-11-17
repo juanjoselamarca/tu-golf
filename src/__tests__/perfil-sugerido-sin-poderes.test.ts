@@ -190,8 +190,9 @@ function exposicionesSinNombrarla(sql: string): string[] {
       ['devuelve la fila entera', new RegExp(String.raw`\breturns\s+(?:setof\s+)?${TABLA}`, 'i')],
       ['variable %rowtype', new RegExp(String.raw`${TABLA}%rowtype`, 'i')],
       ['vista sobre la tabla', /\bcreate\s+(?:or\s+replace\s+)?(?:materialized\s+)?view\b/i],
-      // El trigger recibe NEW/OLD: la fila entera, perfil_sugerido_id incluido.
-      ['trigger sobre la tabla', /\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\b/i],
+      // El trigger recibe NEW/OLD: la fila entera, perfil_sugerido_id incluido. Única excepción: el que solo
+      // ejecuta public.update_updated_at() (cierre automático); su cuerpo lo fija el test de abajo.
+      ['trigger sobre la tabla', /\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\b(?![\s\S]*\bexecute\s+(?:function|procedure)\s+"?public"?\."?update_updated_at"?\s*\(\s*\)\s*;?\s*$)/i],
       ['SELECT *', /\bselect\s+(?:distinct\s+)?\*/i],
       ['RETURNING *', /\breturning\s+\*/i],
       ['alias.*', new RegExp(String.raw`(?:^|[^\w"])(?:${nombres})\.\*`, 'i')],
@@ -209,6 +210,18 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
   it('ninguna migración expone la fila entera de ronda_libre_jugadores', () => {
     const hallazgos = migrationFiles().flatMap(f => exposicionesSinNombrarla(readMigration(f)).map(h => `${f}: ${h}`))
     expect(hallazgos).toEqual([])
+  })
+
+  it('el único trigger permitido (update_updated_at) solo escribe NEW.updated_at, en todas sus definiciones', () => {
+    const definiciones = [BASELINE, ...migrationFiles()].flatMap(f => {
+      const def = functionDefinition(stripSqlComments(readMigration(f)), 'public.update_updated_at')
+      return def ? [{ f, def }] : []
+    })
+    expect(definiciones.length).toBeGreaterThan(0)
+    for (const { f, def } of definiciones) {
+      const cuerpo = /\$(\w*)\$([\s\S]*?)\$\1\$/.exec(def)?.[2] ?? ''
+      expect(cuerpo.replace(/\s+/g, ' ').trim(), f).toMatch(/^BEGIN NEW\.updated_at = NOW\(\); RETURN NEW; END;?$/i)
+    }
   })
 
   it('detecta cada forma de exponer la fila (guard del detector)', () => {
@@ -239,6 +252,8 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
       "SELECT coalesce(nullif(j.nombre, ''), 'x'), my_fn(1, j) FROM public.ronda_libre_jugadores j;",
       'CREATE TRIGGER t AFTER UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION f();',
       'CREATE OR REPLACE TRIGGER t BEFORE INSERT ON ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION f();',
+      // La excepción es exacta: otra función con el mismo prefijo no pasa.
+      'CREATE TRIGGER t BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_y_mas();',
     ]
     for (const caso of casos) expect(exposicionesSinNombrarla(caso), caso).not.toEqual([])
   })
@@ -249,6 +264,7 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
       'CREATE FUNCTION f() RETURNS jsonb LANGUAGE plpgsql AS $$ BEGIN PERFORM 1 FROM ronda_libre_jugadores j; FOR k, v IN SELECT * FROM jsonb_each(p) LOOP END LOOP; END $$;',
       'CREATE FUNCTION f() RETURNS SETOF public.ronda_libre_jugadores_x LANGUAGE sql AS $$ SELECT 1 $$;',
       'UPDATE ronda_libre_jugadores SET pending_user_id = NULL WHERE pending_user_id = p_user_id;',
+      'CREATE TRIGGER update_ronda_libre_jugadores_updated_at BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at()',
       'SELECT count(*) FROM ronda_libre_jugadores;',
       'SELECT jsonb_agg(j.id ORDER BY j.id) FROM ronda_libre_jugadores j;',
       'SELECT array_agg(DISTINCT j.ronda_id) FROM ronda_libre_jugadores j;',
