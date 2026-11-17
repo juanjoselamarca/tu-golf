@@ -19,7 +19,6 @@ import type { Player } from '@/lib/golf-data'
 import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
 import type { LeerNombresDePerfil } from '@/lib/data/nombres-de-perfil-lectura'
 import { boardPublicoRondaLibre, vistaPublica, type VistaPublica } from './vista-publica'
-import { normalizeStatus } from '@/app/torneo/[slug]/en-vivo/normalize-status'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from '@/app/torneo/[slug]/en-vivo/scrambleTeamsToLive'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from './teamLeaderboard'
@@ -212,7 +211,7 @@ export async function armarTorneoEnVivo(
     total_rounds: row.total_rounds ?? 1,
     par_total: parTotal,
     course_name: row.courses?.nombre ?? undefined,
-    status: normalizeStatus(row.status),
+    status: row.status,
     date_start: row.date_start ?? null,
     date_end: row.date_end ?? null,
     // Fuente única de liveness (misma que /torneo): date-aware, no solo status.

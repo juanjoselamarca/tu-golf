@@ -94,6 +94,13 @@ describe('GET /api/torneo/[slug]/live', () => {
     expect(json.players[0]).toMatchObject({ id: 'p1', gross_total: 12, thru: 3, group_id: 'g1', category_id: 'c1' })
   })
 
+  it('el status viaja ESCRITO (published no se aplana a closed): la cabecera del organizador dice "Publicado"', async () => {
+    tablas.tournaments = { ...LEGACY, status: 'published' }
+    const json = await (await pedir()).json()
+    expect(json.tournament.status).toBe('published')
+    expect(json.tournament).not.toHaveProperty('organizer_id')
+  })
+
   it('torneo LEGACY neto: completo para cualquiera (decisión 2 de #509) — HCP de inscripción y neto', async () => {
     const json = await (await pedir()).json()
     expect(json.tournament).toMatchObject({ modo: 'neto', caminoRondaLibre: false, vista: { sinNeto: false, soloBruto: false } })
