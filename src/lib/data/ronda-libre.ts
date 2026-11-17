@@ -194,8 +194,8 @@ export interface HoyoDeCatalogoEnVivo {
  * tarjeta de compartir (que no) mostraran netos distintos. Idempotente sobre un SI
  * ya válido. Bug de campo "net +12 Don Jorge" (inbox e6408e3c).
  *
- * El rango se toma sobre los hoyos que SE JUEGAN (`hoyosJugadosDeLaRonda`, el mismo criterio del scorer y de
- * todos los consumidores), no sobre 1..N: una
+ * El rango se toma sobre los hoyos que SE JUEGAN (`hoyosJugadosDeLaRonda`; con ≤18 hoyos, el mismo criterio del
+ * scorer y de los consumidores), no sobre 1..N: una
  * ronda de 9 desde el 10 rankeaba los hoyos 1..9 y el siMap salía sin 10..18 (QA Timba 17-nov, ronda 251825:
  * la Timba neto no calculaba y el leaderboard repartía los golpes por número de hoyo).
  *

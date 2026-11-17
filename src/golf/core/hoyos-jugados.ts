@@ -48,8 +48,9 @@ export function hoyosDeLaRonda(
 
 /**
  * Los hoyos de una RONDA guardada (`hoyo_inicio`, `holes`), en orden de juego: `hoyosDeLaRonda` sobre una cancha de
- * 18, o de `holes` si son más (27 en un 27 h: con 18 los hoyos 19-27 serían 1-9 otra vez). Es el criterio del scorer y
- * de todos los consumidores del siMap; la capa de datos lo usa para rankear el SI sobre los mismos hoyos.
+ * 18, o de `holes` si son más (27 en un 27 h: con 18 los hoyos 19-27 serían 1-9 otra vez). Con `holes ≤ 18` es idéntico
+ * a lo que recorren el scorer y los consumidores del siMap (`hoyosDeLaRonda` con cancha 18); en 27 h ellos aún envuelven
+ * en 18. La capa de datos lo usa para rankear el SI sobre los mismos hoyos que la Timba.
  */
 export function hoyosJugadosDeLaRonda(hoyoInicio: number | null | undefined, holes: number): number[] {
   return hoyosDeLaRonda(hoyoInicio, holes, Math.max(18, holes))
