@@ -227,7 +227,11 @@ function TorneoRowOrganizing({ t }: { t: OrganizingTournament }) {
           {t.name}
         </div>
         <div style={{ fontSize: '11px', color: TEXT_2, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {isLive ? <Chip variant="live">En curso</Chip> : <Chip variant="upcoming">Abierto</Chip>}
+          {isLive
+            ? <Chip variant="live">En curso</Chip>
+            : t.estado === 'vencido'
+              ? <Chip variant="finished">{t.etiqueta}</Chip>
+              : <Chip variant="upcoming">Abierto</Chip>}
           <span>{t.courses?.nombre}</span>
         </div>
       </Link>

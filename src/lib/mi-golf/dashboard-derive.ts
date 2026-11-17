@@ -8,12 +8,18 @@ import type { Tournament, HistoricalRound, RondaLibre } from './types'
 import type { RondaNormalizada } from '@/golf/stats/rondas-normalizadas'
 import type { RondaConScores } from './ultima-ronda'
 import { estadoDelTorneo, diasHastaFecha, type EstadoDelTorneo } from '@/golf/tournament-live-status'
-import { contarInscritos } from '@/golf/tournament-status'
+import { badgeDelTorneo, contarInscritos } from '@/golf/tournament-status'
 
 const DIAS_INMINENTE = 7
 
 export type PlayingTournament = Tournament & { horaSalida: string | null; diasRestantes: number; estado: EstadoDelTorneo }
-export type OrganizingTournament = Tournament & { inscritos: number; hoyoActual: number | null; estado: EstadoDelTorneo }
+export type OrganizingTournament = Tournament & {
+  inscritos: number
+  hoyoActual: number | null
+  estado: EstadoDelTorneo
+  /** Label del organizador (`badgeDelTorneo`): "Fecha vencida" para un open que nunca se inició. */
+  etiqueta: string
+}
 export type FinishedTournament = Tournament & { posicionFinal: string | null; totalJugadores: number | null }
 
 /** Por jugar o en curso según `estadoDelTorneo` (la fuente única): lo que sigue vivo para el usuario. */
@@ -44,13 +50,17 @@ export function findTorneoInminente(enrichedPlaying: PlayingTournament[], _now: 
     ?? null
 }
 
-/** Torneos que el usuario organiza y siguen vivos, con la cantidad de inscritos (`contarInscritos`). */
+/** Torneos que el usuario organiza y siguen vivos (o vencidos sin iniciar), con la cantidad de inscritos (`contarInscritos`). */
 export function enrichOrganizing(organizedTournaments: Tournament[], now: number): OrganizingTournament[] {
   const ahora = new Date(now)
   return organizedTournaments
     .map((t) => ({ t, estado: estadoDelTorneo(t, ahora) }))
-    .filter(({ estado }) => sigueVivo(estado))
-    .map(({ t, estado }) => ({ ...t, inscritos: contarInscritos(t.players), hoyoActual: null, estado }))
+    // El organizador también ve sus `open` vencidos ("Fecha vencida"): es quien tiene que iniciarlos o borrarlos.
+    .filter(({ estado }) => sigueVivo(estado) || estado === 'vencido')
+    .map(({ t, estado }) => ({
+      ...t, inscritos: contarInscritos(t.players), hoyoActual: null, estado,
+      etiqueta: badgeDelTorneo(t, ahora, 'organizer').label,
+    }))
 }
 
 /**

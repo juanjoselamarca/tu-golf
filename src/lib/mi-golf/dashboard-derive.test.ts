@@ -101,6 +101,17 @@ describe('enrichOrganizing', () => {
     expect(res.map((t) => t.estado)).toEqual(['por_jugar', 'en_curso'])
     expect(res[0].hoyoActual).toBeNull()
   })
+  it('el organizador ve su open vencido con "Fecha vencida" (es quien lo inicia o lo borra); el jugador no', () => {
+    const vencido = torneo({ id: 'v', status: 'open', date_start: '2026-05-01' })
+    const [r] = enrichOrganizing([vencido], NOW)
+    expect(r.estado).toBe('vencido')
+    expect(r.etiqueta).toBe('Fecha vencida')
+    expect(enrichPlaying([vencido], NOW)).toEqual([])
+  })
+  it('etiqueta del organizador en los vivos sale de badgeDelTorneo', () => {
+    const [r] = enrichOrganizing([torneo({ status: 'open', date_start: '2026-06-10' })], NOW)
+    expect(r.etiqueta).toBe('Inscripciones abiertas')
+  })
   it('inscritos = contarInscritos (aprobados), no 0 fijo', () => {
     const [r] = enrichOrganizing([
       torneo({ status: 'open', date_start: '2026-06-10', players: [{ status: 'approved' }, { status: 'approved' }, { status: 'withdrawn' }] }),
