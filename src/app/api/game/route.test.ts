@@ -15,20 +15,27 @@ const GUEST = 'dddddddd-3333-4333-8333-333333333333'
 let torneoDeLaRonda: string | null = TORNEO_A
 let rondaLookupError: unknown = null
 let rondaNoExiste = false
+// Sólo la lectura del estado del jugador (`players(status)`) falla / devuelve este estado.
+let estadoLookupError: unknown = null
+let estadoJugador = 'active'
 
-function chain(result: () => { data: unknown; error: unknown }) {
+function chain(result: (sel: string) => { data: unknown; error: unknown }) {
   const obj: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'not', 'in', 'update', 'insert']) obj[m] = vi.fn().mockReturnValue(obj)
-  obj.single = vi.fn(async () => result())
-  obj.maybeSingle = vi.fn(async () => result())
-  obj.then = (resolve: (v: unknown) => void) => Promise.resolve(result()).then(resolve)
+  let sel = ''
+  for (const m of ['eq', 'not', 'in', 'update', 'insert']) obj[m] = vi.fn().mockReturnValue(obj)
+  obj.select = vi.fn((s?: string) => { sel = s ?? ''; return obj })
+  obj.single = vi.fn(async () => result(sel))
+  obj.maybeSingle = vi.fn(async () => result(sel))
+  obj.then = (resolve: (v: unknown) => void) => Promise.resolve(result(sel)).then(resolve)
   return obj
 }
 
-const tablas: Record<string, () => { data: unknown; error: unknown }> = {
+const tablas: Record<string, (sel: string) => { data: unknown; error: unknown }> = {
   tournaments: () => ({ data: { organizer_id: ORG_A, status: 'in_progress' }, error: null }),
-  rounds: () =>
-    rondaLookupError
+  rounds: (sel) =>
+    estadoLookupError && sel.includes('players(status)')
+      ? { data: null, error: estadoLookupError }
+      : rondaLookupError
       ? { data: null, error: rondaLookupError }
       : rondaNoExiste
       ? { data: null, error: null }
@@ -36,7 +43,7 @@ const tablas: Record<string, () => { data: unknown; error: unknown }> = {
           data: {
             tournament_id: torneoDeLaRonda,
             player_id: 'player-1',
-            players: { pending_user_id: GUEST, user_id: 'otro-usuario', status: 'active' },
+            players: { pending_user_id: GUEST, user_id: 'otro-usuario', status: estadoJugador },
           },
           error: null,
         },
@@ -88,6 +95,8 @@ beforeEach(() => {
   torneoDeLaRonda = TORNEO_A
   rondaLookupError = null
   rondaNoExiste = false
+  estadoLookupError = null
+  estadoJugador = 'active'
   upsertScore.mockClear()
   finalizeRound.mockClear()
   mockGetUser.mockResolvedValue({ data: { user: { id: ORG_A } } })
@@ -230,6 +239,46 @@ describe('/api/game — falla pasajera no se disfraza de 401/403', () => {
       req({ ...score, tournament_id: TORNEO_A }, { 'x-guest-id': GUEST, 'x-guest-token': 't' }),
     )
     expect(res.status).toBe(503)
+    expect(upsertScore).not.toHaveBeenCalled()
+  })
+})
+
+describe('/api/game — códigos de los 403 y round_id malformado (PR #754 vuelta 2)', () => {
+  const invitado = { 'x-guest-id': GUEST, 'x-guest-token': 't' }
+
+  it('invitado retirado → 403 player_withdrawn', async () => {
+    estadoJugador = 'withdrawn'
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }, invitado))
+    expect(res.status).toBe(403)
+    expect((await res.json()).code).toBe('player_withdrawn')
+  })
+
+  it('jugador con cuenta descalificado → 403 player_withdrawn', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'otro-usuario' } } })
+    estadoJugador = 'disqualified'
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
+    expect(res.status).toBe(403)
+    expect((await res.json()).code).toBe('player_withdrawn')
+  })
+
+  it('invitado que no es dueño de la tarjeta → 403 guest_not_owner', async () => {
+    torneoDeLaRonda = TORNEO_B
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }, invitado))
+    expect(res.status).toBe(403)
+    expect((await res.json()).code).toBe('guest_not_owner')
+  })
+
+  it('invitado con la lectura de su estado caída → 503, no escribe', async () => {
+    estadoLookupError = new Error('timeout')
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }, invitado))
+    expect(res.status).toBe(503)
+    expect(upsertScore).not.toHaveBeenCalled()
+  })
+
+  it('round_id malformado en upsert_score → 400 (no 503 reintentable), con y sin invitado', async () => {
+    const malo = { ...score, round_id: 'no-es-uuid', tournament_id: TORNEO_A }
+    expect((await POST(req(malo))).status).toBe(400)
+    expect((await POST(req(malo, invitado))).status).toBe(400)
     expect(upsertScore).not.toHaveBeenCalled()
   })
 })

@@ -9,6 +9,7 @@ import { captureError } from '@/lib/error-tracking'
 import { fetchTorneoDeLaRonda } from '@/lib/data/tournaments/round-scope'
 import { isUuid } from '@/lib/uuid'
 import { esFalloTransitorioDeAuth } from '@/lib/auth/fallo-transitorio-auth'
+import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO } from '@/lib/api/codigos-game'
 
 export const dynamic = 'force-dynamic'
 
@@ -132,6 +133,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'tournament_id inválido' }, { status: 400 })
   }
 
+  // round_id malformado: 400 al tiro. Sin esto, Postgres respondía 22P02, la ruta lo tomaba por
+  // falla pasajera (503) y el scorer reintentaba para siempre.
+  if (action === 'upsert_score' && !isUuid(body.round_id)) {
+    return NextResponse.json({ error: 'round_id inválido' }, { status: 400 })
+  }
+
   // ── Guest scoring path (upsert_score ONLY) ──
   // Invitados sin cuenta envían x-guest-id + x-guest-token en vez de cookies de auth.
   // Solo se permite upsert_score — no acciones de organizador.
@@ -176,19 +183,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: NO_PUDIMOS_VERIFICAR }, { status: 503 })
     }
     if (!playerId) {
-      return NextResponse.json({ error: 'Token de invitado inválido o no autorizado' }, { status: 403 })
+      return NextResponse.json({ error: 'Token de invitado inválido o no autorizado', code: CODIGO_INVITADO_NO_DUENO }, { status: 403 })
     }
 
     // Verificar que el jugador no esté retirado/descalificado
-    const { data: guestPlayerStatus } = await svc
+    const { data: guestPlayerStatus, error: guestStatusError } = await svc
       .from('rounds')
       .select('player_id, players(status)')
       .eq('id', body.round_id)
-      .single()
+      .maybeSingle()
+    if (guestStatusError) {
+      // Con la base caída no se sabe si está retirado: no se deja escribir, pero es reintentable.
+      void captureError(guestStatusError, { context: 'game-engine.guest-status', level: 'error', meta: { roundId: body.round_id, tournamentId: tournament_id } })
+      return NextResponse.json({ error: NO_PUDIMOS_VERIFICAR }, { status: 503 })
+    }
     const guestPlayerSt = (guestPlayerStatus?.players as unknown as { status: string | null } | null)?.status
     if (guestPlayerSt === 'withdrawn' || guestPlayerSt === 'disqualified') {
       return NextResponse.json(
-        { error: 'Este jugador se ha retirado del torneo.' },
+        { error: 'Este jugador se ha retirado del torneo.', code: CODIGO_JUGADOR_RETIRADO },
         { status: 403 },
       )
     }
@@ -279,7 +291,7 @@ export async function POST(request: NextRequest) {
     // Rechazar scores de jugador retirado/descalificado
     if (isAllowed && (playerInfo?.status === 'withdrawn' || playerInfo?.status === 'disqualified')) {
       return NextResponse.json(
-        { error: 'Este jugador se ha retirado del torneo.' },
+        { error: 'Este jugador se ha retirado del torneo.', code: CODIGO_JUGADOR_RETIRADO },
         { status: 403 },
       )
     }
