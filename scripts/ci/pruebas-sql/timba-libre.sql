@@ -163,6 +163,19 @@ DO $$ BEGIN
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK RPC de un ajeno sobre jugador con user_id -> P0003';
 END $$;
 
+-- 20261118120000: el código de la ronda ya no basta para marcar a un invitado sin cuenta.
+DO $$ BEGIN
+  PERFORM public.marcar_puntito_ronda_libre('TIMBAU', 'e0000000-0000-4000-8000-000000000002', 4, 'sandy', true);
+  RAISE EXCEPTION 'FALLA: alguien ajeno marcó un punto a un invitado sin cuenta';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK ajeno no marca puntos a un invitado -> P0003';
+END $$;
+
+DO $$ BEGIN
+  PERFORM public.marcar_retiro_ronda_libre('TIMBAU', 'e0000000-0000-4000-8000-000000000002', 12);
+  RAISE EXCEPTION 'FALLA: alguien ajeno retiró a un invitado sin cuenta';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK ajeno no retira a un invitado -> P0003';
+END $$;
+
 -- ── anon ─────────────────────────────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 SET LOCAL ROLE anon;
@@ -206,6 +219,16 @@ DO $$ BEGIN
   VALUES ('e0000000-0000-4000-8000-000000000009', 'd0000000-0000-4000-8000-000000000009', 'Admin', 'a0000000-0000-4000-8000-000000000001');
   PERFORM public.marcar_puntito_ronda_libre('TIMBAA', 'e0000000-0000-4000-8000-000000000009', 3, 'greenie', true);
   RAISE NOTICE 'OK admin: crea, edita reglas y marca';
+END $$;
+
+-- ── Las escrituras bloquean la fila de la ronda contra el cierre (20261118120000) ──
+RESET ROLE;
+DO $$ BEGIN
+  IF pg_get_functiondef('public.upsert_ronda_libre_scores(uuid, text, jsonb, bigint, uuid)'::regprocedure) NOT LIKE '%FOR SHARE OF rl%'
+     OR pg_get_functiondef('public.timba_ronda_para_escribir(text, uuid)'::regprocedure) NOT LIKE '%FOR SHARE OF rl%' THEN
+    RAISE EXCEPTION 'FALLA: una escritura de la ronda no toma FOR SHARE de rondas_libres (el cierre no la espera)';
+  END IF;
+  RAISE NOTICE 'OK golpes y marcas toman FOR SHARE de la ronda';
 END $$;
 
 -- ── Lo que quedó escrito (como postgres) ─────────────────────────────────────────────────────────────────────

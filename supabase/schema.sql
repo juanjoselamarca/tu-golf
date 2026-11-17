@@ -2179,7 +2179,9 @@ BEGIN
     INTO v_ronda_id, v_estado, v_es_demo, v_formato, v_reglas, v_holes, v_user_id
   FROM public.rondas_libres rl
   INNER JOIN public.ronda_libre_jugadores rlj ON rlj.ronda_id = rl.id
-  WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo;
+  WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo
+  -- Mismo lock que upsert_ronda_libre_scores: lo toma la RPC que llama (misma transacción) hasta confirmar.
+  FOR SHARE OF rl;
 
   IF v_ronda_id IS NULL THEN
     RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
@@ -2193,10 +2195,11 @@ BEGIN
   IF v_formato <> 'personalizado' OR v_reglas IS NULL THEN
     RAISE EXCEPTION 'RONDA_SIN_JUEGO' USING ERRCODE = '22023';
   END IF;
-  -- Mismo criterio que upsert_ronda_libre_scores, pero siempre con sesión (nada para anon).
+  -- Siempre con sesión (nada para anon). Al invitado sin cuenta (user_id NULL) lo marca solo quien anota la
+  -- ronda (creador, marcador o un jugador de ella): antes bastaba tener el código.
   IF NOT (
     v_is_service
-    OR (v_uid IS NOT NULL AND (v_user_id = v_uid OR v_user_id IS NULL OR public.puede_anotar_ronda(v_ronda_id)))
+    OR (v_uid IS NOT NULL AND (v_user_id = v_uid OR public.puede_anotar_ronda(v_ronda_id)))
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
   END IF;
@@ -2349,7 +2352,10 @@ BEGIN
   FROM public.rondas_libres rl
   INNER JOIN public.ronda_libre_jugadores rlj ON rlj.ronda_id = rl.id
   WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo
-  FOR UPDATE OF rlj;
+  -- FOR SHARE de la ronda: el cierre (finalizar_ronda_libre, FOR UPDATE; o un UPDATE directo) espera a que esta
+  -- escritura confirme, y una escritura que llega después ve el estado ya cerrado. Varias escrituras a la vez no se
+  -- bloquean entre sí (SHARE es compatible con SHARE).
+  FOR UPDATE OF rlj FOR SHARE OF rl;
 
   IF v_ronda_id IS NULL THEN
     RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
