@@ -9,9 +9,9 @@
  */
 import { describe, it, expect } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { computeHistorialStats } from './historial'
-import { contarHoyoAHoyo, normalizarRondas, rondasQueCuentan, type CourseHoleRow, type RawStatsRound } from './rondas-normalizadas'
-import { useStatsDerived } from '@/app/perfil/stats/hooks/useStatsDerived'
+import { computeHistorialStats } from '@/golf/stats/historial'
+import { contarHoyoAHoyo, normalizarRondas, rondasQueCuentan, type CourseHoleRow, type RawStatsRound } from '@/golf/stats/rondas-normalizadas'
+import { useStatsDerived } from './useStatsDerived'
 
 // Cancha A: par 72 (pares 4,4,3,5 repetidos de forma irregular), por course_id.
 const paresA = [4, 4, 3, 5, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4]
