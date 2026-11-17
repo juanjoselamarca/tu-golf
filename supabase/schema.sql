@@ -731,7 +731,8 @@ create table public."ronda_libre_jugadores" (
   "handicap" numeric(4,1) default NULL::numeric,
   "tees" text,
   "perfil_sugerido_id" uuid,
-  "handicap_de_inscripcion" boolean default false not null
+  "handicap_de_inscripcion" boolean default false not null,
+  "updated_at" timestamp with time zone default now()
 );
 create table public."ronda_libre_puntitos" (
   "id" uuid default gen_random_uuid() not null,
@@ -981,7 +982,10 @@ create table public."tournaments" (
   "team_config" jsonb,
   "max_players" integer,
   "description" text,
-  "hcp_pct" smallint default 100 not null
+  "hcp_pct" smallint default 100 not null,
+  "aviso_cierre_enviado_at" timestamp with time zone,
+  "cerrado_automaticamente_at" timestamp with time zone,
+  "cierre_automatico" boolean default true not null
 );
 -- ===== 5. funciones =====
 CREATE OR REPLACE FUNCTION public.backfill_handicap_de_inscripcion()
@@ -2943,6 +2947,7 @@ CREATE TRIGGER grupos_fijos_inscrito BEFORE DELETE ON public.players FOR EACH RO
 CREATE TRIGGER trigger_log_role_change BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.log_role_change();
 CREATE TRIGGER trigger_protect_last_admin BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.protect_last_admin();
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER update_ronda_libre_jugadores_updated_at BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_taiger_sessions_updated_at BEFORE UPDATE ON public.taiger_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER trg_tournament_drafts_dueno_colaborador AFTER INSERT ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador();
 CREATE TRIGGER trg_tournament_drafts_owner_change BEFORE UPDATE OF owner_id ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.guard_tournament_drafts_owner_change();
