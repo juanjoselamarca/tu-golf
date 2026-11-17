@@ -2201,7 +2201,9 @@ BEGIN
   -- ronda (creador, marcador o un jugador de ella): antes bastaba tener el código.
   IF NOT (
     v_is_service
-    OR (v_uid IS NOT NULL AND (v_user_id = v_uid OR public.puede_anotar_ronda(v_ronda_id)))
+    -- IS NOT DISTINCT FROM y no `=`: con un invitado (user_id NULL) `=` da NULL, el IF NOT (NULL) no corta y el
+    -- ajeno pasaría (lo cazó la prueba SQL).
+    OR (v_uid IS NOT NULL AND (v_user_id IS NOT DISTINCT FROM v_uid OR public.puede_anotar_ronda(v_ronda_id)))
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
   END IF;
