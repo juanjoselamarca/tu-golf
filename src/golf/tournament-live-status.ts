@@ -55,11 +55,24 @@ export function estadoDelTorneo(t: TorneoConFechas, ahora: Date): EstadoDelTorne
   const fechas = rangoDelTorneo(t)
   if (fechas) {
     const hoy = fechaHoyChile(ahora)
-    if (diffDias(fechas.fin, hoy) > GRACE_DIAS_TORNEO) return enJuego ? 'finalizado' : 'vencido'
+    if (hoy >= diaDeCierreDesdeFin(fechas.fin)) return enJuego ? 'finalizado' : 'vencido'
     if (fechas.inicio > hoy) return 'por_jugar'
   }
   return enJuego ? 'en_curso' : 'por_jugar'
 }
+
+/**
+ * Día de Chile (YYYY-MM-DD) desde el que un torneo sin cerrar deja de estar "en curso": el fin
+ * (date_end ?? date_start) más GRACE_DIAS_TORNEO + 1. Torneo del sábado → martes. FUENTE ÚNICA del día
+ * de cierre: la usan `estadoDelTorneo` (lo muestra finalizado) y el cierre automático
+ * (`src/golf/tournament-auto-close.ts`, que lo cierra de verdad), para que nunca difieran. Sin fecha → null.
+ */
+export function diaDeCierreDelTorneo(t: TorneoConFechas): string | null {
+  const fechas = rangoDelTorneo(t)
+  return fechas ? diaDeCierreDesdeFin(fechas.fin) : null
+}
+
+const diaDeCierreDesdeFin = (fin: string): string => sumarDias(fin, GRACE_DIAS_TORNEO + 1)
 
 /** ¿El torneo está en curso ahora? Atajo de `estadoDelTorneo` (misma regla). */
 export function torneoEnVivo(
