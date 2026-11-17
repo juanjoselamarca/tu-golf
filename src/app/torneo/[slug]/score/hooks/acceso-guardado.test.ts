@@ -4,6 +4,13 @@ import { buscarVoseo } from '../../../../../../scripts/lib/voseo.mjs'
 
 const PROMESA_VACIA = /sincroniz|guardado localmente|reintent|anótalos de nuevo/i
 
+describe('clasificarRespuestaScore — token roto ≠ tarjeta ajena', () => {
+  it('403 guest_token_invalid y 403 guest_not_owner se leen distinto', () => {
+    expect(clasificarRespuestaScore(403, 'guest_token_invalid')).toBe('invitado_token_invalido')
+    expect(clasificarRespuestaScore(403, 'guest_not_owner')).toBe('invitado_no_dueno')
+  })
+})
+
 describe('clasificarRespuestaScore (scorer del torneo)', () => {
   it('2xx es ok', () => {
     expect(clasificarRespuestaScore(200)).toBe('ok')

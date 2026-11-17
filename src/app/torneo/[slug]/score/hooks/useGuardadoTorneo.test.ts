@@ -57,6 +57,7 @@ function dejarPendiente(scores: Record<number, number>) {
 async function montar(extra: Partial<UseGuardadoTorneoArgs> = {}) {
   const h = renderHook((p: UseGuardadoTorneoArgs) => useGuardadoTorneo(p), { initialProps: args(extra) })
   await waitFor(() => expect(fetchRoundHoleScores).toHaveBeenCalled())
+  await act(async () => {}) // termina la carga (lo del servidor queda confirmado)
   return h
 }
 
@@ -183,14 +184,36 @@ describe('useGuardadoTorneo — 401/403 (PR #754)', () => {
     expect(respaldo()).toEqual({ 7: 5 })
   })
 
-  it('403 guest_not_owner y sin sesión con cuenta: aviso de invitado al organizador, nunca a /unirse', async () => {
-    respuestas = [{ status: 403, body: { code: 'guest_not_owner' } }, { status: 401 }]
+  it('403 guest_token_invalid y sin sesión con cuenta: aviso de invitado al organizador, nunca a /unirse', async () => {
+    respuestas = [{ status: 403, body: { code: 'guest_token_invalid' } }, { status: 401 }]
     const { result } = await montar({ guestId: 'g1', guestToken: 'tok' })
     await act(async () => { await result.current.guardarHoyo(7, '5') })
     expect(conHeadersInvitado).toEqual([true, false])
     expect(result.current.sinAcceso?.titulo).toMatch(/invitado/)
     expect(result.current.sinAcceso?.href).toBe(`/torneo/${SLUG}`)
     expect(respaldo()).toEqual({ 7: 5 })
+  })
+
+  it('403 guest_not_owner (invitado sano, tarjeta de otro) y sin sesión: "no está a tu nombre", no "tu acceso ya no sirve"', async () => {
+    respuestas = [{ status: 403, body: { code: 'guest_not_owner' } }, { status: 401 }]
+    const { result } = await montar({ guestId: 'g1', guestToken: 'tok' })
+    await act(async () => { await result.current.guardarHoyo(7, '5') })
+    expect(conHeadersInvitado).toEqual([true, false])
+    expect(result.current.sinAcceso?.titulo).not.toMatch(/invitado/)
+    expect(result.current.sinAcceso?.detalle).toMatch(/no está a tu nombre/)
+    expect(result.current.sinAcceso?.detalle).toMatch(/Cambiar jugador/)
+  })
+
+  it('al cambiar de tarjeta vuelve a probar con los headers de invitado', async () => {
+    respuestas = [{ status: 403, body: { code: 'guest_not_owner' } }, { status: 200 }]
+    const { result, rerender } = await montar({ guestId: 'g1', guestToken: 'tok' })
+    await act(async () => { await result.current.guardarHoyo(1, '5') })
+    expect(conHeadersInvitado).toEqual([true, false])
+    const otro = { id: 'p2', rounds: [{ id: 'ronda-2' }] } as unknown as ScoringPlayer
+    rerender(args({ guestId: 'g1', guestToken: 'tok', player: otro, roundId: 'ronda-2' }))
+    await act(async () => {})
+    await act(async () => { await result.current.guardarHoyo(1, '4') })
+    expect(conHeadersInvitado).toEqual([true, false, true])
   })
 
   it('403 guest_not_owner con sesión de cuenta (guestId viejo): entra sin headers y deja de mandarlos', async () => {
@@ -301,5 +324,91 @@ describe('useGuardadoTorneo — la cola no se confirma con hoyos sin llegar ni s
     rerender(args({ player: otro, roundId: 'ronda-2' }))
     await waitFor(() => expect(enviados).toContainEqual({ hole: 2, gross: 6 }))
     await act(async () => { soltar() })
+  })
+
+  it('(a) corrección de un hoyo ya confirmado (5: 4→5) que falla: queda en cola y se reenvía', async () => {
+    const { result } = await montar()
+    await act(async () => { await result.current.guardarHoyo(5, '4') })
+    respuestas = [{ status: 500 }, { status: 500 }, { status: 500 }, { status: 200 }]
+    await act(async () => { await result.current.guardarHoyo(5, '5') })
+    expect(result.current.saveStatus).toBe('error')
+    expect(respaldo()).toEqual({ 5: 5 })
+    await act(async () => { await result.current.guardarHoyo(6, '4') })
+    await waitFor(() => expect(respaldo()).toBeNull())
+    expect(enviados.at(-1)).toEqual({ hole: 5, gross: 5 })
+  })
+
+  it('(b) reintento viejo (5=4, 503) que entra después del ok de la corrección (5=5): se reenvía el 5', async () => {
+    const { result } = await montar()
+    respuestas = [{ status: 503 }, { status: 200 }]
+    let viejo!: Promise<void>
+    act(() => { viejo = result.current.guardarHoyo(5, '4') })
+    await waitFor(() => expect(enviados).toHaveLength(1))
+    await act(async () => { await result.current.guardarHoyo(5, '5') })
+    expect(respaldo()).toBeNull()
+    // El reintento del 4 entra después: el servidor quedó con el valor viejo.
+    await act(async () => { vi.advanceTimersByTime(500); await viejo })
+    await waitFor(() => expect(enviados.at(-1)).toEqual({ hole: 5, gross: 5 }))
+    expect(enviados.map(e => e.gross)).toEqual([4, 5, 4, 5])
+    await waitFor(() => expect(respaldo()).toBeNull())
+  })
+
+  it('(c) hoyo en vuelo que falla después del ok de otro: error y la cola se conserva', async () => {
+    const { result } = await montar()
+    let soltar!: () => void
+    colgar = new Promise<void>(r => { soltar = r })
+    respuestas = [{ status: 200 }, { status: 500 }]
+    let primero!: Promise<void>
+    act(() => { primero = result.current.guardarHoyo(1, '4') })
+    await waitFor(() => expect(enviados).toHaveLength(1))
+    await act(async () => { await result.current.guardarHoyo(2, '5') })
+    // El ok del 2 no reenvía el 1 (va en camino) ni da la cola por enviada.
+    expect(enviados).toHaveLength(2)
+    expect(respaldo()).toEqual({ 1: 4, 2: 5 })
+    await act(async () => { soltar(); vi.advanceTimersByTime(2000); await primero })
+    expect(result.current.saveStatus).toBe('error')
+    expect(respaldo()).toEqual({ 1: 4, 2: 5 })
+  })
+
+  it('guardar antes de que termine la carga no reenvía la tarjeta entera', async () => {
+    let cargar!: (v: unknown) => void
+    fetchRoundHoleScores.mockReturnValue(new Promise(r => { cargar = r }))
+    dejarPendiente({ 1: 4, 2: 5, 3: 4 })
+    const { result } = renderHook((p: UseGuardadoTorneoArgs) => useGuardadoTorneo(p), { initialProps: args() })
+    await act(async () => { await result.current.guardarHoyo(4, '4') })
+    expect(enviados).toEqual([{ hole: 4, gross: 4 }])
+    // Al terminar la carga, el reenvío al abrir manda SÓLO lo que el servidor no tiene.
+    await act(async () => { cargar([{ hole_number: 1, gross_score: 4 }, { hole_number: 2, gross_score: 5 }]) })
+    await waitFor(() => expect(respaldo()).toBeNull())
+    expect(enviados.slice(1)).toEqual([{ hole: 3, gross: 4 }])
+  })
+
+  it('A → "Cambiar jugador" → A sin recargar: vuelve a reenviar al abrir', async () => {
+    respuestas = [{ status: 401 }]
+    const { result, rerender } = await montar()
+    await act(async () => { await result.current.guardarHoyo(7, '5') })
+    expect(respaldo()).toEqual({ 7: 5 })
+    respuestas = [{ status: 200 }]
+    rerender(args({ player: undefined, roundId: null }))
+    await act(async () => {})
+    rerender(args())
+    await waitFor(() => expect(respaldo()).toBeNull())
+    expect(enviados).toEqual([{ hole: 7, gross: 5 }, { hole: 7, gross: 5 }])
+  })
+
+  it('ronda cerrada en el reenvío de una tarjeta que ya no está abierta: descarta sin avisos', async () => {
+    dejarPendiente({ 7: 5 })
+    respuestas = [{ status: 409, body: { code: 'round_closed' } }]
+    let soltar!: () => void
+    colgar = new Promise<void>(r => { soltar = r })
+    const onRondaCerrada = vi.fn()
+    const { rerender } = await montar({ onRondaCerrada })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const otro = { id: 'p2', rounds: [{ id: 'ronda-2' }] } as unknown as ScoringPlayer
+    rerender(args({ onRondaCerrada, player: otro, roundId: 'ronda-2' }))
+    await act(async () => { soltar() })
+    await waitFor(() => expect(respaldo()).toBeNull())
+    expect(onRondaCerrada).not.toHaveBeenCalled()
+    expect(addToast).not.toHaveBeenCalled()
   })
 })

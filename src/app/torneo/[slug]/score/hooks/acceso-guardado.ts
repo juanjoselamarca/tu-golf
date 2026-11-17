@@ -1,5 +1,6 @@
 import { loginUrl } from '@/lib/auth/login-url'
-import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO } from '@/lib/api/codigos-game'
+import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO, CODIGO_TOKEN_INVITADO_INVALIDO } from '@/lib/api/codigos-game'
+import { PARAM_JUGADOR } from './jugador-del-link'
 
 /**
  * Lectura de la respuesta de `/api/game` (`upsert_score`) en el scorer del torneo.
@@ -11,10 +12,12 @@ import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO } from '@/lib/api/cod
  * - `sin_sesion`          401: el servidor no reconoce a nadie (sesión vencida o nunca iniciada).
  *                         `/api/game` sólo responde 401 sin identidad: Auth caído es 503.
  * - `retirado`            403 `player_withdrawn`: el jugador está retirado o descalificado.
- * - `invitado_no_dueno`   403 `guest_not_owner`: los headers de invitado no son dueños de la tarjeta.
- *                         No es final: `enviarHoyo` reintenta UNA vez sin headers de invitado
- *                         (un teléfono con un guestId viejo que hoy anota con cuenta).
- * - `invitado_sin_acceso` lo que queda de lo anterior si sin headers tampoco hay sesión.
+ * - `invitado_token_invalido` 403 `guest_token_invalid`: el token de invitado no verifica.
+ * - `invitado_no_dueno`   403 `guest_not_owner`: token sano, pero la tarjeta es de otro jugador.
+ *                         Ninguno de los dos es final: `enviarHoyo` reintenta UNA vez sin headers de
+ *                         invitado (un teléfono con un guestId viejo que hoy anota con cuenta).
+ * - `invitado_sin_acceso` token roto y, sin headers, tampoco hay sesión.
+ *                         (Tarjeta ajena y sin sesión es `sin_permiso`: el acceso sirve, la tarjeta no.)
  * - `sin_permiso`         403 (otro): hay identidad pero la tarjeta no es suya.
  * - `reintentar`          red, 5xx, 429: puede pasar; aplica la cola local de siempre.
  *
@@ -23,7 +26,7 @@ import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO } from '@/lib/api/cod
  */
 export type MotivoSinAcceso = 'sin_sesion' | 'sin_permiso' | 'retirado' | 'invitado_sin_acceso'
 export type ResultadoGuardadoTorneo = 'ok' | 'closed' | 'inactive' | MotivoSinAcceso | 'error'
-export type LecturaRespuestaScore = ResultadoGuardadoTorneo | 'invitado_no_dueno' | 'reintentar'
+export type LecturaRespuestaScore = ResultadoGuardadoTorneo | 'invitado_no_dueno' | 'invitado_token_invalido' | 'reintentar'
 
 const MOTIVOS_SIN_ACCESO: readonly MotivoSinAcceso[] = ['sin_sesion', 'sin_permiso', 'retirado', 'invitado_sin_acceso']
 
@@ -34,6 +37,7 @@ export function clasificarRespuestaScore(status: number, code?: string | null): 
   if (status === 403) {
     if (code === CODIGO_JUGADOR_RETIRADO) return 'retirado'
     if (code === CODIGO_INVITADO_NO_DUENO) return 'invitado_no_dueno'
+    if (code === CODIGO_TOKEN_INVITADO_INVALIDO) return 'invitado_token_invalido'
     return 'sin_permiso'
   }
   return 'reintentar'
@@ -83,7 +87,7 @@ export function avisoSinAcceso(args: { slug: string; motivo: MotivoSinAcceso; ju
       }
     case 'sin_sesion': {
       // Vuelve a ESTA tarjeta: con el jugador elegido, los golpes se reenvían solos al abrirla.
-      const destino = `/torneo/${args.slug}/score${args.jugadorId ? `?jugador=${encodeURIComponent(args.jugadorId)}` : ''}`
+      const destino = `/torneo/${args.slug}/score${args.jugadorId ? `?${PARAM_JUGADOR}=${encodeURIComponent(args.jugadorId)}` : ''}`
       return {
         // Vale para la sesión vencida y para quien nunca la inició.
         titulo: 'Inicia sesión para guardar',

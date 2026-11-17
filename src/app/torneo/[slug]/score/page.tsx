@@ -18,6 +18,7 @@ import { motivoSinScores } from '@/golf/tournament-status'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
 import { useGuardadoTorneo } from './hooks/useGuardadoTorneo'
+import { elegirJugadorInicial, urlSinJugador } from './hooks/jugador-del-link'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import {
   fetchScoringTournament,
@@ -212,25 +213,24 @@ export default function PlayerScoringPage() {
 
         setLoading(false)
 
-        // Vuelta desde el login del aviso "Inicia sesión para guardar" (`?jugador=<id>`): se reabre
-        // ESA tarjeta, que al abrirse reenvía sola los golpes que quedaron en el teléfono.
-        const jugadorDelLink = new URLSearchParams(window.location.search).get('jugador')
-        if (jugadorDelLink && roster.some(p => p.id === jugadorDelLink)) setSelectedId(jugadorDelLink)
-
-        // Auto-selección del invitado: FUERA del Promise.all de arriba a propósito. Es una
-        // comodidad que depende de la red; adentro, una respuesta lenta de /guest-player
-        // retrasaba la pantalla completa aunque el roster y la cancha ya hubieran llegado.
-        // Sin auto-selección si falla: el invitado elige su nombre en la lista.
-        if (guestId && guestTokenValue) {
-          void fetchMiJugadorInvitado(slug, guestId, guestTokenValue)
-            .then((guestPlayerId) => {
-              if (cancelled) return
-              if (guestPlayerId && roster.some(p => p.id === guestPlayerId)) setSelectedId(guestPlayerId)
-            })
-            .catch((e) => {
-              void captureError(e, { context: 'torneo.score.guestPlayer', meta: { slug } })
-            })
-        }
+        // Tarjeta que se abre sola: la del link `?jugador=` (vuelta del login del aviso "Inicia sesión
+        // para guardar", reenvía sola lo pendiente) y, sin link, la del invitado. Va FUERA del
+        // Promise.all de arriba a propósito: /guest-player depende de la red y no debe retrasar la
+        // pantalla. Sin auto-selección si falla: el jugador elige su nombre en la lista.
+        void elegirJugadorInicial({
+          search: window.location.search,
+          roster,
+          buscarInvitado: guestId && guestTokenValue ? () => fetchMiJugadorInvitado(slug, guestId, guestTokenValue) : null,
+        })
+          .then((eleccion) => {
+            if (cancelled || !eleccion) return
+            setSelectedId(eleccion.id)
+            // Usado una vez: recargar el roster después no vuelve a forzar esa tarjeta.
+            if (eleccion.desdeLink) window.history.replaceState(window.history.state, '', urlSinJugador(window.location.href))
+          })
+          .catch((e) => {
+            void captureError(e, { context: 'torneo.score.guestPlayer', meta: { slug } })
+          })
       } catch (e) {
         void captureError(e, { context: 'torneo.score.load', meta: { slug } })
         if (!cancelled) {

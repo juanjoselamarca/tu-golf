@@ -88,6 +88,8 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
   const tarjetaVigenteRef = useRef<string | null>(roundId)
   /** Un 403 `guest_not_owner` se resolvió sin headers de invitado: el teléfono anota con cuenta. */
   const sinHeadersInvitadoRef = useRef(false)
+  /** Tarjeta cuyo reenvío al abrir ya arrancó (uno por apertura). */
+  const reenviadoAlAbrirRef = useRef<string | null>(null)
   const anotaComoInvitado = useCallback(() => !!guestId && !!guestToken && !sinHeadersInvitadoRef.current, [guestId, guestToken])
 
   // Al cambiar de tarjeta (otro jugador u otra ronda) todo lo visible y lo confirmado es de la anterior.
@@ -95,6 +97,11 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     tarjetaVigenteRef.current = roundId
     confirmadosRef.current = {}
     enVueloRef.current = new Map()
+    // Cada tarjeta prueba de nuevo con los headers de invitado y vuelve a reenviar al abrirse
+    // (A → "Cambiar jugador" → A sin recargar). Hasta que cargue no se sabe qué tiene el servidor.
+    sinHeadersInvitadoRef.current = false
+    reenviadoAlAbrirRef.current = null
+    setTarjetaCargada(null)
     setSavedHoles(new Set())
     setSinAcceso(null)
     setSaveError(null)
@@ -167,15 +174,25 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
         try {
           const conInvitado = anotaComoInvitado()
           let r = await postScore(body, conInvitado)
-          if (r === 'invitado_no_dueno') {
-            if (!conInvitado) return 'invitado_sin_acceso'
+          if (r === 'invitado_no_dueno' || r === 'invitado_token_invalido') {
+            // Token roto → "tu acceso de invitado ya no sirve". Token sano con la tarjeta de otro →
+            // "esta tarjeta no está a tu nombre" (eligió mal en "¿Quién eres?"; su acceso está bien).
+            const motivo = r === 'invitado_token_invalido' ? 'invitado_sin_acceso' : 'sin_permiso'
+            if (!conInvitado) return motivo
             // UNA vez sin headers de invitado: si el teléfono tiene sesión con cuenta, entra por ahí.
             r = await postScore(body, false)
             if (r === 'ok') sinHeadersInvitadoRef.current = true
-            else if (r === 'sin_sesion' || r === 'invitado_no_dueno') return 'invitado_sin_acceso'
+            else if (r === 'sin_sesion' || r === 'invitado_no_dueno' || r === 'invitado_token_invalido') return motivo
           }
           if (r !== 'reintentar') {
-            if (r === 'ok' && tarjetaVigenteRef.current === ronda) confirmadosRef.current[holeNumber] = gross
+            if (r === 'ok' && tarjetaVigenteRef.current === ronda) {
+              confirmadosRef.current[holeNumber] = gross
+              // Llegó un valor que ya no es el anotado (reintento viejo que entró después de la
+              // corrección): el servidor quedó con el viejo. La cola vuelve a pendiente para que el
+              // valor vigente se reenvíe aunque ya se hubiera marcado enviada.
+              const local = scoreSync.obtenerLocal()
+              if (local && local[holeNumber] !== undefined && local[holeNumber] !== gross) scoreSync.guardarLocal(local)
+            }
             return r
           }
         } catch {
@@ -187,7 +204,7 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     } finally {
       if (enVuelo.get(holeNumber) === gross) enVuelo.delete(holeNumber)
     }
-  }, [postScore, anotaComoInvitado])
+  }, [postScore, anotaComoInvitado, scoreSync])
 
   const marcarSinAcceso = useCallback((motivo: MotivoSinAcceso) => {
     setSaveStatus('sin_acceso')
@@ -239,7 +256,9 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
         const resultado = await enviarHoyo(tournament.id, roundId, holeNumber, g, p.par, p.neto, p.puntos)
         if (resultado === 'closed') {
           // Tarjeta cerrada: lo pendiente no tiene a dónde ir. Se descarta y se recarga el roster.
+          // Si ya se cambió de tarjeta, el aviso y la recarga serían sobre otra: sólo se descarta.
           scoreSync.marcarSincronizado()
+          if (!vigente()) return true
           addToast({ type: 'error', title: 'Ronda cerrada', message: 'El organizador cerró esta ronda. Los scores pendientes no se guardaron.', duration: 6000 })
           onRondaCerrada()
           return true
@@ -247,6 +266,7 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
         if (resultado === 'inactive') {
           scoreSync.marcarSincronizado()
           setTorneoInactivo(true)
+          if (!vigente()) return true
           addToast({ type: 'error', title: 'Torneo cerrado', message: 'El torneo ya no acepta scores. Los scores pendientes no se guardaron.', duration: 6000 })
           return true
         }
@@ -289,7 +309,10 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     const p = puntajeDe(holeNumber, gross, player)
     if (!p) return
 
-    const nextScores = { ...currentScores, [holeNumber]: gross }
+    // Antes de terminar la carga, `currentScores` todavía no tiene lo que quedó en el teléfono:
+    // guardar sólo este hoyo pisaría ese respaldo y se perderían golpes sin enviar.
+    const pendienteSinCargar = tarjetaCargada === roundId ? null : leerRespaldoPendiente(slug, roundId)
+    const nextScores = { ...(pendienteSinCargar ?? {}), ...currentScores, [holeNumber]: gross }
     setCurrentScores(nextScores)
     scoreSync.guardarLocal(nextScores)
 
@@ -335,7 +358,8 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
       setSinAcceso(null)
       // Cola al día → se marca sin red. Si falta algo que no está viajando, se manda SÓLO eso.
       const local = scoreSync.obtenerLocal()
-      if (!cerrarSiTodoConfirmado(local) && Object.keys(porEnviar(local ?? {})).length > 0) {
+      // Antes de terminar la carga no se sabe qué tiene el servidor: el reenvío al abrir lo cubre.
+      if (tarjetaCargada === roundId && !cerrarSiTodoConfirmado(local) && Object.keys(porEnviar(local ?? {})).length > 0) {
         void reenviarPendientes({ avisar: false })
       }
       if (anotaComoInvitado() && Object.keys(nextScores).length >= holeCount) onInvitadoCompleto()
@@ -344,7 +368,7 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     setSaveStatus('error')
     addToast({ type: 'error', title: `Error hoyo ${holeNumber}`, message: 'Score guardado localmente. Se sincronizará al recuperar la conexión.', duration: 6000 })
     setSaveError(`Error guardando hoyo ${holeNumber}. Reintentando al reconectar.`)
-  }, [tournament, player, roundId, bloqueado, torneoInactivo, contextoListo, puntajeDe, scoreSync, currentScores, isOnline, enviarHoyo, onRondaCerrada, marcarSinAcceso, cerrarSiTodoConfirmado, porEnviar, reenviarPendientes, holeCount, onInvitadoCompleto, anotaComoInvitado])
+  }, [tournament, player, roundId, bloqueado, torneoInactivo, contextoListo, puntajeDe, scoreSync, currentScores, isOnline, enviarHoyo, onRondaCerrada, marcarSinAcceso, cerrarSiTodoConfirmado, porEnviar, reenviarPendientes, holeCount, onInvitadoCompleto, anotaComoInvitado, tarjetaCargada, slug])
 
   /* ── Online/offline: los listeners se registran UNA vez y llaman a la versión vigente ── */
   const reenviarRef = useRef(reenviarPendientes)
@@ -365,7 +389,6 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
   // lo anotado mientras tanto), así que darlo por hecho es correcto.
   // Espera a que termine la carga: antes no se sabe qué tiene el servidor y se reenviaría todo.
   const listo = !!tournament && !!roundId && !!player && contextoListo && tarjetaCargada === roundId
-  const reenviadoAlAbrirRef = useRef<string | null>(null)
   useEffect(() => {
     if (!listo || !roundId || reenviadoAlAbrirRef.current === roundId || !estaOnline()) return
     reenviadoAlAbrirRef.current = roundId
