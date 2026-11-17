@@ -75,7 +75,8 @@ function tarjetaUnicaDelUsuario(
  * grupo (`(ronda_id, user_id)` no tiene restricción de unicidad). Un WD/DQ sin
  * fila de grupo (se retiró antes de empezar: no debería tener tarjeta) se busca
  * igual por `user_id` en todo el torneo: con una, sale; sin ninguna, no jugó y no
- * se reporta; con 2+ o sin cuenta (invitado), se reporta como sin resolver.
+ * se reporta; con 2+, se reporta como sin resolver. Invitado (sin cuenta) sin fila:
+ * se reporta sólo si hay una tarjeta de invitado suelta que podría ser la suya.
  */
 export function estadoFueraPorTarjeta(
   grupos: ReadonlyArray<GrupoConTarjetas>,
@@ -88,6 +89,8 @@ export function estadoFueraPorTarjeta(
   if (fuera.length === 0) return { porTarjeta, sinResolver }
   const fueraPorId = new Map(fuera.map((p) => [p.id, p]))
   const conFila = new Set<string>()
+  const enlazadas = new Set(grupos.flatMap((g) => (g.tournament_group_players ?? []).map((gp) => gp.jugador_ronda_id).filter(Boolean)))
+  const hayTarjetaDeInvitadoSuelta = () => tarjetas.some((t) => !t.user_id && !enlazadas.has(t.id))
   for (const g of grupos) {
     for (const gp of g.tournament_group_players ?? []) {
       const inscrito = fueraPorId.get(gp.player_id)
@@ -103,8 +106,10 @@ export function estadoFueraPorTarjeta(
   }
   for (const inscrito of fuera) {
     if (conFila.has(inscrito.id)) continue
-    // Invitado sin cuenta: no hay forma segura de saber si tiene tarjeta → se reporta.
-    if (!inscrito.user_id) { sinResolver.push(inscrito); continue }
+    // Invitado sin cuenta: sólo se reporta si hay una tarjeta de invitado SUELTA (sin
+    // fila que la enlace) que podría ser suya. Sin ninguna, no jugó: nada que reportar
+    // (si no, cada armado del board, ~10 s, escribiría un error falso en plena ronda).
+    if (!inscrito.user_id) { if (hayTarjetaDeInvitadoSuelta()) sinResolver.push(inscrito); continue }
     const suyas = tarjetas.filter((t) => t.user_id === inscrito.user_id)
     if (suyas.length === 1) porTarjeta.set(suyas[0].id, inscrito)
     else if (suyas.length > 1) sinResolver.push(inscrito) // ambiguo: no se elige una
@@ -190,23 +195,26 @@ const hoyoAnotado = (scores: Readonly<Record<string, number>>, hoyo: string) => 
 }
 
 /**
- * Mejor bola con un DQ (decisión de Juanjo, 17-nov; Reglas 3.3c y 23.2b): los
- * golpes del descalificado no cuentan, y si con eso queda algún hoyo anotado sin
- * el score de un compañero NO descalificado, el equipo entero queda DQ (incluye
- * "ambos DQ" y "el compañero no jugó ningún hoyo"). Si el compañero cubrió todos
- * los hoyos, el equipo sigue (`null`). Un WD no cambia nada (Regla 23.4).
+ * Mejor bola (decisión de Juanjo, 17-nov; Reglas 3.3c, 23.2b y 23.4):
+ * - Sin ningún miembro compitiendo, el equipo va al pie: DQ si todos son DQ; si no, WD.
+ * - Con un DQ: sus golpes no cuentan, y si con eso queda algún hoyo anotado sin el
+ *   score de un compañero NO descalificado, el equipo entero queda DQ. Si el
+ *   compañero aún no anota nada (el DQ fue antes de salir), el equipo sigue: el
+ *   compañero puede jugar solo (R23.4).
+ * - Un WD con compañero compitiendo no cambia nada (R23.4).
  * `miembros`: las tarjetas con sus golpes CRUDOS (antes de quitar los del DQ).
  */
 export function estadoDelEquipoMejorBola(
   miembros: ReadonlyArray<{ id: string; scores: Readonly<Record<string, number>> }>,
   porTarjeta: ReadonlyMap<string, InscritoFuera>,
-): 'disqualified' | null {
+): EstadoFueraDelRanking | null {
+  if (!miembros.some((m) => porTarjeta.has(m.id))) return null
   const esDq = (id: string) => porTarjeta.get(id)?.status === 'disqualified'
+  const activos = miembros.filter((m) => !porTarjeta.has(m.id))
+  if (activos.length === 0) return miembros.every((m) => esDq(m.id)) ? 'disqualified' : 'withdrawn'
   const dqs = miembros.filter((m) => esDq(m.id))
-  if (dqs.length === 0) return null
   const validos = miembros.filter((m) => !esDq(m.id))
   const cubiertos = new Set(validos.flatMap((m) => Object.keys(m.scores).filter((h) => hoyoAnotado(m.scores, h))))
-  if (cubiertos.size === 0) return 'disqualified'
   for (const m of dqs) {
     for (const h of Object.keys(m.scores)) {
       if (hoyoAnotado(m.scores, h) && !cubiertos.has(h)) return 'disqualified'

@@ -35,7 +35,7 @@ export interface BestBallTeamsResult {
   teams: BestBallTeam[]
   /** Nombres de los jugadores por teamId, con la marca del WD/DQ (`nombreConMarca`). */
   memberNames: Record<string, string[]>
-  /** Equipos que quedan DQ por un miembro descalificado (`estadoDelEquipoMejorBola`). */
+  /** Equipos que van al pie: DQ por un descalificado o sin nadie compitiendo (`estadoDelEquipoMejorBola`). */
   estadoPorEquipo: Record<string, EstadoFueraDelRanking>
 }
 

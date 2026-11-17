@@ -77,7 +77,17 @@ describe('estadoFueraPorTarjeta (#813)', () => {
     expect(r.sinResolver.map((p) => p.id)).toEqual(['p-ana'])
   })
 
-  it('INVITADO WD sin fila de grupo (sin cuenta): no se adivina, se reporta', () => {
+  it('INVITADO WD sin fila de grupo y SIN tarjetas de invitado sueltas: no jugó, no se reporta (ni cada 10 s)', () => {
+    const r = estadoFueraPorTarjeta(
+      [G('r1', [['p-otro', 'j-inv-otro']])],
+      [P('p-inv', 'withdrawn'), P('p-otro', 'approved')],
+      [T('j-inv-otro', 'r1', null), T('j-ana', 'r1', 'u-ana')],
+    )
+    expect(r.porTarjeta.size).toBe(0)
+    expect(r.sinResolver).toEqual([])
+  })
+
+  it('INVITADO WD sin fila de grupo con una tarjeta de invitado suelta: no se adivina, se reporta', () => {
     const r = estadoFueraPorTarjeta([G('r1', [])], [P('p-inv', 'disqualified')], [T('j-x', 'r1', null)])
     expect(r.porTarjeta.size).toBe(0)
     expect(r.sinResolver.map((p) => p.id)).toEqual(['p-inv'])
@@ -168,8 +178,22 @@ describe('estadoDelEquipoMejorBola (R3.3c / 23.2b, decisión 17-nov)', () => {
     expect(estadoDelEquipoMejorBola([M('j-b', { '1': 4, '2': 5 }), M('j-c', { '1': 5, '2': 0 })], porTarjeta)).toBe('disqualified')
   })
 
-  it('el compañero no jugó ningún hoyo: DQ', () => {
+  it('el DQ anotó un hoyo que el compañero aún no juega: DQ', () => {
     expect(estadoDelEquipoMejorBola([M('j-b', { '1': 4 }), M('j-c', {})], porTarjeta)).toBe('disqualified')
+  })
+
+  it('DQ antes de salir y el compañero aún sin anotar: el equipo SIGUE (el compañero juega solo, R23.4)', () => {
+    expect(estadoDelEquipoMejorBola([M('j-b', {}), M('j-c', {})], porTarjeta)).toBeNull()
+  })
+
+  it('ambos WD: nadie compite → al pie como WD', () => {
+    const ambos = new Map(porTarjeta)
+    ambos.set('j-c', { ...porTarjeta.get('j-a')!, id: 'p-c' })
+    expect(estadoDelEquipoMejorBola([M('j-a', { '1': 4 }), M('j-c', { '1': 5 })], ambos)).toBe('withdrawn')
+  })
+
+  it('WD + DQ con todos los hoyos del DQ cubiertos: nadie compite → al pie', () => {
+    expect(estadoDelEquipoMejorBola([M('j-a', { '1': 4, '2': 5 }), M('j-b', { '1': 5 })], porTarjeta)).toBe('withdrawn')
   })
 
   it('ambos DQ: DQ', () => {
