@@ -9,6 +9,7 @@ import { captureError } from '@/lib/error-tracking'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
+import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import { hoyoParaRetomar, hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import {
   fetchRondaLibreParaScorer,
@@ -87,18 +88,22 @@ function numerico(golpes: Record<string, number> | undefined): Record<number, nu
  * Hoyo en que se abre el scorer (`hoyoParaRetomar`): el primero que le falte a alguna
  * tarjeta, las de los jugadores o, en bola compartida (scramble/foursome, sin golpes
  * propios), las de los equipos. Con todas llenas, el último, donde está Finalizar.
+ * Timba libre: con `retiros`, los hoyos de un retirado no le faltan (`tarjetaAlDiaEnHoyo`).
  */
 export function hoyoInicial(
   r: RondaLibre,
   scores: Record<string, Record<number, number>>,
   equipos: ReadonlyArray<{ scores: Record<string, number> }> = [],
+  retiros?: Readonly<Record<string, number>>,
 ): number {
   const orden = hoyosDeLaRonda(r.hoyo_inicio ?? 1, r.holes)
-  const tarjetas: ReadonlyArray<Record<string | number, number>> = isSharedBallFormat(r.formato_juego)
-    ? equipos.map(e => e.scores)
-    : r.ronda_libre_jugadores.map(j => scores[j.id] ?? {})
-  if (tarjetas.length === 0) return orden[0] ?? 1
-  return hoyoParaRetomar(orden, h => tarjetas.every(t => t[String(h)] != null))
+  if (isSharedBallFormat(r.formato_juego)) {
+    if (equipos.length === 0) return orden[0] ?? 1
+    return hoyoParaRetomar(orden, h => equipos.every(e => e.scores[String(h)] != null))
+  }
+  const jugadores = r.ronda_libre_jugadores
+  if (jugadores.length === 0) return orden[0] ?? 1
+  return hoyoParaRetomar(orden, h => jugadores.every(j => tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, orden)))
 }
 
 /**

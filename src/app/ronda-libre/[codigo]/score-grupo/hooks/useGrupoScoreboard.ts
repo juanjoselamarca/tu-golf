@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosPorMarcarAlFinalizar, scoreDelHoyo } from '@/golf/ronda-libre/tarjeta-historica'
-import { hoyosQueNoSeRellenan, hoyosQueQuedanSinJugarEnLaTimba } from '@/golf/ronda-libre/hoyos-sin-rellenar'
+import { hoyosQueNoSeRellenan, hoyosQueQuedanSinJugarEnLaTimba, tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import type { MatchResult } from '@/golf/formats/match-play'
 import { hoyosAnotados, puedeFinalizar, totalesDeTarjeta, type TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
@@ -154,7 +154,10 @@ export function useGrupoScoreboard(input: {
     // Timba libre: el scorer no sabe el hándicap de los otros (`/live` no lo entrega), así que los golpes
     // recibidos genéricos saldrían de un hándicap inventado. Los de la Timba viajan en GET /juego (spec, "Para el PR C").
     const maxStrokesOnHole = esTimba ? 0 : Math.max(...tarjetas.map(t => t.golpesEnHoyo(currentHole)), 0)
-    const hoyoCompleto = (h: number) => tarjetas.length > 0 && tarjetas.every(t => t.scores?.[h] != null)
+    // Con un retirado (Timba), sus hoyos desde el retiro no esperan golpes: el ✓ no depende de él.
+    const hoyoCompleto = (h: number) => tarjetas.length > 0 && (bolaCompartida
+      ? tarjetas.every(t => t.scores?.[h] != null)
+      : jugadores.every(j => tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos)))
     const hoyoConGolpe = (h: number) => !esTimba && showNetStableford && tarjetas.some(t => t.golpesEnHoyo(h) > 0)
     const totalesDeEquipo = (id: string) => totalesPorEquipo.get(id) ?? null
 

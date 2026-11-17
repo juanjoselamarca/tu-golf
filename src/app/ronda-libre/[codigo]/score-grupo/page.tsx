@@ -17,6 +17,7 @@ import { useBeforeUnloadWarning } from '@/hooks/ronda/useBeforeUnloadWarning'
 import { getYardajeForTee, type Jugador } from '@/types/ronda'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
+import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores } from '@/lib/ronda/score-storage'
 import { BestBallTeamCard } from './components/BestBallTeamCard'
@@ -43,6 +44,7 @@ import { PanelDelJuego } from '../components/timba/PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from '../components/timba/PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from '../components/timba/RetiroDeJugadores'
 import { HojaDeRetiro } from '../components/timba/HojaDeRetiro'
+import { useRetomarConLosRetiros } from './hooks/useRetomarConLosRetiros'
 import { AvisoMarcasRechazadas } from '../components/timba/AvisoMarcasRechazadas'
 
 const SIN_JUGADORES: Jugador[] = []
@@ -104,6 +106,13 @@ export default function ScoreGrupoPage() {
     // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
     currentHole, ordenHoyos, par: parMap[currentHole],
   })
+  // Con un retirado, el hoyo de la carga no sabe del retiro: al llegar los retiros, el scorer va al hoyo que falta.
+  // Abrir "Finalizar" a propósito NO cuenta como interacción: si el salto llega con la hoja abierta, la hoja se
+  // recalcula con el mismo estado que usará finalizeRound (el hoyo que de verdad falta), que es lo correcto.
+  const { marcarInteraccion } = useRetomarConLosRetiros({
+    ronda, listo: !loading, scores, equipos: teamEquipos, retiros: esTimba && timba.juego.estado === 'ok' ? timba.retiros : null,
+    currentHole, setCurrentHole,
+  })
   const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
     useFinalizeGrupo({
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
@@ -114,8 +123,8 @@ export default function ScoreGrupoPage() {
   useBeforeUnloadWarning(hasUnsaved)
   // Mientras se finaliza no se aceptan golpes: un tap tardío llegaría después del cierre
   // (P0002), no entraría al historial y mostraría "se cerró desde otro dispositivo".
-  const anotar = (jugadorId: string, delta: number) => { if (!finalizing) handleScoreChange(jugadorId, currentHole, delta) }
-  const anotarEquipo = (equipoId: string, delta: number) => { if (!finalizing) handleTeamScoreChange(equipoId, currentHole, delta) }
+  const anotar = (jugadorId: string, delta: number) => { if (!finalizing) { marcarInteraccion(); handleScoreChange(jugadorId, currentHole, delta) } }
+  const anotarEquipo = (equipoId: string, delta: number) => { if (!finalizing) { marcarInteraccion(); handleTeamScoreChange(equipoId, currentHole, delta) } }
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
@@ -141,11 +150,9 @@ export default function ScoreGrupoPage() {
       // Auto-fill ALL players who don't have a score for the current hole with par
       const updatedScores = { ...scores }
       for (const j of jugadores) {
-        // Timba: un retirado no juega el hoyo; con par el motor se lo contaría como jugado.
-        if (esTimba && timba.retiradoEn(j.id, currentHole)) continue
-        if (updatedScores[j.id]?.[currentHole] == null) {
-          updatedScores[j.id] = { ...(updatedScores[j.id] ?? {}), [currentHole]: par }
-        }
+        // Ya anotado, o retirado en la Timba (con par el motor se lo contaría como jugado): no se rellena.
+        if (tarjetaAlDiaEnHoyo(updatedScores[j.id], j.id, currentHole, esTimba ? timba.retiros : undefined, ordenHoyos)) continue
+        updatedScores[j.id] = { ...(updatedScores[j.id] ?? {}), [currentHole]: par }
       }
       setScores(updatedScores)
       setHasUnsaved(true)
@@ -222,7 +229,7 @@ export default function ScoreGrupoPage() {
               <RetiroDeJugadores
                 jugadores={timba.jugadoresParaRetiro}
                 ocupado={timba.marcas.retirando || finalizing}
-                onPedirRetiro={setRetiroPedido}
+                onPedirRetiro={id => { marcarInteraccion(); setRetiroPedido(id) }}
                 onDeshacer={(id) => { void timba.marcas.retirar(id, null) }}
               />
             )}
@@ -347,7 +354,7 @@ export default function ScoreGrupoPage() {
               accion={esTimba && !finalizing && timba.jugadoresParaRetiro.some(r => r.id === j.id && r.desdeSiSeVa != null) ? (
                 <button
                   type="button"
-                  onClick={() => setRetiroPedido(j.id)}
+                  onClick={() => { marcarInteraccion(); setRetiroPedido(j.id) }}
                   disabled={timba.marcas.retirando}
                   aria-label={`Retirar a ${j.nombre}`}
                   style={{ minHeight: '44px', minWidth: '44px', margin: '-14px 0', padding: '0 8px', border: 'none', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit', fontSize: '13px', textDecoration: 'underline', textUnderlineOffset: '3px', cursor: 'pointer' }}
@@ -365,7 +372,7 @@ export default function ScoreGrupoPage() {
               nombres={timba.nombres}
               retirados={timba.retiradosDelHoyo}
               birdieAutomatico={timba.birdieAutomatico}
-              onAlternar={(jugadorId, puntito) => { if (!finalizing) timba.marcas.alternar(jugadorId, puntito, currentHole) }}
+              onAlternar={(jugadorId, puntito) => { if (!finalizing) { marcarInteraccion(); timba.marcas.alternar(jugadorId, puntito, currentHole) } }}
             />
           )}
         </div>
@@ -391,7 +398,7 @@ export default function ScoreGrupoPage() {
         return jugador ? (
           <HojaDeRetiro
             jugador={jugador}
-            onConfirmar={(desde) => { setRetiroPedido(null); void timba.marcas.retirar(jugador.id, desde) }}
+            onConfirmar={(desde) => { setRetiroPedido(null); marcarInteraccion(); void timba.marcas.retirar(jugador.id, desde) }}
             onCancelar={() => setRetiroPedido(null)}
           />
         ) : null
