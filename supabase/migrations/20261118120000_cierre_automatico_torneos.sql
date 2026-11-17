@@ -35,6 +35,10 @@ ALTER TABLE public.tournaments
 ALTER TABLE public.ronda_libre_jugadores
   ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
+-- Privada para el cliente a propósito (sin GRANT SELECT): el REVOKE es no-op en Postgres, pero deja dicho que la
+-- falta del grant es intencional (lo exige canary-column-select).
+REVOKE SELECT (updated_at) ON public.ronda_libre_jugadores FROM PUBLIC, anon, authenticated;
+
 DROP TRIGGER IF EXISTS update_ronda_libre_jugadores_updated_at ON public.ronda_libre_jugadores;
 CREATE TRIGGER update_ronda_libre_jugadores_updated_at
   BEFORE UPDATE ON public.ronda_libre_jugadores

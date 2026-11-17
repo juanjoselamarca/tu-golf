@@ -38,7 +38,7 @@ export const sqlAllInSchemaPublic = (kind: 'tables' | 'functions') => String.raw
  * repo canary (canary-column-select, which also pins that the migrations declare exactly these) and
  * the prod canary (prod/rls-public-read).
  */
-export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil_sugerido_id', 'telefono_invitado']
+export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil_sugerido_id', 'telefono_invitado', 'updated_at']
 
 /** Same for players (20261102230000_players_ocultar_pending_user_id): the guest's credential. */
 export const PLAYERS_PRIVATE_COLUMNS: readonly string[] = ['pending_user_id']
