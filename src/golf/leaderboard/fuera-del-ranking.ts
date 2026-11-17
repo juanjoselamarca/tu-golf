@@ -196,11 +196,12 @@ const hoyoAnotado = (scores: Readonly<Record<string, number>>, hoyo: string) => 
 
 /**
  * Mejor bola (decisión de Juanjo, 17-nov; Reglas 3.3c, 23.2b y 23.4):
- * - Sin ningún miembro compitiendo, el equipo va al pie: DQ si todos son DQ; si no, WD.
  * - Con un DQ: sus golpes no cuentan, y si con eso queda algún hoyo anotado sin el
  *   score de un compañero NO descalificado, el equipo entero queda DQ. Si el
  *   compañero aún no anota nada (el DQ fue antes de salir), el equipo sigue: el
  *   compañero puede jugar solo (R23.4).
+ * - Sin ningún miembro compitiendo (y sin hoyos del DQ sin cubrir), el equipo va al pie: DQ si
+ *   todos son DQ; si no, WD.
  * - Un WD con compañero compitiendo no cambia nada (R23.4).
  * `miembros`: las tarjetas con sus golpes CRUDOS (antes de quitar los del DQ).
  */
@@ -210,15 +211,14 @@ export function estadoDelEquipoMejorBola(
 ): EstadoFueraDelRanking | null {
   if (!miembros.some((m) => porTarjeta.has(m.id))) return null
   const esDq = (id: string) => porTarjeta.get(id)?.status === 'disqualified'
-  const activos = miembros.filter((m) => !porTarjeta.has(m.id))
-  if (activos.length === 0) return miembros.every((m) => esDq(m.id)) ? 'disqualified' : 'withdrawn'
-  const dqs = miembros.filter((m) => esDq(m.id))
   const validos = miembros.filter((m) => !esDq(m.id))
   const cubiertos = new Set(validos.flatMap((m) => Object.keys(m.scores).filter((h) => hoyoAnotado(m.scores, h))))
-  for (const m of dqs) {
-    for (const h of Object.keys(m.scores)) {
-      if (hoyoAnotado(m.scores, h) && !cubiertos.has(h)) return 'disqualified'
-    }
-  }
+  // Un hoyo que solo anotó un DQ deja al bando sin score en ese hoyo → DQ, aunque además haya un WD.
+  const dqConHoyoSinCubrir = miembros.some(
+    (m) => esDq(m.id) && Object.keys(m.scores).some((h) => hoyoAnotado(m.scores, h) && !cubiertos.has(h)),
+  )
+  if (dqConHoyoSinCubrir) return 'disqualified'
+  const activos = miembros.filter((m) => !porTarjeta.has(m.id))
+  if (activos.length === 0) return miembros.every((m) => esDq(m.id)) ? 'disqualified' : 'withdrawn'
   return null
 }

@@ -196,6 +196,10 @@ describe('estadoDelEquipoMejorBola (R3.3c / 23.2b, decisión 17-nov)', () => {
     expect(estadoDelEquipoMejorBola([M('j-a', { '1': 4, '2': 5 }), M('j-b', { '1': 5 })], porTarjeta)).toBe('withdrawn')
   })
 
+  it('WD + DQ con un hoyo del DQ sin cubrir: DQ (el bando quedó sin score en ese hoyo), no WD', () => {
+    expect(estadoDelEquipoMejorBola([M('j-a', { '1': 4 }), M('j-b', { '1': 5, '2': 4 })], porTarjeta)).toBe('disqualified')
+  })
+
   it('ambos DQ: DQ', () => {
     const ambos = new Map(porTarjeta)
     ambos.set('j-c', { ...porTarjeta.get('j-b')!, id: 'p-c' })
