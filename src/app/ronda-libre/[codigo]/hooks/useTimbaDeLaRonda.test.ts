@@ -25,8 +25,9 @@ const AHORA = Date.parse('2026-11-16T15:00:00Z')
 /** La firma con la que `useTimbaDeLaRonda` pide el juego de `ronda('finalizada')` para el usuario u1. */
 const CERRADA = 'u1:finalizada:[{"1":4}]'
 const EN_CURSO = 'u1:en_curso:[{"1":4}]'
-const ok = (firma: string, desactualizado = false) =>
-  ({ estado: 'ok', desactualizado, pedidaEn: AHORA, firma, vista: { retiros: { p2: 14 } } })
+/** `rondaCerrada` de la vista: por defecto, si la firma es la de la ronda cerrada (calculada después del cierre). */
+const ok = (firma: string, desactualizado = false, rondaCerrada = firma.includes(':finalizada:')) =>
+  ({ estado: 'ok', desactualizado, pedidaEn: AHORA, firma, publica: false, vista: { retiros: { p2: 14 }, rondaCerrada } })
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -67,6 +68,19 @@ describe('useTimbaDeLaRonda', () => {
     const { result } = renderHook(() => useTimbaDeLaRonda('ABC', ronda('finalizada'), 'u1'))
     expect(result.current.juego).toEqual({ estado: 'cargando' })
     expect(result.current.retiros).toBeNull()
+  })
+
+  // Revisión Fable (paso 4): sin sesión la vista sale del CDN y puede ser de antes del cierre aunque se pidió después.
+  it('cerrada: con la firma de ahora pero calculada antes del cierre (CDN) no arma el resultado y reintenta solo', async () => {
+    juego.estado = ok(CERRADA, false, false)
+    const { result, rerender } = renderHook(() => useTimbaDeLaRonda('ABC', ronda('finalizada'), 'u1'))
+    expect(result.current.juego).toEqual({ estado: 'cargando' })
+    expect(result.current.retiros).toBeNull()
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CERRADA_BASE_MS) })
+    expect(juego.recargar).toHaveBeenCalledTimes(1)
+    juego.estado = ok(CERRADA)
+    rerender()
+    expect(result.current.juego).toMatchObject({ estado: 'ok' })
   })
 
   it('cerrada: la última vista buena tras un pedido fallido es error (Reintentar), aunque sea de después del cierre', () => {
@@ -143,6 +157,7 @@ describe('juegoDeLaRondaCerrada', () => {
   it('pedida con la firma de ahora pasa; con otra carga; desactualizada es error; los demás estados pasan tal cual', () => {
     expect(juegoDeLaRondaCerrada(ok(CERRADA) as never, CERRADA)).toMatchObject({ estado: 'ok' })
     expect(juegoDeLaRondaCerrada(ok(EN_CURSO) as never, CERRADA)).toEqual({ estado: 'cargando' })
+    expect(juegoDeLaRondaCerrada(ok(CERRADA, false, false) as never, CERRADA)).toEqual({ estado: 'cargando' })
     expect(juegoDeLaRondaCerrada(ok(CERRADA, true) as never, CERRADA)).toEqual({ estado: 'error' })
     expect(juegoDeLaRondaCerrada({ estado: 'error' }, CERRADA)).toEqual({ estado: 'error' })
   })

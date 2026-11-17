@@ -29,9 +29,9 @@ const vista: VistaDelJuego = {
     tramos: [], totales: { a: 3, b: 2 }, hoyosPendientes: [], sinHandicap: [],
     ranking: [{ jugadorId: 'a', puntos: 3, puesto: 1 }, { jugadorId: 'b', puntos: 2, puesto: 2 }],
   },
-  golpesRecibidos: {}, marcas: [], retiros: {},
+  golpesRecibidos: {}, marcas: [], retiros: {}, rondaCerrada: true,
 }
-const OK: EstadoDelJuego = { estado: 'ok', vista, desactualizado: false, pedidaEn: 1, firma: '' }
+const OK: EstadoDelJuego = { estado: 'ok', vista, desactualizado: false, pedidaEn: 1, firma: '', publica: false }
 
 const montar = (finalizada: boolean, juego: EstadoDelJuego = OK) =>
   render(

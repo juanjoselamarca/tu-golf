@@ -4,7 +4,7 @@ import { useJuegoDeLaTimba } from './useJuegoDeLaTimba'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 
-const VISTA = { config: { modo: 'gross' }, jugadorIds: ['a'], resultado: { hoyos: [] }, golpesRecibidos: {}, marcas: [], retiros: {} }
+const VISTA = { config: { modo: 'gross' }, jugadorIds: ['a'], resultado: { hoyos: [] }, golpesRecibidos: {}, marcas: [], retiros: {}, rondaCerrada: false }
 const respuesta = (status: number, cuerpo: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => cuerpo }) as Response
 
 let fetchMock: ReturnType<typeof vi.fn>
@@ -37,6 +37,27 @@ describe('useJuegoDeLaTimba', () => {
     expect(url).toBe('/api/ronda-libre/ABC123/juego/publico')
     expect(opciones.credentials).toBe('omit')
     expect(opciones.cache).toBeUndefined()
+  })
+
+  it('sin sesión: la vista pública no prueba qué trae (vistaPedidaEn null) y el poll siguiente va directo a la pública', async () => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta(401, { error: 'Requiere sesión' }))
+      .mockResolvedValue(respuesta(200, { estado: 'ok', ...VISTA }))
+    const { result } = renderHook(() => useJuegoDeLaTimba('ABC123', { activo: true, intervaloS: 0 }))
+    await waitFor(() => expect(result.current.juego.estado).toBe('ok'))
+    expect(result.current.juego).toMatchObject({ publica: true })
+    expect(result.current.vistaPedidaEn).toBeNull()
+    await act(() => result.current.recargar())
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock.mock.calls[2][0]).toBe('/api/ronda-libre/ABC123/juego/publico')
+  })
+
+  it('con sesión la vista es privada: vistaPedidaEn es cuándo se pidió', async () => {
+    fetchMock.mockResolvedValue(respuesta(200, { estado: 'ok', ...VISTA }))
+    const { result } = renderHook(() => useJuegoDeLaTimba('ABC123', { activo: true, intervaloS: 0 }))
+    await waitFor(() => expect(result.current.juego.estado).toBe('ok'))
+    expect(result.current.juego).toMatchObject({ publica: false })
+    expect(typeof result.current.vistaPedidaEn).toBe('number')
   })
 
   it('sin sesión y la pública falla: error con Reintentar, nunca un 401 a la vista', async () => {

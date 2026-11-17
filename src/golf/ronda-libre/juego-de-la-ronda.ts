@@ -140,6 +140,12 @@ export interface VistaDelJuego {
   marcas: MarcaPuntito[]
   /** Jugador → hoyo desde el que se retiró (el scorer no le rellena esos hoyos con par). */
   retiros: Record<string, number>
+  /**
+   * La ronda ya estaba cerrada cuando se calculó esta vista. Es la prueba de que un resultado final está completo:
+   * `/juego/publico` sale del CDN y puede ser de antes del cierre aunque se haya pedido después
+   * (`juegoDeLaRondaCerrada`). Cerrada, no entran golpes ni marcas nuevas.
+   */
+  rondaCerrada: boolean
 }
 
 export function vistaDelJuego(entrada: EntradaJuego, jugadorIds: string[], resultado: ResultadoJuego): VistaDelJuego {
@@ -150,5 +156,6 @@ export function vistaDelJuego(entrada: EntradaJuego, jugadorIds: string[], resul
     golpesRecibidos: golpesRecibidosPorHoyo(entrada),
     marcas: entrada.marcas.map(m => ({ jugadorId: m.jugadorId, hoyo: m.hoyo, puntitoId: m.puntitoId })),
     retiros: { ...(entrada.retiros ?? {}) },
+    rondaCerrada: entrada.rondaCerrada === true,
   }
 }

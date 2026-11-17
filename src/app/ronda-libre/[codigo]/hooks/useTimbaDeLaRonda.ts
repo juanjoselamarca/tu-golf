@@ -17,14 +17,16 @@ export const REINTENTO_CERRADA_MAX_MS = 30_000
 
 /**
  * Con la ronda cerrada, el resultado final solo se arma con una vista pedida con la `firma` de ahora (la ronda ya
- * cerrada y sus golpes finales) y que no venga de un pedido fallido: una vista de antes del cierre (o la última buena
- * tras un error) puede no tener los últimos golpes, y un "Ganó X" con puntos viejos es peor que esperar. Mientras
- * tanto, cargando; si el último pedido falló, error (con Reintentar).
+ * cerrada y sus golpes finales), calculada con la ronda ya cerrada (`vista.rondaCerrada`) y que no venga de un pedido
+ * fallido: una vista de antes del cierre (o la última buena tras un error) puede no tener los últimos golpes, y un
+ * "Ganó X" con puntos viejos es peor que esperar. La firma sola no basta: sin sesión la vista sale del CDN y puede ser
+ * de antes del cierre aunque se haya pedido después. Mientras tanto, cargando (y se reintenta); si el último pedido
+ * falló, error (con Reintentar).
  */
 export function juegoDeLaRondaCerrada(juego: EstadoDelJuego, firma: string): EstadoDelJuego {
   if (juego.estado !== 'ok') return juego
   if (juego.desactualizado) return { estado: 'error' }
-  return juego.firma === firma ? juego : { estado: 'cargando' }
+  return juego.firma === firma && juego.vista.rondaCerrada ? juego : { estado: 'cargando' }
 }
 
 /**

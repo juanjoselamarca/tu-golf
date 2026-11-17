@@ -55,7 +55,7 @@ function conRanking(puntos: Record<string, number>, cfg: ConfigJuego = crearConf
       tramos: [], totales: puntos, hoyosPendientes: [], sinHandicap: [],
       ranking: orden.map(([jugadorId, p]) => ({ jugadorId, puntos: p, puesto: 1 + orden.filter(([, q]) => q > p).length })),
     },
-    golpesRecibidos: {}, marcas: [], retiros: {},
+    golpesRecibidos: {}, marcas: [], retiros: {}, rondaCerrada: true,
   }
 }
 

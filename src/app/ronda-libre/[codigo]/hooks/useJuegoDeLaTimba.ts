@@ -20,10 +20,11 @@ import type { MotivoSinJuego, VistaDelJuego } from '@/golf/ronda-libre/juego-de-
 export type EstadoDelJuego =
   | { estado: 'cargando' }
   /**
-   * `pedidaEn`: cuándo se PIDIÓ la vista (ms): lo enviado antes de ese momento ya viene en ella. `firma`: la `firma`
-   * vigente al pedirla (golpes y estado de la ronda que ya vienen en ella).
+   * `pedidaEn`: cuándo se PIDIÓ la vista (ms): con sesión, lo enviado antes de ese momento ya viene en ella. `firma`:
+   * la `firma` vigente al pedirla. `publica`: vino de `/juego/publico`, que sale del CDN y puede ser de hasta ~40 s
+   * antes de pedirla: ni `pedidaEn` ni `firma` prueban que traiga lo último (ver `vistaPedidaEn`, `vista.rondaCerrada`).
    */
-  | { estado: 'ok'; vista: VistaDelJuego; desactualizado: boolean; pedidaEn: number; firma: string }
+  | { estado: 'ok'; vista: VistaDelJuego; desactualizado: boolean; pedidaEn: number; firma: string; publica: boolean }
   | { estado: 'sin_juego'; motivo: MotivoSinJuego }
   | { estado: 'error' }
 
@@ -34,7 +35,10 @@ export interface JuegoDeLaTimba {
   juego: EstadoDelJuego
   /** Lo último que llegó bien (también si el último pedido falló: va con `desactualizado`). */
   vista: VistaDelJuego | null
-  /** Cuándo se pidió `vista` (ms); `null` sin vista. */
+  /**
+   * Cuándo se pidió `vista` (ms): lo enviado antes ya viene en ella. `null` sin vista o si vino de la ruta pública
+   * (cacheada en el CDN, no prueba qué trae): el scorer no da por recibida una marca con ella.
+   */
   vistaPedidaEn: number | null
   recargar: () => Promise<void>
 }
@@ -45,8 +49,12 @@ export function useJuegoDeLaTimba(
 ): JuegoDeLaTimba {
   const { activo, firma = '', intervaloS = 20 } = opciones
   const [juego, setJuego] = useState<EstadoDelJuego>({ estado: 'cargando' })
-  const ultimaVista = useRef<{ vista: VistaDelJuego; pedidaEn: number; firma: string } | null>(null)
+  const ultimaVista = useRef<{ vista: VistaDelJuego; pedidaEn: number; firma: string; publica: boolean } | null>(null)
   const pedido = useRef(0)
+  // Ya respondió 401: los pedidos siguientes van directo a la pública (uno por poll, no dos). Se olvida cuando cambia
+  // la `firma` (la de la página incluye al usuario: al ingresar se vuelve a probar la privada).
+  const sinSesion = useRef(false)
+  useEffect(() => { sinSesion.current = false }, [codigo, firma])
 
   const recargar = useCallback(async () => {
     if (!activo) return
@@ -58,8 +66,14 @@ export function useJuegoDeLaTimba(
     let siguiente: EstadoDelJuego
     try {
       const base = `/api/ronda-libre/${encodeURIComponent(codigo)}/juego`
-      let res = await fetch(base, { cache: 'no-store', signal: control.signal })
-      if (res.status === 401) res = await fetch(`${base}/publico`, { credentials: 'omit', signal: control.signal })
+      const publica = () => fetch(`${base}/publico`, { credentials: 'omit', signal: control.signal })
+      let esPublica = sinSesion.current
+      let res = esPublica ? await publica() : await fetch(base, { cache: 'no-store', signal: control.signal })
+      if (!esPublica && res.status === 401) {
+        sinSesion.current = true
+        esPublica = true
+        res = await publica()
+      }
       if (!res.ok) {
         if (res.status >= 500 && res.status !== 503) {
           void captureError(new Error(`GET /juego ${res.status}`), { context: 'ronda-libre.juego.leer', level: 'warning', meta: { codigo } })
@@ -70,8 +84,8 @@ export function useJuegoDeLaTimba(
         if (cuerpo.estado === 'sin_juego') siguiente = { estado: 'sin_juego', motivo: cuerpo.motivo }
         else {
           const { estado: _estado, ...vista } = cuerpo
-          ultimaVista.current = { vista, pedidaEn, firma: firmaPedida }
-          siguiente = { estado: 'ok', vista, desactualizado: false, pedidaEn, firma: firmaPedida }
+          ultimaVista.current = { vista, pedidaEn, firma: firmaPedida, publica: esPublica }
+          siguiente = { estado: 'ok', vista, desactualizado: false, pedidaEn, firma: firmaPedida, publica: esPublica }
         }
       }
     } catch {
@@ -102,7 +116,7 @@ export function useJuegoDeLaTimba(
   return {
     juego,
     vista: juego.estado === 'ok' ? juego.vista : null,
-    vistaPedidaEn: juego.estado === 'ok' ? juego.pedidaEn : null,
+    vistaPedidaEn: juego.estado === 'ok' && !juego.publica ? juego.pedidaEn : null,
     recargar,
   }
 }

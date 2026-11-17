@@ -10,8 +10,9 @@ import { respuestaDelJuego } from '../respuesta-del-juego'
 // GET /api/ronda-libre/[codigo]/juego/publico — el juego de una Timba libre para quien abre el link SIN sesión
 // (decisión de Juanjo, 17-nov: el link muestra el juego en vivo y el resultado final, con puntos y sin hándicaps).
 //
-// Mismo cuerpo que `/juego` (`VistaDelJuego`: puntos, marcas, retiros y la marca de golpe recibido por hoyo; nunca el
-// índice ni el hándicap de juego de nadie). El neto se calcula acá con el lector de servicio, como en `/juego`.
+// Mismo cuerpo que `/juego` (`VistaDelJuego`: puntos, marcas, retiros y golpes recibidos por hoyo). No viaja el índice
+// ni nada del perfil; de los golpes recibidos sí se deduce el hándicap de juego (con hándicap completo, su suma es el
+// CH), y eso Juanjo lo aceptó el 27-oct. El neto se calcula acá con el lector de servicio, como en `/juego`.
 //
 // Como no depende de quién pregunta, se cachea en el CDN igual que `/live` (incidente Los Leones 04-oct: los
 // espectadores no pueden pegarle a la base en cada poll) y no acepta query strings. Quien tiene sesión usa `/juego`

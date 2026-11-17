@@ -250,7 +250,7 @@ describe('decisión de Juanjo 27-oct — lo que ve el grupo en una Timba neto', 
     const vista = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
     const json = JSON.stringify(vista)
     expect(json).not.toMatch(/courseHandicap|courseHcp|indice|handicapIndex/i)
-    expect(Object.keys(vista).sort()).toEqual(['config', 'golpesRecibidos', 'jugadorIds', 'marcas', 'resultado', 'retiros'])
+    expect(Object.keys(vista).sort()).toEqual(['config', 'golpesRecibidos', 'jugadorIds', 'marcas', 'resultado', 'retiros', 'rondaCerrada'])
     // A la diferencia del más bajo: Diego 0, Juan 4, Pedro 8, Tomás 12 en 18 hoyos (caso dorado 5).
     const total = (id: string) => Object.values(vista.golpesRecibidos[id]).reduce((a, b) => a + b, 0)
     expect(IDS.map(total)).toEqual([4, 8, 0, 12])
