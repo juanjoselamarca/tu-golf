@@ -135,7 +135,7 @@ interface Db {
   ronda_equipo_jugadores: Fila[]
 }
 let db: Db
-let rpcRespuestas: Array<{ ok: boolean; motivo?: string }>
+let rpcRespuestas: Array<{ ok: boolean; motivo?: string } | 'error'>
 let rpcLlamadas: Array<Record<string, unknown>>
 let alEscribir: (() => void) | null
 
@@ -157,6 +157,7 @@ const svc = {
   rpc: async (_n: string, args: Record<string, unknown>) => {
     rpcLlamadas.push(args)
     const r = rpcRespuestas.shift() ?? { ok: true }
+    if (r === 'error') return { data: null, error: { message: 'timeout' } }
     if (r.ok) {
       const p = db.players.find((x) => x.id === args.p_player_id)!
       p.handicap_at_registration = args.p_valor
@@ -226,6 +227,60 @@ describe('editarHandicapInscrito', () => {
     expect(rpcLlamadas[0]).toMatchObject({
       p_base: [{ player_id: 'b', esperado: 20 }],
       p_equipos: [{ equipo_id: 'E', handicap_equipo: 7, handicap_equipo_juego: 7 }],
+    })
+  })
+
+  // Revisión Fable P1-1: blur + Enter guardan dos veces con el mismo esperado; el segundo PUT no es
+  // un conflicto (y tampoco el reintento de una respuesta perdida): re-propaga y devuelve ok.
+  it('el jugador ya tiene el valor pedido (doble guardado): ok, re-propaga con el valor actual como esperado', async () => {
+    db.players[0].handicap_at_registration = 7
+    expect(await editarHandicapInscrito(svc, torneoDe('stroke_play'), 'a', 5, 7)).toEqual({ ok: true, valor: 7 })
+    expect(rpcLlamadas).toHaveLength(1)
+    expect(rpcLlamadas[0]).toMatchObject({ p_esperado: 7, p_valor: 7, p_tocar_tarjeta: true, p_handicap_tarjeta: 7 })
+  })
+
+  it('otro lo dejó en OTRO valor: sigue siendo conflicto', async () => {
+    db.players[0].handicap_at_registration = 9
+    expect(await editarHandicapInscrito(svc, torneoDe('stroke_play'), 'a', 5, 7)).toEqual({ ok: false, motivo: 'conflicto' })
+    expect(rpcLlamadas).toHaveLength(0)
+  })
+
+  // Revisión Fable P2-1: un fallo DESPUÉS de escribir no es "no se pudo guardar" (sí se guardó).
+  it('falla la RPC de la vuelta de verificación (tras escribir): conflicto para que el panel recargue, no error', async () => {
+    db.tournament_group_players = [{ player_id: 'a', jugador_ronda_id: null }]
+    alEscribir = () => { db.tournament_group_players = [{ player_id: 'a', jugador_ronda_id: 'jr-a' }] }
+    rpcRespuestas = [{ ok: true }, 'error']
+    expect(await editarHandicapInscrito(svc, torneoDe('stroke_play'), 'a', 5, 7)).toEqual({ ok: false, motivo: 'conflicto' })
+  })
+
+  it('falla la RPC sin haber escrito nada: error', async () => {
+    rpcRespuestas = ['error']
+    expect(await editarHandicapInscrito(svc, torneoDe('stroke_play'), 'a', 5, 7)).toEqual({ ok: false, motivo: 'error' })
+  })
+
+  describe('equipo con un miembro sin enlazar (inicio a medio armar)', () => {
+    beforeEach(() => {
+      db.players.push({ ...jugador('b', 20), tournament_id: 'T' })
+      db.ronda_equipo_jugadores = [
+        { equipo_id: 'E', jugador_id: 'jr-a', orden: 0 },
+        { equipo_id: 'E', jugador_id: 'jr-b', orden: 1 },
+      ]
+    })
+
+    it('se enlaza mientras espera: reintenta y escribe el equipo', async () => {
+      const original = setTimeout
+      vi.spyOn(globalThis, 'setTimeout').mockImplementationOnce(((fn: () => void) => {
+        db.tournament_group_players.push({ player_id: 'b', jugador_ronda_id: 'jr-b' })
+        return original(fn, 0)
+      }) as unknown as typeof setTimeout)
+      expect(await editarHandicapInscrito(svc, torneoDe('scramble'), 'a', 5, 10, { esperaMs: 0 })).toEqual({ ok: true, valor: 10 })
+      expect(rpcLlamadas[0]).toMatchObject({ p_equipos: [{ equipo_id: 'E', handicap_equipo: 7, handicap_equipo_juego: 7 }] })
+      vi.restoreAllMocks()
+    })
+
+    it('nunca se enlaza: no escribe nada y devuelve error (no lanza)', async () => {
+      expect(await editarHandicapInscrito(svc, torneoDe('scramble'), 'a', 5, 10, { esperaMs: 0 })).toEqual({ ok: false, motivo: 'error' })
+      expect(rpcLlamadas).toHaveLength(0)
     })
   })
 })

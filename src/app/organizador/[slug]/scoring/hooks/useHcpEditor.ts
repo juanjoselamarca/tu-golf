@@ -4,17 +4,24 @@
 // El caller decide qué refrescar al guardar (roster local + board del Resumen, que
 // reparte golpes con este número) y qué recargar si otro cambio llegó primero.
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { HandicapCambiadoError, updatePlayerHandicap, type ScoringCourse } from '@/lib/data/tournaments/scoring'
+import {
+  HandicapCambiadoError,
+  HandicapNoGuardadoError,
+  updatePlayerHandicap,
+  type ScoringCourse,
+} from '@/lib/data/tournaments/scoring'
 import {
   courseDataDeInscripcion,
   esHandicapDeInscripcionValido,
+  MENSAJE_HANDICAP_UN_DECIMAL,
   mensajeHandicapFueraDeRango,
   parsearHandicap,
   presentacionHandicapInscrito,
   rangoDeHandicapDeInscripcion,
+  tieneUnDecimalComoMaximo,
 } from '@/golf/handicap-index-range'
 
 interface UseHcpEditorArgs {
@@ -34,6 +41,10 @@ export function useHcpEditor({ slug, onSaved, hcpCalcMode, course, onConflicto }
   const [editValue, setEditValue] = useState('')
   // Lo que el organizador VIO al abrir el editor: la ruta lo exige para no pisar otro cambio.
   const [esperado, setEsperado] = useState<number | null>(null)
+  // Blur y Enter llaman los dos a `save`: el segundo, con el mismo esperado, sería un 409 falso.
+  // El ref corta la reentrada en el mismo tick; `guardando` deshabilita el input y lo muestra.
+  const enVuelo = useRef(false)
+  const [guardando, setGuardando] = useState(false)
 
   // Rango desde la fuente única `@/golf/handicap-index-range`: índice (−10..54)
   // en WHS; en raw, también la imagen de ese rango por la fórmula de la cancha,
@@ -57,6 +68,7 @@ export function useHcpEditor({ slug, onSaved, hcpCalcMode, course, onConflicto }
 
   const save = useCallback(
     async (playerId: string) => {
+      if (enVuelo.current) return
       // "+2" (notación del golf) y "-2" (como lo guarda la app) son el mismo plus.
       const value = parsearHandicap(editValue)
       if (!esHandicapDeInscripcionValido(value, rango)) {
@@ -64,26 +76,40 @@ export function useHcpEditor({ slug, onSaved, hcpCalcMode, course, onConflicto }
         setEditingId(null)
         return
       }
+      // La columna es numeric(4,1): "12.45" se guardaría 12.5 y la tarjeta quedaría con otro número.
+      if (!tieneUnDecimalComoMaximo(value)) {
+        showWarning(`${rotulo} inválido`, MENSAJE_HANDICAP_UN_DECIMAL)
+        setEditingId(null)
+        return
+      }
+      enVuelo.current = true
+      setGuardando(true)
       try {
-        await updatePlayerHandicap(slug, playerId, value, esperado, rango)
-        onSaved(playerId, value)
+        // El que quedó en la base (lo devuelve la ruta), no el tipeado.
+        const guardado = await updatePlayerHandicap(slug, playerId, value, esperado, rango)
+        onSaved(playerId, guardado)
         showSuccess(`${rotulo} actualizado`, '', { duration: 1500 })
       } catch (e) {
         if (e instanceof HandicapCambiadoError) {
           showWarning('Otro cambio llegó primero', 'Recargamos los datos: revisa y vuelve a intentarlo.')
           onConflicto()
-          setEditingId(null)
-          return
+        } else if (e instanceof HandicapNoGuardadoError) {
+          // El servidor dice por qué (rango, decimales, demasiados cambios seguidos).
+          showError('No se guardó', e.message)
+        } else {
+          void captureError(e, { context: 'scoring.useHcpEditor.save', meta: { playerId } })
+          showError('Error', `No se pudo actualizar el ${enFrase}.`)
         }
-        void captureError(e, { context: 'scoring.useHcpEditor.save', meta: { playerId } })
-        showError('Error', `No se pudo actualizar el ${enFrase}.`)
+      } finally {
+        enVuelo.current = false
+        setGuardando(false)
+        setEditingId(null)
       }
-      setEditingId(null)
     },
     [editValue, enFrase, esperado, onConflicto, onSaved, rango, rotulo, showError, showSuccess, showWarning, slug],
   )
 
-  return { editingId, editValue, setEditValue, startEdit, cancel, save }
+  return { editingId, editValue, setEditValue, startEdit, cancel, save, guardando }
 }
 
 export type UseHcpEditorReturn = ReturnType<typeof useHcpEditor>

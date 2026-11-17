@@ -17,7 +17,12 @@
 // valor ya escrito (la otra mitad de la carrera la cierra el inicio: relee los hándicaps antes de
 // poner el torneo en juego).
 //
-// Hoyos ya jugados: `scores` es bruto; el neto se calcula al leer, así que no se reescribe nada más.
+// Hoyos ya jugados: NO se reescriben. `hole_scores.net_score`, `hole_scores.points` y
+// `rounds.total_net`/`total_points` SÍ están persistidos (los escribe /api/game al anotar) y quedan
+// con el hándicap viejo. Quien muestra el neto con detalle por hoyo lo DERIVA de los brutos con el
+// hándicap actual (`build-from-legacy.ts`, rama con hoyos), así que el board, el Resumen y la tarjeta
+// del grupo (`ronda_libre_jugadores.scores` es bruto) quedan bien. Solo la rama sin detalle por hoyo
+// de `build-from-legacy` (rondas legadas) usa `total_net` almacenado.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
@@ -99,6 +104,8 @@ export function planDeEdicion(args: {
   const formato = resolveFormatoJuego(torneo)
   const corregido: StartPlayer = { ...lectura.editado, handicap_at_registration: valor }
 
+  // raw, individual con cuenta → `{}`: la tarjeta toma el índice del perfil y escribir lo inscrito
+  // (un course handicap) lo convertiría dos veces. Decidido: no se toca; la tarjeta raw es el #809.
   const fila = filaDeHandicapDeTorneo(corregido, torneo.hcp_calc_mode, isProducerTeamFormat(formato))
   const tocarTarjeta = lectura.jugadorRondaId != null && 'handicap' in fila
 
@@ -154,12 +161,16 @@ function normalizar(p: StartPlayer): StartPlayer {
   return { ...p, handicap_at_registration: numeroONull(p.handicap_at_registration) }
 }
 
-/** Lee el editado, su fila de tarjeta y (bola compartida) su equipo con los miembros materializados. */
+/**
+ * Lee el editado, su fila de tarjeta y (bola compartida) su equipo con los miembros materializados.
+ * 'inconsistente' = un miembro del equipo todavía no está enlazado a su inscrito: pasa a mitad del
+ * inicio (los miembros se insertan antes de enlazar `tournament_group_players`); el caller reintenta.
+ */
 export async function leerEdicion(
   svc: SupabaseClient,
   torneo: TorneoParaEditar,
   playerId: string,
-): Promise<LecturaDeEdicion | 'no-existe'> {
+): Promise<LecturaDeEdicion | 'no-existe' | 'inconsistente'> {
   const { data: player, error: pErr } = await svc
     .from('players')
     .select(START_PLAYER_SELECT)
@@ -208,9 +219,7 @@ export async function leerEdicion(
     ((tgps ?? []) as Array<{ player_id: string; jugador_ronda_id: string }>).map((t) => [t.jugador_ronda_id, t.player_id]),
   )
   const playerIds = jugadorIds.map((j) => playerDe.get(j))
-  if (playerIds.some((id) => !id)) {
-    throw new Error(`equipo ${equipoId}: un miembro de la tarjeta no está enlazado a un inscrito`)
-  }
+  if (playerIds.some((id) => !id)) return 'inconsistente'
 
   const { data: miembrosRaw, error: mErr } = await svc
     .from('players')
@@ -219,7 +228,7 @@ export async function leerEdicion(
   if (mErr) throw mErr
   const porId = new Map(((miembrosRaw ?? []) as unknown as StartPlayer[]).map((m) => [m.id, normalizar(m)]))
   const miembros = (playerIds as string[]).map((id) => porId.get(id))
-  if (miembros.some((m) => !m)) throw new Error(`equipo ${equipoId}: un miembro ya no está inscrito`)
+  if (miembros.some((m) => !m)) return 'inconsistente'
   return { editado, jugadorRondaId, equipo: { id: equipoId, miembros: miembros as StartPlayer[] } }
 }
 
@@ -229,6 +238,9 @@ export type ResultadoEdicion =
 
 /** Reintentos cuando otro cambio (un compañero de equipo corregido a la vez) gana la carrera. */
 export const MAX_REINTENTOS_EDICION = 3
+
+/** Espera entre reintentos por lectura inconsistente (un inicio a medio enlazar), en ms × intento. */
+const ESPERA_INCONSISTENTE_MS = 300
 
 /** Copy del 409: otro cambio del mismo hándicap llegó primero (el panel recarga). */
 export const ERROR_OTRO_CAMBIO = 'Otro cambio llegó primero. Recargamos los datos: revisa y vuelve a intentarlo.'
@@ -243,8 +255,14 @@ export async function editarHandicapInscrito(
   playerId: string,
   esperado: number | null,
   valor: number,
+  opciones: { esperaMs?: number } = {},
 ): Promise<ResultadoEdicion> {
   const meta = { tournamentId: torneo.id, playerId }
+  const esperaMs = opciones.esperaMs ?? ESPERA_INCONSISTENTE_MS
+  let escrita: string | null = null
+  // Si algo falla DESPUÉS de haber escrito, el valor ya está en la base: 'conflicto' hace que el
+  // panel recargue y muestre lo que quedó, en vez de un "no se pudo guardar" que no es cierto.
+  const falla = (): ResultadoEdicion => ({ ok: false, motivo: escrita !== null ? 'conflicto' : 'error' })
   try {
     let contexto: { hcp: ContextoHcpDeEquipos; holeCount: number } | null | undefined
     const leerContexto = async () => {
@@ -256,20 +274,33 @@ export async function editarHandicapInscrito(
     }
 
     let esperadoAhora = esperado
-    let escrita: string | null = null
-    let conflictos = 0
+    let reintentos = 0
     // Cada vuelta: leer → (ya escrito y nada cambió → listo) → planificar → escribir.
     // Tope = reintentos por conflicto + una vuelta de verificación por cada escritura.
     for (let vuelta = 0; vuelta < 2 * (MAX_REINTENTOS_EDICION + 1); vuelta++) {
       const lectura = await leerEdicion(svc, torneo, playerId)
-      if (lectura === 'no-existe') return { ok: false, motivo: 'no-existe' }
+      if (lectura === 'no-existe') return escrita !== null ? falla() : { ok: false, motivo: 'no-existe' }
+      if (lectura === 'inconsistente') {
+        if (++reintentos >= MAX_REINTENTOS_EDICION) {
+          void captureError(new Error('editar-handicap-inscrito: equipo con un miembro sin enlazar'), { context: 'editar-handicap-inscrito.inconsistente', level: 'error', meta })
+          return falla()
+        }
+        await new Promise((r) => setTimeout(r, esperaMs * reintentos))
+        continue
+      }
       const actual = lectura.editado.handicap_at_registration
 
       if (escrita !== null && escrita === estructuraDeEdicion(lectura)) return { ok: true, valor }
-      // El hándicap del editado no es el que se vio: otro lo corrigió. Si ya escribimos lo
-      // nuestro, el cambio posterior es de otro y manda el suyo.
       if (!mismoHandicap(actual, esperadoAhora)) {
-        return escrita !== null ? { ok: true, valor } : { ok: false, motivo: 'conflicto' }
+        if (mismoHandicap(actual, valor)) {
+          // Ya tiene el valor pedido: un doble guardado (blur + Enter) o el reintento de una respuesta
+          // que se perdió. No es un conflicto: se re-propaga a tarjeta y equipo con el valor actual.
+          esperadoAhora = actual
+        } else {
+          // Otro lo corrigió a OTRO valor. Si ya escribimos lo nuestro, el cambio posterior es de
+          // otro y manda el suyo.
+          return escrita !== null ? { ok: true, valor } : { ok: false, motivo: 'conflicto' }
+        }
       }
 
       const necesitaContexto = lectura.equipo != null && isSharedBallFormat(resolveFormatoJuego(torneo))
@@ -282,19 +313,18 @@ export async function editarHandicapInscrito(
       })
       if ('error' in plan) {
         void captureError(new Error(`editar-handicap-inscrito: ${plan.error}`), { context: 'editar-handicap-inscrito.plan', level: 'error', meta })
-        return { ok: false, motivo: 'error' }
+        return falla()
       }
 
       const { data, error } = await svc.rpc('editar_handicap_inscrito', plan)
       if (error) {
         void captureError(error, { context: 'editar-handicap-inscrito.rpc', level: 'error', meta })
-        return { ok: false, motivo: 'error' }
+        return falla()
       }
       const res = data as { ok: boolean; motivo?: string } | null
       if (!res?.ok) {
-        if (res?.motivo !== 'conflicto' || ++conflictos >= MAX_REINTENTOS_EDICION) {
-          return { ok: false, motivo: res?.motivo === 'conflicto' ? 'conflicto' : 'error' }
-        }
+        if (res?.motivo !== 'conflicto') return falla()
+        if (++reintentos >= MAX_REINTENTOS_EDICION) return { ok: false, motivo: 'conflicto' }
         continue
       }
       escrita = estructuraDeEdicion(lectura)
@@ -305,6 +335,6 @@ export async function editarHandicapInscrito(
     return { ok: false, motivo: 'conflicto' }
   } catch (err) {
     void captureError(err, { context: 'editar-handicap-inscrito', level: 'error', meta })
-    return { ok: false, motivo: 'error' }
+    return falla()
   }
 }

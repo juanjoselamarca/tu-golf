@@ -14,8 +14,10 @@ import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import {
   courseDataDeInscripcion,
   esHandicapDeInscripcionValido,
+  MENSAJE_HANDICAP_UN_DECIMAL,
   mensajeHandicapFueraDeRango,
   rangoDeHandicapDeInscripcion,
+  tieneUnDecimalComoMaximo,
 } from '@/golf/handicap-index-range'
 import {
   editarHandicapInscrito,
@@ -68,6 +70,10 @@ export async function PUT(
   const rango = rangoDeHandicapDeInscripcion(torneo.hcp_calc_mode, courseDataDeInscripcion(torneo.courses))
   if (!esHandicapDeInscripcionValido(body.value, rango)) {
     return NextResponse.json({ error: mensajeHandicapFueraDeRango(rango) }, { status: 400 })
+  }
+  // La columna es numeric(4,1): con dos decimales tarjeta y equipo se calcularían con otro número que el guardado.
+  if (!tieneUnDecimalComoMaximo(body.value)) {
+    return NextResponse.json({ error: MENSAJE_HANDICAP_UN_DECIMAL }, { status: 400 })
   }
 
   // Holgado: corregir una planilla entera son decenas de ediciones; solo frena un bucle.

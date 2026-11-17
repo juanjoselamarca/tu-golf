@@ -19,7 +19,9 @@ import type { CourseVariantRow } from '@/golf/courses/gender-variant'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import {
   esHandicapDeInscripcionValido,
+  MENSAJE_HANDICAP_UN_DECIMAL,
   mensajeHandicapFueraDeRango,
+  tieneUnDecimalComoMaximo,
   type RangoHandicap,
 } from '@/golf/handicap-index-range'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
@@ -318,6 +320,14 @@ export async function fetchRoundTotals(
   return (data as Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'> | null) ?? null
 }
 
+/** La ruta rechazó el hándicap con un mensaje para el organizador (400 fuera de rango o decimales, 429, 404). */
+export class HandicapNoGuardadoError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'HandicapNoGuardadoError'
+  }
+}
+
 /** El hándicap ya no era el que vio el organizador (otro cambio llegó primero): el panel recarga. */
 export class HandicapCambiadoError extends Error {
   constructor(message: string) {
@@ -333,7 +343,7 @@ export class HandicapCambiadoError extends Error {
  * equipo: lo escribe la ruta del servidor (`PUT /api/torneos/[slug]/players/
  * [playerId]/handicap`, `editarHandicapInscrito`), que valida de nuevo y
  * propaga todo en una transacción. `esperado` es el valor que vio el organizador:
- * si ya no es ese, `HandicapCambiadoError` (409).
+ * si ya no es ese, `HandicapCambiadoError` (409). Devuelve el valor que guardó la ruta.
  *
  * Se valida también ACÁ, antes de la red: es la puerta por la que entraron a
  * prod los 7 jugadores con handicap entre −59 y −38 del torneo "a"
@@ -347,17 +357,22 @@ export async function updatePlayerHandicap(
   esperado: number | null,
   rango: RangoHandicap,
   fetchImpl: typeof fetch = fetch,
-): Promise<void> {
+): Promise<number> {
   if (!esHandicapDeInscripcionValido(value, rango)) throw new Error(mensajeHandicapFueraDeRango(rango))
+  if (!tieneUnDecimalComoMaximo(value)) throw new Error(MENSAJE_HANDICAP_UN_DECIMAL)
   const res = await fetchImpl(
     `/api/torneos/${encodeURIComponent(slug)}/players/${encodeURIComponent(playerId)}/handicap`,
     { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value, esperado }) },
   )
-  if (res.ok) return
-  const body = (await res.json().catch(() => null)) as { error?: string } | null
-  const mensaje = body?.error || `HTTP ${res.status}`
-  if (res.status === 409) throw new HandicapCambiadoError(mensaje)
-  throw new Error(mensaje)
+  const body = (await res.json().catch(() => null)) as { error?: string; value?: unknown } | null
+  if (res.ok) {
+    if (typeof body?.value !== 'number') throw new Error('respuesta sin el valor guardado')
+    return body.value
+  }
+  if (res.status === 409) throw new HandicapCambiadoError(body?.error || 'HTTP 409')
+  // 4xx con mensaje de la ruta: es para el organizador. 5xx o sin mensaje: error genérico.
+  if (res.status < 500 && body?.error) throw new HandicapNoGuardadoError(body.error)
+  throw new Error(body?.error || `HTTP ${res.status}`)
 }
 
 /**

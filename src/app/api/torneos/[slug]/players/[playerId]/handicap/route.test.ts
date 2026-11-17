@@ -59,6 +59,17 @@ describe('PUT /api/torneos/[slug]/players/[playerId]/handicap', () => {
     expect(mockEditar).not.toHaveBeenCalled()
   })
 
+  it('más de un decimal (la columna es numeric(4,1)) → 400 con el mensaje y no escribe', async () => {
+    const res = await put({ value: 12.45, esperado: 10 })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/un decimal/)
+    expect(mockEditar).not.toHaveBeenCalled()
+  })
+
+  it('devuelve el valor guardado', async () => {
+    expect(await (await put({ value: 12, esperado: null })).json()).toEqual({ ok: true, value: 12 })
+  })
+
   it('válido → llama a la edición con esperado y valor', async () => {
     const res = await put({ value: 12, esperado: null })
     expect(res.status).toBe(200)

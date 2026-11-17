@@ -11,6 +11,7 @@ import {
   fetchScoringRoster,
   fetchScoringTournament,
   HandicapCambiadoError,
+  HandicapNoGuardadoError,
   updatePlayerHandicap,
 } from './scoring'
 import { LEGACY_PLAYER_SELECT } from './leaderboard'
@@ -130,11 +131,12 @@ describe('fetchResumenBoardInputs', () => {
 
 describe('updatePlayerHandicap', () => {
   /** fetch que registra lo que se mandó a la ruta y responde con `status`. */
-  function fetchQueRegistra(status = 200, body: unknown = { ok: true }) {
+  function fetchQueRegistra(status = 200, body: unknown = null) {
     const llamadas: Array<{ url: string; init: RequestInit }> = []
     const impl = vi.fn(async (url: string, init: RequestInit) => {
       llamadas.push({ url, init })
-      return new Response(JSON.stringify(body), { status })
+      const enviado = JSON.parse(String(init.body)) as { value: number }
+      return new Response(JSON.stringify(body ?? { ok: true, value: enviado.value }), { status })
     }) as unknown as typeof fetch
     const enviados = () => llamadas.map((l) => JSON.parse(String(l.init.body)) as unknown)
     return { impl, llamadas, enviados }
@@ -146,6 +148,24 @@ describe('updatePlayerHandicap', () => {
     expect(llamadas[0].url).toBe('/api/torneos/mi%20torneo/players/p1/handicap')
     expect(llamadas[0].init.method).toBe('PUT')
     expect(enviados()).toEqual([{ value: 12.4, esperado: 10 }])
+  })
+
+  it('devuelve el valor que guardó la ruta', async () => {
+    const { impl } = fetchQueRegistra(200, { ok: true, value: 12.5 })
+    expect(await updatePlayerHandicap('s', 'p1', 12.4, null, RANGO_INDICE, impl)).toBe(12.5)
+  })
+
+  it('más de un decimal: rechaza sin llamar a la ruta', async () => {
+    const { impl, llamadas } = fetchQueRegistra()
+    await expect(updatePlayerHandicap('s', 'p1', 12.45, null, RANGO_INDICE, impl)).rejects.toThrow(/un decimal/)
+    expect(llamadas).toEqual([])
+  })
+
+  it('4xx con mensaje (429, 400) → HandicapNoGuardadoError con el mensaje de la ruta', async () => {
+    const { impl } = fetchQueRegistra(429, { error: 'Demasiados cambios seguidos.' })
+    const err = await updatePlayerHandicap('s', 'p1', 12.4, null, RANGO_INDICE, impl).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(HandicapNoGuardadoError)
+    expect((err as Error).message).toBe('Demasiados cambios seguidos.')
   })
 
   it('409 → HandicapCambiadoError (el panel recarga)', async () => {

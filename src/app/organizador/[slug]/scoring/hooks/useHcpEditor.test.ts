@@ -11,15 +11,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act } from 'react'
 import { renderHook } from '@testing-library/react'
 import { MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
-import { HandicapCambiadoError, type ScoringCourse } from '@/lib/data/tournaments/scoring'
+import { HandicapCambiadoError, HandicapNoGuardadoError, type ScoringCourse } from '@/lib/data/tournaments/scoring'
 
-const updatePlayerHandicap = vi.fn(async () => {})
+const updatePlayerHandicap = vi.fn(async (...args: unknown[]) => args[2] as number)
 const showWarning = vi.fn()
 const showError = vi.fn()
 const showSuccess = vi.fn()
 
 vi.mock('@/lib/data/tournaments/scoring', async (orig) => ({
   HandicapCambiadoError: (await orig<typeof import('@/lib/data/tournaments/scoring')>()).HandicapCambiadoError,
+  HandicapNoGuardadoError: (await orig<typeof import('@/lib/data/tournaments/scoring')>()).HandicapNoGuardadoError,
   updatePlayerHandicap: (...args: unknown[]) => updatePlayerHandicap(...(args as [])),
 }))
 vi.mock('@/hooks/useToast', () => ({
@@ -160,6 +161,43 @@ describe('useHcpEditor', () => {
   })
 
   // Pieza C: la ruta exige el valor que el organizador vio; si otro cambio llegó primero, 409.
+  // Revisión Fable P1-2: la columna es numeric(4,1).
+  it('más de un decimal: aviso y no llama a la ruta', async () => {
+    const { onSaved } = await editar('12.45')
+    expect(updatePlayerHandicap).not.toHaveBeenCalled()
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(showWarning).toHaveBeenCalledWith('Índice inválido', expect.stringMatching(/un decimal/))
+  })
+
+  it('onSaved recibe el valor que devolvió la ruta, no el tipeado', async () => {
+    updatePlayerHandicap.mockResolvedValueOnce(12.5)
+    const { onSaved } = await editar('12.4')
+    expect(onSaved).toHaveBeenCalledWith('p1', 12.5)
+  })
+
+  // Revisión Fable P2-2: el toast dice lo que dijo el servidor (rango, 429).
+  it('rechazo con mensaje del servidor: ese mensaje en el toast', async () => {
+    updatePlayerHandicap.mockRejectedValueOnce(new HandicapNoGuardadoError('Demasiados cambios seguidos.'))
+    await editar('12')
+    expect(showError).toHaveBeenCalledWith('No se guardó', 'Demasiados cambios seguidos.')
+  })
+
+  // Revisión Fable P1-1: blur + Enter = un solo PUT.
+  it('dos save seguidos mientras el primero está en vuelo: una sola llamada', async () => {
+    let soltar: (v: number) => void = () => {}
+    updatePlayerHandicap.mockImplementationOnce(() => new Promise<number>((r) => { soltar = r }))
+    const { result } = renderHook(() => useHcpEditor({ slug: 's', onSaved: vi.fn(), hcpCalcMode: 'whs', course: null, onConflicto: vi.fn() }))
+    act(() => result.current.startEdit('p1', 10))
+    act(() => result.current.setEditValue('12'))
+    let primero: Promise<void> = Promise.resolve()
+    act(() => { primero = result.current.save('p1') })
+    expect(result.current.guardando).toBe(true)
+    await act(async () => { await result.current.save('p1') })
+    await act(async () => { soltar(12); await primero })
+    expect(updatePlayerHandicap).toHaveBeenCalledTimes(1)
+    expect(result.current.guardando).toBe(false)
+  })
+
   it('manda como esperado el valor con que se abrió el editor', async () => {
     await editar('12', {}, 9.5)
     expect(updatePlayerHandicap).toHaveBeenCalledWith('mi-torneo', 'p1', 12, 9.5, expect.anything())

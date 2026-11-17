@@ -209,6 +209,18 @@ export function esHandicapDeInscripcionValido(v: unknown, rango: RangoHandicap):
   return typeof v === 'number' && Number.isFinite(v) && v >= rango.min && v <= rango.max
 }
 
+/**
+ * true si `v` tiene como máximo UN decimal (12, 12.4; no 12.45). `players.handicap_at_registration`
+ * es numeric(4,1): la base redondea 12.45 a 12.5, y quien calculó con 12.45 (tarjeta, equipo)
+ * quedaría con otro número que el guardado. Tolerancia de punto flotante (12.4 × 10 ≠ 124 exacto).
+ */
+export function tieneUnDecimalComoMaximo(v: number): boolean {
+  return Number.isFinite(v) && Math.abs(v * 10 - Math.round(v * 10)) < 1e-9
+}
+
+/** Mensaje cuando el hándicap trae más de un decimal. */
+export const MENSAJE_HANDICAP_UN_DECIMAL = 'Usa como máximo un decimal (por ejemplo 12.4).'
+
 /** true si `v` es un número finito dentro del rango WHS de ÍNDICE. */
 export function esIndiceDeHandicapValido(v: unknown): v is number {
   return esHandicapDeInscripcionValido(v, RANGO_INDICE)
