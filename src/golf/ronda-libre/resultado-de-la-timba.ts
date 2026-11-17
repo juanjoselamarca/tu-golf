@@ -8,7 +8,7 @@
 import { nombreDelPuntito, NOMBRE_PUNTITO } from '@/golf/formats/personalizado'
 import type { Pareja } from '@/golf/formats/personalizado'
 import type { VistaDelJuego } from './juego-de-la-ronda'
-import { armarTablaDelJuego, nombresCortos } from './tabla-del-juego'
+import { armarTablaDelJuego, nombresCortos, TEXTO_NO_SE_JUGO } from './tabla-del-juego'
 
 export interface FilaDelResultado {
   jugadorId: string
@@ -25,9 +25,11 @@ export interface TramoDelResultado {
   /** "Juan y Pedro", "Diego y Tomás". */
   parejas: [string, string]
   puntos: [number, number]
-  /** "14 – 8". */
+  /** `false`: ningún hoyo del tramo se puntuó (ronda cerrada antes de llegar). */
+  jugado: boolean
+  /** "14 – 8"; sin jugar, "No se jugó" (un "0 – 0" se leería como empate). */
   marcador: string
-  /** Índice (0 o 1) de la pareja que ganó el tramo; `null` si empataron. */
+  /** Índice (0 o 1) de la pareja que ganó el tramo; `null` si empataron o no se jugó. */
   ganadora: 0 | 1 | null
 }
 
@@ -44,7 +46,7 @@ export interface ResultadoDeLaTimba {
   encabezado: string
   /** "Ganó Pedro", "Empate entre Pedro y Juan"; en parejas fijas, "Ganaron Juan y Pedro" o "Empate entre las parejas". */
   titular: string
-  /** "Por un punto sobre Juan." · "Con +12 cada uno." */
+  /** "Por un punto sobre Juan." · "Con +12 cada uno." · `''` si no se jugó ningún hoyo. */
   bajada: string
   ranking: FilaDelResultado[]
   /** Parejas (rotativas o fijas); `null` en juegos individuales. */
@@ -114,7 +116,11 @@ export function armarResultadoDeLaTimba(
   const fijas = config.unidad === 'parejas_fijas' ? resultado.tramos[0] : undefined
   let titular: string
   let bajada: string
-  if (fijas) {
+  if (tabla.hoyosPuntuados === 0) {
+    // Cerrada sin un solo hoyo puntuado: no hay ganador ni empate que contar.
+    titular = 'No se jugó ningún hoyo'
+    bajada = ''
+  } else if (fijas) {
     const [a, b] = fijas.marcador
     if (a === b) {
       titular = 'Empate entre las parejas'
@@ -142,12 +148,16 @@ export function armarResultadoDeLaTimba(
   // Parejas: cada tramo con su marcador y la pareja que lo ganó.
   const conParejas = config.unidad !== 'individual' && resultado.tramos.length > 0
   const tramos: TramoDelResultado[] | null = conParejas
-    ? resultado.tramos.map(t => ({
-        parejas: [nombreDePareja(t.parejas[0]), nombreDePareja(t.parejas[1])],
-        puntos: [t.marcador[0], t.marcador[1]],
-        marcador: `${t.marcador[0]} – ${t.marcador[1]}`,
-        ganadora: t.marcador[0] === t.marcador[1] ? null : t.marcador[0] > t.marcador[1] ? 0 : 1,
-      }))
+    ? resultado.tramos.map(t => {
+        const jugado = resultado.hoyos.some(h => h.estado === 'puntuado' && t.hoyos.includes(h.numero))
+        return {
+          parejas: [nombreDePareja(t.parejas[0]), nombreDePareja(t.parejas[1])],
+          puntos: [t.marcador[0], t.marcador[1]],
+          jugado,
+          marcador: jugado ? `${t.marcador[0]} – ${t.marcador[1]}` : TEXTO_NO_SE_JUGO,
+          ganadora: !jugado || t.marcador[0] === t.marcador[1] ? null : t.marcador[0] > t.marcador[1] ? 0 : 1,
+        }
+      })
     : null
   const notaTramos = !conParejas
     ? null
@@ -213,13 +223,15 @@ function lineaDelRanking(r: FilaDelResultado): string {
 export function textoParaCompartirLaTimba(r: ResultadoDeLaTimba, cancha: string): string {
   const lineas = [
     `${r.encabezado}${cancha ? ` · ${cancha}` : ''}`,
-    `${conPunto(r.titular)} ${r.bajada}`,
+    r.bajada ? `${conPunto(r.titular)} ${r.bajada}` : conPunto(r.titular),
     '',
     ...r.ranking.map(lineaDelRanking),
   ]
   if (r.tramos?.length) {
     lineas.push('', 'Parejas')
-    for (const t of r.tramos) lineas.push(`${t.parejas[0]} ${t.marcador} ${t.parejas[1]}`)
+    for (const t of r.tramos) {
+      lineas.push(t.jugado ? `${t.parejas[0]} ${t.marcador} ${t.parejas[1]}` : `${t.parejas[0]} vs ${t.parejas[1]}: no se jugó`)
+    }
   }
   if (r.puntosEspeciales?.length) {
     lineas.push('', `Puntos especiales: ${r.puntosEspeciales.map(p => p.texto).join(', ')}`)

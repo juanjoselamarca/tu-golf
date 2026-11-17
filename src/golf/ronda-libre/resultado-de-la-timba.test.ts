@@ -50,7 +50,9 @@ function conRanking(puntos: Record<string, number>, cfg: ConfigJuego = crearConf
     config: cfg,
     jugadorIds: Object.keys(puntos),
     resultado: {
-      hoyos: [], tramos: [], totales: puntos, hoyosPendientes: [], sinHandicap: [],
+      // 18 hoyos puntuados (sin puntos por hoyo): solo importa que la ronda se jugó.
+      hoyos: Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, estado: 'puntuado', especiales: [], puntos: {}, scoreDeJuego: {} })) as never,
+      tramos: [], totales: puntos, hoyosPendientes: [], sinHandicap: [],
       ranking: orden.map(([jugadorId, p]) => ({ jugadorId, puntos: p, puesto: 1 + orden.filter(([, q]) => q > p).length })),
     },
     golpesRecibidos: {}, marcas: [], retiros: {},
@@ -181,6 +183,34 @@ describe('armarResultadoDeLaTimba — ronda cerrada antes del final', () => {
     const r = armarResultadoDeLaTimba(vista(doce, crearConfigDePlantilla('dos_cero_dos')), NOMBRES)
     expect(r.encabezado).toMatch(/ · 12 de 18 hoyos · Gross$/)
   })
+
+  it('Colombiana cerrada en el 12: el tercer tramo dice "No se jugó", sin marcador ni ganadora (ni al compartir)', () => {
+    const colombiana: ConfigJuego = { ...crearConfigDePlantilla('colombiana'), sorteo: [0, 1, 2] }
+    const doce = Object.fromEntries(IDS.map((id, k) => [id, Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, 3 + k]))]))
+    const r = armarResultadoDeLaTimba(vista(doce, colombiana), NOMBRES)
+    expect(r.encabezado).toBe('La Colombiana · 12 de 18 hoyos · Gross')
+    expect(r.tramos!.map(t => t.jugado)).toEqual([true, true, false])
+    expect(r.tramos![2]).toMatchObject({ marcador: 'No se jugó', ganadora: null })
+    expect(r.tramos![0].ganadora).not.toBeNull()
+    const texto = textoParaCompartirLaTimba(r, '')
+    expect(texto).toContain('Juan y Tomás vs Pedro y Diego: no se jugó')
+    expect(texto).not.toContain('0 – 0')
+  })
+
+  it('sin un solo hoyo puntuado: "No se jugó ningún hoyo", sin bajada, también en parejas fijas', () => {
+    for (const cfg of [
+      { ...crearConfigDePlantilla('subterranea'), parejas: [[0, 1], [2, 3]] } as ConfigJuego,
+      { ...crearConfigDePlantilla('colombiana'), sorteo: [0, 1, 2] } as ConfigJuego,
+      crearConfigDePlantilla('dos_cero_dos'),
+    ]) {
+      const r = armarResultadoDeLaTimba(vista({}, cfg), NOMBRES)
+      expect(r.titular, cfg.plantilla).toBe('No se jugó ningún hoyo')
+      expect(r.bajada, cfg.plantilla).toBe('')
+      expect(r.encabezado, cfg.plantilla).toMatch(/ · 0 de 18 hoyos · /)
+      expect(r.tramos?.every(t => !t.jugado && t.ganadora === null) ?? true, cfg.plantilla).toBe(true)
+      expect(textoParaCompartirLaTimba(r, '').split('\n')[1], cfg.plantilla).toBe('No se jugó ningún hoyo.')
+    }
+  })
 })
 
 describe('armarResultadoDeLaTimba — nombres abreviados', () => {
@@ -228,6 +258,6 @@ describe('textoParaCompartirLaTimba', () => {
     const r = armarResultadoDeLaTimba(conRanking({ [P]: 0, [J]: 0, [D]: -1 }, crearConfigDePlantilla('subterror')), NOMBRES)
     const texto = textoParaCompartirLaTimba(r, '')
     expect(texto).not.toContain('Parejas')
-    expect(texto.split('\n')[0]).toBe('La Subterror · 0 hoyos · Gross')
+    expect(texto.split('\n')[0]).toBe('La Subterror · 18 hoyos · Gross')
   })
 })

@@ -24,7 +24,9 @@ const vista: VistaDelJuego = {
   config: crearConfigDePlantilla('dos_cero_dos'),
   jugadorIds: ['a', 'b'],
   resultado: {
-    hoyos: [], tramos: [], totales: { a: 3, b: 2 }, hoyosPendientes: [], sinHandicap: [],
+    // Un hoyo jugado (sin hoyos puntuados, el resultado diría "No se jugó ningún hoyo").
+    hoyos: [{ numero: 1, estado: 'puntuado', especiales: [], puntos: { a: 3, b: 2 }, scoreDeJuego: { a: 4, b: 5 } }] as never,
+    tramos: [], totales: { a: 3, b: 2 }, hoyosPendientes: [], sinHandicap: [],
     ranking: [{ jugadorId: 'a', puntos: 3, puesto: 1 }, { jugadorId: 'b', puntos: 2, puesto: 2 }],
   },
   golpesRecibidos: {}, marcas: [], retiros: {},

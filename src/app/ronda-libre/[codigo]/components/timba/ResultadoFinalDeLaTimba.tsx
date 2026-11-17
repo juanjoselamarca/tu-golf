@@ -30,7 +30,7 @@ export function ResultadoFinalDeLaTimba({ resultado, onHoyoAHoyo, onCompartir, c
       <header style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-2)' }}>{encabezado}</span>
         <h2 style={{ ...NOMBRE, margin: 0, fontSize: '28px', fontWeight: 600, lineHeight: 1.2, color: 'var(--text)' }}>{titular}</h2>
-        <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-2)' }}>{bajada}</p>
+        {bajada && <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-2)' }}>{bajada}</p>}
       </header>
 
       <ol aria-label="Puntos" style={{ ...GRUPO, listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column' }}>
@@ -67,14 +67,19 @@ export function ResultadoFinalDeLaTimba({ resultado, onHoyoAHoyo, onCompartir, c
             {tramos.map((t, i) => (
               <div
                 key={i}
-                aria-label={`${t.parejas[0]} ${t.puntos[0]}, ${t.parejas[1]} ${t.puntos[1]}${t.ganadora == null ? ', empate' : `, ganó ${t.parejas[t.ganadora]}`}`}
+                role="group"
+                aria-label={t.jugado
+                  ? `${t.parejas[0]} ${t.puntos[0]}, ${t.parejas[1]} ${t.puntos[1]}${t.ganadora == null ? ', empate' : `, ganó ${t.parejas[t.ganadora]}`}`
+                  : `${t.parejas[0]} contra ${t.parejas[1]}, ${t.marcador.toLowerCase()}`}
                 style={{
                   display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', alignItems: 'center', gap: '12px',
                   minHeight: '56px', padding: '8px 0', borderBottom: i < tramos.length - 1 ? '1px solid var(--border)' : 'none',
                 }}
               >
                 <span aria-hidden style={estiloPareja(t.ganadora === 0)}>{t.parejas[0]}</span>
-                <span aria-hidden className="num" style={{ fontSize: '16px', fontWeight: 600, textAlign: 'center', color: 'var(--text)', whiteSpace: 'nowrap' }}>{t.marcador}</span>
+                {t.jugado
+                  ? <span aria-hidden className="num" style={{ fontSize: '16px', fontWeight: 600, textAlign: 'center', color: 'var(--text)', whiteSpace: 'nowrap' }}>{t.marcador}</span>
+                  : <span aria-hidden style={{ fontSize: '14px', textAlign: 'center', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{t.marcador}</span>}
                 <span aria-hidden style={{ ...estiloPareja(t.ganadora === 1), textAlign: 'right' }}>{t.parejas[1]}</span>
               </div>
             ))}

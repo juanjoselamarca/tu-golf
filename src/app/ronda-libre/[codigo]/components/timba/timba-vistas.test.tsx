@@ -11,6 +11,7 @@ import { AVISO_GOLPES_DESDE_EL_RETIRO, DETALLE_RETIRO, HojaDeRetiro } from './Ho
 import { AvisoMarcasRechazadas } from './AvisoMarcasRechazadas'
 import { PestanasDeLaTimba } from './PestanasDeLaTimba'
 import { TarjetaDeGolpes } from './TimbaEnVivo'
+import { ResultadoFinalDeLaTimba } from './ResultadoFinalDeLaTimba'
 
 const tabla: TablaDelJuego = {
   titulo: 'La Colombiana', hoyosPuntuados: 7, totalHoyos: 18,
@@ -176,5 +177,28 @@ describe('AvisoMarcasRechazadas y pestañas', () => {
     const filas = screen.getAllByRole('row')
     expect(filas).toHaveLength(3)
     expect(within(filas[2]).getByRole('cell', { name: 'sin golpes' }).textContent).toBe('·')
+  })
+})
+
+describe('ResultadoFinalDeLaTimba', () => {
+  it('cada tramo es un grupo con nombre; el que no se jugó lo dice, sin marcador; sin bajada no queda un párrafo vacío', () => {
+    const tramo = (jugado: boolean, ganadora: 0 | 1 | null) => ({
+      parejas: ['Juan y Pedro', 'Diego y Tomás'] as [string, string], puntos: [jugado ? 9 : 0, jugado ? 3 : 0] as [number, number],
+      jugado, marcador: jugado ? '9 – 3' : 'No se jugó', ganadora,
+    })
+    const { container } = render(
+      <ResultadoFinalDeLaTimba
+        resultado={{
+          encabezado: 'La Colombiana · 12 de 18 hoyos · Gross', titular: 'Ganó Juan', bajada: '',
+          ranking: [], tramos: [tramo(true, 0), tramo(false, null)], notaTramos: null, puntosEspeciales: null,
+        }}
+        onHoyoAHoyo={() => {}} onCompartir={() => {}}
+      />,
+    )
+    expect(screen.getByRole('group', { name: 'Juan y Pedro 9, Diego y Tomás 3, ganó Juan y Pedro' })).toBeTruthy()
+    const sinJugar = screen.getByRole('group', { name: 'Juan y Pedro contra Diego y Tomás, no se jugó' })
+    expect(sinJugar.textContent).toContain('No se jugó')
+    expect(sinJugar.textContent).not.toMatch(/\d/)
+    expect(container.querySelector('header p')).toBeNull()
   })
 })
