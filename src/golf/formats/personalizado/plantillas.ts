@@ -3,6 +3,7 @@
  * el motor no sabe de plantillas, solo de piezas.
  */
 import { LIMITES_JUEGO, VERSION_CONFIG_JUEGO, type ConfigJuego, type Pareja, type PuntitoConfig, type TipoDueloPareja, type TipoPuntito } from './config'
+import type { LogroBajoPar } from './motor'
 
 export type PlantillaJuego = ConfigJuego['plantilla']
 
@@ -39,6 +40,14 @@ export const NOMBRE_PUNTITO: Record<Exclude<TipoPuntito, 'propio'>, string> = {
   sandy: 'Sandy',
   chipingo: 'Chipingo',
   greenie: 'Greenie',
+}
+
+/** Cómo se llama en el resultado lo que pagó el punto "birdie": cada logro en su línea (decisión de Juanjo, 17-nov). */
+export const NOMBRE_LOGRO_BAJO_PAR: Record<LogroBajoPar, string> = {
+  birdie: 'Birdie',
+  eagle: 'Eagle',
+  albatros: 'Albatros',
+  hoyo_en_uno: 'Hoyo en uno',
 }
 
 /** Cómo se llama un punto especial del juego en pantalla: el del catálogo, o el nombre del propio. */
