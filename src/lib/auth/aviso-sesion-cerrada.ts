@@ -10,8 +10,8 @@ import { loginUrl } from '@/lib/auth/login-url'
  * - `habiaSesion: true`  → entró al abrir el scorer y la perdió (expiró o se cerró en otro dispositivo):
  *                          "Tu sesión se cerró".
  * - `habiaSesion: false` → no se sabe si la tuvo (la página abrió ya sin sesión: iOS descartó la PWA, link
- *                          abierto sin entrar): "Inicia sesión para guardar", el mismo título del scorer de torneo
- *                          (#754), que vale para los dos casos.
+ *                          abierto sin entrar): "Inicia sesión para guardar", que vale para los dos casos (es el
+ *                          título que propone el PR #754 para el scorer de torneo, aún sin mergear).
  *
  * Es un aviso persistente con salida (no un toast que desaparece ni una redirección sola: el jugador puede
  * seguir anotando y entrar cuando quiera). `volverA` es la tarjeta a la que vuelve el login.
