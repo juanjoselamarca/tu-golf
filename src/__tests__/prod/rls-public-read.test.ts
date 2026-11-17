@@ -41,9 +41,10 @@ const PUBLIC_VIEW_TABLES = Object.keys(ANON_COLUMNS)
 // las RPC upsert_ronda_libre_scores y upsert_ronda_equipos_scores.
 // ronda_libre_juego_orden, ronda_libre_puntitos y ronda_libre_retiros: privadas (20261027180000, Timba libre), solo
 // las tocan las RPC marcar_puntito_ronda_libre y marcar_retiro_ronda_libre; la lectura va por la API con service role.
+// timba_probadores: privada (20261117020000), la lee usuario_puede_crear_timba() y el servidor con service role.
 const RLS_WITHOUT_POLICY = [
   'inbox_reports', 'rate_limit_hits', 'ronda_equipos_scores_orden', 'ronda_libre_juego_orden', 'ronda_libre_puntitos',
-  'ronda_libre_retiros', 'ronda_libre_scores_orden',
+  'ronda_libre_retiros', 'ronda_libre_scores_orden', 'timba_probadores',
 ]
 
 type Policy = { table: string; policy: string; cmd: string }
