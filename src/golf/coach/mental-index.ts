@@ -1,271 +1,276 @@
 /**
- * Mental Index — score psicológico compuesto 0-100 del jugador.
+ * Mental Index — cuántos de tus bogeys cortas en el hoyo siguiente (0-100).
  *
- * Composite que penaliza patrones psicológicos activos y suma bonus por
- * adherencia al plan + consistencia (de CPI). Determinístico, sin LLM.
+ * Una sola definición de espiral para todo el coach: el chip de la Curva mental,
+ * el Costo psicológico y el índice salen de las mismas funciones y de la misma
+ * ventana de rondas (`resumenMentalDelCoach`). Determinístico, sin LLM.
  *
- * Spec: docs/superpowers/specs/2026-05-10-taiger-coach-home-redesign-design.md §6.1
+ * Decisiones de Juanjo (17-nov-2026): tasa cruda, sin ajuste por nivel; el copy
+ * describe con datos del propio jugador, sin juicio.
  *
- * Vive junto al motor del coach (no en stats/) porque solo lo usa el coach UI.
+ * Definiciones (un hoyo "cuenta" si tiene score, par real y no es estimado):
+ * - Oportunidad: hoyo que cuenta, bogey o peor, cuyo hoyo siguiente (por posición
+ *   en la tarjeta) también cuenta.
+ * - Corte: el siguiente de una oportunidad es par o mejor.
+ * - Espiral: racha de ≥2 hoyos consecutivos bogey o peor. Un hoyo que no cuenta
+ *   corta la racha.
+ * - Identidad: oportunidades − cortes = Σ (hoyos − 1) sobre las espirales.
  */
 
-import type { ResultadoCPI } from '@/golf/stats/cpi'
-import { parForHoleWithFallback } from '@/golf/coach/hole-pars'
+import {
+  bucketPrincipal,
+  rondasQueCuentan,
+  type RondaNormalizada,
+} from '@/golf/stats/rondas-normalizadas'
 
-const MENTAL_PATTERN_PENALTIES: Record<string, number> = {
-  post_bogey_spiral: 25,       // critical
-  pressure_deterioration: 15,  // warning
-  first_hole_anxiety: 10,      // warning
-}
+/** Lo que el motor mental lee de una ronda normalizada. */
+export type RondaMental = Pick<
+  RondaNormalizada,
+  'id' | 'tarjeta' | 'pares' | 'hoyosEstimados' | 'total_gross' | 'played_at' | 'course_name' | 'vsPar'
+>
 
-
-export interface MentalIndexInput {
-  activePatterns: Array<{ pattern_type: string; confidence: number }>
-  activePlan: { id: string } | null
-  outcomes: Array<{ target_reached: boolean; compliance: string }>
-  cpi: ResultadoCPI | null
-  totalRounds: number
-  previousScore: number | null
-}
-
-export interface MentalIndexResult {
-  score: number
-  band: 'low' | 'mid' | 'high'
-  status: 'insufficient_data' | 'provisional' | 'established'
-  delta: number | null
-  breakdown: {
-    base: number
-    patternPenalty: number
-    adherenceBonus: number
-    consistencyBonus: number
-  }
+/** Racha de ≥2 hoyos consecutivos bogey o peor. Posiciones 0-based de la tarjeta. */
+export interface Espiral {
+  desde: number
+  hasta: number
+  hoyos: number
+  /** Golpes sobre el bogey en los hoyos de la espiral después del primero. */
+  golpesEvitables: number
 }
 
 export type MentalState = 'calm' | 'tense' | 'tilt'
 
-export interface RoundForAnalysis {
-  id: string
-  scores: (number | null)[]
-  hole_pars?: number[] | null
+/** Detector `post_bogey_spiral` (patterns.ts): tasa de bogeys seguidos de otro sobre la que se activa. */
+export const TASA_ESPIRAL_UMBRAL = 0.4
+/** Mínimo de bogeys (oportunidades) para hablar de espiral: detector y Mental Index. */
+export const MIN_BOGEYS_ESPIRAL = 10
+/** Rondas de la ventana del coach (índice, costo y curva). */
+export const VENTANA_MENTAL = 5
+
+/** Bandas del Mental Index: high ≥60, mid 50-59, low <50. */
+export const BANDA_MENTAL_ALTA = 60
+export const BANDA_MENTAL_MEDIA = 50
+
+export type BandaMental = 'low' | 'mid' | 'high'
+export type BucketMental = 18 | 9
+
+export interface VentanaMental {
+  bucket: BucketMental | null
+  /** Más reciente primero. Solo rondas del bucket, con pares reales y que cuentan. */
+  rondas: RondaNormalizada[]
 }
 
-export interface StrokesEvitablesResult {
-  total: number
-  instances: Array<{ round_id: string; holes: string[]; strokes_saved: number }>
-}
-
-export interface RoundForCostoPsicologico extends RoundForAnalysis {
-  total_gross: number | null
+export interface MentalIndexResult {
+  score: number | null
+  band: BandaMental | null
+  status: 'insufficient_data' | 'provisional' | 'established'
+  oportunidades: number
+  cortes: number
+  windowSize: number
+  bucket: BucketMental | null
 }
 
 export interface CostoPsicologicoResult {
-  /** Strokes evitables totales sobre el universo (windowSize rondas). */
+  /** Golpes evitables totales sobre la ventana. */
   evitables: number
-  /** Promedio de total_gross sobre el universo. */
+  /** Promedio de total_gross sobre la ventana. */
   promedioReal: number
-  /** Promedio "contenido" = promedioReal − evitables/windowSize. */
+  /** promedioReal − evitables / windowSize. */
   promedioContenido: number
-  /** Tamaño real del universo (rondas usadas). Puede ser < cap si hay menos. */
   windowSize: number
-  /** Datos de la última ronda, solo si tuvo ≥1 espiral evitable. */
+  bucket: BucketMental | null
+  /** La ronda más reciente de la ventana, solo si alguna espiral suya costó golpes. */
   lastRound: {
     id: string
     realScore: number
     ghostScore: number
     strokes_saved: number
-    holes: string[]
+    /** Solo las espirales que costaron golpes (las de puros bogeys ya están contenidas). */
+    espirales: Espiral[]
   } | null
 }
 
-export function calcularMentalIndex(input: MentalIndexInput): MentalIndexResult {
-  let score = 100
-  let patternPenalty = 0
-  let adherenceBonus = 0
-  let consistencyBonus = 0
+export interface CurvaMental {
+  ronda: RondaNormalizada
+  estados: (MentalState | null)[]
+  espirales: Espiral[]
+}
 
-  // Penalizaciones por patrones psicológicos
-  for (const p of input.activePatterns) {
-    const penalty = MENTAL_PATTERN_PENALTIES[p.pattern_type]
-    if (penalty) {
-      const actual = penalty * p.confidence
-      score -= actual
-      patternPenalty += actual
+export interface ResumenMental {
+  ventana: VentanaMental
+  indice: MentalIndexResult
+  costo: CostoPsicologicoResult
+  curva: CurvaMental | null
+}
+
+// ─── Por ronda ────────────────────────────────────────────────────────────────
+
+/** Golpes sobre par del hoyo en la posición i, o null si el hoyo no cuenta. */
+function sobreParQueCuenta(r: RondaMental, i: number, estimados: ReadonlySet<number>): number | null {
+  const s = r.tarjeta[i]
+  const par = r.pares[i]
+  if (typeof s !== 'number' || typeof par !== 'number' || estimados.has(i)) return null
+  return s - par
+}
+
+function sobrePares(r: RondaMental): (number | null)[] {
+  const estimados = new Set(r.hoyosEstimados)
+  return Array.from({ length: r.tarjeta.length }, (_, i) => sobreParQueCuenta(r, i, estimados))
+}
+
+const esBogeyOPeor = (sobre: number | null): sobre is number => sobre != null && sobre >= 1
+
+export function espiralesDeRonda(r: RondaMental): Espiral[] {
+  const sobre = sobrePares(r)
+  const espirales: Espiral[] = []
+  let desde = -1
+  const cerrar = (hasta: number) => {
+    if (desde >= 0 && hasta - desde >= 1) {
+      let golpesEvitables = 0
+      for (let i = desde + 1; i <= hasta; i++) golpesEvitables += Math.max(0, (sobre[i] as number) - 1)
+      espirales.push({ desde, hasta, hoyos: hasta - desde + 1, golpesEvitables })
+    }
+    desde = -1
+  }
+  for (let i = 0; i < sobre.length; i++) {
+    if (esBogeyOPeor(sobre[i])) {
+      if (desde < 0) desde = i
+    } else {
+      cerrar(i - 1)
     }
   }
-
-  // Bonus de adherencia
-  if (input.activePlan && input.outcomes.length > 0) {
-    const targetReachedRatio = input.outcomes.filter(o => o.target_reached).length / input.outcomes.length
-    const complianceFullRatio = input.outcomes.filter(o => o.compliance === 'full').length / input.outcomes.length
-    const tBonus = 10 * targetReachedRatio
-    const cBonus = 5 * complianceFullRatio
-    score += tBonus + cBonus
-    adherenceBonus = tBonus + cBonus
-  }
-
-  // Bonus de consistencia (de CPI)
-  if (input.cpi && input.cpi.status !== 'insufficient_data') {
-    const consistenciaNorm = (input.cpi.breakdown?.consistencia ?? 0) / 25
-    const cBonus = 5 * consistenciaNorm
-    score += cBonus
-    consistencyBonus = cBonus
-  }
-
-  // Cap
-  score = Math.max(0, Math.min(100, score))
-  const finalScore = Math.round(score)
-
-  const band: 'low' | 'mid' | 'high' =
-    finalScore >= 67 ? 'high' : finalScore >= 34 ? 'mid' : 'low'
-
-  const status: 'insufficient_data' | 'provisional' | 'established' =
-    input.totalRounds < 3 ? 'insufficient_data'
-      : input.totalRounds < 10 ? 'provisional'
-        : 'established'
-
-  const delta = input.previousScore != null ? finalScore - input.previousScore : null
-
-  return {
-    score: finalScore,
-    band,
-    status,
-    delta,
-    breakdown: {
-      base: 100,
-      patternPenalty: Math.round(patternPenalty * 10) / 10,
-      adherenceBonus: Math.round(adherenceBonus * 10) / 10,
-      consistencyBonus: Math.round(consistencyBonus * 10) / 10,
-    },
-  }
+  cerrar(sobre.length - 1)
+  return espirales
 }
 
-export function strokesEvitables(rounds: RoundForAnalysis[]): StrokesEvitablesResult {
-  let total = 0
-  const instances: Array<{ round_id: string; holes: string[]; strokes_saved: number }> = []
-
-  for (const r of rounds) {
-    if (!Array.isArray(r.scores)) continue
-    // Saltamos rondas sin hole_pars explícito o con length mismatch:
-    // STANDARD_PARS asume par 72 y miente en canchas chilenas par 71 (Los Leones, Sport Francés, PoW).
-    if (!Array.isArray(r.hole_pars) || r.hole_pars.length !== r.scores.length) continue
-    const holes: string[] = []
-    let strokesSavedRound = 0
-
-    for (let i = 0; i < r.scores.length - 1; i++) {
-      const s = r.scores[i]
-      const next = r.scores[i + 1]
-      if (s == null || next == null) continue
-
-      const par_i = parForHoleWithFallback(r.hole_pars, i)
-      const par_next = parForHoleWithFallback(r.hole_pars, i + 1)
-      const isPostBogey = s >= par_i + 1
-      const isFollowedByBogey = next >= par_next + 1
-
-      if (isPostBogey && isFollowedByBogey) {
-        const actualOver = next - par_next
-        const containedOver = 1
-        const evitable = Math.max(0, actualOver - containedOver)
-        if (evitable > 0) {
-          total += evitable
-          strokesSavedRound += evitable
-          holes.push(`H${i + 1}→H${i + 2}`)
-        }
-      }
-    }
-
-    if (holes.length) instances.push({ round_id: r.id, holes, strokes_saved: strokesSavedRound })
+export function recuperacionDeRonda(r: RondaMental): { oportunidades: number; cortes: number } {
+  const sobre = sobrePares(r)
+  let oportunidades = 0
+  let cortes = 0
+  for (let i = 0; i < sobre.length - 1; i++) {
+    const siguiente = sobre[i + 1]
+    if (!esBogeyOPeor(sobre[i]) || siguiente == null) continue
+    oportunidades++
+    if (siguiente <= 0) cortes++
   }
-
-  return { total, instances }
+  return { oportunidades, cortes }
 }
-
-export function clasificarHoyo(round: RoundForAnalysis, i: number): MentalState | null {
-  const score = round.scores[i]
-  if (score == null) return null
-
-  const par = parForHoleWithFallback(round.hole_pars, i)
-  const prevScore = i > 0 ? round.scores[i - 1] : null
-  const prevPar = i > 0 ? parForHoleWithFallback(round.hole_pars, i - 1) : null
-
-  const overPar = score - par
-  const prevOverPar = prevScore != null && prevPar != null ? prevScore - prevPar : 0
-
-  // Tilt: doble bogey o peor, o cualquier ≥bogey tras un bogey anterior
-  if (overPar >= 2) return 'tilt'
-  if (overPar >= 1 && prevOverPar >= 1) return 'tilt'
-
-  // Tensión: bogey aislado
-  if (overPar === 1) return 'tense'
-
-  // Calma: par o mejor
-  return 'calm'
-}
-
 
 /**
- * Calcula todos los datos de la Costo Psicológico Card sobre UN SOLO universo
- * de rondas. Garantiza la invariante matemática:
- *
- *   evitables === windowSize × (promedioReal − promedioContenido)
- *
- * Antes (bug del 19-may reportado por Juanjo: "36 strokes evitables"):
- *   - `evitables` se calculaba sobre las últimas 8 rondas.
- *   - `promedioReal` / `promedioContenido` sobre las últimas 5 rondas.
- *   - Resultado: número grande (36) inflado vs. los promedios mostrados debajo
- *     (delta ~3.6 × 5 = 18). Card mezcla denominadores → usuarios confundidos.
- *
- * Hoy: TODO se calcula sobre las primeras `windowSize` rondas (por defecto 5).
- * El componente debe mostrar el `windowSize` como label real, no "30D".
- *
- * @param rounds Rondas ordenadas DESC por fecha (más recientes primero).
- * @param windowSize Cap superior. El universo real es `min(windowSize, rounds.length)`.
+ * Estado de cada hoyo para la Curva mental: tilt = hoyo de espiral después del
+ * primero; tense = bogey o peor que no sigue a otro; calm = par o mejor; null si
+ * el hoyo no cuenta.
  */
-export function calcularCostoPsicologico(
-  rounds: RoundForCostoPsicologico[],
-  windowSize = 5,
-): CostoPsicologicoResult {
-  const universo = rounds.slice(0, windowSize)
-  const realWindowSize = universo.length
+export function estadosDeRonda(r: RondaMental): (MentalState | null)[] {
+  const sobre = sobrePares(r)
+  return sobre.map((s, i) => {
+    if (s == null) return null
+    if (s <= 0) return 'calm'
+    return i > 0 && esBogeyOPeor(sobre[i - 1]) ? 'tilt' : 'tense'
+  })
+}
 
-  if (realWindowSize === 0) {
-    return {
-      evitables: 0,
-      promedioReal: 0,
-      promedioContenido: 0,
-      windowSize: 0,
-      lastRound: null,
-    }
+/** "H11–H13": hoyos por posición de la tarjeta. */
+export function etiquetaEspiral(e: Espiral): string {
+  return `H${e.desde + 1}–H${e.hasta + 1}`
+}
+
+// ─── Ventana ─────────────────────────────────────────────────────────────────
+
+/**
+ * La ventana única del coach. `rondas` debe venir más reciente primero (como
+ * `fetchRondasNormalizadas`). Elegibles: suman hoyo a hoyo, con par real en cada
+ * hoyo jugado y tarjeta. Bucket = el que más rondas tiene (nunca mezcla 9 y 18).
+ */
+export function ventanaMental(rondas: RondaNormalizada[]): VentanaMental {
+  const elegibles = rondas.filter(r => r.cuentaHoyoAHoyo && r.parPerHole != null && r.tarjeta.length > 0)
+  const bucket = bucketPrincipal(elegibles)
+  if (bucket == null) return { bucket: null, rondas: [] }
+  return { bucket, rondas: rondasQueCuentan(elegibles, bucket).slice(0, VENTANA_MENTAL) }
+}
+
+/** "últimas 5 rondas de 18 hoyos" / "última ronda de 9 hoyos". */
+export function textoVentanaMental(windowSize: number, bucket: BucketMental | null): string {
+  const base = windowSize === 1 ? 'última ronda' : `últimas ${windowSize} rondas`
+  return bucket == null ? base : `${base} de ${bucket} hoyos`
+}
+
+export function bandaMental(score: number): BandaMental {
+  return score >= BANDA_MENTAL_ALTA ? 'high' : score >= BANDA_MENTAL_MEDIA ? 'mid' : 'low'
+}
+
+export function calcularMentalIndex(v: VentanaMental): MentalIndexResult {
+  let oportunidades = 0
+  let cortes = 0
+  for (const r of v.rondas) {
+    const rr = recuperacionDeRonda(r)
+    oportunidades += rr.oportunidades
+    cortes += rr.cortes
   }
-
-  // Strokes evitables y promedios: ambos sobre el MISMO universo.
-  const evitablesResult = strokesEvitables(universo)
-  const evitables = evitablesResult.total
-
-  const promedioReal =
-    universo.reduce((a, r) => a + (r.total_gross ?? 0), 0) / realWindowSize
-  const promedioContenido = promedioReal - evitables / realWindowSize
-
-  // Última ronda (la más reciente del universo) — solo si tuvo espirales.
-  const last = universo[0]
-  const lastInstance = evitablesResult.instances.find(i => i.round_id === last.id)
-  const lastRound = lastInstance && last.total_gross != null
-    ? {
-        id: last.id,
-        realScore: last.total_gross,
-        ghostScore: last.total_gross - lastInstance.strokes_saved,
-        strokes_saved: lastInstance.strokes_saved,
-        holes: lastInstance.holes,
-      }
-    : null
-
+  const windowSize = v.rondas.length
+  const base = { oportunidades, cortes, windowSize, bucket: v.bucket }
+  if (oportunidades < MIN_BOGEYS_ESPIRAL) {
+    return { ...base, score: null, band: null, status: 'insufficient_data' }
+  }
+  const score = Math.round((100 * cortes) / oportunidades)
   return {
-    evitables,
-    promedioReal,
-    promedioContenido,
-    windowSize: realWindowSize,
-    lastRound,
+    ...base,
+    score,
+    band: bandaMental(score),
+    status: windowSize < VENTANA_MENTAL ? 'provisional' : 'established',
   }
 }
 
-// Expose para tests
-export const __testing__ = { parForHole: (round: RoundForAnalysis, i: number) => parForHoleWithFallback(round.hole_pars, i), MENTAL_PATTERN_PENALTIES }
+/**
+ * Costo psicológico sobre la misma ventana del índice. Invariante:
+ *   evitables === windowSize × (promedioReal − promedioContenido)
+ */
+export function calcularCostoPsicologico(v: VentanaMental): CostoPsicologicoResult {
+  const windowSize = v.rondas.length
+  if (windowSize === 0) {
+    return { evitables: 0, promedioReal: 0, promedioContenido: 0, windowSize: 0, bucket: v.bucket, lastRound: null }
+  }
+  const espiralesPorRonda = v.rondas.map(espiralesDeRonda)
+  const costoDe = (es: Espiral[]) => es.reduce((a, e) => a + e.golpesEvitables, 0)
+  const evitables = espiralesPorRonda.reduce((a, es) => a + costoDe(es), 0)
+  const promedioReal = v.rondas.reduce((a, r) => a + r.total_gross, 0) / windowSize
+  const promedioContenido = promedioReal - evitables / windowSize
+
+  const last = v.rondas[0]
+  const conCosto = espiralesPorRonda[0].filter(e => e.golpesEvitables > 0)
+  const strokesSaved = costoDe(conCosto)
+  const lastRound = strokesSaved > 0
+    ? { id: last.id, realScore: last.total_gross, ghostScore: last.total_gross - strokesSaved, strokes_saved: strokesSaved, espirales: conCosto }
+    : null
+
+  return { evitables, promedioReal, promedioContenido, windowSize, bucket: v.bucket, lastRound }
+}
+
+/** Índice, costo y curva de la home del coach, todos sobre la misma ventana. */
+export function resumenMentalDelCoach(rondas: RondaNormalizada[]): ResumenMental {
+  const ventana = ventanaMental(rondas)
+  const ultima = ventana.rondas[0]
+  return {
+    ventana,
+    indice: calcularMentalIndex(ventana),
+    costo: calcularCostoPsicologico(ventana),
+    curva: ultima ? { ronda: ultima, estados: estadosDeRonda(ultima), espirales: espiralesDeRonda(ultima) } : null,
+  }
+}
+
+// ─── Copy (descriptivo, con datos del jugador; sin juicio, sin voseo) ─────────
+
+export const TITULO_BANDA_MENTAL: Record<BandaMental, string> = {
+  high: 'Cortas la mayoría de tus malos hoyos',
+  mid: 'La mitad de tus bogeys traen otro detrás',
+  low: 'Más de la mitad de tus bogeys traen otro detrás',
+}
+
+/** "Cortaste 6 de tus 14 bogeys en el hoyo siguiente · últimas 5 rondas de 18 hoyos". */
+export function fraseMentalIndex(i: MentalIndexResult): string {
+  if (i.status === 'insufficient_data') {
+    if (i.windowSize === 0) return 'Todavía no hay rondas con tarjeta hoyo a hoyo para medir cuántos bogeys cortas'
+    return `Todavía no hay ${MIN_BOGEYS_ESPIRAL} bogeys en tus ${textoVentanaMental(i.windowSize, i.bucket)} para medir cuántos cortas`
+  }
+  return `Cortaste ${i.cortes} de tus ${i.oportunidades} bogeys en el hoyo siguiente · ${textoVentanaMental(i.windowSize, i.bucket)}`
+}

@@ -17,8 +17,8 @@ import {
   calcularCostoPsicologico,
   clasificarHoyo,
   type MentalIndexResult,
-  type MentalState,
-} from '@/golf/coach/mental-index'
+} from '@/golf/coach/mental-index-legado'
+import type { MentalState } from '@/golf/coach/mental-index'
 import { buildActivePlanSummary, describeRecoveryStatus } from '@/golf/coach/intro'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { fetchCoachHome } from '@/lib/data/coach-home'

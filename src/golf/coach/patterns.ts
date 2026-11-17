@@ -11,6 +11,7 @@
  */
 
 import { parForHoleWithFallback } from '@/golf/coach/hole-pars'
+import { MIN_BOGEYS_ESPIRAL, TASA_ESPIRAL_UMBRAL } from '@/golf/coach/mental-index'
 
 export interface GolfPattern {
   id: string
@@ -219,9 +220,9 @@ export const PATTERNS: GolfPattern[] = [
           }
         }
       }
-      if (bogeyTotal < 10) return { detected: false, confidence: 0 }
+      if (bogeyTotal < MIN_BOGEYS_ESPIRAL) return { detected: false, confidence: 0 }
       const spiralRate = bogeyFollowedByBogey / bogeyTotal
-      if (spiralRate <= 0.4) return { detected: false, confidence: 0 }
+      if (spiralRate <= TASA_ESPIRAL_UMBRAL) return { detected: false, confidence: 0 }
       return {
         detected: true,
         confidence: Math.min(Math.round((0.4 + (spiralRate - 0.4) * 0.8) * 100) / 100, 0.9),
