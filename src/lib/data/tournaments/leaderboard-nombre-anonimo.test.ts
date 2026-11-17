@@ -38,7 +38,8 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 const captureErrorMock = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureErrorMock(...a) }))
 
-import { fetchEnrolledPlayerNames, fetchLegacyPlayers, fetchWithdrawnPlayers, type Client } from './leaderboard'
+import { fetchEnrolledPlayerNames, fetchLegacyPlayers, type Client } from './leaderboard'
+import { fetchWithdrawnPlayers } from './fuera-del-ranking'
 import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
 

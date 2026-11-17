@@ -19,10 +19,9 @@ import type { Player } from '@/lib/golf-data'
 import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
 import type { LeerNombresDePerfil } from '@/lib/data/nombres-de-perfil-lectura'
 import { boardPublicoRondaLibre, vistaPublica, type VistaPublica } from './vista-publica'
-import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from '@/app/torneo/[slug]/en-vivo/scrambleTeamsToLive'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
-import { fetchScrambleTeams, fetchBestBallTeams } from './teamLeaderboard'
-import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
+import type { EstadoPorTarjeta } from './teamLeaderboard'
+import { armarEquiposDelBoard } from './equipos-del-board'
 import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import {
@@ -32,6 +31,8 @@ import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { captureError } from '@/lib/error-tracking'
+import type { WithdrawnEntry } from '@/app/torneo/[slug]/types'
+import { fetchWithdrawnPlayers, pieDeTarjetas, separarTarjetasFueraDelRanking } from './fuera-del-ranking'
 
 const VALID_FORMATS: LiveFormat[] = ['stroke_play', 'stableford', 'best_ball', 'scramble', 'match_play', 'foursome']
 
@@ -66,12 +67,12 @@ export interface TorneoEnVivoRow {
   hcp_pct: number | null
   courses: { nombre: string | null; par_total: number | null } | null
   categories: Array<{ id: string; name: string }> | null
-  tournament_groups: Array<{ id: string; name: string; ronda_libre_id: string | null; tournament_group_players: Array<{ player_id: string }> | null }> | null
+  tournament_groups: Array<{ id: string; name: string; ronda_libre_id: string | null; tournament_group_players: Array<{ player_id: string; jugador_ronda_id?: string | null }> | null }> | null
 }
 
 const TORNEO_EN_VIVO_SELECT =
   'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, organizer_id, course_id, tees, hcp_calc_mode, hcp_pct, ' +
-  'courses(nombre, par_total), categories(id, name), tournament_groups(id, name, ronda_libre_id, tournament_group_players(player_id))'
+  'courses(nombre, par_total), categories(id, name), tournament_groups(id, name, ronda_libre_id, tournament_group_players(player_id, jugador_ronda_id))'
 
 /**
  * El torneo por slug. `null` = no existe (o, con el cliente anónimo, no es
@@ -99,6 +100,8 @@ export interface TorneoEnVivo {
   teams: LiveTeam[]
   /** La tabla de equipos no se pudo armar (se reportó): la vista lo dice, nunca un 0 silencioso. */
   equiposNoDisponibles?: boolean
+  /** Retirados (WD) y descalificados (DQ): fuera del ranking, al pie (#813). Sólo si hay alguno. */
+  fuera?: WithdrawnEntry[]
   categories: Array<{ id: string; name: string }>
   groups: Array<{ id: string; name: string }>
 }
@@ -173,23 +176,33 @@ export async function armarTorneoEnVivo(
   }
 
   let players: JugadorEnVivo[]
+  let fuera: WithdrawnEntry[]
+  /** Estado WD/DQ por tarjeta, leído UNA vez y reusado por los equipos. */
+  let porTarjeta: EstadoPorTarjeta = new Map()
   if (caminoRondaLibre) {
     // MISMA cadena que /torneo/[slug] (camino de ronda libre).
     const rondaIds = grupos.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
     const grupoPorRonda = new Map(grupos.filter((g) => g.ronda_libre_id).map((g) => [g.ronda_libre_id as string, g.id]))
-    const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, opciones.leerIndices)
-    const rondaDeJugador = new Map(jugadores.map((j) => [j.id, j.ronda_id]))
-    const out = boardPublicoRondaLibre(jugadores, ctx, vista)
+    const tarjetas = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, opciones.leerIndices)
+    // El WD/DQ sale del ranking y va al pie con su score (#813): misma fuente que /torneo.
+    const separadas = await separarTarjetasFueraDelRanking(supabase, { tournamentId: row.id, grupos, tarjetas })
+    porTarjeta = separadas.porTarjeta
+    fuera = pieDeTarjetas(separadas.fuera, ctx, vista, (t) => grupoPorRonda.get(t.ronda_id) ?? null)
+    const rondaDeJugador = new Map(tarjetas.map((j) => [j.id, j.ronda_id]))
+    const out = boardPublicoRondaLibre(separadas.enRanking, ctx, vista)
     players = out.players.map((p) =>
       filaEnVivo(p, { groupId: (p.id && grupoPorRonda.get(rondaDeJugador.get(p.id) ?? '')) || null }))
   } else {
     // Legacy: MISMA query y MISMO motor que el board de /torneo.
-    const [hcp, rounds, dbPlayers] = await Promise.all([
+    const [hcp, rounds, dbPlayers, retirados] = await Promise.all([
       fetchLegacyHcpContext(supabase, row.id),
       // Rondas en otra cancha que la 1 (vacío si no hay). Misma fuente que /torneo.
       fetchRoundContexts(supabase, row),
       fetchLegacyPlayers(supabase, row.id, opciones.leerNombres),
+      // El board legacy ya los excluye; acá sólo se arma el pie (mismo que /torneo).
+      fetchWithdrawnPlayers(supabase, row.id, opciones.leerNombres),
     ])
+    fuera = retirados
     const grupoDeJugador = new Map<string, string>()
     for (const g of grupos) for (const gp of g.tournament_group_players ?? []) grupoDeJugador.set(gp.player_id, g.id)
     const metaPorId = new Map(dbPlayers.map((p) => [p.id, { categoryId: p.category_id ?? null, categoryName: p.categories?.name ?? undefined }]))
@@ -230,24 +243,24 @@ export async function armarTorneoEnVivo(
     const sb = supabase as unknown as SupabaseClient
     const formato = vista.formato
     const modo = vista.modo
-    if ((formatoReal === 'scramble' || formatoReal === 'foursome') && row.course_id) {
-      const { teams: t, memberNames } = await fetchScrambleTeams(sb, row.id)
-      if (t.length > 0) {
-        const ordered = formatoReal === 'foursome'
-          ? computeFoursomeStandings(t, memberNames, boardHoles, parTotal, formato, modo, holeCount)
-          : computeScrambleStandings(t, boardHoles, parTotal, formato, modo, holeCount)
-        teams = scrambleResultsToLiveTeams(ordered, memberNames, modo as LiveMode)
-      }
-    } else if (formatoReal === 'best_ball' && row.course_id) {
-      const { teams: t, memberNames } = await fetchBestBallTeams(sb, row.id, parTotal, opciones.leerIndices)
-      if (t.length > 0) {
-        const ordered = computeBestBallStandings(t, boardHoles, parTotal, formato, modo, holeCount)
-        teams = bestBallResultsToLiveTeams(ordered, memberNames, modo as LiveMode)
+    if (row.course_id) {
+      // MISMO armado que /torneo (`armarEquiposDelBoard`): foursome y mejor bola con DQ
+      // van al pie; el WD/DQ de un equipo que sigue va marcado en su fila.
+      const equipos = await armarEquiposDelBoard(sb, {
+        tournamentId: row.id, formatoReal, formato, modo, courseHoles: boardHoles, parTotal,
+        totalHoyos: holeCount, leerIndices: opciones.leerIndices, porTarjeta,
+      })
+      if (equipos) {
+        teams = equipos.live
+        // Con tabla de equipos, el pie es de equipos: el WD de un scramble no compite solo.
+        fuera = equipos.fuera
       }
     }
   } catch (err) {
     void captureError(err, { context: 'torneo.en-vivo.equipos', meta: { torneo: row.slug } })
     teams = []
+    // Sin equipos no hay pie de equipos; el individual tampoco aplica a un formato de equipos.
+    fuera = []
     equiposNoDisponibles = true
   }
 
@@ -256,6 +269,7 @@ export async function armarTorneoEnVivo(
     players,
     teams,
     ...(equiposNoDisponibles ? { equiposNoDisponibles } : {}),
+    ...(fuera.length > 0 ? { fuera } : {}),
     categories: row.categories ?? [],
     groups: grupos.map((g) => ({ id: g.id, name: g.name })),
   }

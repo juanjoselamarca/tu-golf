@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyFilters, posicionesDeLaCompetencia, posicionesDeEquiposEnLaCompetencia, type ExtendedPlayer, type ExtendedTeam } from './filtros-en-vivo'
+import { applyFilters, applyFiltersFuera, posicionesDeLaCompetencia, posicionesDeEquiposEnLaCompetencia, type ExtendedPlayer, type ExtendedTeam } from './filtros-en-vivo'
 
 const jugador = (id: string, vs_par: number, clave: string | null, group_id: string, category_id = 'cat-a'): ExtendedPlayer => ({
   id, name: id, scores_per_hole: [], gross_total: 0, vs_par, thru: clave ? 18 : 0, clave_empate: clave, group_id, category_id,
@@ -37,5 +37,28 @@ describe('posiciones del torneo en vivo con filtros', () => {
     })
     const pos = posicionesDeEquiposEnLaCompetencia([team('A', -3, '0#0', 'g1'), team('B', -3, '0#1', 'g2'), team('C', 1, '1#0', 'g2')], null)
     expect([pos.get('A'), pos.get('B'), pos.get('C')]).toEqual(['1', '2', '3'])
+  })
+})
+
+describe('applyFiltersFuera — el pie WD/DQ respeta los filtros de la tabla (#813)', () => {
+  const pie = [
+    { name: 'Ana', group_id: 'g1' },
+    { name: 'Beto', group_id: 'g2' },
+    { name: 'Legacy', group_id: undefined },
+  ]
+  const players = [{ id: 'yo', group_id: 'g2' }] as unknown as Parameters<typeof applyFiltersFuera>[1]
+  const sin = { categoryFilter: null, groupFilter: null, myViewEnabled: false }
+
+  it('sin filtros: todo el pie', () => {
+    expect(applyFiltersFuera(pie, players, sin)).toBe(pie)
+  })
+  it('filtro de grupo: sólo el pie de ese grupo (el de grupo desconocido no)', () => {
+    expect(applyFiltersFuera(pie, players, { ...sin, groupFilter: 'g1' }).map((w) => w.name)).toEqual(['Ana'])
+  })
+  it('"Solo mi grupo": el pie del grupo del visor', () => {
+    expect(applyFiltersFuera(pie, players, { ...sin, myViewEnabled: true, userId: 'yo' }).map((w) => w.name)).toEqual(['Beto'])
+  })
+  it('filtro de categoría: el pie no tiene categoría, no se muestra', () => {
+    expect(applyFiltersFuera(pie, players, { ...sin, categoryFilter: 'c1' })).toEqual([])
   })
 })

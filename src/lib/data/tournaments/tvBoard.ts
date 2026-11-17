@@ -11,7 +11,8 @@ import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { captureError } from '@/lib/error-tracking'
-import { JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
+import { sinLecturaDeNombres } from '@/lib/data/nombres-de-perfil-lectura'
+import { fetchWithdrawnPlayers } from './fuera-del-ranking'
 import { fetchLegacyHcpContext, fetchRoundContexts, LEGACY_PLAYER_SELECT, type Client } from './leaderboard'
 
 export interface TVWithdrawnEntry {
@@ -63,13 +64,6 @@ interface TVTournamentRow {
   courses: { nombre: string | null; par_total: number | null } | null
 }
 
-interface TVWithdrawnRow {
-  status: 'withdrawn' | 'disqualified'
-  status_reason: string | null
-  player_name: string | null
-  profiles: { name: string } | null
-}
-
 /** Devuelve todo lo que el TV necesita, o null si el torneo no existe. */
 export async function fetchTVBoardData(
   supabase: SupabaseClient,
@@ -93,11 +87,9 @@ export async function fetchTVBoardData(
       .select(LEGACY_PLAYER_SELECT)
       .eq('tournament_id', t.id)
       .in('status', ['pending', 'approved', 'waitlist']),
-    supabase
-      .from('players')
-      .select('status, status_reason, player_name, profiles(name)')
-      .eq('tournament_id', t.id)
-      .in('status', [...JUGADOR_FUERA_STATUSES]),
+    // El pie: la MISMA lectura que /torneo y /en-vivo (legacy). Desde el navegador
+    // no hay lector de nombres de perfil: vale `profiles(name)` o `player_name`.
+    fetchWithdrawnPlayers(supabase as unknown as Client, t.id, sinLecturaDeNombres),
     t.course_id
       ? supabase.from('course_holes').select('numero, par, stroke_index').eq('course_id', t.course_id)
       : Promise.resolve({ data: [] as CourseHole[], error: null }),
@@ -118,9 +110,7 @@ export async function fetchTVBoardData(
     })
   }
 
-  const withdrawn: TVWithdrawnEntry[] = (((withdrawnRes.data ?? []) as unknown) as TVWithdrawnRow[])
-    .map((p) => ({ name: p.profiles?.name ?? p.player_name ?? '', status: p.status, reason: p.status_reason }))
-    .filter((p) => p.name.length > 0)
+  const withdrawn: TVWithdrawnEntry[] = withdrawnRes.map((p) => ({ name: p.name, status: p.status, reason: p.reason }))
 
   return {
     tournament: {

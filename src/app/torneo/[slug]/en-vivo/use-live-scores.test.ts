@@ -141,6 +141,20 @@ describe('useTorneoEnVivo (polling a la ruta cacheable, sin Realtime ni router.r
     expect(result.current.equiposFallaDesde).toBeUndefined()
   })
 
+  it('una degradada conserva también el pie de la última tabla buena (#813), aunque todos los equipos estén al pie', async () => {
+    const pie = [{ name: 'Ana / Bea', status: 'withdrawn' as const, reason: null }]
+    const todoAlPie: TorneoEnVivo = { ...torneo([jugador('p1', 'Jugador', 4)]), teams: [], fuera: pie }
+    loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: todoAlPie, edadSegundos: 0 })
+    const { result } = renderHook(() => useTorneoEnVivo('copa', INICIAL, true))
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(result.current.data.fuera).toEqual(pie)
+    loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: { ...todoAlPie, fuera: undefined, equiposNoDisponibles: true }, edadSegundos: 0 })
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(result.current.data.fuera).toEqual(pie)
+    expect(result.current.data.teams).toEqual([])
+    expect(typeof result.current.equiposFallaDesde).toBe('number')
+  })
+
   it('una buena con teams: [] reemplaza a la tabla anterior: una degradada después NO resucita la tabla vieja', async () => {
     const equipo = { id: 'e1', name: 'Los Leones', players: [], team_scores_per_hole: [4], team_total: 4, vs_par: 0, thru: 1 }
     const base = torneo([jugador('p1', 'Jugador', 4)])

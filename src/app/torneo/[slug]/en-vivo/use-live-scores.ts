@@ -14,6 +14,13 @@ import { loadTorneoEnVivo, loadTorneoNeto } from '@/lib/data/tournaments/en-vivo
 import type { TorneoEnVivo } from '@/lib/data/tournaments/en-vivo'
 
 /** Cada cuánto se consulta el leaderboard de un torneo en vivo (el CDN cachea 10 s). */
+type TablaBuena = { teams: TorneoEnVivo['teams']; fuera: TorneoEnVivo['fuera']; en: number }
+
+/** La tabla de equipos (y su pie) de una respuesta buena; null si no hay nada que conservar. */
+function tablaBuena(data: Pick<TorneoEnVivo, 'teams' | 'fuera'>, en: number): TablaBuena | null {
+  return data.teams.length > 0 || (data.fuera?.length ?? 0) > 0 ? { teams: data.teams, fuera: data.fuera, en } : null
+}
+
 export const INTERVALO_TORNEO_S = 15
 
 /**
@@ -52,8 +59,9 @@ export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: bo
   const [equiposFallaDesde, setEquiposFallaDesde] = useState<number | null | undefined>(
     inicial.equiposNoDisponibles ? null : undefined,
   )
-  const ultimaTablaBuenaRef = useRef<{ teams: TorneoEnVivo['teams']; en: number } | null>(
-    !inicial.equiposNoDisponibles && inicial.teams.length > 0 ? { teams: inicial.teams, en: Date.now() } : null,
+  // La tabla buena incluye su pie (#813): equipos al pie (foursome, mejor bola DQ) y WD/DQ.
+  const ultimaTablaBuenaRef = useRef<TablaBuena | null>(
+    inicial.equiposNoDisponibles ? null : tablaBuena(inicial, Date.now()),
   )
 
   const poll = useCallback(async () => {
@@ -68,14 +76,14 @@ export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: bo
       // Respuesta degradada: NO se borra la tabla que ya se mostraba ni se da por
       // "actualizado"; se avisa desde cuándo es la tabla que se ve.
       const previa = ultimaTablaBuenaRef.current
-      setData(conservarNombres({ ...res.data, teams: previa?.teams ?? [] }, nombresRef.current))
+      setData(conservarNombres({ ...res.data, teams: previa?.teams ?? [], fuera: previa?.fuera }, nombresRef.current))
       setEquiposFallaDesde(previa ? previa.en : null)
       setAhora(t)
       return
     }
     // La "última tabla buena" es la de la última respuesta buena, aunque venga vacía:
     // si no, una degradada posterior resucitaría una tabla vieja que ya no corresponde.
-    ultimaTablaBuenaRef.current = res.data.teams.length > 0 ? { teams: res.data.teams, en: armadoEn } : null
+    ultimaTablaBuenaRef.current = tablaBuena(res.data, armadoEn)
     setEquiposFallaDesde(undefined)
     setData(conservarNombres(res.data, nombresRef.current))
     // "Actualizado" = cuándo se armó el dato (descuenta lo que estuvo en el CDN).

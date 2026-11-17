@@ -15,8 +15,6 @@ import type {
   DBTournamentGroupRow,
   DBRondaLibreJugador,
   DBPlayer,
-  DBWithdrawnPlayer,
-  WithdrawnEntry,
 } from '@/app/torneo/[slug]/types'
 import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
@@ -115,7 +113,7 @@ export async function fetchEnrolledPlayerNames(
 /** Nombres de perfil de las filas cuyo embed `profiles(name)` llegó vacío (visor
  *  anónimo). Una sola consulta de servicio para toda la tanda; vacío si no falta
  *  ninguno, así el visor CON sesión no paga una consulta extra. */
-async function nombresFaltantes(
+export async function nombresFaltantes(
   filas: ReadonlyArray<{ user_id?: string | null; profiles?: { name?: string | null } | null }>,
   leerNombres: LeerNombresDePerfil,
 ): Promise<ReadonlyMap<string, string>> {
@@ -388,7 +386,7 @@ export async function fetchTournamentGroups(
 ): Promise<DBTournamentGroupRow[]> {
   const { data } = await supabase
     .from('tournament_groups')
-    .select('id, ronda_libre_id, name, tee_time, sort_order, tournament_group_players(player_id)')
+    .select('id, ronda_libre_id, name, tee_time, sort_order, tournament_group_players(player_id, jugador_ronda_id)')
     .eq('tournament_id', tournamentId)
     .order('sort_order')
   return (data as unknown as DBTournamentGroupRow[] | null) ?? []
@@ -552,34 +550,4 @@ export async function fetchLegacyPlayers(
     // El índice del embed se conserva tal cual: lo resuelve `fetchLegacyHcpContext`.
     return { ...p, profiles: { ...(p.profiles ?? { indice: null }), name: nombre } }
   })
-}
-
-/**
- * Jugadores en estado withdrawn/disqualified — aparecen en el footer del
- * leaderboard con badge WD/DQ (transparencia USGA: mantienen scores en BD
- * pero no compiten por posición).
- */
-export async function fetchWithdrawnPlayers(
-  supabase: Client,
-  tournamentId: string,
-  leerNombres: LeerNombresDePerfil,
-): Promise<WithdrawnEntry[]> {
-  const { data } = await supabase
-    .from('players')
-    .select('user_id, status, status_reason, player_name, profiles(name)')
-    .eq('tournament_id', tournamentId)
-    .in('status', [...JUGADOR_FUERA_STATUSES])
-
-  const raw = (data as unknown as DBWithdrawnPlayer[] | null) ?? []
-  // Sin esto, un WD con cuenta desaparecía del footer para el visor anónimo: su
-  // nombre quedaba en null y la fila se filtraba en silencio.
-  const nombres = await nombresFaltantes(raw, leerNombres)
-  const out: WithdrawnEntry[] = []
-  for (const p of raw) {
-    const displayName = p.profiles?.name ?? (p.user_id ? nombres.get(p.user_id) : null) ?? p.player_name
-    if (displayName) {
-      out.push({ name: displayName, status: p.status, reason: p.status_reason })
-    }
-  }
-  return out
 }

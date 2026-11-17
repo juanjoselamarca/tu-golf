@@ -19,9 +19,8 @@ import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
 import type { LiveTeam } from './en-vivo/types'
 import { estadoDelTorneo, type EstadoDelTorneo } from '@/golf/tournament-live-status'
-import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
-import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
-import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
+import type { EstadoPorTarjeta } from '@/lib/data/tournaments/teamLeaderboard'
+import { armarEquiposDelBoard } from '@/lib/data/tournaments/equipos-del-board'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
 import ShareResultsButton from '@/components/ShareResultsButton'
 import { notFound } from 'next/navigation'
@@ -41,8 +40,8 @@ import {
   fetchRoundContexts,
   fetchTournamentBySlug,
   fetchTournamentGroups,
-  fetchWithdrawnPlayers,
 } from '@/lib/data/tournaments/leaderboard'
+import { fetchWithdrawnPlayers, pieDeTarjetas, separarTarjetasFueraDelRanking } from '@/lib/data/tournaments/fuera-del-ranking'
 import {
   buildLeaderboardFromLegacy,
   computeStats,
@@ -55,7 +54,7 @@ import {
   type TournamentLeaderboardContext,
   type TeamStandingForPodium,
 } from '@/golf/leaderboard'
-import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
+import { isTeamFormat } from '@/golf/formats'
 
 import { TournamentHeader } from './components/TournamentHeader'
 import { TournamentCountdown } from './components/TournamentCountdown'
@@ -88,11 +87,12 @@ function hayScoresEn(players: Player[], teams: LiveTeam[]): boolean {
  * nunca: sin hoyos muestra el estado vacío honesto, no la invitación de un torneo que ya pasó.
  */
 function muestraTarjetaDelEvento(
-  isOpen: boolean, isClosed: boolean, estado: EstadoDelTorneo, players: Player[], teams: LiveTeam[],
+  isOpen: boolean, isClosed: boolean, estado: EstadoDelTorneo, players: Player[], hayEquipos: boolean,
 ): boolean {
   if (isOpen) return true
   if (isClosed || estado === 'vencido' || estado === 'finalizado') return false
-  return players.length === 0 && teams.length === 0
+  // `hayEquipos`: hay equipos armados aunque todos hayan quedado al pie (#813).
+  return players.length === 0 && !hayEquipos
 }
 
 export default async function TorneoPage(props: { params: Promise<{ slug: string }> }) {
@@ -151,6 +151,10 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   let teamStandings: LiveTeam[]               = []
   let orderedTeams: TeamStandingForPodium[]   = []
   let teamMemberNames: Record<string, string[]> = {}
+  /** Hay equipos armados (aunque todos hayan quedado al pie): la tabla es de equipos, no individual. */
+  let hayEquipos = false
+  /** Estado WD/DQ por tarjeta, leído UNA vez (camino de ronda libre) y reusado por los equipos. */
+  let porTarjeta: EstadoPorTarjeta = new Map()
   /** Ids cuyo handicap no viaja a este visor (tabla y GWI). */
   let handicapOculto: ReadonlySet<string> = new Set()
   /** Lo que puede ver este visor; por defecto, todo (se recalcula abajo). */
@@ -220,8 +224,14 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
     if (hasRondaLibreGroups) {
       const rondaIds = groups.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
-      const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, indicesDePerfil)
-      const out = boardPublicoRondaLibre(jugadores, ctx, vista)
+      const tarjetas = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, indicesDePerfil)
+      // El WD/DQ sale del ranking (y del podio, los resultados y el GWI) y va al pie con su score (#813).
+      const { enRanking, fuera, porTarjeta: estados } = await separarTarjetasFueraDelRanking(supabase, {
+        tournamentId: tournament.id, grupos: groups, tarjetas,
+      })
+      withdrawnPlayers = pieDeTarjetas(fuera, ctx, vista)
+      porTarjeta = estados
+      const out = boardPublicoRondaLibre(enRanking, ctx, vista)
       players = out.players
       playersByGross = out.playersByGross
       playersByNeto = out.playersByNeto
@@ -253,30 +263,23 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, playersByNeto, rounds, tournament.course_id) : null
     }
 
-    // Standings de equipos
-    // Equipos: en la vista bruta, ranking y totales en gross (`vista.modo`).
-    if (isSharedBallFormat(formatoJuego)) {
-      const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
-      if (teams.length > 0) {
-        const ordered = formatoJuego === 'foursome'
-          ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
-          : computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
-        teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, vista.modo)
-        orderedTeams = ordered
-        teamMemberNames = memberNames
-      }
-    } else if (formatoJuego === 'best_ball') {
-      const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal, indicesDePerfil)
-      if (teams.length > 0) {
-        const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
-        teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, vista.modo)
-        orderedTeams = ordered
-        teamMemberNames = memberNames
-      }
+    // Equipos (un solo armado con /en-vivo, `armarEquiposDelBoard`): en la vista
+    // bruta, ranking y totales en gross (`vista.modo`). Con tabla de equipos, el pie es
+    // de equipos (foursome, mejor bola DQ); el WD/DQ de un equipo que sigue va marcado.
+    const equipos = await armarEquiposDelBoard(supabase, {
+      tournamentId: tournament.id, formatoReal: formatoJuego, formato: formatoJuego, modo: vista.modo,
+      courseHoles, parTotal, totalHoyos, leerIndices: indicesDePerfil, porTarjeta,
+    })
+    if (equipos) {
+      hayEquipos = true
+      teamStandings = equipos.live
+      orderedTeams = equipos.ordenados
+      teamMemberNames = equipos.memberNames
+      withdrawnPlayers = equipos.fuera
     }
 
     // Info de inscritos para la tarjeta de evento (la misma función que `showEventCard`, abajo)
-    if (muestraTarjetaDelEvento(isOpen, isClosed, estado, players, teamStandings)) {
+    if (muestraTarjetaDelEvento(isOpen, isClosed, estado, players, hayEquipos)) {
       const [count, names] = await Promise.all([
         fetchEnrolledPlayerCount(supabase, tournament.id),
         fetchEnrolledPlayerNames(supabase, tournament.id, nombresDePerfil),
@@ -287,8 +290,9 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   }
 
   if (isClosed) {
-    if (isTeamFormat(formatoJuego) && orderedTeams.length > 0) {
-      resultados = computeTeamTournamentResults(orderedTeams, teamMemberNames, vista.modo, formatoJuego)
+    if (isTeamFormat(formatoJuego) && hayEquipos) {
+      // Aunque todos los equipos hayan quedado al pie: nunca cae al podio individual.
+      resultados = orderedTeams.length > 0 ? computeTeamTournamentResults(orderedTeams, teamMemberNames, vista.modo, formatoJuego) : null
     } else if (players.length > 0) {
       resultados = computeTournamentResults(playersByGross, playersByNeto, parTotal, stats)
     }
@@ -304,7 +308,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   // El lugar sale de la misma clave de empate que la tabla: T1 y T1 si el countback
   // no los separó; la medalla va por el número del lugar.
   const podio = (limite: number): PodiumEntry[] => {
-    if (isTeamFormat(formatoJuego) && orderedTeams.length > 0) {
+    if (isTeamFormat(formatoJuego) && hayEquipos) {
+      // Formato de equipos: podio de equipos (vacío si todos quedaron al pie), nunca individual.
       return buildTeamPodium(orderedTeams, teamMemberNames, vista.modo, formatoJuego, limite)
         .map((t) => ({ pos: t.pos, etiqueta: t.etiqueta, name: t.name, score: t.score }))
     }
@@ -314,10 +319,12 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
   // Un inscrito con tarjeta vacía no es un resultado: un vencido ("Sin iniciar") o un finalizado sin un
   // solo hoyo muestran el estado vacío honesto, no una tabla de inscritos en cero. Por jugar o en curso
-  // la tabla de inscritos sí sirve (quién juega, antes del primer hoyo).
+  // la tabla de inscritos sí sirve (quién juega, antes del primer hoyo). Un formato de equipos con
+  // todos sus equipos al pie (#813) igual tiene tabla (vacía + pie): sus hoyos cuentan como jugados.
   const hayScores = hayScoresEn(players, teamStandings)
-  const hasData = (players.length > 0 || teamStandings.length > 0) && (hayScores || antesDeJugarse || estado === 'en_curso')
-  const showEventCard = muestraTarjetaDelEvento(isOpen, isClosed, estado, players, teamStandings)
+    || (hayEquipos && withdrawnPlayers.some((w) => (w.score?.hoyos ?? 0) > 0))
+  const hasData = (players.length > 0 || hayEquipos) && (hayScores || antesDeJugarse || estado === 'en_curso')
+  const showEventCard = muestraTarjetaDelEvento(isOpen, isClosed, estado, players, hayEquipos)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -500,7 +507,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       {/* ── Leaderboard / Empty state ── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
         {vista.soloBruto && hasData && <AvisoSoloBruto slug={params.slug} />}
-        {hasData && teamStandings.length > 0 ? (
+        {hasData && hayEquipos ? (
           <TeamLeaderboard teams={teamStandings} holeCount={totalHoyos} />
         ) : hasData && players.length > 0 ? (
           <TournamentTabs
@@ -542,6 +549,13 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         )}
       </div>
 
+      {/* Retirados y descalificados: al pie de la tabla, fuera del ranking (#813). */}
+      {withdrawnPlayers.length > 0 && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
+          <TournamentWithdrawnList withdrawnPlayers={withdrawnPlayers} />
+        </div>
+      )}
+
       {resultados && <TournamentResults resultados={resultados} />}
 
       {isClosed && (players.length > 0 || orderedTeams.length > 0) && (
@@ -573,9 +587,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       )}
 
       {/* Footer CTA registro/demo -- solo a usuarios sin sesion Y sin data */}
-      {!viewer && players.length === 0 && teamStandings.length === 0 && <TournamentFooter />}
-
-      <TournamentWithdrawnList withdrawnPlayers={withdrawnPlayers} />
+      {!viewer && players.length === 0 && !hayEquipos && <TournamentFooter />}
 
       {tournament && (
         <TournamentBottomSheet slug={tournament.slug} isLive={isLive} isDemo={!!tournament.es_demo} scoreHref={scoreHref} />

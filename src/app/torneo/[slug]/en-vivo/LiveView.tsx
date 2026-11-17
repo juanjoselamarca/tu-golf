@@ -27,10 +27,11 @@ import type { StatusAudience } from '@/golf/tournament-status'
 import LiveTabs, { type LiveTabValue } from './LiveTabs'
 import LiveFilterBar from './LiveFilterBar'
 import TVMode from './TVMode'
+import { TournamentWithdrawnList } from '../components/TournamentWithdrawnList'
 import IndividualLeaderboard from './formats/IndividualLeaderboard'
 import TeamLeaderboard from './formats/TeamLeaderboard'
 import {
-  applyFilters, applyFiltersTeams, applyFiltersMatches,
+  applyFilters, applyFiltersTeams, applyFiltersMatches, applyFiltersFuera,
   posicionesDeLaCompetencia, posicionesDeEquiposEnLaCompetencia,
   type ExtendedPlayer, type ExtendedTeam, type ExtendedMatch,
 } from './filtros-en-vivo'
@@ -48,6 +49,8 @@ export interface LiveViewProps {
   matches?: ExtendedMatch[]
   categories: Array<{ id: string; name: string }>
   groups: Array<{ id: string; name: string }>
+  /** Retirados y descalificados del primer render (#813); después los trae el polling. */
+  fuera?: TorneoEnVivo['fuera']
   /** Si el viewer es uno de los players, su player.id. Habilita "Solo mi grupo". */
   initialUserId?: string
   /** Vocabulario de la cabecera: el organizador lee "En curso"/"Por cerrar"; el espectador, "En vivo"/"Resultados provisorios". */
@@ -62,6 +65,7 @@ export default function LiveView({
   categories: categoriesInicial,
   groups: groupsInicial,
   audiencia = 'player',
+  fuera: fueraInicial,
   initialUserId,
 }: LiveViewProps) {
   const [selectedRound, setSelectedRound] = useState<LiveTabValue>('cumulative')
@@ -79,7 +83,10 @@ export default function LiveView({
   const isLive = tournamentInicial.live
   const { data, lastUpdate, refresh, countdown, sinSesion, equiposFallaDesde } = useTorneoEnVivo(
     tournamentInicial.slug,
-    { tournament: tournamentInicial, players: playersInicial, teams: teamsInicial, categories: categoriesInicial, groups: groupsInicial },
+    {
+      tournament: tournamentInicial, players: playersInicial, teams: teamsInicial, categories: categoriesInicial, groups: groupsInicial,
+      ...(fueraInicial?.length ? { fuera: fueraInicial } : {}),
+    },
     isLive,
     // Camino de ronda libre: la ruta pública oculta lo neto a todos (regla canónica);
     // este visor tiene sesión, así que pollea la privada.
@@ -178,6 +185,13 @@ export default function LiveView({
     </p>
   ) : null
 
+  // Retirados (WD) y descalificados (DQ): al pie, fuera del ranking (#813). Misma pieza que /torneo.
+  const fueraFiltrados = useMemo(
+    () => applyFiltersFuera(data.fuera ?? [], players, { categoryFilter, groupFilter, myViewEnabled, userId: initialUserId }),
+    [data.fuera, players, categoryFilter, groupFilter, myViewEnabled, initialUserId],
+  )
+  const pie = fueraFiltrados.length > 0 ? <TournamentWithdrawnList withdrawnPlayers={fueraFiltrados} tv={tvMode} /> : null
+
   if (tvMode) {
     return (
       <TVMode
@@ -187,6 +201,7 @@ export default function LiveView({
       >
         {avisoEquipos}
         {body}
+        {pie}
       </TVMode>
     )
   }
@@ -247,6 +262,7 @@ export default function LiveView({
       />
       {avisoEquipos}
       <div>{body}</div>
+      {pie}
 
       {/* Hint sutil cuando hay pocos jugadores en curso */}
       {(filteredPlayers.length + filteredTeams.length) > 0

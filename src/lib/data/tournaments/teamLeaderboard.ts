@@ -7,18 +7,41 @@ import {
   type CourseData,
 } from '@/golf/core/course-handicap'
 import { hcpPctDeRonda, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
+import {
+  estadoDelEquipoFoursome,
+  estadoDelEquipoMejorBola,
+  nombreConMarca,
+  scoresQueCuentanEnMejorBola,
+  type EstadoFueraDelRanking,
+  type InscritoFuera,
+} from '@/golf/leaderboard/fuera-del-ranking'
 
 export interface ScrambleTeamsResult {
   teams: ScrambleTeam[]
-  /** Nombres de los jugadores por teamId (columna "Jugadores" del leaderboard). */
+  /**
+   * Nombres de los jugadores por teamId (columna "Jugadores" y podio), con la marca
+   * del WD/DQ ("Pedro Pérez · WD", `nombreConMarca`).
+   */
   memberNames: Record<string, string[]>
+  /**
+   * Equipos con un miembro WD/DQ (`estadoDelEquipoFoursome`). Sólo lo APLICA el
+   * foursome (Regla 22: el equipo va al pie); en scramble el equipo sigue
+   * rankeado con quien queda (decisión de Juanjo, 17-nov).
+   */
+  estadoPorEquipo: Record<string, EstadoFueraDelRanking>
 }
 
 export interface BestBallTeamsResult {
   teams: BestBallTeam[]
-  /** Nombres de los jugadores por teamId (columna "Jugadores" del leaderboard). */
+  /** Nombres de los jugadores por teamId, con la marca del WD/DQ (`nombreConMarca`). */
   memberNames: Record<string, string[]>
+  /** Equipos que van al pie: DQ por un descalificado o sin nadie compitiendo (`estadoDelEquipoMejorBola`). */
+  estadoPorEquipo: Record<string, EstadoFueraDelRanking>
 }
+
+/** Estado WD/DQ por id de tarjeta: se lee UNA vez por armado del board (`leerEstadosFuera`). */
+export type EstadoPorTarjeta = ReadonlyMap<string, InscritoFuera>
+const SIN_ESTADOS: EstadoPorTarjeta = new Map()
 
 type MiembroConIndice = FilaIndice & { user_id: string | null; handicap: number | null }
 
@@ -47,8 +70,10 @@ export function indiceDelMiembro(j: MiembroConIndice, indicesDePerfil: ReadonlyM
 export async function fetchScrambleTeams(
   supabase: SupabaseClient,
   tournamentId: string,
+  /** Estado WD/DQ por tarjeta. Sin él, nadie está fuera (scripts y tests de cálculo); el board lo pasa siempre (`armarEquiposDelBoard`). */
+  porTarjeta: EstadoPorTarjeta = SIN_ESTADOS,
 ): Promise<ScrambleTeamsResult> {
-  const empty: ScrambleTeamsResult = { teams: [], memberNames: {} }
+  const empty: ScrambleTeamsResult = { teams: [], memberNames: {}, estadoPorEquipo: {} }
 
   // 1) Grupos del torneo con su ronda_libre.
   const { data: groups, error: gErr } = await supabase
@@ -82,6 +107,7 @@ export async function fetchScrambleTeams(
   // 4) Map a ScrambleTeam + nombres.
   const teams: ScrambleTeam[] = []
   const memberNames: Record<string, string[]> = {}
+  const estadoPorEquipo: Record<string, EstadoFueraDelRanking> = {}
 
   for (const eq of eqRows) {
     const members = ((eq.ronda_equipo_jugadores ?? []) as Array<{ jugador_id: string; orden: number }>)
@@ -98,11 +124,13 @@ export async function fetchScrambleTeams(
     })
     memberNames[id] = members.map((m) => {
       const j = rljById.get(m.jugador_id)
-      return (j?.nombre as string | undefined) || '?'
+      return nombreConMarca((j?.nombre as string | undefined) || '?', porTarjeta.get(m.jugador_id)?.status)
     })
+    const estado = estadoDelEquipoFoursome(members.map((m) => m.jugador_id), porTarjeta)
+    if (estado) estadoPorEquipo[id] = estado
   }
 
-  return { teams, memberNames }
+  return { teams, memberNames, estadoPorEquipo }
 }
 
 /**
@@ -136,8 +164,10 @@ export async function fetchBestBallTeams(
    * recibe 0 filas SIN error y el neto saldría como gross.
    */
   leerIndices: LeerIndicesDePerfil,
+  /** Estado WD/DQ por tarjeta. Sin él, nadie está fuera (scripts y tests de cálculo); el board lo pasa siempre (`armarEquiposDelBoard`). */
+  porTarjeta: EstadoPorTarjeta = SIN_ESTADOS,
 ): Promise<BestBallTeamsResult> {
-  const empty: BestBallTeamsResult = { teams: [], memberNames: {} }
+  const empty: BestBallTeamsResult = { teams: [], memberNames: {}, estadoPorEquipo: {} }
 
   // 1) Grupos del torneo con su ronda_libre.
   const { data: groups, error: gErr } = await supabase
@@ -210,12 +240,17 @@ export async function fetchBestBallTeams(
 
   const teams: BestBallTeam[] = []
   const memberNames: Record<string, string[]> = {}
+  const estadoPorEquipo: Record<string, EstadoFueraDelRanking> = {}
 
   for (const eq of eqRows) {
     const members = ((eq.ronda_equipo_jugadores ?? []) as Array<{ jugador_id: string; orden: number }>)
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
 
     const jugadores: BestBallTeam['jugadores'] = []
+    // Con un DQ: sus golpes no cuentan en ningún hoyo; el WD conserva los que jugó
+    // (Regla 23.4); y si un hoyo anotado queda sin compañero válido, el equipo es
+    // DQ (Reglas 3.3c / 23.2b). Decisiones de Juanjo, 17-nov.
+    const crudos: Array<{ id: string; scores: Record<string, number> }> = []
     for (const m of members) {
       const j = rljById.get(m.jugador_id)
       if (!j) continue
@@ -232,15 +267,18 @@ export async function fetchBestBallTeams(
         // El motor pasa este valor a strokesRecibidosEnHoyo → debe ser el course
         // handicap (golpes que recibe), NO el índice. Ver BestBallPlayer.handicapIndex.
         handicapIndex: courseHcp,
-        scores: (j.scores as Record<string, number>) ?? {},
+        scores: scoresQueCuentanEnMejorBola((j.scores as Record<string, number>) ?? {}, porTarjeta.get(j.id as string)?.status),
       })
+      crudos.push({ id: j.id as string, scores: (j.scores as Record<string, number>) ?? {} })
     }
     if (jugadores.length === 0) continue
 
     const id = eq.id as string
     teams.push({ id, nombre: eq.nombre as string, jugadores })
-    memberNames[id] = jugadores.map((p) => p.nombre)
+    memberNames[id] = jugadores.map((p) => nombreConMarca(p.nombre, porTarjeta.get(p.id)?.status))
+    const estado = estadoDelEquipoMejorBola(crudos, porTarjeta)
+    if (estado) estadoPorEquipo[id] = estado
   }
 
-  return { teams, memberNames }
+  return { teams, memberNames, estadoPorEquipo }
 }

@@ -44,6 +44,7 @@ export default async function LivePage(props: PageProps) {
       categories={data.categories}
       groups={data.groups}
       audiencia={row.organizer_id === user.id ? 'organizer' : 'player'}
+      fuera={data.fuera}
     />
   )
 }
