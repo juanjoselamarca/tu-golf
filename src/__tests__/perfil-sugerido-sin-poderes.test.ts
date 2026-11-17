@@ -21,6 +21,15 @@ import {
 
 const COLUMNA = 'perfil_sugerido_id'
 const MIGRACION = '20261026120000_ronda_libre_jugadores_perfil_sugerido.sql'
+/**
+ * Redefine eliminar_cuenta SOLO para mover el UPDATE del marcador designado antes de las tarjetas (orden ronda →
+ * jugador, contra un deadlock con el upsert de golpes). La columna aparece únicamente dentro de esa función.
+ */
+const MIGRACION_ORDEN_LOCKS = '20261118120000_timba_lock_cierre_e_invitados.sql'
+
+/** El UPDATE que esa migración mueve, sin comentarios. */
+const UPDATE_MARCADOR =
+  /UPDATE rondas_libres\s+SET\s+admin_user_id = NULL, admin_mode = false\s+WHERE\s+admin_user_id = p_user_id\s+AND\s+creador_id IS DISTINCT FROM p_user_id;/
 
 /** De `CREATE OR REPLACE FUNCTION public.eliminar_cuenta(` hasta su `$function$;`, tal cual. */
 function eliminarCuenta(sql: string): string {
@@ -77,7 +86,19 @@ const ANONIMIZACION = /\n\n  -- Tarjetas en que un creador lo eligió como rival
 describe('perfil_sugerido_id no da poderes', () => {
   it('solo su propia migración la menciona (ninguna otra policy, función ni grant la lee)', () => {
     const mencionan = migrationFiles().filter(f => stripSqlComments(readMigration(f)).includes(COLUMNA))
-    expect(mencionan).toEqual([MIGRACION])
+    expect(mencionan).toEqual([MIGRACION, MIGRACION_ORDEN_LOCKS])
+    const orden = readMigration(MIGRACION_ORDEN_LOCKS)
+    expect(stripSqlComments(orden.replace(eliminarCuenta(orden), ''))).not.toContain(COLUMNA)
+  })
+
+  it('la redefinición de 20261118 solo cambia de lugar el UPDATE del marcador (antes de tocar tarjetas)', () => {
+    const limpia = (def: string) => stripSqlComments(def)
+    const antes = limpia(eliminarCuenta(readMigration(MIGRACION)))
+    const despues = limpia(eliminarCuenta(readMigration(MIGRACION_ORDEN_LOCKS)))
+    const sinMarcador = (def: string) => def.replace(UPDATE_MARCADOR, '').replace(/\s+/g, ' ')
+    expect(antes).toMatch(UPDATE_MARCADOR)
+    expect(sinMarcador(despues)).toBe(sinMarcador(antes))
+    expect(despues.search(UPDATE_MARCADOR)).toBeLessThan(despues.indexOf('UPDATE ronda_libre_jugadores'))
   })
 
   it('su migración solo agrega la columna (privada para la sesión), el comentario, el índice y eliminar_cuenta', () => {
@@ -101,7 +122,7 @@ describe('perfil_sugerido_id no da poderes', () => {
 
   it('la ÚLTIMA definición de eliminar_cuenta en las migraciones conserva la anonimización', () => {
     // Una migración futura que redefina la función sin copiar esta versión la perdería en silencio.
-    expect(ultimaEliminarCuenta(realMigrations())?.file).toBe(MIGRACION)
+    expect(ultimaEliminarCuenta(realMigrations())?.file).toBe(MIGRACION_ORDEN_LOCKS)
     expect(conservaAnonimizacion(realMigrations())).toBe(true)
     // Guard del detector: una redefinición posterior sin la anonimización se caza; con ella, no.
     const base = readMigration(BASELINE)

@@ -143,9 +143,8 @@ export interface VistaDelJuego {
   /**
    * La ronda ya estaba cerrada cuando se calculó esta vista. Es la prueba de que un resultado final está completo:
    * `/juego/publico` sale del CDN y puede ser de antes del cierre aunque se haya pedido después
-   * (`juegoDeLaRondaCerrada`). Cerrada, los RPC rechazan golpes y marcas nuevos; queda una carrera de milisegundos
-   * (una escritura que leyó `en_curso` justo antes del cierre y confirma después: los RPC de escritura no bloquean la
-   * fila de la ronda), pendiente de migración.
+   * (`juegoDeLaRondaCerrada`). Cerrada, los RPC rechazan golpes y marcas nuevos, y el cierre espera a
+   * las escrituras en curso (toman FOR SHARE de la ronda, migración 20261118120000).
    */
   rondaCerrada: boolean
 }

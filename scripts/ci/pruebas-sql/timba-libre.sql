@@ -38,6 +38,14 @@ INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre, user_id) VALUES
   ('e0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000001', 'Pedro', NULL),
   ('e0000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000001', 'Juan', NULL),
   ('e0000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000002', 'Diego', NULL);
+-- Timba con marcador designado que no juega (admin_mode): juegan un usuario con cuenta (no creador) y un invitado.
+INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, formato_juego, reglas_juego, holes, estado,
+                                  admin_mode, admin_user_id) VALUES
+  ('d0000000-0000-4000-8000-000000000005', 'TIMBAM', 'Cancha', current_date, 'a0000000-0000-4000-8000-000000000001',
+   'personalizado', (SELECT r FROM reglas), 18, 'en_curso', true, 'c0000000-0000-4000-8000-000000000003');
+INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre, user_id) VALUES
+  ('e0000000-0000-4000-8000-00000000000a', 'd0000000-0000-4000-8000-000000000005', 'Jugador', 'b0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-00000000000b', 'd0000000-0000-4000-8000-000000000005', 'Invitado', NULL);
 
 -- ── Usuario NO admin ─────────────────────────────────────────────────────────────────────────────────────────
 SET LOCAL ROLE authenticated;
@@ -163,6 +171,31 @@ DO $$ BEGIN
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK RPC de un ajeno sobre jugador con user_id -> P0003';
 END $$;
 
+-- 20261118120000: el código de la ronda ya no basta para marcar a un invitado sin cuenta.
+DO $$ BEGIN
+  PERFORM public.marcar_puntito_ronda_libre('TIMBAU', 'e0000000-0000-4000-8000-000000000002', 4, 'sandy', true);
+  RAISE EXCEPTION 'FALLA: alguien ajeno marcó un punto a un invitado sin cuenta';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK ajeno no marca puntos a un invitado -> P0003';
+END $$;
+
+DO $$ BEGIN
+  PERFORM public.marcar_retiro_ronda_libre('TIMBAU', 'e0000000-0000-4000-8000-000000000002', 12);
+  RAISE EXCEPTION 'FALLA: alguien ajeno retiró a un invitado sin cuenta';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK ajeno no retira a un invitado -> P0003';
+END $$;
+
+-- Los que sí anotan la ronda siguen marcando al invitado (20261118120000).
+DO $$ BEGIN
+  PERFORM public.marcar_retiro_ronda_libre('TIMBAM', 'e0000000-0000-4000-8000-00000000000b', 14);
+  RAISE NOTICE 'OK marcador designado que no juega retira a un invitado';
+END $$;
+
+SET LOCAL request.jwt.claims = '{"sub":"b0000000-0000-4000-8000-000000000002","role":"authenticated"}';
+DO $$ BEGIN
+  PERFORM public.marcar_puntito_ronda_libre('TIMBAM', 'e0000000-0000-4000-8000-00000000000b', 6, 'sandy', true);
+  RAISE NOTICE 'OK jugador con cuenta (no creador) marca a un invitado';
+END $$;
+
 -- ── anon ─────────────────────────────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 SET LOCAL ROLE anon;
@@ -208,6 +241,19 @@ DO $$ BEGIN
   RAISE NOTICE 'OK admin: crea, edita reglas y marca';
 END $$;
 
+-- ── Las escrituras bloquean la fila de la ronda contra el cierre (20261118120000) ──
+RESET ROLE;
+DO $$ BEGIN
+  -- Una sola sesión no puede probar la espera: se fija la forma. Golpes: la ronda (FOR SHARE) antes que el jugador
+  -- (FOR UPDATE), el orden del cierre y de los borrados (si no, deadlock con descartar_ronda_libre).
+  IF pg_get_functiondef('public.upsert_ronda_libre_scores(uuid, text, jsonb, bigint, uuid)'::regprocedure)
+       !~ 'FROM public\.rondas_libres rl\s+WHERE rl\.codigo = p_codigo\s+FOR SHARE;.*FROM public\.ronda_libre_jugadores rlj.*FOR UPDATE;'
+     OR pg_get_functiondef('public.timba_ronda_para_escribir(text, uuid)'::regprocedure) !~ 'FOR SHARE OF rl;' THEN
+    RAISE EXCEPTION 'FALLA: una escritura de la ronda no bloquea la ronda (FOR SHARE) antes que el jugador';
+  END IF;
+  RAISE NOTICE 'OK golpes y marcas toman FOR SHARE de la ronda';
+END $$;
+
 -- ── Lo que quedó escrito (como postgres) ─────────────────────────────────────────────────────────────────────
 RESET ROLE;
 
@@ -223,6 +269,10 @@ BEGIN
   WHERE ronda_id = 'd0000000-0000-4000-8000-000000000001' AND hoyo = 5 AND puntito_id = 'greenie';
   IF greenies IS DISTINCT FROM ARRAY['e0000000-0000-4000-8000-000000000003'::uuid] THEN
     RAISE EXCEPTION 'FALLA: greenie del hoyo 5 = % (esperaba solo Juan: la marca vieja no pisa)', greenies;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.ronda_libre_retiros WHERE jugador_id = 'e0000000-0000-4000-8000-00000000000b' AND desde_hoyo = 14)
+     OR NOT EXISTS (SELECT 1 FROM public.ronda_libre_puntitos WHERE jugador_id = 'e0000000-0000-4000-8000-00000000000b' AND hoyo = 6) THEN
+    RAISE EXCEPTION 'FALLA: las marcas al invitado de quienes anotan la ronda no quedaron guardadas';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.ronda_libre_retiros WHERE jugador_id = 'e0000000-0000-4000-8000-000000000003' AND desde_hoyo = 10) THEN
     RAISE EXCEPTION 'FALLA: el retiro no quedó guardado';

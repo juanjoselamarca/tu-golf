@@ -1387,6 +1387,14 @@ BEGIN
   -- Sus torneos: sin otros jugadores (verificado arriba). Arrastra grupos, players, rounds y hole_scores.
   DELETE FROM tournaments WHERE organizer_id = p_user_id;
 
+  -- Rondas ajenas que él administraba (rondas_libres.admin_user_id → auth.users es NO ACTION). Va ANTES de tocar
+  -- tarjetas: la ronda antes que el jugador, el mismo orden que upsert_ronda_libre_scores (si no, deadlock con un
+  -- guardado de golpes en esa ronda; migración 20261118120000).
+  UPDATE rondas_libres
+  SET    admin_user_id = NULL, admin_mode = false
+  WHERE  admin_user_id = p_user_id
+    AND  creador_id IS DISTINCT FROM p_user_id;
+
   -- Su tarjeta en rondas ajenas: se desvincula y se anonimiza, no se borra (best ball, match play y el
   -- grupo de un torneo ajeno dependen de esa fila).
   UPDATE ronda_libre_jugadores j
@@ -1412,12 +1420,6 @@ BEGIN
   -- ON DELETE SET NULL cuando se borra el perfil, más abajo.
   UPDATE ronda_libre_jugadores SET nombre = c_anonimo
   WHERE  perfil_sugerido_id = p_user_id AND user_id IS NULL AND pending_user_id IS NULL;
-
-  -- Rondas ajenas que él administraba (rondas_libres.admin_user_id → auth.users es NO ACTION).
-  UPDATE rondas_libres
-  SET    admin_user_id = NULL, admin_mode = false
-  WHERE  admin_user_id = p_user_id
-    AND  creador_id IS DISTINCT FROM p_user_id;
 
   -- Las rondas libres que creó: sin otros usuarios (verificado arriba). Arrastra sus filas y las de
   -- sus invitados (ronda_libre_jugadores.user_id → profiles es NO ACTION).
@@ -2179,7 +2181,9 @@ BEGIN
     INTO v_ronda_id, v_estado, v_es_demo, v_formato, v_reglas, v_holes, v_user_id
   FROM public.rondas_libres rl
   INNER JOIN public.ronda_libre_jugadores rlj ON rlj.ronda_id = rl.id
-  WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo;
+  WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo
+  -- Mismo lock que upsert_ronda_libre_scores: lo toma la RPC que llama (misma transacción) hasta confirmar.
+  FOR SHARE OF rl;
 
   IF v_ronda_id IS NULL THEN
     RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
@@ -2187,16 +2191,19 @@ BEGIN
   IF v_es_demo THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
   END IF;
-  IF v_estado <> 'en_curso' THEN
+  IF v_estado IS DISTINCT FROM 'en_curso' THEN  -- con estado NULL, <> no cortaría
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
   END IF;
   IF v_formato <> 'personalizado' OR v_reglas IS NULL THEN
     RAISE EXCEPTION 'RONDA_SIN_JUEGO' USING ERRCODE = '22023';
   END IF;
-  -- Mismo criterio que upsert_ronda_libre_scores, pero siempre con sesión (nada para anon).
+  -- Siempre con sesión (nada para anon). Al invitado sin cuenta (user_id NULL) lo marca solo quien anota la
+  -- ronda (creador, marcador o un jugador de ella): antes bastaba tener el código.
   IF NOT (
     v_is_service
-    OR (v_uid IS NOT NULL AND (v_user_id = v_uid OR v_user_id IS NULL OR public.puede_anotar_ronda(v_ronda_id)))
+    -- IS NOT DISTINCT FROM y no `=`: con un invitado (user_id NULL) `=` da NULL, el IF NOT (NULL) no corta y el
+    -- ajeno pasaría (lo cazó la prueba SQL).
+    OR (v_uid IS NOT NULL AND (v_user_id IS NOT DISTINCT FROM v_uid OR public.puede_anotar_ronda(v_ronda_id)))
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
   END IF;
@@ -2344,12 +2351,26 @@ DECLARE
 BEGIN
   PERFORM public.validate_score_delta(p_delta);
 
-  SELECT rl.id, rl.estado, rl.es_demo, rlj.user_id, rlj.scores
-    INTO v_ronda_id, v_estado, v_es_demo, v_user_id, v_scores
+  -- Primero la ronda (FOR SHARE), después el jugador (FOR UPDATE), en dos sentencias: el mismo orden que el cierre
+  -- y los borrados de ronda (descartar_ronda_libre, DELETE con CASCADE), para que no se crucen en un deadlock.
+  -- El cierre (finalizar_ronda_libre, FOR UPDATE; o un UPDATE directo) espera a que esta escritura confirme, y una
+  -- que llega después ve el estado ya cerrado. Varias escrituras a la vez no se bloquean (SHARE con SHARE).
+  SELECT rl.id, rl.estado, rl.es_demo
+    INTO v_ronda_id, v_estado, v_es_demo
   FROM public.rondas_libres rl
-  INNER JOIN public.ronda_libre_jugadores rlj ON rlj.ronda_id = rl.id
-  WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo
-  FOR UPDATE OF rlj;
+  WHERE rl.codigo = p_codigo
+  FOR SHARE;
+
+  IF v_ronda_id IS NOT NULL THEN
+    SELECT rlj.user_id, rlj.scores
+      INTO v_user_id, v_scores
+    FROM public.ronda_libre_jugadores rlj
+    WHERE rlj.id = p_jugador_id AND rlj.ronda_id = v_ronda_id
+    FOR UPDATE;
+    IF NOT FOUND THEN
+      v_ronda_id := NULL;
+    END IF;
+  END IF;
 
   IF v_ronda_id IS NULL THEN
     RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
@@ -2357,7 +2378,7 @@ BEGIN
   IF v_es_demo THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
   END IF;
-  IF v_estado <> 'en_curso' THEN
+  IF v_estado IS DISTINCT FROM 'en_curso' THEN  -- con estado NULL, <> no cortaría
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
   END IF;
 
