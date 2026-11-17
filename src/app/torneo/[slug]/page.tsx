@@ -18,7 +18,7 @@ import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
 import type { LiveTeam } from './en-vivo/types'
-import { estadoDelTorneo } from '@/golf/tournament-live-status'
+import { estadoDelTorneo, type EstadoDelTorneo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
@@ -80,6 +80,19 @@ import { inscritoAprobado, visorPuedeAnotar, torneoInscribible } from '@/golf/to
 /** ¿Alguien anotó al menos un hoyo? (individual: `holes`; equipos: `thru`). */
 function hayScoresEn(players: Player[], teams: LiveTeam[]): boolean {
   return players.some((p) => p.holes > 0) || teams.some((t) => t.thru > 0)
+}
+
+/**
+ * ¿La ficha es la tarjeta del evento? Inscribible, siempre. Si no, igual que antes de PR4: sin
+ * nadie en la tabla y sin cerrar (borrador o en curso sin jugadores). Un vencido o un finalizado
+ * nunca: sin hoyos muestra el estado vacío honesto, no la invitación de un torneo que ya pasó.
+ */
+function muestraTarjetaDelEvento(
+  isOpen: boolean, isClosed: boolean, estado: EstadoDelTorneo, players: Player[], teams: LiveTeam[],
+): boolean {
+  if (isOpen) return true
+  if (isClosed || estado === 'vencido' || estado === 'finalizado') return false
+  return players.length === 0 && teams.length === 0
 }
 
 export default async function TorneoPage(props: { params: Promise<{ slug: string }> }) {
@@ -262,8 +275,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       }
     }
 
-    // Info de inscritos para la tarjeta de evento (misma condición que `showEventCard`, abajo)
-    if (isOpen || (antesDeJugarse && !hayScoresEn(players, teamStandings))) {
+    // Info de inscritos para la tarjeta de evento (la misma función que `showEventCard`, abajo)
+    if (muestraTarjetaDelEvento(isOpen, isClosed, estado, players, teamStandings)) {
       const [count, names] = await Promise.all([
         fetchEnrolledPlayerCount(supabase, tournament.id),
         fetchEnrolledPlayerNames(supabase, tournament.id, nombresDePerfil),
@@ -304,7 +317,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   // la tabla de inscritos sí sirve (quién juega, antes del primer hoyo).
   const hayScores = hayScoresEn(players, teamStandings)
   const hasData = (players.length > 0 || teamStandings.length > 0) && (hayScores || antesDeJugarse || estado === 'en_curso')
-  const showEventCard = isOpen || (!hayScores && !isClosed && antesDeJugarse)
+  const showEventCard = muestraTarjetaDelEvento(isOpen, isClosed, estado, players, teamStandings)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
