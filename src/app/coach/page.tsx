@@ -21,8 +21,7 @@ import {
 } from '@/golf/coach/mental-index'
 import { buildActivePlanSummary, describeRecoveryStatus } from '@/golf/coach/intro'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
-import { fetchRondasCPI } from '@/lib/data/perfil'
-import { rondasDelCoach } from '@/lib/data/historical-rounds-filters'
+import { fetchCoachHome } from '@/lib/data/coach-home'
 import { parPerHoleArray } from '@/golf/core/compare'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
@@ -32,50 +31,6 @@ import { loginUrl } from '@/lib/auth/login-url'
 import { fechaDeCalendario } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
-
-interface Session {
-  id: string
-  session_type: string
-  created_at: string
-  next_focus: string | null
-}
-
-interface PatternRow {
-  id: string
-  pattern_type: string
-  confidence: number
-  data_points: number
-  status: string
-  first_detected: string
-}
-
-interface PlanRow {
-  id: string
-  pattern_id: string
-  hypothesis: string
-  rule: string
-  status: string
-  created_at: string
-  duration_days: number
-}
-
-interface OutcomeRow {
-  target_reached: boolean
-  compliance: string
-  played_at: string
-}
-
-interface RoundRow {
-  id: string
-  scores: (number | null)[] | null
-  total_gross: number | null
-  course_name: string | null
-  // par_per_hole en BD es JSONB indexado por número de hoyo como string
-  // ({"1":4,"2":4,...}), NO array posicional. Normalizar con parPerHoleArray
-  // antes de iterar/reducir — ver src/golf/core/compare.ts.
-  par_per_hole: Record<string, number> | null
-  played_at: string
-}
 
 const SESSION_LABELS: Record<string, string> = {
   continuous: 'Conversación continua',
@@ -132,31 +87,7 @@ export default async function CoachDashboard() {
     return <CoachGatePage />
   }
 
-  // Todas las queries en paralelo, server-side (sin waterfall de hidratación).
-  const [sessionsRes, primaryRes, roundsRes, patternsRes, planRes, totalRes, rondasCPI] = await Promise.all([
-    supabase.from('taiger_sessions').select('id, session_type, created_at, next_focus').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
-    supabase.from('taiger_sessions').select('id').eq('user_id', user.id).eq('is_primary', true).maybeSingle(),
-    rondasDelCoach(supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at').eq('user_id', user.id)).limit(10),
-    supabase.from('player_patterns').select('id, pattern_type, confidence, data_points, status, first_detected').eq('user_id', user.id).in('status', ['active', 'monitoring']),
-    supabase.from('coach_plans').select('id, pattern_id, hypothesis, rule, status, created_at, duration_days').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
-    supabase.from('historical_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-    // Las mismas rondas del CPI que /perfil y /api/cpi (`fetchRondasCPI`).
-    fetchRondasCPI(supabase, user.id),
-  ])
-
-  let outcomes: OutcomeRow[] = []
-  if (planRes.data) {
-    const fourWeeksAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString()
-    const outcomesRes = await supabase.from('plan_outcomes').select('target_reached, compliance, played_at').eq('plan_id', planRes.data.id).gte('played_at', fourWeeksAgo).order('played_at', { ascending: false })
-    outcomes = (outcomesRes.data as OutcomeRow[]) || []
-  }
-
-  const sessions = (sessionsRes.data as Session[]) || []
-  const primarySessionId = (primaryRes.data as { id: string } | null)?.id ?? null
-  const rounds = (roundsRes.data as RoundRow[]) || []
-  const patterns = (patternsRes.data as PatternRow[]) || []
-  const plan = (planRes.data as PlanRow | null) ?? null
-  const totalRounds = totalRes.count ?? 0
+  const { sessions, primarySessionId, rounds, patterns, plan, outcomes, totalRounds, rondasCPI } = await fetchCoachHome(supabase, user.id)
   // Card "Tu plan activo": misma derivación canónica que el estado vacío del chat
   // (un concepto, una fuente). `outcomes` ya viene scopeado al plan + 4 semanas.
   const planSummary = buildActivePlanSummary(plan, outcomes)

@@ -16,7 +16,7 @@ const leer = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8')
 
 const SUPERFICIES = [
   'app/api/cpi/route.ts',
-  'app/coach/page.tsx',
+  'lib/data/coach-home.ts',
   'lib/import/confirmar.ts',
   'lib/data/perfil.ts',
 ]
