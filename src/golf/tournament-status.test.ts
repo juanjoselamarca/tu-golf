@@ -46,16 +46,29 @@ describe('badgeDelTorneo · label (torneo de hoy)', () => {
 })
 
 describe('badgeDelTorneo · cierre automático (auditoría 16-nov)', () => {
-  it('in_progress de abril que nadie cerró → "Finalizado" para el jugador, "Por cerrar" para el organizador', () => {
+  it('in_progress de abril que nadie cerró → "Finalizado" en listas, "Resultados provisorios" en la ficha, "Por cerrar" para el organizador', () => {
     const zombie = { status: 'in_progress', date_start: '2026-04-20', date_end: null }
     expect(badgeDelTorneo(zombie, AHORA).label).toBe('Finalizado')
     expect(badgeDelTorneo(zombie, AHORA).tone).toBe('closed')
+    expect(badgeDelTorneo(zombie, AHORA, 'player', 'ficha').label).toBe('Resultados provisorios')
     expect(badgeDelTorneo(zombie, AHORA, 'organizer').label).toBe('Por cerrar')
+    expect(badgeDelTorneo({ ...zombie, status: 'active' }, AHORA, 'organizer').label).toBe('Por cerrar')
   })
 
-  it('open con fecha pasada (nunca se jugó) no sigue diciendo "Inscripciones abiertas"', () => {
+  it('cerrado por escrito: "Finalizado" también en la ficha; nunca "Por cerrar"', () => {
+    const cerrado = { status: 'closed', date_start: '2026-04-20' }
+    expect(badgeDelTorneo(cerrado, AHORA, 'player', 'ficha').label).toBe('Finalizado')
+    expect(badgeDelTorneo(cerrado, AHORA, 'organizer').label).toBe('Cerrado')
+  })
+
+  it('open vencido (nunca se inició, caso "LB OPEN 30-oct"): "Sin iniciar" / "Fecha vencida", nunca Finalizado ni Por cerrar', () => {
     const vencido = { status: 'open', date_start: '2026-10-30', date_end: null }
-    expect(badgeDelTorneo(vencido, AHORA).label).toBe('Finalizado')
+    for (const vista of ['lista', 'ficha'] as const) {
+      expect(badgeDelTorneo(vencido, AHORA, 'player', vista).label).toBe('Sin iniciar')
+      expect(badgeDelTorneo(vencido, AHORA, 'organizer', vista).label).toBe('Fecha vencida')
+    }
+    expect(badgeDelTorneo(vencido, AHORA).tone).toBe('neutral')
+    expect(badgeDelTorneo(vencido, AHORA).estado).toBe('vencido')
   })
 
   it('in_progress con fecha futura → "Por jugar", nunca "En vivo"', () => {
@@ -135,20 +148,27 @@ describe('jugadorFueraDelTorneo', () => {
 })
 
 describe('visorPuedeAnotar — el jugador inscrito llega al scorer del torneo', () => {
-  const enCurso = { status: 'in_progress', es_demo: false }
+  const enCurso = { status: 'in_progress', date_start: HOY, es_demo: false }
   it('inscrito con el torneo en curso: sí', () => {
-    expect(visorPuedeAnotar({ status: 'approved' }, enCurso)).toBe(true)
-    expect(visorPuedeAnotar({ status: null }, enCurso)).toBe(true)
+    expect(visorPuedeAnotar({ status: 'approved' }, enCurso, AHORA)).toBe(true)
+    expect(visorPuedeAnotar({ status: null }, enCurso, AHORA)).toBe(true)
   })
   it('no inscrito, retirado o descalificado: no', () => {
-    expect(visorPuedeAnotar(null, enCurso)).toBe(false)
-    expect(visorPuedeAnotar({ status: 'withdrawn' }, enCurso)).toBe(false)
-    expect(visorPuedeAnotar({ status: 'disqualified' }, enCurso)).toBe(false)
+    expect(visorPuedeAnotar(null, enCurso, AHORA)).toBe(false)
+    expect(visorPuedeAnotar({ status: 'withdrawn' }, enCurso, AHORA)).toBe(false)
+    expect(visorPuedeAnotar({ status: 'disqualified' }, enCurso, AHORA)).toBe(false)
   })
   it('torneo con inscripciones abiertas, cerrado o demo: no', () => {
-    expect(visorPuedeAnotar({ status: 'approved' }, { status: 'open' })).toBe(false)
-    expect(visorPuedeAnotar({ status: 'approved' }, { status: 'closed' })).toBe(false)
-    expect(visorPuedeAnotar({ status: 'approved' }, { ...enCurso, es_demo: true })).toBe(false)
+    expect(visorPuedeAnotar({ status: 'approved' }, { status: 'open', date_start: HOY }, AHORA)).toBe(false)
+    expect(visorPuedeAnotar({ status: 'approved' }, { status: 'closed', date_start: HOY }, AHORA)).toBe(false)
+    expect(visorPuedeAnotar({ status: 'approved' }, { ...enCurso, es_demo: true }, AHORA)).toBe(false)
+  })
+  it('anotar tarde: dentro de los 2 días de gracia sí; pasada la gracia ("Resultados provisorios") no', () => {
+    expect(visorPuedeAnotar({ status: 'approved' }, { status: 'in_progress', date_start: '2026-11-15' }, AHORA)).toBe(true)
+    expect(visorPuedeAnotar({ status: 'approved' }, { status: 'in_progress', date_start: '2026-11-14' }, AHORA)).toBe(false)
+  })
+  it('organizador lo inició antes de la fecha: se ofrece (el servidor lo acepta)', () => {
+    expect(visorPuedeAnotar({ status: 'approved' }, { status: 'in_progress', date_start: '2026-11-20' }, AHORA)).toBe(true)
   })
 })
 

@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { LiveTournament } from './types'
+import type { StatusAudience } from '@/golf/tournament-status'
 import { TorneoHeader } from '@/components/torneo/TorneoHeader'
 import { useShare } from '@/components/share/useShare'
 import { SITE_URL } from '@/lib/site-url'
@@ -49,6 +50,8 @@ function ConnectionStatus() {
 export interface LiveHeaderProps {
   tournament: LiveTournament
   lastUpdate: number
+  /** Organizador o espectador (por defecto espectador). */
+  audiencia?: StatusAudience
   /** Numero de jugadores que terminaron su ronda (THRU = "F"). */
   completedCount?: number
   /** Total de jugadores activos (no WD/DQ). */
@@ -114,7 +117,7 @@ function LiveShareButton({ tournament }: { tournament: LiveTournament }) {
   )
 }
 
-export default function LiveHeader({ tournament, lastUpdate, completedCount, totalActivePlayers }: LiveHeaderProps) {
+export default function LiveHeader({ tournament, lastUpdate, audiencia = 'player', completedCount, totalActivePlayers }: LiveHeaderProps) {
   const showProgress = totalActivePlayers != null && totalActivePlayers > 0
 
   return (
@@ -126,7 +129,8 @@ export default function LiveHeader({ tournament, lastUpdate, completedCount, tot
         torneo={{ status: tournament.status, date_start: tournament.date_start, date_end: tournament.date_end }}
         courseName={tournament.course_name}
         holeCount={tournament.hole_count}
-        audience="organizer"
+        audience={audiencia}
+        vista="ficha"
         note={formatLastUpdate(lastUpdate)}
         right={<LiveShareButton tournament={tournament} />}
       />

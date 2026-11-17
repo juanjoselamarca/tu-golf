@@ -23,6 +23,7 @@ import type { LivePlayer, LiveTeam, LiveMatch, LiveTournament } from './types'
 import { useTorneoEnVivo, INTERVALO_TORNEO_S } from './use-live-scores'
 import type { TorneoEnVivo } from '@/lib/data/tournaments/en-vivo'
 import LiveHeader from './LiveHeader'
+import type { StatusAudience } from '@/golf/tournament-status'
 import LiveTabs, { type LiveTabValue } from './LiveTabs'
 import LiveFilterBar from './LiveFilterBar'
 import TVMode from './TVMode'
@@ -49,6 +50,8 @@ export interface LiveViewProps {
   groups: Array<{ id: string; name: string }>
   /** Si el viewer es uno de los players, su player.id. Habilita "Solo mi grupo". */
   initialUserId?: string
+  /** Vocabulario de la cabecera: el organizador lee "En curso"/"Por cerrar"; el espectador, "En vivo"/"Resultados provisorios". */
+  audiencia?: StatusAudience
 }
 
 export default function LiveView({
@@ -58,6 +61,7 @@ export default function LiveView({
   matches = [],
   categories: categoriesInicial,
   groups: groupsInicial,
+  audiencia = 'player',
   initialUserId,
 }: LiveViewProps) {
   const [selectedRound, setSelectedRound] = useState<LiveTabValue>('cumulative')
@@ -208,6 +212,7 @@ export default function LiveView({
       <LiveHeader
         tournament={tournament}
         lastUpdate={lastUpdate}
+        audiencia={audiencia}
         completedCount={completedCount}
         totalActivePlayers={totalActivePlayers}
       />

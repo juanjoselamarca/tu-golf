@@ -46,14 +46,18 @@ export function TournamentEmptyState({ tournamentFound, estado }: TournamentEmpt
           ? 'Torneo no encontrado'
           : isFinalized
             ? 'No se registraron scores en este torneo'
-            : 'Aún no hay scores registrados'}
+            : estado === 'vencido'
+              ? 'Este torneo no se inició'
+              : 'Aún no hay scores registrados'}
       </div>
       <div style={{ fontSize: '14px' }}>
         {!tournamentFound
           ? 'Verifica el link o vuelve al inicio.'
           : isFinalized
             ? 'El torneo finalizó sin scores ingresados.'
-            : 'Los resultados aparecerán cuando los jugadores comiencen a jugar.'}
+            : estado === 'vencido'
+              ? 'La fecha pasó sin que el organizador lo iniciara.'
+              : 'Los resultados aparecerán cuando los jugadores comiencen a jugar.'}
       </div>
     </div>
   )

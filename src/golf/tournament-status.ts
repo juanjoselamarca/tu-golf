@@ -43,14 +43,24 @@ const TONO_DEL_ESTADO: Record<EstadoDelTorneo, StatusTone> = {
   por_jugar: 'open',
   en_curso: 'live',
   finalizado: 'closed',
+  vencido: 'neutral',
 }
 
 /**
- * Label del estado. Para el jugador, un torneo de fecha pasada que nadie cerró es
- * "Finalizado"; para el organizador es "Por cerrar" (sigue abierto en el sistema y
- * es él quien lo cierra o lo reabre).
+ * Dónde se muestra el badge: en las listas, un torneo cerrado por fecha dice
+ * "Finalizado"; en la ficha del torneo (`/torneo/[slug]` y su en-vivo) el jugador lee
+ * "Resultados provisorios" mientras el organizador no lo cierre (copy de Juanjo, 17-nov).
  */
-function labelDelEstado(estado: EstadoDelTorneo, status: string, audience: StatusAudience): string {
+export type VistaDelBadge = 'lista' | 'ficha'
+
+/**
+ * Label del estado.
+ * - Fecha pasada sin cierre escrito (in_progress): jugador "Finalizado" (lista) o
+ *   "Resultados provisorios" (ficha); organizador "Por cerrar" — solo ahí, porque
+ *   `closeTournamentAction` solo cierra un torneo in_progress.
+ * - `open` vencido (nunca se inició): jugador "Sin iniciar", organizador "Fecha vencida".
+ */
+function labelDelEstado(estado: EstadoDelTorneo, status: string, audience: StatusAudience, vista: VistaDelBadge): string {
   const escritoCerrado = status === 'closed' || status === 'published' || status === 'finished'
   if (audience === 'organizer') {
     switch (estado) {
@@ -58,13 +68,15 @@ function labelDelEstado(estado: EstadoDelTorneo, status: string, audience: Statu
       case 'por_jugar': return status === 'open' ? 'Inscripciones abiertas' : 'Por jugar'
       case 'en_curso': return 'En curso'
       case 'finalizado': return status === 'published' ? 'Publicado' : escritoCerrado ? 'Cerrado' : 'Por cerrar'
+      case 'vencido': return 'Fecha vencida'
     }
   }
   switch (estado) {
     case 'borrador': return status === 'draft' ? 'Inscripciones aún no abiertas' : 'Torneo'
     case 'por_jugar': return status === 'open' ? 'Inscripciones abiertas' : 'Por jugar'
     case 'en_curso': return 'En vivo'
-    case 'finalizado': return 'Finalizado'
+    case 'finalizado': return escritoCerrado || vista === 'lista' ? 'Finalizado' : 'Resultados provisorios'
+    case 'vencido': return 'Sin iniciar'
   }
 }
 
@@ -77,10 +89,11 @@ export function badgeDelTorneo(
   torneo: TorneoConFechas,
   ahora: Date,
   audience: StatusAudience = 'player',
+  vista: VistaDelBadge = 'lista',
 ): { label: string; bg: string; fg: string; tone: StatusTone; estado: EstadoDelTorneo } {
   const estado = estadoDelTorneo(torneo, ahora)
   const tone = TONO_DEL_ESTADO[estado]
-  return { label: labelDelEstado(estado, torneo.status ?? '', audience), ...TONE_VARS[tone], tone, estado }
+  return { label: labelDelEstado(estado, torneo.status ?? '', audience, vista), ...TONE_VARS[tone], tone, estado }
 }
 
 /**
@@ -155,14 +168,18 @@ export function contarInscritos(jugadores: ReadonlyArray<{ status: string | null
 }
 
 /**
- * ¿El visor anota su propia tarjeta en este torneo? Inscrito, no retirado/descalificado, torneo en curso y no demo
- * (los demo son solo para mirar). Espeja la condición con que `/api/game` acepta el score de un jugador.
+ * ¿Se le ofrece al visor "Anotar mi score"? Inscrito, no retirado/descalificado, torneo en curso según el status
+ * escrito (lo que acepta `/api/game`), no demo (los demo son solo para mirar) y que la pantalla no lo muestre
+ * finalizado: anotar tarde se ofrece dentro de los 2 días de gracia; pasada la gracia el torneo se ve
+ * "Resultados provisorios" y el botón desaparece (el organizador sigue pudiendo cargar desde su panel).
  */
 export function visorPuedeAnotar(
   inscripcion: { status: string | null } | null,
-  torneo: { status: string | null; es_demo?: boolean | null },
+  torneo: TorneoConFechas & { es_demo?: boolean | null },
+  ahora: Date,
 ): boolean {
-  return !!inscripcion && !jugadorFueraDelTorneo(inscripcion.status) && torneoAceptaScores(torneo.status) && !torneo.es_demo
+  return !!inscripcion && !jugadorFueraDelTorneo(inscripcion.status) && torneoAceptaScores(torneo.status) && !torneo.es_demo &&
+    estadoDelTorneo(torneo, ahora) !== 'finalizado'
 }
 
 /**

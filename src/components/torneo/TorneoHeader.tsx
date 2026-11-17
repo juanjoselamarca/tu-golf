@@ -18,7 +18,7 @@ import type { ReactNode } from 'react'
 import { getFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
 import { badgeDelTorneo } from '@/golf/tournament-status'
-import type { StatusAudience } from '@/golf/tournament-status'
+import type { StatusAudience, VistaDelBadge } from '@/golf/tournament-status'
 import type { TorneoConFechas } from '@/golf/tournament-live-status'
 
 /** CSS keyframes para el punto pulsante del badge "En vivo". Inyectado inline
@@ -46,6 +46,8 @@ export interface TorneoHeaderProps {
   note?: string | null
   /** Vocabulario del estado: el jugador y el organizador no leen lo mismo. */
   audience?: StatusAudience
+  /** 'ficha' en /torneo/[slug] y su en-vivo: un cerrado por fecha dice "Resultados provisorios". */
+  vista?: VistaDelBadge
   /** Slot opcional a la derecha (acciones). En vivo suele ir el chip solo. */
   right?: ReactNode
   /**
@@ -101,10 +103,10 @@ function StatusChip({ label, bg, fg, tone, onDark }: { label: string; bg: string
 }
 
 export function TorneoHeader(props: TorneoHeaderProps) {
-  const { name, torneo, audience = 'player', note, right } = props
+  const { name, torneo, audience = 'player', vista = 'lista', note, right } = props
   // Una sola regla para el chip y para navy vs claro: un torneo in_progress pero
   // pasado de fecha no puede verse "en vivo" en un lado y cerrado en otro.
-  const badge = badgeDelTorneo(torneo, new Date(), audience)
+  const badge = badgeDelTorneo(torneo, new Date(), audience, vista)
   const tone = badge.tone
   const isNavy = tone === 'live'
   const meta = metaLine(props)

@@ -12,7 +12,8 @@
  *  - draft → borrador (no es público; la fecha no lo cambia).
  *  - open / in_progress ('active' = sinónimo histórico):
  *      · el día de Chile ya pasó el fin (date_end ?? date_start) por más de
- *        GRACE_DIAS_TORNEO días → finalizado. Es el cierre automático: un torneo del
+ *        GRACE_DIAS_TORNEO días → in_progress: finalizado; open: vencido (nunca se
+ *        inició, no se jugó: no es un finalizado ni acepta inscripciones). Es el cierre automático: un torneo del
  *        sábado sigue en curso hasta el lunes 23:59 (hora de Chile) y desde el martes
  *        se ve finalizado, aunque nadie lo haya cerrado.
  *      · empieza en el futuro → por_jugar.
@@ -33,7 +34,7 @@ export const GRACE_DIAS_TORNEO = 2
 
 export const ZONA_HORARIA_TORNEOS = 'America/Santiago'
 
-export type EstadoDelTorneo = 'borrador' | 'por_jugar' | 'en_curso' | 'finalizado'
+export type EstadoDelTorneo = 'borrador' | 'por_jugar' | 'en_curso' | 'finalizado' | 'vencido'
 
 /** Lo mínimo que necesita la regla. `date_end` opcional: muchos selects no la traen. */
 export type TorneoConFechas = {
@@ -54,7 +55,7 @@ export function estadoDelTorneo(t: TorneoConFechas, ahora: Date): EstadoDelTorne
   const fechas = rangoDelTorneo(t)
   if (fechas) {
     const hoy = fechaHoyChile(ahora)
-    if (diffDias(fechas.fin, hoy) > GRACE_DIAS_TORNEO) return 'finalizado'
+    if (diffDias(fechas.fin, hoy) > GRACE_DIAS_TORNEO) return enJuego ? 'finalizado' : 'vencido'
     if (fechas.inicio > hoy) return 'por_jugar'
   }
   return enJuego ? 'en_curso' : 'por_jugar'

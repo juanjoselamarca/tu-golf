@@ -59,6 +59,8 @@ export interface TorneoEnVivoRow {
   status: string | null
   date_start: string | null
   date_end: string | null
+  /** Para la audiencia de la cabecera (organizador vs espectador). */
+  organizer_id: string | null
   course_id: string | null
   tees: string | null
   hcp_calc_mode: string | null
@@ -69,7 +71,7 @@ export interface TorneoEnVivoRow {
 }
 
 const TORNEO_EN_VIVO_SELECT =
-  'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, tees, hcp_calc_mode, hcp_pct, ' +
+  'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, organizer_id, course_id, tees, hcp_calc_mode, hcp_pct, ' +
   'courses(nombre, par_total), categories(id, name), tournament_groups(id, name, ronda_libre_id, tournament_group_players(player_id))'
 
 /**

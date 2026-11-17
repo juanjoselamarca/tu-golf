@@ -18,7 +18,7 @@ import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
 import type { LiveTeam } from './en-vivo/types'
-import { torneoEnVivo, estadoDelTorneo } from '@/golf/tournament-live-status'
+import { estadoDelTorneo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
@@ -95,7 +95,12 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   // ── Check si el viewer ya esta inscrito ─────────────────────────────
   const inscripcion = viewer ? await fetchInscripcionDelVisor(supabase, tournament.id, viewer.id) : null
   const viewerIsParticipant = !!inscripcion
-  const isOpen = esInscribible(tournament.status ?? '')
+  // Un solo `ahora` y un solo estado para toda la ficha (estadoDelTorneo: status + fechas).
+  const ahora = new Date()
+  const estado = estadoDelTorneo(tournament, ahora)
+  // Inscribible según el status escrito Y que todavía no se juegue: un `open` vencido ("Sin iniciar") o un
+  // torneo finalizado no muestran CTA, cuenta regresiva ni pestaña de unirse.
+  const isOpen = esInscribible(tournament.status ?? '') && estado === 'por_jugar'
   const canJoin = isOpen && !viewerIsParticipant
   // El jugador inscrito con el torneo en curso anota su tarjeta. Antes ninguna pantalla lo llevaba al scorer:
   // solo veía "Ver leaderboard" (hunter 16-oct-2026). Se resuelve con los grupos (más abajo).
@@ -140,7 +145,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     modoJuego      = tournament.modo_juego ?? 'gross'
     formatoJuego   = tournament.formato_juego ?? 'stroke_play'
     totalHoyos     = tournament.hole_count ?? 18
-    isLive         = torneoEnVivo(tournament.status, tournament.date_start, tournament.date_end, new Date())
+    isLive         = estado === 'en_curso'
     // Resultados oficiales (podio, compartir resultados, "crear otro igual"): solo con el torneo CERRADO por
     // el organizador. Un torneo pasado de fecha que nadie cerró se MUESTRA finalizado (cabecera, listas) por
     // `estadoDelTorneo`, pero su podio no se proclama: puede tener tarjetas a medio anotar.
@@ -164,7 +169,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
     // El scorer al que va "Anotar mi score" es el que lee este leaderboard: la ronda de su grupo
     // si el torneo juega con rondas de grupo; el camino legacy si no.
-    if (inscripcion && visorPuedeAnotar(inscripcion, tournament)) {
+    if (inscripcion && visorPuedeAnotar(inscripcion, tournament, ahora)) {
       const destino = destinoDelScorer(inscripcion.id, groups)
       // Pendiente o en lista de espera: no le falta grupo, le falta que lo aprueben.
       avisoSinGrupo = inscritoAprobado(inscripcion.status) && destino === null && inscritoSinGrupo(inscripcion.id, groups)
@@ -345,7 +350,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
           slug={params.slug}
           activeTab="info"
           showJoinTab={canJoin}
-          showLiveTab={isLive || (tournament.status === 'in_progress')}
+          showLiveTab={isLive}
         />
       </div>
 
@@ -496,7 +501,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             etiquetaHcpPct={tournament ? etiquetaHcpPct(hcpPctDelTorneo(tournament)) : null}
           />
         ) : (
-          !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} estado={estadoDelTorneo(tournament, new Date())} />
+          !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} estado={estado} />
         )}
 
         {/* Hint sutil cuando hay pocos jugadores y el torneo está en curso */}

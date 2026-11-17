@@ -67,8 +67,9 @@ describe('estadoDelTorneo — fuente única del estado que se muestra', () => {
     expect(e('active', '2026-04-22')).toBe('finalizado')
   })
 
-  it('open con fecha pasada hace más de 48 h → finalizado; dentro de la gracia → por jugar', () => {
-    expect(e('open', '2026-10-30')).toBe('finalizado')
+  it('open con fecha pasada hace más de 48 h → vencido (nunca se inició: no es un finalizado); dentro de la gracia → por jugar', () => {
+    expect(e('open', '2026-10-30')).toBe('vencido')
+    expect(e('open', '2026-11-01', '2026-11-14')).toBe('vencido')
     expect(e('open', '2026-11-15')).toBe('por_jugar') // 2 días: aún dentro
   })
 

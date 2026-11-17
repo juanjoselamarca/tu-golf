@@ -111,6 +111,7 @@ export function TournamentHeader(props: TournamentHeaderProps) {
         holeCount={totalHoyos}
         dateStr={dateDisplay}
         audience="player"
+        vista="ficha"
         right={<TournamentShareButton slug={slug} tournamentName={tournamentName} estadoTexto={badgeDelTorneo(torneo, new Date()).label} />}
       />
 
