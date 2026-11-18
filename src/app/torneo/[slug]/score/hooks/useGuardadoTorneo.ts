@@ -420,6 +420,20 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     void reenviarPendientes()
   }, [listo, roundId, reenviarPendientes])
 
+  // Token de invitado NUEVO con la tarjeta abierta ("Recuperar mi tarjeta", `useRecuperarAccesoInvitado`): el
+  // aviso de acceso se apaga y la cola se reenvía ya con el token nuevo (Fable #833 v2). `reenviarPendientes` de
+  // este render ya trae el `postScore` con el token nuevo.
+  const tokenAnteriorRef = useRef(guestToken)
+  useEffect(() => {
+    if (tokenAnteriorRef.current === guestToken) return
+    tokenAnteriorRef.current = guestToken
+    if (!guestToken) return
+    sinHeadersInvitadoRef.current = false
+    setSinAcceso(null)
+    setSaveStatus('idle')
+    if (estaOnline()) void reenviarPendientes()
+  }, [guestToken, reenviarPendientes])
+
   /** Hoyos en la cola local (badge "Offline — N en cola" / "Reintentando (N)"). */
   const hoyosEnCola = useCallback(() => Object.keys(scoreSync.obtenerLocal() ?? {}).length, [scoreSync])
 

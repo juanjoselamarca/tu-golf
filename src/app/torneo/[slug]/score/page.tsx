@@ -26,6 +26,7 @@ import { useBuscarTarjeta } from './hooks/useBuscarTarjeta'
 import { AvisoSinTarjeta } from './components/AvisoSinTarjeta'
 import { CTA_RELLENO } from '@/components/torneo/cta-aviso'
 import { AvisoSinAccesoBanner } from './components/AvisoSinAccesoBanner'
+import { useRecuperarAccesoInvitado } from './hooks/useRecuperarAccesoInvitado'
 import { useSondeoRoster, rondaSiguienteYaAbierta } from './hooks/useSondeoRoster'
 import {
   fetchScoringTournament,
@@ -92,7 +93,9 @@ export default function PlayerScoringPage() {
 
   // Guest session info (read once on mount)
   const guestId = useMemo(() => getGuestId(), [])
-  const guestTokenValue = useMemo(() => getGuestToken(), [])
+  // Estado (no memo): "Recuperar mi tarjeta" lo renueva sin recargar la pantalla.
+  const [guestTokenValue, setGuestTokenValue] = useState(() => getGuestToken())
+  const recuperacionInvitado = useRecuperarAccesoInvitado({ slug, onToken: setGuestTokenValue })
   const isGuest = !!guestId && !!guestTokenValue
 
   const selectedPlayerEarly = players.find(p => p.id === selectedId)
@@ -417,7 +420,7 @@ export default function PlayerScoringPage() {
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '14px', cursor: 'pointer', marginBottom: '8px', padding: '0 12px 0 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
               ← Cambiar jugador
             </button>
-            <AvisoSinAccesoBanner aviso={sinAcceso} />
+            <AvisoSinAccesoBanner aviso={sinAcceso} recuperacion={recuperacionInvitado} />
             {sinScores === 'no_empezo' && !rondaCerrada && (
               <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
                 <strong>El torneo todavía no empieza.</strong> Podrás anotar tu score cuando el organizador lo inicie.

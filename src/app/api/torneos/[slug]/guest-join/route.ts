@@ -57,12 +57,14 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     return NextResponse.json({ error: 'invalid_body', message: 'Cuerpo inválido.' }, { status: 400 })
   }
 
-  const { guestId, name, handicap, guestToken: guestTokenDelCliente, guestProof } = body as {
+  const { guestId, name, handicap, guestToken: guestTokenDelCliente, guestProof, soloRecuperar } = body as {
     guestId?: string
     name?: string
     handicap?: number
     guestToken?: string
     guestProof?: unknown
+    /** "Recuperar mi tarjeta" del scorer: reemitir el token del ya inscrito, NUNCA inscribir. */
+    soloRecuperar?: unknown
   }
 
   // Validaciones
@@ -91,10 +93,6 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     return NextResponse.json({ error: 'not_found', message: 'Torneo no encontrado.' }, { status: 404 })
   }
 
-  // Gate Pro (fuente única con join-info, que lo adelanta a la pantalla de inscripción)
-  const rechazo = await rechazoInvitados(admin, tournament.organizer_id)
-  if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
-
   // Posesión del guestId: su token, o la prueba de la que se derivó (sobrevive a una respuesta perdida).
   const tokenValido = (typeof guestTokenDelCliente === 'string' && verifyGuestToken(guestId, guestTokenDelCliente))
     || await pruebaDeInvitadoValida(guestId, guestProof)
@@ -122,6 +120,18 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
       alreadyRegistered: true,
     })
   }
+
+  // La recuperación desde el scorer no inscribe: si este guestId no está en el torneo, no hay tarjeta que
+  // recuperar (inscribirlo crearía OTRO jugador).
+  if (soloRecuperar === true) {
+    return NextResponse.json({ error: 'not_registered', message: 'Este teléfono no tiene una inscripción en este torneo.' }, { status: 404 })
+  }
+
+  // Gate Pro (fuente única con join-info, que lo adelanta a la pantalla de inscripción). Va DESPUÉS de la
+  // reemisión: el invitado ya inscrito que recupera su token (scorer, "Recuperar mi tarjeta") no se inscribe
+  // de nuevo, y el gate no debe dejarlo sin anotar en pleno torneo (Fable #833 v2).
+  const rechazo = await rechazoInvitados(admin, tournament.organizer_id)
+  if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
 
   // El token firma sólo el guestId, no el torneo: inscribir un guestId ajeno en OTRO torneo
   // abierto devolvía su token y con él se anotaba y reclamaba en el torneo original. Un
@@ -217,9 +227,13 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
 }
 
 /**
- * El guestId ya tiene jugador en ESTE torneo y no se probó su posesión (un guestId anterior a la prueba
- * cuya respuesta se perdió, o un token de antes de rotar el secret). Antes el cliente se inscribía con un
- * invitado nuevo: la misma persona dos veces en el leaderboard. Ahora se queda con el que tiene.
+ * El guestId ya tiene jugador en ESTE torneo y no se probó su posesión: un token de antes de rotar el secret,
+ * o un cliente viejo (anterior a la prueba). No se firma token (sería un oráculo) ni se inscribe otro.
+ *
+ * Ojo: el cliente actual casi nunca llega acá con un guestId viejo SIN token: `obtenerOCrearIdentidadInvitado`
+ * lo reemplaza por una identidad con prueba, y si ese guestId viejo ya tenía jugador (respuesta perdida antes
+ * del #833) la identidad nueva se inscribe aparte: un posible duplicado que el organizador borra. Trade-off
+ * aceptado (decisión CTO, #833 v2) frente a dejar al teléfono sin anotar.
  */
 function accesoPerdido() {
   return NextResponse.json(

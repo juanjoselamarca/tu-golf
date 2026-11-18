@@ -30,9 +30,13 @@ const GUEST_PROOF_KEY = 'gp_guest_proof'
  * de la inscripción se pierde (sin ella, el reintento duplicaba al jugador).
  *
  * Un guestId anterior a la prueba (aleatorio) se conserva SOLO si tiene token: ese ya tiene un jugador y
- * su token lo demuestra. Sin token y sin prueba no demuestra nada (lo deja cualquier "unirme" que falló o
- * perdió la respuesta): conservarlo dejaría al teléfono en `guest_access_lost` para siempre si vuelve a
- * perder la respuesta, así que se reemplaza por una identidad con prueba (Fable #833). Solo en el browser.
+ * su token lo demuestra. Sin token y sin prueba no demuestra nada (lo deja cualquier "unirme" que falló, o
+ * uno que se inscribió y perdió la respuesta): se reemplaza por una identidad con prueba (Fable #833).
+ *
+ * Trade-off aceptado (decisión CTO, #833 v2): si ese guestId viejo SÍ alcanzó a quedar inscrito (respuesta
+ * perdida antes de este cambio), la identidad nueva se inscribe como OTRO jugador: un duplicado que el
+ * organizador puede borrar. La alternativa (conservarlo) dejaba al teléfono sin poder anotar nunca más
+ * (`guest_access_lost`). Mejor un teléfono que anota y a lo sumo un duplicado visible. Solo en el browser.
  */
 export async function obtenerOCrearIdentidadInvitado(): Promise<{ guestId: string; prueba: string | null }> {
   const actual = localStorage.getItem(GUEST_ID_KEY)
@@ -70,8 +74,14 @@ function uuidAleatorio(): string {
  * jugador (no crea otro). La prueba sólo se guarda junto al guestId que deriva (`obtenerOCrearIdentidadInvitado`).
  */
 export function tienePruebaDeInvitado(): boolean {
-  if (typeof window === 'undefined') return false
-  return esPruebaDeInvitado(localStorage.getItem(GUEST_PROOF_KEY)) && !!localStorage.getItem(GUEST_ID_KEY)
+  return getPruebaDeInvitado() !== null && !!getGuestId()
+}
+
+/** La prueba guardada (bien formada) o null. El servidor verifica que derive el guestId. */
+export function getPruebaDeInvitado(): string | null {
+  if (typeof window === 'undefined') return null
+  const prueba = localStorage.getItem(GUEST_PROOF_KEY)
+  return esPruebaDeInvitado(prueba) ? prueba : null
 }
 
 export function getGuestId(): string | null {

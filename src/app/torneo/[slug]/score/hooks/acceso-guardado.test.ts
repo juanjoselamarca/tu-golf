@@ -79,10 +79,12 @@ describe('avisoSinAcceso', () => {
   })
 
   // Fable #833 P2-c: con la prueba, /guest-join reemite el token del MISMO jugador: volver a entrar lo recupera.
-  it('invitado sin acceso CON prueba: "Volver a entrar" a /unirse', () => {
+  // v2: no a /unirse (con el torneo en juego dice "Inscripciones cerradas"): se recupera en el scorer.
+  it('invitado sin acceso CON prueba: "Recuperar mi tarjeta" en el lugar; la salida (si falla) es el torneo', () => {
     const a = avisoSinAcceso({ slug: 'copa-abc', motivo: 'invitado_sin_acceso', conPruebaDeInvitado: true })
-    expect(a.href).toBe('/torneo/copa-abc/unirse')
-    expect(a.cta).toBe('Volver a entrar')
+    expect(a.accion).toBe('recuperar_invitado')
+    expect(a.href).toBe('/torneo/copa-abc')
+    expect(a.cta).toBe('Recuperar mi tarjeta')
     expect(a.detalle).toMatch(/en este teléfono, no en el torneo/)
     expect(`${a.titulo} ${a.detalle} ${a.cta}`).not.toMatch(PROMESA_VACIA)
     expect(buscarVoseo(`${a.titulo} ${a.detalle} ${a.cta}`)).toEqual([])

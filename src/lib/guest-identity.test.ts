@@ -55,6 +55,17 @@ describe('obtenerOCrearIdentidadInvitado', () => {
     expect(await guestIdDePrueba(r.prueba!)).toBe(r.guestId)
   })
 
+  // Trade-off aceptado (CTO, #833 v2): si ese guestId viejo ya tenía jugador (respuesta perdida antes del
+  // cambio), el teléfono se inscribe con la identidad nueva = un posible duplicado que el organizador borra.
+  // Lo que NO se acepta es dejarlo sin poder anotar: la identidad nueva siempre trae prueba y nunca reusa la vieja.
+  it('legacy sin token que quizá ya tenía jugador: la identidad nueva no lo reusa (posible duplicado, documentado)', async () => {
+    localStorage.setItem('gp_guest_id', '33333333-3333-4333-8333-333333333333')
+    const nueva = await obtenerOCrearIdentidadInvitado()
+    expect(nueva.guestId).not.toBe('33333333-3333-4333-8333-333333333333')
+    expect(localStorage.getItem('gp_guest_id')).toBe(nueva.guestId)
+    expect(await pruebaDeInvitadoValida(nueva.guestId, nueva.prueba)).toBe(true)
+  })
+
   it('una prueba que no corresponde al guestId guardado (con token) no se manda', async () => {
     localStorage.setItem('gp_guest_id', '22222222-2222-4222-8222-222222222222')
     localStorage.setItem('gp_guest_token', 'tok')
