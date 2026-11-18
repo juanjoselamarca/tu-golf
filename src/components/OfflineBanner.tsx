@@ -3,10 +3,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { contarHoyosPendientes } from '@/lib/ronda/respaldo-local'
 import { useConciliarRespaldos } from '@/hooks/useConciliarRespaldos'
+import { useHayAvisoDeSesion } from '@/lib/auth/aviso-sesion-en-pantalla'
 
 export function OfflineBanner() {
   const [offline, setOffline] = useState(false)
   const [pendientes, setPendientes] = useState(0)
+  // Un scorer avisa que lo anotado no se sube solo (sesión cerrada / sin acceso): ni "Sincronizando…" (no es
+  // cierto) ni una franja fija encima de su encabezado, que tapaba ese aviso.
+  const avisoDeSesion = useHayAvisoDeSesion()
   // Los respaldos de una ronda borrada se limpian y los de una cerrada dejan de contarse;
   // si no, el aviso de "Sincronizando…" quedaba pegado en todas las páginas (PR #763).
   const recontar = useCallback(() => setPendientes(contarHoyosPendientes()), [])
@@ -40,7 +44,7 @@ export function OfflineBanner() {
   }, [])
 
   // Mostrar siempre que esté offline, o cuando haya scores pendientes (aunque vuelva online).
-  if (!offline && pendientes === 0) return null
+  if (avisoDeSesion || (!offline && pendientes === 0)) return null
 
   const mensaje = offline
     ? pendientes > 0

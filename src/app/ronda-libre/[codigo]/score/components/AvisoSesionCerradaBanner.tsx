@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { AvisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
+import { useAnunciarAvisoDeSesion } from '@/lib/auth/aviso-sesion-en-pantalla'
 
 /**
  * Hay que iniciar sesión para que se guarde: aviso fijo bajo la cabecera (no un toast que se va) con la salida a
@@ -8,6 +9,8 @@ import type { AvisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
  * con el tema); el texto del aviso, --text sobre el rojo al 10 % compositado, 14,2:1 claro / 15,0:1 oscuro.
  */
 export function AvisoSesionCerradaBanner({ aviso }: { aviso: AvisoSesionCerrada | null }) {
+  // Mientras está a la vista, el banner global no promete "Sincronizando…" encima del encabezado.
+  useAnunciarAvisoDeSesion(!!aviso)
   if (!aviso) return null
   return (
     <div

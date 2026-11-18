@@ -25,6 +25,7 @@ import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import { useBuscarTarjeta } from './hooks/useBuscarTarjeta'
 import { AvisoSinTarjeta } from './components/AvisoSinTarjeta'
 import { CTA_RELLENO } from '@/components/torneo/cta-aviso'
+import { AvisoSinAccesoBanner } from './components/AvisoSinAccesoBanner'
 import { useSondeoRoster, rondaSiguienteYaAbierta } from './hooks/useSondeoRoster'
 import {
   fetchScoringTournament,
@@ -416,14 +417,7 @@ export default function PlayerScoringPage() {
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '14px', cursor: 'pointer', marginBottom: '8px', padding: '0 12px 0 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
               ← Cambiar jugador
             </button>
-            {sinAcceso && (
-              <div role="alert" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
-                <strong>{sinAcceso.titulo}.</strong> {sinAcceso.detalle}
-                <div style={{ marginTop: '10px' }}>
-                  <Link href={sinAcceso.href} style={CTA_RELLENO}>{sinAcceso.cta}</Link>
-                </div>
-              </div>
-            )}
+            <AvisoSinAccesoBanner aviso={sinAcceso} />
             {sinScores === 'no_empezo' && !rondaCerrada && (
               <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
                 <strong>El torneo todavía no empieza.</strong> Podrás anotar tu score cuando el organizador lo inicie.
