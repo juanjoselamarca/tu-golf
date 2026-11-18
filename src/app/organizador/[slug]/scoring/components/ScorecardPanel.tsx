@@ -12,16 +12,8 @@ import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { HoleStatsTable } from './HoleStatsTable'
 import { AvisoJugadorSinTarjeta, casoSinTarjeta } from './AvisoJugadorSinTarjeta'
-import { rotuloEstado, textoAvisoHoyo, textoBotonCierre } from './texto-guardado'
-import type { EstadoHoyo } from '../hooks/estado-hoyos'
-
-/** Cómo se marca la celda de un hoyo que no está en la base tal como se ve. Tokens light/dark (globals.css). */
-const MARCA_ESTADO: Record<EstadoHoyo, { bg: string; border: string; fg: string; glifo: string } | null> = {
-  limpio: null,
-  guardando: { bg: 'var(--surface-soft)', border: '2px dashed var(--text-2)', fg: 'var(--text-2)', glifo: '···' },
-  sin_confirmar: { bg: 'var(--status-open-bg)', border: '2px solid var(--status-open-fg)', fg: 'var(--status-open-fg)', glifo: '!' },
-  rechazado: { bg: 'var(--error-bg)', border: '2px solid var(--error-border)', fg: 'var(--error-fg)', glifo: '✕' },
-}
+import { rotuloEstado, textoAvisoGrupo, textoBotonCierre } from './texto-guardado'
+import { MARCA_ESTADO, TEXTO_SOBRE_SOLIDO } from './marca-estado'
 import type { useCrearTarjeta } from '../hooks/useCrearTarjeta'
 
 // Paleta del scorer del organizador — usa colores Garmin canónicos (T1 resuelta).
@@ -62,13 +54,22 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   const {
     selectedPlayer, selectedRound, holes, currentScores, vista, cierre,
     allFilled, parJugado, grossTotal, outGross, inGross, netTotal,
-    stablefordPtsAt, saveScore, finalizeRound, selectedId, reintentarGuardado,
+    stablefordPtsAt, saveScore, finalizeRound, selectedId, reintentarGuardado, descartarRechazados,
   } = entry
 
   if (!selectedPlayer) return null
 
   // Hoyos de esta tarjeta que no están en la base tal como se ven (con texto, no sólo color: se lee al sol).
-  const avisos = holes.filter((h) => vista[h]?.estado === 'sin_confirmar' || vista[h]?.estado === 'rechazado')
+  // Hoyos sin guardar agrupados por estado (y motivo, si fue rechazado): un aviso por grupo, no uno por hoyo.
+  const grupos: Array<{ clave: string; estado: 'sin_confirmar' | 'rechazado'; motivo: string | null; holes: number[] }> = []
+  for (const h of holes) {
+    const v = vista[h]
+    if (!v || (v.estado !== 'sin_confirmar' && v.estado !== 'rechazado')) continue
+    const clave = `${v.estado}:${v.motivo ?? ''}`
+    const g = grupos.find((x) => x.clave === clave)
+    if (g) g.holes.push(h)
+    else grupos.push({ clave, estado: v.estado, motivo: v.motivo, holes: [h] })
+  }
   const cierreEsta = cierre != null && cierre.roundId === selectedRound?.id
 
   const roundClosed = isClosedRoundStatus(selectedRound?.status)
@@ -185,9 +186,11 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
                 }}
                 placeholder="—"
               />
-              {marca && (
-                <div style={{ fontSize: '12px', fontWeight: 700, color: marca.fg, lineHeight: 1 }} aria-hidden="true">{marca.glifo}</div>
-              )}
+              {marca && (marca.solido ? (
+                <div aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '22px', height: '22px', borderRadius: '11px', background: marca.solido, color: TEXTO_SOBRE_SOLIDO, fontSize: '16px', fontWeight: 800, lineHeight: 1 }}>{marca.glifo}</div>
+              ) : (
+                <div aria-hidden="true" style={{ fontSize: '16px', fontWeight: 700, color: marca.fg, lineHeight: 1 }}>{marca.glifo}</div>
+              ))}
               {haScore && isStablefordFormat(resolveFormatoJuego(tournament)) && (() => {
                 const pts = stablefordPtsAt(holeNum, gross)
                 return (
@@ -202,16 +205,24 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         </div>
       </div>
 
-      {avisos.length > 0 && (
+      {grupos.length > 0 && (
         <div role="status" style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {avisos.map((h) => {
-            const v = vista[h]
-            const marca = MARCA_ESTADO[v.estado]!
-            return (
-              <button key={h} type="button" onClick={() => reintentarGuardado(selectedRound?.id)}
-                style={{ minHeight: '44px', borderRadius: '8px', border: marca.border, background: marca.bg, color: marca.fg, fontSize: '14px', fontWeight: 600, textAlign: 'left', padding: '8px 12px', cursor: 'pointer' }}>
-                {textoAvisoHoyo(h, v)} · Reintentar
+          {grupos.map((g) => {
+            const marca = MARCA_ESTADO[g.estado]!
+            const texto = textoAvisoGrupo(g.holes, g.estado, g.motivo)
+            const boton = { minHeight: '44px', borderRadius: '8px', border: marca.border, background: marca.bg, color: marca.fg, fontSize: '14px', fontWeight: 600, padding: '8px 12px', cursor: 'pointer' } as const
+            // Un aviso por grupo. Sin confirmar: el toque reintenta. Rechazado: reintentar (si el organizador lo
+            // arregló, p. ej. reabrió la tarjeta) o descartar (vuelve a lo guardado y deja de estar pendiente).
+            return g.estado === 'sin_confirmar' ? (
+              <button key={g.clave} type="button" onClick={() => reintentarGuardado(selectedRound?.id)} style={{ ...boton, textAlign: 'left' }}>
+                {texto} · Reintentar
               </button>
+            ) : (
+              <div key={g.clave} style={{ border: marca.border, background: marca.bg, borderRadius: '8px', padding: '8px 12px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: marca.fg, fontSize: '14px', fontWeight: 600, flex: '1 1 160px' }}>{texto}</span>
+                <button type="button" onClick={() => reintentarGuardado(selectedRound?.id)} style={{ ...boton, background: 'transparent' }}>Reintentar</button>
+                <button type="button" onClick={() => { if (selectedRound) descartarRechazados(selectedRound.id) }} style={{ ...boton, background: 'transparent' }}>Descartar</button>
+              </div>
             )
           })}
         </div>

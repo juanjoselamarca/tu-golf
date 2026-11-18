@@ -11,6 +11,7 @@ import { useRef, useState, type CSSProperties } from 'react'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { textoAvisoHoyo } from './texto-guardado'
+import { MARCA_ESTADO, type MarcaEstado } from './marca-estado'
 
 interface HoleStatsTableProps {
   courseHoles: CourseHole[]
@@ -25,12 +26,12 @@ export function siguienteTriEstado(v: boolean | null | undefined): boolean | nul
 
 const TEXTO_TRI = (v: boolean | null | undefined) => (v === true ? 'Sí' : v === false ? 'No' : '—')
 
-function estiloTri(v: boolean | null | undefined, fallo: boolean, disabled: boolean): CSSProperties {
+function estiloTri(v: boolean | null | undefined, marca: MarcaEstado | null, disabled: boolean): CSSProperties {
   return {
     width: '44px', height: '44px', fontSize: '14px', fontWeight: 600, borderRadius: '6px', padding: 0,
     cursor: disabled ? 'not-allowed' : 'pointer',
     background: v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'transparent',
-    border: fallo ? '2px solid var(--error-border)' : `1px solid ${v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--surface-border)'}`,
+    border: marca ? marca.border : `1px solid ${v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--surface-border)'}`,
     color: v == null ? 'var(--text-2)' : 'var(--text)',
   }
 }
@@ -99,6 +100,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
             const isFairwayApplicable = par >= 4
             // Sin confirmar o rechazado: se marca acá también, con texto (la grilla de arriba dice lo mismo).
             const fallo = v != null && (v.estado === 'sin_confirmar' || v.estado === 'rechazado')
+            const marca = fallo ? MARCA_ESTADO[v.estado] : null
             const invalido = puttsInvalidos?.hoyo === h ? puttsInvalidos.texto : null
 
             return [
@@ -119,7 +121,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                     onBlur={() => { if (!disabled) salirDePutts(h) }}
                     aria-label={`Putts del hoyo ${h}`}
                     aria-invalid={fallo || invalido != null || undefined}
-                    style={{ width: '48px', minHeight: '44px', background: 'var(--bg)', border: fallo || invalido != null ? '2px solid var(--error-border)' : '1px solid var(--surface-border)', borderRadius: '6px', color: 'var(--text)', textAlign: 'center', fontSize: '16px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
+                    style={{ width: '48px', minHeight: '44px', background: 'var(--bg)', border: marca ? marca.border : invalido != null ? '2px solid var(--error-border)' : '1px solid var(--surface-border)', borderRadius: '6px', color: 'var(--text)', textAlign: 'center', fontSize: '16px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
                     placeholder="—"
                   />
                 </td>
@@ -129,7 +131,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                     <button type="button" disabled={disabled}
                       aria-label={`Fairway del hoyo ${h}: ${TEXTO_TRI(v?.fairway_hit)}`}
                       onClick={() => rotar(h, 'fairway_hit')}
-                      style={estiloTri(v?.fairway_hit, fallo, disabled)}>
+                      style={estiloTri(v?.fairway_hit, marca, disabled)}>
                       {TEXTO_TRI(v?.fairway_hit)}
                     </button>
                   ) : (
@@ -141,7 +143,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                   <button type="button" disabled={disabled}
                     aria-label={`GIR del hoyo ${h}: ${TEXTO_TRI(v?.gir)}`}
                     onClick={() => rotar(h, 'gir')}
-                    style={estiloTri(v?.gir, fallo, disabled)}>
+                    style={estiloTri(v?.gir, marca, disabled)}>
                     {TEXTO_TRI(v?.gir)}
                   </button>
                 </td>
@@ -153,12 +155,12 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                   </td>
                 </tr>
               ),
-              fallo && (
+              marca && (
                 <tr key={`${h}-fallo`} style={{ borderBottom: '1px solid var(--surface-soft)' }}>
                   <td colSpan={5} style={{ padding: '0 2px 6px' }}>
                     {/* Reenvía el hoyo completo (golpe y stats), también un rechazo: el organizador lo pide. */}
                     <button type="button" onClick={() => reintentarGuardado(selectedRound?.id)}
-                      style={{ width: '100%', minHeight: '44px', borderRadius: '6px', border: '1px solid var(--error-border)', background: 'var(--error-bg)', color: 'var(--error-fg)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                      style={{ width: '100%', minHeight: '44px', borderRadius: '6px', border: marca.border, background: marca.bg, color: marca.fg, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                       {textoAvisoHoyo(h, v)} · toca para reintentar
                     </button>
                   </td>

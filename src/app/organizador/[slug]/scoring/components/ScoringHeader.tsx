@@ -56,10 +56,12 @@ export function ScoringHeader({
             </span>
           )}
           {saving && <span style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
-          {lastAction && !saving && (
+          {/* Visible también con un guardado en vuelo: deshacer es una edición más del hoyo y sale detrás. */}
+          {lastAction && (
             <button
+              type="button"
               onClick={onUndo}
-              style={{ fontSize: '12px', color: 'var(--brand-on-bg)', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
+              style={{ minHeight: '44px', fontSize: '13px', fontWeight: 600, color: 'var(--brand-on-bg)', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '8px', padding: '8px 12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
             >
               Deshacer hoyo {lastAction.hole}
             </button>

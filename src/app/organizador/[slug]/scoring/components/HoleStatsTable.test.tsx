@@ -145,8 +145,10 @@ describe('HoleStatsTable · fairway y GIR', () => {
     expect(reintentarGuardado).toHaveBeenCalledWith('r1')
   })
 
-  it('un hoyo sin confirmar también se ve con texto', () => {
+  it('un hoyo sin confirmar también se ve con texto, en ámbar como en la grilla (no en rojo de rechazo)', () => {
     montar({}, { estado: 'sin_confirmar' })
-    expect(screen.getByRole('button', { name: /sin confirmar · toca para reintentar/i })).toBeTruthy()
+    const aviso = screen.getByRole('button', { name: /sin confirmar · toca para reintentar/i })
+    expect(aviso.style.color).toBe('var(--status-open-fg)')
+    expect(aviso.style.border).toContain('var(--status-open-fg)')
   })
 })

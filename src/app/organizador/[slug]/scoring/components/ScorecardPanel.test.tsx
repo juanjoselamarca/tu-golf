@@ -20,7 +20,7 @@ function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
     selectedRound: { id: 'r1', status: 'in_progress' },
     holes: [],
     currentScores: {},
-    vista: {}, editable: true, cierre: null, reintentarGuardado: vi.fn(),
+    vista: {}, editable: true, cierre: null, reintentarGuardado: vi.fn(), descartarRechazados: vi.fn(),
     saving: false,
     allFilled: false,
     outGross: 0,
@@ -159,19 +159,37 @@ describe('ScorecardPanel — estado de guardado por hoyo', () => {
   const fila = (estado: string, motivo: string | null = null) =>
     ({ gross: 5, putts: null, fairway_hit: null, gir: null, estado, motivo, quizaAplicado: false })
 
-  it('un hoyo sin confirmar y uno rechazado se dicen con texto y el toque reintenta la ronda abierta', () => {
+  it('hoyos sin confirmar y rechazados: UN aviso por grupo (no uno por hoyo); reintentar y descartar la ronda abierta', () => {
     const reintentarGuardado = vi.fn()
+    const descartarRechazados = vi.fn()
     render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({
-      holes: [1, 2, 3], currentScores: { 1: 5, 2: 5, 3: 5 }, reintentarGuardado,
-      vista: { 1: fila('limpio'), 2: fila('sin_confirmar'), 3: fila('rechazado', 'closed') },
+      holes: [1, 2, 3, 4, 5], currentScores: { 1: 5, 2: 5, 3: 5, 4: 5, 5: 5 }, reintentarGuardado, descartarRechazados,
+      vista: { 1: fila('limpio'), 2: fila('sin_confirmar'), 3: fila('rechazado', 'closed'), 4: fila('sin_confirmar'), 5: fila('rechazado', 'closed') },
     } as never)} />)
     expect(screen.getByLabelText('Golpes del hoyo 1')).toBeTruthy()
     expect(screen.getByLabelText('Golpes del hoyo 2 (sin confirmar)')).toBeTruthy()
-    const aviso = screen.getByRole('button', { name: 'Hoyo 3: no se guardó (tarjeta cerrada) · Reintentar' })
-    expect(parseInt(aviso.style.minHeight)).toBeGreaterThanOrEqual(44)
-    expect(screen.getByRole('button', { name: 'Hoyo 2: sin confirmar · Reintentar' })).toBeTruthy()
-    fireEvent.click(aviso)
+    const sinConfirmar = screen.getByRole('button', { name: 'Hoyos 2, 4 sin confirmar · Reintentar' })
+    expect(parseInt(sinConfirmar.style.minHeight)).toBeGreaterThanOrEqual(44)
+    expect(screen.getByText('Hoyos 3, 5 no se guardaron (tarjeta cerrada)')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /Reintentar/ })).toHaveLength(2)
+    fireEvent.click(sinConfirmar)
     expect(reintentarGuardado).toHaveBeenCalledWith('r1')
+    const descartar = screen.getByRole('button', { name: 'Descartar' })
+    expect(parseInt(descartar.style.minHeight)).toBeGreaterThanOrEqual(44)
+    fireEvent.click(descartar)
+    expect(descartarRechazados).toHaveBeenCalledWith('r1')
+  })
+
+  it('la marca de un hoyo sin guardar no depende del color del score: distintivo sólido con glifo de 16 px', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({
+      holes: [1, 2], currentScores: { 1: 6, 2: 7 }, vista: { 1: fila('sin_confirmar'), 2: fila('rechazado', 'closed') },
+    } as never)} />)
+    const ambar = screen.getByText('!')
+    expect(ambar.style.fontSize).toBe('16px')
+    expect(ambar.style.background).toBe('var(--status-open-fg)')
+    const rojo = screen.getByText('✕')
+    expect(rojo.style.fontSize).toBe('16px')
+    expect(rojo.style.background).toBe('var(--error-border)')
   })
 
   it('un hoyo guardando no lleva aviso de error (sólo la marca de la celda)', () => {

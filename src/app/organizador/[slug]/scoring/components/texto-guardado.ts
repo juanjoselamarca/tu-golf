@@ -30,6 +30,17 @@ export function textoAvisoHoyo(hole: number, v: Pick<VistaHoyo, 'estado' | 'moti
   return `Hoyo ${hole}: ${rotulo}${v.estado === 'rechazado' ? ` (${textoMotivo(v.motivo)})` : ''}`
 }
 
+/**
+ * Aviso de un grupo de hoyos en el mismo estado (y motivo): UN aviso para todos, no uno por hoyo.
+ * "Hoyos 3, 4, 7 sin confirmar" · "Hoyo 5 no se guardó (tarjeta cerrada)".
+ */
+export function textoAvisoGrupo(holes: readonly number[], estado: 'sin_confirmar' | 'rechazado', motivo: string | null): string {
+  const uno = holes.length === 1
+  const cuales = `${uno ? 'Hoyo' : 'Hoyos'} ${holes.join(', ')}`
+  if (estado === 'sin_confirmar') return `${cuales} sin confirmar`
+  return `${cuales} no se ${uno ? 'guardó' : 'guardaron'} (${textoMotivo(motivo)})`
+}
+
 const hoyos = (n: number) => (n === 1 ? '1 hoyo' : `${n} hoyos`)
 
 /**
