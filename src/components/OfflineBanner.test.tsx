@@ -73,5 +73,12 @@ describe('OfflineBanner — con el aviso de sesión de un scorer a la vista', ()
     rerender(<><OfflineBanner />{aviso(false)}</>)
     expect(await screen.findByText('Sincronizando 2 hoyos...')).toBeTruthy()
   })
+
+  it('sin conexión, "Sin conexión" se sigue viendo aunque esté el aviso de sesión', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    respaldo('ABC123')
+    render(<><OfflineBanner />{casos[0][1](true)}</>)
+    expect(await screen.findByText(/^Sin conexión/)).toBeTruthy()
+  })
 })
 

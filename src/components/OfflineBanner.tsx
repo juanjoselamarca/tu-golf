@@ -43,8 +43,10 @@ export function OfflineBanner() {
     }
   }, [])
 
-  // Mostrar siempre que esté offline, o cuando haya scores pendientes (aunque vuelva online).
-  if (avisoDeSesion || (!offline && pendientes === 0)) return null
+  // Mostrar siempre que esté offline, o cuando haya scores pendientes (aunque vuelva online). Con el aviso de
+  // sesión de un scorer a la vista se calla solo "Sincronizando" (lo contradice); "Sin conexión" es otro
+  // problema y se sigue viendo (Fable #833).
+  if (!offline && (avisoDeSesion || pendientes === 0)) return null
 
   const mensaje = offline
     ? pendientes > 0
