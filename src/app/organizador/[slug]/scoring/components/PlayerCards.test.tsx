@@ -17,7 +17,7 @@ describe('PlayerCards — progreso de la tarjeta', () => {
     ['sin tarjeta y aprobado, ronda pasada', 'approved', { ...V, rondaVigente: false }, 'No jugó'],
     ['sin tarjeta y retirado, ronda pasada', 'withdrawn', { ...V, rondaVigente: false }, 'No jugó'],
     ['sin tarjeta y aprobado, torneo cerrado', 'approved', { ...V, admiteTarjetas: false }, 'No jugó'],
-    ['sin tarjeta y retirado, torneo cerrado', 'withdrawn', { ...V, admiteTarjetas: false }, 'No juega'],
+    ['sin tarjeta y retirado, torneo cerrado', 'withdrawn', { ...V, admiteTarjetas: false }, 'No jugó'],
   ])('%s', (_caso, status, ctx, texto) => {
     expect(progresoDeTarjeta({ round: undefined, status, hoyosConScore: 0, holeCount: 18, ...ctx })).toBe(texto)
   })
@@ -36,5 +36,20 @@ describe('PlayerCards — progreso de la tarjeta', () => {
     render(<PlayerCards players={[p]} selectedId={null} holeCount={18} filledCount={0} getActiveRound={() => undefined} hasScoresLoaded roundHoleCounts={new Map()} rondaVigente admiteTarjetas onSelect={() => {}} />)
     expect(screen.queryByText('0/18')).toBeNull()
     expect(screen.getByText('No juega')).toBeTruthy()
+  })
+
+  // Fable #833 v2: a 390 px la 3ª tarjeta quedaba cortada bajo el degradado del borde ("No jugó" ilegible).
+  it('la tarjeta elegida se trae a la vista (fuera del degradado)', () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    const ps = ['p1', 'p2', 'p3'].map((id) => ({ id, status: 'approved', profiles: { name: id }, rounds: [] })) as unknown as ScoringPlayer[]
+    const props = { players: ps, holeCount: 18, filledCount: 0, getActiveRound: () => undefined, hasScoresLoaded: true, roundHoleCounts: new Map(), rondaVigente: true, admiteTarjetas: false, onSelect: () => {} }
+    const { rerender } = render(<PlayerCards {...props} selectedId="p1" />)
+    scroll.mockClear()
+    rerender(<PlayerCards {...props} selectedId="p3" />)
+    expect(scroll).toHaveBeenCalledTimes(1)
+    expect(scroll.mock.contexts[0]).toBe(document.querySelector('[data-player-card="p3"]'))
+    expect(screen.getByRole('button', { pressed: true }).getAttribute('data-player-card')).toBe('p3')
   })
 })

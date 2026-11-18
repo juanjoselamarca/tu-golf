@@ -24,14 +24,14 @@ export type CasoSinTarjeta = 'no_juega' | 'no_jugo' | 'crear'
 export function casoSinTarjeta(
   status: string | null | undefined,
   esRondaVigente: boolean,
-  /** El torneo recibe golpes. Cerrado o publicado no se crea tarjeta: el aprobado sin ella "no jugó" (Fable #829). */
+  /** El torneo recibe golpes. Cerrado o publicado, quien no tiene tarjeta "no jugó" (sea cual sea su estado). */
   admiteTarjetas = true,
 ): CasoSinTarjeta {
   // Una ronda pasada sin tarjeta es "no jugó", sea cual sea su estado HOY: un WD de la ronda 3 sí jugó (o no)
   // la 1, y "Se retiró: no juega esta ronda" sobre la ronda 1 dice otra cosa (Fable #829).
-  if (!esRondaVigente) return 'no_jugo'
-  if (!inscritoAprobado(status)) return 'no_juega'
-  return admiteTarjetas ? 'crear' : 'no_jugo'
+  // Torneo cerrado o publicado: la tarjeta ya no se va a jugar, igual que una ronda pasada (Fable #833 v2).
+  if (!esRondaVigente || !admiteTarjetas) return 'no_jugo'
+  return inscritoAprobado(status) ? 'crear' : 'no_juega'
 }
 
 const CAJA = { margin: '16px 20px 0', padding: '12px 14px', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 } as const

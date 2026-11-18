@@ -120,10 +120,13 @@ describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
     expect(screen.queryAllByRole('spinbutton').length).toBeGreaterThan(0)
   })
 
-  it('torneo cerrado: un retirado igual ve que no juega (es informativo)', () => {
+  // Fable #833 v2: con el torneo cerrado la tarjeta ya no se juega; "no juega ESTA ronda" hablaba de algo que
+  // ya pasó. Igual que una ronda pasada: "no jugó", y el carrusel dice lo mismo (casoSinTarjeta).
+  it('torneo cerrado: un retirado sin tarjeta "no jugó la ronda N"', () => {
     const e = entry({ selectedRound: undefined, holes: [1, 2], selectedPlayer: { id: 'p1', status: 'withdrawn', profiles: { name: 'E2E Test' }, handicap_at_registration: 15 } as never })
     render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} soloLectura />)
-    expect(screen.getByTestId('organizador-no-juega')).toBeTruthy()
+    expect(screen.getByTestId('organizador-no-jugo').textContent).toBe('E2E Test no jugó la ronda 1.')
+    expect(screen.queryByTestId('organizador-no-juega')).toBeNull()
   })
 
   it('con tarjeta no hay aviso', () => {

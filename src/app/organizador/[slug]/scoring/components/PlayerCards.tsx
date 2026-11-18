@@ -22,6 +22,9 @@ export function progresoDeTarjeta(args: {
   return `${args.hoyosConScore}/${args.holeCount}`
 }
 
+/** Ancho del degradado de cada borde del carrusel (indica que hay más jugadores). */
+const ANCHO_DEGRADADO = 32
+
 function getInitials(name: string) {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
 }
@@ -79,13 +82,22 @@ export function PlayerCards({
     }
   }, [updateScrollIndicators, players.length])
 
+  // La tarjeta elegida se ve entera: a 390 px la 3ª quedaba cortada y bajo el degradado del borde ("No jugó"
+  // ilegible, Fable #833 v2). `scrollPaddingInline` deja el ancho del degradado libre al traerla.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || !selectedId) return
+    const card = Array.from(el.querySelectorAll<HTMLElement>('[data-player-card]')).find((c) => c.dataset.playerCard === selectedId)
+    card?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [selectedId, players.length])
+
   return (
     <div style={{ position: 'relative', marginBottom: '28px' }}>
       {/* Gradiente izquierdo */}
       {canScrollLeft && (
         <div
           style={{
-            position: 'absolute', left: 0, top: 0, bottom: 0, width: 32,
+            position: 'absolute', left: 0, top: 0, bottom: 0, width: ANCHO_DEGRADADO,
             background: 'linear-gradient(to right, var(--bg-surface), transparent)',
             zIndex: 1, pointerEvents: 'none', borderRadius: '10px 0 0 10px',
           }}
@@ -95,13 +107,13 @@ export function PlayerCards({
       {canScrollRight && (
         <div
           style={{
-            position: 'absolute', right: 0, top: 0, bottom: 0, width: 32,
+            position: 'absolute', right: 0, top: 0, bottom: 0, width: ANCHO_DEGRADADO,
             background: 'linear-gradient(to left, var(--bg-surface), transparent)',
             zIndex: 1, pointerEvents: 'none', borderRadius: '0 10px 10px 0',
           }}
         />
       )}
-      <div ref={scrollRef} style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
+      <div ref={scrollRef} style={{ overflowX: 'auto', scrollbarWidth: 'none', scrollPaddingInline: `${ANCHO_DEGRADADO}px` }}>
       <div style={{ display: 'flex', gap: '12px', padding: '4px 0' }}>
         {players.map((p) => {
           const round = getActiveRound(p)
@@ -110,6 +122,8 @@ export function PlayerCards({
           return (
             <button
               key={p.id}
+              data-player-card={p.id}
+              aria-pressed={isSelected}
               onClick={() => onSelect(p.id)}
               style={{
                 minWidth: '120px',
