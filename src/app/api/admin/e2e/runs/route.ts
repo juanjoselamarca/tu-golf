@@ -3,12 +3,12 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { validarEntradaCorrida } from '@/lib/entrada-corrida-e2e'
 
 export const dynamic = 'force-dynamic'
 
 const GITHUB_REPO = 'juanjoselamarca/tu-golf'
 const GITHUB_WORKFLOW = 'e2e-trigger.yml'
-const DEFAULT_BASE_URL = 'https://golfersplus.vercel.app'
 
 // GET /api/admin/e2e/runs — lista las últimas 20 corridas
 export async function GET() {
@@ -68,14 +68,16 @@ export async function POST(req: NextRequest) {
     }, { status: 503 })
   }
 
-  let body: { base_url?: string; branch?: string } = {}
+  let body: unknown = {}
   try {
     body = await req.json()
   } catch {
     // body vacío es OK; usamos defaults
   }
-  const baseUrl = body.base_url ?? DEFAULT_BASE_URL
-  const branch = body.branch ?? 'main'
+  // Lista blanca: el workflow corre con las credenciales E2E contra base_url.
+  const entrada = validarEntradaCorrida(body)
+  if (!entrada.ok) return NextResponse.json({ error: entrada.error }, { status: 400 })
+  const { baseUrl, branch } = entrada
 
   // 1. Crear fila queued (con cliente del usuario para auditoría triggered_by).
   const { data: run, error: insertError } = await supabase
