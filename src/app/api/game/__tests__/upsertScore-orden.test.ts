@@ -3,7 +3,7 @@
 // el POST del 5 llega después: quedaba guardado el 5. Con `seq`/`dispositivo`, upsertScore escribe por la función
 // `guardar_hole_score`, que descarta el más viejo (la semántica SQL se probó en golfersplus-test, ver el PR). Sin la
 // función todavía (código en prod antes de aprobar la migración) cae al upsert de siempre: nunca deja de guardar.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
@@ -64,7 +64,15 @@ function base(opciones: { conFuncion?: boolean; errorRpc?: { code: string; messa
 const golpe = (gross: number, seq?: number, dispositivo: unknown = DISPOSITIVO) =>
   ({ round_id: ROUND, hole_number: 7, par: 4, gross_score: gross, ...(seq !== undefined ? { seq, dispositivo } : {}) })
 
-beforeEach(() => { vi.clearAllMocks() })
+// El reporte de la migración a medias tiene tope por minuto a nivel de módulo: cada test corre un reloj más
+// adelante para no heredar el reporte del anterior.
+let reloj = Date.UTC(2026, 10, 18)
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime((reloj += 10 * 60_000))
+})
+afterEach(() => { vi.useRealTimers() })
 
 describe('upsertScore · orden de los guardados de un hoyo', () => {
   it('el 5 (seq 1) que llega después del 4 (seq 2) se descarta: queda el 4, sin auditar ni recalcular totales', async () => {
@@ -130,6 +138,24 @@ describe('upsertScore · orden de los guardados de un hoyo', () => {
     expect(llamadas.upsert).toHaveLength(1)
     expect(captureError).toHaveBeenCalledTimes(1)
     expect(captureError.mock.calls[0][1]).toMatchObject({ context: 'scoring.guardar_hole_score', meta: { code } })
+  })
+
+  // Revisión Fable de #832 (P2): la migración a medias se repite en CADA golpe. Sin tope, un torneo inundaba el
+  // tracker con cientos de errores por minuto por la misma causa. El guardado de respaldo no cambia.
+  it('migración incompleta: un reporte por minuto por instancia, y cada golpe se sigue guardando', async () => {
+    const { svc, llamadas } = base({ errorRpc: { code: '42P01', message: 'relation does not exist' } })
+    for (let seq = 1; seq <= 5; seq++) expect((await upsertScore(svc, USER, golpe(seq, seq))).status).toBe(200)
+    expect(llamadas.upsert).toHaveLength(5)
+    expect(captureError).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(Date.now() + 59_000)
+    await upsertScore(svc, USER, golpe(6, 6))
+    expect(captureError).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(Date.now() + 1_000)
+    await upsertScore(svc, USER, golpe(7, 7))
+    expect(captureError).toHaveBeenCalledTimes(2)
+    expect(llamadas.upsert).toHaveLength(7)
   })
 
   it('otro error de la función NO cae al upsert sin orden: 500 y se reporta', async () => {

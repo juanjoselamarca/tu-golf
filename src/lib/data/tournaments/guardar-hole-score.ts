@@ -50,6 +50,11 @@ function migracionIncompleta(error: PostgrestError): boolean {
   return error.code === '42P01' || error.code === '42501'
 }
 
+/** Un reporte por minuto por instancia como tope. La migración a medias es un estado roto que se repite en CADA
+ *  golpe con secuencia: en un torneo eso son cientos de errores por minuto al tracker por la misma causa. */
+export const INTERVALO_REPORTE_MIGRACION_MS = 60_000
+let ultimoReporteMigracion = -Infinity
+
 /**
  * Upsert de la fila por (round_id, hole_number). `fila` sólo trae las columnas
  * a escribir: una ausente queda como estaba (lo mismo en los dos caminos).
@@ -70,11 +75,15 @@ export async function guardarHoleScore(
       return { ok: true, id: r?.id ?? null, aplicado: r?.aplicado !== false }
     }
     if (migracionIncompleta(error)) {
-      void captureError(new Error(`guardar_hole_score: ${error.code} ${error.message}`), {
-        context: 'scoring.guardar_hole_score',
-        level: 'error',
-        meta: { code: error.code, round_id: fila.round_id, hole_number: fila.hole_number },
-      })
+      const ahora = Date.now()
+      if (ahora - ultimoReporteMigracion >= INTERVALO_REPORTE_MIGRACION_MS) {
+        ultimoReporteMigracion = ahora
+        void captureError(new Error(`guardar_hole_score: ${error.code} ${error.message}`), {
+          context: 'scoring.guardar_hole_score',
+          level: 'error',
+          meta: { code: error.code, round_id: fila.round_id, hole_number: fila.hole_number },
+        })
+      }
     } else if (!faltaLaFuncion(error)) {
       return { ok: false, error }
     }
