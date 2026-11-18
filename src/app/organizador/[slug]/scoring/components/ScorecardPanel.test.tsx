@@ -17,7 +17,7 @@ function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
     holes: [],
     currentScores: {},
     vista: {}, editable: true, cierre: null, reintentarGuardado: vi.fn(),
-    saving: new Set(),
+    saving: false,
     allFilled: false,
     outGross: 0,
     inGross: 0,

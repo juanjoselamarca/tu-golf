@@ -312,21 +312,6 @@ export async function fetchBulkRoundHoleCounts(
   return counts
 }
 
-/** Totales denormalizados de la ronda (para refrescar la ficha tras un save).
- *  Sólo UI del scorer: el Resumen NO los consume — deriva del motor. */
-export async function fetchRoundTotals(
-  supabase: SupabaseClient,
-  roundId: string,
-): Promise<Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'> | null> {
-  const { data, error } = await supabase
-    .from('rounds')
-    .select('total_gross, total_net, total_points')
-    .eq('id', roundId)
-    .single()
-  if (error && error.code !== 'PGRST116') throw error
-  return (data as Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'> | null) ?? null
-}
-
 /** La ruta rechazó el hándicap con un mensaje para el organizador (400 fuera de rango o decimales, 429, 404). */
 export class HandicapNoGuardadoError extends Error {
   constructor(message: string) {
