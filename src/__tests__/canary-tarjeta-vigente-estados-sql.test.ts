@@ -46,8 +46,7 @@ describe('canario: estados de asegurar_tarjeta_vigente = fuentes únicas de Type
     expect(sql).toMatch(/IF\s+v_vigente\s*<\s*v_total\b/i)
   })
 
-  it('migración: "en juego" cuenta solo tarjetas de jugadores aprobados', () => {
-    const sql = fuentes[0][1]
+  it.each(fuentes)('%s: "en juego" cuenta solo tarjetas de jugadores aprobados', (_, sql) => {
     expect(sql).toMatch(/JOIN\s+players\s+pl\s+ON\s+pl\.id\s*=\s*r\.player_id/i)
     const m = /pl\.status\s*=\s*'([^']+)'/i.exec(sql)
     expect(m, sql).not.toBeNull()

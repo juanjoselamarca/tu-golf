@@ -1032,17 +1032,22 @@ BEGIN
   END IF;
 
   -- ENTRE RONDAS (la vigente ya cerrada y queda una siguiente) no se crea nada: una tarjeta abierta ahí
-  -- bloquearía "abrir la ronda siguiente", y startNextRound crea la de la siguiente para cada fila de players
-  -- (hoy todas, incluidos WD/DQ y pendientes). En la ÚLTIMA ronda (o un torneo de una ronda) sí se crea aunque
-  -- las demás tarjetas estén cerradas: si no, el jugador agregado tarde quedaba sin tarjeta para siempre.
+  -- bloquearía "abrir la ronda siguiente", y startNextRound crea la de la siguiente para cada jugador aprobado.
+  -- En la ÚLTIMA ronda (o un torneo de una ronda) sí se crea aunque las demás tarjetas estén cerradas: si no, el
+  -- jugador agregado tarde quedaba sin tarjeta para siempre.
+  -- "En juego" = alguna tarjeta ABIERTA de un jugador APROBADO (= contarTarjetasEnJuego de
+  -- src/lib/data/tournaments/siguiente-ronda.ts). La tarjeta abierta de un retirado (WD) o descalificado (DQ) no
+  -- cuenta: retirarse no la cierra (se preserva tal cual) y no puede dejar la ronda "en juego" para siempre.
   -- Estados de tarjeta cerrada = CLOSED_ROUND_STATUSES de src/golf/tournament-rounds.ts (canario).
   -- Nunca se crean tarjetas de rondas ANTERIORES que el jugador no jugó.
   IF v_vigente < v_total
      AND EXISTS (SELECT 1 FROM rounds WHERE tournament_id = p_tournament_id)
      AND NOT EXISTS (
-       SELECT 1 FROM rounds
-       WHERE tournament_id = p_tournament_id AND round_number = v_vigente
-         AND status NOT IN ('closed', 'official')
+       SELECT 1 FROM rounds r
+       JOIN players pl ON pl.id = r.player_id
+       WHERE r.tournament_id = p_tournament_id AND r.round_number = v_vigente
+         AND r.status NOT IN ('closed', 'official')
+         AND pl.status = 'approved'
      ) THEN
     RETURN jsonb_build_object('ok', false, 'reason', 'round_not_in_play', 'round_number', v_vigente);
   END IF;
