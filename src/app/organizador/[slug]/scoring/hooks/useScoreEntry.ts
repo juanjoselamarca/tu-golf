@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { enviarHoyo, leerTocadas, reconciliar, SIN_TOCAR, tocar, type HoleStatPatch, type VersionesEnviadas } from './envio-hoyo'
 import { useCargaTarjeta, type GrossEnVuelo, type TarjetaCargada } from './useCargaTarjeta'
+import { useStatsHoyo } from './useStatsHoyo'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
@@ -86,14 +87,6 @@ export function useScoreEntry({
    *  pantalla ya es de otra tarjeta y no se toca. Se escribe en los handlers, no
    *  en el render. */
   const tarjetaRef = useRef(0)
-  /** Hoyos que ya avisaron que sus stats no se guardaron — un aviso por hoyo,
-   *  no uno por cada tap de putts/fairway/GIR.
-   *
-   *  La llave lleva jugador y ronda, no sólo el número de hoyo: con la clave
-   *  suelta, un fallo en el hoyo 5 del jugador A silenciaba el aviso del hoyo 5
-   *  de B. El dedupe se comía un aviso legítimo de pérdida de datos, que es
-   *  justo lo que el aviso existe para evitar. */
-  const statWarnedHolesRef = useRef<Set<string>>(new Set())
   const [holePutts, setHolePutts] = useState<Record<number, number | null>>({})
   const [holeFairway, setHoleFairway] = useState<Record<number, boolean | null>>({})
   const [holeGir, setHoleGir] = useState<Record<number, boolean | null>>({})
@@ -146,11 +139,17 @@ export function useScoreEntry({
     setHoleGir(t.gir)
   }, [])
 
-  const { cargaTarjeta, cargaTarjetaRef, rondaCargadaRef, cargaLenta, marcarCargando, reintentarCarga } =
+  const { cargaTarjeta, cargaLenta, tarjetaLista, marcarCargando, invalidarCargas, reintentarCarga } =
     useCargaTarjeta({
       selectedId, players, getActiveRound, tarjetaRef, statsTocadasRef, grossEnVueloRef,
       aplicar: aplicarTarjeta, resetHoleState, showError,
     })
+
+  const parDelHoyo = useCallback((h: number) => holeByNumero.get(h)?.par ?? 4, [holeByNumero])
+  const { saveHoleStat, cambiarStat, enviarPendientes, statsGuardadas, statsFallidas } = useStatsHoyo({
+    tournament, selectedId, players, getActiveRound, currentScores, parDelHoyo, tarjetaLista, statsTocadasRef,
+    fotoStatsDelHoyo, confirmarStats, showWarning,
+  })
 
   const selectPlayer = useCallback(
     (playerId: string) => {
@@ -158,6 +157,8 @@ export function useScoreEntry({
       // "Cargando…" para siempre (la carga corre al cambiar de jugador, y no cambió).
       if (playerId === selectedIdRef.current) return
       selectedIdRef.current = playerId
+      // Lo que esperaba el fin de los toques sale ahora, con la foto de ESTA tarjeta (después ya no está).
+      enviarPendientes()
       tarjetaRef.current += 1
       // Todo lo de la tarjeta anterior se va YA, no cuando termine la carga: si la carga tarda o falla, anotar el
       // hoyo 1 de B mandaba putts, fairway y GIR de A a la ronda de B.
@@ -167,11 +168,12 @@ export function useScoreEntry({
       resetHoleState()
       setLastAction(null)
     },
-    [resetHoleState, marcarCargando],
+    [resetHoleState, marcarCargando, enviarPendientes],
   )
 
   const clearSelection = useCallback(() => {
     selectedIdRef.current = null
+    enviarPendientes()
     tarjetaRef.current += 1
     statsTocadasRef.current = SIN_TOCAR
     marcarCargando()
@@ -180,7 +182,7 @@ export function useScoreEntry({
     // Cerrar la tarjeta (o cambiar de ronda) descarta el deshacer pendiente: el
     // botón "Deshacer hoyo N" quedaba vivo en el header sin tarjeta a la vista.
     setLastAction(null)
-  }, [resetHoleState, marcarCargando])
+  }, [resetHoleState, marcarCargando, enviarPendientes])
 
   // ── Derivados de la tarjeta seleccionada ──
   const filledCount = holes.filter((h) => currentScores[h] != null).length
@@ -243,7 +245,7 @@ export function useScoreEntry({
       const player = players.find((p) => p.id === selectedId)
       if (!player) return
       const round = getActiveRound(player)
-      if (cargaTarjetaRef.current !== 'lista' || (round && rondaCargadaRef.current !== round.id)) {
+      if (round && !tarjetaLista(round.id)) {
         // Sin ESTA ronda cargada no se sabe qué hay en el hoyo (ver `CargaTarjeta`): la tarjeta recién creada o
         // la ronda que cambió todavía muestra lo de antes. La grilla ya está bloqueada.
         showWarning('Espera un momento', 'La tarjeta todavía no carga. Anota cuando aparezca.')
@@ -312,7 +314,13 @@ export function useScoreEntry({
         return
       }
       marcar('guardado')
-      if (res.aplicado) confirmarStats(round.id, holeNumber, versiones)
+      if (res.aplicado) {
+        confirmarStats(round.id, holeNumber, versiones)
+        statsGuardadas(round.id, holeNumber)
+      }
+      // Una recarga pedida antes de que el golpe llegara a la base no se aplica: lo borraría de la pantalla (ya no
+      // está en vuelo para superponerlo). La que sigue a este guardado ya lo trae.
+      invalidarCargas()
       showSuccess('Score guardado', '', { duration: 1500 })
 
       // Refrescar los totales denormalizados de la ficha (no los usa el Resumen).
@@ -326,7 +334,7 @@ export function useScoreEntry({
     [
       tournament, selectedId, players, getActiveRound, holeByNumero, siAllocByHole,
       courseHoles, courseTees, holeCount, currentScores, fotoStatsDelHoyo, confirmarStats,
-      applyRoundTotals, showError, showSuccess, showWarning, cargaTarjetaRef, rondaCargadaRef,
+      applyRoundTotals, showError, showSuccess, showWarning, tarjetaLista, statsGuardadas, invalidarCargas,
     ],
   )
 
@@ -420,49 +428,6 @@ export function useScoreEntry({
     }
   }, [lastAction, tournament, saving, holeByNumero, applyRoundTotals, showSuccess, showWarning, confirmarStats])
 
-  /** Persiste una stat opcional del hoyo (putts / fairway / GIR) contra la ronda
-   *  ACTIVA — antes las stats escribían siempre contra `rounds[0]`, así que en
-   *  multi-ronda los putts de la R2 caían en la ronda 1. Devuelve si quedó guardada: la tabla reintenta los
-   *  putts que fallaron aunque el valor no cambie. */
-  const saveHoleStat = useCallback(
-    async (holeNumber: number, patch: HoleStatPatch): Promise<boolean> => {
-      if (!tournament || !selectedId) return false
-      const gross = currentScores[holeNumber]
-      if (gross == null) return false
-      const player = players.find((p) => p.id === selectedId)
-      const round = getActiveRound(player)
-      // Sólo contra la ronda que está a la vista: una que todavía no cargó no tiene golpe conocido en el hoyo.
-      if (!round || rondaCargadaRef.current !== round.id) return false
-      const avisoKey = `${selectedId}:${round.id}:${holeNumber}`
-      // Igual que el deshacer: manda sólo el gross, el servidor deriva el neto,
-      // y si eso falla la stat se pierde. Antes se perdía sin decir nada.
-      const { foto: stats, versiones } = fotoStatsDelHoyo(round.id, holeNumber, patch)
-      const res = await enviarHoyo({
-        tournament_id: tournament.id,
-        round_id: round.id,
-        hole_number: holeNumber,
-        par: holeByNumero.get(holeNumber)?.par ?? 4,
-        gross_score: gross,
-        ...stats,
-      })
-      if (!res.ok) {
-        // Un solo aviso por hoyo, no uno por stat: putts, fairway y GIR son
-        // tres taps sobre el MISMO hoyo, y con la red caída eso son tres
-        // toasts de 5s apilados sobre el del score — tapando la pantalla justo
-        // cuando el organizador tiene menos tiempo para leerlos.
-        if (!statWarnedHolesRef.current.has(avisoKey)) {
-          statWarnedHolesRef.current.add(avisoKey)
-          showWarning('No se guardó', `Las estadísticas del hoyo ${holeNumber} no quedaron registradas. Reintenta.`)
-        }
-        return false
-      }
-      statWarnedHolesRef.current.delete(avisoKey)
-      if (res.aplicado) confirmarStats(round.id, holeNumber, versiones)
-      return true
-    },
-    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning, fotoStatsDelHoyo, confirmarStats, rondaCargadaRef],
-  )
-
   const finalizeRound = useCallback(async () => {
     if (!tournament || !selectedId) return
     const player = players.find((p) => p.id === selectedId)
@@ -535,6 +500,8 @@ export function useScoreEntry({
     holeGir,
     setHoleGir,
     saveHoleStat,
+    cambiarStat,
+    statsFallidas,
   }
 }
 

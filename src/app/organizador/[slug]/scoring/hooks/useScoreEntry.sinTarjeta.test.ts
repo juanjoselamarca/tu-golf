@@ -15,8 +15,9 @@ vi.mock('@/lib/data/tournaments/scoring', () => ({
   fetchRoundTotals: vi.fn(async () => ({ total_gross: 0, total_net: 0, total_points: 0 })),
 }))
 const showWarning = vi.fn()
-// Referencias estables, como el useToast real: con un objeto nuevo por render los useCallback del hook
-// cambian en cada render y el efecto de carga entra en bucle.
+// Referencias fijas para poder mirar las llamadas. OJO: el `useToast` real hoy devuelve funciones nuevas en cada
+// render (se arregla aparte, `fix/toast-estable-claude`); que eso no meta la carga en bucle lo cubre
+// `useScoreEntry.toastInestable.test.ts`.
 const toast = { showError: vi.fn(), showSuccess: vi.fn(), showWarning }
 vi.mock('@/hooks/useToast', () => ({ useToast: () => toast }))
 

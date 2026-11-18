@@ -242,20 +242,29 @@ describe('useScoreEntry · tarjeta atada a su ronda (P1-a, P1-b, P1-c)', () => {
     expect(result.current.currentScores[1]).toBe(4)
   })
 
-  it('la carga lleva un corte de 10 s: si la red se cuelga, pasa a error con Reintentar (no "Cargando…" eterno)', async () => {
-    servidor()
-    const corte = new AbortController()
-    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValueOnce(corte.signal)
-    fetchRoundHoleScores.mockImplementation((_id, signal) => new Promise((_res, rej) => {
-      signal?.addEventListener('abort', () => rej(new DOMException('timeout', 'TimeoutError')))
-    }))
-    const { result } = montar()
-    await act(async () => result.current.selectPlayer('pB'))
-    expect(timeout).toHaveBeenCalledWith(10_000)
-    expect(result.current.cargaTarjeta).toBe('cargando')
-    await act(async () => { corte.abort() })
-    expect(result.current.cargaTarjeta).toBe('error')
-    timeout.mockRestore()
+  // Revisión Fable #834 v3 (P1): `AbortSignal.timeout` no existe en iOS 15 y lanzaba: la tarjeta quedaba en error.
+  it('la carga lleva un corte de 10 s sin AbortSignal.timeout (iOS 15): se aborta y pasa a error con Reintentar', async () => {
+    const original = Object.getOwnPropertyDescriptor(AbortSignal, 'timeout')
+    delete (AbortSignal as { timeout?: unknown }).timeout
+    try {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      servidor()
+      let abortada = false
+      fetchRoundHoleScores.mockImplementation((_id, signal) => {
+        signal?.addEventListener('abort', () => { abortada = true })
+        return new Promise(() => {})
+      })
+      const { result } = montar()
+      await act(async () => result.current.selectPlayer('pB'))
+      expect(result.current.cargaTarjeta).toBe('cargando')
+      await act(async () => { vi.advanceTimersByTime(9_999) })
+      expect(result.current.cargaTarjeta).toBe('cargando')
+      await act(async () => { vi.advanceTimersByTime(1) })
+      expect(result.current.cargaTarjeta).toBe('error')
+      expect(abortada).toBe(true)
+    } finally {
+      if (original) Object.defineProperty(AbortSignal, 'timeout', original)
+    }
   })
 
   it('una carga que tarda más de 4 s ofrece Reintentar antes del corte', async () => {
@@ -337,5 +346,92 @@ describe('useScoreEntry · la recarga no pisa lo que este organizador tiene sin 
     await act(async () => result.current.reintentarCarga())
     expect(result.current.holeGir[1]).toBe(false)
     expect(result.current.holePutts[1]).toBe(2) // lo no tocado sí viene de la base
+  })
+})
+
+// ── Revisión Fable #834, vuelta 3 ──
+
+describe('useScoreEntry · cargas en vuelo y reintento (v3)', () => {
+  it('una recarga pedida antes de que el golpe se confirme no lo borra de la pantalla al volver', async () => {
+    const respuesta = diferida<Response>()
+    vi.stubGlobal('fetch', vi.fn(() => respuesta.promesa))
+    const recarga = diferida<Partial<HoleScoreRow>[]>()
+    fetchRoundHoleScores.mockImplementation(async () => [])
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pB'))
+    let guardado!: Promise<void>
+    act(() => { guardado = result.current.saveScore(1, '5') })
+    fetchRoundHoleScores.mockImplementation(() => recarga.promesa)
+    act(() => result.current.reintentarCarga()) // recarga emitida con el golpe todavía en vuelo
+    await act(async () => { respuesta.resolver(new Response('{}', { status: 200 })); await guardado })
+    await act(async () => { recarga.resolver([]) }) // la base de ANTES del golpe
+    expect(result.current.currentScores[1]).toBe(5)
+  })
+
+  it('Reintentar durante una carga lenta no invalida la que está en vuelo y reinicia el aviso de carga lenta', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    servidor()
+    const primera = diferida<Partial<HoleScoreRow>[]>()
+    fetchRoundHoleScores.mockImplementationOnce(() => primera.promesa).mockImplementation(() => new Promise(() => {}))
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pB'))
+    await act(async () => { vi.advanceTimersByTime(4_000) })
+    expect(result.current.cargaLenta).toBe(true)
+
+    await act(async () => result.current.reintentarCarga())
+    expect(result.current.cargaLenta).toBe(false)
+    expect(fetchRoundHoleScores).toHaveBeenCalledTimes(2)
+
+    await act(async () => { primera.resolver(GOLPE_B) }) // responde la primera: vale
+    expect(result.current.cargaTarjeta).toBe('lista')
+    expect(result.current.currentScores[1]).toBe(6)
+  })
+})
+
+describe('useScoreEntry · stats sin guardar y envío agrupado (v3)', () => {
+  it('el hoyo con stats fallidas lo lleva el hook (sobrevive a colapsar la tabla) y se limpia al guardarse', async () => {
+    servidor(500, 200)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    await act(async () => { await result.current.saveHoleStat(1, { gir: false }) })
+    expect([...result.current.statsFallidas]).toEqual([1])
+    await act(async () => { await result.current.saveHoleStat(1, {}) })
+    expect(result.current.statsFallidas.size).toBe(0)
+  })
+
+  it('las stats fallidas son de su tarjeta: en la de otro jugador no aparecen', async () => {
+    servidor(500)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    await act(async () => { await result.current.saveHoleStat(1, { gir: false }) })
+    await act(async () => result.current.selectPlayer('pB'))
+    expect(result.current.statsFallidas.size).toBe(0)
+  })
+
+  it('toques seguidos de fairway / GIR salen en un solo envío con el valor final, 600 ms después del último', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const enviados = servidor()
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    act(() => result.current.cambiarStat(1, { gir: false }))
+    act(() => result.current.cambiarStat(1, { gir: null }))
+    await act(async () => { vi.advanceTimersByTime(599) })
+    expect(enviados).toHaveLength(0)
+    await act(async () => { vi.advanceTimersByTime(1) })
+    expect(enviados).toHaveLength(1)
+    expect(enviados[0]).toMatchObject({ round_id: 'rA', hole_number: 1, gross_score: 4, gir: null })
+  })
+
+  it('lo que esperaba el envío sale al cambiar de jugador, a la ronda donde se tocó', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const enviados = servidor()
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    act(() => result.current.cambiarStat(1, { fairway_hit: false }))
+    await act(async () => result.current.selectPlayer('pB'))
+    expect(enviados).toHaveLength(1)
+    expect(enviados[0]).toMatchObject({ round_id: 'rA', hole_number: 1, fairway_hit: false })
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    expect(enviados).toHaveLength(1)
   })
 })
