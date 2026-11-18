@@ -216,11 +216,12 @@ describe('enroll_player (schema) — el alta crea la tarjeta de la ronda vigente
     expect(inserts[0]).toMatch(/ON CONFLICT \(tournament_id, player_id, round_number\) DO NOTHING/)
   })
 
-  it('asegurar_tarjeta_vigente no da tarjeta a WD/DQ, ni con el torneo cerrado, ni con la ronda vigente cerrada', () => {
+  it('asegurar_tarjeta_vigente no da tarjeta a WD/DQ, ni con el torneo finalizado, ni entre rondas', () => {
     const insert = asegurar.search(/INSERT INTO (public\.)?rounds/)
     for (const guarda of [
       /IF v_pstatus IS DISTINCT FROM 'approved' THEN/,
-      /IF v_tstatus = 'closed' THEN/,
+      /IF v_tstatus IN \('closed', 'published', 'finished'\) THEN/,
+      /IF v_vigente < v_total/,
       /status NOT IN \('closed', 'official'\)/,
     ]) {
       const pos = asegurar.search(guarda)

@@ -43,7 +43,8 @@ export type TorneoConFechas = {
   date_end?: string | null | undefined
 }
 
-const FINALIZADO_STATUSES = new Set(['closed', 'published', 'finished'])
+/** Estados del torneo ya finalizado. El SQL de `asegurar_tarjeta_vigente` repite la lista (lo vigila un canario). */
+export const FINALIZADO_STATUSES: ReadonlySet<string> = new Set(['closed', 'published', 'finished'])
 
 /**
  * Estados del torneo en que se anotan golpes — FUENTE ÚNICA (re-exportada por `tournament-status.ts`). La usa

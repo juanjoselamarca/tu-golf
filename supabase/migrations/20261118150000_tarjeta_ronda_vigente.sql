@@ -8,8 +8,8 @@
 --
 -- Qué hace:
 --   · asegurar_tarjeta_vigente(torneo, jugador): idempotente. Jugador aprobado, torneo no cerrado: devuelve su
---     tarjeta de la ronda vigente (la mayor con tarjetas; sin tarjetas, la 1) y la crea si falta, solo si esa
---     ronda sigue en juego. Nunca crea tarjetas de rondas anteriores (no bloquean "rondas sin finalizar" ni
+--     tarjeta de la ronda vigente (la mayor con tarjetas; sin tarjetas, la 1) y la crea si falta, salvo
+--     entre rondas (vigente cerrada y queda una siguiente: esa la abre startNextRound). Nunca crea tarjetas de rondas anteriores (no bloquean "rondas sin finalizar" ni
 --     entran al acumulado). Solo service_role: la ruta del servidor autoriza al jugador o al organizador.
 --   · enroll_player la usa en vez del INSERT fijo a la ronda 1. Antes del inicio, el mismo resultado.
 --
@@ -26,12 +26,13 @@ CREATE OR REPLACE FUNCTION public.asegurar_tarjeta_vigente(p_tournament_id uuid,
 AS $function$
 DECLARE
   v_tstatus  text;
+  v_total    integer;
   v_pstatus  text;
   v_vigente  integer;
   v_round_id uuid;
 BEGIN
   -- Mismo lock que enroll_player: serializa con las altas del torneo.
-  SELECT status INTO v_tstatus FROM tournaments WHERE id = p_tournament_id FOR UPDATE;
+  SELECT status, coalesce(total_rounds, 1) INTO v_tstatus, v_total FROM tournaments WHERE id = p_tournament_id FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('ok', false, 'reason', 'tournament_not_found');
   END IF;
@@ -44,7 +45,8 @@ BEGIN
   IF v_pstatus IS DISTINCT FROM 'approved' THEN
     RETURN jsonb_build_object('ok', false, 'reason', 'player_not_active');
   END IF;
-  IF v_tstatus = 'closed' THEN
+  -- Torneo finalizado (= FINALIZADO_STATUSES de src/golf/tournament-live-status.ts; lo vigila un canario).
+  IF v_tstatus IN ('closed', 'published', 'finished') THEN
     RETURN jsonb_build_object('ok', false, 'reason', 'tournament_closed');
   END IF;
 
@@ -58,11 +60,14 @@ BEGIN
     RETURN jsonb_build_object('ok', true, 'round_id', v_round_id, 'round_number', v_vigente, 'creada', false);
   END IF;
 
-  -- Solo se crea si la ronda vigente sigue EN JUEGO (alguna tarjeta abierta) o si el torneo no tiene tarjetas.
-  -- Con la ronda vigente ya cerrada (entre rondas) no se crea nada: una tarjeta abierta ahí bloquearía
-  -- "abrir la ronda siguiente", y la de la siguiente la crea startNextRound para los aprobados.
+  -- ENTRE RONDAS (la vigente ya cerrada y queda una siguiente) no se crea nada: una tarjeta abierta ahí
+  -- bloquearía "abrir la ronda siguiente", y startNextRound crea la de la siguiente para cada fila de players
+  -- (hoy todas, incluidos WD/DQ y pendientes). En la ÚLTIMA ronda (o un torneo de una ronda) sí se crea aunque
+  -- las demás tarjetas estén cerradas: si no, el jugador agregado tarde quedaba sin tarjeta para siempre.
+  -- Estados de tarjeta cerrada = CLOSED_ROUND_STATUSES de src/golf/tournament-rounds.ts (canario).
   -- Nunca se crean tarjetas de rondas ANTERIORES que el jugador no jugó.
-  IF EXISTS (SELECT 1 FROM rounds WHERE tournament_id = p_tournament_id)
+  IF v_vigente < v_total
+     AND EXISTS (SELECT 1 FROM rounds WHERE tournament_id = p_tournament_id)
      AND NOT EXISTS (
        SELECT 1 FROM rounds
        WHERE tournament_id = p_tournament_id AND round_number = v_vigente
