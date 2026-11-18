@@ -460,7 +460,7 @@ BEGIN
         IF v_o_golpes AND v_sale_f > 0 AND v_filas_q <= 0 THEN
           RETURN jsonb_build_object('ok', false, 'motivo', 'equipo-con-golpes-sin-miembros', 'ofrece_retirar', false);
         END IF;
-        IF v_o_golpes AND v_sale_m > 0 AND v_quedan < CASE WHEN v_compartida THEN v_min ELSE 1 END THEN
+        IF v_o_golpes AND v_sale_m > 0 AND v_quedan < (CASE WHEN v_compartida THEN v_min ELSE 1 END) THEN
           RETURN jsonb_build_object('ok', false, 'motivo', 'equipo-con-golpes-incompleto', 'ofrece_retirar', false);
         END IF;
       END IF;
@@ -483,7 +483,7 @@ BEGIN
     END IF;
     DELETE FROM public.tournament_group_players gp WHERE gp.player_id = p_player_id;
     GET DIAGNOSTICS v_n = ROW_COUNT;
-    IF v_n <> CASE WHEN v_origen IS NULL THEN 0 ELSE 1 END THEN
+    IF v_n <> (CASE WHEN v_origen IS NULL THEN 0 ELSE 1 END) THEN
       RAISE EXCEPTION 'colocar_inscrito_en_grupo: tournament_group_players borró % filas', v_n;
     END IF;
     IF v_jrid IS NOT NULL THEN
