@@ -147,6 +147,8 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
 - **D9. Mejor bola: agregar a un equipo que ya tiene golpes, con cupo libre:** se permite con confirmación (R23.4). Juega desde que llega.
 - **D10. Match play: un tercer jugador en un grupo:** se bloquea siempre, aunque no haya golpes. Un grupo de match play admite como máximo 2 jugadores.
 - **D11. WD/DQ no se coloca ni se cambia de grupo:** con el torneo en juego se queda donde está (en su grupo, o sin grupo si no tenía), al pie y con sus golpes, en todos los formatos. Vale para agregar y mover; borrar sigue D1.
+- **D12. Colocar a un sin aprobar lo aprueba:** con el torneo en juego, asignar a un grupo (agregar o mover) a un inscrito pendiente o en lista de espera lo aprueba en el mismo acto. Para el destino se evalúa como si ya compitiera (cuenta para el tamaño, aplica D10 y el resto). La aprobación la escribe la ruta/RPC (PR2/PR3), no `motivoParaNoColocar`. Borrar a un sin aprobar no cambia: se elimina sin tocar ninguna tarjeta.
+- **D13. Foursome: completar una pareja con un WD/DQ:** se puede solo si la pareja todavía no tiene golpes (`foursome-con-retirado` exige `destino.tieneGolpes`). Cierra la contradicción con borrar al WD y agregar en dos pasos.
 
 ## Pendientes que deja el PR1 para el PR2/PR3
 
@@ -156,18 +158,28 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
 - **Inscrito sin grupo con golpes (#828):** sin grupo anota en su tarjeta individual del torneo (`tournament_rounds`
   vía `asegurar_tarjeta_vigente`), no en `ronda_libre_jugadores`. Para D1, `InscritoAColocar.tieneGolpes` tiene que
   incluir esa tarjeta. Al colocarlo en un grupo, falta decidir qué pasa con esos golpes (hoy no viajan a la tarjeta
-  del grupo): el PR3 lo tiene que resolver o bloquear.
+  del grupo). Mientras tanto el PR1 falla cerrado: agregar a un inscrito con golpes da `agregar-con-tarjeta-individual`.
+  El PR3 tiene que resolver el traslado y recién ahí levantar ese motivo.
 - **Mejor bola, retirar en vez de borrar:** borrar a un integrante sin golpes de una pareja con golpes se rechaza
   (`equipo-con-golpes-incompleto`, sin "Retirar"); el flujo WD actual sí lo deja retirar (R23.4, el compañero sigue
   solo). Revisar que las dos reglas digan lo mismo en el PR5.
-- **Tope de filas por tarjeta de grupo (revisado en el PR1, vuelta 3):** no existe. `MAX_JUGADORES_POR_RONDA` (4)
+- **Tope de filas por tarjeta de grupo (revisado en el PR1, vueltas 3 y 4):** no existe. `MAX_JUGADORES_POR_RONDA` (4)
   solo lo aplica `validarNuevaRonda` al crear una ronda libre; ni `materializeGroupScorecard`, ni el scorer de grupo,
-  ni un CHECK limitan las filas de un grupo de torneo. Por eso no hay motivo `grupo-lleno`: el cupo de equipo se mide
+  ni un CHECK limitan las filas de un grupo de torneo (`materializeGroupScorecard` recorre `group.players` sin tope; en
+  `src/app/ronda-libre/[codigo]` no hay `slice` ni conteo fijo de filas, solo los `=== 2` del match play). Por eso no hay motivo `grupo-lleno`: el cupo de equipo se mide
   con los que compiten (`miembros`) y un individual no tiene tope. Si Juanjo quiere un tope de filas, es decisión de
   producto y se agrega con `integrantes`.
-- **Pendientes y lista de espera con el torneo en juego (PR3):** `motivoParaNoColocar` separa `compite`, `retirado` y
-  `sin-aprobar`. Un sin aprobar no tiene fila en ninguna tarjeta (`asegurar_tarjeta_vigente` solo se la da a un
-  aprobado), así que por ahora no se coloca (`sin-aprobar-no-se-coloca`, decisión técnica por seguridad: pendiente de
-  confirmar con Juanjo) y borrarlo lo elimina sin tocar ninguna tarjeta. No encontré en el código un camino que apruebe a un pendiente
-  con el torneo `in_progress` y le cree la fila: el PR3 tiene que verificarlo (aprobar en juego → `asegurar_tarjeta_vigente`
-  → recién ahí colocarlo).
+- **Pendientes y lista de espera con el torneo en juego (D12, PR2/PR3):** `motivoParaNoColocar` separa `compite`,
+  `retirado` y `sin-aprobar`; colocar a un sin aprobar está permitido y lo aprueba (D12). La RPC tiene que, en la misma
+  transacción: pasar `players.status` a `approved`, crearle la fila en la tarjeta del grupo (hoy
+  `asegurar_tarjeta_vigente` solo se la da a un aprobado) y recién ahí colocarlo. No hay en el código un camino que
+  apruebe a un pendiente con el torneo `in_progress`: es nuevo.
+- **Pregunta para el PR3: ¿aprobar desde la lista de espera respeta el cupo?** Lo que hay hoy (`enrollPlayer.ts`,
+  `cupo.ts`): el cupo es `tournaments.max_players` y solo lo ocupan los `approved` (`waitlist`, `withdrawn` y
+  `disqualified` no). La política es "bloquear + ampliar": toda alta sobre el cupo se rechaza y el organizador sube
+  `max_players` para que entren más; el enforcement atómico vive en la RPC `enroll_player` (lock de la fila del
+  torneo), y `cupo.ts` no deja fijar el cupo bajo los ya aprobados. Aprobar a alguien de la lista de espera en juego
+  suma un `approved`: si la RPC no chequea el cupo, puede pasarlo. Hay que decidir si se bloquea (como el alta) o si
+  colocar en juego es una ampliación implícita; si se chequea, tiene que ser bajo el mismo lock que `enroll_player`.
+- **D13 en la RPC (PR2):** completar una pareja de foursome sin golpes que tiene un WD/DQ tiene que borrar la fila del
+  WD/DQ en el mismo acto. Si queda, la pareja tendría 3 filas y `estadoDelEquipoFoursome` la manda entera al pie.

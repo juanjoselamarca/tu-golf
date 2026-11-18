@@ -173,6 +173,9 @@ const casos: Caso[] = [
   { nombre: 'D1 mejor bola · borrar sin golpes de un equipo de 3 con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 3, true) }, esperado: null },
   { nombre: 'D7 mejor bola · borrar sin golpes de una pareja sin golpes (queda en 1)', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2) }, esperado: null },
   { nombre: 'mejor bola · borrar sin golpes dejando en 1 una pareja con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2, true) }, esperado: 'equipo-con-golpes-incompleto' },
+  { nombre: 'R23.4 mejor bola · borrar al WD sin golpes deja al compañero solo en una tarjeta con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: WD, esperado: 'equipo-con-golpes-incompleto' },
+  { nombre: 'mejor bola · borrar al WD sin golpes de un equipo de 3 con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2, true, 3) }, inscrito: WD, esperado: null },
+  { nombre: 'mejor bola · borrar al WD sin golpes de una pareja sin golpes (D7)', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 1, false, 2) }, inscrito: WD, esperado: null },
   { nombre: 'D11 mejor bola · un WD no se cambia de grupo', format: 'best_ball', op: { tipo: 'mover', origen: G('o', 2, false, 3), destino: G('d', 2) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
   { nombre: 'D11 individual · un DQ con golpes no se cambia de grupo', format: 'stroke_play', op: { tipo: 'mover', origen: G('o', 2, true, 3), destino: G('d', 2) }, inscrito: { tieneGolpes: true, estado: 'retirado' as const }, esperado: 'retirado-no-se-mueve' },
   { nombre: 'D11 match play · un WD no se cambia de grupo', format: 'match_play', op: { tipo: 'mover', origen: G('o', 1, false, 2), destino: G('d', 1) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
@@ -200,9 +203,11 @@ const casos: Caso[] = [
   { nombre: 'D7 foursome · completar una pareja incompleta con el único de otra', format: 'foursome', op: { tipo: 'mover', origen: G('o', 1), destino: G('d', 1) }, esperado: null },
   { nombre: 'D3 foursome · sacar a uno de una pareja con golpes', format: 'foursome', op: { tipo: 'mover', origen: G('o', 2, true), destino: G('d', 1) }, esperado: 'equipo-con-golpes-incompleto' },
   { nombre: 'D5 foursome · agregar a una pareja incompleta sin golpes', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, esperado: null },
-  { nombre: 'R22 foursome · no se completa una pareja cuyo compañero es WD', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1, true, 2) }, esperado: 'foursome-con-retirado' },
+  { nombre: 'R22/D13 foursome · no se completa una pareja con golpes cuyo compañero es WD', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1, true, 2) }, esperado: 'foursome-con-retirado' },
+  { nombre: 'D13 foursome · se completa (agregar) una pareja sin golpes con un WD', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1, false, 2) }, esperado: null },
+  { nombre: 'D13 foursome · se completa (mover) una pareja sin golpes con un WD', format: 'foursome', op: { tipo: 'mover', origen: G('o', 2), destino: G('d', 1, false, 2) }, esperado: null },
   { nombre: 'D11 foursome · un WD no se mueve a completar otra pareja', format: 'foursome', op: { tipo: 'mover', origen: G('o', 1, false, 2), destino: G('d', 1) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
-  { nombre: 'R22 foursome · no se completa moviendo a un activo a una pareja con un WD', format: 'foursome', op: { tipo: 'mover', origen: G('o', 2), destino: G('d', 0, true, 1) }, esperado: 'foursome-con-retirado' },
+  { nombre: 'R22/D13 foursome · no se completa moviendo a un activo a una pareja con golpes y un WD', format: 'foursome', op: { tipo: 'mover', origen: G('o', 2), destino: G('d', 0, true, 1) }, esperado: 'foursome-con-retirado' },
   { nombre: 'D3 foursome · personalizado porcentaje_suma: se completa', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, handicap: { modo: 'personalizado', porcentaje_suma: 40 }, esperado: null },
   { nombre: 'D3 foursome · personalizado con la forma de scramble: hándicap incalculable', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, handicap: { modo: 'personalizado', porcentajes: [50, 50] }, esperado: 'handicap-de-equipo' },
   { nombre: 'D7 foursome · borrar sin golpes deja la pareja en 1', format: 'foursome', op: { tipo: 'borrar', origen: G('o', 2) }, esperado: null },
@@ -214,9 +219,18 @@ const casos: Caso[] = [
   { nombre: 'D11 foursome · agregar a un WD sin grupo', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
   { nombre: 'D1 · un WD sin grupo y sin golpes se puede borrar', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, inscrito: WD, esperado: null },
 
-  // ── Sin aprobar (pendiente / lista de espera): sin fila, no se coloca, borrar lo elimina ──
-  { nombre: 'sin aprobar · agregar a un grupo', format: 'stroke_play', op: { tipo: 'agregar', destino: G('d', 2) }, inscrito: PENDIENTE, esperado: 'sin-aprobar-no-se-coloca' },
-  { nombre: 'sin aprobar · mover entre grupos', format: 'best_ball', op: { tipo: 'mover', origen: G('o', 2), destino: G('d', 2) }, inscrito: PENDIENTE, esperado: 'sin-aprobar-no-se-coloca' },
+  // ── #828 fallar cerrado: golpes en su tarjeta individual ──
+  { nombre: '#828 stroke play · agregar a un inscrito con golpes en su tarjeta individual', format: 'stroke_play', op: { tipo: 'agregar', destino: G('d', 2) }, inscrito: ACTIVO_CON_GOLPES, esperado: 'agregar-con-tarjeta-individual' },
+  { nombre: '#828 scramble · agregar con golpes individuales, aunque el equipo admita', format: 'scramble', op: { tipo: 'agregar', destino: G('d', 2) }, inscrito: ACTIVO_CON_GOLPES, esperado: 'agregar-con-tarjeta-individual' },
+
+  // ── D12 sin aprobar (pendiente / lista de espera): colocarlo lo aprueba; borrar lo elimina ──
+  { nombre: 'D12 stroke play · agregar a un sin aprobar', format: 'stroke_play', op: { tipo: 'agregar', destino: G('d', 2) }, inscrito: PENDIENTE, esperado: null },
+  { nombre: 'D12 mejor bola · mover a un sin aprobar entre equipos sin golpes', format: 'best_ball', op: { tipo: 'mover', origen: G('o', 2), destino: G('d', 2) }, inscrito: PENDIENTE, esperado: null },
+  { nombre: 'D12 mejor bola · un sin aprobar cuenta para el tamaño del destino', format: 'best_ball', op: { tipo: 'agregar', destino: G('d', 4) }, inscrito: PENDIENTE, esperado: 'equipo-lleno' },
+  { nombre: 'D12/D10 match play · un sin aprobar no entra de tercero', format: 'match_play', op: { tipo: 'agregar', destino: G('d', 2) }, inscrito: PENDIENTE, esperado: 'match-play-grupo-lleno' },
+  { nombre: 'D12/D6 match play · un sin aprobar no entra a un match con golpes', format: 'match_play', op: { tipo: 'agregar', destino: G('d', 1, true) }, inscrito: PENDIENTE, esperado: 'match-play-con-golpes' },
+  { nombre: 'D12 scramble · sacar a un sin aprobar no resta al equipo con golpes (no tiene fila)', format: 'scramble', op: { tipo: 'mover', origen: G('o', 2, true), destino: G('d', 2) }, inscrito: PENDIENTE, esperado: null },
+  { nombre: 'D12 foursome · un sin aprobar completa una pareja', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, inscrito: PENDIENTE, esperado: null },
   { nombre: 'sin aprobar · borrar de un match en juego: se elimina, no va al pie (no tiene fila)', format: 'match_play', op: { tipo: 'borrar', origen: G('o', 2, true) }, inscrito: PENDIENTE, esperado: null },
   { nombre: 'sin aprobar · borrar de un equipo con golpes: se elimina sin tocar la tarjeta', format: 'scramble', op: { tipo: 'borrar', origen: G('o', 2, true) }, inscrito: PENDIENTE, esperado: null },
   { nombre: 'sin aprobar · con golpes (no debería existir): falla cerrado y sin retirar', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, inscrito: { tieneGolpes: true, estado: 'sin-aprobar' }, esperado: 'borrar-con-golpes' },
@@ -228,7 +242,7 @@ const casos: Caso[] = [
 
 const SEIS_FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome']
 
-describe('motivoParaNoColocar (D1-D11)', () => {
+describe('motivoParaNoColocar (D1-D13)', () => {
   it.each(casos)('$nombre → $esperado', ({ format, op, inscrito, handicap, esperado }) => {
     const m = motivoParaNoColocar(format, op, inscrito ?? ACTIVO, handicap ?? null)
     expect(m?.codigo ?? null).toBe(esperado)

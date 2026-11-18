@@ -6,13 +6,15 @@
  *   - el tamaño de equipo que se exige            → `motivoTamanoDeEquipo` / `equipoIncompleto` (también el inicio),
  *     sobre `jugadoresPorEquipo` (plantilla-de-jugadores.ts, la única lectura de `FORMAT_META.jugadoresPorEquipo`)
  *   - si el hándicap del equipo se puede calcular → `handicapDeEquipoCalculable` (también el inicio)
- *   - por qué NO se puede colocar a un inscrito   → `motivoParaNoColocar` (decisiones D1-D11 de Juanjo, 18-nov-2026;
+ *   - por qué NO se puede colocar a un inscrito   → `motivoParaNoColocar` (decisiones D1-D13 de Juanjo, 18-nov-2026;
  *     plan `docs/superpowers/plans/2026-11-18-gestion-en-juego-814.md`).
  *
  * Puro: sin Supabase ni React. La app planifica con esto y la RPC `colocar_inscrito_en_grupo` (PR2) vuelve a
  * evaluar las anotaciones BAJO LOCK con su espejo SQL: entre que se planifica y se escribe, el scorer puede anotar.
  * Si cambias una regla acá, cambia el espejo SQL (y viceversa). La RPC espeja TODOS los motivos de
  * `CodigoMotivoNoColocar`, incluido `retirado-no-se-mueve` (D11): un WD/DQ no se coloca ni se mueve.
+ * D12 (colocar a un sin aprobar lo aprueba) y D13 (el WD/DQ de una pareja de foursome sin golpes sale al
+ * completarla) son escrituras de la RPC, no de esta función.
  */
 
 import { FORMAT_META, type FormatoJuego } from '@/golf/core/rules'
@@ -20,9 +22,9 @@ import { isMatchPlayFormat, isSharedBallFormat, isTeamFormat, KNOWN_FORMAT_KEYS 
 import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
 import { JUGADORES_POR_MATCH } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
 import { jugadoresPorEquipo } from '@/golf/ronda-libre/plantilla-de-jugadores'
-import { inscritoAprobado, jugadorFueraDelTorneo } from '@/golf/tournament-status'
 import { hoyosAnotados } from '@/golf/ronda-libre/progreso-de-ronda'
 import type { ScoresDeTarjeta } from '@/golf/ronda-libre/tarjeta-historica'
+import { inscritoAprobado, jugadorFueraDelTorneo } from '@/golf/tournament-status'
 
 // ─── Anotaciones ─────────────────────────────────────────────────────────────
 
@@ -43,9 +45,11 @@ export function tarjetaTieneAnotaciones(scores: ScoresDeTarjeta | null | undefin
 // ─── Tamaño y hándicap de equipo ─────────────────────────────────────────────
 
 /**
- * Jugadores por equipo del formato (null si no es por equipos). `jugadoresPorEquipo` lo acota a
- * `MAX_JUGADORES_POR_RONDA` (4): un grupo de torneo es una tarjeta de ronda libre, así que el mismo techo
- * vale acá. Hoy ningún formato pide más de 4, así que el tope no cambia el rango de `FORMAT_META`.
+ * Jugadores por equipo del formato (null si no es por equipos). `jugadoresPorEquipo` acota el máximo a
+ * `MAX_JUGADORES_POR_RONDA` (4), pero hoy ningún formato pide más de 4: el tope no cambia el rango de
+ * `FORMAT_META`. Ese techo es de la ronda libre que arma un jugador (`validar-nueva-ronda.ts`), NO de un grupo
+ * de torneo: `materializeGroupScorecard` y el scorer no limitan las filas, y un grupo individual (stroke play,
+ * stableford) puede tener 5 o más. Por eso acá no hay un motivo "grupo lleno" fuera de equipos y match play.
  */
 function rango(format: string | null | undefined): { min: number; max: number } | null {
   return jugadoresPorEquipo(format as FormatoJuego)
@@ -119,9 +123,9 @@ export interface GrupoEnJuego {
 }
 
 export type OperacionEnJuego =
-  /** Alta con el torneo en juego (D4): el organizador elige el grupo. */
+  /** Alta con el torneo en juego (D4): el organizador elige el grupo. Un sin aprobar queda aprobado (D12). */
   | { tipo: 'agregar'; destino: GrupoEnJuego }
-  /** Cambio de grupo (D2, D3, D6, D10, D11). */
+  /** Cambio de grupo (D2, D3, D6, D10, D11, D13). */
   | { tipo: 'mover'; origen: GrupoEnJuego; destino: GrupoEnJuego }
   /** Eliminar la inscripción (D1, D8). `origen` null = inscrito sin grupo. */
   | { tipo: 'borrar'; origen: GrupoEnJuego | null }
@@ -142,7 +146,9 @@ export interface InscritoAColocar {
  * - `retirado`: WD/DQ (`JUGADOR_FUERA_STATUSES`); tiene su fila, va al pie con sus golpes, no se coloca ni se mueve
  *   (D11) y no cuenta para el tamaño.
  * - `sin-aprobar`: pendiente o lista de espera; no tiene fila en ninguna tarjeta (`asegurar_tarjeta_vigente` solo
- *   se la da a un aprobado), no cuenta para el tamaño, nunca va "al pie" y no se coloca hasta que lo aprueben.
+ *   se la da a un aprobado) y nunca va "al pie". D12: con el torneo en juego, colocarlo en un grupo (agregar o
+ *   mover) lo APRUEBA en el mismo acto (lo hace la ruta/RPC, no esta función), así que para el destino se evalúa
+ *   como si compitiera. En su grupo de origen no ocupa fila ni cuenta para el tamaño.
  */
 export type EstadoInscrito = 'compite' | 'retirado' | 'sin-aprobar'
 
@@ -159,8 +165,11 @@ export type CodigoMotivoNoColocar =
   | 'mismo-grupo'
   /** D11: un WD/DQ no se coloca ni cambia de grupo; se queda donde está, al pie y con sus golpes. */
   | 'retirado-no-se-mueve'
-  /** Un pendiente o en lista de espera no se coloca: no tiene tarjeta hasta que lo aprueben. */
-  | 'sin-aprobar-no-se-coloca'
+  /**
+   * Fallar cerrado (#828): el inscrito sin grupo ya anotó en su tarjeta individual del torneo. Hasta que el PR3
+   * resuelva cómo se trasladan esos golpes a la tarjeta del grupo, no se asigna.
+   */
+  | 'agregar-con-tarjeta-individual'
   /** D1: tiene golpes; no se elimina, se retira (WD) y queda al pie con sus golpes. */
   | 'borrar-con-golpes'
   /** D8: match play, el match ya empezó (anotó el rival); no se elimina, se retira (WD). */
@@ -173,9 +182,12 @@ export type CodigoMotivoNoColocar =
   | 'mejor-bola-con-golpes'
   /** El destino pasaría el máximo de jugadores por equipo. */
   | 'equipo-lleno'
-  /** Foursome: el destino ya tiene un WD/DQ, y con uno el equipo entero va al pie (`estadoDelEquipoFoursome`). */
+  /**
+   * D13. Foursome: el destino ya tiene golpes y un WD/DQ; con uno el equipo entero va al pie
+   * (`estadoDelEquipoFoursome`) y ya no se completa. Sin golpes, sí se completa.
+   */
   | 'foursome-con-retirado'
-  /** Un equipo con golpes quedaría bajo el mínimo de los que compiten (también en 0). */
+  /** Un equipo con golpes quedaría bajo el mínimo: de los que compiten, o de filas en su tarjeta (`equipoIncompleto`). */
   | 'equipo-con-golpes-incompleto'
   /** Un equipo con golpes quedaría sin ninguna fila (ni siquiera la de un WD/DQ). */
   | 'equipo-con-golpes-sin-miembros'
@@ -229,11 +241,11 @@ export function motivoParaNoColocar(
   // D11. Con el torneo en juego, un WD/DQ se queda donde está (en su grupo o sin grupo), al pie y con sus
   // golpes, en todos los formatos.
   if (op.tipo !== 'borrar' && inscrito.estado === 'retirado') {
-    return motivo('retirado-no-se-mueve', 'Un jugador retirado o descalificado no se cambia de grupo: sigue al pie donde está.')
+    return motivo('retirado-no-se-mueve', 'Un jugador retirado o descalificado no se asigna ni se cambia de grupo: sigue al pie donde está.')
   }
-  // Sin aprobar: no tiene fila en ninguna tarjeta. Colocarlo dejaría un integrante que no puede anotar.
-  if (op.tipo !== 'borrar' && inscrito.estado === 'sin-aprobar') {
-    return motivo('sin-aprobar-no-se-coloca', 'Este jugador todavía no está aprobado: apruébalo antes de asignarle un grupo.')
+  // Fallar cerrado (#828): sus golpes viven en su tarjeta individual y todavía no hay cómo llevarlos al grupo.
+  if (op.tipo === 'agregar' && inscrito.tieneGolpes) {
+    return motivo('agregar-con-tarjeta-individual', 'Ya anotó golpes en su tarjeta individual: por ahora no se puede asignar a un grupo.')
   }
   // Sin aprobar no tiene fila ni va al pie: borrarlo elimina la inscripción sin tocar ninguna tarjeta. Si aun
   // así aparecen golpes (no hay camino hoy), falla cerrado sin ofrecer retirarlo.
@@ -277,20 +289,26 @@ export function motivoParaNoColocar(
     return motivo('mejor-bola-con-golpes', 'En mejor bola no se puede cambiar de equipo cuando alguno de los dos ya tiene golpes.')
   }
 
-  // Invariantes de equipo (D3, D7, y los mismos para mejor bola). Acá solo llega un inscrito que compite
-  // (agregar o mover) o un retirado que se borra (tiene fila, pero no cuenta para el tamaño).
+  // Invariantes de equipo (D3, D7, y los mismos para mejor bola). Acá llega un inscrito que compite o uno sin
+  // aprobar (agregar o mover; D12: al destino entra aprobado), o uno que se borra: un retirado (tiene fila, pero
+  // no cuenta para el tamaño) o uno que compite.
   const r = rango(format)
   if (!r) return null
-  const delta = inscrito.estado === 'compite' ? 1 : 0
+  // Lo que el inscrito resta del origen: un sin aprobar no tiene fila ni cuenta; un WD/DQ tiene fila pero no cuenta.
+  const salenMiembros = inscrito.estado === 'compite' ? 1 : 0
+  const salenFilas = inscrito.estado === 'sin-aprobar' ? 0 : 1
 
   if (destino) {
-    const quedan = destino.miembros + delta
+    // Al destino solo llega quien compite o un sin aprobar que se aprueba al colocarlo (D11 ya sacó al WD/DQ).
+    const quedan = destino.miembros + 1
     if (quedan > r.max) {
       return motivo('equipo-lleno', `El equipo ya tiene ${destino.miembros} jugadores; el máximo es ${r.max}.`)
     }
-    // Regla 22 (decisión de Juanjo): un foursome con un WD/DQ va entero al pie; no se completa con uno.
-    if (format === 'foursome' && destino.integrantes > destino.miembros) {
-      return motivo('foursome-con-retirado', 'En foursome, una pareja con un jugador retirado o descalificado no puede seguir: no se completa.')
+    // Regla 22 (decisión de Juanjo): un foursome con un WD/DQ va entero al pie. D13: si la pareja todavía no tiene
+    // golpes, sí se completa; la RPC (PR2) saca la fila del WD/DQ en el mismo acto (como borrarlo y agregar en dos
+    // pasos), porque si queda, `estadoDelEquipoFoursome` manda a la pareja entera al pie.
+    if (format === 'foursome' && destino.tieneGolpes && destino.integrantes > destino.miembros) {
+      return motivo('foursome-con-retirado', 'En foursome, una pareja que ya jugó con un retirado o descalificado no puede seguir: no se completa.')
     }
     // Un equipo bajo el mínimo se puede ir llenando (D5, D7); su hándicap se exige cuando el tamaño es válido.
     if (compartida && quedan >= r.min && !handicapDeEquipoCalculable(format, quedan, handicap)) {
@@ -299,16 +317,22 @@ export function motivoParaNoColocar(
   }
 
   if (origen) {
-    const quedan = origen.miembros - delta
-    if (origen.tieneGolpes && origen.integrantes - 1 <= 0) {
+    const quedan = origen.miembros - salenMiembros
+    const filas = origen.integrantes - salenFilas
+    if (origen.tieneGolpes && salenFilas > 0 && filas <= 0) {
       return motivo('equipo-con-golpes-sin-miembros', 'El equipo ya tiene golpes y quedaría sin jugadores.')
     }
     // Sin golpes, el origen puede quedar incompleto o vacío (D7). Con golpes, nunca bajo el mínimo: un equipo
-    // que sigue rankeado tiene que tener quién juegue.
-    if (origen.tieneGolpes && delta > 0 && quedan < r.min) {
+    // que sigue rankeado tiene que tener quién juegue (por los que compiten) y no puede quedar con menos filas
+    // que el mínimo, porque `equipoIncompleto` le bloquearía el anotar al que queda (R23.4: el compañero de un
+    // WD sigue jugando solo, pero en una tarjeta que nació completa).
+    if (origen.tieneGolpes && salenMiembros > 0 && quedan < r.min) {
       return motivo('equipo-con-golpes-incompleto', `El equipo ya tiene golpes y quedaría con ${quedan} jugador${quedan === 1 ? '' : 'es'} en juego; el mínimo es ${r.min}.`)
     }
-    if (compartida && delta > 0 && quedan >= r.min && !handicapDeEquipoCalculable(format, quedan, handicap)) {
+    if (origen.tieneGolpes && salenFilas > 0 && equipoIncompleto(format, filas)) {
+      return motivo('equipo-con-golpes-incompleto', `El equipo ya tiene golpes y su tarjeta quedaría con ${filas} jugador${filas === 1 ? '' : 'es'}; el mínimo es ${r.min}.`)
+    }
+    if (compartida && salenMiembros > 0 && quedan >= r.min && !handicapDeEquipoCalculable(format, quedan, handicap)) {
       return motivo('handicap-de-equipo', `Con ${quedan} jugadores no se puede calcular el hándicap del equipo con la configuración del torneo.`)
     }
   }
