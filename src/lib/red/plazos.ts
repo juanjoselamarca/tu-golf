@@ -48,3 +48,16 @@ export const PLAZO_IMPORTACION_MS = 75_000
  * una importación grande que el servidor sigue guardando se daría por perdida.
  */
 export const PLAZO_CONFIRMAR_IMPORTACION_MS = 315_000
+
+/**
+ * Corte de un guardado de hoyo (`upsert_score`) del scorer del organizador. Cortar NO es fallar: el servidor
+ * puede escribirlo igual después (sin `maxDuration` propio, Vercel le da 300 s). El scorer reenvía el valor
+ * vigente con una secuencia nueva y la base descarta la vieja si llega tarde.
+ */
+export const PLAZO_GUARDAR_HOYO_MS = 15_000
+
+/**
+ * Envíos de un hoyo sin respuesta antes de mostrarlo como "sin confirmar" (scorers del jugador y del
+ * organizador). Con el organizador el hoyo sigue reintentando después, con espera fija.
+ */
+export const INTENTOS_POR_HOYO = 3

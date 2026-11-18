@@ -14,11 +14,10 @@ import {
   type AvisoSinAcceso, type LecturaRespuestaScore, type MotivoSinAcceso, type ResultadoGuardadoTorneo,
 } from './acceso-guardado'
 import { DISPOSITIVO_GUARDADO, nuevaSecuencia } from '@/lib/red/orden-guardado'
+import { INTENTOS_POR_HOYO } from '@/lib/red/plazos'
 
 export type EstadoGuardado = 'idle' | 'saving' | 'saved' | 'offline' | 'error' | 'sin_acceso'
 
-/** Intentos por hoyo ante red caída / 5xx / 429, con espera creciente (400 ms, 800 ms). */
-export const INTENTOS_POR_HOYO = 3
 const ESPERA_BASE_MS = 400
 
 /** Cuerpo JSON de la respuesta; uno ilegible cuenta como vacío (el status ya dice lo principal). */
