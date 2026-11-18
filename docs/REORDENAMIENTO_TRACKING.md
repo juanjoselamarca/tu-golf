@@ -941,11 +941,17 @@ Fuera de alcance (pendiente):
 - **Vuelta 3:** el 403 de invitado distingue `guest_token_invalid` (acceso roto) de `guest_not_owner`
   (tarjeta ajena → "no está a tu nombre"). `?jugador=` gana sobre la auto-selección del invitado
   (`hooks/jugador-del-link.ts`). Guardar antes de terminar la carga ya no pisa el respaldo pendiente.
-- **Residual — resuelto en `fix/upserts-orden-hoyo-claude` (18-nov, falta aprobar la migración
-  `20261121100000_orden_guardados_hole_scores`):** secuencia por dispositivo y hoyo (`hole_scores_orden`)
-  y función `guardar_hole_score`, que marca y upsertea en una transacción; fuente única del id y la
-  secuencia en `src/lib/red/orden-guardado.ts` (la comparte la ronda libre). Sin la función, `/api/game`
-  cae al upsert de antes. Lo de abajo queda como contexto. `upsertScore` (`src/app/api/game/actions.ts`) es un
+- **Residual — cubierto en `fix/upserts-orden-hoyo-claude` (PR #832, 18-nov, falta aprobar la migración
+  `20261121100000_orden_guardados_hole_scores`) dentro de una misma carga de la página:** secuencia por
+  dispositivo y hoyo (`hole_scores_orden`) y función `guardar_hole_score`, que marca y upsertea en una
+  transacción; fuente única del id y la secuencia en `src/lib/red/orden-guardado.ts` (la comparte la ronda
+  libre). Sin la función, o con la migración a medias (42P01/42501, reportado), `/api/game` cae al upsert de
+  antes. **Sigue abierto:** una recarga a mitad de ronda es un dispositivo nuevo, así que un POST en vuelo de
+  antes de recargar que el servidor procesa después de un guardado de la página recargada gana por llegar
+  último (requiere un request cruzando la recarga). **Crecimiento:** `hole_scores_orden` suma una fila por
+  (tarjeta, hoyo, carga de página), del orden de `hole_scores`, con CASCADE al borrar la ronda; no se borra
+  al cerrar la tarjeta (una reabierta necesita la marca), mismo criterio que `ronda_libre_scores_orden`.
+  Lo de abajo queda como contexto. `upsertScore` (`src/app/api/game/actions.ts`) es un
   `upsert` por `(round_id, hole_number)` sin versión: si el servidor procesa dos POST del mismo hoyo
   en desorden (el viejo después del nuevo) gana el viejo, y el cliente no lo puede ver porque los dos
   "ok" llegan en orden. El cliente cubre el caso visible (un reintento viejo que entra después de la

@@ -11,6 +11,12 @@
 // Entre dispositivos distintos gana el que llega último: ninguno está "más al
 // día" que el otro. Por eso no se usa el reloj del teléfono: dos relojes no se
 // pueden comparar, y uno corregido hacia atrás descartaría golpes buenos.
+//
+// Residual abierto (aceptado): una recarga de la página es un dispositivo nuevo.
+// Un POST que salió ANTES de recargar y que el servidor procesa DESPUÉS de un
+// guardado de la página recargada se trata como de otro dispositivo y gana por
+// llegar último. Exige un request en vuelo cruzando la recarga; persistir la
+// secuencia lo cerraría, con el costo descrito abajo.
 
 /**
  * Id del dispositivo, por carga de la página. No se persiste: la secuencia vive
