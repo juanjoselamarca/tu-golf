@@ -1,7 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { crearHcpAMostrar, type HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { esRondaCerrada } from '@/lib/data/ronda-libre-estado'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
@@ -63,8 +62,6 @@ export interface RondaGrupoData {
   playerHcp: Record<string, number>
   /** El HCP que se MUESTRA: siempre en escala de 18 hoyos, aunque se jueguen 9. */
   playerDisplayHcp: Record<string, number>
-  /** El HCP que se pinta de cada jugador (fuente única `crearHcpAMostrar`; el scorer tiene sesión: lee todos). */
-  hcpAMostrar: HcpAMostrar
   teamEquipos: EquipoDelScorer[]
   setTeamEquipos: React.Dispatch<React.SetStateAction<EquipoDelScorer[]>>
   /** Quién anota: su nombre en la ronda, o el prefijo del email. */
@@ -147,7 +144,7 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
   try {
     const hoyos = await cargarHoyosDelScorer(supabase, r)
     // El scorer de grupo exige sesión (arriba): `profiles` es legible.
-    const { hcpMap, displayMap, sinIndice } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal, leerIndicesDelCliente(supabase))
+    const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal, leerIndicesDelCliente(supabase))
     // scramble/foursome usan equipo.scores (compartido); best_ball lee la
     // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo.
     const teamEquipos = await fetchEquiposDelScorer(supabase, r)
@@ -160,7 +157,7 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
       snap: {
         at: Date.now(), authUserId: userId, anotadorNombre, ronda: r,
         parMap: hoyos.parMap, holeDataMap: hoyos.holeDataMap,
-        playerHcp: hcpMap, playerDisplayHcp: displayMap, sinIndice: [...sinIndice], teamEquipos,
+        playerHcp: hcpMap, playerDisplayHcp: displayMap, teamEquipos,
       },
     }
   } catch (err) {
@@ -194,7 +191,6 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const [holeDataMap, setHoleDataMap] = useState<Record<number, HoleData>>({})
   const [playerHcp, setPlayerHcp] = useState<Record<string, number>>({})
   const [playerDisplayHcp, setPlayerDisplayHcp] = useState<Record<string, number>>({})
-  const [sinIndice, setSinIndice] = useState<string[]>([])
   const [teamEquipos, setTeamEquipos] = useState<EquipoDelScorer[]>([])
   const [anotadorNombre, setAnotadorNombre] = useState<string>('')
   const [authUserId, setAuthUserId] = useState<string | null>(null)
@@ -214,7 +210,6 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     setHoleDataMap(s.holeDataMap as Record<number, HoleData>)
     setPlayerHcp(s.playerHcp)
     setPlayerDisplayHcp(s.playerDisplayHcp)
-    setSinIndice(s.sinIndice ?? [])
     // Ya en pantalla (refresco de fondo): los golpes de equipo en pantalla NO se pisan.
     const equipos = s.teamEquipos as EquipoDelScorer[]
     if (cargadaRef.current) {
@@ -318,16 +313,11 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   }, [reintentando, cargar])
   useRefreshOnResume(useCallback(() => { void cargar() }, [cargar]), reintentando)
 
-  const hcpAMostrar = useMemo(
-    () => crearHcpAMostrar(ronda?.ronda_libre_jugadores ?? [], playerDisplayHcp, sinIndice, 'todos'),
-    [ronda, playerDisplayHcp, sinIndice],
-  )
-
   return {
     ronda, loading, loadError,
     currentHole, setCurrentHole,
     scores, setScores,
-    parMap, holeDataMap, playerHcp, playerDisplayHcp, hcpAMostrar,
+    parMap, holeDataMap, playerHcp, playerDisplayHcp,
     teamEquipos, setTeamEquipos,
     anotadorNombre, authUserId,
     conexion, golpesSinSubir,

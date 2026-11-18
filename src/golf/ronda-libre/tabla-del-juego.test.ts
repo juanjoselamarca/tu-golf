@@ -29,7 +29,7 @@ function vista(
     parMap: PAR, siMap: SI, marcas: [], retiros: [],
   })
   if (!r.ok) throw new Error(r.motivo)
-  return vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
+  return vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada), {})
 }
 
 // La Colombiana con sorteo AB-CD → AC-BD → AD-BC, tramos de 6.

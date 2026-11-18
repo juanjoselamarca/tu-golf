@@ -14,6 +14,7 @@ import {
   type Pareja,
 } from '@/golf/formats/personalizado'
 import type { VistaDelJuego } from './juego-de-la-ronda'
+import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 import {
   estadoDelTramo,
   etiquetasUnicas,
@@ -46,6 +47,8 @@ export interface FilaRankingDelJuego {
   diferencia: string | null
   /** Hoyo desde el que se retiró (`VistaDelJuego.retiros`); `null` si sigue jugando. */
   retiradoDesde: number | null
+  /** HCP de 18 a mostrar (`VistaDelJuego.hcpAMostrar`): número, `SIN_INDICE` o `null`. Se pinta si `muestraHcp`. */
+  hcp: HcpMostrado
 }
 
 export interface MarcadorDeParejas {
@@ -120,10 +123,17 @@ export interface TablaDelJuego {
   letrasEnLaTabla: LetraDePuntito[]
   esNeto: boolean
   /**
-   * Se ven los golpes recibidos (puntitos en la tabla, leyenda, HCP antes de partir): neto y todos con hándicap.
+   * Se ven los golpes recibidos (puntitos en la tabla y leyenda): neto y todos con hándicap.
    * Fuente única del predicado para la vista.
    */
   muestraGolpesRecibidos: boolean
+  /**
+   * Antes del primer hoyo, en neto, cada fila muestra el HCP de 18 en vez de los puntos (nunca "recibe N golpes").
+   * No en una ronda cerrada: si se cerró sin golpes, "No se jugó".
+   */
+  muestraHcp: boolean
+  /** La ronda ya estaba cerrada (`VistaDelJuego.rondaCerrada`). */
+  rondaCerrada: boolean
   /** Neto: nombres de quienes no tienen hándicap (`resultado.sinHandicap`); con alguno, nadie recibe golpes. */
   sinHandicap: string[]
 }
@@ -166,6 +176,7 @@ export function armarTablaDelJuego(
   // Hasta dónde se listan los hoyos: el último con algún golpe (o puntuado), o el del scorer si va más adelante.
   let ultimo = -1
   resultado.hoyos.forEach((h, i) => { if (hoyoDelJuegoConGolpes(h)) ultimo = i })
+  const ultimoConGolpes = ultimo >= 0 ? resultado.hoyos[ultimo] : null
   const ordenActual = hoyoActual == null ? -1 : resultado.hoyos.findIndex(h => h.numero === hoyoActual)
   if (ultimo >= 0 || ordenActual > 0) ultimo = Math.max(ultimo, ordenActual)
   const visibles = resultado.hoyos.slice(0, ultimo + 1)
@@ -235,7 +246,6 @@ export function armarTablaDelJuego(
     }
   })
   const posicionDelTramo = (tramo: number | null | undefined) => (tramo == null ? null : tramos.findIndex(t => t.indice === tramo))
-  const ultimoConGolpes = resultado.hoyos.findLast(hoyoDelJuegoConGolpes)
   const tramoDestacado = indiceDelTramoDestacado({
     estados: tramos.map(t => t.estado),
     tramoDelScorer: posicionDelTramo(ordenActual >= 0 ? resultado.hoyos[ordenActual].tramo : null),
@@ -257,6 +267,8 @@ export function armarTablaDelJuego(
       textoConUnidad: formatPuntosConUnidad(r.puntos),
       diferencia: retiradoDesde == null && atras > 0 ? `a ${formatPuntosConUnidad(atras)}` : null,
       retiradoDesde,
+      // `?.`: una respuesta de /juego/publico de antes del deploy (CDN) no lo trae.
+      hcp: vista.hcpAMostrar?.[r.jugadorId] ?? null,
     }
   })
   const hoyosPuntuados = resultado.hoyos.filter(h => h.estado === 'puntuado').length
@@ -284,6 +296,8 @@ export function armarTablaDelJuego(
       .map(p => ({ letra: letras[p.id], nombre: nombreDelPuntito(p).toLocaleLowerCase('es-CL') })),
     esNeto: config.modo === 'neto',
     muestraGolpesRecibidos,
+    muestraHcp: config.modo === 'neto' && ultimoConGolpes == null && !vista.rondaCerrada,
+    rondaCerrada: vista.rondaCerrada,
     sinHandicap: resultado.sinHandicap.map(nombre),
   }
 }

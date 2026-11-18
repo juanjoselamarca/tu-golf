@@ -35,7 +35,7 @@ function vista(
     retiros: Object.entries(extra.retiros ?? {}).map(([jugador_id, desde_hoyo]) => ({ jugador_id, desde_hoyo })),
   } as Parameters<typeof armarEntradaDelJuego>[0])
   if (!r.ok) throw new Error(r.motivo)
-  return vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
+  return vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada), {})
 }
 
 /** Todos los hoyos con los mismos golpes por jugador. */
@@ -55,7 +55,7 @@ function conRanking(puntos: Record<string, number>, cfg: ConfigJuego = crearConf
       tramos: [], totales: puntos, hoyosPendientes: [], sinHandicap: [],
       ranking: orden.map(([jugadorId, p]) => ({ jugadorId, puntos: p, puesto: 1 + orden.filter(([, q]) => q > p).length })),
     },
-    golpesRecibidos: {}, marcas: [], retiros: {}, rondaCerrada: true,
+    golpesRecibidos: {}, hcpAMostrar: {}, marcas: [], retiros: {}, rondaCerrada: true,
   }
 }
 

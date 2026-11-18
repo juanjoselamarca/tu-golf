@@ -6,7 +6,7 @@ import { COLOMBIANA, ID, IDS, NOMBRES, golpesDe, vistaDeTimba } from '@/golf/ron
 import { JuegoDeLaTimba, avisoNetoComoGross } from './JuegoDeLaTimba'
 import { casillasPorFila } from './ParejasDeLaTimba'
 import { tamanoDeLetra } from '../CasillaDeHoyo'
-import { SIN_INDICE, crearHcpAMostrar } from '@/lib/data/ronda-libre-live-api'
+import { SIN_INDICE } from '@/lib/data/ronda-libre-live-api'
 
 // Mitad de ronda: 9 hoyos jugados; Pancho hace birdie en el 1 (gana el tramo 1 su pareja).
 const mitad = () => armarTablaDelJuego(
@@ -71,42 +71,49 @@ describe('JuegoDeLaTimba — mitad de ronda (La Colombiana)', () => {
 })
 
 describe('JuegoDeLaTimba — otros estados', () => {
-  it('0 hoyos: "Aún no parten", primer duelo 0–0 y el HCP de 18 de cada uno (nunca "recibe N golpes"); sin hoyo a hoyo', () => {
-    const tabla = armarTablaDelJuego(
-      vistaDeTimba({ config: COLOMBIANA, scores: {}, modo: 'neto', ch: { [ID.pancho]: 8, [ID.cristobal]: 12, [ID.tomas]: 16, [ID.nico]: 20 } }),
-      NOMBRES, null,
-    )
-    // HCP a mostrar (18 hoyos) distinto del que puntúa, a propósito: se pinta el de la fuente única, no se recalcula.
-    const jugadores = IDS.map(id => ({ id, handicap: null, user_id: null, handicap_de_inscripcion: null }))
-    const hcp = crearHcpAMostrar(jugadores, { [ID.pancho]: -2, [ID.cristobal]: 13, [ID.tomas]: 17 }, [ID.nico], 'todos')
-    render(<JuegoDeLaTimba tabla={tabla} hcpAMostrar={hcp} />)
+  // El HCP lo arma el servidor (`VistaDelJuego.hcpAMostrar`) igual para el scorer, el jugador con sesión y el anónimo:
+  // la vista no recibe nada del visor, así que un jugador con sesión ya no ve solo su HCP y tres guiones.
+  const CH = { [ID.pancho]: 8, [ID.cristobal]: 12, [ID.tomas]: 16, [ID.nico]: 20 }
+  const HCP = { [ID.pancho]: -2, [ID.cristobal]: 13, [ID.tomas]: 17, [ID.nico]: SIN_INDICE }
+
+  it('0 hoyos: "Aún no parten", primer duelo 0–0, lista "Jugadores" con el HCP de 18 de cada uno (nunca "recibe N golpes")', () => {
+    const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: {}, modo: 'neto', ch: CH, hcp: HCP }), NOMBRES, null)
+    render(<JuegoDeLaTimba tabla={tabla} />)
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Aún no parten')
     expect(screen.getByText('La Colombiana · 18 hoyos · salen del 1')).toBeTruthy()
     expect(screen.getByText('Primer duelo')).toBeTruthy()
-    const filas = within(screen.getByRole('list', { name: 'Puntos de cada uno' })).getAllByRole('listitem').map(textoDe)
+    expect(screen.getByRole('heading', { level: 3, name: 'Jugadores' })).toBeTruthy()
+    expect(screen.queryByText('Puntos de cada uno')).toBeNull()
+    const filas = within(screen.getByRole('list', { name: 'Jugadores' })).getAllByRole('listitem').map(textoDe)
     expect(filas).toEqual(['PanchoHCP +2', 'CristóbalHCP 13', 'TomásHCP 17', `NicoHCP ${SIN_INDICE}Sin índice`])
     expect(screen.queryByText(/recibe/i)).toBeNull()
     expect(screen.queryByText('Hoyo a hoyo')).toBeNull()
   })
 
-  it('0 hoyos en neto visto sin sesión (no viaja ningún HCP): quedan los puntos, no una columna de "HCP —"', () => {
-    const ch = { [ID.pancho]: 8, [ID.cristobal]: 12, [ID.tomas]: 16, [ID.nico]: 20 }
-    const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: {}, modo: 'neto', ch }), NOMBRES, null)
-    render(<JuegoDeLaTimba tabla={tabla} hcpAMostrar={() => null} />)
+  it('en neto ya partido: "Puntos de cada uno" con puntos, nunca el HCP', () => {
+    const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: golpesDe([1, 2, 3]), modo: 'neto', ch: CH, hcp: HCP }), NOMBRES, null)
+    render(<JuegoDeLaTimba tabla={tabla} />)
+    expect(screen.getByRole('heading', { level: 3, name: 'Puntos de cada uno' })).toBeTruthy()
     expect(screen.queryByText(/HCP/)).toBeNull()
-    expect(screen.getAllByText('0 pts')).toHaveLength(4)
   })
 
-  it('en neto ya partido: puntos, nunca el HCP', () => {
-    const ch = { [ID.pancho]: 8, [ID.cristobal]: 12, [ID.tomas]: 16, [ID.nico]: 20 }
-    const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: golpesDe([1, 2, 3]), modo: 'neto', ch }), NOMBRES, null)
-    render(<JuegoDeLaTimba tabla={tabla} hcpAMostrar={() => 10} />)
+  it('ronda cerrada sin golpes: "No se jugó" y sin HCP', () => {
+    const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: {}, modo: 'neto', ch: CH, hcp: HCP, cerrada: true }), NOMBRES, null)
+    render(<JuegoDeLaTimba tabla={tabla} />)
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('No se jugó')
     expect(screen.queryByText(/HCP/)).toBeNull()
+  })
+
+  it('una respuesta de antes del deploy (sin hcpAMostrar) no rompe: "HCP —"', () => {
+    const vista = vistaDeTimba({ config: COLOMBIANA, scores: {}, modo: 'neto', ch: CH })
+    const tabla = armarTablaDelJuego({ ...vista, hcpAMostrar: undefined as never }, NOMBRES, null)
+    render(<JuegoDeLaTimba tabla={tabla} />)
+    expect(screen.getAllByText(/^HCP/)).toHaveLength(4)
   })
 
   it('0 hoyos en gross: 0 pts, sin HCP', () => {
-    const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: {} }), NOMBRES, null)
-    render(<JuegoDeLaTimba tabla={tabla} hcpAMostrar={() => 10} />)
+    const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: {}, hcp: HCP }), NOMBRES, null)
+    render(<JuegoDeLaTimba tabla={tabla} />)
     expect(screen.queryByText(/HCP/)).toBeNull()
     expect(screen.getAllByText('0 pts')).toHaveLength(4)
   })

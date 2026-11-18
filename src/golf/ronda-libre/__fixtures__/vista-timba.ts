@@ -4,6 +4,7 @@
  */
 import { armarReglasGuardadas, calcularJuegoPersonalizado, crearConfigDePlantilla, type ConfigJuego } from '@/golf/formats/personalizado'
 import { armarEntradaDelJuego, vistaDelJuego, type VistaDelJuego } from '../juego-de-la-ronda'
+import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 
 export const ID = {
   pancho: '00000000-0000-4000-8000-0000000000a1',
@@ -31,6 +32,8 @@ export function vistaDeTimba(opciones: {
   retiros?: Record<string, number>
   marcas?: { jugadorId: string; hoyo: number; puntitoId: string }[]
   cerrada?: boolean
+  /** HCP a mostrar por jugador (lo que arma el servidor con `crearHcpAMostrar`). */
+  hcp?: Record<string, HcpMostrado>
 }): VistaDelJuego {
   const ids = opciones.ids ?? IDS
   const holes = opciones.holes ?? 18
@@ -49,7 +52,7 @@ export function vistaDeTimba(opciones: {
     retiros: Object.entries(opciones.retiros ?? {}).map(([jugador_id, desde_hoyo]) => ({ jugador_id, desde_hoyo })),
   })
   if (!r.ok) throw new Error(r.motivo)
-  return vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
+  return vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada), opciones.hcp ?? {})
 }
 
 /** Golpes iguales para todos en `hoyos`, salvo los que se pisan en `distintos` ({ hoyo: { id: golpes } }). */

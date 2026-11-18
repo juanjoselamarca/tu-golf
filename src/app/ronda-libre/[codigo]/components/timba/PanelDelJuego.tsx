@@ -5,7 +5,6 @@ import { armarTablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
 import type { MotivoSinJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
 import type { EstadoDelJuego } from '../../hooks/useJuegoDeLaTimba'
 import { JuegoDeLaTimba } from './JuegoDeLaTimba'
-import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
 /** Por qué no hay puntos, en palabras del grupo. Los golpes siempre quedan guardados. */
 export const TEXTO_SIN_JUEGO: Record<MotivoSinJuego, string> = {
@@ -37,16 +36,14 @@ export function PanelDelJuego(props: {
   encabezadoFijoEn?: string
   /** `JuegoDeLaTimba.hoyoAHoyoAbierto`. */
   hoyoAHoyoAbierto?: boolean
-  /** `JuegoDeLaTimba.hcpAMostrar`. */
-  hcpAMostrar?: HcpAMostrar
 }) {
-  const { juego, nombres, hoyoActual, onReintentar, pie, encabezadoFijoEn, hoyoAHoyoAbierto, hcpAMostrar } = props
+  const { juego, nombres, hoyoActual, onReintentar, pie, encabezadoFijoEn, hoyoAHoyoAbierto } = props
   const tabla = useMemo(
     () => (juego.estado === 'ok' ? armarTablaDelJuego(juego.vista, nombres, hoyoActual) : null),
     [juego, nombres, hoyoActual],
   )
 
-  if (juego.estado === 'ok' && tabla) return <JuegoDeLaTimba tabla={tabla} desactualizado={juego.desactualizado} pie={pie} encabezadoFijoEn={encabezadoFijoEn} hoyoAHoyoAbierto={hoyoAHoyoAbierto} hcpAMostrar={hcpAMostrar} />
+  if (juego.estado === 'ok' && tabla) return <JuegoDeLaTimba tabla={tabla} desactualizado={juego.desactualizado} pie={pie} encabezadoFijoEn={encabezadoFijoEn} hoyoAHoyoAbierto={hoyoAHoyoAbierto} />
   if (juego.estado === 'cargando') return <p role="status" style={caja}>Cargando los puntos…</p>
   if (juego.estado === 'sin_juego') return <p role="note" style={caja}>{TEXTO_SIN_JUEGO[juego.motivo]}</p>
   return (

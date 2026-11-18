@@ -245,12 +245,13 @@ describe('cláusula 10 — ronda cerrada = estado finalizada leído de la base',
 })
 
 describe('decisión de Juanjo 27-oct — lo que ve el grupo en una Timba neto', () => {
-  it('hoy la vista trae puntos y golpes recibidos por hoyo, sin CH ni índice', () => {
+  it('hoy la vista trae puntos, golpes recibidos por hoyo y el HCP de 18 a mostrar, sin CH ni índice', () => {
     const r = armar(datos({ cfg: config({ modo: 'neto' }) }))
-    const vista = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
+    const vista = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada), { [IDS[0]]: 12, [IDS[1]]: 'S/Ind' })
     const json = JSON.stringify(vista)
     expect(json).not.toMatch(/courseHandicap|courseHcp|indice|handicapIndex/i)
-    expect(Object.keys(vista).sort()).toEqual(['config', 'golpesRecibidos', 'jugadorIds', 'marcas', 'resultado', 'retiros', 'rondaCerrada'])
+    expect(vista.hcpAMostrar).toEqual({ [IDS[0]]: 12, [IDS[1]]: 'S/Ind', [IDS[2]]: null, [IDS[3]]: null })
+    expect(Object.keys(vista).sort()).toEqual(['config', 'golpesRecibidos', 'hcpAMostrar', 'jugadorIds', 'marcas', 'resultado', 'retiros', 'rondaCerrada'])
     // A la diferencia del más bajo: Diego 0, Juan 4, Pedro 8, Tomás 12 en 18 hoyos (caso dorado 5).
     const total = (id: string) => Object.values(vista.golpesRecibidos[id]).reduce((a, b) => a + b, 0)
     expect(IDS.map(total)).toEqual([4, 8, 0, 12])
@@ -276,7 +277,7 @@ describe('PR C2 — la vista trae las marcas y los retiros para el scorer', () =
       marcas: [marca(JUAN, '3', 'greenie', '2026-10-27T15:00:02Z', 'b'), marca(DIEGO, 4, 'sandy', '2026-10-27T15:00:01Z', 'a')],
       retiros: [{ jugador_id: TOMAS, desde_hoyo: '8' }],
     }))
-    const vista = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
+    const vista = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada), {})
     expect(vista.marcas).toEqual([
       { jugadorId: DIEGO, hoyo: 4, puntitoId: 'sandy' },
       { jugadorId: JUAN, hoyo: 3, puntitoId: 'greenie' },
