@@ -25,6 +25,16 @@ export function progresoDeTarjeta(args: {
 /** Ancho del degradado de cada borde del carrusel (indica que hay más jugadores). */
 const ANCHO_DEGRADADO = 32
 
+/**
+ * `scrollLeft` que deja la tarjeta [x, x+ancho] entera y fuera del degradado de cada borde; null si ya se ve.
+ * `x` relativo al contenido del carrusel (el carrusel es el `offsetParent` de las tarjetas).
+ */
+export function scrollHorizontalParaVer(scrollLeft: number, visible: number, x: number, ancho: number, margen: number): number | null {
+  if (x - margen < scrollLeft) return Math.max(0, x - margen)
+  if (x + ancho + margen > scrollLeft + visible) return x + ancho + margen - visible
+  return null
+}
+
 function getInitials(name: string) {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
 }
@@ -82,14 +92,17 @@ export function PlayerCards({
     }
   }, [updateScrollIndicators, players.length])
 
-  // La tarjeta elegida se ve entera: a 390 px la 3ª quedaba cortada y bajo el degradado del borde ("No jugó"
-  // ilegible, Fable #833 v2). `scrollPaddingInline` deja el ancho del degradado libre al traerla.
+  // La tarjeta elegida se ve entera: a 390 px la 3ª quedaba cortada bajo el degradado del borde ("No jugó"
+  // ilegible, Fable #833 v2). Scroll SÓLO horizontal del carrusel: `scrollIntoView` movía también la página
+  // (v3). Sólo al cambiar la elegida: no al llegar más jugadores con el roster.
   useEffect(() => {
     const el = scrollRef.current
     if (!el || !selectedId) return
     const card = Array.from(el.querySelectorAll<HTMLElement>('[data-player-card]')).find((c) => c.dataset.playerCard === selectedId)
-    card?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
-  }, [selectedId, players.length])
+    if (!card) return
+    const left = scrollHorizontalParaVer(el.scrollLeft, el.clientWidth, card.offsetLeft, card.offsetWidth, ANCHO_DEGRADADO)
+    if (left !== null) el.scrollTo?.({ left, behavior: 'smooth' })
+  }, [selectedId])
 
   return (
     <div style={{ position: 'relative', marginBottom: '28px' }}>
@@ -113,7 +126,7 @@ export function PlayerCards({
           }}
         />
       )}
-      <div ref={scrollRef} style={{ overflowX: 'auto', scrollbarWidth: 'none', scrollPaddingInline: `${ANCHO_DEGRADADO}px` }}>
+      <div ref={scrollRef} style={{ position: 'relative', overflowX: 'auto', scrollbarWidth: 'none' }}>
       <div style={{ display: 'flex', gap: '12px', padding: '4px 0' }}>
         {players.map((p) => {
           const round = getActiveRound(p)
