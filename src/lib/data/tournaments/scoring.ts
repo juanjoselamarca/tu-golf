@@ -278,7 +278,7 @@ export async function fetchRoundScoringContext(
 export async function fetchRoundHoleScores(
   supabase: SupabaseClient,
   roundId: string,
-  /** Corta la consulta (p. ej. `AbortSignal.timeout`): sin esto, una red colgada la deja esperando para siempre. */
+  /** Corta la consulta (p. ej. el `AbortController` de la carga con plazo): sin esto, una red colgada la deja esperando para siempre. */
   signal?: AbortSignal,
 ): Promise<HoleScoreRow[]> {
   let consulta = supabase
