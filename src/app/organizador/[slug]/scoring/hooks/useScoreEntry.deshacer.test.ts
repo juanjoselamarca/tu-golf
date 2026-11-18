@@ -335,4 +335,26 @@ describe('useScoreEntry · orden de los guardados de un hoyo', () => {
     expect(enviados[0].dispositivo).toMatch(/^[0-9a-f-]{36}$/)
     expect(new Set(enviados.map(e => e.dispositivo)).size).toBe(1)
   })
+
+  // Revisión Fable v1 (P1): la marca de orden es por hoyo, así que un parche parcial por stat perdía datos. Putts
+  // (seq 7) que llega después de GIR (seq 8) se descartaba entero. Cada envío lleva la foto completa del hoyo.
+  it('dos stats seguidas del mismo hoyo: el segundo envío trae la primera (sin esperar al render)', async () => {
+    const { enviados } = servidor(200)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(11, '5'))
+    // Los dos taps salen antes de que el estado de la tarjeta tenga los putts (como el handler de GIR).
+    await act(async () => {
+      await Promise.all([
+        result.current.saveHoleStat(11, { putts: 2 }),
+        result.current.saveHoleStat(11, { gir: true }),
+      ])
+    })
+    const [, putts, gir] = enviados
+    expect(putts).toMatchObject({ hole_number: 11, putts: 2, fairway_hit: null, gir: null })
+    expect(gir).toMatchObject({ hole_number: 11, putts: 2, fairway_hit: null, gir: true })
+    expect(gir.seq as number).toBeGreaterThan(putts.seq as number)
+    // Un guardado del golpe después también lleva las dos stats.
+    await act(() => result.current.saveScore(11, '4'))
+    expect(enviados.at(-1)).toMatchObject({ gross_score: 4, putts: 2, gir: true })
+  })
 })

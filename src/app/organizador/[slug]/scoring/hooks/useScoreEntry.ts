@@ -99,6 +99,32 @@ export function useScoreEntry({
   const [holePutts, setHolePutts] = useState<Record<number, number | null>>({})
   const [holeFairway, setHoleFairway] = useState<Record<number, boolean | null>>({})
   const [holeGir, setHoleGir] = useState<Record<number, boolean | null>>({})
+  /** Stats vigentes de la tarjeta abierta, leídas sin el closure del render: un tap de GIR llama a
+   *  `setHoleGir` y a `saveHoleStat` en el mismo handler, y el estado todavía no lo tiene. */
+  const statsRef = useRef({ putts: holePutts, fairway: holeFairway, gir: holeGir })
+  useEffect(() => {
+    statsRef.current = { putts: holePutts, fairway: holeFairway, gir: holeGir }
+  }, [holePutts, holeFairway, holeGir])
+
+  /** Foto COMPLETA de las stats del hoyo con `patch` encima, y queda como vigente. El servidor ordena
+   *  los envíos por hoyo (`guardar_hole_score`): con un parche parcial por envío, putts (seq 7) que
+   *  llega después de GIR (seq 8) se descartaba y los putts se perdían. Con la foto, el más nuevo
+   *  siempre trae lo del anterior. */
+  const fotoStatsDelHoyo = useCallback((holeNumber: number, patch: HoleStatPatch = {}) => {
+    const s = statsRef.current
+    const foto = {
+      putts: s.putts[holeNumber] ?? null,
+      fairway_hit: s.fairway[holeNumber] ?? null,
+      gir: s.gir[holeNumber] ?? null,
+      ...patch,
+    }
+    statsRef.current = {
+      putts: { ...s.putts, [holeNumber]: foto.putts },
+      fairway: { ...s.fairway, [holeNumber]: foto.fairway_hit },
+      gir: { ...s.gir, [holeNumber]: foto.gir },
+    }
+    return foto
+  }, [])
 
   const holes = useMemo(() => Array.from({ length: holeCount }, (_, i) => i + 1), [holeCount])
   // SI normalizado (permutación 1..N) para alocar golpes de neto/stableford (idempotente).
@@ -293,9 +319,7 @@ export function useScoreEntry({
             gross_score: gross,
             net_score: netScore,
             points,
-            putts: holePutts[holeNumber] ?? null,
-            fairway_hit: holeFairway[holeNumber] ?? null,
-            gir: holeGir[holeNumber] ?? null,
+            ...fotoStatsDelHoyo(holeNumber),
           }),
         })
       } catch {
@@ -324,8 +348,8 @@ export function useScoreEntry({
     },
     [
       tournament, selectedId, players, getActiveRound, holeByNumero, siAllocByHole,
-      courseHoles, courseTees, holeCount, currentScores, holePutts, holeFairway,
-      holeGir, applyRoundTotals, showError, showSuccess, showWarning,
+      courseHoles, courseTees, holeCount, currentScores, fotoStatsDelHoyo,
+      applyRoundTotals, showError, showSuccess, showWarning,
     ],
   )
 
@@ -456,7 +480,7 @@ export function useScoreEntry({
           hole_number: holeNumber,
           par: holeByNumero.get(holeNumber)?.par ?? 4,
           gross_score: gross,
-          ...patch,
+          ...fotoStatsDelHoyo(holeNumber, patch),
         }),
       })
       if (!res.ok) {
@@ -471,7 +495,7 @@ export function useScoreEntry({
       }
       statWarnedHolesRef.current.delete(avisoKey)
     },
-    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning],
+    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning, fotoStatsDelHoyo],
   )
 
   const finalizeRound = useCallback(async () => {
