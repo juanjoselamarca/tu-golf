@@ -36,7 +36,9 @@ import { inscritoAprobado, jugadorFueraDelTorneo } from '@/golf/tournament-statu
  * Cuenta CUALQUIER score guardado (`hoyosAnotados`), también el CONCEDE (-1) del match play: un hoyo concedido
  * ya es un match en juego, y para decidir si se puede tocar una tarjeta conviene fallar cerrado. No es
  * `hoyoConGolpes` (progreso-de-ronda.ts), que solo cuenta golpes reales (> 0) para el pie del leaderboard.
- * Espejo SQL (PR2): algún valor numérico de `jsonb_each(scores)` en esos hoyos.
+ * Espejo SQL: `public.tarjeta_tiene_anotaciones(jsonb)` (migración 20261122100000), que usa la RPC
+ * `colocar_inscrito_en_grupo`. Cuenta un valor numérico en CUALQUIER llave, no solo en `hoyos`: es un
+ * superconjunto de esta función, a propósito (en SQL falla cerrado). Si cambia una, revisar la otra.
  */
 export function tarjetaTieneAnotaciones(scores: ScoresDeTarjeta | null | undefined, hoyos: readonly number[]): boolean {
   return hoyosAnotados(scores, hoyos) > 0
