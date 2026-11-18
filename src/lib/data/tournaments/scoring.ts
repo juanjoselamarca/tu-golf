@@ -278,12 +278,16 @@ export async function fetchRoundScoringContext(
 export async function fetchRoundHoleScores(
   supabase: SupabaseClient,
   roundId: string,
+  /** Corta la consulta (p. ej. el `AbortController` de la carga con plazo): sin esto, una red colgada la deja esperando para siempre. */
+  signal?: AbortSignal,
 ): Promise<HoleScoreRow[]> {
-  const { data, error } = await supabase
+  let consulta = supabase
     .from('hole_scores')
     .select('hole_number, gross_score, putts, fairway_hit, gir')
     .eq('round_id', roundId)
     .not('gross_score', 'is', null)
+  if (signal) consulta = consulta.abortSignal(signal)
+  const { data, error } = await consulta
   if (error) throw error
   return (data as HoleScoreRow[] | null) ?? []
 }

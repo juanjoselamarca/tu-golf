@@ -352,4 +352,33 @@ describe('upsertScore · validación de las estadísticas del hoyo', () => {
     expect(res.status).toBe(200)
     expect(upserted).toMatchObject({ putts: 0, fairway_hit: false, gir: true })
   })
+
+  // Revisión Fable de #832 (P2): el "—" o vaciar los putts mandaba null, el servidor lo descartaba y la stat
+  // reaparecía al recargar. Null presente = borrar; clave ausente = no tocar.
+  it('con stats_null_borra, una stat en null explícito se BORRA (la columna va en la fila con null)', async () => {
+    const res = await upsertScore(svc() as never, USER, {
+      ...golpeConMentira, stats_null_borra: true, putts: null, fairway_hit: null, gir: null,
+    })
+    expect(res.status).toBe(200)
+    expect(upserted).toHaveProperty('putts', null)
+    expect(upserted).toHaveProperty('fairway_hit', null)
+    expect(upserted).toHaveProperty('gir', null)
+  })
+
+  // Revisión Fable de #834 (P2): un bundle viejo del organizador manda `putts: holePutts[h] ?? null` en cada golpe.
+  it('sin stats_null_borra (bundle viejo), el null se ignora y no borra la stat guardada', async () => {
+    const res = await upsertScore(svc() as never, USER, { ...golpeConMentira, putts: null, fairway_hit: null, gir: true })
+    expect(res.status).toBe(200)
+    expect(upserted).not.toHaveProperty('putts')
+    expect(upserted).not.toHaveProperty('fairway_hit')
+    expect(upserted).toHaveProperty('gir', true)
+  })
+
+  it('guardar sólo el golpe no toca las stats (las columnas no van en la fila)', async () => {
+    const res = await upsertScore(svc() as never, USER, golpeConMentira)
+    expect(res.status).toBe(200)
+    expect(upserted).not.toHaveProperty('putts')
+    expect(upserted).not.toHaveProperty('fairway_hit')
+    expect(upserted).not.toHaveProperty('gir')
+  })
 })

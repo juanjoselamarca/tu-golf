@@ -22,6 +22,7 @@ import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
 import { esTarjetaCerrada } from '@/golf/tournament-rounds'
 import { captureGameError, type Svc } from './game-errors'
 import { guardarHoleScore, ordenDelBody } from '@/lib/data/tournaments/guardar-hole-score'
+import { CAMPO_STATS_NULL_BORRA } from '@/lib/api/codigos-game'
 
 // ═══════════════════════════════════════════════════════════
 // UPSERT SCORE
@@ -273,9 +274,15 @@ export async function upsertScore(
   // pone en el `DO UPDATE SET` las columnas del payload).
   const parEfectivo = parDelCatalogo ?? (derivado ? PAR_FALLBACK : (par as number | undefined))
   if (parEfectivo !== undefined) upsertData.par = parEfectivo
-  if (putts !== undefined && putts !== null) upsertData.putts = putts
-  if (fairway_hit !== undefined && fairway_hit !== null) upsertData.fairway_hit = fairway_hit
-  if (gir !== undefined && gir !== null) upsertData.gir = gir
+  // Stats: clave AUSENTE = no tocar. Con `stats_null_borra` (el scorer del organizador, que omite lo que no tocó)
+  // un null BORRA la stat (el "—" o vaciar los putts); antes se descartaba y la stat reaparecía al recargar. Sin
+  // el campo el null se sigue ignorando: un bundle viejo en caché manda `putts: holePutts[h] ?? null` en cada
+  // golpe, y borraría stats buenas.
+  const nullBorra = body[CAMPO_STATS_NULL_BORRA] === true
+  const stats = { putts, fairway_hit, gir }
+  for (const [columna, valor] of Object.entries(stats)) {
+    if (valor !== undefined && (valor !== null || nullBorra)) upsertData[columna] = valor
+  }
 
   // Con `seq`/`dispositivo` del scorer, un guardado más viejo del mismo dispositivo y hoyo que el ya aplicado se
   // descarta en la base (residual de #754: anota 5, corrige a 4, el POST del 5 llega después y quedaba el 5).
