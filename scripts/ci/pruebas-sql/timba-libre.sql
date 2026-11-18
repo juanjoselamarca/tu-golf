@@ -291,4 +291,15 @@ BEGIN
   RAISE NOTICE 'OK greenie Pedro -> Juan -> Pedro deja solo a Pedro; p_seq viejo no pisa; retiro y marca del admin guardados; Timba del admin cerrada con reglas intactas y con la marca entre jugadores con cuenta';
 END $$;
 
+-- Una ronda sin estado no puede existir (ni cierra ni acepta golpes; migración 20261120100000).
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.rondas_libres SET estado = NULL WHERE id = 'd0000000-0000-4000-8000-000000000001';
+    RAISE EXCEPTION 'FALLA: una ronda quedó con estado NULL';
+  EXCEPTION WHEN not_null_violation THEN
+    RAISE NOTICE 'OK rondas_libres.estado no acepta NULL';
+  END;
+END $$;
+
 ROLLBACK;

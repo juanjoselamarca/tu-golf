@@ -27,6 +27,14 @@ const MIGRACION = '20261026120000_ronda_libre_jugadores_perfil_sugerido.sql'
  */
 const MIGRACION_ORDEN_LOCKS = '20261118120000_timba_lock_cierre_e_invitados.sql'
 
+/**
+ * Redefine eliminar_cuenta SOLO para mover el UPDATE de players antes de las tarjetas (orden players → tarjeta, el de
+ * editar_handicap_inscrito). Tampoco menciona la columna fuera de esa función.
+ */
+const MIGRACION_ORDEN_PLAYERS = '20261120100000_eliminar_cuenta_orden_y_estado_obligatorio.sql'
+const UPDATE_PLAYERS =
+  /UPDATE players\s+SET\s+user_id = NULL, pending_user_id = gen_random_uuid\(\), player_name = c_anonimo\s+WHERE\s+user_id = p_user_id OR pending_user_id = p_user_id;/
+
 /** El UPDATE que esa migración mueve, sin comentarios. */
 const UPDATE_MARCADOR =
   /UPDATE rondas_libres\s+SET\s+admin_user_id = NULL, admin_mode = false\s+WHERE\s+admin_user_id = p_user_id\s+AND\s+creador_id IS DISTINCT FROM p_user_id;/
@@ -86,9 +94,24 @@ const ANONIMIZACION = /\n\n  -- Tarjetas en que un creador lo eligió como rival
 describe('perfil_sugerido_id no da poderes', () => {
   it('solo su propia migración la menciona (ninguna otra policy, función ni grant la lee)', () => {
     const mencionan = migrationFiles().filter(f => stripSqlComments(readMigration(f)).includes(COLUMNA))
-    expect(mencionan).toEqual([MIGRACION, MIGRACION_ORDEN_LOCKS])
-    const orden = readMigration(MIGRACION_ORDEN_LOCKS)
-    expect(stripSqlComments(orden.replace(eliminarCuenta(orden), ''))).not.toContain(COLUMNA)
+    expect(mencionan).toEqual([MIGRACION, MIGRACION_ORDEN_LOCKS, MIGRACION_ORDEN_PLAYERS])
+    for (const f of [MIGRACION_ORDEN_LOCKS, MIGRACION_ORDEN_PLAYERS]) {
+      const orden = readMigration(f)
+      expect(stripSqlComments(orden.replace(eliminarCuenta(orden), ''))).not.toContain(COLUMNA)
+    }
+  })
+
+  it('la redefinición de 20261120 solo cambia de lugar el UPDATE de players (antes de tocar tarjetas)', () => {
+    const limpia = (def: string) => stripSqlComments(def)
+    const antes = limpia(eliminarCuenta(readMigration(MIGRACION_ORDEN_LOCKS)))
+    const despues = limpia(eliminarCuenta(readMigration(MIGRACION_ORDEN_PLAYERS)))
+    const sinPlayers = (def: string) => def.replace(UPDATE_PLAYERS, '').replace(/\s+/g, ' ')
+    expect(antes).toMatch(UPDATE_PLAYERS)
+    expect(sinPlayers(despues)).toBe(sinPlayers(antes))
+    expect(antes.search(UPDATE_PLAYERS)).toBeGreaterThan(antes.indexOf('UPDATE ronda_libre_jugadores'))
+    expect(despues.search(UPDATE_PLAYERS)).toBeLessThan(despues.indexOf('UPDATE ronda_libre_jugadores'))
+    // El orden ronda → jugador de 20261118 se mantiene.
+    expect(despues.search(UPDATE_MARCADOR)).toBeLessThan(despues.indexOf('UPDATE ronda_libre_jugadores'))
   })
 
   it('la redefinición de 20261118 solo cambia de lugar el UPDATE del marcador (antes de tocar tarjetas)', () => {
@@ -122,7 +145,7 @@ describe('perfil_sugerido_id no da poderes', () => {
 
   it('la ÚLTIMA definición de eliminar_cuenta en las migraciones conserva la anonimización', () => {
     // Una migración futura que redefina la función sin copiar esta versión la perdería en silencio.
-    expect(ultimaEliminarCuenta(realMigrations())?.file).toBe(MIGRACION_ORDEN_LOCKS)
+    expect(ultimaEliminarCuenta(realMigrations())?.file).toBe(MIGRACION_ORDEN_PLAYERS)
     expect(conservaAnonimizacion(realMigrations())).toBe(true)
     // Guard del detector: una redefinición posterior sin la anonimización se caza; con ella, no.
     const base = readMigration(BASELINE)
@@ -151,6 +174,13 @@ describe('perfil_sugerido_id no da poderes', () => {
     const rollback = readMigration('rollback/20261026_ronda_libre_jugadores_perfil_sugerido_rollback.sql')
     expect(eliminarCuenta(rollback)).toBe(eliminarCuenta(readMigration(BASELINE)))
     expect(rollback.indexOf('eliminar_cuenta(')).toBeLessThan(rollback.indexOf('DROP COLUMN'))
+  })
+
+  it('el rollback de 20261120 devuelve eliminar_cuenta EXACTA de 20261118', () => {
+    const rollback = readMigration('rollback/20261120_eliminar_cuenta_orden_y_estado_obligatorio_rollback.sql')
+    expect(eliminarCuenta(rollback)).toBe(eliminarCuenta(readMigration(MIGRACION_ORDEN_LOCKS)))
+    expect(rollback).toMatch(/REVOKE ALL ON FUNCTION public\.eliminar_cuenta\(uuid\) FROM PUBLIC, anon, authenticated;/)
+    expect(rollback).toMatch(/ALTER COLUMN estado DROP NOT NULL;/)
   })
 
   it('los lectores de permisos e índice siguen mirando user_id', () => {
