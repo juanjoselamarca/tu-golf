@@ -79,6 +79,8 @@ export function useScoreEntry({
   const { showError, showSuccess, showWarning } = useToast()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  /** Selección vigente leída en el mismo handler (sin esperar el render): re-tocar al jugador abierto no hace nada. */
+  const selectedIdRef = useRef<string | null>(null)
   const [currentScores, setCurrentScores] = useState<Record<number, number>>({})
   const [errorHoles, setErrorHoles] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
@@ -145,29 +147,44 @@ export function useScoreEntry({
     setHolePutts({})
     setHoleFairway({})
     setHoleGir({})
+    // También la ref, en el mismo handler: el efecto que la sincroniza corre recién tras el commit.
+    // Cinturón: desde la UI esa ventana casi no se alcanza (el envío de la tarjeta nueva no debe llevar stats viejas).
+    statsRef.current = { putts: {}, fairway: {}, gir: {} }
   }, [])
 
   const selectPlayer = useCallback(
     (playerId: string) => {
+      // Re-tocar al jugador abierto (doble toque con guante) no limpia nada: el efecto de carga no vuelve a
+      // correr con el mismo id, así que la tarjeta quedaba en blanco y "deshacer" mandaba gross null.
+      if (selectedIdRef.current === playerId) return
+      selectedIdRef.current = playerId
       tarjetaRef.current += 1
       setSelectedId(playerId)
-      setCurrentScores({})
+      // Todo lo de la tarjeta anterior, no solo los golpes: con señal mala, un golpe anotado antes de que
+      // llegue la lectura del nuevo jugador mandaba los putts/fairway/GIR del anterior en su envío.
+      resetHoleState()
+      setErrorHoles(new Set())
       setLastAction(null)
     },
-    [],
+    [resetHoleState],
   )
 
   const clearSelection = useCallback(() => {
     tarjetaRef.current += 1
+    selectedIdRef.current = null
     setSelectedId(null)
     resetHoleState()
+    setErrorHoles(new Set())
     // Cerrar la tarjeta (o cambiar de ronda) descarta el deshacer pendiente: el
     // botón "Deshacer hoyo N" quedaba vivo en el header sin tarjeta a la vista.
     setLastAction(null)
   }, [resetHoleState])
 
+  // `vigente` lo da el efecto: solo la última corrida escribe. Sin esto, una respuesta lenta pisa a la nueva
+  // (cambiar de jugador con señal mala pintaba los golpes del anterior). Ordena lecturas entre sí; una lectura
+  // contra un golpe optimista aún sin confirmar no la ordena (pendiente aparte).
   const loadScores = useCallback(
-    async (playerId: string) => {
+    async (playerId: string, vigente: () => boolean = () => true) => {
       const player = players.find((p) => p.id === playerId)
       const roundId = getActiveRound(player)?.id
       if (!roundId) {
@@ -176,6 +193,7 @@ export function useScoreEntry({
       }
       try {
         const rows = await fetchRoundHoleScores(createClient(), roundId)
+        if (!vigente()) return
         const scores: Record<number, number> = {}
         const putts: Record<number, number | null> = {}
         const fairway: Record<number, boolean | null> = {}
@@ -191,6 +209,7 @@ export function useScoreEntry({
         setHoleFairway(fairway)
         setHoleGir(gir)
       } catch (e) {
+        if (!vigente()) return
         void captureError(e, { context: 'scoring.useScoreEntry.loadScores', meta: { roundId } })
         showError('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
       }
@@ -199,7 +218,10 @@ export function useScoreEntry({
   )
 
   useEffect(() => {
-    if (selectedId) void loadScores(selectedId)
+    if (!selectedId) return
+    let vigente = true
+    void loadScores(selectedId, () => vigente)
+    return () => { vigente = false }
   }, [selectedId, loadScores])
 
   // ── Derivados de la tarjeta seleccionada ──
@@ -273,6 +295,7 @@ export function useScoreEntry({
         return
       }
 
+      const tarjeta = tarjetaRef.current
       const hole = holeByNumero.get(holeNumber)
       const par = hole?.par ?? 4
       const si = siAllocByHole[holeNumber] ?? hole?.stroke_index ?? holeNumber
@@ -331,8 +354,9 @@ export function useScoreEntry({
 
       if (!res?.ok) {
         marcar('fallo')
-        showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber}. Intenta nuevamente.`)
-        setErrorHoles((prev) => new Set(prev).add(holeNumber))
+        showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber} de ${resolveLegacyPlayerName(player)}. Intenta nuevamente.`)
+        // La marca roja es de ESTA tarjeta: si el organizador ya abrió a otro jugador, no se la pinta a él.
+        if (tarjetaRef.current === tarjeta) setErrorHoles((prev) => new Set(prev).add(holeNumber))
         return
       }
       marcar('guardado')

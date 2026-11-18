@@ -34,20 +34,25 @@ export function removeToast(id: string) {
 
 // ── Hook ──────────────────────────────────────────────────────────────────
 
+// Objeto de módulo: la MISMA referencia en cada render. Quien pone `showError` en las dependencias de un
+// useCallback/useEffect no puede entrar en bucle (el scorer del organizador re-consultaba la tarjeta en cada
+// render porque `loadScores` dependía de un `showError` nuevo cada vez).
+const TOAST_API = Object.freeze({
+  showError: (title: string, message?: string, opts?: { duration?: number }) =>
+    addToast({ type: 'error',   title, message, duration: opts?.duration ?? 5000 }),
+
+  showSuccess: (title: string, message?: string, opts?: { duration?: number }) =>
+    addToast({ type: 'success', title, message, duration: opts?.duration ?? 4000 }),
+
+  showWarning: (title: string, message?: string, opts?: { duration?: number }) =>
+    addToast({ type: 'warning', title, message, duration: opts?.duration ?? 5000 }),
+
+  showInfo: (title: string, message?: string, opts?: { duration?: number }) =>
+    addToast({ type: 'info',    title, message, duration: opts?.duration ?? 5000 }),
+})
+
 export function useToast() {
-  return {
-    showError: (title: string, message?: string, opts?: { duration?: number }) =>
-      addToast({ type: 'error',   title, message, duration: opts?.duration ?? 5000 }),
-
-    showSuccess: (title: string, message?: string, opts?: { duration?: number }) =>
-      addToast({ type: 'success', title, message, duration: opts?.duration ?? 4000 }),
-
-    showWarning: (title: string, message?: string, opts?: { duration?: number }) =>
-      addToast({ type: 'warning', title, message, duration: opts?.duration ?? 5000 }),
-
-    showInfo: (title: string, message?: string, opts?: { duration?: number }) =>
-      addToast({ type: 'info',    title, message, duration: opts?.duration ?? 5000 }),
-  }
+  return TOAST_API
 }
 
 // ── ToastContainer ────────────────────────────────────────────────────────
