@@ -69,6 +69,24 @@ describe('useJuegoDeLaTimba', () => {
     expect(typeof result.current.vistaPedidaEn).toBe('number')
   })
 
+  // QA 18-nov: el espectador sin cuenta pagaba un 401 por cada golpe nuevo (la firma cambia con los golpes).
+  it('visor sin cuenta: el 401 se recuerda aunque cambie la firma, y se olvida al ingresar', async () => {
+    fetchMock
+      .mockResolvedValueOnce(respuesta(401, { error: 'Requiere sesión' }))
+      .mockResolvedValue(respuesta(200, { estado: 'ok', ...VISTA }))
+    const { result, rerender } = renderHook(
+      ({ firma, visorSinCuenta }) => useJuegoDeLaTimba('ABC123', { activo: true, intervaloS: 0, firma, visorSinCuenta }),
+      { initialProps: { firma: 'a', visorSinCuenta: true } },
+    )
+    await waitFor(() => expect(result.current.juego).toMatchObject({ estado: 'ok', publica: true }))
+    rerender({ firma: 'b', visorSinCuenta: true })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+    expect(fetchMock.mock.calls[2][0]).toBe('/api/ronda-libre/ABC123/juego/publico')
+    rerender({ firma: 'c', visorSinCuenta: false })
+    await waitFor(() => expect(result.current.juego).toMatchObject({ estado: 'ok', publica: false }))
+    expect(fetchMock.mock.calls[3][0]).toBe('/api/ronda-libre/ABC123/juego')
+  })
+
   it('sin juego trae si la ronda ya estaba cerrada', async () => {
     fetchMock.mockResolvedValue(respuesta(200, { estado: 'sin_juego', motivo: 'reglas_invalidas', rondaCerrada: false }))
     const { result } = renderHook(() => useJuegoDeLaTimba('ABC123', { activo: true, intervaloS: 0 }))

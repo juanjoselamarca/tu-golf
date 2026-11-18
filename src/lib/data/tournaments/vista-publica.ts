@@ -177,6 +177,9 @@ export function gwiDelBoardPublico(
  * "<Formato> · Clasificación bruta" (no "Stroke Play Gross" sobre un Stableford).
  */
 export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJuego, modoJuego: ModoJuego): string {
+  // La Timba nunca muestra una clasificación bruta: sus puntos, también los de la vista sin sesión
+  // (/juego/publico), ya vienen en su modalidad real (QA 18-nov).
+  if (esFormatoPersonalizado(formatoJuego)) return formatLabel(formatoJuego, modoJuego)
   return vista.soloBruto ? `${formatLabel(formatoJuego)} · ${COPY_CLASIFICACION_BRUTA}` : formatLabel(formatoJuego, modoJuego)
 }
 

@@ -46,16 +46,26 @@ export interface JuegoDeLaTimba {
 
 export function useJuegoDeLaTimba(
   codigo: string,
-  opciones: { activo: boolean; firma?: string; intervaloS?: number },
+  opciones: {
+    activo: boolean; firma?: string; intervaloS?: number
+    /**
+     * El visor no tiene sesión (espectador anónimo con el link): su 401 no es un token que se está renovando, así
+     * que se recuerda aunque cambie la `firma` (si no, cada golpe nuevo costaba un 401 más; QA 18-nov). Al
+     * ingresar cambia a `false` y se vuelve a probar la privada.
+     */
+    visorSinCuenta?: boolean
+  },
 ): JuegoDeLaTimba {
-  const { activo, firma = '', intervaloS = 20 } = opciones
+  const { activo, firma = '', intervaloS = 20, visorSinCuenta = false } = opciones
   const [juego, setJuego] = useState<EstadoDelJuego>({ estado: 'cargando' })
   const ultimaVista = useRef<{ vista: VistaDelJuego; pedidaEn: number; firma: string; publica: boolean } | null>(null)
   const pedido = useRef(0)
   // Ya respondió 401: los pedidos siguientes van directo a la pública (uno por poll, no dos). Se olvida cuando cambia
-  // la `firma` (la de la página incluye al usuario: al ingresar se vuelve a probar la privada).
+  // la `firma` (la de la página incluye al usuario: al ingresar se vuelve a probar la privada), salvo para un visor
+  // sin cuenta, que lo recuerda hasta que ingresa.
   const sinSesion = useRef(false)
-  useEffect(() => { sinSesion.current = false }, [codigo, firma])
+  const olvidarCon = visorSinCuenta ? '' : firma
+  useEffect(() => { sinSesion.current = false }, [codigo, olvidarCon, visorSinCuenta])
 
   const recargar = useCallback(async () => {
     if (!activo) return

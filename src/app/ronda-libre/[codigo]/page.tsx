@@ -334,7 +334,8 @@ function RondaLibrePageContent() {
         )}
         {justFollowed && <NotifConfirmationToast type="spectator" />}
 
-        {vistaVisor?.soloBruto && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}`} error={errorNeto} />}
+        {/* La Timba no muestra la tabla bruta: sus puntos, también los de /juego/publico, ya vienen en su modalidad. */}
+        {vistaVisor?.soloBruto && !timba.esTimba && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}`} error={errorNeto} />}
 
         {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && mr && (
           <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} hcpAMostrar={hcpAMostrar} />

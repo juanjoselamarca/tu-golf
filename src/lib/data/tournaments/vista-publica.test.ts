@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { idsConHandicapOculto, vistaPublica, filaPublica, datosRondaLibrePublicos, handicapsVisiblesParaElVisor, vistaPublicaDeRondaLibre } from './vista-publica'
+import { etiquetaDelFormato, idsConHandicapOculto, vistaPublica, filaPublica, datosRondaLibrePublicos, handicapsVisiblesParaElVisor, vistaPublicaDeRondaLibre } from './vista-publica'
 import type { Player } from '@/lib/golf-data'
 
 const jugadores = [
@@ -140,5 +140,19 @@ describe('handicapsVisiblesParaElVisor — Timba libre (decisión 27-oct)', () =
   })
   it('otro formato: igual', () => {
     expect(handicapsVisiblesParaElVisor(h, { formato_juego: 'best_ball', ronda_libre_jugadores: jugadores }, 'yo')).toBe(h)
+  })
+})
+
+describe('etiquetaDelFormato', () => {
+  const sinNeto = vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: 'neto', formatoJuego: 'stroke_play' })
+  it('sin el neto, una ronda neto dice "<Formato> · Clasificación bruta"', () => {
+    expect(etiquetaDelFormato(sinNeto, 'stroke_play', 'neto')).toBe('Stroke Play · Clasificación bruta')
+  })
+  // QA 18-nov: la Timba no tiene tabla bruta; sus puntos sin sesión ya vienen en la modalidad real.
+  it('la Timba dice su modalidad real aunque el visor no tenga el neto', () => {
+    const timba = 'personalizado' as never
+    const vista = vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: 'neto', formatoJuego: timba })
+    expect(vista.soloBruto).toBe(true)
+    expect(etiquetaDelFormato(vista, timba, 'neto')).toBe('Timba libre Neto')
   })
 })
