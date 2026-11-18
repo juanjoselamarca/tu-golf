@@ -48,7 +48,11 @@ BEGIN
      OR has_table_privilege('authenticated', 'public.hole_scores_orden', 'SELECT,INSERT,UPDATE,DELETE') THEN
     RAISE EXCEPTION 'FALLA: un rol cliente tiene privilegios sobre hole_scores_orden';
   END IF;
-  IF NOT has_table_privilege('service_role', 'public.hole_scores_orden', 'SELECT,INSERT,UPDATE') THEN
+  -- Una llamada por privilegio: con la lista ('SELECT,INSERT,UPDATE') has_table_privilege devuelve true si hay
+  -- CUALQUIERA de los tres, y la prueba pasaba con service_role sin UPDATE (el segundo guardado del hoyo fallaría).
+  IF NOT (has_table_privilege('service_role', 'public.hole_scores_orden', 'SELECT')
+          AND has_table_privilege('service_role', 'public.hole_scores_orden', 'INSERT')
+          AND has_table_privilege('service_role', 'public.hole_scores_orden', 'UPDATE')) THEN
     RAISE EXCEPTION 'FALLA: service_role sin SELECT/INSERT/UPDATE en hole_scores_orden';
   END IF;
   RAISE NOTICE 'OK sólo service_role ejecuta la función; la tabla de marcas es privada';
