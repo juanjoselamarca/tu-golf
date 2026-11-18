@@ -229,7 +229,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         </button>
         {showStats && (
           <fieldset disabled={bloqueada} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-            <HoleStatsTable courseHoles={courseHoles} entry={entry} />
+            {/* Remonta por ronda: lo tecleado en putts (borrador sin salir del campo) no pasa a otra tarjeta. */}
+            <HoleStatsTable key={selectedRound?.id ?? 'sin-ronda'} courseHoles={courseHoles} entry={entry} />
           </fieldset>
         )}
       </div>

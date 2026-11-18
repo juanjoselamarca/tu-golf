@@ -8,7 +8,11 @@ import type { ScoringTournament } from '@/lib/data/tournaments/scoring'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { ScorecardPanel } from './ScorecardPanel'
 
-vi.mock('./HoleStatsTable', () => ({ HoleStatsTable: () => null }))
+const montajesStats = vi.hoisted(() => ({ n: 0 }))
+vi.mock('./HoleStatsTable', async () => {
+  const { useEffect } = await import('react')
+  return { HoleStatsTable: () => { useEffect(() => { montajesStats.n++ }, []); return null } }
+})
 
 function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
   return {
@@ -187,4 +191,19 @@ describe('ScorecardPanel — estado de guardado por hoyo', () => {
     rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({ ...base, cierre: { ...cierre, roundId: 'otra' } } as never)} />)
     expect((screen.getByRole('button', { name: 'Cerrando tarjeta de Ana…' }) as HTMLButtonElement).disabled).toBe(true)
   })
+
+describe('ScorecardPanel — tabla de stats por ronda', () => {
+  it('cambiar de ronda remonta la tabla: lo tecleado en putts no pasa a la tarjeta de otro jugador', () => {
+    montajesStats.n = 0
+    const e1 = entry({ holes: [1] } as never)
+    const { rerender } = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e1} />)
+    fireEvent.click(screen.getByRole('button', { name: /Estadísticas adicionales/ }))
+    expect(montajesStats.n).toBe(1)
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e1} />)
+    expect(montajesStats.n).toBe(1)
+    const e2 = entry({ holes: [1], selectedRound: { id: 'r2', status: 'in_progress' }, selectedId: 'p2' } as never)
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e2} />)
+    expect(montajesStats.n).toBe(2)
+  })
+})
 })
