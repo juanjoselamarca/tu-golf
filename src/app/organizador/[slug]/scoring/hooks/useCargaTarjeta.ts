@@ -55,8 +55,11 @@ export function useCargaTarjeta({ roundId, store, parDe, showError }: Args) {
     } catch (error) {
       control.abort()
       void captureError(error, { context: 'scoring.useCargaTarjeta', meta: { roundId: ronda } })
-      // Ya cargada (otra lectura llegó antes): una recarga que falla no bloquea ni avisa.
-      if (cargasRef.current[ronda] === 'lista') return
+      // Ya cargada: una relectura que falla no bloquea la tarjeta, pero se dice (lo que se ve puede no estar al día).
+      if (cargasRef.current[ronda] === 'lista') {
+        showErrorRef.current('No pudimos actualizar la tarjeta', 'Lo que ves es lo último que cargó. Ábrela de nuevo para releerla.')
+        return
+      }
       fijarCarga(ronda, 'error')
       showErrorRef.current('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
     }

@@ -16,7 +16,12 @@ import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { ScoringPlayer, ScoringRound, ScoringTournament } from '@/lib/data/tournaments/scoring'
 import { ESPERA_STAT_MS, type HoleStatPatch, type RespuestaSobre } from './estado-hoyos'
 import { useEstadoHoyos, usePendientesGlobal, useRondaSellada, useVistaRonda } from './useEstadoHoyos'
-import { useCargaTarjeta } from './useCargaTarjeta'
+import { TIMEOUT_CARGA_MS, useCargaTarjeta } from './useCargaTarjeta'
+import { descartarRechazados as descartarDelStore } from './descartar-rechazados'
+import { createClient } from '@/lib/supabase'
+import { conTimeout } from '@/lib/red/con-timeout'
+import { fetchRoundHoleScores, fetchRoundTotals } from '@/lib/data/tournaments/scoring'
+import { esRechazoPermanente } from '@/lib/api/respuesta-score'
 import { esTarjetaCerrada } from '@/golf/tournament-rounds'
 import { useCerrarTarjeta } from './useCerrarTarjeta'
 
@@ -78,12 +83,19 @@ export function useScoreEntry({
   /** Tarjeta cerrada en la base (`roundClosed`): no se edita más. No depende del sello del store. */
   const rondaCerrada = esTarjetaCerrada(selectedRound?.status)
 
-  // Totales de la ronda que trae cada guardado confirmado, a la ficha del jugador DUEÑO de esa ronda.
+  // Totales de la ronda que trae cada guardado confirmado, a la ficha del jugador DUEÑO de esa ronda. `null`: las
+  // respuestas llegaron fuera de orden y se leen de la base (si la lectura falla, quedan los de la ficha hasta el
+  // próximo guardado o la relectura del listado).
   const alConfirmar = useCallback(
-    (roundId: string, t: NonNullable<RespuestaSobre['totales']>) => {
-      const dueno = players.find((p) => p.rounds?.some((r) => r.id === roundId))
-      if (!dueno) return
-      applyRoundTotals(dueno.id, roundId, { total_gross: t.totalGross, total_net: t.totalNet, total_points: t.totalPoints })
+    (roundId: string, t: NonNullable<RespuestaSobre['totales']> | null) => {
+      const aplicar = (tot: { total_gross: number; total_net: number; total_points: number }) => {
+        const dueno = players.find((p) => p.rounds?.some((r) => r.id === roundId))
+        if (dueno) applyRoundTotals(dueno.id, roundId, tot)
+      }
+      if (t) return aplicar({ total_gross: t.totalGross, total_net: t.totalNet, total_points: t.totalPoints })
+      void conTimeout(fetchRoundTotals(createClient(), roundId), TIMEOUT_CARGA_MS)
+        .then(aplicar)
+        .catch((e) => { void captureError(e, { context: 'scoring.useScoreEntry.releerTotales', meta: { roundId } }) })
     },
     [players, applyRoundTotals],
   )
@@ -92,7 +104,12 @@ export function useScoreEntry({
   const vista = useVistaRonda(store, rondaAbierta)
   const pendientes = usePendientesGlobal(store)
   const sellada = useRondaSellada(store, rondaAbierta)
-  const { cargaTarjeta, cargaLenta, reintentarCarga } = useCargaTarjeta({ roundId: rondaAbierta, store, parDe, showError })
+  const hayTorneo = tournament != null
+  // Sin torneo no se lee la tarjeta: se sembraría en un store que no es el del torneo y la ronda real quedaría
+  // vacía (y un deshacer con previo vacío podría borrar un golpe real). Se lee al resolver el torneo.
+  const { cargaTarjeta, cargaLenta, reintentarCarga } = useCargaTarjeta({
+    roundId: hayTorneo ? rondaAbierta : undefined, store, parDe, showError,
+  })
 
   /** Golpes de la tarjeta abierta (derivado de la vista). */
   const currentScores = useMemo(() => {
@@ -168,7 +185,6 @@ export function useScoreEntry({
 
   /** Tarjeta abierta en la que se puede escribir ahora: torneo resuelto, tarjeta cargada, ronda no cerrada (en la
    *  base: `roundClosed`) y sin cierre en curso (sello del store). */
-  const hayTorneo = tournament != null
   const editable = hayTorneo && cargaTarjeta === 'lista' && !!selectedRound && !rondaCerrada && !sellada
 
   // ── Golpe de un hoyo ──
@@ -238,21 +254,33 @@ export function useScoreEntry({
     store.reintentar({ roundId, limpiarRechazo: true })
   }, [store])
 
+  const leerBase = useCallback(
+    (roundId: string) => conTimeout(fetchRoundHoleScores(createClient(), roundId), TIMEOUT_CARGA_MS),
+    [],
+  )
   /**
-   * "Descartar" los hoyos rechazados de una ronda (tarjeta cerrada, jugador retirado: reintentar no lo arregla).
-   * Vuelven a lo último confirmado y dejan de estar pendientes. Si alguno pudo quedar escrito (un envío anterior
-   * sin respuesta), se relee la tarjeta abierta para mostrar lo que hay en la base.
+   * "Descartar" hoyos rechazados de una ronda: sólo los pedidos (el grupo del aviso) y sólo con motivo permanente
+   * (`esRechazoPermanente`). Si alguno pudo quedar escrito, primero se lee la base; si la lectura no llega, no se
+   * descarta nada y se avisa.
    */
-  const descartarRechazados = useCallback((roundId: string) => {
-    const vistaRonda = store.vista(roundId)
-    let releer = false
-    for (const [h, v] of Object.entries(vistaRonda)) {
-      if (v.estado !== 'rechazado') continue
-      if (v.quizaAplicado) releer = true
-      store.descartar(roundId, Number(h))
+  const descartarRechazados = useCallback(async (roundId: string, holes: readonly number[]) => {
+    const r = await descartarDelStore(store, roundId, holes, leerBase)
+    if (r === 'sin_lectura') showWarning('No pudimos confirmar qué quedó guardado', 'Revisa la señal y vuelve a tocar Descartar.')
+  }, [store, leerBase, showWarning])
+
+  /** Desde el chip: descarta los rechazos permanentes de las tarjetas que NO están abiertas (no tienen su aviso). */
+  const descartarRechazosDeOtras = useCallback(async () => {
+    const rondas = new Set(pendientes.filter((p) => p.estado === 'rechazado' && p.roundId !== rondaAbierta).map((p) => p.roundId))
+    for (const roundId of rondas) {
+      const v = store.vista(roundId)
+      const holes = Object.keys(v).map(Number).filter((h) => v[h].estado === 'rechazado' && esRechazoPermanente(v[h].motivo))
+      await descartarRechazados(roundId, holes)
     }
-    if (releer && roundId === selectedRound?.id) void reintentarCarga()
-  }, [store, selectedRound, reintentarCarga])
+  }, [pendientes, rondaAbierta, store, descartarRechazados])
+
+  /** Hay rechazos permanentes en tarjetas que no están abiertas (el chip ofrece descartarlos). */
+  const hayDescartablesEnOtras = pendientes.some((p) => p.estado === 'rechazado' && p.roundId !== rondaAbierta
+    && esRechazoPermanente(store.vista(p.roundId)[p.hole]?.motivo))
 
   const cierre = useCerrarTarjeta({
     tournamentId: tournament?.id ?? null, store, reloadRoster, clearSelection, selectedIdRef,
@@ -282,6 +310,8 @@ export function useScoreEntry({
     nombreDeRonda,
     reintentarGuardado,
     descartarRechazados,
+    descartarRechazosDeOtras,
+    hayDescartablesEnOtras,
     lastAction,
     undoLast,
     holes,

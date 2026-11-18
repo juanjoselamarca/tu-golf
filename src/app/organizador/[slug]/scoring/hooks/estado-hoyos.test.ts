@@ -11,14 +11,16 @@ const PROHIBIDO: RespuestaSobre = { lectura: { rechazo: 'sin_permiso' } }
 function montar(auto?: RespuestaSobre) {
   const envios: Array<{ sobre: Sobre; responder: (r: RespuestaSobre) => Promise<void> }> = []
   const confirmados: Array<{ roundId: string; totales: unknown }> = []
+  const relecturas: string[] = []
   const s = crearEstadoHoyos({
     enviar: (sobre) => new Promise<RespuestaSobre>((res) => {
       if (auto) return res(auto)
       envios.push({ sobre, responder: async (r) => { res(r); await vi.advanceTimersByTimeAsync(0) } })
     }),
     alConfirmar: (roundId, totales) => confirmados.push({ roundId, totales }),
+    releerTotales: (roundId) => relecturas.push(roundId),
   })
-  return { s, envios, confirmados }
+  return { s, envios, confirmados, relecturas }
 }
 
 beforeEach(() => { vi.useFakeTimers() })
@@ -231,22 +233,74 @@ describe('estado-hoyos: un documento por hoyo, reenvío del vigente', () => {
     await vi.advanceTimersByTimeAsync(1_000)
     await envios[1].responder(CERRADA)
     expect(s.vista(R)[6]).toMatchObject({ estado: 'rechazado', quizaAplicado: true })
-    expect(s.descartar(R, 6)).toBe(true)
+    // Sin lectura de la base no se descarta: mostraría la base vieja y quizá el 7 sí quedó escrito.
+    // Mutación anotada: quitar el `return false` de quizaAplicado sin lectura en descartar → falla aquí.
+    expect(s.descartar(R, 6)).toBe(false)
+    expect(s.vista(R)[6]).toMatchObject({ estado: 'rechazado' })
+    // Con la lectura: queda lo que dice la base (el 7 sí se escribió).
+    expect(s.descartar(R, 6, { hole_number: 6, gross_score: 7, putts: 2, fairway_hit: null, gir: null })).toBe(true)
     expect(s.pendientesGlobal()).toEqual([])
-    const m = s.marca()
-    s.sembrar(R, [{ hole_number: 6, gross_score: 7, putts: null, fairway_hit: null, gir: null }], m, () => 4)
-    expect(s.vista(R)[6]).toMatchObject({ gross: 7, estado: 'limpio' })
+    expect(s.vista(R)[6]).toMatchObject({ gross: 7, putts: 2, estado: 'limpio' })
+  })
+
+  it('14c. descartar con quizaAplicado y la base sin ese hoyo: queda vacío', async () => {
+    const CERRADA: RespuestaSobre = { lectura: { rechazo: 'closed' } }
+    const { s, envios } = montar()
+    s.editar(R, 6, { gross: 7 }, PAR)
+    await envios[0].responder(CORTE)
+    await vi.advanceTimersByTimeAsync(1_000)
+    await envios[1].responder(CERRADA)
+    expect(s.descartar(R, 6, null)).toBe(true)
+    expect(s.vista(R)[6]).toMatchObject({ gross: null, estado: 'limpio' })
   })
 
   it('15. totales sólo con la ronda quieta: la respuesta de un hoyo con otro en vuelo no los aplica', async () => {
-    const { s, envios, confirmados } = montar()
+    const { s, envios, confirmados, relecturas } = montar()
     s.editar(R, 1, { gross: 4 }, PAR)
     s.editar(R, 2, { gross: 5 }, PAR)
     expect(envios).toHaveLength(2)
     // El hoyo 2 responde primero, con el hoyo 1 todavía en vuelo: sus totales pueden quedar viejos.
     await envios[1].responder({ lectura: 'ok', totales: { totalGross: 5, totalNet: 5, totalPoints: 2 } })
     expect(confirmados).toEqual([])
+    // El hoyo 1 responde último, pero el servidor pudo procesarlo ANTES que el 2: sus totales tampoco son
+    // confiables. Con la ronda quieta tras un salto se releen de la base (no se aplican los de la respuesta).
+    // Mutación anotada: aplicar los totales de la última respuesta en vez de releer → confirmados ≠ [] y falla.
     await envios[0].responder({ lectura: 'ok', totales: { totalGross: 9, totalNet: 9, totalPoints: 4 } })
-    expect(confirmados).toEqual([{ roundId: R, totales: { totalGross: 9, totalNet: 9, totalPoints: 4 } }])
+    expect(confirmados).toEqual([])
+    expect(relecturas).toEqual([R])
+  })
+
+  it('15b. sin respuestas cruzadas los totales se aplican directo y no se relee', async () => {
+    const { s, envios, confirmados, relecturas } = montar()
+    s.editar(R, 1, { gross: 4 }, PAR)
+    await envios[0].responder({ lectura: 'ok', totales: { totalGross: 4, totalNet: 4, totalPoints: 2 } })
+    expect(confirmados).toEqual([{ roundId: R, totales: { totalGross: 4, totalNet: 4, totalPoints: 2 } }])
+    expect(relecturas).toEqual([])
+  })
+
+  it('16. sello con token: soltar un sello viejo no suelta el de un cierre nuevo', () => {
+    const { s } = montar()
+    const viejo = s.sellar(R)
+    s.desellar(R, viejo)
+    const nuevo = s.sellar(R)
+    // El finally tardío del primer cierre llega ahora.
+    // Mutación anotada: ignorar el token en desellar → la ronda queda sin sello y falla.
+    s.desellar(R, viejo)
+    expect(s.sellada(R)).toBe(true)
+    s.desellar(R, nuevo)
+    expect(s.sellada(R)).toBe(false)
+  })
+
+  it('17. apagar: un store apagado no reintenta ni envía más', async () => {
+    const { s, envios } = montar()
+    s.editar(R, 2, { gross: 5 }, PAR)
+    // Uno con reintento agendado y otro en vuelo: ni el timer ni la respuesta tardía hacen salir nada.
+    s.editar(R, 3, { gross: 4 }, PAR)
+    await envios[0].responder(CORTE)
+    s.apagar()
+    // Mutación anotada: no marcar el store como apagado → la respuesta tardía del 3 agenda un reintento y falla.
+    await envios[1].responder(CORTE)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(envios).toHaveLength(2)
   })
 })

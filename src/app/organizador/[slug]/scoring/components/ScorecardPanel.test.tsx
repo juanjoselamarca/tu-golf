@@ -177,7 +177,25 @@ describe('ScorecardPanel — estado de guardado por hoyo', () => {
     const descartar = screen.getByRole('button', { name: 'Descartar' })
     expect(parseInt(descartar.style.minHeight)).toBeGreaterThanOrEqual(44)
     fireEvent.click(descartar)
-    expect(descartarRechazados).toHaveBeenCalledWith('r1')
+    // Sólo los hoyos de ESE grupo. Mutación anotada: llamar sin g.holes (toda la ronda) → falla.
+    expect(descartarRechazados).toHaveBeenCalledWith('r1', [3, 5])
+  })
+
+  it('sesión vencida o sin permiso: sin Descartar, con la salida escrita; dos grupos rechazados a la vez', () => {
+    const descartarRechazados = vi.fn()
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({
+      holes: [1, 2, 3], currentScores: { 1: 5, 2: 5, 3: 5 }, descartarRechazados,
+      vista: { 1: fila('rechazado', 'sin_sesion'), 2: fila('rechazado', 'closed'), 3: fila('rechazado', 'sin_permiso') },
+    } as never)} />)
+    expect(screen.getByText(/Hoyo 1 no se guardó \(tu sesión venció\)/)).toBeTruthy()
+    expect(screen.getByText(/Entra de nuevo en otra pestaña/)).toBeTruthy()
+    expect(screen.getByText(/Revisa que sigas como organizador/)).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Reintentar' })).toHaveLength(3)
+    // Un solo Descartar: el del grupo "tarjeta cerrada". Mutación anotada: quitar esRechazoPermanente del panel → 3 y falla.
+    const descartar = screen.getAllByRole('button', { name: 'Descartar' })
+    expect(descartar).toHaveLength(1)
+    fireEvent.click(descartar[0])
+    expect(descartarRechazados).toHaveBeenCalledWith('r1', [2])
   })
 
   it('la marca de un hoyo sin guardar no depende del color del score: distintivo sólido con glifo de 16 px', () => {

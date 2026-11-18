@@ -147,6 +147,7 @@ export default function ScoringPage() {
         avisoPendientes={textoChipPendientes(entry.pendientes, entry.selectedRound?.id ?? null, entry.nombreDeRonda)}
         hayRechazo={entry.pendientes.some((x) => x.estado === 'rechazado')}
         onReintentar={() => entry.reintentarGuardado()}
+        onDescartarOtras={entry.hayDescartablesEnOtras ? () => { void entry.descartarRechazosDeOtras() } : null}
       />
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '28px 20px' }}>

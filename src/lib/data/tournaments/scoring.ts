@@ -292,6 +292,19 @@ export async function fetchRoundHoleScores(
   return (data as HoleScoreRow[] | null) ?? []
 }
 
+/** Totales de una ronda tal como están en la base (los recalcula el servidor en cada guardado de hoyo). */
+export async function fetchRoundTotals(
+  supabase: SupabaseClient,
+  roundId: string,
+  signal?: AbortSignal,
+): Promise<{ total_gross: number; total_net: number; total_points: number }> {
+  let consulta = supabase.from('rounds').select('total_gross, total_net, total_points').eq('id', roundId)
+  if (signal) consulta = consulta.abortSignal(signal)
+  const { data, error } = await consulta.single()
+  if (error) throw error
+  return data as { total_gross: number; total_net: number; total_points: number }
+}
+
 /** Cuenta de hoyos con score para múltiples rondas (batch).
  *  Devuelve Map<round_id, filledHoleCount>. Una sola query. */
 export async function fetchBulkRoundHoleCounts(

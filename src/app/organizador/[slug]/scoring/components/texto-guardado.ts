@@ -31,6 +31,16 @@ export function textoAvisoHoyo(hole: number, v: Pick<VistaHoyo, 'estado' | 'moti
 }
 
 /**
+ * Salida de un rechazo que NO se descarta (sesión vencida, sin permiso): qué hacer para que se guarde.
+ * null para el resto (se reintenta o se descarta).
+ */
+export function textoSalidaRechazo(motivo: string | null): string | null {
+  if (motivo === 'sin_sesion') return 'Entra de nuevo en otra pestaña (aquí no se pierde lo anotado) y toca Reintentar.'
+  if (motivo === 'sin_permiso') return 'Revisa que sigas como organizador del torneo y toca Reintentar.'
+  return null
+}
+
+/**
  * Aviso de un grupo de hoyos en el mismo estado (y motivo): UN aviso para todos, no uno por hoyo.
  * "Hoyos 3, 4, 7 sin confirmar" · "Hoyo 5 no se guardó (tarjeta cerrada)".
  */

@@ -24,6 +24,8 @@ interface ScoringHeaderProps {
   /** Hay algún rechazo entre los pendientes: el chip va en rojo. */
   hayRechazo: boolean
   onReintentar: () => void
+  /** Hay rechazos permanentes en tarjetas que no están abiertas: el chip ofrece descartarlos (no tienen su aviso). */
+  onDescartarOtras?: (() => void) | null
 }
 
 export function ScoringHeader({
@@ -37,6 +39,7 @@ export function ScoringHeader({
   lastAction,
   onUndo,
   avisoPendientes,
+  onDescartarOtras,
   hayRechazo,
   onReintentar,
 }: ScoringHeaderProps) {
@@ -78,6 +81,16 @@ export function ScoringHeader({
                 border: `2px solid ${hayRechazo ? 'var(--error-border)' : 'var(--status-open-fg)'}`,
               }}>
               {avisoPendientes} · Reintentar
+            </button>
+          )}
+          {avisoPendientes && onDescartarOtras && (
+            <button type="button" onClick={onDescartarOtras}
+              style={{
+                margin: '0 0 8px 8px', minHeight: '44px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer',
+                fontSize: '14px', fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+                background: 'transparent', color: 'var(--error-fg)', border: '2px solid var(--error-border)',
+              }}>
+              Descartar los de otras tarjetas
             </button>
           )}
         </div>

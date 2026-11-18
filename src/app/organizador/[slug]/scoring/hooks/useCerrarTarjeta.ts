@@ -62,8 +62,10 @@ export function useCerrarTarjeta({
     if (!tournamentId || cierreRef.current) return
     cierreRef.current = t.roundId
     const { roundId } = t
+    // Token del sello de ESTE cierre: la relectura tardía de un cierre anterior no suelta el sello de uno nuevo.
+    let sello = 0
     try {
-      store.sellar(roundId)
+      sello = store.sellar(roundId)
       store.apurar(roundId)
       // Cerrar es una orden del organizador: lo que espera un reintento sale ya (un rechazo no se reenvía solo).
       store.reintentar({ roundId })
@@ -79,7 +81,7 @@ export function useCerrarTarjeta({
       // Lectura síncrona: lo que diga ahora el store, no lo que resolvió `asentar`.
       const faltan = store.sinGuardar(roundId)
       if (faltan.length > 0) {
-        store.desellar(roundId)
+        store.desellar(roundId, sello)
         showError(`No se cerró la tarjeta de ${t.nombre}`, `${faltan.length === 1 ? 'Hoyo' : 'Hoyos'} ${faltan.join(', ')} sin guardar.`)
         return
       }
@@ -101,17 +103,17 @@ export function useCerrarTarjeta({
         // venza el plazo; nunca queda sellada para siempre.
         void conTimeout(reloadRoster(), PLAZO_RELEER_TARJETAS_MS)
           .catch((e) => { void captureError(e, { context: 'scoring.useCerrarTarjeta.releer', meta: { roundId } }) })
-          .finally(() => store.desellar(roundId))
+          .finally(() => store.desellar(roundId, sello))
         return
       }
-      store.desellar(roundId)
+      store.desellar(roundId, sello)
       if (final.tipo === 'rechazo') {
         showError(`No se cerró la tarjeta de ${t.nombre}`, final.mensaje ?? 'Intenta de nuevo.')
       } else {
         showError(`No se cerró la tarjeta de ${t.nombre}`, 'Sin respuesta del servidor. Intenta de nuevo.')
       }
     } catch (e) {
-      store.desellar(roundId)
+      store.desellar(roundId, sello)
       void captureError(e, { context: 'scoring.useCerrarTarjeta', meta: { roundId } })
       showError(`No se cerró la tarjeta de ${t.nombre}`, 'Intenta de nuevo.')
     } finally {

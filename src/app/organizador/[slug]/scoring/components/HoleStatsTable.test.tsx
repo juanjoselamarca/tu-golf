@@ -137,18 +137,18 @@ describe('HoleStatsTable · fairway y GIR', () => {
     expect(fw().textContent).toBe('Sí')
   })
 
-  it('un hoyo rechazado se ve con texto y motivo (no sólo un title) y el toque reintenta la ronda', () => {
-    const { reintentarGuardado } = montar({}, { estado: 'rechazado' })
-    const aviso = screen.getByRole('button', { name: /no se guardó \(tarjeta cerrada\) · toca para reintentar/i })
-    expect(parseInt(aviso.style.minHeight)).toBeGreaterThanOrEqual(44)
-    fireEvent.click(aviso)
-    expect(reintentarGuardado).toHaveBeenCalledWith('r1')
+  it('un hoyo rechazado se ve con texto y motivo, sin botón propio (el único botón es el aviso agrupado)', () => {
+    montar({}, { estado: 'rechazado' })
+    const aviso = screen.getByText(/no se guardó \(tarjeta cerrada\)/i)
+    expect(aviso.style.color).toBe('var(--error-fg)')
+    // Mutación anotada: devolver el <button> por hoyo → aparece un botón "Hoyo 1: …" y falla.
+    expect(screen.queryByRole('button', { name: /no se guardó/i })).toBeNull()
   })
 
   it('un hoyo sin confirmar también se ve con texto, en ámbar como en la grilla (no en rojo de rechazo)', () => {
     montar({}, { estado: 'sin_confirmar' })
-    const aviso = screen.getByRole('button', { name: /sin confirmar · toca para reintentar/i })
+    const aviso = screen.getByText(/Hoyo 1: sin confirmar/i)
     expect(aviso.style.color).toBe('var(--status-open-fg)')
-    expect(aviso.style.border).toContain('var(--status-open-fg)')
+    expect(screen.queryByRole('button', { name: /sin confirmar/i })).toBeNull()
   })
 })

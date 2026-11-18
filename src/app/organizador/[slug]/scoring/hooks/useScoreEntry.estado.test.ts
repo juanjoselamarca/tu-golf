@@ -7,12 +7,25 @@ import { act, renderHook } from '@testing-library/react'
 import { useScoreEntry } from './useScoreEntry'
 import type { ScoringPlayer, ScoringRound, ScoringTournament } from '@/lib/data/tournaments/scoring'
 
-vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
+// El store instala una sola vez por página el aviso al salir y la escucha de SIGNED_OUT: se captura el callback.
+let alCambiarSesion: ((evento: string) => void) | null = null
+vi.mock('@/lib/supabase', () => ({
+  createClient: () => ({
+    auth: {
+      onAuthStateChange: (cb: (evento: string) => void) => {
+        alCambiarSesion = cb
+        return { data: { subscription: { unsubscribe() {} } } }
+      },
+    },
+  }),
+}))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 const lecturas: Record<string, unknown[]> = {}
 const fetchRoundHoleScores = vi.fn(async (_c: unknown, roundId: string) => lecturas[roundId] ?? [])
+const fetchRoundTotals = vi.fn(async (_c: unknown, _roundId: string) => ({ total_gross: 11, total_net: 10, total_points: 5 }))
 vi.mock('@/lib/data/tournaments/scoring', () => ({
   fetchRoundHoleScores: (c: unknown, r: string) => fetchRoundHoleScores(c, r),
+  fetchRoundTotals: (c: unknown, r: string) => fetchRoundTotals(c, r),
 }))
 const showError = vi.fn()
 const showWarning = vi.fn()
@@ -38,12 +51,20 @@ const reloadRoster = vi.fn(async () => {})
 interface Pedido { body: Record<string, unknown>; responder: (status: number, cuerpo?: object) => Promise<void> }
 let pedidos: Pedido[] = []
 
-function montar() {
-  return renderHook(() => useScoreEntry({
-    tournament: TOURNAMENT, players: PLAYERS, courseHoles: VACIO, courseTees: VACIO, holeCount: 18,
+function montar(conTorneo: ScoringTournament | null = TOURNAMENT) {
+  // `rerender()` sin props conserva el torneo inicial; `rerender({ tournament })` lo cambia.
+  return renderHook((p?: { tournament: ScoringTournament | null }) => useScoreEntry({
+    tournament: p ? p.tournament : conTorneo, players: PLAYERS, courseHoles: VACIO, courseTees: VACIO, holeCount: 18,
     getActiveRound, applyRoundTotals, reloadRoster,
-  }))
+  }), { initialProps: { tournament: conTorneo } })
 }
+const salir = () => {
+  const e = new Event('beforeunload', { cancelable: true })
+  window.dispatchEvent(e)
+  return e.defaultPrevented
+}
+/** Espera real (los tests usan timers reales): deja pasar el primer reintento por red (1 s). */
+const esperar = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)) })
 const OK = { success: true, totalGross: 4, totalNet: 4, totalPoints: 2 }
 const tick = () => act(async () => { await new Promise((r) => setTimeout(r, 0)) })
 
@@ -60,6 +81,7 @@ beforeEach(() => {
   pedidos = mios
   for (const k of Object.keys(lecturas)) delete lecturas[k]
   fetchRoundHoleScores.mockClear()
+  fetchRoundTotals.mockClear()
   applyRoundTotals.mockClear()
   showWarning.mockClear()
   reloadRoster.mockReset()
@@ -76,7 +98,8 @@ beforeEach(() => {
     })
   })))
 })
-afterEach(() => { vi.unstubAllGlobals() })
+// Lo que quedó sin responder en un test no debe contar en el aviso al salir del siguiente (el store es de módulo).
+afterEach(() => { act(() => alCambiarSesion?.('SIGNED_OUT')); vi.unstubAllGlobals() })
 
 describe('useScoreEntry · vista por ronda', () => {
   it('14. la respuesta de A con B abierto no cambia la vista de B y los totales van a A', async () => {
@@ -235,31 +258,103 @@ describe('useScoreEntry · un store por torneo', () => {
 
 describe('useScoreEntry · descartar', () => {
   it('descartar un hoyo rechazado (tarjeta cerrada) lo saca de pendientes y del aviso al salir', async () => {
-    const salir = () => {
-      const e = new Event('beforeunload', { cancelable: true })
-      window.dispatchEvent(e)
-      return e.defaultPrevented
-    }
     const hook = montar()
     await abrir(hook, 'pa')
     act(() => hook.result.current.saveScore(7, '6'))
     await pedidos[0].responder(409, { code: 'round_closed' })
     expect(hook.result.current.vista[7]).toMatchObject({ estado: 'rechazado' })
     expect(salir()).toBe(true)
-    act(() => hook.result.current.descartarRechazados('ra'))
+    await act(async () => { await hook.result.current.descartarRechazados('ra', [7]) })
     expect(hook.result.current.vista[7]).toMatchObject({ gross: null, estado: 'limpio' })
     expect(salir()).toBe(false)
     expect(pedidos).toHaveLength(1)
+  })
+
+  it('descarta sólo los hoyos del grupo y nunca un rechazo de sesión vencida', async () => {
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(7, '6'))
+    act(() => hook.result.current.saveScore(8, '5'))
+    act(() => hook.result.current.saveScore(9, '4'))
+    await pedidos[0].responder(409, { code: 'round_closed' })
+    await pedidos[1].responder(401, {})
+    await pedidos[2].responder(409, { code: 'round_closed' })
+    expect(hook.result.current.vista[8]).toMatchObject({ estado: 'rechazado', motivo: 'sin_sesion' })
+    // Mutación anotada: en descartar-rechazados.ts ignorar `holes` (toda la ronda) → el 9 queda limpio y falla.
+    // Mutación anotada: quitar el filtro esRechazoPermanente → el 8 (sin_sesion) se descarta y falla.
+    await act(async () => { await hook.result.current.descartarRechazados('ra', [7, 8]) })
+    expect(hook.result.current.vista[7]).toMatchObject({ gross: null, estado: 'limpio' })
+    expect(hook.result.current.vista[8]).toMatchObject({ gross: 5, estado: 'rechazado' })
+    expect(hook.result.current.vista[9]).toMatchObject({ gross: 4, estado: 'rechazado' })
+  })
+
+  it('con un envío que quizá quedó escrito: sin lectura de la base no descarta y avisa; con lectura muestra la base', async () => {
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(7, '6'))
+    await pedidos[0].responder(503, {})
+    await esperar(1_200)
+    await pedidos[1].responder(409, { code: 'round_closed' })
+    expect(hook.result.current.vista[7]).toMatchObject({ estado: 'rechazado' })
+    fetchRoundHoleScores.mockRejectedValueOnce(new Error('red'))
+    // Mutación anotada: en descartar-rechazados.ts no leer la base con quizaAplicado → queda limpio vacío y falla.
+    await act(async () => { await hook.result.current.descartarRechazados('ra', [7]) })
+    expect(hook.result.current.vista[7]).toMatchObject({ gross: 6, estado: 'rechazado' })
+    expect(showWarning).toHaveBeenCalledWith('No pudimos confirmar qué quedó guardado', expect.any(String))
+    lecturas.ra = [{ hole_number: 7, gross_score: 6, putts: null, fairway_hit: null, gir: null }]
+    await act(async () => { await hook.result.current.descartarRechazados('ra', [7]) })
+    expect(hook.result.current.vista[7]).toMatchObject({ gross: 6, estado: 'limpio' })
+  })
+
+  it('desde el chip descarta los rechazos permanentes de otra tarjeta, no los de la abierta', async () => {
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(7, '6'))
+    await pedidos[0].responder(409, { code: 'round_closed' })
+    await abrir(hook, 'pb')
+    act(() => hook.result.current.saveScore(2, '5'))
+    await pedidos[1].responder(409, { code: 'round_closed' })
+    expect(hook.result.current.hayDescartablesEnOtras).toBe(true)
+    await act(async () => { await hook.result.current.descartarRechazosDeOtras() })
+    expect(hook.result.current.pendientes).toEqual([expect.objectContaining({ roundId: 'rb', hole: 2 })])
+    expect(hook.result.current.hayDescartablesEnOtras).toBe(false)
+  })
+})
+
+describe('useScoreEntry · tarjeta antes del torneo', () => {
+  it('con el torneo sin resolver no se lee la tarjeta; al resolverse se lee y se ve la base', async () => {
+    lecturas.ra = [{ hole_number: 5, gross_score: 6, putts: null, fairway_hit: null, gir: null }]
+    const hook = montar(null)
+    await abrir(hook, 'pa')
+    // Mutación anotada: pasar `roundId: rondaAbierta` sin el guard de hayTorneo → se lee aquí y falla.
+    expect(fetchRoundHoleScores).not.toHaveBeenCalled()
+    act(() => hook.result.current.saveScore(5, '4'))
+    expect(pedidos).toHaveLength(0)
+    hook.rerender({ tournament: TOURNAMENT })
+    await tick()
+    expect(fetchRoundHoleScores).toHaveBeenCalledWith(expect.anything(), 'ra')
+    expect(hook.result.current.vista[5]).toMatchObject({ gross: 6, estado: 'limpio' })
+  })
+})
+
+describe('useScoreEntry · totales con respuestas cruzadas', () => {
+  it('si las respuestas llegan fuera de orden, los totales se leen de la base', async () => {
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(1, '4'))
+    act(() => hook.result.current.saveScore(2, '5'))
+    await pedidos[1].responder(200, { success: true, totalGross: 5, totalNet: 5, totalPoints: 2 })
+    await pedidos[0].responder(200, { success: true, totalGross: 9, totalNet: 9, totalPoints: 4 })
+    await tick()
+    // Mutación anotada: en alConfirmar ignorar el caso null → no se relee y falla.
+    expect(fetchRoundTotals).toHaveBeenCalledWith(expect.anything(), 'ra')
+    expect(applyRoundTotals).toHaveBeenCalledTimes(1)
+    expect(applyRoundTotals).toHaveBeenCalledWith('pa', 'ra', { total_gross: 11, total_net: 10, total_points: 5 })
   })
 })
 
 describe('useScoreEntry · salir con pendientes', () => {
   it('cerrar la pestaña con un hoyo sin guardar pregunta; ya guardado, no', async () => {
-    const salir = () => {
-      const e = new Event('beforeunload', { cancelable: true })
-      window.dispatchEvent(e)
-      return e.defaultPrevented
-    }
     const hook = montar()
     await abrir(hook, 'pa')
     expect(salir()).toBe(false)
@@ -267,6 +362,34 @@ describe('useScoreEntry · salir con pendientes', () => {
     expect(salir()).toBe(true)
     await pedidos[0].responder(200)
     expect(salir()).toBe(false)
+  })
+
+  it('también avisa desde otra pantalla del organizador (scorer desmontado)', async () => {
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(1, '4'))
+    // Mutación anotada: volver el beforeunload al efecto del hook (se quita al desmontar) → false y falla.
+    hook.unmount()
+    expect(salir()).toBe(true)
+    await pedidos[0].responder(200)
+    expect(salir()).toBe(false)
+  })
+
+  it('al cerrar sesión sin recargar (SIGNED_OUT) se olvidan los hoyos pendientes: no salen con otra sesión', async () => {
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(1, '4'))
+    await pedidos[0].responder(503, {})
+    expect(salir()).toBe(true)
+    // Mutación anotada: no escuchar SIGNED_OUT en useEstadoHoyos → el reintento sale y la tarjeta sigue pendiente.
+    act(() => alCambiarSesion?.('SIGNED_OUT'))
+    expect(salir()).toBe(false)
+    await esperar(1_200)
+    expect(pedidos).toHaveLength(1)
+    hook.unmount()
+    const otra = montar()
+    await abrir(otra, 'pa')
+    expect(otra.result.current.pendientes).toEqual([])
   })
 })
 

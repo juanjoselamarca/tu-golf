@@ -68,13 +68,13 @@ describe('useCargaTarjeta', () => {
     expect(showError).toHaveBeenCalledTimes(1)
   })
 
-  it('una recarga que falla con la tarjeta ya cargada no bloquea ni avisa', async () => {
+  it('una recarga que falla con la tarjeta ya cargada no la bloquea, pero avisa (puede no estar al día)', async () => {
     fetchRoundHoleScores.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('red'))
     const { result, showError } = montar()
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     await act(async () => { await result.current.reintentarCarga() })
     expect(result.current.cargaTarjeta).toBe('lista')
-    expect(showError).not.toHaveBeenCalled()
+    expect(showError).toHaveBeenCalledWith('No pudimos actualizar la tarjeta', expect.any(String))
   })
 
   it('una ronda nueva vuelve a "cargando" y un jugador sin tarjeta queda "lista"', async () => {

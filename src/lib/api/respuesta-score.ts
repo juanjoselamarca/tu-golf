@@ -57,6 +57,17 @@ export function esSinAcceso(r: LecturaRespuestaScore): r is MotivoSinAcceso {
 }
 
 /**
+ * Rechazo de un hoyo que reintentar NO arregla y que el organizador puede descartar (volver a lo guardado): tarjeta
+ * cerrada, torneo inactivo, jugador retirado o datos que el servidor no acepta (`datos`: 400/404, ver abajo).
+ * `sin_sesion` y `sin_permiso` no: su salida es volver a entrar o reintentar, y descartar perdería el golpe.
+ */
+const MOTIVOS_PERMANENTES: readonly string[] = ['closed', 'inactive', 'retirado', 'datos']
+
+export function esRechazoPermanente(motivo: string | null | undefined): boolean {
+  return motivo != null && MOTIVOS_PERMANENTES.includes(motivo)
+}
+
+/**
  * Rechazo por los DATOS del envío: el servidor lo leyó y no lo acepta (400 validación, 404 ronda que no existe).
  * Reenviar lo mismo da lo mismo. `clasificarRespuestaScore` los deja en `reintentar` (el scorer del jugador
  * los trata como fallo transitorio); el del organizador los muestra como rechazo del hoyo.

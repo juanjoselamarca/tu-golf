@@ -12,7 +12,8 @@ import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { HoleStatsTable } from './HoleStatsTable'
 import { AvisoJugadorSinTarjeta, casoSinTarjeta } from './AvisoJugadorSinTarjeta'
-import { rotuloEstado, textoAvisoGrupo, textoBotonCierre } from './texto-guardado'
+import { rotuloEstado, textoAvisoGrupo, textoBotonCierre, textoSalidaRechazo } from './texto-guardado'
+import { esRechazoPermanente } from '@/lib/api/respuesta-score'
 import { MARCA_ESTADO, TEXTO_SOBRE_SOLIDO } from './marca-estado'
 import type { useCrearTarjeta } from '../hooks/useCrearTarjeta'
 
@@ -212,16 +213,23 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
             const texto = textoAvisoGrupo(g.holes, g.estado, g.motivo)
             const boton = { minHeight: '44px', borderRadius: '8px', border: marca.border, background: marca.bg, color: marca.fg, fontSize: '14px', fontWeight: 600, padding: '8px 12px', cursor: 'pointer' } as const
             // Un aviso por grupo. Sin confirmar: el toque reintenta. Rechazado: reintentar (si el organizador lo
-            // arregló, p. ej. reabrió la tarjeta) o descartar (vuelve a lo guardado y deja de estar pendiente).
+            // arregló, p. ej. reabrió la tarjeta) y, sólo con motivo permanente, descartar ESTE grupo (vuelve a lo
+            // guardado). Sesión vencida o sin permiso no se descartan: se dice cómo salir.
+            const salida = g.estado === 'rechazado' ? textoSalidaRechazo(g.motivo) : null
             return g.estado === 'sin_confirmar' ? (
               <button key={g.clave} type="button" onClick={() => reintentarGuardado(selectedRound?.id)} style={{ ...boton, textAlign: 'left' }}>
                 {texto} · Reintentar
               </button>
             ) : (
               <div key={g.clave} style={{ border: marca.border, background: marca.bg, borderRadius: '8px', padding: '8px 12px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: marca.fg, fontSize: '14px', fontWeight: 600, flex: '1 1 160px' }}>{texto}</span>
+                <span style={{ color: marca.fg, fontSize: '14px', fontWeight: 600, flex: '1 1 160px' }}>
+                  {texto}
+                  {salida && <span style={{ display: 'block', fontWeight: 400, marginTop: '4px' }}>{salida}</span>}
+                </span>
                 <button type="button" onClick={() => reintentarGuardado(selectedRound?.id)} style={{ ...boton, background: 'transparent' }}>Reintentar</button>
-                <button type="button" onClick={() => { if (selectedRound) descartarRechazados(selectedRound.id) }} style={{ ...boton, background: 'transparent' }}>Descartar</button>
+                {esRechazoPermanente(g.motivo) && (
+                  <button type="button" onClick={() => { if (selectedRound) void descartarRechazados(selectedRound.id, g.holes) }} style={{ ...boton, background: 'transparent' }}>Descartar</button>
+                )}
               </div>
             )
           })}

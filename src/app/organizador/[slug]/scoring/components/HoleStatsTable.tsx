@@ -157,12 +157,9 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
               ),
               marca && (
                 <tr key={`${h}-fallo`} style={{ borderBottom: '1px solid var(--surface-soft)' }}>
-                  <td colSpan={5} style={{ padding: '0 2px 6px' }}>
-                    {/* Reenvía el hoyo completo (golpe y stats), también un rechazo: el organizador lo pide. */}
-                    <button type="button" onClick={() => reintentarGuardado(selectedRound?.id)}
-                      style={{ width: '100%', minHeight: '44px', borderRadius: '6px', border: marca.border, background: marca.bg, color: marca.fg, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                      {textoAvisoHoyo(h, v)} · toca para reintentar
-                    </button>
+                  {/* Sólo el texto: el único botón (Reintentar / Descartar) es el aviso agrupado sobre la tabla. */}
+                  <td colSpan={5} style={{ padding: '0 2px 6px', color: marca.fg, fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>
+                    {textoAvisoHoyo(h, v)}
                   </td>
                 </tr>
               ),

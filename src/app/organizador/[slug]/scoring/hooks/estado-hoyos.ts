@@ -98,6 +98,12 @@ export interface DepsEstadoHoyos {
   ahora?: () => number
   programar?: (fn: () => void, ms: number) => () => void
   alConfirmar?: (roundId: string, totales: NonNullable<RespuestaSobre['totales']>) => void
+  /**
+   * La ronda quedó quieta (ningún hoyo en vuelo) después de saltarse totales de una respuesta que llegó con otro
+   * hoyo en vuelo: el orden de las respuestas no es el del servidor, así que ninguna trae con certeza los totales
+   * finales. Quien escucha los relee de la base.
+   */
+  releerTotales?: (roundId: string) => void
 }
 
 const VACIA: VistaRonda = Object.freeze({})
@@ -111,12 +117,18 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
   const hoyos = new Map<string, Hoyo>()
   const porRonda = new Map<string, Set<number>>()
   const timers = new Map<string, () => void>()
-  const selladas = new Set<string>()
+  /** Ronda sellada → token del cierre que la selló: sólo ese cierre la puede desellar. */
+  const selladas = new Map<string, number>()
+  let ultimoSello = 0
+  /** Rondas con totales saltados (respuesta con otro hoyo en vuelo): al quedar quietas se releen. */
+  const totalesSaltados = new Set<string>()
   const ultimaSiembra = new Map<string, number>()
   const oyentes = new Set<() => void>()
   const cacheVista = new Map<string, VistaRonda>()
   let cachePendientes: Pendiente[] | null = null
   let reloj = 0
+  /** Apagado (cerró la sesión): no envía más, ni reintenta, ni avisa totales. */
+  let apagado = false
   let ultimaVersion = 0
 
   function avisar(roundId: string) {
@@ -159,7 +171,7 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
 
   /** SALE si corresponde ahora; si está esperando, se agenda para cuando termine la espera. */
   function bombear(h: Hoyo) {
-    if (h.vuelo || h.rev === h.revOk || h.rechazo) return
+    if (apagado || h.vuelo || h.rev === h.revOk || h.rechazo) return
     const falta = h.noAntesDe - ahora()
     if (falta > 0) {
       cancelarTimer(h)
@@ -201,7 +213,7 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
   }
 
   function responder(h: Hoyo, sobre: NonNullable<Hoyo['vuelo']>, r: RespuestaSobre) {
-    if (h.vuelo !== sobre) return
+    if (apagado || h.vuelo !== sobre) return
     h.vuelo = null
     const { lectura } = r
     if (lectura === 'ok') {
@@ -218,15 +230,12 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
       h.quizaAplicado = false
       h.porRed = false
       h.cambio = ++reloj
-      // Totales sólo con la ronda quieta: con otro hoyo en vuelo, esta respuesta puede ser más vieja que la que
-      // llegue después (hoyos en paralelo). La última respuesta con la ronda quieta deja los totales al día.
-      const rondaQuieta = !hoyosDe(h.roundId).some((o) => o.vuelo)
-      if (r.totales && rondaQuieta) {
-        try {
-          deps.alConfirmar?.(h.roundId, r.totales)
-        } catch {
-          // Un oyente roto (pantalla desmontada) no traba el guardado.
-        }
+      // Totales: con otro hoyo de la ronda en vuelo, esta respuesta puede ser más vieja que la que llegue después
+      // (hoyos en paralelo), y las respuestas no llegan en el orden en que el servidor las aplicó. Sólo se aplican
+      // si la ronda estuvo quieta desde el último aplicado; si no, se releen de la base al quedar quieta.
+      if (r.totales) {
+        if (hoyosDe(h.roundId).some((o) => o.vuelo) || totalesSaltados.has(h.roundId)) totalesSaltados.add(h.roundId)
+        else avisarTotales(h.roundId, r.totales)
       }
     } else if (lectura === 'sin_respuesta') {
       h.intentos += 1
@@ -240,6 +249,7 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
     }
     avisar(h.roundId)
     bombear(h)
+    cerrarTotales(h.roundId)
   }
 
   function reintentarHoyo(h: Hoyo, limpiarRechazo: boolean) {
@@ -247,6 +257,25 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
     h.noAntesDe = 0
     h.porRed = false
     bombear(h)
+  }
+
+  function avisarTotales(roundId: string, totales: NonNullable<RespuestaSobre['totales']>) {
+    try {
+      deps.alConfirmar?.(roundId, totales)
+    } catch {
+      // Un oyente roto (pantalla desmontada) no traba el guardado.
+    }
+  }
+
+  /** Tras cada respuesta: si la ronda quedó quieta con totales saltados, se piden a la base. */
+  function cerrarTotales(roundId: string) {
+    if (!totalesSaltados.has(roundId) || hoyosDe(roundId).some((o) => o.vuelo)) return
+    totalesSaltados.delete(roundId)
+    try {
+      deps.releerTotales?.(roundId)
+    } catch {
+      // Igual que arriba.
+    }
   }
 
   function volverABase(h: Hoyo) {
@@ -307,12 +336,17 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
     /**
      * "Descartar" de un hoyo rechazado (tarjeta cerrada, jugador retirado, torneo inactivo: reintentar no lo
      * arregla). Vuelve a lo último confirmado y deja de estar pendiente (chip, cierre y aviso al salir). No envía
-     * nada. Si un envío anterior quedó sin respuesta (`quizaAplicado`), la base puede tener otro valor: quien llama
-     * relee la ronda y `sembrar` lo corrige (el hoyo queda limpio y la relectura es posterior).
+     * nada. Si un envío anterior quedó sin respuesta (`quizaAplicado`), lo último confirmado puede no ser lo que hay
+     * en la base: entonces exige la fila leída de la base DESPUÉS del rechazo (`leida`; `null` = el hoyo no tiene
+     * fila) y vuelve a ella. Sin lectura no descarta: mostraría un valor que quizá no es el guardado.
      */
-    descartar(roundId: string, hole: number): boolean {
+    descartar(roundId: string, hole: number, leida?: FilaBase | null): boolean {
       const h = hoyos.get(claveHoyo(roundId, hole))
       if (!h || estadoDe(h) !== 'rechazado') return false
+      if (h.quizaAplicado) {
+        if (leida === undefined) return false
+        h.base = { gross: leida?.gross_score ?? null, stats: { putts: leida?.putts ?? null, fairway_hit: leida?.fairway_hit ?? null, gir: leida?.gir ?? null } }
+      }
       volverABase(h)
       return true
     },
@@ -424,15 +458,29 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
       })
     },
 
-    /** Solo lectura mientras se cierra la tarjeta: `editar` devuelve false. */
-    sellar(roundId: string) {
-      selladas.add(roundId)
+    /** Solo lectura mientras se cierra la tarjeta: `editar` devuelve false. Devuelve el token del sello. */
+    sellar(roundId: string): number {
+      const token = ++ultimoSello
+      selladas.set(roundId, token)
       avisar(roundId)
+      return token
     },
-    desellar(roundId: string) {
+    /** Desella sólo si el sello sigue siendo el de `token`: un cierre viejo no suelta el sello de uno nuevo. */
+    desellar(roundId: string, token: number) {
+      if (selladas.get(roundId) !== token) return
       selladas.delete(roundId)
       avisar(roundId)
     },
+    /**
+     * Cerró la sesión: lo pendiente era de ese usuario y no puede salir con la sesión del siguiente. Cancela los
+     * reintentos, ignora las respuestas en curso y no envía nada más.
+     */
+    apagar() {
+      apagado = true
+      for (const cancelar of timers.values()) cancelar()
+      timers.clear()
+    },
+
     sellada(roundId: string): boolean {
       return selladas.has(roundId)
     },

@@ -18,3 +18,17 @@ describe('ScoringHeader · deshacer', () => {
     expect(onUndo).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('ScoringHeader · rechazos de otras tarjetas', () => {
+  it('el chip ofrece descartar los rechazos de tarjetas cerradas sólo cuando los hay', () => {
+    const onDescartarOtras = vi.fn()
+    const aviso = { ...base, avisoPendientes: '1 hoyo no se guardó (Ana)', hayRechazo: true, saving: false, lastAction: null, onUndo: vi.fn() }
+    const { rerender } = render(<ScoringHeader {...aviso} onDescartarOtras={onDescartarOtras} />)
+    const boton = screen.getByRole('button', { name: 'Descartar los de otras tarjetas' })
+    expect(parseInt(boton.style.minHeight)).toBeGreaterThanOrEqual(44)
+    fireEvent.click(boton)
+    expect(onDescartarOtras).toHaveBeenCalledTimes(1)
+    rerender(<ScoringHeader {...aviso} onDescartarOtras={null} />)
+    expect(screen.queryByRole('button', { name: 'Descartar los de otras tarjetas' })).toBeNull()
+  })
+})
