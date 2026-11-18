@@ -104,4 +104,19 @@ describe('useGrupoScoreSave — sesión: una consulta por ciclo, caso mixto y av
     await ciclo(result)
     expect(result.current.sesionPerdida).toBe(true)
   })
+
+  // Fable #833 P2-a: con el aviso puesto, un rechazo firme sin problema de sesión (P0004) lo dejaba pegado.
+  it('aviso puesto, la sesión vuelve y llega un rechazo firme (P0004): el aviso se apaga', async () => {
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'P0003', message: 'RONDA_FORBIDDEN' } })
+    getSession.mockResolvedValue(SIN_SESION)
+    marcarPendientes('ABC', 'p1', { 1: 4 })
+    const { result } = montar()
+    await ciclo(result)
+    expect(result.current.sesionPerdida).toBe(true)
+
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'P0004', message: 'delta invalido' } })
+    getSession.mockReset().mockResolvedValue(CON_SESION)
+    await ciclo(result)
+    expect(result.current.sesionPerdida).toBe(false)
+  })
 })

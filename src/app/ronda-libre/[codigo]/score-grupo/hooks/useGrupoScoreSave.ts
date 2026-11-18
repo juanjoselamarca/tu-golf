@@ -322,7 +322,10 @@ export function useGrupoScoreSave(input: {
         if (vioRondaCerrada) { rondaCerradaRef.current = true; setRondaCerrada(true) }
         // Caso mixto (un P0004 de una tarjeta y el 42501 de la de equipos sin sesión en el mismo envío): el
         // rechazo firme no tapa que la sesión se perdió; sin esto el aviso de iniciar sesión no aparecía.
+        // Y al revés: un rechazo firme SIN problema de sesión (P0004 con la sesión ya recuperada) apaga el
+        // aviso; si no, quedaba pegado con la ronda cerrada, que ya no reintenta (Fable #833).
         if (rechazoDeSesion) setSesionPerdida(true)
+        else if (sesionPerdidaRef.current && (await sesion()).estado === 'ok') setSesionPerdida(false)
       } else if (ok && !hayPendientes(codigo)) {
         // Entró todo: la ronda está abierta (se reabrió, si un envío anterior la vio cerrada).
         rondaCerradaRef.current = false
