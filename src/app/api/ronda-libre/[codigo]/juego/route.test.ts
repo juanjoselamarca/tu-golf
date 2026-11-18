@@ -67,8 +67,8 @@ beforeEach(() => {
       })),
     },
     courseHcpMap: { [JUAN]: 10, [PEDRO]: 14, [DIEGO]: 6, [TOMAS]: 18 },
-    displayHcpMap: { [JUAN]: 11, [DIEGO]: 7, [TOMAS]: 19 },
-    sinIndice: [PEDRO],
+    displayHcpMap: { [JUAN]: 11, [DIEGO]: 7, [TOMAS]: 19, [PEDRO]: 15 },
+    sinIndice: [],
     parMap: PAR,
     siMap: SI,
   }))
@@ -122,6 +122,9 @@ describe('GET /api/ronda-libre/[codigo]/juego/publico', () => {
     GET_PUBLICO(new Request(`http://test/api/ronda-libre/${codigo}/juego/publico${query}`), { params: Promise.resolve({ codigo }) })
 
   it('el HCP de 18 a mostrar viaja para TODO visor (scorer, jugador con sesión y anónimo), "S/Ind" si no tiene índice', async () => {
+    // PEDRO sin índice (con alguno sin hándicap el neto va como gross: aquí solo importa el HCP a mostrar).
+    const base = cargarRondaLibreEnVivo.getMockImplementation()!
+    cargarRondaLibreEnVivo.mockImplementation(async (...a: unknown[]) => ({ ...(await base(...a)), sinIndice: [PEDRO] }))
     const conSesionCuerpo = await (await llamar()).json()
     conSesion = false
     const anonimo = await (await llamarPublico()).json()
