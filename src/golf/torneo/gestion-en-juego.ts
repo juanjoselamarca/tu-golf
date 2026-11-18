@@ -119,7 +119,7 @@ export interface GrupoEnJuego {
 export type OperacionEnJuego =
   /** Alta con el torneo en juego (D4): el organizador elige el grupo. */
   | { tipo: 'agregar'; destino: GrupoEnJuego }
-  /** Cambio de grupo (D2, D3, D6, D10). */
+  /** Cambio de grupo (D2, D3, D6, D10, D11). */
   | { tipo: 'mover'; origen: GrupoEnJuego; destino: GrupoEnJuego }
   /** Eliminar la inscripción (D1, D8). `origen` null = inscrito sin grupo. */
   | { tipo: 'borrar'; origen: GrupoEnJuego | null }
@@ -130,7 +130,7 @@ export interface InscritoAColocar {
    * tarjeta individual del torneo (`tournament_rounds`, donde anota un inscrito sin grupo desde #828).
    */
   tieneGolpes: boolean
-  /** Aprobado y sin WD/DQ. Un WD/DQ se puede mover, pero no cuenta para el tamaño del equipo. */
+  /** Aprobado y sin WD/DQ. Un WD/DQ no se mueve (D11) y no cuenta para el tamaño del equipo. */
   compite: boolean
 }
 
@@ -139,6 +139,8 @@ export type CodigoMotivoNoColocar =
   | 'formato-desconocido'
   /** Origen y destino son el mismo grupo. */
   | 'mismo-grupo'
+  /** D11: un WD/DQ no cambia de grupo; se queda en el suyo, al pie y con sus golpes. */
+  | 'retirado-no-se-mueve'
   /** D1: tiene golpes; no se elimina, se retira (WD) y queda al pie con sus golpes. */
   | 'borrar-con-golpes'
   /** D8: match play, el match ya empezó (anotó el rival); no se elimina, se retira (WD). */
@@ -151,7 +153,7 @@ export type CodigoMotivoNoColocar =
   | 'mejor-bola-con-golpes'
   /** El destino pasaría el máximo de jugadores por equipo. */
   | 'equipo-lleno'
-  /** Foursome: el destino tiene (o recibiría) un WD/DQ, y con uno el equipo entero va al pie (`estadoDelEquipoFoursome`). */
+  /** Foursome: el destino ya tiene un WD/DQ, y con uno el equipo entero va al pie (`estadoDelEquipoFoursome`). */
   | 'foursome-con-retirado'
   /** Un equipo con golpes quedaría bajo el mínimo de los que compiten (también en 0). */
   | 'equipo-con-golpes-incompleto'
@@ -204,6 +206,11 @@ export function motivoParaNoColocar(
     return motivo('mismo-grupo', 'El jugador ya está en ese grupo.')
   }
 
+  // D11. Con el torneo en juego, un WD/DQ se queda en su grupo, al pie y con sus golpes (todos los formatos).
+  if (op.tipo === 'mover' && !inscrito.compite) {
+    return motivo('retirado-no-se-mueve', 'Un jugador retirado o descalificado no se cambia de grupo: sigue al pie en el suyo.')
+  }
+
   if (op.tipo === 'borrar') {
     // Ya WD/DQ: no se ofrece retirarlo (de DQ a WD cambiaría el board); queda al pie como está.
     const retirable = inscrito.compite
@@ -249,7 +256,7 @@ export function motivoParaNoColocar(
       return motivo('equipo-lleno', `El equipo ya tiene ${destino.miembros} jugadores; el máximo es ${r.max}.`)
     }
     // Regla 22 (decisión de Juanjo): un foursome con un WD/DQ va entero al pie; no se completa con uno.
-    if (format === 'foursome' && (destino.integrantes > destino.miembros || !inscrito.compite)) {
+    if (format === 'foursome' && destino.integrantes > destino.miembros) {
       return motivo('foursome-con-retirado', 'En foursome, una pareja con un jugador retirado o descalificado no puede seguir: no se completa.')
     }
     // Un equipo bajo el mínimo se puede ir llenando (D5, D7); su hándicap se exige cuando el tamaño es válido.

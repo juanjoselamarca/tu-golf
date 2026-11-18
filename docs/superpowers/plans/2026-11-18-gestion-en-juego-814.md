@@ -128,7 +128,7 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
 - **Carrera con el cierre del torneo.** La RPC exige `in_progress` y las tarjetas `en_curso`.
 - **Modo raw (individual con cuenta).** `filaDeHandicapDeTorneo` devuelve `{}`, igual que `planDeEdicion` en
   `editarHandicapInscrito.ts:107`.
-- **Jugador WD/DQ.** Se puede mover y sigue al pie, pero no cuenta para el tamaño de equipo.
+- **Jugador WD/DQ.** No se cambia de grupo (D11): sigue al pie en el suyo y no cuenta para el tamaño de equipo.
 - **`players_identity_check`.** La RPC no inserta en `players`: el alta sigue pasando por `enrollPlayer`.
 
 ## 5. Criterio de terminado
@@ -146,6 +146,7 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
 - **D8. Match play: borrar a un jugador sin golpes cuando el rival ya anotó:** pasa a WD, no se elimina. El match ya empezó (misma lógica que D6).
 - **D9. Mejor bola: agregar a un equipo que ya tiene golpes, con cupo libre:** se permite con confirmación (R23.4). Juega desde que llega.
 - **D10. Match play: un tercer jugador en un grupo:** se bloquea siempre, aunque no haya golpes. Un grupo de match play admite como máximo 2 jugadores.
+- **D11. WD/DQ no se cambia de grupo:** con el torneo en juego se queda en su grupo, al pie y con sus golpes, en todos los formatos. Borrar sigue D1.
 
 ## Pendientes que deja el PR1 para el PR2/PR3
 
@@ -164,5 +165,3 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
   ni un CHECK limitan las filas de un grupo de torneo. Por eso no hay motivo `grupo-lleno`: el cupo de equipo se mide
   con los que compiten (`miembros`) y un individual no tiene tope. Si Juanjo quiere un tope de filas, es decisión de
   producto y se agrega con `integrantes`.
-- **Mover a un WD/DQ a otro grupo:** pendiente de respuesta de Juanjo. Hoy `motivoParaNoColocar` lo permite (no
-  cuenta para el tamaño; foursome lo rechaza por R22).
