@@ -120,6 +120,6 @@ desde el checkout principal.
 | `ci.yml`, job `e2e-smoke` (push a production) | **prod**, a propósito | páginas públicas del deploy real, anónimo y sin escrituras |
 | `e2e-auth-weekly.yml` (domingo) | app de main + base de pruebas | flujos que mutan: ya no dejan basura en prod |
 | `qa-crawler.yml` (lunes, solo lectura) | app de main + base de pruebas | `e2e-local.mjs --comando -- node scripts/qa-crawler.mjs` |
-| `e2e-trigger.yml` (manual desde /admin/e2e) | la URL que elija el admin | disparo manual, raro |
+| `e2e-trigger.yml` (manual desde /admin/e2e) | **prod** (`https://golfersplus.vercel.app`; lista blanca en `src/lib/entrada-corrida-e2e.ts`) | disparo manual, raro |
 
 Lo vigila `scripts/ci/integracion-sin-prod.test.mjs`.
