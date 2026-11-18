@@ -218,7 +218,10 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
       h.quizaAplicado = false
       h.porRed = false
       h.cambio = ++reloj
-      if (r.totales) {
+      // Totales sólo con la ronda quieta: con otro hoyo en vuelo, esta respuesta puede ser más vieja que la que
+      // llegue después (hoyos en paralelo). La última respuesta con la ronda quieta deja los totales al día.
+      const rondaQuieta = !hoyosDe(h.roundId).some((o) => o.vuelo)
+      if (r.totales && rondaQuieta) {
         try {
           deps.alConfirmar?.(h.roundId, r.totales)
         } catch {
@@ -244,6 +247,18 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
     h.noAntesDe = 0
     h.porRed = false
     bombear(h)
+  }
+
+  function volverABase(h: Hoyo) {
+    cancelarTimer(h)
+    h.valor = { gross: h.base.gross, stats: {} }
+    h.rechazo = null
+    h.revOk = h.rev
+    h.intentos = 0
+    h.porRed = false
+    h.quizaAplicado = false
+    h.cambio = ++reloj
+    avisar(h.roundId)
   }
 
   const api = {
@@ -285,12 +300,20 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
     revertirLocal(roundId: string, hole: number): boolean {
       const h = hoyos.get(claveHoyo(roundId, hole))
       if (!h || estadoDe(h) !== 'rechazado' || h.quizaAplicado) return false
-      cancelarTimer(h)
-      h.valor = { gross: h.base.gross, stats: {} }
-      h.rechazo = null
-      h.revOk = h.rev
-      h.cambio = ++reloj
-      avisar(roundId)
+      volverABase(h)
+      return true
+    },
+
+    /**
+     * "Descartar" de un hoyo rechazado (tarjeta cerrada, jugador retirado, torneo inactivo: reintentar no lo
+     * arregla). Vuelve a lo último confirmado y deja de estar pendiente (chip, cierre y aviso al salir). No envía
+     * nada. Si un envío anterior quedó sin respuesta (`quizaAplicado`), la base puede tener otro valor: quien llama
+     * relee la ronda y `sembrar` lo corrige (el hoyo queda limpio y la relectura es posterior).
+     */
+    descartar(roundId: string, hole: number): boolean {
+      const h = hoyos.get(claveHoyo(roundId, hole))
+      if (!h || estadoDe(h) !== 'rechazado') return false
+      volverABase(h)
       return true
     },
 

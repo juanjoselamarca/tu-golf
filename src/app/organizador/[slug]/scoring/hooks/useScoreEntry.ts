@@ -17,6 +17,7 @@ import type { ScoringPlayer, ScoringRound, ScoringTournament } from '@/lib/data/
 import { ESPERA_STAT_MS, type HoleStatPatch, type RespuestaSobre } from './estado-hoyos'
 import { useEstadoHoyos, usePendientesGlobal, useRondaSellada, useVistaRonda } from './useEstadoHoyos'
 import { useCargaTarjeta } from './useCargaTarjeta'
+import { esTarjetaCerrada } from '@/golf/tournament-rounds'
 import { useCerrarTarjeta } from './useCerrarTarjeta'
 
 export type { HoleStatPatch } from './estado-hoyos'
@@ -74,6 +75,8 @@ export function useScoreEntry({
 
   const selectedPlayer = players.find((p) => p.id === selectedId)
   const selectedRound = getActiveRound(selectedPlayer)
+  /** Tarjeta cerrada en la base (`roundClosed`): no se edita más. No depende del sello del store. */
+  const rondaCerrada = esTarjetaCerrada(selectedRound?.status)
 
   // Totales de la ronda que trae cada guardado confirmado, a la ficha del jugador DUEÑO de esa ronda.
   const alConfirmar = useCallback(
@@ -150,20 +153,23 @@ export function useScoreEntry({
 
   // Los puntos que se MUESTRAN salen de la misma fuente que los que el servidor persiste (`puntajeDeHoyo`):
   // en Stableford Gross, contra el par sin golpes.
+  const modoJuego = tournament?.modo_juego
   const stablefordPtsAt = useCallback(
     (holeNumber: number, gross: number) => {
       const hole = holeByNumero.get(holeNumber)
       const si = siAllocByHole[holeNumber] ?? hole?.stroke_index ?? holeNumber
       return puntajeDeHoyo({
         gross, par: hole?.par ?? 4, courseHandicap: selectedCourseHcp, strokeIndex: si, holeCount,
-        formato: 'stableford', modo: tournament?.modo_juego,
+        formato: 'stableford', modo: modoJuego,
       }).puntos
     },
-    [holeByNumero, siAllocByHole, selectedCourseHcp, holeCount, tournament?.modo_juego],
+    [holeByNumero, siAllocByHole, selectedCourseHcp, holeCount, modoJuego],
   )
 
-  /** Tarjeta abierta en la que se puede escribir ahora (cargada, con ronda y sin cierre en curso). */
-  const editable = cargaTarjeta === 'lista' && !!selectedRound && !sellada
+  /** Tarjeta abierta en la que se puede escribir ahora: torneo resuelto, tarjeta cargada, ronda no cerrada (en la
+   *  base: `roundClosed`) y sin cierre en curso (sello del store). */
+  const hayTorneo = tournament != null
+  const editable = hayTorneo && cargaTarjeta === 'lista' && !!selectedRound && !rondaCerrada && !sellada
 
   // ── Golpe de un hoyo ──
   const saveScore = useCallback(
@@ -232,6 +238,22 @@ export function useScoreEntry({
     store.reintentar({ roundId, limpiarRechazo: true })
   }, [store])
 
+  /**
+   * "Descartar" los hoyos rechazados de una ronda (tarjeta cerrada, jugador retirado: reintentar no lo arregla).
+   * Vuelven a lo último confirmado y dejan de estar pendientes. Si alguno pudo quedar escrito (un envío anterior
+   * sin respuesta), se relee la tarjeta abierta para mostrar lo que hay en la base.
+   */
+  const descartarRechazados = useCallback((roundId: string) => {
+    const vistaRonda = store.vista(roundId)
+    let releer = false
+    for (const [h, v] of Object.entries(vistaRonda)) {
+      if (v.estado !== 'rechazado') continue
+      if (v.quizaAplicado) releer = true
+      store.descartar(roundId, Number(h))
+    }
+    if (releer && roundId === selectedRound?.id) void reintentarCarga()
+  }, [store, selectedRound, reintentarCarga])
+
   const cierre = useCerrarTarjeta({
     tournamentId: tournament?.id ?? null, store, reloadRoster, clearSelection, selectedIdRef,
     showError, showWarning,
@@ -259,6 +281,7 @@ export function useScoreEntry({
     pendientes,
     nombreDeRonda,
     reintentarGuardado,
+    descartarRechazados,
     lastAction,
     undoLast,
     holes,

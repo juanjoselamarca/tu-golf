@@ -67,3 +67,9 @@ export const INTENTOS_POR_HOYO = 3
  * cortar no es fallar; el siguiente intento recibe `round_closed` si el primero sí se aplicó.
  */
 export const PLAZO_CERRAR_TARJETA_MS = 15_000
+
+/**
+ * Corte de la relectura del listado de jugadores después de cerrar una tarjeta (scorer del organizador). La tarjeta
+ * ya está cerrada en la base: si la lectura no llega, el cierre igual termina y el listado se actualiza después.
+ */
+export const PLAZO_RELEER_TARJETAS_MS = 10_000

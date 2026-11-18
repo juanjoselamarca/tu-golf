@@ -7,7 +7,8 @@
 import { useCallback, useRef, useState, type MutableRefObject } from 'react'
 import { captureError } from '@/lib/error-tracking'
 import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
-import { PLAZO_CERRAR_TARJETA_MS } from '@/lib/red/plazos'
+import { conTimeout } from '@/lib/red/con-timeout'
+import { PLAZO_CERRAR_TARJETA_MS, PLAZO_RELEER_TARJETAS_MS } from '@/lib/red/plazos'
 import { ESPERAS_REINTENTO_MS, PLAZO_CIERRE_MS, type EstadoHoyos } from './estado-hoyos'
 
 export interface TarjetaACerrar { roundId: string; playerId: string; nombre: string }
@@ -93,10 +94,14 @@ export function useCerrarTarjeta({
 
       if (final.tipo === 'ok' || final.tipo === 'ya_cerrada') {
         if (final.tipo === 'ya_cerrada') showWarning('La tarjeta ya estaba cerrada', 'Actualizamos el listado.')
-        await reloadRoster()
         // Sólo si sigue abierto el mismo jugador: si el organizador ya pasó a otro, no se le cierra la vista.
         if (selectedIdRef.current === t.playerId) clearSelection()
-        // Queda sellada: la tarjeta está cerrada en la base.
+        // El cierre termina acá (botón y `cierreRef` libres). La relectura va aparte y con plazo: la ronda queda
+        // sellada hasta que el listado traiga el estado cerrado (desde ahí lo bloquea `roundClosed`), o hasta que
+        // venza el plazo; nunca queda sellada para siempre.
+        void conTimeout(reloadRoster(), PLAZO_RELEER_TARJETAS_MS)
+          .catch((e) => { void captureError(e, { context: 'scoring.useCerrarTarjeta.releer', meta: { roundId } }) })
+          .finally(() => store.desellar(roundId))
         return
       }
       store.desellar(roundId)

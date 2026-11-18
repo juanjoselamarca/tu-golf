@@ -1,46 +1,46 @@
-// React sobre `estado-hoyos`: un store por pantalla del scorer, que sobrevive a cambiar de jugador o de ronda
-// (está indexado por ronda) y sigue guardando aunque la pantalla se desmonte. La vista se lee con
-// `useSyncExternalStore`: no hay estado de guardado copiado en `useState` ni en refs.
+// React sobre `estado-hoyos`: UN store por torneo a nivel de MÓDULO, con la misma vida que la secuencia y el id de
+// dispositivo (`orden-guardado.ts`). Salir de la pantalla (Jugadores, Salida) y volver reutiliza el mismo store: lo
+// pendiente se sigue viendo y no queda un store huérfano reintentando un valor viejo con una secuencia más nueva que
+// la de una corrección hecha después (eso pisaría la corrección en la base). Con un solo store por torneo hay un solo
+// vuelo por hoyo en toda la pestaña. La vista se lee con `useSyncExternalStore`: nada de estado de guardado en refs.
 
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { crearEstadoHoyos, type EstadoHoyos, type Pendiente, type RespuestaSobre, type VistaRonda } from './estado-hoyos'
 import { enviarHoyo } from './envio-hoyo'
 
 type Totales = NonNullable<RespuestaSobre['totales']>
+type OyenteTotales = (roundId: string, totales: Totales) => void
 const SIN_HOYOS: VistaRonda = Object.freeze({})
 const SIN_PENDIENTES: Pendiente[] = []
 
-class Puente {
-  private t: string | undefined
-  private oyente: ((roundId: string, totales: Totales) => void) | undefined
-  constructor(t: string | undefined) { this.t = t }
-  torneo() { return this.t }
-  fijarTorneo(t: string | undefined) { this.t = t }
-  fijarOyente(fn: ((roundId: string, totales: Totales) => void) | undefined) { this.oyente = fn }
-  confirmar(roundId: string, totales: Totales) { this.oyente?.(roundId, totales) }
+interface Registro { store: EstadoHoyos; oyentes: Set<OyenteTotales> }
+const REGISTROS = new Map<string, Registro>()
+
+function registroDe(tournamentId: string): Registro {
+  const existente = REGISTROS.get(tournamentId)
+  if (existente) return existente
+  const oyentes = new Set<OyenteTotales>()
+  const store = crearEstadoHoyos({
+    enviar: (sobre) => enviarHoyo(tournamentId, sobre),
+    // Desmontada la pantalla, los guardados en curso terminan igual, pero ya no avisan a nadie.
+    alConfirmar: (roundId, totales) => { for (const o of [...oyentes]) o(roundId, totales) },
+  })
+  const nuevo = { store, oyentes }
+  REGISTROS.set(tournamentId, nuevo)
+  return nuevo
 }
 
-export function useEstadoHoyos(
-  tournamentId: string | undefined,
-  alConfirmar: (roundId: string, totales: Totales) => void,
-): EstadoHoyos {
-  // Puente fuera del render: el store (creado una vez) lee el torneo y el oyente vigentes al responder.
-  const [puente] = useState(() => new Puente(tournamentId))
-  const [store] = useState(() => crearEstadoHoyos({
-    enviar: (sobre) => {
-      const torneo = puente.torneo()
-      return torneo ? enviarHoyo(torneo, sobre) : Promise.resolve<RespuestaSobre>({ lectura: 'sin_respuesta' })
-    },
-    alConfirmar: (roundId, totales) => puente.confirmar(roundId, totales),
-  }))
+/** Sin torneo todavía no se anota (`editable` lo exige): este store nunca envía. */
+const SIN_TORNEO: EstadoHoyos = crearEstadoHoyos({ enviar: () => Promise.resolve({ lectura: 'sin_respuesta' }) })
+
+export function useEstadoHoyos(tournamentId: string | undefined, alConfirmar: OyenteTotales): EstadoHoyos {
+  const registro = tournamentId ? registroDe(tournamentId) : null
+  const store = registro?.store ?? SIN_TORNEO
   useEffect(() => {
-    puente.fijarTorneo(tournamentId)
-  }, [puente, tournamentId])
-  useEffect(() => {
-    puente.fijarOyente(alConfirmar)
-    // Desmontada la pantalla, los guardados en curso terminan igual, pero ya no avisan a nadie.
-    return () => puente.fijarOyente(undefined)
-  }, [puente, alConfirmar])
+    if (!registro) return
+    registro.oyentes.add(alConfirmar)
+    return () => { registro.oyentes.delete(alConfirmar) }
+  }, [registro, alConfirmar])
 
   // Volvió la señal o la pestaña: reintenta ya lo que estaba esperando (no reenvía un rechazo).
   useEffect(() => {

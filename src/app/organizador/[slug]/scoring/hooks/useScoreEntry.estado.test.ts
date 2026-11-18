@@ -23,8 +23,12 @@ const ronda = (id: string, n = 1) => ({ id, status: 'in_progress', total_gross: 
 const RA = ronda('ra')
 const RB = ronda('rb')
 const RA2 = ronda('ra2', 2)
-const TOURNAMENT = { id: 't1' } as ScoringTournament
-const PLAYERS = [{ id: 'pa', rounds: [RA, RA2] }, { id: 'pb', rounds: [RB] }] as unknown as ScoringPlayer[]
+// El store vive a nivel de módulo, uno por torneo: cada test usa un torneo propio para partir de cero, y lo que
+// envíe tarde un store de un test anterior (otro torneo) no cae en la lista de este.
+let TOURNAMENT = { id: 't0' } as ScoringTournament
+let nTorneo = 0
+const RC = { ...ronda('rc'), status: 'closed' } as ScoringRound
+const PLAYERS = [{ id: 'pa', rounds: [RA, RA2] }, { id: 'pb', rounds: [RB] }, { id: 'pc', rounds: [RC] }] as unknown as ScoringPlayer[]
 const VACIO: never[] = []
 let rondaN = 1
 const getActiveRound = (p: ScoringPlayer | undefined) => p?.rounds?.find((r) => r.round_number === rondaN)
@@ -49,15 +53,22 @@ async function abrir(hook: ReturnType<typeof montar>, id: string) {
 }
 
 beforeEach(() => {
+  TOURNAMENT = { id: `t${++nTorneo}` } as ScoringTournament
+  const torneo = TOURNAMENT.id
   rondaN = 1
-  pedidos = []
+  const mios: Pedido[] = []
+  pedidos = mios
   for (const k of Object.keys(lecturas)) delete lecturas[k]
   fetchRoundHoleScores.mockClear()
   applyRoundTotals.mockClear()
   showWarning.mockClear()
+  reloadRoster.mockReset()
+  reloadRoster.mockImplementation(async () => {})
   vi.stubGlobal('fetch', vi.fn((_u: string, init: RequestInit) => new Promise<Response>((res) => {
-    pedidos.push({
-      body: JSON.parse(String(init.body)),
+    const body = JSON.parse(String(init.body))
+    if (body.tournament_id !== torneo) return
+    mios.push({
+      body,
       responder: async (status, cuerpo = OK) => {
         res(new Response(JSON.stringify(cuerpo), { status }))
         await tick()
@@ -174,6 +185,71 @@ describe('useScoreEntry · cierre', () => {
     expect(pedidos[0].body).toMatchObject({ action: 'finalize_round', round_id: 'ra' })
     expect(hook.result.current.selectedId).toBe('pb')
     expect(reloadRoster).toHaveBeenCalled()
+  })
+
+  it('una relectura del listado que no responde no deja el cierre tomado', async () => {
+    reloadRoster.mockImplementation(() => new Promise<void>(() => {}))
+    const hook = montar()
+    await abrir(hook, 'pa')
+    let fin!: Promise<void> | undefined
+    act(() => { fin = hook.result.current.finalizeRound() })
+    await tick()
+    await pedidos[0].responder(200, {})
+    let termino: unknown
+    await act(async () => { termino = await Promise.race([fin!.then(() => 'listo'), new Promise((r) => setTimeout(() => r('colgado'), 1_000))]) })
+    expect(termino).toBe('listo')
+    expect(hook.result.current.cierre).toBeNull()
+    expect(hook.result.current.selectedId).toBeNull()
+  })
+})
+
+describe('useScoreEntry · un store por torneo', () => {
+  it('salir de la pantalla y volver: el pendiente se sigue viendo y el store viejo no reenvía un valor viejo', async () => {
+    const primera = montar()
+    await abrir(primera, 'pa')
+    act(() => primera.result.current.saveScore(3, '4'))
+    await pedidos[0].responder(500)
+    primera.unmount()
+    const segunda = montar()
+    await abrir(segunda, 'pa')
+    expect(segunda.result.current.vista[3]).toMatchObject({ gross: 4, estado: 'guardando' })
+    act(() => segunda.result.current.saveScore(3, '5'))
+    await act(async () => { await new Promise((r) => setTimeout(r, 1_300)) })
+    // Un solo envío más, con el valor nuevo; nada de un reintento del 4 con una secuencia más nueva.
+    expect(pedidos.slice(1).map((p) => p.body.gross_score)).toEqual([5])
+    await pedidos[1].responder(200)
+    await act(async () => { await new Promise((r) => setTimeout(r, 1_300)) })
+    expect(pedidos).toHaveLength(2)
+    expect(segunda.result.current.vista[3]).toMatchObject({ gross: 5, estado: 'limpio' })
+  })
+
+  it('una tarjeta cerrada en la base (roundClosed) no se edita: el sello no depende del store', async () => {
+    const hook = montar()
+    await abrir(hook, 'pc')
+    act(() => hook.result.current.saveScore(1, '4'))
+    act(() => { hook.result.current.editarStat(1, { putts: 2 }) })
+    await tick()
+    expect(pedidos).toHaveLength(0)
+  })
+})
+
+describe('useScoreEntry · descartar', () => {
+  it('descartar un hoyo rechazado (tarjeta cerrada) lo saca de pendientes y del aviso al salir', async () => {
+    const salir = () => {
+      const e = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(7, '6'))
+    await pedidos[0].responder(409, { code: 'round_closed' })
+    expect(hook.result.current.vista[7]).toMatchObject({ estado: 'rechazado' })
+    expect(salir()).toBe(true)
+    act(() => hook.result.current.descartarRechazados('ra'))
+    expect(hook.result.current.vista[7]).toMatchObject({ gross: null, estado: 'limpio' })
+    expect(salir()).toBe(false)
+    expect(pedidos).toHaveLength(1)
   })
 })
 

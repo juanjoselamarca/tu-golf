@@ -204,4 +204,49 @@ describe('estado-hoyos: un documento por hoyo, reenvío del vigente', () => {
     s.editar(R, 12, { gross: null }, PAR)
     expect(envios[3].sobre.gross).toBeNull()
   })
+
+  it('14. descartar un rechazo permanente: vuelve a lo guardado, deja de estar pendiente y no envía', async () => {
+    const CERRADA: RespuestaSobre = { lectura: { rechazo: 'closed' } }
+    const { s, envios } = montar()
+    s.editar(R, 4, { gross: 5 }, PAR)
+    await envios[0].responder(OK)
+    s.editar(R, 4, { gross: 9 }, PAR)
+    await envios[1].responder(CERRADA)
+    expect(s.pendientesGlobal()).toHaveLength(1)
+    expect(s.descartar(R, 4)).toBe(true)
+    expect(s.vista(R)[4]).toMatchObject({ gross: 5, estado: 'limpio' })
+    expect(s.sinGuardar(R)).toEqual([])
+    expect(s.pendientesGlobal()).toEqual([])
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(envios).toHaveLength(2)
+    // Sin rechazo no hay nada que descartar.
+    expect(s.descartar(R, 4)).toBe(false)
+  })
+
+  it('14b. descartar tras un corte previo (quizá escrito): queda limpio y la relectura de la base lo corrige', async () => {
+    const CERRADA: RespuestaSobre = { lectura: { rechazo: 'closed' } }
+    const { s, envios } = montar()
+    s.editar(R, 6, { gross: 7 }, PAR)
+    await envios[0].responder(CORTE)
+    await vi.advanceTimersByTimeAsync(1_000)
+    await envios[1].responder(CERRADA)
+    expect(s.vista(R)[6]).toMatchObject({ estado: 'rechazado', quizaAplicado: true })
+    expect(s.descartar(R, 6)).toBe(true)
+    expect(s.pendientesGlobal()).toEqual([])
+    const m = s.marca()
+    s.sembrar(R, [{ hole_number: 6, gross_score: 7, putts: null, fairway_hit: null, gir: null }], m, () => 4)
+    expect(s.vista(R)[6]).toMatchObject({ gross: 7, estado: 'limpio' })
+  })
+
+  it('15. totales sólo con la ronda quieta: la respuesta de un hoyo con otro en vuelo no los aplica', async () => {
+    const { s, envios, confirmados } = montar()
+    s.editar(R, 1, { gross: 4 }, PAR)
+    s.editar(R, 2, { gross: 5 }, PAR)
+    expect(envios).toHaveLength(2)
+    // El hoyo 2 responde primero, con el hoyo 1 todavía en vuelo: sus totales pueden quedar viejos.
+    await envios[1].responder({ lectura: 'ok', totales: { totalGross: 5, totalNet: 5, totalPoints: 2 } })
+    expect(confirmados).toEqual([])
+    await envios[0].responder({ lectura: 'ok', totales: { totalGross: 9, totalNet: 9, totalPoints: 4 } })
+    expect(confirmados).toEqual([{ roundId: R, totales: { totalGross: 9, totalNet: 9, totalPoints: 4 } }])
+  })
 })
