@@ -78,7 +78,7 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
 
 1. **PR1 — Predicados puros (zona crítica, sin cambio de comportamiento).** Crear
    `src/golf/torneo/gestion-en-juego.ts` con:
-   - `tarjetaTieneGolpes`, reutilizando `hoyosAnotados` de `src/golf/ronda-libre/progreso-de-ronda.ts:33`. El
+   - `tarjetaTieneGolpes` (quedó como `tarjetaTieneAnotaciones`: cuenta también el CONCEDE), reutilizando `hoyosAnotados` de `src/golf/ronda-libre/progreso-de-ronda.ts:33`. El
      `hoyoAnotado` privado de `src/golf/leaderboard/fuera-del-ranking.ts` debe pasar a usar esa misma fuente.
    - `motivoParaNoColocar`.
    - `motivoTamanoDeEquipo`, extraído de `motivoParaNoIniciar` (`motivo-para-no-iniciar.ts:92-106`) para que el inicio y
@@ -140,3 +140,22 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
 - Los triggers `grupos_fijos_*` quedan intactos.
 - No hay `console.*` ni `supabase.from()` en `src/app/` fuera de `api/`.
 - No se toca ningún archivo protegido.
+
+## Decisiones de Juanjo (18-nov, segunda tanda)
+- **D7. Equipo bajo el mínimo y sin golpes:** se permite. El equipo queda marcado como incompleto y no puede anotar hasta completarse (misma regla que D5).
+- **D8. Match play: borrar a un jugador sin golpes cuando el rival ya anotó:** pasa a WD, no se elimina. El match ya empezó (misma lógica que D6).
+- **D9. Mejor bola: agregar a un equipo que ya tiene golpes, con cupo libre:** se permite con confirmación (R23.4). Juega desde que llega.
+- **D10. Match play: un tercer jugador en un grupo:** se bloquea siempre, aunque no haya golpes. Un grupo de match play admite como máximo 2 jugadores.
+
+## Pendientes que deja el PR1 para el PR2/PR3
+
+- **Hándicap de equipo: ¿con quiénes se calcula?** `motivoParaNoColocar` valida que sea calculable con los que
+  COMPITEN (`miembros`, sin WD/DQ), pero `editarHandicapInscrito` lo recalcula con todos los miembros materializados
+  del equipo (WD incluidos). La RPC tiene que usar un solo conteo y esta función alinearse con él.
+- **Inscrito sin grupo con golpes (#828):** sin grupo anota en su tarjeta individual del torneo (`tournament_rounds`
+  vía `asegurar_tarjeta_vigente`), no en `ronda_libre_jugadores`. Para D1, `InscritoAColocar.tieneGolpes` tiene que
+  incluir esa tarjeta. Al colocarlo en un grupo, falta decidir qué pasa con esos golpes (hoy no viajan a la tarjeta
+  del grupo): el PR3 lo tiene que resolver o bloquear.
+- **Mejor bola, retirar en vez de borrar:** borrar a un integrante sin golpes de una pareja con golpes se rechaza
+  (`equipo-con-golpes-incompleto`, sin "Retirar"); el flujo WD actual sí lo deja retirar (R23.4, el compañero sigue
+  solo). Revisar que las dos reglas digan lo mismo en el PR5.

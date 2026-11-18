@@ -2,43 +2,51 @@
  * src/golf/torneo/gestion-en-juego.ts
  *
  * Reglas para agregar, mover o borrar un inscrito con el torneo YA iniciado (#814). Fuente ÚNICA de:
- *   - "¿esta tarjeta tiene golpes?"  → `tarjetaTieneGolpes`
- *   - el tamaño de un equipo válido   → `rangoDeEquipo` / `motivoTamanoDeEquipo` (también la usa el inicio)
- *   - si el hándicap del equipo se puede calcular → `handicapDeEquipoCalculable` (también la usa el inicio)
- *   - por qué NO se puede colocar a un inscrito en un grupo → `motivoParaNoColocar` (decisiones D1-D6 de
- *     Juanjo, 18-nov-2026; plan `docs/superpowers/plans/2026-11-18-gestion-en-juego-814.md`).
+ *   - "¿esta tarjeta tiene algo anotado?"        → `tarjetaTieneAnotaciones`
+ *   - el tamaño de equipo que se exige            → `motivoTamanoDeEquipo` / `equipoIncompleto` (también el inicio),
+ *     sobre `jugadoresPorEquipo` (plantilla-de-jugadores.ts, la única lectura de `FORMAT_META.jugadoresPorEquipo`)
+ *   - si el hándicap del equipo se puede calcular → `handicapDeEquipoCalculable` (también el inicio)
+ *   - por qué NO se puede colocar a un inscrito   → `motivoParaNoColocar` (decisiones D1-D10 de Juanjo, 18-nov-2026;
+ *     plan `docs/superpowers/plans/2026-11-18-gestion-en-juego-814.md`).
  *
  * Puro: sin Supabase ni React. La app planifica con esto y la RPC `colocar_inscrito_en_grupo` (PR2) vuelve a
- * evaluar los golpes BAJO LOCK con su espejo SQL: entre que se planifica y se escribe, el scorer puede anotar.
+ * evaluar las anotaciones BAJO LOCK con su espejo SQL: entre que se planifica y se escribe, el scorer puede anotar.
  * Si cambias una regla acá, cambia el espejo SQL (y viceversa).
  */
 
 import { FORMAT_META, type FormatoJuego } from '@/golf/core/rules'
-import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
+import { isSharedBallFormat, isTeamFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
 import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
+import { JUGADORES_POR_MATCH } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
+import { jugadoresPorEquipo } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import { hoyosAnotados } from '@/golf/ronda-libre/progreso-de-ronda'
 import type { ScoresDeTarjeta } from '@/golf/ronda-libre/tarjeta-historica'
 
-// ─── Golpes ──────────────────────────────────────────────────────────────────
+// ─── Anotaciones ─────────────────────────────────────────────────────────────
 
 /**
  * ¿La tarjeta tiene al menos un hoyo anotado? `scores` es el JSONB de la fila donde viven los golpes del
  * formato: `ronda_libre_jugadores.scores` en individual y mejor bola, `ronda_equipos.scores` en bola
  * compartida. `hoyos` son los de la ronda (`hoyosJugadosDeLaRonda`).
  *
- * Cuenta cualquier score guardado, también el CONCEDE (-1) del match play: un hoyo concedido ya es un
- * match en juego. Espejo SQL (PR2): un `jsonb_each(scores)` con valor numérico en esos hoyos.
+ * Cuenta CUALQUIER score guardado (`hoyosAnotados`), también el CONCEDE (-1) del match play: un hoyo concedido
+ * ya es un match en juego, y para decidir si se puede tocar una tarjeta conviene fallar cerrado. No es
+ * `hoyoConGolpes` (progreso-de-ronda.ts), que solo cuenta golpes reales (> 0) para el pie del leaderboard.
+ * Espejo SQL (PR2): algún valor numérico de `jsonb_each(scores)` en esos hoyos.
  */
-export function tarjetaTieneGolpes(scores: ScoresDeTarjeta | null | undefined, hoyos: readonly number[]): boolean {
+export function tarjetaTieneAnotaciones(scores: ScoresDeTarjeta | null | undefined, hoyos: readonly number[]): boolean {
   return hoyosAnotados(scores, hoyos) > 0
 }
 
 // ─── Tamaño y hándicap de equipo ─────────────────────────────────────────────
 
-/** Mínimo y máximo de jugadores por equipo, o null si el formato no es por equipos. */
-export function rangoDeEquipo(format: string | null | undefined): { min: number; max: number } | null {
-  if (!isTeamFormat(format)) return null
-  return FORMAT_META[format as FormatoJuego]?.jugadoresPorEquipo ?? null
+/**
+ * Jugadores por equipo del formato (null si no es por equipos). `jugadoresPorEquipo` lo acota a
+ * `MAX_JUGADORES_POR_RONDA` (4): un grupo de torneo es una tarjeta de ronda libre, así que el mismo techo
+ * vale acá. Hoy ningún formato pide más de 4, así que el tope no cambia el rango de `FORMAT_META`.
+ */
+function rango(format: string | null | undefined): { min: number; max: number } | null {
+  return jugadoresPorEquipo(format as FormatoJuego)
 }
 
 /** Lista de hasta 5 elementos para un mensaje ("A, B, C, D, E y 3 más"). */
@@ -49,22 +57,30 @@ export function listaCorta(items: string[]): string {
 
 /**
  * Por qué algún equipo tiene un tamaño fuera de `jugadoresPorEquipo`, o null si todos calzan. Un grupo
- * vacío no cuenta. `groups` trae solo a los que compiten (`soloAprobados`). La usan el inicio
- * (`motivoParaNoIniciar`) y la gestión en juego.
+ * vacío no cuenta. `groups` trae solo a los que compiten (`soloAprobados`). La usa el inicio
+ * (`motivoParaNoIniciar`): al iniciar, todos los equipos tienen que estar completos.
  */
 export function motivoTamanoDeEquipo(
   format: string | null | undefined,
   groups: ReadonlyArray<{ name: string; players: ReadonlyArray<unknown> }>,
 ): string | null {
-  const rango = rangoDeEquipo(format)
-  if (!rango) return null
-  const fueraDeRango = groups.filter(
-    (g) => g.players.length > 0 && (g.players.length < rango.min || g.players.length > rango.max),
-  )
+  const r = rango(format)
+  if (!r) return null
+  const fueraDeRango = groups.filter((g) => g.players.length > 0 && (g.players.length < r.min || g.players.length > r.max))
   if (fueraDeRango.length === 0) return null
-  const exigido = rango.min === rango.max ? `${rango.min}` : `${rango.min} a ${rango.max}`
+  const exigido = r.min === r.max ? `${r.min}` : `${r.min} a ${r.max}`
   const detalle = listaCorta(fueraDeRango.map((g) => `"${g.name}" (${g.players.length})`))
   return `Tamaño de equipo incorrecto. En ${FORMAT_META[format as FormatoJuego].label}, cada equipo debe tener ${exigido} jugadores. Corrige: ${detalle}.`
+}
+
+/**
+ * D5/D7: un equipo con jugadores pero bajo el mínimo está INCOMPLETO y no puede anotar hasta completarse.
+ * `miembros` = los que compiten (sin WD/DQ). Vacío no es incompleto (no hay nada que anotar). Fuera de los
+ * formatos por equipos, nunca. Lo usarán la RPC (PR2) y el scorer (PR5) para bloquear el anotar.
+ */
+export function equipoIncompleto(format: string | null | undefined, miembros: number): boolean {
+  const r = rango(format)
+  return r !== null && miembros > 0 && miembros < r.min
 }
 
 /**
@@ -88,11 +104,11 @@ export interface GrupoEnJuego {
   id: string
   /** Integrantes que compiten (aprobados, sin WD/DQ), contando al inscrito si ya está en este grupo. */
   miembros: number
-  /** Todas sus filas en la tarjeta, también WD/DQ (siguen al pie con sus golpes). */
+  /** Todas sus filas en la tarjeta, también WD/DQ (siguen al pie con sus golpes). Siempre ≥ `miembros`. */
   integrantes: number
   /**
-   * ¿La tarjeta del grupo tiene golpes? (`tarjetaTieneGolpes` sobre alguna fila del grupo.) En bola
-   * compartida, los del equipo; en el resto, los de cualquier integrante (también WD/DQ).
+   * `tarjetaTieneAnotaciones` sobre alguna fila del grupo: en bola compartida, la del equipo; en el resto, la de
+   * cualquier integrante (también WD/DQ).
    */
   tieneGolpes: boolean
 }
@@ -100,32 +116,43 @@ export interface GrupoEnJuego {
 export type OperacionEnJuego =
   /** Alta con el torneo en juego (D4): el organizador elige el grupo. */
   | { tipo: 'agregar'; destino: GrupoEnJuego }
-  /** Cambio de grupo (D2, D3, D6). */
+  /** Cambio de grupo (D2, D3, D6, D10). */
   | { tipo: 'mover'; origen: GrupoEnJuego; destino: GrupoEnJuego }
-  /** Eliminar la inscripción (D1). `origen` null = inscrito sin grupo. */
+  /** Eliminar la inscripción (D1, D8). `origen` null = inscrito sin grupo. */
   | { tipo: 'borrar'; origen: GrupoEnJuego | null }
 
 export interface InscritoAColocar {
-  /** Golpes en SU fila (`ronda_libre_jugadores.scores`). En bola compartida no se usa: manda el equipo. */
+  /**
+   * `tarjetaTieneAnotaciones` sobre SUS tarjetas: su fila de la tarjeta del grupo y, si no tiene grupo, su
+   * tarjeta individual del torneo (`tournament_rounds`, donde anota un inscrito sin grupo desde #828).
+   */
   tieneGolpes: boolean
   /** Aprobado y sin WD/DQ. Un WD/DQ se puede mover, pero no cuenta para el tamaño del equipo. */
   compite: boolean
 }
 
 export type CodigoMotivoNoColocar =
+  /** El formato es null o no está en `KNOWN_FORMAT_KEYS`: falla cerrado. */
+  | 'formato-desconocido'
   /** Origen y destino son el mismo grupo. */
   | 'mismo-grupo'
   /** D1: tiene golpes; no se elimina, se retira (WD) y queda al pie con sus golpes. */
   | 'borrar-con-golpes'
-  /** D2: mejor bola, alguno de los dos equipos ya tiene golpes. */
-  | 'mejor-bola-con-golpes'
+  /** D8: match play, el match ya empezó (anotó el rival); no se elimina, se retira (WD). */
+  | 'borrar-match-en-juego'
+  /** D10: un grupo de match play admite como máximo `JUGADORES_POR_MATCH`. */
+  | 'match-play-grupo-lleno'
   /** D6: match play, algún grupo implicado ya tiene golpes. */
   | 'match-play-con-golpes'
+  /** D2: mejor bola, alguno de los dos equipos ya tiene golpes. */
+  | 'mejor-bola-con-golpes'
   /** El destino pasaría el máximo de jugadores por equipo. */
   | 'equipo-lleno'
-  /** El origen quedaría con menos del mínimo de jugadores por equipo (sin quedar vacío). */
-  | 'equipo-incompleto'
-  /** Un equipo con golpes quedaría sin integrantes. */
+  /** Foursome: el destino tiene (o recibiría) un WD/DQ, y con uno el equipo entero va al pie (`estadoDelEquipoFoursome`). */
+  | 'foursome-con-retirado'
+  /** Un equipo con golpes quedaría bajo el mínimo de los que compiten (también en 0). */
+  | 'equipo-con-golpes-incompleto'
+  /** Un equipo con golpes quedaría sin ninguna fila (ni siquiera la de un WD/DQ). */
   | 'equipo-con-golpes-sin-miembros'
   /** Bola compartida: el hándicap de un equipo resultante no se puede calcular con la configuración. */
   | 'handicap-de-equipo'
@@ -133,17 +160,28 @@ export type CodigoMotivoNoColocar =
 export interface MotivoNoColocar {
   codigo: CodigoMotivoNoColocar
   mensaje: string
+  /** Borrar no se puede, pero retirarlo (WD) sí: la UI ofrece "Retirar" (D1, D8). */
+  ofreceRetirar: boolean
 }
 
-const motivo = (codigo: CodigoMotivoNoColocar, mensaje: string): MotivoNoColocar => ({ codigo, mensaje })
+const motivo = (codigo: CodigoMotivoNoColocar, mensaje: string, ofreceRetirar = false): MotivoNoColocar => ({
+  codigo,
+  mensaje,
+  ofreceRetirar,
+})
 
 /**
  * Por qué NO se puede hacer la operación, o null si se puede. Pura y sin lecturas: la RPC repite el chequeo
- * de golpes bajo lock. `format` es el formato RESUELTO del torneo (`resolveFormatoJuego`); `handicap` es
+ * de anotaciones bajo lock. `format` es el formato RESUELTO del torneo (`resolveFormatoJuego`); `handicap` es
  * `leerHandicapDeEquipo(team_config)`.
  *
- * Que se pueda no significa que no haya que confirmar: con golpes en juego (D2, D4) la UI pide confirmación.
- * Eso no lo decide esta función.
+ * Que se pueda no significa que no haya que confirmar: con golpes en juego (D2, D4, D9) la UI pide confirmación.
+ * Tampoco que el equipo pueda anotar: uno que queda bajo el mínimo y sin golpes se permite (D7) y queda
+ * `equipoIncompleto`.
+ *
+ * Pendiente para el PR2: el hándicap de equipo se valida acá con los que COMPITEN (`miembros`), pero
+ * `editarHandicapInscrito` lo recalcula con todos los miembros materializados (`integrantes`, WD incluidos).
+ * La RPC tiene que usar el mismo conteo que esta función, o esta función el de la RPC.
  */
 export function motivoParaNoColocar(
   format: string | null,
@@ -151,47 +189,62 @@ export function motivoParaNoColocar(
   inscrito: InscritoAColocar,
   handicap: TeamHandicapConfig | null = null,
 ): MotivoNoColocar | null {
+  if (!format || !KNOWN_FORMAT_KEYS.includes(format)) {
+    return motivo('formato-desconocido', 'No se reconoce el formato del torneo; no se puede cambiar el grupo.')
+  }
   const origen = op.tipo === 'agregar' ? null : op.origen
   const destino = op.tipo === 'borrar' ? null : op.destino
   const compartida = isSharedBallFormat(format)
+  const matchPlay = Boolean(FORMAT_META[format as FormatoJuego]?.requiereParejas)
 
   if (origen && destino && origen.id === destino.id) {
     return motivo('mismo-grupo', 'El jugador ya está en ese grupo.')
   }
 
-  // D1. En bola compartida los golpes son del equipo: el inscrito "tiene golpes" si su equipo los tiene.
   if (op.tipo === 'borrar') {
-    const conGolpes = compartida ? Boolean(origen?.tieneGolpes) : inscrito.tieneGolpes
-    if (conGolpes) {
-      return motivo('borrar-con-golpes', 'Ya tiene golpes anotados: no se puede eliminar. Retíralo (WD) y queda al pie con sus golpes.')
+    // D1. En bola compartida los golpes son del equipo: el inscrito los tiene si su equipo los tiene.
+    if (inscrito.tieneGolpes || (compartida && origen?.tieneGolpes)) {
+      return motivo('borrar-con-golpes', 'Ya tiene golpes anotados: no se puede eliminar. Retíralo (WD) y queda al pie con sus golpes.', true)
+    }
+    // D8. El match ya empezó aunque él no haya anotado: eliminarlo cambiaría la tarjeta del rival.
+    if (matchPlay && origen?.tieneGolpes) {
+      return motivo('borrar-match-en-juego', 'Su match ya empezó: no se puede eliminar. Retíralo (WD).', true)
     }
   }
 
-  // D6. Match play: el formato de la tarjeta depende de que el grupo sea un par (`formatoDeLaTarjetaDelGrupo`).
-  if (FORMAT_META[format as FormatoJuego]?.requiereParejas && op.tipo !== 'borrar') {
-    if (origen?.tieneGolpes || destino?.tieneGolpes) {
+  if (matchPlay && destino) {
+    // D10. Un match es un par: un tercero rompe la tarjeta (`formatoDeLaTarjetaDelGrupo`), con o sin golpes.
+    if (destino.integrantes + 1 > JUGADORES_POR_MATCH) {
+      return motivo('match-play-grupo-lleno', `Un grupo de match play admite como máximo ${JUGADORES_POR_MATCH} jugadores.`)
+    }
+    // D6.
+    if (origen?.tieneGolpes || destino.tieneGolpes) {
       return motivo('match-play-con-golpes', 'En match play solo se puede cambiar un grupo antes de que se anote el primer hoyo.')
     }
   }
 
-  // D2. Mejor bola: con golpes en cualquiera de los dos equipos no se cambia de equipo.
-  if (format === 'best_ball' && op.tipo === 'mover' && (origen?.tieneGolpes || destino?.tieneGolpes)) {
+  // D2. Mejor bola (equipo sin bola compartida): con golpes en cualquiera de los dos no se cambia de equipo.
+  const mejorBola = isTeamFormat(format) && !compartida
+  if (mejorBola && op.tipo === 'mover' && (origen?.tieneGolpes || destino?.tieneGolpes)) {
     return motivo('mejor-bola-con-golpes', 'En mejor bola no se puede cambiar de equipo cuando alguno de los dos ya tiene golpes.')
   }
 
-  // Invariantes de equipo (D3, y los mismos para mejor bola). Un WD/DQ no cuenta para el tamaño.
-  const rango = rangoDeEquipo(format)
-  if (!rango) return null
+  // Invariantes de equipo (D3, D7, y los mismos para mejor bola). Un WD/DQ no cuenta para el tamaño.
+  const r = rango(format)
+  if (!r) return null
   const delta = inscrito.compite ? 1 : 0
 
   if (destino) {
     const quedan = destino.miembros + delta
-    if (quedan > rango.max) {
-      return motivo('equipo-lleno', `El equipo ya tiene ${destino.miembros} jugadores; el máximo es ${rango.max}.`)
+    if (quedan > r.max) {
+      return motivo('equipo-lleno', `El equipo ya tiene ${destino.miembros} jugadores; el máximo es ${r.max}.`)
     }
-    // Un equipo en formación (sin golpes, bajo el mínimo) se puede ir llenando (D5); su hándicap se exige
-    // recién cuando el tamaño es válido, igual que al iniciar.
-    if (compartida && quedan >= rango.min && !handicapDeEquipoCalculable(format, quedan, handicap)) {
+    // Regla 22 (decisión de Juanjo): un foursome con un WD/DQ va entero al pie; no se completa con uno.
+    if (format === 'foursome' && (destino.integrantes > destino.miembros || !inscrito.compite)) {
+      return motivo('foursome-con-retirado', 'En foursome, una pareja con un jugador retirado o descalificado no puede seguir: no se completa.')
+    }
+    // Un equipo bajo el mínimo se puede ir llenando (D5, D7); su hándicap se exige cuando el tamaño es válido.
+    if (compartida && quedan >= r.min && !handicapDeEquipoCalculable(format, quedan, handicap)) {
       return motivo('handicap-de-equipo', `Con ${quedan} jugadores no se puede calcular el hándicap del equipo con la configuración del torneo.`)
     }
   }
@@ -201,10 +254,12 @@ export function motivoParaNoColocar(
     if (origen.tieneGolpes && origen.integrantes - 1 <= 0) {
       return motivo('equipo-con-golpes-sin-miembros', 'El equipo ya tiene golpes y quedaría sin jugadores.')
     }
-    if (quedan > 0 && quedan < rango.min && delta > 0) {
-      return motivo('equipo-incompleto', `El equipo quedaría con ${quedan} jugador${quedan === 1 ? '' : 'es'}; el mínimo es ${rango.min}.`)
+    // Sin golpes, el origen puede quedar incompleto o vacío (D7). Con golpes, nunca bajo el mínimo: un equipo
+    // que sigue rankeado tiene que tener quién juegue.
+    if (origen.tieneGolpes && delta > 0 && quedan < r.min) {
+      return motivo('equipo-con-golpes-incompleto', `El equipo ya tiene golpes y quedaría con ${quedan} jugador${quedan === 1 ? '' : 'es'} en juego; el mínimo es ${r.min}.`)
     }
-    if (compartida && quedan > 0 && delta > 0 && !handicapDeEquipoCalculable(format, quedan, handicap)) {
+    if (compartida && delta > 0 && quedan >= r.min && !handicapDeEquipoCalculable(format, quedan, handicap)) {
       return motivo('handicap-de-equipo', `Con ${quedan} jugadores no se puede calcular el hándicap del equipo con la configuración del torneo.`)
     }
   }

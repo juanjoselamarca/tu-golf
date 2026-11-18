@@ -32,6 +32,8 @@ export function puedeFinalizar(hoyosAnotados: number, esUltimoHoyo: boolean): bo
 /**
  * ¿El hoyo tiene golpes reales? A diferencia de `hoyosAnotados`, no cuenta un score que no sea un golpe
  * (el CONCEDE -1 del match play, un 0 de hoyo levantado). Lo usa el pie del leaderboard (mejor bola).
+ * Para decidir si una tarjeta ya se puede tocar se usa `tarjetaTieneAnotaciones` (golf/torneo/gestion-en-juego),
+ * que cuenta cualquier score, también el CONCEDE.
  */
 export function hoyoConGolpes(scores: ScoresDeTarjeta | null | undefined, hoyo: number): boolean {
   const s = scores ? scoreDelHoyo(scores, hoyo) : undefined
