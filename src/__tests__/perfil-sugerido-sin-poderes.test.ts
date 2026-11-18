@@ -179,6 +179,8 @@ describe('perfil_sugerido_id no da poderes', () => {
   it('el rollback de 20261120 devuelve eliminar_cuenta EXACTA de 20261118', () => {
     const rollback = readMigration('rollback/20261120_eliminar_cuenta_orden_y_estado_obligatorio_rollback.sql')
     expect(eliminarCuenta(rollback)).toBe(eliminarCuenta(readMigration(MIGRACION_ORDEN_LOCKS)))
+    expect(rollback).toMatch(/REVOKE ALL ON FUNCTION public\.eliminar_cuenta\(uuid\) FROM PUBLIC, anon, authenticated;/)
+    expect(rollback).toMatch(/ALTER COLUMN estado DROP NOT NULL;/)
   })
 
   it('los lectores de permisos e índice siguen mirando user_id', () => {

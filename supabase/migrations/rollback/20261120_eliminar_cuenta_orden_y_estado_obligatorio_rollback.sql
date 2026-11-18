@@ -1,4 +1,6 @@
 -- Rollback de 20261120100000: vuelve eliminar_cuenta a la versión de 20261118120000 y estado a nullable.
+-- Aplicar: copiarlo como migración nueva (PR → merge → migraciones-prod), nunca sentencia por sentencia en
+-- autocommit: ahí el SET LOCAL lock_timeout no hace nada y el rollback deja de ser atómico.
 
 CREATE OR REPLACE FUNCTION public.eliminar_cuenta(p_user_id uuid)
  RETURNS jsonb
