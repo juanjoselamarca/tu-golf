@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { colocarInscrito } from '@/lib/data/tournaments/colocarInscrito'
 import { respuestaDeColocar, torneoDelOrganizador } from '@/lib/api/gestion-en-juego'
+import { createClient as createServerClient } from '@/utils/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +39,11 @@ export async function PUT(
   const body = bodySchema.safeParse(raw)
   if (!body.success) return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
 
-  const acceso = await torneoDelOrganizador(slug)
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
+
+  const acceso = await torneoDelOrganizador(slug, user)
   if (!acceso.ok) return acceso.respuesta
 
   const res = await colocarInscrito(acceso.svc, acceso.torneo, playerId, body.data.groupId, {

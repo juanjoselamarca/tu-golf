@@ -9,7 +9,6 @@
 
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { TORNEO_PARA_EDITAR_SELECT, type TorneoParaEditar } from '@/lib/data/tournaments/editarHandicapInscrito'
@@ -23,11 +22,8 @@ export type TorneoDelOrganizador =
 const CAMBIOS_POR_VENTANA = 120
 const VENTANA_MS = 10 * 60 * 1000
 
-/** Sesión, tope de cambios y torneo del organizador (por slug). */
-export async function torneoDelOrganizador(slug: string): Promise<TorneoDelOrganizador> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false, respuesta: NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 }) }
+/** Tope de cambios y torneo del organizador (por slug). La ruta ya validó la sesión (`usuarioDeLaSesion`). */
+export async function torneoDelOrganizador(slug: string, user: { id: string }): Promise<TorneoDelOrganizador> {
 
   const rl = checkRateLimit(`gestion-en-juego:${user.id}`, CAMBIOS_POR_VENTANA, VENTANA_MS)
   if (!rl.allowed) {

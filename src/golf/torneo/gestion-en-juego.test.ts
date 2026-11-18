@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { patronVoseo } from '../../../scripts/lib/voseo.mjs'
 import {
   equipoAlPie,
   equipoIncompleto,
@@ -319,7 +320,7 @@ describe('mensajes de los motivos (d): un solo mapa, español sin voseo', () => 
     expect(m.length).toBeLessThanOrEqual(120)
     expect(m).not.toMatch(/undefined|null|NaN/)
     // Voseo: "ingresá", "podés", "tenés", "recargá"…
-    expect(m).not.toMatch(/(^|\s)(podés|tenés|querés|recargá|intentá|ingresá|escribinos|ampliá|retiralo)(?=[\s.,:;)]|$)/iu)
+    expect(m).not.toMatch(patronVoseo())
   })
   it('un código que no conocemos no tiene mensaje propio', () => {
     expect(esCodigoMotivoColocar('otra-cosa')).toBe(false)
