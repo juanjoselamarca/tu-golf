@@ -59,8 +59,9 @@ describe('canario · cada llamada al gate pasa el handicap de juego del torneo',
   })
 
   it('hay llamadas que revisar (guard de cardinalidad: el canario no pasa en vacío)', () => {
-    // organizador ×2, jugador ×1, servidor ×1, GWI ×1
-    expect(llamadas.length).toBeGreaterThanOrEqual(5)
+    // organizador ×1 (stableford de la grilla; el neto del golpe lo deriva el servidor desde fix/estado-hoyos-claude),
+    // jugador ×1, servidor ×1, GWI ×1
+    expect(llamadas.length).toBeGreaterThanOrEqual(4)
   })
 
   it('ninguna llamada a courseHandicapDeScoring omite hcpPct ni lo fija al 100 % a mano', () => {
