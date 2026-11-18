@@ -95,12 +95,13 @@ const marcadorEnPalabras = (t: TramoDelJuego) => `${t.parejas[0].nombre} ${t.mar
 export function DueloDelTramo({ tramo, primerDuelo }: { tramo: TramoDelJuego; primerDuelo: boolean }) {
   const partio = tramoConMarcador(tramo)
   const destacado = tramo.estado.tipo === 'en_juego'
+  // Nombres y marcador siguen al ancho de la pantalla: a 320 px "Maximiliano" cabe o se corta con guion, nunca a mitad.
   const lado = (p: ParejaDelTramo, l: 'a' | 'b') => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, fontSize: '16px', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)', textAlign: l === 'a' ? 'left' : 'right' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, fontSize: 'clamp(14px, 4.4vw, 16px)', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)', textAlign: l === 'a' ? 'left' : 'right' }}>
       {p.jugadores.map((n, i) => (
         <span key={i}style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: l === 'a' ? 'flex-start' : 'flex-end', minWidth: 0 }}>
           {partio && l === 'a' && <Cuadradito lado="a" />}
-          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{n}</span>
+          <span style={{ minWidth: 0, overflowWrap: 'break-word', hyphens: 'auto' }}>{n}</span>
           {partio && l === 'b' && <Cuadradito lado="b" />}
         </span>
       ))}
@@ -120,8 +121,8 @@ export function DueloDelTramo({ tramo, primerDuelo }: { tramo: TramoDelJuego; pr
         {tramo.estado.tipo === 'no_se_jugo'
           ? <span aria-hidden style={{ fontSize: '15px', color: 'var(--text-2)' }}>vs</span>
           : (
-            <span aria-hidden className="num" style={{ fontSize: '40px', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em', color: 'var(--text)', whiteSpace: 'nowrap' }}>
-              {tramo.marcador[0]}<span style={{ margin: '0 8px', fontWeight: 500, color: 'var(--text-2)' }}>–</span>{tramo.marcador[1]}
+            <span aria-hidden className="num" style={{ fontSize: 'clamp(30px, 10.5vw, 40px)', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em', color: 'var(--text)', whiteSpace: 'nowrap' }}>
+              {tramo.marcador[0]}<span style={{ margin: '0 6px', fontWeight: 500, color: 'var(--text-2)' }}>–</span>{tramo.marcador[1]}
             </span>
           )}
         {lado(tramo.parejas[1], 'b')}
