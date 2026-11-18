@@ -10,7 +10,7 @@ import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
-import { esTarjetaCerrada, rondaSigueEnJuego } from '@/golf/tournament-rounds'
+import { esTarjetaCerrada, rondaSigueEnJuego, tarjetaDeLaRonda } from '@/golf/tournament-rounds'
 import { inscritoAprobado } from '@/golf/tournament-status'
 import {
   fetchBulkRoundHoleCounts,
@@ -59,7 +59,8 @@ export interface UseScoringDataReturn {
   loading: boolean
   loadError: boolean
   retryLoad: () => void
-  reloadRoster: () => Promise<void>
+  /** `true` si el roster se releyó. */
+  reloadRoster: () => Promise<boolean>
   /** Ronda del jugador que corresponde a la ronda activa del torneo. */
   getActiveRound: (player: ScoringPlayer | undefined) => ScoringRound | undefined
   setPlayerHandicap: (playerId: string, value: number) => void
@@ -209,20 +210,27 @@ export function useScoringData(slug: string): UseScoringDataReturn {
 
   const retryRondaActiva = useCallback(() => setRondaNonce((n) => n + 1), [])
 
-  const reloadRoster = useCallback(async () => {
-    if (!tournament) return
+  /** `true` si el roster se releyó (los conteos de hoyos son accesorios: su falla se reporta, no cambia el resultado). */
+  const reloadRoster = useCallback(async (): Promise<boolean> => {
+    if (!tournament) return false
+    const supabase = createClient()
+    let roster: ScoringPlayer[]
     try {
-      const supabase = createClient()
-      const roster = await fetchScoringRoster(supabase, tournament.id)
-      setPlayers(roster)
-      // Refrescar conteos de hoyos junto con el roster.
-      const allRoundIds = roster.flatMap((p) => (p.rounds ?? []).map((r) => r.id))
-      const holeCounts = await fetchBulkRoundHoleCounts(supabase, allRoundIds)
-      setRoundHoleCounts(holeCounts)
+      roster = await fetchScoringRoster(supabase, tournament.id)
     } catch (e) {
       void captureError(e, { context: 'scoring.useScoringData.reloadRoster', meta: { slug } })
       showError('Error', 'No pudimos refrescar la lista de jugadores.')
+      return false
     }
+    setPlayers(roster)
+    try {
+      // Refrescar conteos de hoyos junto con el roster.
+      const allRoundIds = roster.flatMap((p) => (p.rounds ?? []).map((r) => r.id))
+      setRoundHoleCounts(await fetchBulkRoundHoleCounts(supabase, allRoundIds))
+    } catch (e) {
+      void captureError(e, { context: 'scoring.useScoringData.reloadRoster.holeCounts', meta: { slug } })
+    }
+    return true
   }, [tournament, slug, showError])
 
   const refreshHoleCounts = useCallback(async () => {
@@ -238,8 +246,8 @@ export function useScoringData(slug: string): UseScoringDataReturn {
 
   const getActiveRound = useCallback(
     (player: ScoringPlayer | undefined) => {
-      if (!player?.rounds) return undefined
-      return player.rounds.find((r) => (r.round_number ?? 1) === activeRoundNum) || player.rounds[0]
+      // Solo la tarjeta de la ronda que se está viendo: nunca la de otra ronda (cerrarla desde acá era un bug).
+      return tarjetaDeLaRonda(player?.rounds, activeRoundNum)
     },
     [activeRoundNum],
   )
@@ -281,7 +289,7 @@ export function useScoringData(slug: string): UseScoringDataReturn {
 
   const selectRound = useCallback(
     (rn: number) => {
-      const hasRound = players.some((p) => p.rounds?.some((r) => (r.round_number ?? 1) === rn))
+      const hasRound = players.some((p) => tarjetaDeLaRonda(p.rounds, rn) != null)
       if (hasRound) setActiveRoundNum(rn)
     },
     [players],

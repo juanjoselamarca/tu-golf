@@ -28,7 +28,8 @@ function resultadoDe(respuesta: RespuestaPedirTarjeta): ResultadoCrearTarjeta {
 export function useCrearTarjeta(args: {
   slug: string | null
   playerId: string | null
-  reloadRoster: () => Promise<void>
+  /** `true` si el roster se releyó. */
+  reloadRoster: () => Promise<boolean>
 }) {
   const [creando, setCreando] = useState(false)
   const [ultimo, setUltimo] = useState<{ playerId: string; tipo: ResultadoCrearTarjeta } | null>(null)
@@ -42,8 +43,9 @@ export function useCrearTarjeta(args: {
     setUltimo(null)
     try {
       const respuesta = await pedirTarjetaVigente({ slug, playerId })
-      await reloadRoster()
-      setUltimo({ playerId, tipo: resultadoDe(respuesta) })
+      const releido = await reloadRoster()
+      // 2xx pero el roster no se pudo releer: la tarjeta puede existir y no se ve. "No aparece" mentiría.
+      setUltimo({ playerId, tipo: !releido && respuesta === 'respondio' ? 'sin_conexion' : resultadoDe(respuesta) })
     } finally {
       enCurso.current = false
       setCreando(false)

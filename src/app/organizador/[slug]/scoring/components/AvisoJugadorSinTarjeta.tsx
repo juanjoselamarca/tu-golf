@@ -1,7 +1,18 @@
 'use client'
 
+import type React from 'react'
 import { CTA_RELLENO } from '@/components/torneo/cta-aviso'
 import { MENSAJE_CREAR_TARJETA, type ResultadoCrearTarjeta } from '../hooks/useCrearTarjeta'
+import { inscritoAprobado } from '@/golf/tournament-status'
+
+/** Por qué un inscrito no aprobado no tiene tarjeta: no juega, y no hay nada que crear (el servidor lo rechaza). */
+export function motivoNoJuega(status: string | null | undefined): string {
+  if (status === 'withdrawn') return 'Retirado: no juega esta ronda.'
+  if (status === 'disqualified') return 'Descalificado: no juega esta ronda.'
+  return 'Inscripción sin aprobar: no juega esta ronda.'
+}
+
+const CAJA: React.CSSProperties = { margin: '16px 20px 0', padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }
 
 /**
  * Scorer del organizador: el jugador elegido no tiene tarjeta en la ronda en juego. Sin tarjeta no hay
@@ -10,13 +21,22 @@ import { MENSAJE_CREAR_TARJETA, type ResultadoCrearTarjeta } from '../hooks/useC
  */
 export function AvisoJugadorSinTarjeta(props: {
   nombre: string
+  /** `players.status`: solo a un aprobado se le ofrece crear la tarjeta (WD/DQ/pendiente no juegan). */
+  status: string | null | undefined
   creando: boolean
   resultado: ResultadoCrearTarjeta | null
   crear: () => void
 }) {
-  const { nombre, creando, resultado, crear } = props
+  const { nombre, status, creando, resultado, crear } = props
+  if (!inscritoAprobado(status)) {
+    return (
+      <div role="status" data-testid="organizador-no-juega" style={CAJA}>
+        <strong>{nombre}.</strong> {motivoNoJuega(status)}
+      </div>
+    )
+  }
   return (
-    <div role="alert" data-testid="organizador-sin-tarjeta" style={{ margin: '16px 20px 0', padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
+    <div role="alert" data-testid="organizador-sin-tarjeta" style={CAJA}>
       <strong>{nombre} no tiene tarjeta en esta ronda.</strong> Sus golpes no se pueden guardar hasta crearla.
       <div style={{ marginTop: '10px' }}>
         <button

@@ -141,6 +141,16 @@ export function rondaSigueEnJuego(
     (j.rounds ?? []).some((r) => (r.round_number ?? 1) === roundNumber && !tarjetaCerrada(r)))
 }
 
+/**
+ * La tarjeta del jugador en la ronda `roundNumber` (`round_number` null es la 1), o `undefined` si no tiene.
+ * Sin fallback a otra ronda: con la ronda 2 en juego, un retirado sin tarjeta de la ronda 2 mostraba y dejaba
+ * editar (y cerrar) su tarjeta de la ronda 1 (revisión Fable #829). Distinto de `activeRoundOf`, que elige la
+ * última ronda abierta del jugador sin mirar qué ronda está viendo el organizador.
+ */
+export function tarjetaDeLaRonda<T extends RoundRef>(rounds: readonly T[] | null | undefined, roundNumber: number): T | undefined {
+  return (rounds ?? []).find((r) => (r.round_number ?? 1) === roundNumber)
+}
+
 function tarjetaCerrada(r: RoundRef): boolean {
   return esTarjetaCerrada(r.status)
 }

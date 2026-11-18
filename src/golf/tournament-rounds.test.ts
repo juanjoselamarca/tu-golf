@@ -6,6 +6,7 @@ import {
   resolveRoundPlayConfig,
   resolveAllRoundPlayConfigs,
   rondaSigueEnJuego,
+  tarjetaDeLaRonda,
   roundDiffersFromBase,
 } from './tournament-rounds'
 
@@ -149,5 +150,18 @@ describe('rondaSigueEnJuego — solo cuentan las tarjetas abiertas de jugadores 
   })
   it('sin status (roster viejo) no cuenta como aprobado', () => {
     expect(rondaSigueEnJuego([{ rounds: [{ round_number: 1, status: 'in_progress' }] }], 1)).toBe(false)
+  })
+})
+
+describe('tarjetaDeLaRonda — la tarjeta de ESA ronda, sin fallback a otra (Fable #829)', () => {
+  const r1 = { id: 'r1', round_number: 1, status: 'in_progress' }
+  it('con la ronda 2 en juego, un jugador que solo tiene la tarjeta de la 1 no tiene tarjeta', () => {
+    expect(tarjetaDeLaRonda([r1], 2)).toBeUndefined()
+  })
+  it('devuelve la de la ronda pedida; round_number null es la 1', () => {
+    const r2 = { id: 'r2', round_number: 2, status: 'in_progress' }
+    expect(tarjetaDeLaRonda([r1, r2], 2)).toBe(r2)
+    expect(tarjetaDeLaRonda([{ id: 'x', round_number: null, status: 'closed' }], 1)?.id).toBe('x')
+    expect(tarjetaDeLaRonda(null, 1)).toBeUndefined()
   })
 })

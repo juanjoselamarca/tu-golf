@@ -34,7 +34,7 @@ interface UseScoreEntryArgs {
     roundId: string,
     totals: Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'>,
   ) => void
-  reloadRoster: () => Promise<void>
+  reloadRoster: () => Promise<unknown>
 }
 
 export interface LastAction {

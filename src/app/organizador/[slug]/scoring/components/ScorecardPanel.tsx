@@ -101,7 +101,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
 
       {sinTarjeta && !torneoSoloLectura && crearTarjeta && (
         <AvisoJugadorSinTarjeta
-          nombre={resolveLegacyPlayerName(selectedPlayer)} creando={crearTarjeta.creando}
+          nombre={resolveLegacyPlayerName(selectedPlayer)} status={selectedPlayer.status} creando={crearTarjeta.creando}
           resultado={crearTarjeta.resultado} crear={() => { void crearTarjeta.crear() }}
         />
       )}

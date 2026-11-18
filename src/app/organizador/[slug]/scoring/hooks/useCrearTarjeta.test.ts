@@ -8,7 +8,7 @@ vi.mock('@/lib/data/tournaments/tarjeta-vigente', () => ({
 
 import { useCrearTarjeta, MENSAJE_CREAR_TARJETA } from './useCrearTarjeta'
 
-const sinNada = vi.fn(async () => {})
+const sinNada = vi.fn(async () => true)
 
 describe('useCrearTarjeta (scorer del organizador)', () => {
   beforeEach(() => { pedirTarjetaVigente.mockReset() })
@@ -16,7 +16,7 @@ describe('useCrearTarjeta (scorer del organizador)', () => {
   it('pide la tarjeta del jugador (sin headers de invitado: el organizador va con su sesión) y relee el roster', async () => {
     const orden: string[] = []
     pedirTarjetaVigente.mockImplementation(async () => { orden.push('ruta'); return 'respondio' })
-    const reloadRoster = vi.fn(async () => { orden.push('roster') })
+    const reloadRoster = vi.fn(async () => { orden.push('roster'); return true })
     const { result } = renderHook(() => useCrearTarjeta({ slug: 'copa', playerId: 'p1', reloadRoster }))
     await act(async () => { await result.current.crear() })
     expect(pedirTarjetaVigente).toHaveBeenCalledWith({ slug: 'copa', playerId: 'p1' })
@@ -48,6 +48,20 @@ describe('useCrearTarjeta (scorer del organizador)', () => {
     expect(result.current.resultado).toBe('rechazo_definitivo')
     rerender({ playerId: 'p2' })
     expect(result.current.resultado).toBeNull()
+  })
+
+  it('2xx pero el roster no se pudo releer → sin_conexion (no "no aparece": la tarjeta puede existir)', async () => {
+    pedirTarjetaVigente.mockResolvedValue('respondio')
+    const { result } = renderHook(() => useCrearTarjeta({ slug: 'copa', playerId: 'p1', reloadRoster: async () => false }))
+    await act(async () => { await result.current.crear() })
+    expect(result.current.resultado).toBe('sin_conexion')
+  })
+
+  it('un rechazo definitivo se dice igual aunque la relectura falle', async () => {
+    pedirTarjetaVigente.mockResolvedValue('rechazo_definitivo')
+    const { result } = renderHook(() => useCrearTarjeta({ slug: 'copa', playerId: 'p1', reloadRoster: async () => false }))
+    await act(async () => { await result.current.crear() })
+    expect(result.current.resultado).toBe('rechazo_definitivo')
   })
 
   it('sin slug no pide nada', async () => {

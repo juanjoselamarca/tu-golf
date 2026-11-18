@@ -12,7 +12,7 @@ vi.mock('./HoleStatsTable', () => ({ HoleStatsTable: () => null }))
 
 function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
   return {
-    selectedPlayer: { id: 'p1', profiles: { name: 'E2E Test' }, handicap_at_registration: 15 },
+    selectedPlayer: { id: 'p1', status: 'approved', profiles: { name: 'E2E Test' }, handicap_at_registration: 15 },
     selectedRound: { id: 'r1', status: 'in_progress' },
     holes: [],
     currentScores: {},
@@ -82,6 +82,18 @@ describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
     expect((screen.getByRole('button', { name: 'Creando...' }) as HTMLButtonElement).disabled).toBe(true)
     rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta({ resultado: 'no_aparece' })} />)
     expect(screen.getByTestId('resultado-crear-tarjeta').textContent).toContain('No se pudo crear ahora')
+  })
+
+  it.each([
+    ['withdrawn', 'Retirado: no juega esta ronda.'],
+    ['disqualified', 'Descalificado: no juega esta ronda.'],
+    ['pending', 'Inscripción sin aprobar: no juega esta ronda.'],
+  ])('%s sin tarjeta: dice que no juega y no ofrece crearla', (status, texto) => {
+    const e = entry({ selectedRound: undefined, holes: [1, 2], selectedPlayer: { id: 'p1', status, profiles: { name: 'E2E Test' }, handicap_at_registration: 15 } as never })
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} crearTarjeta={crearTarjeta()} />)
+    expect(screen.getByTestId('organizador-no-juega').textContent).toContain(texto)
+    expect(screen.queryByRole('button', { name: 'Crear su tarjeta' })).toBeNull()
+    expect(screen.queryByTestId('organizador-sin-tarjeta')).toBeNull()
   })
 
   it('con tarjeta no hay aviso; con el torneo cerrado tampoco (no se puede crear)', () => {
