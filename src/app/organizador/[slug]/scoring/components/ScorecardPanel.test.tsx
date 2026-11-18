@@ -182,4 +182,15 @@ describe('ScorecardPanel — carga y cambio de tarjeta', () => {
     fireEvent.click(boton)
     expect(reintentarCarga).toHaveBeenCalled()
   })
+
+  // Revisión #834 v4: con la tarjeta cargando, tocar fairway / GIR cambiaba la pantalla y el envío se descartaba
+  // en silencio (no hay ronda cargada a la que mandarlo).
+  it('mientras la tarjeta carga (o falló), la tabla de stats queda en solo lectura', () => {
+    for (const cargaTarjeta of ['cargando', 'error', 'lista'] as const) {
+      const vista = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({ cargaTarjeta, holes: [1] })} />)
+      fireEvent.click(screen.getByText(/Estadísticas adicionales/))
+      expect(vista.container.querySelector('fieldset')?.disabled).toBe(cargaTarjeta !== 'lista')
+      vista.unmount()
+    }
+  })
 })

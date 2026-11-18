@@ -25,7 +25,7 @@ vi.mock('@/hooks/useToast', () => ({ useToast: () => toast }))
 const RONDA_A = { id: 'rA', status: 'in_progress', round_number: 1 } as ScoringRound
 const RONDA_B = { id: 'rB', status: 'in_progress', round_number: 1 } as ScoringRound
 const TOURNAMENT = { id: 't1' } as ScoringTournament
-const PLAYERS = [{ id: 'pA' }, { id: 'pB' }] as ScoringPlayer[]
+const PLAYERS = [{ id: 'pA', player_name: 'Ana' }, { id: 'pB', player_name: 'Beto' }] as ScoringPlayer[]
 const VACIO: never[] = []
 const getActiveRound = (p: ScoringPlayer | undefined) => (p?.id === 'pA' ? RONDA_A : p?.id === 'pB' ? RONDA_B : undefined)
 const STATS_A = [{ hole_number: 1, gross_score: 4, putts: 2, fairway_hit: true, gir: true }]
@@ -433,5 +433,172 @@ describe('useScoreEntry · stats sin guardar y envío agrupado (v3)', () => {
     expect(enviados[0]).toMatchObject({ round_id: 'rA', hole_number: 1, fairway_hit: false })
     await act(async () => { vi.advanceTimersByTime(1_000) })
     expect(enviados).toHaveLength(1)
+  })
+})
+
+// ── Revisión #834, vuelta 4 (opus) ──
+
+/** `fetch` que guarda cada body y responde 200, salvo los que `demorar` elija: esos esperan a `soltar()`. */
+function servidorConDemora(demorar: (body: Record<string, unknown>) => boolean, status = 200) {
+  const enviados: Record<string, unknown>[] = []
+  const demorados: (() => void)[] = []
+  vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>
+    enviados.push(body)
+    if (demorar(body)) {
+      return new Promise<Response>((res) => demorados.push(() => res(new Response('{}', { status }))))
+    }
+    return new Response('{}', { status: 200 })
+  }))
+  return { enviados, soltar: () => demorados.splice(0).forEach((f) => f()) }
+}
+/** Lo que queda en la base del hoyo: el envío con la secuencia más alta (así ordena `guardar_hole_score`). */
+const ultimoDelHoyo = (enviados: Record<string, unknown>[], hole: number) =>
+  enviados.filter((e) => e.hole_number === hole).sort((a, b) => Number(a.seq) - Number(b.seq)).at(-1)
+
+describe('useScoreEntry · deshacer y envío diferido de stats (v4)', () => {
+  it('GIR tocado y Deshacer antes de 600 ms: lo diferido sale ANTES y la última escritura del hoyo es el golpe previo', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    let deshaciendo = false
+    const { enviados, soltar } = servidorConDemora(() => deshaciendo)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA')) // H1 = 4 en la base
+    await act(() => result.current.saveScore(1, '5'))
+    act(() => result.current.cambiarStat(1, { gir: false }))
+    deshaciendo = true
+    let deshacer!: Promise<void>
+    act(() => { deshacer = result.current.undoLast() })
+    const [diferido, elDeshacer] = enviados.slice(-2)
+    expect(diferido).toMatchObject({ hole_number: 1, gross_score: 5, gir: false })
+    expect(elDeshacer).toMatchObject({ hole_number: 1, gross_score: 4, gir: false })
+    await act(async () => { vi.advanceTimersByTime(600) })
+    await act(async () => { soltar(); await deshacer })
+    expect(ultimoDelHoyo(enviados, 1)).toMatchObject({ gross_score: 4, gir: false })
+    expect(result.current.currentScores[1]).toBe(4)
+  })
+
+  it('GIR tocado con el deshacer en vuelo: el envío diferido lleva el golpe previo, no el que se está deshaciendo', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    let deshaciendo = false
+    const { enviados, soltar } = servidorConDemora((b) => deshaciendo && !('net_score' in b) && b.gross_score === 4 && !('gir' in b))
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    await act(() => result.current.saveScore(1, '5'))
+    deshaciendo = true
+    let deshacer!: Promise<void>
+    act(() => { deshacer = result.current.undoLast() })
+    act(() => result.current.cambiarStat(1, { gir: true })) // la pantalla todavía muestra 5
+    await act(async () => { vi.advanceTimersByTime(600) })
+    expect(enviados.at(-1)).toMatchObject({ hole_number: 1, gross_score: 4, gir: true })
+    await act(async () => { soltar(); await deshacer })
+    expect(ultimoDelHoyo(enviados, 1)).toMatchObject({ gross_score: 4 })
+  })
+
+  it('un deshacer confirmado invalida la recarga pedida antes: no vuelve a pintar el golpe deshecho', async () => {
+    servidor()
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    await act(() => result.current.saveScore(1, '5'))
+    const recarga = diferida<Partial<HoleScoreRow>[]>()
+    fetchRoundHoleScores.mockImplementation(() => recarga.promesa)
+    act(() => result.current.reintentarCarga()) // pedida con el 5 todavía en la base
+    await act(async () => { await result.current.undoLast() })
+    expect(result.current.currentScores[1]).toBe(4)
+    await act(async () => { recarga.resolver([{ ...STATS_A[0], gross_score: 5 }]) })
+    expect(result.current.currentScores[1]).toBe(4)
+  })
+
+  it('cerrar la tarjeta manda antes lo que esperaba el fin de los toques', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const enviados = servidor()
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    act(() => result.current.cambiarStat(1, { gir: false }))
+    await act(async () => { await result.current.finalizeRound() })
+    const i = enviados.findIndex((e) => e.action === 'finalize_round')
+    expect(enviados.slice(0, i).at(-1)).toMatchObject({ hole_number: 1, gir: false })
+  })
+
+  it('al ocultarse la página (iOS suspende timers) sale ya lo que esperaba', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const enviados = servidor()
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    act(() => result.current.cambiarStat(1, { fairway_hit: false }))
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    try {
+      await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+      expect(enviados).toHaveLength(1)
+      expect(enviados[0]).toMatchObject({ hole_number: 1, fairway_hit: false })
+    } finally {
+      delete (document as { visibilityState?: unknown }).visibilityState
+    }
+  })
+})
+
+describe('useScoreEntry · respuestas de otra tarjeta (v4)', () => {
+  it('un guardado de A que responde con B abierta no deja a B en "Cargando…"', async () => {
+    const { soltar } = servidorConDemora((b) => b.round_id === 'rA')
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    let guardado!: Promise<void>
+    act(() => { guardado = result.current.saveScore(1, '5') })
+    const cargaB = diferida<Partial<HoleScoreRow>[]>()
+    fetchRoundHoleScores.mockImplementation(() => cargaB.promesa)
+    await act(async () => result.current.selectPlayer('pB'))
+    await act(async () => { soltar(); await guardado })
+    await act(async () => { cargaB.resolver(GOLPE_B) })
+    expect(result.current.cargaTarjeta).toBe('lista')
+    expect(result.current.currentScores[1]).toBe(6)
+  })
+
+  it('tras un Reintentar que cargó, la primera carga que falla tarde no muestra un error falso', async () => {
+    servidor()
+    const primera = diferida<Partial<HoleScoreRow>[]>()
+    fetchRoundHoleScores.mockImplementationOnce(() => primera.promesa)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    await act(async () => result.current.reintentarCarga())
+    expect(result.current.cargaTarjeta).toBe('lista')
+    await act(async () => { primera.rechazar(new Error('red')) })
+    expect(result.current.cargaTarjeta).toBe('lista')
+    expect(toast.showError).not.toHaveBeenCalled()
+  })
+
+  it('las stats de A que fallan con B abierta no borran las marcas de B; el aviso nombra a A; al volver, el reintento lleva el GIR', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { enviados, soltar } = servidorConDemora((b) => b.round_id === 'rA' || b.putts === 2, 500)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    act(() => result.current.cambiarStat(1, { gir: false }))
+    fetchRoundHoleScores.mockImplementation(async (id) => (id === 'rA' ? STATS_A : GOLPE_B))
+    await act(async () => result.current.selectPlayer('pB')) // sale el GIR de A (queda en vuelo)
+    let deB!: Promise<boolean>
+    act(() => { deB = result.current.saveHoleStat(1, { putts: 2 }) })
+    await act(async () => { soltar(); await deB })
+    expect([...result.current.statsFallidas]).toEqual([1]) // la de B
+    expect(toast.showWarning).toHaveBeenCalledWith('No se guardó', expect.stringContaining('Ana'))
+
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+      enviados.push(JSON.parse(String(init.body)))
+      return new Response('{}', { status: 200 })
+    }))
+    await act(async () => result.current.selectPlayer('pA'))
+    expect([...result.current.statsFallidas]).toEqual([1])
+    expect(result.current.holeGir[1]).toBe(false) // lo que no se guardó se ve
+    await act(async () => { await result.current.saveHoleStat(1, {}) })
+    expect(enviados.at(-1)).toMatchObject({ round_id: 'rA', hole_number: 1, gir: false })
+    expect(result.current.statsFallidas.size).toBe(0)
+  })
+
+  it('un reintento sin nada que reenviar lo dice y no finge un guardado', async () => {
+    const enviados = servidor()
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    let ok: boolean | undefined
+    await act(async () => { ok = await result.current.saveHoleStat(1, {}) })
+    expect(ok).toBe(false)
+    expect(enviados).toHaveLength(0)
+    expect(toast.showWarning).toHaveBeenCalledWith('Nada que reenviar', expect.any(String))
   })
 })

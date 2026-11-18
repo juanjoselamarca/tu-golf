@@ -187,12 +187,12 @@ export function useCargaTarjeta({
         setEstado({ ronda: roundId, carga: 'lista' })
         return
       }
-      // Una recarga de la MISMA ronda ya cargada que falla deja lo que había (sigue siendo lo conocido). Si esta
+      // Una recarga de la MISMA ronda ya cargada que falla deja lo que había (sigue siendo lo conocido), sin aviso. Si esta
       // ronda nunca cargó, la tarjeta queda bloqueada con "Reintentar" y sin lo de otra ronda a la vista.
-      if (!tarjetaLista(roundId)) {
-        if (estadoRef.current.ronda !== roundId) resetHoleState()
-        setEstado({ ronda: roundId, carga: 'error' })
-      }
+      // Con la tarjeta ya cargada (otra carga llegó antes, p. ej. un Reintentar) no se avisa: no hay nada que hacer.
+      if (tarjetaLista(roundId)) return
+      if (estadoRef.current.ronda !== roundId) resetHoleState()
+      setEstado({ ronda: roundId, carga: 'error' })
       showErrorRef.current('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
     },
     [grossEnVueloRef, statsTocadasRef, aplicar, resetHoleState, setEstado, tarjetaLista],
