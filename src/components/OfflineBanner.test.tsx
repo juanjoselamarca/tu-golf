@@ -13,6 +13,12 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 import { OfflineBanner } from './OfflineBanner'
+import { AvisoSesionCerradaBanner } from '@/app/ronda-libre/[codigo]/score/components/AvisoSesionCerradaBanner'
+import { ConexionScorerBanner } from '@/app/ronda-libre/[codigo]/score-grupo/components/ConexionScorerBanner'
+import { AvisoSinAccesoBanner } from '@/app/torneo/[slug]/score/components/AvisoSinAccesoBanner'
+import { avisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
+import { avisoSinAcceso } from '@/app/torneo/[slug]/score/hooks/acceso-guardado'
+import type { ReactElement } from 'react'
 
 const respaldo = (codigo: string) => localStorage.setItem(`golfers_score_${codigo}_p1`,
   JSON.stringify({ scores: { 1: 4, 2: 5 }, timestamp: Date.now(), sincronizado: false, codigoRonda: codigo, jugadorId: 'p1' }))
@@ -47,3 +53,34 @@ describe('OfflineBanner', () => {
     expect(localStorage.getItem('golfers_score_ABC123_p1')).not.toBeNull()
   })
 })
+
+// Con la sesión perdida, "Sincronizando N hoyos…" (fijo arriba, z-index 9999) tapaba el encabezado del scorer y
+// contradecía su aviso: esos golpes no se suben solos hasta que vuelva a iniciar sesión. Los tres scorers.
+describe('OfflineBanner — con el aviso de sesión de un scorer a la vista', () => {
+  const casos: Array<[string, (visible: boolean) => ReactElement]> = [
+    ['torneo', v => <AvisoSinAccesoBanner aviso={v ? avisoSinAcceso({ slug: 'copa', motivo: 'sin_sesion' }) : null} />],
+    ['ronda libre', v => <AvisoSesionCerradaBanner aviso={v ? avisoSesionCerrada('/ronda-libre/ABC123/score', { habiaSesion: true }) : null} />],
+    ['score-grupo', v => <ConexionScorerBanner conexion="ok" pendienteDeEnvio codigo="ABC123" sesionPerdida={v} />],
+  ]
+
+  it.each(casos)('%s: el banner se calla mientras está el aviso y vuelve cuando se va', async (_scorer, aviso) => {
+    respaldo('ABC123')
+    respuesta.actual = { data: { estado: 'en_curso' }, error: null }
+    const { rerender } = render(<><OfflineBanner />{aviso(true)}</>)
+    expect(screen.getAllByText(/sesión/i).length).toBeGreaterThan(0)
+    await new Promise(r => setTimeout(r, 20))
+    expect(screen.queryByText(/Sincronizando/)).toBeNull()
+    rerender(<><OfflineBanner />{aviso(false)}</>)
+    expect(await screen.findByText('Sincronizando 2 hoyos...')).toBeTruthy()
+  })
+
+  it('sin conexión, "Sin conexión" se sigue viendo aunque esté el aviso de sesión', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    respaldo('ABC123')
+    render(<><OfflineBanner />{casos[0][1](true)}</>)
+    expect(await screen.findByText('Sin conexión')).toBeTruthy()
+    // Sin la promesa: con la sesión perdida, la cola no se sube sola al reconectar.
+    expect(screen.queryByText(/en cola|sincroniz|se guardarán/i)).toBeNull()
+  })
+})
+

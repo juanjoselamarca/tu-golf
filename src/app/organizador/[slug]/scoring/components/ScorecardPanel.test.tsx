@@ -120,16 +120,33 @@ describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
     expect(screen.queryAllByRole('spinbutton').length).toBeGreaterThan(0)
   })
 
-  it('torneo cerrado: un retirado igual ve que no juega (es informativo)', () => {
+  // Fable #833 v2: con el torneo cerrado la tarjeta ya no se juega; "no juega ESTA ronda" hablaba de algo que
+  // ya pasó. Igual que una ronda pasada: "no jugó", y el carrusel dice lo mismo (casoSinTarjeta).
+  it('torneo cerrado: un retirado sin tarjeta "no jugó la ronda N"', () => {
     const e = entry({ selectedRound: undefined, holes: [1, 2], selectedPlayer: { id: 'p1', status: 'withdrawn', profiles: { name: 'E2E Test' }, handicap_at_registration: 15 } as never })
     render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} soloLectura />)
-    expect(screen.getByTestId('organizador-no-juega')).toBeTruthy()
+    expect(screen.getByTestId('organizador-no-jugo').textContent).toBe('E2E Test no jugó la ronda 1.')
+    expect(screen.queryByTestId('organizador-no-juega')).toBeNull()
   })
 
-  it('con tarjeta no hay aviso; con el torneo cerrado tampoco (no se puede crear)', () => {
-    const { rerender } = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({})} crearTarjeta={crearTarjeta()} />)
+  it('con tarjeta no hay aviso', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({})} crearTarjeta={crearTarjeta()} />)
     expect(screen.queryByTestId('organizador-sin-tarjeta')).toBeNull()
-    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta()} soloLectura />)
+  })
+
+  // Fable #829: con el torneo cerrado o publicado, el aprobado sin tarjeta quedaba con una grilla vacía muda.
+  it.each([[true], [false]])('torneo cerrado (con o sin crearTarjeta=%s): aprobado sin tarjeta "no jugó la ronda N", sin botón ni grilla', (conCrear) => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={conCrear ? crearTarjeta() : undefined} ronda={{ numero: 2, vigente: true }} soloLectura />)
     expect(screen.queryByTestId('organizador-sin-tarjeta')).toBeNull()
+    expect(screen.getByTestId('organizador-no-jugo').textContent).toBe('E2E Test no jugó la ronda 2.')
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
+  })
+
+  // Fable #829: en una ronda pasada, "no jugó" gana sobre el estado de HOY (retirado en la 3, mirando la 1).
+  it('retirado sin tarjeta en una ronda pasada: "no jugó la ronda N", no "Se retiró: no juega esta ronda"', () => {
+    const e = entry({ selectedRound: undefined, holes: [1, 2], selectedPlayer: { id: 'p1', status: 'withdrawn', profiles: { name: 'E2E Test' }, handicap_at_registration: 15 } as never })
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} crearTarjeta={crearTarjeta()} ronda={{ numero: 1, vigente: false }} />)
+    expect(screen.getByTestId('organizador-no-jugo').textContent).toBe('E2E Test no jugó la ronda 1.')
+    expect(screen.queryByTestId('organizador-no-juega')).toBeNull()
   })
 })

@@ -2,6 +2,7 @@
 
 import type { ConexionScorer } from '../hooks/useRondaGrupoData'
 import { avisoSesionCerrada } from '@/lib/auth/aviso-sesion-cerrada'
+import { useAnunciarAvisoDeSesion } from '@/lib/auth/aviso-sesion-en-pantalla'
 
 /**
  * Aviso del scorer cuando el servidor no tiene los golpes al día.
@@ -41,8 +42,10 @@ export function ConexionScorerBanner({
   sesionPerdida?: boolean
 }) {
   const texto = textoConexionScorer(conexion, pendienteDeEnvio, codigo, sesionPerdida)
-  if (!texto) return null
   const sinSesion = avisoSinSesionGrupo(codigo, conexion, sesionPerdida)
+  // Sin sesión, el banner global no promete "Sincronizando…" encima del encabezado.
+  useAnunciarAvisoDeSesion(!!sinSesion)
+  if (!texto) return null
   return (
     <div
       role="status"

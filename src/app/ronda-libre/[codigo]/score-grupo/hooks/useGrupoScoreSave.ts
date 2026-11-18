@@ -232,6 +232,10 @@ export function useGrupoScoreSave(input: {
       let vioRondaCerrada = false
       let noExiste = false
       let rechazoDeSesion = false
+      // La sesión del teléfono se consulta a lo más UNA vez por ciclo (antes, con sesión válida y un rebote en
+      // cada intento, eran hasta 3 getSession seguidos).
+      let sesionDelCiclo: ReturnType<typeof sesionDelScorer> | null = null
+      const sesion = () => (sesionDelCiclo ??= sesionDelScorer(supabase))
       // La ronda se cerró en otro dispositivo / golpe fuera de rango: no se reintenta, pero tampoco
       // se informa como guardado. Sólo lo que el servidor no va a aceptar nunca sale de pendientes: con
       // la ronda cerrada (P0002) los golpes se quedan en el teléfono, porque se puede reabrir (reabrir un
@@ -282,7 +286,7 @@ export function useGrupoScoreSave(input: {
         // Rebote del servidor (P0003 en golpes, 42501 en equipos: anon no ejecuta esa RPC): se decide por la
         // sesión del teléfono. Sin sesión no se reintenta a los 400 ms (daría lo mismo); el de 15 s sigue.
         if (!rechazoDeSesion && results.some(r => rechazoQuePuedeSerSesion(r.error))
-          && (await sesionDelScorer(supabase)).estado === 'sin_sesion') rechazoDeSesion = true
+          && (await sesion()).estado === 'sin_sesion') rechazoDeSesion = true
         if (noEncontrados.length > 0) {
           // Borrada → limpiar y salir. Viva (falta ese jugador o equipo) → rechazo de esas tarjetas.
           // Sin señal para confirmarlo → como servidor sin respuesta: nada se limpia y se reintenta.
@@ -316,6 +320,12 @@ export function useGrupoScoreSave(input: {
         marcarSinEnviar(hayPendientes(codigo))
         setSaveStatus('error')
         if (vioRondaCerrada) { rondaCerradaRef.current = true; setRondaCerrada(true) }
+        // Caso mixto (un P0004 de una tarjeta y el 42501 de la de equipos sin sesión en el mismo envío): el
+        // rechazo firme no tapa que la sesión se perdió; sin esto el aviso de iniciar sesión no aparecía.
+        // Y al revés: un rechazo firme SIN problema de sesión (P0004 con la sesión ya recuperada) apaga el
+        // aviso; si no, quedaba pegado con la ronda cerrada, que ya no reintenta (Fable #833).
+        if (rechazoDeSesion) setSesionPerdida(true)
+        else if (sesionPerdidaRef.current && (await sesion()).estado === 'ok') setSesionPerdida(false)
       } else if (ok && !hayPendientes(codigo)) {
         // Entró todo: la ronda está abierta (se reabrió, si un envío anterior la vio cerrada).
         rondaCerradaRef.current = false
@@ -343,6 +353,9 @@ export function useGrupoScoreSave(input: {
         // Sesión vencida o cerrada en plena ronda: el aviso es el de iniciar sesión, no "Sin conexión" (sin
         // poder confirmarla, sí es falta de señal y se reintenta).
         if (rechazoDeSesion) setSesionPerdida(true)
+        // El aviso estaba puesto y este envío falló por otra cosa (5xx, red): si el teléfono ya tiene sesión
+        // (la recuperó en otra pestaña o se renovó), el aviso de iniciar sesión ya no es cierto.
+        else if (sesionPerdidaRef.current && (await sesion()).estado === 'ok') setSesionPerdida(false)
       }
     } finally {
       enVueloRef.current = false

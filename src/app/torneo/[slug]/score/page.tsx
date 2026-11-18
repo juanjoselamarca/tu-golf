@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { formatearHandicap } from '@/golf/handicap-index-range'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -25,6 +25,8 @@ import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import { useBuscarTarjeta } from './hooks/useBuscarTarjeta'
 import { AvisoSinTarjeta } from './components/AvisoSinTarjeta'
 import { CTA_RELLENO } from '@/components/torneo/cta-aviso'
+import { AvisoSinAccesoBanner } from './components/AvisoSinAccesoBanner'
+import { useRecuperarAccesoInvitado } from './hooks/useRecuperarAccesoInvitado'
 import { useSondeoRoster, rondaSiguienteYaAbierta } from './hooks/useSondeoRoster'
 import {
   fetchScoringTournament,
@@ -91,7 +93,20 @@ export default function PlayerScoringPage() {
 
   // Guest session info (read once on mount)
   const guestId = useMemo(() => getGuestId(), [])
-  const guestTokenValue = useMemo(() => getGuestToken(), [])
+  // Estado (no memo): "Recuperar mi tarjeta" lo renueva sin recargar la pantalla.
+  const [guestTokenValue, setGuestTokenValue] = useState(() => getGuestToken())
+  // La carga lee el token por ref: recuperar el acceso NO recarga la pantalla (con mala señal terminaba en
+  // "No pudimos cargar el torneo", Fable #833 v3).
+  const guestTokenRef = useRef(guestTokenValue)
+  useEffect(() => { guestTokenRef.current = guestTokenValue }, [guestTokenValue])
+  // El guardado se declara más abajo: `onToken` lo alcanza por ref.
+  const accesoRecuperadoRef = useRef<(token: string) => void>(() => {})
+  const onTokenRecuperado = useCallback((token: string) => {
+    guestTokenRef.current = token
+    setGuestTokenValue(token)
+    accesoRecuperadoRef.current(token)
+  }, [])
+  const recuperacionInvitado = useRecuperarAccesoInvitado({ slug, onToken: onTokenRecuperado })
   const isGuest = !!guestId && !!guestTokenValue
 
   const selectedPlayerEarly = players.find(p => p.id === selectedId)
@@ -161,7 +176,7 @@ export default function PlayerScoringPage() {
   // Guardado de la tarjeta: carga, envío por hoyo, cola local y reenvío (401/403 con aviso y salida).
   const {
     currentScores, savedHoles, isOnline, saveStatus, saveError, limpiarSaveError,
-    sinAcceso, torneoInactivo, guardarHoyo, hoyosEnCola,
+    sinAcceso, torneoInactivo, guardarHoyo, hoyosEnCola, accesoRecuperado,
   } = useGuardadoTorneo({
     slug, tournament, player: selectedPlayerEarly, roundId: roundIdForSync, contextoListo: !!rondaCtx,
     hoyosRonda, holeCount: holeCountRonda, courseHcpDe,
@@ -170,6 +185,7 @@ export default function PlayerScoringPage() {
     onRondaCerrada: () => { void reloadRoster() },
     onInvitadoCompleto: () => setShowRegisterModal(true),
   })
+  useEffect(() => { accesoRecuperadoRef.current = accesoRecuperado }, [accesoRecuperado])
 
   // Con la tarjeta cerrada, el jugador suele estar esperando que el organizador
   // abra la ronda siguiente: se refresca el roster cada 30 s para no quedar
@@ -245,7 +261,9 @@ export default function PlayerScoringPage() {
         void elegirJugadorInicial({
           search: window.location.search,
           roster,
-          buscarInvitado: guestId && guestTokenValue ? () => fetchMiJugadorInvitado(slug, guestId, guestTokenValue) : null,
+          buscarInvitado: guestId && guestTokenRef.current
+            ? ((token) => () => fetchMiJugadorInvitado(slug, guestId, token))(guestTokenRef.current)
+            : null,
         })
           .then((eleccion) => {
             if (cancelled || !eleccion) return
@@ -269,7 +287,7 @@ export default function PlayerScoringPage() {
     }
     void load()
     return () => { cancelled = true }
-  }, [slug, loadNonce, guestId, guestTokenValue])
+  }, [slug, loadNonce, guestId])
 
   // "Podrás anotar cuando el organizador lo inicie": se cumple sin recargar (en el tee nadie recarga).
   useEsperarInicioDelTorneo({
@@ -416,14 +434,7 @@ export default function PlayerScoringPage() {
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '14px', cursor: 'pointer', marginBottom: '8px', padding: '0 12px 0 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
               ← Cambiar jugador
             </button>
-            {sinAcceso && (
-              <div role="alert" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
-                <strong>{sinAcceso.titulo}.</strong> {sinAcceso.detalle}
-                <div style={{ marginTop: '10px' }}>
-                  <Link href={sinAcceso.href} style={CTA_RELLENO}>{sinAcceso.cta}</Link>
-                </div>
-              </div>
-            )}
+            <AvisoSinAccesoBanner aviso={sinAcceso} recuperacion={recuperacionInvitado} />
             {sinScores === 'no_empezo' && !rondaCerrada && (
               <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
                 <strong>El torneo todavía no empieza.</strong> Podrás anotar tu score cuando el organizador lo inicie.

@@ -210,6 +210,8 @@ export default function ScoringPage() {
               getActiveRound={data.getActiveRound}
               hasScoresLoaded={Object.keys(entry.currentScores).length > 0}
               roundHoleCounts={data.roundHoleCounts}
+              rondaVigente={data.esRondaVigente}
+              admiteTarjetas={sinScores !== 'cerrado'}
               onSelect={entry.selectPlayer}
             />
 

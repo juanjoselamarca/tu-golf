@@ -100,7 +100,20 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
   const sinHeadersInvitadoRef = useRef(false)
   /** Tarjeta cuyo reenvío al abrir ya arrancó (uno por apertura). */
   const reenviadoAlAbrirRef = useRef<string | null>(null)
-  const anotaComoInvitado = useCallback(() => !!guestId && !!guestToken && !sinHeadersInvitadoRef.current, [guestId, guestToken])
+  /**
+   * Token de invitado VIGENTE, leído al momento de cada envío (no el del render en que arrancó el envío).
+   * `accesoRecuperado` lo cambia en el acto, sin esperar el próximo render.
+   */
+  const guestTokenRef = useRef(guestToken)
+  useEffect(() => { guestTokenRef.current = guestToken }, [guestToken])
+  /**
+   * Sube cada vez que se recupera el acceso. Un "sin acceso" de un envío que salió ANTES (con el acceso viejo)
+   * no vale: se reintenta con el vigente. Sin esto, una respuesta vieja que volvía después de recuperar
+   * re-encendía el aviso y ese hoyo no se mandaba (Fable #833 v3). Contador y no el valor del token: el token
+   * reemitido es el mismo string (`signGuestToken` es determinista).
+   */
+  const generacionAccesoRef = useRef(0)
+  const anotaComoInvitado = useCallback(() => !!guestId && !!guestTokenRef.current && !sinHeadersInvitadoRef.current, [guestId])
 
   // Al cambiar de tarjeta (otro jugador u otra ronda) todo lo visible y lo confirmado es de la anterior.
   useEffect(() => {
@@ -112,6 +125,9 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     sinHeadersInvitadoRef.current = false
     reenviadoAlAbrirRef.current = null
     setTarjetaCargada(null)
+    // Los golpes en pantalla son de la tarjeta anterior: hasta que cargue ésta, vacía (#754 P2-a). Lo que
+    // la anterior no subió sigue en SU respaldo (por tarjeta) y se reenvía al volver a abrirla.
+    setCurrentScores({})
     setSavedHoles(new Set())
     setSinAcceso(null)
     setSaveError(null)
@@ -161,15 +177,16 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
 
   const postScore = useCallback(async (body: object, conInvitado: boolean): Promise<LecturaRespuestaScore> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (conInvitado && guestId && guestToken) {
+    const token = guestTokenRef.current
+    if (conInvitado && guestId && token) {
       headers['x-guest-id'] = guestId
-      headers['x-guest-token'] = guestToken
+      headers['x-guest-token'] = token
     }
     const res = await fetch('/api/game', { method: 'POST', headers, body: JSON.stringify(body) })
     const leeCuerpo = res.ok || STATUS_CON_CODE.includes(res.status)
     const cuerpo = leeCuerpo ? await leerJson(res) : {}
     return clasificarRespuestaScore(res.status, cuerpo.code, cuerpo.descartado === true)
-  }, [guestId, guestToken])
+  }, [guestId])
 
   /** Envía UN hoyo y lo registra como confirmado / en vuelo. */
   const enviarHoyo = useCallback(async (
@@ -186,18 +203,27 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     try {
       for (let intento = 1; intento <= INTENTOS_POR_HOYO; intento++) {
         try {
+          const generacion = generacionAccesoRef.current
+          // "Sin acceso" con el acceso ya recuperado mientras viajaba: se reintenta ya con el vigente.
+          const vigenteSinAcceso = (motivo: MotivoSinAcceso) => generacionAccesoRef.current === generacion ? motivo : null
           const conInvitado = anotaComoInvitado()
           let r = await postScore(body, conInvitado)
           if (r === 'invitado_no_dueno' || r === 'invitado_token_invalido') {
             // Token roto → "tu acceso de invitado ya no sirve". Token sano con la tarjeta de otro →
             // "esta tarjeta no está a tu nombre" (eligió mal en "¿Quién eres?"; su acceso está bien).
             const motivo = r === 'invitado_token_invalido' ? 'invitado_sin_acceso' : 'sin_permiso'
-            if (!conInvitado) return motivo
+            if (!conInvitado) { if (vigenteSinAcceso(motivo)) return motivo; intento--; continue }
             // UNA vez sin headers de invitado: si el teléfono tiene sesión con cuenta, entra por ahí.
             r = await postScore(body, false)
             if (r === 'ok' || r === 'descartado') sinHeadersInvitadoRef.current = true
-            else if (r === 'sin_sesion' || r === 'invitado_no_dueno' || r === 'invitado_token_invalido') return motivo
+            else if (r === 'sin_sesion' || r === 'invitado_no_dueno' || r === 'invitado_token_invalido') {
+              if (vigenteSinAcceso(motivo)) return motivo
+              intento--
+              continue
+            }
           }
+          // El reintento por acceso recuperado no gasta un intento de red (la generación ya es la nueva: no cicla).
+          if (esSinAcceso(r) && !vigenteSinAcceso(r)) { intento--; continue }
           // Este dispositivo ya guardó algo más nuevo en el hoyo: lo confirma el "ok" de ese envío, no éste. Si
           // esa respuesta se perdió, el hoyo queda sin confirmar y el reenvío manda el valor vigente.
           if (r === 'descartado') return 'ok'
@@ -417,11 +443,25 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     void reenviarPendientes()
   }, [listo, roundId, reenviarPendientes])
 
+  /**
+   * "Recuperar mi tarjeta" (`useRecuperarAccesoInvitado`) devolvió el token: el aviso se apaga y la cola se
+   * reenvía con él, sin recargar. Explícito y no derivado de "cambió el token": el reemitido suele ser el
+   * mismo string, y un segundo toque tiene que volver a destrabar igual (Fable #833 v3).
+   */
+  const accesoRecuperado = useCallback((token: string) => {
+    guestTokenRef.current = token
+    generacionAccesoRef.current++
+    sinHeadersInvitadoRef.current = false
+    setSinAcceso(null)
+    setSaveStatus('idle')
+    if (estaOnline()) void reenviarRef.current()
+  }, [])
+
   /** Hoyos en la cola local (badge "Offline — N en cola" / "Reintentando (N)"). */
   const hoyosEnCola = useCallback(() => Object.keys(scoreSync.obtenerLocal() ?? {}).length, [scoreSync])
 
   return {
     currentScores, savedHoles, isOnline, saveStatus, saveError, limpiarSaveError: () => setSaveError(null),
-    sinAcceso, torneoInactivo, guardarHoyo, hoyosEnCola,
+    sinAcceso, torneoInactivo, guardarHoyo, hoyosEnCola, accesoRecuperado,
   }
 }

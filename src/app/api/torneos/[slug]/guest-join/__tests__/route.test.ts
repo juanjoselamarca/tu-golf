@@ -3,6 +3,10 @@
 // Si el segundo paso falla, el token no apunta a ningún jugador: se deshace la
 // inscripción para que el reintento no deje un duplicado en el leaderboard.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { webcrypto } from 'node:crypto'
+
+// jsdom (entorno de los tests) no trae `crypto.subtle`; el navegador en HTTPS y Node sí.
+if (!globalThis.crypto?.subtle) Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
 import { NextRequest } from 'next/server'
 
 vi.mock('@/lib/rate-limit', () => ({
@@ -30,6 +34,7 @@ let undoError: { message: string } | null
 // Respuestas sucesivas al lookup de players por guestId EN ESTE torneo (1º: ¿ya inscrito?, 2º: tras un 23505).
 let lookups: Array<{ id: string } | null>
 // El lookup del guestId en cualquier torneo (sin filtro por tournament_id).
+let torneoStatus = 'open'
 let enOtroTorneo: { data: { id: string } | null; error: { message: string } | null }
 
 function builder(table: string) {
@@ -42,7 +47,7 @@ function builder(table: string) {
     update: (values: Record<string, unknown>) => { op = { table, op: 'update', values, filtros }; return b },
     delete: () => { op = { table, op: 'delete', filtros }; return b },
     maybeSingle: async () => {
-      if (table === 'tournaments') return { data: { id: 't1', status: 'open', organizer_id: 'o1' } }
+      if (table === 'tournaments') return { data: { id: 't1', status: torneoStatus, organizer_id: 'o1' } }
       if (table === 'players' && !filtros.some(([col]) => col === 'tournament_id')) return enOtroTorneo
       if (table === 'players') return { data: lookups.shift() ?? null }
       return { data: null }
@@ -57,13 +62,15 @@ function builder(table: string) {
 vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => ({ from: (t: string) => builder(t) }) }))
 
 import { POST } from '../route'
+import { checkFeatureAccess } from '@/golf/billing/require-feature'
+import { guestIdDePrueba, nuevaPruebaDeInvitado } from '@/lib/guest-identity'
 
 const GUEST = '22222222-2222-4222-8222-222222222222'
 const params = { params: Promise.resolve({ slug: 'copa' }) }
-const req = (guestToken?: string) => new NextRequest('https://golfersplus.vercel.app/api/torneos/copa/guest-join', {
+const req = (guestToken?: string, extra: { guestId?: string; guestProof?: unknown; soloRecuperar?: unknown } = {}) => new NextRequest('https://golfersplus.vercel.app/api/torneos/copa/guest-join', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ guestId: GUEST, name: 'Juan Pérez', handicap: 18, guestToken }),
+  body: JSON.stringify({ guestId: GUEST, name: 'Juan Pérez', handicap: 18, guestToken, ...extra }),
 })
 
 beforeEach(() => {
@@ -71,6 +78,8 @@ beforeEach(() => {
   linkError = null
   undoError = null
   lookups = []
+  torneoStatus = 'open'
+  vi.mocked(checkFeatureAccess).mockReset().mockResolvedValue({ allowed: true } as never)
   enOtroTorneo = { data: null, error: null }
   captureError.mockReset()
   enrollPlayer.mockReset().mockResolvedValue({ ok: true, playerId: 'p-nuevo' })
@@ -137,11 +146,78 @@ describe('POST /api/torneos/[slug]/guest-join', () => {
     const res = await POST(req(token), params)
     expect(res.status).toBe(403)
     const body = await res.json()
-    expect(body.error).toBe('guest_token_required')
+    // Ya inscrito en ESTE torneo: un código propio para que el cliente NO se inscriba con otro guestId.
+    expect(body.error).toBe('guest_access_lost')
     expect(body.guestToken).toBeUndefined()
     expect(body.playerId).toBeUndefined()
     expect(enrollPlayer).not.toHaveBeenCalled()
     expect(ops).toEqual([])
+  })
+
+  // Bug (18-nov): la respuesta del primer POST se perdió en la señal de la cancha y el teléfono nunca
+  // guardó el token; el reintento recibía 403 y el cliente se inscribía con un invitado nuevo: la misma
+  // persona dos veces. Con la prueba de la que se derivó el guestId, recupera su jugador.
+  it('ya inscrito sin token pero con la prueba de su guestId: reemite el token del MISMO jugador', async () => {
+    const prueba = nuevaPruebaDeInvitado()
+    const guestId = await guestIdDePrueba(prueba)
+    lookups = [{ id: 'p-viejo' }]
+    const res = await POST(req(undefined, { guestId, guestProof: prueba }), params)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ playerId: 'p-viejo', guestToken: `tok-${guestId}`, alreadyRegistered: true })
+    expect(enrollPlayer).not.toHaveBeenCalled()
+  })
+
+  // Fable #833 v2 P1: la recuperación ocurre desde el scorer, con el torneo EN JUEGO, y el gate Pro del
+  // organizador (que rige el ALTA de invitados) no debe dejar sin anotar a quien ya está inscrito.
+  it('torneo en juego y gate Pro cerrado: el ya inscrito con su prueba recupera su token igual', async () => {
+    torneoStatus = 'in_progress'
+    vi.mocked(checkFeatureAccess).mockResolvedValueOnce({ allowed: false } as never)
+    const prueba = nuevaPruebaDeInvitado()
+    const guestId = await guestIdDePrueba(prueba)
+    lookups = [{ id: 'p-viejo' }]
+    const res = await POST(req(undefined, { guestId, guestProof: prueba }), params)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ playerId: 'p-viejo', guestToken: `tok-${guestId}`, alreadyRegistered: true })
+    expect(enrollPlayer).not.toHaveBeenCalled()
+  })
+
+  it('soloRecuperar y el guestId no está en el torneo: 404, nunca inscribe', async () => {
+    const prueba = nuevaPruebaDeInvitado()
+    const guestId = await guestIdDePrueba(prueba)
+    const res = await POST(req(undefined, { guestId, guestProof: prueba, soloRecuperar: true }), params)
+    expect(res.status).toBe(404)
+    expect((await res.json()).guestToken).toBeUndefined()
+    expect(enrollPlayer).not.toHaveBeenCalled()
+  })
+
+  it('gate Pro cerrado y NO inscrito: no inscribe', async () => {
+    vi.mocked(checkFeatureAccess).mockResolvedValueOnce({ allowed: false } as never)
+    const res = await POST(req(), params)
+    expect(res.status).not.toBe(200)
+    expect(enrollPlayer).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['la prueba de otro guestId', () => nuevaPruebaDeInvitado()],
+    ['una prueba mal formada', () => 'no-es-hex'],
+    ['una prueba que no es string', () => 42],
+  ])('ya inscrito con %s: 403 guest_access_lost, sin token', async (_caso, prueba) => {
+    lookups = [{ id: 'p-viejo' }]
+    const res = await POST(req(undefined, { guestProof: prueba() }), params)
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('guest_access_lost')
+    expect(body.guestToken).toBeUndefined()
+    expect(enrollPlayer).not.toHaveBeenCalled()
+  })
+
+  it('guestId con jugador en otro torneo, sin token y con su prueba: inscribe', async () => {
+    const prueba = nuevaPruebaDeInvitado()
+    const guestId = await guestIdDePrueba(prueba)
+    enOtroTorneo = { data: { id: 'p-de-otro-torneo' }, error: null }
+    const res = await POST(req(undefined, { guestId, guestProof: prueba }), params)
+    expect(res.status).toBe(200)
+    expect(enrollPlayer).toHaveBeenCalledOnce()
   })
 
   // El token firma sólo el guestId: si inscribir el guestId ajeno en OTRO torneo abierto lo
@@ -161,7 +237,7 @@ describe('POST /api/torneos/[slug]/guest-join', () => {
     lookups = [{ id: 'p-viejo' }]
     const res = await POST(req(Array(64).fill('a') as unknown as string), params)
     expect(res.status).toBe(403)
-    expect((await res.json()).error).toBe('guest_token_required')
+    expect((await res.json()).error).toBe('guest_access_lost')
   })
 
   it('guestId con jugador en otro torneo y con su token: inscribe (el mismo dispositivo en dos torneos)', async () => {

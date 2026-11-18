@@ -1,6 +1,7 @@
 import { loginUrl } from '@/lib/auth/login-url'
 import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO, CODIGO_TOKEN_INVITADO_INVALIDO } from '@/lib/api/codigos-game'
 import { PARAM_JUGADOR } from './jugador-del-link'
+import { tienePruebaDeInvitado } from '@/lib/guest-session'
 
 /**
  * Lectura de la respuesta de `/api/game` (`upsert_score`) en el scorer del torneo.
@@ -59,6 +60,11 @@ export interface AvisoSinAcceso {
   detalle: string
   cta: string
   href: string
+  /**
+   * El CTA no navega: recupera el acceso en el lugar (`useRecuperarAccesoInvitado`). `href` queda como la
+   * salida si la recuperación falla.
+   */
+  accion?: 'recuperar_invitado'
 }
 
 /**
@@ -81,11 +87,18 @@ export function avisoSinTarjeta(slug: string): AvisoSinAcceso {
 const EN_EL_TELEFONO = 'Los golpes de esta tarjeta quedaron en este teléfono, no en el torneo.'
 
 /**
- * Qué le decimos al jugador y por dónde sale. Nunca promete "sincronizar" sin decir cuándo, y
- * nunca manda a reinscribirse: con el acceso de invitado roto, `/unirse` crea OTRO jugador
- * (nuevo guestId) y el organizador ve la tarjeta duplicada.
+ * Qué le decimos al jugador y por dónde sale. Nunca promete "sincronizar" sin decir cuándo.
+ *
+ * Invitado con la prueba de su identidad (`@/lib/guest-identity`, 18-nov): "Recuperar mi tarjeta" recupera el
+ * acceso AHÍ MISMO (`/guest-join` le vuelve a firmar el token del MISMO jugador) y la cola se reenvía. No se
+ * le manda a `/unirse`: con el torneo en juego esa pantalla dice "Inscripciones cerradas" y no tiene
+ * formulario (Fable #833 v2). Sin prueba se le manda al organizador.
  */
-export function avisoSinAcceso(args: { slug: string; motivo: MotivoSinAcceso; jugadorId?: string | null }): AvisoSinAcceso {
+export function avisoSinAcceso(args: {
+  slug: string; motivo: MotivoSinAcceso; jugadorId?: string | null
+  /** Por defecto lo lee de este teléfono; los tests lo fijan. */
+  conPruebaDeInvitado?: boolean
+}): AvisoSinAcceso {
   const verTorneo = { cta: 'Ver el torneo', href: `/torneo/${args.slug}` }
   switch (args.motivo) {
     case 'retirado':
@@ -96,6 +109,16 @@ export function avisoSinAcceso(args: { slug: string; motivo: MotivoSinAcceso; ju
         ...verTorneo,
       }
     case 'invitado_sin_acceso':
+      if (args.conPruebaDeInvitado ?? tienePruebaDeInvitado()) {
+        return {
+          titulo: 'Se cortó tu acceso de invitado',
+          // Corto (Fable #833 v2): lo que importa es que el botón los recupera aquí mismo.
+          detalle: 'Tus golpes quedaron en este teléfono. Recupera tu tarjeta y se envían solos.',
+          cta: 'Recuperar mi tarjeta',
+          accion: 'recuperar_invitado',
+          href: verTorneo.href,
+        }
+      }
       return {
         titulo: 'Tu acceso de invitado ya no sirve',
         detalle: `${EN_EL_TELEFONO} Muéstrale tu tarjeta al organizador y pídele que los anote.`,

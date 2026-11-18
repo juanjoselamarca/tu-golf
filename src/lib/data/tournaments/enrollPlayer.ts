@@ -21,7 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { normalizeGender } from '@/golf/courses/gender-variant'
-import { motivoNoInscribible, type MotivoNoInscribible } from '@/golf/tournament-status'
+import { INSCRITO_APROBADO_STATUS, motivoNoInscribible, type MotivoNoInscribible } from '@/golf/tournament-status'
 import type { TorneoConFechas } from '@/golf/tournament-live-status'
 
 /** Mensaje del rechazo por estado (lo ve el jugador que se inscribe). */
@@ -115,7 +115,7 @@ export async function tournamentCapacity(
     .from('players')
     .select('id', { count: 'exact', head: true })
     .eq('tournament_id', tournamentId)
-    .eq('status', 'approved')
+    .eq('status', INSCRITO_APROBADO_STATUS)
   const approved = count ?? 0
   const full = maxPlayers != null && maxPlayers > 0 && approved >= maxPlayers
   return { full, maxPlayers, approved }

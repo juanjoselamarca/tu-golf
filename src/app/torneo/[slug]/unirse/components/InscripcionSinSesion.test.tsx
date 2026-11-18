@@ -5,7 +5,7 @@
 // Contrato: cada estado del torneo muestra la salida que sirve, nunca un formulario que el backend rechaza.
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { InscripcionSinSesion, COPY_SIN_INVITADOS, COPY_PLAN_SIN_VERIFICAR } from './InscripcionSinSesion'
+import { InscripcionSinSesion, COPY_SIN_INVITADOS, COPY_PLAN_SIN_VERIFICAR, COPY_ACCESO_PERDIDO } from './InscripcionSinSesion'
 import type { JoinInfoTournament } from '@/lib/data/tournaments/joinFlow'
 
 const torneo = (status = 'open') => ({
@@ -40,6 +40,15 @@ const formularioInvitado = () => screen.queryByLabelText(/Tu nombre/)
 const linkSesion = () => screen.getByRole('link', { name: /Iniciar sesión/ }) as HTMLAnchorElement
 
 describe('InscripcionSinSesion', () => {
+  // Fable #833 v2 P2-4: ya inscrito con el acceso perdido, el formulario sólo servía para inscribirse dos veces.
+  it('acceso de invitado perdido: sin formulario, sólo "Ver el torneo"', () => {
+    pintar({ accesoPerdido: true })
+    expect(formularioInvitado()).toBeNull()
+    expect(screen.getByText(COPY_ACCESO_PERDIDO.titulo)).toBeTruthy()
+    expect(screen.getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/torneo/copa'])
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
   it('organizador sin Pro: no hay formulario de invitado; la salida es iniciar sesión o crear cuenta', () => {
     pintar({ invitados: { permitido: false, motivo: 'pro_required' } })
     expect(formularioInvitado()).toBeNull()
