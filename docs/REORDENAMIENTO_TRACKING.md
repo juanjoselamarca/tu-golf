@@ -941,7 +941,11 @@ Fuera de alcance (pendiente):
 - **Vuelta 3:** el 403 de invitado distingue `guest_token_invalid` (acceso roto) de `guest_not_owner`
   (tarjeta ajena → "no está a tu nombre"). `?jugador=` gana sobre la auto-selección del invitado
   (`hooks/jugador-del-link.ts`). Guardar antes de terminar la carga ya no pisa el respaldo pendiente.
-- **Residual (requiere migración, no hecho):** `upsertScore` (`src/app/api/game/actions.ts`) es un
+- **Residual — resuelto en `fix/upserts-orden-hoyo-claude` (18-nov, falta aprobar la migración
+  `20261121100000_orden_guardados_hole_scores`):** secuencia por dispositivo y hoyo (`hole_scores_orden`)
+  y función `guardar_hole_score`, que marca y upsertea en una transacción; fuente única del id y la
+  secuencia en `src/lib/red/orden-guardado.ts` (la comparte la ronda libre). Sin la función, `/api/game`
+  cae al upsert de antes. Lo de abajo queda como contexto. `upsertScore` (`src/app/api/game/actions.ts`) es un
   `upsert` por `(round_id, hole_number)` sin versión: si el servidor procesa dos POST del mismo hoyo
   en desorden (el viejo después del nuevo) gana el viejo, y el cliente no lo puede ver porque los dos
   "ok" llegan en orden. El cliente cubre el caso visible (un reintento viejo que entra después de la
