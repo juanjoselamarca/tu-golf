@@ -30,6 +30,20 @@ afterEach(() => {
 })
 
 describe('useCargaTarjeta', () => {
+  // #836: un `showError` nuevo en cada render (useToast inestable) hacía consultar la tarjeta en bucle.
+  it('un showError distinto en cada render no vuelve a consultar la tarjeta', async () => {
+    fetchRoundHoleScores.mockResolvedValue([])
+    const store = crearEstadoHoyos({ enviar: () => new Promise(() => {}) })
+    const { result, rerender } = renderHook(() =>
+      useCargaTarjeta({ roundId: 'r1', store, parDe: () => 4, showError: vi.fn() }))
+    for (let i = 0; i < 5; i++) {
+      rerender()
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    }
+    expect(fetchRoundHoleScores).toHaveBeenCalledTimes(1)
+    expect(result.current.cargaTarjeta).toBe('lista')
+  })
+
   it('siembra lo leído y queda lista', async () => {
     fetchRoundHoleScores.mockResolvedValue([{ hole_number: 2, gross_score: 5, putts: 2, fairway_hit: null, gir: true }])
     const { result, store } = montar()
