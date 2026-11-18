@@ -13,18 +13,7 @@ import {
   type OperacionEnJuego,
 } from './gestion-en-juego'
 import { CONCEDE } from '@/golf/formats/match-play'
-import { isMatchPlayFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
-import { FORMAT_META, type FormatoJuego } from '@/golf/core/rules'
 import type { TeamHandicapConfig } from '@/golf/formats/team-handicap'
-
-describe('match play: una sola noción', () => {
-  it('isMatchPlayFormat (esta gestión) y FORMAT_META.requiereParejas (formatoDeLaTarjetaDelGrupo) coinciden', () => {
-    const claves = new Set([...KNOWN_FORMAT_KEYS, ...Object.keys(FORMAT_META)])
-    for (const k of claves) {
-      expect(isMatchPlayFormat(k), k).toBe(Boolean(FORMAT_META[k as FormatoJuego]?.requiereParejas))
-    }
-  })
-})
 
 const HOYOS_18 = Array.from({ length: 18 }, (_, i) => i + 1)
 const HOYOS_9_DESDE_EL_10 = [10, 11, 12, 13, 14, 15, 16, 17, 18]

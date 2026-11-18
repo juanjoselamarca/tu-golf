@@ -12,7 +12,7 @@
  */
 
 import { FORMAT_META, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
-import { isTeamFormat } from '@/golf/formats'
+import { isMatchPlayFormat, isTeamFormat } from '@/golf/formats'
 import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 import {
   EQUIPOS_MINIMOS,
@@ -98,7 +98,7 @@ function problemaDeCantidad({ formato, jugadores }: RondaAValidar): ProblemaDeLa
   }
 
   // Match Play es el único formato con un techo propio: 1 vs 1, ni uno más.
-  if (FORMAT_META[formato]?.requiereParejas && jugadores.length !== 2) {
+  if (isMatchPlayFormat(formato) && jugadores.length !== 2) {
     return {
       titulo: `${label} requiere 2 jugadores`,
       detalle: jugadores.length < 2
