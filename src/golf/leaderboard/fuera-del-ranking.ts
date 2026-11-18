@@ -21,6 +21,7 @@
 //  - Mejor bola, DQ: los golpes del descalificado no cuentan en NINGÚN hoyo y el
 //    equipo sigue con la tarjeta del compañero. → `scoresQueCuentanEnMejorBola`.
 
+import { hoyoConGolpes } from '@/golf/ronda-libre/progreso-de-ronda'
 import { jugadorFueraDelTorneo, type JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
 
 export type EstadoFueraDelRanking = (typeof JUGADOR_FUERA_STATUSES)[number]
@@ -189,10 +190,8 @@ export function nombreConMarca(nombre: string, estado: EstadoFueraDelRanking | n
   return estado ? `${nombre}\u00a0·\u00a0${SIGLA_FUERA[estado]}` : nombre
 }
 
-const hoyoAnotado = (scores: Readonly<Record<string, number>>, hoyo: string) => {
-  const g = scores[hoyo]
-  return typeof g === 'number' && g > 0
-}
+/** Claves de `Object.keys` (string); la lectura y el criterio son los de `hoyoConGolpes`. */
+const hoyoAnotado = (scores: Readonly<Record<string, number>>, hoyo: string) => hoyoConGolpes(scores, Number(hoyo))
 
 /**
  * Mejor bola (decisión de Juanjo, 17-nov; Reglas 3.3c, 23.2b y 23.4):

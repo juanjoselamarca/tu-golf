@@ -9,11 +9,10 @@
 //
 // Módulo PURO: sin Supabase ni imports de servidor, para que el cliente lo use.
 
-import { FORMAT_META } from '@/golf/core/rules'
 import { inscritoAprobado } from '@/golf/tournament-status'
-import type { FormatoJuego } from '@/golf/core/rules'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
-import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
+import type { TeamHandicapConfig } from '@/golf/formats/team-handicap'
+import { handicapDeEquipoCalculable, listaCorta, motivoTamanoDeEquipo } from '@/golf/torneo/gestion-en-juego'
 import { leerHandicapDeEquipo } from '@/lib/draft/team-config-legacy'
 import { esModoHcpWhs, sinIndiceEnNingunaParte, type InscritoConIndice } from '@/golf/core/compute-player-course-hcp'
 
@@ -36,10 +35,7 @@ export function playerName(p: JugadorParaIniciar): string {
   return p.profiles?.name || p.player_name || 'Jugador'
 }
 
-export function listaCorta(items: string[]): string {
-  const extra = items.length > 5 ? ` y ${items.length - 5} más` : ''
-  return items.slice(0, 5).join(', ') + extra
-}
+export { listaCorta }
 
 /**
  * Los grupos con solo sus integrantes aprobados. Un inscrito pendiente o retirado
@@ -90,18 +86,8 @@ export function motivoParaNoIniciar(
 
   // `isTeamFormat` = `isProducerTeamFormat` (teamRounds.ts es su alias).
   if (isTeamFormat(format)) {
-    const meta = FORMAT_META[format as FormatoJuego]
-    const rango = meta?.jugadoresPorEquipo
-    if (rango) {
-      const fueraDeRango = groups.filter(
-        (g) => g.players.length > 0 && (g.players.length < rango.min || g.players.length > rango.max),
-      )
-      if (fueraDeRango.length > 0) {
-        const exigido = rango.min === rango.max ? `${rango.min}` : `${rango.min} a ${rango.max}`
-        const detalle = listaCorta(fueraDeRango.map((g) => `"${g.name}" (${g.players.length})`))
-        return `Tamaño de equipo incorrecto. En ${meta.label}, cada equipo debe tener ${exigido} jugadores. Corrige: ${detalle}.`
-      }
-    }
+    const motivoTamano = motivoTamanoDeEquipo(format, groups)
+    if (motivoTamano) return motivoTamano
     const motivoHcp = motivoHandicapDeEquipo(format, groups, leerHandicapDeEquipo(teamConfig))
     if (motivoHcp) return motivoHcp
   }
@@ -121,7 +107,7 @@ export function motivoHandicapDeEquipo(
 ): string | null {
   if (!isSharedBallFormat(format)) return null
   const sinHandicap = groups.filter(
-    (g) => g.players.length > 0 && handicapDeEquipo(format, g.players.map(() => 0), handicap) === null,
+    (g) => g.players.length > 0 && !handicapDeEquipoCalculable(format, g.players.length, handicap),
   )
   if (sinHandicap.length === 0) return null
   const primero = sinHandicap[0]

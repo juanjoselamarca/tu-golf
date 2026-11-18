@@ -29,6 +29,15 @@ export function puedeFinalizar(hoyosAnotados: number, esUltimoHoyo: boolean): bo
   return hoyosAnotados >= MIN_HOYOS_PARA_FINALIZAR || esUltimoHoyo
 }
 
+/**
+ * ¿El hoyo tiene golpes reales? A diferencia de `hoyosAnotados`, no cuenta un score que no sea un golpe
+ * (el CONCEDE -1 del match play, un 0 de hoyo levantado). Lo usa el pie del leaderboard (mejor bola).
+ */
+export function hoyoConGolpes(scores: ScoresDeTarjeta | null | undefined, hoyo: number): boolean {
+  const s = scores ? scoreDelHoyo(scores, hoyo) : undefined
+  return s != null && s > 0
+}
+
 /** Cuántos hoyos DE LA RONDA tienen score (acepta claves numéricas o string). */
 export function hoyosAnotados(scores: ScoresDeTarjeta | null | undefined, hoyos: readonly number[]): number {
   if (!scores) return 0
