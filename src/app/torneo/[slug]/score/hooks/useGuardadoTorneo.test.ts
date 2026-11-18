@@ -28,11 +28,14 @@ type Respuesta = { status: number; body?: unknown } | 'red'
 let respuestas: Respuesta[] = []
 const enviados: Array<{ hole: number; gross: number }> = []
 const conHeadersInvitado: boolean[] = []
+/** Orden de cada envío (`seq`, `dispositivo`), en el orden en que salieron. */
+const ordenes: Array<{ hole: number; gross: number; seq: unknown; dispositivo: unknown }> = []
 /** Si se define, el próximo fetch queda colgado hasta que el test lo suelte. */
 let colgar: Promise<void> | null = null
 const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-  const body = JSON.parse(String(init.body)) as { hole_number: number; gross_score: number }
+  const body = JSON.parse(String(init.body)) as { hole_number: number; gross_score: number; seq?: unknown; dispositivo?: unknown }
   enviados.push({ hole: body.hole_number, gross: body.gross_score })
+  ordenes.push({ hole: body.hole_number, gross: body.gross_score, seq: body.seq, dispositivo: body.dispositivo })
   conHeadersInvitado.push(!!(init.headers as Record<string, string>)['x-guest-id'])
   if (colgar) { const c = colgar; colgar = null; await c }
   const r = respuestas.length > 1 ? respuestas.shift()! : respuestas[0]
@@ -67,6 +70,7 @@ beforeEach(() => {
   respuestas = [{ status: 200 }]
   enviados.length = 0
   conHeadersInvitado.length = 0
+  ordenes.length = 0
   colgar = null
   fetchMock.mockClear()
   addToast.mockReset()
@@ -410,5 +414,55 @@ describe('useGuardadoTorneo — la cola no se confirma con hoyos sin llegar ni s
     await waitFor(() => expect(respaldo()).toBeNull())
     expect(onRondaCerrada).not.toHaveBeenCalled()
     expect(addToast).not.toHaveBeenCalled()
+  })
+})
+
+// Residual de #754: el servidor procesa dos POST del mismo hoyo en desorden. Cada valor sale con una secuencia
+// mayor y el servidor (guardar_hole_score) descarta el más viejo; el scorer no lo da por confirmado.
+describe('useGuardadoTorneo — orden de los guardados de un hoyo', () => {
+  it('cada valor nuevo sale con una secuencia mayor y el mismo dispositivo; el reintento del mismo valor reusa la suya', async () => {
+    const { result } = await montar()
+    respuestas = [{ status: 503 }, { status: 200 }]
+    await act(async () => { const p = result.current.guardarHoyo(5, '4'); await vi.advanceTimersByTimeAsync(500); await p })
+    await act(async () => { await result.current.guardarHoyo(5, '5') })
+    expect(ordenes.map(o => o.gross)).toEqual([4, 4, 5])
+    const [a, b, c] = ordenes
+    expect(a.seq).toBe(b.seq)
+    expect(c.seq as number).toBeGreaterThan(a.seq as number)
+    expect(a.dispositivo).toMatch(/^[0-9a-f-]{36}$/)
+    expect([b.dispositivo, c.dispositivo]).toEqual([a.dispositivo, a.dispositivo])
+  })
+
+  it('el envío viejo (4) que el servidor descarta después de la corrección (5): queda el 5, sin reenvíos', async () => {
+    const { result } = await montar()
+    let soltar!: () => void
+    colgar = new Promise<void>(r => { soltar = r })
+    // El 5 (segundo en salir) recibe ok; el 4, colgado, vuelve después con "descartado".
+    respuestas = [{ status: 200 }, { status: 200, body: { success: true, descartado: true } }]
+    let viejo!: Promise<void>
+    act(() => { viejo = result.current.guardarHoyo(5, '4') })
+    await waitFor(() => expect(enviados).toHaveLength(1))
+    await act(async () => { await result.current.guardarHoyo(5, '5') })
+    await act(async () => { soltar(); await viejo })
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    expect(enviados.map(e => e.gross)).toEqual([4, 5])
+    expect((ordenes[1].seq as number)).toBeGreaterThan(ordenes[0].seq as number)
+    expect(result.current.currentScores[5]).toBe(5)
+    expect(respaldo()).toBeNull()
+  })
+
+  it('el reenvío no manda el valor viejo de su foto si el hoyo se corrigió mientras tanto', async () => {
+    dejarPendiente({ 1: 4, 2: 5 })
+    let soltar!: () => void
+    colgar = new Promise<void>(r => { soltar = r })
+    const { result } = await montar()
+    // El reenvío al abrir quedó colgado en el hoyo 1; el jugador corrige el 2 (5 → 6).
+    await waitFor(() => expect(enviados).toEqual([{ hole: 1, gross: 4 }]))
+    await act(async () => { await result.current.guardarHoyo(2, '6') })
+    await act(async () => { soltar(); await vi.advanceTimersByTimeAsync(2000) })
+    // Nunca sale el 5 de la foto (con una secuencia más nueva pisaría al 6).
+    expect(enviados).not.toContainEqual({ hole: 2, gross: 5 })
+    expect(enviados.at(-1)).toEqual({ hole: 2, gross: 6 })
+    await waitFor(() => expect(respaldo()).toBeNull())
   })
 })

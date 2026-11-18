@@ -414,6 +414,12 @@ create table public."hole_scores" (
   "fairway_hit" boolean,
   "gir" boolean
 );
+create table public."hole_scores_orden" (
+  "round_id" uuid not null,
+  "hole_number" integer not null,
+  "dispositivo" uuid not null,
+  "seq" bigint not null
+);
 create table public."import_jobs" (
   "id" uuid default gen_random_uuid() not null,
   "user_id" uuid,
@@ -1757,6 +1763,62 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.guardar_hole_score(p_fila jsonb, p_seq bigint DEFAULT NULL::bigint, p_dispositivo uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_round_id uuid := (p_fila->>'round_id')::uuid;
+  v_hole integer := (p_fila->>'hole_number')::integer;
+  v_id uuid;
+BEGIN
+  IF v_round_id IS NULL OR v_hole IS NULL THEN
+    RAISE EXCEPTION 'HOLE_SCORE_SIN_CLAVE' USING ERRCODE = '22023';
+  END IF;
+
+  IF p_seq IS NOT NULL AND p_dispositivo IS NOT NULL THEN
+    INSERT INTO public.hole_scores_orden AS o (round_id, hole_number, dispositivo, seq)
+    VALUES (v_round_id, v_hole, p_dispositivo, p_seq)
+    ON CONFLICT (round_id, hole_number, dispositivo) DO UPDATE SET seq = EXCLUDED.seq WHERE o.seq < EXCLUDED.seq;
+    -- Ese dispositivo ya guardó este hoyo con una secuencia igual o más nueva: este guardado no la pisa.
+    IF NOT FOUND THEN
+      SELECT hs.id INTO v_id FROM public.hole_scores hs WHERE hs.round_id = v_round_id AND hs.hole_number = v_hole;
+      RETURN jsonb_build_object('aplicado', false, 'id', v_id);
+    END IF;
+  END IF;
+
+  INSERT INTO public.hole_scores AS hs
+    (round_id, hole_number, gross_score, source, status, net_score, points, par, putts, fairway_hit, gir)
+  VALUES (
+    v_round_id,
+    v_hole,
+    (p_fila->>'gross_score')::integer,
+    COALESCE(p_fila->>'source', 'manual_player'),
+    COALESCE(p_fila->>'status', 'pending'),
+    (p_fila->>'net_score')::integer,
+    -- Ausente en un INSERT = el default de la columna, como el upsert de PostgREST.
+    CASE WHEN p_fila ? 'points' THEN (p_fila->>'points')::integer ELSE 0 END,
+    (p_fila->>'par')::integer,
+    (p_fila->>'putts')::integer,
+    (p_fila->>'fairway_hit')::boolean,
+    (p_fila->>'gir')::boolean
+  )
+  ON CONFLICT (round_id, hole_number) DO UPDATE SET
+    gross_score = CASE WHEN p_fila ? 'gross_score' THEN EXCLUDED.gross_score ELSE hs.gross_score END,
+    source      = CASE WHEN p_fila ? 'source'      THEN EXCLUDED.source      ELSE hs.source END,
+    status      = CASE WHEN p_fila ? 'status'      THEN EXCLUDED.status      ELSE hs.status END,
+    net_score   = CASE WHEN p_fila ? 'net_score'   THEN EXCLUDED.net_score   ELSE hs.net_score END,
+    points      = CASE WHEN p_fila ? 'points'      THEN EXCLUDED.points      ELSE hs.points END,
+    par         = CASE WHEN p_fila ? 'par'         THEN EXCLUDED.par         ELSE hs.par END,
+    putts       = CASE WHEN p_fila ? 'putts'       THEN EXCLUDED.putts       ELSE hs.putts END,
+    fairway_hit = CASE WHEN p_fila ? 'fairway_hit' THEN EXCLUDED.fairway_hit ELSE hs.fairway_hit END,
+    gir         = CASE WHEN p_fila ? 'gir'         THEN EXCLUDED.gir         ELSE hs.gir END
+  RETURNING hs.id INTO v_id;
+
+  RETURN jsonb_build_object('aplicado', true, 'id', v_id);
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -2650,6 +2712,7 @@ alter table public."hole_scores" add constraint "hole_scores_pkey" PRIMARY KEY (
 alter table public."hole_scores" add constraint "hole_scores_round_id_hole_number_key" UNIQUE (round_id, hole_number);
 alter table public."hole_scores" add constraint "hole_scores_source_check" CHECK ((source = ANY (ARRAY['manual_player'::text, 'manual_organizer'::text, 'garmin'::text, 'garmin_provisional'::text])));
 alter table public."hole_scores" add constraint "hole_scores_status_check" CHECK ((status = ANY (ARRAY['pending'::text, 'loaded'::text, 'confirmed'::text, 'corrected'::text, 'provisional'::text])));
+alter table public."hole_scores_orden" add constraint "hole_scores_orden_pkey" PRIMARY KEY (round_id, hole_number, dispositivo);
 alter table public."import_jobs" add constraint "import_jobs_pkey" PRIMARY KEY (id);
 alter table public."inbox_reports" add constraint "inbox_reports_pkey" PRIMARY KEY (id);
 alter table public."inbox_reports" add constraint "inbox_reports_prioridad_check" CHECK ((prioridad = ANY (ARRAY['critico'::text, 'alto'::text, 'medio'::text, 'bajo'::text])));
@@ -2802,6 +2865,7 @@ alter table public."handicap_history" add constraint "handicap_history_user_id_f
 alter table public."historical_rounds" add constraint "historical_rounds_course_id_fkey" FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE SET NULL;
 alter table public."historical_rounds" add constraint "historical_rounds_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public."hole_scores" add constraint "hole_scores_round_id_fkey" FOREIGN KEY (round_id) REFERENCES public.rounds(id) ON DELETE CASCADE;
+alter table public."hole_scores_orden" add constraint "hole_scores_orden_round_id_fkey" FOREIGN KEY (round_id) REFERENCES public.rounds(id) ON DELETE CASCADE;
 alter table public."import_jobs" add constraint "import_jobs_user_id_fkey" FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
 alter table public."inbox_reports" add constraint "inbox_reports_reply_to_report_id_fkey" FOREIGN KEY (reply_to_report_id) REFERENCES public.inbox_reports(id) ON DELETE SET NULL;
 alter table public."indice_historial" add constraint "indice_historial_user_id_fkey" FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
@@ -3064,6 +3128,7 @@ alter table public."golf_rules" enable row level security;
 alter table public."handicap_history" enable row level security;
 alter table public."historical_rounds" enable row level security;
 alter table public."hole_scores" enable row level security;
+alter table public."hole_scores_orden" enable row level security;
 alter table public."import_jobs" enable row level security;
 alter table public."inbox_reports" enable row level security;
 alter table public."indice_historial" enable row level security;
@@ -3380,6 +3445,7 @@ revoke all on table public."golf_rules" from public, anon, authenticated, servic
 revoke all on table public."handicap_history" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."historical_rounds" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."hole_scores" from public, anon, authenticated, service_role, postgres;
+revoke all on table public."hole_scores_orden" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."import_jobs" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."inbox_reports" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."indice_historial" from public, anon, authenticated, service_role, postgres;
@@ -3450,6 +3516,7 @@ revoke all on function public.grupos_fijos_guard_grupo() from public, anon, auth
 revoke all on function public.grupos_fijos_guard_inscrito() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.grupos_fijos_guard_jugadores_de_grupo() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.guard_tournament_drafts_owner_change() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.guardar_hole_score(jsonb,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.handle_new_user() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.is_draft_collaborator(uuid,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.log_role_change() from public, anon, authenticated, service_role, postgres;
@@ -3587,6 +3654,8 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant SELECT on table public."hole_scores" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to service_role;
+grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores_orden" to postgres;
+grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores_orden" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."import_jobs" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."import_jobs" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."import_jobs" to service_role;
@@ -3784,6 +3853,8 @@ grant EXECUTE on function public.grupos_fijos_guard_jugadores_de_grupo() to post
 grant EXECUTE on function public.grupos_fijos_guard_jugadores_de_grupo() to service_role;
 grant EXECUTE on function public.guard_tournament_drafts_owner_change() to postgres;
 grant EXECUTE on function public.guard_tournament_drafts_owner_change() to service_role;
+grant EXECUTE on function public.guardar_hole_score(jsonb,bigint,uuid) to postgres;
+grant EXECUTE on function public.guardar_hole_score(jsonb,bigint,uuid) to service_role;
 grant EXECUTE on function public.handle_new_user() to postgres;
 grant EXECUTE on function public.handle_new_user() to service_role;
 grant EXECUTE on function public.is_draft_collaborator(uuid,uuid) to anon;

@@ -13,12 +13,22 @@ import {
   avisoSinAcceso, clasificarRespuestaScore, esSinAcceso, STATUS_CON_CODE,
   type AvisoSinAcceso, type LecturaRespuestaScore, type MotivoSinAcceso, type ResultadoGuardadoTorneo,
 } from './acceso-guardado'
+import { DISPOSITIVO_GUARDADO, nuevaSecuencia } from '@/lib/red/orden-guardado'
 
 export type EstadoGuardado = 'idle' | 'saving' | 'saved' | 'offline' | 'error' | 'sin_acceso'
 
 /** Intentos por hoyo ante red caída / 5xx / 429, con espera creciente (400 ms, 800 ms). */
 export const INTENTOS_POR_HOYO = 3
 const ESPERA_BASE_MS = 400
+
+/** Cuerpo JSON de la respuesta; uno ilegible cuenta como vacío (el status ya dice lo principal). */
+async function leerJson(res: Response): Promise<{ code?: string; descartado?: boolean }> {
+  try {
+    return ((await res.json()) ?? {}) as { code?: string; descartado?: boolean }
+  } catch {
+    return {}
+  }
+}
 
 const estaOnline = () => typeof navigator === 'undefined' || navigator.onLine
 
@@ -156,17 +166,21 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
       headers['x-guest-token'] = guestToken
     }
     const res = await fetch('/api/game', { method: 'POST', headers, body: JSON.stringify(body) })
-    const code = STATUS_CON_CODE.includes(res.status)
-      ? ((await res.json().catch(() => ({}))) as { code?: string }).code
-      : undefined
-    return clasificarRespuestaScore(res.status, code)
+    const leeCuerpo = res.ok || STATUS_CON_CODE.includes(res.status)
+    const cuerpo = leeCuerpo ? await leerJson(res) : {}
+    return clasificarRespuestaScore(res.status, cuerpo.code, cuerpo.descartado === true)
   }, [guestId, guestToken])
 
   /** Envía UN hoyo y lo registra como confirmado / en vuelo. */
   const enviarHoyo = useCallback(async (
     tourneyId: string, ronda: string, holeNumber: number, gross: number, par: number, netScore: number, points: number,
   ): Promise<ResultadoGuardadoTorneo> => {
-    const body = { action: 'upsert_score', tournament_id: tourneyId, round_id: ronda, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }
+    // La secuencia se pide UNA vez por valor y los reintentos de abajo la reusan: el servidor descarta un envío
+    // más viejo de este dispositivo que llega después de uno más nuevo del mismo hoyo (`guardar_hole_score`).
+    const body = {
+      action: 'upsert_score', tournament_id: tourneyId, round_id: ronda, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points,
+      seq: nuevaSecuencia(), dispositivo: DISPOSITIVO_GUARDADO,
+    }
     const enVuelo = enVueloRef.current
     enVuelo.set(holeNumber, gross)
     try {
@@ -181,9 +195,12 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
             if (!conInvitado) return motivo
             // UNA vez sin headers de invitado: si el teléfono tiene sesión con cuenta, entra por ahí.
             r = await postScore(body, false)
-            if (r === 'ok') sinHeadersInvitadoRef.current = true
+            if (r === 'ok' || r === 'descartado') sinHeadersInvitadoRef.current = true
             else if (r === 'sin_sesion' || r === 'invitado_no_dueno' || r === 'invitado_token_invalido') return motivo
           }
+          // Este dispositivo ya guardó algo más nuevo en el hoyo: lo confirma el "ok" de ese envío, no éste. Si
+          // esa respuesta se perdió, el hoyo queda sin confirmar y el reenvío manda el valor vigente.
+          if (r === 'descartado') return 'ok'
           if (r !== 'reintentar') {
             if (r === 'ok' && tarjetaVigenteRef.current === ronda) {
               confirmadosRef.current[holeNumber] = gross
@@ -251,6 +268,10 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
       let enviados = 0
       for (const [h, g] of Object.entries(faltan)) {
         const holeNumber = Number(h)
+        // `faltan` es una foto tomada antes del primer await: si mientras tanto se corrigió el hoyo, ese guardado
+        // ya salió con su propia secuencia. Mandar acá el valor de la foto, con una secuencia MÁS nueva, pisaría la
+        // corrección. El valor vigente sigue en la cola y lo manda su guardado o la próxima vuelta.
+        if (scoreSync.obtenerLocal()?.[holeNumber] !== g) continue
         const p = puntajeDe(holeNumber, g, player)
         if (!p) return true
         const resultado = await enviarHoyo(tournament.id, roundId, holeNumber, g, p.par, p.neto, p.puntos)
@@ -283,7 +304,8 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
       }
       if (!vigente()) return true
       if (failed === 0) {
-        if (cerrarSiTodoConfirmado(local)) {
+        // Lo vigente, no la foto: un hoyo saltado arriba por haberse corregido se confirma con su propio guardado.
+        if (cerrarSiTodoConfirmado(scoreSync.obtenerLocal())) {
           setSinAcceso(null)
           setSaveStatus('saved')
           if (avisar && enviados > 0) addToast({ type: 'success', title: 'Sincronizado', message: `${enviados} hoyos guardados`, duration: 3000 })

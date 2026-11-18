@@ -26,12 +26,16 @@ import { PARAM_JUGADOR } from './jugador-del-link'
  */
 export type MotivoSinAcceso = 'sin_sesion' | 'sin_permiso' | 'retirado' | 'invitado_sin_acceso'
 export type ResultadoGuardadoTorneo = 'ok' | 'closed' | 'inactive' | MotivoSinAcceso | 'error'
-export type LecturaRespuestaScore = ResultadoGuardadoTorneo | 'invitado_no_dueno' | 'invitado_token_invalido' | 'reintentar'
+/**
+ * `descartado`: el servidor respondió ok pero NO aplicó este envío porque este dispositivo ya guardó algo más nuevo
+ * en el hoyo (`guardar_hole_score`). El valor de este envío no es el que quedó: no se marca como confirmado.
+ */
+export type LecturaRespuestaScore = ResultadoGuardadoTorneo | 'descartado' | 'invitado_no_dueno' | 'invitado_token_invalido' | 'reintentar'
 
 const MOTIVOS_SIN_ACCESO: readonly MotivoSinAcceso[] = ['sin_sesion', 'sin_permiso', 'retirado', 'invitado_sin_acceso']
 
-export function clasificarRespuestaScore(status: number, code?: string | null): LecturaRespuestaScore {
-  if (status >= 200 && status < 300) return 'ok'
+export function clasificarRespuestaScore(status: number, code?: string | null, descartado = false): LecturaRespuestaScore {
+  if (status >= 200 && status < 300) return descartado ? 'descartado' : 'ok'
   if (status === 409) return code === 'round_closed' ? 'closed' : 'inactive'
   if (status === 401) return 'sin_sesion'
   if (status === 403) {
