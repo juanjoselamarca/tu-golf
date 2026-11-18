@@ -112,6 +112,9 @@ export function useGuardadoTorneo(args: UseGuardadoTorneoArgs) {
     sinHeadersInvitadoRef.current = false
     reenviadoAlAbrirRef.current = null
     setTarjetaCargada(null)
+    // Los golpes en pantalla son de la tarjeta anterior: hasta que cargue ésta, vacía (#754 P2-a). Lo que
+    // la anterior no subió sigue en SU respaldo (por tarjeta) y se reenvía al volver a abrirla.
+    setCurrentScores({})
     setSavedHoles(new Set())
     setSinAcceso(null)
     setSaveError(null)
