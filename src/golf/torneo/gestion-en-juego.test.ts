@@ -67,25 +67,36 @@ describe('equipoAlPie (espejo de estadoDelEquipo*)', () => {
   })
 })
 
-describe('equipoIncompleto (D5, D7) / motivoTamanoDeEquipo', () => {
+describe('equipoIncompleto (D5, D7, D14) / motivoTamanoDeEquipo', () => {
+  const g = (miembros: number, integrantes: number, tieneGolpes = false) => ({ miembros, integrantes, tieneGolpes })
   it('individuales y formato desconocido: nunca incompleto', () => {
-    for (const f of ['stroke_play', 'stableford', 'match_play', null, 'inventado']) expect(equipoIncompleto(f, 1)).toBe(false)
+    for (const f of ['stroke_play', 'stableford', 'match_play', null, 'inventado']) expect(equipoIncompleto(f, g(1, 1))).toBe(false)
   })
-  it('equipos: con jugadores y bajo el mínimo; vacío no', () => {
-    expect(equipoIncompleto('best_ball', 1)).toBe(true)
-    expect(equipoIncompleto('scramble', 1)).toBe(true)
-    expect(equipoIncompleto('foursome', 1)).toBe(true)
-    expect(equipoIncompleto('best_ball', 2)).toBe(false)
-    expect(equipoIncompleto('scramble', 4)).toBe(false)
-    expect(equipoIncompleto('foursome', 2)).toBe(false)
-    expect(equipoIncompleto('scramble', 0)).toBe(false)
+  it('D14 mejor bola: nunca incompleto, uno solo juega (R23.4), también en un grupo nuevo', () => {
+    expect(equipoIncompleto('best_ball', g(1, 1))).toBe(false)
+    expect(equipoIncompleto('best_ball', g(1, 1, true))).toBe(false)
+    expect(equipoIncompleto('best_ball', g(1, 2, true))).toBe(false)
   })
-  it('cuenta FILAS: una pareja con un WD no está incompleta (R23.4); un equipo en formación con 1 fila sí', () => {
-    const conUnWd: Pick<GrupoEnJuego, 'miembros' | 'integrantes'> = { miembros: 1, integrantes: 2 }
-    expect(equipoIncompleto('best_ball', conUnWd.integrantes)).toBe(false)
-    expect(equipoIncompleto('scramble', conUnWd.integrantes)).toBe(false)
-    const enFormacion: Pick<GrupoEnJuego, 'miembros' | 'integrantes'> = { miembros: 1, integrantes: 1 }
-    expect(equipoIncompleto('scramble', enFormacion.integrantes)).toBe(true)
+  it('bola compartida: bajo el mínimo sí; completo o vacío no', () => {
+    expect(equipoIncompleto('scramble', g(1, 1))).toBe(true)
+    expect(equipoIncompleto('foursome', g(1, 1))).toBe(true)
+    expect(equipoIncompleto('scramble', g(4, 4))).toBe(false)
+    expect(equipoIncompleto('foursome', g(2, 2))).toBe(false)
+    expect(equipoIncompleto('scramble', g(0, 0))).toBe(false)
+  })
+  it('D14 con golpes cuentan las FILAS: un equipo con un WD que ya juega sigue con quien queda', () => {
+    expect(equipoIncompleto('scramble', g(1, 2, true))).toBe(false)
+    expect(equipoIncompleto('foursome', g(1, 2, true))).toBe(false)
+    expect(equipoIncompleto('scramble', g(1, 1, true))).toBe(true)
+  })
+  it('D14 sin golpes cuentan los que COMPITEN: los WD/DQ no completan', () => {
+    // Scramble sin golpes (0 compiten, 2 WD) + agregar a X → (1, 3).
+    expect(equipoIncompleto('scramble', g(0 + 1, 2 + 1))).toBe(true)
+    // Scramble sin golpes (2 compiten, 1 WD) − mover a A → (1, 2).
+    expect(equipoIncompleto('scramble', g(2 - 1, 3 - 1))).toBe(true)
+    // Foursome sin golpes (0 compiten, 2 WD) + agregar a uno → (1, 3).
+    expect(equipoIncompleto('foursome', g(0 + 1, 2 + 1))).toBe(true)
+    expect(equipoIncompleto('scramble', g(2, 3))).toBe(false)
   })
   it('mensaje igual al del inicio; los grupos vacíos no cuentan', () => {
     const g = (name: string, n: number) => ({ name, players: Array.from({ length: n }) })
@@ -190,8 +201,12 @@ const casos: Caso[] = [
   { nombre: 'D1 mejor bola · borrar con golpes: WD', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 3, true) }, inscrito: ACTIVO_CON_GOLPES, esperado: 'borrar-con-golpes' },
   { nombre: 'D1 mejor bola · borrar sin golpes de un equipo de 3 con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 3, true) }, esperado: null },
   { nombre: 'D7 mejor bola · borrar sin golpes de una pareja sin golpes (queda en 1)', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2) }, esperado: null },
-  { nombre: 'mejor bola · borrar sin golpes dejando en 1 una pareja con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2, true) }, esperado: 'equipo-con-golpes-incompleto' },
-  { nombre: 'R23.4 mejor bola · borrar al WD sin golpes deja al compañero solo en una tarjeta con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: WD, esperado: 'equipo-con-golpes-incompleto' },
+  { nombre: 'D14 mejor bola · borrar sin golpes dejando en 1 una pareja con golpes: el compañero juega solo', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2, true) }, esperado: null },
+  { nombre: 'D1/D14 mejor bola · el WD sin golpes se elimina y el compañero sigue solo (R23.4)', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: WD, esperado: null },
+  { nombre: 'mejor bola · eliminar al último que compite de un equipo con golpes (iría al pie)', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, esperado: 'equipo-con-golpes-incompleto' },
+  { nombre: 'D14 mejor bola · agregar a un grupo nuevo (uno solo juega)', format: 'best_ball', op: { tipo: 'agregar', destino: G('d', 0) }, esperado: null },
+  { nombre: 'D1 scramble · un WD de un equipo con golpes no se elimina (los golpes son del equipo)', format: 'scramble', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: WD, esperado: 'borrar-con-golpes' },
+  { nombre: 'D14 scramble · borrar a un WD de un equipo sin golpes', format: 'scramble', op: { tipo: 'borrar', origen: G('o', 1, false, 2) }, inscrito: WD, esperado: null },
   { nombre: 'mejor bola · borrar al WD sin golpes de un equipo de 3 con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2, true, 3) }, inscrito: WD, esperado: null },
   { nombre: 'mejor bola · agregar a una pareja con golpes ya al pie (los dos WD)', format: 'best_ball', op: { tipo: 'agregar', destino: G('d', 0, true, 2) }, esperado: 'equipo-al-pie' },
   { nombre: 'D12 mejor bola · un sin aprobar tampoco saca del pie a una pareja con golpes', format: 'best_ball', op: { tipo: 'agregar', destino: G('d', 0, true, 2) }, inscrito: PENDIENTE, esperado: 'equipo-al-pie' },
@@ -267,7 +282,7 @@ const casos: Caso[] = [
 
 const SEIS_FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome']
 
-describe('motivoParaNoColocar (D1-D13)', () => {
+describe('motivoParaNoColocar (D1-D14)', () => {
   it.each(casos)('$nombre → $esperado', ({ format, op, inscrito, handicap, esperado }) => {
     const m = motivoParaNoColocar(format, op, inscrito ?? ACTIVO, handicap ?? null)
     expect(m?.codigo ?? null).toBe(esperado)

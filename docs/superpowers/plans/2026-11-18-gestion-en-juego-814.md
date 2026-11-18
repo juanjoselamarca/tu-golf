@@ -160,9 +160,9 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
   incluir esa tarjeta. Al colocarlo en un grupo, falta decidir qué pasa con esos golpes (hoy no viajan a la tarjeta
   del grupo). Mientras tanto el PR1 falla cerrado: agregar a un inscrito con golpes da `agregar-con-tarjeta-individual`.
   El PR3 tiene que resolver el traslado y recién ahí levantar ese motivo.
-- **Mejor bola, retirar en vez de borrar:** borrar a un integrante sin golpes de una pareja con golpes se rechaza
-  (`equipo-con-golpes-incompleto`, sin "Retirar"); el flujo WD actual sí lo deja retirar (R23.4, el compañero sigue
-  solo). Revisar que las dos reglas digan lo mismo en el PR5.
+- **Mejor bola, retirar en vez de borrar (resuelto por D14):** borrar a un integrante sin golpes de una pareja con
+  golpes se permite y el compañero sigue solo (R23.4), igual que el flujo WD. Solo se frena eliminar al ÚLTIMO que
+  compite de un equipo con golpes (`equipo-con-golpes-incompleto`): el equipo iría al pie con los golpes de sus WD.
 - **Tope de filas por tarjeta de grupo (revisado en el PR1, vueltas 3 y 4):** no existe. `MAX_JUGADORES_POR_RONDA` (4)
   solo lo aplica `validarNuevaRonda` al crear una ronda libre; ni `materializeGroupScorecard`, ni el scorer de grupo,
   ni un CHECK limitan las filas de un grupo de torneo (`materializeGroupScorecard` recorre `group.players` sin tope; en
@@ -194,5 +194,17 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
   que exista un "Aprobar" con el torneo en juego, si `asegurar_tarjeta_vigente` le da fila sin pasar por
   `motivoParaNoColocar` sobre su grupo actual (`mover`/`agregar` con D12), puede quedar de tercero en un match
   (esquiva D10) o dejar un equipo sobre el máximo. Cualquier aprobación en juego tiene que ir por la misma RPC.
-- **D13 en la RPC (PR2):** completar una pareja de foursome sin golpes que tiene un WD/DQ tiene que borrar la fila del
-  WD/DQ en el mismo acto. Si queda, la pareja tendría 3 filas y `estadoDelEquipoFoursome` la manda entera al pie.
+- **D13 en la RPC (PR2):** colocar a alguien en un equipo de foursome SIN golpes que tiene WD/DQ tiene que borrar
+  TODAS las filas WD/DQ de ese equipo en el mismo acto, no solo una. Si queda alguna, `estadoDelEquipoFoursome` manda
+  a la pareja entera al pie (y con dos WD el equipo tendría filas de más).
+
+## Decisión de Juanjo (18-nov, D14)
+- **D14. Jugador que queda solo en su equipo, con el campeonato iniciado:**
+  - **Mejor bola:** juega solo, en cualquier momento (R23.4). Una pareja de mejor bola nunca está incompleta mientras
+    tenga al menos una fila; vale también para un grupo nuevo de mejor bola con un jugador. D5/D7 aplican solo a bola
+    compartida.
+  - **Scramble y foursome:** sin golpes, el equipo está incompleto mientras `miembros < min` (los WD/DQ no cuentan) y
+    no anota hasta que el organizador lo complete o lo retire. Con golpes, cuentan las filas (`integrantes`).
+  - Sin regla nueva de hándicap.
+  - `equipoIncompleto(format, {miembros, integrantes, tieneGolpes})`: false fuera de bola compartida o con
+    `integrantes === 0`; si no, `tieneGolpes ? integrantes < min : miembros < min`.

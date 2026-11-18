@@ -6,7 +6,7 @@
  *   - el tamaño de equipo que se exige            → `motivoTamanoDeEquipo` / `equipoIncompleto` (también el inicio),
  *     sobre `jugadoresPorEquipo` (plantilla-de-jugadores.ts, la única lectura de `FORMAT_META.jugadoresPorEquipo`)
  *   - si el hándicap del equipo se puede calcular → `handicapDeEquipoCalculable` (también el inicio)
- *   - por qué NO se puede colocar a un inscrito   → `motivoParaNoColocar` (decisiones D1-D13 de Juanjo, 18-nov-2026;
+ *   - por qué NO se puede colocar a un inscrito   → `motivoParaNoColocar` (decisiones D1-D14 de Juanjo, 18-nov-2026;
  *     plan `docs/superpowers/plans/2026-11-18-gestion-en-juego-814.md`).
  *
  * Puro: sin Supabase ni React. La app planifica con esto y la RPC `colocar_inscrito_en_grupo` (PR2) vuelve a
@@ -80,16 +80,23 @@ export function motivoTamanoDeEquipo(
 }
 
 /**
- * D5/D7: un equipo que todavía no junta el mínimo de FILAS en su tarjeta está INCOMPLETO (se está armando) y
- * no puede anotar hasta completarse. `filas` = sus filas en la tarjeta, WD/DQ incluidos (`GrupoEnJuego.integrantes`):
- * una pareja con un retirado NO está incompleta, el compañero sigue jugando solo (R23.4 y decisión del 17-nov,
- * `fuera-del-ranking.ts`); si el equipo va al pie o no lo decide `estadoDelEquipo*`, no esta función. Vacío no es
- * incompleto (no hay nada que anotar). Fuera de los formatos por equipos, nunca. Lo usarán la RPC (PR2) y el
- * scorer (PR5) para bloquear el anotar.
+ * D5/D7/D14: ¿el equipo está INCOMPLETO y no puede anotar hasta que el organizador lo complete o lo retire?
+ * - Solo en bola compartida (scramble, foursome). En mejor bola nunca: un jugador solo juega en cualquier momento
+ *   (R23.4), también en un grupo nuevo de uno (D14). Fuera de equipos, nunca.
+ * - Vacío (`integrantes === 0`) no es incompleto: no hay nada que anotar.
+ * - Con golpes cuentan las FILAS (`integrantes`, WD/DQ incluidos): un equipo que ya juega y perdió a alguien
+ *   sigue con quien queda (decisión del 17-nov, `fuera-del-ranking.ts`); si va al pie lo decide `estadoDelEquipo*`.
+ * - Sin golpes cuentan los que COMPITEN (`miembros`): un WD/DQ no completa un equipo que todavía no empieza.
+ * Lo usarán la RPC (PR2) y el scorer (PR5) para bloquear el anotar.
  */
-export function equipoIncompleto(format: string | null | undefined, filas: number): boolean {
+export function equipoIncompleto(
+  format: string | null | undefined,
+  g: Pick<GrupoEnJuego, 'miembros' | 'integrantes' | 'tieneGolpes'>,
+): boolean {
+  if (!isSharedBallFormat(format)) return false
   const r = rango(format)
-  return r !== null && filas > 0 && filas < r.min
+  if (!r || g.integrantes === 0) return false
+  return g.tieneGolpes ? g.integrantes < r.min : g.miembros < r.min
 }
 
 /**
@@ -202,8 +209,8 @@ export type CodigoMotivoNoColocar =
    */
   | 'equipo-al-pie'
   /**
-   * Un equipo con golpes (origen o destino) quedaría bajo el mínimo: de los que compiten, o de filas en su tarjeta
-   * (`equipoIncompleto`). D3: un equipo que ya juega nunca queda fuera de `jugadoresPorEquipo`.
+   * Un equipo con golpes (origen o destino) quedaría bajo el mínimo de los que compiten (en mejor bola, sin nadie)
+   * D3: un equipo de bola compartida que ya juega nunca queda fuera de `jugadoresPorEquipo`; mejor bola, D14.
    */
   | 'equipo-con-golpes-incompleto'
   /** Un equipo con golpes quedaría sin ninguna fila (ni siquiera la de un WD/DQ). */
@@ -230,8 +237,9 @@ const motivo = (codigo: CodigoMotivoNoColocar, mensaje: string, ofreceRetirar = 
  * `leerHandicapDeEquipo(team_config)`.
  *
  * Que se pueda no significa que no haya que confirmar: con golpes en juego (D2, D4, D9) la UI pide confirmación.
- * Tampoco que el equipo pueda anotar: uno que queda bajo el mínimo y sin golpes se permite (D7) y queda
- * `equipoIncompleto`.
+ * Tampoco que el equipo pueda anotar: en bola compartida, uno sin golpes que queda con menos de `min` jugadores
+ * que compiten se permite (D7) y queda `equipoIncompleto` (D14), aunque sume filas de WD/DQ. En mejor bola un
+ * jugador solo siempre puede anotar (D14, R23.4).
  *
  * Pendiente para el PR2: el hándicap de equipo se valida acá con los que COMPITEN (`miembros`), pero
  * `editarHandicapInscrito` lo recalcula con todos los miembros materializados (`integrantes`, WD incluidos).
@@ -328,8 +336,9 @@ export function motivoParaNoColocar(
     if (destino.tieneGolpes && equipoAlPie(format, destino)) {
       return motivo('equipo-al-pie', 'Ese equipo ya está al pie por sus retirados: no se le agregan jugadores.')
     }
-    // Simétrico del origen (D3): un equipo que ya juega no sigue bajo el mínimo de los que compiten.
-    if (destino.tieneGolpes && quedan < r.min) {
+    // Simétrico del origen (D3): un equipo de bola compartida que ya juega no sigue bajo el mínimo de los que
+    // compiten. En mejor bola uno solo juega (D14); con golpes y nadie compitiendo, ya lo frenó `equipo-al-pie`.
+    if (compartida && destino.tieneGolpes && quedan < r.min) {
       return motivo('equipo-con-golpes-incompleto', `El equipo ya tiene golpes y quedaría con ${quedan} jugador${quedan === 1 ? '' : 'es'} en juego; el mínimo es ${r.min}.`)
     }
     // Un equipo bajo el mínimo se puede ir llenando (D5, D7); su hándicap se exige cuando el tamaño es válido.
@@ -344,16 +353,16 @@ export function motivoParaNoColocar(
     if (origen.tieneGolpes && salenFilas > 0 && filas <= 0) {
       return motivo('equipo-con-golpes-sin-miembros', 'El equipo ya tiene golpes y quedaría sin jugadores.')
     }
-    // Sin golpes, el origen puede quedar incompleto o vacío (D7). Con golpes, nunca bajo el mínimo: un equipo
-    // que sigue rankeado tiene que tener quién juegue (por los que compiten) y no puede quedar con menos filas
-    // que el mínimo, porque `equipoIncompleto` le bloquearía el anotar al que queda (R23.4: el compañero de un
-    // WD sigue jugando solo, pero en una tarjeta que nació completa).
-    if (origen.tieneGolpes && salenMiembros > 0 && quedan < r.min) {
-      return motivo('equipo-con-golpes-incompleto', `El equipo ya tiene golpes y quedaría con ${quedan} jugador${quedan === 1 ? '' : 'es'} en juego; el mínimo es ${r.min}.`)
+    // Sin golpes, el origen puede quedar incompleto o vacío (D7). Con golpes, un equipo que sigue rankeado tiene
+    // que tener quién juegue: en bola compartida, `min` que compitan; en mejor bola, uno (D14, R23.4: juega solo;
+    // sin nadie, el equipo con golpes iría al pie, así que eliminar al último que compite se frena).
+    const minEnJuego = compartida ? r.min : 1
+    if (origen.tieneGolpes && salenMiembros > 0 && quedan < minEnJuego) {
+      return motivo('equipo-con-golpes-incompleto', `El equipo ya tiene golpes y quedaría con ${quedan} jugador${quedan === 1 ? '' : 'es'} en juego; el mínimo es ${minEnJuego}.`)
     }
-    if (origen.tieneGolpes && salenFilas > 0 && equipoIncompleto(format, filas)) {
-      return motivo('equipo-con-golpes-incompleto', `El equipo ya tiene golpes y su tarjeta quedaría con ${filas} jugador${filas === 1 ? '' : 'es'}; el mínimo es ${r.min}.`)
-    }
+    // No hace falta otra guarda por filas (`equipoIncompleto` con golpes): en mejor bola es siempre false (D14), y en
+    // bola compartida un WD/DQ no sale de un equipo con golpes (D1 lo frena al borrar, D11 al mover) y quien compite
+    // ya pasó la de arriba (filas ≥ miembros ≥ min).
     if (compartida && salenMiembros > 0 && quedan >= r.min && !handicapDeEquipoCalculable(format, quedan, handicap)) {
       return motivo('handicap-de-equipo', `Con ${quedan} jugadores no se puede calcular el hándicap del equipo con la configuración del torneo.`)
     }
