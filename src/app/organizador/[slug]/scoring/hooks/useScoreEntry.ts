@@ -175,6 +175,7 @@ export function useScoreEntry({
       marcarCargando()
       setSelectedId(playerId)
       resetHoleState()
+      setErrorHoles(new Set())
       setLastAction(null)
     },
     [resetHoleState, marcarCargando, enviarPendientes, getActiveRound, players, retomarFallidas],
@@ -189,6 +190,7 @@ export function useScoreEntry({
     marcarCargando()
     setSelectedId(null)
     resetHoleState()
+    setErrorHoles(new Set())
     // Cerrar la tarjeta (o cambiar de ronda) descarta el deshacer pendiente: el
     // botón "Deshacer hoyo N" quedaba vivo en el header sin tarjeta a la vista.
     setLastAction(null)
@@ -327,8 +329,9 @@ export function useScoreEntry({
 
       if (!res.ok) {
         marcar('fallo')
-        showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber}. Intenta nuevamente.`)
-        setErrorHoles((prev) => new Set(prev).add(holeNumber))
+        showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber} de ${resolveLegacyPlayerName(player)}. Intenta nuevamente.`)
+        // La marca roja es de ESTA tarjeta: si el organizador ya abrió a otro jugador, no se la pinta a él.
+        if (tarjetaRef.current === tarjeta) setErrorHoles((prev) => new Set(prev).add(holeNumber))
         return
       }
       marcar('guardado')

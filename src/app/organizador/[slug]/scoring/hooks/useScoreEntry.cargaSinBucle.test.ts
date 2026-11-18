@@ -64,11 +64,13 @@ describe('useScoreEntry — la carga de la tarjeta no entra en bucle', () => {
   })
 
   // Rosa tiene 2 putts y fairway en el hoyo 1; el organizador abre a Pedro y anota su hoyo 1 antes de que
-  // llegue la lectura de Pedro. El envío no puede llevar las stats de Rosa.
+  // llegue la lectura de Pedro. El envío no puede llevar las stats de Rosa. Desde #834 el golpe ni siquiera sale
+  // mientras la tarjeta de Pedro carga (podría pisar golpes guardados); al cargar, tampoco lleva nada de Rosa.
   it('anotar antes de que llegue la lectura del nuevo jugador no arrastra stats del anterior', async () => {
+    let cargarPedro!: (rows: unknown[]) => void
     vi.mocked(fetchRoundHoleScores)
       .mockResolvedValueOnce([{ hole_number: 1, gross_score: 4, putts: 2, fairway_hit: true, gir: true }] as never)
-      .mockImplementationOnce(() => new Promise(() => {}) as never)
+      .mockImplementationOnce(() => new Promise((res) => { cargarPedro = res as (rows: unknown[]) => void }) as never)
     const fetchMock = vi.fn(async () => new Response('{}', { status: 500 }))
     vi.stubGlobal('fetch', fetchMock)
     try {
@@ -81,7 +83,11 @@ describe('useScoreEntry — la carga de la tarjeta no entra en bucle', () => {
       await act(async () => result.current.selectPlayer('p2'))
       expect(result.current.holePutts[1]).toBeUndefined()
       await act(async () => { await result.current.saveScore(1, '5') })
+      expect(fetchMock).not.toHaveBeenCalled()
 
+      await act(async () => { cargarPedro([]) })
+      await act(async () => { await result.current.saveScore(1, '5') })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
       const cuerpo = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)
       expect(cuerpo.round_id).toBe('r2')
       expect(cuerpo.putts ?? null).toBeNull()
@@ -121,6 +127,24 @@ describe('useScoreEntry — la carga de la tarjeta no entra en bucle', () => {
       await act(async () => result.current.selectPlayer('p2'))
       await act(async () => { fallar(); await guardado })
       expect(result.current.errorHoles.has(5)).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  // Lo marcado en rojo en la tarjeta de Rosa no pasa a la de Pedro al cambiar de jugador.
+  it('las marcas rojas de un jugador se limpian al abrir a otro', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 })))
+    try {
+      const { result } = renderHook(() => useScoreEntry({
+        tournament: TOURNAMENT, players: PLAYERS, courseHoles: VACIO, courseTees: VACIO, holeCount: 18,
+        getActiveRound, applyRoundTotals, reloadRoster,
+      }))
+      await act(async () => result.current.selectPlayer('p1'))
+      await act(async () => { await result.current.saveScore(5, '6') })
+      expect(result.current.errorHoles.has(5)).toBe(true)
+      await act(async () => result.current.selectPlayer('p2'))
+      expect(result.current.errorHoles.size).toBe(0)
     } finally {
       vi.unstubAllGlobals()
     }
