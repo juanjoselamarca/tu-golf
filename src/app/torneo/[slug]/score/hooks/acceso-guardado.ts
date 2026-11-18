@@ -112,7 +112,8 @@ export function avisoSinAcceso(args: {
       if (args.conPruebaDeInvitado ?? tienePruebaDeInvitado()) {
         return {
           titulo: 'Se cortó tu acceso de invitado',
-          detalle: `${EN_EL_TELEFONO} Recupera el acceso y se envían solos.`,
+          // Corto (Fable #833 v2): lo que importa es que el botón los recupera aquí mismo.
+          detalle: 'Tus golpes quedaron en este teléfono. Recupera tu tarjeta y se envían solos.',
           cta: 'Recuperar mi tarjeta',
           accion: 'recuperar_invitado',
           href: verTorneo.href,
