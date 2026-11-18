@@ -273,21 +273,22 @@ export function armarTablaDelJuego(
   })
   const hoyosPuntuados = resultado.hoyos.filter(h => h.estado === 'puntuado').length
 
+  const frase = fraseDelEstado({
+    ranking,
+    hoyosPuntuados,
+    hoyosSinJugar: resultado.hoyos.filter(h => h.estado === 'sin_jugar').length,
+    totalHoyos: resultado.hoyos.length,
+    hayGolpes: resultado.hoyos.some(hoyoDelJuegoConGolpes),
+    hoyoDeSalida: resultado.hoyos[0]?.numero ?? 1,
+    cerrada: vista.rondaCerrada,
+  })
   return {
     titulo: config.plantilla === 'personalizado_total' ? NOMBRE_FORMATO_PERSONALIZADO : NOMBRE_PLANTILLA[config.plantilla],
     hoyosPuntuados,
     totalHoyos: resultado.hoyos.length,
     columnas: jugadorIds.map(id => ({ jugadorId: id, nombre: nombre(id) })),
     ranking,
-    frase: fraseDelEstado({
-      ranking,
-      hoyosPuntuados,
-      hoyosSinJugar: resultado.hoyos.filter(h => h.estado === 'sin_jugar').length,
-      totalHoyos: resultado.hoyos.length,
-      hayGolpes: resultado.hoyos.some(hoyoDelJuegoConGolpes),
-      hoyoDeSalida: resultado.hoyos[0]?.numero ?? 1,
-      cerrada: vista.rondaCerrada,
-    }),
+    frase,
     tramos,
     tramoDestacado,
     filas,
@@ -296,7 +297,8 @@ export function armarTablaDelJuego(
       .map(p => ({ letra: letras[p.id], nombre: nombreDelPuntito(p).toLocaleLowerCase('es-CL') })),
     esNeto: config.modo === 'neto',
     muestraGolpesRecibidos,
-    muestraHcp: config.modo === 'neto' && ultimoConGolpes == null && !vista.rondaCerrada,
+    // Mismo predicado que el título "Jugadores" de la vista (`frase.empezo`): no pueden divergir.
+    muestraHcp: config.modo === 'neto' && !frase.empezo && !vista.rondaCerrada,
     rondaCerrada: vista.rondaCerrada,
     sinHandicap: resultado.sinHandicap.map(nombre),
   }

@@ -117,7 +117,8 @@ export function RegistrationBanner({ codigo, onDismiss }: { codigo: string; onDi
           href={registerUrl(`/ronda-libre/${codigo}`)}
           style={{
             background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
-            fontSize: '13px', padding: '10px 18px', borderRadius: '8px',
+            fontSize: '13px', padding: '10px 18px', borderRadius: '8px', minHeight: '44px',
+            display: 'inline-flex', alignItems: 'center',
             textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
           }}
         >

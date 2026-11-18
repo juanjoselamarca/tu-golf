@@ -13,8 +13,8 @@ import { respuestaDelJuego } from './respuesta-del-juego'
 // 401 y el cliente lee el mismo cuerpo de `/juego/publico` (cacheada en el CDN).
 //
 // Qué ve el grupo en una Timba neto: los puntos y la marca de golpe recibido por hoyo de cada jugador. La respuesta
-// es `VistaDelJuego`, que hoy no trae el índice ni el hándicap de juego (por espacio y diseño, no por privacidad:
-// ver docs/specs/formato-personalizado.md). El neto se calcula acá con el lector de servicio (`indicesDePerfil`), nunca desde la respuesta
+// es `VistaDelJuego`: no trae el índice crudo ni el hándicap de juego; desde el 18-nov sí el HCP de 18 a mostrar
+// (`hcpAMostrar`, solo en neto, igual para todo visor; ver docs/specs/formato-personalizado.md). El neto se calcula acá con el lector de servicio (`indicesDePerfil`), nunca desde la respuesta
 // pública de `/live` (`courseHcpMap: {}`).
 
 export const dynamic = 'force-dynamic'

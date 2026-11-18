@@ -79,6 +79,15 @@ describe('etiquetasUnicas (casillas inequívocas)', () => {
     expect(etiquetasUnicas(['Pancho', 'Pablo', 'Tomás', 'Nico'])).toEqual(['Pn', 'Pb', 'T', 'N'])
     expect(etiquetasUnicas(['Matías', 'Martín', 'Tomás', 'Nico'])).toEqual(['Mt', 'Mr', 'T', 'N'])
     expect(etiquetasUnicas(['José', 'Jorge', 'Tomás', 'Nico'])).toEqual(['Js', 'Jr', 'T', 'N'])
+    // Muchos con la misma inicial y colisiones escalonadas: siguen siendo todas distintas.
+    for (const nombres of [
+      ['Pancho', 'Pablo', 'Pedro', 'Patricio', 'Paula', 'Pascual'],
+      ['Pancho', 'Pancho', 'Pancho', 'Pablo', 'Pablo', 'Pedro'],
+      ['Ana', 'Ana', 'Ana', 'Ana', 'Ana', 'Ana'],
+    ]) {
+      const etiquetas = etiquetasUnicas(nombres)
+      expect(new Set(etiquetas).size, nombres.join(',')).toBe(nombres.length)
+    }
   })
 
   it('una letra si alcanza', () => {

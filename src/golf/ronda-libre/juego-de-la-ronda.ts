@@ -166,7 +166,11 @@ export function vistaDelJuego(
     jugadorIds,
     resultado,
     golpesRecibidos: golpesRecibidosPorHoyo(entrada),
-    hcpAMostrar: Object.fromEntries(jugadorIds.map(id => [id, hcpAMostrar[id] ?? null])),
+    // Solo en neto: es lo único que la vista pinta, y en gross el HCP sería un dato expuesto sin uso (la ruta
+    // pública lo lee con el lector de servicio y del HCP de 18 + el tee se deduce el índice).
+    hcpAMostrar: Object.fromEntries(
+      jugadorIds.map(id => [id, entrada.config.modo === 'neto' ? (hcpAMostrar[id] ?? null) : null]),
+    ),
     marcas: entrada.marcas.map(m => ({ jugadorId: m.jugadorId, hoyo: m.hoyo, puntitoId: m.puntitoId })),
     retiros: { ...(entrada.retiros ?? {}) },
     rondaCerrada: entrada.rondaCerrada === true,

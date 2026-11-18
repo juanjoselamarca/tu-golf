@@ -116,7 +116,8 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
   })
 })
 
-// Decisión de Juanjo (17-nov): el link sin sesión muestra el juego en vivo y el resultado, con puntos y sin hándicaps.
+// Decisión de Juanjo (17-nov): el link sin sesión muestra el juego en vivo y el resultado, con puntos. Desde el 18-nov
+// ("en la Timba el anónimo ve todo") también el HCP de 18 a mostrar, solo en neto.
 describe('GET /api/ronda-libre/[codigo]/juego/publico', () => {
   const llamarPublico = (codigo = 'ABC123', query = '') =>
     GET_PUBLICO(new Request(`http://test/api/ronda-libre/${codigo}/juego/publico${query}`), { params: Promise.resolve({ codigo }) })
@@ -131,6 +132,16 @@ describe('GET /api/ronda-libre/[codigo]/juego/publico', () => {
     const esperado = { [TOMAS]: 19, [JUAN]: 11, [DIEGO]: 7, [PEDRO]: 'S/Ind' }
     expect(conSesionCuerpo.hcpAMostrar).toEqual(esperado)
     expect(anonimo.hcpAMostrar).toEqual(esperado)
+  })
+
+  it('en una Timba gross el HCP no viaja por ninguna de las dos rutas (todos null)', async () => {
+    reglasJuego = armarReglasGuardadas({ ...crearConfigDePlantilla('dos_cero_dos'), modo: 'gross' }, IDS)
+    const conSesionCuerpo = await (await llamar()).json()
+    conSesion = false
+    const anonimo = await (await llamarPublico()).json()
+    const todosNull = { [TOMAS]: null, [JUAN]: null, [DIEGO]: null, [PEDRO]: null }
+    expect(conSesionCuerpo.hcpAMostrar).toEqual(todosNull)
+    expect(anonimo.hcpAMostrar).toEqual(todosNull)
   })
 
   it('sin sesión entrega el mismo cuerpo que /juego (sin CH ni índice), cacheado en el CDN', async () => {
