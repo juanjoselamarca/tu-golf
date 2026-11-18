@@ -2529,7 +2529,7 @@ BEGIN
 
   IF NOT (
     v_is_service
-    OR (v_uid IS NOT NULL AND (v_user_id = v_uid OR public.puede_anotar_ronda(v_ronda_id)))
+    OR (v_uid IS NOT NULL AND (v_user_id IS NOT DISTINCT FROM v_uid OR public.puede_anotar_ronda(v_ronda_id)))
     -- Tarjeta de un invitado sin cuenta: cualquiera con el código la anota, salvo en la Timba (hay plata en juego y
     -- los ids de los jugadores salen en /juego/publico): ahí solo quien anota la ronda (rama de arriba). Decisión de
     -- Juanjo 18-nov; migración 20261121120000. IS DISTINCT FROM: formato_juego es NOT NULL, pero no se apuesta a eso.

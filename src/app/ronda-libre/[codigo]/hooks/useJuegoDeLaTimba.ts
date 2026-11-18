@@ -31,6 +31,8 @@ export type EstadoDelJuego =
 
 export const PLAZO_JUEGO_MS = 12_000
 export const RESPIRO_JUEGO_MS = 600
+/** Visor sin cuenta: cada cuántos pedidos públicos se vuelve a probar la privada (~2 min con el poll de 20 s). */
+export const REPROBAR_PRIVADA_CADA = 6
 
 export interface JuegoDeLaTimba {
   juego: EstadoDelJuego
@@ -51,7 +53,8 @@ export function useJuegoDeLaTimba(
     /**
      * El visor no tiene sesión (espectador anónimo con el link): su 401 no es un token que se está renovando, así
      * que se recuerda aunque cambie la `firma` (si no, cada golpe nuevo costaba un 401 más; QA 18-nov). Al
-     * ingresar cambia a `false` y se vuelve a probar la privada.
+     * ingresar cambia a `false` y se vuelve a probar la privada. Como "sin cuenta" sale de una sola lectura de la
+     * sesión (puede fallar con mala señal), igual se vuelve a probar la privada cada `REPROBAR_PRIVADA_CADA` pedidos.
      */
     visorSinCuenta?: boolean
   },
@@ -64,8 +67,9 @@ export function useJuegoDeLaTimba(
   // la `firma` (la de la página incluye al usuario: al ingresar se vuelve a probar la privada), salvo para un visor
   // sin cuenta, que lo recuerda hasta que ingresa.
   const sinSesion = useRef(false)
+  const publicosSeguidos = useRef(0)
   const olvidarCon = visorSinCuenta ? '' : firma
-  useEffect(() => { sinSesion.current = false }, [codigo, olvidarCon, visorSinCuenta])
+  useEffect(() => { sinSesion.current = false; publicosSeguidos.current = 0 }, [codigo, olvidarCon, visorSinCuenta])
 
   const recargar = useCallback(async () => {
     if (!activo) return
@@ -78,6 +82,10 @@ export function useJuegoDeLaTimba(
     try {
       const base = `/api/ronda-libre/${encodeURIComponent(codigo)}/juego`
       const publica = () => fetch(`${base}/publico`, { credentials: 'omit', signal: control.signal })
+      if (sinSesion.current && ++publicosSeguidos.current > REPROBAR_PRIVADA_CADA) {
+        sinSesion.current = false
+        publicosSeguidos.current = 0
+      }
       let esPublica = sinSesion.current
       let res = esPublica ? await publica() : await fetch(base, { cache: 'no-store', signal: control.signal })
       if (!esPublica && res.status === 401) {
