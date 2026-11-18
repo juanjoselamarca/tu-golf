@@ -5,7 +5,8 @@
 -- solo escribe: re-verifica lo que el plan leyó (control optimista) y vuelve a evaluar, BAJO LOCK, todo lo que
 -- depende de los golpes (el scorer puede anotar entre el plan y la escritura). Si cambias una regla acá, cambia
 -- `motivoParaNoColocar` (y viceversa): los códigos de `motivo` son los de `CodigoMotivoNoColocar`, más los que solo
--- existen bajo lock (conflicto, torneo-no-en-juego, tarjeta-cerrada, grupo-sin-tarjeta, cupo-lleno).
+-- existen bajo lock (conflicto, torneo-no-en-juego, torneo-varias-rondas, tarjeta-cerrada, tarjeta-con-timba,
+-- grupo-sin-tarjeta, cupo-lleno). `mismo-grupo` es de `CodigoMotivoNoColocar` y también se evalúa bajo lock.
 --
 -- Mover = UPDATE ronda_libre_jugadores.ronda_id: la fila conserva su id, así que viajan sus golpes, su
 -- ronda_libre_scores_orden y el enlace tournament_group_players.jugador_ronda_id. FK hacia ronda_libre_jugadores
@@ -26,8 +27,10 @@
 --      el cupo se cuenta atómico. Exige status = 'in_progress';
 --   3. rondas_libres de las tarjetas involucradas, ORDER BY id FOR NO KEY UPDATE. No FOR SHARE: en match play la
 --      RPC reescribe formato_juego, y subir de SHARE a UPDATE con el scorer adentro (rl FOR SHARE → rlj FOR UPDATE)
---      es un deadlock. Con NO KEY UPDATE el scorer y el cierre esperan en rl, antes de tomar nada que esta RPC
---      necesite; los inserts con FK a rondas_libres (FOR KEY SHARE) no esperan. Exige estado = 'en_curso';
+--      es un deadlock. Con NO KEY UPDATE el scorer individual (upsert_ronda_libre_scores) y el cierre esperan en rl,
+--      antes de tomar nada que esta RPC necesite; los inserts con FK a rondas_libres (FOR KEY SHARE) no esperan. El
+--      scorer de equipos (upsert_ronda_equipos_scores) no toca rl: bloquea solo su fila de ronda_equipos (FOR UPDATE
+--      OF re) y espera en el lock 6, sin tener nada que esta RPC pida antes. Exige estado = 'en_curso';
 --   4. players del inscrito y de los grupos involucrados, ORDER BY id FOR NO KEY UPDATE; después las `rounds` del
 --      inscrito FOR UPDATE (un golpe de su tarjeta individual, hole_scores, espera o queda visto);
 --   5. ronda_libre_jugadores de ambas tarjetas, ORDER BY id FOR UPDATE: serializa contra el scorer, y un
@@ -535,10 +538,11 @@ BEGIN
       v_aprobado := true;
     END IF;
 
-    -- D13: un equipo SIN golpes que se completa suelta TODAS sus filas WD/DQ (salen del grupo y de la tarjeta; la
-    -- inscripción queda, retirada y sin grupo). Si quedara alguna, `estadoDelEquipoFoursome` mandaría la pareja al
-    -- pie y en bola compartida, ya con golpes, contaría como fila.
-    IF v_equipo AND NOT v_d_golpes AND v_d_miembros + 1 >= v_min THEN
+    -- D13 (solo foursome, `al_pie_con_retirado`, como dice el plan): una pareja SIN golpes que se completa suelta
+    -- TODAS sus filas WD/DQ (salen del grupo y de la tarjeta; la inscripción queda, retirada y sin grupo). Si
+    -- quedara alguna, `estadoDelEquipoFoursome` mandaría la pareja al pie. En scramble y mejor bola el WD/DQ
+    -- conserva su fila (comportamiento de hoy; cambiarlo es decisión de producto).
+    IF v_pie_ret AND NOT v_d_golpes AND v_d_miembros + 1 >= v_min THEN
       SELECT COALESCE(array_agg(gp.id), '{}'), COALESCE(array_agg(gp.jugador_ronda_id) FILTER (WHERE gp.jugador_ronda_id IS NOT NULL), '{}')
         INTO v_ret_gp, v_ret_jr
         FROM public.tournament_group_players gp JOIN public.players p ON p.id = gp.player_id

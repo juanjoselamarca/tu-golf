@@ -208,3 +208,22 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
   - Sin regla nueva de hándicap.
   - `equipoIncompleto(format, {miembros, integrantes, tieneGolpes})`: false fuera de bola compartida o con
     `integrantes === 0`; si no, `tieneGolpes ? integrantes < min : miembros < min`.
+
+## Pendientes que deja el PR2 para el PR3 (y PR5)
+La RPC `colocar_inscrito_en_grupo` (migración 20261122100000) quedó con firma de 8 argumentos, sin
+`p_formato_tarjetas`: el formato de cada tarjeta tocada lo decide ella. D13 aplica solo a foursome
+(`al_pie_con_retirado`); en scramble y mejor bola el WD/DQ conserva su fila.
+- **(a) `InscritoAColocar.tieneFila`:** hoy TS le resta una fila al grupo de origen aunque el que sale sea un WD/DQ sin
+  fila; SQL no (`v_sale_f` = 0 si no tiene `jugador_ronda_id`). Falla cerrado (TS niega de más), pero hay que
+  alinearlos: TS tiene que restar la fila solo si existe.
+- **(b) `p_politica` sale del servidor:** la ruta la arma solo con `resolveFormatoJuego(torneo)` leído de la base y las
+  fuentes canónicas (`isTeamFormat`, `isSharedBallFormat`, `jugadoresPorEquipo`, `JUGADORES_POR_MATCH`), nunca con
+  datos del cliente.
+- **(c) Un solo predicado de match play:** `FORMAT_META[...].requiereParejas` (`formatoDeLaTarjetaDelGrupo`) e
+  `isMatchPlayFormat` dicen lo mismo con dos nombres; unificarlos en uno.
+- **(d) Mensajes:** copy para los motivos que solo devuelve la RPC: `tarjeta-con-timba`, `torneo-varias-rondas` y
+  `mismo-grupo` (además de `conflicto`, `torneo-no-en-juego`, `tarjeta-cerrada`, `grupo-sin-tarjeta`, `cupo-lleno`).
+- **(e) Cola offline tras mover (PR5):** un dispositivo con la tarjeta vieja recibe RONDA_NOT_FOUND al reintentar un
+  golpe de la fila movida; la cola no puede reintentar para siempre: debe descartar o reencauzar ese golpe.
+- `p_esperado` lleva por jugador la huella `status`, `handicap`, `tee_id`, `genero`, `category_id` (lo que entra al
+  hándicap de equipo).

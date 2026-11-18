@@ -1641,10 +1641,11 @@ BEGIN
       v_aprobado := true;
     END IF;
 
-    -- D13: un equipo SIN golpes que se completa suelta TODAS sus filas WD/DQ (salen del grupo y de la tarjeta; la
-    -- inscripción queda, retirada y sin grupo). Si quedara alguna, `estadoDelEquipoFoursome` mandaría la pareja al
-    -- pie y en bola compartida, ya con golpes, contaría como fila.
-    IF v_equipo AND NOT v_d_golpes AND v_d_miembros + 1 >= v_min THEN
+    -- D13 (solo foursome, `al_pie_con_retirado`, como dice el plan): una pareja SIN golpes que se completa suelta
+    -- TODAS sus filas WD/DQ (salen del grupo y de la tarjeta; la inscripción queda, retirada y sin grupo). Si
+    -- quedara alguna, `estadoDelEquipoFoursome` mandaría la pareja al pie. En scramble y mejor bola el WD/DQ
+    -- conserva su fila (comportamiento de hoy; cambiarlo es decisión de producto).
+    IF v_pie_ret AND NOT v_d_golpes AND v_d_miembros + 1 >= v_min THEN
       SELECT COALESCE(array_agg(gp.id), '{}'), COALESCE(array_agg(gp.jugador_ronda_id) FILTER (WHERE gp.jugador_ronda_id IS NOT NULL), '{}')
         INTO v_ret_gp, v_ret_jr
         FROM public.tournament_group_players gp JOIN public.players p ON p.id = gp.player_id

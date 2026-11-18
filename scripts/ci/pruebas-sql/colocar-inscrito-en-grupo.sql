@@ -112,6 +112,9 @@ INSERT INTO public.players (id, tournament_id, player_name, handicap_at_registra
   ('c8140000-0000-4000-8000-000000000203', 'b8140000-0000-4000-8000-000000000002', 'S3', 14, 'approved', NULL, gen_random_uuid()),
   ('c8140000-0000-4000-8000-000000000204', 'b8140000-0000-4000-8000-000000000002', 'S4', 16, 'approved', NULL, gen_random_uuid()),
   ('c8140000-0000-4000-8000-000000000210', 'b8140000-0000-4000-8000-000000000002', 'S10', 18, 'approved', NULL, gen_random_uuid()),
+  ('c8140000-0000-4000-8000-000000000211', 'b8140000-0000-4000-8000-000000000002', 'S11', 19, 'withdrawn', NULL, gen_random_uuid()),
+  ('c8140000-0000-4000-8000-000000000212', 'b8140000-0000-4000-8000-000000000002', 'S12', 20, 'approved', NULL, gen_random_uuid()),
+  ('c8140000-0000-4000-8000-000000000213', 'b8140000-0000-4000-8000-000000000002', 'S13', 21, 'approved', NULL, gen_random_uuid()),
   ('c8140000-0000-4000-8000-000000000301', 'b8140000-0000-4000-8000-000000000003', 'F1', 10, 'approved', NULL, gen_random_uuid()),
   ('c8140000-0000-4000-8000-000000000302', 'b8140000-0000-4000-8000-000000000003', 'F2', 12, 'withdrawn', NULL, gen_random_uuid()),
   ('c8140000-0000-4000-8000-000000000303', 'b8140000-0000-4000-8000-000000000003', 'F3', 14, 'approved', NULL, gen_random_uuid()),
@@ -151,7 +154,8 @@ INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, fo
   ('d8140000-0000-4000-8000-000000000014', 'CG8154', 'Cancha', current_date, 'a8140000-0000-4000-8000-000000000000', 'best_ball', 18, 'en_curso'),
   ('d8140000-0000-4000-8000-000000000017', 'CG8157', 'Cancha', current_date, 'a8140000-0000-4000-8000-000000000000', 'foursome', 18, 'en_curso'),
   ('d8140000-0000-4000-8000-000000000018', 'CG8158', 'Cancha', current_date, 'a8140000-0000-4000-8000-000000000000', 'foursome', 18, 'en_curso'),
-  ('d8140000-0000-4000-8000-000000000019', 'CG8159', 'Cancha', current_date, 'a8140000-0000-4000-8000-000000000000', 'scramble', 18, 'en_curso');
+  ('d8140000-0000-4000-8000-000000000019', 'CG8159', 'Cancha', current_date, 'a8140000-0000-4000-8000-000000000000', 'scramble', 18, 'en_curso'),
+  ('d8140000-0000-4000-8000-000000000020', 'CG8160', 'Cancha', current_date, 'a8140000-0000-4000-8000-000000000000', 'scramble', 18, 'en_curso');
 
 -- Filas de tarjeta: f814 + nº de player.
 INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre, handicap, scores) VALUES
@@ -171,6 +175,8 @@ INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre, handicap, scores
   ('f8140000-0000-4000-8000-000000000502', 'd8140000-0000-4000-8000-000000000009', 'M2', 12, '{}'),
   ('f8140000-0000-4000-8000-000000000503', 'd8140000-0000-4000-8000-000000000010', 'M3', 14, '{}'),
   ('f8140000-0000-4000-8000-000000000210', 'd8140000-0000-4000-8000-000000000019', 'S10', 18, '{}'),
+  ('f8140000-0000-4000-8000-000000000211', 'd8140000-0000-4000-8000-000000000020', 'S11', 19, '{}'),
+  ('f8140000-0000-4000-8000-000000000213', 'd8140000-0000-4000-8000-000000000020', 'S13', 21, '{}'),
   ('f8140000-0000-4000-8000-000000000305', 'd8140000-0000-4000-8000-000000000017', 'F5', 10, '{}'),
   ('f8140000-0000-4000-8000-000000000306', 'd8140000-0000-4000-8000-000000000017', 'F6', 11, '{}'),
   ('f8140000-0000-4000-8000-000000000308', 'd8140000-0000-4000-8000-000000000018', 'F8', 13, '{}'),
@@ -190,7 +196,8 @@ INSERT INTO public.ronda_equipos (id, ronda_id, nombre, handicap_equipo, handica
   ('a8140000-0000-4000-8000-000000000e14', 'd8140000-0000-4000-8000-000000000014', 'G14', NULL, NULL, '{}'),
   ('a8140000-0000-4000-8000-000000000e17', 'd8140000-0000-4000-8000-000000000017', 'G17', 5, 5, '{"1": 5}'),
   ('a8140000-0000-4000-8000-000000000e18', 'd8140000-0000-4000-8000-000000000018', 'G18', 5, 5, '{}'),
-  ('a8140000-0000-4000-8000-000000000e19', 'd8140000-0000-4000-8000-000000000019', 'G19', 4, 4, '{"1": 4}');
+  ('a8140000-0000-4000-8000-000000000e19', 'd8140000-0000-4000-8000-000000000019', 'G19', 4, 4, '{"1": 4}'),
+  ('a8140000-0000-4000-8000-000000000e20', 'd8140000-0000-4000-8000-000000000020', 'G20', NULL, NULL, '{}');
 INSERT INTO public.ronda_equipo_jugadores (equipo_id, jugador_id, orden) VALUES
   ('a8140000-0000-4000-8000-000000000e04', 'f8140000-0000-4000-8000-000000000201', 0),
   ('a8140000-0000-4000-8000-000000000e04', 'f8140000-0000-4000-8000-000000000202', 1),
@@ -206,7 +213,9 @@ INSERT INTO public.ronda_equipo_jugadores (equipo_id, jugador_id, orden) VALUES
   ('a8140000-0000-4000-8000-000000000e17', 'f8140000-0000-4000-8000-000000000306', 1),
   ('a8140000-0000-4000-8000-000000000e18', 'f8140000-0000-4000-8000-000000000308', 0),
   ('a8140000-0000-4000-8000-000000000e18', 'f8140000-0000-4000-8000-000000000309', 1),
-  ('a8140000-0000-4000-8000-000000000e19', 'f8140000-0000-4000-8000-000000000210', 0);
+  ('a8140000-0000-4000-8000-000000000e19', 'f8140000-0000-4000-8000-000000000210', 0),
+  ('a8140000-0000-4000-8000-000000000e20', 'f8140000-0000-4000-8000-000000000211', 0),
+  ('a8140000-0000-4000-8000-000000000e20', 'f8140000-0000-4000-8000-000000000213', 1);
 
 -- Grupos: e814 + nº.
 INSERT INTO public.tournament_groups (id, tournament_id, name, ronda_libre_id) VALUES
@@ -226,7 +235,8 @@ INSERT INTO public.tournament_groups (id, tournament_id, name, ronda_libre_id) V
   ('e8140000-0000-4000-8000-000000000016', 'b8140000-0000-4000-8000-000000000001', 'G16', NULL),
   ('e8140000-0000-4000-8000-000000000017', 'b8140000-0000-4000-8000-000000000003', 'G17', 'd8140000-0000-4000-8000-000000000017'),
   ('e8140000-0000-4000-8000-000000000018', 'b8140000-0000-4000-8000-000000000003', 'G18', 'd8140000-0000-4000-8000-000000000018'),
-  ('e8140000-0000-4000-8000-000000000019', 'b8140000-0000-4000-8000-000000000002', 'G19', 'd8140000-0000-4000-8000-000000000019');
+  ('e8140000-0000-4000-8000-000000000019', 'b8140000-0000-4000-8000-000000000002', 'G19', 'd8140000-0000-4000-8000-000000000019'),
+  ('e8140000-0000-4000-8000-000000000020', 'b8140000-0000-4000-8000-000000000002', 'G20', 'd8140000-0000-4000-8000-000000000020');
 
 INSERT INTO public.tournament_group_players (group_id, player_id, jugador_ronda_id) VALUES
   ('e8140000-0000-4000-8000-000000000001', 'c8140000-0000-4000-8000-000000000101', 'f8140000-0000-4000-8000-000000000101'),
@@ -245,6 +255,8 @@ INSERT INTO public.tournament_group_players (group_id, player_id, jugador_ronda_
   ('e8140000-0000-4000-8000-000000000009', 'c8140000-0000-4000-8000-000000000502', 'f8140000-0000-4000-8000-000000000502'),
   ('e8140000-0000-4000-8000-000000000010', 'c8140000-0000-4000-8000-000000000503', 'f8140000-0000-4000-8000-000000000503'),
   ('e8140000-0000-4000-8000-000000000019', 'c8140000-0000-4000-8000-000000000210', 'f8140000-0000-4000-8000-000000000210'),
+  ('e8140000-0000-4000-8000-000000000020', 'c8140000-0000-4000-8000-000000000211', 'f8140000-0000-4000-8000-000000000211'),
+  ('e8140000-0000-4000-8000-000000000020', 'c8140000-0000-4000-8000-000000000213', 'f8140000-0000-4000-8000-000000000213'),
   ('e8140000-0000-4000-8000-000000000017', 'c8140000-0000-4000-8000-000000000305', 'f8140000-0000-4000-8000-000000000305'),
   ('e8140000-0000-4000-8000-000000000017', 'c8140000-0000-4000-8000-000000000306', 'f8140000-0000-4000-8000-000000000306'),
   ('e8140000-0000-4000-8000-000000000018', 'c8140000-0000-4000-8000-000000000308', 'f8140000-0000-4000-8000-000000000308'),
@@ -299,6 +311,16 @@ BEGIN
   r := public.colocar_inscrito_en_grupo('b8140000-0000-4000-8000-000000000001', 'c8140000-0000-4000-8000-000000000101',
          'e8140000-0000-4000-8000-000000000002', jsonb_set(e, '{inscrito,genero}', '"F"'), NULL, '[]', pg_temp.pol('stroke_play'), false);
   PERFORM pg_temp.debe_negar(r, 'conflicto', 'conflicto optimista (género: entra al hándicap de equipo)');
+  r := public.colocar_inscrito_en_grupo('b8140000-0000-4000-8000-000000000001', 'c8140000-0000-4000-8000-000000000101',
+         'e8140000-0000-4000-8000-000000000002', jsonb_set(e, '{inscrito,tee_id}', to_jsonb(gen_random_uuid())), NULL, '[]', pg_temp.pol('stroke_play'), false);
+  PERFORM pg_temp.debe_negar(r, 'conflicto', 'conflicto optimista (tee del inscrito)');
+  r := public.colocar_inscrito_en_grupo('b8140000-0000-4000-8000-000000000001', 'c8140000-0000-4000-8000-000000000101',
+         'e8140000-0000-4000-8000-000000000002',
+         jsonb_set(e, '{grupos}', (SELECT jsonb_agg(jsonb_set(g, '{jugadores}', COALESCE((SELECT jsonb_agg(jsonb_set(j, '{category_id}', to_jsonb(gen_random_uuid())))
+                                                                                           FROM jsonb_array_elements(g->'jugadores') j), '[]')))
+                                     FROM jsonb_array_elements(e->'grupos') g)),
+         NULL, '[]', pg_temp.pol('stroke_play'), false);
+  PERFORM pg_temp.debe_negar(r, 'conflicto', 'conflicto optimista (categoría de un compañero)');
   e := jsonb_set(e, '{inscrito,handicap}', '11');
   r := public.colocar_inscrito_en_grupo('b8140000-0000-4000-8000-000000000001', 'c8140000-0000-4000-8000-000000000101',
          'e8140000-0000-4000-8000-000000000002', e, NULL, '[]', pg_temp.pol('stroke_play'), false);
@@ -454,7 +476,7 @@ END $$;
 
 -- ── Scramble: equipo creado, equipo borrado y D3 ─────────────────────────────────────────────────────────────
 DO $$
-DECLARE r jsonb;
+DECLARE r jsonb; v_foto jsonb;
 BEGIN
   -- S1 de G4 a G5 (tarjeta sin equipo): se crea el equipo; G4 queda con S2, incompleto y sin golpes (D7).
   r := pg_temp.colocar('b8140000-0000-4000-8000-000000000002', 'c8140000-0000-4000-8000-000000000201',
@@ -490,9 +512,29 @@ BEGIN
     'e8140000-0000-4000-8000-000000000004', 'scramble', NULL, '[]'), 'equipo-con-golpes-incompleto', 'D3 equipo con golpes bajo el mínimo');
   r := pg_temp.colocar('b8140000-0000-4000-8000-000000000002', 'c8140000-0000-4000-8000-000000000204', NULL, 'scramble');
   PERFORM pg_temp.debe_negar(r, 'borrar-con-golpes', 'D1 bola compartida: golpes del equipo');
-  -- G19 tiene golpes y una sola fila: sacarla deja golpes de equipo sin nadie.
+  -- G19 tiene golpes y una sola fila: sacarla deja golpes de equipo sin nadie. Y el "no" no escribe nada.
+  v_foto := pg_temp.foto();
   PERFORM pg_temp.debe_negar(pg_temp.colocar('b8140000-0000-4000-8000-000000000002', 'c8140000-0000-4000-8000-000000000210',
     'e8140000-0000-4000-8000-000000000005', 'scramble', NULL, '[]'), 'equipo-con-golpes-sin-miembros', 'equipo con golpes sin miembros');
+  IF pg_temp.foto() IS DISTINCT FROM v_foto
+     OR (SELECT scores FROM public.ronda_equipos WHERE id = 'a8140000-0000-4000-8000-000000000e19') IS DISTINCT FROM '{"1": 4}'::jsonb THEN
+    RAISE EXCEPTION 'FALLA: un "no" de equipos escribió';
+  END IF;
+  RAISE NOTICE 'OK un "no" de equipos no escribe';
+
+  -- D13 es solo de foursome: en scramble, completar el equipo deja la fila del WD (S11) donde está.
+  r := pg_temp.colocar('b8140000-0000-4000-8000-000000000002', 'c8140000-0000-4000-8000-000000000212',
+         'e8140000-0000-4000-8000-000000000020', 'scramble', '{"nombre": "S12"}',
+         '[{"group_id": "e8140000-0000-4000-8000-000000000020", "handicap_equipo": 5, "handicap_equipo_juego": 5}]');
+  PERFORM pg_temp.debe_pasar(r, 'scramble completar con un WD');
+  IF (r->>'retirados_quitados')::integer <> 0
+     OR NOT EXISTS (SELECT 1 FROM public.ronda_libre_jugadores WHERE id = 'f8140000-0000-4000-8000-000000000211')
+     OR NOT EXISTS (SELECT 1 FROM public.tournament_group_players WHERE player_id = 'c8140000-0000-4000-8000-000000000211'
+                      AND group_id = 'e8140000-0000-4000-8000-000000000020')
+     OR (SELECT count(*) FROM public.ronda_equipo_jugadores WHERE equipo_id = 'a8140000-0000-4000-8000-000000000e20') <> 3 THEN
+    RAISE EXCEPTION 'FALLA: en scramble D13 sacó al WD: %', r;
+  END IF;
+  RAISE NOTICE 'OK scramble: completar el equipo no borra la fila del WD';
 END $$;
 
 -- ── Foursome: D13 ────────────────────────────────────────────────────────────────────────────────────────────
