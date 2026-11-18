@@ -39,13 +39,17 @@ describe('pedirTarjetaVigente (cliente)', () => {
     expect(JSON.parse(String(init.body))).toEqual({ player_id: 'p1' })
     expect((init.headers as Record<string, string>)['x-guest-id']).toBe('g')
   })
-  it.each([[403, { code: 'card_not_yours' }], [409, { reason: 'tournament_closed' }], [503, { code: 'sin_soporte' }]])(
+  it.each([[409, { reason: 'tournament_closed' }], [503, { code: 'sin_soporte' }]])(
     '%i es una respuesta (no "sin conexión")',
     async (status, body) => {
       responde(status, body)
       expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe('respondio')
     },
   )
+  it('403 → sin_permiso (repetir no cambia nada)', async () => {
+    responde(403, { code: 'card_not_yours' })
+    expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe('sin_permiso')
+  })
   it('401 → sin_sesion (no "Todavía no aparece": la sesión se cerró)', async () => {
     responde(401, { error: 'x' })
     expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe('sin_sesion')

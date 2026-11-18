@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { pedirTarjetaVigente } from '@/lib/data/tournaments/tarjeta-vigente'
 
 /** Lo que se dice bajo los botones del aviso sin tarjeta tras "Buscar mi tarjeta". */
@@ -8,7 +8,8 @@ export const MENSAJE_BUSQUEDA_TARJETA = {
   no_aparece: 'Todavía no aparece. Sigue en papel.',
   sin_conexion: 'Sin conexión. Intenta de nuevo.',
   // Va con el enlace "Iniciar sesión" de `avisoSinAcceso('sin_sesion')`, que vuelve a esta tarjeta.
-  sin_sesion: 'Tu sesión se cerró. Inicia sesión para buscarla.',
+  // Sin "tu sesión se cerró": vale también para quien nunca la inició.
+  sin_sesion: 'Inicia sesión para buscarla.',
 } as const
 
 export type ResultadoBusquedaTarjeta = keyof typeof MENSAJE_BUSQUEDA_TARJETA
@@ -33,6 +34,11 @@ export function useBuscarTarjeta(args: {
   guestToken: string | null
   /** Relee el roster. `true` si se pudo. */
   reloadRoster: () => Promise<boolean>
+  /**
+   * Buscar sola, UNA vez por jugador, cuando pasa a `true` (vuelta del login con `?jugador=` a una
+   * tarjeta sin tarjeta: el jugador ya pidió buscarla antes de iniciar sesión).
+   */
+  buscarAlAbrir?: boolean
 }) {
   const [buscando, setBuscando] = useState(false)
   const [ultimo, setUltimo] = useState<{ playerId: string; tipo: ResultadoBusquedaTarjeta } | null>(null)
@@ -57,6 +63,15 @@ export function useBuscarTarjeta(args: {
       setBuscando(false)
     }
   }
+
+  const yaBuscadaAlAbrir = useRef<Set<string>>(new Set())
+  const buscarRef = useRef(buscar)
+  useEffect(() => { buscarRef.current = buscar })
+  useEffect(() => {
+    if (!args.buscarAlAbrir || !args.playerId || yaBuscadaAlAbrir.current.has(args.playerId)) return
+    yaBuscadaAlAbrir.current.add(args.playerId)
+    void buscarRef.current()
+  }, [args.buscarAlAbrir, args.playerId])
 
   const resultado = ultimo && ultimo.playerId === args.playerId ? ultimo.tipo : null
   return { buscando, resultado, buscar }

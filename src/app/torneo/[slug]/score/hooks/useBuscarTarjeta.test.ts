@@ -48,6 +48,8 @@ describe('useBuscarTarjeta ("Buscar mi tarjeta")', () => {
     expect(result.current.resultado).toBe('sin_conexion')
     expect(args.reloadRoster).toHaveBeenCalledTimes(1)
     expect(MENSAJE_BUSQUEDA_TARJETA.sin_conexion).toBe('Sin conexión. Intenta de nuevo.')
+    // Sin "tu sesión se cerró": vale para quien nunca la inició.
+    expect(MENSAJE_BUSQUEDA_TARJETA.sin_sesion).toBe('Inicia sesión para buscarla.')
   })
 
   it('el roster no se pudo releer → "Sin conexión"', async () => {
@@ -83,6 +85,21 @@ describe('useBuscarTarjeta ("Buscar mi tarjeta")', () => {
     const { result } = renderHook(() => useBuscarTarjeta(base()))
     await act(async () => { await result.current.buscar() })
     expect(result.current.resultado).toBe('sin_sesion')
+  })
+
+  it('buscarAlAbrir (vuelta del login): busca sola UNA vez por jugador', async () => {
+    const reloadRoster = vi.fn(async () => true)
+    const { rerender } = renderHook((p: { abrir: boolean; playerId: string }) =>
+      useBuscarTarjeta(base({ playerId: p.playerId, buscarAlAbrir: p.abrir, reloadRoster })), { initialProps: { abrir: false, playerId: 'p1' } })
+    await act(async () => {})
+    expect(pedirTarjetaVigente).not.toHaveBeenCalled()
+    rerender({ abrir: true, playerId: 'p1' })
+    await act(async () => {})
+    expect(pedirTarjetaVigente).toHaveBeenCalledTimes(1)
+    rerender({ abrir: false, playerId: 'p1' })
+    rerender({ abrir: true, playerId: 'p1' })
+    await act(async () => {})
+    expect(pedirTarjetaVigente).toHaveBeenCalledTimes(1)
   })
 
   it('sin jugador elegido no hace nada', async () => {

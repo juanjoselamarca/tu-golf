@@ -67,12 +67,13 @@ export async function asegurarTarjetaVigente(
 /**
  * Qué contestó el servidor a "pedir la tarjeta" (el scorer decide mirando el roster recargado, que es
  * la verdad de si la tarjeta está):
- * - `respondio`: 2xx/403/409/429, o 503 `sin_soporte` (la función aún no está en la base). El
- *   scorer sigue con el flujo de papel.
- * - `sin_sesion`: 401. La sesión se cerró: el scorer ofrece iniciar sesión y volver a esta tarjeta.
+ * - `respondio`: 2xx/409/429, o 503 `sin_soporte` (la función aún no está en la base). El scorer
+ *   sigue con el flujo de papel.
+ * - `sin_permiso`: 403 (no es su tarjeta, o el acceso de invitado no sirve). Repetir no cambia nada.
+ * - `sin_sesion`: 401. Sin sesión (vencida o nunca iniciada): el scorer ofrece iniciar sesión.
  * - `sin_conexion`: corte de red, plazo vencido o 5xx sin `sin_soporte`.
  */
-export type RespuestaPedirTarjeta = 'respondio' | 'sin_sesion' | 'sin_conexion'
+export type RespuestaPedirTarjeta = 'respondio' | 'sin_permiso' | 'sin_sesion' | 'sin_conexion'
 
 /** Cliente: pide al servidor que asegure la tarjeta vigente del jugador. Nunca lanza. */
 export async function pedirTarjetaVigente(args: {
@@ -94,6 +95,7 @@ export async function pedirTarjetaVigente(args: {
       { leerCuerpoSiNoOk: true },
     )
     if (res.status === 401) return 'sin_sesion'
+    if (res.status === 403) return 'sin_permiso'
     if (res.status < 500) return 'respondio'
     return (json as { code?: unknown } | null)?.code === CODIGO_TARJETA_SIN_SOPORTE ? 'respondio' : 'sin_conexion'
   } catch {

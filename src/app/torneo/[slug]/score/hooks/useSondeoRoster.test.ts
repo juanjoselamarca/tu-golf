@@ -6,7 +6,7 @@ vi.mock('@/lib/data/tournaments/tarjeta-vigente', () => ({
   pedirTarjetaVigente: (...a: unknown[]) => pedirTarjetaVigente(...a),
 }))
 
-import { useSondeoRoster, INTERVALO_SONDEO_ROSTER_MS } from './useSondeoRoster'
+import { useSondeoRoster, INTERVALO_SONDEO_ROSTER_MS, rondaSiguienteYaAbierta } from './useSondeoRoster'
 
 const tick = async () => { await act(async () => { await vi.advanceTimersByTimeAsync(INTERVALO_SONDEO_ROSTER_MS) }) }
 const PEDIR = { slug: 'copa', playerId: 'p1', guestId: null, guestToken: null }
@@ -51,6 +51,25 @@ describe('useSondeoRoster', () => {
     expect(reloadRoster).toHaveBeenCalledTimes(1)
   })
 
+  it.each([['sin_sesion'], ['sin_permiso']])('tras un %s deja de pedir la tarjeta (solo relee)', async (r) => {
+    pedirTarjetaVigente.mockResolvedValue(r)
+    const reloadRoster = reload()
+    renderHook(() => useSondeoRoster({ activo: true, pedirTarjeta: PEDIR, reloadRoster }))
+    await tick()
+    await tick()
+    await tick()
+    expect(pedirTarjetaVigente).toHaveBeenCalledTimes(1)
+    expect(reloadRoster).toHaveBeenCalledTimes(3)
+  })
+
+  it('un 409 (respondio) no corta: vuelve a pedir en el próximo tick', async () => {
+    const reloadRoster = reload()
+    renderHook(() => useSondeoRoster({ activo: true, pedirTarjeta: PEDIR, reloadRoster }))
+    await tick()
+    await tick()
+    expect(pedirTarjetaVigente).toHaveBeenCalledTimes(2)
+  })
+
   it('con la pestaña oculta no sondea', async () => {
     const reloadRoster = reload()
     const oculto = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
@@ -67,5 +86,19 @@ describe('useSondeoRoster', () => {
     await tick()
     await tick()
     expect(pedirTarjetaVigente).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('rondaSiguienteYaAbierta (cuándo el sondeo pide la tarjeta)', () => {
+  it('entre rondas (nadie tiene tarjeta de la 2) → no: 0 POST mientras se espera', () => {
+    const roster = [{ rounds: [{ round_number: 1 }] }, { rounds: [{ round_number: 1 }] }, { rounds: null }]
+    expect(rondaSiguienteYaAbierta(roster, 1)).toBe(false)
+  })
+  it('la ronda 2 ya abierta para otro jugador → sí', () => {
+    const roster = [{ rounds: [{ round_number: 1 }] }, { rounds: [{ round_number: 1 }, { round_number: 2 }] }]
+    expect(rondaSiguienteYaAbierta(roster, 1)).toBe(true)
+  })
+  it('round_number nulo cuenta como 1', () => {
+    expect(rondaSiguienteYaAbierta([{ rounds: [{ round_number: null }] }], 1)).toBe(false)
   })
 })

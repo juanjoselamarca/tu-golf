@@ -22,7 +22,7 @@ import { avisoSinAcceso, avisoSinTarjeta } from './hooks/acceso-guardado'
 import { elegirJugadorInicial, urlSinJugador } from './hooks/jugador-del-link'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import { useBuscarTarjeta, MENSAJE_BUSQUEDA_TARJETA } from './hooks/useBuscarTarjeta'
-import { useSondeoRoster } from './hooks/useSondeoRoster'
+import { useSondeoRoster, rondaSiguienteYaAbierta } from './hooks/useSondeoRoster'
 import {
   fetchScoringTournament,
   fetchScoringRoster,
@@ -131,8 +131,11 @@ export default function PlayerScoringPage() {
   }, [tournament, slug])
 
   // "Buscar mi tarjeta" del aviso sin tarjeta: el servidor la asegura y después se relee el roster.
+  // Vuelta del login (`?jugador=`): si esa tarjeta resulta sin tarjeta, se busca sola UNA vez.
+  const [jugadorDelLogin, setJugadorDelLogin] = useState<string | null>(null)
   const busqueda = useBuscarTarjeta({
     slug, playerId: selectedPlayerEarly?.id ?? null, guestId, guestToken: guestTokenValue, reloadRoster,
+    buscarAlAbrir: !!selectedPlayerEarly && selectedPlayerEarly.id === jugadorDelLogin && ronda.sinTarjeta,
   })
 
   /**
@@ -182,12 +185,14 @@ export default function PlayerScoringPage() {
   // ronda, no hay nada que esperar) y sólo con la pestaña visible.
   // Sin tarjeta también: si aparece (la crea el servidor o un reintento), la pantalla vuelve sola.
   // Con el torneo ya cerrado (el servidor lo dijo al guardar) no hay nada que esperar.
-  // Esperando la ronda siguiente, además pide la tarjeta: si startNextRound no se la abrió, la crea el servidor.
-  const hayRondaSiguiente = (ronda.round?.round_number ?? 1) < (tournament?.total_rounds ?? 1)
+  // Si la ronda siguiente YA está abierta para otros y este jugador sigue en la cerrada, startNextRound no le
+  // abrió la suya: el sondeo la pide al servidor. Entre rondas no pide nada (sería un POST por jugador, todos 409).
+  const rondaActual = ronda.round?.round_number ?? 1
+  const hayRondaSiguiente = rondaActual < (tournament?.total_rounds ?? 1)
   const esperaRondaSiguiente = rondaCerrada && hayRondaSiguiente
   useSondeoRoster({
     activo: (esperaRondaSiguiente || ronda.sinTarjeta) && !torneoInactivo,
-    pedirTarjeta: esperaRondaSiguiente && selectedPlayerEarly
+    pedirTarjeta: esperaRondaSiguiente && selectedPlayerEarly && rondaSiguienteYaAbierta(players, rondaActual)
       ? { slug, playerId: selectedPlayerEarly.id, guestId, guestToken: guestTokenValue }
       : null,
     reloadRoster,
@@ -253,7 +258,10 @@ export default function PlayerScoringPage() {
             if (cancelled || !eleccion) return
             setSelectedId(eleccion.id)
             // Usado una vez: recargar el roster después no vuelve a forzar esa tarjeta.
-            if (eleccion.desdeLink) window.history.replaceState(window.history.state, '', urlSinJugador(window.location.href))
+            if (eleccion.desdeLink) {
+              window.history.replaceState(window.history.state, '', urlSinJugador(window.location.href))
+              setJugadorDelLogin(eleccion.id)
+            }
           })
           .catch((e) => {
             void captureError(e, { context: 'torneo.score.guestPlayer', meta: { slug } })
