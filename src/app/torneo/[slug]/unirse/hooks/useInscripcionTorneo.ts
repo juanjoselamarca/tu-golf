@@ -9,7 +9,7 @@ import type {
   InvitadosInfo,
 } from '@/lib/data/tournaments/joinFlow'
 import type { CapacityInfo } from '@/lib/data/tournaments/enrollPlayer'
-import { clearGuestSession, getGuestToken, getOrCreateGuestId, setGuestHandicap as saveGuestHandicap, setGuestName as saveGuestName, setGuestToken } from '@/lib/guest-session'
+import { clearGuestSession, getGuestToken, obtenerOCrearIdentidadInvitado, setGuestHandicap as saveGuestHandicap, setGuestName as saveGuestName, setGuestToken } from '@/lib/guest-session'
 import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
 import { PLAZO_INSCRIPCION_MS } from '@/lib/red/plazos'
 
@@ -166,7 +166,7 @@ export function useInscripcionTorneo(slug: string) {
     setError(null)
 
     const handicapNum = leerCampoHandicap(guestHandicap).valor ?? undefined
-    const postGuestJoin = async (guestId: string, guestToken: string | undefined) =>
+    const postGuestJoin = async ({ guestId, prueba }: { guestId: string; prueba: string | null }, guestToken: string | undefined) =>
       aRespuestaJson(await fetchJsonConPlazo(`/api/torneos/${encodeURIComponent(slug)}/guest-join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,21 +175,22 @@ export function useInscripcionTorneo(slug: string) {
           name: trimmedName,
           handicap: handicapNum,
           guestToken,
+          guestProof: prueba ?? undefined,
         }),
       }, PLAZO_INSCRIPCION_MS, { leerCuerpoSiNoOk: true }))
 
     let res: RespuestaJson
     try {
-      // Si este guestId ya tiene jugador, el server sólo le reemite el token a quien pruebe
-      // que ya lo tenía: va el guardado.
-      res = await postGuestJoin(getOrCreateGuestId(), getGuestToken() ?? undefined)
-      // 403 guest_token_required: el guestId ya tiene jugador y aquí no está su token (la
-      // respuesta que lo traía se perdió en la señal de la cancha). Ese jugador ya no se puede
-      // usar desde este dispositivo, así que se entra una vez con un invitado nuevo: una fila
-      // repetida la borra el organizador, un jugador bloqueado en el tee 1 no tiene salida.
+      // Si este guestId ya tiene jugador, el server sólo le reemite el token a quien pruebe que es
+      // su dueño: va el token guardado y la prueba de la que se derivó el guestId (ésta no se pierde
+      // con la respuesta, así que el reintento tras una respuesta perdida recupera su jugador).
+      res = await postGuestJoin(await obtenerOCrearIdentidadInvitado(), getGuestToken() ?? undefined)
+      // 403 guest_token_required: el guestId tiene jugador en OTRO torneo y aquí no hay cómo probarlo.
+      // En este torneo no hay nadie con él, así que se entra una vez con un invitado nuevo.
+      // (guest_access_lost, ya inscrito en ESTE torneo, NO se reintenta: sería la misma persona dos veces.)
       if (res.status === 403 && (res.body as { error?: string } | null)?.error === 'guest_token_required') {
         clearGuestSession()
-        res = await postGuestJoin(getOrCreateGuestId(), undefined)
+        res = await postGuestJoin(await obtenerOCrearIdentidadInvitado(), undefined)
       }
     } catch {
       setError('No pudimos confirmar tu inscripción. Revisa tu señal y vuelve a intentarlo.')

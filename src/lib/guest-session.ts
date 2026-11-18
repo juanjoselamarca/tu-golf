@@ -15,23 +15,39 @@
  * invitado.
  */
 
+import { guestIdDePrueba, nuevaPruebaDeInvitado } from '@/lib/guest-identity'
+
 const GUEST_ID_KEY = 'gp_guest_id'
 const GUEST_TOKEN_KEY = 'gp_guest_token'
 const GUEST_NAME_KEY = 'gp_guest_name'
 const GUEST_HANDICAP_KEY = 'gp_guest_handicap'
+/** Prueba secreta de la que se deriva el guestId (ver `@/lib/guest-identity`). */
+const GUEST_PROOF_KEY = 'gp_guest_proof'
 
 /**
- * Obtiene o crea un ID de invitado (UUID v4 persistido en localStorage).
- * Solo ejecutar en el browser.
+ * Identidad de invitado de este teléfono para inscribirse: la que ya tiene, o una nueva cuyo guestId se
+ * deriva de una prueba secreta guardada aquí. La prueba es lo que deja recuperar el token si la respuesta
+ * de la inscripción se pierde (sin ella, el reintento duplicaba al jugador). Un guestId anterior a la
+ * prueba (aleatorio) se conserva tal cual: puede tener ya un jugador inscrito. Solo en el browser.
  */
-export function getOrCreateGuestId(): string {
-  if (typeof window === 'undefined') return ''
-  let id = localStorage.getItem(GUEST_ID_KEY)
-  if (!id) {
-    id = crypto.randomUUID()
-    localStorage.setItem(GUEST_ID_KEY, id)
+export async function obtenerOCrearIdentidadInvitado(): Promise<{ guestId: string; prueba: string | null }> {
+  const actual = localStorage.getItem(GUEST_ID_KEY)
+  if (actual) {
+    const prueba = localStorage.getItem(GUEST_PROOF_KEY)
+    return { guestId: actual, prueba: prueba && (await guestIdDePrueba(prueba)) === actual ? prueba : null }
   }
-  return id
+  // Sin Web Crypto (sólo pasa fuera de HTTPS, p. ej. desarrollo por IP de la red): guestId aleatorio sin prueba.
+  if (!globalThis.crypto?.subtle) {
+    const id = crypto.randomUUID()
+    localStorage.setItem(GUEST_ID_KEY, id)
+    return { guestId: id, prueba: null }
+  }
+  const prueba = nuevaPruebaDeInvitado()
+  const guestId = await guestIdDePrueba(prueba)
+  // La prueba se guarda ANTES de usar el guestId: si la inscripción sale, el teléfono ya puede probarlo.
+  localStorage.setItem(GUEST_PROOF_KEY, prueba)
+  localStorage.setItem(GUEST_ID_KEY, guestId)
+  return { guestId, prueba }
 }
 
 export function getGuestId(): string | null {
@@ -86,6 +102,7 @@ export function clearGuestSession(): void {
   localStorage.removeItem(GUEST_TOKEN_KEY)
   localStorage.removeItem(GUEST_NAME_KEY)
   localStorage.removeItem(GUEST_HANDICAP_KEY)
+  localStorage.removeItem(GUEST_PROOF_KEY)
 }
 
 /**

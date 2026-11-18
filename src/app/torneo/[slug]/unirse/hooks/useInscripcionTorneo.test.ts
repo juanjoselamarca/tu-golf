@@ -9,7 +9,7 @@ const red = vi.hoisted(() => ({ fetchJsonConPlazo: vi.fn() }))
 vi.mock('@/lib/red/fetch-json-con-plazo', () => red)
 
 const guest = vi.hoisted(() => ({
-  getOrCreateGuestId: vi.fn(() => 'guest-1'),
+  obtenerOCrearIdentidadInvitado: vi.fn(async () => ({ guestId: 'guest-1', prueba: 'prueba-1' as string | null })),
   getGuestToken: vi.fn((): string | null => null),
   setGuestName: vi.fn(),
   setGuestHandicap: vi.fn(),
@@ -134,7 +134,7 @@ describe('useInscripcionTorneo · invitado', () => {
     await act(() => result.current.handleGuestJoin())
     const [url, init] = red.fetchJsonConPlazo.mock.calls[1]
     expect(url).toBe('/api/torneos/copa/guest-join')
-    expect(JSON.parse(init.body)).toEqual({ guestId: 'guest-1', name: 'Pedro Pérez', handicap: 18.5 })
+    expect(JSON.parse(init.body)).toEqual({ guestId: 'guest-1', name: 'Pedro Pérez', handicap: 18.5, guestProof: 'prueba-1' })
     expect(guest.setGuestName).toHaveBeenCalledWith('Pedro Pérez')
     expect(guest.setGuestHandicap).toHaveBeenCalledWith(18.5)
     expect(guest.setGuestToken).toHaveBeenCalledWith('tok')
@@ -157,7 +157,9 @@ describe('useInscripcionTorneo · invitado', () => {
   // guestId cuyo token este dispositivo nunca guardó, y el server ya no lo reemite.
   it('guest_token_required → entra con un invitado nuevo, una sola vez', async () => {
     guest.getGuestToken.mockReturnValueOnce('tok-viejo')
-    guest.getOrCreateGuestId.mockReturnValueOnce('guest-1').mockReturnValueOnce('guest-2')
+    guest.obtenerOCrearIdentidadInvitado
+      .mockResolvedValueOnce({ guestId: 'guest-1', prueba: null })
+      .mockResolvedValueOnce({ guestId: 'guest-2', prueba: 'prueba-2' })
     const { result } = await montar(ANON)
     act(() => result.current.setGuestName('Pedro'))
     red.fetchJsonConPlazo
@@ -169,8 +171,30 @@ describe('useInscripcionTorneo · invitado', () => {
     const reintento = JSON.parse(red.fetchJsonConPlazo.mock.calls[2][1].body)
     expect(reintento.guestId).toBe('guest-2')
     expect(reintento.guestToken).toBeUndefined()
+    expect(reintento.guestProof).toBe('prueba-2')
     expect(guest.setGuestToken).toHaveBeenCalledWith('tok-guest-2')
     expect(router.push).toHaveBeenCalledWith('/torneo/copa/score')
+  })
+
+  it('manda la prueba de su guestId (recupera su jugador si la respuesta anterior se perdió)', async () => {
+    const { result } = await montar(ANON)
+    act(() => result.current.setGuestName('Pedro'))
+    red.fetchJsonConPlazo.mockResolvedValueOnce(respuesta(200, { guestToken: 'tok' }))
+    await act(() => result.current.handleGuestJoin())
+    expect(JSON.parse(red.fetchJsonConPlazo.mock.calls[1][1].body)).toMatchObject({ guestId: 'guest-1', guestProof: 'prueba-1' })
+  })
+
+  // Bug (18-nov): ya inscrito en ESTE torneo sin poder probarlo → antes se limpiaba la sesión y se
+  // inscribía otro invitado: la misma persona dos veces en el leaderboard.
+  it('guest_access_lost → NO se inscribe con otro invitado: muestra el mensaje y conserva la sesión', async () => {
+    const { result } = await montar(ANON)
+    act(() => result.current.setGuestName('Pedro'))
+    red.fetchJsonConPlazo.mockResolvedValueOnce(respuesta(403, { error: 'guest_access_lost', message: 'Ya estás inscrito en este torneo.' }))
+    await act(() => result.current.handleGuestJoin())
+    expect(red.fetchJsonConPlazo).toHaveBeenCalledTimes(2)
+    expect(guest.clearGuestSession).not.toHaveBeenCalled()
+    expect(result.current.error).toBe('Ya estás inscrito en este torneo.')
+    expect(router.push).not.toHaveBeenCalled()
   })
 
   it('guest_token_required también en el reintento → muestra el mensaje, no reintenta más', async () => {
