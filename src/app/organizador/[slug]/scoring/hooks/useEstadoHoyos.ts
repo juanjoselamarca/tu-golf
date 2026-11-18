@@ -96,10 +96,11 @@ function alCambiarSesion(evento: string, uid: string | null) {
 }
 function escucharSesion() {
   if (sesionEscuchada || typeof window === 'undefined') return
-  sesionEscuchada = true
   try {
     // Callback síncrono (nada de async en un listener de auth).
     createClient().auth.onAuthStateChange((evento, sesion) => alCambiarSesion(evento, sesion?.user?.id ?? null))
+    // Recién suscrito con éxito se marca: si lanzó, el próximo store vuelve a intentarlo.
+    sesionEscuchada = true
   } catch (e) {
     void captureError(e, { context: 'scoring.useEstadoHoyos.auth' })
   }

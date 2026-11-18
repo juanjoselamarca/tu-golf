@@ -89,7 +89,7 @@ export function ScoringHeader({
             </button>
           )}
           {avisoPendientes && descartarOtras && (
-            <BotonDescartarOtras detalle={descartarOtras.detalle} onConfirmar={descartarOtras.onConfirmar} />
+            <BotonDescartarOtras key={descartarOtras.detalle} detalle={descartarOtras.detalle} onConfirmar={descartarOtras.onConfirmar} />
           )}
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
