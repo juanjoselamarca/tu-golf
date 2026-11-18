@@ -6,8 +6,11 @@
  */
 import { nombreDelPuntito, type PuntitoConfig, type ResultadoHoyoDelJuego } from '@/golf/formats/personalizado'
 
-/** El hoyo tiene al menos un golpe anotado (o ya se puntuó). */
-export function hoyoConGolpes(h: Pick<ResultadoHoyoDelJuego, 'estado' | 'scoreDeJuego'>): boolean {
+/**
+ * El hoyo del juego tiene al menos un golpe anotado (o ya se puntuó). Lee un hoyo del `ResultadoJuego`; para la
+ * tarjeta cruda (`scores` por hoyo) está `hoyoConGolpes` de progreso-de-ronda.
+ */
+export function hoyoDelJuegoConGolpes(h: Pick<ResultadoHoyoDelJuego, 'estado' | 'scoreDeJuego'>): boolean {
   return h.estado === 'puntuado' || Object.values(h.scoreDeJuego).some(s => typeof s === 'number')
 }
 
@@ -35,21 +38,37 @@ export function estadoDelTramo(hoyos: readonly Pick<ResultadoHoyoDelJuego, 'esta
   if (hoyos.length > 0 && hoyos.every(h => h.estado === 'sin_jugar')) return { tipo: 'no_se_jugo' }
   const cerrados = hoyos.filter(h => h.estado !== 'pendiente').length
   if (cerrados === hoyos.length) return { tipo: 'terminado' }
-  if (!hoyos.some(hoyoConGolpes)) return { tipo: 'por_jugar' }
+  if (!hoyos.some(hoyoDelJuegoConGolpes)) return { tipo: 'por_jugar' }
   return { tipo: 'en_juego', quedan: hoyos.length - cerrados }
 }
 
 /**
- * Qué tramo va en la tarjeta grande: el del hoyo del scorer si lo hay; si no, el que está en juego; si no, el
- * próximo por jugar; si no, el último (todos terminados). `-1` sin tramos.
+ * Qué tramo va en la tarjeta grande (posiciones en `estados`, en orden de juego; `-1` sin tramos):
+ *  1. el del hoyo en que va el scorer;
+ *  2. ronda cerrada: el último que se jugó (nunca "13 a 18 · No se jugó" si cerraron en el 12);
+ *  3. el del último hoyo con golpes, que es donde va el grupo (un hoyo que quedó sin anotar atrás no lo devuelve
+ *     a ese tramo); si ese tramo ya terminó y el siguiente no parte, el siguiente (lo que viene);
+ *  4. sin golpes: el primero.
  */
-export function indiceDelTramoDestacado(estados: readonly EstadoDelTramo[], tramoDelHoyoActual: number | null): number {
+export function indiceDelTramoDestacado(args: {
+  estados: readonly EstadoDelTramo[]
+  tramoDelScorer: number | null
+  tramoDelUltimoHoyoConGolpes: number | null
+  cerrada: boolean
+}): number {
+  const { estados, tramoDelScorer, tramoDelUltimoHoyoConGolpes, cerrada } = args
+  const valido = (i: number | null): i is number => i != null && i >= 0 && i < estados.length
   if (estados.length === 0) return -1
-  if (tramoDelHoyoActual != null && tramoDelHoyoActual >= 0 && tramoDelHoyoActual < estados.length) return tramoDelHoyoActual
-  const enJuego = estados.findIndex(e => e.tipo === 'en_juego')
-  if (enJuego >= 0) return enJuego
-  const porJugar = estados.findIndex(e => e.tipo === 'por_jugar')
-  return porJugar >= 0 ? porJugar : estados.length - 1
+  if (valido(tramoDelScorer)) return tramoDelScorer
+  if (cerrada) {
+    const jugados = estados.flatMap((e, i) => (e.tipo === 'terminado' || e.tipo === 'en_juego' ? [i] : []))
+    return jugados.at(-1) ?? 0
+  }
+  if (valido(tramoDelUltimoHoyoConGolpes)) {
+    const t = tramoDelUltimoHoyoConGolpes
+    return estados[t].tipo === 'terminado' && estados[t + 1]?.tipo === 'por_jugar' ? t + 1 : t
+  }
+  return 0
 }
 
 /**
@@ -76,13 +95,19 @@ export function tituloDelTramo(hoyos: readonly number[]): string {
 
 const primeraMayuscula = (s: string) => (s ? s[0].toLocaleUpperCase('es-CL') + s.slice(1) : s)
 
-/** Candidatas de etiqueta de un nombre corto, de la más corta a la más larga. */
+/** Tope de la etiqueta de UN jugador: la de una pareja junta dos y tiene que caber en una casilla de 30 px. */
+export const LARGO_MAXIMO_ETIQUETA = 2
+
+/** Candidatas de etiqueta de un nombre corto, de la más corta a la más larga, todas de hasta 2 caracteres. */
 function candidatas(nombre: string, i: number): string[] {
   const [primero = '', segundo] = nombre.trim().split(/\s+/)
-  const out = [primeraMayuscula(primero.slice(0, 1))]
-  if (segundo) out.push(primeraMayuscula(primero.slice(0, 1)) + primeraMayuscula(segundo.slice(0, 1)))
-  for (let n = 2; n <= Math.min(3, primero.length); n++) out.push(primeraMayuscula(primero.slice(0, n)))
-  out.push(`${primeraMayuscula(primero.slice(0, 1)) || 'J'}${i + 1}`)
+  const inicial = primeraMayuscula(primero.slice(0, 1))
+  const out = [inicial]
+  if (segundo) out.push(inicial + primeraMayuscula(segundo.slice(0, 1)))
+  if (primero.length >= 2) out.push(primeraMayuscula(primero.slice(0, 2)))
+  // Último recurso, siempre distinto: inicial + posición (con 10 o más jugadores, solo el número).
+  const n = String(i + 1)
+  out.push(n.length >= LARGO_MAXIMO_ETIQUETA ? n.slice(-LARGO_MAXIMO_ETIQUETA) : `${inicial || 'J'}${n}`)
   return out.filter(Boolean)
 }
 
@@ -158,6 +183,7 @@ export function fraseDelEstado(args: {
 }): FraseDelEstado {
   const { ranking, hoyosPuntuados, hoyosSinJugar, totalHoyos, hayGolpes, hoyoDeSalida, cerrada = false } = args
   if (!hayGolpes && hoyosPuntuados === 0) {
+    if (cerrada) return { texto: 'No se jugó', detalle: `${totalHoyos} hoyos`, empezo: false }
     return { texto: 'Aún no parten', detalle: `${totalHoyos} hoyos · salen del ${hoyoDeSalida}`, empezo: false }
   }
   const quedan = Math.max(0, totalHoyos - hoyosPuntuados - hoyosSinJugar)

@@ -41,13 +41,27 @@ describe('estadoDelTramo', () => {
 })
 
 describe('indiceDelTramoDestacado', () => {
-  const t = (tipo: 'por_jugar' | 'terminado') => ({ tipo }) as const
-  it('manda el hoyo del scorer; si no, el en juego; si no, el próximo; si no, el último', () => {
-    expect(indiceDelTramoDestacado([t('terminado'), { tipo: 'en_juego', quedan: 3 }, t('por_jugar')], null)).toBe(1)
-    expect(indiceDelTramoDestacado([t('terminado'), { tipo: 'en_juego', quedan: 3 }, t('por_jugar')], 0)).toBe(0)
-    expect(indiceDelTramoDestacado([t('terminado'), t('por_jugar'), t('por_jugar')], null)).toBe(1)
-    expect(indiceDelTramoDestacado([t('terminado'), t('terminado')], null)).toBe(1)
-    expect(indiceDelTramoDestacado([], null)).toBe(-1)
+  const t = (tipo: 'por_jugar' | 'terminado' | 'no_se_jugo') => ({ tipo }) as const
+  const enJuego = { tipo: 'en_juego', quedan: 3 } as const
+  const destacado = (estados: Parameters<typeof indiceDelTramoDestacado>[0]['estados'], o: { scorer?: number; ultimo?: number; cerrada?: boolean } = {}) =>
+    indiceDelTramoDestacado({ estados, tramoDelScorer: o.scorer ?? null, tramoDelUltimoHoyoConGolpes: o.ultimo ?? null, cerrada: o.cerrada ?? false })
+  it('manda el hoyo del scorer', () => {
+    expect(destacado([t('terminado'), enJuego, t('por_jugar')], { scorer: 0, ultimo: 1 })).toBe(0)
+  })
+  it('sin scorer: el tramo del último hoyo con golpes, aunque un tramo anterior tenga un hoyo sin anotar', () => {
+    expect(destacado([enJuego, enJuego, t('por_jugar')], { ultimo: 1 })).toBe(1)
+  })
+  it('ese tramo terminó y el siguiente no parte: el siguiente; si el siguiente ya partió, manda el último con golpes', () => {
+    expect(destacado([t('terminado'), t('por_jugar'), t('por_jugar')], { ultimo: 0 })).toBe(1)
+    expect(destacado([t('terminado'), t('terminado')], { ultimo: 1 })).toBe(1)
+  })
+  it('sin golpes: el primero; sin tramos: -1', () => {
+    expect(destacado([t('por_jugar'), t('por_jugar')])).toBe(0)
+    expect(destacado([])).toBe(-1)
+  })
+  it('ronda cerrada antes de terminar: el último que se jugó, nunca el que no se jugó', () => {
+    expect(destacado([t('terminado'), t('terminado'), t('no_se_jugo')], { ultimo: 1, cerrada: true })).toBe(1)
+    expect(destacado([t('no_se_jugo'), t('no_se_jugo')], { cerrada: true })).toBe(0)
   })
 })
 
@@ -77,6 +91,18 @@ describe('etiquetasUnicas (casillas inequívocas)', () => {
   it('nombres idénticos sin apellido: igual quedan distintas', () => {
     const e = etiquetasUnicas(['Pancho', 'Pancho', 'Tomás', 'Nico'])
     expect(new Set(e).size).toBe(4)
+  })
+  it('nunca más de 2 caracteres por jugador (la pareja cabe en una casilla de 30 px), ni con 12 jugadores', () => {
+    const casos = [
+      ['Pancho', 'Pablo', 'Patricio', 'Pedro'],
+      ['Pancho Vial', 'Pablo Vera', 'Pancho Vial', 'Pía Valdés'],
+      Array.from({ length: 12 }, () => 'Juan'),
+    ]
+    for (const nombres of casos) {
+      const e = etiquetasUnicas(nombres)
+      expect(e.every(x => x.length <= 2), e.join(',')).toBe(true)
+      expect(new Set(e.map(x => x.toUpperCase())).size).toBe(nombres.length)
+    }
   })
 })
 
@@ -120,6 +146,10 @@ describe('fraseDelEstado', () => {
   it('todo jugado (sin cerrar) no dice "quedan 0"; cerrada dice "ganó"', () => {
     expect(fraseDelEstado({ ...base, hoyosPuntuados: 18, ranking: [r('Pancho', 3, 1), r('Nico', 1, 2)] }).detalle).toBe('18 de 18 hoyos')
     expect(fraseDelEstado({ ...base, cerrada: true, ranking: [r('Pancho', 3, 1), r('Nico', 1, 2)] }).texto).toBe('Pancho ganó por 2 puntos')
+  })
+  it('ronda cerrada sin un golpe: "No se jugó", no "Aún no parten"', () => {
+    expect(fraseDelEstado({ ...base, hoyosPuntuados: 0, hayGolpes: false, cerrada: true, ranking: [r('Pancho', 0, 1), r('Nico', 0, 1)] }))
+      .toEqual({ texto: 'No se jugó', detalle: '18 hoyos', empezo: false })
   })
   it('puntos negativos (2-0-2): la ventaja se cuenta igual', () => {
     expect(fraseDelEstado({ ...base, ranking: [r('Pancho', -1, 1), r('Nico', -3, 2)] }).texto).toBe('Pancho gana por 2 puntos')
@@ -174,7 +204,39 @@ describe('armarTablaDelJuego — vista en vivo (La Colombiana de verdad)', () =>
     expect(armarTablaDelJuego(v, NOMBRES, 14).tramoDestacado).toBe(2)
   })
 
-  it('0 hoyos: "Aún no parten", primer tramo destacado, sin filas y con golpes que recibe (neto)', () => {
+  it('sin scorer, con un hoyo sin anotar atrás (el 4) y el grupo en el 9: destaca 7 a 12, no 1 a 6', () => {
+    const s = golpesDe([1, 2, 3, 4, 5, 6, 7, 8, 9])
+    delete s[ID.nico][4]
+    const t = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: s }), NOMBRES, null)
+    expect(t.tramos[0].estado.tipo).toBe('en_juego')
+    expect(t.tramos[t.tramoDestacado].titulo).toBe('Hoyos 7 a 12')
+  })
+
+  it('tramo 1 a 6 terminado justo en el 6: destaca el que viene (7 a 12)', () => {
+    const t = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: golpesDe([1, 2, 3, 4, 5, 6]) }), NOMBRES, null)
+    expect(t.tramos[t.tramoDestacado].titulo).toBe('Hoyos 7 a 12')
+  })
+
+  it('ronda cerrada en el hoyo 12: destaca 7 a 12 (terminado), no "13 a 18 · No se jugó"', () => {
+    const t = armarTablaDelJuego(
+      vistaDeTimba({ config: COLOMBIANA, scores: golpesDe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), cerrada: true }), NOMBRES, null,
+    )
+    expect(t.tramos.map(x => x.estado.tipo)).toEqual(['terminado', 'terminado', 'no_se_jugo'])
+    expect(t.tramoDestacado).toBe(1)
+  })
+
+  it('ronda cerrada sin golpes: "No se jugó"', () => {
+    const t = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: {}, cerrada: true }), NOMBRES, null)
+    expect(t.frase.texto).toBe('No se jugó')
+  })
+
+  it('golpes recibidos: solo en neto y con todos con hándicap (predicado único de la tabla)', () => {
+    expect(armarTablaDelJuego(v, NOMBRES, null).muestraGolpesRecibidos).toBe(false)
+    const neto = vistaDeTimba({ config: COLOMBIANA, scores: golpesDe([1]), modo: 'neto' })
+    expect(armarTablaDelJuego(neto, NOMBRES, null).muestraGolpesRecibidos).toBe(true)
+  })
+
+  it('0 hoyos: "Aún no parten", primer tramo destacado, sin filas', () => {
     const t = armarTablaDelJuego(
       vistaDeTimba({ config: COLOMBIANA, scores: {}, modo: 'neto', ch: { [ID.pancho]: 8, [ID.cristobal]: 12, [ID.tomas]: 16, [ID.nico]: 20 } }),
       NOMBRES, null,
@@ -183,8 +245,6 @@ describe('armarTablaDelJuego — vista en vivo (La Colombiana de verdad)', () =>
     expect(t.tramoDestacado).toBe(0)
     expect(t.tramos.every(x => x.estado.tipo === 'por_jugar')).toBe(true)
     expect(t.filas).toEqual([])
-    // Diferencia con el más bajo (8): 0, 4, 8, 12.
-    expect(Object.fromEntries(t.ranking.map(r => [r.nombre, r.golpesQueRecibe]))).toEqual({ Pancho: 0, Cristóbal: 4, Tomás: 8, Nico: 12 })
   })
 
   it('retirado: "se retiró" en el ranking, en los tramos que no juega y "—" en sus hoyos', () => {

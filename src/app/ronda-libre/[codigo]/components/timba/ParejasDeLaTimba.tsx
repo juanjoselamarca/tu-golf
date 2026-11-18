@@ -46,9 +46,14 @@ function descripcionDeCasilla(c: CasillaDelTramo, parejas: [ParejaDelTramo, Pare
   }
 }
 
+/** Ancho real de una casilla con 9 por fila en un teléfono de 390 px. */
+const CASILLA_ANGOSTA_PX = 30
+
 /** Tira de casillas del tramo: quién ganó cada hoyo (iniciales de la pareja), "=" empate, punteada sin jugar. */
 export function TiraDelTramo({ tramo, tamano }: { tramo: TramoDelJuego; tamano: number }) {
   const porFila = casillasPorFila(tramo.casillas.length)
+  // 8 o 9 por fila (parejas fijas a 18) a 390 px: cada casilla mide ~30 px aunque el tope sea mayor.
+  const tamanoReal = porFila >= 8 ? Math.min(tamano, CASILLA_ANGOSTA_PX) : tamano
   return (
     <div
       role="group"
@@ -61,7 +66,7 @@ export function TiraDelTramo({ tramo, tamano }: { tramo: TramoDelJuego; tamano: 
           numero={c.numero}
           lado={c.ganador}
           etiqueta={c.ganador === 'a' ? tramo.parejas[0].etiqueta : c.ganador === 'b' ? tramo.parejas[1].etiqueta : ''}
-          tamano={tamano}
+          tamano={tamanoReal}
           descripcion={descripcionDeCasilla(c, tramo.parejas)}
         />
       ))}

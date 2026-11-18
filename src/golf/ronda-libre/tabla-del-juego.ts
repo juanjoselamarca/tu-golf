@@ -19,7 +19,7 @@ import {
   etiquetasUnicas,
   fraseDelEstado,
   ganadorDelHoyoDeParejas,
-  hoyoConGolpes,
+  hoyoDelJuegoConGolpes,
   indiceDelTramoDestacado,
   letrasDeLosPuntitos,
   tituloDelTramo,
@@ -46,8 +46,6 @@ export interface FilaRankingDelJuego {
   diferencia: string | null
   /** Hoyo desde el que se retiró (`VistaDelJuego.retiros`); `null` si sigue jugando. */
   retiradoDesde: number | null
-  /** Neto: golpes que recibe en la ronda (se muestran antes de partir); `null` en gross o sin hándicap. */
-  golpesQueRecibe: number | null
 }
 
 export interface MarcadorDeParejas {
@@ -115,12 +113,17 @@ export interface TablaDelJuego {
   frase: FraseDelEstado
   /** Tramos de parejas, en orden de juego (uno solo en parejas fijas). Vacío en juegos individuales. */
   tramos: TramoDelJuego[]
-  /** Índice en `tramos` del que va en la tarjeta grande (el del hoyo del scorer, o el que está en juego); -1 sin parejas. */
+  /** Índice en `tramos` del que va en la tarjeta grande (`indiceDelTramoDestacado`); -1 sin parejas. */
   tramoDestacado: number
   filas: FilaDelJuego[]
   /** Letras de los puntos especiales que aparecen en la tabla, para la leyenda. */
   letrasEnLaTabla: LetraDePuntito[]
   esNeto: boolean
+  /**
+   * Se ven los golpes recibidos (puntitos en la tabla, leyenda, HCP antes de partir): neto y todos con hándicap.
+   * Fuente única del predicado para la vista.
+   */
+  muestraGolpesRecibidos: boolean
   /** Neto: nombres de quienes no tienen hándicap (`resultado.sinHandicap`); con alguno, nadie recibe golpes. */
   sinHandicap: string[]
 }
@@ -162,7 +165,7 @@ export function armarTablaDelJuego(
 
   // Hasta dónde se listan los hoyos: el último con algún golpe (o puntuado), o el del scorer si va más adelante.
   let ultimo = -1
-  resultado.hoyos.forEach((h, i) => { if (hoyoConGolpes(h)) ultimo = i })
+  resultado.hoyos.forEach((h, i) => { if (hoyoDelJuegoConGolpes(h)) ultimo = i })
   const ordenActual = hoyoActual == null ? -1 : resultado.hoyos.findIndex(h => h.numero === hoyoActual)
   if (ultimo >= 0 || ordenActual > 0) ultimo = Math.max(ultimo, ordenActual)
   const visibles = resultado.hoyos.slice(0, ultimo + 1)
@@ -231,14 +234,16 @@ export function armarTablaDelJuego(
         .map(id => `${nombre(id)} se retiró en el hoyo ${retiros[id]}`),
     }
   })
-  const tramoDelScorer = ordenActual >= 0 ? resultado.hoyos[ordenActual].tramo : null
-  const tramoDestacado = indiceDelTramoDestacado(
-    tramos.map(t => t.estado),
-    tramoDelScorer == null ? null : tramos.findIndex(t => t.indice === tramoDelScorer),
-  )
+  const posicionDelTramo = (tramo: number | null | undefined) => (tramo == null ? null : tramos.findIndex(t => t.indice === tramo))
+  const ultimoConGolpes = resultado.hoyos.findLast(hoyoDelJuegoConGolpes)
+  const tramoDestacado = indiceDelTramoDestacado({
+    estados: tramos.map(t => t.estado),
+    tramoDelScorer: posicionDelTramo(ordenActual >= 0 ? resultado.hoyos[ordenActual].tramo : null),
+    tramoDelUltimoHoyoConGolpes: posicionDelTramo(ultimoConGolpes?.tramo),
+    cerrada: vista.rondaCerrada,
+  })
 
-  const recibe = (id: string) => resultado.hoyos.reduce((s, h) => s + (golpesRecibidos[id]?.[h.numero] ?? 0), 0)
-  const conGolpesRecibidos = config.modo === 'neto' && resultado.sinHandicap.length === 0
+  const muestraGolpesRecibidos = config.modo === 'neto' && resultado.sinHandicap.length === 0
   const puntosDelPrimero = resultado.ranking[0]?.puntos ?? 0
   const ranking: FilaRankingDelJuego[] = resultado.ranking.map(r => {
     const retiradoDesde = retiros[r.jugadorId] ?? null
@@ -252,7 +257,6 @@ export function armarTablaDelJuego(
       textoConUnidad: formatPuntosConUnidad(r.puntos),
       diferencia: retiradoDesde == null && atras > 0 ? `a ${formatPuntosConUnidad(atras)}` : null,
       retiradoDesde,
-      golpesQueRecibe: conGolpesRecibidos ? recibe(r.jugadorId) : null,
     }
   })
   const hoyosPuntuados = resultado.hoyos.filter(h => h.estado === 'puntuado').length
@@ -268,7 +272,7 @@ export function armarTablaDelJuego(
       hoyosPuntuados,
       hoyosSinJugar: resultado.hoyos.filter(h => h.estado === 'sin_jugar').length,
       totalHoyos: resultado.hoyos.length,
-      hayGolpes: resultado.hoyos.some(hoyoConGolpes),
+      hayGolpes: resultado.hoyos.some(hoyoDelJuegoConGolpes),
       hoyoDeSalida: resultado.hoyos[0]?.numero ?? 1,
       cerrada: vista.rondaCerrada,
     }),
@@ -279,6 +283,7 @@ export function armarTablaDelJuego(
       .filter(p => letrasUsadas.has(p.id))
       .map(p => ({ letra: letras[p.id], nombre: nombreDelPuntito(p).toLocaleLowerCase('es-CL') })),
     esNeto: config.modo === 'neto',
+    muestraGolpesRecibidos,
     sinHandicap: resultado.sinHandicap.map(nombre),
   }
 }

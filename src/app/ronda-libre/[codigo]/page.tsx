@@ -230,6 +230,7 @@ function RondaLibrePageContent() {
       cancha={ronda.course_name}
       url={shareUrl}
       compartirPrincipal={shareVariant === 'commit'}
+      hcpAMostrar={hcpAMostrar}
     />
   )
 

@@ -5,6 +5,8 @@ import { armarTablaDelJuego, type TablaDelJuego } from '@/golf/ronda-libre/tabla
 import { COLOMBIANA, ID, IDS, NOMBRES, golpesDe, vistaDeTimba } from '@/golf/ronda-libre/__fixtures__/vista-timba'
 import { JuegoDeLaTimba, avisoNetoComoGross } from './JuegoDeLaTimba'
 import { casillasPorFila } from './ParejasDeLaTimba'
+import { tamanoDeLetra } from '../CasillaDeHoyo'
+import { SIN_INDICE, crearHcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
 // Mitad de ronda: 9 hoyos jugados; Pancho hace birdie en el 1 (gana el tramo 1 su pareja).
 const mitad = () => armarTablaDelJuego(
@@ -69,18 +71,43 @@ describe('JuegoDeLaTimba — mitad de ronda (La Colombiana)', () => {
 })
 
 describe('JuegoDeLaTimba — otros estados', () => {
-  it('0 hoyos: "Aún no parten", primer duelo 0–0 y lo que recibe cada uno; sin hoyo a hoyo', () => {
+  it('0 hoyos: "Aún no parten", primer duelo 0–0 y el HCP de 18 de cada uno (nunca "recibe N golpes"); sin hoyo a hoyo', () => {
     const tabla = armarTablaDelJuego(
       vistaDeTimba({ config: COLOMBIANA, scores: {}, modo: 'neto', ch: { [ID.pancho]: 8, [ID.cristobal]: 12, [ID.tomas]: 16, [ID.nico]: 20 } }),
       NOMBRES, null,
     )
-    render(<JuegoDeLaTimba tabla={tabla} />)
+    // HCP a mostrar (18 hoyos) distinto del que puntúa, a propósito: se pinta el de la fuente única, no se recalcula.
+    const jugadores = IDS.map(id => ({ id, handicap: null, user_id: null, handicap_de_inscripcion: null }))
+    const hcp = crearHcpAMostrar(jugadores, { [ID.pancho]: -2, [ID.cristobal]: 13, [ID.tomas]: 17 }, [ID.nico], 'todos')
+    render(<JuegoDeLaTimba tabla={tabla} hcpAMostrar={hcp} />)
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Aún no parten')
     expect(screen.getByText('La Colombiana · 18 hoyos · salen del 1')).toBeTruthy()
     expect(screen.getByText('Primer duelo')).toBeTruthy()
-    expect(screen.getByText('No recibe golpes')).toBeTruthy()
-    expect(screen.getByText('Recibe 12 golpes')).toBeTruthy()
+    const filas = within(screen.getByRole('list', { name: 'Puntos de cada uno' })).getAllByRole('listitem').map(textoDe)
+    expect(filas).toEqual(['PanchoHCP +2', 'CristóbalHCP 13', 'TomásHCP 17', `NicoHCP ${SIN_INDICE}Sin índice`])
+    expect(screen.queryByText(/recibe/i)).toBeNull()
     expect(screen.queryByText('Hoyo a hoyo')).toBeNull()
+  })
+
+  it('0 hoyos en gross: 0 pts, sin HCP', () => {
+    const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: {} }), NOMBRES, null)
+    render(<JuegoDeLaTimba tabla={tabla} hcpAMostrar={() => 10} />)
+    expect(screen.queryByText(/HCP/)).toBeNull()
+    expect(screen.getAllByText('0 pts')).toHaveLength(4)
+  })
+
+  it('ronda cerrada en el 12: la tarjeta grande es 7 a 12, no el tramo que no se jugó', () => {
+    const tabla = armarTablaDelJuego(
+      vistaDeTimba({ config: COLOMBIANA, scores: golpesDe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), cerrada: true }), NOMBRES, null,
+    )
+    render(<JuegoDeLaTimba tabla={tabla} hoyoAHoyoAbierto />)
+    expect(screen.getByRole('region', { name: /^Hoyos 7 a 12:/ })).toBeTruthy()
+    expect(screen.queryByRole('region', { name: /^Hoyos 13 a 18:/ })).toBeNull()
+  })
+
+  it('el plegable no muestra el triángulo del navegador (iOS Safari): clase que oculta ::-webkit-details-marker', () => {
+    render(<JuegoDeLaTimba tabla={mitad()} />)
+    expect(screen.getByText('Hoyo a hoyo').closest('summary')?.className).toBe('plegable-summary')
   })
 
   it('empate arriba: "X y Y empatados"', () => {
@@ -123,6 +150,18 @@ describe('JuegoDeLaTimba — otros estados', () => {
     expect(screen.queryByRole('region', { name: 'Parejas' })).toBeNull()
   })
 
+  it('parejas fijas a 18 con "Pancho" y "Pedro" en la misma pareja: "PaPe" a 9 px, sin desbordar la casilla de 30 px', () => {
+    const cfg = { ...crearConfigDePlantilla('subterranea'), parejas: [[0, 2], [1, 3]] as [[number, number], [number, number]] }
+    const nombres = { ...NOMBRES, [ID.tomas]: 'Pedro Lira' }
+    const tabla = armarTablaDelJuego(vistaDeTimba({ config: cfg, scores: golpesDe([1], { 1: { [ID.pancho]: 3, [ID.tomas]: 3 } }) }), nombres, null)
+    render(<JuegoDeLaTimba tabla={tabla} />)
+    const casilla = screen.getByRole('img', { name: /^Hoyo 1: ganan/ })
+    const cuadro = casilla.lastElementChild as HTMLElement
+    expect(cuadro.textContent).toBe('PaPe')
+    expect(cuadro.style.fontSize).toBe('9px')
+    expect(cuadro.style.overflow).toBe('hidden')
+  })
+
   it('9 hoyos: tramos de 3 casillas', () => {
     const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: golpesDe([1, 2, 3, 4]), holes: 9 }), NOMBRES, null)
     render(<JuegoDeLaTimba tabla={tabla} />)
@@ -142,6 +181,16 @@ describe('JuegoDeLaTimba — otros estados', () => {
   it('sin señal: avisa que son los puntos de hace un momento', () => {
     render(<JuegoDeLaTimba tabla={mitad()} desactualizado />)
     expect(screen.getByRole('status').textContent).toContain('Sin señal')
+  })
+})
+
+describe('tamanoDeLetra (la etiqueta cabe en la casilla)', () => {
+  it('4 caracteres en una casilla angosta van a 9 px; 1 o 2, a 11 o 13', () => {
+    expect(tamanoDeLetra('PaPe', 30)).toBe('9px')
+    expect(tamanoDeLetra('PaPe', 28)).toBe('9px')
+    expect(tamanoDeLetra('PaPe', 40)).toBe('11px')
+    expect(tamanoDeLetra('PT', 40)).toBe('13px')
+    expect(tamanoDeLetra('PT', 28)).toBe('11px')
   })
 })
 

@@ -16,6 +16,16 @@ const FONDO: Record<Exclude<LadoDeLaCasilla, 'pendiente' | 'sin_jugar'>, { bg: s
   empate: { bg: 'var(--text-3)', fg: 'var(--bg-surface)' },
 }
 
+/**
+ * Letra de la etiqueta según cuánto ocupa: 4 caracteres (dos iniciales de 2, "PaPe") en una casilla de 30 px —tira
+ * de 18 hoyos, 9 por fila, a 390 px— van a 9 px para no desbordar. El color manda; la etiqueta confirma.
+ */
+export function tamanoDeLetra(texto: string, tamano: number): string {
+  if (texto.length >= 4) return tamano >= 36 ? '11px' : '9px'
+  if (texto.length === 3) return '11px'
+  return tamano >= 32 ? '13px' : '11px'
+}
+
 export function CasillaDeHoyo({ numero, lado, etiqueta, tamano, descripcion }: {
   numero: number
   lado: LadoDeLaCasilla
@@ -38,7 +48,8 @@ export function CasillaDeHoyo({ numero, lado, etiqueta, tamano, descripcion }: {
         style={{
           width: '100%', maxWidth: `${tamano}px`, aspectRatio: '1', borderRadius: '8px', boxSizing: 'border-box',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: texto.length > 2 ? '11px' : tamano >= 32 ? '13px' : '11px', fontWeight: 800, letterSpacing: '0.02em',
+          fontSize: tamanoDeLetra(texto, tamano), fontWeight: 800, letterSpacing: texto.length >= 4 ? '-0.02em' : '0.02em',
+          overflow: 'hidden', whiteSpace: 'nowrap',
           ...(relleno
             ? { background: relleno.bg, color: relleno.fg }
             : { border: '1.5px dashed var(--text-3)', color: 'var(--text-2)' }),

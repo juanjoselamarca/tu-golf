@@ -60,7 +60,7 @@ export default function ScoreGrupoPage() {
 
   const {
     ronda, loading, loadError, currentHole, setCurrentHole,
-    scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
+    scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp, hcpAMostrar,
     teamEquipos, setTeamEquipos, anotadorNombre, authUserId, conexion, golpesSinSubir,
   } = useRondaGrupoData(codigo)
 
@@ -224,6 +224,7 @@ export default function ScoreGrupoPage() {
             juego={timba.juego}
             nombres={timba.nombres}
             hoyoActual={currentHole}
+            hcpAMostrar={hcpAMostrar}
             encabezadoFijoEn={`-${PADDING_PANEL_JUEGO_PX}px`}
             onReintentar={() => { void timba.recargar() }}
             pie={(

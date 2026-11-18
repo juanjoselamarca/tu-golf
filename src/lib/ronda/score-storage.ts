@@ -107,6 +107,8 @@ export interface ScorerGrupoSnapshot<R = unknown, H = unknown, E = unknown> {
   holeDataMap: Record<number, H>
   playerHcp: Record<string, number>
   playerDisplayHcp: Record<string, number>
+  /** Jugadores sin índice (juegan con 0; se muestra "S/Ind"). Opcional: las copias de antes no lo traen. */
+  sinIndice?: string[]
   teamEquipos: E[]
 }
 

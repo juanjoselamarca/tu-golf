@@ -41,7 +41,7 @@ export function HoyoAHoyoDeLaTimba({ tabla, abiertoAlInicio = false, encabezadoF
 }) {
   const [abierto, setAbierto] = useState(abiertoAlInicio)
   const columnas = `minmax(40px, 0.7fr) repeat(${tabla.columnas.length}, minmax(0, 1fr))`
-  const conGolpes = tabla.esNeto && tabla.sinHandicap.length === 0
+  const conGolpes = tabla.muestraGolpesRecibidos
   const tituloDelTramo = (fila: { indice: number }) => tabla.tramos.find(t => t.indice === fila.indice)?.titulo ?? ''
   const leyenda = [
     ...(conGolpes ? [{ marca: MARCA_GOLPE_RECIBIDO, texto: 'golpe recibido' }] : []),
@@ -53,8 +53,8 @@ export function HoyoAHoyoDeLaTimba({ tabla, abiertoAlInicio = false, encabezadoF
       onToggle={e => setAbierto(e.currentTarget.open)}
       style={{ border: '1px solid var(--border-md)', borderRadius: '16px', background: 'var(--bg-surface)' }}
     >
-      <summary style={{
-        listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '52px', padding: '0 16px',
+      <summary className="plegable-summary" style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '52px', padding: '0 16px',
         fontSize: '16px', fontWeight: 600, color: 'var(--text)', cursor: 'pointer',
       }}>
         <span>Hoyo a hoyo</span>

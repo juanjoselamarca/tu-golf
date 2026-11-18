@@ -4,6 +4,8 @@ import { unirNombres } from '@/golf/ronda-libre/juego-en-vivo'
 import type { FilaRankingDelJuego, TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
 import { DueloDelTramo, TramosDeLaTimba } from './ParejasDeLaTimba'
 import { HoyoAHoyoDeLaTimba } from './HoyoAHoyoDeLaTimba'
+import { HcpCelda } from '../HcpCelda'
+import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
 export { MARCA_GOLPE_RECIBIDO } from './HoyoAHoyoDeLaTimba'
 
@@ -14,14 +16,16 @@ export function avisoNetoComoGross(nombres: readonly string[]): string {
 
 const titulo2 = { margin: '0 0 8px', fontSize: '18px', fontWeight: 600, color: 'var(--text)' } as const
 
-/** Antes de partir: lo que recibe cada uno (neto) o sus 0 puntos (gross). */
-function valorAntesDePartir(r: FilaRankingDelJuego): string {
-  if (r.golpesQueRecibe == null) return r.textoConUnidad
-  if (r.golpesQueRecibe === 0) return 'No recibe golpes'
-  return `Recibe ${r.golpesQueRecibe} ${r.golpesQueRecibe === 1 ? 'golpe' : 'golpes'}`
+/**
+ * Antes de partir: en neto, el HCP de cada uno (el de 18 hoyos, regla de Juanjo del 12-nov: el mismo número del
+ * marcador; nunca "recibe N golpes"); en gross, sus 0 puntos.
+ */
+function ValorAntesDePartir({ fila, tabla, hcpAMostrar }: { fila: FilaRankingDelJuego; tabla: TablaDelJuego; hcpAMostrar?: HcpAMostrar }) {
+  if (!tabla.muestraGolpesRecibidos || !hcpAMostrar) return <>{fila.textoConUnidad}</>
+  return <>HCP <HcpCelda hcp={hcpAMostrar(fila.jugadorId)} enLinea /></>
 }
 
-function Ranking({ tabla }: { tabla: TablaDelJuego }) {
+function Ranking({ tabla, hcpAMostrar }: { tabla: TablaDelJuego; hcpAMostrar?: HcpAMostrar }) {
   const empezo = tabla.frase.empezo
   return (
     <ol aria-label="Puntos de cada uno" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -43,7 +47,7 @@ function Ranking({ tabla }: { tabla: TablaDelJuego }) {
                 {r.diferencia && <span className="num" style={{ fontSize: '13px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{r.diferencia}</span>}
               </span>
             ) : (
-              <span style={{ flex: '0 0 auto', fontSize: '14px', color: 'var(--text)', whiteSpace: 'nowrap' }}>{valorAntesDePartir(r)}</span>
+              <span className="num" style={{ flex: '0 0 auto', fontSize: '16px', color: 'var(--text)', whiteSpace: 'nowrap' }}><ValorAntesDePartir fila={r} tabla={tabla} hcpAMostrar={hcpAMostrar} /></span>
             )}
           </li>
         )
@@ -58,7 +62,7 @@ function Ranking({ tabla }: { tabla: TablaDelJuego }) {
  * plegable. Los juegos sin parejas muestran solo frase, puntos y hoyo a hoyo. Todo viene armado de
  * `armarTablaDelJuego` (que lee solo `GET /juego`). Sin sesión se ve igual.
  */
-export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn, hoyoAHoyoAbierto }: {
+export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn, hoyoAHoyoAbierto, hcpAMostrar }: {
   tabla: TablaDelJuego
   desactualizado?: boolean
   pie?: ReactNode
@@ -66,6 +70,8 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn, h
   encabezadoFijoEn?: string
   /** El hoyo a hoyo parte abierto (se llegó desde "Hoyo a hoyo" del resultado final). */
   hoyoAHoyoAbierto?: boolean
+  /** HCP a mostrar de cada jugador (`crearHcpAMostrar`, la fuente de la vista en vivo y el scorer). */
+  hcpAMostrar?: HcpAMostrar
 }) {
   const { frase } = tabla
   const destacado = tabla.tramoDestacado >= 0 ? tabla.tramos[tabla.tramoDestacado] : null
@@ -102,7 +108,7 @@ export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn, h
 
       <section aria-label="Puntos de cada uno">
         <h3 style={titulo2}>Puntos de cada uno</h3>
-        <Ranking tabla={tabla} />
+        <Ranking tabla={tabla} hcpAMostrar={hcpAMostrar} />
       </section>
 
       {conBloqueDeParejas && (

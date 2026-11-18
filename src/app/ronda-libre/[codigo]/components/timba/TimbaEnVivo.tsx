@@ -10,6 +10,7 @@ import { ALTO_NAVBAR_PX } from '@/lib/constants'
 import { enElOrden } from '@/lib/ronda/orden-jugadores'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from './PestanasDeLaTimba'
 import { PanelDelJuego } from './PanelDelJuego'
+import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import { ResultadoFinalDeLaTimba } from './ResultadoFinalDeLaTimba'
 
 interface Jugador { id: string; nombre: string; scores: Readonly<Record<string, number | null | undefined>> | null }
@@ -68,8 +69,10 @@ export function TimbaEnVivo(props: {
   url: string
   /** `false` mientras falte guardar en el historial: un solo dorado sólido por vista (DESIGN.md §5). */
   compartirPrincipal?: boolean
+  /** HCP a mostrar de cada jugador (fuente única `crearHcpAMostrar`): la pestaña Juego lo muestra antes de partir. */
+  hcpAMostrar?: HcpAMostrar
 }) {
-  const { juego, onReintentar, jugadores, hoyoInicio, holes, finalizada, cancha, url, compartirPrincipal = true } = props
+  const { juego, onReintentar, jugadores, hoyoInicio, holes, finalizada, cancha, url, compartirPrincipal = true, hcpAMostrar } = props
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('juego')
   const [hoyoAHoyo, setHoyoAHoyo] = useState(false)
   // Al pasar del resultado a la tabla (y de vuelta), la vista parte arriba: si no, queda a mitad de la tabla y
@@ -133,7 +136,7 @@ export function TimbaEnVivo(props: {
         {pestana === 'juego' ? (
           <PanelDelJuego
             juego={juego} nombres={nombres} hoyoActual={null} onReintentar={onReintentar}
-            encabezadoFijoEn={`${ALTO_NAVBAR_PX}px`} hoyoAHoyoAbierto={resultado != null}
+            encabezadoFijoEn={`${ALTO_NAVBAR_PX}px`} hoyoAHoyoAbierto={resultado != null} hcpAMostrar={hcpAMostrar}
           />
         ) : (
           <TarjetaDeGolpes jugadores={jugadoresEnOrden} hoyos={hoyos} />
