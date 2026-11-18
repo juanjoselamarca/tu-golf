@@ -91,4 +91,38 @@ describe('useScoreEntry — la carga de la tarjeta no entra en bucle', () => {
       vi.unstubAllGlobals()
     }
   })
+
+  // Doble toque con guante sobre la tarjeta ya abierta: antes quedaba en blanco y sin recargar.
+  it('volver a tocar al jugador abierto no borra su tarjeta', async () => {
+    const { result } = renderHook(() => useScoreEntry({
+      tournament: TOURNAMENT, players: PLAYERS, courseHoles: VACIO, courseTees: VACIO, holeCount: 18,
+      getActiveRound, applyRoundTotals, reloadRoster,
+    }))
+    await act(async () => result.current.selectPlayer('p1'))
+    await act(async () => result.current.selectPlayer('p1'))
+    expect(result.current.currentScores[1]).toBe(4)
+    expect(result.current.holePutts[1]).toBe(2)
+    expect(vi.mocked(fetchRoundHoleScores)).toHaveBeenCalledTimes(1)
+  })
+
+  // El guardado del hoyo 5 de Rosa falla cuando el organizador ya abrió a Pedro: la marca roja no va a Pedro.
+  it('un guardado fallido del jugador anterior no marca en rojo el hoyo del nuevo', async () => {
+    let fallar!: () => void
+    const fetchMock = vi.fn(() => new Promise<Response>((res) => { fallar = () => res(new Response('{}', { status: 500 })) }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const { result } = renderHook(() => useScoreEntry({
+        tournament: TOURNAMENT, players: PLAYERS, courseHoles: VACIO, courseTees: VACIO, holeCount: 18,
+        getActiveRound, applyRoundTotals, reloadRoster,
+      }))
+      await act(async () => result.current.selectPlayer('p1'))
+      let guardado!: Promise<void>
+      act(() => { guardado = result.current.saveScore(5, '6') })
+      await act(async () => result.current.selectPlayer('p2'))
+      await act(async () => { fallar(); await guardado })
+      expect(result.current.errorHoles.has(5)).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })
