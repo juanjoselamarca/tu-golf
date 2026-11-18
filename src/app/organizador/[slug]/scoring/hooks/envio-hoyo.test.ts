@@ -39,6 +39,15 @@ describe('enviarHoyo', () => {
     expect((await enviarHoyo('t1', SOBRE)).lectura).toEqual({ rechazo: 'sin_permiso' })
   })
 
+  it('un 2xx sin success: true (cuerpo vacío, HTML de un proxy, JSON ajeno) es sin respuesta, nunca ok', async () => {
+    responder(200, {})
+    expect((await enviarHoyo('t1', SOBRE)).lectura).toBe('sin_respuesta')
+    responder(200, { success: false, totalGross: 40 })
+    expect((await enviarHoyo('t1', SOBRE)).lectura).toBe('sin_respuesta')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>portal</html>', { status: 200 })))
+    expect((await enviarHoyo('t1', SOBRE)).lectura).toBe('sin_respuesta')
+  })
+
   it('corta a los 15 s sin AbortSignal.timeout (iOS 15) y lo lee como sin respuesta', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('AbortSignal', Object.assign(function () {}, { timeout: undefined }))

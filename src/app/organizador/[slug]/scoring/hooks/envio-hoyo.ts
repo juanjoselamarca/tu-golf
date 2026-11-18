@@ -8,6 +8,7 @@ import { clasificarRespuestaScore, esRechazoDeDatos, STATUS_CON_CODE } from '@/l
 import type { RespuestaSobre, Sobre } from './estado-hoyos'
 
 interface CuerpoRespuesta {
+  success?: unknown
   code?: string
   descartado?: boolean
   totalGross?: unknown
@@ -52,7 +53,9 @@ export async function enviarHoyo(tournamentId: string, sobre: Sobre): Promise<Re
       ? (((await res.json().catch(() => null)) ?? {}) as CuerpoRespuesta)
       : {}
     const lectura = clasificarRespuestaScore(res.status, cuerpo.code, cuerpo.descartado === true)
-    if (lectura === 'ok') return { lectura: 'ok', totales: totalesDe(cuerpo) }
+    // Un 2xx sólo confirma con `success: true`: un cuerpo vacío, HTML de un proxy o un JSON ajeno no prueba que el
+    // golpe quedó escrito (se trata como sin respuesta y se reenvía; reenviar es seguro).
+    if (lectura === 'ok') return cuerpo.success === true ? { lectura: 'ok', totales: totalesDe(cuerpo) } : { lectura: 'sin_respuesta' }
     if (esRechazoDeDatos(res.status)) return { lectura: { rechazo: 'datos' } }
     if (lectura === 'descartado' || lectura === 'reintentar') return { lectura: 'sin_respuesta' }
     return { lectura: { rechazo: lectura } }
