@@ -352,4 +352,21 @@ describe('upsertScore · validación de las estadísticas del hoyo', () => {
     expect(res.status).toBe(200)
     expect(upserted).toMatchObject({ putts: 0, fairway_hit: false, gir: true })
   })
+
+  // Revisión Fable de #832 (P2): el "—" o vaciar los putts mandaba null, el servidor lo descartaba y la stat
+  // reaparecía al recargar. Null presente = borrar; clave ausente = no tocar.
+  it('una stat en null explícito se BORRA (la columna va en la fila con null)', async () => {
+    const res = await upsertScore(svc() as never, USER, { ...golpeConMentira, putts: null, fairway_hit: null, gir: null })
+    expect(res.status).toBe(200)
+    expect(upserted).toMatchObject({ putts: null, fairway_hit: null, gir: null })
+    expect(upserted).toHaveProperty('putts', null)
+  })
+
+  it('guardar sólo el golpe no toca las stats (las columnas no van en la fila)', async () => {
+    const res = await upsertScore(svc() as never, USER, golpeConMentira)
+    expect(res.status).toBe(200)
+    expect(upserted).not.toHaveProperty('putts')
+    expect(upserted).not.toHaveProperty('fairway_hit')
+    expect(upserted).not.toHaveProperty('gir')
+  })
 })

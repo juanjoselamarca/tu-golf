@@ -350,8 +350,11 @@ describe('useScoreEntry · orden de los guardados de un hoyo', () => {
       ])
     })
     const [, putts, gir] = enviados
-    expect(putts).toMatchObject({ hole_number: 11, putts: 2, fairway_hit: null, gir: null })
-    expect(gir).toMatchObject({ hole_number: 11, putts: 2, fairway_hit: null, gir: true })
+    expect(putts).toMatchObject({ hole_number: 11, putts: 2 })
+    expect(gir).toMatchObject({ hole_number: 11, putts: 2, gir: true })
+    // Lo que el organizador no tocó no viaja: en null borraría lo que haya en la base.
+    expect(putts).not.toHaveProperty('gir')
+    expect(gir).not.toHaveProperty('fairway_hit')
     expect(gir.seq as number).toBeGreaterThan(putts.seq as number)
     // Un guardado del golpe después también lleva las dos stats.
     await act(() => result.current.saveScore(11, '4'))

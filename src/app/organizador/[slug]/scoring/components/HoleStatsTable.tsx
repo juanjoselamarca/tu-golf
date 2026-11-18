@@ -1,6 +1,7 @@
 // Tabla de estadísticas opcionales por hoyo (putts / fairway / GIR).
 // Persiste contra la ronda ACTIVA vía `entry.saveHoleStat`.
 
+import { useRef } from 'react'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 
@@ -16,6 +17,9 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
     holes, currentScores, holePutts, setHolePutts, holeFairway, setHoleFairway,
     holeGir, setHoleGir, saveHoleStat,
   } = entry
+  /** Putts a la vista al entrar al campo. Salir sin cambiarlos no guarda: con la carga lenta o fallida el campo
+   *  está vacío aunque la base tenga putts, y un toque al pasar los borraba (mandaba null). */
+  const puttsAlEnfocar = useRef<number | null>(null)
 
   return (
     <div style={{ padding: '0 20px 20px', overflowX: 'auto' }}>
@@ -49,8 +53,10 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                       const n = parseInt(e.target.value)
                       setHolePutts((prev) => ({ ...prev, [h]: isNaN(n) || n < 0 || n > 6 ? null : n }))
                     }}
+                    onFocus={() => { puttsAlEnfocar.current = holePutts[h] ?? null }}
                     onBlur={() => {
-                      if (!disabled) void saveHoleStat(h, { putts: holePutts[h] ?? null })
+                      const putts = holePutts[h] ?? null
+                      if (!disabled && putts !== puttsAlEnfocar.current) void saveHoleStat(h, { putts })
                     }}
                     style={{ width: '48px', background: 'var(--bg)', border: '1px solid var(--surface-border)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
                     placeholder="—"

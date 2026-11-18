@@ -273,9 +273,12 @@ export async function upsertScore(
   // pone en el `DO UPDATE SET` las columnas del payload).
   const parEfectivo = parDelCatalogo ?? (derivado ? PAR_FALLBACK : (par as number | undefined))
   if (parEfectivo !== undefined) upsertData.par = parEfectivo
-  if (putts !== undefined && putts !== null) upsertData.putts = putts
-  if (fairway_hit !== undefined && fairway_hit !== null) upsertData.fairway_hit = fairway_hit
-  if (gir !== undefined && gir !== null) upsertData.gir = gir
+  // Stats: clave AUSENTE = no tocar; presente con null = borrar (el "—" o vaciar los putts). Antes el null se
+  // descartaba y una stat borrada reaparecía al recargar. Los clientes omiten la stat que no tocaron: el scorer
+  // del jugador no manda stats y el del organizador manda sólo las que fijó a mano.
+  if (putts !== undefined) upsertData.putts = putts
+  if (fairway_hit !== undefined) upsertData.fairway_hit = fairway_hit
+  if (gir !== undefined) upsertData.gir = gir
 
   // Con `seq`/`dispositivo` del scorer, un guardado más viejo del mismo dispositivo y hoyo que el ya aplicado se
   // descarta en la base (residual de #754: anota 5, corrige a 4, el POST del 5 llega después y quedaba el 5).

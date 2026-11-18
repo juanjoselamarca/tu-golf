@@ -79,8 +79,6 @@ export function useScoreEntry({
   const { showError, showSuccess, showWarning } = useToast()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  /** Selección vigente leída en el mismo handler (sin esperar el render): re-tocar al jugador abierto no hace nada. */
-  const selectedIdRef = useRef<string | null>(null)
   const [currentScores, setCurrentScores] = useState<Record<number, number>>({})
   const [errorHoles, setErrorHoles] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
@@ -101,30 +99,29 @@ export function useScoreEntry({
   const [holePutts, setHolePutts] = useState<Record<number, number | null>>({})
   const [holeFairway, setHoleFairway] = useState<Record<number, boolean | null>>({})
   const [holeGir, setHoleGir] = useState<Record<number, boolean | null>>({})
-  /** Stats vigentes de la tarjeta abierta, leídas sin el closure del render: un tap de GIR llama a
-   *  `setHoleGir` y a `saveHoleStat` en el mismo handler, y el estado todavía no lo tiene. */
-  const statsRef = useRef({ putts: holePutts, fairway: holeFairway, gir: holeGir })
-  useEffect(() => {
-    statsRef.current = { putts: holePutts, fairway: holeFairway, gir: holeGir }
-  }, [holePutts, holeFairway, holeGir])
+  /** Stats que el organizador fijó a mano en la tarjeta abierta (`null` = la borró a propósito), por hoyo. Es lo
+   *  ÚNICO que viaja en la foto de stats: lo que vino de la base no se reenvía, así una stat nunca cargada (carga
+   *  lenta o fallida, o tarjeta recién abierta) se omite y el servidor no la toca, en vez de mandarla null y
+   *  borrarla. Se lee sin el closure del render: un tap de GIR y uno de putts salen en el mismo tick. Va atado a la
+   *  ronda: si la tarjeta cambia, lo tocado en la anterior no viaja a la nueva. */
+  const statsTocadasRef = useRef<{ roundId: string | null; porHoyo: Record<number, HoleStatPatch> }>({
+    roundId: null, porHoyo: {},
+  })
+  /** Cuenta las cargas de la tarjeta: sólo aplica su resultado la última (una vieja que llega tarde no pisa). */
+  const cargaRef = useRef(0)
 
-  /** Foto COMPLETA de las stats del hoyo con `patch` encima, y queda como vigente. El servidor ordena
-   *  los envíos por hoyo (`guardar_hole_score`): con un parche parcial por envío, putts (seq 7) que
-   *  llega después de GIR (seq 8) se descartaba y los putts se perdían. Con la foto, el más nuevo
-   *  siempre trae lo del anterior. */
-  const fotoStatsDelHoyo = useCallback((holeNumber: number, patch: HoleStatPatch = {}) => {
-    const s = statsRef.current
-    const foto = {
-      putts: s.putts[holeNumber] ?? null,
-      fairway_hit: s.fairway[holeNumber] ?? null,
-      gir: s.gir[holeNumber] ?? null,
-      ...patch,
+  /** Foto de las stats del hoyo con `patch` encima, y queda como vigente. El servidor ordena los envíos por hoyo
+   *  (`guardar_hole_score`): con un parche parcial por envío, putts (seq 7) que llega después de GIR (seq 8) se
+   *  descartaba y los putts se perdían. Con la foto, el más nuevo siempre trae lo del anterior. Una clave ausente
+   *  = no tocar; presente con null = borrar. */
+  const fotoStatsDelHoyo = useCallback((roundId: string, holeNumber: number, patch: HoleStatPatch = {}) => {
+    const actual = statsTocadasRef.current
+    const porHoyo = actual.roundId === roundId ? actual.porHoyo : {}
+    const foto: HoleStatPatch = { ...porHoyo[holeNumber] }
+    for (const [k, v] of Object.entries(patch) as [keyof HoleStatPatch, HoleStatPatch[keyof HoleStatPatch]][]) {
+      if (v !== undefined) (foto as Record<string, unknown>)[k] = v
     }
-    statsRef.current = {
-      putts: { ...s.putts, [holeNumber]: foto.putts },
-      fairway: { ...s.fairway, [holeNumber]: foto.fairway_hit },
-      gir: { ...s.gir, [holeNumber]: foto.gir },
-    }
+    statsTocadasRef.current = { roundId, porHoyo: { ...porHoyo, [holeNumber]: foto } }
     return foto
   }, [])
 
@@ -147,23 +144,16 @@ export function useScoreEntry({
     setHolePutts({})
     setHoleFairway({})
     setHoleGir({})
-    // También la ref, en el mismo handler: el efecto que la sincroniza corre recién tras el commit.
-    // Cinturón: desde la UI esa ventana casi no se alcanza (el envío de la tarjeta nueva no debe llevar stats viejas).
-    statsRef.current = { putts: {}, fairway: {}, gir: {} }
   }, [])
 
   const selectPlayer = useCallback(
     (playerId: string) => {
-      // Re-tocar al jugador abierto (doble toque con guante) no limpia nada: el efecto de carga no vuelve a
-      // correr con el mismo id, así que la tarjeta quedaba en blanco y "deshacer" mandaba gross null.
-      if (selectedIdRef.current === playerId) return
-      selectedIdRef.current = playerId
       tarjetaRef.current += 1
+      // Todo lo de la tarjeta anterior se va YA, no cuando termine la carga: si la carga tarda o falla, anotar el
+      // hoyo 1 de B mandaba putts, fairway y GIR de A a la ronda de B.
+      statsTocadasRef.current = { roundId: null, porHoyo: {} }
       setSelectedId(playerId)
-      // Todo lo de la tarjeta anterior, no solo los golpes: con señal mala, un golpe anotado antes de que
-      // llegue la lectura del nuevo jugador mandaba los putts/fairway/GIR del anterior en su envío.
       resetHoleState()
-      setErrorHoles(new Set())
       setLastAction(null)
     },
     [resetHoleState],
@@ -171,22 +161,23 @@ export function useScoreEntry({
 
   const clearSelection = useCallback(() => {
     tarjetaRef.current += 1
-    selectedIdRef.current = null
+    statsTocadasRef.current = { roundId: null, porHoyo: {} }
     setSelectedId(null)
     resetHoleState()
-    setErrorHoles(new Set())
     // Cerrar la tarjeta (o cambiar de ronda) descarta el deshacer pendiente: el
     // botón "Deshacer hoyo N" quedaba vivo en el header sin tarjeta a la vista.
     setLastAction(null)
   }, [resetHoleState])
 
-  // `vigente` lo da el efecto: solo la última corrida escribe. Sin esto, una respuesta lenta pisa a la nueva
-  // (cambiar de jugador con señal mala pintaba los golpes del anterior). Ordena lecturas entre sí; una lectura
-  // contra un golpe optimista aún sin confirmar no la ordena (pendiente aparte).
   const loadScores = useCallback(
-    async (playerId: string, vigente: () => boolean = () => true) => {
+    async (playerId: string) => {
       const player = players.find((p) => p.id === playerId)
       const roundId = getActiveRound(player)?.id
+      const tarjeta = tarjetaRef.current
+      const carga = ++cargaRef.current
+      // La respuesta es de esta carga y de esta tarjeta: si mientras tanto se abrió otra (o arrancó otra carga),
+      // no se aplica. Sin esto, la carga de A que llegaba tarde pintaba sus stats en la tarjeta de B.
+      const vigente = () => tarjetaRef.current === tarjeta && cargaRef.current === carga
       if (!roundId) {
         resetHoleState()
         return
@@ -209,19 +200,15 @@ export function useScoreEntry({
         setHoleFairway(fairway)
         setHoleGir(gir)
       } catch (e) {
-        if (!vigente()) return
         void captureError(e, { context: 'scoring.useScoreEntry.loadScores', meta: { roundId } })
-        showError('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
+        if (vigente()) showError('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
       }
     },
     [players, getActiveRound, resetHoleState, showError],
   )
 
   useEffect(() => {
-    if (!selectedId) return
-    let vigente = true
-    void loadScores(selectedId, () => vigente)
-    return () => { vigente = false }
+    if (selectedId) void loadScores(selectedId)
   }, [selectedId, loadScores])
 
   // ── Derivados de la tarjeta seleccionada ──
@@ -295,7 +282,6 @@ export function useScoreEntry({
         return
       }
 
-      const tarjeta = tarjetaRef.current
       const hole = holeByNumero.get(holeNumber)
       const par = hole?.par ?? 4
       const si = siAllocByHole[holeNumber] ?? hole?.stroke_index ?? holeNumber
@@ -342,7 +328,7 @@ export function useScoreEntry({
             gross_score: gross,
             net_score: netScore,
             points,
-            ...fotoStatsDelHoyo(holeNumber),
+            ...fotoStatsDelHoyo(round.id, holeNumber),
           }),
         })
       } catch {
@@ -354,9 +340,8 @@ export function useScoreEntry({
 
       if (!res?.ok) {
         marcar('fallo')
-        showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber} de ${resolveLegacyPlayerName(player)}. Intenta nuevamente.`)
-        // La marca roja es de ESTA tarjeta: si el organizador ya abrió a otro jugador, no se la pinta a él.
-        if (tarjetaRef.current === tarjeta) setErrorHoles((prev) => new Set(prev).add(holeNumber))
+        showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber}. Intenta nuevamente.`)
+        setErrorHoles((prev) => new Set(prev).add(holeNumber))
         return
       }
       marcar('guardado')
@@ -504,7 +489,7 @@ export function useScoreEntry({
           hole_number: holeNumber,
           par: holeByNumero.get(holeNumber)?.par ?? 4,
           gross_score: gross,
-          ...fotoStatsDelHoyo(holeNumber, patch),
+          ...fotoStatsDelHoyo(round.id, holeNumber, patch),
         }),
       })
       if (!res.ok) {
