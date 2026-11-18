@@ -24,7 +24,9 @@ AS $$
 BEGIN
   IF current_user IN ('anon', 'authenticated', 'service_role')
      AND NEW.status = 'approved'
-     AND OLD.status IS DISTINCT FROM 'approved'
+     -- Mover el tournament_id también cuenta: sacar al inscrito a un torneo abierto, aprobarlo y devolverlo
+     -- aprobado sería el mismo atajo en tres pasos.
+     AND (OLD.status IS DISTINCT FROM 'approved' OR NEW.tournament_id IS DISTINCT FROM OLD.tournament_id)
      AND COALESCE(public.torneo_con_grupos_fijos(NEW.tournament_id), false) THEN
     RAISE EXCEPTION 'El torneo ya empezó: asigna al jugador a un grupo para sumarlo'
       USING ERRCODE = 'P0001', HINT = 'grupos_fijos';
@@ -38,5 +40,5 @@ REVOKE ALL ON FUNCTION public.aprobar_en_juego_guard() FROM PUBLIC, anon, authen
 
 DROP TRIGGER IF EXISTS aprobar_en_juego ON public.players;
 CREATE TRIGGER aprobar_en_juego
-  BEFORE UPDATE OF status ON public.players
+  BEFORE UPDATE OF status, tournament_id ON public.players
   FOR EACH ROW EXECUTE FUNCTION public.aprobar_en_juego_guard();

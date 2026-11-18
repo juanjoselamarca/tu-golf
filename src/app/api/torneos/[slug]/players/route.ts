@@ -11,8 +11,10 @@
 //
 // `groupId` (opcional, solo con el torneo EN JUEGO, #814 · PR3): tras inscribirlo, lo asigna a ese grupo con
 // `colocarInscrito` (mismas reglas que PUT .../players/[playerId]/grupo; `confirmado` si el grupo ya anotó golpes).
-// Si la inscripción sale pero la asignación no, responde 207: el jugador quedó inscrito SIN grupo y el cuerpo trae
-// el motivo para que el organizador lo asigne a otro grupo.
+// Antes de inscribir valida el grupo (`prechequearAltaConGrupo`): lo evitable es 409 sin alta. Si aun así la asignación
+// falla (una carrera: otro cambio llenó el grupo o anotó entre medio), responde 207: el jugador quedó inscrito SIN
+// grupo y el cuerpo trae `playerId` y el motivo. Lo que sigue es PUT .../players/[playerId]/grupo con ese `playerId`
+// (`desde: null`); NUNCA repetir el POST, que lo inscribiría dos veces o fallaría por ya inscrito.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -25,9 +27,8 @@ import { captureError } from '@/lib/error-tracking'
 import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { courseDataDeInscripcion, esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
-import { colocarInscrito } from '@/lib/data/tournaments/colocarInscrito'
-import { cuerpoDeColocarFallido, leerTorneoParaColocar } from '@/lib/api/gestion-en-juego'
-import { mensajeDeMotivo } from '@/golf/torneo/gestion-en-juego'
+import { colocarInscrito, prechequearAltaConGrupo } from '@/lib/data/tournaments/colocarInscrito'
+import { cuerpoDeColocarFallido, leerTorneoParaColocar, respuestaDeColocar } from '@/lib/api/gestion-en-juego'
 
 export const dynamic = 'force-dynamic'
 
@@ -140,23 +141,15 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
   }
 
-  // Con grupo: se valida ANTES de inscribir lo que se puede saber sin el jugador (torneo en juego de una ronda,
-  // grupo del torneo), para no dejar un inscrito suelto por un error evitable.
+  // Con grupo: ANTES de inscribir se valida todo lo que se sabe sin el jugador (torneo en juego de una ronda, grupo
+  // del torneo con tarjeta abierta, match play o equipo lleno, golpes sin confirmar): 409 sin crear un inscrito suelto.
   const torneoParaColocar = body.groupId ? await leerTorneoParaColocar(admin, params.slug) : null
   if (body.groupId) {
     if (torneoParaColocar === 'error' || !torneoParaColocar) {
       return NextResponse.json({ error: 'No se pudo leer el torneo. Intenta de nuevo.' }, { status: 500 })
     }
-    if (torneoParaColocar.status !== 'in_progress') {
-      return NextResponse.json({ error: mensajeDeMotivo('torneo-no-en-juego'), codigo: 'torneo-no-en-juego' }, { status: 409 })
-    }
-    if ((torneoParaColocar.total_rounds ?? 1) > 1) {
-      return NextResponse.json({ error: mensajeDeMotivo('torneo-varias-rondas'), codigo: 'torneo-varias-rondas' }, { status: 409 })
-    }
-    const { data: grupo, error: errG } = await admin
-      .from('tournament_groups').select('id').eq('id', body.groupId).eq('tournament_id', tournament.id).maybeSingle()
-    if (errG) return NextResponse.json({ error: 'No se pudo leer el grupo. Intenta de nuevo.' }, { status: 500 })
-    if (!grupo) return NextResponse.json({ error: 'Grupo no encontrado', codigo: 'grupo-no-existe' }, { status: 404 })
+    const previo = await prechequearAltaConGrupo(admin, torneoParaColocar, body.groupId, body.confirmado === true)
+    if (previo) return respuestaDeColocar(previo)
   }
 
   const course = tournament.courses

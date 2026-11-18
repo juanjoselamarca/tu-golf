@@ -72,6 +72,24 @@ BEGIN
   RAISE NOTICE 'OK en juego el cliente no aprueba a un pendiente ni reaprueba a un retirado';
 END $$;
 
+-- El atajo en tres pasos: sacar al pendiente a un torneo abierto, aprobarlo ahí y devolverlo aprobado.
+DO $$
+DECLARE bloqueado boolean := false;
+BEGIN
+  UPDATE public.players SET tournament_id = 'b8140000-0000-4000-8000-0000000003a1'
+   WHERE id = 'c8140000-0000-4000-8000-0000000003b2';
+  UPDATE public.players SET status = 'approved' WHERE id = 'c8140000-0000-4000-8000-0000000003b2';
+  BEGIN
+    UPDATE public.players SET tournament_id = 'b8140000-0000-4000-8000-0000000003a2'
+     WHERE id = 'c8140000-0000-4000-8000-0000000003b2';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM NOT LIKE 'El torneo ya empezó%' THEN RAISE; END IF;
+    bloqueado := true;
+  END;
+  IF NOT bloqueado THEN RAISE EXCEPTION 'FALLA: devolvió aprobado al torneo en juego moviendo tournament_id'; END IF;
+  RAISE NOTICE 'OK no se entra aprobado a un torneo en juego cambiando tournament_id';
+END $$;
+
 -- ── service_role: tampoco por UPDATE directo; sí por la RPC ──────────────────────────────────────────────────
 RESET ROLE;
 SET LOCAL ROLE service_role;

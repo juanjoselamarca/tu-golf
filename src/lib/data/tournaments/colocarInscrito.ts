@@ -493,3 +493,58 @@ export async function colocarInscrito(
     return falla('error')
   }
 }
+
+/**
+ * Motivos que el alta con grupo (POST players con `groupId`) puede saber ANTES de inscribir, solo con el grupo: si
+ * alguno aplica, la ruta responde 409 sin crear un inscrito suelto. Lo que depende del jugador (su hándicap para el
+ * equipo) o de una carrera queda para `colocarInscrito` después del alta (el 207).
+ */
+export const MOTIVOS_PREVIOS_AL_ALTA: readonly CodigoMotivoColocar[] = [
+  'torneo-no-en-juego', 'torneo-varias-rondas', 'formato-desconocido', 'grupo-sin-tarjeta', 'tarjeta-cerrada',
+  'match-play-grupo-lleno', 'equipo-lleno',
+]
+
+/**
+ * Prechequeo del alta con grupo: evalúa `planDeColocar` con un inscrito nuevo (aprobado, sin grupo ni golpes) sobre
+ * el grupo destino leído. Devuelve el rechazo (de `MOTIVOS_PREVIOS_AL_ALTA`, `grupo-no-existe` o
+ * `requiere-confirmacion` si el destino ya anotó y no viene `confirmado`) o null si se puede inscribir.
+ */
+export async function prechequearAltaConGrupo(
+  svc: SupabaseClient,
+  torneo: TorneoParaEditar,
+  destinoId: string,
+  confirmado: boolean,
+): Promise<Exclude<ResultadoColocar, { ok: true }> | null> {
+  const meta = { tournamentId: torneo.id, destinoId }
+  try {
+    const { data: g, error } = await svc
+      .from('tournament_groups').select('id, ronda_libre_id').eq('id', destinoId).eq('tournament_id', torneo.id).maybeSingle()
+    if (error) throw error
+    if (!g) return falla('grupo-no-existe') as Exclude<ResultadoColocar, { ok: true }>
+    const destino = await leerGrupo(svc, g as { id: string; ronda_libre_id: string | null })
+    const nuevo = {
+      id: '', user_id: null, player_name: null, handicap_at_registration: null, status: 'approved', tee_id: null,
+      genero: null, category_id: null, profiles: null, categories: null,
+    } as unknown as InscritoLeido
+    const plan = planDeColocar({
+      torneo,
+      lectura: { inscrito: nuevo, jugadorRondaId: null, origen: null, destino, golpesEnTarjetaIndividual: false },
+      destinoId,
+      contexto: null,
+    })
+    if ('motivo' in plan) {
+      if (!MOTIVOS_PREVIOS_AL_ALTA.includes(plan.motivo.codigo)) return null
+      return { ok: false, motivo: plan.motivo.codigo, mensaje: plan.motivo.mensaje, ofreceRetirar: false }
+    }
+    // Sin contexto de hándicap (bola compartida) el plan corta después de las reglas: los golpes se miran aquí.
+    const compartida = isSharedBallFormat(resolveFormatoJuego(torneo))
+    const destinoHoyos = Math.max(0, ...hoyosDelGrupo(destino, compartida))
+    if (destinoHoyos > 0 && !confirmado) {
+      return { ok: false, motivo: 'requiere-confirmacion', mensaje: MENSAJE_REQUIERE_CONFIRMACION, ofreceRetirar: false, golpes: { inscrito: 0, destino: destinoHoyos } }
+    }
+    return null
+  } catch (err) {
+    void captureError(err, { context: 'colocar-inscrito.prechequeo-alta', level: 'error', meta })
+    return falla('error') as Exclude<ResultadoColocar, { ok: true }>
+  }
+}

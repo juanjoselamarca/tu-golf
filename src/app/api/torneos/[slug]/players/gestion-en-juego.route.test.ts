@@ -23,7 +23,11 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: () => ({ allowed: true }), rateLimitHeaders: () => ({}) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 const mockColocar = vi.fn()
-vi.mock('@/lib/data/tournaments/colocarInscrito', () => ({ colocarInscrito: (...a: unknown[]) => mockColocar(...a) }))
+const mockPrevio = vi.fn()
+vi.mock('@/lib/data/tournaments/colocarInscrito', () => ({
+  colocarInscrito: (...a: unknown[]) => mockColocar(...a),
+  prechequearAltaConGrupo: (...a: unknown[]) => mockPrevio(...a),
+}))
 const mockEnroll = vi.fn()
 vi.mock('@/lib/data/tournaments/enrollPlayer', () => ({ enrollPlayer: (...a: unknown[]) => mockEnroll(...a) }))
 
@@ -49,6 +53,7 @@ beforeEach(() => {
   }
   mockColocar.mockReset().mockResolvedValue({ ok: true, operacion: 'mover', aprobado: false, jugadorRondaId: 'jr' })
   mockEnroll.mockReset().mockResolvedValue({ ok: true, playerId: P })
+  mockPrevio.mockReset().mockResolvedValue(null)
 })
 
 describe('PUT /api/torneos/[slug]/players/[playerId]/grupo', () => {
@@ -139,14 +144,16 @@ describe('POST /api/torneos/[slug]/players con groupId', () => {
     expect(await res.json()).toMatchObject({ ok: true, playerId: P, colocado: false, codigo: 'match-play-grupo-lleno' })
   })
 
-  it('torneo sin iniciar o de varias rondas, o grupo ajeno → rechaza ANTES de inscribir', async () => {
-    tablas.tournaments = { data: { ...torneo, status: 'open' }, error: null }
+  it('lo evitable se rechaza ANTES de inscribir: 409/404 sin alta (match play lleno, golpes sin confirmar, grupo ajeno)', async () => {
+    mockPrevio.mockResolvedValueOnce({ ok: false, motivo: 'match-play-grupo-lleno', mensaje: 'm', ofreceRetirar: false })
     expect((await post({ mode: 'registered', userId: U, groupId: G2 })).status).toBe(409)
-    tablas.tournaments = { data: { ...torneo, total_rounds: 2 }, error: null }
-    expect((await post({ mode: 'registered', userId: U, groupId: G2 })).status).toBe(409)
-    tablas.tournaments = { data: torneo, error: null }
-    tablas.tournament_groups = { data: null, error: null }
+    mockPrevio.mockResolvedValueOnce({ ok: false, motivo: 'requiere-confirmacion', mensaje: 'm', ofreceRetirar: false, golpes: { inscrito: 0, destino: 4 } })
+    const res = await post({ mode: 'registered', userId: U, groupId: G2 })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ codigo: 'requiere-confirmacion', golpes: { destino: 4 } })
+    mockPrevio.mockResolvedValueOnce({ ok: false, motivo: 'grupo-no-existe', mensaje: 'm', ofreceRetirar: false })
     expect((await post({ mode: 'registered', userId: U, groupId: G2 })).status).toBe(404)
     expect(mockEnroll).not.toHaveBeenCalled()
+    expect(mockPrevio).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ id: 'T' }), G2, false)
   })
 })

@@ -19,7 +19,7 @@ vi.mock('./leaderboard', () => ({
   fetchLegacyHcpContext: async () => ctxWhs,
 }))
 
-import { colocarInscrito, MAX_REINTENTOS_COLOCAR, type ArgumentosDeColocar } from './colocarInscrito'
+import { colocarInscrito, prechequearAltaConGrupo, MAX_REINTENTOS_COLOCAR, type ArgumentosDeColocar } from './colocarInscrito'
 import type { TorneoParaEditar } from './editarHandicapInscrito'
 import { handicapsDeEquipoDelGrupo } from './teamRounds'
 import { MENSAJE_MOTIVO_DESCONOCIDO, mensajeDeMotivo } from '@/golf/torneo/gestion-en-juego'
@@ -340,5 +340,36 @@ describe('colocarInscrito — hándicap de equipo (bola compartida) con los que 
     await colocarInscrito(svc, torneoDe('best_ball'), 'w', null)
     expect(rpcLlamadas).toHaveLength(1)
     expect(rpcLlamadas[0].p_equipos).toEqual([{ group_id: 'G1', handicap_equipo: null, handicap_equipo_juego: null }])
+  })
+})
+
+describe('prechequearAltaConGrupo — lo que el alta con grupo sabe antes de inscribir', () => {
+  it('match play con el destino lleno → match-play-grupo-lleno', async () => {
+    db.players.push(jugador('b', 5), jugador('c', 7))
+    grupo('G1', { b: {}, c: {} }); enGrupo('G1', 'b'); enGrupo('G1', 'c')
+    expect(await prechequearAltaConGrupo(svc, torneoDe('match_play'), 'G1', true)).toMatchObject({ motivo: 'match-play-grupo-lleno' })
+  })
+
+  it('destino con golpes: sin confirmar → requiere-confirmacion con los hoyos; confirmado → null', async () => {
+    db.players.push(jugador('b', 5))
+    grupo('G1', { b: { 1: 4, 2: 5 } }); enGrupo('G1', 'b')
+    expect(await prechequearAltaConGrupo(svc, torneoDe('stroke_play'), 'G1', false)).toMatchObject({ motivo: 'requiere-confirmacion', golpes: { inscrito: 0, destino: 2 } })
+    expect(await prechequearAltaConGrupo(svc, torneoDe('stroke_play'), 'G1', true)).toBeNull()
+  })
+
+  it('tarjeta cerrada, grupo sin tarjeta, grupo de otro torneo, torneo sin iniciar', async () => {
+    grupo('G1', {}, null, 'finalizada')
+    db.tournament_groups.push({ id: 'G0', tournament_id: 'T', ronda_libre_id: null }, { id: 'GX', tournament_id: 'OTRO', ronda_libre_id: null })
+    expect(await prechequearAltaConGrupo(svc, torneoDe('stroke_play'), 'G1', true)).toMatchObject({ motivo: 'tarjeta-cerrada' })
+    expect(await prechequearAltaConGrupo(svc, torneoDe('stroke_play'), 'G0', true)).toMatchObject({ motivo: 'grupo-sin-tarjeta' })
+    expect(await prechequearAltaConGrupo(svc, torneoDe('stroke_play'), 'GX', true)).toMatchObject({ motivo: 'grupo-no-existe' })
+    expect(await prechequearAltaConGrupo(svc, torneoDe('stroke_play', { status: 'open' }), 'G1', true)).toMatchObject({ motivo: 'torneo-no-en-juego' })
+  })
+
+  it('scramble con lugar y sin golpes: null (el hándicap del equipo se resuelve al colocar)', async () => {
+    db.players.push(jugador('b', 5))
+    grupo('G1', { b: {} }, { scores: {}, handicap_equipo: null, handicap_equipo_juego: null }); enGrupo('G1', 'b')
+    expect(await prechequearAltaConGrupo(svc, torneoDe('scramble'), 'G1', false)).toBeNull()
+    expect(rpcLlamadas).toHaveLength(0)
   })
 })

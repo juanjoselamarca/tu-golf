@@ -40,6 +40,20 @@ let rondaId = ''
 let rondaCodigo = ''
 let grupoId = ''
 
+/**
+ * Devuelve al jugador a 'approved'. Con el torneo en juego la base solo deja aprobar por colocar_inscrito_en_grupo
+ * (trigger aprobar_en_juego, #814): el torneo pasa a 'open' alrededor del UPDATE (en este punto no hay grupos con
+ * tarjeta, que también fijarían los grupos) y vuelve a 'in_progress'.
+ */
+async function reaprobar(admin: ReturnType<typeof adminClient>, tournamentId: string, playerId: string) {
+  await sinError('torneo → open', admin.from('tournaments').update({ status: 'open' }).eq('id', tournamentId))
+  try {
+    await sinError('player → approved', admin.from('players').update({ status: 'approved' }).eq('id', playerId))
+  } finally {
+    await sinError('torneo → in_progress', admin.from('tournaments').update({ status: 'in_progress' }).eq('id', tournamentId))
+  }
+}
+
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer', () => {
@@ -150,7 +164,7 @@ test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer',
       await abrirTorneo(page, slug)
       await expect(page.getByRole('link', { name: CTA })).toHaveCount(0)
     } finally {
-      await sinError('player → approved', admin.from('players').update({ status: 'approved' }).eq('id', playerId))
+      await reaprobar(admin, tournamentId, playerId)
     }
   })
 
@@ -161,7 +175,7 @@ test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer',
       await abrirTorneo(page, slug)
       await expect(page.getByRole('link', { name: CTA })).toHaveCount(0)
     } finally {
-      await sinError('player → approved', admin.from('players').update({ status: 'approved' }).eq('id', playerId))
+      await reaprobar(admin, tournamentId, playerId)
     }
   })
 

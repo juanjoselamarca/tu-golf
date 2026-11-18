@@ -25,7 +25,6 @@ import {
   TORNEO_PARA_EDITAR_SELECT,
   type TorneoParaEditar,
 } from '@/lib/data/tournaments/editarHandicapInscrito'
-import { mensajeDeMotivo } from '@/golf/torneo/gestion-en-juego'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,8 +89,5 @@ export async function PUT(
   if (res.ok) return NextResponse.json({ ok: true, value: res.valor })
   if (res.motivo === 'no-existe') return NextResponse.json({ error: 'Jugador no encontrado en este torneo' }, { status: 404 })
   if (res.motivo === 'conflicto') return NextResponse.json({ error: ERROR_OTRO_CAMBIO, codigo: 'conflicto' }, { status: 409 })
-  if (res.motivo === 'equipo-incalculable') {
-    return NextResponse.json({ error: mensajeDeMotivo('handicap-de-equipo'), codigo: 'handicap-de-equipo' }, { status: 409 })
-  }
   return NextResponse.json({ error: 'No se pudo guardar el hándicap. Intenta de nuevo.' }, { status: 500 })
 }

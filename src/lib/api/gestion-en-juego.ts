@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { TORNEO_PARA_EDITAR_SELECT, type TorneoParaEditar } from '@/lib/data/tournaments/editarHandicapInscrito'
 import type { ResultadoColocar } from '@/lib/data/tournaments/colocarInscrito'
@@ -22,7 +23,7 @@ export type TorneoDelOrganizador =
 const CAMBIOS_POR_VENTANA = 120
 const VENTANA_MS = 10 * 60 * 1000
 
-/** Tope de cambios y torneo del organizador (por slug). La ruta ya validó la sesión (`usuarioDeLaSesion`). */
+/** Tope de cambios y torneo del organizador (por slug). La ruta ya validó la sesión con `auth.getUser()`. */
 export async function torneoDelOrganizador(slug: string, user: { id: string }): Promise<TorneoDelOrganizador> {
 
   const rl = checkRateLimit(`gestion-en-juego:${user.id}`, CAMBIOS_POR_VENTANA, VENTANA_MS)
@@ -49,7 +50,10 @@ export async function torneoDelOrganizador(slug: string, user: { id: string }): 
 /** El torneo con lo que necesita `colocarInscrito` (formato, estado, rondas, equipo). */
 export async function leerTorneoParaColocar(svc: SupabaseClient, slug: string): Promise<TorneoParaEditar | null | 'error'> {
   const { data, error } = await svc.from('tournaments').select(TORNEO_PARA_EDITAR_SELECT).eq('slug', slug).maybeSingle()
-  if (error) return 'error'
+  if (error) {
+    void captureError(error, { context: 'gestion-en-juego.leer-torneo', level: 'error', meta: { slug } })
+    return 'error'
+  }
   return (data as unknown as TorneoParaEditar | null) ?? null
 }
 
