@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import type { AvisoSinAcceso } from '../hooks/acceso-guardado'
 import { MENSAJE_BUSQUEDA_TARJETA, type ResultadoBusquedaTarjeta } from '../hooks/useBuscarTarjeta'
-import { CTA_RELLENO, CTA_SECUNDARIO } from './cta-aviso'
+import { CTA_RELLENO, CTA_SECUNDARIO } from '@/components/torneo/cta-aviso'
 
 /**
  * Aviso del jugador cuya tarjeta no está en el torneo: "Buscar mi tarjeta" (el servidor la asegura) y

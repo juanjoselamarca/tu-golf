@@ -11,6 +11,8 @@ import { isClosedRoundStatus } from '../hooks/useScoringData'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { HoleStatsTable } from './HoleStatsTable'
+import { AvisoJugadorSinTarjeta } from './AvisoJugadorSinTarjeta'
+import type { useCrearTarjeta } from '../hooks/useCrearTarjeta'
 
 // Paleta del scorer del organizador — usa colores Garmin canónicos (T1 resuelta).
 function scoreBackground(gross: number, par: number) {
@@ -37,9 +39,11 @@ interface ScorecardPanelProps {
   entry: UseScoreEntryReturn
   /** Torneo cerrado o publicado: la tarjeta se lee pero no se edita (el servidor rechazaría cada golpe). */
   soloLectura?: boolean
+  /** "Crear su tarjeta" para el jugador sin tarjeta en la ronda en juego. */
+  crearTarjeta?: ReturnType<typeof useCrearTarjeta>
 }
 
-export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, soloLectura = false }: ScorecardPanelProps) {
+export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, soloLectura: torneoSoloLectura = false, crearTarjeta }: ScorecardPanelProps) {
   // Mismo rótulo y formato que el panel de jugadores: Índice en WHS, HCP en el resto.
   const presentacionHcp = presentacionHandicapInscrito(tournament.hcp_calc_mode)
   const [showStats, setShowStats] = useState(false)
@@ -52,6 +56,9 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   if (!selectedPlayer) return null
 
   const roundClosed = isClosedRoundStatus(selectedRound?.status)
+  // Sin tarjeta en la ronda en juego no hay dónde guardar: la grilla no se edita y el aviso ofrece crearla.
+  const sinTarjeta = !selectedRound
+  const soloLectura = torneoSoloLectura || sinTarjeta
 
   return (
     <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', overflow: 'hidden' }}>
@@ -91,6 +98,13 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
           </div>
         </div>
       </div>
+
+      {sinTarjeta && !torneoSoloLectura && crearTarjeta && (
+        <AvisoJugadorSinTarjeta
+          nombre={resolveLegacyPlayerName(selectedPlayer)} creando={crearTarjeta.creando}
+          resultado={crearTarjeta.resultado} crear={() => { void crearTarjeta.crear() }}
+        />
+      )}
 
       {/* Grilla de scores — scroll horizontal en mobile 390px para mantener
            touch targets >= 44px (dedo con guante en cancha). */}

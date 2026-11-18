@@ -5,6 +5,7 @@ import {
   esTarjetaCerrada,
   resolveRoundPlayConfig,
   resolveAllRoundPlayConfigs,
+  rondaSigueEnJuego,
   roundDiffersFromBase,
 } from './tournament-rounds'
 
@@ -126,5 +127,27 @@ describe('roundDiffersFromBase', () => {
   it('misma cancha, distinta cantidad de hoyos → difiere', () => {
     const r = resolveRoundPlayConfig(TORNEO, [{ round_number: 2, course_id: 'cancha-A', hole_count: 9, date: null }], 2)
     expect(roundDiffersFromBase(base, r)).toBe(true)
+  })
+})
+
+describe('rondaSigueEnJuego — solo cuentan las tarjetas abiertas de jugadores aprobados', () => {
+  const j = (status: string, ...rounds: Array<[number, string]>) =>
+    ({ status, rounds: rounds.map(([round_number, st]) => ({ round_number, status: st })) })
+
+  it('la tarjeta abierta de un WD, DQ o pendiente no deja la ronda en juego', () => {
+    const roster = [j('approved', [1, 'closed']), j('withdrawn', [1, 'in_progress']), j('disqualified', [1, 'in_progress']), j('pending', [1, 'in_progress'])]
+    expect(rondaSigueEnJuego(roster, 1)).toBe(false)
+  })
+  it('un aprobado con la tarjeta abierta la deja en juego; official y closed son cerradas', () => {
+    expect(rondaSigueEnJuego([j('approved', [1, 'official']), j('approved', [1, 'in_progress'])], 1)).toBe(true)
+    expect(rondaSigueEnJuego([j('approved', [1, 'official']), j('approved', [1, 'closed'])], 1)).toBe(false)
+  })
+  it('mira solo la ronda pedida; round_number null es la 1', () => {
+    const roster = [{ status: 'approved', rounds: [{ round_number: null, status: 'in_progress' }, { round_number: 2, status: 'closed' }] }]
+    expect(rondaSigueEnJuego(roster, 1)).toBe(true)
+    expect(rondaSigueEnJuego(roster, 2)).toBe(false)
+  })
+  it('sin status (roster viejo) no cuenta como aprobado', () => {
+    expect(rondaSigueEnJuego([{ rounds: [{ round_number: 1, status: 'in_progress' }] }], 1)).toBe(false)
   })
 })

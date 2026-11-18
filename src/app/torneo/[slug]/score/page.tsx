@@ -23,7 +23,7 @@ import { elegirJugadorInicial, urlSinJugador } from './hooks/jugador-del-link'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import { useBuscarTarjeta } from './hooks/useBuscarTarjeta'
 import { AvisoSinTarjeta } from './components/AvisoSinTarjeta'
-import { CTA_RELLENO } from './components/cta-aviso'
+import { CTA_RELLENO } from '@/components/torneo/cta-aviso'
 import { useSondeoRoster, rondaSiguienteYaAbierta } from './hooks/useSondeoRoster'
 import {
   fetchScoringTournament,

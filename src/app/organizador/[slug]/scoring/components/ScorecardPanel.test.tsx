@@ -3,7 +3,7 @@
 // GROSS y NET son golpes; vs PAR es el único que lleva signo.
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import type { ScoringTournament } from '@/lib/data/tournaments/scoring'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { ScorecardPanel } from './ScorecardPanel'
@@ -57,5 +57,37 @@ describe('ScorecardPanel — totales del jugador', () => {
     const t = totales(entry({ grossTotal: 41, netTotal: 33, parJugado: 36 }))
     expect(t.NET).toBe('33')
     expect(t['vs PAR']).toBe('+5')
+  })
+})
+
+// Jugador sin tarjeta en la ronda en juego: antes el golpe se descartaba en silencio. Ahora la grilla queda
+// de solo lectura y el aviso ofrece "Crear su tarjeta" (POST /api/torneos/[slug]/tarjeta).
+describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
+  const crearTarjeta = (over: Partial<{ creando: boolean; resultado: 'no_aparece' | null }> = {}) => ({
+    creando: false, resultado: null, crear: vi.fn(async () => {}), ...over,
+  })
+  const sinTarjeta = entry({ selectedRound: undefined, holes: [1, 2] })
+
+  it('muestra el aviso, bloquea la grilla y "Crear su tarjeta" la pide', () => {
+    const ct = crearTarjeta()
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={ct} />)
+    expect(screen.getByTestId('organizador-sin-tarjeta').textContent).toContain('E2E Test no tiene tarjeta en esta ronda')
+    for (const input of screen.queryAllByRole('textbox')) expect((input as HTMLInputElement).readOnly).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Crear su tarjeta' }))
+    expect(ct.crear).toHaveBeenCalledTimes(1)
+  })
+
+  it('mientras crea, el botón queda deshabilitado; si no aparece, lo dice', () => {
+    const { rerender } = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta({ creando: true })} />)
+    expect((screen.getByRole('button', { name: 'Creando...' }) as HTMLButtonElement).disabled).toBe(true)
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta({ resultado: 'no_aparece' })} />)
+    expect(screen.getByTestId('resultado-crear-tarjeta').textContent).toContain('No se pudo crear ahora')
+  })
+
+  it('con tarjeta no hay aviso; con el torneo cerrado tampoco (no se puede crear)', () => {
+    const { rerender } = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({})} crearTarjeta={crearTarjeta()} />)
+    expect(screen.queryByTestId('organizador-sin-tarjeta')).toBeNull()
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta()} soloLectura />)
+    expect(screen.queryByTestId('organizador-sin-tarjeta')).toBeNull()
   })
 })

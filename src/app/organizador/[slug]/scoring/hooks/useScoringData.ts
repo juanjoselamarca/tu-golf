@@ -10,7 +10,8 @@ import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
-import { esTarjetaCerrada } from '@/golf/tournament-rounds'
+import { esTarjetaCerrada, rondaSigueEnJuego } from '@/golf/tournament-rounds'
+import { inscritoAprobado } from '@/golf/tournament-status'
 import {
   fetchBulkRoundHoleCounts,
   fetchRoundScoringContext,
@@ -271,16 +272,12 @@ export function useScoringData(slug: string): UseScoringDataReturn {
   // Los hoyos de la ronda ACTIVA (pueden diferir de los de la ronda 1).
   const holeCount = rondaActiva?.holeCount ?? tournament?.hole_count ?? 18
 
-  const allCurrentRoundsClosed = useMemo(
-    () =>
-      players.every((p) => {
-        const r = p.rounds?.find((r) => (r.round_number ?? 1) === activeRoundNum)
-        return r ? isClosedRoundStatus(r.status) : true
-      }),
-    [players, activeRoundNum],
-  )
+  // Regla única de "ronda en juego" (rondaSigueEnJuego, la misma del servidor): la tarjeta abierta de un
+  // retirado (WD) o descalificado (DQ) no se cierra al retirarlo y no bloquea la ronda siguiente.
+  const allCurrentRoundsClosed = useMemo(() => !rondaSigueEnJuego(players, activeRoundNum), [players, activeRoundNum])
+  const hayAprobados = useMemo(() => players.some((p) => inscritoAprobado(p.status)), [players])
   const canStartNextRound =
-    isMultiRound && allCurrentRoundsClosed && activeRoundNum < totalRounds && players.length > 0
+    isMultiRound && allCurrentRoundsClosed && activeRoundNum < totalRounds && hayAprobados
 
   const selectRound = useCallback(
     (rn: number) => {

@@ -1,6 +1,6 @@
 import type React from 'react'
 
-// CTA de los avisos del scorer del torneo (fondo rojo o dorado tenue): relleno dorado con texto oscuro
+// CTA de los avisos de los scorers del torneo (jugador y organizador; fondo rojo o dorado tenue): relleno dorado con texto oscuro
 // (7,35:1 en claro y en oscuro). El texto dorado `--brand-on-bg` sobre ese rojo compositado no llegaba a
 // 4,5:1 en modo claro.
 export const CTA_RELLENO: React.CSSProperties = {

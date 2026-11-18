@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
+import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
@@ -235,7 +236,15 @@ export function useScoreEntry({
       const player = players.find((p) => p.id === selectedId)
       if (!player) return
       const round = getActiveRound(player)
-      if (!round) return
+      if (!round) {
+        // Sin tarjeta en la ronda en juego no hay dónde guardar: se dice, no se pierde en silencio. El panel
+        // ofrece "Crear su tarjeta" (POST /api/torneos/[slug]/tarjeta).
+        showWarning('No se guardó', `${resolveLegacyPlayerName(player)} no tiene tarjeta en esta ronda. Créala con "Crear su tarjeta" y vuelve a anotar.`)
+        void captureError(new Error('Scorer del organizador: jugador sin tarjeta en la ronda en juego'), {
+          context: 'organizador.score.sinTarjeta', level: 'warning', meta: { tournamentId: tournament.id, playerId: player.id, holeNumber },
+        })
+        return
+      }
 
       const hole = holeByNumero.get(holeNumber)
       const par = hole?.par ?? 4

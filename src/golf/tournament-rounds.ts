@@ -20,6 +20,8 @@
 //
 // Sin I/O: pura y testeable. El fetch vive en `src/lib/data/tournaments/rounds.ts`.
 
+import { inscritoAprobado } from './tournament-status'
+
 /** Lo que `tournaments` sabe de la ronda 1. */
 export interface TournamentRoundBase {
   course_id: string | null
@@ -122,6 +124,21 @@ export const CLOSED_ROUND_STATUSES_IN = `(${CLOSED_ROUND_STATUSES.map((s) => `"$
 
 export function esTarjetaCerrada(status: string | null | undefined): boolean {
   return (CLOSED_ROUND_STATUSES as readonly string[]).includes(status ?? '')
+}
+
+/**
+ * ¿La ronda `roundNumber` sigue en juego? Sí mientras algún jugador APROBADO tenga su tarjeta abierta. La
+ * tarjeta abierta de un retirado (WD), descalificado (DQ) o pendiente no cuenta: retirar no cierra la tarjeta
+ * y no puede bloquear la ronda siguiente. Es la regla del servidor (`contarTarjetasEnJuego` y el SQL de
+ * `asegurar_tarjeta_vigente`) sobre un roster ya cargado.
+ */
+export function rondaSigueEnJuego(
+  jugadores: ReadonlyArray<{ status?: string | null; rounds?: ReadonlyArray<RoundRef> | null }>,
+  roundNumber: number,
+): boolean {
+  return jugadores.some((j) =>
+    inscritoAprobado(j.status) &&
+    (j.rounds ?? []).some((r) => (r.round_number ?? 1) === roundNumber && !tarjetaCerrada(r)))
 }
 
 function tarjetaCerrada(r: RoundRef): boolean {
