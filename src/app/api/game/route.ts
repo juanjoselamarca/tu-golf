@@ -13,7 +13,7 @@ import { fetchTorneoDeLaRonda } from '@/lib/data/tournaments/round-scope'
 import { isUuid } from '@/lib/uuid'
 import { esFalloTransitorioDeAuth } from '@/lib/auth/fallo-transitorio-auth'
 import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO, CODIGO_TOKEN_INVITADO_INVALIDO } from '@/lib/api/codigos-game'
-import { torneoAceptaScores } from '@/golf/tournament-status'
+import { jugadorFueraDelTorneo, torneoAceptaScores } from '@/golf/tournament-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: NO_PUDIMOS_VERIFICAR }, { status: 503 })
     }
     const guestPlayerSt = (guestPlayerStatus?.players as unknown as { status: string | null } | null)?.status
-    if (guestPlayerSt === 'withdrawn' || guestPlayerSt === 'disqualified') {
+    if (jugadorFueraDelTorneo(guestPlayerSt)) {
       return NextResponse.json(
         { error: 'Este jugador se ha retirado del torneo.', code: CODIGO_JUGADOR_RETIRADO },
         { status: 403 },
@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
     isAllowed = playerInfo?.user_id === user.id
 
     // Rechazar scores de jugador retirado/descalificado
-    if (isAllowed && (playerInfo?.status === 'withdrawn' || playerInfo?.status === 'disqualified')) {
+    if (isAllowed && jugadorFueraDelTorneo(playerInfo?.status)) {
       return NextResponse.json(
         { error: 'Este jugador se ha retirado del torneo.', code: CODIGO_JUGADOR_RETIRADO },
         { status: 403 },

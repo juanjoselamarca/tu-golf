@@ -11,6 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getCourseDisplayName } from '@/golf/courses/data'
 import { formatearIndice } from '@/golf/handicap-index-range'
 import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
+import { INSCRITO_APROBADO_STATUS } from '@/golf/tournament-status'
 
 export interface TorneoHojaSalida {
   name: string
@@ -158,7 +159,7 @@ export async function cargarHojaSalida(
     .from('players')
     .select(COLUMNAS_JUGADOR)
     .eq('tournament_id', row.id)
-    .eq('status', 'approved')
+    .eq('status', INSCRITO_APROBADO_STATUS)
   if (errP) throw errP
 
   return {
