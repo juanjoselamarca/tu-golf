@@ -16,7 +16,7 @@ function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
     selectedRound: { id: 'r1', status: 'in_progress' },
     holes: [],
     currentScores: {},
-    errorHoles: new Set(),
+    vista: {}, editable: true,
     saving: new Set(),
     allFilled: false,
     outGross: 0,

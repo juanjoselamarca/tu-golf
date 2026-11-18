@@ -50,7 +50,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   const presentacionHcp = presentacionHandicapInscrito(tournament.hcp_calc_mode)
   const [showStats, setShowStats] = useState(false)
   const {
-    selectedPlayer, selectedRound, holes, currentScores, errorHoles, saving,
+    selectedPlayer, selectedRound, holes, currentScores, vista, saving,
     allFilled, parJugado, grossTotal, outGross, inGross, netTotal,
     stablefordPtsAt, saveScore, finalizeRound, selectedId,
   } = entry
@@ -61,6 +61,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   // Sin tarjeta en la ronda en juego no hay dónde guardar: la grilla no se edita y el aviso ofrece crearla.
   const sinTarjeta = !selectedRound
   const soloLectura = torneoSoloLectura || sinTarjeta
+  // Mientras la tarjeta carga (o se cierra) la grilla no se edita: "lo que había" todavía no se sabe.
+  const bloqueada = soloLectura || !entry.editable
   // Quien no juega esta ronda (WD/DQ/pendiente, o no jugó una ronda pasada) no tiene tarjeta por llenar: sin grilla.
   // Con el torneo cerrado o publicado no se crea tarjeta: el aprobado sin ella "no jugó la ronda N" (antes
   // quedaba una grilla vacía sin explicación, Fable #829).
@@ -124,7 +126,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
           const par = hole?.par ?? 4
           const gross = currentScores[holeNum]
           const haScore = gross != null
-          const hasErr = errorHoles.has(holeNum)
+          const estadoHoyo = vista[holeNum]?.estado
+          const hasErr = estadoHoyo === 'sin_confirmar' || estadoHoyo === 'rechazado'
 
           return (
             <div
@@ -149,8 +152,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
                 inputMode="numeric"
                 defaultValue={gross ?? ''}
                 key={`${selectedId}-${holeNum}-${gross}`}
-                readOnly={soloLectura}
-                onBlur={(e) => { if (!soloLectura) saveScore(holeNum, e.target.value) }}
+                readOnly={bloqueada}
+                onBlur={(e) => { if (!bloqueada) saveScore(holeNum, e.target.value) }}
                 style={{
                   width: '100%',
                   background: 'transparent',
@@ -162,7 +165,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
                   fontWeight: 700,
                   padding: '4px 0',
                   minHeight: '28px',
-                  cursor: soloLectura ? 'default' : 'text',
+                  cursor: bloqueada ? 'default' : 'text',
                   appearance: 'textfield',
                 }}
                 placeholder="—"
@@ -192,7 +195,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
           Estadísticas adicionales — Putts · Fairway · GIR (opcional)
         </button>
         {showStats && (
-          <fieldset disabled={soloLectura} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+          <fieldset disabled={bloqueada} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
             <HoleStatsTable courseHoles={courseHoles} entry={entry} />
           </fieldset>
         )}

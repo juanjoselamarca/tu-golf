@@ -53,7 +53,7 @@ export function ScoringHeader({
               onClick={onUndo}
               style={{ fontSize: '12px', color: 'var(--brand-on-bg)', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
             >
-              Deshacer hoyo {lastAction.holeNumber}
+              Deshacer hoyo {lastAction.hole}
             </button>
           )}
         </h1>
