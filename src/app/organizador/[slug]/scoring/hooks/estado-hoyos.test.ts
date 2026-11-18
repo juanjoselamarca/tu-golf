@@ -113,6 +113,13 @@ describe('estado-hoyos: un documento por hoyo, reenvío del vigente', () => {
     expect(envios[1].sobre.seq).toBeGreaterThan(envios[0].sobre.seq)
   })
 
+  it('7b. dos hoyos distintos no se esperan: los dos sobres salen a la vez', async () => {
+    const { s, envios } = montar()
+    s.editar(R, 1, { gross: 4 }, PAR)
+    s.editar(R, 2, { gross: 5 }, PAR)
+    expect(envios.map((e) => e.sobre.hole)).toEqual([1, 2])
+  })
+
   it('8. GIR y putts en el mismo tick → un solo sobre con los dos', async () => {
     const { s, envios } = montar()
     s.editar(R, 4, { gross: 4 }, PAR)

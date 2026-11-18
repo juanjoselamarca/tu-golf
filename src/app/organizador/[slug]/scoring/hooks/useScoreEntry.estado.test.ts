@@ -1,6 +1,6 @@
 // useScoreEntry sobre `estado-hoyos`: la pantalla deriva de la vista de la ronda abierta, cada envío va a la
 // ronda donde se anotó y el deshacer es una edición más del hoyo. Reemplaza a los tests de deshacer y de carga
-// del cliente anterior (#834), que dependían de `tarjetaRef`, `errorHoles` y la relectura.
+// del cliente anterior (#834), que dependían de refs espejo de la tarjeta, marcas de error aparte y la relectura.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
@@ -105,6 +105,30 @@ describe('useScoreEntry · vista por ronda', () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 700)) })
     expect(pedidos).toHaveLength(0)
     expect(hook.result.current.lastAction).toBeNull()
+  })
+
+  it('una stat que espera los 600 ms sale al tiro, a la ronda de A, al abrir a B', async () => {
+    lecturas.ra = [{ hole_number: 2, gross_score: 5, putts: null, fairway_hit: null, gir: null }]
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => { hook.result.current.editarStat(2, { putts: 2 }) })
+    expect(pedidos).toHaveLength(0)
+    await abrir(hook, 'pb')
+    expect(pedidos).toHaveLength(1)
+    expect(pedidos[0].body).toMatchObject({ round_id: 'ra', hole_number: 2, gross_score: 5, putts: 2 })
+  })
+
+  it('al ocultarse la pestaña, la stat que esperaba los 600 ms sale ya', async () => {
+    lecturas.ra = [{ hole_number: 2, gross_score: 5, putts: null, fairway_hit: null, gir: null }]
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => { hook.result.current.editarStat(2, { gir: true }) })
+    const vis = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    vis.mockRestore()
+    await tick()
+    expect(pedidos).toHaveLength(1)
+    expect(pedidos[0].body).toMatchObject({ round_id: 'ra', hole_number: 2, gir: true })
   })
 
   it('con la tarjeta cargando no se anota (el deshacer no conoce lo que había)', async () => {

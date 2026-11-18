@@ -86,4 +86,21 @@ describe('useCargaTarjeta', () => {
     rerender({ roundId: null })
     expect(result.current.cargaTarjeta).toBe('lista')
   })
+
+  it('a los 4 s cargando ofrece reintentar; reintentar no invalida la lectura en vuelo y reinicia el aviso', async () => {
+    let responderPrimera: (f: unknown[]) => void = () => {}
+    fetchRoundHoleScores
+      .mockReturnValueOnce(new Promise((res) => { responderPrimera = res }))
+      .mockReturnValueOnce(new Promise(() => {}))
+    const { result, store } = montar()
+    await act(async () => { await vi.advanceTimersByTimeAsync(3_999) })
+    expect(result.current.cargaLenta).toBe(false)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(result.current.cargaLenta).toBe(true)
+    act(() => { void result.current.reintentarCarga() })
+    expect(result.current.cargaLenta).toBe(false)
+    await act(async () => { responderPrimera([{ hole_number: 5, gross_score: 6, putts: null, fairway_hit: null, gir: null }]) })
+    expect(result.current.cargaTarjeta).toBe('lista')
+    expect(store.vista('r1')[5]).toMatchObject({ gross: 6 })
+  })
 })
