@@ -136,6 +136,23 @@ describe('useScoreEntry · vista por ronda', () => {
   })
 })
 
+describe('useScoreEntry · cierre', () => {
+  it('15. cerrar A y abrir B: finalize_round lleva la ronda de A y B sigue abierta', async () => {
+    const hook = montar()
+    await abrir(hook, 'pa')
+    let fin!: Promise<void> | undefined
+    act(() => { fin = hook.result.current.finalizeRound() })
+    await tick()
+    await abrir(hook, 'pb')
+    expect(hook.result.current.cierre).toMatchObject({ roundId: 'ra', fase: 'cerrando' })
+    await pedidos[0].responder(200, {})
+    await act(async () => { await fin })
+    expect(pedidos[0].body).toMatchObject({ action: 'finalize_round', round_id: 'ra' })
+    expect(hook.result.current.selectedId).toBe('pb')
+    expect(reloadRoster).toHaveBeenCalled()
+  })
+})
+
 describe('useScoreEntry · deshacer', () => {
   it('deshacer un hoyo que estaba vacío borra el golpe en el servidor (gross_score null)', async () => {
     const hook = montar()

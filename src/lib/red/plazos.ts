@@ -61,3 +61,9 @@ export const PLAZO_GUARDAR_HOYO_MS = 15_000
  * organizador). Con el organizador el hoyo sigue reintentando después, con espera fija.
  */
 export const INTENTOS_POR_HOYO = 3
+
+/**
+ * Corte de cada intento de `finalize_round` (cerrar la tarjeta) del scorer del organizador. Igual que un guardado:
+ * cortar no es fallar; el siguiente intento recibe `round_closed` si el primero sí se aplicó.
+ */
+export const PLAZO_CERRAR_TARJETA_MS = 15_000
