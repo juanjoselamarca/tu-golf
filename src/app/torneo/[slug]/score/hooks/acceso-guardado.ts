@@ -1,6 +1,7 @@
 import { loginUrl } from '@/lib/auth/login-url'
 import { CODIGO_INVITADO_NO_DUENO, CODIGO_JUGADOR_RETIRADO, CODIGO_TOKEN_INVITADO_INVALIDO } from '@/lib/api/codigos-game'
 import { PARAM_JUGADOR } from './jugador-del-link'
+import { tienePruebaDeInvitado } from '@/lib/guest-session'
 
 /**
  * Lectura de la respuesta de `/api/game` (`upsert_score`) en el scorer del torneo.
@@ -81,11 +82,18 @@ export function avisoSinTarjeta(slug: string): AvisoSinAcceso {
 const EN_EL_TELEFONO = 'Los golpes de esta tarjeta quedaron en este teléfono, no en el torneo.'
 
 /**
- * Qué le decimos al jugador y por dónde sale. Nunca promete "sincronizar" sin decir cuándo, y
- * nunca manda a reinscribirse: con el acceso de invitado roto, `/unirse` crea OTRO jugador
- * (nuevo guestId) y el organizador ve la tarjeta duplicada.
+ * Qué le decimos al jugador y por dónde sale. Nunca promete "sincronizar" sin decir cuándo.
+ *
+ * `/unirse` sólo se ofrece al invitado cuya identidad tiene prueba (`@/lib/guest-identity`, 18-nov): con la
+ * prueba, `/guest-join` le vuelve a firmar el token del MISMO jugador. Sin prueba (identidad anterior a eso),
+ * mandarlo a `/unirse` termina en `guest_access_lost` o, si se limpió el teléfono, en OTRO jugador: se le
+ * manda al organizador.
  */
-export function avisoSinAcceso(args: { slug: string; motivo: MotivoSinAcceso; jugadorId?: string | null }): AvisoSinAcceso {
+export function avisoSinAcceso(args: {
+  slug: string; motivo: MotivoSinAcceso; jugadorId?: string | null
+  /** Por defecto lo lee de este teléfono; los tests lo fijan. */
+  conPruebaDeInvitado?: boolean
+}): AvisoSinAcceso {
   const verTorneo = { cta: 'Ver el torneo', href: `/torneo/${args.slug}` }
   switch (args.motivo) {
     case 'retirado':
@@ -96,6 +104,14 @@ export function avisoSinAcceso(args: { slug: string; motivo: MotivoSinAcceso; ju
         ...verTorneo,
       }
     case 'invitado_sin_acceso':
+      if (args.conPruebaDeInvitado ?? tienePruebaDeInvitado()) {
+        return {
+          titulo: 'Vuelve a entrar como invitado',
+          detalle: `${EN_EL_TELEFONO} Vuelve a entrar con tu nombre: recuperas esta misma tarjeta y se envían solos.`,
+          cta: 'Volver a entrar',
+          href: `/torneo/${args.slug}/unirse`,
+        }
+      }
       return {
         titulo: 'Tu acceso de invitado ya no sirve',
         detalle: `${EN_EL_TELEFONO} Muéstrale tu tarjeta al organizador y pídele que los anote.`,

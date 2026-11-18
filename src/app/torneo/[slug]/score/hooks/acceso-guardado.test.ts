@@ -71,16 +71,26 @@ describe('avisoSinAcceso', () => {
     expect(`${a.cta} ${a.detalle}`).not.toMatch(/inscrib/i)
   })
 
-  it('invitado sin acceso: nunca a /unirse (crearía un jugador duplicado), sí al organizador', () => {
-    const a = avisoSinAcceso({ slug: 'copa-abc', motivo: 'invitado_sin_acceso' })
+  it('invitado sin acceso y SIN prueba: nunca a /unirse (crearía un jugador duplicado), sí al organizador', () => {
+    const a = avisoSinAcceso({ slug: 'copa-abc', motivo: 'invitado_sin_acceso', conPruebaDeInvitado: false })
     expect(a.href).toBe('/torneo/copa-abc')
     expect(a.detalle).toMatch(/organizador/)
     expect(a.detalle).not.toMatch(/ él\b/)
   })
 
+  // Fable #833 P2-c: con la prueba, /guest-join reemite el token del MISMO jugador: volver a entrar lo recupera.
+  it('invitado sin acceso CON prueba: "Volver a entrar" a /unirse', () => {
+    const a = avisoSinAcceso({ slug: 'copa-abc', motivo: 'invitado_sin_acceso', conPruebaDeInvitado: true })
+    expect(a.href).toBe('/torneo/copa-abc/unirse')
+    expect(a.cta).toBe('Volver a entrar')
+    expect(a.detalle).toMatch(/en este teléfono, no en el torneo/)
+    expect(`${a.titulo} ${a.detalle} ${a.cta}`).not.toMatch(PROMESA_VACIA)
+    expect(buscarVoseo(`${a.titulo} ${a.detalle} ${a.cta}`)).toEqual([])
+  })
+
   it('ningún aviso promete sincronizar ni pide anotar de nuevo (los golpes siguen en el teléfono)', () => {
     for (const motivo of ['sin_sesion', 'sin_permiso', 'retirado', 'invitado_sin_acceso'] as const) {
-      const a = avisoSinAcceso({ slug: 'x', motivo })
+      const a = avisoSinAcceso({ slug: 'x', motivo, conPruebaDeInvitado: false })
       expect(`${a.titulo} ${a.detalle} ${a.cta}`).not.toMatch(PROMESA_VACIA)
       expect(a.detalle).toMatch(/en este teléfono, no en el torneo/)
       expect(a.href).not.toMatch(/unirse/)
