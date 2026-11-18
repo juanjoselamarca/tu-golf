@@ -10,7 +10,7 @@
 import { useRef, useState, type CSSProperties } from 'react'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
-import { rotuloEstado, textoMotivo } from './texto-guardado'
+import { textoAvisoHoyo } from './texto-guardado'
 
 interface HoleStatsTableProps {
   courseHoles: CourseHole[]
@@ -159,7 +159,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                     {/* Reenvía el hoyo completo (golpe y stats), también un rechazo: el organizador lo pide. */}
                     <button type="button" onClick={() => reintentarGuardado(selectedRound?.id)}
                       style={{ width: '100%', minHeight: '44px', borderRadius: '6px', border: '1px solid var(--error-border)', background: 'var(--error-bg)', color: 'var(--error-fg)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                      Hoyo {h}: {rotuloEstado(v.estado)?.toLowerCase()}{v.estado === 'rechazado' ? ` (${textoMotivo(v.motivo)})` : ''} · toca para reintentar
+                      {textoAvisoHoyo(h, v)} · toca para reintentar
                     </button>
                   </td>
                 </tr>

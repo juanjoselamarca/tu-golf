@@ -16,7 +16,7 @@ function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
     selectedRound: { id: 'r1', status: 'in_progress' },
     holes: [],
     currentScores: {},
-    vista: {}, editable: true,
+    vista: {}, editable: true, cierre: null, reintentarGuardado: vi.fn(),
     saving: new Set(),
     allFilled: false,
     outGross: 0,
@@ -148,5 +148,43 @@ describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
     render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} crearTarjeta={crearTarjeta()} ronda={{ numero: 1, vigente: false }} />)
     expect(screen.getByTestId('organizador-no-jugo').textContent).toBe('E2E Test no jugó la ronda 1.')
     expect(screen.queryByTestId('organizador-no-juega')).toBeNull()
+  })
+})
+
+describe('ScorecardPanel — estado de guardado por hoyo', () => {
+  const fila = (estado: string, motivo: string | null = null) =>
+    ({ gross: 5, putts: null, fairway_hit: null, gir: null, estado, motivo, quizaAplicado: false })
+
+  it('un hoyo sin confirmar y uno rechazado se dicen con texto y el toque reintenta la ronda abierta', () => {
+    const reintentarGuardado = vi.fn()
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({
+      holes: [1, 2, 3], currentScores: { 1: 5, 2: 5, 3: 5 }, reintentarGuardado,
+      vista: { 1: fila('limpio'), 2: fila('sin_confirmar'), 3: fila('rechazado', 'closed') },
+    } as never)} />)
+    expect(screen.getByLabelText('Golpes del hoyo 1')).toBeTruthy()
+    expect(screen.getByLabelText('Golpes del hoyo 2 (sin confirmar)')).toBeTruthy()
+    const aviso = screen.getByRole('button', { name: 'Hoyo 3: no se guardó (tarjeta cerrada) · Reintentar' })
+    expect(parseInt(aviso.style.minHeight)).toBeGreaterThanOrEqual(44)
+    expect(screen.getByRole('button', { name: 'Hoyo 2: sin confirmar · Reintentar' })).toBeTruthy()
+    fireEvent.click(aviso)
+    expect(reintentarGuardado).toHaveBeenCalledWith('r1')
+  })
+
+  it('un hoyo guardando no lleva aviso de error (sólo la marca de la celda)', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({
+      holes: [1], currentScores: { 1: 5 }, vista: { 1: fila('guardando') },
+    } as never)} />)
+    expect(screen.getByLabelText('Golpes del hoyo 1 (guardando)')).toBeTruthy()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('cerrando: el botón dice qué hoyos faltan y no se puede tocar; con otra tarjeta, dice de quién', () => {
+    const base = { holes: [1], currentScores: { 1: 4 }, allFilled: true }
+    const cierre = { roundId: 'r1', playerId: 'p1', nombre: 'Ana', fase: 'guardando', hoyos: [17, 18] }
+    const { rerender } = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({ ...base, cierre } as never)} />)
+    const boton = screen.getByRole('button', { name: 'Terminando de guardar… hoyos 17, 18' }) as HTMLButtonElement
+    expect(boton.disabled).toBe(true)
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({ ...base, cierre: { ...cierre, roundId: 'otra' } } as never)} />)
+    expect((screen.getByRole('button', { name: 'Cerrando tarjeta de Ana…' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

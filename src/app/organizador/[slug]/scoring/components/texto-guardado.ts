@@ -1,7 +1,8 @@
 // Copy del estado de guardado de un hoyo en el scorer del organizador. Fuente única: la grilla, la tabla de
 // stats y el chip de la cabecera dicen lo mismo con las mismas palabras.
 
-import type { EstadoHoyo } from '../hooks/estado-hoyos'
+import type { EstadoHoyo, Pendiente, VistaHoyo } from '../hooks/estado-hoyos'
+import type { EstadoCierre } from '../hooks/useCerrarTarjeta'
 
 /** Motivo corto de un rechazo (`LecturaSobre.rechazo`). */
 export function textoMotivo(motivo: string | null): string {
@@ -21,4 +22,42 @@ export function rotuloEstado(estado: EstadoHoyo): string | null {
   if (estado === 'sin_confirmar') return 'Sin confirmar'
   if (estado === 'rechazado') return 'No se guardó'
   return null
+}
+
+/** Aviso de un hoyo que no está guardado, con su motivo si fue rechazado. Grilla y tabla de stats. */
+export function textoAvisoHoyo(hole: number, v: Pick<VistaHoyo, 'estado' | 'motivo'>): string {
+  const rotulo = rotuloEstado(v.estado)?.toLowerCase() ?? ''
+  return `Hoyo ${hole}: ${rotulo}${v.estado === 'rechazado' ? ` (${textoMotivo(v.motivo)})` : ''}`
+}
+
+const hoyos = (n: number) => (n === 1 ? '1 hoyo' : `${n} hoyos`)
+
+/**
+ * Chip global de la cabecera: hoyos sin confirmar o rechazados de CUALQUIER tarjeta (lo que está saliendo no se
+ * cuenta). Con nombre cuando son de otra tarjeta que la abierta: el organizador ya pasó a otro jugador.
+ */
+export function textoChipPendientes(
+  pendientes: readonly Pendiente[],
+  rondaAbierta: string | null,
+  nombreDeRonda: (roundId: string) => string | null,
+): string | null {
+  const sinConfirmar = pendientes.filter((p) => p.estado === 'sin_confirmar')
+  const rechazados = pendientes.filter((p) => p.estado === 'rechazado')
+  if (sinConfirmar.length === 0 && rechazados.length === 0) return null
+  const partes: string[] = []
+  if (sinConfirmar.length > 0) partes.push(`Sin señal: ${hoyos(sinConfirmar.length)} sin confirmar`)
+  if (rechazados.length > 0) partes.push(`${hoyos(rechazados.length)} no se ${rechazados.length === 1 ? 'guardó' : 'guardaron'}`)
+  const otros = [...new Set([...sinConfirmar, ...rechazados].map((p) => p.roundId).filter((r) => r !== rondaAbierta))]
+    .map(nombreDeRonda)
+    .filter((n): n is string => !!n)
+  return partes.join(' · ') + (otros.length > 0 ? ` (${otros.join(', ')})` : '')
+}
+
+/** Botón Finalizar: qué está pasando con el cierre (de esta tarjeta o de otra que se está cerrando). */
+export function textoBotonCierre(cierre: EstadoCierre | null, deEstaTarjeta: boolean): string {
+  if (!cierre) return 'Finalizar ronda ✓'
+  if (!deEstaTarjeta) return `Cerrando tarjeta de ${cierre.nombre}…`
+  if (cierre.fase === 'cerrando') return 'Cerrando tarjeta…'
+  if (cierre.hoyos.length === 0) return 'Terminando de guardar…'
+  return `Terminando de guardar… ${cierre.hoyos.length === 1 ? 'hoyo' : 'hoyos'} ${cierre.hoyos.join(', ')}`
 }

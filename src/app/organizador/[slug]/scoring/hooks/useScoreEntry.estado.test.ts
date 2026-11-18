@@ -153,6 +153,23 @@ describe('useScoreEntry · cierre', () => {
   })
 })
 
+describe('useScoreEntry · salir con pendientes', () => {
+  it('cerrar la pestaña con un hoyo sin guardar pregunta; ya guardado, no', async () => {
+    const salir = () => {
+      const e = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    const hook = montar()
+    await abrir(hook, 'pa')
+    expect(salir()).toBe(false)
+    act(() => hook.result.current.saveScore(1, '4'))
+    expect(salir()).toBe(true)
+    await pedidos[0].responder(200)
+    expect(salir()).toBe(false)
+  })
+})
+
 describe('useScoreEntry · deshacer', () => {
   it('deshacer un hoyo que estaba vacío borra el golpe en el servidor (gross_score null)', async () => {
     const hook = montar()

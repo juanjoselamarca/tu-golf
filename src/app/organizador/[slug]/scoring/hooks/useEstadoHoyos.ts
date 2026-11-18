@@ -50,11 +50,20 @@ export function useEstadoHoyos(
       // Al ocultarse, lo que esperaba los 600 ms de las stats sale ya (el teléfono puede dormir la pestaña).
       else for (const p of store.pendientesGlobal()) store.apurar(p.roundId)
     }
+    // Cerrar o recargar la pestaña con hoyos sin guardar los pierde (no se guardan entre recargas): el navegador
+    // pregunta antes. Se mira el store en el momento, no una copia del render.
+    const alSalir = (e: BeforeUnloadEvent) => {
+      if (store.pendientesGlobal().length === 0) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
     window.addEventListener('online', reintentar)
     document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('beforeunload', alSalir)
     return () => {
       window.removeEventListener('online', reintentar)
       document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('beforeunload', alSalir)
     }
   }, [store])
 

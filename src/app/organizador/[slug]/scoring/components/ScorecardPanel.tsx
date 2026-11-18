@@ -12,6 +12,16 @@ import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { HoleStatsTable } from './HoleStatsTable'
 import { AvisoJugadorSinTarjeta, casoSinTarjeta } from './AvisoJugadorSinTarjeta'
+import { rotuloEstado, textoAvisoHoyo, textoBotonCierre } from './texto-guardado'
+import type { EstadoHoyo } from '../hooks/estado-hoyos'
+
+/** Cómo se marca la celda de un hoyo que no está en la base tal como se ve. Tokens light/dark (globals.css). */
+const MARCA_ESTADO: Record<EstadoHoyo, { bg: string; border: string; fg: string; glifo: string } | null> = {
+  limpio: null,
+  guardando: { bg: 'var(--surface-soft)', border: '2px dashed var(--text-2)', fg: 'var(--text-2)', glifo: '···' },
+  sin_confirmar: { bg: 'var(--status-open-bg)', border: '2px solid var(--status-open-fg)', fg: 'var(--status-open-fg)', glifo: '!' },
+  rechazado: { bg: 'var(--error-bg)', border: '2px solid var(--error-border)', fg: 'var(--error-fg)', glifo: '✕' },
+}
 import type { useCrearTarjeta } from '../hooks/useCrearTarjeta'
 
 // Paleta del scorer del organizador — usa colores Garmin canónicos (T1 resuelta).
@@ -50,12 +60,16 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   const presentacionHcp = presentacionHandicapInscrito(tournament.hcp_calc_mode)
   const [showStats, setShowStats] = useState(false)
   const {
-    selectedPlayer, selectedRound, holes, currentScores, vista, saving,
+    selectedPlayer, selectedRound, holes, currentScores, vista, cierre,
     allFilled, parJugado, grossTotal, outGross, inGross, netTotal,
-    stablefordPtsAt, saveScore, finalizeRound, selectedId,
+    stablefordPtsAt, saveScore, finalizeRound, selectedId, reintentarGuardado,
   } = entry
 
   if (!selectedPlayer) return null
+
+  // Hoyos de esta tarjeta que no están en la base tal como se ven (con texto, no sólo color: se lee al sol).
+  const avisos = holes.filter((h) => vista[h]?.estado === 'sin_confirmar' || vista[h]?.estado === 'rechazado')
+  const cierreEsta = cierre != null && cierre.roundId === selectedRound?.id
 
   const roundClosed = isClosedRoundStatus(selectedRound?.status)
   // Sin tarjeta en la ronda en juego no hay dónde guardar: la grilla no se edita y el aviso ofrece crearla.
@@ -126,21 +140,21 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
           const par = hole?.par ?? 4
           const gross = currentScores[holeNum]
           const haScore = gross != null
-          const estadoHoyo = vista[holeNum]?.estado
-          const hasErr = estadoHoyo === 'sin_confirmar' || estadoHoyo === 'rechazado'
+          const estadoHoyo = vista[holeNum]?.estado ?? 'limpio'
+          const marca = MARCA_ESTADO[estadoHoyo]
 
           return (
             <div
               key={holeNum}
               style={{
-                background: hasErr ? 'rgba(220,38,38,0.15)' : haScore ? scoreBackground(gross, par) : 'var(--surface-soft)',
-                border: hasErr ? '2px solid var(--double)' : haScore ? scoreBorder(gross, par) : '1px solid var(--surface-border)',
+                background: marca?.bg ?? (haScore ? scoreBackground(gross, par) : 'var(--surface-soft)'),
+                border: marca?.border ?? (haScore ? scoreBorder(gross, par) : '1px solid var(--surface-border)'),
                 borderRadius: '8px',
                 padding: '8px 4px',
                 textAlign: 'center',
                 minWidth: '44px',
                 minHeight: '44px',
-                animation: hasErr ? 'pulse 1s ease-in-out 3' : 'none',
+                animation: estadoHoyo === 'rechazado' ? 'pulse 1s ease-in-out 3' : 'none',
               }}
             >
               <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '2px' }}>H{holeNum}</div>
@@ -153,6 +167,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
                 defaultValue={gross ?? ''}
                 key={`${selectedId}-${holeNum}-${gross}`}
                 readOnly={bloqueada}
+                aria-label={`Golpes del hoyo ${holeNum}${marca ? ` (${rotuloEstado(estadoHoyo)?.toLowerCase()})` : ''}`}
                 onBlur={(e) => { if (!bloqueada) saveScore(holeNum, e.target.value) }}
                 style={{
                   width: '100%',
@@ -170,6 +185,9 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
                 }}
                 placeholder="—"
               />
+              {marca && (
+                <div style={{ fontSize: '12px', fontWeight: 700, color: marca.fg, lineHeight: 1 }} aria-hidden="true">{marca.glifo}</div>
+              )}
               {haScore && isStablefordFormat(resolveFormatoJuego(tournament)) && (() => {
                 const pts = stablefordPtsAt(holeNum, gross)
                 return (
@@ -183,6 +201,21 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         })}
         </div>
       </div>
+
+      {avisos.length > 0 && (
+        <div role="status" style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {avisos.map((h) => {
+            const v = vista[h]
+            const marca = MARCA_ESTADO[v.estado]!
+            return (
+              <button key={h} type="button" onClick={() => reintentarGuardado(selectedRound?.id)}
+                style={{ minHeight: '44px', borderRadius: '8px', border: marca.border, background: marca.bg, color: marca.fg, fontSize: '14px', fontWeight: 600, textAlign: 'left', padding: '8px 12px', cursor: 'pointer' }}>
+                {textoAvisoHoyo(h, v)} · Reintentar
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Estadísticas adicionales (colapsable) */}
       <div style={{ borderTop: '1px solid var(--surface-soft)' }}>
@@ -208,21 +241,23 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
       {allFilled && !roundClosed && !soloLectura && (
         <div style={{ padding: '16px 20px', borderTop: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'flex-end' }}>
           <button
-            onClick={finalizeRound}
-            disabled={saving}
+            type="button"
+            onClick={() => { void finalizeRound() }}
+            disabled={cierre != null}
             style={{
               background: 'var(--brand-on-bg)',
               color: 'var(--bg)',
               fontWeight: 700,
               fontSize: '15px',
               padding: '12px 28px',
+              minHeight: '44px',
               borderRadius: '8px',
               border: 'none',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              opacity: saving ? 0.8 : 1,
+              cursor: cierre ? 'not-allowed' : 'pointer',
+              opacity: cierre ? 0.8 : 1,
             }}
           >
-            {saving ? 'Finalizando...' : 'Finalizar ronda ✓'}
+            {textoBotonCierre(cierre, cierreEsta)}
           </button>
         </div>
       )}

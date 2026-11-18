@@ -19,6 +19,11 @@ interface ScoringHeaderProps {
   saving: boolean
   lastAction: LastAction | null
   onUndo: () => void
+  /** Hoyos sin confirmar o rechazados de cualquier tarjeta (`textoChipPendientes`), o null. */
+  avisoPendientes: string | null
+  /** Hay algún rechazo entre los pendientes: el chip va en rojo. */
+  hayRechazo: boolean
+  onReintentar: () => void
 }
 
 export function ScoringHeader({
@@ -31,6 +36,9 @@ export function ScoringHeader({
   saving,
   lastAction,
   onUndo,
+  avisoPendientes,
+  hayRechazo,
+  onReintentar,
 }: ScoringHeaderProps) {
   const badge = badgeDelStatusEscrito(status, 'organizer')
   const enCurso = torneoAceptaScores(status)
@@ -57,6 +65,20 @@ export function ScoringHeader({
             </button>
           )}
         </h1>
+        <div role="status" aria-live="polite">
+          {avisoPendientes && (
+            <button type="button" onClick={onReintentar}
+              style={{
+                margin: '0 0 8px', minHeight: '44px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer',
+                fontSize: '14px', fontWeight: 600, fontFamily: 'DM Sans, sans-serif', textAlign: 'left',
+                background: hayRechazo ? 'var(--error-bg)' : 'var(--status-open-bg)',
+                color: hayRechazo ? 'var(--error-fg)' : 'var(--status-open-fg)',
+                border: `2px solid ${hayRechazo ? 'var(--error-border)' : 'var(--status-open-fg)'}`,
+              }}>
+              {avisoPendientes} · Reintentar
+            </button>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
           <Link href={`/organizador/${slug}/jugadores`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>Jugadores</Link>
