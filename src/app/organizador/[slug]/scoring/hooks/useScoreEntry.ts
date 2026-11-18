@@ -10,6 +10,7 @@ import {
 } from './envio-hoyo'
 import { useCargaTarjeta, type GrossEnVuelo, type TarjetaCargada } from './useCargaTarjeta'
 import { useStatsHoyo } from './useStatsHoyo'
+import { useCerrarTarjeta } from './useCerrarTarjeta'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
@@ -91,8 +92,6 @@ export function useScoreEntry({
   const [errorHoles, setErrorHoles] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
   const [lastAction, setLastAction] = useState<LastAction | null>(null)
-  /** Cerrar la tarjeta está esperando que respondan los envíos pendientes. */
-  const [terminandoDeGuardar, setTerminandoDeGuardar] = useState(false)
   /** Cuenta las tarjetas abiertas o cerradas. Una respuesta que llega tarde la
    *  compara con la que había al salir: si cambió (otro jugador, otra ronda), la
    *  pantalla ya es de otra tarjeta y no se toca. Se escribe en los handlers, no
@@ -533,65 +532,13 @@ export function useScoreEntry({
     }
   }, [
     lastAction, tournament, saving, holeByNumero, applyRoundTotals, showSuccess, showWarning, confirmarStats,
-    leerParaEnviar, invalidarCargas, cola, fijarAccion, revisarHoyo,
+    leerParaEnviar, invalidarCargas, cola, fijarAccion, revisarHoyo, showError,
   ])
 
-  const finalizeRound = useCallback(async () => {
-    if (!tournament || !selectedId) return
-    const player = players.find((p) => p.id === selectedId)
-    const round = getActiveRound(player)
-    if (!round) return
-    setSaving(true)
-    // Todo lo de la tarjeta llega ANTES del cierre (después el servidor lo rechazaría): las stats que esperaban y lo
-    // que esté en la cola de cada hoyo de la ronda. Se ESPERA la respuesta, no sólo la salida, y se dice.
-    setTerminandoDeGuardar(true)
-    await enviarPendientes()
-    await cola.vaciar(round.id)
-    setTerminandoDeGuardar(false)
-    // Lo que no quedó guardado (o no se sabe) no se cierra encima: después del cierre ya no se podría corregir.
-    const sinGuardar = [...new Set([...errorHolesRef.current, ...fallidasDeRonda(round.id), ...cola.hoyosInciertos(round.id)])]
-      .sort((a, b) => a - b)
-    if (sinGuardar.length > 0) {
-      setSaving(false)
-      const cuales = sinGuardar.length === 1 ? `el hoyo ${sinGuardar[0]}` : `los hoyos ${sinGuardar.join(', ')}`
-      showError('No se cerró la tarjeta', `Revisa ${cuales}: hay datos sin guardar.`)
-      return
-    }
-    const res = await fetch('/api/game', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'finalize_round',
-        tournament_id: tournament.id,
-        round_id: round.id,
-      }),
-    }).catch(() => null)
-    setSaving(false)
-    const cuerpo: { error?: unknown; code?: unknown } | null = res && !res.ok
-      ? await res.json().catch(() => null)
-      : null
-    // Ya estaba cerrada (la cerró otro dispositivo, o el primer cierre llegó y se
-    // perdió la respuesta): reconciliar con el servidor, no pedir que reintente.
-    if (cuerpo?.code === 'round_closed') {
-      showWarning('La tarjeta ya estaba cerrada', 'Actualizamos el listado.')
-      await reloadRoster()
-      clearSelection()
-      return
-    }
-    // Sin esto, un cierre que falló se veía igual que uno exitoso: la tarjeta
-    // seguía abierta y el organizador no se enteraba ("el botón no hace nada").
-    // El motivo del servidor (torneo cerrado, tarjeta de otro torneo) dice más
-    // que "intenta de nuevo", que no arregla esos casos.
-    if (!res?.ok) {
-      showError('No se cerró la tarjeta', typeof cuerpo?.error === 'string' ? cuerpo.error : 'Intenta de nuevo.')
-      return
-    }
-    await reloadRoster()
-    clearSelection()
-  }, [
+  const { finalizeRound, terminandoDeGuardar } = useCerrarTarjeta({
     tournament, selectedId, players, getActiveRound, reloadRoster, clearSelection, showError, showWarning,
-    enviarPendientes, cola, fallidasDeRonda,
-  ])
+    enviarPendientes, cola, fallidasDeRonda, errorHolesRef, setSaving,
+  })
 
   return {
     selectedId,

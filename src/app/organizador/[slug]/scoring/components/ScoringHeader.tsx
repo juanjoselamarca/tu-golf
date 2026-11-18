@@ -48,7 +48,13 @@ export function ScoringHeader({
             </span>
           )}
           {saving && <span style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
-          {lastAction && !saving && (
+          {lastAction?.estado === 'incierto' && (
+            // Un guardado sin respuesta: hasta que la relectura diga qué quedó en la base, no hay deshacer.
+            <span role="status" style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: 'DM Sans, sans-serif' }}>
+              Revisando hoyo {lastAction.holeNumber}…
+            </span>
+          )}
+          {lastAction && lastAction.estado !== 'incierto' && !saving && (
             <button
               onClick={onUndo}
               style={{ fontSize: '12px', color: 'var(--brand-on-bg)', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}

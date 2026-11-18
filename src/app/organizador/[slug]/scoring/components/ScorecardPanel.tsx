@@ -50,7 +50,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   const presentacionHcp = presentacionHandicapInscrito(tournament.hcp_calc_mode)
   const [showStats, setShowStats] = useState(false)
   const {
-    selectedPlayer, selectedRound, holes, currentScores, errorHoles, saving,
+    selectedPlayer, selectedRound, holes, currentScores, errorHoles, saving, terminandoDeGuardar,
     allFilled, parJugado, grossTotal, outGross, inGross, netTotal,
     stablefordPtsAt, saveScore, finalizeRound, selectedId, cargaTarjeta, cargaLenta, reintentarCarga,
   } = entry
@@ -243,7 +243,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
               opacity: saving ? 0.8 : 1,
             }}
           >
-            {saving ? 'Finalizando...' : 'Finalizar ronda ✓'}
+            {terminandoDeGuardar ? 'Terminando de guardar…' : saving ? 'Finalizando...' : 'Finalizar ronda ✓'}
           </button>
         </div>
       )}

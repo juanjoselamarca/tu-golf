@@ -193,4 +193,11 @@ describe('ScorecardPanel — carga y cambio de tarjeta', () => {
       vista.unmount()
     }
   })
+
+  // Revisión #834 v6: cerrar espera la respuesta de lo pendiente; el botón lo dice en vez de quedar mudo.
+  it('mientras el cierre espera los envíos pendientes, el botón dice "Terminando de guardar…"', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18}
+      entry={entry({ cargaTarjeta: 'lista', allFilled: true, saving: true, terminandoDeGuardar: true })} />)
+    expect(screen.getByRole('button', { name: 'Terminando de guardar…' })).toBeTruthy()
+  })
 })
