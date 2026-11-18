@@ -148,7 +148,7 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
 - **D10. Match play: un tercer jugador en un grupo:** se bloquea siempre, aunque no haya golpes. Un grupo de match play admite como máximo 2 jugadores.
 - **D11. WD/DQ no se coloca ni se cambia de grupo:** con el torneo en juego se queda donde está (en su grupo, o sin grupo si no tenía), al pie y con sus golpes, en todos los formatos. Vale para agregar y mover; borrar sigue D1.
 - **D12. Colocar a un sin aprobar lo aprueba:** con el torneo en juego, asignar a un grupo (agregar o mover) a un inscrito pendiente o en lista de espera lo aprueba en el mismo acto. Para el destino se evalúa como si ya compitiera (cuenta para el tamaño, aplica D10 y el resto). La aprobación la escribe la ruta/RPC (PR2/PR3), no `motivoParaNoColocar`. Borrar a un sin aprobar no cambia: se elimina sin tocar ninguna tarjeta.
-- **D13. Foursome: completar una pareja con un WD/DQ:** se puede solo si la pareja todavía no tiene golpes (`foursome-con-retirado` exige `destino.tieneGolpes`). Cierra la contradicción con borrar al WD y agregar en dos pasos.
+- **D13. Foursome: completar una pareja con un WD/DQ:** se puede solo si la pareja todavía no tiene golpes (`equipo-al-pie` exige `destino.tieneGolpes`). Cierra la contradicción con borrar al WD y agregar en dos pasos.
 
 ## Pendientes que deja el PR1 para el PR2/PR3
 
@@ -181,5 +181,18 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
   torneo), y `cupo.ts` no deja fijar el cupo bajo los ya aprobados. Aprobar a alguien de la lista de espera en juego
   suma un `approved`: si la RPC no chequea el cupo, puede pasarlo. Hay que decidir si se bloquea (como el alta) o si
   colocar en juego es una ampliación implícita; si se chequea, tiene que ser bajo el mismo lock que `enroll_player`.
+- **Equipo al pie (PR1, vuelta 5 de Opus):** a un equipo con golpes que ya está al pie no se le agregan jugadores
+  (`equipo-al-pie`, `equipoAlPie`): foursome con un WD/DQ, o mejor bola sin nadie compitiendo. Y un equipo con golpes
+  nunca queda bajo el mínimo de los que compiten, ni en el origen ni en el destino (`equipo-con-golpes-incompleto`).
+  `equipoAlPie` trabaja por conteos y no ve el DQ de mejor bola por un hoyo que solo anotó el descalificado: la RPC
+  (PR2) tiene los golpes y debe usar `estadoDelEquipoMejorBola` sobre la tarjeta real.
+- **BLOQUEO OBLIGATORIO del PR3: aprobar en juego pasa por `motivoParaNoColocar`.** Revisado en la vuelta 5: hoy NO
+  hay camino que apruebe a un pendiente. `PlayersTable` no tiene "Aprobar" (filtra por estado, nada más);
+  `player-status-actions.ts` solo escribe `withdrawn`/`disqualified`; en `src/` no hay `update` de
+  `players.status` a `approved`, y en las migraciones `approved` solo lo escribe el alta (`enroll_player`). Pero
+  `authenticated` tiene `UPDATE` sobre `players` (lo acota la RLS) y un pendiente puede estar ya en un grupo: el día
+  que exista un "Aprobar" con el torneo en juego, si `asegurar_tarjeta_vigente` le da fila sin pasar por
+  `motivoParaNoColocar` sobre su grupo actual (`mover`/`agregar` con D12), puede quedar de tercero en un match
+  (esquiva D10) o dejar un equipo sobre el máximo. Cualquier aprobación en juego tiene que ir por la misma RPC.
 - **D13 en la RPC (PR2):** completar una pareja de foursome sin golpes que tiene un WD/DQ tiene que borrar la fila del
   WD/DQ en el mismo acto. Si queda, la pareja tendría 3 filas y `estadoDelEquipoFoursome` la manda entera al pie.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  equipoAlPie,
   equipoIncompleto,
   estadoDelInscrito,
   handicapDeEquipoCalculable,
@@ -46,6 +47,23 @@ describe('tarjetaTieneAnotaciones', () => {
   })
   it('recorre los hoyos de la ronda: un 9 desde el 10 con golpes en el 12', () => {
     expect(tarjetaTieneAnotaciones({ '12': 4 }, HOYOS_9_DESDE_EL_10)).toBe(true)
+  })
+})
+
+describe('equipoAlPie (espejo de estadoDelEquipo*)', () => {
+  it('foursome: con un WD/DQ la pareja entera va al pie', () => {
+    expect(equipoAlPie('foursome', { miembros: 1, integrantes: 2 })).toBe(true)
+    expect(equipoAlPie('foursome', { miembros: 2, integrantes: 2 })).toBe(false)
+  })
+  it('mejor bola: solo sin nadie compitiendo y con alguna fila', () => {
+    expect(equipoAlPie('best_ball', { miembros: 0, integrantes: 2 })).toBe(true)
+    expect(equipoAlPie('best_ball', { miembros: 1, integrantes: 2 })).toBe(false)
+    expect(equipoAlPie('best_ball', { miembros: 0, integrantes: 0 })).toBe(false)
+  })
+  it('scramble e individuales: nunca al pie por un WD/DQ', () => {
+    expect(equipoAlPie('scramble', { miembros: 0, integrantes: 2 })).toBe(false)
+    expect(equipoAlPie('stroke_play', { miembros: 0, integrantes: 1 })).toBe(false)
+    expect(equipoAlPie('match_play', { miembros: 0, integrantes: 1 })).toBe(false)
   })
 })
 
@@ -175,6 +193,11 @@ const casos: Caso[] = [
   { nombre: 'mejor bola · borrar sin golpes dejando en 1 una pareja con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2, true) }, esperado: 'equipo-con-golpes-incompleto' },
   { nombre: 'R23.4 mejor bola · borrar al WD sin golpes deja al compañero solo en una tarjeta con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: WD, esperado: 'equipo-con-golpes-incompleto' },
   { nombre: 'mejor bola · borrar al WD sin golpes de un equipo de 3 con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2, true, 3) }, inscrito: WD, esperado: null },
+  { nombre: 'mejor bola · agregar a una pareja con golpes ya al pie (los dos WD)', format: 'best_ball', op: { tipo: 'agregar', destino: G('d', 0, true, 2) }, esperado: 'equipo-al-pie' },
+  { nombre: 'D12 mejor bola · un sin aprobar tampoco saca del pie a una pareja con golpes', format: 'best_ball', op: { tipo: 'agregar', destino: G('d', 0, true, 2) }, inscrito: PENDIENTE, esperado: 'equipo-al-pie' },
+  { nombre: 'mejor bola · mover a una pareja con golpes ya al pie', format: 'best_ball', op: { tipo: 'mover', origen: G('o', 3), destino: G('d', 0, true, 2) }, esperado: 'mejor-bola-con-golpes' },
+  { nombre: 'mejor bola · agregar a una pareja sin golpes con los dos WD: se rearma', format: 'best_ball', op: { tipo: 'agregar', destino: G('d', 0, false, 2) }, esperado: null },
+  { nombre: 'mejor bola · agregar a un equipo con golpes y un WD, con activos: no está al pie', format: 'best_ball', op: { tipo: 'agregar', destino: G('d', 1, true, 2) }, esperado: null },
   { nombre: 'mejor bola · borrar al WD sin golpes de una pareja sin golpes (D7)', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 1, false, 2) }, inscrito: WD, esperado: null },
   { nombre: 'D11 mejor bola · un WD no se cambia de grupo', format: 'best_ball', op: { tipo: 'mover', origen: G('o', 2, false, 3), destino: G('d', 2) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
   { nombre: 'D11 individual · un DQ con golpes no se cambia de grupo', format: 'stroke_play', op: { tipo: 'mover', origen: G('o', 2, true, 3), destino: G('d', 2) }, inscrito: { tieneGolpes: true, estado: 'retirado' as const }, esperado: 'retirado-no-se-mueve' },
@@ -183,6 +206,8 @@ const casos: Caso[] = [
   // ── Scramble (D3, D7) ──
   { nombre: 'D3 scramble · mover con golpes en ambos: permitido', format: 'scramble', op: { tipo: 'mover', origen: G('o', 4, true), destino: G('d', 3, true) }, esperado: null },
   { nombre: 'D3 scramble · agregar a equipo con golpes: permitido', format: 'scramble', op: { tipo: 'agregar', destino: G('d', 3, true) }, esperado: null },
+  { nombre: 'D3 scramble · un jugador no sigue solo un equipo con golpes cuyos integrantes son WD', format: 'scramble', op: { tipo: 'agregar', destino: G('d', 0, true, 2) }, esperado: 'equipo-con-golpes-incompleto' },
+  { nombre: 'D3 scramble · mover a un equipo con golpes que quedaría bajo el mínimo', format: 'scramble', op: { tipo: 'mover', origen: G('o', 3), destino: G('d', 0, true, 1) }, esperado: 'equipo-con-golpes-incompleto' },
   { nombre: 'D3 scramble · agregar a equipo lleno', format: 'scramble', op: { tipo: 'agregar', destino: G('d', 4, true) }, esperado: 'equipo-lleno' },
   { nombre: 'D3 scramble · mover a un destino lleno', format: 'scramble', op: { tipo: 'mover', origen: G('o', 3, true), destino: G('d', 4, true) }, esperado: 'equipo-lleno' },
   { nombre: 'D3 scramble · origen con golpes bajo el mínimo', format: 'scramble', op: { tipo: 'mover', origen: G('o', 2, true), destino: G('d', 2, true) }, esperado: 'equipo-con-golpes-incompleto' },
@@ -203,11 +228,11 @@ const casos: Caso[] = [
   { nombre: 'D7 foursome · completar una pareja incompleta con el único de otra', format: 'foursome', op: { tipo: 'mover', origen: G('o', 1), destino: G('d', 1) }, esperado: null },
   { nombre: 'D3 foursome · sacar a uno de una pareja con golpes', format: 'foursome', op: { tipo: 'mover', origen: G('o', 2, true), destino: G('d', 1) }, esperado: 'equipo-con-golpes-incompleto' },
   { nombre: 'D5 foursome · agregar a una pareja incompleta sin golpes', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, esperado: null },
-  { nombre: 'R22/D13 foursome · no se completa una pareja con golpes cuyo compañero es WD', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1, true, 2) }, esperado: 'foursome-con-retirado' },
+  { nombre: 'R22/D13 foursome · no se completa una pareja con golpes cuyo compañero es WD', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1, true, 2) }, esperado: 'equipo-al-pie' },
   { nombre: 'D13 foursome · se completa (agregar) una pareja sin golpes con un WD', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1, false, 2) }, esperado: null },
   { nombre: 'D13 foursome · se completa (mover) una pareja sin golpes con un WD', format: 'foursome', op: { tipo: 'mover', origen: G('o', 2), destino: G('d', 1, false, 2) }, esperado: null },
   { nombre: 'D11 foursome · un WD no se mueve a completar otra pareja', format: 'foursome', op: { tipo: 'mover', origen: G('o', 1, false, 2), destino: G('d', 1) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
-  { nombre: 'R22/D13 foursome · no se completa moviendo a un activo a una pareja con golpes y un WD', format: 'foursome', op: { tipo: 'mover', origen: G('o', 2), destino: G('d', 0, true, 1) }, esperado: 'foursome-con-retirado' },
+  { nombre: 'R22/D13 foursome · no se completa moviendo a un activo a una pareja con golpes y un WD', format: 'foursome', op: { tipo: 'mover', origen: G('o', 2), destino: G('d', 0, true, 1) }, esperado: 'equipo-al-pie' },
   { nombre: 'D3 foursome · personalizado porcentaje_suma: se completa', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, handicap: { modo: 'personalizado', porcentaje_suma: 40 }, esperado: null },
   { nombre: 'D3 foursome · personalizado con la forma de scramble: hándicap incalculable', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, handicap: { modo: 'personalizado', porcentajes: [50, 50] }, esperado: 'handicap-de-equipo' },
   { nombre: 'D7 foursome · borrar sin golpes deja la pareja en 1', format: 'foursome', op: { tipo: 'borrar', origen: G('o', 2) }, esperado: null },
@@ -253,8 +278,8 @@ describe('motivoParaNoColocar (D1-D13)', () => {
       const retirar = compite && (m.codigo === 'borrar-con-golpes' || m.codigo === 'borrar-match-en-juego')
       expect(m.ofreceRetirar).toBe(retirar)
       expect(m.mensaje.includes('Retíralo')).toBe(retirar)
-      // "Sigue al pie" solo para quien tiene fila y ya está fuera (WD/DQ), nunca para un sin aprobar.
-      if ((inscrito ?? ACTIVO).estado === 'sin-aprobar') expect(m.mensaje).not.toMatch(/al pie/)
+      // "Sigue al pie" (sobre él) solo para quien tiene fila y ya está fuera (WD/DQ), nunca para un sin aprobar.
+      if ((inscrito ?? ACTIVO).estado === 'sin-aprobar') expect(m.mensaje).not.toMatch(/sigue al pie/i)
     }
   })
 

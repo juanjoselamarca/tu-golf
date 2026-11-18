@@ -106,6 +106,20 @@ export function handicapDeEquipoCalculable(
   return handicapDeEquipo(format, Array.from({ length: jugadores }, () => 0), handicap) !== null
 }
 
+/**
+ * ¿El equipo está al pie por sus WD/DQ? Espejo por conteos de `estadoDelEquipo*` (`leaderboard/fuera-del-ranking.ts`):
+ * - foursome: con un WD/DQ, la pareja entera va al pie (Regla 22, `estadoDelEquipoFoursome`).
+ * - mejor bola: sin nadie compitiendo y con alguna fila (`estadoDelEquipoMejorBola`, cero activos).
+ * - scramble: nunca va al pie por un WD/DQ; sigue rankeado con quien queda (decisión del 17-nov).
+ * No ve el DQ de mejor bola por un hoyo que solo anotó el descalificado (necesita los golpes): ese caso lo
+ * resuelve la RPC (PR2) con `estadoDelEquipoMejorBola` sobre la tarjeta real.
+ */
+export function equipoAlPie(format: string | null | undefined, grupo: Pick<GrupoEnJuego, 'miembros' | 'integrantes'>): boolean {
+  if (format === 'foursome') return grupo.integrantes > grupo.miembros
+  if (isTeamFormat(format) && !isSharedBallFormat(format)) return grupo.miembros === 0 && grupo.integrantes > 0
+  return false
+}
+
 // ─── Colocar a un inscrito ───────────────────────────────────────────────────
 
 /** Un grupo de salida con su tarjeta, visto para la gestión en juego. En formato por equipos, grupo = equipo. */
@@ -183,11 +197,14 @@ export type CodigoMotivoNoColocar =
   /** El destino pasaría el máximo de jugadores por equipo. */
   | 'equipo-lleno'
   /**
-   * D13. Foursome: el destino ya tiene golpes y un WD/DQ; con uno el equipo entero va al pie
-   * (`estadoDelEquipoFoursome`) y ya no se completa. Sin golpes, sí se completa.
+   * El destino ya tiene golpes y está al pie (`equipoAlPie`): no se le agregan jugadores, porque lo sacarían del pie
+   * con los golpes de sus WD/DQ. Sin golpes, un foursome con un WD/DQ sí se completa (D13).
    */
-  | 'foursome-con-retirado'
-  /** Un equipo con golpes quedaría bajo el mínimo: de los que compiten, o de filas en su tarjeta (`equipoIncompleto`). */
+  | 'equipo-al-pie'
+  /**
+   * Un equipo con golpes (origen o destino) quedaría bajo el mínimo: de los que compiten, o de filas en su tarjeta
+   * (`equipoIncompleto`). D3: un equipo que ya juega nunca queda fuera de `jugadoresPorEquipo`.
+   */
   | 'equipo-con-golpes-incompleto'
   /** Un equipo con golpes quedaría sin ninguna fila (ni siquiera la de un WD/DQ). */
   | 'equipo-con-golpes-sin-miembros'
@@ -304,11 +321,16 @@ export function motivoParaNoColocar(
     if (quedan > r.max) {
       return motivo('equipo-lleno', `El equipo ya tiene ${destino.miembros} jugadores; el máximo es ${r.max}.`)
     }
-    // Regla 22 (decisión de Juanjo): un foursome con un WD/DQ va entero al pie. D13: si la pareja todavía no tiene
-    // golpes, sí se completa; la RPC (PR2) saca la fila del WD/DQ en el mismo acto (como borrarlo y agregar en dos
-    // pasos), porque si queda, `estadoDelEquipoFoursome` manda a la pareja entera al pie.
-    if (format === 'foursome' && destino.tieneGolpes && destino.integrantes > destino.miembros) {
-      return motivo('foursome-con-retirado', 'En foursome, una pareja que ya jugó con un retirado o descalificado no puede seguir: no se completa.')
+    // Un equipo con golpes que ya está al pie no vuelve al ranking con un jugador nuevo: sus golpes de WD/DQ
+    // seguirían contando. D13: un foursome SIN golpes con un WD/DQ sí se completa; la RPC (PR2) saca la fila del
+    // WD/DQ en el mismo acto (como borrarlo y agregar en dos pasos), porque si queda, `estadoDelEquipoFoursome`
+    // manda a la pareja entera al pie.
+    if (destino.tieneGolpes && equipoAlPie(format, destino)) {
+      return motivo('equipo-al-pie', 'Ese equipo ya está al pie por sus retirados: no se le agregan jugadores.')
+    }
+    // Simétrico del origen (D3): un equipo que ya juega no sigue bajo el mínimo de los que compiten.
+    if (destino.tieneGolpes && quedan < r.min) {
+      return motivo('equipo-con-golpes-incompleto', `El equipo ya tiene golpes y quedaría con ${quedan} jugador${quedan === 1 ? '' : 'es'} en juego; el mínimo es ${r.min}.`)
     }
     // Un equipo bajo el mínimo se puede ir llenando (D5, D7); su hándicap se exige cuando el tamaño es válido.
     if (compartida && quedan >= r.min && !handicapDeEquipoCalculable(format, quedan, handicap)) {
