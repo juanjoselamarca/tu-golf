@@ -176,6 +176,11 @@ describe('perfil_sugerido_id no da poderes', () => {
     expect(rollback.indexOf('eliminar_cuenta(')).toBeLessThan(rollback.indexOf('DROP COLUMN'))
   })
 
+  it('el rollback de 20261120 devuelve eliminar_cuenta EXACTA de 20261118', () => {
+    const rollback = readMigration('rollback/20261120_eliminar_cuenta_orden_y_estado_obligatorio_rollback.sql')
+    expect(eliminarCuenta(rollback)).toBe(eliminarCuenta(readMigration(MIGRACION_ORDEN_LOCKS)))
+  })
+
   it('los lectores de permisos e índice siguen mirando user_id', () => {
     // Si alguno de estos se redefine en una migración posterior, la primera prueba ya lo vigila;
     // esto fija además que hoy dependen de user_id (el poder que el rival NO recibe).

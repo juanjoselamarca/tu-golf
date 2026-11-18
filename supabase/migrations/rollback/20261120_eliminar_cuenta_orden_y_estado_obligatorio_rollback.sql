@@ -112,4 +112,7 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.eliminar_cuenta(uuid) FROM PUBLIC, anon, authenticated;
 
+-- Solo metadatos más un scan de una tabla chica, pero si el ALTER queda en cola detrás de una transacción larga
+-- bloquearía todas las lecturas y golpes de rondas: mejor fallar rápido y reintentar la corrida.
+SET LOCAL lock_timeout = '5s';
 ALTER TABLE public.rondas_libres ALTER COLUMN estado DROP NOT NULL;
