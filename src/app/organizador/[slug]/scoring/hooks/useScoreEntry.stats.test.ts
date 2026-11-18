@@ -7,16 +7,16 @@
 //  3. Con la carga fallida la tarjeta quedaba vacía y editable: anotar y deshacer mandaba `gross_score: null` y
 //     borraba el golpe real. Ahora no se anota hasta que la tarjeta cargue, con "Reintentar".
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useScoreEntry } from './useScoreEntry'
 import type { HoleScoreRow, ScoringPlayer, ScoringRound, ScoringTournament } from '@/lib/data/tournaments/scoring'
 
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
-const fetchRoundHoleScores = vi.fn<(roundId: string) => Promise<Partial<HoleScoreRow>[]>>(async () => [])
+const fetchRoundHoleScores = vi.fn<(roundId: string, signal?: AbortSignal) => Promise<Partial<HoleScoreRow>[]>>(async () => [])
 vi.mock('@/lib/data/tournaments/scoring', () => ({
-  fetchRoundHoleScores: (_c: unknown, roundId: string) => fetchRoundHoleScores(roundId),
+  fetchRoundHoleScores: (_c: unknown, roundId: string, signal?: AbortSignal) => fetchRoundHoleScores(roundId, signal),
   fetchRoundTotals: async () => ({ total_gross: 0, total_net: 0, total_points: 0 }),
 }))
 const toast = { showError: vi.fn(), showWarning: vi.fn(), showSuccess: vi.fn() }
@@ -68,6 +68,9 @@ beforeEach(() => {
   fetchRoundHoleScores.mockReset()
   fetchRoundHoleScores.mockImplementation(async (id) => (id === 'rA' ? STATS_A : []))
   Object.values(toast).forEach((f) => f.mockClear())
+})
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('useScoreEntry · stats al cambiar de tarjeta', () => {
@@ -223,5 +226,116 @@ describe('useScoreEntry · borrar, omitir y confirmar stats', () => {
     await act(() => result.current.undoLast())
     expect(enviados.at(-1)).toMatchObject({ hole_number: 1, gross_score: 4, gir: false })
     expect(enviados.at(-1)).not.toHaveProperty('putts')
+  })
+})
+
+// ── Revisión Fable #834, vuelta 2 ──
+
+describe('useScoreEntry · tarjeta atada a su ronda (P1-a, P1-b, P1-c)', () => {
+  it('tocar de nuevo al jugador ya abierto no deja la tarjeta en "Cargando…" para siempre', async () => {
+    servidor()
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    expect(result.current.cargaTarjeta).toBe('lista')
+    await act(async () => result.current.selectPlayer('pA'))
+    expect(result.current.cargaTarjeta).toBe('lista')
+    expect(result.current.currentScores[1]).toBe(4)
+  })
+
+  it('la carga lleva un corte de 10 s: si la red se cuelga, pasa a error con Reintentar (no "Cargando…" eterno)', async () => {
+    servidor()
+    const corte = new AbortController()
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValueOnce(corte.signal)
+    fetchRoundHoleScores.mockImplementation((_id, signal) => new Promise((_res, rej) => {
+      signal?.addEventListener('abort', () => rej(new DOMException('timeout', 'TimeoutError')))
+    }))
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pB'))
+    expect(timeout).toHaveBeenCalledWith(10_000)
+    expect(result.current.cargaTarjeta).toBe('cargando')
+    await act(async () => { corte.abort() })
+    expect(result.current.cargaTarjeta).toBe('error')
+    timeout.mockRestore()
+  })
+
+  it('una carga que tarda más de 4 s ofrece Reintentar antes del corte', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    servidor()
+    fetchRoundHoleScores.mockImplementation(() => new Promise(() => {}))
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pB'))
+    expect(result.current.cargaLenta).toBe(false)
+    await act(async () => { vi.advanceTimersByTime(4_000) })
+    expect(result.current.cargaLenta).toBe(true)
+  })
+
+  /** Roster mutable: el jugador pC no tiene tarjeta hasta que se la crean (`useCrearTarjeta` → `reloadRoster`). */
+  function montarConRoster() {
+    let rondaDeC: ScoringRound | undefined
+    const activa = (p: ScoringPlayer | undefined) => (p?.id === 'pC' ? rondaDeC : getActiveRound(p))
+    const hook = renderHook(({ players }) =>
+      useScoreEntry({
+        tournament: TOURNAMENT, players, courseHoles: VACIO, courseTees: VACIO, holeCount: 18,
+        getActiveRound: activa, applyRoundTotals: vi.fn(), reloadRoster: vi.fn(async () => {}),
+      }), { initialProps: { players: [...PLAYERS, { id: 'pC' }] as ScoringPlayer[] } })
+    const aparecerTarjeta = (id: string) => {
+      rondaDeC = { id, status: 'in_progress', round_number: 1 } as ScoringRound
+      hook.rerender({ players: [...PLAYERS, { id: 'pC' }] as ScoringPlayer[] })
+    }
+    return { ...hook, aparecerTarjeta }
+  }
+
+  it('cuando aparece la tarjeta de un jugador que no tenía, vuelve a "cargando" y no se anota hasta tener la ronda', async () => {
+    const enviados = servidor()
+    const cargaC = diferida<Partial<HoleScoreRow>[]>()
+    fetchRoundHoleScores.mockImplementation((id) => (id === 'rC' ? cargaC.promesa : Promise.resolve([])))
+    const { result, aparecerTarjeta } = montarConRoster()
+    await act(async () => result.current.selectPlayer('pC'))
+    expect(result.current.cargaTarjeta).toBe('lista') // sin tarjeta: nada que cargar
+
+    await act(async () => aparecerTarjeta('rC'))
+    expect(result.current.cargaTarjeta).toBe('cargando')
+    await act(() => result.current.saveScore(1, '5'))
+    expect(enviados).toHaveLength(0)
+
+    // #828: la tarjeta que se "crea" puede ser una que ya existía con golpes.
+    await act(async () => { cargaC.resolver([{ hole_number: 1, gross_score: 4 }]) })
+    expect(result.current.cargaTarjeta).toBe('lista')
+    expect(result.current.currentScores[1]).toBe(4)
+  })
+
+  it('si la carga de la ronda nueva falla, la tarjeta queda bloqueada (no "lista" con la grilla vacía)', async () => {
+    servidor()
+    fetchRoundHoleScores.mockImplementation(async (id) => { if (id === 'rC') throw new Error('red'); return [] })
+    const { result, aparecerTarjeta } = montarConRoster()
+    await act(async () => result.current.selectPlayer('pC'))
+    await act(async () => aparecerTarjeta('rC'))
+    expect(result.current.cargaTarjeta).toBe('error')
+  })
+})
+
+describe('useScoreEntry · la recarga no pisa lo que este organizador tiene sin confirmar (P2-e)', () => {
+  it('un golpe en vuelo sigue en pantalla aunque la recarga traiga la base sin él', async () => {
+    const respuesta = diferida<Response>()
+    vi.stubGlobal('fetch', vi.fn(() => respuesta.promesa))
+    fetchRoundHoleScores.mockImplementation(async () => [])
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pB'))
+    let guardado!: Promise<void>
+    act(() => { guardado = result.current.saveScore(1, '5') })
+    await act(async () => result.current.reintentarCarga())
+    expect(result.current.currentScores[1]).toBe(5)
+    await act(async () => { respuesta.resolver(new Response('{}', { status: 200 })); await guardado })
+  })
+
+  it('una stat que no se guardó sigue en pantalla tras la recarga (no vuelve a lo de la base)', async () => {
+    servidor(500)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA')) // base: GIR sí
+    act(() => result.current.setHoleGir((g) => ({ ...g, 1: false })))
+    await act(async () => { await result.current.saveHoleStat(1, { gir: false }) })
+    await act(async () => result.current.reintentarCarga())
+    expect(result.current.holeGir[1]).toBe(false)
+    expect(result.current.holePutts[1]).toBe(2) // lo no tocado sí viene de la base
   })
 })

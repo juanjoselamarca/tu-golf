@@ -4,7 +4,7 @@
 // Stats "tocadas": lo que el organizador fijó en la tarjeta abierta (`null` = la borró a propósito). Es lo ÚNICO
 // que viaja en la foto de stats de un envío: lo que vino de la base no se reenvía, así una stat nunca cargada se
 // omite (el servidor no la toca) en vez de mandarla null y borrarla. Cuando el servidor confirma un envío que se
-// aplicó, lo tocado que sigue igual a lo enviado ya está en la base y deja de viajar.
+// aplicó, lo tocado que no volvió a cambiar después de ese envío ya está en la base y deja de viajar.
 
 import { DISPOSITIVO_GUARDADO, nuevaSecuencia } from '@/lib/red/orden-guardado'
 import { CAMPO_STATS_NULL_BORRA } from '@/lib/api/codigos-game'
@@ -14,44 +14,70 @@ export type HoleStatPatch = Partial<{
   fairway_hit: boolean | null
   gir: boolean | null
 }>
+type ClaveStat = keyof HoleStatPatch
+
+/** Un valor tocado y su versión: cada toque sube la versión, aunque repita un valor anterior. */
+interface Tocada { valor: number | boolean | null; version: number }
+/** Versión de cada stat que salió en un envío (para reconciliar sólo si sigue siendo la vigente). */
+export type VersionesEnviadas = Partial<Record<ClaveStat, number>>
 
 /** Lo tocado, atado a la ronda: si la tarjeta cambia, lo de la anterior no viaja a la nueva. */
 export interface StatsTocadas {
   roundId: string | null
-  porHoyo: Record<number, HoleStatPatch>
+  porHoyo: Record<number, Partial<Record<ClaveStat, Tocada>>>
 }
 
 export const SIN_TOCAR: StatsTocadas = { roundId: null, porHoyo: {} }
 
-/** Copia de lo tocado del hoyo, sin cambiar nada (para el deshacer, que no fija stats). */
-export function leerTocadas(t: StatsTocadas, roundId: string, hole: number): HoleStatPatch {
-  return t.roundId === roundId ? { ...t.porHoyo[hole] } : {}
-}
+let ultimaVersion = 0
 
-/** Lo tocado con `patch` encima: queda como vigente y es la foto a enviar. Una clave `undefined` no cuenta. */
-export function tocar(
-  t: StatsTocadas, roundId: string, hole: number, patch: HoleStatPatch = {},
-): { tocadas: StatsTocadas; foto: HoleStatPatch } {
-  const porHoyo = t.roundId === roundId ? t.porHoyo : {}
-  const foto: HoleStatPatch = { ...porHoyo[hole] }
-  for (const [k, v] of Object.entries(patch)) {
-    if (v !== undefined) (foto as Record<string, unknown>)[k] = v
+function foto(porClave: Partial<Record<ClaveStat, Tocada>> = {}): { foto: HoleStatPatch; versiones: VersionesEnviadas } {
+  const f: Record<string, unknown> = {}
+  const versiones: VersionesEnviadas = {}
+  for (const [k, t] of Object.entries(porClave) as [ClaveStat, Tocada][]) {
+    f[k] = t.valor
+    versiones[k] = t.version
   }
-  return { tocadas: { roundId, porHoyo: { ...porHoyo, [hole]: foto } }, foto }
+  return { foto: f as HoleStatPatch, versiones }
 }
 
-/** Saca de lo tocado del hoyo lo que el servidor ya aplicó (la clave sigue con el valor enviado). Un cambio
- *  posterior al envío (otro valor) se conserva. */
-export function reconciliar(t: StatsTocadas, roundId: string, hole: number, enviado: HoleStatPatch): StatsTocadas {
+/** Foto de lo tocado del hoyo, sin cambiar nada (para el deshacer, que no fija stats). */
+export function leerTocadas(t: StatsTocadas, roundId: string, hole: number) {
+  return foto(t.roundId === roundId ? t.porHoyo[hole] : undefined)
+}
+
+/** Lo tocado con `patch` encima (cada clave con versión nueva): queda como vigente y su foto es lo que se envía.
+ *  Una clave `undefined` no cuenta. */
+export function tocar(t: StatsTocadas, roundId: string, hole: number, patch: HoleStatPatch = {}) {
+  const porHoyo = t.roundId === roundId ? t.porHoyo : {}
+  const delHoyo = { ...porHoyo[hole] }
+  for (const [k, v] of Object.entries(patch) as [ClaveStat, Tocada['valor'] | undefined][]) {
+    if (v !== undefined) delHoyo[k] = { valor: v, version: ++ultimaVersion }
+  }
+  const tocadas: StatsTocadas = { roundId, porHoyo: { ...porHoyo, [hole]: delHoyo } }
+  return { tocadas, ...foto(delHoyo) }
+}
+
+/** Saca de lo tocado del hoyo lo que el servidor ya aplicó: sólo las claves cuya versión vigente es la enviada.
+ *  Un toque posterior al envío (aunque vuelva al mismo valor: A→B→A) tiene otra versión y se conserva. */
+export function reconciliar(t: StatsTocadas, roundId: string, hole: number, enviadas: VersionesEnviadas): StatsTocadas {
   if (t.roundId !== roundId || !t.porHoyo[hole]) return t
-  const resto: HoleStatPatch = { ...t.porHoyo[hole] }
-  for (const [k, v] of Object.entries(enviado)) {
-    if ((resto as Record<string, unknown>)[k] === v) delete (resto as Record<string, unknown>)[k]
+  const resto = { ...t.porHoyo[hole] }
+  for (const [k, version] of Object.entries(enviadas) as [ClaveStat, number][]) {
+    if (resto[k]?.version === version) delete resto[k]
   }
   const porHoyo = { ...t.porHoyo }
   if (Object.keys(resto).length === 0) delete porHoyo[hole]
   else porHoyo[hole] = resto
   return { roundId, porHoyo }
+}
+
+/** Las stats tocadas de la ronda, por hoyo, como valores (para superponerlas a una carga de la base). */
+export function tocadasDeLaRonda(t: StatsTocadas, roundId: string): Record<number, HoleStatPatch> {
+  if (t.roundId !== roundId) return {}
+  const r: Record<number, HoleStatPatch> = {}
+  for (const [hole, porClave] of Object.entries(t.porHoyo)) r[Number(hole)] = foto(porClave).foto
+  return r
 }
 
 /** `aplicado`: el servidor guardó ESTE envío (no lo descartó por haber uno más nuevo del dispositivo). */

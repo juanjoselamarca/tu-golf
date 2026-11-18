@@ -8,7 +8,14 @@ import type { ScoringTournament } from '@/lib/data/tournaments/scoring'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { ScorecardPanel } from './ScorecardPanel'
 
-vi.mock('./HoleStatsTable', () => ({ HoleStatsTable: () => null }))
+const montajesTabla = vi.hoisted(() => ({ n: 0 }))
+vi.mock('./HoleStatsTable', async () => {
+  const { useState } = await import('react')
+  return {
+    // Cuenta montajes: el estado de la tabla (pendientes, fallidos) no debe sobrevivir al cambio de tarjeta.
+    HoleStatsTable: () => { useState(() => { montajesTabla.n += 1; return null }); return null },
+  }
+})
 
 function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
   return {
@@ -148,5 +155,31 @@ describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
     render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} crearTarjeta={crearTarjeta()} ronda={{ numero: 1, vigente: false }} />)
     expect(screen.getByTestId('organizador-no-jugo').textContent).toBe('E2E Test no jugó la ronda 1.')
     expect(screen.queryByTestId('organizador-no-juega')).toBeNull()
+  })
+})
+
+// Revisión Fable #834 v2: la tabla de stats sin `key` dejaba pendientes y fallidos de A en la tarjeta de B; y la
+// carga colgada no ofrecía salida.
+describe('ScorecardPanel — carga y cambio de tarjeta', () => {
+  it('la tabla de stats se vuelve a montar al cambiar de tarjeta', () => {
+    const e = entry({ cargaTarjeta: 'lista', holes: [1] })
+    const vista = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} />)
+    fireEvent.click(screen.getByText(/Estadísticas adicionales/))
+    const antes = montajesTabla.n
+    vista.rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={{ ...e, selectedId: 'p2', selectedRound: { id: 'r2', status: 'in_progress' } } as UseScoreEntryReturn} />)
+    expect(montajesTabla.n).toBe(antes + 1)
+  })
+
+  it('cargando: primero "Cargando la tarjeta…"; si tarda, Reintentar de 44 px que recarga', () => {
+    const reintentarCarga = vi.fn()
+    const vista = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({ cargaTarjeta: 'cargando', cargaLenta: false, reintentarCarga })} />)
+    expect(screen.getByText('Cargando la tarjeta…')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+
+    vista.rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({ cargaTarjeta: 'cargando', cargaLenta: true, reintentarCarga })} />)
+    const boton = screen.getByRole('button', { name: 'Reintentar' })
+    expect(parseInt(boton.style.minHeight)).toBeGreaterThanOrEqual(44)
+    fireEvent.click(boton)
+    expect(reintentarCarga).toHaveBeenCalled()
   })
 })

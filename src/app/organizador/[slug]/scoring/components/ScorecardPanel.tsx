@@ -52,7 +52,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   const {
     selectedPlayer, selectedRound, holes, currentScores, errorHoles, saving,
     allFilled, parJugado, grossTotal, outGross, inGross, netTotal,
-    stablefordPtsAt, saveScore, finalizeRound, selectedId, cargaTarjeta, reintentarCarga,
+    stablefordPtsAt, saveScore, finalizeRound, selectedId, cargaTarjeta, cargaLenta, reintentarCarga,
   } = entry
 
   if (!selectedPlayer) return null
@@ -115,15 +115,18 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         />
       )}
 
-      {!sinTarjeta && cargaTarjeta === 'cargando' && (
+      {!sinTarjeta && cargaTarjeta === 'cargando' && !cargaLenta && (
         <div role="status" style={{ padding: '12px 20px 0', color: 'var(--text-2)', fontSize: '13px' }}>
           Cargando la tarjeta…
         </div>
       )}
-      {!sinTarjeta && cargaTarjeta === 'error' && (
-        <div role="alert" style={{ margin: '16px 20px 0', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--surface-border)', background: 'var(--surface-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+      {/* Error, o una carga que tarda (la red de la cancha): se ofrece reintentar sin esperar el corte de 10 s. */}
+      {!sinTarjeta && (cargaTarjeta === 'error' || (cargaTarjeta === 'cargando' && cargaLenta)) && (
+        <div role={cargaTarjeta === 'error' ? 'alert' : 'status'} style={{ margin: '16px 20px 0', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--surface-border)', background: 'var(--surface-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
           <div style={{ fontSize: '13px', color: 'var(--text)', flex: '1 1 200px' }}>
-            No pudimos cargar la tarjeta. Para no pisar los golpes guardados, se anota cuando cargue.
+            {cargaTarjeta === 'error'
+              ? 'No pudimos cargar la tarjeta. Para no pisar los golpes guardados, se anota cuando cargue.'
+              : 'La tarjeta está tardando en cargar. Se anota cuando aparezca.'}
           </div>
           <button
             type="button"
@@ -213,7 +216,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         </button>
         {showStats && (
           <fieldset disabled={soloLectura} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-            <HoleStatsTable courseHoles={courseHoles} entry={entry} />
+            {/* key: lo pendiente y lo fallido de la tabla es de esta tarjeta, no pasa a la del jugador siguiente. */}
+            <HoleStatsTable key={selectedRound?.id ?? 'sin-ronda'} courseHoles={courseHoles} entry={entry} />
           </fieldset>
         )}
       </div>

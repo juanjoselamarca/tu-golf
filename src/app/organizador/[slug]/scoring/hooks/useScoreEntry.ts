@@ -4,7 +4,8 @@
 // SI normalizado, strokes por hoyo, stableford) — acá sólo se orquesta.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { enviarHoyo, leerTocadas, reconciliar, SIN_TOCAR, tocar, type HoleStatPatch } from './envio-hoyo'
+import { enviarHoyo, leerTocadas, reconciliar, SIN_TOCAR, tocar, type HoleStatPatch, type VersionesEnviadas } from './envio-hoyo'
+import { useCargaTarjeta, type GrossEnVuelo, type TarjetaCargada } from './useCargaTarjeta'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
@@ -16,7 +17,6 @@ import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import {
-  fetchRoundHoleScores,
   fetchRoundTotals,
   type ScoringPlayer,
   type ScoringRound,
@@ -62,9 +62,7 @@ export interface LastAction {
 
 export type { HoleStatPatch } from './envio-hoyo'
 
-/** Estado de la carga de la tarjeta abierta. Hasta que no está `lista`, la pantalla no sabe qué golpes tiene la
- *  base: anotar encima y deshacer mandaría `gross_score: null` (el hoyo "estaba vacío") y borraría un golpe real. */
-export type CargaTarjeta = 'cargando' | 'lista' | 'error'
+export type { CargaTarjeta } from './useCargaTarjeta'
 
 export function useScoreEntry({
   tournament,
@@ -102,27 +100,22 @@ export function useScoreEntry({
   /** Stats que el organizador fijó a mano en la tarjeta abierta (ver `envio-hoyo.ts`). Se lee sin el closure del
    *  render: un tap de GIR y uno de putts salen en el mismo tick. */
   const statsTocadasRef = useRef(SIN_TOCAR)
-  /** Cuenta las cargas de la tarjeta: sólo aplica su resultado la última (una vieja que llega tarde no pisa). */
-  const cargaRef = useRef(0)
-  const [cargaTarjeta, setCargaTarjetaState] = useState<CargaTarjeta>('cargando')
-  /** La misma carga, leída en los handlers sin esperar al render. */
-  const cargaTarjetaRef = useRef<CargaTarjeta>('cargando')
-  const setCargaTarjeta = useCallback((c: CargaTarjeta) => {
-    cargaTarjetaRef.current = c
-    setCargaTarjetaState(c)
-  }, [])
+  /** Jugador abierto, leído en los handlers: tocar de nuevo al que ya está abierto no recarga nada. */
+  const selectedIdRef = useRef<string | null>(null)
+  /** Golpes enviados sin respuesta todavía: la recarga los deja en pantalla (ver `armarTarjeta`). */
+  const grossEnVueloRef = useRef<GrossEnVuelo>(new Map())
 
   /** Foto de las stats del hoyo con `patch` encima, y queda como vigente. El servidor ordena los envíos por hoyo
    *  (`guardar_hole_score`): con un parche parcial por envío, putts (seq 7) que llega después de GIR (seq 8) se
    *  descartaba y los putts se perdían. Con la foto, el más nuevo siempre trae lo del anterior. */
   const fotoStatsDelHoyo = useCallback((roundId: string, holeNumber: number, patch: HoleStatPatch = {}) => {
-    const { tocadas, foto } = tocar(statsTocadasRef.current, roundId, holeNumber, patch)
+    const { tocadas, foto, versiones } = tocar(statsTocadasRef.current, roundId, holeNumber, patch)
     statsTocadasRef.current = tocadas
-    return foto
+    return { foto, versiones }
   }, [])
-  /** El servidor aplicó el envío: lo tocado que sigue igual ya está en la base y deja de viajar. */
-  const confirmarStats = useCallback((roundId: string, holeNumber: number, enviado: HoleStatPatch) => {
-    statsTocadasRef.current = reconciliar(statsTocadasRef.current, roundId, holeNumber, enviado)
+  /** El servidor aplicó el envío: lo tocado que no se volvió a tocar después ya está en la base y deja de viajar. */
+  const confirmarStats = useCallback((roundId: string, holeNumber: number, enviadas: VersionesEnviadas) => {
+    statsTocadasRef.current = reconciliar(statsTocadasRef.current, roundId, holeNumber, enviadas)
   }, [])
 
   const holes = useMemo(() => Array.from({ length: holeCount }, (_, i) => i + 1), [holeCount])
@@ -146,86 +139,48 @@ export function useScoreEntry({
     setHoleGir({})
   }, [])
 
+  const aplicarTarjeta = useCallback((t: TarjetaCargada) => {
+    setCurrentScores(t.scores)
+    setHolePutts(t.putts)
+    setHoleFairway(t.fairway)
+    setHoleGir(t.gir)
+  }, [])
+
+  const { cargaTarjeta, cargaTarjetaRef, rondaCargadaRef, cargaLenta, marcarCargando, reintentarCarga } =
+    useCargaTarjeta({
+      selectedId, players, getActiveRound, tarjetaRef, statsTocadasRef, grossEnVueloRef,
+      aplicar: aplicarTarjeta, resetHoleState, showError,
+    })
+
   const selectPlayer = useCallback(
     (playerId: string) => {
+      // El mismo jugador ya está abierto: nada que cambiar. Marcar "cargando" acá dejaba la tarjeta en
+      // "Cargando…" para siempre (la carga corre al cambiar de jugador, y no cambió).
+      if (playerId === selectedIdRef.current) return
+      selectedIdRef.current = playerId
       tarjetaRef.current += 1
       // Todo lo de la tarjeta anterior se va YA, no cuando termine la carga: si la carga tarda o falla, anotar el
       // hoyo 1 de B mandaba putts, fairway y GIR de A a la ronda de B.
       statsTocadasRef.current = SIN_TOCAR
-      setCargaTarjeta('cargando')
+      marcarCargando()
       setSelectedId(playerId)
       resetHoleState()
       setLastAction(null)
     },
-    [resetHoleState, setCargaTarjeta],
+    [resetHoleState, marcarCargando],
   )
 
   const clearSelection = useCallback(() => {
+    selectedIdRef.current = null
     tarjetaRef.current += 1
     statsTocadasRef.current = SIN_TOCAR
-    setCargaTarjeta('cargando')
+    marcarCargando()
     setSelectedId(null)
     resetHoleState()
     // Cerrar la tarjeta (o cambiar de ronda) descarta el deshacer pendiente: el
     // botón "Deshacer hoyo N" quedaba vivo en el header sin tarjeta a la vista.
     setLastAction(null)
-  }, [resetHoleState, setCargaTarjeta])
-
-  const loadScores = useCallback(
-    async (playerId: string) => {
-      const player = players.find((p) => p.id === playerId)
-      const roundId = getActiveRound(player)?.id
-      const tarjeta = tarjetaRef.current
-      const carga = ++cargaRef.current
-      // La respuesta es de esta carga y de esta tarjeta: si mientras tanto se abrió otra (o arrancó otra carga),
-      // no se aplica. Sin esto, la carga de A que llegaba tarde pintaba sus stats en la tarjeta de B.
-      const vigente = () => tarjetaRef.current === tarjeta && cargaRef.current === carga
-      if (!roundId) {
-        resetHoleState()
-        setCargaTarjeta('lista')
-        return
-      }
-      try {
-        const rows = await fetchRoundHoleScores(createClient(), roundId)
-        if (!vigente()) return
-        const scores: Record<number, number> = {}
-        const putts: Record<number, number | null> = {}
-        const fairway: Record<number, boolean | null> = {}
-        const gir: Record<number, boolean | null> = {}
-        rows.forEach((s) => {
-          if (s.gross_score != null) scores[s.hole_number] = s.gross_score
-          putts[s.hole_number] = s.putts ?? null
-          fairway[s.hole_number] = s.fairway_hit ?? null
-          gir[s.hole_number] = s.gir ?? null
-        })
-        setCurrentScores(scores)
-        setHolePutts(putts)
-        setHoleFairway(fairway)
-        setHoleGir(gir)
-        setCargaTarjeta('lista')
-      } catch (e) {
-        void captureError(e, { context: 'scoring.useScoreEntry.loadScores', meta: { roundId } })
-        if (!vigente()) return
-        // Una recarga de la tarjeta ya cargada que falla deja lo que había (sigue siendo lo conocido). Si nunca
-        // cargó, la tarjeta queda bloqueada con "Reintentar": anotar encima de una pantalla vacía y deshacer
-        // borraba el golpe real del hoyo.
-        if (cargaTarjetaRef.current !== 'lista') setCargaTarjeta('error')
-        showError('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
-      }
-    },
-    [players, getActiveRound, resetHoleState, showError, setCargaTarjeta],
-  )
-
-  const reintentarCarga = useCallback(() => {
-    if (!selectedId) return
-    // Una tarjeta ya cargada se refresca sin bloquearse; una que no cargó vuelve a "Cargando…".
-    if (cargaTarjetaRef.current !== 'lista') setCargaTarjeta('cargando')
-    void loadScores(selectedId)
-  }, [selectedId, loadScores, setCargaTarjeta])
-
-  useEffect(() => {
-    if (selectedId) void loadScores(selectedId)
-  }, [selectedId, loadScores])
+  }, [resetHoleState, marcarCargando])
 
   // ── Derivados de la tarjeta seleccionada ──
   const filledCount = holes.filter((h) => currentScores[h] != null).length
@@ -287,12 +242,13 @@ export function useScoreEntry({
       }
       const player = players.find((p) => p.id === selectedId)
       if (!player) return
-      if (cargaTarjetaRef.current !== 'lista') {
-        // Sin la tarjeta cargada no se sabe qué hay en el hoyo (ver `CargaTarjeta`). La grilla ya está bloqueada.
+      const round = getActiveRound(player)
+      if (cargaTarjetaRef.current !== 'lista' || (round && rondaCargadaRef.current !== round.id)) {
+        // Sin ESTA ronda cargada no se sabe qué hay en el hoyo (ver `CargaTarjeta`): la tarjeta recién creada o
+        // la ronda que cambió todavía muestra lo de antes. La grilla ya está bloqueada.
         showWarning('Espera un momento', 'La tarjeta todavía no carga. Anota cuando aparezca.')
         return
       }
-      const round = getActiveRound(player)
       if (!round) {
         // Sin tarjeta en la ronda en juego no hay dónde guardar: se dice, no se pierde en silencio. El panel
         // ofrece "Crear su tarjeta" (POST /api/torneos/[slug]/tarjeta).
@@ -332,7 +288,10 @@ export function useScoreEntry({
       })
 
       setSaving(true)
-      const stats = fotoStatsDelHoyo(round.id, holeNumber)
+      const { foto: stats, versiones } = fotoStatsDelHoyo(round.id, holeNumber)
+      const claveVuelo = `${round.id}:${holeNumber}`
+      const enVuelo = { valor: gross }
+      grossEnVueloRef.current.set(claveVuelo, enVuelo)
       const res = await enviarHoyo({
         tournament_id: tournament.id,
         round_id: round.id,
@@ -343,6 +302,7 @@ export function useScoreEntry({
         points,
         ...stats,
       })
+      if (grossEnVueloRef.current.get(claveVuelo) === enVuelo) grossEnVueloRef.current.delete(claveVuelo)
       setSaving(false)
 
       if (!res.ok) {
@@ -352,7 +312,7 @@ export function useScoreEntry({
         return
       }
       marcar('guardado')
-      if (res.aplicado) confirmarStats(round.id, holeNumber, stats)
+      if (res.aplicado) confirmarStats(round.id, holeNumber, versiones)
       showSuccess('Score guardado', '', { duration: 1500 })
 
       // Refrescar los totales denormalizados de la ficha (no los usa el Resumen).
@@ -366,7 +326,7 @@ export function useScoreEntry({
     [
       tournament, selectedId, players, getActiveRound, holeByNumero, siAllocByHole,
       courseHoles, courseTees, holeCount, currentScores, fotoStatsDelHoyo, confirmarStats,
-      applyRoundTotals, showError, showSuccess, showWarning,
+      applyRoundTotals, showError, showSuccess, showWarning, cargaTarjetaRef, rondaCargadaRef,
     ],
   )
 
@@ -425,7 +385,7 @@ export function useScoreEntry({
     setSaving(true)
     // Lleva lo tocado del hoyo: con secuencia más nueva que un GIR en vuelo, sin la foto ese GIR se descartaba
     // en el servidor. Se lee sin tocar nada (el deshacer no fija stats).
-    const stats = leerTocadas(statsTocadasRef.current, roundId, holeNumber)
+    const { foto: stats, versiones } = leerTocadas(statsTocadasRef.current, roundId, holeNumber)
     const envio = await enviarHoyo({
       tournament_id: tournament.id,
       round_id: roundId,
@@ -435,7 +395,7 @@ export function useScoreEntry({
       ...stats,
     })
     const ok = envio.ok
-    if (envio.aplicado) confirmarStats(roundId, holeNumber, stats)
+    if (envio.aplicado) confirmarStats(roundId, holeNumber, versiones)
     setSaving(false)
     if (!ok) {
       // La pantalla NO se toca si el servidor no deshizo. Aplicar el undo
@@ -471,11 +431,12 @@ export function useScoreEntry({
       if (gross == null) return false
       const player = players.find((p) => p.id === selectedId)
       const round = getActiveRound(player)
-      if (!round) return false
+      // Sólo contra la ronda que está a la vista: una que todavía no cargó no tiene golpe conocido en el hoyo.
+      if (!round || rondaCargadaRef.current !== round.id) return false
       const avisoKey = `${selectedId}:${round.id}:${holeNumber}`
       // Igual que el deshacer: manda sólo el gross, el servidor deriva el neto,
       // y si eso falla la stat se pierde. Antes se perdía sin decir nada.
-      const stats = fotoStatsDelHoyo(round.id, holeNumber, patch)
+      const { foto: stats, versiones } = fotoStatsDelHoyo(round.id, holeNumber, patch)
       const res = await enviarHoyo({
         tournament_id: tournament.id,
         round_id: round.id,
@@ -496,10 +457,10 @@ export function useScoreEntry({
         return false
       }
       statWarnedHolesRef.current.delete(avisoKey)
-      if (res.aplicado) confirmarStats(round.id, holeNumber, stats)
+      if (res.aplicado) confirmarStats(round.id, holeNumber, versiones)
       return true
     },
-    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning, fotoStatsDelHoyo, confirmarStats],
+    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning, fotoStatsDelHoyo, confirmarStats, rondaCargadaRef],
   )
 
   const finalizeRound = useCallback(async () => {
@@ -548,6 +509,7 @@ export function useScoreEntry({
     selectPlayer,
     clearSelection,
     cargaTarjeta,
+    cargaLenta,
     reintentarCarga,
     currentScores,
     errorHoles,
