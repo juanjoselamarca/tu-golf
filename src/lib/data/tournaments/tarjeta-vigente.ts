@@ -21,6 +21,15 @@ export type MotivoSinTarjetaVigente =
   | 'tournament_closed'
   | 'round_not_in_play'
 
+/**
+ * ¿Reintentar NO cambia la respuesta? Todos los motivos son definitivos salvo `round_not_in_play`: entre
+ * rondas, la tarjeta aparece cuando el organizador abre la siguiente. Un retirado/descalificado
+ * (`player_not_active`) o un torneo cerrado (`tournament_closed`) no vuelven solos.
+ */
+export function motivoSinTarjetaDefinitivo(motivo: unknown): boolean {
+  return typeof motivo === 'string' && motivo !== 'round_not_in_play'
+}
+
 export type ResultadoTarjetaVigente =
   | { tipo: 'ok'; roundId: string; roundNumber: number; creada: boolean }
   | { tipo: 'rechazo'; motivo: MotivoSinTarjetaVigente }
@@ -67,13 +76,15 @@ export async function asegurarTarjetaVigente(
 /**
  * Qué contestó el servidor a "pedir la tarjeta" (el scorer decide mirando el roster recargado, que es
  * la verdad de si la tarjeta está):
- * - `respondio`: 2xx/409/429, o 503 `sin_soporte` (la función aún no está en la base). El scorer
+ * - `rechazo_definitivo`: 409 con un motivo que no cambia reintentando (`motivoSinTarjetaDefinitivo`:
+ *   jugador retirado/descalificado, torneo cerrado...). Quien sondea deja de pedirla.
+ * - `respondio`: 2xx, 409 `round_not_in_play` (o sin motivo), 429, o 503 `sin_soporte` (la función aún no está en la base). El scorer
  *   sigue con el flujo de papel.
  * - `sin_permiso`: 403 (no es su tarjeta, o el acceso de invitado no sirve). Repetir no cambia nada.
  * - `sin_sesion`: 401. Sin sesión (vencida o nunca iniciada): el scorer ofrece iniciar sesión.
  * - `sin_conexion`: corte de red, plazo vencido o 5xx sin `sin_soporte`.
  */
-export type RespuestaPedirTarjeta = 'respondio' | 'sin_permiso' | 'sin_sesion' | 'sin_conexion'
+export type RespuestaPedirTarjeta = 'respondio' | 'rechazo_definitivo' | 'sin_permiso' | 'sin_sesion' | 'sin_conexion'
 
 /** Cliente: pide al servidor que asegure la tarjeta vigente del jugador. Nunca lanza. */
 export async function pedirTarjetaVigente(args: {
@@ -96,6 +107,7 @@ export async function pedirTarjetaVigente(args: {
     )
     if (res.status === 401) return 'sin_sesion'
     if (res.status === 403) return 'sin_permiso'
+    if (res.status === 409 && motivoSinTarjetaDefinitivo((json as { reason?: unknown } | null)?.reason)) return 'rechazo_definitivo'
     if (res.status < 500) return 'respondio'
     return (json as { code?: unknown } | null)?.code === CODIGO_TARJETA_SIN_SOPORTE ? 'respondio' : 'sin_conexion'
   } catch {

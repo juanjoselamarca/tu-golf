@@ -21,7 +21,9 @@ import { useGuardadoTorneo } from './hooks/useGuardadoTorneo'
 import { avisoSinAcceso, avisoSinTarjeta } from './hooks/acceso-guardado'
 import { elegirJugadorInicial, urlSinJugador } from './hooks/jugador-del-link'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
-import { useBuscarTarjeta, MENSAJE_BUSQUEDA_TARJETA } from './hooks/useBuscarTarjeta'
+import { useBuscarTarjeta } from './hooks/useBuscarTarjeta'
+import { AvisoSinTarjeta } from './components/AvisoSinTarjeta'
+import { CTA_RELLENO } from './components/cta-aviso'
 import { useSondeoRoster, rondaSiguienteYaAbierta } from './hooks/useSondeoRoster'
 import {
   fetchScoringTournament,
@@ -41,16 +43,6 @@ import { claveAvisoTorneo } from '@/hooks/ronda/useAvisoNoMolestar'
 
 type Player = ScoringPlayer
 
-// CTA de los avisos sobre fondo rojo tenue: relleno dorado con texto oscuro (7,35:1 en claro y en oscuro).
-// El texto dorado `--brand-on-bg` sobre ese rojo compositado no llegaba a 4,5:1 en modo claro.
-const CTA_RELLENO: React.CSSProperties = {
-  minHeight: '44px', display: 'inline-flex', alignItems: 'center', padding: '0 16px', borderRadius: '10px',
-  // Borde `--brand-on-bg`: el dorado solo sobre el rojo tenue claro queda en 2,2:1 (límite del botón ≥3:1).
-  border: '1px solid var(--brand-on-bg)', background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', textDecoration: 'none',
-}
-const CTA_SECUNDARIO: React.CSSProperties = {
-  minHeight: '44px', display: 'inline-flex', alignItems: 'center', color: 'var(--text)', fontWeight: 600, fontSize: '14px', textDecoration: 'underline',
-}
 type Tournament = ScoringTournament
 
 /** Nombre visible del jugador: registrado usa profiles.name, invitado usa player_name.
@@ -190,7 +182,7 @@ export default function PlayerScoringPage() {
   const rondaActual = ronda.round?.round_number ?? 1
   const hayRondaSiguiente = rondaActual < (tournament?.total_rounds ?? 1)
   const esperaRondaSiguiente = rondaCerrada && hayRondaSiguiente
-  useSondeoRoster({
+  const sondeo = useSondeoRoster({
     activo: (esperaRondaSiguiente || ronda.sinTarjeta) && !torneoInactivo,
     pedirTarjeta: esperaRondaSiguiente && selectedPlayerEarly && rondaSiguienteYaAbierta(players, rondaActual)
       ? { slug, playerId: selectedPlayerEarly.id, guestId, guestToken: guestTokenValue }
@@ -307,10 +299,11 @@ export default function PlayerScoringPage() {
   const sinScores = torneoInactivo ? 'cerrado' : motivoSinScores(tournament.status)
   // Sin tarjeta donde guardar no se dibujan hoyos editables: lo anotado se perdía sin aviso.
   const sinTarjeta = ronda.sinTarjeta && sinScores === null ? avisoSinTarjeta(slug) : null
-  // "Buscar mi tarjeta" con la sesión cerrada: el mismo login del scorer, que vuelve a esta tarjeta.
-  const loginParaBuscar = busqueda.resultado === 'sin_sesion'
-    ? avisoSinAcceso({ slug, motivo: 'sin_sesion', jugadorId: selectedId || null })
-    : null
+  // Sin sesión (al buscar la tarjeta, o el sondeo de la ronda siguiente respondió 401): el mismo login del
+  // scorer, que vuelve a esta tarjeta.
+  const loginSinSesion = avisoSinAcceso({ slug, motivo: 'sin_sesion', jugadorId: selectedId || null })
+  const loginParaBuscar = busqueda.resultado === 'sin_sesion' ? loginSinSesion : null
+  const rondaSiguienteSinSesion = !!selectedId && sondeo.sinSesionDe === selectedId
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
@@ -393,22 +386,10 @@ export default function PlayerScoringPage() {
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '14px', cursor: 'pointer', marginBottom: '8px', padding: '0 12px 0 0', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
               ← Cambiar jugador
             </button>
-            <div role="alert" data-testid="tarjeta-sin-ronda" style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
-              <strong>{sinTarjeta.titulo}.</strong> {sinTarjeta.detalle}
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 16px', marginTop: '10px' }}>
-                <button type="button" onClick={() => { void busqueda.buscar() }} disabled={busqueda.buscando} style={{ ...CTA_RELLENO, cursor: busqueda.buscando ? 'wait' : 'pointer', opacity: busqueda.buscando ? 0.7 : 1 }}>
-                  {busqueda.buscando ? 'Buscando...' : 'Buscar mi tarjeta'}
-                </button>
-                <Link href={sinTarjeta.href} style={CTA_SECUNDARIO}>{sinTarjeta.cta}</Link>
-              </div>
-              {/* Siempre montado: aria-live anuncia el cambio de texto, no un nodo que aparece. */}
-              <p aria-live="polite" data-testid="resultado-buscar-tarjeta" style={{ margin: busqueda.resultado ? '8px 0 0' : 0, fontSize: '14px', color: 'var(--text-2)' }}>
-                {busqueda.resultado ? MENSAJE_BUSQUEDA_TARJETA[busqueda.resultado] : ''}
-                {loginParaBuscar && (
-                  <> <Link href={loginParaBuscar.href} style={{ color: 'var(--text)', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>{loginParaBuscar.cta}</Link></>
-                )}
-              </p>
-            </div>
+            <AvisoSinTarjeta
+              aviso={sinTarjeta} buscando={busqueda.buscando} resultado={busqueda.resultado}
+              buscar={() => { void busqueda.buscar() }} login={loginParaBuscar}
+            />
           </>
         )}
         {selectedPlayer && !sinTarjeta && !rondaCtx && (
@@ -452,7 +433,17 @@ export default function PlayerScoringPage() {
             )}
             {rondaCerrada && (
               <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
-                <strong>Ronda {ronda.round?.round_number ?? 1} cerrada.</strong> La tarjeta es sólo lectura. Cuando el organizador abra la siguiente ronda, aparece acá sola.
+                <strong>Ronda {ronda.round?.round_number ?? 1} cerrada.</strong>{' '}
+                {rondaSiguienteSinSesion ? (
+                  // El sondeo pidió la tarjeta de la ronda siguiente (ya abierta para otros) y el servidor
+                  // respondió 401: esperar no la trae. La salida es la misma del aviso sin sesión.
+                  <>
+                    La siguiente ronda ya empezó. Para ver tu tarjeta necesitas tu cuenta.
+                    <div style={{ marginTop: '10px' }}>
+                      <Link href={loginSinSesion.href} data-testid="login-ronda-siguiente" style={CTA_RELLENO}>{loginSinSesion.cta}</Link>
+                    </div>
+                  </>
+                ) : 'La tarjeta es sólo lectura. Cuando el organizador abra la siguiente ronda, aparece acá sola.'}
               </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

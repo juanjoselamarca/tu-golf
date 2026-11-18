@@ -7,9 +7,9 @@ import { pedirTarjetaVigente } from '@/lib/data/tournaments/tarjeta-vigente'
 export const MENSAJE_BUSQUEDA_TARJETA = {
   no_aparece: 'Todavía no aparece. Sigue en papel.',
   sin_conexion: 'Sin conexión. Intenta de nuevo.',
-  // Va con el enlace "Iniciar sesión" de `avisoSinAcceso('sin_sesion')`, que vuelve a esta tarjeta.
-  // Sin "tu sesión se cerró": vale también para quien nunca la inició.
-  sin_sesion: 'Inicia sesión para buscarla.',
+  // Con este resultado, "Iniciar sesión" (`avisoSinAcceso('sin_sesion')`, vuelve a esta tarjeta) pasa a
+  // ser el botón principal. Sin "tu sesión se cerró": vale también para quien nunca la inició.
+  sin_sesion: 'Para buscarla necesitas tu cuenta.',
 } as const
 
 export type ResultadoBusquedaTarjeta = keyof typeof MENSAJE_BUSQUEDA_TARJETA
@@ -20,7 +20,8 @@ export type ResultadoBusquedaTarjeta = keyof typeof MENSAJE_BUSQUEDA_TARJETA
  * Si la tarjeta aparece, el aviso se va solo (la pantalla deja de estar "sin tarjeta"); si no, queda
  * el resultado para decirlo bajo los botones.
  *
- * - `sin_sesion`: la ruta respondió 401 (sesión cerrada). La pantalla ofrece iniciar sesión.
+ * - `sin_sesion`: la ruta respondió 401: no hay sesión (vencida o nunca iniciada). La pantalla pone
+ *   "Iniciar sesión" como botón principal.
  * - `sin_conexion`: la ruta no contestó (red, plazo, 5xx) o el roster no se pudo releer.
  * - `no_aparece`: todo contestó y la tarjeta sigue sin estar (torneo cerrado, ronda sin juego, la
  *   función aún no está en la base, no es su tarjeta...). El jugador sigue en papel.
