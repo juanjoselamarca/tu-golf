@@ -204,3 +204,36 @@ describe('useScoreSave — P0003 que NO es sesión cerrada', () => {
     expect(result.current.saveStatus).toBe('error')
   })
 })
+
+// #789 P2: el aviso solo se apagaba con un guardado que llegaba. Con la sesión de vuelta (otra pestaña, o se
+// renovó) y el servidor respondiendo 5xx, seguía pidiendo "Iniciar sesión" a quien ya la tenía.
+describe('useScoreSave — el aviso de sesión no queda pegado tras un 5xx', () => {
+  const ERROR_5XX = { data: null, error: { code: '', message: 'Service Unavailable', status: 503 } }
+
+  it('con la sesión recuperada, un guardado que falla por 5xx apaga el aviso', async () => {
+    mockRpc.mockResolvedValue(P0003)
+    mockGetSession.mockResolvedValue(SIN_SESION)
+    const { result } = montar()
+    await anotar(result, 'p1', { 1: 4 })
+    expect(result.current.sesionCerrada).not.toBeNull()
+
+    mockRpc.mockResolvedValue(ERROR_5XX)
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } }, error: null })
+    await anotar(result, 'p1', { 1: 4, 2: 5 })
+    expect(result.current.sesionCerrada).toBeNull()
+    expect(result.current.saveStatus).toBe('error')
+  })
+
+  it('sin sesión todavía (o sin poder confirmarla), el 5xx deja el aviso', async () => {
+    mockRpc.mockResolvedValue(P0003)
+    mockGetSession.mockResolvedValue(SIN_SESION)
+    const { result } = montar()
+    await anotar(result, 'p1', { 1: 4 })
+    mockRpc.mockResolvedValue(ERROR_5XX)
+    await anotar(result, 'p1', { 1: 4, 2: 5 })
+    expect(result.current.sesionCerrada).not.toBeNull()
+    mockGetSession.mockResolvedValue(SESION_NO_CONFIRMABLE)
+    await anotar(result, 'p1', { 1: 4, 2: 6 })
+    expect(result.current.sesionCerrada).not.toBeNull()
+  })
+})

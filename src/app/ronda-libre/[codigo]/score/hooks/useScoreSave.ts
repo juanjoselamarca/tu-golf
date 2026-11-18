@@ -89,7 +89,10 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   // nada vuelve a escribir el respaldo (un toque más lo recrearía y el banner volvería para siempre).
   const rondaBorradaRef = useRef(false)
   // Un solo aviso persistente: los guardados siguientes lo actualizan (a qué tarjeta vuelve), no lo repiten.
-  const [sesionCerrada, setSesionCerrada] = useState<AvisoSesionCerrada | null>(null)
+  const [sesionCerrada, setSesionCerradaState] = useState<AvisoSesionCerrada | null>(null)
+  // Espejo para leerlo dentro de un guardado en curso (el estado del closure puede ser de antes).
+  const sesionCerradaRef = useRef<AvisoSesionCerrada | null>(null)
+  const setSesionCerrada = useCallback((v: AvisoSesionCerrada | null) => { sesionCerradaRef.current = v; setSesionCerradaState(v) }, [])
 
   // Cleanup: si el componente se desmonta con un save pendiente, disparar
   // inmediatamente para no perder el último tap (CERO FALLOS).
@@ -258,6 +261,10 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     }
     if (!success) {
       setSaveStatus('error')
+      // El aviso de sesión estaba puesto y este guardado falló por otra cosa (5xx, red): si el teléfono ya tiene
+      // sesión (la recuperó en otra pestaña o se renovó), "inicia sesión" ya no es cierto. Sin señal para
+      // confirmarlo, el aviso se queda.
+      if (sesionCerradaRef.current && (await sesionDelScorer(createClient())).estado === 'ok') setSesionCerrada(null)
       if (!paraFinalizar && !finalizandoRef.current) addToast({ type: 'error', title: 'Error al guardar', message: 'No se pudo conectar despues de 3 intentos. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
       return 'sin_conexion'
     } else {
@@ -270,7 +277,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       setTimeout(() => setSaveStatus('idle'), 1500)
       return 'guardado'
     }
-  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste, authUserId])
+  }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized, onRondaNoExiste, authUserId, setSesionCerrada])
 
   const executeSave = useCallback((
     jugadorId: string,
