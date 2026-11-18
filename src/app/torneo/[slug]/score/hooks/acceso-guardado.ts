@@ -65,8 +65,9 @@ export interface AvisoSinAcceso {
 export function avisoSinTarjeta(slug: string): AvisoSinAcceso {
   return {
     titulo: 'Esta tarjeta no está en el torneo',
-    // Sin "revise tu inscripción": con el torneo en juego el organizador no tiene cómo crearle la tarjeta
-    // (quitar es WD y volver a inscribir da `already_registered`). El caso queda en error_logs.
+    // "Avísale al organizador": él puede crearle la tarjeta desde su scorer ("Crear su tarjeta",
+    // POST /api/torneos/[slug]/tarjeta). Sin "revise tu inscripción": volver a inscribirse da
+    // `already_registered` y no la crea. El caso queda en error_logs.
     detalle: 'Lo que anotes acá no se guardaría. Anota tus golpes en papel y avísale al organizador.',
     cta: 'Ver el torneo',
     href: `/torneo/${slug}`,
