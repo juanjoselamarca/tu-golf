@@ -7,6 +7,8 @@ import { pedirTarjetaVigente } from '@/lib/data/tournaments/tarjeta-vigente'
 export const MENSAJE_BUSQUEDA_TARJETA = {
   no_aparece: 'Todavía no aparece. Sigue en papel.',
   sin_conexion: 'Sin conexión. Intenta de nuevo.',
+  // Va con el enlace "Iniciar sesión" de `avisoSinAcceso('sin_sesion')`, que vuelve a esta tarjeta.
+  sin_sesion: 'Tu sesión se cerró. Inicia sesión para buscarla.',
 } as const
 
 export type ResultadoBusquedaTarjeta = keyof typeof MENSAJE_BUSQUEDA_TARJETA
@@ -17,6 +19,7 @@ export type ResultadoBusquedaTarjeta = keyof typeof MENSAJE_BUSQUEDA_TARJETA
  * Si la tarjeta aparece, el aviso se va solo (la pantalla deja de estar "sin tarjeta"); si no, queda
  * el resultado para decirlo bajo los botones.
  *
+ * - `sin_sesion`: la ruta respondió 401 (sesión cerrada). La pantalla ofrece iniciar sesión.
  * - `sin_conexion`: la ruta no contestó (red, plazo, 5xx) o el roster no se pudo releer.
  * - `no_aparece`: todo contestó y la tarjeta sigue sin estar (torneo cerrado, ronda sin juego, la
  *   función aún no está en la base, no es su tarjeta...). El jugador sigue en papel.
@@ -42,9 +45,13 @@ export function useBuscarTarjeta(args: {
     setBuscando(true)
     setUltimo(null)
     try {
-      const respondio = await pedirTarjetaVigente({ slug, playerId, guestId, guestToken })
+      const respuesta = await pedirTarjetaVigente({ slug, playerId, guestId, guestToken })
       const releyo = await reloadRoster()
-      setUltimo({ playerId, tipo: respondio && releyo ? 'no_aparece' : 'sin_conexion' })
+      const tipo: ResultadoBusquedaTarjeta =
+        respuesta === 'sin_sesion' ? 'sin_sesion'
+          : respuesta === 'sin_conexion' || !releyo ? 'sin_conexion'
+            : 'no_aparece'
+      setUltimo({ playerId, tipo })
     } finally {
       enCurso.current = false
       setBuscando(false)

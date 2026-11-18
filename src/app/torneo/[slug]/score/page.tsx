@@ -18,10 +18,11 @@ import { motivoSinScores } from '@/golf/tournament-status'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
 import { useGuardadoTorneo } from './hooks/useGuardadoTorneo'
-import { avisoSinTarjeta } from './hooks/acceso-guardado'
+import { avisoSinAcceso, avisoSinTarjeta } from './hooks/acceso-guardado'
 import { elegirJugadorInicial, urlSinJugador } from './hooks/jugador-del-link'
 import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import { useBuscarTarjeta, MENSAJE_BUSQUEDA_TARJETA } from './hooks/useBuscarTarjeta'
+import { useSondeoRoster } from './hooks/useSondeoRoster'
 import {
   fetchScoringTournament,
   fetchScoringRoster,
@@ -181,15 +182,16 @@ export default function PlayerScoringPage() {
   // ronda, no hay nada que esperar) y sólo con la pestaña visible.
   // Sin tarjeta también: si aparece (la crea el servidor o un reintento), la pantalla vuelve sola.
   // Con el torneo ya cerrado (el servidor lo dijo al guardar) no hay nada que esperar.
+  // Esperando la ronda siguiente, además pide la tarjeta: si startNextRound no se la abrió, la crea el servidor.
   const hayRondaSiguiente = (ronda.round?.round_number ?? 1) < (tournament?.total_rounds ?? 1)
-  useEffect(() => {
-    if ((!(rondaCerrada && hayRondaSiguiente) && !ronda.sinTarjeta) || torneoInactivo) return
-    const id = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return
-      void reloadRoster()
-    }, 30_000)
-    return () => clearInterval(id)
-  }, [rondaCerrada, hayRondaSiguiente, ronda.sinTarjeta, torneoInactivo, reloadRoster])
+  const esperaRondaSiguiente = rondaCerrada && hayRondaSiguiente
+  useSondeoRoster({
+    activo: (esperaRondaSiguiente || ronda.sinTarjeta) && !torneoInactivo,
+    pedirTarjeta: esperaRondaSiguiente && selectedPlayerEarly
+      ? { slug, playerId: selectedPlayerEarly.id, guestId, guestToken: guestTokenValue }
+      : null,
+    reloadRoster,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -297,6 +299,10 @@ export default function PlayerScoringPage() {
   const sinScores = torneoInactivo ? 'cerrado' : motivoSinScores(tournament.status)
   // Sin tarjeta donde guardar no se dibujan hoyos editables: lo anotado se perdía sin aviso.
   const sinTarjeta = ronda.sinTarjeta && sinScores === null ? avisoSinTarjeta(slug) : null
+  // "Buscar mi tarjeta" con la sesión cerrada: el mismo login del scorer, que vuelve a esta tarjeta.
+  const loginParaBuscar = busqueda.resultado === 'sin_sesion'
+    ? avisoSinAcceso({ slug, motivo: 'sin_sesion', jugadorId: selectedId || null })
+    : null
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
@@ -390,6 +396,9 @@ export default function PlayerScoringPage() {
               {/* Siempre montado: aria-live anuncia el cambio de texto, no un nodo que aparece. */}
               <p aria-live="polite" data-testid="resultado-buscar-tarjeta" style={{ margin: busqueda.resultado ? '8px 0 0' : 0, fontSize: '14px', color: 'var(--text-2)' }}>
                 {busqueda.resultado ? MENSAJE_BUSQUEDA_TARJETA[busqueda.resultado] : ''}
+                {loginParaBuscar && (
+                  <> <Link href={loginParaBuscar.href} style={{ color: 'var(--text)', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>{loginParaBuscar.cta}</Link></>
+                )}
               </p>
             </div>
           </>

@@ -32,7 +32,7 @@ describe('pedirTarjetaVigente (cliente)', () => {
 
   it('manda el jugador y, si es invitado, sus headers', async () => {
     responde(200, { ok: true })
-    expect(await pedirTarjetaVigente({ slug: 'copa x', playerId: 'p1', guestId: 'g', guestToken: 'tok' })).toBe(true)
+    expect(await pedirTarjetaVigente({ slug: 'copa x', playerId: 'p1', guestId: 'g', guestToken: 'tok' })).toBe('respondio')
     const [url, init] = (fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]
     expect(url).toBe('/api/torneos/copa%20x/tarjeta')
     expect(init.method).toBe('POST')
@@ -43,13 +43,19 @@ describe('pedirTarjetaVigente (cliente)', () => {
     '%i es una respuesta (no "sin conexión")',
     async (status, body) => {
       responde(status, body)
-      expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe(true)
+      expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe('respondio')
     },
   )
-  it('5xx sin sin_soporte o corte de red → false ("Sin conexión")', async () => {
+  it('401 → sin_sesion (no "Todavía no aparece": la sesión se cerró)', async () => {
+    responde(401, { error: 'x' })
+    expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe('sin_sesion')
+  })
+  it('5xx sin sin_soporte, HTML de error o corte de red → sin_conexion', async () => {
     responde(503, { error: 'x' })
-    expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe(false)
+    expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe('sin_conexion')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>502</html>', { status: 502 })))
+    expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe('sin_conexion')
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
-    expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe(false)
+    expect(await pedirTarjetaVigente({ slug: 's', playerId: 'p' })).toBe('sin_conexion')
   })
 })

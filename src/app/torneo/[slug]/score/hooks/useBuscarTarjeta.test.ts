@@ -20,7 +20,7 @@ const base = (over: Partial<Parameters<typeof useBuscarTarjeta>[0]> = {}) => ({
 
 beforeEach(() => {
   orden.length = 0
-  pedirTarjetaVigente.mockReset().mockImplementation(async () => { orden.push('ruta'); return true })
+  pedirTarjetaVigente.mockReset().mockImplementation(async () => { orden.push('ruta'); return 'respondio' })
 })
 
 describe('useBuscarTarjeta ("Buscar mi tarjeta")', () => {
@@ -41,7 +41,7 @@ describe('useBuscarTarjeta ("Buscar mi tarjeta")', () => {
   })
 
   it('la ruta no contestó → "Sin conexión. Intenta de nuevo." (igual relee el roster)', async () => {
-    pedirTarjetaVigente.mockResolvedValue(false)
+    pedirTarjetaVigente.mockResolvedValue('sin_conexion')
     const args = base()
     const { result } = renderHook(() => useBuscarTarjeta(args))
     await act(async () => { await result.current.buscar() })
@@ -57,14 +57,14 @@ describe('useBuscarTarjeta ("Buscar mi tarjeta")', () => {
   })
 
   it('doble toque: una sola búsqueda en curso', async () => {
-    let soltar: (v: boolean) => void = () => {}
-    pedirTarjetaVigente.mockImplementation(() => new Promise<boolean>((r) => { soltar = r }))
+    let soltar: (v: string) => void = () => {}
+    pedirTarjetaVigente.mockImplementation(() => new Promise<string>((r) => { soltar = r }))
     const { result } = renderHook(() => useBuscarTarjeta(base()))
     let primera: Promise<void> = Promise.resolve()
     act(() => { primera = result.current.buscar() })
     expect(result.current.buscando).toBe(true)
     await act(async () => { await result.current.buscar() })
-    await act(async () => { soltar(true); await primera })
+    await act(async () => { soltar('respondio'); await primera })
     expect(pedirTarjetaVigente).toHaveBeenCalledTimes(1)
   })
 
@@ -76,6 +76,13 @@ describe('useBuscarTarjeta ("Buscar mi tarjeta")', () => {
     expect(result.current.resultado).toBe('no_aparece')
     rerender({ playerId: 'p2' })
     expect(result.current.resultado).toBeNull()
+  })
+
+  it('401 (sesión cerrada) → sin_sesion, no "Todavía no aparece"', async () => {
+    pedirTarjetaVigente.mockResolvedValue('sin_sesion')
+    const { result } = renderHook(() => useBuscarTarjeta(base()))
+    await act(async () => { await result.current.buscar() })
+    expect(result.current.resultado).toBe('sin_sesion')
   })
 
   it('sin jugador elegido no hace nada', async () => {

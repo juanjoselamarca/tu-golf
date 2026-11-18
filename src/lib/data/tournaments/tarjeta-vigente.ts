@@ -65,18 +65,22 @@ export async function asegurarTarjetaVigente(
 }
 
 /**
- * Cliente: pide al servidor la tarjeta vigente del jugador. Solo dice si la red/servidor
- * contestaron (`true`) o no (`false`): el scorer decide mirando el roster recargado, que es la
- * verdad de si la tarjeta está. Un 403/409 (no es tuya, torneo cerrado) o un 503 `sin_soporte`
- * son respuestas: el scorer sigue con el flujo de papel. Un 5xx sin `sin_soporte` o un corte de
- * red es `false` ("Sin conexión").
+ * Qué contestó el servidor a "pedir la tarjeta" (el scorer decide mirando el roster recargado, que es
+ * la verdad de si la tarjeta está):
+ * - `respondio`: 2xx/403/409/429, o 503 `sin_soporte` (la función aún no está en la base). El
+ *   scorer sigue con el flujo de papel.
+ * - `sin_sesion`: 401. La sesión se cerró: el scorer ofrece iniciar sesión y volver a esta tarjeta.
+ * - `sin_conexion`: corte de red, plazo vencido o 5xx sin `sin_soporte`.
  */
+export type RespuestaPedirTarjeta = 'respondio' | 'sin_sesion' | 'sin_conexion'
+
+/** Cliente: pide al servidor que asegure la tarjeta vigente del jugador. Nunca lanza. */
 export async function pedirTarjetaVigente(args: {
   slug: string
   playerId: string
   guestId?: string | null
   guestToken?: string | null
-}): Promise<boolean> {
+}): Promise<RespuestaPedirTarjeta> {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (args.guestId && args.guestToken) {
     headers['x-guest-id'] = args.guestId
@@ -89,9 +93,10 @@ export async function pedirTarjetaVigente(args: {
       PLAZO_TARJETA_VIGENTE_MS,
       { leerCuerpoSiNoOk: true },
     )
-    if (res.status < 500) return true
-    return (json as { code?: unknown } | null)?.code === CODIGO_TARJETA_SIN_SOPORTE
+    if (res.status === 401) return 'sin_sesion'
+    if (res.status < 500) return 'respondio'
+    return (json as { code?: unknown } | null)?.code === CODIGO_TARJETA_SIN_SOPORTE ? 'respondio' : 'sin_conexion'
   } catch {
-    return false
+    return 'sin_conexion'
   }
 }
