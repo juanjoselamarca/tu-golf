@@ -193,7 +193,9 @@ describe('useInscripcionTorneo · invitado', () => {
     await act(() => result.current.handleGuestJoin())
     expect(red.fetchJsonConPlazo).toHaveBeenCalledTimes(2)
     expect(guest.clearGuestSession).not.toHaveBeenCalled()
-    expect(result.current.error).toBe('Ya estás inscrito en este torneo.')
+    // v2: no un error sobre el formulario: el formulario se va y queda sólo "Ver el torneo".
+    expect(result.current.accesoInvitadoPerdido).toBe(true)
+    expect(result.current.error).toBeNull()
     expect(router.push).not.toHaveBeenCalled()
   })
 

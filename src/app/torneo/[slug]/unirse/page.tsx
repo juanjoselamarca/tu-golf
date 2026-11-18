@@ -32,6 +32,7 @@ export default function UnirsePage() {
     guestHandicap,
     setGuestHandicap,
     guestJoining,
+    accesoInvitadoPerdido,
     reintentarCarga,
     handleInscribirse,
     handleGuestJoin,
@@ -114,6 +115,7 @@ export default function UnirsePage() {
                 guestHandicap={guestHandicap}
                 onGuestHandicap={setGuestHandicap}
                 guestJoining={guestJoining}
+                accesoPerdido={accesoInvitadoPerdido}
                 onJoin={handleGuestJoin}
                 onReintentar={reintentarCarga}
               />

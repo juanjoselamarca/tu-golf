@@ -2,7 +2,7 @@ import type { CapacityInfo } from '@/lib/data/tournaments/enrollPlayer'
 import { motivoNoInscribible } from '@/golf/tournament-status'
 import { type InvitadosInfo, type JoinInfoTournament } from '@/lib/data/tournaments/joinFlow'
 import { Button } from '@/components/ui/Button'
-import { AvisoInscripcion, AvisoInscripcionesCerradas, AvisoTorneoCompleto } from './AvisoInscripcion'
+import { AvisoInscripcion, AvisoInscripcionesCerradas, AvisoTorneoCompleto, LinkVerLeaderboard } from './AvisoInscripcion'
 import { FormInvitado, LinkIniciarSesion } from './FormInvitado'
 
 /**
@@ -14,8 +14,15 @@ import { FormInvitado, LinkIniciarSesion } from './FormInvitado'
  *  - el organizador no puede recibir invitados (gate Pro) → la salida que sirve: iniciar sesión / crear cuenta.
  *    Antes (22-oct-2026) se mostraba el formulario completo y recién al enviar llegaba el 403.
  *  - no se pudo verificar el plan → reintentar (es un hipo, no un "no")
+ *  - ya inscrito y este teléfono perdió el acceso → sin formulario (otra inscripción sería la misma persona
+ *    dos veces): sólo "Ver el torneo" y a quién pedirle los golpes (Fable #833 v2)
  *  - si no, el formulario de invitado
  */
+export const COPY_ACCESO_PERDIDO = {
+  titulo: 'Ya estás inscrito en este torneo',
+  detalle: 'Este teléfono perdió el acceso a tu tarjeta. Pídele al organizador que anote tus golpes.',
+} as const
+
 export const COPY_SIN_INVITADOS = {
   titulo: 'Este torneo no acepta invitados',
   detalle: 'Para inscribirte necesitas una cuenta Golfers+. Es gratis y el torneo queda en tu historial.',
@@ -37,6 +44,7 @@ export function InscripcionSinSesion({
   guestHandicap,
   onGuestHandicap,
   guestJoining,
+  accesoPerdido = false,
   onJoin,
   onReintentar,
 }: {
@@ -49,9 +57,17 @@ export function InscripcionSinSesion({
   guestHandicap: string
   onGuestHandicap: (v: string) => void
   guestJoining: boolean
+  accesoPerdido?: boolean
   onJoin: () => void
   onReintentar: () => void
 }) {
+  if (accesoPerdido) {
+    return (
+      <AvisoInscripcion titulo={COPY_ACCESO_PERDIDO.titulo} detalle={COPY_ACCESO_PERDIDO.detalle}>
+        <LinkVerLeaderboard slug={slug} />
+      </AvisoInscripcion>
+    )
+  }
   const motivo = motivoNoInscribible(tournament, new Date())
   if (motivo) {
     return <AvisoInscripcionesCerradas motivo={motivo} slug={slug} />

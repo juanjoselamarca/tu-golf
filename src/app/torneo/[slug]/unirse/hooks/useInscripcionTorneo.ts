@@ -51,6 +51,8 @@ export function useInscripcionTorneo(slug: string) {
   const [guestName, setGuestName] = useState('')
   const [guestHandicap, setGuestHandicap] = useState('')
   const [guestJoining, setGuestJoining] = useState(false)
+  // Ya inscrito en ESTE torneo y el teléfono sin cómo probarlo: no hay formulario que sirva (Fable #833 v2).
+  const [accesoInvitadoPerdido, setAccesoInvitadoPerdido] = useState(false)
 
   const loadData = useCallback(async () => {
     setError(null)
@@ -213,7 +215,12 @@ export function useInscripcionTorneo(slug: string) {
       return
     }
 
-    const body = (res.body ?? {}) as { message?: string }
+    const body = (res.body ?? {}) as { message?: string; error?: string }
+    if (res.status === 403 && body.error === 'guest_access_lost') {
+      setAccesoInvitadoPerdido(true)
+      setGuestJoining(false)
+      return
+    }
     setError(body.message ?? 'No se pudo completar la inscripción. Intenta nuevamente.')
     setGuestJoining(false)
   }
@@ -235,6 +242,7 @@ export function useInscripcionTorneo(slug: string) {
     guestHandicap,
     setGuestHandicap,
     guestJoining,
+    accesoInvitadoPerdido,
     reintentarCarga,
     handleInscribirse,
     handleGuestJoin,
