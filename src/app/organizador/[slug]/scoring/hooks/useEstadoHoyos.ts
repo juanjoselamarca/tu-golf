@@ -31,7 +31,8 @@ function registroDe(tournamentId: string): Registro {
   })
   const nuevo = { store, oyentes }
   REGISTROS.set(tournamentId, nuevo)
-  instalarGlobales()
+  store.suscribir(actualizarAvisoSalida)
+  escucharSesion()
   return nuevo
 }
 
@@ -40,32 +41,65 @@ function hayPendientes(): boolean {
   return false
 }
 
-/** Al cerrar la sesión se apagan y se olvidan todos los stores (los pendientes eran del usuario que salió). */
-export function olvidarStoresDeLaSesion() {
-  for (const { store } of REGISTROS.values()) store.apagar()
-  REGISTROS.clear()
+// ── Aviso al salir: cerrar o recargar la pestaña con hoyos sin guardar en CUALQUIER torneo pregunta antes, también
+// desde Jugadores o Salida (el store sigue vivo aunque el scorer no esté montado). El listener existe sólo mientras
+// hay pendientes: un `beforeunload` registrado de más le quita a la página el back/forward cache.
+function preguntarAlSalir(e: BeforeUnloadEvent) {
+  e.preventDefault()
+  e.returnValue = ''
+}
+let avisoSalidaPuesto = false
+function actualizarAvisoSalida() {
+  if (typeof window === 'undefined') return
+  const hay = hayPendientes()
+  if (hay === avisoSalidaPuesto) return
+  avisoSalidaPuesto = hay
+  if (hay) window.addEventListener('beforeunload', preguntarAlSalir)
+  else window.removeEventListener('beforeunload', preguntarAlSalir)
 }
 
-let globalesInstalados = false
-/**
- * Una vez por página, con el primer store: (1) cerrar o recargar la pestaña con hoyos sin guardar en CUALQUIER
- * torneo pregunta antes, también desde Jugadores o Salida (el store sigue vivo y reintentando aunque el scorer no
- * esté montado); (2) un cierre de sesión sin recarga (sesión vencida, cerró en otra pestaña) apaga los stores, para
- * que un reintento no salga con la sesión del siguiente usuario. Los cierres de sesión de la app recargan la página.
- */
-function instalarGlobales() {
-  if (globalesInstalados || typeof window === 'undefined') return
-  globalesInstalados = true
-  window.addEventListener('beforeunload', (e) => {
-    if (!hayPendientes()) return
-    e.preventDefault()
-    e.returnValue = ''
-  })
+// ── Cambio de store: los suscriptores (el hook) se enteran al olvidar los registros y toman uno nuevo en ese momento.
+let versionRegistros = 0
+const oyentesRegistros = new Set<() => void>()
+function suscribirRegistros(fn: () => void): () => void {
+  oyentesRegistros.add(fn)
+  return () => { oyentesRegistros.delete(fn) }
+}
+const leerVersion = () => versionRegistros
+
+/** Olvida todos los stores (apagados: no envían más) y avisa a los suscriptores para que tomen uno nuevo. */
+function olvidarRegistros() {
+  for (const { store } of REGISTROS.values()) store.apagar()
+  REGISTROS.clear()
+  versionRegistros += 1
+  actualizarAvisoSalida()
+  for (const fn of [...oyentesRegistros]) fn()
+}
+
+// ── Sesión: los registros son del usuario que anotó (`uidDueno`). `SIGNED_OUT` NO borra nada: auth-js lo emite también
+// cuando el refresh es rechazado, y los envíos siguientes dan 401 → rechazados `sin_sesion`, visibles y sin reenvío
+// automático. Volver a entrar con el MISMO usuario los reenvía; entrar con OTRO usuario (aquí o en otra pestaña:
+// supabase-js propaga la sesión entre pestañas) los olvida, para que lo de A no salga con la sesión de B.
+let uidDueno: string | null = null
+let sesionEscuchada = false
+function alCambiarSesion(evento: string, uid: string | null) {
+  if (evento === 'SIGNED_OUT' || !uid) return
+  if (uidDueno && uid !== uidDueno) {
+    uidDueno = uid
+    olvidarRegistros()
+    return
+  }
+  uidDueno = uid
+  if (evento === 'SIGNED_IN') {
+    for (const { store } of REGISTROS.values()) store.reintentar({ limpiarRechazo: true, soloMotivo: 'sin_sesion' })
+  }
+}
+function escucharSesion() {
+  if (sesionEscuchada || typeof window === 'undefined') return
+  sesionEscuchada = true
   try {
     // Callback síncrono (nada de async en un listener de auth).
-    createClient().auth.onAuthStateChange((evento) => {
-      if (evento === 'SIGNED_OUT') olvidarStoresDeLaSesion()
-    })
+    createClient().auth.onAuthStateChange((evento, sesion) => alCambiarSesion(evento, sesion?.user?.id ?? null))
   } catch (e) {
     void captureError(e, { context: 'scoring.useEstadoHoyos.auth' })
   }
@@ -75,6 +109,8 @@ function instalarGlobales() {
 const SIN_TORNEO: EstadoHoyos = crearEstadoHoyos({ enviar: () => Promise.resolve({ lectura: 'sin_respuesta' }) })
 
 export function useEstadoHoyos(tournamentId: string | undefined, alConfirmar: OyenteTotales): EstadoHoyos {
+  // Re-renderiza al olvidar los registros (otro usuario): `registroDe` crea entonces el store nuevo.
+  useSyncExternalStore(suscribirRegistros, leerVersion, leerVersion)
   const registro = tournamentId ? registroDe(tournamentId) : null
   const store = registro?.store ?? SIN_TORNEO
   useEffect(() => {

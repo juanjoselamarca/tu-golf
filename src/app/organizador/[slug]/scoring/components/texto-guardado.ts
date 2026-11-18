@@ -74,6 +74,13 @@ export function textoChipPendientes(
   return partes.join(' · ') + (otros.length > 0 ? ` (${otros.join(', ')})` : '')
 }
 
+/** Tarjetas no abiertas con hoyos para descartar: "Ana: hoyos 3, 4 · Beto: hoyo 2". */
+export function textoDescartablesOtras(lista: ReadonlyArray<{ nombre: string | null; holes: readonly number[] }>): string {
+  return lista
+    .map(({ nombre, holes }) => `${nombre ?? 'Otra tarjeta'}: ${holes.length === 1 ? 'hoyo' : 'hoyos'} ${holes.join(', ')}`)
+    .join(' · ')
+}
+
 /** Botón Finalizar: qué está pasando con el cierre (de esta tarjeta o de otra que se está cerrando). */
 export function textoBotonCierre(cierre: EstadoCierre | null, deEstaTarjeta: boolean): string {
   if (!cierre) return 'Finalizar ronda ✓'

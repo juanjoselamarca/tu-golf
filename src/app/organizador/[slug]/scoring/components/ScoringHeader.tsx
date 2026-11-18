@@ -5,6 +5,7 @@
 // del hilo principal, no de este refactor.
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { badgeDelStatusEscrito, torneoAceptaScores } from '@/golf/tournament-status'
 import type { LastAction } from '../hooks/useScoreEntry'
 
@@ -24,8 +25,11 @@ interface ScoringHeaderProps {
   /** Hay algún rechazo entre los pendientes: el chip va en rojo. */
   hayRechazo: boolean
   onReintentar: () => void
-  /** Hay rechazos permanentes en tarjetas que no están abiertas: el chip ofrece descartarlos (no tienen su aviso). */
-  onDescartarOtras?: (() => void) | null
+  /**
+   * Rechazos permanentes en tarjetas que no están abiertas (no tienen su aviso): el chip los nombra (`detalle`,
+   * p. ej. "Ana: hoyos 3, 4") y ofrece descartarlos con confirmación en dos toques.
+   */
+  descartarOtras?: { detalle: string; onConfirmar: () => void } | null
 }
 
 export function ScoringHeader({
@@ -39,7 +43,7 @@ export function ScoringHeader({
   lastAction,
   onUndo,
   avisoPendientes,
-  onDescartarOtras,
+  descartarOtras,
   hayRechazo,
   onReintentar,
 }: ScoringHeaderProps) {
@@ -70,7 +74,7 @@ export function ScoringHeader({
             </button>
           )}
         </h1>
-        <div role="status" aria-live="polite">
+        <div role="status" aria-live="polite" style={{ display: 'flex', flexWrap: 'wrap', columnGap: '16px', alignItems: 'flex-start' }}>
           {avisoPendientes && (
             <button type="button" onClick={onReintentar}
               style={{
@@ -83,15 +87,8 @@ export function ScoringHeader({
               {avisoPendientes} · Reintentar
             </button>
           )}
-          {avisoPendientes && onDescartarOtras && (
-            <button type="button" onClick={onDescartarOtras}
-              style={{
-                margin: '0 0 8px 8px', minHeight: '44px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer',
-                fontSize: '14px', fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
-                background: 'transparent', color: 'var(--error-fg)', border: '2px solid var(--error-border)',
-              }}>
-              Descartar los de otras tarjetas
-            </button>
+          {avisoPendientes && descartarOtras && (
+            <BotonDescartarOtras detalle={descartarOtras.detalle} onConfirmar={descartarOtras.onConfirmar} />
           )}
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
@@ -108,5 +105,36 @@ export function ScoringHeader({
         Ver leaderboard público →
       </Link>
     </div>
+  )
+}
+
+/** Plazo del segundo toque de "Descartar": pasado, el botón vuelve a su texto y hay que empezar de nuevo. */
+export const PLAZO_CONFIRMAR_DESCARTE_MS = 4_000
+
+/**
+ * Descartar rechazos de tarjetas que no se están viendo: borra golpes de la pantalla sin que el organizador vea la
+ * grilla, así que pide dos toques. El primero arma ("Toca de nuevo para descartar") por 4 s; el segundo descarta.
+ */
+function BotonDescartarOtras({ detalle, onConfirmar }: { detalle: string; onConfirmar: () => void }) {
+  const [armado, setArmado] = useState(false)
+  useEffect(() => {
+    if (!armado) return
+    const t = setTimeout(() => setArmado(false), PLAZO_CONFIRMAR_DESCARTE_MS)
+    return () => clearTimeout(t)
+  }, [armado])
+  return (
+    <button type="button"
+      onClick={() => {
+        if (!armado) return setArmado(true)
+        setArmado(false)
+        onConfirmar()
+      }}
+      style={{
+        margin: '0 0 8px', minHeight: '44px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer',
+        fontSize: '14px', fontWeight: 600, fontFamily: 'DM Sans, sans-serif', textAlign: 'left',
+        background: armado ? 'var(--error-bg)' : 'transparent', color: 'var(--error-fg)', border: '2px solid var(--error-border)',
+      }}>
+      {armado ? 'Toca de nuevo para descartar' : `Descartar · ${detalle}`}
+    </button>
   )
 }

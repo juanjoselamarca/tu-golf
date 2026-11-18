@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { textoAvisoHoyo, textoBotonCierre, textoChipPendientes } from './texto-guardado'
+import { textoAvisoHoyo, textoBotonCierre, textoChipPendientes, textoDescartablesOtras } from './texto-guardado'
 
 const nombres: Record<string, string> = { ra: 'Ana', rb: 'Beto' }
 const nombre = (r: string) => nombres[r] ?? null
@@ -32,5 +32,12 @@ describe('texto-guardado', () => {
     expect(textoBotonCierre(c, true)).toBe('Terminando de guardar… hoyo 18')
     expect(textoBotonCierre({ ...c, fase: 'cerrando', hoyos: [] }, true)).toBe('Cerrando tarjeta…')
     expect(textoBotonCierre(c, false)).toBe('Cerrando tarjeta de Ana…')
+  })
+})
+
+describe('textoDescartablesOtras', () => {
+  it('nombra cada tarjeta con sus hoyos', () => {
+    expect(textoDescartablesOtras([{ nombre: 'Ana', holes: [3, 4] }, { nombre: null, holes: [2] }]))
+      .toBe('Ana: hoyos 3, 4 · Otra tarjeta: hoyo 2')
   })
 })

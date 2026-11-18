@@ -86,15 +86,20 @@ export function useScoreEntry({
   // Totales de la ronda que trae cada guardado confirmado, a la ficha del jugador DUEÑO de esa ronda. `null`: las
   // respuestas llegaron fuera de orden y se leen de la base (si la lectura falla, quedan los de la ficha hasta el
   // próximo guardado o la relectura del listado).
+  // Avisos de totales por ronda: una relectura sólo se aplica si no llegó otro aviso después de pedirla (si no, unos
+  // totales leídos antes de un guardado posterior pisarían los de ese guardado).
+  const avisosTotalesRef = useRef(new Map<string, number>())
   const alConfirmar = useCallback(
     (roundId: string, t: NonNullable<RespuestaSobre['totales']> | null) => {
+      const n = (avisosTotalesRef.current.get(roundId) ?? 0) + 1
+      avisosTotalesRef.current.set(roundId, n)
       const aplicar = (tot: { total_gross: number; total_net: number; total_points: number }) => {
         const dueno = players.find((p) => p.rounds?.some((r) => r.id === roundId))
         if (dueno) applyRoundTotals(dueno.id, roundId, tot)
       }
       if (t) return aplicar({ total_gross: t.totalGross, total_net: t.totalNet, total_points: t.totalPoints })
       void conTimeout(fetchRoundTotals(createClient(), roundId), TIMEOUT_CARGA_MS)
-        .then(aplicar)
+        .then((tot) => { if (avisosTotalesRef.current.get(roundId) === n) aplicar(tot) })
         .catch((e) => { void captureError(e, { context: 'scoring.useScoreEntry.releerTotales', meta: { roundId } }) })
     },
     [players, applyRoundTotals],
@@ -109,6 +114,7 @@ export function useScoreEntry({
   // vacía (y un deshacer con previo vacío podría borrar un golpe real). Se lee al resolver el torneo.
   const { cargaTarjeta, cargaLenta, reintentarCarga } = useCargaTarjeta({
     roundId: hayTorneo ? rondaAbierta : undefined, store, parDe, showError,
+    nombre: selectedPlayer ? resolveLegacyPlayerName(selectedPlayer) : null,
   })
 
   /** Golpes de la tarjeta abierta (derivado de la vista). */
@@ -268,19 +274,25 @@ export function useScoreEntry({
     if (r === 'sin_lectura') showWarning('No pudimos confirmar qué quedó guardado', 'Revisa la señal y vuelve a tocar Descartar.')
   }, [store, leerBase, showWarning])
 
-  /** Desde el chip: descarta los rechazos permanentes de las tarjetas que NO están abiertas (no tienen su aviso). */
-  const descartarRechazosDeOtras = useCallback(async () => {
-    const rondas = new Set(pendientes.filter((p) => p.estado === 'rechazado' && p.roundId !== rondaAbierta).map((p) => p.roundId))
-    for (const roundId of rondas) {
-      const v = store.vista(roundId)
-      const holes = Object.keys(v).map(Number).filter((h) => v[h].estado === 'rechazado' && esRechazoPermanente(v[h].motivo))
-      await descartarRechazados(roundId, holes)
+  /** Rechazos permanentes de las tarjetas que NO están abiertas (no tienen su aviso), por tarjeta: el chip los nombra. */
+  const descartablesEnOtras = useMemo(() => {
+    const porRonda = new Map<string, number[]>()
+    for (const p of pendientes) {
+      if (p.estado !== 'rechazado' || p.roundId === rondaAbierta) continue
+      if (!esRechazoPermanente(store.vista(p.roundId)[p.hole]?.motivo)) continue
+      porRonda.set(p.roundId, [...(porRonda.get(p.roundId) ?? []), p.hole])
     }
-  }, [pendientes, rondaAbierta, store, descartarRechazados])
+    return [...porRonda].map(([roundId, holes]) => {
+      const jugador = players.find((x) => x.rounds?.some((r) => r.id === roundId))
+      return { roundId, holes: holes.sort((a, b) => a - b), nombre: jugador ? resolveLegacyPlayerName(jugador) : null }
+    })
+  }, [pendientes, rondaAbierta, store, players])
 
-  /** Hay rechazos permanentes en tarjetas que no están abiertas (el chip ofrece descartarlos). */
-  const hayDescartablesEnOtras = pendientes.some((p) => p.estado === 'rechazado' && p.roundId !== rondaAbierta
-    && esRechazoPermanente(store.vista(p.roundId)[p.hole]?.motivo))
+  /** Desde el chip (tras confirmar): descarta los rechazos permanentes de esas tarjetas. */
+  const descartarRechazosDeOtras = useCallback(async () => {
+    for (const { roundId, holes } of descartablesEnOtras) await descartarRechazados(roundId, holes)
+  }, [descartablesEnOtras, descartarRechazados])
+  const hayDescartablesEnOtras = descartablesEnOtras.length > 0
 
   const cierre = useCerrarTarjeta({
     tournamentId: tournament?.id ?? null, store, reloadRoster, clearSelection, selectedIdRef,
@@ -311,6 +323,7 @@ export function useScoreEntry({
     reintentarGuardado,
     descartarRechazados,
     descartarRechazosDeOtras,
+    descartablesEnOtras,
     hayDescartablesEnOtras,
     lastAction,
     undoLast,

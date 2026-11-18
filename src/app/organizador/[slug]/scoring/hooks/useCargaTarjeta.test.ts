@@ -12,11 +12,11 @@ vi.mock('@/lib/data/tournaments/scoring', () => ({
 import { useCargaTarjeta } from './useCargaTarjeta'
 import { crearEstadoHoyos } from './estado-hoyos'
 
-function montar(roundId: string | null | undefined = 'r1') {
+function montar(roundId: string | null | undefined = 'r1', nombre: string | null = null) {
   const store = crearEstadoHoyos({ enviar: () => new Promise(() => {}) })
   const showError = vi.fn()
   const h = renderHook((p: { roundId: string | null | undefined }) =>
-    useCargaTarjeta({ roundId: p.roundId, store, parDe: () => 4, showError }), { initialProps: { roundId } })
+    useCargaTarjeta({ roundId: p.roundId, store, parDe: () => 4, showError, nombre }), { initialProps: { roundId } })
   return { ...h, store, showError }
 }
 
@@ -75,6 +75,23 @@ describe('useCargaTarjeta', () => {
     await act(async () => { await result.current.reintentarCarga() })
     expect(result.current.cargaTarjeta).toBe('lista')
     expect(showError).toHaveBeenCalledWith('No pudimos actualizar la tarjeta', expect.any(String))
+  })
+
+  it('el aviso de una relectura fallida nombra al jugador, y no sale si esa tarjeta ya no está abierta', async () => {
+    let fallar: (e: Error) => void = () => {}
+    fetchRoundHoleScores.mockResolvedValueOnce([]).mockReturnValueOnce(new Promise((_r, rej) => { fallar = rej }))
+      .mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('red'))
+    const { result, showError, rerender } = montar('r1', 'Ana')
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    let relectura: Promise<void> = Promise.resolve()
+    act(() => { relectura = result.current.reintentarCarga() })
+    rerender({ roundId: 'r2' })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    // Mutación anotada: avisar sin mirar si la ronda sigue abierta → sale el aviso de r1 con r2 abierta y falla.
+    await act(async () => { fallar(new Error('red')); await relectura })
+    expect(showError).not.toHaveBeenCalled()
+    await act(async () => { await result.current.reintentarCarga() })
+    expect(showError).toHaveBeenCalledWith('No pudimos actualizar la tarjeta de Ana', expect.any(String))
   })
 
   it('una ronda nueva vuelve a "cargando" y un jugador sin tarjeta queda "lista"', async () => {

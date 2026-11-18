@@ -70,6 +70,8 @@ interface Hoyo {
   quizaAplicado: boolean
   /** Marca lógica del último cambio (edición o confirmación): una lectura pedida antes no lo pisa. */
   cambio: number
+  /** Envíos que salieron de este hoyo: descartar con una lectura de la base exige que no haya salido otro después. */
+  enviados: number
 }
 
 /** Estado del hoyo. Único lugar que lo decide. */
@@ -145,7 +147,7 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
         roundId, hole, par,
         valor: { gross: null, stats: {} }, base: { gross: null, stats: {} },
         rev: 0, revOk: 0, vuelo: null, intentos: 0, noAntesDe: 0, porRed: false,
-        rechazo: null, quizaAplicado: false, cambio: 0,
+        rechazo: null, quizaAplicado: false, cambio: 0, enviados: 0,
       }
       hoyos.set(k, h)
       if (!porRonda.has(roundId)) porRonda.set(roundId, new Set())
@@ -199,6 +201,7 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
     }
     const sobre = { ...publico, versiones }
     h.vuelo = sobre
+    h.enviados += 1
     avisar(h.roundId)
     let respuesta: Promise<RespuestaSobre>
     try {
@@ -351,6 +354,11 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
       return true
     },
 
+    /** Envíos que salieron del hoyo hasta ahora (0 si nunca se tocó). */
+    enviosDe(roundId: string, hole: number): number {
+      return hoyos.get(claveHoyo(roundId, hole))?.enviados ?? 0
+    },
+
     /** Marca lógica: se toma al PEDIR una lectura de la base y se pasa a `sembrar`. */
     marca(): number {
       return ++reloj
@@ -422,12 +430,14 @@ export function crearEstadoHoyos(deps: DepsEstadoHoyos) {
     },
 
     /** Reintenta ya. `limpiarRechazo` sólo con un toque del organizador: volver la señal no reenvía un rechazo. */
-    reintentar(opts: { roundId?: string; limpiarRechazo?: boolean } = {}) {
+    reintentar(opts: { roundId?: string; limpiarRechazo?: boolean; soloMotivo?: string } = {}) {
       const lista = opts.roundId ? hoyosDe(opts.roundId) : [...hoyos.values()]
       const tocadas = new Set<string>()
       for (const h of lista) {
         if (estadoDe(h) === 'limpio') continue
         if (!opts.limpiarRechazo && h.rechazo) continue
+        // `soloMotivo`: sólo los rechazos con ese motivo (p. ej. volver a entrar reenvía los `sin_sesion`).
+        if (opts.soloMotivo && h.rechazo?.motivo !== opts.soloMotivo) continue
         reintentarHoyo(h, !!opts.limpiarRechazo)
         tocadas.add(h.roundId)
       }

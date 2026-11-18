@@ -7,12 +7,15 @@ import { act, renderHook } from '@testing-library/react'
 import { useScoreEntry } from './useScoreEntry'
 import type { ScoringPlayer, ScoringRound, ScoringTournament } from '@/lib/data/tournaments/scoring'
 
-// El store instala una sola vez por página el aviso al salir y la escucha de SIGNED_OUT: se captura el callback.
-let alCambiarSesion: ((evento: string) => void) | null = null
+// El store escucha la sesión una sola vez por página: se captura el callback.
+type Sesion = { user: { id: string } } | null
+let alCambiarSesion: ((evento: string, sesion: Sesion) => void) | null = null
+const sesion = (evento: string, uid: string | null) => act(() => alCambiarSesion?.(evento, uid ? { user: { id: uid } } : null))
+let nSesion = 0
 vi.mock('@/lib/supabase', () => ({
   createClient: () => ({
     auth: {
-      onAuthStateChange: (cb: (evento: string) => void) => {
+      onAuthStateChange: (cb: (evento: string, sesion: Sesion) => void) => {
         alCambiarSesion = cb
         return { data: { subscription: { unsubscribe() {} } } }
       },
@@ -99,7 +102,13 @@ beforeEach(() => {
   })))
 })
 // Lo que quedó sin responder en un test no debe contar en el aviso al salir del siguiente (el store es de módulo).
-afterEach(() => { act(() => alCambiarSesion?.('SIGNED_OUT')); vi.unstubAllGlobals() })
+// Lo que quedó pendiente en un test no debe contar en el siguiente (el store es de módulo): entrar con dos usuarios
+// distintos seguidos olvida todos los stores.
+afterEach(() => {
+  sesion('SIGNED_IN', `fin-a-${++nSesion}`)
+  sesion('SIGNED_IN', `fin-b-${nSesion}`)
+  vi.unstubAllGlobals()
+})
 
 describe('useScoreEntry · vista por ronda', () => {
   it('14. la respuesta de A con B abierto no cambia la vista de B y los totales van a A', async () => {
@@ -306,6 +315,25 @@ describe('useScoreEntry · descartar', () => {
     expect(hook.result.current.vista[7]).toMatchObject({ gross: 6, estado: 'limpio' })
   })
 
+  it('si sale otro envío del hoyo mientras se lee la base, ese hoyo no se descarta', async () => {
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(7, '6'))
+    await pedidos[0].responder(503, {})
+    await esperar(1_200)
+    await pedidos[1].responder(409, { code: 'round_closed' })
+    let soltar: (v: unknown[]) => void = () => {}
+    fetchRoundHoleScores.mockReturnValueOnce(new Promise((r) => { soltar = r }))
+    let fin: Promise<void> = Promise.resolve()
+    act(() => { fin = hook.result.current.descartarRechazados('ra', [7]) })
+    // Reintentar mientras tanto: vuelve a salir y vuelve a ser rechazado (sigue "rechazado", con un envío más).
+    act(() => hook.result.current.reintentarGuardado('ra'))
+    await pedidos[2].responder(409, { code: 'round_closed' })
+    // Mutación anotada: no comparar envíos al leer en descartar-rechazados.ts → queda limpio con la base vieja y falla.
+    await act(async () => { soltar([]); await fin })
+    expect(hook.result.current.vista[7]).toMatchObject({ gross: 6, estado: 'rechazado' })
+  })
+
   it('desde el chip descarta los rechazos permanentes de otra tarjeta, no los de la abierta', async () => {
     const hook = montar()
     await abrir(hook, 'pa')
@@ -315,6 +343,7 @@ describe('useScoreEntry · descartar', () => {
     act(() => hook.result.current.saveScore(2, '5'))
     await pedidos[1].responder(409, { code: 'round_closed' })
     expect(hook.result.current.hayDescartablesEnOtras).toBe(true)
+    expect(hook.result.current.descartablesEnOtras).toEqual([{ roundId: 'ra', holes: [7], nombre: expect.any(String) }])
     await act(async () => { await hook.result.current.descartarRechazosDeOtras() })
     expect(hook.result.current.pendientes).toEqual([expect.objectContaining({ roundId: 'rb', hole: 2 })])
     expect(hook.result.current.hayDescartablesEnOtras).toBe(false)
@@ -351,6 +380,24 @@ describe('useScoreEntry · totales con respuestas cruzadas', () => {
     expect(applyRoundTotals).toHaveBeenCalledTimes(1)
     expect(applyRoundTotals).toHaveBeenCalledWith('pa', 'ra', { total_gross: 11, total_net: 10, total_points: 5 })
   })
+
+  it('una relectura de totales que llega después de un guardado más nuevo no lo pisa', async () => {
+    let soltar: (v: { total_gross: number; total_net: number; total_points: number }) => void = () => {}
+    fetchRoundTotals.mockReturnValueOnce(new Promise((r) => { soltar = r }))
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(1, '4'))
+    act(() => hook.result.current.saveScore(2, '5'))
+    await pedidos[1].responder(200, { success: true, totalGross: 5, totalNet: 5, totalPoints: 2 })
+    await pedidos[0].responder(200, { success: true, totalGross: 9, totalNet: 9, totalPoints: 4 })
+    act(() => hook.result.current.saveScore(3, '3'))
+    await pedidos[2].responder(200, { success: true, totalGross: 12, totalNet: 12, totalPoints: 6 })
+    expect(applyRoundTotals).toHaveBeenLastCalledWith('pa', 'ra', { total_gross: 12, total_net: 12, total_points: 6 })
+    // Mutación anotada: aplicar la relectura sin mirar el contador → la última llamada son los totales viejos y falla.
+    await act(async () => { soltar({ total_gross: 9, total_net: 9, total_points: 4 }); await Promise.resolve() })
+    await tick()
+    expect(applyRoundTotals).toHaveBeenLastCalledWith('pa', 'ra', { total_gross: 12, total_net: 12, total_points: 6 })
+  })
 })
 
 describe('useScoreEntry · salir con pendientes', () => {
@@ -375,21 +422,63 @@ describe('useScoreEntry · salir con pendientes', () => {
     expect(salir()).toBe(false)
   })
 
-  it('al cerrar sesión sin recargar (SIGNED_OUT) se olvidan los hoyos pendientes: no salen con otra sesión', async () => {
+  it('el aviso al salir se registra sólo mientras hay pendientes', async () => {
+    const quitar = vi.spyOn(window, 'removeEventListener')
     const hook = montar()
     await abrir(hook, 'pa')
     act(() => hook.result.current.saveScore(1, '4'))
-    await pedidos[0].responder(503, {})
+    await pedidos[0].responder(200)
+    // Mutación anotada: dejar el listener puesto siempre → nunca se saca y falla.
+    expect(quitar).toHaveBeenCalledWith('beforeunload', expect.any(Function))
+    quitar.mockRestore()
+  })
+})
+
+describe('useScoreEntry · sesión', () => {
+  it('SIGNED_OUT (también un refresh rechazado) conserva los pendientes: el envío da 401 y queda visible', async () => {
+    sesion('INITIAL_SESSION', 'u-ana')
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(1, '4'))
+    // Mutación anotada: olvidar los stores con SIGNED_OUT → el hoyo desaparece de pendientes y falla.
+    sesion('SIGNED_OUT', null)
+    expect(hook.result.current.pendientes).toEqual([expect.objectContaining({ roundId: 'ra', hole: 1 })])
     expect(salir()).toBe(true)
-    // Mutación anotada: no escuchar SIGNED_OUT en useEstadoHoyos → el reintento sale y la tarjeta sigue pendiente.
-    act(() => alCambiarSesion?.('SIGNED_OUT'))
-    expect(salir()).toBe(false)
+    await pedidos[0].responder(401, {})
+    expect(hook.result.current.vista[1]).toMatchObject({ gross: 4, estado: 'rechazado', motivo: 'sin_sesion' })
     await esperar(1_200)
     expect(pedidos).toHaveLength(1)
-    hook.unmount()
-    const otra = montar()
-    await abrir(otra, 'pa')
-    expect(otra.result.current.pendientes).toEqual([])
+  })
+
+  it('volver a entrar con el MISMO usuario conserva y reenvía lo rechazado por sesión', async () => {
+    sesion('INITIAL_SESSION', 'u-ana')
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(1, '4'))
+    await pedidos[0].responder(401, {})
+    sesion('SIGNED_OUT', null)
+    // Mutación anotada: no reintentar los sin_sesion al volver a entrar → no sale el segundo envío y falla.
+    sesion('SIGNED_IN', 'u-ana')
+    expect(pedidos).toHaveLength(2)
+    expect(pedidos[1].body).toMatchObject({ round_id: 'ra', hole_number: 1, gross_score: 4 })
+    await pedidos[1].responder(200)
+    expect(hook.result.current.vista[1]).toMatchObject({ gross: 4, estado: 'limpio' })
+  })
+
+  it('entrar con OTRO usuario olvida lo pendiente y la grilla vuelve a cargando (no vacía y editable)', async () => {
+    sesion('INITIAL_SESSION', 'u-ana')
+    const hook = montar()
+    await abrir(hook, 'pa')
+    act(() => hook.result.current.saveScore(1, '4'))
+    await pedidos[0].responder(401, {})
+    fetchRoundHoleScores.mockReturnValueOnce(new Promise(() => {}))
+    // Mutación anotada: no avisar a los suscriptores al olvidar → el hook sigue con el store viejo y falla.
+    sesion('SIGNED_IN', 'u-beto')
+    await tick()
+    expect(hook.result.current.pendientes).toEqual([])
+    expect(hook.result.current.cargaTarjeta).toBe('cargando')
+    expect(hook.result.current.editable).toBe(false)
+    expect(salir()).toBe(false)
   })
 })
 
