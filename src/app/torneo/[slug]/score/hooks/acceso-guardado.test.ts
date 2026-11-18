@@ -66,7 +66,7 @@ describe('avisoSinAcceso', () => {
 
   it('retirado: copy propio, sin invitar a reinscribirse', () => {
     const a = avisoSinAcceso({ slug: 'copa-abc', motivo: 'retirado' })
-    expect(a.titulo).toMatch(/retirado/i)
+    expect(a.titulo).toMatch(/ya no compites/i)
     expect(a.href).toBe('/torneo/copa-abc')
     expect(`${a.cta} ${a.detalle}`).not.toMatch(/inscrib/i)
   })
@@ -106,5 +106,13 @@ describe('avisoSinTarjeta (jugador del torneo sin fila en rounds)', () => {
   })
   it('sin voseo', () => {
     expect(buscarVoseo(`${a.titulo} ${a.detalle} ${a.cta}`)).toEqual([])
+  })
+})
+
+describe('avisoSinAcceso(retirado) — título neutro (Fable #829 v2)', () => {
+  it('sirve igual para un retirado y un descalificado: no dice "retirado"', () => {
+    const a = avisoSinAcceso({ slug: 'copa', motivo: 'retirado' })
+    expect(a.titulo).toBe('Ya no compites en este torneo')
+    expect(a.titulo.toLowerCase()).not.toContain('retirad')
   })
 })

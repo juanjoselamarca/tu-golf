@@ -86,7 +86,8 @@ export function avisoSinAcceso(args: { slug: string; motivo: MotivoSinAcceso; ju
   switch (args.motivo) {
     case 'retirado':
       return {
-        titulo: 'Estás retirado de este torneo',
+        // Neutro: vale para el retirado (WD) y el descalificado (DQ); el 403 no distingue (Fable #829 v2).
+        titulo: 'Ya no compites en este torneo',
         detalle: `El torneo ya no recibe golpes de esta tarjeta. ${EN_EL_TELEFONO} Si es un error, habla con el organizador.`,
         ...verTorneo,
       }

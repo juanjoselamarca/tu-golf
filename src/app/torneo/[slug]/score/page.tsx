@@ -306,7 +306,7 @@ export default function PlayerScoringPage() {
   const loginParaBuscar = busqueda.resultado === 'sin_sesion' ? loginSinSesion : null
   const rondaSiguienteSinSesion = !!selectedId && sondeo.sinSesionDe === selectedId
   const avisoCerrada = avisoRondaCerrada({ status: selectedPlayer?.status, rondaSiguienteSinSesion })
-  const retirado = avisoSinAcceso({ slug, motivo: 'retirado' })
+  const fuera = avisoSinAcceso({ slug, motivo: 'retirado' })
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
@@ -437,14 +437,14 @@ export default function PlayerScoringPage() {
             {rondaCerrada && (
               <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
                 <strong>Ronda {ronda.round?.round_number ?? 1} cerrada.</strong>{' '}
-                {avisoCerrada === 'retirado' ? (
+                {avisoCerrada === 'fuera' ? (
                   // WD/DQ: no recibe la tarjeta de la ronda siguiente; "aparece acá sola" era falso.
-                  <span data-testid="ronda-cerrada-retirado">
-                    {retirado.titulo}. La tarjeta es sólo lectura.
+                  <>
+                    {fuera.titulo}. La tarjeta es sólo lectura.
                     <div style={{ marginTop: '10px' }}>
-                      <Link href={retirado.href} style={CTA_RELLENO}>{retirado.cta}</Link>
+                      <Link href={fuera.href} data-testid="ronda-cerrada-fuera" style={CTA_RELLENO}>{fuera.cta}</Link>
                     </div>
-                  </span>
+                  </>
                 ) : avisoCerrada === 'sin_sesion' ? (
                   // El sondeo pidió la tarjeta de la ronda siguiente (ya abierta para otros) y el servidor
                   // respondió 401: esperar no la trae. La salida es la misma del aviso sin sesión.

@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { avisoRondaCerrada, sondeoActivo } from './ronda-cerrada'
 
 describe('avisoRondaCerrada (Fable #829: un WD con la ronda cerrada leía "aparece acá sola")', () => {
-  it.each(['withdrawn', 'disqualified'])('%s → retirado, aunque haya 401', (status) => {
-    expect(avisoRondaCerrada({ status, rondaSiguienteSinSesion: false })).toBe('retirado')
-    expect(avisoRondaCerrada({ status, rondaSiguienteSinSesion: true })).toBe('retirado')
+  it.each(['withdrawn', 'disqualified'])('%s → fuera, aunque haya 401', (status) => {
+    expect(avisoRondaCerrada({ status, rondaSiguienteSinSesion: false })).toBe('fuera')
+    expect(avisoRondaCerrada({ status, rondaSiguienteSinSesion: true })).toBe('fuera')
   })
   it('aprobado: sin sesión con la siguiente abierta → sin_sesion; si no, espera', () => {
     expect(avisoRondaCerrada({ status: 'approved', rondaSiguienteSinSesion: true })).toBe('sin_sesion')
