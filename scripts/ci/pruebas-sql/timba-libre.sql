@@ -37,7 +37,8 @@ INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre, user_id) VALUES
   ('e0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'Jugador', 'b0000000-0000-4000-8000-000000000002'),
   ('e0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000001', 'Pedro', NULL),
   ('e0000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000001', 'Juan', NULL),
-  ('e0000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000002', 'Diego', NULL);
+  ('e0000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000002', 'Diego', NULL),
+  ('e0000000-0000-4000-8000-00000000000c', 'd0000000-0000-4000-8000-000000000003', 'Invitado normal', NULL);
 -- Timba con marcador designado que no juega (admin_mode): juegan un usuario con cuenta (no creador) y un invitado.
 INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, formato_juego, reglas_juego, holes, estado,
                                   admin_mode, admin_user_id) VALUES
@@ -184,7 +185,24 @@ DO $$ BEGIN
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK ajeno no retira a un invitado -> P0003';
 END $$;
 
--- Los que sí anotan la ronda siguen marcando al invitado (20261118120000).
+-- 20261121120000: en la Timba, el código tampoco basta para anotar golpes a un invitado sin cuenta; en otro formato sí.
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_libre_scores('e0000000-0000-4000-8000-000000000002', 'TIMBAU', '{"5":9}'::jsonb);
+  RAISE EXCEPTION 'FALLA: alguien ajeno anotó golpes a un invitado de la Timba';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK ajeno no anota golpes a un invitado de la Timba -> P0003';
+END $$;
+
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_libre_scores('e0000000-0000-4000-8000-00000000000c', 'NORMAL', '{"1":5}'::jsonb);
+  RAISE NOTICE 'OK fuera de la Timba, el código sigue bastando para anotar a un invitado (sin cambios)';
+END $$;
+
+-- Los que sí anotan la ronda siguen marcando al invitado (20261118120000) y anotando sus golpes (20261121120000).
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_libre_scores('e0000000-0000-4000-8000-00000000000b', 'TIMBAM', '{"2":4}'::jsonb);
+  RAISE NOTICE 'OK marcador designado que no juega anota golpes a un invitado de la Timba';
+END $$;
+
 DO $$ BEGIN
   PERFORM public.marcar_retiro_ronda_libre('TIMBAM', 'e0000000-0000-4000-8000-00000000000b', 14);
   RAISE NOTICE 'OK marcador designado que no juega retira a un invitado';
@@ -194,6 +212,11 @@ SET LOCAL request.jwt.claims = '{"sub":"b0000000-0000-4000-8000-000000000002","r
 DO $$ BEGIN
   PERFORM public.marcar_puntito_ronda_libre('TIMBAM', 'e0000000-0000-4000-8000-00000000000b', 6, 'sandy', true);
   RAISE NOTICE 'OK jugador con cuenta (no creador) marca a un invitado';
+END $$;
+
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_libre_scores('e0000000-0000-4000-8000-00000000000b', 'TIMBAM', '{"3":5}'::jsonb);
+  RAISE NOTICE 'OK jugador con cuenta (no creador) anota golpes a un invitado de la Timba';
 END $$;
 
 -- ── anon ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -217,6 +240,17 @@ DO $$ BEGIN
   PERFORM public.marcar_puntito_ronda_libre('TIMBAU', 'e0000000-0000-4000-8000-000000000002', 7, 'greenie', true);
   RAISE EXCEPTION 'FALLA: anon ejecutó la RPC';
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK anon: sin EXECUTE de marcar_puntito_ronda_libre -> 42501';
+END $$;
+
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_libre_scores('e0000000-0000-4000-8000-000000000002', 'TIMBAU', '{"6":9}'::jsonb);
+  RAISE EXCEPTION 'FALLA: anon anotó golpes a un invitado de la Timba';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK anon no anota golpes a un invitado de la Timba -> P0003';
+END $$;
+
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_libre_scores('e0000000-0000-4000-8000-00000000000c', 'NORMAL', '{"2":6}'::jsonb);
+  RAISE NOTICE 'OK anon sigue anotando a un invitado fuera de la Timba (sin cambios)';
 END $$;
 
 DO $$ BEGIN
@@ -287,6 +321,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.ronda_libre_puntitos WHERE jugador_id = 'e0000000-0000-4000-8000-000000000006'
                  AND hoyo = 4 AND puntito_id = 'sandy') THEN
     RAISE EXCEPTION 'FALLA: la marca de un jugador con cuenta sobre otro con cuenta no quedó guardada';
+  END IF;
+  IF (SELECT scores FROM public.ronda_libre_jugadores WHERE id = 'e0000000-0000-4000-8000-000000000002') ?| ARRAY['5', '6']
+     OR (SELECT scores FROM public.ronda_libre_jugadores WHERE id = 'e0000000-0000-4000-8000-00000000000b') IS DISTINCT FROM '{"2":4,"3":5}'::jsonb
+     OR (SELECT scores FROM public.ronda_libre_jugadores WHERE id = 'e0000000-0000-4000-8000-00000000000c') IS DISTINCT FROM '{"1":5,"2":6}'::jsonb THEN
+    RAISE EXCEPTION 'FALLA: golpes de invitados distintos a lo esperado';
   END IF;
   RAISE NOTICE 'OK greenie Pedro -> Juan -> Pedro deja solo a Pedro; p_seq viejo no pisa; retiro y marca del admin guardados; Timba del admin cerrada con reglas intactas y con la marca entre jugadores con cuenta';
 END $$;

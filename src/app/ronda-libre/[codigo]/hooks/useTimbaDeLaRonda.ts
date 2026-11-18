@@ -61,6 +61,7 @@ export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null
     activo: esTimba,
     firma,
     intervaloS: cerrada ? 0 : undefined,
+    visorSinCuenta: !currentUserId,
   })
   const juego = cerrada ? juegoDeLaRondaCerrada(crudo, firma) : crudo
 

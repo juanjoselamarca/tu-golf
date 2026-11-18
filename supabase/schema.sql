@@ -2487,6 +2487,7 @@ DECLARE
   v_ronda_id uuid;
   v_estado text;
   v_es_demo boolean;
+  v_formato text;
   v_user_id uuid;
   v_scores jsonb;
   v_uid uuid := auth.uid();
@@ -2499,8 +2500,8 @@ BEGIN
   -- y los borrados de ronda (descartar_ronda_libre, DELETE con CASCADE), para que no se crucen en un deadlock.
   -- El cierre (finalizar_ronda_libre, FOR UPDATE; o un UPDATE directo) espera a que esta escritura confirme, y una
   -- que llega después ve el estado ya cerrado. Varias escrituras a la vez no se bloquean (SHARE con SHARE).
-  SELECT rl.id, rl.estado, rl.es_demo
-    INTO v_ronda_id, v_estado, v_es_demo
+  SELECT rl.id, rl.estado, rl.es_demo, rl.formato_juego
+    INTO v_ronda_id, v_estado, v_es_demo, v_formato
   FROM public.rondas_libres rl
   WHERE rl.codigo = p_codigo
   FOR SHARE;
@@ -2528,8 +2529,11 @@ BEGIN
 
   IF NOT (
     v_is_service
-    OR (v_uid IS NOT NULL AND (v_user_id = v_uid OR public.puede_anotar_ronda(v_ronda_id)))
-    OR v_user_id IS NULL
+    OR (v_uid IS NOT NULL AND (v_user_id IS NOT DISTINCT FROM v_uid OR public.puede_anotar_ronda(v_ronda_id)))
+    -- Tarjeta de un invitado sin cuenta: cualquiera con el código la anota, salvo en la Timba (hay plata en juego y
+    -- los ids de los jugadores salen en /juego/publico): ahí solo quien anota la ronda (rama de arriba). Decisión de
+    -- Juanjo 18-nov; migración 20261121120000. IS DISTINCT FROM: formato_juego es NOT NULL, pero no se apuesta a eso.
+    OR (v_user_id IS NULL AND v_formato IS DISTINCT FROM 'personalizado')
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
   END IF;
