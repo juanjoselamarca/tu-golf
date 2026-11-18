@@ -8,6 +8,11 @@
 // Política de cupo ("bloquear + ampliar", PM 2026-07-09): si el torneo está
 // lleno, el alta se RECHAZA (409 tournament_full). El organizador amplía el
 // cupo con PATCH /api/torneos/[slug]/cupo.
+//
+// `groupId` (opcional, solo con el torneo EN JUEGO, #814 · PR3): tras inscribirlo, lo asigna a ese grupo con
+// `colocarInscrito` (mismas reglas que PUT .../players/[playerId]/grupo; `confirmado` si el grupo ya anotó golpes).
+// Si la inscripción sale pero la asignación no, responde 207: el jugador quedó inscrito SIN grupo y el cuerpo trae
+// el motivo para que el organizador lo asigne a otro grupo.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -20,6 +25,9 @@ import { captureError } from '@/lib/error-tracking'
 import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { courseDataDeInscripcion, esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
+import { colocarInscrito } from '@/lib/data/tournaments/colocarInscrito'
+import { cuerpoDeColocarFallido, leerTorneoParaColocar } from '@/lib/api/gestion-en-juego'
+import { mensajeDeMotivo } from '@/golf/torneo/gestion-en-juego'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,12 +36,16 @@ const bodySchema = z.discriminatedUnion('mode', [
     mode: z.literal('registered'),
     userId: z.string().uuid(),
     categoryId: z.string().uuid().nullable().optional(),
+    groupId: z.string().uuid().optional(),
+    confirmado: z.boolean().optional(),
   }),
   z.object({
     mode: z.literal('guest'),
     guestName: z.string().trim().min(1).max(120),
     handicapIndex: z.number().finite().nullable(),
     categoryId: z.string().uuid().nullable().optional(),
+    groupId: z.string().uuid().optional(),
+    confirmado: z.boolean().optional(),
   }),
 ])
 
@@ -128,6 +140,25 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
   }
 
+  // Con grupo: se valida ANTES de inscribir lo que se puede saber sin el jugador (torneo en juego de una ronda,
+  // grupo del torneo), para no dejar un inscrito suelto por un error evitable.
+  const torneoParaColocar = body.groupId ? await leerTorneoParaColocar(admin, params.slug) : null
+  if (body.groupId) {
+    if (torneoParaColocar === 'error' || !torneoParaColocar) {
+      return NextResponse.json({ error: 'No se pudo leer el torneo. Intenta de nuevo.' }, { status: 500 })
+    }
+    if (torneoParaColocar.status !== 'in_progress') {
+      return NextResponse.json({ error: mensajeDeMotivo('torneo-no-en-juego'), codigo: 'torneo-no-en-juego' }, { status: 409 })
+    }
+    if ((torneoParaColocar.total_rounds ?? 1) > 1) {
+      return NextResponse.json({ error: mensajeDeMotivo('torneo-varias-rondas'), codigo: 'torneo-varias-rondas' }, { status: 409 })
+    }
+    const { data: grupo, error: errG } = await admin
+      .from('tournament_groups').select('id').eq('id', body.groupId).eq('tournament_id', tournament.id).maybeSingle()
+    if (errG) return NextResponse.json({ error: 'No se pudo leer el grupo. Intenta de nuevo.' }, { status: 500 })
+    if (!grupo) return NextResponse.json({ error: 'Grupo no encontrado', codigo: 'grupo-no-existe' }, { status: 404 })
+  }
+
   const course = tournament.courses
 
   let result
@@ -195,5 +226,15 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     )
   }
 
-  return NextResponse.json({ ok: true, playerId: result.playerId })
+  if (!body.groupId || !torneoParaColocar || torneoParaColocar === 'error') {
+    return NextResponse.json({ ok: true, playerId: result.playerId })
+  }
+
+  const colocado = await colocarInscrito(admin, torneoParaColocar, result.playerId, body.groupId, {
+    desde: null,
+    confirmado: body.confirmado === true,
+  })
+  if (colocado.ok) return NextResponse.json({ ok: true, playerId: result.playerId, colocado })
+  // Inscrito, pero sin grupo: 207 con el motivo (la UI ofrece asignarlo a otro grupo).
+  return NextResponse.json({ ok: true, playerId: result.playerId, colocado: false, ...cuerpoDeColocarFallido(colocado) }, { status: 207 })
 }
