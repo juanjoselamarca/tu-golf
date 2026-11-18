@@ -20,13 +20,24 @@ const titulo2 = { margin: '0 0 8px', fontSize: '18px', fontWeight: 600, color: '
  * Antes de partir: en neto, el HCP de cada uno (el de 18 hoyos, regla de Juanjo del 12-nov: el mismo número del
  * marcador; nunca "recibe N golpes"); en gross, sus 0 puntos.
  */
-function ValorAntesDePartir({ fila, tabla, hcpAMostrar }: { fila: FilaRankingDelJuego; tabla: TablaDelJuego; hcpAMostrar?: HcpAMostrar }) {
-  if (!tabla.muestraGolpesRecibidos || !hcpAMostrar) return <>{fila.textoConUnidad}</>
-  return <>HCP <HcpCelda hcp={hcpAMostrar(fila.jugadorId)} enLinea /></>
+/**
+ * Antes del primer hoyo, en neto, cada fila muestra el HCP de 18 (fuente única `hcpAMostrar`), nunca
+ * "recibe N golpes". Si ese visor no tiene el HCP de nadie (neto visto sin sesión: no viaja ninguno),
+ * se quedan los puntos: una columna de "HCP —" no dice nada.
+ */
+function hcpAntesDePartir(tabla: TablaDelJuego, hcpAMostrar?: HcpAMostrar): HcpAMostrar | null {
+  if (!tabla.muestraGolpesRecibidos || !hcpAMostrar) return null
+  return tabla.ranking.some(r => hcpAMostrar(r.jugadorId) != null) ? hcpAMostrar : null
+}
+
+function ValorAntesDePartir({ fila, hcp }: { fila: FilaRankingDelJuego; hcp: HcpAMostrar | null }) {
+  if (!hcp) return <>{fila.textoConUnidad}</>
+  return <>HCP <HcpCelda hcp={hcp(fila.jugadorId)} enLinea /></>
 }
 
 function Ranking({ tabla, hcpAMostrar }: { tabla: TablaDelJuego; hcpAMostrar?: HcpAMostrar }) {
   const empezo = tabla.frase.empezo
+  const hcp = empezo ? null : hcpAntesDePartir(tabla, hcpAMostrar)
   return (
     <ol aria-label="Puntos de cada uno" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
       {tabla.ranking.map((r, i) => {
@@ -47,7 +58,7 @@ function Ranking({ tabla, hcpAMostrar }: { tabla: TablaDelJuego; hcpAMostrar?: H
                 {r.diferencia && <span className="num" style={{ fontSize: '13px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{r.diferencia}</span>}
               </span>
             ) : (
-              <span className="num" style={{ flex: '0 0 auto', fontSize: '16px', color: 'var(--text)', whiteSpace: 'nowrap' }}><ValorAntesDePartir fila={r} tabla={tabla} hcpAMostrar={hcpAMostrar} /></span>
+              <span className="num" style={{ flex: '0 0 auto', fontSize: '16px', color: 'var(--text)', whiteSpace: 'nowrap' }}><ValorAntesDePartir fila={r} hcp={hcp} /></span>
             )}
           </li>
         )
