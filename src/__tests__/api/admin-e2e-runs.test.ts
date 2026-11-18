@@ -66,6 +66,7 @@ describe('POST /api/admin/e2e/runs — entrada del workflow', () => {
   it('rechaza una rama con forma rara', async () => {
     const res = await POST(req({ branch: '../main' }))
     expect(res.status).toBe(400)
+    expect(insert).not.toHaveBeenCalled()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

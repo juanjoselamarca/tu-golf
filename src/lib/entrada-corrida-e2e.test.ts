@@ -25,7 +25,7 @@ describe('validarEntradaCorrida', () => {
 
   it('acepta ramas normales y rechaza las raras', () => {
     expect(validarEntradaCorrida({ branch: 'fix/ceo-algo-claude' })).toMatchObject({ ok: true, branch: 'fix/ceo-algo-claude' })
-    for (const branch of ['-x', '../main', 'a..b', 'con espacio', 'a/', '', 7, 'x'.repeat(101)]) {
+    for (const branch of ['-x', '../main', 'a..b', 'feat..x', 'feat/', 'con espacio', 'a/', '', 7, 'x'.repeat(101)]) {
       expect(validarEntradaCorrida({ branch }).ok, String(branch)).toBe(false)
     }
   })
