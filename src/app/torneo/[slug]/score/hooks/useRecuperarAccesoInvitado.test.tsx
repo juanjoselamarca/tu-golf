@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, render, screen, fireEvent } from '@testing-library/react'
-import { useRecuperarAccesoInvitado, MENSAJE_RECUPERACION_FALLIDA, MENSAJE_RECUPERACION_SIN_CONEXION } from './useRecuperarAccesoInvitado'
+import { useRecuperarAccesoInvitado, MENSAJE_RECUPERACION_FALLIDA, MENSAJE_RECUPERACION_SIN_CONEXION, MENSAJE_RECUPERACION_SERVIDOR } from './useRecuperarAccesoInvitado'
 import { avisoSinAcceso } from './acceso-guardado'
 import { AvisoSinAccesoBanner } from '../components/AvisoSinAccesoBanner'
 import { getGuestToken } from '@/lib/guest-session'
@@ -43,7 +43,9 @@ describe('useRecuperarAccesoInvitado', () => {
     ['403 guest_access_lost', 403, { error: 'guest_access_lost' }, MENSAJE_RECUPERACION_FALLIDA],
     ['404 sin inscripción', 404, { error: 'not_registered' }, MENSAJE_RECUPERACION_FALLIDA],
     ['200 de un alta nueva (no es el mismo jugador)', 200, { ok: true, guestToken: 'otro' }, MENSAJE_RECUPERACION_FALLIDA],
-    ['503', 503, null, MENSAJE_RECUPERACION_SIN_CONEXION],
+    // Con 429/5xx HAY red: "Sin conexión" sería falso (Fable #833 v3).
+    ['503', 503, null, MENSAJE_RECUPERACION_SERVIDOR],
+    ['429', 429, null, MENSAJE_RECUPERACION_SERVIDOR],
   ])('%s: error con salida, sin tocar el token', async (_c, status, body, mensaje) => {
     responde(status, body)
     const onToken = vi.fn()
@@ -53,6 +55,14 @@ describe('useRecuperarAccesoInvitado', () => {
     expect(result.current.mensaje).toBe(mensaje)
     expect(onToken).not.toHaveBeenCalled()
     expect(getGuestToken()).toBe('tok-viejo')
+  })
+
+  it('fetch que falla por red: "Sin conexión"', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const { result } = renderHook(() => useRecuperarAccesoInvitado({ slug: 'copa', onToken: vi.fn() }))
+    await act(() => result.current.recuperar())
+    expect(result.current.mensaje).toBe(MENSAJE_RECUPERACION_SIN_CONEXION)
+    expect(MENSAJE_RECUPERACION_SERVIDOR).not.toMatch(/sin conexión/i)
   })
 
   it('sin prueba guardada no llama al servidor: error con salida', async () => {

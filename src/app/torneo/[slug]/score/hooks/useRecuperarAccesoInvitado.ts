@@ -9,6 +9,8 @@ export type EstadoRecuperacion = 'listo' | 'recuperando' | 'error'
 /** Lo que se dice si no se pudo: la salida es el organizador (los golpes siguen en el teléfono). */
 export const MENSAJE_RECUPERACION_FALLIDA = 'No pudimos recuperarla. Muéstrale tu tarjeta al organizador y pídele que anote tus golpes.'
 export const MENSAJE_RECUPERACION_SIN_CONEXION = 'Sin conexión. Intenta de nuevo.'
+/** El servidor no respondió bien (429 / 5xx): hay red, pero no se pudo. "Sin conexión" sería falso (Fable #833 v3). */
+export const MENSAJE_RECUPERACION_SERVIDOR = 'No pudimos conectar. Intenta de nuevo.'
 
 /**
  * "Recuperar mi tarjeta" del invitado cuyo token ya no sirve, sin salir del scorer (Fable #833 v2): manda
@@ -44,7 +46,7 @@ export function useRecuperarAccesoInvitado(args: { slug: string; onToken: (token
         return
       }
       setEstado('error')
-      setMensaje(res.status >= 500 || res.status === 429 ? MENSAJE_RECUPERACION_SIN_CONEXION : MENSAJE_RECUPERACION_FALLIDA)
+      setMensaje(res.status >= 500 || res.status === 429 ? MENSAJE_RECUPERACION_SERVIDOR : MENSAJE_RECUPERACION_FALLIDA)
     } catch {
       setEstado('error')
       setMensaje(MENSAJE_RECUPERACION_SIN_CONEXION)
