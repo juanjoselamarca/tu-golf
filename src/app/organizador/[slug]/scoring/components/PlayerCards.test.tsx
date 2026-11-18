@@ -8,23 +8,32 @@ describe('PlayerCards — progreso de la tarjeta', () => {
   const enJuego = { id: 'r1', status: 'in_progress' } as unknown as ScoringRound
   const cerrada = { id: 'r1', status: 'closed' } as unknown as ScoringRound
 
+  const V = { rondaVigente: true, admiteTarjetas: true }
+  // Fable #833 P2-b: el carrusel dice lo mismo que el panel (casoSinTarjeta).
   it.each([
-    ['sin tarjeta y retirado', undefined, 'withdrawn', 'No juega'],
-    ['sin tarjeta y pendiente', undefined, 'pending', 'No juega'],
-    ['sin tarjeta y aprobado', undefined, 'approved', 'Sin tarjeta'],
-    ['con tarjeta en juego', enJuego, 'approved', '7/18'],
-  ])('%s', (_caso, round, status, texto) => {
-    expect(progresoDeTarjeta({ round, status, hoyosConScore: 7, holeCount: 18 })).toBe(texto)
+    ['sin tarjeta y retirado, ronda vigente', 'withdrawn', V, 'No juega'],
+    ['sin tarjeta y pendiente, ronda vigente', 'pending', V, 'No juega'],
+    ['sin tarjeta y aprobado, ronda vigente', 'approved', V, 'Sin tarjeta'],
+    ['sin tarjeta y aprobado, ronda pasada', 'approved', { ...V, rondaVigente: false }, 'No jugó'],
+    ['sin tarjeta y retirado, ronda pasada', 'withdrawn', { ...V, rondaVigente: false }, 'No jugó'],
+    ['sin tarjeta y aprobado, torneo cerrado', 'approved', { ...V, admiteTarjetas: false }, 'No jugó'],
+    ['sin tarjeta y retirado, torneo cerrado', 'withdrawn', { ...V, admiteTarjetas: false }, 'No juega'],
+  ])('%s', (_caso, status, ctx, texto) => {
+    expect(progresoDeTarjeta({ round: undefined, status, hoyosConScore: 0, holeCount: 18, ...ctx })).toBe(texto)
+  })
+
+  it('con tarjeta en juego → "7/18"', () => {
+    expect(progresoDeTarjeta({ round: enJuego, status: 'approved', hoyosConScore: 7, holeCount: 18, ...V })).toBe('7/18')
   })
 
   it('tarjeta cerrada → "✓ Completo"', () => {
-    expect(progresoDeTarjeta({ round: cerrada, status: 'approved', hoyosConScore: 18, holeCount: 18 })).toBe('✓ Completo')
+    expect(progresoDeTarjeta({ round: cerrada, status: 'approved', hoyosConScore: 18, holeCount: 18, ...V })).toBe('✓ Completo')
   })
 
   it('en el carrusel, el retirado sin tarjeta no muestra "0/18"', () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
     const p = { id: 'p1', status: 'withdrawn', profiles: { name: 'Ana Pérez' }, rounds: [] } as unknown as ScoringPlayer
-    render(<PlayerCards players={[p]} selectedId={null} holeCount={18} filledCount={0} getActiveRound={() => undefined} hasScoresLoaded roundHoleCounts={new Map()} onSelect={() => {}} />)
+    render(<PlayerCards players={[p]} selectedId={null} holeCount={18} filledCount={0} getActiveRound={() => undefined} hasScoresLoaded roundHoleCounts={new Map()} rondaVigente admiteTarjetas onSelect={() => {}} />)
     expect(screen.queryByText('0/18')).toBeNull()
     expect(screen.getByText('No juega')).toBeTruthy()
   })

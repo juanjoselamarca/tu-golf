@@ -4,16 +4,20 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ScoringPlayer, ScoringRound } from '@/lib/data/tournaments/scoring'
 import { isClosedRoundStatus } from '../hooks/useScoringData'
 import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
-import { inscritoAprobado } from '@/golf/tournament-status'
+import { casoSinTarjeta, type CasoSinTarjeta } from './AvisoJugadorSinTarjeta'
+
+const SIN_TARJETA: Record<CasoSinTarjeta, string> = { crear: 'Sin tarjeta', no_juega: 'No juega', no_jugo: 'No jugó' }
 
 /**
  * Progreso de la tarjeta del jugador en la ronda vista. Sin tarjeta no hay "0/18" (decía que juega y no lleva
- * nada): el aprobado "Sin tarjeta" (el panel ofrece crearla o dice que no jugó), WD/DQ/pendiente "No juega".
+ * nada): dice lo mismo que el panel (`casoSinTarjeta`, Fable #833) — "Sin tarjeta" si se puede crear,
+ * "No juega" (WD/DQ/pendiente en la ronda vigente), "No jugó" (ronda pasada o torneo cerrado).
  */
 export function progresoDeTarjeta(args: {
   round: ScoringRound | undefined; status: string | null | undefined; hoyosConScore: number; holeCount: number
+  rondaVigente: boolean; admiteTarjetas: boolean
 }): string {
-  if (!args.round) return inscritoAprobado(args.status) ? 'Sin tarjeta' : 'No juega'
+  if (!args.round) return SIN_TARJETA[casoSinTarjeta(args.status, args.rondaVigente, args.admiteTarjetas)]
   if (isClosedRoundStatus(args.round.status)) return '✓ Completo'
   return `${args.hoyosConScore}/${args.holeCount}`
 }
@@ -32,6 +36,10 @@ interface PlayerCardsProps {
   hasScoresLoaded: boolean
   /** Conteos batch de hoyos por round_id (para progreso de TODOS los jugadores). */
   roundHoleCounts: Map<string, number>
+  /** La ronda vista es la vigente (`useScoringData.esRondaVigente`). */
+  rondaVigente: boolean
+  /** El torneo recibe golpes (no está cerrado ni publicado). */
+  admiteTarjetas: boolean
   onSelect: (playerId: string) => void
 }
 
@@ -43,6 +51,8 @@ export function PlayerCards({
   getActiveRound,
   hasScoresLoaded,
   roundHoleCounts,
+  rondaVigente,
+  admiteTarjetas,
   onSelect,
 }: PlayerCardsProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -121,7 +131,7 @@ export function PlayerCards({
               </div>
               <div style={{ fontSize: '12px', color: isDone ? 'var(--status-live-fg)' : 'var(--text-2)' }}>
                 {progresoDeTarjeta({
-                  round, status: p.status, holeCount,
+                  round, status: p.status, holeCount, rondaVigente, admiteTarjetas,
                   hoyosConScore: isSelected && hasScoresLoaded ? filledCount : (round ? (roundHoleCounts.get(round.id) ?? 0) : 0),
                 })}
               </div>

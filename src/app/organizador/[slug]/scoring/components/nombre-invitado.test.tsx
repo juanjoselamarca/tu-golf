@@ -29,6 +29,8 @@ function renderCards(players: ScoringPlayer[]) {
     <PlayerCards
       players={players}
       selectedId={null}
+      rondaVigente
+      admiteTarjetas
       holeCount={9}
       filledCount={0}
       getActiveRound={() => undefined}
