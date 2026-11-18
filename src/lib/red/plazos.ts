@@ -21,6 +21,12 @@ export const PLAZO_AUTOSELECCION_INVITADO_MS = 5_000
  */
 export const PLAZO_LECTURA_INDICE_MS = 10_000
 
+/**
+ * "Buscar mi tarjeta" del scorer del torneo (`POST /api/torneos/[slug]/tarjeta`): una acción del
+ * jugador en cancha, que espera mirando el botón. Si no contesta, se le dice "Sin conexión".
+ */
+export const PLAZO_TARJETA_VIGENTE_MS = 10_000
+
 /** Chequeo de salud del banner de estado (`/api/health`). */
 export const PLAZO_SALUD_MS = 10_000
 

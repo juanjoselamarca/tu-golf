@@ -181,24 +181,59 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
 // Invariante "todo jugador del roster tiene su tarjeta": el alta crea `players` y `rounds` en la MISMA
 // función (una transacción). Sin la tarjeta, el scorer del torneo no tiene dónde guardar
 // (copa-cabros-mo7nce53: 4 de 5 jugadores sin fila en `rounds`, creados antes de este RPC).
-describe('enroll_player (schema) — el alta crea la tarjeta en la misma transacción', () => {
-  const schema = readFileSync(join(process.cwd(), 'supabase/schema.sql'), 'utf8')
-  const inicio = schema.indexOf('CREATE OR REPLACE FUNCTION public.enroll_player(')
-  const cuerpo = inicio === -1 ? '' : schema.slice(inicio, schema.indexOf('$function$;', inicio))
-  const INSERT_ROUNDS = /INSERT INTO (public\.)?rounds/
+describe('enroll_player (schema) — el alta crea la tarjeta de la ronda vigente en la misma transacción', () => {
+  const schema = readFileSync(join(process.cwd(), 'supabase/schema.sql'), 'utf8').replace(/\r\n/g, '\n')
+  const cuerpoDe = (nombre: string) => {
+    const i = schema.indexOf(`CREATE OR REPLACE FUNCTION public.${nombre}(`)
+    return i === -1 ? '' : schema.slice(i, schema.indexOf('$function$;', i))
+  }
+  const enroll = cuerpoDe('enroll_player')
+  const asegurar = cuerpoDe('asegurar_tarjeta_vigente')
+  const LLAMA_ASEGURAR = /PERFORM public\.asegurar_tarjeta_vigente\(p_tournament_id, v_player_id\)/
   const INSERT_PLAYERS = /INSERT INTO (public\.)?players/
 
-  it('existe y crea la fila de rounds después de insertar al jugador', () => {
-    expect(inicio).toBeGreaterThan(-1)
-    const insertRounds = cuerpo.search(INSERT_ROUNDS)
-    expect(insertRounds).toBeGreaterThan(-1)
-    expect(cuerpo.search(INSERT_PLAYERS)).toBeGreaterThan(-1)
-    expect(cuerpo.search(INSERT_PLAYERS)).toBeLessThan(insertRounds)
+  it('enroll_player inserta al jugador y DESPUÉS asegura su tarjeta, antes del único ok: true', () => {
+    expect(enroll).not.toBe('')
+    const llamada = enroll.search(LLAMA_ASEGURAR)
+    expect(llamada).toBeGreaterThan(-1)
+    expect(enroll.search(INSERT_PLAYERS)).toBeGreaterThan(-1)
+    expect(enroll.search(INSERT_PLAYERS)).toBeLessThan(llamada)
+    const oks = [...enroll.matchAll(/'ok', true/g)].map((m) => m.index ?? -1)
+    expect(oks).toHaveLength(1)
+    expect(oks[0]).toBeGreaterThan(llamada)
   })
 
-  it('el único "ok: true" sale después de crear la tarjeta', () => {
-    const oks = [...cuerpo.matchAll(/'ok', true/g)].map((m) => m.index ?? -1)
-    expect(oks).toHaveLength(1)
-    expect(oks[0]).toBeGreaterThan(cuerpo.search(INSERT_ROUNDS))
+  it('enroll_player ya no fija la ronda 1 por su cuenta (alta tardía con la ronda 2 en juego)', () => {
+    expect(enroll).not.toMatch(/INSERT INTO (public\.)?rounds/)
+  })
+
+  it('asegurar_tarjeta_vigente crea SOLO la tarjeta de la ronda vigente, idempotente', () => {
+    expect(asegurar).not.toBe('')
+    expect(asegurar).toMatch(/max\(round_number\) INTO v_vigente FROM rounds WHERE tournament_id = p_tournament_id/)
+    const inserts = [...asegurar.matchAll(/INSERT INTO (public\.)?rounds[^;]*;/g)].map((m) => m[0])
+    expect(inserts).toHaveLength(1)
+    expect(inserts[0]).toMatch(/VALUES \(p_tournament_id, p_player_id, v_vigente, 'in_progress'\)/)
+    expect(inserts[0]).toMatch(/ON CONFLICT \(tournament_id, player_id, round_number\) DO NOTHING/)
+  })
+
+  it('asegurar_tarjeta_vigente no da tarjeta a WD/DQ, ni con el torneo finalizado, ni entre rondas', () => {
+    const insert = asegurar.search(/INSERT INTO (public\.)?rounds/)
+    for (const guarda of [
+      /IF v_pstatus IS DISTINCT FROM 'approved' THEN/,
+      /IF v_tstatus IN \('closed', 'published', 'finished'\) THEN/,
+      /IF v_vigente < v_total/,
+      /status NOT IN \('closed', 'official'\)/,
+    ]) {
+      const pos = asegurar.search(guarda)
+      expect(pos).toBeGreaterThan(-1)
+      expect(pos).toBeLessThan(insert)
+    }
+  })
+
+  it('la migración y el rollback existen y la función queda solo para service_role', () => {
+    const mig = readFileSync(join(process.cwd(), 'supabase/migrations/20261118150000_tarjeta_ronda_vigente.sql'), 'utf8')
+    expect(mig).toMatch(/REVOKE ALL ON FUNCTION public\.asegurar_tarjeta_vigente\(uuid, uuid\) FROM public, anon, authenticated;/)
+    expect(mig).toMatch(/GRANT EXECUTE ON FUNCTION public\.asegurar_tarjeta_vigente\(uuid, uuid\) TO service_role;/)
+    expect(schema).not.toMatch(/grant EXECUTE on function public\.asegurar_tarjeta_vigente\(uuid,uuid\) to (anon|authenticated)/)
   })
 })
