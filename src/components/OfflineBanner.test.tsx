@@ -78,7 +78,9 @@ describe('OfflineBanner — con el aviso de sesión de un scorer a la vista', ()
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     respaldo('ABC123')
     render(<><OfflineBanner />{casos[0][1](true)}</>)
-    expect(await screen.findByText(/^Sin conexión/)).toBeTruthy()
+    expect(await screen.findByText('Sin conexión')).toBeTruthy()
+    // Sin la promesa: con la sesión perdida, la cola no se sube sola al reconectar.
+    expect(screen.queryByText(/en cola|sincroniz|se guardarán/i)).toBeNull()
   })
 })
 

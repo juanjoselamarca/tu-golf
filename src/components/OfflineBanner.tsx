@@ -48,7 +48,11 @@ export function OfflineBanner() {
   // problema y se sigue viendo (Fable #833).
   if (!offline && (avisoDeSesion || pendientes === 0)) return null
 
-  const mensaje = offline
+  // Con el aviso de sesión, la cola NO se sube al reconectar (falta la sesión): sólo "Sin conexión", sin la
+  // promesa de "se sincronizará" que el aviso desmiente (Fable #833 v2).
+  const mensaje = offline && avisoDeSesion
+    ? 'Sin conexión'
+    : offline
     ? pendientes > 0
       ? `Sin conexión — ${pendientes} hoyo${pendientes === 1 ? '' : 's'} en cola, se sincronizará al reconectar`
       : 'Sin conexión — Los scores se guardarán cuando vuelvas a tener internet'
