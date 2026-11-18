@@ -166,8 +166,11 @@ export function useScoreEntry({
     setLastAction(null)
   }, [resetHoleState])
 
+  // `vigente` lo da el efecto: solo la última corrida escribe. Sin esto, una respuesta lenta pisa a la nueva
+  // (cambiar de jugador con señal mala pintaba los golpes del anterior; una relectura tras guardar el hoyo 1
+  // que llega después de la del hoyo 2 borraba el 2 de la pantalla).
   const loadScores = useCallback(
-    async (playerId: string) => {
+    async (playerId: string, vigente: () => boolean = () => true) => {
       const player = players.find((p) => p.id === playerId)
       const roundId = getActiveRound(player)?.id
       if (!roundId) {
@@ -176,6 +179,7 @@ export function useScoreEntry({
       }
       try {
         const rows = await fetchRoundHoleScores(createClient(), roundId)
+        if (!vigente()) return
         const scores: Record<number, number> = {}
         const putts: Record<number, number | null> = {}
         const fairway: Record<number, boolean | null> = {}
@@ -191,6 +195,7 @@ export function useScoreEntry({
         setHoleFairway(fairway)
         setHoleGir(gir)
       } catch (e) {
+        if (!vigente()) return
         void captureError(e, { context: 'scoring.useScoreEntry.loadScores', meta: { roundId } })
         showError('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
       }
@@ -199,7 +204,10 @@ export function useScoreEntry({
   )
 
   useEffect(() => {
-    if (selectedId) void loadScores(selectedId)
+    if (!selectedId) return
+    let vigente = true
+    void loadScores(selectedId, () => vigente)
+    return () => { vigente = false }
   }, [selectedId, loadScores])
 
   // ── Derivados de la tarjeta seleccionada ──
