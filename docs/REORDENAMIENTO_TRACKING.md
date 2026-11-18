@@ -950,9 +950,10 @@ Fuera de alcance (pendiente):
   antes de recargar que el servidor procesa después de un guardado de la página recargada gana por llegar
   último (requiere un request cruzando la recarga). **También abierto (stats, `fix/orden-guardados-p2-claude`):**
   la secuencia es por dispositivo, así que dos organizadores (o dos pestañas) sobre la MISMA tarjeta no se
-  ordenan entre sí: en putts/fairway/GIR gana el último que llega al servidor, y cada uno sólo manda las stats
-  que fijó a mano (lo que leyó de la base no se reenvía, así que no pisa lo que el otro no tocó). Lo que sí se
-  pisa es la misma stat del mismo hoyo, por orden de llegada. **Crecimiento:** `hole_scores_orden` suma una fila por
+  ordenan entre sí: en putts/fairway/GIR gana el último que llega al servidor. Cada uno manda sólo las stats que
+  fijó a mano y que el servidor todavía no confirmó (lo leído de la base no se reenvía, y lo confirmado deja de
+  viajar), así que no pisa lo que el otro cambió después, salvo la misma stat del mismo hoyo con un envío suyo
+  todavía sin confirmar (fallido, en vuelo o descartado), que gana por llegar último. **Crecimiento:** `hole_scores_orden` suma una fila por
   (tarjeta, hoyo, carga de página), del orden de `hole_scores`, con CASCADE al borrar la ronda; no se borra
   al cerrar la tarjeta (una reabierta necesita la marca), mismo criterio que `ronda_libre_scores_orden`.
   Lo de abajo queda como contexto. `upsertScore` (`src/app/api/game/actions.ts`) es un

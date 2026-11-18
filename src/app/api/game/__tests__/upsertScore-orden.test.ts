@@ -158,6 +158,17 @@ describe('upsertScore · orden de los guardados de un hoyo', () => {
     expect(llamadas.upsert).toHaveLength(7)
   })
 
+  // Revisión Fable de #834 (P2): el tope es por código. Falta la tabla y falta el permiso son arreglos distintos.
+  it('el tope es por código: un 42501 dentro del minuto de un 42P01 se reporta igual', async () => {
+    const tabla = base({ errorRpc: { code: '42P01', message: 'relation does not exist' } })
+    await upsertScore(tabla.svc, USER, golpe(5, 1))
+    const permiso = base({ errorRpc: { code: '42501', message: 'permission denied' } })
+    await upsertScore(permiso.svc, USER, golpe(5, 2))
+    await upsertScore(permiso.svc, USER, golpe(5, 3))
+    expect(captureError).toHaveBeenCalledTimes(2)
+    expect(captureError.mock.calls.map((c) => (c[1] as { meta: { code: string } }).meta.code)).toEqual(['42P01', '42501'])
+  })
+
   it('otro error de la función NO cae al upsert sin orden: 500 y se reporta', async () => {
     const { svc, llamadas } = base({ errorRpc: { code: '57014', message: 'canceling statement due to statement timeout' } })
     const res = await upsertScore(svc, USER, golpe(5, 1))

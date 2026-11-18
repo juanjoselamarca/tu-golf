@@ -1,7 +1,7 @@
 // Tabla de estadísticas opcionales por hoyo (putts / fairway / GIR).
 // Persiste contra la ronda ACTIVA vía `entry.saveHoleStat`.
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 
@@ -20,6 +20,29 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
   /** Putts a la vista al entrar al campo. Salir sin cambiarlos no guarda: con la carga lenta o fallida el campo
    *  está vacío aunque la base tenga putts, y un toque al pasar los borraba (mandaba null). */
   const puttsAlEnfocar = useRef<number | null>(null)
+  /** Hoyo → putts enviados que todavía no quedaron guardados (fallaron o siguen viajando). Mientras el hoyo esté
+   *  acá, salir del campo los reenvía aunque el valor no haya cambiado: si no, un guardado fallido quedaba en
+   *  pantalla y nunca llegaba a la base. */
+  const pendientesRef = useRef(new Map<number, number | null>())
+  /** Los mismos hoyos, para marcarlos en pantalla cuando el envío falló. */
+  const [fallidos, setFallidos] = useState<ReadonlySet<number>>(new Set())
+
+  const guardarPutts = async (h: number) => {
+    const putts = holePutts[h] ?? null
+    if (putts === puttsAlEnfocar.current && !pendientesRef.current.has(h)) return
+    pendientesRef.current.set(h, putts)
+    const ok = await saveHoleStat(h, { putts })
+    // Un envío más nuevo del mismo hoyo salió mientras tanto: el estado es de ese.
+    if (pendientesRef.current.get(h) !== putts) return
+    if (ok) pendientesRef.current.delete(h)
+    setFallidos((prev) => {
+      if (prev.has(h) === !ok) return prev
+      const next = new Set(prev)
+      if (ok) next.delete(h)
+      else next.add(h)
+      return next
+    })
+  }
 
   return (
     <div style={{ padding: '0 20px 20px', overflowX: 'auto' }}>
@@ -54,11 +77,11 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                       setHolePutts((prev) => ({ ...prev, [h]: isNaN(n) || n < 0 || n > 6 ? null : n }))
                     }}
                     onFocus={() => { puttsAlEnfocar.current = holePutts[h] ?? null }}
-                    onBlur={() => {
-                      const putts = holePutts[h] ?? null
-                      if (!disabled && putts !== puttsAlEnfocar.current) void saveHoleStat(h, { putts })
-                    }}
-                    style={{ width: '48px', background: 'var(--bg)', border: '1px solid var(--surface-border)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
+                    onBlur={() => { if (!disabled) void guardarPutts(h) }}
+                    aria-label={`Putts del hoyo ${h}`}
+                    aria-invalid={fallidos.has(h) || undefined}
+                    title={fallidos.has(h) ? 'No se guardó. Toca y sal del campo para reintentar.' : undefined}
+                    style={{ width: '48px', minHeight: '44px', background: 'var(--bg)', border: fallidos.has(h) ? '2px solid var(--double)' : '1px solid var(--surface-border)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '16px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
                     placeholder="—"
                   />
                 </td>
@@ -74,7 +97,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                             setHoleFairway((prev) => ({ ...prev, [h]: v }))
                             void saveHoleStat(h, { fairway_hit: v })
                           }}
-                          style={{ padding: '3px 7px', fontSize: '12px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
+                          style={{ padding: '3px 9px', minHeight: '44px', minWidth: '44px', fontSize: '13px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                             background: holeFairway[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
                             borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--text-2)') : 'var(--surface-border)',
                             color: holeFairway[h] === v ? 'var(--text)' : 'var(--text-2)',
@@ -98,7 +121,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                           setHoleGir((prev) => ({ ...prev, [h]: v }))
                           void saveHoleStat(h, { gir: v })
                         }}
-                        style={{ padding: '3px 7px', fontSize: '12px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
+                        style={{ padding: '3px 9px', minHeight: '44px', minWidth: '44px', fontSize: '13px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                           background: holeGir[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
                           borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--text-2)') : 'var(--surface-border)',
                           color: holeGir[h] === v ? 'var(--text)' : 'var(--text-2)',

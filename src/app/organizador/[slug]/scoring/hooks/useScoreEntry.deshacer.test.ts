@@ -356,8 +356,10 @@ describe('useScoreEntry · orden de los guardados de un hoyo', () => {
     expect(putts).not.toHaveProperty('gir')
     expect(gir).not.toHaveProperty('fairway_hit')
     expect(gir.seq as number).toBeGreaterThan(putts.seq as number)
-    // Un guardado del golpe después también lleva las dos stats.
+    // Los dos quedaron confirmados (ya están en la base): el golpe siguiente no los reenvía.
     await act(() => result.current.saveScore(11, '4'))
-    expect(enviados.at(-1)).toMatchObject({ gross_score: 4, putts: 2, gir: true })
+    expect(enviados.at(-1)).toMatchObject({ gross_score: 4 })
+    expect(enviados.at(-1)).not.toHaveProperty('putts')
+    expect(enviados.at(-1)).not.toHaveProperty('gir')
   })
 })

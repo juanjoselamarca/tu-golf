@@ -4,7 +4,7 @@
 // SI normalizado, strokes por hoyo, stableford) — acá sólo se orquesta.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DISPOSITIVO_GUARDADO, nuevaSecuencia } from '@/lib/red/orden-guardado'
+import { enviarHoyo, leerTocadas, reconciliar, SIN_TOCAR, tocar, type HoleStatPatch } from './envio-hoyo'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
@@ -60,11 +60,11 @@ export interface LastAction {
   estado: 'enviando' | 'guardado' | 'fallo'
 }
 
-export type HoleStatPatch = Partial<{
-  putts: number | null
-  fairway_hit: boolean | null
-  gir: boolean | null
-}>
+export type { HoleStatPatch } from './envio-hoyo'
+
+/** Estado de la carga de la tarjeta abierta. Hasta que no está `lista`, la pantalla no sabe qué golpes tiene la
+ *  base: anotar encima y deshacer mandaría `gross_score: null` (el hoyo "estaba vacío") y borraría un golpe real. */
+export type CargaTarjeta = 'cargando' | 'lista' | 'error'
 
 export function useScoreEntry({
   tournament,
@@ -99,30 +99,30 @@ export function useScoreEntry({
   const [holePutts, setHolePutts] = useState<Record<number, number | null>>({})
   const [holeFairway, setHoleFairway] = useState<Record<number, boolean | null>>({})
   const [holeGir, setHoleGir] = useState<Record<number, boolean | null>>({})
-  /** Stats que el organizador fijó a mano en la tarjeta abierta (`null` = la borró a propósito), por hoyo. Es lo
-   *  ÚNICO que viaja en la foto de stats: lo que vino de la base no se reenvía, así una stat nunca cargada (carga
-   *  lenta o fallida, o tarjeta recién abierta) se omite y el servidor no la toca, en vez de mandarla null y
-   *  borrarla. Se lee sin el closure del render: un tap de GIR y uno de putts salen en el mismo tick. Va atado a la
-   *  ronda: si la tarjeta cambia, lo tocado en la anterior no viaja a la nueva. */
-  const statsTocadasRef = useRef<{ roundId: string | null; porHoyo: Record<number, HoleStatPatch> }>({
-    roundId: null, porHoyo: {},
-  })
+  /** Stats que el organizador fijó a mano en la tarjeta abierta (ver `envio-hoyo.ts`). Se lee sin el closure del
+   *  render: un tap de GIR y uno de putts salen en el mismo tick. */
+  const statsTocadasRef = useRef(SIN_TOCAR)
   /** Cuenta las cargas de la tarjeta: sólo aplica su resultado la última (una vieja que llega tarde no pisa). */
   const cargaRef = useRef(0)
+  const [cargaTarjeta, setCargaTarjetaState] = useState<CargaTarjeta>('cargando')
+  /** La misma carga, leída en los handlers sin esperar al render. */
+  const cargaTarjetaRef = useRef<CargaTarjeta>('cargando')
+  const setCargaTarjeta = useCallback((c: CargaTarjeta) => {
+    cargaTarjetaRef.current = c
+    setCargaTarjetaState(c)
+  }, [])
 
   /** Foto de las stats del hoyo con `patch` encima, y queda como vigente. El servidor ordena los envíos por hoyo
    *  (`guardar_hole_score`): con un parche parcial por envío, putts (seq 7) que llega después de GIR (seq 8) se
-   *  descartaba y los putts se perdían. Con la foto, el más nuevo siempre trae lo del anterior. Una clave ausente
-   *  = no tocar; presente con null = borrar. */
+   *  descartaba y los putts se perdían. Con la foto, el más nuevo siempre trae lo del anterior. */
   const fotoStatsDelHoyo = useCallback((roundId: string, holeNumber: number, patch: HoleStatPatch = {}) => {
-    const actual = statsTocadasRef.current
-    const porHoyo = actual.roundId === roundId ? actual.porHoyo : {}
-    const foto: HoleStatPatch = { ...porHoyo[holeNumber] }
-    for (const [k, v] of Object.entries(patch) as [keyof HoleStatPatch, HoleStatPatch[keyof HoleStatPatch]][]) {
-      if (v !== undefined) (foto as Record<string, unknown>)[k] = v
-    }
-    statsTocadasRef.current = { roundId, porHoyo: { ...porHoyo, [holeNumber]: foto } }
+    const { tocadas, foto } = tocar(statsTocadasRef.current, roundId, holeNumber, patch)
+    statsTocadasRef.current = tocadas
     return foto
+  }, [])
+  /** El servidor aplicó el envío: lo tocado que sigue igual ya está en la base y deja de viajar. */
+  const confirmarStats = useCallback((roundId: string, holeNumber: number, enviado: HoleStatPatch) => {
+    statsTocadasRef.current = reconciliar(statsTocadasRef.current, roundId, holeNumber, enviado)
   }, [])
 
   const holes = useMemo(() => Array.from({ length: holeCount }, (_, i) => i + 1), [holeCount])
@@ -151,23 +151,25 @@ export function useScoreEntry({
       tarjetaRef.current += 1
       // Todo lo de la tarjeta anterior se va YA, no cuando termine la carga: si la carga tarda o falla, anotar el
       // hoyo 1 de B mandaba putts, fairway y GIR de A a la ronda de B.
-      statsTocadasRef.current = { roundId: null, porHoyo: {} }
+      statsTocadasRef.current = SIN_TOCAR
+      setCargaTarjeta('cargando')
       setSelectedId(playerId)
       resetHoleState()
       setLastAction(null)
     },
-    [resetHoleState],
+    [resetHoleState, setCargaTarjeta],
   )
 
   const clearSelection = useCallback(() => {
     tarjetaRef.current += 1
-    statsTocadasRef.current = { roundId: null, porHoyo: {} }
+    statsTocadasRef.current = SIN_TOCAR
+    setCargaTarjeta('cargando')
     setSelectedId(null)
     resetHoleState()
     // Cerrar la tarjeta (o cambiar de ronda) descarta el deshacer pendiente: el
     // botón "Deshacer hoyo N" quedaba vivo en el header sin tarjeta a la vista.
     setLastAction(null)
-  }, [resetHoleState])
+  }, [resetHoleState, setCargaTarjeta])
 
   const loadScores = useCallback(
     async (playerId: string) => {
@@ -180,6 +182,7 @@ export function useScoreEntry({
       const vigente = () => tarjetaRef.current === tarjeta && cargaRef.current === carga
       if (!roundId) {
         resetHoleState()
+        setCargaTarjeta('lista')
         return
       }
       try {
@@ -199,13 +202,26 @@ export function useScoreEntry({
         setHolePutts(putts)
         setHoleFairway(fairway)
         setHoleGir(gir)
+        setCargaTarjeta('lista')
       } catch (e) {
         void captureError(e, { context: 'scoring.useScoreEntry.loadScores', meta: { roundId } })
-        if (vigente()) showError('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
+        if (!vigente()) return
+        // Una recarga de la tarjeta ya cargada que falla deja lo que había (sigue siendo lo conocido). Si nunca
+        // cargó, la tarjeta queda bloqueada con "Reintentar": anotar encima de una pantalla vacía y deshacer
+        // borraba el golpe real del hoyo.
+        if (cargaTarjetaRef.current !== 'lista') setCargaTarjeta('error')
+        showError('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
       }
     },
-    [players, getActiveRound, resetHoleState, showError],
+    [players, getActiveRound, resetHoleState, showError, setCargaTarjeta],
   )
+
+  const reintentarCarga = useCallback(() => {
+    if (!selectedId) return
+    // Una tarjeta ya cargada se refresca sin bloquearse; una que no cargó vuelve a "Cargando…".
+    if (cargaTarjetaRef.current !== 'lista') setCargaTarjeta('cargando')
+    void loadScores(selectedId)
+  }, [selectedId, loadScores, setCargaTarjeta])
 
   useEffect(() => {
     if (selectedId) void loadScores(selectedId)
@@ -271,6 +287,11 @@ export function useScoreEntry({
       }
       const player = players.find((p) => p.id === selectedId)
       if (!player) return
+      if (cargaTarjetaRef.current !== 'lista') {
+        // Sin la tarjeta cargada no se sabe qué hay en el hoyo (ver `CargaTarjeta`). La grilla ya está bloqueada.
+        showWarning('Espera un momento', 'La tarjeta todavía no carga. Anota cuando aparezca.')
+        return
+      }
       const round = getActiveRound(player)
       if (!round) {
         // Sin tarjeta en la ronda en juego no hay dónde guardar: se dice, no se pierde en silencio. El panel
@@ -311,40 +332,27 @@ export function useScoreEntry({
       })
 
       setSaving(true)
-      let res: Response | null = null
-      try {
-        res = await fetch('/api/game', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'upsert_score',
-            // Orden por dispositivo: un envío más viejo de este hoyo que llega tarde no pisa a uno más nuevo.
-            seq: nuevaSecuencia(),
-            dispositivo: DISPOSITIVO_GUARDADO,
-            tournament_id: tournament.id,
-            round_id: round.id,
-            hole_number: holeNumber,
-            par,
-            gross_score: gross,
-            net_score: netScore,
-            points,
-            ...fotoStatsDelHoyo(round.id, holeNumber),
-          }),
-        })
-      } catch {
-        // Sin señal `fetch` rechaza: cuenta como guardado fallido. Sin el catch
-        // quedaba "Guardando…" pegado y el hoyo sin marca.
-        res = null
-      }
+      const stats = fotoStatsDelHoyo(round.id, holeNumber)
+      const res = await enviarHoyo({
+        tournament_id: tournament.id,
+        round_id: round.id,
+        hole_number: holeNumber,
+        par,
+        gross_score: gross,
+        net_score: netScore,
+        points,
+        ...stats,
+      })
       setSaving(false)
 
-      if (!res?.ok) {
+      if (!res.ok) {
         marcar('fallo')
         showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber}. Intenta nuevamente.`)
         setErrorHoles((prev) => new Set(prev).add(holeNumber))
         return
       }
       marcar('guardado')
+      if (res.aplicado) confirmarStats(round.id, holeNumber, stats)
       showSuccess('Score guardado', '', { duration: 1500 })
 
       // Refrescar los totales denormalizados de la ficha (no los usa el Resumen).
@@ -357,7 +365,7 @@ export function useScoreEntry({
     },
     [
       tournament, selectedId, players, getActiveRound, holeByNumero, siAllocByHole,
-      courseHoles, courseTees, holeCount, currentScores, fotoStatsDelHoyo,
+      courseHoles, courseTees, holeCount, currentScores, fotoStatsDelHoyo, confirmarStats,
       applyRoundTotals, showError, showSuccess, showWarning,
     ],
   )
@@ -415,29 +423,19 @@ export function useScoreEntry({
     // 1-2s en 3G — pidiendo el segundo tap. `ScoringHeader` lo esconde con
     // `lastAction && !saving` y muestra "Guardando…".
     setSaving(true)
-    let ok = false
-    try {
-      const res = await fetch('/api/game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'upsert_score',
-          // Orden por dispositivo: un envío más viejo de este hoyo que llega tarde no pisa a uno más nuevo.
-          seq: nuevaSecuencia(),
-          dispositivo: DISPOSITIVO_GUARDADO,
-          tournament_id: tournament.id,
-          round_id: roundId,
-          hole_number: holeNumber,
-          par: holeByNumero.get(holeNumber)?.par ?? 4,
-          gross_score: previousScore ?? null,
-        }),
-      })
-      ok = res.ok
-    } catch {
-      // Sin señal `fetch` rechaza: cuenta como "el servidor no deshizo". Sin el
-      // catch, "Guardando…" quedaba pegado y el botón no volvía.
-      ok = false
-    }
+    // Lleva lo tocado del hoyo: con secuencia más nueva que un GIR en vuelo, sin la foto ese GIR se descartaba
+    // en el servidor. Se lee sin tocar nada (el deshacer no fija stats).
+    const stats = leerTocadas(statsTocadasRef.current, roundId, holeNumber)
+    const envio = await enviarHoyo({
+      tournament_id: tournament.id,
+      round_id: roundId,
+      hole_number: holeNumber,
+      par: holeByNumero.get(holeNumber)?.par ?? 4,
+      gross_score: previousScore ?? null,
+      ...stats,
+    })
+    const ok = envio.ok
+    if (envio.aplicado) confirmarStats(roundId, holeNumber, stats)
     setSaving(false)
     if (!ok) {
       // La pantalla NO se toca si el servidor no deshizo. Aplicar el undo
@@ -460,51 +458,48 @@ export function useScoreEntry({
     } catch (e) {
       void captureError(e, { context: 'scoring.useScoreEntry.undoTotals', meta: { roundId } })
     }
-  }, [lastAction, tournament, saving, holeByNumero, applyRoundTotals, showSuccess, showWarning])
+  }, [lastAction, tournament, saving, holeByNumero, applyRoundTotals, showSuccess, showWarning, confirmarStats])
 
   /** Persiste una stat opcional del hoyo (putts / fairway / GIR) contra la ronda
    *  ACTIVA — antes las stats escribían siempre contra `rounds[0]`, así que en
-   *  multi-ronda los putts de la R2 caían en la ronda 1. */
+   *  multi-ronda los putts de la R2 caían en la ronda 1. Devuelve si quedó guardada: la tabla reintenta los
+   *  putts que fallaron aunque el valor no cambie. */
   const saveHoleStat = useCallback(
-    async (holeNumber: number, patch: HoleStatPatch) => {
-      if (!tournament || !selectedId) return
+    async (holeNumber: number, patch: HoleStatPatch): Promise<boolean> => {
+      if (!tournament || !selectedId) return false
       const gross = currentScores[holeNumber]
-      if (gross == null) return
+      if (gross == null) return false
       const player = players.find((p) => p.id === selectedId)
       const round = getActiveRound(player)
-      if (!round) return
+      if (!round) return false
       const avisoKey = `${selectedId}:${round.id}:${holeNumber}`
       // Igual que el deshacer: manda sólo el gross, el servidor deriva el neto,
       // y si eso falla la stat se pierde. Antes se perdía sin decir nada.
-      const res = await fetch('/api/game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'upsert_score',
-          // Orden por dispositivo: un envío más viejo de este hoyo que llega tarde no pisa a uno más nuevo.
-          seq: nuevaSecuencia(),
-          dispositivo: DISPOSITIVO_GUARDADO,
-          tournament_id: tournament.id,
-          round_id: round.id,
-          hole_number: holeNumber,
-          par: holeByNumero.get(holeNumber)?.par ?? 4,
-          gross_score: gross,
-          ...fotoStatsDelHoyo(round.id, holeNumber, patch),
-        }),
+      const stats = fotoStatsDelHoyo(round.id, holeNumber, patch)
+      const res = await enviarHoyo({
+        tournament_id: tournament.id,
+        round_id: round.id,
+        hole_number: holeNumber,
+        par: holeByNumero.get(holeNumber)?.par ?? 4,
+        gross_score: gross,
+        ...stats,
       })
       if (!res.ok) {
         // Un solo aviso por hoyo, no uno por stat: putts, fairway y GIR son
         // tres taps sobre el MISMO hoyo, y con la red caída eso son tres
         // toasts de 5s apilados sobre el del score — tapando la pantalla justo
         // cuando el organizador tiene menos tiempo para leerlos.
-        if (statWarnedHolesRef.current.has(avisoKey)) return
-        statWarnedHolesRef.current.add(avisoKey)
-        showWarning('No se guardó', `Las estadísticas del hoyo ${holeNumber} no quedaron registradas. Reintenta.`)
-        return
+        if (!statWarnedHolesRef.current.has(avisoKey)) {
+          statWarnedHolesRef.current.add(avisoKey)
+          showWarning('No se guardó', `Las estadísticas del hoyo ${holeNumber} no quedaron registradas. Reintenta.`)
+        }
+        return false
       }
       statWarnedHolesRef.current.delete(avisoKey)
+      if (res.aplicado) confirmarStats(round.id, holeNumber, stats)
+      return true
     },
-    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning, fotoStatsDelHoyo],
+    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning, fotoStatsDelHoyo, confirmarStats],
   )
 
   const finalizeRound = useCallback(async () => {
@@ -552,6 +547,8 @@ export function useScoreEntry({
     selectedRound,
     selectPlayer,
     clearSelection,
+    cargaTarjeta,
+    reintentarCarga,
     currentScores,
     errorHoles,
     saving,

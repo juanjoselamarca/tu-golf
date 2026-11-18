@@ -52,7 +52,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   const {
     selectedPlayer, selectedRound, holes, currentScores, errorHoles, saving,
     allFilled, parJugado, grossTotal, outGross, inGross, netTotal,
-    stablefordPtsAt, saveScore, finalizeRound, selectedId,
+    stablefordPtsAt, saveScore, finalizeRound, selectedId, cargaTarjeta, reintentarCarga,
   } = entry
 
   if (!selectedPlayer) return null
@@ -60,7 +60,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   const roundClosed = isClosedRoundStatus(selectedRound?.status)
   // Sin tarjeta en la ronda en juego no hay dónde guardar: la grilla no se edita y el aviso ofrece crearla.
   const sinTarjeta = !selectedRound
-  const soloLectura = torneoSoloLectura || sinTarjeta
+  // Hasta que la tarjeta carga no se sabe qué golpes tiene la base: anotar encima y deshacer borraba un golpe real.
+  const soloLectura = torneoSoloLectura || sinTarjeta || cargaTarjeta !== 'lista'
   // Quien no juega esta ronda (WD/DQ/pendiente, o no jugó una ronda pasada) no tiene tarjeta por llenar: sin grilla.
   // Con el torneo cerrado o publicado no se crea tarjeta: el aprobado sin ella "no jugó la ronda N" (antes
   // quedaba una grilla vacía sin explicación, Fable #829).
@@ -114,6 +115,25 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         />
       )}
 
+      {!sinTarjeta && cargaTarjeta === 'cargando' && (
+        <div role="status" style={{ padding: '12px 20px 0', color: 'var(--text-2)', fontSize: '13px' }}>
+          Cargando la tarjeta…
+        </div>
+      )}
+      {!sinTarjeta && cargaTarjeta === 'error' && (
+        <div role="alert" style={{ margin: '16px 20px 0', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--surface-border)', background: 'var(--surface-soft)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text)', flex: '1 1 200px' }}>
+            No pudimos cargar la tarjeta. Para no pisar los golpes guardados, se anota cuando cargue.
+          </div>
+          <button
+            type="button"
+            onClick={reintentarCarga}
+            style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', minHeight: '44px' }}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       {!sinGrilla && (<>
       {/* Grilla de scores — scroll horizontal en mobile 390px para mantener
            touch targets >= 44px (dedo con guante en cancha). */}
