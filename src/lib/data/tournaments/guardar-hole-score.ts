@@ -6,12 +6,16 @@
 // dispositivo y hoyo que el que ya aplicó (migración 20261121100000). Residual
 // de #754: el jugador anota 5, corrige a 4, y el POST del 5 llega después.
 //
-// Sin orden (cliente viejo en caché) o sin la función (el código llega a prod
-// antes de que se apruebe la migración) se hace el upsert de siempre: el golpe
-// se guarda igual, sólo que sin orden. Nunca se pierde un guardado por esto.
+// Sin orden (cliente viejo en caché), sin la función (el código llega a prod
+// antes de que se apruebe la migración) o con la migración a medias (falta la
+// tabla de marcas o el permiso sobre ella) se hace el upsert de siempre: el
+// golpe se guarda igual, sólo que sin orden. Nunca se pierde un guardado por
+// esto. Un error transitorio (timeout 57014, red) NO cae al upsert sin orden:
+// se responde 500 y el scorer reintenta con la misma secuencia.
 
 import type { SupabaseClient, PostgrestError } from '@supabase/supabase-js'
 import { isUuid } from '@/lib/uuid'
+import { captureError } from '@/lib/error-tracking'
 
 export interface OrdenGuardado {
   seq: number
@@ -38,6 +42,15 @@ function faltaLaFuncion(error: PostgrestError): boolean {
 }
 
 /**
+ * La función existe pero la base no está como la deja la migración: falta la
+ * tabla de marcas (42P01) o service_role no tiene permiso sobre ella (42501).
+ * Es un estado roto, no transitorio: se guarda sin orden y se reporta.
+ */
+function migracionIncompleta(error: PostgrestError): boolean {
+  return error.code === '42P01' || error.code === '42501'
+}
+
+/**
  * Upsert de la fila por (round_id, hole_number). `fila` sólo trae las columnas
  * a escribir: una ausente queda como estaba (lo mismo en los dos caminos).
  */
@@ -56,7 +69,15 @@ export async function guardarHoleScore(
       const r = data as { aplicado?: boolean; id?: string | null } | null
       return { ok: true, id: r?.id ?? null, aplicado: r?.aplicado !== false }
     }
-    if (!faltaLaFuncion(error)) return { ok: false, error }
+    if (migracionIncompleta(error)) {
+      void captureError(new Error(`guardar_hole_score: ${error.code} ${error.message}`), {
+        context: 'scoring.guardar_hole_score',
+        level: 'error',
+        meta: { code: error.code, round_id: fila.round_id, hole_number: fila.hole_number },
+      })
+    } else if (!faltaLaFuncion(error)) {
+      return { ok: false, error }
+    }
   }
 
   const { data, error } = await svc

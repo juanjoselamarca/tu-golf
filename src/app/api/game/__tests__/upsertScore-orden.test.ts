@@ -117,6 +117,21 @@ describe('upsertScore · orden de los guardados de un hoyo', () => {
     expect(llamadas.upsert).toHaveLength(1)
   })
 
+  // Revisión Fable v1: migración a medias (falta la tabla de marcas o el GRANT a service_role). Estado roto, no
+  // transitorio: se guarda sin orden y se reporta, en vez de un 500 en cada golpe con secuencia.
+  it.each([
+    ['42P01', 'relation "public.hole_scores_orden" does not exist'],
+    ['42501', 'permission denied for table hole_scores_orden'],
+  ])('%s (migración incompleta): cae al upsert y se reporta', async (code, message) => {
+    const { svc, estado, llamadas } = base({ errorRpc: { code, message } })
+    const res = await upsertScore(svc, USER, golpe(5, 1))
+    expect(res.status).toBe(200)
+    expect(estado.gross).toBe(5)
+    expect(llamadas.upsert).toHaveLength(1)
+    expect(captureError).toHaveBeenCalledTimes(1)
+    expect(captureError.mock.calls[0][1]).toMatchObject({ context: 'scoring.guardar_hole_score', meta: { code } })
+  })
+
   it('otro error de la función NO cae al upsert sin orden: 500 y se reporta', async () => {
     const { svc, llamadas } = base({ errorRpc: { code: '57014', message: 'canceling statement due to statement timeout' } })
     const res = await upsertScore(svc, USER, golpe(5, 1))

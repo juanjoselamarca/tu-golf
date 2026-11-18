@@ -27,8 +27,12 @@
 -- está (igual que el upsert de PostgREST, que sólo pone en el DO UPDATE SET las columnas del payload): así un fallo de
 -- la derivación del neto no borra el neto bueno guardado. Sin p_seq o p_dispositivo no hay orden (clientes viejos).
 --
--- Despliegue: el código nuevo cae al upsert de antes si la función no existe (PGRST202 / 42883), así que el orden de
--- aplicación es indiferente. Rollback: rollback/20261121_orden_guardados_hole_scores_rollback.sql.
+-- Despliegue: el código nuevo cae al upsert de antes si la función no existe (PGRST202 / 42883) o si falta la tabla o
+-- el permiso (42P01 / 42501, reportado), así que el orden de aplicación es indiferente.
+--
+-- Crecimiento: una fila por (tarjeta, hoyo, carga de la página que anotó ese hoyo): del orden de las filas de
+-- hole_scores, con CASCADE al borrar la ronda. No se borra al cerrar la tarjeta: una tarjeta reabierta necesita la
+-- marca, y el volumen no lo justifica (mismo criterio que ronda_libre_scores_orden). Rollback: rollback/20261121_orden_guardados_hole_scores_rollback.sql.
 
 CREATE TABLE IF NOT EXISTS public.hole_scores_orden (
   round_id uuid NOT NULL REFERENCES public.rounds(id) ON DELETE CASCADE,
@@ -41,6 +45,9 @@ CREATE TABLE IF NOT EXISTS public.hole_scores_orden (
 -- Sólo la escribe guardar_hole_score (service_role desde /api/game). Nadie la lee desde el cliente.
 ALTER TABLE public.hole_scores_orden ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.hole_scores_orden FROM PUBLIC, anon, authenticated;
+-- Explícito: la función es SECURITY INVOKER y corre como service_role. Hoy lo cubren los default privileges de
+-- public, pero sin este GRANT una base que difiera respondería 42501 a cada golpe con secuencia.
+GRANT SELECT, INSERT, UPDATE ON TABLE public.hole_scores_orden TO service_role;
 
 CREATE OR REPLACE FUNCTION public.guardar_hole_score(p_fila jsonb, p_seq bigint DEFAULT NULL, p_dispositivo uuid DEFAULT NULL)
  RETURNS jsonb
