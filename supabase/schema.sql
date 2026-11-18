@@ -1211,7 +1211,7 @@ BEGIN
   RETURN QUERY SELECT v_timed_out, v_deleted;
 END;
 $function$;
-CREATE OR REPLACE FUNCTION public.colocar_inscrito_en_grupo(p_tournament_id uuid, p_player_id uuid, p_grupo_destino uuid, p_esperado jsonb, p_fila jsonb, p_equipos jsonb, p_formato_tarjetas jsonb, p_politica jsonb, p_borrar_inscrito boolean)
+CREATE OR REPLACE FUNCTION public.colocar_inscrito_en_grupo(p_tournament_id uuid, p_player_id uuid, p_grupo_destino uuid, p_esperado jsonb, p_fila jsonb, p_equipos jsonb, p_politica jsonb, p_borrar_inscrito boolean)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -1228,7 +1228,9 @@ DECLARE
   v_jpm         integer;
   v_formato     text;
   v_equipos     jsonb := COALESCE(p_equipos, '[]'::jsonb);
-  v_formatos    jsonb := COALESCE(p_formato_tarjetas, '{}'::jsonb);
+  v_card        uuid;
+  v_fmt         text;
+  v_total_rondas integer;
   -- Estado bajo lock.
   v_tstatus     text;
   v_max_players integer;
@@ -1299,12 +1301,12 @@ BEGIN
   ELSIF jsonb_typeof(p_politica->'jugadores_por_equipo') <> 'null' THEN
     RAISE EXCEPTION 'colocar_inscrito_en_grupo: jugadores_por_equipo fuera de un formato por equipos';
   END IF;
-  IF v_formato = '' OR v_jpm < 1 OR (v_equipo AND (v_min < 1 OR v_max < v_min))
+  IF COALESCE(v_formato, '') = '' OR v_jpm IS NULL OR v_jpm < 1 OR (v_equipo AND (v_min < 1 OR v_max < v_min))
      OR (v_compartida AND NOT v_equipo) OR (v_match AND v_equipo) OR (v_pie_ret AND NOT v_compartida) THEN
     RAISE EXCEPTION 'colocar_inscrito_en_grupo: p_politica incoherente';
   END IF;
-  IF jsonb_typeof(v_equipos) <> 'array' OR jsonb_typeof(v_formatos) <> 'object' THEN
-    RAISE EXCEPTION 'colocar_inscrito_en_grupo: p_equipos debe ser array y p_formato_tarjetas objeto';
+  IF jsonb_typeof(v_equipos) <> 'array' THEN
+    RAISE EXCEPTION 'colocar_inscrito_en_grupo: p_equipos debe ser array';
   END IF;
   IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_equipos) e
               WHERE jsonb_typeof(e) <> 'object' OR NOT (e ? 'group_id') OR NOT (e ? 'handicap_equipo')
@@ -1315,9 +1317,6 @@ BEGIN
      OR (SELECT count(*) FROM jsonb_array_elements(v_equipos))
         <> (SELECT count(DISTINCT e->>'group_id') FROM jsonb_array_elements(v_equipos) e) THEN
     RAISE EXCEPTION 'colocar_inscrito_en_grupo: p_equipos mal formado o con grupos repetidos';
-  END IF;
-  IF EXISTS (SELECT 1 FROM jsonb_each(v_formatos) f WHERE jsonb_typeof(f.value) <> 'string') THEN
-    RAISE EXCEPTION 'colocar_inscrito_en_grupo: p_formato_tarjetas mal formado';
   END IF;
   IF p_fila IS NOT NULL AND (
        jsonb_typeof(p_fila) <> 'object'
@@ -1330,7 +1329,8 @@ BEGIN
   IF jsonb_typeof(p_esperado) IS DISTINCT FROM 'object'
      OR jsonb_typeof(p_esperado->'inscrito') IS DISTINCT FROM 'object'
      OR NOT (p_esperado->'inscrito' ? 'status') OR NOT (p_esperado->'inscrito' ? 'handicap')
-     OR NOT (p_esperado->'inscrito' ? 'grupo')
+     OR NOT (p_esperado->'inscrito' ? 'grupo') OR NOT (p_esperado->'inscrito' ? 'tee_id')
+     OR NOT (p_esperado->'inscrito' ? 'genero') OR NOT (p_esperado->'inscrito' ? 'category_id')
      OR jsonb_typeof(p_esperado->'grupos') IS DISTINCT FROM 'array'
      OR EXISTS (SELECT 1 FROM jsonb_array_elements(p_esperado->'grupos') g
                  WHERE jsonb_typeof(g) <> 'object' OR jsonb_typeof(g->'group_id') IS DISTINCT FROM 'string'
@@ -1338,13 +1338,14 @@ BEGIN
                     OR jsonb_typeof(g->'jugadores') IS DISTINCT FROM 'array'
                     OR EXISTS (SELECT 1 FROM jsonb_array_elements(g->'jugadores') j
                                 WHERE jsonb_typeof(j) <> 'object' OR NOT (j ? 'player_id') OR NOT (j ? 'status')
-                                   OR NOT (j ? 'handicap'))) THEN
+                                   OR NOT (j ? 'handicap') OR NOT (j ? 'tee_id') OR NOT (j ? 'genero')
+                                   OR NOT (j ? 'category_id'))) THEN
     RAISE EXCEPTION 'colocar_inscrito_en_grupo: p_esperado mal formado';
   END IF;
 
   -- ── Locks 1-2: torneo ─────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_advisory_xact_lock(hashtextextended('grupos:' || p_tournament_id::text, 0));
-  SELECT t.status, t.max_players INTO v_tstatus, v_max_players
+  SELECT t.status, t.max_players, COALESCE(t.total_rounds, 1) INTO v_tstatus, v_max_players, v_total_rondas
     FROM public.tournaments t WHERE t.id = p_tournament_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'colocar_inscrito_en_grupo: el torneo % no existe', p_tournament_id;
@@ -1352,9 +1353,16 @@ BEGIN
   IF v_tstatus IS DISTINCT FROM 'in_progress' THEN
     RETURN jsonb_build_object('ok', false, 'motivo', 'torneo-no-en-juego', 'ofrece_retirar', false);
   END IF;
+  -- Varias rondas: cada ronda tiene sus tarjetas y el plan (#814) cubre solo torneos de una ronda.
+  IF v_total_rondas > 1 THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'torneo-varias-rondas', 'ofrece_retirar', false);
+  END IF;
 
-  -- Grupo de origen y tarjetas (los escritores de tournament_group_players fuera de esta RPC son el inicio, el
-  -- cancelar y /api/admin: los tres cambian o esperan el lock del torneo).
+  -- Grupo de origen y tarjetas. Otros escritores de tournament_group_players: el inicio (startTournament enlaza
+  -- con el torneo todavía open y lo pone in_progress al final, con un UPDATE que espera este lock), cancelar (solo
+  -- draft/open, lo valida la ruta; no cambia el estado antes de borrar, pero nunca corre con el torneo in_progress)
+  -- y la gestión de grupos del cliente (authenticated: los triggers grupos_fijos_* la cortan en juego). Ninguno
+  -- escribe con el torneo in_progress, que esta RPC exige bajo FOR UPDATE.
   IF (SELECT count(*) FROM public.tournament_group_players gp WHERE gp.player_id = p_player_id) > 1 THEN
     RAISE EXCEPTION 'colocar_inscrito_en_grupo: el inscrito está en más de un grupo';
   END IF;
@@ -1377,22 +1385,25 @@ BEGIN
   v_cards := ARRAY(SELECT x FROM unnest(ARRAY[v_o_card, v_d_card]) x WHERE x IS NOT NULL);
 
   -- ── Lock 3: tarjetas en curso ─────────────────────────────────────────────────────────────────────────────
-  PERFORM 1 FROM public.rondas_libres rl WHERE rl.id = ANY (v_cards) ORDER BY rl.id FOR SHARE;
+  PERFORM 1 FROM public.rondas_libres rl WHERE rl.id = ANY (v_cards) ORDER BY rl.id FOR NO KEY UPDATE;
   IF EXISTS (SELECT 1 FROM public.rondas_libres rl WHERE rl.id = ANY (v_cards) AND rl.estado IS DISTINCT FROM 'en_curso') THEN
     RETURN jsonb_build_object('ok', false, 'motivo', 'tarjeta-cerrada', 'ofrece_retirar', false);
   END IF;
   -- La política tiene que ser la del torneo que armó estas tarjetas (`formatoDeLaTarjetaDelGrupo`).
   IF EXISTS (SELECT 1 FROM public.rondas_libres rl WHERE rl.id = ANY (v_cards)
-              AND rl.formato_juego <> v_formato AND NOT (v_match AND rl.formato_juego = 'stroke_play')) THEN
+              AND rl.formato_juego IS DISTINCT FROM v_formato AND NOT (v_match AND rl.formato_juego = 'stroke_play')) THEN
     RAISE EXCEPTION 'colocar_inscrito_en_grupo: p_politica no es la del formato de las tarjetas';
   END IF;
   -- Timba y match_pairings: sus filas guardan la ronda; mover o borrar las dejaría apuntando mal. Falla cerrado.
+  -- Timba: motivo (el organizador ve por qué). match_pairings: los torneos no los crean, así que es una corrupción.
   IF EXISTS (SELECT 1 FROM public.rondas_libres rl WHERE rl.id = ANY (v_cards) AND rl.reglas_juego IS NOT NULL)
      OR EXISTS (SELECT 1 FROM public.ronda_libre_puntitos x WHERE x.ronda_id = ANY (v_cards))
      OR EXISTS (SELECT 1 FROM public.ronda_libre_retiros x WHERE x.ronda_id = ANY (v_cards))
-     OR EXISTS (SELECT 1 FROM public.ronda_libre_juego_orden x WHERE x.ronda_id = ANY (v_cards))
-     OR EXISTS (SELECT 1 FROM public.match_pairings x WHERE x.ronda_id = ANY (v_cards)) THEN
-    RAISE EXCEPTION 'colocar_inscrito_en_grupo: la tarjeta tiene timba o match_pairings';
+     OR EXISTS (SELECT 1 FROM public.ronda_libre_juego_orden x WHERE x.ronda_id = ANY (v_cards)) THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'tarjeta-con-timba', 'ofrece_retirar', false);
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.match_pairings x WHERE x.ronda_id = ANY (v_cards)) THEN
+    RAISE EXCEPTION 'colocar_inscrito_en_grupo: la tarjeta tiene match_pairings';
   END IF;
 
   -- ── Lock 4: players ───────────────────────────────────────────────────────────────────────────────────────
@@ -1418,8 +1429,14 @@ BEGIN
   -- ── Control optimista ─────────────────────────────────────────────────────────────────────────────────────
   IF (p_esperado->'inscrito'->>'status') IS DISTINCT FROM v_status
      OR (p_esperado->'inscrito'->>'grupo')::uuid IS DISTINCT FROM v_origen
-     OR (p_esperado->'inscrito'->'handicap') IS DISTINCT FROM
-        (SELECT COALESCE(to_jsonb(p.handicap_at_registration), 'null'::jsonb) FROM public.players p WHERE p.id = p_player_id)
+     OR jsonb_build_object('handicap', p_esperado->'inscrito'->'handicap', 'tee_id', p_esperado->'inscrito'->'tee_id',
+                           'genero', p_esperado->'inscrito'->'genero', 'category_id', p_esperado->'inscrito'->'category_id')
+        IS DISTINCT FROM
+        (SELECT jsonb_build_object('handicap', COALESCE(to_jsonb(p.handicap_at_registration), 'null'::jsonb),
+                                   'tee_id', COALESCE(to_jsonb(p.tee_id), 'null'::jsonb),
+                                   'genero', COALESCE(to_jsonb(p.genero), 'null'::jsonb),
+                                   'category_id', COALESCE(to_jsonb(p.category_id), 'null'::jsonb))
+           FROM public.players p WHERE p.id = p_player_id)
      OR jsonb_array_length(p_esperado->'grupos') <> cardinality(v_grupos)
      OR EXISTS (
           SELECT 1 FROM unnest(v_grupos) gid
@@ -1427,11 +1444,15 @@ BEGIN
              SELECT 1 FROM jsonb_array_elements(p_esperado->'grupos') eg
               WHERE (eg->>'group_id')::uuid = gid
                 AND (eg->>'ronda_libre_id')::uuid IS NOT DISTINCT FROM (SELECT g.ronda_libre_id FROM public.tournament_groups g WHERE g.id = gid)
-                AND COALESCE((SELECT jsonb_agg(jsonb_build_object('player_id', (j->>'player_id')::uuid, 'status', j->'status', 'handicap', j->'handicap')
+                AND COALESCE((SELECT jsonb_agg(jsonb_build_object('player_id', (j->>'player_id')::uuid, 'status', j->'status', 'handicap', j->'handicap',
+                                                                  'tee_id', j->'tee_id', 'genero', j->'genero', 'category_id', j->'category_id')
                                                ORDER BY (j->>'player_id')::uuid)
                                 FROM jsonb_array_elements(eg->'jugadores') j), '[]'::jsonb)
                     = COALESCE((SELECT jsonb_agg(jsonb_build_object('player_id', p.id, 'status', to_jsonb(p.status),
-                                                                    'handicap', COALESCE(to_jsonb(p.handicap_at_registration), 'null'::jsonb))
+                                                                    'handicap', COALESCE(to_jsonb(p.handicap_at_registration), 'null'::jsonb),
+                                                                    'tee_id', COALESCE(to_jsonb(p.tee_id), 'null'::jsonb),
+                                                                    'genero', COALESCE(to_jsonb(p.genero), 'null'::jsonb),
+                                                                    'category_id', COALESCE(to_jsonb(p.category_id), 'null'::jsonb))
                                                  ORDER BY p.id)
                                   FROM public.tournament_group_players gp JOIN public.players p ON p.id = gp.player_id
                                  WHERE gp.group_id = gid), '[]'::jsonb))) THEN
@@ -1629,6 +1650,11 @@ BEGIN
         FROM public.tournament_group_players gp JOIN public.players p ON p.id = gp.player_id
        WHERE gp.group_id = p_grupo_destino AND p.status = ANY (c_fuera);
       v_retirados := cardinality(v_ret_gp);
+      -- Sin golpes en el equipo, ninguna fila WD/DQ puede tener anotaciones; si las tiene, algo no calza: aborta.
+      IF EXISTS (SELECT 1 FROM public.ronda_libre_jugadores j
+                  WHERE j.id = ANY (v_ret_jr) AND public.tarjeta_tiene_anotaciones(j.scores)) THEN
+        RAISE EXCEPTION 'colocar_inscrito_en_grupo: D13 iba a borrar una fila WD/DQ con anotaciones';
+      END IF;
       IF v_retirados > 0 THEN
         DELETE FROM public.tournament_group_players gp WHERE gp.id = ANY (v_ret_gp);
         GET DIAGNOSTICS v_n = ROW_COUNT;
@@ -1741,17 +1767,26 @@ BEGIN
     RAISE EXCEPTION 'colocar_inscrito_en_grupo: p_equipos fuera de un formato por equipos';
   END IF;
 
-  -- Formato de las tarjetas (match play: un par anota match, otro tamaño stroke play). Solo sin anotaciones.
-  FOR v_k IN SELECT k FROM jsonb_object_keys(v_formatos) k LOOP
-    IF NOT (v_k::uuid = ANY (v_cards)) THEN
-      RAISE EXCEPTION 'colocar_inscrito_en_grupo: p_formato_tarjetas trae una tarjeta no tocada';
-    END IF;
-    IF EXISTS (SELECT 1 FROM public.ronda_libre_jugadores j WHERE j.ronda_id = v_k::uuid AND public.tarjeta_tiene_anotaciones(j.scores))
-       OR EXISTS (SELECT 1 FROM public.ronda_equipos re WHERE re.ronda_id = v_k::uuid AND public.tarjeta_tiene_anotaciones(re.scores)) THEN
-      RAISE EXCEPTION 'colocar_inscrito_en_grupo: no se cambia el formato de una tarjeta con anotaciones';
-    END IF;
-    UPDATE public.rondas_libres rl SET formato_juego = v_formatos->>v_k WHERE rl.id = v_k::uuid;
-  END LOOP;
+  -- Formato de las tarjetas (match play: un par anota match, otro tamaño stroke play; espejo de
+  -- `formatoDeLaTarjetaDelGrupo`). Lo decide la RPC con el conteo final de filas. Una tarjeta sin filas queda como
+  -- está (nadie anota; al llegar alguien se recalcula). Una con anotaciones nunca cambia (D6/D8 lo impiden antes).
+  IF v_match THEN
+    FOREACH v_card IN ARRAY v_cards LOOP
+      SELECT count(*) INTO v_n FROM public.ronda_libre_jugadores j WHERE j.ronda_id = v_card;
+      CONTINUE WHEN v_n = 0;
+      v_fmt := CASE WHEN v_n = v_jpm THEN v_formato ELSE 'stroke_play' END;
+      IF (SELECT rl.formato_juego FROM public.rondas_libres rl WHERE rl.id = v_card) IS DISTINCT FROM v_fmt THEN
+        IF EXISTS (SELECT 1 FROM public.ronda_libre_jugadores j WHERE j.ronda_id = v_card AND public.tarjeta_tiene_anotaciones(j.scores)) THEN
+          RAISE EXCEPTION 'colocar_inscrito_en_grupo: no se cambia el formato de una tarjeta con anotaciones';
+        END IF;
+        UPDATE public.rondas_libres rl SET formato_juego = v_fmt WHERE rl.id = v_card;
+        GET DIAGNOSTICS v_n = ROW_COUNT;
+        IF v_n <> 1 THEN
+          RAISE EXCEPTION 'colocar_inscrito_en_grupo: no se pudo fijar el formato de la tarjeta %', v_card;
+        END IF;
+      END IF;
+    END LOOP;
+  END IF;
 
   -- ── Invariantes de cada grupo tocado (aborta si alguna falla) ─────────────────────────────────────────────
   -- integrantes >= miembros; cada aprobado del grupo enlazado a una fila de SU tarjeta; ninguna fila suelta.
@@ -1793,6 +1828,16 @@ BEGIN
   IF v_match AND v_d_card IS NOT NULL
      AND (SELECT count(*) FROM public.ronda_libre_jugadores j WHERE j.ronda_id = v_d_card) > v_jpm THEN
     RAISE EXCEPTION 'colocar_inscrito_en_grupo: un grupo de match play quedó con más de % jugadores', v_jpm;
+  END IF;
+  -- Cada tarjeta tocada con filas anota en el formato que le toca: el del torneo, o stroke play si es match play y
+  -- no es un par.
+  IF EXISTS (SELECT 1 FROM public.rondas_libres rl
+              WHERE rl.id = ANY (v_cards)
+                AND EXISTS (SELECT 1 FROM public.ronda_libre_jugadores j WHERE j.ronda_id = rl.id)
+                AND rl.formato_juego IS DISTINCT FROM
+                    CASE WHEN v_match AND (SELECT count(*) FROM public.ronda_libre_jugadores j WHERE j.ronda_id = rl.id) <> v_jpm
+                         THEN 'stroke_play' ELSE v_formato END) THEN
+    RAISE EXCEPTION 'colocar_inscrito_en_grupo: una tarjeta tocada quedó con un formato que no es el suyo';
   END IF;
 
   RETURN jsonb_build_object('ok', true, 'operacion', v_op, 'jugador_ronda_id', CASE WHEN v_op = 'borrar' THEN NULL ELSE v_jrid END,
@@ -4105,7 +4150,7 @@ revoke all on function public.asegurar_tarjeta_vigente(uuid,uuid) from public, a
 revoke all on function public.backfill_handicap_de_inscripcion() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.calcular_indice_golfers(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.cleanup_old_e2e_runs() from public, anon, authenticated, service_role, postgres;
-revoke all on function public.colocar_inscrito_en_grupo(uuid,uuid,uuid,jsonb,jsonb,jsonb,jsonb,jsonb,boolean) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.colocar_inscrito_en_grupo(uuid,uuid,uuid,jsonb,jsonb,jsonb,jsonb,boolean) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.course_name_canonical_ordered(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.course_name_canonical(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.course_name_tokens(text) from public, anon, authenticated, service_role, postgres;
@@ -4419,8 +4464,8 @@ grant EXECUTE on function public.calcular_indice_golfers(uuid) to postgres;
 grant EXECUTE on function public.calcular_indice_golfers(uuid) to service_role;
 grant EXECUTE on function public.cleanup_old_e2e_runs() to postgres;
 grant EXECUTE on function public.cleanup_old_e2e_runs() to service_role;
-grant EXECUTE on function public.colocar_inscrito_en_grupo(uuid,uuid,uuid,jsonb,jsonb,jsonb,jsonb,jsonb,boolean) to postgres;
-grant EXECUTE on function public.colocar_inscrito_en_grupo(uuid,uuid,uuid,jsonb,jsonb,jsonb,jsonb,jsonb,boolean) to service_role;
+grant EXECUTE on function public.colocar_inscrito_en_grupo(uuid,uuid,uuid,jsonb,jsonb,jsonb,jsonb,boolean) to postgres;
+grant EXECUTE on function public.colocar_inscrito_en_grupo(uuid,uuid,uuid,jsonb,jsonb,jsonb,jsonb,boolean) to service_role;
 grant EXECUTE on function public.course_name_canonical_ordered(text) to anon;
 grant EXECUTE on function public.course_name_canonical_ordered(text) to authenticated;
 grant EXECUTE on function public.course_name_canonical_ordered(text) to postgres;
