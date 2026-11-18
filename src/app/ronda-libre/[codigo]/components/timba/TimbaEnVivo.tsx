@@ -133,7 +133,7 @@ export function TimbaEnVivo(props: {
         {pestana === 'juego' ? (
           <PanelDelJuego
             juego={juego} nombres={nombres} hoyoActual={null} onReintentar={onReintentar}
-            encabezadoFijoEn={`${ALTO_NAVBAR_PX}px`}
+            encabezadoFijoEn={`${ALTO_NAVBAR_PX}px`} hoyoAHoyoAbierto={resultado != null}
           />
         ) : (
           <TarjetaDeGolpes jugadores={jugadoresEnOrden} hoyos={hoyos} />

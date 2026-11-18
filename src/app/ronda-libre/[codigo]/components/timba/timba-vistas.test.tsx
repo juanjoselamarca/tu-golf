@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
-import type { TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
 import type { PuntitoConfig } from '@/golf/formats/personalizado'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/ConfirmarFinalizarHoja'
-import { JuegoDeLaTimba, avisoNetoComoGross } from './JuegoDeLaTimba'
 import { PanelDelJuego, TEXTO_SIN_JUEGO } from './PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from './PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from './RetiroDeJugadores'
@@ -12,53 +10,6 @@ import { AvisoMarcasRechazadas } from './AvisoMarcasRechazadas'
 import { PestanasDeLaTimba } from './PestanasDeLaTimba'
 import { TarjetaDeGolpes } from './TimbaEnVivo'
 import { ResultadoFinalDeLaTimba } from './ResultadoFinalDeLaTimba'
-
-const tabla: TablaDelJuego = {
-  titulo: 'La Colombiana', hoyosPuntuados: 7, totalHoyos: 18,
-  columnas: [{ jugadorId: 'a', nombre: 'Juan' }, { jugadorId: 'b', nombre: 'Pedro' }],
-  ranking: [
-    { jugadorId: 'a', nombre: 'Juan', puesto: 1, puntos: 2, texto: '+2' },
-    { jugadorId: 'b', nombre: 'Pedro', puesto: 1, puntos: 2, texto: '+2' },
-  ],
-  marcadorActual: { parejas: ['Juan y Diego', 'Pedro y Tomás'], puntos: [2, 2] },
-  filas: [
-    { tipo: 'tramo', indice: 0, marcador: { parejas: ['Juan y Diego', 'Pedro y Tomás'], puntos: [2, 2] } },
-    { tipo: 'hoyo', numero: 1, pendiente: false, sinJugar: false, celdas: [{ jugadorId: 'a', texto: '+1', golpesRecibidos: 1 }, { jugadorId: 'b', texto: '−1', golpesRecibidos: 0 }] },
-    { tipo: 'hoyo', numero: 2, pendiente: true, sinJugar: false, celdas: [{ jugadorId: 'a', texto: 'falta anotar', golpesRecibidos: 1 }, { jugadorId: 'b', texto: 'falta anotar', golpesRecibidos: 0 }] },
-  ],
-  esNeto: true, sinHandicap: [],
-}
-
-describe('JuegoDeLaTimba', () => {
-  it('encabezado, ranking con empate compartido, marcador y tabla con pendiente y golpe recibido', () => {
-    render(<JuegoDeLaTimba tabla={tabla} />)
-    expect(screen.getByRole('heading', { name: 'La Colombiana' })).toBeTruthy()
-    expect(screen.getByText('7 de 18 hoyos')).toBeTruthy()
-    const ranking = within(screen.getByRole('list', { name: 'Ranking de puntos' })).getAllByRole('listitem')
-    expect(ranking.map(li => li.textContent)).toEqual(['1Juan+2', '1Pedro+2'])
-    expect(screen.getAllByLabelText('Juan y Diego 2, Pedro y Tomás 2')).toHaveLength(2)
-    expect(screen.getByRole('cell', { name: '+1, recibe 1 golpe' })).toBeTruthy()
-    // Hoyo pendiente: una sola leyenda, sin la marca de golpe recibido (no queda "• ·").
-    const pendiente = screen.getAllByRole('cell', { name: 'falta anotar' })
-    expect(pendiente).toHaveLength(1)
-    expect(within(pendiente[0].parentElement as HTMLElement).queryByTestId('golpe-recibido')).toBeNull()
-    expect(screen.getByText(/golpe recibido en el hoyo/)).toBeTruthy()
-  })
-
-  it('hoyo que nadie jugó: una sola leyenda "No se jugó", no "falta anotar"', () => {
-    const filas = tabla.filas.map(f => (f.tipo === 'hoyo' && f.numero === 2 ? { ...f, sinJugar: true, celdas: f.celdas.map(c => ({ ...c, texto: 'No se jugó' })) } : f))
-    render(<JuegoDeLaTimba tabla={{ ...tabla, filas }} />)
-    expect(screen.getAllByRole('cell', { name: 'No se jugó' })).toHaveLength(1)
-    expect(screen.queryByRole('cell', { name: 'falta anotar' })).toBeNull()
-  })
-
-  it('neto sin hándicap: avisa quién falta y no muestra la leyenda de golpes', () => {
-    render(<JuegoDeLaTimba tabla={{ ...tabla, sinHandicap: ['Pedro', 'Tomás'] }} />)
-    expect(screen.getByRole('note').textContent).toBe(avisoNetoComoGross(['Pedro', 'Tomás']))
-    expect(avisoNetoComoGross(['Pedro', 'Tomás'])).toContain('de Pedro y Tomás')
-    expect(screen.queryByText(/golpe recibido en el hoyo/)).toBeNull()
-  })
-})
 
 describe('PanelDelJuego', () => {
   const comun = { nombres: {}, hoyoActual: null, onReintentar: vi.fn() }

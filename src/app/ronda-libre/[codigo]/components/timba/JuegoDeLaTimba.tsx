@@ -1,148 +1,119 @@
 import type { ReactNode } from 'react'
-import { TEXTO_HOYO_PENDIENTE, TEXTO_NO_SE_JUGO, type CeldaDelJuego, type MarcadorDeParejas, type TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
+import { NOMBRE_FORMATO_PERSONALIZADO } from '@/golf/formats/personalizado'
+import { unirNombres } from '@/golf/ronda-libre/juego-en-vivo'
+import type { FilaRankingDelJuego, TablaDelJuego } from '@/golf/ronda-libre/tabla-del-juego'
+import { DueloDelTramo, TramosDeLaTimba } from './ParejasDeLaTimba'
+import { HoyoAHoyoDeLaTimba } from './HoyoAHoyoDeLaTimba'
 
-/** Marca de golpe recibido en un hoyo (neto): un punto por golpe. */
-export const MARCA_GOLPE_RECIBIDO = '•'
+export { MARCA_GOLPE_RECIBIDO } from './HoyoAHoyoDeLaTimba'
 
 /** Neto con jugadores sin hándicap usable (`resultado.sinHandicap`): el juego va como gross. */
 export function avisoNetoComoGross(nombres: readonly string[]): string {
-  const quien = nombres.length === 1 ? `de ${nombres[0]}` : `de ${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}`
-  return `Falta el hándicap ${quien}: mientras tanto el juego va sin golpes recibidos, como gross.`
+  return `Falta el hándicap de ${unirNombres(nombres)}: mientras tanto el juego va sin golpes recibidos, como gross.`
 }
 
-function Marcador({ marcador, compacto }: { marcador: MarcadorDeParejas; compacto?: boolean }) {
-  const [a, b] = marcador.parejas
-  const [pa, pb] = marcador.puntos
-  return (
-    <div
-      aria-label={`${a} ${pa}, ${b} ${pb}`}
-      style={compacto
-        ? { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 12px', marginTop: '8px', borderRadius: '8px', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: '13px', fontWeight: 500 }
-        : { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '12px 16px', borderRadius: '12px', background: 'var(--text)', color: 'var(--bg)', fontSize: '16px', fontWeight: 600 }}
-    >
-      <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{a}</span>
-      <span className="num" style={{ fontSize: compacto ? '14px' : '18px', fontWeight: 600, whiteSpace: 'nowrap' }}>{pa} – {pb}</span>
-      <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', textAlign: 'right' }}>{b}</span>
-    </div>
-  )
+const titulo2 = { margin: '0 0 8px', fontSize: '18px', fontWeight: 600, color: 'var(--text)' } as const
+
+/** Antes de partir: lo que recibe cada uno (neto) o sus 0 puntos (gross). */
+function valorAntesDePartir(r: FilaRankingDelJuego): string {
+  if (r.golpesQueRecibe == null) return r.textoConUnidad
+  if (r.golpesQueRecibe === 0) return 'No recibe golpes'
+  return `Recibe ${r.golpesQueRecibe} ${r.golpesQueRecibe === 1 ? 'golpe' : 'golpes'}`
 }
 
-function Celda({ celda }: { celda: CeldaDelJuego }) {
-  const golpes = celda.golpesRecibidos
-  const etiqueta = celda.texto
+function Ranking({ tabla }: { tabla: TablaDelJuego }) {
+  const empezo = tabla.frase.empezo
   return (
-    <span
-      role="cell"
-      aria-label={golpes > 0 ? `${etiqueta}, recibe ${golpes} ${golpes === 1 ? 'golpe' : 'golpes'}` : etiqueta}
-      style={{ textAlign: 'right', whiteSpace: 'nowrap' }}
-    >
-      {golpes > 0 && (
-        <span aria-hidden data-testid="golpe-recibido" style={{ color: 'var(--brand-on-bg)', fontSize: '13px', marginRight: '4px', letterSpacing: '1px' }}>
-          {MARCA_GOLPE_RECIBIDO.repeat(golpes)}
-        </span>
-      )}
-      <span aria-hidden>{celda.texto}</span>
-    </span>
+    <ol aria-label="Puntos de cada uno" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+      {tabla.ranking.map((r, i) => {
+        const retirado = r.retiradoDesde != null
+        return (
+          <li
+            key={r.jugadorId}
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', minHeight: '52px', padding: '6px 0', borderBottom: i < tabla.ranking.length - 1 ? '1px solid var(--border)' : 'none' }}
+          >
+            {empezo && <span className="num" style={{ width: '18px', flex: '0 0 auto', fontSize: '14px', color: 'var(--text-2)' }}>{r.puesto}</span>}
+            <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '16px', fontWeight: 600, overflowWrap: 'anywhere', color: retirado ? 'var(--text-2)' : 'var(--text)' }}>{r.nombre}</span>
+              {retirado && <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>Se retiró en el hoyo {r.retiradoDesde}</span>}
+            </span>
+            {empezo ? (
+              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flex: '0 0 auto' }}>
+                <span className="num" style={{ fontSize: '18px', fontWeight: 600, color: retirado ? 'var(--text-2)' : 'var(--text)', whiteSpace: 'nowrap' }}>{r.textoConUnidad}</span>
+                {r.diferencia && <span className="num" style={{ fontSize: '13px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{r.diferencia}</span>}
+              </span>
+            ) : (
+              <span style={{ flex: '0 0 auto', fontSize: '14px', color: 'var(--text)', whiteSpace: 'nowrap' }}>{valorAntesDePartir(r)}</span>
+            )}
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
 /**
- * Pestaña Juego de una Timba libre (maqueta ScorerC aprobada por Juanjo): encabezado, ranking de puntos, marcador
- * del tramo en juego y tabla hoyo a hoyo. Todo viene armado de `armarTablaDelJuego` (que lee solo `GET /juego`).
+ * Pestaña Juego de una Timba libre (rediseño C+, aprobado por Juanjo el 18-nov), de arriba hacia abajo: quién va
+ * ganando, el duelo de parejas en juego, los puntos de cada uno, todos los tramos de parejas y el hoyo a hoyo
+ * plegable. Los juegos sin parejas muestran solo frase, puntos y hoyo a hoyo. Todo viene armado de
+ * `armarTablaDelJuego` (que lee solo `GET /juego`). Sin sesión se ve igual.
  */
-export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn }: {
+export function JuegoDeLaTimba({ tabla, desactualizado, pie, encabezadoFijoEn, hoyoAHoyoAbierto }: {
   tabla: TablaDelJuego
   desactualizado?: boolean
   pie?: ReactNode
-  /**
-   * `top` del encabezado de nombres fijo al bajar por la tabla, según el contenedor que hace scroll (en el scorer,
-   * el panel con 16px de padding: '-16px'). Sin él, el encabezado no queda fijo.
-   */
+  /** `HoyoAHoyoDeLaTimba.encabezadoFijoEn` (en el scorer, el panel con 16px de padding: '-16px'). */
   encabezadoFijoEn?: string
+  /** El hoyo a hoyo parte abierto (se llegó desde "Hoyo a hoyo" del resultado final). */
+  hoyoAHoyoAbierto?: boolean
 }) {
-  const columnas = `minmax(44px, 0.8fr) repeat(${tabla.columnas.length}, minmax(0, 1fr))`
-  const faltan = tabla.sinHandicap
+  const { frase } = tabla
+  const destacado = tabla.tramoDestacado >= 0 ? tabla.tramos[tabla.tramoDestacado] : null
+  // Con un solo tramo (parejas fijas) el duelo ya es todo: el bloque "Parejas" lo repetiría.
+  const conBloqueDeParejas = tabla.tramos.length > 1
+  const nombreDelJuego = tabla.titulo === NOMBRE_FORMATO_PERSONALIZADO ? null : tabla.titulo
+  const aviso = tabla.sinHandicap.length > 0 ? avisoNetoComoGross(tabla.sinHandicap) : null
   return (
-    <section aria-label={`Puntos de ${tabla.titulo}`} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
-        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>
-          {tabla.titulo}
-        </h2>
-        <span className="num" style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-          {tabla.hoyosPuntuados} de {tabla.totalHoyos} hoyos
-        </span>
+    <section aria-label={`Puntos de ${tabla.titulo}`} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700, lineHeight: 1.15, textWrap: 'balance', color: frase.empezo ? 'var(--brand-on-bg)' : 'var(--text)' }}>
+            {frase.texto}
+          </h2>
+          <p className="num" style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--text-2)' }}>
+            {nombreDelJuego ? `${nombreDelJuego} · ` : ''}{frase.detalle}
+          </p>
+        </div>
+
+        {desactualizado && (
+          <p role="status" style={{ margin: 0, fontSize: '13px', color: 'var(--text-2)' }}>
+            Sin señal: son los puntos de hace un momento.
+          </p>
+        )}
+
+        {aviso && (
+          <p role="note" style={{ margin: 0, padding: '12px', borderRadius: '12px', background: 'var(--status-open-bg)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.45 }}>
+            {aviso}
+          </p>
+        )}
+
+        {destacado && <DueloDelTramo tramo={destacado} primerDuelo={!frase.empezo && tabla.tramoDestacado === 0} />}
       </div>
 
-      {desactualizado && (
-        <p role="status" style={{ margin: 0, fontSize: '13px', color: 'var(--text-2)' }}>
-          Sin señal: son los puntos de hace un momento.
-        </p>
+      <section aria-label="Puntos de cada uno">
+        <h3 style={titulo2}>Puntos de cada uno</h3>
+        <Ranking tabla={tabla} />
+      </section>
+
+      {conBloqueDeParejas && (
+        <section aria-label="Parejas">
+          <h3 style={titulo2}>Parejas</h3>
+          <TramosDeLaTimba tramos={tabla.tramos} />
+        </section>
       )}
 
-      {tabla.sinHandicap.length > 0 && (
-        <p role="note" style={{ margin: 0, padding: '12px', borderRadius: '12px', background: 'var(--status-open-bg)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.45 }}>
-          {avisoNetoComoGross(faltan)}
-        </p>
-      )}
-
-      <ol aria-label="Ranking de puntos" style={{ listStyle: 'none', margin: 0, padding: '0 16px', borderRadius: '16px', background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
-        {tabla.ranking.map((r, i) => (
-          <li
-            key={r.jugadorId}
-            style={{ display: 'flex', alignItems: 'center', gap: '12px', minHeight: '48px', borderBottom: i < tabla.ranking.length - 1 ? '1px solid var(--border)' : 'none' }}
-          >
-            <span className="num" style={{ width: '20px', fontSize: '14px', color: 'var(--text-2)' }}>{r.puesto}</span>
-            <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{r.nombre}</span>
-            <span className="num" style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text)' }}>{r.texto}</span>
-          </li>
-        ))}
-      </ol>
-
-      {tabla.marcadorActual && <Marcador marcador={tabla.marcadorActual} />}
-
-      {tabla.filas.length === 0 ? (
-        <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-2)', textAlign: 'center' }}>
-          Los puntos de cada hoyo aparecen al anotar el primero.
-        </p>
-      ) : (
-        <div role="table" aria-label="Puntos por hoyo" style={{ display: 'flex', flexDirection: 'column', fontSize: '16px', color: 'var(--text)' }}>
-          {/* Fijo arriba al bajar por la tabla: si no, en el hoyo 15 ya no se sabe de quién es cada columna. */}
-          <div role="row" style={{ display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '6px 4px', color: 'var(--text-2)', fontSize: '13px', fontWeight: 500, ...(encabezadoFijoEn != null && { position: 'sticky', top: encabezadoFijoEn, zIndex: 1, background: 'var(--bg)', borderBottom: '1px solid var(--border)' }) }}>
-            <span role="columnheader">Hoyo</span>
-            {tabla.columnas.map(c => (
-              <span key={c.jugadorId} role="columnheader" style={{ textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>
-            ))}
-          </div>
-          {tabla.filas.map((f, i) => f.tipo === 'tramo' ? (
-            <div key={`tramo-${i}`} role="row">
-              <span role="cell" style={{ display: 'block' }}><Marcador marcador={f.marcador} compacto /></span>
-            </div>
-          ) : (
-            <div
-              key={f.numero}
-              role="row"
-              className="num"
-              style={{
-                display: 'grid', gridTemplateColumns: columnas, gap: '4px', padding: '8px 4px', borderBottom: '1px solid var(--border)',
-                color: f.pendiente ? 'var(--text-2)' : 'var(--text)',
-              }}
-            >
-              <span role="rowheader">{f.numero}</span>
-              {f.pendiente ? (
-                // Una sola leyenda para el hoyo (ni puntos ni marcas de golpe): falta anotar, o nadie lo jugó.
-                <span role="cell" aria-colspan={f.celdas.length} style={{ gridColumn: '2 / -1', textAlign: 'right', fontSize: '14px' }}>
-                  {f.sinJugar ? TEXTO_NO_SE_JUGO : TEXTO_HOYO_PENDIENTE}
-                </span>
-              ) : f.celdas.map(c => <Celda key={c.jugadorId} celda={c} />)}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tabla.esNeto && tabla.sinHandicap.length === 0 && (
-        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-2)' }}>
-          <span aria-hidden style={{ color: 'var(--brand-on-bg)' }}>{MARCA_GOLPE_RECIBIDO}</span> golpe recibido en el hoyo
-        </p>
+      {tabla.filas.length > 0 && (
+        <HoyoAHoyoDeLaTimba tabla={tabla} abiertoAlInicio={hoyoAHoyoAbierto} encabezadoFijoEn={encabezadoFijoEn} />
       )}
 
       {pie}

@@ -382,7 +382,8 @@ function RondaLibrePageContent() {
           <GwiPanel ronda={ronda} jugadores={gwi.jugadores} results={gwi.results} />
         )}
 
-        {timelineEvents.length > 0 && (
+        {/* Timba libre: los momentos son golpes y el juego son puntos (rediseño C+, 18-nov): no van. */}
+        {!timba.esTimba && timelineEvents.length > 0 && (
           <RecentTimeline
             ronda={ronda}
             timelineEvents={timelineEvents}

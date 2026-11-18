@@ -12,6 +12,9 @@ const LOGROS_EN_ORDEN: LogroBajoPar[] = ['birdie', 'eagle', 'albatros', 'hoyo_en
 import type { Pareja } from '@/golf/formats/personalizado'
 import type { VistaDelJuego } from './juego-de-la-ronda'
 import { armarTablaDelJuego, nombresCortos, TEXTO_NO_SE_JUGO } from './tabla-del-juego'
+import { rangoDeHoyos, unirNombres } from './juego-en-vivo'
+
+export { rangoDeHoyos, unirNombres }
 
 export interface FilaDelResultado {
   jugadorId: string
@@ -65,11 +68,6 @@ export interface ResultadoDeLaTimba {
   puntosEspeciales: PuntoEspecialDelResultado[] | null
 }
 
-/** "Pedro", "Pedro y Juan", "Pedro, Juan y Diego". */
-export function unirNombres(nombres: readonly string[]): string {
-  if (nombres.length <= 1) return nombres[0] ?? ''
-  return `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}`
-}
 
 /** Cierra la oración con punto, sin duplicarlo si termina en un nombre abreviado ("Maximiliano U."). */
 function conPunto(frase: string): string {
@@ -81,19 +79,6 @@ export function textoDePuntos(n: number): string {
   return n === 1 ? 'un punto' : `${n} puntos`
 }
 
-/**
- * Hoyos de un tramo en orden de juego, en tramos consecutivos: [1..6] → "1–6"; saliendo del 10, el que pasa del 18,
- * [16,17,18,1,2,3] → "16–18 y 1–3" (nunca "16–3", que se lee como 16 a 3 hacia atrás).
- */
-export function rangoDeHoyos(hoyos: readonly number[]): string {
-  const tramos: number[][] = []
-  for (const h of hoyos) {
-    const actual = tramos.at(-1)
-    if (actual && h === actual.at(-1)! + 1) actual.push(h)
-    else tramos.push([h])
-  }
-  return unirNombres(tramos.map(t => (t.length === 1 ? String(t[0]) : `${t[0]}–${t.at(-1)}`)))
-}
 
 /** Tramos de la nota: con "y" salvo que alguno ya tenga una "y" adentro (el que pasa del 18), ahí con " · ". */
 function unirTramos(rangos: readonly string[]): string {
