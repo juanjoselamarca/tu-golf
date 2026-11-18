@@ -28,6 +28,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { filaDeHandicapDeTorneo } from '@/golf/ronda-libre/handicap-tarjeta-de-torneo'
+import { miembrosQueCompiten } from '@/golf/torneo/gestion-en-juego'
 import { leerHandicapDeEquipo } from '@/lib/draft/team-config-legacy'
 import { fetchRoundPlayConfig } from './rounds'
 import {
@@ -88,7 +89,7 @@ export interface PlanDeEdicion {
  *  - fila de la tarjeta: `filaDeHandicapDeTorneo`. Si devuelve `{}` (raw, individual con cuenta: la
  *    tarjeta toma el índice del perfil, lo inscrito es un course handicap) o el grupo no tiene
  *    tarjeta todavía, no se toca la tarjeta.
- *  - equipo: solo bola compartida, `handicapsDeEquipoDelGrupo` sobre los miembros materializados.
+ *  - equipo: solo bola compartida, `handicapsDeEquipoDelGrupo` sobre los miembros materializados que COMPITEN.
  *
  * `contexto` es obligatorio si hay equipo de bola compartida. Devuelve `{ error }` si el equipo no
  * tiene hándicap calculable (el inicio tampoco arma un equipo que puntuaría con 0 golpes).
@@ -119,9 +120,13 @@ export function planDeEdicion(args: {
     p_equipos: [],
   }
 
-  if (lectura.equipo && isSharedBallFormat(formato)) {
+  // El equipo se calcula con los que COMPITEN (`miembrosQueCompiten`, D3/D14; lo mismo que el inicio y la RPC
+  // `colocar_inscrito_en_grupo`). Si el editado no compite (WD/DQ), su número no entra al equipo: no se toca.
+  // Cambio de #814 PR3: antes contaba a los WD/DQ materializados; ahora, corregir a un compañero de un WD
+  // recalcula el equipo sin el WD.
+  if (lectura.equipo && isSharedBallFormat(formato) && miembrosQueCompiten([corregido]).length === 1) {
     if (!contexto) return { error: 'equipo-sin-contexto' }
-    const miembros = lectura.equipo.miembros.map((m) => (m.id === corregido.id ? corregido : m))
+    const miembros = miembrosQueCompiten(lectura.equipo.miembros).map((m) => (m.id === corregido.id ? corregido : m))
     const hcp = handicapsDeEquipoDelGrupo({
       formato,
       members: miembros,
@@ -132,7 +137,7 @@ export function planDeEdicion(args: {
       parDe18Hoyos: contexto.hcp.parDe18Hoyos,
     })
     if (hcp.completo === null) return { error: 'equipo-incalculable' }
-    plan.p_base = lectura.equipo.miembros
+    plan.p_base = miembros
       .filter((m) => m.id !== corregido.id)
       .map((m) => ({ player_id: m.id, esperado: m.handicap_at_registration ?? null }))
     plan.p_equipos = [{ equipo_id: lectura.equipo.id, handicap_equipo: hcp.completo, handicap_equipo_juego: hcp.juego }]
@@ -234,7 +239,7 @@ export async function leerEdicion(
 
 export type ResultadoEdicion =
   | { ok: true; valor: number }
-  | { ok: false; motivo: 'no-existe' | 'conflicto' | 'error' }
+  | { ok: false; motivo: 'no-existe' | 'conflicto' | 'error' | 'equipo-incalculable' }
 
 /** Reintentos cuando otro cambio (un compañero de equipo corregido a la vez) gana la carrera. */
 export const MAX_REINTENTOS_EDICION = 3
@@ -311,6 +316,11 @@ export async function editarHandicapInscrito(
         valor,
         contexto: necesitaContexto ? await leerContexto() : null,
       })
+      // Equipo que quedó con menos jugadores en juego de los que su formato necesita (un WD con golpes): con los que
+      // compiten no hay hándicap calculable. Falla cerrado sin escribir y con un motivo que el panel puede mostrar.
+      if ('error' in plan && plan.error === 'equipo-incalculable' && escrita === null) {
+        return { ok: false, motivo: 'equipo-incalculable' }
+      }
       if ('error' in plan) {
         void captureError(new Error(`editar-handicap-inscrito: ${plan.error}`), { context: 'editar-handicap-inscrito.plan', level: 'error', meta })
         return falla()

@@ -125,6 +125,38 @@ describe('planDeEdicion — equipo', () => {
     expect(planDeEdicion({ torneo: torneoDe('foursome'), lectura, esperado: null, valor: 10, contexto: null }))
       .toEqual({ error: 'equipo-sin-contexto' })
   })
+
+  // (f) #814 PR3: el equipo se calcula con los que COMPITEN (`miembrosQueCompiten`), como el inicio y la RPC
+  // `colocar_inscrito_en_grupo`. CAMBIO de resultado: antes un WD de 4 entraba al promedio del scramble.
+  it('(f) scramble con un WD: el equipo se recalcula SIN el WD y el WD no va en p_base', () => {
+    const tres = [jugador('a', null), jugador('b', 30), jugador('c', 30), { ...jugador('w', 0), status: 'withdrawn' }]
+    const lec: LecturaDeEdicion = { editado: tres[0], jugadorRondaId: 'jr-a', equipo: { id: 'E', miembros: tres } }
+    const plan = planDeEdicion({ torneo: torneoDe('scramble'), lectura: lec, esperado: null, valor: 30, contexto })
+    const conLosQueCompiten = handicapsDeEquipoDelGrupo({
+      formato: 'scramble', members: [jugador('a', 30), jugador('b', 30), jugador('c', 30)], handicap: null,
+      ctx: ctxWhs, parTotal: 71, holeCount: 18, parDe18Hoyos: 71,
+    })
+    const conElWd = handicapsDeEquipoDelGrupo({
+      formato: 'scramble', members: [jugador('a', 30), jugador('b', 30), jugador('c', 30), jugador('w', 0)], handicap: null,
+      ctx: ctxWhs, parTotal: 71, holeCount: 18, parDe18Hoyos: 71,
+    })
+    expect(conLosQueCompiten.completo).not.toBe(conElWd.completo)
+    expect(plan).toMatchObject({
+      p_base: [{ player_id: 'b', esperado: 30 }, { player_id: 'c', esperado: 30 }],
+      p_equipos: [{ equipo_id: 'E', handicap_equipo: conLosQueCompiten.completo, handicap_equipo_juego: conLosQueCompiten.juego }],
+    })
+  })
+
+  it('(f) corregir a un WD de un equipo: su número ya no entra al equipo, no se toca el equipo', () => {
+    const wd = { ...jugador('w', 4), status: 'withdrawn' }
+    const lec: LecturaDeEdicion = { editado: wd, jugadorRondaId: 'jr-w', equipo: { id: 'E', miembros: [jugador('a', 10), jugador('b', 20), wd] } }
+    expect(planDeEdicion({ torneo: torneoDe('scramble'), lectura: lec, esperado: 4, valor: 6, contexto })).toMatchObject({ p_base: [], p_equipos: [] })
+  })
+
+  it('(f) foursome con el compañero WD: con uno solo en juego no hay hándicap calculable (falla cerrado)', () => {
+    const lec: LecturaDeEdicion = { editado: jugador('a', 10), jugadorRondaId: 'jr-a', equipo: { id: 'E', miembros: [jugador('a', 10), { ...jugador('w', 4), status: 'withdrawn' }] } }
+    expect(planDeEdicion({ torneo: torneoDe('foursome'), lectura: lec, esperado: 10, valor: 12, contexto })).toEqual({ error: 'equipo-incalculable' })
+  })
 })
 
 // ── Bucle de escritura con una base en memoria ────────────────────────────────────────────────

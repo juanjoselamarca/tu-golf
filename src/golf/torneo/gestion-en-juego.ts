@@ -196,6 +196,16 @@ export function estadoDelInscrito(status: string | null | undefined): EstadoInsc
   return inscritoAprobado(status) ? 'compite' : 'sin-aprobar'
 }
 
+/**
+ * Los que COMPITEN de una lista de inscritos (sin WD/DQ ni sin aprobar). FUENTE ÚNICA de "con quiénes se calcula el
+ * hándicap de un equipo" con el torneo en juego (D3/D14): la usan `colocarInscrito` (`p_equipos`) y
+ * `editarHandicapInscrito`; es el mismo conteo `miembros` de `motivoParaNoColocar` y el de la RPC
+ * (`p.status = 'approved'`), y el mismo `soloAprobados` con que el inicio arma el equipo.
+ */
+export function miembrosQueCompiten<T extends { status: string | null | undefined }>(inscritos: readonly T[]): T[] {
+  return inscritos.filter((p) => estadoDelInscrito(p.status) === 'compite')
+}
+
 export type CodigoMotivoNoColocar =
   /** El formato es null o no está en `KNOWN_FORMAT_KEYS`: falla cerrado. */
   | 'formato-desconocido'
