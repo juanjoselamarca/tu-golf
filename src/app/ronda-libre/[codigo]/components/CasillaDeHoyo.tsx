@@ -17,13 +17,16 @@ const FONDO: Record<Exclude<LadoDeLaCasilla, 'pendiente' | 'sin_jugar'>, { bg: s
 }
 
 /**
- * Letra de la etiqueta según cuánto ocupa: 4 caracteres (dos iniciales de 2, "PaPe") en una casilla de 30 px —tira
- * de 18 hoyos, 9 por fila, a 390 px— van a 9 px para no desbordar. El color manda; la etiqueta confirma.
+ * Letra de la etiqueta según cuánto ocupa y el ancho REAL de la casilla (unidades `cqi` del cuadrado, que es un
+ * contenedor): "PaPe" (dos iniciales de 2) cabe igual en la tira de 18 hoyos a 320 px (~23 px por casilla) que a
+ * 390 px. `respaldo` es para navegadores sin container queries (iOS < 16): el tamaño que cabe en la casilla más
+ * angosta. El color manda; la etiqueta confirma.
  */
-export function tamanoDeLetra(texto: string, tamano: number): string {
-  if (texto.length >= 4) return tamano >= 36 ? '11px' : '9px'
-  if (texto.length === 3) return '11px'
-  return tamano >= 32 ? '13px' : '11px'
+export function tamanoDeLetra(texto: string, tamano: number): { fluido: string; respaldo: string } {
+  if (texto.length >= 4) return { fluido: 'clamp(8px, 34cqi, 11px)', respaldo: '8px' }
+  if (texto.length === 3) return { fluido: 'clamp(8px, 40cqi, 11px)', respaldo: '9px' }
+  const tope = tamano >= 32 ? 13 : 11
+  return { fluido: `clamp(9px, 46cqi, ${tope}px)`, respaldo: '11px' }
 }
 
 export function CasillaDeHoyo({ numero, lado, etiqueta, tamano, descripcion }: {
@@ -38,6 +41,7 @@ export function CasillaDeHoyo({ numero, lado, etiqueta, tamano, descripcion }: {
 }) {
   const relleno = lado === 'pendiente' || lado === 'sin_jugar' ? null : FONDO[lado]
   const texto = lado === 'empate' ? '=' : lado === 'sin_jugar' ? '—' : relleno ? etiqueta : ''
+  const letra = tamanoDeLetra(texto, tamano)
   return (
     <div role="img" aria-label={descripcion} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: 0 }}>
       <span aria-hidden className="num" style={{ fontSize: tamano >= 32 ? '13px' : '11px', fontWeight: 500, lineHeight: 1, color: 'var(--text-2)' }}>
@@ -48,14 +52,14 @@ export function CasillaDeHoyo({ numero, lado, etiqueta, tamano, descripcion }: {
         style={{
           width: '100%', maxWidth: `${tamano}px`, aspectRatio: '1', borderRadius: '8px', boxSizing: 'border-box',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: tamanoDeLetra(texto, tamano), fontWeight: 800, letterSpacing: texto.length >= 4 ? '-0.02em' : '0.02em',
-          overflow: 'hidden', whiteSpace: 'nowrap',
+          containerType: 'inline-size', fontSize: letra.respaldo, fontWeight: 800,
+          letterSpacing: texto.length >= 4 ? '-0.02em' : '0.02em', overflow: 'hidden', whiteSpace: 'nowrap',
           ...(relleno
             ? { background: relleno.bg, color: relleno.fg }
             : { border: '1.5px dashed var(--text-3)', color: 'var(--text-2)' }),
         }}
       >
-        {texto}
+        <span style={{ fontSize: letra.fluido }}>{texto}</span>
       </span>
     </div>
   )

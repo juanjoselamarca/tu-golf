@@ -97,7 +97,8 @@ export function RegistrationBanner({ codigo, onDismiss }: { codigo: string; onDi
   return (
     <div style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-      background: 'rgba(255,255,255,0.95)',
+      // Superficie del tema (antes blanco fijo: en oscuro el texto claro no se leía).
+      background: 'var(--bg-surface)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
       borderTop: '1px solid var(--border)',
       padding: '14px 16px',
@@ -123,6 +124,8 @@ export function RegistrationBanner({ codigo, onDismiss }: { codigo: string; onDi
           Unirme gratis
         </Link>
         <button
+          type="button"
+          aria-label="Cerrar"
           onClick={onDismiss}
           style={{
             background: 'none', border: 'none', color: 'var(--text-2)',

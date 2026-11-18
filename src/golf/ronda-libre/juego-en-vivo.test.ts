@@ -75,6 +75,12 @@ describe('títulos y rangos de tramo', () => {
 })
 
 describe('etiquetasUnicas (casillas inequívocas)', () => {
+  it('mismo comienzo: inicial + la letra siguiente que los distingue, antes que un número', () => {
+    expect(etiquetasUnicas(['Pancho', 'Pablo', 'Tomás', 'Nico'])).toEqual(['Pn', 'Pb', 'T', 'N'])
+    expect(etiquetasUnicas(['Matías', 'Martín', 'Tomás', 'Nico'])).toEqual(['Mt', 'Mr', 'T', 'N'])
+    expect(etiquetasUnicas(['José', 'Jorge', 'Tomás', 'Nico'])).toEqual(['Js', 'Jr', 'T', 'N'])
+  })
+
   it('una letra si alcanza', () => {
     expect(etiquetasUnicas(['Pancho', 'Cristóbal', 'Tomás', 'Nico'])).toEqual(['P', 'C', 'T', 'N'])
   })

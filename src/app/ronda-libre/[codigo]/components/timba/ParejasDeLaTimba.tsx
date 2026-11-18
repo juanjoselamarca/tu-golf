@@ -46,14 +46,14 @@ function descripcionDeCasilla(c: CasillaDelTramo, parejas: [ParejaDelTramo, Pare
   }
 }
 
-/** Ancho real de una casilla con 9 por fila en un teléfono de 390 px. */
-const CASILLA_ANGOSTA_PX = 30
-
-/** Tira de casillas del tramo: quién ganó cada hoyo (iniciales de la pareja), "=" empate, punteada sin jugar. */
+/**
+ * Tira de casillas del tramo: quién ganó cada hoyo (iniciales de la pareja), "=" empate, punteada sin jugar. Cada
+ * casilla ocupa su columna (hasta `tamano`) y la etiqueta se ajusta a ese ancho. Un tramo que no se jugó va con
+ * casillas vacías: nada que colorear.
+ */
 export function TiraDelTramo({ tramo, tamano }: { tramo: TramoDelJuego; tamano: number }) {
   const porFila = casillasPorFila(tramo.casillas.length)
-  // 8 o 9 por fila (parejas fijas a 18) a 390 px: cada casilla mide ~30 px aunque el tope sea mayor.
-  const tamanoReal = porFila >= 8 ? Math.min(tamano, CASILLA_ANGOSTA_PX) : tamano
+  const noSeJugo = tramo.estado.tipo === 'no_se_jugo'
   return (
     <div
       role="group"
@@ -64,9 +64,9 @@ export function TiraDelTramo({ tramo, tamano }: { tramo: TramoDelJuego; tamano: 
         <CasillaDeHoyo
           key={c.numero}
           numero={c.numero}
-          lado={c.ganador}
+          lado={noSeJugo ? 'pendiente' : c.ganador}
           etiqueta={c.ganador === 'a' ? tramo.parejas[0].etiqueta : c.ganador === 'b' ? tramo.parejas[1].etiqueta : ''}
-          tamano={tamanoReal}
+          tamano={tamano}
           descripcion={descripcionDeCasilla(c, tramo.parejas)}
         />
       ))}
@@ -83,6 +83,9 @@ function Retiros({ tramo }: { tramo: TramoDelJuego }) {
   )
 }
 
+/** El tramo tiene marcador y colores: va en juego o terminó (por jugar o "No se jugó": solo "vs"). */
+export const tramoConMarcador = (t: TramoDelJuego) => t.estado.tipo === 'en_juego' || t.estado.tipo === 'terminado'
+
 const marcadorEnPalabras = (t: TramoDelJuego) => `${t.parejas[0].nombre} ${t.marcador[0]}, ${t.parejas[1].nombre} ${t.marcador[1]}`
 
 /**
@@ -90,7 +93,7 @@ const marcadorEnPalabras = (t: TramoDelJuego) => `${t.parejas[0].nombre} ${t.mar
  * grande y la tira de casillas.
  */
 export function DueloDelTramo({ tramo, primerDuelo }: { tramo: TramoDelJuego; primerDuelo: boolean }) {
-  const partio = tramo.estado.tipo !== 'por_jugar'
+  const partio = tramoConMarcador(tramo)
   const destacado = tramo.estado.tipo === 'en_juego'
   const lado = (p: ParejaDelTramo, l: 'a' | 'b') => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, fontSize: '16px', fontWeight: 600, lineHeight: 1.3, color: 'var(--text)', textAlign: l === 'a' ? 'left' : 'right' }}>
@@ -105,7 +108,7 @@ export function DueloDelTramo({ tramo, primerDuelo }: { tramo: TramoDelJuego; pr
   )
   return (
     <section
-      aria-label={`${tramo.titulo}: ${marcadorEnPalabras(tramo)}`}
+      aria-label={`${tramo.titulo}: ${tramo.estado.tipo === 'no_se_jugo' ? `${tramo.parejas[0].nombre} contra ${tramo.parejas[1].nombre}, no se jugó` : marcadorEnPalabras(tramo)}`}
       style={{ background: 'var(--bg-surface)', border: `1px solid ${destacado ? 'var(--brand-on-bg)' : 'var(--border-md)'}`, borderRadius: '16px', padding: '16px' }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500, color: 'var(--text-2)' }}>
@@ -114,9 +117,13 @@ export function DueloDelTramo({ tramo, primerDuelo }: { tramo: TramoDelJuego; pr
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', alignItems: 'center', gap: '8px', margin: '12px 0 16px' }}>
         {lado(tramo.parejas[0], 'a')}
-        <span aria-hidden className="num" style={{ fontSize: '40px', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em', color: 'var(--text)', whiteSpace: 'nowrap' }}>
-          {tramo.marcador[0]}<span style={{ margin: '0 8px', fontWeight: 500, color: 'var(--text-2)' }}>–</span>{tramo.marcador[1]}
-        </span>
+        {tramo.estado.tipo === 'no_se_jugo'
+          ? <span aria-hidden style={{ fontSize: '15px', color: 'var(--text-2)' }}>vs</span>
+          : (
+            <span aria-hidden className="num" style={{ fontSize: '40px', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em', color: 'var(--text)', whiteSpace: 'nowrap' }}>
+              {tramo.marcador[0]}<span style={{ margin: '0 8px', fontWeight: 500, color: 'var(--text-2)' }}>–</span>{tramo.marcador[1]}
+            </span>
+          )}
         {lado(tramo.parejas[1], 'b')}
       </div>
       <TiraDelTramo tramo={tramo} tamano={40} />
@@ -127,7 +134,7 @@ export function DueloDelTramo({ tramo, primerDuelo }: { tramo: TramoDelJuego; pr
 
 /** Un tramo dentro del bloque "Parejas": estado, parejas, resultado y su tira. */
 function FilaDelTramo({ tramo, primero }: { tramo: TramoDelJuego; primero: boolean }) {
-  const partio = tramo.estado.tipo !== 'por_jugar'
+  const partio = tramoConMarcador(tramo)
   const nombre = (p: ParejaDelTramo, l: 'a' | 'b') => (
     <span style={{
       flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: l === 'a' ? 'flex-start' : 'flex-end',

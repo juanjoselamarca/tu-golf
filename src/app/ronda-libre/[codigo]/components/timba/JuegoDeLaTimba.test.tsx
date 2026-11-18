@@ -127,6 +127,30 @@ describe('JuegoDeLaTimba — otros estados', () => {
     expect(screen.queryByRole('region', { name: /^Hoyos 13 a 18:/ })).toBeNull()
   })
 
+  it('el tramo que no se jugó: casillas vacías (sin color ni "—") y "vs" en vez de "0 – 0"', () => {
+    const tabla = armarTablaDelJuego(
+      vistaDeTimba({ config: COLOMBIANA, scores: golpesDe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), cerrada: true }), NOMBRES, null,
+    )
+    render(<JuegoDeLaTimba tabla={tabla} />)
+    const fila = screen.getByRole('listitem', { name: /^Hoyos 13 a 18, no se jugó: Pancho y Nico contra Cristóbal y Tomás$/ })
+    expect(fila.textContent).not.toMatch(/0 – 0/)
+    expect(within(fila).getByText('vs')).toBeTruthy()
+    const casillas = within(fila).getAllByRole('img')
+    expect(casillas).toHaveLength(6)
+    for (const c of casillas) expect((c.lastElementChild as HTMLElement).textContent).toBe('')
+    // Ningún cuadradito de color junto a los nombres.
+    expect(fila.querySelectorAll('span[aria-hidden][style*="border-radius: 3px"]')).toHaveLength(0)
+    const jugado = screen.getByRole('listitem', { name: /^Hoyos 7 a 12, terminado:/ })
+    expect(jugado.querySelectorAll('span[aria-hidden][style*="border-radius: 3px"]')).toHaveLength(2)
+  })
+
+  it('cerrada sin golpes: la tarjeta grande dice "No se jugó" con "vs", sin marcador', () => {
+    const tabla = armarTablaDelJuego(vistaDeTimba({ config: COLOMBIANA, scores: {}, cerrada: true }), NOMBRES, null)
+    render(<JuegoDeLaTimba tabla={tabla} />)
+    const duelo = screen.getByRole('region', { name: /^Hoyos 1 a 6: Pancho y Cristóbal contra Tomás y Nico, no se jugó$/ })
+    expect(duelo.textContent).not.toMatch(/0/)
+  })
+
   it('el plegable no muestra el triángulo del navegador (iOS Safari): clase que oculta ::-webkit-details-marker', () => {
     render(<JuegoDeLaTimba tabla={mitad()} />)
     expect(screen.getByText('Hoyo a hoyo').closest('summary')?.className).toBe('plegable-summary')
@@ -172,7 +196,7 @@ describe('JuegoDeLaTimba — otros estados', () => {
     expect(screen.queryByRole('region', { name: 'Parejas' })).toBeNull()
   })
 
-  it('parejas fijas a 18 con "Pancho" y "Pedro" en la misma pareja: "PaPe" a 9 px, sin desbordar la casilla de 30 px', () => {
+  it('parejas fijas a 18 con "Pancho" y "Pedro" en la misma pareja: "PaPe" se ajusta al ancho real de la casilla', () => {
     const cfg = { ...crearConfigDePlantilla('subterranea'), parejas: [[0, 2], [1, 3]] as [[number, number], [number, number]] }
     const nombres = { ...NOMBRES, [ID.tomas]: 'Pedro Lira' }
     const tabla = armarTablaDelJuego(vistaDeTimba({ config: cfg, scores: golpesDe([1], { 1: { [ID.pancho]: 3, [ID.tomas]: 3 } }) }), nombres, null)
@@ -180,8 +204,9 @@ describe('JuegoDeLaTimba — otros estados', () => {
     const casilla = screen.getByRole('img', { name: /^Hoyo 1: ganan/ })
     const cuadro = casilla.lastElementChild as HTMLElement
     expect(cuadro.textContent).toBe('PaPe')
-    expect(cuadro.style.fontSize).toBe('9px')
+    expect(cuadro.style.fontSize).toBe('8px') // respaldo sin container queries
     expect(cuadro.style.overflow).toBe('hidden')
+    expect(cuadro.style.whiteSpace).toBe('nowrap')
   })
 
   it('9 hoyos: tramos de 3 casillas', () => {
@@ -207,12 +232,10 @@ describe('JuegoDeLaTimba — otros estados', () => {
 })
 
 describe('tamanoDeLetra (la etiqueta cabe en la casilla)', () => {
-  it('4 caracteres en una casilla angosta van a 9 px; 1 o 2, a 11 o 13', () => {
-    expect(tamanoDeLetra('PaPe', 30)).toBe('9px')
-    expect(tamanoDeLetra('PaPe', 28)).toBe('9px')
-    expect(tamanoDeLetra('PaPe', 40)).toBe('11px')
-    expect(tamanoDeLetra('PT', 40)).toBe('13px')
-    expect(tamanoDeLetra('PT', 28)).toBe('11px')
+  it('la letra sigue al ancho de la casilla (cqi) con tope; 4 caracteres nunca pasan de 11 px ni bajan de 8', () => {
+    expect(tamanoDeLetra('PaPe', 40)).toEqual({ fluido: 'clamp(8px, 34cqi, 11px)', respaldo: '8px' })
+    expect(tamanoDeLetra('PT', 40)).toEqual({ fluido: 'clamp(9px, 46cqi, 13px)', respaldo: '11px' })
+    expect(tamanoDeLetra('PT', 28).fluido).toBe('clamp(9px, 46cqi, 11px)')
   })
 })
 

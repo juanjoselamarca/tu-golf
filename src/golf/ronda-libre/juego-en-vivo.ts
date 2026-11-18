@@ -104,7 +104,11 @@ function candidatas(nombre: string, i: number): string[] {
   const inicial = primeraMayuscula(primero.slice(0, 1))
   const out = [inicial]
   if (segundo) out.push(inicial + primeraMayuscula(segundo.slice(0, 1)))
-  if (primero.length >= 2) out.push(primeraMayuscula(primero.slice(0, 2)))
+  // Inicial + cada letra siguiente del nombre, en orden: "Pancho" y "Pablo" empatan en "Pa" y se separan en "Pn"/"Pb".
+  for (const letra of Array.from(primero).slice(1)) {
+    const c = inicial + letra.toLocaleLowerCase('es-CL')
+    if (/\p{L}/u.test(letra) && !out.includes(c)) out.push(c)
+  }
   // Último recurso, siempre distinto: inicial + posición (con 10 o más jugadores, solo el número).
   const n = String(i + 1)
   out.push(n.length >= LARGO_MAXIMO_ETIQUETA ? n.slice(-LARGO_MAXIMO_ETIQUETA) : `${inicial || 'J'}${n}`)
@@ -112,8 +116,8 @@ function candidatas(nombre: string, i: number): string[] {
 }
 
 /**
- * Etiqueta más corta de cada jugador que no se repite con la de otro ("Pancho" y "Pedro" → "Pa" y "Pe"; "Pancho E."
- * y "Pancho R." → "PE" y "PR"). Se arma con TODOS los jugadores de la ronda, así una persona tiene la misma
+ * Etiqueta más corta de cada jugador que no se repite con la de otro ("Pancho" y "Pedro" → "Pa" y "Pe"; "Pancho" y
+ * "Pablo" → "Pn" y "Pb"; "Pancho E." y "Pancho R." → "PE" y "PR"). Al número se cae solo con nombres idénticos. Se arma con TODOS los jugadores de la ronda, así una persona tiene la misma
  * etiqueta en todos los tramos. Las casillas de un tramo juntan las de los dos de la pareja ganadora.
  */
 export function etiquetasUnicas(nombres: readonly string[]): string[] {
@@ -121,7 +125,8 @@ export function etiquetasUnicas(nombres: readonly string[]): string[] {
   const nivel = nombres.map(() => 0)
   const etiqueta = (i: number) => opciones[i][Math.min(nivel[i], opciones[i].length - 1)]
   const clave = (i: number) => etiqueta(i).toLocaleUpperCase('es-CL')
-  for (let vuelta = 0; vuelta < 6; vuelta++) {
+  const vueltas = Math.max(0, ...opciones.map(o => o.length))
+  for (let vuelta = 0; vuelta < vueltas; vuelta++) {
     const repetidos = nombres.map((_, i) => i).filter(i => nombres.some((__, j) => j !== i && clave(j) === clave(i)))
     if (repetidos.length === 0) break
     for (const i of repetidos) nivel[i]++
