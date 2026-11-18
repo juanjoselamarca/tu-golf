@@ -10,7 +10,8 @@ import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
-import { esTarjetaCerrada } from '@/golf/tournament-rounds'
+import { esTarjetaCerrada, rondaSigueEnJuego, rondaVigenteDelRoster, tarjetaDeLaRonda } from '@/golf/tournament-rounds'
+import { inscritoAprobado } from '@/golf/tournament-status'
 import {
   fetchBulkRoundHoleCounts,
   fetchRoundScoringContext,
@@ -58,7 +59,8 @@ export interface UseScoringDataReturn {
   loading: boolean
   loadError: boolean
   retryLoad: () => void
-  reloadRoster: () => Promise<void>
+  /** `true` si el roster se releyó. */
+  reloadRoster: () => Promise<boolean>
   /** Ronda del jugador que corresponde a la ronda activa del torneo. */
   getActiveRound: (player: ScoringPlayer | undefined) => ScoringRound | undefined
   setPlayerHandicap: (playerId: string, value: number) => void
@@ -76,6 +78,8 @@ export interface UseScoringDataReturn {
   isMultiRound: boolean
   holeCount: number
   activeRoundNum: number
+  /** La pestaña es la ronda vigente (la única donde se puede crear una tarjeta). */
+  esRondaVigente: boolean
   selectRound: (rn: number) => void
   canStartNextRound: boolean
   startingNextRound: boolean
@@ -146,12 +150,8 @@ export function useScoringData(slug: string): UseScoringDataReturn {
         // Hasta que se resuelva la ronda activa (efecto de abajo), la ronda 1.
         setRondaActiva(null)
 
-        // Ronda activa = mayor round_number existente en el field.
-        const maxRound = roster.reduce((max, pl) => {
-          const pMax = pl.rounds?.reduce((m, r) => Math.max(m, r.round_number ?? 1), 0) ?? 0
-          return Math.max(max, pMax)
-        }, 1)
-        setActiveRoundNum(maxRound)
+        // Ronda activa = la vigente: mayor round_number existente en el field.
+        setActiveRoundNum(rondaVigenteDelRoster(roster))
         setLoading(false)
       } catch (e) {
         void captureError(e, { context: 'scoring.useScoringData.load', meta: { slug } })
@@ -208,20 +208,27 @@ export function useScoringData(slug: string): UseScoringDataReturn {
 
   const retryRondaActiva = useCallback(() => setRondaNonce((n) => n + 1), [])
 
-  const reloadRoster = useCallback(async () => {
-    if (!tournament) return
+  /** `true` si el roster se releyó (los conteos de hoyos son accesorios: su falla se reporta, no cambia el resultado). */
+  const reloadRoster = useCallback(async (): Promise<boolean> => {
+    if (!tournament) return false
+    const supabase = createClient()
+    let roster: ScoringPlayer[]
     try {
-      const supabase = createClient()
-      const roster = await fetchScoringRoster(supabase, tournament.id)
-      setPlayers(roster)
-      // Refrescar conteos de hoyos junto con el roster.
-      const allRoundIds = roster.flatMap((p) => (p.rounds ?? []).map((r) => r.id))
-      const holeCounts = await fetchBulkRoundHoleCounts(supabase, allRoundIds)
-      setRoundHoleCounts(holeCounts)
+      roster = await fetchScoringRoster(supabase, tournament.id)
     } catch (e) {
       void captureError(e, { context: 'scoring.useScoringData.reloadRoster', meta: { slug } })
       showError('Error', 'No pudimos refrescar la lista de jugadores.')
+      return false
     }
+    setPlayers(roster)
+    try {
+      // Refrescar conteos de hoyos junto con el roster.
+      const allRoundIds = roster.flatMap((p) => (p.rounds ?? []).map((r) => r.id))
+      setRoundHoleCounts(await fetchBulkRoundHoleCounts(supabase, allRoundIds))
+    } catch (e) {
+      void captureError(e, { context: 'scoring.useScoringData.reloadRoster.holeCounts', meta: { slug } })
+    }
+    return true
   }, [tournament, slug, showError])
 
   const refreshHoleCounts = useCallback(async () => {
@@ -237,8 +244,8 @@ export function useScoringData(slug: string): UseScoringDataReturn {
 
   const getActiveRound = useCallback(
     (player: ScoringPlayer | undefined) => {
-      if (!player?.rounds) return undefined
-      return player.rounds.find((r) => (r.round_number ?? 1) === activeRoundNum) || player.rounds[0]
+      // Solo la tarjeta de la ronda que se está viendo: nunca la de otra ronda (cerrarla desde acá era un bug).
+      return tarjetaDeLaRonda(player?.rounds, activeRoundNum)
     },
     [activeRoundNum],
   )
@@ -271,20 +278,20 @@ export function useScoringData(slug: string): UseScoringDataReturn {
   // Los hoyos de la ronda ACTIVA (pueden diferir de los de la ronda 1).
   const holeCount = rondaActiva?.holeCount ?? tournament?.hole_count ?? 18
 
-  const allCurrentRoundsClosed = useMemo(
-    () =>
-      players.every((p) => {
-        const r = p.rounds?.find((r) => (r.round_number ?? 1) === activeRoundNum)
-        return r ? isClosedRoundStatus(r.status) : true
-      }),
-    [players, activeRoundNum],
-  )
+  // Regla única de "ronda en juego" (rondaSigueEnJuego, la misma del servidor): la tarjeta abierta de un
+  // retirado (WD) o descalificado (DQ) no se cierra al retirarlo y no bloquea la ronda siguiente.
+  // ¿La pestaña es la ronda vigente? Solo ahí se puede crear una tarjeta (el servidor la crea en la vigente).
+  // `>=` y no `===`: si startNextRound abrió la N+1 y la relectura falló, el roster viejo dice N; la pestaña N+1
+  // sigue siendo la vigente y "Crear su tarjeta" (que relee) lo destraba.
+  const esRondaVigente = useMemo(() => activeRoundNum >= rondaVigenteDelRoster(players), [players, activeRoundNum])
+  const allCurrentRoundsClosed = useMemo(() => !rondaSigueEnJuego(players, activeRoundNum), [players, activeRoundNum])
+  const hayAprobados = useMemo(() => players.some((p) => inscritoAprobado(p.status)), [players])
   const canStartNextRound =
-    isMultiRound && allCurrentRoundsClosed && activeRoundNum < totalRounds && players.length > 0
+    isMultiRound && allCurrentRoundsClosed && activeRoundNum < totalRounds && hayAprobados
 
   const selectRound = useCallback(
     (rn: number) => {
-      const hasRound = players.some((p) => p.rounds?.some((r) => (r.round_number ?? 1) === rn))
+      const hasRound = players.some((p) => tarjetaDeLaRonda(p.rounds, rn) != null)
       if (hasRound) setActiveRoundNum(rn)
     },
     [players],
@@ -339,6 +346,7 @@ export function useScoringData(slug: string): UseScoringDataReturn {
     isMultiRound,
     holeCount,
     activeRoundNum,
+    esRondaVigente,
     selectRound,
     canStartNextRound,
     startingNextRound,

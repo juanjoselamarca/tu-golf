@@ -14,6 +14,7 @@ import { TorneoNoEncontrado } from '@/components/torneo/TorneoNoEncontrado'
 import { motivoSinScores } from '@/golf/tournament-status'
 import { useScoringData } from './hooks/useScoringData'
 import { useScoreEntry } from './hooks/useScoreEntry'
+import { useCrearTarjeta } from './hooks/useCrearTarjeta'
 import { useResumenBoard } from './hooks/useResumenBoard'
 import { useHcpEditor } from './hooks/useHcpEditor'
 import { ScoringHeader } from './components/ScoringHeader'
@@ -54,6 +55,8 @@ export default function ScoringPage() {
     applyRoundTotals: data.applyRoundTotals,
     reloadRoster: data.reloadRoster,
   })
+  // Jugador sin tarjeta en la ronda en juego: el organizador se la crea desde el panel.
+  const crearTarjeta = useCrearTarjeta({ slug: tournament?.slug ?? null, playerId: entry.selectedId, reloadRoster: data.reloadRoster })
 
   const resumen = useResumenBoard({
     tournament,
@@ -216,6 +219,8 @@ export default function ScoringPage() {
                 courseHoles={rondaActiva.courseHoles}
                 holeCount={holeCount}
                 entry={entry}
+                crearTarjeta={crearTarjeta}
+                ronda={{ numero: activeRoundNum, vigente: data.esRondaVigente }}
                 soloLectura={sinScores === 'cerrado'}
               />
             ) : entry.selectedPlayer ? (

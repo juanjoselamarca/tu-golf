@@ -3,7 +3,7 @@
 // GROSS y NET son golpes; vs PAR es el único que lleva signo.
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import type { ScoringTournament } from '@/lib/data/tournaments/scoring'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { ScorecardPanel } from './ScorecardPanel'
@@ -12,7 +12,7 @@ vi.mock('./HoleStatsTable', () => ({ HoleStatsTable: () => null }))
 
 function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
   return {
-    selectedPlayer: { id: 'p1', profiles: { name: 'E2E Test' }, handicap_at_registration: 15 },
+    selectedPlayer: { id: 'p1', status: 'approved', profiles: { name: 'E2E Test' }, handicap_at_registration: 15 },
     selectedRound: { id: 'r1', status: 'in_progress' },
     holes: [],
     currentScores: {},
@@ -57,5 +57,79 @@ describe('ScorecardPanel — totales del jugador', () => {
     const t = totales(entry({ grossTotal: 41, netTotal: 33, parJugado: 36 }))
     expect(t.NET).toBe('33')
     expect(t['vs PAR']).toBe('+5')
+  })
+})
+
+// Jugador sin tarjeta en la ronda en juego: antes el golpe se descartaba en silencio. Ahora la grilla queda
+// de solo lectura y el aviso ofrece "Crear su tarjeta" (POST /api/torneos/[slug]/tarjeta).
+describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
+  const crearTarjeta = (over: Partial<{ creando: boolean; resultado: 'no_aparece' | null }> = {}) => ({
+    creando: false, resultado: null, crear: vi.fn(async () => {}), ...over,
+  })
+  const sinTarjeta = entry({ selectedRound: undefined, holes: [1, 2] })
+
+  it('muestra el aviso, bloquea la grilla y "Crear su tarjeta" la pide', () => {
+    const ct = crearTarjeta()
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={ct} />)
+    expect(screen.getByTestId('organizador-sin-tarjeta').textContent).toContain('E2E Test no tiene tarjeta en esta ronda')
+    const inputs = screen.queryAllByRole('spinbutton')
+    expect(inputs.length).toBeGreaterThan(0)
+    for (const input of inputs) expect((input as HTMLInputElement).readOnly).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Crear su tarjeta' }))
+    expect(ct.crear).toHaveBeenCalledTimes(1)
+  })
+
+  it('mientras crea, el botón queda deshabilitado; si no aparece, lo dice', () => {
+    const { rerender } = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta({ creando: true })} />)
+    expect((screen.getByRole('button', { name: 'Creando...' }) as HTMLButtonElement).disabled).toBe(true)
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta({ resultado: 'no_aparece' })} />)
+    expect(screen.getByTestId('resultado-crear-tarjeta').textContent).toContain('No se pudo crear ahora')
+  })
+
+  it.each([
+    ['withdrawn', 'Se retiró: no juega esta ronda.'],
+    ['disqualified', 'Descalificación: no juega esta ronda.'],
+    ['pending', 'Inscripción sin aprobar: no juega esta ronda.'],
+  ])('%s sin tarjeta: dice que no juega, sin botón, en tono neutro y sin grilla', (status, texto) => {
+    const e = entry({ selectedRound: undefined, holes: [1, 2], selectedPlayer: { id: 'p1', status, profiles: { name: 'E2E Test' }, handicap_at_registration: 15 } as never })
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} crearTarjeta={crearTarjeta()} />)
+    const aviso = screen.getByTestId('organizador-no-juega')
+    expect(aviso.textContent).toContain(texto)
+    expect(aviso.getAttribute('role')).toBe('status')
+    expect(aviso.style.background).toBe('var(--surface-soft)')
+    expect(screen.queryByRole('button', { name: 'Crear su tarjeta' })).toBeNull()
+    expect(screen.queryByTestId('organizador-sin-tarjeta')).toBeNull()
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
+  })
+
+  // Aprobado inscrito durante la ronda 2, mirando la pestaña "Ronda 1": el servidor crea la tarjeta en la
+  // vigente (la 2), así que "Crear su tarjeta" terminaba en un "No se pudo crear" falso.
+  it('aprobado sin tarjeta en una ronda pasada: "no jugó la ronda N", sin botón ni grilla', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta()} ronda={{ numero: 1, vigente: false }} />)
+    const aviso = screen.getByTestId('organizador-no-jugo')
+    expect(aviso.textContent).toBe('E2E Test no jugó la ronda 1.')
+    expect(aviso.getAttribute('role')).toBe('status')
+    expect(screen.queryByRole('button', { name: 'Crear su tarjeta' })).toBeNull()
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
+  })
+
+  it('aprobado sin tarjeta en la ronda vigente: aviso de error con botón y la grilla visible (solo lectura)', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta()} ronda={{ numero: 2, vigente: true }} />)
+    expect(screen.getByTestId('organizador-sin-tarjeta').getAttribute('role')).toBe('alert')
+    expect(screen.getByRole('button', { name: 'Crear su tarjeta' })).toBeTruthy()
+    expect(screen.queryAllByRole('spinbutton').length).toBeGreaterThan(0)
+  })
+
+  it('torneo cerrado: un retirado igual ve que no juega (es informativo)', () => {
+    const e = entry({ selectedRound: undefined, holes: [1, 2], selectedPlayer: { id: 'p1', status: 'withdrawn', profiles: { name: 'E2E Test' }, handicap_at_registration: 15 } as never })
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} soloLectura />)
+    expect(screen.getByTestId('organizador-no-juega')).toBeTruthy()
+  })
+
+  it('con tarjeta no hay aviso; con el torneo cerrado tampoco (no se puede crear)', () => {
+    const { rerender } = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({})} crearTarjeta={crearTarjeta()} />)
+    expect(screen.queryByTestId('organizador-sin-tarjeta')).toBeNull()
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta()} soloLectura />)
+    expect(screen.queryByTestId('organizador-sin-tarjeta')).toBeNull()
   })
 })

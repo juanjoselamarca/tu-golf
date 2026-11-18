@@ -49,7 +49,7 @@ describe('useBuscarTarjeta ("Buscar mi tarjeta")', () => {
     expect(args.reloadRoster).toHaveBeenCalledTimes(1)
     expect(MENSAJE_BUSQUEDA_TARJETA.sin_conexion).toBe('Sin conexión. Intenta de nuevo.')
     // Sin "tu sesión se cerró": vale para quien nunca la inició.
-    expect(MENSAJE_BUSQUEDA_TARJETA.sin_sesion).toBe('Inicia sesión para buscarla.')
+    expect(MENSAJE_BUSQUEDA_TARJETA.sin_sesion).toBe('Para buscarla necesitas tu cuenta.')
   })
 
   it('el roster no se pudo releer → "Sin conexión"', async () => {

@@ -33,7 +33,7 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { roundDiffersFromBase, type RoundPlayConfig } from '@/golf/tournament-rounds'
 import { fetchAllRoundPlayConfigs, type TournamentForRounds } from './rounds'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
-import { JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
+import { JUGADOR_EN_TABLA_STATUSES, JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
 import { HCP_PCT_DEFAULT, hcpPctDeRonda, hcpPctEfectivo, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
 
 /** Lista PostgREST para `.not('status', 'in', …)`: los inscritos sin retirados ni descalificados. */
@@ -540,7 +540,7 @@ export async function fetchLegacyPlayers(
     .from('players')
     .select(LEGACY_PLAYER_SELECT)
     .eq('tournament_id', tournamentId)
-    .in('status', ['pending', 'approved', 'waitlist'])
+    .in('status', JUGADOR_EN_TABLA_STATUSES)
   const filas = (data as unknown as DBPlayer[] | null) ?? []
   const nombres = await nombresFaltantes(filas, leerNombres)
   if (nombres.size === 0) return filas

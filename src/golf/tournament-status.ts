@@ -142,11 +142,23 @@ export function jugadorFueraDelTorneo(status: string | null | undefined): boolea
 }
 
 /**
+ * `players.status` de los inscritos que aparecen en la tabla (leaderboard, Resumen del organizador, TV): todos los
+ * que no están fuera (`JUGADOR_FUERA_STATUSES` va al pie como WD/DQ). Es más amplio que "quién recibe tarjeta"
+ * (`INSCRITO_APROBADO_STATUS`): un pendiente o en lista de espera sale en la tabla sin score, pero no juega. Hoy
+ * no hay camino que deje a un pendiente con tarjeta: `enroll_player` inscribe directo como aprobado y
+ * `asegurar_tarjeta_vigente` rechaza a quien no está aprobado (`player_not_active`).
+ */
+export const JUGADOR_EN_TABLA_STATUSES = ['pending', 'approved', 'waitlist'] as const
+
+/** `players.status` del inscrito aprobado: el único que juega y tiene tarjeta. */
+export const INSCRITO_APROBADO_STATUS = 'approved'
+
+/**
  * ¿El inscrito está aprobado? Sólo los aprobados cuentan para iniciar, se arman
  * en grupos y juegan; `pending` y `waitlist` todavía no están dentro.
  */
 export function inscritoAprobado(status: string | null | undefined): boolean {
-  return status === 'approved'
+  return status === INSCRITO_APROBADO_STATUS
 }
 
 /**

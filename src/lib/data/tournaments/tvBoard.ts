@@ -14,6 +14,7 @@ import { captureError } from '@/lib/error-tracking'
 import { sinLecturaDeNombres } from '@/lib/data/nombres-de-perfil-lectura'
 import { fetchWithdrawnPlayers } from './fuera-del-ranking'
 import { fetchLegacyHcpContext, fetchRoundContexts, LEGACY_PLAYER_SELECT, type Client } from './leaderboard'
+import { JUGADOR_EN_TABLA_STATUSES } from '@/golf/tournament-status'
 
 export interface TVWithdrawnEntry {
   name: string
@@ -86,7 +87,7 @@ export async function fetchTVBoardData(
       .from('players')
       .select(LEGACY_PLAYER_SELECT)
       .eq('tournament_id', t.id)
-      .in('status', ['pending', 'approved', 'waitlist']),
+      .in('status', JUGADOR_EN_TABLA_STATUSES),
     // El pie: la MISMA lectura que /torneo y /en-vivo (legacy). Desde el navegador
     // no hay lector de nombres de perfil: vale `profiles(name)` o `player_name`.
     fetchWithdrawnPlayers(supabase as unknown as Client, t.id, sinLecturaDeNombres),

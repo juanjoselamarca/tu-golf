@@ -27,6 +27,7 @@ import {
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
 import { fetchRoundPlayConfig } from './rounds'
+import { JUGADOR_EN_TABLA_STATUSES } from '@/golf/tournament-status'
 import {
   fetchLegacyHcpContext,
   fetchRoundContexts,
@@ -46,6 +47,8 @@ export interface ScoringRound {
 
 export interface ScoringPlayer {
   id: string
+  /** `players.status`: el roster trae a todos (también WD/DQ y pendientes); juegan los aprobados. */
+  status: string | null
   handicap_at_registration: number | null
   tee_id: string | null
   /** Eslabón "category" del fallback de tee (`resolvePlayerTee`) + género de la categoría. */
@@ -120,7 +123,7 @@ const SCORING_TOURNAMENT_SELECT =
 // Hasta la migración 20260925 la columna no existía en prod y este embed
 // devolvía 400 (pantalla vacía) — por eso estuvo fuera del SELECT.
 const SCORING_ROSTER_SELECT =
-  'id, handicap_at_registration, tee_id, user_id, player_name, genero, profiles(name), ' +
+  'id, status, handicap_at_registration, tee_id, user_id, player_name, genero, profiles(name), ' +
   'categories(default_tee_color, gender), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number)'
 
@@ -397,7 +400,7 @@ export async function fetchResumenBoardInputs(
       .from('players')
       .select(LEGACY_PLAYER_SELECT)
       .eq('tournament_id', tournament.id)
-      .in('status', ['pending', 'approved', 'waitlist']),
+      .in('status', JUGADOR_EN_TABLA_STATUSES),
     fetchLegacyHcpContext(supabase as unknown as Client, tournament.id),
     // Rondas en otra cancha que la 1: el Resumen puntúa cada ronda con SU
     // cancha, igual que el board público.

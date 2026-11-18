@@ -20,6 +20,8 @@
 //
 // Sin I/O: pura y testeable. El fetch vive en `src/lib/data/tournaments/rounds.ts`.
 
+import { inscritoAprobado } from './tournament-status'
+
 /** Lo que `tournaments` sabe de la ronda 1. */
 export interface TournamentRoundBase {
   course_id: string | null
@@ -122,6 +124,39 @@ export const CLOSED_ROUND_STATUSES_IN = `(${CLOSED_ROUND_STATUSES.map((s) => `"$
 
 export function esTarjetaCerrada(status: string | null | undefined): boolean {
   return (CLOSED_ROUND_STATUSES as readonly string[]).includes(status ?? '')
+}
+
+/**
+ * ¿La ronda `roundNumber` sigue en juego? Sí mientras algún jugador APROBADO tenga su tarjeta abierta. La
+ * tarjeta abierta de un retirado (WD), descalificado (DQ) o pendiente no cuenta: retirar no cierra la tarjeta
+ * y no puede bloquear la ronda siguiente. Es la regla del servidor (`contarTarjetasEnJuego` y el SQL de
+ * `asegurar_tarjeta_vigente`) sobre un roster ya cargado.
+ */
+export function rondaSigueEnJuego(
+  jugadores: ReadonlyArray<{ status?: string | null; rounds?: ReadonlyArray<RoundRef> | null }>,
+  roundNumber: number,
+): boolean {
+  return jugadores.some((j) =>
+    inscritoAprobado(j.status) &&
+    (j.rounds ?? []).some((r) => (r.round_number ?? 1) === roundNumber && !tarjetaCerrada(r)))
+}
+
+/**
+ * Ronda vigente según el roster: el mayor `round_number` con alguna tarjeta (1 si no hay ninguna). Es la ronda
+ * en que el servidor (`asegurar_tarjeta_vigente`) crea una tarjeta; en una ronda anterior no se crea nada.
+ */
+export function rondaVigenteDelRoster(jugadores: ReadonlyArray<{ rounds?: ReadonlyArray<RoundRef> | null }>): number {
+  return jugadores.reduce((max, j) => (j.rounds ?? []).reduce((m, r) => Math.max(m, r.round_number ?? 1), max), 1)
+}
+
+/**
+ * La tarjeta del jugador en la ronda `roundNumber` (`round_number` null es la 1), o `undefined` si no tiene.
+ * Sin fallback a otra ronda: con la ronda 2 en juego, un retirado sin tarjeta de la ronda 2 mostraba y dejaba
+ * editar (y cerrar) su tarjeta de la ronda 1 (revisión Fable #829). Distinto de `activeRoundOf`, que elige la
+ * última ronda abierta del jugador sin mirar qué ronda está viendo el organizador.
+ */
+export function tarjetaDeLaRonda<T extends RoundRef>(rounds: readonly T[] | null | undefined, roundNumber: number): T | undefined {
+  return (rounds ?? []).find((r) => (r.round_number ?? 1) === roundNumber)
 }
 
 function tarjetaCerrada(r: RoundRef): boolean {

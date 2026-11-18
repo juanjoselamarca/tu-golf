@@ -5,6 +5,9 @@ import {
   esTarjetaCerrada,
   resolveRoundPlayConfig,
   resolveAllRoundPlayConfigs,
+  rondaSigueEnJuego,
+  tarjetaDeLaRonda,
+  rondaVigenteDelRoster,
   roundDiffersFromBase,
 } from './tournament-rounds'
 
@@ -126,5 +129,49 @@ describe('roundDiffersFromBase', () => {
   it('misma cancha, distinta cantidad de hoyos → difiere', () => {
     const r = resolveRoundPlayConfig(TORNEO, [{ round_number: 2, course_id: 'cancha-A', hole_count: 9, date: null }], 2)
     expect(roundDiffersFromBase(base, r)).toBe(true)
+  })
+})
+
+describe('rondaSigueEnJuego — solo cuentan las tarjetas abiertas de jugadores aprobados', () => {
+  const j = (status: string, ...rounds: Array<[number, string]>) =>
+    ({ status, rounds: rounds.map(([round_number, st]) => ({ round_number, status: st })) })
+
+  it('la tarjeta abierta de un WD, DQ o pendiente no deja la ronda en juego', () => {
+    const roster = [j('approved', [1, 'closed']), j('withdrawn', [1, 'in_progress']), j('disqualified', [1, 'in_progress']), j('pending', [1, 'in_progress'])]
+    expect(rondaSigueEnJuego(roster, 1)).toBe(false)
+  })
+  it('un aprobado con la tarjeta abierta la deja en juego; official y closed son cerradas', () => {
+    expect(rondaSigueEnJuego([j('approved', [1, 'official']), j('approved', [1, 'in_progress'])], 1)).toBe(true)
+    expect(rondaSigueEnJuego([j('approved', [1, 'official']), j('approved', [1, 'closed'])], 1)).toBe(false)
+  })
+  it('mira solo la ronda pedida; round_number null es la 1', () => {
+    const roster = [{ status: 'approved', rounds: [{ round_number: null, status: 'in_progress' }, { round_number: 2, status: 'closed' }] }]
+    expect(rondaSigueEnJuego(roster, 1)).toBe(true)
+    expect(rondaSigueEnJuego(roster, 2)).toBe(false)
+  })
+  it('sin status (roster viejo) no cuenta como aprobado', () => {
+    expect(rondaSigueEnJuego([{ rounds: [{ round_number: 1, status: 'in_progress' }] }], 1)).toBe(false)
+  })
+})
+
+describe('tarjetaDeLaRonda — la tarjeta de ESA ronda, sin fallback a otra (Fable #829)', () => {
+  const r1 = { id: 'r1', round_number: 1, status: 'in_progress' }
+  it('con la ronda 2 en juego, un jugador que solo tiene la tarjeta de la 1 no tiene tarjeta', () => {
+    expect(tarjetaDeLaRonda([r1], 2)).toBeUndefined()
+  })
+  it('devuelve la de la ronda pedida; round_number null es la 1', () => {
+    const r2 = { id: 'r2', round_number: 2, status: 'in_progress' }
+    expect(tarjetaDeLaRonda([r1, r2], 2)).toBe(r2)
+    expect(tarjetaDeLaRonda([{ id: 'x', round_number: null, status: 'closed' }], 1)?.id).toBe('x')
+    expect(tarjetaDeLaRonda(null, 1)).toBeUndefined()
+  })
+})
+
+describe('rondaVigenteDelRoster — mayor round_number del roster', () => {
+  it('toma la mayor ronda con tarjeta; sin tarjetas es la 1; null es la 1', () => {
+    expect(rondaVigenteDelRoster([{ rounds: [{ round_number: 1 }] }, { rounds: [{ round_number: 1 }, { round_number: 2 }] }])).toBe(2)
+    expect(rondaVigenteDelRoster([{ rounds: [] }, { rounds: null }])).toBe(1)
+    expect(rondaVigenteDelRoster([])).toBe(1)
+    expect(rondaVigenteDelRoster([{ rounds: [{ round_number: null }] }])).toBe(1)
   })
 })

@@ -233,7 +233,7 @@ describe('useGuardadoTorneo — 401/403 (PR #754)', () => {
     const { result } = await montar({ guestId: 'g1', guestToken: 'tok' })
     await act(async () => { await result.current.guardarHoyo(7, '5') })
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(result.current.sinAcceso?.titulo).toMatch(/retirado/i)
+    expect(result.current.sinAcceso?.titulo).toMatch(/ya no compites/i)
     expect(result.current.sinAcceso?.href).toBe(`/torneo/${SLUG}`)
   })
 

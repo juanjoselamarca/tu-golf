@@ -51,7 +51,7 @@ describe('useSondeoRoster', () => {
     expect(reloadRoster).toHaveBeenCalledTimes(1)
   })
 
-  it.each([['sin_sesion'], ['sin_permiso']])('tras un %s deja de pedir la tarjeta (solo relee)', async (r) => {
+  it.each([['sin_sesion'], ['sin_permiso'], ['rechazo_definitivo']])('tras un %s deja de pedir la tarjeta (solo relee)', async (r) => {
     pedirTarjetaVigente.mockResolvedValue(r)
     const reloadRoster = reload()
     renderHook(() => useSondeoRoster({ activo: true, pedirTarjeta: PEDIR, reloadRoster }))
@@ -62,7 +62,20 @@ describe('useSondeoRoster', () => {
     expect(reloadRoster).toHaveBeenCalledTimes(3)
   })
 
-  it('un 409 (respondio) no corta: vuelve a pedir en el próximo tick', async () => {
+  it('tras un 401 avisa para qué jugador (la pantalla ofrece iniciar sesión); otro corte no', async () => {
+    pedirTarjetaVigente.mockResolvedValue('sin_sesion')
+    const { result } = renderHook(() => useSondeoRoster({ activo: true, pedirTarjeta: PEDIR, reloadRoster: reload() }))
+    expect(result.current.sinSesionDe).toBeNull()
+    await tick()
+    expect(result.current.sinSesionDe).toBe('p1')
+
+    pedirTarjetaVigente.mockReset().mockResolvedValue('rechazo_definitivo')
+    const otro = renderHook(() => useSondeoRoster({ activo: true, pedirTarjeta: PEDIR, reloadRoster: reload() }))
+    await tick()
+    expect(otro.result.current.sinSesionDe).toBeNull()
+  })
+
+  it('un 409 round_not_in_play (respondio) no corta: vuelve a pedir en el próximo tick', async () => {
     const reloadRoster = reload()
     renderHook(() => useSondeoRoster({ activo: true, pedirTarjeta: PEDIR, reloadRoster }))
     await tick()

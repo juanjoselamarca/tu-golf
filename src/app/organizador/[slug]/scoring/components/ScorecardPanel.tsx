@@ -11,6 +11,8 @@ import { isClosedRoundStatus } from '../hooks/useScoringData'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { HoleStatsTable } from './HoleStatsTable'
+import { AvisoJugadorSinTarjeta, casoSinTarjeta } from './AvisoJugadorSinTarjeta'
+import type { useCrearTarjeta } from '../hooks/useCrearTarjeta'
 
 // Paleta del scorer del organizador — usa colores Garmin canónicos (T1 resuelta).
 function scoreBackground(gross: number, par: number) {
@@ -37,9 +39,13 @@ interface ScorecardPanelProps {
   entry: UseScoreEntryReturn
   /** Torneo cerrado o publicado: la tarjeta se lee pero no se edita (el servidor rechazaría cada golpe). */
   soloLectura?: boolean
+  /** "Crear su tarjeta" para el jugador sin tarjeta en la ronda en juego. */
+  crearTarjeta?: ReturnType<typeof useCrearTarjeta>
+  /** Ronda que se está viendo y si es la vigente: en una ronda pasada no se ofrece crear tarjeta. */
+  ronda?: { numero: number; vigente: boolean }
 }
 
-export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, soloLectura = false }: ScorecardPanelProps) {
+export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, soloLectura: torneoSoloLectura = false, crearTarjeta, ronda = { numero: 1, vigente: true } }: ScorecardPanelProps) {
   // Mismo rótulo y formato que el panel de jugadores: Índice en WHS, HCP en el resto.
   const presentacionHcp = presentacionHandicapInscrito(tournament.hcp_calc_mode)
   const [showStats, setShowStats] = useState(false)
@@ -52,6 +58,11 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   if (!selectedPlayer) return null
 
   const roundClosed = isClosedRoundStatus(selectedRound?.status)
+  // Sin tarjeta en la ronda en juego no hay dónde guardar: la grilla no se edita y el aviso ofrece crearla.
+  const sinTarjeta = !selectedRound
+  const soloLectura = torneoSoloLectura || sinTarjeta
+  // Quien no juega esta ronda (WD/DQ/pendiente, o no jugó una ronda pasada) no tiene tarjeta por llenar: sin grilla.
+  const sinGrilla = sinTarjeta && casoSinTarjeta(selectedPlayer.status, ronda.vigente) !== 'crear'
 
   return (
     <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', overflow: 'hidden' }}>
@@ -92,6 +103,16 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
         </div>
       </div>
 
+      {/* "No juega"/"no jugó" se dice siempre; "Crear su tarjeta" solo con el torneo recibiendo golpes. */}
+      {sinTarjeta && (sinGrilla || (!torneoSoloLectura && crearTarjeta)) && (
+        <AvisoJugadorSinTarjeta
+          nombre={resolveLegacyPlayerName(selectedPlayer)} status={selectedPlayer.status} ronda={ronda}
+          creando={crearTarjeta?.creando ?? false} resultado={crearTarjeta?.resultado ?? null}
+          crear={() => { void crearTarjeta?.crear() }}
+        />
+      )}
+
+      {!sinGrilla && (<>
       {/* Grilla de scores — scroll horizontal en mobile 390px para mantener
            touch targets >= 44px (dedo con guante en cancha). */}
       <div style={{ padding: '20px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -174,6 +195,9 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
           </fieldset>
         )}
       </div>
+
+      </>)}
+      {sinGrilla && <div style={{ height: 16 }} />}
 
       {/* Finalizar */}
       {allFilled && !roundClosed && !soloLectura && (

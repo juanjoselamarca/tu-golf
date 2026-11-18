@@ -1,6 +1,7 @@
 // Selector de ronda + botón "Iniciar Ronda N+1" para torneos multi-ronda.
 
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
+import { tarjetaDeLaRonda } from '@/golf/tournament-rounds'
 
 interface MultiRoundControlsProps {
   totalRounds: number
@@ -24,7 +25,7 @@ export function MultiRoundControls({
   return (
     <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
       {Array.from({ length: totalRounds }, (_, i) => i + 1).map((rn) => {
-        const hasRound = players.some((p) => p.rounds?.some((r) => (r.round_number ?? 1) === rn))
+        const hasRound = players.some((p) => tarjetaDeLaRonda(p.rounds, rn) != null)
         return (
           <button
             key={rn}
