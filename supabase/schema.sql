@@ -763,7 +763,7 @@ create table public."rondas_libres" (
   "tees" text default 'blanco'::text,
   "holes" integer default 18,
   "fecha" date not null,
-  "estado" text default 'en_curso'::text,
+  "estado" text default 'en_curso'::text not null,
   "created_at" timestamp with time zone default now(),
   "modo_juego" text default 'gross'::text,
   "hoyo_inicio" integer default 1,
@@ -1476,6 +1476,14 @@ BEGIN
   WHERE  admin_user_id = p_user_id
     AND  creador_id IS DISTINCT FROM p_user_id;
 
+  -- Su inscripción en torneos ajenos (sus rounds/hole_scores sostienen el leaderboard y los premios): se
+  -- desvincula y se anonimiza. Va ANTES de tocar tarjetas: players antes que ronda_libre_jugadores, el mismo orden
+  -- que editar_handicap_inscrito (si no, deadlock con un cambio de hándicap del inscrito; migración 20261120100000). players exige user_id XOR pending_user_id (CHECK): queda como invitado con un id nuevo
+  -- que nadie conoce, así que nadie puede reclamar esa tarjeta.
+  UPDATE players
+  SET    user_id = NULL, pending_user_id = gen_random_uuid(), player_name = c_anonimo
+  WHERE  user_id = p_user_id OR pending_user_id = p_user_id;
+
   -- Su tarjeta en rondas ajenas: se desvincula y se anonimiza, no se borra (best ball, match play y el
   -- grupo de un torneo ajeno dependen de esa fila).
   UPDATE ronda_libre_jugadores j
@@ -1483,13 +1491,6 @@ BEGIN
          nombre_invitado = NULL, telefono_invitado = NULL
   WHERE  j.user_id = p_user_id
     AND  NOT EXISTS (SELECT 1 FROM rondas_libres r WHERE r.id = j.ronda_id AND r.creador_id = p_user_id);
-
-  -- Su inscripción en torneos ajenos: igual (sus rounds/hole_scores sostienen el leaderboard y los
-  -- premios). players exige user_id XOR pending_user_id (CHECK): queda como invitado con un id nuevo
-  -- que nadie conoce, así que nadie puede reclamar esa tarjeta.
-  UPDATE players
-  SET    user_id = NULL, pending_user_id = gen_random_uuid(), player_name = c_anonimo
-  WHERE  user_id = p_user_id OR pending_user_id = p_user_id;
 
   -- Reclamos pendientes a su nombre en rondas libres (sin FK): que no apunten a una cuenta que ya no existe.
   UPDATE ronda_libre_jugadores SET pending_user_id = NULL WHERE pending_user_id = p_user_id;
