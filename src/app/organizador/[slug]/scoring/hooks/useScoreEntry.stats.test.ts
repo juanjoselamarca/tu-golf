@@ -457,43 +457,6 @@ const ultimoDelHoyo = (enviados: Record<string, unknown>[], hole: number) =>
   enviados.filter((e) => e.hole_number === hole).sort((a, b) => Number(a.seq) - Number(b.seq)).at(-1)
 
 describe('useScoreEntry · deshacer y envío diferido de stats (v4)', () => {
-  it('GIR tocado y Deshacer antes de 600 ms: lo diferido sale ANTES y la última escritura del hoyo es el golpe previo', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    let deshaciendo = false
-    const { enviados, soltar } = servidorConDemora(() => deshaciendo)
-    const { result } = montar()
-    await act(async () => result.current.selectPlayer('pA')) // H1 = 4 en la base
-    await act(() => result.current.saveScore(1, '5'))
-    act(() => result.current.cambiarStat(1, { gir: false }))
-    deshaciendo = true
-    let deshacer!: Promise<void>
-    act(() => { deshacer = result.current.undoLast() })
-    const [diferido, elDeshacer] = enviados.slice(-2)
-    expect(diferido).toMatchObject({ hole_number: 1, gross_score: 5, gir: false })
-    expect(elDeshacer).toMatchObject({ hole_number: 1, gross_score: 4, gir: false })
-    await act(async () => { vi.advanceTimersByTime(600) })
-    await act(async () => { soltar(); await deshacer })
-    expect(ultimoDelHoyo(enviados, 1)).toMatchObject({ gross_score: 4, gir: false })
-    expect(result.current.currentScores[1]).toBe(4)
-  })
-
-  it('GIR tocado con el deshacer en vuelo: el envío diferido lleva el golpe previo, no el que se está deshaciendo', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    let deshaciendo = false
-    const { enviados, soltar } = servidorConDemora((b) => deshaciendo && !('net_score' in b) && b.gross_score === 4 && !('gir' in b))
-    const { result } = montar()
-    await act(async () => result.current.selectPlayer('pA'))
-    await act(() => result.current.saveScore(1, '5'))
-    deshaciendo = true
-    let deshacer!: Promise<void>
-    act(() => { deshacer = result.current.undoLast() })
-    act(() => result.current.cambiarStat(1, { gir: true })) // la pantalla todavía muestra 5
-    await act(async () => { vi.advanceTimersByTime(600) })
-    expect(enviados.at(-1)).toMatchObject({ hole_number: 1, gross_score: 4, gir: true })
-    await act(async () => { soltar(); await deshacer })
-    expect(ultimoDelHoyo(enviados, 1)).toMatchObject({ gross_score: 4 })
-  })
-
   it('un deshacer confirmado invalida la recarga pedida antes: no vuelve a pintar el golpe deshecho', async () => {
     servidor()
     const { result } = montar()
@@ -536,6 +499,137 @@ describe('useScoreEntry · deshacer y envío diferido de stats (v4)', () => {
   })
 })
 
+/** Deja correr las microtareas: un envío encolado sale en una microtarea, no en el mismo tick del tap. */
+const tic = () => act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve() })
+/** Envíos de stats (sin neto: no son el guardado del golpe) que no son el deshacer. */
+const esDeStats = (b: Record<string, unknown>) => !('net_score' in b) && 'gir' in b
+
+describe('useScoreEntry · cola serial por hoyo (v5)', () => {
+  it('(a) deshacer que falla con un GIR tocado en vuelo: el GIR sale después, con el golpe que sigue en la base (5)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    let deshaciendo = false
+    const { enviados, soltar } = servidorConDemora((b) => deshaciendo && b.gross_score === 4, 500)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA')) // H1 = 4 en la base
+    await act(() => result.current.saveScore(1, '5')) // confirmado: 5
+    deshaciendo = true
+    let deshacer!: Promise<void>
+    act(() => { deshacer = result.current.undoLast() })
+    await tic()
+    act(() => result.current.cambiarStat(1, { gir: true }))
+    await act(async () => { vi.advanceTimersByTime(600) })
+    await tic()
+    expect(enviados.filter(esDeStats)).toHaveLength(0) // espera al deshacer: no sale en paralelo
+    await act(async () => { soltar(); await deshacer })
+    await tic()
+    expect(ultimoDelHoyo(enviados, 1)).toMatchObject({ gross_score: 5, gir: true })
+    expect(result.current.currentScores[1]).toBe(5)
+  })
+
+  it('(b) guardado que falla con un GIR tocado en vuelo: el GIR no lleva el 7 que la base no tiene', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { enviados, soltar } = servidorConDemora((b) => b.gross_score === 7, 500)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA')) // H1 = 4
+    let guardar!: Promise<void>
+    act(() => { guardar = result.current.saveScore(1, '7') })
+    await tic()
+    act(() => result.current.cambiarStat(1, { gir: false }))
+    await act(async () => { vi.advanceTimersByTime(600) })
+    await act(async () => { soltar(); await guardar })
+    await tic()
+    const stats = enviados.filter(esDeStats)
+    expect(stats).toHaveLength(1)
+    expect(stats[0]).toMatchObject({ hole_number: 1, gross_score: 4, gir: false })
+    expect(ultimoDelHoyo(enviados, 1)).toMatchObject({ gross_score: 4 })
+  })
+
+  it('(c) deshacer que sale bien y GIR que dispara justo con la respuesta: lleva el golpe previo', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    let deshaciendo = false
+    const { enviados, soltar } = servidorConDemora((b) => deshaciendo && b.gross_score === 4)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    await act(() => result.current.saveScore(1, '5'))
+    deshaciendo = true
+    let deshacer!: Promise<void>
+    act(() => { deshacer = result.current.undoLast() })
+    await tic()
+    act(() => result.current.cambiarStat(1, { gir: true })) // la pantalla todavía muestra 5
+    await act(async () => {
+      soltar()
+      vi.advanceTimersByTime(600)
+      await deshacer
+    })
+    await tic()
+    expect(enviados.filter(esDeStats).at(-1)).toMatchObject({ hole_number: 1, gross_score: 4, gir: true })
+    expect(ultimoDelHoyo(enviados, 1)).toMatchObject({ gross_score: 4, gir: true })
+  })
+
+  it('(d) dos guardados seguidos que fallan y un GIR: sale con el 4 de la base', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const enviados = servidor(500, 500, 200)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA')) // H1 = 4
+    await act(() => result.current.saveScore(1, '5'))
+    await act(() => result.current.saveScore(1, '6'))
+    act(() => result.current.cambiarStat(1, { gir: true }))
+    await act(async () => { vi.advanceTimersByTime(600) })
+    await tic()
+    expect(enviados.at(-1)).toMatchObject({ hole_number: 1, gross_score: 4, gir: true })
+  })
+
+  it('(e) cerrar la tarjeta espera la RESPUESTA de las stats pendientes antes de mandar el cierre', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { enviados, soltar } = servidorConDemora(esDeStats)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    act(() => result.current.cambiarStat(1, { gir: false }))
+    let cerrar!: Promise<void>
+    act(() => { cerrar = result.current.finalizeRound() })
+    await tic()
+    expect(enviados.filter(esDeStats)).toHaveLength(1) // la stat salió…
+    expect(enviados.some((e) => e.action === 'finalize_round')).toBe(false) // …y el cierre la espera
+    await act(async () => { soltar(); await cerrar })
+    expect(enviados.at(-1)).toMatchObject({ action: 'finalize_round', round_id: 'rA' })
+  })
+
+  it('(f) dos hoyos distintos no se esperan entre sí', async () => {
+    const { enviados, soltar } = servidorConDemora((b) => b.hole_number === 1)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    let hoyo1!: Promise<void>
+    act(() => { hoyo1 = result.current.saveScore(1, '5') })
+    let hoyo2!: Promise<void>
+    act(() => { hoyo2 = result.current.saveScore(2, '3') })
+    await tic()
+    expect(enviados.map((e) => e.hole_number)).toEqual([1, 2])
+    await act(async () => { await hoyo2 }) // responde sin que el hoyo 1 haya respondido
+    await act(async () => { soltar(); await hoyo1 })
+  })
+
+  it('(g) lo encolado con la tarjeta de A sale igual, a la ronda de A, después de abrir la de B', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const { enviados, soltar } = servidorConDemora((b) => b.gross_score === 5)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    let guardar!: Promise<void>
+    act(() => { guardar = result.current.saveScore(1, '5') })
+    await tic()
+    act(() => result.current.cambiarStat(1, { gir: false }))
+    fetchRoundHoleScores.mockImplementation(async (id) => (id === 'rA' ? STATS_A : GOLPE_B))
+    await act(async () => result.current.selectPlayer('pB'))
+    await act(async () => { soltar(); await guardar })
+    await act(async () => { vi.advanceTimersByTime(600) })
+    await tic()
+    const stats = enviados.filter(esDeStats)
+    expect(stats).toEqual([expect.objectContaining({ round_id: 'rA', hole_number: 1, gross_score: 5, gir: false })])
+    expect(enviados.some((e) => e.round_id === 'rB')).toBe(false)
+    expect(result.current.holeGir[1]).toBeNull()
+    expect(result.current.currentScores[1]).toBe(6)
+  })
+})
+
 describe('useScoreEntry · respuestas de otra tarjeta (v4)', () => {
   it('un guardado de A que responde con B abierta no deja a B en "Cargando…"', async () => {
     const { soltar } = servidorConDemora((b) => b.round_id === 'rA')
@@ -575,6 +669,7 @@ describe('useScoreEntry · respuestas de otra tarjeta (v4)', () => {
     await act(async () => result.current.selectPlayer('pB')) // sale el GIR de A (queda en vuelo)
     let deB!: Promise<boolean>
     act(() => { deB = result.current.saveHoleStat(1, { putts: 2 }) })
+    await tic() // sale en una microtarea (cola del hoyo)
     await act(async () => { soltar(); await deB })
     expect([...result.current.statsFallidas]).toEqual([1]) // la de B
     expect(toast.showWarning).toHaveBeenCalledWith('No se guardó', expect.stringContaining('Ana'))

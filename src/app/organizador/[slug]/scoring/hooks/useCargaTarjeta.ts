@@ -60,9 +60,9 @@ export function armarTarjeta(
   return t
 }
 
-/** Golpes en vuelo por `${roundId}:${hoyo}`. La entrada es un objeto propio por envío: la respuesta sólo la saca
- *  si sigue siendo la suya (otro envío del mismo hoyo pudo reemplazarla). */
-export type GrossEnVuelo = Map<string, { valor: number }>
+/** Golpes en vuelo, por `claveHoyo`. La entrada es un objeto propio por envío: la respuesta sólo la saca si sigue
+ *  siendo la suya (otro envío del mismo hoyo pudo reemplazarla). */
+export type GrossEnVuelo = Map<string, { roundId: string; hole: number; valor: number }>
 
 interface Args {
   selectedId: string | null
@@ -72,6 +72,8 @@ interface Args {
   tarjetaRef: MutableRefObject<number>
   statsTocadasRef: MutableRefObject<StatsTocadas>
   grossEnVueloRef: MutableRefObject<GrossEnVuelo>
+  /** Golpes leídos de la base: el confirmado de cada hoyo para la cola de envíos (`ColaHoyos.sembrarGolpes`). */
+  sembrarGolpes: (roundId: string, golpes: Record<number, number>) => void
   aplicar: (t: TarjetaCargada) => void
   resetHoleState: () => void
   showError: (titulo: string, mensaje: string) => void
@@ -92,8 +94,8 @@ interface Pedido {
 }
 
 export function useCargaTarjeta({
-  selectedId, players, getActiveRound, tarjetaRef, statsTocadasRef, grossEnVueloRef, aplicar, resetHoleState,
-  showError,
+  selectedId, players, getActiveRound, tarjetaRef, statsTocadasRef, grossEnVueloRef, sembrarGolpes, aplicar,
+  resetHoleState, showError,
 }: Args) {
   const [estado, setEstadoState] = useState<EstadoCarga>(SIN_CARGA)
   /** El mismo estado, leído en los handlers sin esperar al render. */
@@ -179,10 +181,10 @@ export function useCargaTarjeta({
       const { roundId, rows } = pedido
       if (rows) {
         const enVuelo: Record<number, number> = {}
-        for (const [clave, { valor }] of grossEnVueloRef.current) {
-          const [ronda, hoyo] = clave.split(':')
-          if (ronda === roundId) enVuelo[Number(hoyo)] = valor
-        }
+        for (const v of grossEnVueloRef.current.values()) if (v.roundId === roundId) enVuelo[v.hole] = v.valor
+        const golpes: Record<number, number> = {}
+        for (const r of rows) if (r.gross_score != null) golpes[r.hole_number] = r.gross_score
+        sembrarGolpes(roundId, golpes)
         aplicar(armarTarjeta(rows, tocadasDeLaRonda(statsTocadasRef.current, roundId), enVuelo))
         setEstado({ ronda: roundId, carga: 'lista' })
         return
@@ -195,7 +197,7 @@ export function useCargaTarjeta({
       setEstado({ ronda: roundId, carga: 'error' })
       showErrorRef.current('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
     },
-    [grossEnVueloRef, statsTocadasRef, aplicar, resetHoleState, setEstado, tarjetaLista],
+    [grossEnVueloRef, statsTocadasRef, sembrarGolpes, aplicar, resetHoleState, setEstado, tarjetaLista],
   )
 
   const reintentarCarga = useCallback(() => {

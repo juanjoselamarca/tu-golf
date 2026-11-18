@@ -4,9 +4,12 @@
 // SI normalizado, strokes por hoyo, stableford) — acá sólo se orquesta.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { enviarHoyo, leerTocadas, reconciliar, SIN_TOCAR, tocar, type HoleStatPatch, type VersionesEnviadas } from './envio-hoyo'
+import {
+  claveHoyo, crearColaHoyos, enviarHoyo, leerTocadas, reconciliar, SIN_TOCAR, tocar, type HoleStatPatch,
+  type VersionesEnviadas,
+} from './envio-hoyo'
 import { useCargaTarjeta, type GrossEnVuelo, type TarjetaCargada } from './useCargaTarjeta'
-import { useStatsHoyo, type GrossEscrito } from './useStatsHoyo'
+import { useStatsHoyo } from './useStatsHoyo'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
@@ -97,8 +100,10 @@ export function useScoreEntry({
   const selectedIdRef = useRef<string | null>(null)
   /** Golpes enviados sin respuesta todavía: la recarga los deja en pantalla (ver `armarTarjeta`). */
   const grossEnVueloRef = useRef<GrossEnVuelo>(new Map())
-  /** Último golpe mandado a cada hoyo mientras la pantalla no lo refleja (ver `useStatsHoyo`). */
-  const grossEscritoRef = useRef<GrossEscrito>(new Map())
+  /** Todo envío a un hoyo pasa por su cola: sale cuando terminó el anterior de ese hoyo, y las stats salen con el
+   *  último golpe que el servidor confirmó (ver `crearColaHoyos`). Vive mientras viva el scorer: lo encolado con la
+   *  tarjeta de A sigue saliendo, a la ronda de A, aunque se abra la de B. */
+  const [cola] = useState(crearColaHoyos)
 
   /** Foto de las stats del hoyo con `patch` encima, y queda como vigente. El servidor ordena los envíos por hoyo
    *  (`guardar_hole_score`): con un parche parcial por envío, putts (seq 7) que llega después de GIR (seq 8) se
@@ -144,7 +149,7 @@ export function useScoreEntry({
   const { cargaTarjeta, cargaLenta, tarjetaLista, marcarCargando, invalidarCargas, reintentarCarga } =
     useCargaTarjeta({
       selectedId, players, getActiveRound, tarjetaRef, statsTocadasRef, grossEnVueloRef,
-      aplicar: aplicarTarjeta, resetHoleState, showError,
+      sembrarGolpes: cola.sembrarGolpes, aplicar: aplicarTarjeta, resetHoleState, showError,
     })
 
   const parDelHoyo = useCallback((h: number) => holeByNumero.get(h)?.par ?? 4, [holeByNumero])
@@ -153,7 +158,7 @@ export function useScoreEntry({
     retomarFallidas,
   } = useStatsHoyo({
     tournament, selectedId, players, getActiveRound, currentScores, parDelHoyo, tarjetaLista, statsTocadasRef,
-    grossEscritoRef, fotoStatsDelHoyo, confirmarStats, showWarning,
+    cola, fotoStatsDelHoyo, confirmarStats, showWarning,
   })
 
   const selectPlayer = useCallback(
@@ -163,12 +168,11 @@ export function useScoreEntry({
       if (playerId === selectedIdRef.current) return
       selectedIdRef.current = playerId
       // Lo que esperaba el fin de los toques sale ahora, con la foto de ESTA tarjeta (después ya no está).
-      enviarPendientes()
+      void enviarPendientes()
       tarjetaRef.current += 1
       // Todo lo de la tarjeta anterior se va YA, no cuando termine la carga: si la carga tarda o falla, anotar el
       // hoyo 1 de B mandaba putts, fairway y GIR de A a la ronda de B.
       statsTocadasRef.current = SIN_TOCAR
-      grossEscritoRef.current = new Map()
       // Lo que falló en esta tarjeta vuelve a quedar tocado: se ve al cargar y viaja al reintentar.
       const ronda = getActiveRound(players.find((p) => p.id === playerId))
       if (ronda) retomarFallidas(ronda.id)
@@ -183,10 +187,9 @@ export function useScoreEntry({
 
   const clearSelection = useCallback(() => {
     selectedIdRef.current = null
-    enviarPendientes()
+    void enviarPendientes()
     tarjetaRef.current += 1
     statsTocadasRef.current = SIN_TOCAR
-    grossEscritoRef.current = new Map()
     marcarCargando()
     setSelectedId(null)
     resetHoleState()
@@ -303,28 +306,28 @@ export function useScoreEntry({
 
       setSaving(true)
       const { foto: stats, versiones } = fotoParaEnviar(round.id, holeNumber)
-      const claveVuelo = `${round.id}:${holeNumber}`
-      const enVuelo = { valor: gross }
+      const claveVuelo = claveHoyo(round.id, holeNumber)
+      const enVuelo = { roundId: round.id, hole: holeNumber, valor: gross }
       grossEnVueloRef.current.set(claveVuelo, enVuelo)
-      const escrito = { valor: gross as number | null }
-      grossEscritoRef.current.set(claveVuelo, escrito)
       const tarjeta = tarjetaRef.current
-      const res = await enviarHoyo({
-        tournament_id: tournament.id,
-        round_id: round.id,
-        hole_number: holeNumber,
-        par,
-        gross_score: gross,
-        net_score: netScore,
-        points,
-        ...stats,
+      const torneo = tournament.id
+      // Sale detrás de lo que ya iba a este hoyo. El golpe pasa a ser el confirmado sólo si el servidor lo aplicó:
+      // si falla, lo que salga después al hoyo lleva el que sigue en la base.
+      const res = await cola.encolar(round.id, holeNumber, async () => {
+        const r = await enviarHoyo({
+          tournament_id: torneo,
+          round_id: round.id,
+          hole_number: holeNumber,
+          par,
+          gross_score: gross,
+          net_score: netScore,
+          points,
+          ...stats,
+        })
+        if (r.ok && r.aplicado) cola.confirmarGolpe(round.id, holeNumber, gross)
+        return r
       })
       if (grossEnVueloRef.current.get(claveVuelo) === enVuelo) grossEnVueloRef.current.delete(claveVuelo)
-      if (grossEscritoRef.current.get(claveVuelo) === escrito) {
-        // No llegó: un envío de stats posterior sale con el golpe de antes (el que sigue en la base).
-        if (res.ok) grossEscritoRef.current.delete(claveVuelo)
-        else grossEscritoRef.current.set(claveVuelo, { valor: accion.previousScore ?? null })
-      }
       setSaving(false)
 
       if (!res.ok) {
@@ -355,7 +358,7 @@ export function useScoreEntry({
     },
     [
       tournament, selectedId, players, getActiveRound, holeByNumero, siAllocByHole,
-      courseHoles, courseTees, holeCount, currentScores, fotoParaEnviar, confirmarStats,
+      courseHoles, courseTees, holeCount, currentScores, fotoParaEnviar, confirmarStats, cola,
       applyRoundTotals, showError, showSuccess, showWarning, tarjetaLista, statsGuardadas, invalidarCargas,
     ],
   )
@@ -369,9 +372,6 @@ export function useScoreEntry({
       showWarning('Espera un momento', `El hoyo ${holeNumber} todavía se está guardando.`)
       return
     }
-    // Lo que esperaba el fin de los toques sale ANTES que el deshacer: con secuencia más nueva y el golpe de la
-    // pantalla, salía después y volvía a escribir el golpe deshecho.
-    enviarPendientes()
     const tarjeta = tarjetaRef.current
     /** Revierte la celda, sólo si la tarjeta a la vista sigue siendo la misma y
      *  la celda sigue mostrando lo que se está deshaciendo (si mientras tanto se
@@ -419,21 +419,19 @@ export function useScoreEntry({
     // Lleva lo tocado del hoyo: con secuencia más nueva que un GIR en vuelo, sin la foto ese GIR se descartaba
     // en el servidor. Se lee sin tocar nada (el deshacer no fija stats).
     const { foto: stats, versiones } = leerParaEnviar(roundId, holeNumber)
-    const claveHoyo = `${roundId}:${holeNumber}`
-    const escrito = { valor: previousScore ?? null }
-    grossEscritoRef.current.set(claveHoyo, escrito)
-    const envio = await enviarHoyo({
-      tournament_id: tournament.id,
-      round_id: roundId,
-      hole_number: holeNumber,
-      par: holeByNumero.get(holeNumber)?.par ?? 4,
-      gross_score: previousScore ?? null,
-      ...stats,
+    const torneo = tournament.id
+    const par = holeByNumero.get(holeNumber)?.par ?? 4
+    const golpe = previousScore ?? null
+    // Por la cola del hoyo, como todo envío: el golpe deshecho pasa a ser el confirmado sólo si el servidor lo aplicó.
+    const envio = await cola.encolar(roundId, holeNumber, async () => {
+      const r = await enviarHoyo({
+        tournament_id: torneo, round_id: roundId, hole_number: holeNumber, par, gross_score: golpe, ...stats,
+      })
+      if (r.ok && r.aplicado) cola.confirmarGolpe(roundId, holeNumber, golpe)
+      return r
     })
     const ok = envio.ok
     if (envio.aplicado) confirmarStats(roundId, holeNumber, versiones)
-    // Resuelto: el golpe vigente vuelve a ser el de la pantalla (revertida abajo si salió bien).
-    if (grossEscritoRef.current.get(claveHoyo) === escrito) grossEscritoRef.current.delete(claveHoyo)
     setSaving(false)
     if (!ok) {
       // La pantalla NO se toca si el servidor no deshizo. Aplicar el undo
@@ -460,7 +458,7 @@ export function useScoreEntry({
     }
   }, [
     lastAction, tournament, saving, holeByNumero, applyRoundTotals, showSuccess, showWarning, confirmarStats,
-    enviarPendientes, leerParaEnviar, invalidarCargas,
+    leerParaEnviar, invalidarCargas, cola,
   ])
 
   const finalizeRound = useCallback(async () => {
@@ -468,9 +466,11 @@ export function useScoreEntry({
     const player = players.find((p) => p.id === selectedId)
     const round = getActiveRound(player)
     if (!round) return
-    // Las stats que esperaban salen antes del cierre (después el servidor las rechazaría).
-    enviarPendientes()
     setSaving(true)
+    // Todo lo de la tarjeta llega ANTES del cierre (después el servidor lo rechazaría): las stats que esperaban y lo
+    // que esté en la cola de cada hoyo de la ronda. Se ESPERA la respuesta, no sólo la salida.
+    await enviarPendientes()
+    await cola.vaciar(round.id)
     const res = await fetch('/api/game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -502,7 +502,10 @@ export function useScoreEntry({
     }
     await reloadRoster()
     clearSelection()
-  }, [tournament, selectedId, players, getActiveRound, reloadRoster, clearSelection, showError, showWarning, enviarPendientes])
+  }, [
+    tournament, selectedId, players, getActiveRound, reloadRoster, clearSelection, showError, showWarning,
+    enviarPendientes, cola,
+  ])
 
   return {
     selectedId,

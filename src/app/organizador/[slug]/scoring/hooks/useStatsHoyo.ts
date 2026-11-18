@@ -8,14 +8,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { ScoringPlayer, ScoringRound, ScoringTournament } from '@/lib/data/tournaments/scoring'
 import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
-import { enviarHoyo, leerTocadas, type HoleStatPatch, type StatsTocadas, type VersionesEnviadas } from './envio-hoyo'
+import {
+  claveHoyo, enviarHoyo, leerTocadas, type ColaHoyos, type HoleStatPatch, type StatsTocadas, type VersionesEnviadas,
+} from './envio-hoyo'
 
 /** Fairway y GIR se tocan varias veces seguidas (el botón rota): se envía sólo el valor final. */
 export const ESPERA_ENVIO_STAT_MS = 600
-
-/** Golpe que el organizador acaba de mandar al hoyo (`ronda:hoyo`), mientras la pantalla todavía no lo refleja o el
- *  envío no terminó. `null` = el hoyo queda sin golpe (deshacer de un hoyo que estaba vacío). */
-export type GrossEscrito = Map<string, { valor: number | null }>
 
 /** Hoyos con stats sin guardar, por ronda, con la foto que no llegó. */
 type Fallidas = ReadonlyMap<string, ReadonlyMap<number, HoleStatPatch>>
@@ -29,7 +27,8 @@ interface Args {
   parDelHoyo: (hole: number) => number
   tarjetaLista: (roundId: string) => boolean
   statsTocadasRef: MutableRefObject<StatsTocadas>
-  grossEscritoRef: MutableRefObject<GrossEscrito>
+  /** Cola serial por hoyo y golpe confirmado de cada uno (la comparte con el guardado y el deshacer). */
+  cola: ColaHoyos
   fotoStatsDelHoyo: (roundId: string, hole: number, patch?: HoleStatPatch) => { foto: HoleStatPatch; versiones: VersionesEnviadas }
   confirmarStats: (roundId: string, hole: number, versiones: VersionesEnviadas) => void
   showWarning: (titulo: string, mensaje: string) => void
@@ -40,7 +39,7 @@ const SIN_FALLIDAS: Fallidas = new Map()
 
 export function useStatsHoyo({
   tournament, selectedId, players, getActiveRound, currentScores, parDelHoyo, tarjetaLista, statsTocadasRef,
-  grossEscritoRef, fotoStatsDelHoyo, confirmarStats, showWarning,
+  cola, fotoStatsDelHoyo, confirmarStats, showWarning,
 }: Args) {
   const [fallidas, setFallidas] = useState<Fallidas>(SIN_FALLIDAS)
   /** Espejo de `fallidas` para leerlo sin el closure del render (un envío y un reintento en el mismo tick). */
@@ -49,15 +48,9 @@ export function useStatsHoyo({
   const ultimoEnvio = useRef(new Map<string, number>())
   const contador = useRef(0)
   /** Envíos esperando el fin de los toques (`ESPERA_ENVIO_STAT_MS`), por `ronda:hoyo`. */
-  const pendientes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; enviar: () => void }>())
+  const pendientes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; enviar: () => Promise<boolean> }>())
   /** Hoyos que ya avisaron que sus stats no se guardaron: un aviso por jugador, ronda y hoyo, no uno por tap. */
   const avisados = useRef(new Set<string>())
-  /** Golpes a la vista, leídos al salir un envío diferido (el golpe pudo cambiar durante la espera). */
-  const scoresRef = useRef(currentScores)
-  useEffect(() => {
-    scoresRef.current = currentScores
-  })
-
   const marcar = useCallback((roundId: string, hole: number, fotoFallida: HoleStatPatch | null) => {
     const prev = fallidasRef.current
     const deRonda = prev.get(roundId)
@@ -100,33 +93,42 @@ export function useStatsHoyo({
     [statsTocadasRef, faltantes],
   )
 
-  /** Envía lo tocado del hoyo. Devuelve si quedó guardado. */
+  /** Encola el envío de lo tocado del hoyo (`foto`, fijada AHORA). Devuelve si quedó guardado. El golpe NO se fija
+   *  al encolar: sale con el último que el servidor confirmó para el hoyo, leído cuando le toca salir. Un guardado o
+   *  un deshacer que iba delante y falló no cambia ese golpe; uno que salió bien, sí. */
   const enviar = useCallback(
-    async (roundId: string, playerId: string, hole: number, gross: number, foto: HoleStatPatch, versiones: VersionesEnviadas) => {
-      if (!tournament) return false
-      const clave = `${roundId}:${hole}`
+    (roundId: string, playerId: string, hole: number, foto: HoleStatPatch, versiones: VersionesEnviadas) => {
+      if (!tournament) return Promise.resolve(false)
+      const torneo = tournament.id
+      const clave = claveHoyo(roundId, hole)
       const id = ++contador.current
       ultimoEnvio.current.set(clave, id)
-      const res = await enviarHoyo({
-        tournament_id: tournament.id, round_id: roundId, hole_number: hole, par: parDelHoyo(hole),
-        gross_score: gross, ...foto,
+      return cola.encolar(roundId, hole, async () => {
+        const gross = cola.golpeConfirmado(roundId, hole)
+        // Sin golpe en la base no hay fila donde guardar stats, y mandar el de la pantalla lo escribiría sin que
+        // el servidor lo haya aceptado. No es un fallo de red: no se marca para reintentar.
+        if (gross == null) return false
+        const res = await enviarHoyo({
+          tournament_id: torneo, round_id: roundId, hole_number: hole, par: parDelHoyo(hole), gross_score: gross,
+          ...foto,
+        })
+        if (res.ok && res.aplicado) confirmarStats(roundId, hole, versiones)
+        const aviso = `${playerId}:${clave}`
+        if (!res.ok && !avisados.current.has(aviso)) {
+          // Un solo aviso por hoyo: putts, fairway y GIR son tres taps sobre el MISMO hoyo, y con la red caída eran
+          // tres toasts apilados justo cuando el organizador tiene menos tiempo para leerlos. Con el nombre: el
+          // envío diferido de A puede fallar con la tarjeta de B abierta.
+          avisados.current.add(aviso)
+          const jugador = players.find((p) => p.id === playerId)
+          const nombre = jugador ? resolveLegacyPlayerName(jugador) : 'un jugador'
+          showWarning('No se guardó', `Las estadísticas de ${nombre} en el hoyo ${hole} no quedaron registradas. Reintenta desde su tarjeta.`)
+        }
+        if (res.ok) avisados.current.delete(aviso)
+        if (ultimoEnvio.current.get(clave) === id) marcar(roundId, hole, res.ok ? null : foto)
+        return res.ok
       })
-      if (res.ok && res.aplicado) confirmarStats(roundId, hole, versiones)
-      const aviso = `${playerId}:${clave}`
-      if (!res.ok && !avisados.current.has(aviso)) {
-        // Un solo aviso por hoyo: putts, fairway y GIR son tres taps sobre el MISMO hoyo, y con la red caída eran
-        // tres toasts apilados justo cuando el organizador tiene menos tiempo para leerlos. Con el nombre: el
-        // envío diferido de A puede fallar con la tarjeta de B abierta.
-        avisados.current.add(aviso)
-        const jugador = players.find((p) => p.id === playerId)
-        const nombre = jugador ? resolveLegacyPlayerName(jugador) : 'un jugador'
-        showWarning('No se guardó', `Las estadísticas de ${nombre} en el hoyo ${hole} no quedaron registradas. Reintenta desde su tarjeta.`)
-      }
-      if (res.ok) avisados.current.delete(aviso)
-      if (ultimoEnvio.current.get(clave) === id) marcar(roundId, hole, res.ok ? null : foto)
-      return res.ok
     },
-    [tournament, players, parDelHoyo, confirmarStats, showWarning, marcar],
+    [tournament, cola, players, parDelHoyo, confirmarStats, showWarning, marcar],
   )
 
   /** Ronda y golpe del hoyo, si se puede guardar en él: tarjeta a la vista ya cargada y con golpe en el hoyo. */
@@ -139,17 +141,6 @@ export function useStatsHoyo({
       return { roundId: round.id, playerId: selectedId }
     },
     [tournament, selectedId, currentScores, players, getActiveRound, tarjetaLista],
-  )
-
-  /** Golpe con que sale un envío de stats: el último que se mandó al hoyo, si todavía no está en pantalla (un
-   *  deshacer en vuelo); si no, el de la pantalla. Sin esto, un GIR tocado durante el deshacer volvía a escribir el
-   *  golpe deshecho con una secuencia más nueva, y la base quedaba con él. */
-  const grossDelHoyo = useCallback(
-    (roundId: string, hole: number) => {
-      const escrito = grossEscritoRef.current.get(`${roundId}:${hole}`)
-      return escrito ? escrito.valor : (scoresRef.current[hole] ?? null)
-    },
-    [grossEscritoRef],
   )
 
   /** Fija `patch` y lo envía YA con la foto del hoyo (putts al salir del campo, reintento). Multi-ronda: contra la
@@ -165,11 +156,9 @@ export function useStatsHoyo({
         showWarning('Nada que reenviar', `El hoyo ${hole} no tiene estadísticas pendientes. Si faltan, márcalas de nuevo.`)
         return false
       }
-      const gross = grossDelHoyo(d.roundId, hole)
-      if (gross == null) return false
-      return enviar(d.roundId, d.playerId, hole, gross, foto, versiones)
+      return enviar(d.roundId, d.playerId, hole, foto, versiones)
     },
-    [destino, fotoParaEnviar, grossDelHoyo, enviar, marcar, showWarning],
+    [destino, fotoParaEnviar, enviar, marcar, showWarning],
   )
 
   /** Fija `patch` ya (viaja con cualquier envío del hoyo desde ahora) y envía cuando dejan de tocar. */
@@ -178,29 +167,31 @@ export function useStatsHoyo({
       const d = destino(hole)
       if (!d) return
       fotoStatsDelHoyo(d.roundId, hole, patch)
-      const clave = `${d.roundId}:${hole}`
+      const clave = claveHoyo(d.roundId, hole)
       const previo = pendientes.current.get(clave)
       if (previo) clearTimeout(previo.timer)
+      // Lo tocado se fija al salir de la espera (después, cambiar de jugador lo suelta); el golpe, al salir de la cola.
       const salir = () => {
         pendientes.current.delete(clave)
-        const gross = grossDelHoyo(d.roundId, hole)
-        if (gross == null) return
         const { foto, versiones } = leerParaEnviar(d.roundId, hole)
-        void enviar(d.roundId, d.playerId, hole, gross, foto, versiones)
+        return enviar(d.roundId, d.playerId, hole, foto, versiones)
       }
-      pendientes.current.set(clave, { timer: setTimeout(salir, ESPERA_ENVIO_STAT_MS), enviar: salir })
+      pendientes.current.set(clave, { timer: setTimeout(() => void salir(), ESPERA_ENVIO_STAT_MS), enviar: salir })
     },
-    [destino, fotoStatsDelHoyo, grossDelHoyo, leerParaEnviar, enviar],
+    [destino, fotoStatsDelHoyo, leerParaEnviar, enviar],
   )
 
-  /** Envía ya lo que estaba esperando. Se llama ANTES de soltar la tarjeta (cambio de jugador, cerrar) y antes de
-   *  cualquier escritura del hoyo (deshacer, cerrar la tarjeta): el envío diferido tiene que salir ANTES, o su
-   *  secuencia más nueva pisa esa escritura en el servidor. */
-  const enviarPendientes = useCallback(() => {
+  /** Envía ya lo que estaba esperando. Se llama ANTES de soltar la tarjeta (cambio de jugador, cerrar): después lo
+   *  tocado ya no está. El orden contra un guardado o un deshacer del mismo hoyo lo pone su cola. Encola todo en
+   *  el acto (lo que se encole después sale detrás); la promesa termina cuando esos envíos respondieron (cerrar la
+   *  tarjeta la espera). */
+  const enviarPendientes = useCallback(async (): Promise<void> => {
+    const enviados: Promise<boolean>[] = []
     for (const { timer, enviar: salir } of [...pendientes.current.values()]) {
       clearTimeout(timer)
-      salir()
+      enviados.push(salir())
     }
+    await Promise.all(enviados)
   }, [])
   const enviarPendientesRef = useRef(enviarPendientes)
   useEffect(() => {
@@ -209,12 +200,12 @@ export function useStatsHoyo({
   useEffect(() => {
     // iOS suspende los timers con la app en segundo plano: lo que esperaba sale al irse.
     const alOcultar = () => {
-      if (document.visibilityState === 'hidden') enviarPendientesRef.current()
+      if (document.visibilityState === 'hidden') void enviarPendientesRef.current()
     }
     document.addEventListener('visibilitychange', alOcultar)
     return () => {
       document.removeEventListener('visibilitychange', alOcultar)
-      enviarPendientesRef.current()
+      void enviarPendientesRef.current()
     }
   }, [])
 

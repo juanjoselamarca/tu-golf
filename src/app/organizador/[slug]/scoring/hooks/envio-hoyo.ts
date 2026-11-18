@@ -80,6 +80,10 @@ export function tocadasDeLaRonda(t: StatsTocadas, roundId: string): Record<numbe
   return r
 }
 
+/** Corte de un envío: sin él, una red colgada dejaba la cola del hoyo trabada para siempre. Si el envío llega tarde
+ *  al servidor, la secuencia lo descarta frente a cualquiera posterior del mismo hoyo. */
+export const TIMEOUT_ENVIO_MS = 15_000
+
 /** `aplicado`: el servidor guardó ESTE envío (no lo descartó por haber uno más nuevo del dispositivo). */
 export interface ResultadoEnvio {
   ok: boolean
@@ -91,9 +95,12 @@ export interface ResultadoEnvio {
  * `fetch` rechaza, y eso cuenta como un envío fallido (antes quedaba como promesa rechazada sin aviso).
  */
 export async function enviarHoyo(campos: Record<string, unknown>): Promise<ResultadoEnvio> {
+  const control = new AbortController()
+  const plazo = setTimeout(() => control.abort(), TIMEOUT_ENVIO_MS)
   try {
     const res = await fetch('/api/game', {
       method: 'POST',
+      signal: control.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'upsert_score',
@@ -109,5 +116,73 @@ export async function enviarHoyo(campos: Record<string, unknown>): Promise<Resul
     return { ok: true, aplicado: cuerpo?.descartado !== true }
   } catch {
     return { ok: false, aplicado: false }
+  } finally {
+    clearTimeout(plazo)
+  }
+}
+
+/** Clave de un hoyo de una ronda. Única fuente: nadie arma ni parsea esta clave a mano. */
+export function claveHoyo(roundId: string, hole: number): string {
+  return `${roundId}:${hole}`
+}
+
+/**
+ * Cola serial por hoyo. Todo envío a un mismo `ronda:hoyo` (golpe, deshacer, stats, reintento) sale recién cuando
+ * terminó el anterior de ese hoyo (bien o mal); hoyos distintos van en paralelo. Lleva el último golpe CONFIRMADO
+ * por el servidor de cada hoyo: un envío de stats lo lee al salir, no al encolarse. Así un guardado o un deshacer
+ * que falla nunca deja colar un envío con un golpe que la base no tiene (revisión #834, vueltas 4 y 5).
+ */
+export interface ColaHoyos {
+  /** Encola `tarea` detrás de lo pendiente del hoyo. Devuelve su resultado (o su error). */
+  encolar<T>(roundId: string, hole: number, tarea: () => Promise<T>): Promise<T>
+  /** Espera a que se vacíen las colas de la ronda (también lo que se encole mientras tanto). */
+  vaciar(roundId: string): Promise<void>
+  /** Último golpe confirmado del hoyo: número, `null` (sin golpe en la base) o `undefined` (no se sabe). */
+  golpeConfirmado(roundId: string, hole: number): number | null | undefined
+  confirmarGolpe(roundId: string, hole: number, gross: number | null): void
+  /** Golpes leídos de la base. No pisa hoyos con envíos en curso: su confirmado lo dará la respuesta. */
+  sembrarGolpes(roundId: string, golpes: Record<number, number>): void
+}
+
+export function crearColaHoyos(): ColaHoyos {
+  const colas = new Map<string, { roundId: string; fin: Promise<void> }>()
+  /** Por ronda y hoyo. */
+  const confirmados = new Map<string, Map<number, number | null>>()
+  return {
+    encolar(roundId, hole, tarea) {
+      const clave = claveHoyo(roundId, hole)
+      const previa = colas.get(clave)?.fin ?? Promise.resolve()
+      const esta = previa.then(tarea)
+      const fin = esta.then(() => {}, () => {})
+      colas.set(clave, { roundId, fin })
+      void fin.then(() => {
+        if (colas.get(clave)?.fin === fin) colas.delete(clave)
+      })
+      return esta
+    },
+    async vaciar(roundId) {
+      for (;;) {
+        const enCurso = [...colas.values()].filter((c) => c.roundId === roundId).map((c) => c.fin)
+        if (enCurso.length === 0) return
+        await Promise.all(enCurso)
+      }
+    },
+    golpeConfirmado(roundId, hole) {
+      const deRonda = confirmados.get(roundId)
+      return deRonda?.has(hole) ? deRonda.get(hole) : undefined
+    },
+    confirmarGolpe(roundId, hole, gross) {
+      const deRonda = confirmados.get(roundId) ?? new Map<number, number | null>()
+      deRonda.set(hole, gross)
+      confirmados.set(roundId, deRonda)
+    },
+    sembrarGolpes(roundId, golpes) {
+      const libre = (hole: number) => !colas.has(claveHoyo(roundId, hole))
+      const deRonda = new Map<number, number | null>()
+      // Lo de hoyos con envíos en curso se conserva; el resto es lo que diga la base (sin fila = sin golpe).
+      for (const [hole, gross] of confirmados.get(roundId) ?? []) if (!libre(hole)) deRonda.set(hole, gross)
+      for (const [h, gross] of Object.entries(golpes)) if (libre(Number(h))) deRonda.set(Number(h), gross)
+      confirmados.set(roundId, deRonda)
+    },
   }
 }

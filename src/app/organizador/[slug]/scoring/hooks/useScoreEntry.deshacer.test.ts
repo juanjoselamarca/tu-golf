@@ -221,10 +221,13 @@ describe('useScoreEntry · deshacer', () => {
 
     let deshacer: Promise<void> = Promise.resolve()
     act(() => { deshacer = result.current.undoLast() })
-    await act(() => result.current.saveScore(11, '6'))
+    // El 6 se encola detrás del deshacer del mismo hoyo (cola serial): sale cuando el deshacer respondió.
+    let guardar6: Promise<void> = Promise.resolve()
+    act(() => { guardar6 = result.current.saveScore(11, '6') })
     await act(async () => {
       responder(new Response('{}', { status: 200 }))
       await deshacer
+      await guardar6
     })
 
     expect(result.current.currentScores[11]).toBe(6)
@@ -303,18 +306,22 @@ describe('useScoreEntry · el deshacer no sale de su tarjeta', () => {
     let deshacer: Promise<void> = Promise.resolve()
     act(() => { deshacer = result.current.undoLast() })
     await act(async () => result.current.selectPlayer('p2'))
-    await act(() => result.current.saveScore(5, '4'))
+    applyRoundTotals.mockClear()
+    // En este doble p1 y p2 comparten la ronda r1: el guardado de p2 cae en la cola del mismo hoyo y sale detrás.
+    let guardar: Promise<void> = Promise.resolve()
+    act(() => { guardar = result.current.saveScore(5, '4') })
 
     await act(async () => {
       responder(new Response('{}', { status: 200 }))
       await deshacer
+      await guardar
     })
 
     expect(result.current.selectedId).toBe('p2')
     expect(result.current.currentScores[5]).toBe(4)
     expect(result.current.lastAction).toMatchObject({ playerId: 'p2', holeNumber: 5 })
-    // El total que se refresca es el de la tarjeta deshecha, no el de la abierta.
-    expect(applyRoundTotals).toHaveBeenLastCalledWith('p1', 'r1', expect.anything())
+    // El total que refresca el deshacer es el de la tarjeta deshecha, no el de la abierta (el otro es el de p2).
+    expect(applyRoundTotals.mock.calls.map((c) => c[0]).sort()).toEqual(['p1', 'p2'])
   })
 })
 
