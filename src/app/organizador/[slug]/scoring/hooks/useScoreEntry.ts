@@ -4,6 +4,7 @@
 // SI normalizado, strokes por hoyo, stableford) — acá sólo se orquesta.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { DISPOSITIVO_GUARDADO, nuevaSecuencia } from '@/lib/red/orden-guardado'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
@@ -282,6 +283,9 @@ export function useScoreEntry({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'upsert_score',
+            // Orden por dispositivo: un envío más viejo de este hoyo que llega tarde no pisa a uno más nuevo.
+            seq: nuevaSecuencia(),
+            dispositivo: DISPOSITIVO_GUARDADO,
             tournament_id: tournament.id,
             round_id: round.id,
             hole_number: holeNumber,
@@ -385,6 +389,9 @@ export function useScoreEntry({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'upsert_score',
+          // Orden por dispositivo: un envío más viejo de este hoyo que llega tarde no pisa a uno más nuevo.
+          seq: nuevaSecuencia(),
+          dispositivo: DISPOSITIVO_GUARDADO,
           tournament_id: tournament.id,
           round_id: roundId,
           hole_number: holeNumber,
@@ -441,6 +448,9 @@ export function useScoreEntry({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'upsert_score',
+          // Orden por dispositivo: un envío más viejo de este hoyo que llega tarde no pisa a uno más nuevo.
+          seq: nuevaSecuencia(),
+          dispositivo: DISPOSITIVO_GUARDADO,
           tournament_id: tournament.id,
           round_id: round.id,
           hole_number: holeNumber,

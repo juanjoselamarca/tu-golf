@@ -26,25 +26,11 @@ import { conTimeout } from '@/lib/red/con-timeout'
  */
 export const PLAZO_GUARDADO_MS = 12_000
 
-/**
- * El servidor descarta un guardado de este dispositivo si ya aplicó uno con
- * secuencia igual o mayor (`p_seq`, `p_dispositivo`). El id es por carga de la
- * página y no se persiste: la secuencia vive en memoria, y con un id guardado en
- * el teléfono una recarga volvería a empezar desde 1 y el servidor descartaría
- * cada guardado nuevo. Sin `randomUUID` (contexto no seguro, como http en la red
- * local) se guarda sin orden, como antes, en vez de no cargar el scorer.
- */
-const DISPOSITIVO = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null
-let ultimaSecuencia = 0
-
-/**
- * Secuencia de un guardado nuevo. Un reintento del MISMO contenido reusa la suya:
- * con una nueva, el reintento de una tarjeta vieja pisaría a una más nueva que
- * entró mientras tanto.
- */
-export function nuevaSecuencia(): number {
-  return ++ultimaSecuencia
-}
+// El servidor descarta un guardado de este dispositivo si ya aplicó uno con
+// secuencia igual o mayor (`p_seq`, `p_dispositivo`). Fuente única del id y de
+// la secuencia (la comparte el scorer del torneo): `@/lib/red/orden-guardado`.
+import { DISPOSITIVO_GUARDADO as DISPOSITIVO, nuevaSecuencia } from '@/lib/red/orden-guardado'
+export { nuevaSecuencia }
 
 // Código del error sintético de "venció el plazo": vive en ronda-libre-cierre (lo usa `rechazoQuePuedeSerSesion`).
 export { ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-cierre'

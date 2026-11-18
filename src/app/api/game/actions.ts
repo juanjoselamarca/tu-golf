@@ -21,6 +21,7 @@ import {
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
 import { esTarjetaCerrada } from '@/golf/tournament-rounds'
 import { captureGameError, type Svc } from './game-errors'
+import { guardarHoleScore, ordenDelBody } from '@/lib/data/tournaments/guardar-hole-score'
 
 // ═══════════════════════════════════════════════════════════
 // UPSERT SCORE
@@ -276,25 +277,27 @@ export async function upsertScore(
   if (fairway_hit !== undefined && fairway_hit !== null) upsertData.fairway_hit = fairway_hit
   if (gir !== undefined && gir !== null) upsertData.gir = gir
 
-  const { data: guardado, error } = await svc.from('hole_scores').upsert(
-    upsertData,
-    { onConflict: 'round_id,hole_number' }
-  ).select('id').single()
+  // Con `seq`/`dispositivo` del scorer, un guardado más viejo del mismo dispositivo y hoyo que el ya aplicado se
+  // descarta en la base (residual de #754: anota 5, corrige a 4, el POST del 5 llega después y quedaba el 5).
+  const guardado = await guardarHoleScore(svc, upsertData, ordenDelBody(body))
 
-  if (error) {
-    captureGameError('upsert_score', error, { round_id, hole_number })
+  if (!guardado.ok) {
+    captureGameError('upsert_score', guardado.error, { round_id, hole_number })
     return NextResponse.json({ error: 'No se pudo guardar el score. Intenta de nuevo.' }, { status: 500 })
   }
+  // Descartado: este dispositivo ya guardó algo más nuevo en el hoyo. No hay nada que auditar ni totales que
+  // cambien; `descartado` le dice al scorer que el valor de ESTE envío no es el que quedó en el servidor.
+  if (!guardado.aplicado) return NextResponse.json({ success: true, descartado: true })
 
   // Auditoría de cada golpe que carga el organizador. hole_score_id es el uuid de la fila de hole_scores
   // (antes se armaba `round_id_hoyo`, que no es uuid: el insert fallaba siempre y nadie se enteraba).
   // previous_value no se escribe: la historia de un hoyo se lee en el orden de sus entradas. Sin userId
   // (invitado: changed_by exige un perfil) no se audita. Si falla, el score ya quedó guardado: se
   // reporta y no se bloquea.
-  if (gross_score != null && userId) {
+  if (gross_score != null && userId && guardado.id) {
     try {
       const { error: auditError } = await svc.from('score_audit_log').insert({
-        hole_score_id: (guardado as { id: string }).id,
+        hole_score_id: guardado.id,
         changed_by: userId,
         new_value: gross_score,
         reason: 'manual_organizer',

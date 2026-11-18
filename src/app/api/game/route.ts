@@ -211,20 +211,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Idempotencia: si el score ya existe con el mismo valor, retornar éxito sin re-insertar
-    const idempotencyKey = request.headers.get('x-idempotency-key')
-    if (idempotencyKey && body.gross_score != null) {
-      const { data: existing } = await svc
-        .from('hole_scores')
-        .select('gross_score')
-        .eq('round_id', body.round_id)
-        .eq('hole_number', body.hole_number)
-        .single()
-      if (existing && existing.gross_score === body.gross_score) {
-        return NextResponse.json({ success: true, idempotent: true })
-      }
-    }
-
     // Sin userId: score_audit_log.changed_by exige un perfil y el invitado no tiene uno
     return upsertScore(svc, null, body)
   }
@@ -310,23 +296,9 @@ export async function POST(request: NextRequest) {
     if (rondaAjena) return rondaAjena
   }
 
-  // Idempotencia: si el score ya existe con el mismo valor, retornar éxito sin re-insertar
-  if (action === 'upsert_score') {
-    const idempotencyKey = request.headers.get('x-idempotency-key')
-    if (idempotencyKey && body.gross_score != null) {
-      const svcCheck = serviceClient()
-      const { data: existing } = await svcCheck
-        .from('hole_scores')
-        .select('gross_score')
-        .eq('round_id', body.round_id)
-        .eq('hole_number', body.hole_number)
-        .single()
-      if (existing && existing.gross_score === body.gross_score) {
-        return NextResponse.json({ success: true, idempotent: true })
-      }
-    }
-  }
-
+  // Sin atajo de "el hoyo ya tiene ese valor" (antes, con `x-idempotency-key`, que ningún cliente manda): un
+  // atajo que responde ok sin pasar por `guardar_hole_score` no registra la secuencia del guardado, y entonces
+  // uno más viejo del mismo dispositivo que llega después sí entraría (ver upsertScore en actions.ts).
   const svc = serviceClient()
 
   // Dispatch to action handlers
