@@ -72,7 +72,7 @@ BEGIN
   RAISE NOTICE 'OK en juego el cliente no aprueba a un pendiente ni reaprueba a un retirado';
 END $$;
 
--- El atajo en tres pasos: sacar al pendiente a un torneo abierto, aprobarlo ahí y devolverlo aprobado.
+-- El atajo en tres pasos: sacar al retirado (…03b2) a un torneo abierto, aprobarlo ahí y devolverlo aprobado.
 DO $$
 DECLARE bloqueado boolean := false;
 BEGIN

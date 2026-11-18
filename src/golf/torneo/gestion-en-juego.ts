@@ -198,8 +198,8 @@ export function estadoDelInscrito(status: string | null | undefined): EstadoInsc
 
 /**
  * Los que COMPITEN de una lista de inscritos (sin WD/DQ ni sin aprobar). FUENTE ÚNICA de "con quiénes se calcula el
- * hándicap de un equipo" con el torneo en juego (D3/D14): la usan `colocarInscrito` (`p_equipos`) y
- * `editarHandicapInscrito`; es el mismo conteo `miembros` de `motivoParaNoColocar` y el de la RPC
+ * hándicap de un equipo" cuando cambia la composición con el torneo en juego (D3/D14): la usa `colocarInscrito`
+ * (`p_equipos`). `editarHandicapInscrito` NO: la edición conserva la composición del inicio (plan, (f)). Es el mismo conteo `miembros` de `motivoParaNoColocar` y el de la RPC
  * (`p.status = 'approved'`), y el mismo `soloAprobados` con que el inicio arma el equipo.
  */
 export function miembrosQueCompiten<T extends { status: string | null | undefined }>(inscritos: readonly T[]): T[] {
@@ -358,8 +358,9 @@ const motivo = (codigo: CodigoMotivoColocar, detalle: DetalleDeMotivo = {}): Mot
  * que compiten se permite (D7) y queda `equipoIncompleto` (D14), aunque sume filas de WD/DQ. En mejor bola un
  * jugador solo siempre puede anotar (D14, R23.4).
  *
- * El hándicap de equipo se calcula SIEMPRE con los que COMPITEN (`miembros`, sin WD/DQ): esta función, la RPC
- * (`p_equipos`), `colocarInscrito` y `editarHandicapInscrito` (`miembrosQueCompiten`, #814 PR3).
+ * Al colocar, el hándicap de equipo se calcula con los que COMPITEN (`miembros`, sin WD/DQ): esta función, la RPC
+ * (`p_equipos`) y `colocarInscrito` (`miembrosQueCompiten`, #814 PR3). `editarHandicapInscrito` conserva la
+ * composición del inicio (plan, (f) descartado).
  */
 export function motivoParaNoColocar(
   format: string | null,

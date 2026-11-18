@@ -366,6 +366,19 @@ describe('prechequearAltaConGrupo — lo que el alta con grupo sabe antes de ins
     expect(await prechequearAltaConGrupo(svc, torneoDe('stroke_play', { status: 'open' }), 'G1', true)).toMatchObject({ motivo: 'torneo-no-en-juego' })
   })
 
+  it('match play con 1 jugador que ya anotó, aun confirmado → match-play-con-golpes (antes del alta)', async () => {
+    db.players.push(jugador('b', 5))
+    grupo('G1', { b: { 1: 4 } }); enGrupo('G1', 'b')
+    expect(await prechequearAltaConGrupo(svc, torneoDe('match_play'), 'G1', true)).toMatchObject({ motivo: 'match-play-con-golpes' })
+  })
+
+  it('foursome con un WD al pie y golpes → equipo-al-pie (antes del alta)', async () => {
+    db.players.push(jugador('a', 5), jugador('w', 9, 'withdrawn'))
+    grupo('G1', { a: {}, w: {} }, { scores: { 1: 5 }, handicap_equipo: 7, handicap_equipo_juego: 7 })
+    enGrupo('G1', 'a'); enGrupo('G1', 'w')
+    expect(await prechequearAltaConGrupo(svc, torneoDe('foursome'), 'G1', true)).toMatchObject({ motivo: 'equipo-al-pie' })
+  })
+
   it('scramble con lugar y sin golpes: null (el hándicap del equipo se resuelve al colocar)', async () => {
     db.players.push(jugador('b', 5))
     grupo('G1', { b: {} }, { scores: {}, handicap_equipo: null, handicap_equipo_juego: null }); enGrupo('G1', 'b')

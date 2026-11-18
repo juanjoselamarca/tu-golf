@@ -495,19 +495,11 @@ export async function colocarInscrito(
 }
 
 /**
- * Motivos que el alta con grupo (POST players con `groupId`) puede saber ANTES de inscribir, solo con el grupo: si
- * alguno aplica, la ruta responde 409 sin crear un inscrito suelto. Lo que depende del jugador (su hándicap para el
- * equipo) o de una carrera queda para `colocarInscrito` después del alta (el 207).
- */
-export const MOTIVOS_PREVIOS_AL_ALTA: readonly CodigoMotivoColocar[] = [
-  'torneo-no-en-juego', 'torneo-varias-rondas', 'formato-desconocido', 'grupo-sin-tarjeta', 'tarjeta-cerrada',
-  'match-play-grupo-lleno', 'equipo-lleno',
-]
-
-/**
- * Prechequeo del alta con grupo: evalúa `planDeColocar` con un inscrito nuevo (aprobado, sin grupo ni golpes) sobre
- * el grupo destino leído. Devuelve el rechazo (de `MOTIVOS_PREVIOS_AL_ALTA`, `grupo-no-existe` o
- * `requiere-confirmacion` si el destino ya anotó y no viene `confirmado`) o null si se puede inscribir.
+ * Prechequeo del alta con grupo (POST players con `groupId`): evalúa `planDeColocar` con un inscrito nuevo (aprobado,
+ * sin grupo ni golpes) sobre el grupo destino leído. Cualquier motivo de las reglas es un rechazo ANTES de inscribir
+ * (409 sin crear un inscrito suelto), igual que `grupo-no-existe` y `requiere-confirmacion` (destino con golpes sin
+ * `confirmado`). Devuelve null si se puede inscribir. El 207 de la ruta queda solo para lo que depende del jugador
+ * (el hándicap real del equipo), lo que solo ve la RPC bajo lock (`tarjeta-con-timba`) y las carreras.
  */
 export async function prechequearAltaConGrupo(
   svc: SupabaseClient,
@@ -533,7 +525,6 @@ export async function prechequearAltaConGrupo(
       contexto: null,
     })
     if ('motivo' in plan) {
-      if (!MOTIVOS_PREVIOS_AL_ALTA.includes(plan.motivo.codigo)) return null
       return { ok: false, motivo: plan.motivo.codigo, mensaje: plan.motivo.mensaje, ofreceRetirar: false }
     }
     // Sin contexto de hándicap (bola compartida) el plan corta después de las reglas: los golpes se miran aquí.

@@ -153,7 +153,11 @@ describe('POST /api/torneos/[slug]/players con groupId', () => {
     expect(await res.json()).toMatchObject({ codigo: 'requiere-confirmacion', golpes: { destino: 4 } })
     mockPrevio.mockResolvedValueOnce({ ok: false, motivo: 'grupo-no-existe', mensaje: 'm', ofreceRetirar: false })
     expect((await post({ mode: 'registered', userId: U, groupId: G2 })).status).toBe(404)
+    for (const motivo of ['match-play-con-golpes', 'equipo-al-pie']) {
+      mockPrevio.mockResolvedValueOnce({ ok: false, motivo, mensaje: 'm', ofreceRetirar: false })
+      expect((await post({ mode: 'registered', userId: U, groupId: G2, confirmado: true })).status).toBe(409)
+    }
     expect(mockEnroll).not.toHaveBeenCalled()
-    expect(mockPrevio).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ id: 'T' }), G2, false)
+    expect(mockPrevio).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ id: 'T' }), G2, true)
   })
 })

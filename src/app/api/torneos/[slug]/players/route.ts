@@ -12,7 +12,8 @@
 // `groupId` (opcional, solo con el torneo EN JUEGO, #814 · PR3): tras inscribirlo, lo asigna a ese grupo con
 // `colocarInscrito` (mismas reglas que PUT .../players/[playerId]/grupo; `confirmado` si el grupo ya anotó golpes).
 // Antes de inscribir valida el grupo (`prechequearAltaConGrupo`): lo evitable es 409 sin alta. Si aun así la asignación
-// falla (una carrera: otro cambio llenó el grupo o anotó entre medio), responde 207: el jugador quedó inscrito SIN
+// falla (el hándicap real del equipo, una tarjeta con timba o una carrera: otro cambio llenó el grupo o anotó entre
+// medio), responde 207: el jugador quedó inscrito SIN
 // grupo y el cuerpo trae `playerId` y el motivo. Lo que sigue es PUT .../players/[playerId]/grupo con ese `playerId`
 // (`desde: null`); NUNCA repetir el POST, que lo inscribiría dos veces o fallaría por ya inscrito.
 
