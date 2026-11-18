@@ -47,9 +47,9 @@ describe('useScoreEntry — la carga de la tarjeta no entra en bucle', () => {
   // Sin descartar la respuesta vieja, la tarjeta de Pedro mostraba los golpes de Rosa (y "deshacer" los escribía).
   it('una respuesta vieja de otro jugador no pisa la tarjeta abierta', async () => {
     const pendientes = new Map<string, (rows: unknown[]) => void>()
-    vi.mocked(fetchRoundHoleScores).mockImplementation(
-      (_c, roundId: string) => new Promise((res) => { pendientes.set(roundId, res as (rows: unknown[]) => void) }) as never,
-    )
+    const colgada = (_c: unknown, roundId: string) =>
+      new Promise((res) => { pendientes.set(roundId, res as (rows: unknown[]) => void) }) as never
+    vi.mocked(fetchRoundHoleScores).mockImplementationOnce(colgada).mockImplementationOnce(colgada)
     const { result } = renderHook(() => useScoreEntry({
       tournament: TOURNAMENT, players: PLAYERS, courseHoles: VACIO, courseTees: VACIO, holeCount: 18,
       getActiveRound, applyRoundTotals, reloadRoster,
@@ -61,5 +61,34 @@ describe('useScoreEntry — la carga de la tarjeta no entra en bucle', () => {
 
     expect(result.current.currentScores[1]).toBe(5)
     expect(result.current.holePutts[1]).toBe(2)
+  })
+
+  // Rosa tiene 2 putts y fairway en el hoyo 1; el organizador abre a Pedro y anota su hoyo 1 antes de que
+  // llegue la lectura de Pedro. El envío no puede llevar las stats de Rosa.
+  it('anotar antes de que llegue la lectura del nuevo jugador no arrastra stats del anterior', async () => {
+    vi.mocked(fetchRoundHoleScores)
+      .mockResolvedValueOnce([{ hole_number: 1, gross_score: 4, putts: 2, fairway_hit: true, gir: true }] as never)
+      .mockImplementationOnce(() => new Promise(() => {}) as never)
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 500 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const { result } = renderHook(() => useScoreEntry({
+        tournament: TOURNAMENT, players: PLAYERS, courseHoles: VACIO, courseTees: VACIO, holeCount: 18,
+        getActiveRound, applyRoundTotals, reloadRoster,
+      }))
+      await act(async () => result.current.selectPlayer('p1'))
+      expect(result.current.holePutts[1]).toBe(2)
+      await act(async () => result.current.selectPlayer('p2'))
+      expect(result.current.holePutts[1]).toBeUndefined()
+      await act(async () => { await result.current.saveScore(1, '5') })
+
+      const cuerpo = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)
+      expect(cuerpo.round_id).toBe('r2')
+      expect(cuerpo.putts ?? null).toBeNull()
+      expect(cuerpo.fairway_hit ?? null).toBeNull()
+      expect(cuerpo.gir ?? null).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

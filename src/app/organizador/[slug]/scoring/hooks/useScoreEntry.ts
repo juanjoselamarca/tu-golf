@@ -145,30 +145,36 @@ export function useScoreEntry({
     setHolePutts({})
     setHoleFairway({})
     setHoleGir({})
+    // También la ref: un golpe anotado antes del próximo commit no debe llevar las stats de otra tarjeta.
+    statsRef.current = { putts: {}, fairway: {}, gir: {} }
   }, [])
 
   const selectPlayer = useCallback(
     (playerId: string) => {
       tarjetaRef.current += 1
       setSelectedId(playerId)
-      setCurrentScores({})
+      // Todo lo de la tarjeta anterior, no solo los golpes: con señal mala, un golpe anotado antes de que
+      // llegue la lectura del nuevo jugador mandaba los putts/fairway/GIR del anterior en su envío.
+      resetHoleState()
+      setErrorHoles(new Set())
       setLastAction(null)
     },
-    [],
+    [resetHoleState],
   )
 
   const clearSelection = useCallback(() => {
     tarjetaRef.current += 1
     setSelectedId(null)
     resetHoleState()
+    setErrorHoles(new Set())
     // Cerrar la tarjeta (o cambiar de ronda) descarta el deshacer pendiente: el
     // botón "Deshacer hoyo N" quedaba vivo en el header sin tarjeta a la vista.
     setLastAction(null)
   }, [resetHoleState])
 
   // `vigente` lo da el efecto: solo la última corrida escribe. Sin esto, una respuesta lenta pisa a la nueva
-  // (cambiar de jugador con señal mala pintaba los golpes del anterior; una relectura tras guardar el hoyo 1
-  // que llega después de la del hoyo 2 borraba el 2 de la pantalla).
+  // (cambiar de jugador con señal mala pintaba los golpes del anterior). Ordena lecturas entre sí; una lectura
+  // contra un golpe optimista aún sin confirmar no la ordena (pendiente aparte).
   const loadScores = useCallback(
     async (playerId: string, vigente: () => boolean = () => true) => {
       const player = players.find((p) => p.id === playerId)
