@@ -220,6 +220,7 @@ export default function ScoringPage() {
                 holeCount={holeCount}
                 entry={entry}
                 crearTarjeta={crearTarjeta}
+                ronda={{ numero: activeRoundNum, vigente: data.esRondaVigente }}
                 soloLectura={sinScores === 'cerrado'}
               />
             ) : entry.selectedPlayer ? (

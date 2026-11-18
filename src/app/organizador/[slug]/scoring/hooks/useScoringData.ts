@@ -10,7 +10,7 @@ import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
-import { esTarjetaCerrada, rondaSigueEnJuego, tarjetaDeLaRonda } from '@/golf/tournament-rounds'
+import { esTarjetaCerrada, rondaSigueEnJuego, rondaVigenteDelRoster, tarjetaDeLaRonda } from '@/golf/tournament-rounds'
 import { inscritoAprobado } from '@/golf/tournament-status'
 import {
   fetchBulkRoundHoleCounts,
@@ -78,6 +78,8 @@ export interface UseScoringDataReturn {
   isMultiRound: boolean
   holeCount: number
   activeRoundNum: number
+  /** La pestaña es la ronda vigente (la única donde se puede crear una tarjeta). */
+  esRondaVigente: boolean
   selectRound: (rn: number) => void
   canStartNextRound: boolean
   startingNextRound: boolean
@@ -148,12 +150,8 @@ export function useScoringData(slug: string): UseScoringDataReturn {
         // Hasta que se resuelva la ronda activa (efecto de abajo), la ronda 1.
         setRondaActiva(null)
 
-        // Ronda activa = mayor round_number existente en el field.
-        const maxRound = roster.reduce((max, pl) => {
-          const pMax = pl.rounds?.reduce((m, r) => Math.max(m, r.round_number ?? 1), 0) ?? 0
-          return Math.max(max, pMax)
-        }, 1)
-        setActiveRoundNum(maxRound)
+        // Ronda activa = la vigente: mayor round_number existente en el field.
+        setActiveRoundNum(rondaVigenteDelRoster(roster))
         setLoading(false)
       } catch (e) {
         void captureError(e, { context: 'scoring.useScoringData.load', meta: { slug } })
@@ -282,6 +280,10 @@ export function useScoringData(slug: string): UseScoringDataReturn {
 
   // Regla única de "ronda en juego" (rondaSigueEnJuego, la misma del servidor): la tarjeta abierta de un
   // retirado (WD) o descalificado (DQ) no se cierra al retirarlo y no bloquea la ronda siguiente.
+  // ¿La pestaña es la ronda vigente? Solo ahí se puede crear una tarjeta (el servidor la crea en la vigente).
+  // `>=` y no `===`: si startNextRound abrió la N+1 y la relectura falló, el roster viejo dice N; la pestaña N+1
+  // sigue siendo la vigente y "Crear su tarjeta" (que relee) lo destraba.
+  const esRondaVigente = useMemo(() => activeRoundNum >= rondaVigenteDelRoster(players), [players, activeRoundNum])
   const allCurrentRoundsClosed = useMemo(() => !rondaSigueEnJuego(players, activeRoundNum), [players, activeRoundNum])
   const hayAprobados = useMemo(() => players.some((p) => inscritoAprobado(p.status)), [players])
   const canStartNextRound =
@@ -344,6 +346,7 @@ export function useScoringData(slug: string): UseScoringDataReturn {
     isMultiRound,
     holeCount,
     activeRoundNum,
+    esRondaVigente,
     selectRound,
     canStartNextRound,
     startingNextRound,

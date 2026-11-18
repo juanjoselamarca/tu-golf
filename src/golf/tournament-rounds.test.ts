@@ -7,6 +7,7 @@ import {
   resolveAllRoundPlayConfigs,
   rondaSigueEnJuego,
   tarjetaDeLaRonda,
+  rondaVigenteDelRoster,
   roundDiffersFromBase,
 } from './tournament-rounds'
 
@@ -163,5 +164,14 @@ describe('tarjetaDeLaRonda — la tarjeta de ESA ronda, sin fallback a otra (Fab
     expect(tarjetaDeLaRonda([r1, r2], 2)).toBe(r2)
     expect(tarjetaDeLaRonda([{ id: 'x', round_number: null, status: 'closed' }], 1)?.id).toBe('x')
     expect(tarjetaDeLaRonda(null, 1)).toBeUndefined()
+  })
+})
+
+describe('rondaVigenteDelRoster — mayor round_number del roster', () => {
+  it('toma la mayor ronda con tarjeta; sin tarjetas es la 1; null es la 1', () => {
+    expect(rondaVigenteDelRoster([{ rounds: [{ round_number: 1 }] }, { rounds: [{ round_number: 1 }, { round_number: 2 }] }])).toBe(2)
+    expect(rondaVigenteDelRoster([{ rounds: [] }, { rounds: null }])).toBe(1)
+    expect(rondaVigenteDelRoster([])).toBe(1)
+    expect(rondaVigenteDelRoster([{ rounds: [{ round_number: null }] }])).toBe(1)
   })
 })

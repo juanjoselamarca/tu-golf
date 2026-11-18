@@ -72,7 +72,9 @@ describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
     const ct = crearTarjeta()
     render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={ct} />)
     expect(screen.getByTestId('organizador-sin-tarjeta').textContent).toContain('E2E Test no tiene tarjeta en esta ronda')
-    for (const input of screen.queryAllByRole('textbox')) expect((input as HTMLInputElement).readOnly).toBe(true)
+    const inputs = screen.queryAllByRole('spinbutton')
+    expect(inputs.length).toBeGreaterThan(0)
+    for (const input of inputs) expect((input as HTMLInputElement).readOnly).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: 'Crear su tarjeta' }))
     expect(ct.crear).toHaveBeenCalledTimes(1)
   })
@@ -85,15 +87,43 @@ describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
   })
 
   it.each([
-    ['withdrawn', 'Retirado: no juega esta ronda.'],
-    ['disqualified', 'Descalificado: no juega esta ronda.'],
+    ['withdrawn', 'Se retiró: no juega esta ronda.'],
+    ['disqualified', 'Descalificación: no juega esta ronda.'],
     ['pending', 'Inscripción sin aprobar: no juega esta ronda.'],
-  ])('%s sin tarjeta: dice que no juega y no ofrece crearla', (status, texto) => {
+  ])('%s sin tarjeta: dice que no juega, sin botón, en tono neutro y sin grilla', (status, texto) => {
     const e = entry({ selectedRound: undefined, holes: [1, 2], selectedPlayer: { id: 'p1', status, profiles: { name: 'E2E Test' }, handicap_at_registration: 15 } as never })
     render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} crearTarjeta={crearTarjeta()} />)
-    expect(screen.getByTestId('organizador-no-juega').textContent).toContain(texto)
+    const aviso = screen.getByTestId('organizador-no-juega')
+    expect(aviso.textContent).toContain(texto)
+    expect(aviso.getAttribute('role')).toBe('status')
+    expect(aviso.style.background).toBe('var(--surface-soft)')
     expect(screen.queryByRole('button', { name: 'Crear su tarjeta' })).toBeNull()
     expect(screen.queryByTestId('organizador-sin-tarjeta')).toBeNull()
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
+  })
+
+  // Aprobado inscrito durante la ronda 2, mirando la pestaña "Ronda 1": el servidor crea la tarjeta en la
+  // vigente (la 2), así que "Crear su tarjeta" terminaba en un "No se pudo crear" falso.
+  it('aprobado sin tarjeta en una ronda pasada: "no jugó la ronda N", sin botón ni grilla', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta()} ronda={{ numero: 1, vigente: false }} />)
+    const aviso = screen.getByTestId('organizador-no-jugo')
+    expect(aviso.textContent).toBe('E2E Test no jugó la ronda 1.')
+    expect(aviso.getAttribute('role')).toBe('status')
+    expect(screen.queryByRole('button', { name: 'Crear su tarjeta' })).toBeNull()
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
+  })
+
+  it('aprobado sin tarjeta en la ronda vigente: aviso de error con botón y la grilla visible (solo lectura)', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={sinTarjeta} crearTarjeta={crearTarjeta()} ronda={{ numero: 2, vigente: true }} />)
+    expect(screen.getByTestId('organizador-sin-tarjeta').getAttribute('role')).toBe('alert')
+    expect(screen.getByRole('button', { name: 'Crear su tarjeta' })).toBeTruthy()
+    expect(screen.queryAllByRole('spinbutton').length).toBeGreaterThan(0)
+  })
+
+  it('torneo cerrado: un retirado igual ve que no juega (es informativo)', () => {
+    const e = entry({ selectedRound: undefined, holes: [1, 2], selectedPlayer: { id: 'p1', status: 'withdrawn', profiles: { name: 'E2E Test' }, handicap_at_registration: 15 } as never })
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e} soloLectura />)
+    expect(screen.getByTestId('organizador-no-juega')).toBeTruthy()
   })
 
   it('con tarjeta no hay aviso; con el torneo cerrado tampoco (no se puede crear)', () => {

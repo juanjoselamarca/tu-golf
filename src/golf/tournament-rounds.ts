@@ -142,6 +142,14 @@ export function rondaSigueEnJuego(
 }
 
 /**
+ * Ronda vigente según el roster: el mayor `round_number` con alguna tarjeta (1 si no hay ninguna). Es la ronda
+ * en que el servidor (`asegurar_tarjeta_vigente`) crea una tarjeta; en una ronda anterior no se crea nada.
+ */
+export function rondaVigenteDelRoster(jugadores: ReadonlyArray<{ rounds?: ReadonlyArray<RoundRef> | null }>): number {
+  return jugadores.reduce((max, j) => (j.rounds ?? []).reduce((m, r) => Math.max(m, r.round_number ?? 1), max), 1)
+}
+
+/**
  * La tarjeta del jugador en la ronda `roundNumber` (`round_number` null es la 1), o `undefined` si no tiene.
  * Sin fallback a otra ronda: con la ronda 2 en juego, un retirado sin tarjeta de la ronda 2 mostraba y dejaba
  * editar (y cerrar) su tarjeta de la ronda 1 (revisión Fable #829). Distinto de `activeRoundOf`, que elige la
