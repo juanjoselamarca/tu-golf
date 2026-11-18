@@ -67,15 +67,21 @@ const upsertScore = vi.fn(async () => ok())
 const finalizeRound = vi.fn(async () => ok())
 vi.mock('./actions', () => ({
   upsertScore: (...a: unknown[]) => (upsertScore as (...x: unknown[]) => unknown)(...a),
+}))
+vi.mock('./round-actions', () => ({
   finalizeRound: (...a: unknown[]) => (finalizeRound as (...x: unknown[]) => unknown)(...a),
   startNextRound: vi.fn(),
+}))
+vi.mock('./tournament-lifecycle-actions', () => ({
   cancelTournament: vi.fn(),
-  withdrawPlayer: vi.fn(),
-  disqualifyPlayer: vi.fn(),
   openInscriptions: vi.fn(),
   revertInscriptions: vi.fn(),
   closeTournamentAction: vi.fn(),
   reopenTournamentAction: vi.fn(),
+}))
+vi.mock('./player-status-actions', () => ({
+  withdrawPlayer: vi.fn(),
+  disqualifyPlayer: vi.fn(),
 }))
 
 import { POST } from './route'
