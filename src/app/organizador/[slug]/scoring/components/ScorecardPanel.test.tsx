@@ -8,7 +8,11 @@ import type { ScoringTournament } from '@/lib/data/tournaments/scoring'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
 import { ScorecardPanel } from './ScorecardPanel'
 
-vi.mock('./HoleStatsTable', () => ({ HoleStatsTable: () => null }))
+const montajesStats = vi.hoisted(() => ({ n: 0 }))
+vi.mock('./HoleStatsTable', async () => {
+  const { useEffect } = await import('react')
+  return { HoleStatsTable: () => { useEffect(() => { montajesStats.n++ }, []); return null } }
+})
 
 function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
   return {
@@ -16,8 +20,8 @@ function entry(over: Partial<UseScoreEntryReturn>): UseScoreEntryReturn {
     selectedRound: { id: 'r1', status: 'in_progress' },
     holes: [],
     currentScores: {},
-    errorHoles: new Set(),
-    saving: new Set(),
+    vista: {}, editable: true, cierre: null, reintentarGuardado: vi.fn(), descartarRechazados: vi.fn(),
+    saving: false,
     allFilled: false,
     outGross: 0,
     inGross: 0,
@@ -149,4 +153,93 @@ describe('ScorecardPanel — jugador sin tarjeta en la ronda en juego', () => {
     expect(screen.getByTestId('organizador-no-jugo').textContent).toBe('E2E Test no jugó la ronda 1.')
     expect(screen.queryByTestId('organizador-no-juega')).toBeNull()
   })
+})
+
+describe('ScorecardPanel — estado de guardado por hoyo', () => {
+  const fila = (estado: string, motivo: string | null = null) =>
+    ({ gross: 5, putts: null, fairway_hit: null, gir: null, estado, motivo, quizaAplicado: false })
+
+  it('hoyos sin confirmar y rechazados: UN aviso por grupo (no uno por hoyo); reintentar y descartar la ronda abierta', () => {
+    const reintentarGuardado = vi.fn()
+    const descartarRechazados = vi.fn()
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({
+      holes: [1, 2, 3, 4, 5], currentScores: { 1: 5, 2: 5, 3: 5, 4: 5, 5: 5 }, reintentarGuardado, descartarRechazados,
+      vista: { 1: fila('limpio'), 2: fila('sin_confirmar'), 3: fila('rechazado', 'closed'), 4: fila('sin_confirmar'), 5: fila('rechazado', 'closed') },
+    } as never)} />)
+    expect(screen.getByLabelText('Golpes del hoyo 1')).toBeTruthy()
+    expect(screen.getByLabelText('Golpes del hoyo 2 (sin confirmar)')).toBeTruthy()
+    const sinConfirmar = screen.getByRole('button', { name: 'Hoyos 2, 4 sin confirmar · Reintentar' })
+    expect(parseInt(sinConfirmar.style.minHeight)).toBeGreaterThanOrEqual(44)
+    expect(screen.getByText('Hoyos 3, 5 no se guardaron (tarjeta cerrada)')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /Reintentar/ })).toHaveLength(2)
+    fireEvent.click(sinConfirmar)
+    expect(reintentarGuardado).toHaveBeenCalledWith('r1')
+    const descartar = screen.getByRole('button', { name: 'Descartar' })
+    expect(parseInt(descartar.style.minHeight)).toBeGreaterThanOrEqual(44)
+    fireEvent.click(descartar)
+    // Sólo los hoyos de ESE grupo. Mutación anotada: llamar sin g.holes (toda la ronda) → falla.
+    expect(descartarRechazados).toHaveBeenCalledWith('r1', [3, 5])
+  })
+
+  it('sesión vencida o sin permiso: sin Descartar, con la salida escrita; dos grupos rechazados a la vez', () => {
+    const descartarRechazados = vi.fn()
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({
+      holes: [1, 2, 3], currentScores: { 1: 5, 2: 5, 3: 5 }, descartarRechazados,
+      vista: { 1: fila('rechazado', 'sin_sesion'), 2: fila('rechazado', 'closed'), 3: fila('rechazado', 'sin_permiso') },
+    } as never)} />)
+    expect(screen.getByText(/Hoyo 1 no se guardó \(tu sesión venció\)/)).toBeTruthy()
+    expect(screen.getByText(/Entra de nuevo en otra pestaña/)).toBeTruthy()
+    expect(screen.getByText(/Revisa que sigas como organizador/)).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Reintentar' })).toHaveLength(3)
+    // Un solo Descartar: el del grupo "tarjeta cerrada". Mutación anotada: quitar esRechazoPermanente del panel → 3 y falla.
+    const descartar = screen.getAllByRole('button', { name: 'Descartar' })
+    expect(descartar).toHaveLength(1)
+    fireEvent.click(descartar[0])
+    expect(descartarRechazados).toHaveBeenCalledWith('r1', [2])
+  })
+
+  it('la marca de un hoyo sin guardar no depende del color del score: distintivo sólido con glifo de 16 px', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({
+      holes: [1, 2], currentScores: { 1: 6, 2: 7 }, vista: { 1: fila('sin_confirmar'), 2: fila('rechazado', 'closed') },
+    } as never)} />)
+    const ambar = screen.getByText('!')
+    expect(ambar.style.fontSize).toBe('16px')
+    expect(ambar.style.background).toBe('var(--status-open-fg)')
+    const rojo = screen.getByText('✕')
+    expect(rojo.style.fontSize).toBe('16px')
+    expect(rojo.style.background).toBe('var(--error-border)')
+  })
+
+  it('un hoyo guardando no lleva aviso de error (sólo la marca de la celda)', () => {
+    render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({
+      holes: [1], currentScores: { 1: 5 }, vista: { 1: fila('guardando') },
+    } as never)} />)
+    expect(screen.getByLabelText('Golpes del hoyo 1 (guardando)')).toBeTruthy()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('cerrando: el botón dice qué hoyos faltan y no se puede tocar; con otra tarjeta, dice de quién', () => {
+    const base = { holes: [1], currentScores: { 1: 4 }, allFilled: true }
+    const cierre = { roundId: 'r1', playerId: 'p1', nombre: 'Ana', fase: 'guardando', hoyos: [17, 18] }
+    const { rerender } = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({ ...base, cierre } as never)} />)
+    const boton = screen.getByRole('button', { name: 'Terminando de guardar… hoyos 17, 18' }) as HTMLButtonElement
+    expect(boton.disabled).toBe(true)
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={entry({ ...base, cierre: { ...cierre, roundId: 'otra' } } as never)} />)
+    expect((screen.getByRole('button', { name: 'Cerrando tarjeta de Ana…' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+describe('ScorecardPanel — tabla de stats por ronda', () => {
+  it('cambiar de ronda remonta la tabla: lo tecleado en putts no pasa a la tarjeta de otro jugador', () => {
+    montajesStats.n = 0
+    const e1 = entry({ holes: [1] } as never)
+    const { rerender } = render(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e1} />)
+    fireEvent.click(screen.getByRole('button', { name: /Estadísticas adicionales/ }))
+    expect(montajesStats.n).toBe(1)
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e1} />)
+    expect(montajesStats.n).toBe(1)
+    const e2 = entry({ holes: [1], selectedRound: { id: 'r2', status: 'in_progress' }, selectedId: 'p2' } as never)
+    rerender(<ScorecardPanel tournament={tournament} courseHoles={[]} holeCount={18} entry={e2} />)
+    expect(montajesStats.n).toBe(2)
+  })
+})
 })

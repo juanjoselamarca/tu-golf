@@ -278,14 +278,31 @@ export async function fetchRoundScoringContext(
 export async function fetchRoundHoleScores(
   supabase: SupabaseClient,
   roundId: string,
+  /** Corta la consulta (p. ej. el `AbortController` de la carga con plazo): sin esto, una red colgada la deja esperando para siempre. */
+  signal?: AbortSignal,
 ): Promise<HoleScoreRow[]> {
-  const { data, error } = await supabase
+  let consulta = supabase
     .from('hole_scores')
     .select('hole_number, gross_score, putts, fairway_hit, gir')
     .eq('round_id', roundId)
     .not('gross_score', 'is', null)
+  if (signal) consulta = consulta.abortSignal(signal)
+  const { data, error } = await consulta
   if (error) throw error
   return (data as HoleScoreRow[] | null) ?? []
+}
+
+/** Totales de una ronda tal como están en la base (los recalcula el servidor en cada guardado de hoyo). */
+export async function fetchRoundTotals(
+  supabase: SupabaseClient,
+  roundId: string,
+  signal?: AbortSignal,
+): Promise<{ total_gross: number; total_net: number; total_points: number }> {
+  let consulta = supabase.from('rounds').select('total_gross, total_net, total_points').eq('id', roundId)
+  if (signal) consulta = consulta.abortSignal(signal)
+  const { data, error } = await consulta.single()
+  if (error) throw error
+  return data as { total_gross: number; total_net: number; total_points: number }
 }
 
 /** Cuenta de hoyos con score para múltiples rondas (batch).
@@ -306,21 +323,6 @@ export async function fetchBulkRoundHoleCounts(
     counts.set(row.round_id, (counts.get(row.round_id) ?? 0) + 1)
   }
   return counts
-}
-
-/** Totales denormalizados de la ronda (para refrescar la ficha tras un save).
- *  Sólo UI del scorer: el Resumen NO los consume — deriva del motor. */
-export async function fetchRoundTotals(
-  supabase: SupabaseClient,
-  roundId: string,
-): Promise<Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'> | null> {
-  const { data, error } = await supabase
-    .from('rounds')
-    .select('total_gross, total_net, total_points')
-    .eq('id', roundId)
-    .single()
-  if (error && error.code !== 'PGRST116') throw error
-  return (data as Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'> | null) ?? null
 }
 
 /** La ruta rechazó el hándicap con un mensaje para el organizador (400 fuera de rango o decimales, 429, 404). */

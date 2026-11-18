@@ -62,7 +62,7 @@ describe('Scoring del organizador — nombre del invitado sin cuenta', () => {
     const entry = {
       selectedPlayer: invitado,
       selectedRound: { id: 'r1', status: 'in_progress' },
-      holes: [], currentScores: {}, errorHoles: new Set(), saving: new Set(),
+      holes: [], currentScores: {}, vista: {}, saving: false,
       allFilled: false, parJugado: 0, grossTotal: 0, outGross: 0, inGross: 0, netTotal: 0,
       stablefordPtsAt: () => 0, saveScore: vi.fn(), finalizeRound: vi.fn(), selectedId: 'inv',
     } as unknown as UseScoreEntryReturn

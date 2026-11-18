@@ -11,8 +11,7 @@ vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 vi.mock('@/lib/data/tournaments/scoring', () => ({
-  fetchRoundHoleScores: vi.fn(async () => []),
-  fetchRoundTotals: vi.fn(async () => ({ total_gross: 0, total_net: 0, total_points: 0 })),
+  fetchRoundHoleScores: vi.fn(async () => []),
 }))
 const showWarning = vi.fn()
 // Referencias estables, como el useToast real: con un objeto nuevo por render los useCallback del hook

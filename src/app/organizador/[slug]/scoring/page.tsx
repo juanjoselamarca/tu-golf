@@ -18,6 +18,7 @@ import { useCrearTarjeta } from './hooks/useCrearTarjeta'
 import { useResumenBoard } from './hooks/useResumenBoard'
 import { useHcpEditor } from './hooks/useHcpEditor'
 import { ScoringHeader } from './components/ScoringHeader'
+import { textoChipPendientes, textoDescartablesOtras } from './components/texto-guardado'
 import { MultiRoundControls } from './components/MultiRoundControls'
 import { ResumenTab } from './components/ResumenTab'
 import { PlayerCards } from './components/PlayerCards'
@@ -143,6 +144,12 @@ export default function ScoringPage() {
         saving={entry.saving}
         lastAction={entry.lastAction}
         onUndo={entry.undoLast}
+        avisoPendientes={textoChipPendientes(entry.pendientes, entry.selectedRound?.id ?? null, entry.nombreDeRonda)}
+        hayRechazo={entry.pendientes.some((x) => x.estado === 'rechazado')}
+        onReintentar={() => entry.reintentarGuardado()}
+        descartarOtras={entry.hayDescartablesEnOtras
+          ? { detalle: textoDescartablesOtras(entry.descartablesEnOtras), onConfirmar: () => { void entry.descartarRechazosDeOtras() } }
+          : null}
       />
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '28px 20px' }}>

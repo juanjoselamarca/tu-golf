@@ -21,3 +21,11 @@ export const CODIGO_TOKEN_INVITADO_INVALIDO = 'guest_token_invalid'
  */
 export const CODIGO_TARJETA_AJENA = 'card_not_yours'
 export const CODIGO_TARJETA_SIN_SOPORTE = 'sin_soporte'
+
+/**
+ * Campo del body de `upsert_score`: con `true`, una stat (`putts`/`fairway_hit`/`gir`) en `null` BORRA la columna;
+ * sin él, el null se ignora como antes. El scorer del organizador lo manda porque omite las stats que no tocó y
+ * manda null sólo cuando el organizador la borró. Un bundle viejo en caché mandaba `putts: holePutts[h] ?? null`
+ * en cada golpe: sin el campo, ese null no borra nada.
+ */
+export const CAMPO_STATS_NULL_BORRA = 'stats_null_borra'
