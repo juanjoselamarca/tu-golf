@@ -45,7 +45,7 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
     ...real,
     fetchRondaLibreParaScorer: async (_sb: unknown, _codigo: string, opciones?: unknown) => { opcionesDeCarga.push(opciones); return carga.valor },
     cargarHoyosDelScorer: async () => ({ parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, finalParTotal: 72 }),
-    resolverHandicapsDelScorer: async () => ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 } }),
+    resolverHandicapsDelScorer: async () => ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 }, sinIndice: new Set<string>() }),
     fetchEquiposDelScorer: async () => {
       if (lecturaDeEquipos.falla) throw new Error('Failed to fetch')
       return []

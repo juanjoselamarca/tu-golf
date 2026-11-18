@@ -12,6 +12,7 @@
  * 10. `rondaCerrada` = `esRondaCerrada(estado)` leído de la base.
  */
 import { hoyosJugadosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import {
   golpesRecibidosPorHoyo,
@@ -124,15 +125,20 @@ export function armarEntradaDelJuego(datos: DatosDelJuego): EntradaDelJuego {
 }
 
 /**
- * Lo que el servidor entrega al cliente de una Timba: puntos y la marca de golpe recibido por hoyo de cada jugador.
- * Hoy no trae el índice ni el hándicap de juego (por espacio y diseño, no por privacidad: ver
- * docs/specs/formato-personalizado.md); si el diseño los pide, se agregan acá. `vistaDelJuego` arma el objeto campo por campo (no copia la entrada del motor, que sí trae el CH).
+ * Lo que el servidor entrega al cliente de una Timba: puntos, la marca de golpe recibido por hoyo de cada jugador y
+ * el HCP de 18 hoyos a mostrar. No trae el índice ni el hándicap de juego. `vistaDelJuego` arma el objeto campo por campo (no copia la entrada del motor, que sí trae el CH).
  */
 export interface VistaDelJuego {
   config: ConfigJuego
   jugadorIds: string[]
   resultado: ResultadoJuego
   golpesRecibidos: Record<string, Record<number, number>>
+  /**
+   * HCP a MOSTRAR de cada jugador (escala 18, `SIN_INDICE` si no tiene): `crearHcpAMostrar` sobre
+   * `resolverHandicapDisplayDeRonda`, calculado en el servidor con el lector de servicio. Lo ve TODO visor (scorer,
+   * jugador con sesión y anónimo; decisión de Juanjo: en la Timba el anónimo ve todo y ya recibe los golpes por hoyo).
+   */
+  hcpAMostrar: Record<string, HcpMostrado>
   /**
    * Marcas de puntos especiales guardadas, en orden (`created_at`, `id`). El scorer las muestra marcadas también
    * en un hoyo pendiente, donde el resultado todavía no las evalúa.
@@ -149,12 +155,22 @@ export interface VistaDelJuego {
   rondaCerrada: boolean
 }
 
-export function vistaDelJuego(entrada: EntradaJuego, jugadorIds: string[], resultado: ResultadoJuego): VistaDelJuego {
+export function vistaDelJuego(
+  entrada: EntradaJuego,
+  jugadorIds: string[],
+  resultado: ResultadoJuego,
+  hcpAMostrar: Readonly<Record<string, HcpMostrado>>,
+): VistaDelJuego {
   return {
     config: entrada.config,
     jugadorIds,
     resultado,
     golpesRecibidos: golpesRecibidosPorHoyo(entrada),
+    // Solo en neto: es lo único que la vista pinta, y en gross el HCP sería un dato expuesto sin uso (la ruta
+    // pública lo lee con el lector de servicio y del HCP de 18 + el tee se deduce el índice).
+    hcpAMostrar: Object.fromEntries(
+      jugadorIds.map(id => [id, entrada.config.modo === 'neto' ? (hcpAMostrar[id] ?? null) : null]),
+    ),
     marcas: entrada.marcas.map(m => ({ jugadorId: m.jugadorId, hoyo: m.hoyo, puntitoId: m.puntitoId })),
     retiros: { ...(entrada.retiros ?? {}) },
     rondaCerrada: entrada.rondaCerrada === true,

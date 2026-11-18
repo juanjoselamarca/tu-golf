@@ -29,7 +29,7 @@ function vista(
     parMap: PAR, siMap: SI, marcas: [], retiros: [],
   })
   if (!r.ok) throw new Error(r.motivo)
-  return vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
+  return vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada), {})
 }
 
 // La Colombiana con sorteo AB-CD → AC-BD → AD-BC, tramos de 6.
@@ -47,6 +47,8 @@ function tarjetas(filas: Golpes[]) {
   }
   return s
 }
+
+const destacado = (t: ReturnType<typeof armarTablaDelJuego>) => t.tramos[t.tramoDestacado]
 
 describe('armarTablaDelJuego — La Colombiana a mitad de ronda', () => {
   // Cada hoyo = caso dorado 6 (JP 2 – DT 1; Juan +2 · Pedro +2 · Diego +1 · Tomás +1).
@@ -96,14 +98,14 @@ describe('armarTablaDelJuego — La Colombiana a mitad de ronda', () => {
     expect(h2?.tipo === 'hoyo' && h2.celdas.map(c => c.texto)).toEqual(Array(4).fill('No se jugó'))
   })
 
-  it('marcador actual = el tramo del hoyo en que va el scorer', () => {
-    expect(tabla.marcadorActual?.parejas).toEqual(['Juan y Diego', 'Pedro y Tomás'])
-    expect(armarTablaDelJuego(v, NOMBRES, 3).marcadorActual?.parejas).toEqual(['Juan y Pedro', 'Diego y Tomás'])
+  it('duelo destacado = el tramo del hoyo en que va el scorer', () => {
+    expect(destacado(tabla).parejas.map(p => p.nombre)).toEqual(['Juan y Diego', 'Pedro y Tomás'])
+    expect(destacado(armarTablaDelJuego(v, NOMBRES, 3)).parejas.map(p => p.nombre)).toEqual(['Juan y Pedro', 'Diego y Tomás'])
   })
 
-  it('sin hoyo actual (vista del grupo) usa el último hoyo con golpes; no muestra hoyos sin tocar', () => {
+  it('sin hoyo actual (vista del grupo) destaca el tramo en juego; no muestra hoyos sin tocar', () => {
     const t = armarTablaDelJuego(v, NOMBRES, null)
-    expect(t.marcadorActual?.parejas).toEqual(['Juan y Diego', 'Pedro y Tomás'])
+    expect(destacado(t).parejas.map(p => p.nombre)).toEqual(['Juan y Diego', 'Pedro y Tomás'])
     expect(t.filas.filter(f => f.tipo === 'hoyo').length).toBe(8)
   })
 
@@ -117,13 +119,14 @@ describe('armarTablaDelJuego — otros juegos', () => {
     const v = vista(tarjetas([golpes(1, 4, 5, 6, 6)]), crearConfigDePlantilla('dos_cero_dos'))
     const t = armarTablaDelJuego(v, NOMBRES, 1)
     expect(t.titulo).toBe('El 2-0-2')
-    expect(t.marcadorActual).toBeNull()
+    expect(t.tramos).toEqual([])
+    expect(t.tramoDestacado).toBe(-1)
     expect(t.filas.every(f => f.tipo === 'hoyo')).toBe(true)
   })
   it('parejas fijas: marcador sí, separadores no (un solo tramo)', () => {
     const cfg: ConfigJuego = { ...crearConfigDePlantilla('subterranea'), parejas: [[0, 1], [2, 3]] }
     const t = armarTablaDelJuego(vista(tarjetas([golpes(1, 3, 5, 4, 4)]), cfg), NOMBRES, 1)
-    expect(t.marcadorActual).toEqual({ parejas: ['Juan y Pedro', 'Diego y Tomás'], puntos: [0, 1] })
+    expect(t.tramos.map(x => [x.parejas.map(p => p.nombre), x.marcador])).toEqual([[['Juan y Pedro', 'Diego y Tomás'], [0, 1]]])
     expect(t.filas.every(f => f.tipo === 'hoyo')).toBe(true)
   })
   it('personalizado total se titula como la Timba', () => {

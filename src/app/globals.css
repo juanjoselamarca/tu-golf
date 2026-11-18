@@ -384,6 +384,15 @@
 /* â”€â”€ Component classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @layer components {
 
+  /* <summary> de un plegable con chevron propio: sin el triángulo del navegador (iOS Safari usa el
+     ::-webkit-details-marker; list-style no lo saca). */
+  .plegable-summary {
+    list-style: none;
+  }
+  .plegable-summary::-webkit-details-marker {
+    display: none;
+  }
+
   /* Golden divider line */
   .gold-divider {
     width: 100%;

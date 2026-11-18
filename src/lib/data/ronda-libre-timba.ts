@@ -1,8 +1,7 @@
 // ─── Capa de datos — Timba libre (formato `personalizado`) ────────────────────
 //
-// Lee lo que la Timba necesita y entrega la VISTA del juego (`vistaDelJuego`): puntos y golpes recibidos por
-// hoyo; hoy no trae el índice ni el hándicap de juego (por espacio y diseño, no por privacidad: ver
-// docs/specs/formato-personalizado.md).
+// Lee lo que la Timba necesita y entrega la VISTA del juego (`vistaDelJuego`): puntos, golpes recibidos por
+// hoyo y el HCP de 18 a mostrar (`crearHcpAMostrar`); no trae el índice ni el hándicap de juego.
 //
 // `admin` = cliente de servicio: las marcas y los retiros viven en tablas privadas (sin permisos para anon ni
 // authenticated, migración 20261027180000). `leerIndices` es OBLIGATORIO y no admite `null`: el neto solo se
@@ -21,6 +20,7 @@ import {
 import { cargarRondaLibreEnVivo } from './ronda-libre'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
+import { crearHcpAMostrar } from './ronda-libre-live-api'
 
 export type JuegoDeLaRonda =
   | { status: 'ok'; vista: VistaDelJuego }
@@ -65,5 +65,8 @@ export async function cargarJuegoDeLaRonda(
     retiros: (retiros.data ?? []) as FilaRetiro[],
   })
   if (!armada.ok) return { status: 'sin_juego', motivo: armada.motivo, rondaCerrada: esRondaCerrada(ronda.estado) }
-  return { status: 'ok', vista: vistaDelJuego(armada.entrada, armada.jugadorIds, calcularJuegoPersonalizado(armada.entrada)) }
+  // El lector de servicio leyó el índice de todos: quien quede en `sinIndice` es que no tiene ("S/Ind").
+  const hcp = crearHcpAMostrar(ronda.ronda_libre_jugadores, res.displayHcpMap, res.sinIndice, 'todos')
+  const hcpAMostrar = Object.fromEntries(armada.jugadorIds.map(id => [id, hcp(id)]))
+  return { status: 'ok', vista: vistaDelJuego(armada.entrada, armada.jugadorIds, calcularJuegoPersonalizado(armada.entrada), hcpAMostrar) }
 }

@@ -64,7 +64,7 @@ describe('parYSiDeLaRonda (pura)', () => {
     })
     expect(r.ok ? 'ok' : r.motivo).toBe('ok')
     if (!r.ok) return
-    const golpes = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada)).golpesRecibidos
+    const golpes = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada), {}).golpesRecibidos
     // CH 3: los hoyos de SI de catálogo 10, 11 y 12 → 10, 15 y 12 (no 10, 11, 12 por número).
     expect(Object.entries(golpes[a] ?? {}).filter(([, g]) => g > 0).map(([h]) => Number(h)).sort((x, y) => x - y)).toEqual([10, 12, 15])
     expect(Object.values(golpes[c] ?? {}).reduce((x, y) => x + y, 0)).toBe(9)

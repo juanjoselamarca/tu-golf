@@ -9,7 +9,7 @@ import type { MotivoSinJuego, VistaDelJuego } from '@/golf/ronda-libre/juego-de-
  * neto ni el hándicap salen de `/live` ni de `/hcp`.
  *
  * - Sin sesión (401) se lee el mismo juego de `/juego/publico` (decisión de Juanjo, 17-nov: el link muestra los
- *   puntos sin hándicaps). Esa ruta se cachea en el CDN: se pide sin cookies y sin `no-store` (ver `api-en-vivo.ts`).
+ *   puntos; desde el 18-nov también el HCP de 18 a mostrar, solo en neto). Esa ruta se cachea en el CDN: se pide sin cookies y sin `no-store` (ver `api-en-vivo.ts`).
  *
  * - Se vuelve a pedir cuando cambia `firma` (los golpes que anotó el scorer), con un respiro para juntar toques,
  *   y cada `intervaloS` mientras la pantalla está a la vista.
