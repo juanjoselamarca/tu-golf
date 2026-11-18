@@ -15,7 +15,7 @@
  * invitado.
  */
 
-import { guestIdDePrueba, nuevaPruebaDeInvitado } from '@/lib/guest-identity'
+import { esPruebaDeInvitado, guestIdDePrueba, nuevaPruebaDeInvitado } from '@/lib/guest-identity'
 
 const GUEST_ID_KEY = 'gp_guest_id'
 const GUEST_TOKEN_KEY = 'gp_guest_token'
@@ -27,18 +27,25 @@ const GUEST_PROOF_KEY = 'gp_guest_proof'
 /**
  * Identidad de invitado de este teléfono para inscribirse: la que ya tiene, o una nueva cuyo guestId se
  * deriva de una prueba secreta guardada aquí. La prueba es lo que deja recuperar el token si la respuesta
- * de la inscripción se pierde (sin ella, el reintento duplicaba al jugador). Un guestId anterior a la
- * prueba (aleatorio) se conserva tal cual: puede tener ya un jugador inscrito. Solo en el browser.
+ * de la inscripción se pierde (sin ella, el reintento duplicaba al jugador).
+ *
+ * Un guestId anterior a la prueba (aleatorio) se conserva SOLO si tiene token: ese ya tiene un jugador y
+ * su token lo demuestra. Sin token y sin prueba no demuestra nada (lo deja cualquier "unirme" que falló o
+ * perdió la respuesta): conservarlo dejaría al teléfono en `guest_access_lost` para siempre si vuelve a
+ * perder la respuesta, así que se reemplaza por una identidad con prueba (Fable #833). Solo en el browser.
  */
 export async function obtenerOCrearIdentidadInvitado(): Promise<{ guestId: string; prueba: string | null }> {
   const actual = localStorage.getItem(GUEST_ID_KEY)
   if (actual) {
     const prueba = localStorage.getItem(GUEST_PROOF_KEY)
-    return { guestId: actual, prueba: prueba && (await guestIdDePrueba(prueba)) === actual ? prueba : null }
+    if (prueba && globalThis.crypto?.subtle && (await guestIdDePrueba(prueba)) === actual) return { guestId: actual, prueba }
+    if (localStorage.getItem(GUEST_TOKEN_KEY)) return { guestId: actual, prueba: null }
   }
-  // Sin Web Crypto (sólo pasa fuera de HTTPS, p. ej. desarrollo por IP de la red): guestId aleatorio sin prueba.
+  // Sin Web Crypto.subtle (sólo fuera de HTTPS, p. ej. desarrollo por IP de la red): guestId aleatorio sin
+  // prueba. `getRandomValues` sí existe fuera de HTTPS (`randomUUID` no).
   if (!globalThis.crypto?.subtle) {
-    const id = crypto.randomUUID()
+    const id = uuidAleatorio()
+    localStorage.removeItem(GUEST_PROOF_KEY)
     localStorage.setItem(GUEST_ID_KEY, id)
     return { guestId: id, prueba: null }
   }
@@ -48,6 +55,23 @@ export async function obtenerOCrearIdentidadInvitado(): Promise<{ guestId: strin
   localStorage.setItem(GUEST_PROOF_KEY, prueba)
   localStorage.setItem(GUEST_ID_KEY, guestId)
   return { guestId, prueba }
+}
+
+function uuidAleatorio(): string {
+  const b = crypto.getRandomValues(new Uint8Array(16))
+  b[6] = (b[6] & 0x0f) | 0x40
+  b[8] = (b[8] & 0x3f) | 0x80
+  const h = Array.from(b, x => x.toString(16).padStart(2, '0')).join('')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
+
+/**
+ * ¿Este teléfono guarda la prueba de su identidad de invitado? Con ella `/unirse` recupera el token del MISMO
+ * jugador (no crea otro). La prueba sólo se guarda junto al guestId que deriva (`obtenerOCrearIdentidadInvitado`).
+ */
+export function tienePruebaDeInvitado(): boolean {
+  if (typeof window === 'undefined') return false
+  return esPruebaDeInvitado(localStorage.getItem(GUEST_PROOF_KEY)) && !!localStorage.getItem(GUEST_ID_KEY)
 }
 
 export function getGuestId(): string | null {

@@ -39,15 +39,39 @@ describe('obtenerOCrearIdentidadInvitado', () => {
     expect(await obtenerOCrearIdentidadInvitado()).toEqual(nueva)
   })
 
-  it('un guestId anterior (aleatorio, sin prueba) se conserva: puede tener ya un jugador', async () => {
+  it('legacy CON token (aleatorio, sin prueba) se conserva: ya tiene un jugador y el token lo demuestra', async () => {
     localStorage.setItem('gp_guest_id', '22222222-2222-4222-8222-222222222222')
+    localStorage.setItem('gp_guest_token', 'tok')
     expect(await obtenerOCrearIdentidadInvitado()).toEqual({ guestId: '22222222-2222-4222-8222-222222222222', prueba: null })
   })
 
-  it('una prueba que no corresponde al guestId guardado no se manda', async () => {
+  // Fable #833 P1: un "unirme" que falló (cupo, 429, 500) dejaba un guestId sin token; conservarlo dejaba al
+  // teléfono sin forma de demostrar nada si después perdía la respuesta (guest_access_lost para siempre).
+  it('legacy SIN token se reemplaza por una identidad con prueba', async () => {
     localStorage.setItem('gp_guest_id', '22222222-2222-4222-8222-222222222222')
+    const r = await obtenerOCrearIdentidadInvitado()
+    expect(r.guestId).not.toBe('22222222-2222-4222-8222-222222222222')
+    expect(r.prueba).not.toBeNull()
+    expect(await guestIdDePrueba(r.prueba!)).toBe(r.guestId)
+  })
+
+  it('una prueba que no corresponde al guestId guardado (con token) no se manda', async () => {
+    localStorage.setItem('gp_guest_id', '22222222-2222-4222-8222-222222222222')
+    localStorage.setItem('gp_guest_token', 'tok')
     localStorage.setItem('gp_guest_proof', nuevaPruebaDeInvitado())
     expect((await obtenerOCrearIdentidadInvitado()).prueba).toBeNull()
+  })
+
+  it('sin crypto.subtle (fuera de HTTPS) igual crea un guestId UUID v4, sin prueba', async () => {
+    const original = globalThis.crypto
+    Object.defineProperty(globalThis, 'crypto', { value: { getRandomValues: original.getRandomValues.bind(original) }, configurable: true })
+    try {
+      const r = await obtenerOCrearIdentidadInvitado()
+      expect(r.prueba).toBeNull()
+      expect(r.guestId).toMatch(UUID_V4)
+    } finally {
+      Object.defineProperty(globalThis, 'crypto', { value: original, configurable: true })
+    }
   })
 
   it('clearGuestSession borra también la prueba', async () => {
