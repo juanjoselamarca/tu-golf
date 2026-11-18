@@ -21,9 +21,17 @@ export function motivoNoJuega(status: string | null | undefined): string {
  */
 export type CasoSinTarjeta = 'no_juega' | 'no_jugo' | 'crear'
 
-export function casoSinTarjeta(status: string | null | undefined, esRondaVigente: boolean): CasoSinTarjeta {
+export function casoSinTarjeta(
+  status: string | null | undefined,
+  esRondaVigente: boolean,
+  /** El torneo recibe golpes. Cerrado o publicado no se crea tarjeta: el aprobado sin ella "no jugó" (Fable #829). */
+  admiteTarjetas = true,
+): CasoSinTarjeta {
+  // Una ronda pasada sin tarjeta es "no jugó", sea cual sea su estado HOY: un WD de la ronda 3 sí jugó (o no)
+  // la 1, y "Se retiró: no juega esta ronda" sobre la ronda 1 dice otra cosa (Fable #829).
+  if (!esRondaVigente) return 'no_jugo'
   if (!inscritoAprobado(status)) return 'no_juega'
-  return esRondaVigente ? 'crear' : 'no_jugo'
+  return admiteTarjetas ? 'crear' : 'no_jugo'
 }
 
 const CAJA = { margin: '16px 20px 0', padding: '12px 14px', borderRadius: '10px', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 } as const
@@ -43,12 +51,14 @@ export function AvisoJugadorSinTarjeta(props: {
   status: string | null | undefined
   /** Número de la ronda que se está viendo y si es la vigente (`useScoringData.esRondaVigente`). */
   ronda: { numero: number; vigente: boolean }
+  /** El torneo recibe golpes (no está cerrado ni publicado). */
+  admiteTarjetas?: boolean
   creando: boolean
   resultado: ResultadoCrearTarjeta | null
   crear: () => void
 }) {
-  const { nombre, status, ronda, creando, resultado, crear } = props
-  const caso = casoSinTarjeta(status, ronda.vigente)
+  const { nombre, status, ronda, creando, resultado, crear, admiteTarjetas = true } = props
+  const caso = casoSinTarjeta(status, ronda.vigente, admiteTarjetas)
   if (caso !== 'crear') {
     return (
       <div role="status" data-testid={caso === 'no_juega' ? 'organizador-no-juega' : 'organizador-no-jugo'} style={CAJA_NEUTRA}>

@@ -4,6 +4,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ScoringPlayer, ScoringRound } from '@/lib/data/tournaments/scoring'
 import { isClosedRoundStatus } from '../hooks/useScoringData'
 import { resolveLegacyPlayerName } from '@/golf/leaderboard/board-rules'
+import { inscritoAprobado } from '@/golf/tournament-status'
+
+/**
+ * Progreso de la tarjeta del jugador en la ronda vista. Sin tarjeta no hay "0/18" (decía que juega y no lleva
+ * nada): el aprobado "Sin tarjeta" (el panel ofrece crearla o dice que no jugó), WD/DQ/pendiente "No juega".
+ */
+export function progresoDeTarjeta(args: {
+  round: ScoringRound | undefined; status: string | null | undefined; hoyosConScore: number; holeCount: number
+}): string {
+  if (!args.round) return inscritoAprobado(args.status) ? 'Sin tarjeta' : 'No juega'
+  if (isClosedRoundStatus(args.round.status)) return '✓ Completo'
+  return `${args.hoyosConScore}/${args.holeCount}`
+}
 
 function getInitials(name: string) {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
@@ -107,9 +120,10 @@ export function PlayerCards({
                 {resolveLegacyPlayerName(p).split(' ')[0]}
               </div>
               <div style={{ fontSize: '12px', color: isDone ? 'var(--status-live-fg)' : 'var(--text-2)' }}>
-                {isDone
-                  ? '✓ Completo'
-                  : `${isSelected && hasScoresLoaded ? filledCount : (round ? (roundHoleCounts.get(round.id) ?? 0) : 0)}/${holeCount}`}
+                {progresoDeTarjeta({
+                  round, status: p.status, holeCount,
+                  hoyosConScore: isSelected && hasScoresLoaded ? filledCount : (round ? (roundHoleCounts.get(round.id) ?? 0) : 0),
+                })}
               </div>
             </button>
           )

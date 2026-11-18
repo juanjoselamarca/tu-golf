@@ -62,7 +62,9 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
   const sinTarjeta = !selectedRound
   const soloLectura = torneoSoloLectura || sinTarjeta
   // Quien no juega esta ronda (WD/DQ/pendiente, o no jugó una ronda pasada) no tiene tarjeta por llenar: sin grilla.
-  const sinGrilla = sinTarjeta && casoSinTarjeta(selectedPlayer.status, ronda.vigente) !== 'crear'
+  // Con el torneo cerrado o publicado no se crea tarjeta: el aprobado sin ella "no jugó la ronda N" (antes
+  // quedaba una grilla vacía sin explicación, Fable #829).
+  const sinGrilla = sinTarjeta && casoSinTarjeta(selectedPlayer.status, ronda.vigente, !torneoSoloLectura) !== 'crear'
 
   return (
     <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', overflow: 'hidden' }}>
@@ -104,9 +106,9 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, solo
       </div>
 
       {/* "No juega"/"no jugó" se dice siempre; "Crear su tarjeta" solo con el torneo recibiendo golpes. */}
-      {sinTarjeta && (sinGrilla || (!torneoSoloLectura && crearTarjeta)) && (
+      {sinTarjeta && (sinGrilla || crearTarjeta) && (
         <AvisoJugadorSinTarjeta
-          nombre={resolveLegacyPlayerName(selectedPlayer)} status={selectedPlayer.status} ronda={ronda}
+          nombre={resolveLegacyPlayerName(selectedPlayer)} status={selectedPlayer.status} ronda={ronda} admiteTarjetas={!torneoSoloLectura}
           creando={crearTarjeta?.creando ?? false} resultado={crearTarjeta?.resultado ?? null}
           crear={() => { void crearTarjeta?.crear() }}
         />
