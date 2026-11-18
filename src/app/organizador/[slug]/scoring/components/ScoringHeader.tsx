@@ -74,11 +74,12 @@ export function ScoringHeader({
             </button>
           )}
         </h1>
-        <div role="status" aria-live="polite" style={{ display: 'flex', flexWrap: 'wrap', columnGap: '16px', alignItems: 'flex-start' }}>
+        {/* 16 px entre Reintentar y Descartar, también si Descartar baja de fila: un toque errado no descarta. */}
+        <div role="status" aria-live="polite" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-start', marginBottom: avisoPendientes ? '8px' : 0 }}>
           {avisoPendientes && (
             <button type="button" onClick={onReintentar}
               style={{
-                margin: '0 0 8px', minHeight: '44px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer',
+                margin: 0, minHeight: '44px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer',
                 fontSize: '14px', fontWeight: 600, fontFamily: 'DM Sans, sans-serif', textAlign: 'left',
                 background: hayRechazo ? 'var(--error-bg)' : 'var(--status-open-bg)',
                 color: hayRechazo ? 'var(--error-fg)' : 'var(--status-open-fg)',
@@ -130,7 +131,7 @@ function BotonDescartarOtras({ detalle, onConfirmar }: { detalle: string; onConf
         onConfirmar()
       }}
       style={{
-        margin: '0 0 8px', minHeight: '44px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer',
+        margin: 0, minHeight: '44px', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer',
         fontSize: '14px', fontWeight: 600, fontFamily: 'DM Sans, sans-serif', textAlign: 'left',
         background: armado ? 'var(--error-bg)' : 'transparent', color: 'var(--error-fg)', border: '2px solid var(--error-border)',
       }}>
