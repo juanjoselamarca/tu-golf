@@ -141,12 +141,15 @@ export function jugadorFueraDelTorneo(status: string | null | undefined): boolea
   return !!status && (JUGADOR_FUERA_STATUSES as readonly string[]).includes(status)
 }
 
+/** `players.status` del inscrito aprobado: el único que juega y tiene tarjeta. */
+export const INSCRITO_APROBADO_STATUS = 'approved'
+
 /**
  * ¿El inscrito está aprobado? Sólo los aprobados cuentan para iniciar, se arman
  * en grupos y juegan; `pending` y `waitlist` todavía no están dentro.
  */
 export function inscritoAprobado(status: string | null | undefined): boolean {
-  return status === 'approved'
+  return status === INSCRITO_APROBADO_STATUS
 }
 
 /**
