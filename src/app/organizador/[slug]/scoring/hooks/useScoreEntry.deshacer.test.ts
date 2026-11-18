@@ -317,3 +317,22 @@ describe('useScoreEntry · el deshacer no sale de su tarjeta', () => {
     expect(applyRoundTotals).toHaveBeenLastCalledWith('p1', 'r1', expect.anything())
   })
 })
+
+// Residual de #754: un envío viejo del mismo hoyo que llega tarde al servidor no pisa a uno más nuevo. El servidor
+// (guardar_hole_score) lo descarta por la secuencia; acá se fija que el organizador la mande en los tres caminos.
+describe('useScoreEntry · orden de los guardados de un hoyo', () => {
+  it('guardar, corregir, la stat y el deshacer del mismo hoyo salen con secuencia creciente y el mismo dispositivo', async () => {
+    const { enviados } = servidor(200)
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(11, '5'))
+    await act(() => result.current.saveScore(11, '4'))
+    await act(() => result.current.saveHoleStat(11, { putts: 2 }))
+    await act(() => result.current.undoLast())
+
+    expect(enviados.map(e => e.gross_score)).toEqual([5, 4, 4, 5])
+    const seqs = enviados.map(e => e.seq as number)
+    expect(seqs.every((x, i) => i === 0 || x > seqs[i - 1])).toBe(true)
+    expect(enviados[0].dispositivo).toMatch(/^[0-9a-f-]{36}$/)
+    expect(new Set(enviados.map(e => e.dispositivo)).size).toBe(1)
+  })
+})
