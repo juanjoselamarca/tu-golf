@@ -6,12 +6,13 @@
  *   - el tamaño de equipo que se exige            → `motivoTamanoDeEquipo` / `equipoIncompleto` (también el inicio),
  *     sobre `jugadoresPorEquipo` (plantilla-de-jugadores.ts, la única lectura de `FORMAT_META.jugadoresPorEquipo`)
  *   - si el hándicap del equipo se puede calcular → `handicapDeEquipoCalculable` (también el inicio)
- *   - por qué NO se puede colocar a un inscrito   → `motivoParaNoColocar` (decisiones D1-D10 de Juanjo, 18-nov-2026;
+ *   - por qué NO se puede colocar a un inscrito   → `motivoParaNoColocar` (decisiones D1-D11 de Juanjo, 18-nov-2026;
  *     plan `docs/superpowers/plans/2026-11-18-gestion-en-juego-814.md`).
  *
  * Puro: sin Supabase ni React. La app planifica con esto y la RPC `colocar_inscrito_en_grupo` (PR2) vuelve a
  * evaluar las anotaciones BAJO LOCK con su espejo SQL: entre que se planifica y se escribe, el scorer puede anotar.
- * Si cambias una regla acá, cambia el espejo SQL (y viceversa).
+ * Si cambias una regla acá, cambia el espejo SQL (y viceversa). La RPC espeja TODOS los motivos de
+ * `CodigoMotivoNoColocar`, incluido `retirado-no-se-mueve` (D11): un WD/DQ no se coloca ni se mueve.
  */
 
 import { FORMAT_META, type FormatoJuego } from '@/golf/core/rules'
@@ -19,6 +20,7 @@ import { isMatchPlayFormat, isSharedBallFormat, isTeamFormat, KNOWN_FORMAT_KEYS 
 import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
 import { JUGADORES_POR_MATCH } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
 import { jugadoresPorEquipo } from '@/golf/ronda-libre/plantilla-de-jugadores'
+import { inscritoAprobado, jugadorFueraDelTorneo } from '@/golf/tournament-status'
 import { hoyosAnotados } from '@/golf/ronda-libre/progreso-de-ronda'
 import type { ScoresDeTarjeta } from '@/golf/ronda-libre/tarjeta-historica'
 
@@ -130,8 +132,24 @@ export interface InscritoAColocar {
    * tarjeta individual del torneo (`tournament_rounds`, donde anota un inscrito sin grupo desde #828).
    */
   tieneGolpes: boolean
-  /** Aprobado y sin WD/DQ. Un WD/DQ no se mueve (D11) y no cuenta para el tamaño del equipo. */
-  compite: boolean
+  /** `estadoDelInscrito(players.status)`. */
+  estado: EstadoInscrito
+}
+
+/**
+ * Dónde está el inscrito respecto del juego:
+ * - `compite`: aprobado; juega y cuenta para el tamaño del equipo.
+ * - `retirado`: WD/DQ (`JUGADOR_FUERA_STATUSES`); tiene su fila, va al pie con sus golpes, no se coloca ni se mueve
+ *   (D11) y no cuenta para el tamaño.
+ * - `sin-aprobar`: pendiente o lista de espera; no tiene fila en ninguna tarjeta (`asegurar_tarjeta_vigente` solo
+ *   se la da a un aprobado), no cuenta para el tamaño, nunca va "al pie" y no se coloca hasta que lo aprueben.
+ */
+export type EstadoInscrito = 'compite' | 'retirado' | 'sin-aprobar'
+
+/** `players.status` → `EstadoInscrito`, sobre los predicados canónicos de `tournament-status`. */
+export function estadoDelInscrito(status: string | null | undefined): EstadoInscrito {
+  if (jugadorFueraDelTorneo(status)) return 'retirado'
+  return inscritoAprobado(status) ? 'compite' : 'sin-aprobar'
 }
 
 export type CodigoMotivoNoColocar =
@@ -139,8 +157,10 @@ export type CodigoMotivoNoColocar =
   | 'formato-desconocido'
   /** Origen y destino son el mismo grupo. */
   | 'mismo-grupo'
-  /** D11: un WD/DQ no cambia de grupo; se queda en el suyo, al pie y con sus golpes. */
+  /** D11: un WD/DQ no se coloca ni cambia de grupo; se queda donde está, al pie y con sus golpes. */
   | 'retirado-no-se-mueve'
+  /** Un pendiente o en lista de espera no se coloca: no tiene tarjeta hasta que lo aprueben. */
+  | 'sin-aprobar-no-se-coloca'
   /** D1: tiene golpes; no se elimina, se retira (WD) y queda al pie con sus golpes. */
   | 'borrar-con-golpes'
   /** D8: match play, el match ya empezó (anotó el rival); no se elimina, se retira (WD). */
@@ -206,14 +226,26 @@ export function motivoParaNoColocar(
     return motivo('mismo-grupo', 'El jugador ya está en ese grupo.')
   }
 
-  // D11. Con el torneo en juego, un WD/DQ se queda en su grupo, al pie y con sus golpes (todos los formatos).
-  if (op.tipo === 'mover' && !inscrito.compite) {
-    return motivo('retirado-no-se-mueve', 'Un jugador retirado o descalificado no se cambia de grupo: sigue al pie en el suyo.')
+  // D11. Con el torneo en juego, un WD/DQ se queda donde está (en su grupo o sin grupo), al pie y con sus
+  // golpes, en todos los formatos.
+  if (op.tipo !== 'borrar' && inscrito.estado === 'retirado') {
+    return motivo('retirado-no-se-mueve', 'Un jugador retirado o descalificado no se cambia de grupo: sigue al pie donde está.')
+  }
+  // Sin aprobar: no tiene fila en ninguna tarjeta. Colocarlo dejaría un integrante que no puede anotar.
+  if (op.tipo !== 'borrar' && inscrito.estado === 'sin-aprobar') {
+    return motivo('sin-aprobar-no-se-coloca', 'Este jugador todavía no está aprobado: apruébalo antes de asignarle un grupo.')
+  }
+  // Sin aprobar no tiene fila ni va al pie: borrarlo elimina la inscripción sin tocar ninguna tarjeta. Si aun
+  // así aparecen golpes (no hay camino hoy), falla cerrado sin ofrecer retirarlo.
+  if (op.tipo === 'borrar' && inscrito.estado === 'sin-aprobar') {
+    return inscrito.tieneGolpes
+      ? motivo('borrar-con-golpes', 'Tiene golpes anotados: no se puede eliminar. Escríbenos a soporte.')
+      : null
   }
 
   if (op.tipo === 'borrar') {
     // Ya WD/DQ: no se ofrece retirarlo (de DQ a WD cambiaría el board); queda al pie como está.
-    const retirable = inscrito.compite
+    const retirable = inscrito.estado === 'compite'
     // D1. En bola compartida los golpes son del equipo: el inscrito los tiene si su equipo los tiene.
     if (inscrito.tieneGolpes || (compartida && origen?.tieneGolpes)) {
       return retirable
@@ -245,10 +277,11 @@ export function motivoParaNoColocar(
     return motivo('mejor-bola-con-golpes', 'En mejor bola no se puede cambiar de equipo cuando alguno de los dos ya tiene golpes.')
   }
 
-  // Invariantes de equipo (D3, D7, y los mismos para mejor bola). Un WD/DQ no cuenta para el tamaño.
+  // Invariantes de equipo (D3, D7, y los mismos para mejor bola). Acá solo llega un inscrito que compite
+  // (agregar o mover) o un retirado que se borra (tiene fila, pero no cuenta para el tamaño).
   const r = rango(format)
   if (!r) return null
-  const delta = inscrito.compite ? 1 : 0
+  const delta = inscrito.estado === 'compite' ? 1 : 0
 
   if (destino) {
     const quedan = destino.miembros + delta

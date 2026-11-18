@@ -146,7 +146,7 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
 - **D8. Match play: borrar a un jugador sin golpes cuando el rival ya anotó:** pasa a WD, no se elimina. El match ya empezó (misma lógica que D6).
 - **D9. Mejor bola: agregar a un equipo que ya tiene golpes, con cupo libre:** se permite con confirmación (R23.4). Juega desde que llega.
 - **D10. Match play: un tercer jugador en un grupo:** se bloquea siempre, aunque no haya golpes. Un grupo de match play admite como máximo 2 jugadores.
-- **D11. WD/DQ no se cambia de grupo:** con el torneo en juego se queda en su grupo, al pie y con sus golpes, en todos los formatos. Borrar sigue D1.
+- **D11. WD/DQ no se coloca ni se cambia de grupo:** con el torneo en juego se queda donde está (en su grupo, o sin grupo si no tenía), al pie y con sus golpes, en todos los formatos. Vale para agregar y mover; borrar sigue D1.
 
 ## Pendientes que deja el PR1 para el PR2/PR3
 
@@ -165,3 +165,9 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
   ni un CHECK limitan las filas de un grupo de torneo. Por eso no hay motivo `grupo-lleno`: el cupo de equipo se mide
   con los que compiten (`miembros`) y un individual no tiene tope. Si Juanjo quiere un tope de filas, es decisión de
   producto y se agrega con `integrantes`.
+- **Pendientes y lista de espera con el torneo en juego (PR3):** `motivoParaNoColocar` separa `compite`, `retirado` y
+  `sin-aprobar`. Un sin aprobar no tiene fila en ninguna tarjeta (`asegurar_tarjeta_vigente` solo se la da a un
+  aprobado), así que por ahora no se coloca (`sin-aprobar-no-se-coloca`, decisión técnica por seguridad: pendiente de
+  confirmar con Juanjo) y borrarlo lo elimina sin tocar ninguna tarjeta. No encontré en el código un camino que apruebe a un pendiente
+  con el torneo `in_progress` y le cree la fila: el PR3 tiene que verificarlo (aprobar en juego → `asegurar_tarjeta_vigente`
+  → recién ahí colocarlo).

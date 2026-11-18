@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
   equipoIncompleto,
+  estadoDelInscrito,
   handicapDeEquipoCalculable,
   motivoParaNoColocar,
   motivoTamanoDeEquipo,
   tarjetaTieneAnotaciones,
   type CodigoMotivoNoColocar,
   type GrupoEnJuego,
+  type InscritoAColocar,
   type OperacionEnJuego,
 } from './gestion-en-juego'
 import { CONCEDE } from '@/golf/formats/match-play'
 import { isMatchPlayFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
 import { FORMAT_META, type FormatoJuego } from '@/golf/core/rules'
+import type { TeamHandicapConfig } from '@/golf/formats/team-handicap'
 
 describe('match play: una sola noción', () => {
   it('isMatchPlayFormat (esta gestión) y FORMAT_META.requiereParejas (formatoDeLaTarjetaDelGrupo) coinciden', () => {
@@ -21,7 +24,6 @@ describe('match play: una sola noción', () => {
     }
   })
 })
-import type { TeamHandicapConfig } from '@/golf/formats/team-handicap'
 
 const HOYOS_18 = Array.from({ length: 18 }, (_, i) => i + 1)
 const HOYOS_9_DESDE_EL_10 = [10, 11, 12, 13, 14, 15, 16, 17, 18]
@@ -61,10 +63,10 @@ describe('equipoIncompleto (D5, D7) / motivoTamanoDeEquipo', () => {
     expect(equipoIncompleto('scramble', 0)).toBe(false)
   })
   it('cuenta FILAS: una pareja con un WD no está incompleta (R23.4); un equipo en formación con 1 fila sí', () => {
-    const conUnWd = G('e', 1, true, 2)
+    const conUnWd: Pick<GrupoEnJuego, 'miembros' | 'integrantes'> = { miembros: 1, integrantes: 2 }
     expect(equipoIncompleto('best_ball', conUnWd.integrantes)).toBe(false)
     expect(equipoIncompleto('scramble', conUnWd.integrantes)).toBe(false)
-    const enFormacion = G('f', 1)
+    const enFormacion: Pick<GrupoEnJuego, 'miembros' | 'integrantes'> = { miembros: 1, integrantes: 1 }
     expect(equipoIncompleto('scramble', enFormacion.integrantes)).toBe(true)
   })
   it('mensaje igual al del inicio; los grupos vacíos no cuentan', () => {
@@ -75,6 +77,17 @@ describe('equipoIncompleto (D5, D7) / motivoTamanoDeEquipo', () => {
     )
     expect(motivoTamanoDeEquipo('scramble', [g('Equipo 5', 5)])).toMatch(/2 a 4 jugadores/)
     expect(motivoTamanoDeEquipo('stroke_play', [g('A', 7)])).toBeNull()
+  })
+})
+
+describe('estadoDelInscrito', () => {
+  it('separa retirado de sin aprobar', () => {
+    expect(estadoDelInscrito('approved')).toBe('compite')
+    expect(estadoDelInscrito('withdrawn')).toBe('retirado')
+    expect(estadoDelInscrito('disqualified')).toBe('retirado')
+    expect(estadoDelInscrito('pending')).toBe('sin-aprobar')
+    expect(estadoDelInscrito('waitlist')).toBe('sin-aprobar')
+    expect(estadoDelInscrito(null)).toBe('sin-aprobar')
   })
 })
 
@@ -99,16 +112,17 @@ describe('handicapDeEquipoCalculable', () => {
 const G = (id: string, miembros: number, tieneGolpes = false, integrantes = miembros): GrupoEnJuego => ({
   id, miembros, integrantes, tieneGolpes,
 })
-const ACTIVO = { tieneGolpes: false, compite: true }
-const ACTIVO_CON_GOLPES = { tieneGolpes: true, compite: true }
-const WD = { tieneGolpes: false, compite: false }
+const ACTIVO: InscritoAColocar = { tieneGolpes: false, estado: 'compite' }
+const ACTIVO_CON_GOLPES: InscritoAColocar = { tieneGolpes: true, estado: 'compite' }
+const WD: InscritoAColocar = { tieneGolpes: false, estado: 'retirado' }
+const PENDIENTE: InscritoAColocar = { tieneGolpes: false, estado: 'sin-aprobar' }
 const PERSONALIZADO_4: TeamHandicapConfig = { modo: 'personalizado', porcentajes: [25, 20, 15, 10] }
 
 type Caso = {
   nombre: string
   format: string | null
   op: OperacionEnJuego
-  inscrito?: { tieneGolpes: boolean; compite: boolean }
+  inscrito?: InscritoAColocar
   handicap?: TeamHandicapConfig | null
   esperado: CodigoMotivoNoColocar | null
 }
@@ -124,8 +138,8 @@ const casos: Caso[] = [
   { nombre: 'D1 individual · borrar con golpes: WD', format: 'stroke_play', op: { tipo: 'borrar', origen: G('o', 3, true) }, inscrito: ACTIVO_CON_GOLPES, esperado: 'borrar-con-golpes' },
   { nombre: 'D1 · borrar inscrito sin grupo y sin golpes', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, esperado: null },
   { nombre: 'D1 · inscrito sin grupo con golpes en su tarjeta individual (#828): WD', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, inscrito: ACTIVO_CON_GOLPES, esperado: 'borrar-con-golpes' },
-  { nombre: 'D1 · un WD con golpes tampoco se elimina (y no se le ofrece retirar)', format: 'stroke_play', op: { tipo: 'borrar', origen: G('o', 2, true, 3) }, inscrito: { tieneGolpes: true, compite: false }, esperado: 'borrar-con-golpes' },
-  { nombre: 'D8 · un DQ de un match en juego no se elimina ni pasa a WD', format: 'match_play', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: { tieneGolpes: false, compite: false }, esperado: 'borrar-match-en-juego' },
+  { nombre: 'D1 · un WD con golpes tampoco se elimina (y no se le ofrece retirar)', format: 'stroke_play', op: { tipo: 'borrar', origen: G('o', 2, true, 3) }, inscrito: { tieneGolpes: true, estado: 'retirado' as const }, esperado: 'borrar-con-golpes' },
+  { nombre: 'D8 · un DQ de un match en juego no se elimina ni pasa a WD', format: 'match_play', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: { tieneGolpes: false, estado: 'retirado' as const }, esperado: 'borrar-match-en-juego' },
 
   // ── Stableford (individual) ──
   { nombre: 'stableford · agregar', format: 'stableford', op: { tipo: 'agregar', destino: G('d', 2) }, esperado: null },
@@ -160,7 +174,7 @@ const casos: Caso[] = [
   { nombre: 'D7 mejor bola · borrar sin golpes de una pareja sin golpes (queda en 1)', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2) }, esperado: null },
   { nombre: 'mejor bola · borrar sin golpes dejando en 1 una pareja con golpes', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 2, true) }, esperado: 'equipo-con-golpes-incompleto' },
   { nombre: 'D11 mejor bola · un WD no se cambia de grupo', format: 'best_ball', op: { tipo: 'mover', origen: G('o', 2, false, 3), destino: G('d', 2) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
-  { nombre: 'D11 individual · un DQ con golpes no se cambia de grupo', format: 'stroke_play', op: { tipo: 'mover', origen: G('o', 2, true, 3), destino: G('d', 2) }, inscrito: { tieneGolpes: true, compite: false }, esperado: 'retirado-no-se-mueve' },
+  { nombre: 'D11 individual · un DQ con golpes no se cambia de grupo', format: 'stroke_play', op: { tipo: 'mover', origen: G('o', 2, true, 3), destino: G('d', 2) }, inscrito: { tieneGolpes: true, estado: 'retirado' as const }, esperado: 'retirado-no-se-mueve' },
   { nombre: 'D11 match play · un WD no se cambia de grupo', format: 'match_play', op: { tipo: 'mover', origen: G('o', 1, false, 2), destino: G('d', 1) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
 
   // ── Scramble (D3, D7) ──
@@ -194,6 +208,19 @@ const casos: Caso[] = [
   { nombre: 'D7 foursome · borrar sin golpes deja la pareja en 1', format: 'foursome', op: { tipo: 'borrar', origen: G('o', 2) }, esperado: null },
   { nombre: 'D1 foursome · borrar con golpes de la pareja: WD', format: 'foursome', op: { tipo: 'borrar', origen: G('o', 2, true) }, esperado: 'borrar-con-golpes' },
 
+  // ── D11 ampliado: un WD/DQ tampoco se coloca ──
+  { nombre: 'D11 stroke play · agregar a un WD sin grupo', format: 'stroke_play', op: { tipo: 'agregar', destino: G('d', 2) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
+  { nombre: 'D11 match play · agregar a un WD sin grupo', format: 'match_play', op: { tipo: 'agregar', destino: G('d', 1) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
+  { nombre: 'D11 foursome · agregar a un WD sin grupo', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
+  { nombre: 'D1 · un WD sin grupo y sin golpes se puede borrar', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, inscrito: WD, esperado: null },
+
+  // ── Sin aprobar (pendiente / lista de espera): sin fila, no se coloca, borrar lo elimina ──
+  { nombre: 'sin aprobar · agregar a un grupo', format: 'stroke_play', op: { tipo: 'agregar', destino: G('d', 2) }, inscrito: PENDIENTE, esperado: 'sin-aprobar-no-se-coloca' },
+  { nombre: 'sin aprobar · mover entre grupos', format: 'best_ball', op: { tipo: 'mover', origen: G('o', 2), destino: G('d', 2) }, inscrito: PENDIENTE, esperado: 'sin-aprobar-no-se-coloca' },
+  { nombre: 'sin aprobar · borrar de un match en juego: se elimina, no va al pie (no tiene fila)', format: 'match_play', op: { tipo: 'borrar', origen: G('o', 2, true) }, inscrito: PENDIENTE, esperado: null },
+  { nombre: 'sin aprobar · borrar de un equipo con golpes: se elimina sin tocar la tarjeta', format: 'scramble', op: { tipo: 'borrar', origen: G('o', 2, true) }, inscrito: PENDIENTE, esperado: null },
+  { nombre: 'sin aprobar · con golpes (no debería existir): falla cerrado y sin retirar', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, inscrito: { tieneGolpes: true, estado: 'sin-aprobar' }, esperado: 'borrar-con-golpes' },
+
   // ── Formato desconocido: falla cerrado ──
   { nombre: 'formato null', format: null, op: { tipo: 'borrar', origen: null }, esperado: 'formato-desconocido' },
   { nombre: 'formato inventado', format: 'inventado', op: { tipo: 'agregar', destino: G('d', 1) }, esperado: 'formato-desconocido' },
@@ -201,17 +228,19 @@ const casos: Caso[] = [
 
 const SEIS_FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome']
 
-describe('motivoParaNoColocar (D1-D10)', () => {
+describe('motivoParaNoColocar (D1-D11)', () => {
   it.each(casos)('$nombre → $esperado', ({ format, op, inscrito, handicap, esperado }) => {
     const m = motivoParaNoColocar(format, op, inscrito ?? ACTIVO, handicap ?? null)
     expect(m?.codigo ?? null).toBe(esperado)
     if (m) {
       expect(m.mensaje.length).toBeGreaterThan(0)
       // Solo D1 y D8 ofrecen "Retirar" en vez de eliminar, y nunca a quien ya es WD/DQ.
-      const compite = (inscrito ?? ACTIVO).compite
+      const compite = (inscrito ?? ACTIVO).estado === 'compite'
       const retirar = compite && (m.codigo === 'borrar-con-golpes' || m.codigo === 'borrar-match-en-juego')
       expect(m.ofreceRetirar).toBe(retirar)
       expect(m.mensaje.includes('Retíralo')).toBe(retirar)
+      // "Sigue al pie" solo para quien tiene fila y ya está fuera (WD/DQ), nunca para un sin aprobar.
+      if ((inscrito ?? ACTIVO).estado === 'sin-aprobar') expect(m.mensaje).not.toMatch(/al pie/)
     }
   })
 
