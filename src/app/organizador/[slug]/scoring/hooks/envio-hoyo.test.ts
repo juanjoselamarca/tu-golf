@@ -82,12 +82,35 @@ describe('envio-hoyo · cola serial por hoyo (#834 v5)', () => {
     cola.confirmarGolpe('r2', 1, 9)
     const enVuelo = diferida()
     const envio = cola.encolar('r1', 1, () => enVuelo.promesa)
-    cola.sembrarGolpes('r1', { 1: 4, 2: 3 })
+    cola.sembrarGolpes('r1', { 1: 4, 2: 3 }, cola.marca())
     expect(cola.golpeConfirmado('r1', 1)).toBe(5) // su confirmado lo dará la respuesta, no una carga vieja
     expect(cola.golpeConfirmado('r1', 2)).toBe(3)
     expect(cola.golpeConfirmado('r1', 3)).toBeUndefined() // ya no está en la base
     expect(cola.golpeConfirmado('r2', 1)).toBe(9) // otra ronda: intacta
     enVuelo.soltar()
     await envio
+  })
+
+  it('una lectura pedida antes de que se confirmara un golpe no lo pisa al llegar (A → B → A con guardado lento)', () => {
+    const cola = crearColaHoyos()
+    const marca = cola.marca() // se pide la lectura
+    cola.confirmarGolpe('r1', 1, 5) // mientras viaja, se confirma el 5
+    cola.sembrarGolpes('r1', { 1: 4, 2: 3 }, marca) // llega con la base de antes
+    expect(cola.golpeConfirmado('r1', 1)).toBe(5)
+    expect(cola.golpeConfirmado('r1', 2)).toBe(3)
+  })
+
+  it('un envío incierto deja el hoyo en "no se sabe" hasta una lectura pedida después', () => {
+    const cola = crearColaHoyos()
+    cola.confirmarGolpe('r1', 7, 4)
+    const vieja = cola.marca()
+    cola.olvidarGolpe('r1', 7)
+    expect(cola.golpeConfirmado('r1', 7)).toBeUndefined()
+    expect(cola.hoyosInciertos('r1')).toEqual([7])
+    cola.sembrarGolpes('r1', { 7: 4 }, vieja) // lectura pedida antes del envío: no dice nada de él
+    expect(cola.hoyosInciertos('r1')).toEqual([7])
+    cola.sembrarGolpes('r1', { 7: 5 }, cola.marca())
+    expect(cola.golpeConfirmado('r1', 7)).toBe(5)
+    expect(cola.hoyosInciertos('r1')).toEqual([])
   })
 })

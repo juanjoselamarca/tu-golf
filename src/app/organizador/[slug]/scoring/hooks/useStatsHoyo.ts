@@ -105,9 +105,13 @@ export function useStatsHoyo({
       ultimoEnvio.current.set(clave, id)
       return cola.encolar(roundId, hole, async () => {
         const gross = cola.golpeConfirmado(roundId, hole)
-        // Sin golpe en la base no hay fila donde guardar stats, y mandar el de la pantalla lo escribiría sin que
-        // el servidor lo haya aceptado. No es un fallo de red: no se marca para reintentar.
-        if (gross == null) return false
+        // Sin golpe confirmado (no hay fila, o un envío incierto lo dejó en "no se sabe") no se manda: el de la
+        // pantalla escribiría uno que el servidor no aceptó. Tampoco se pierde: queda marcada como no guardada y
+        // viaja con el próximo guardado del golpe (`faltantes`) o con el reintento tras la relectura.
+        if (gross == null) {
+          if (ultimoEnvio.current.get(clave) === id) marcar(roundId, hole, foto)
+          return false
+        }
         const res = await enviarHoyo({
           tournament_id: torneo, round_id: roundId, hole_number: hole, par: parDelHoyo(hole), gross_score: gross,
           ...foto,
@@ -220,12 +224,18 @@ export function useStatsHoyo({
   /** El golpe del hoyo se guardó con la foto de stats: lo que estaba fallido viajó con él. */
   const statsGuardadas = useCallback((roundId: string, hole: number) => marcar(roundId, hole, null), [marcar])
 
+  /** Hoyos de la ronda con stats que no se guardaron (cerrar la tarjeta no las deja atrás). */
+  const fallidasDeRonda = useCallback(
+    (roundId: string) => [...(fallidasRef.current.get(roundId)?.keys() ?? [])].sort((a, b) => a - b),
+    [],
+  )
+
   const roundId = getActiveRound(players.find((p) => p.id === selectedId))?.id ?? null
   const deRonda = roundId ? fallidas.get(roundId) : undefined
   const statsFallidas = useMemo<ReadonlySet<number>>(() => (deRonda ? new Set(deRonda.keys()) : NINGUNO), [deRonda])
 
   return {
     saveHoleStat, cambiarStat, enviarPendientes, statsGuardadas, statsFallidas, fotoParaEnviar, leerParaEnviar,
-    retomarFallidas,
+    retomarFallidas, fallidasDeRonda,
   }
 }

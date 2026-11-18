@@ -43,6 +43,8 @@ interface UseScoreEntryArgs {
 }
 
 export interface LastAction {
+  /** Identifica el guardado: su estado cambia (enviando → incierto → guardado) y el objeto con él. */
+  id: number
   holeNumber: number
   previousScore: number | undefined
   playerId: string
@@ -57,11 +59,15 @@ export interface LastAction {
    *    alcanza para saberlo: es uno solo para todo el hook y lo baja el primer
    *    guardado que responde aunque haya otro en vuelo).
    *  - 'guardado': el servidor confirmó. Deshacer llega al servidor.
-   *  - 'fallo': no dejó nada en la base. Deshacer es sólo limpiar la pantalla;
+   *  - 'fallo': el servidor respondió que no lo guardó (o la relectura tras un
+   *    'incierto' mostró que no está). Deshacer es sólo limpiar la pantalla;
    *    mandar un borrado se llevaría un golpe que no puso este organizador (el
    *    jugador anotando desde su teléfono), porque "el hoyo estaba vacío" es una
-   *    foto local de la tarjeta, no la base. */
-  estado: 'enviando' | 'guardado' | 'fallo'
+   *    foto local de la tarjeta, no la base.
+   *  - 'incierto': sin respuesta (corte de 15 s, red caída, 502/504). El servidor
+   *    pudo escribirlo igual. No se puede deshacer hasta que la relectura de la
+   *    tarjeta diga qué quedó en la base. */
+  estado: 'enviando' | 'guardado' | 'fallo' | 'incierto'
 }
 
 export type { HoleStatPatch } from './envio-hoyo'
@@ -85,6 +91,8 @@ export function useScoreEntry({
   const [errorHoles, setErrorHoles] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
   const [lastAction, setLastAction] = useState<LastAction | null>(null)
+  /** Cerrar la tarjeta está esperando que respondan los envíos pendientes. */
+  const [terminandoDeGuardar, setTerminandoDeGuardar] = useState(false)
   /** Cuenta las tarjetas abiertas o cerradas. Una respuesta que llega tarde la
    *  compara con la que había al salir: si cambió (otro jugador, otra ronda), la
    *  pantalla ya es de otra tarjeta y no se toca. Se escribe en los handlers, no
@@ -149,17 +157,41 @@ export function useScoreEntry({
   const { cargaTarjeta, cargaLenta, tarjetaLista, marcarCargando, invalidarCargas, reintentarCarga } =
     useCargaTarjeta({
       selectedId, players, getActiveRound, tarjetaRef, statsTocadasRef, grossEnVueloRef,
-      sembrarGolpes: cola.sembrarGolpes, aplicar: aplicarTarjeta, resetHoleState, showError,
+      cola, aplicar: aplicarTarjeta, resetHoleState, showError,
     })
 
   const parDelHoyo = useCallback((h: number) => holeByNumero.get(h)?.par ?? 4, [holeByNumero])
   const {
     saveHoleStat, cambiarStat, enviarPendientes, statsGuardadas, statsFallidas, fotoParaEnviar, leerParaEnviar,
-    retomarFallidas,
+    retomarFallidas, fallidasDeRonda,
   } = useStatsHoyo({
     tournament, selectedId, players, getActiveRound, currentScores, parDelHoyo, tarjetaLista, statsTocadasRef,
     cola, fotoStatsDelHoyo, confirmarStats, showWarning,
   })
+
+  /** Hoyos en rojo, leídos al cerrar la tarjeta después de esperar la cola (el closure del tap ya es viejo). */
+  const errorHolesRef = useRef(errorHoles)
+  useEffect(() => {
+    errorHolesRef.current = errorHoles
+  })
+  const accionesRef = useRef(0)
+  /** Cambia el estado de la acción `id`, si sigue siendo la del deshacer (`null`: se consume). */
+  const fijarAccion = useCallback((id: number, estado: LastAction['estado'] | null) => {
+    setLastAction((actual) => (actual?.id !== id ? actual : estado ? { ...actual, estado } : null))
+  }, [])
+
+  /** Un envío del hoyo quedó incierto (la cola ya lo dejó en "no se sabe"). Cuando la cola del hoyo se vacía, se
+   *  relee la tarjeta, si sigue a la vista: la pantalla y el golpe confirmado vuelven a lo que dice la base.
+   *  Devuelve ese golpe, o `undefined` si no se pudo saber (otra tarjeta abierta, lectura caída). */
+  const revisarHoyo = useCallback(
+    async (roundId: string, hole: number, tarjeta: number): Promise<number | null | undefined> => {
+      await cola.vaciarHoyo(roundId, hole)
+      if (tarjetaRef.current !== tarjeta || !(await reintentarCarga())) return undefined
+      if (tarjetaRef.current !== tarjeta || cola.hoyosInciertos(roundId).includes(hole)) return undefined
+      return cola.golpeConfirmado(roundId, hole) ?? null
+    },
+    [cola, reintentarCarga],
+  )
 
   const selectPlayer = useCallback(
     (playerId: string) => {
@@ -291,11 +323,10 @@ export function useScoreEntry({
       })
 
       const accion: LastAction = {
-        holeNumber, previousScore: currentScores[holeNumber], newScore: gross,
+        id: ++accionesRef.current, holeNumber, previousScore: currentScores[holeNumber], newScore: gross,
         playerId: selectedId, roundId: round.id, estado: 'enviando',
       }
-      const marcar = (estado: LastAction['estado']) =>
-        setLastAction((actual) => (actual === accion ? { ...accion, estado } : actual))
+      const marcar = (estado: LastAction['estado']) => fijarAccion(accion.id, estado)
       setLastAction(accion)
       setCurrentScores((prev) => ({ ...prev, [holeNumber]: gross }))
       setErrorHoles((prev) => {
@@ -325,16 +356,40 @@ export function useScoreEntry({
           ...stats,
         })
         if (r.ok && r.aplicado) cola.confirmarGolpe(round.id, holeNumber, gross)
+        // Sin respuesta el servidor pudo escribirlo: el golpe del hoyo pasa a "no se sabe" ANTES de que salga lo que
+        // espera detrás (una stat no sale con un golpe que quizá ya no es el de la base).
+        if (r.incierto) cola.olvidarGolpe(round.id, holeNumber)
         return r
       })
       if (grossEnVueloRef.current.get(claveVuelo) === enVuelo) grossEnVueloRef.current.delete(claveVuelo)
       setSaving(false)
 
-      if (!res.ok) {
-        marcar('fallo')
-        showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber} de ${resolveLegacyPlayerName(player)}. Intenta nuevamente.`)
+      const nombre = resolveLegacyPlayerName(player)
+      const marcarError = () => {
         // La marca roja es de ESTA tarjeta: si el organizador ya abrió a otro jugador, no se la pinta a él.
         if (tarjetaRef.current === tarjeta) setErrorHoles((prev) => new Set(prev).add(holeNumber))
+      }
+      if (res.incierto) {
+        marcar('incierto')
+        showWarning('Revisando el hoyo', `No supimos si se guardó el hoyo ${holeNumber} de ${nombre}. Lo estamos revisando.`)
+        const enLaBase = await revisarHoyo(round.id, holeNumber, tarjeta)
+        if (enLaBase === gross) {
+          marcar('guardado')
+          showSuccess('Score guardado', '', { duration: 1500 })
+        } else if (enLaBase === undefined) {
+          showError('No pudimos revisar el hoyo', `No sabemos si quedó guardado el hoyo ${holeNumber} de ${nombre}. Vuelve a anotarlo.`)
+          marcarError()
+        } else {
+          marcar('fallo')
+          showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber} de ${nombre}. Intenta nuevamente.`)
+          marcarError()
+        }
+        return
+      }
+      if (!res.ok) {
+        marcar('fallo')
+        showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber} de ${nombre}. Intenta nuevamente.`)
+        marcarError()
         return
       }
       marcar('guardado')
@@ -360,12 +415,19 @@ export function useScoreEntry({
       tournament, selectedId, players, getActiveRound, holeByNumero, siAllocByHole,
       courseHoles, courseTees, holeCount, currentScores, fotoParaEnviar, confirmarStats, cola,
       applyRoundTotals, showError, showSuccess, showWarning, tarjetaLista, statsGuardadas, invalidarCargas,
+      fijarAccion, revisarHoyo,
     ],
   )
 
   const undoLast = useCallback(async () => {
     if (!lastAction || !tournament || saving) return
-    const { holeNumber, previousScore, newScore, playerId, roundId, estado } = lastAction
+    const { id, holeNumber, previousScore, newScore, playerId, roundId, estado } = lastAction
+    if (estado === 'incierto') {
+      // No se sabe si el golpe está en la base: limpiar la pantalla mentiría y mandar un borrado podría llevarse uno
+      // que no es este. Se espera la relectura.
+      showWarning('Revisando el hoyo', `Estamos confirmando si el hoyo ${holeNumber} quedó guardado. Espera un momento.`)
+      return
+    }
     if (estado === 'enviando') {
       // El guardado sigue en vuelo (otro que respondió antes bajó `saving`).
       // Deshacer ahora limpiaría la pantalla y el golpe llegaría igual a la base.
@@ -428,11 +490,24 @@ export function useScoreEntry({
         tournament_id: torneo, round_id: roundId, hole_number: holeNumber, par, gross_score: golpe, ...stats,
       })
       if (r.ok && r.aplicado) cola.confirmarGolpe(roundId, holeNumber, golpe)
+      if (r.incierto) cola.olvidarGolpe(roundId, holeNumber)
       return r
     })
-    const ok = envio.ok
     if (envio.aplicado) confirmarStats(roundId, holeNumber, versiones)
     setSaving(false)
+    let ok = envio.ok
+    if (envio.incierto) {
+      fijarAccion(id, 'incierto')
+      showWarning('Revisando el hoyo', `No supimos si se deshizo el hoyo ${holeNumber}. Lo estamos revisando.`)
+      const enLaBase = await revisarHoyo(roundId, holeNumber, tarjeta)
+      if (enLaBase === undefined) {
+        showError('No pudimos revisar el hoyo', `No sabemos si se deshizo el hoyo ${holeNumber}. Revísalo en la tarjeta.`)
+        return
+      }
+      // La relectura ya repintó la tarjeta con la base.
+      if (enLaBase !== golpe) fijarAccion(id, enLaBase === newScore ? 'guardado' : null)
+      ok = enLaBase === golpe
+    }
     if (!ok) {
       // La pantalla NO se toca si el servidor no deshizo. Aplicar el undo
       // optimista y no revertirlo dejaba un score en pantalla y otro en la
@@ -442,7 +517,7 @@ export function useScoreEntry({
     }
     // Sólo se consume ESTE deshacer: si mientras tanto se anotó otro hoyo, su
     // deshacer sigue disponible.
-    setLastAction((actual) => (actual === lastAction ? null : actual))
+    fijarAccion(id, null)
     showSuccess('Deshacer', `Hoyo ${holeNumber} restaurado`, { duration: 1500 })
     // Mismo predicado que al guardar: una recarga pedida antes del deshacer traería el golpe deshecho.
     if (tarjetaRef.current === tarjeta) invalidarCargas()
@@ -458,7 +533,7 @@ export function useScoreEntry({
     }
   }, [
     lastAction, tournament, saving, holeByNumero, applyRoundTotals, showSuccess, showWarning, confirmarStats,
-    leerParaEnviar, invalidarCargas, cola,
+    leerParaEnviar, invalidarCargas, cola, fijarAccion, revisarHoyo,
   ])
 
   const finalizeRound = useCallback(async () => {
@@ -468,9 +543,20 @@ export function useScoreEntry({
     if (!round) return
     setSaving(true)
     // Todo lo de la tarjeta llega ANTES del cierre (después el servidor lo rechazaría): las stats que esperaban y lo
-    // que esté en la cola de cada hoyo de la ronda. Se ESPERA la respuesta, no sólo la salida.
+    // que esté en la cola de cada hoyo de la ronda. Se ESPERA la respuesta, no sólo la salida, y se dice.
+    setTerminandoDeGuardar(true)
     await enviarPendientes()
     await cola.vaciar(round.id)
+    setTerminandoDeGuardar(false)
+    // Lo que no quedó guardado (o no se sabe) no se cierra encima: después del cierre ya no se podría corregir.
+    const sinGuardar = [...new Set([...errorHolesRef.current, ...fallidasDeRonda(round.id), ...cola.hoyosInciertos(round.id)])]
+      .sort((a, b) => a - b)
+    if (sinGuardar.length > 0) {
+      setSaving(false)
+      const cuales = sinGuardar.length === 1 ? `el hoyo ${sinGuardar[0]}` : `los hoyos ${sinGuardar.join(', ')}`
+      showError('No se cerró la tarjeta', `Revisa ${cuales}: hay datos sin guardar.`)
+      return
+    }
     const res = await fetch('/api/game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -504,7 +590,7 @@ export function useScoreEntry({
     clearSelection()
   }, [
     tournament, selectedId, players, getActiveRound, reloadRoster, clearSelection, showError, showWarning,
-    enviarPendientes, cola,
+    enviarPendientes, cola, fallidasDeRonda,
   ])
 
   return {
@@ -519,6 +605,7 @@ export function useScoreEntry({
     currentScores,
     errorHoles,
     saving,
+    terminandoDeGuardar,
     lastAction,
     undoLast,
     holes,

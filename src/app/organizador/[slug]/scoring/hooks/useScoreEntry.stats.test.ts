@@ -362,7 +362,7 @@ describe('useScoreEntry · cargas en vuelo y reintento (v3)', () => {
     let guardado!: Promise<void>
     act(() => { guardado = result.current.saveScore(1, '5') })
     fetchRoundHoleScores.mockImplementation(() => recarga.promesa)
-    act(() => result.current.reintentarCarga()) // recarga emitida con el golpe todavía en vuelo
+    act(() => { void result.current.reintentarCarga() }) // recarga emitida con el golpe todavía en vuelo
     await act(async () => { respuesta.resolver(new Response('{}', { status: 200 })); await guardado })
     await act(async () => { recarga.resolver([]) }) // la base de ANTES del golpe
     expect(result.current.currentScores[1]).toBe(5)
@@ -378,7 +378,7 @@ describe('useScoreEntry · cargas en vuelo y reintento (v3)', () => {
     await act(async () => { vi.advanceTimersByTime(4_000) })
     expect(result.current.cargaLenta).toBe(true)
 
-    await act(async () => result.current.reintentarCarga())
+    await act(async () => { void result.current.reintentarCarga() }) // esta segunda lectura no responde nunca
     expect(result.current.cargaLenta).toBe(false)
     expect(fetchRoundHoleScores).toHaveBeenCalledTimes(2)
 
@@ -464,7 +464,7 @@ describe('useScoreEntry · deshacer y envío diferido de stats (v4)', () => {
     await act(() => result.current.saveScore(1, '5'))
     const recarga = diferida<Partial<HoleScoreRow>[]>()
     fetchRoundHoleScores.mockImplementation(() => recarga.promesa)
-    act(() => result.current.reintentarCarga()) // pedida con el 5 todavía en la base
+    act(() => { void result.current.reintentarCarga() }) // pedida con el 5 todavía en la base
     await act(async () => { await result.current.undoLast() })
     expect(result.current.currentScores[1]).toBe(4)
     await act(async () => { recarga.resolver([{ ...STATS_A[0], gross_score: 5 }]) })
@@ -590,7 +590,9 @@ describe('useScoreEntry · cola serial por hoyo (v5)', () => {
     await tic()
     expect(enviados.filter(esDeStats)).toHaveLength(1) // la stat salió…
     expect(enviados.some((e) => e.action === 'finalize_round')).toBe(false) // …y el cierre la espera
+    expect(result.current.terminandoDeGuardar).toBe(true) // y lo dice
     await act(async () => { soltar(); await cerrar })
+    expect(result.current.terminandoDeGuardar).toBe(false)
     expect(enviados.at(-1)).toMatchObject({ action: 'finalize_round', round_id: 'rA' })
   })
 
@@ -627,6 +629,98 @@ describe('useScoreEntry · cola serial por hoyo (v5)', () => {
     expect(enviados.some((e) => e.round_id === 'rB')).toBe(false)
     expect(result.current.holeGir[1]).toBeNull()
     expect(result.current.currentScores[1]).toBe(6)
+  })
+})
+
+describe('useScoreEntry · envío incierto y cierre con pendientes (v6)', () => {
+  it('corrección colgada 15 s: la cola se destraba, el GIR no reescribe el golpe viejo, el deshacer espera la relectura y no miente', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const enviados: Record<string, unknown>[] = []
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as Record<string, unknown>
+      enviados.push(body)
+      // La corrección a 5 no responde: el servidor la escribe tarde (a los 17 s), después del corte.
+      if (body.gross_score === 5) {
+        return new Promise<Response>((_, rej) => init.signal?.addEventListener('abort', () => rej(new DOMException('abort', 'AbortError'))))
+      }
+      return new Response('{}', { status: 200 })
+    }))
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA')) // H1 = 4 en la base
+    const relectura = diferida<Partial<HoleScoreRow>[]>()
+    fetchRoundHoleScores.mockImplementation(() => relectura.promesa)
+    let guardar!: Promise<void>
+    act(() => { guardar = result.current.saveScore(1, '5') })
+    await tic()
+    act(() => result.current.cambiarStat(1, { gir: true }))
+    await act(async () => { vi.advanceTimersByTime(15_000) })
+    await tic()
+
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 1, estado: 'incierto' })
+    expect(toast.showWarning).toHaveBeenCalledWith('Revisando el hoyo', expect.stringContaining('hoyo 1'))
+    expect(enviados.filter(esDeStats)).toHaveLength(0) // ni con el 4 viejo ni con el 5 sin confirmar
+    expect([...result.current.statsFallidas]).toEqual([1]) // y no se pierde: queda para reintentar
+    const antes = enviados.length
+    await act(async () => { await result.current.undoLast() })
+    expect(enviados).toHaveLength(antes) // el deshacer no limpia la pantalla ni borra a ciegas
+    expect(toast.showWarning).toHaveBeenCalledWith('Revisando el hoyo', expect.stringContaining('Espera'))
+
+    await act(async () => { relectura.resolver([{ ...STATS_A[0], gross_score: 5 }]); await guardar })
+    expect(result.current.currentScores[1]).toBe(5)
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 1, estado: 'guardado' })
+    await act(async () => { await result.current.undoLast() })
+    expect(enviados.at(-1)).toMatchObject({ hole_number: 1, gross_score: 4 })
+  })
+
+  it('un 502 del borde también es incierto (no se da por fallido)', async () => {
+    servidor(502)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    fetchRoundHoleScores.mockImplementation(async () => [{ ...STATS_A[0], gross_score: 5 }])
+    await act(() => result.current.saveScore(1, '5'))
+    expect(result.current.lastAction).toMatchObject({ estado: 'guardado' })
+    expect(toast.showError).not.toHaveBeenCalled()
+  })
+
+  it('cerrar la tarjeta con un hoyo en rojo no la cierra y dice cuál revisar', async () => {
+    const enviados = servidor(500, 200)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    await act(() => result.current.saveScore(3, '5'))
+    await act(async () => { await result.current.finalizeRound() })
+    expect(enviados.some((e) => e.action === 'finalize_round')).toBe(false)
+    expect(toast.showError).toHaveBeenLastCalledWith('No se cerró la tarjeta', expect.stringContaining('hoyo 3'))
+    expect(result.current.saving).toBe(false)
+  })
+
+  it('cerrar la tarjeta con stats sin guardar no la cierra', async () => {
+    const enviados = servidor(500, 200)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    await act(async () => { await result.current.saveHoleStat(1, { gir: false }) })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(enviados.some((e) => e.action === 'finalize_round')).toBe(false)
+    expect(toast.showError).toHaveBeenLastCalledWith('No se cerró la tarjeta', expect.stringContaining('hoyo 1'))
+  })
+
+  it('deshacer de A que responde con B (otra ronda) abierta: no toca la celda de B ni invalida su recarga', async () => {
+    const { soltar } = servidorConDemora((b) => b.round_id === 'rA' && b.gross_score === 4)
+    const { result } = montar()
+    await act(async () => result.current.selectPlayer('pA'))
+    await act(() => result.current.saveScore(1, '5'))
+    let deshacer!: Promise<void>
+    act(() => { deshacer = result.current.undoLast() })
+    fetchRoundHoleScores.mockImplementation(async () => [{ ...GOLPE_B[0], gross_score: 5 }]) // B: un 5 en el mismo hoyo
+    await act(async () => result.current.selectPlayer('pB'))
+    expect(result.current.currentScores[1]).toBe(5)
+    const recargaB = diferida<Partial<HoleScoreRow>[]>()
+    fetchRoundHoleScores.mockImplementation(() => recargaB.promesa)
+    act(() => { void result.current.reintentarCarga() })
+    await act(async () => { soltar(); await deshacer })
+    expect(result.current.currentScores[1]).toBe(5) // la celda de B no vuelve al 4 de A
+    await act(async () => { recargaB.resolver([{ ...GOLPE_B[0], gross_score: 7 }]) })
+    expect(result.current.currentScores[1]).toBe(7) // la recarga de B se aplica
+    expect(result.current.lastAction).toBeNull()
   })
 })
 

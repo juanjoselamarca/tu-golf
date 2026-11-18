@@ -15,7 +15,7 @@ import {
   type ScoringPlayer,
   type ScoringRound,
 } from '@/lib/data/tournaments/scoring'
-import { tocadasDeLaRonda, type HoleStatPatch, type StatsTocadas } from './envio-hoyo'
+import { tocadasDeLaRonda, type ColaHoyos, type HoleStatPatch, type StatsTocadas } from './envio-hoyo'
 
 /** Estado de la carga de la tarjeta abierta. Hasta que no está `lista`, la pantalla no sabe qué golpes tiene la
  *  base: anotar encima y deshacer mandaría `gross_score: null` (el hoyo "estaba vacío") y borraría un golpe real. */
@@ -72,8 +72,8 @@ interface Args {
   tarjetaRef: MutableRefObject<number>
   statsTocadasRef: MutableRefObject<StatsTocadas>
   grossEnVueloRef: MutableRefObject<GrossEnVuelo>
-  /** Golpes leídos de la base: el confirmado de cada hoyo para la cola de envíos (`ColaHoyos.sembrarGolpes`). */
-  sembrarGolpes: (roundId: string, golpes: Record<number, number>) => void
+  /** La cola de envíos: cada lectura le siembra el golpe confirmado de cada hoyo, con la marca de cuando se pidió. */
+  cola: Pick<ColaHoyos, 'marca' | 'sembrarGolpes'>
   aplicar: (t: TarjetaCargada) => void
   resetHoleState: () => void
   showError: (titulo: string, mensaje: string) => void
@@ -91,10 +91,12 @@ interface Pedido {
   roundId: string
   vigente: () => boolean
   rows: HoleScoreRow[] | null
+  /** `ColaHoyos.marca()` al pedirla: un hoyo que cambió después no lo pisa esta lectura. */
+  marca: number
 }
 
 export function useCargaTarjeta({
-  selectedId, players, getActiveRound, tarjetaRef, statsTocadasRef, grossEnVueloRef, sembrarGolpes, aplicar,
+  selectedId, players, getActiveRound, tarjetaRef, statsTocadasRef, grossEnVueloRef, cola, aplicar,
   resetHoleState, showError,
 }: Args) {
   const [estado, setEstadoState] = useState<EstadoCarga>(SIN_CARGA)
@@ -162,51 +164,56 @@ export function useCargaTarjeta({
       // no se aplica. Sin esto, la carga de A que llegaba tarde pintaba sus stats en la tarjeta de B.
       const vigente = () => tarjetaRef.current === tarjeta && carga >= pisoRef.current
       const control = new AbortController()
+      const marca = cola.marca()
       try {
         // Plazo propio (no `AbortSignal.timeout`, que no existe en iOS 15 y lanzaba: la tarjeta quedaba en error).
         const rows = await conTimeout(fetchRoundHoleScores(createClient(), roundId, control.signal), TIMEOUT_CARGA_MS)
-        return { roundId, vigente, rows }
+        return { roundId, vigente, rows, marca }
       } catch (error) {
         control.abort()
         void captureError(error, { context: 'scoring.useScoreEntry.loadScores', meta: { roundId } })
-        return { roundId, vigente, rows: null }
+        return { roundId, vigente, rows: null, marca }
       }
     },
-    [players, getActiveRound, tarjetaRef, tarjetaLista],
+    [players, getActiveRound, tarjetaRef, tarjetaLista, cola],
   )
 
   const aplicarCarga = useCallback(
-    (pedido: Pedido | null) => {
-      if (!pedido || !pedido.vigente()) return
-      const { roundId, rows } = pedido
+    /** Devuelve si pintó la tarjeta con lo leído. */
+    (pedido: Pedido | null): boolean => {
+      if (!pedido || !pedido.vigente()) return false
+      const { roundId, rows, marca } = pedido
       if (rows) {
         const enVuelo: Record<number, number> = {}
         for (const v of grossEnVueloRef.current.values()) if (v.roundId === roundId) enVuelo[v.hole] = v.valor
         const golpes: Record<number, number> = {}
         for (const r of rows) if (r.gross_score != null) golpes[r.hole_number] = r.gross_score
-        sembrarGolpes(roundId, golpes)
+        cola.sembrarGolpes(roundId, golpes, marca)
         aplicar(armarTarjeta(rows, tocadasDeLaRonda(statsTocadasRef.current, roundId), enVuelo))
         setEstado({ ronda: roundId, carga: 'lista' })
-        return
+        return true
       }
       // Una recarga de la MISMA ronda ya cargada que falla deja lo que había (sigue siendo lo conocido), sin aviso. Si esta
       // ronda nunca cargó, la tarjeta queda bloqueada con "Reintentar" y sin lo de otra ronda a la vista.
       // Con la tarjeta ya cargada (otra carga llegó antes, p. ej. un Reintentar) no se avisa: no hay nada que hacer.
-      if (tarjetaLista(roundId)) return
+      if (tarjetaLista(roundId)) return false
       if (estadoRef.current.ronda !== roundId) resetHoleState()
       setEstado({ ronda: roundId, carga: 'error' })
       showErrorRef.current('Error', 'No pudimos cargar los scores del jugador. Intenta de nuevo.')
+      return false
     },
-    [grossEnVueloRef, statsTocadasRef, sembrarGolpes, aplicar, resetHoleState, setEstado, tarjetaLista],
+    [grossEnVueloRef, statsTocadasRef, cola, aplicar, resetHoleState, setEstado, tarjetaLista],
   )
 
-  const reintentarCarga = useCallback(() => {
-    if (!selectedId) return
+  /** Vuelve a leer la tarjeta abierta. La promesa dice si la lectura se pintó (la usa la revisión de un envío
+   *  incierto: recién ahí la cola sabe qué golpe hay en la base). */
+  const reintentarCarga = useCallback((): Promise<boolean> => {
+    if (!selectedId) return Promise.resolve(false)
     // Una tarjeta en error vuelve a "Cargando…"; una ya cargada se refresca sin bloquearse.
     const e = estadoRef.current
     if (e.carga === 'error') setEstado({ ronda: e.ronda, carga: 'cargando' })
     setIntento((i) => i + 1)
-    void pedirCarga(selectedId, { reintento: true }).then(aplicarCarga)
+    return pedirCarga(selectedId, { reintento: true }).then(aplicarCarga)
   }, [selectedId, pedirCarga, aplicarCarga, setEstado])
 
   useEffect(() => {

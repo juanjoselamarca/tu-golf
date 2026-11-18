@@ -13,8 +13,10 @@ import type { ScoringPlayer, ScoringRound, ScoringTournament } from '@/lib/data/
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 const fetchRoundTotals = vi.fn(async (_roundId: string) => ({ total_gross: 0, total_net: 0, total_points: 0 }))
+/** Lo que devuelve una lectura de la tarjeta (la relectura tras un envío incierto la usa). */
+let filasBase: { hole_number: number; gross_score: number }[] = []
 vi.mock('@/lib/data/tournaments/scoring', () => ({
-  fetchRoundHoleScores: vi.fn(async () => []),
+  fetchRoundHoleScores: vi.fn(async () => filasBase),
   fetchRoundTotals: (_client: unknown, roundId: string) => fetchRoundTotals(roundId),
 }))
 const showError = vi.fn()
@@ -74,6 +76,7 @@ async function montarConJugador() {
 }
 
 beforeEach(() => {
+  filasBase = []
   rondaActiva = ROUND
   showError.mockClear()
   showWarning.mockClear()
@@ -118,16 +121,30 @@ describe('useScoreEntry · deshacer', () => {
     expect(result.current.currentScores[11]).toBeUndefined()
   })
 
-  it('sin señal (fetch rechaza): avisa, no deja "Guardando…" pegado y el golpe sigue en pantalla', async () => {
+  it('sin señal (fetch rechaza): revisa la base, no deja "Guardando…" pegado y, si el golpe sigue, se puede reintentar', async () => {
     servidor(200, 'sin-senal')
     const { result } = await montarConJugador()
     await act(() => result.current.saveScore(11, '5'))
+    filasBase = [{ hole_number: 11, gross_score: 5 }] // el deshacer no llegó: la base sigue con el 5
     await act(() => result.current.undoLast())
 
     expect(result.current.saving).toBe(false)
+    expect(showWarning).toHaveBeenCalledWith('Revisando el hoyo', expect.stringContaining('hoyo 11'))
     expect(result.current.currentScores[11]).toBe(5)
-    expect(result.current.lastAction).toMatchObject({ holeNumber: 11 })
+    expect(result.current.lastAction).toMatchObject({ holeNumber: 11, estado: 'guardado' })
     expect(showWarning).toHaveBeenCalledWith('No pudimos deshacer', expect.stringContaining('hoyo 11'))
+  })
+
+  it('sin señal pero el deshacer sí llegó: la relectura lo confirma y no pide reintentar', async () => {
+    servidor(200, 'sin-senal')
+    const { result } = await montarConJugador()
+    await act(() => result.current.saveScore(11, '5'))
+    filasBase = [] // el borrado llegó aunque la respuesta no
+    await act(() => result.current.undoLast())
+
+    expect(result.current.currentScores[11]).toBeUndefined()
+    expect(result.current.lastAction).toBeNull()
+    expect(showWarning).not.toHaveBeenCalledWith('No pudimos deshacer', expect.anything())
   })
 
   it('deshacer un guardado que FALLÓ no manda nada al servidor: no puede borrar un golpe que no puso', async () => {
