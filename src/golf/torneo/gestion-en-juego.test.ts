@@ -10,6 +10,17 @@ import {
   type OperacionEnJuego,
 } from './gestion-en-juego'
 import { CONCEDE } from '@/golf/formats/match-play'
+import { isMatchPlayFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
+import { FORMAT_META, type FormatoJuego } from '@/golf/core/rules'
+
+describe('match play: una sola noción', () => {
+  it('isMatchPlayFormat (esta gestión) y FORMAT_META.requiereParejas (formatoDeLaTarjetaDelGrupo) coinciden', () => {
+    const claves = new Set([...KNOWN_FORMAT_KEYS, ...Object.keys(FORMAT_META)])
+    for (const k of claves) {
+      expect(isMatchPlayFormat(k), k).toBe(Boolean(FORMAT_META[k as FormatoJuego]?.requiereParejas))
+    }
+  })
+})
 import type { TeamHandicapConfig } from '@/golf/formats/team-handicap'
 
 const HOYOS_18 = Array.from({ length: 18 }, (_, i) => i + 1)
@@ -48,6 +59,13 @@ describe('equipoIncompleto (D5, D7) / motivoTamanoDeEquipo', () => {
     expect(equipoIncompleto('scramble', 4)).toBe(false)
     expect(equipoIncompleto('foursome', 2)).toBe(false)
     expect(equipoIncompleto('scramble', 0)).toBe(false)
+  })
+  it('cuenta FILAS: una pareja con un WD no está incompleta (R23.4); un equipo en formación con 1 fila sí', () => {
+    const conUnWd = G('e', 1, true, 2)
+    expect(equipoIncompleto('best_ball', conUnWd.integrantes)).toBe(false)
+    expect(equipoIncompleto('scramble', conUnWd.integrantes)).toBe(false)
+    const enFormacion = G('f', 1)
+    expect(equipoIncompleto('scramble', enFormacion.integrantes)).toBe(true)
   })
   it('mensaje igual al del inicio; los grupos vacíos no cuentan', () => {
     const g = (name: string, n: number) => ({ name, players: Array.from({ length: n }) })
@@ -106,7 +124,8 @@ const casos: Caso[] = [
   { nombre: 'D1 individual · borrar con golpes: WD', format: 'stroke_play', op: { tipo: 'borrar', origen: G('o', 3, true) }, inscrito: ACTIVO_CON_GOLPES, esperado: 'borrar-con-golpes' },
   { nombre: 'D1 · borrar inscrito sin grupo y sin golpes', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, esperado: null },
   { nombre: 'D1 · inscrito sin grupo con golpes en su tarjeta individual (#828): WD', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, inscrito: ACTIVO_CON_GOLPES, esperado: 'borrar-con-golpes' },
-  { nombre: 'D1 · un WD con golpes tampoco se elimina', format: 'stroke_play', op: { tipo: 'borrar', origen: G('o', 2, true, 3) }, inscrito: { tieneGolpes: true, compite: false }, esperado: 'borrar-con-golpes' },
+  { nombre: 'D1 · un WD con golpes tampoco se elimina (y no se le ofrece retirar)', format: 'stroke_play', op: { tipo: 'borrar', origen: G('o', 2, true, 3) }, inscrito: { tieneGolpes: true, compite: false }, esperado: 'borrar-con-golpes' },
+  { nombre: 'D8 · un DQ de un match en juego no se elimina ni pasa a WD', format: 'match_play', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: { tieneGolpes: false, compite: false }, esperado: 'borrar-match-en-juego' },
 
   // ── Stableford (individual) ──
   { nombre: 'stableford · agregar', format: 'stableford', op: { tipo: 'agregar', destino: G('d', 2) }, esperado: null },
@@ -185,8 +204,11 @@ describe('motivoParaNoColocar (D1-D10)', () => {
     expect(m?.codigo ?? null).toBe(esperado)
     if (m) {
       expect(m.mensaje.length).toBeGreaterThan(0)
-      // Solo D1 y D8 ofrecen "Retirar" en vez de eliminar.
-      expect(m.ofreceRetirar).toBe(m.codigo === 'borrar-con-golpes' || m.codigo === 'borrar-match-en-juego')
+      // Solo D1 y D8 ofrecen "Retirar" en vez de eliminar, y nunca a quien ya es WD/DQ.
+      const compite = (inscrito ?? ACTIVO).compite
+      const retirar = compite && (m.codigo === 'borrar-con-golpes' || m.codigo === 'borrar-match-en-juego')
+      expect(m.ofreceRetirar).toBe(retirar)
+      expect(m.mensaje.includes('Retíralo')).toBe(retirar)
     }
   })
 

@@ -15,7 +15,7 @@
  */
 
 import { FORMAT_META, type FormatoJuego } from '@/golf/core/rules'
-import { isSharedBallFormat, isTeamFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
+import { isMatchPlayFormat, isSharedBallFormat, isTeamFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
 import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
 import { JUGADORES_POR_MATCH } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
 import { jugadoresPorEquipo } from '@/golf/ronda-libre/plantilla-de-jugadores'
@@ -74,13 +74,16 @@ export function motivoTamanoDeEquipo(
 }
 
 /**
- * D5/D7: un equipo con jugadores pero bajo el mínimo está INCOMPLETO y no puede anotar hasta completarse.
- * `miembros` = los que compiten (sin WD/DQ). Vacío no es incompleto (no hay nada que anotar). Fuera de los
- * formatos por equipos, nunca. Lo usarán la RPC (PR2) y el scorer (PR5) para bloquear el anotar.
+ * D5/D7: un equipo que todavía no junta el mínimo de FILAS en su tarjeta está INCOMPLETO (se está armando) y
+ * no puede anotar hasta completarse. `filas` = sus filas en la tarjeta, WD/DQ incluidos (`GrupoEnJuego.integrantes`):
+ * una pareja con un retirado NO está incompleta, el compañero sigue jugando solo (R23.4 y decisión del 17-nov,
+ * `fuera-del-ranking.ts`); si el equipo va al pie o no lo decide `estadoDelEquipo*`, no esta función. Vacío no es
+ * incompleto (no hay nada que anotar). Fuera de los formatos por equipos, nunca. Lo usarán la RPC (PR2) y el
+ * scorer (PR5) para bloquear el anotar.
  */
-export function equipoIncompleto(format: string | null | undefined, miembros: number): boolean {
+export function equipoIncompleto(format: string | null | undefined, filas: number): boolean {
   const r = rango(format)
-  return r !== null && miembros > 0 && miembros < r.min
+  return r !== null && filas > 0 && filas < r.min
 }
 
 /**
@@ -160,7 +163,7 @@ export type CodigoMotivoNoColocar =
 export interface MotivoNoColocar {
   codigo: CodigoMotivoNoColocar
   mensaje: string
-  /** Borrar no se puede, pero retirarlo (WD) sí: la UI ofrece "Retirar" (D1, D8). */
+  /** Borrar no se puede, pero retirarlo (WD) sí: la UI ofrece "Retirar" (D1, D8). Nunca si ya es WD/DQ. */
   ofreceRetirar: boolean
 }
 
@@ -195,20 +198,26 @@ export function motivoParaNoColocar(
   const origen = op.tipo === 'agregar' ? null : op.origen
   const destino = op.tipo === 'borrar' ? null : op.destino
   const compartida = isSharedBallFormat(format)
-  const matchPlay = Boolean(FORMAT_META[format as FormatoJuego]?.requiereParejas)
+  const matchPlay = isMatchPlayFormat(format)
 
   if (origen && destino && origen.id === destino.id) {
     return motivo('mismo-grupo', 'El jugador ya está en ese grupo.')
   }
 
   if (op.tipo === 'borrar') {
+    // Ya WD/DQ: no se ofrece retirarlo (de DQ a WD cambiaría el board); queda al pie como está.
+    const retirable = inscrito.compite
     // D1. En bola compartida los golpes son del equipo: el inscrito los tiene si su equipo los tiene.
     if (inscrito.tieneGolpes || (compartida && origen?.tieneGolpes)) {
-      return motivo('borrar-con-golpes', 'Ya tiene golpes anotados: no se puede eliminar. Retíralo (WD) y queda al pie con sus golpes.', true)
+      return retirable
+        ? motivo('borrar-con-golpes', 'Ya tiene golpes anotados: no se puede eliminar. Retíralo (WD) y queda al pie con sus golpes.', true)
+        : motivo('borrar-con-golpes', 'Ya tiene golpes anotados: no se puede eliminar. Sigue al pie con sus golpes.')
     }
     // D8. El match ya empezó aunque él no haya anotado: eliminarlo cambiaría la tarjeta del rival.
     if (matchPlay && origen?.tieneGolpes) {
-      return motivo('borrar-match-en-juego', 'Su match ya empezó: no se puede eliminar. Retíralo (WD).', true)
+      return retirable
+        ? motivo('borrar-match-en-juego', 'Su match ya empezó: no se puede eliminar. Retíralo (WD).', true)
+        : motivo('borrar-match-en-juego', 'Su match ya empezó: no se puede eliminar. Sigue al pie.')
     }
   }
 

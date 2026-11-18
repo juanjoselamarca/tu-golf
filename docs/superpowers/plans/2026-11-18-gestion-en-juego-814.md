@@ -159,3 +159,10 @@ Antes de escribir el `UPDATE ronda_id` hay que enumerar todos los FK que apuntan
 - **Mejor bola, retirar en vez de borrar:** borrar a un integrante sin golpes de una pareja con golpes se rechaza
   (`equipo-con-golpes-incompleto`, sin "Retirar"); el flujo WD actual sí lo deja retirar (R23.4, el compañero sigue
   solo). Revisar que las dos reglas digan lo mismo en el PR5.
+- **Tope de filas por tarjeta de grupo (revisado en el PR1, vuelta 3):** no existe. `MAX_JUGADORES_POR_RONDA` (4)
+  solo lo aplica `validarNuevaRonda` al crear una ronda libre; ni `materializeGroupScorecard`, ni el scorer de grupo,
+  ni un CHECK limitan las filas de un grupo de torneo. Por eso no hay motivo `grupo-lleno`: el cupo de equipo se mide
+  con los que compiten (`miembros`) y un individual no tiene tope. Si Juanjo quiere un tope de filas, es decisión de
+  producto y se agrega con `integrantes`.
+- **Mover a un WD/DQ a otro grupo:** pendiente de respuesta de Juanjo. Hoy `motivoParaNoColocar` lo permite (no
+  cuenta para el tamaño; foursome lo rechaza por R22).
