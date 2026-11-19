@@ -62,10 +62,11 @@ export function PostRondaLinks({ isAnonymous, onRequireAuth }: { isAnonymous: bo
  * (globals.css) hace del body un contenedor de scroll y el sticky nunca se pega a la pantalla.
  */
 /**
- * Igual al de la barra de navegación de abajo (Navbar, z-index 100), y esta va después en el DOM: así le gana y
- * "Volver a scorear" / "Continuar marcando" (solo con sesión, donde esa barra siempre está) quedan tocables.
+ * Uno más que la barra de navegación de abajo (Navbar, z-index 100, archivo protegido): le gana sin depender del
+ * orden en el DOM, y "Volver a scorear" / "Continuar marcando" (solo con sesión, donde esa barra siempre está)
+ * quedan tocables. Con 50 el nav los tapaba. Los modales (AuthModal, Z_OVERLAY 250) siguen por encima.
  */
-const Z_PIE_FIJO = 100
+const Z_PIE_FIJO = 101
 
 export function PieFijo({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
