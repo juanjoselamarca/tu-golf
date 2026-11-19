@@ -31,7 +31,7 @@ export type EstadoDelJuego =
 
 export const PLAZO_JUEGO_MS = 12_000
 export const RESPIRO_JUEGO_MS = 600
-/** Visor sin cuenta: cada cuántos pedidos públicos se vuelve a probar la privada (~2 min con el poll de 20 s). */
+/** Visor sin cuenta: cada cuántos pedidos públicos se vuelve a probar la privada (~2 min con el poll de 20 s del espectador; el scorer usa 60 s, pero cada guardado de golpes también pide). */
 export const REPROBAR_PRIVADA_CADA = 6
 
 export interface JuegoDeLaTimba {

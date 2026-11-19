@@ -59,9 +59,10 @@ export interface GrupoScoreSave {
   saveStatus: GrupoSaveStatus
   setSaveStatus: React.Dispatch<React.SetStateAction<GrupoSaveStatus>>
   /**
-   * Cuántos envíos entraron completos al servidor en esta sesión. Sube SOLO cuando el servidor ya tiene todos los
-   * golpes: sirve de señal para volver a leer lo que se calcula con ellos (el juego de la Timba). `saveStatus` no
-   * sirve para eso: pasa por "guardando" y "listo" en cada envío, y cada cambio era un pedido de más.
+   * Cuántos envíos dejaron golpes nuevos en el servidor en esta sesión: sube una vez por envío en que entró al menos
+   * una tarjeta (también si otra se rechazó o quedó sin respuesta) y nunca por uno en que no entró ninguna. Sirve de
+   * señal para volver a leer lo que se calcula con los golpes (el juego de la Timba). `saveStatus` no sirve para
+   * eso: pasa por "guardando" y "listo" en cada envío, y cada cambio era un pedido de más.
    */
   guardados: number
   hasUnsaved: boolean
@@ -238,6 +239,8 @@ export function useGrupoScoreSave(input: {
       let rechazoDefinitivo: string | null = null
       let vioRondaCerrada = false
       let noExiste = false
+      // Tarjetas que entraron en este envío (en cualquier vuelta): decide si `guardados` sube.
+      let entraron = 0
       let rechazoDeSesion = false
       // La sesión del teléfono se consulta a lo más UNA vez por ciclo (antes, con sesión válida y un rebote en
       // cada intento, eran hasta 3 getSession seguidos).
@@ -280,6 +283,7 @@ export function useGrupoScoreSave(input: {
             ? await saveRondaEquiposScores(supabase, { codigo, equipoId: id.slice(3), delta: golpes })
             : await saveRondaLibreScores(supabase, { codigo, jugadorId: id, delta: golpes })
           if (!r.error) {
+            entraron++
             confirmarPendientes(codigo, id, golpes)
             confirmarRechazados(codigo, id, golpes)
             if (!leerRechazados(codigo)[id]) rechazadasRef.current.delete(id)
@@ -342,7 +346,6 @@ export function useGrupoScoreSave(input: {
         const veniaDeCaida = sinEnviarRef.current
         marcarSinEnviar(false)
         setSaveStatus('saved')
-        setGuardados(n => n + 1)
         setHasUnsaved(false)
         haptic(20)
         setTimeout(() => setSaveStatus('idle'), 1500)
@@ -365,6 +368,8 @@ export function useGrupoScoreSave(input: {
         // (la recuperó en otra pestaña o se renovó), el aviso de iniciar sesión ya no es cierto.
         else if (sesionPerdidaRef.current && (await sesion()).estado === 'ok') setSesionPerdida(false)
       }
+      // Fuera de las ramas: un envío mixto (una tarjeta rechazada en firme, otra adentro) también deja golpes nuevos.
+      if (entraron > 0 && !noExiste) setGuardados(n => n + 1)
     } finally {
       enVueloRef.current = false
       try {

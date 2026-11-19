@@ -61,6 +61,12 @@ export function PostRondaLinks({ isAnonymous, onRequireAuth }: { isAnonymous: bo
  * vive en el layout, fuera de esta página. No se usa `position: sticky`: `html, body { overflow-x: hidden }`
  * (globals.css) hace del body un contenedor de scroll y el sticky nunca se pega a la pantalla.
  */
+/**
+ * Igual al de la barra de navegación de abajo (Navbar, z-index 100), y esta va después en el DOM: así le gana y
+ * "Volver a scorear" / "Continuar marcando" (solo con sesión, donde esa barra siempre está) quedan tocables.
+ */
+const Z_PIE_FIJO = 100
+
 export function PieFijo({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const [alto, setAlto] = useState(0)
@@ -83,7 +89,7 @@ export function PieFijo({ children }: { children: ReactNode }) {
     return () => { document.body.style.paddingBottom = antes }
   }, [alto])
 
-  return <div ref={ref} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50 }}>{children}</div>
+  return <div ref={ref} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: Z_PIE_FIJO }}>{children}</div>
 }
 
 /** Barra "Volver a scorear" para el admin de la ronda en curso (va dentro de `PieFijo`). */
@@ -135,6 +141,7 @@ export function RegistrationBanner({ codigo, onDismiss }: { codigo: string; onDi
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
       borderTop: '1px solid var(--border)',
       padding: '14px 16px',
+      paddingBottom: 'calc(14px + env(safe-area-inset-bottom))',
       animation: 'slideUpBanner 0.4s ease-out',
     }}>
       <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>

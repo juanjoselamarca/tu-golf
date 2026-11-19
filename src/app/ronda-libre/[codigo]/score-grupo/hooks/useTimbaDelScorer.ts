@@ -12,8 +12,10 @@ const SIN_RETIROS: Readonly<Record<string, number>> = Object.freeze({})
 /**
  * Cada cuánto el scorer vuelve a leer el juego con la pantalla quieta. Una Timba se anota en un solo celular
  * (`MENSAJE_TIMBA_UN_CELULAR`): los golpes y marcas nuevos son de este teléfono y ya piden el juego al guardarse
- * (`firma`). El poll solo cubre lo que pasa en otro lado (la ronda cerrada desde otro dispositivo), así que no
- * necesita el ritmo de 20 s del espectador: con él, la pantalla quieta pedía el juego 3-4 veces por minuto.
+ * (`firma`). El poll cubre lo que pasa en otro lado (la ronda cerrada desde otro dispositivo) y, con la pantalla
+ * quieta, el reintento de marcas que quedaron en cola sin señal (`useMarcasDeLaTimba` reintenta con cada vista
+ * nueva): a lo más 60 s después de volver la señal; al finalizar se envían igual. Con el ritmo de 20 s del
+ * espectador, la pantalla quieta pedía el juego 3-4 veces por minuto.
  */
 export const INTERVALO_JUEGO_SCORER_S = 60
 

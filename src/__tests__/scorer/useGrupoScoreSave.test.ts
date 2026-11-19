@@ -207,6 +207,22 @@ describe('useGrupoScoreSave', () => {
     expect(result.current.save.saveStatus).toBe('error')
     expect(result.current.save.guardados).toBe(1)
   })
+
+  it.each([
+    ['rechazada en firme (P0004)', 'P0004'],
+    ['sin respuesta', 'SIN_RESPUESTA'],
+  ])('envío mixto: una tarjeta entra y la otra queda %s → guardados sube igual (Fable 19-nov)', async (_caso, code) => {
+    saveRondaLibreScores.mockImplementation((async (_c: unknown, args: { jugadorId: string }) =>
+      ({ error: args.jugadorId === 'p2' ? { code } : null })) as never)
+    const { result } = montar()
+    act(() => {
+      result.current.save.handleScoreChange('p1', 1, 1)
+      result.current.save.handleScoreChange('p2', 1, 1)
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(500 + 400 + 800 + 100) })
+    expect(result.current.save.saveStatus).toBe('error')
+    expect(result.current.save.guardados).toBe(1)
+  })
 })
 
 describe('useGrupoScoreSave — sincronización automática (caída 04-oct)', () => {
