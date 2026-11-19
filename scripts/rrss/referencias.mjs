@@ -182,14 +182,14 @@ export function mimeDeImagen(ruta) {
   throw new Error(`Formato de imagen no soportado: ${ext || '(sin extensión)'}`)
 }
 
+/** Tope de cada llamada de red a Gemini: una llamada colgada no puede bloquear /inbox. */
+const TOPE_RED_MS = 120_000
+
 /**
  * Gemini acepta el video inline solo si la petición entera pesa menos de 20 MB, y
  * el base64 infla un tercio: un reel de 15 MB ya no entra. Sobre este umbral se
  * sube por la Files API, que es el camino documentado para archivos grandes.
  */
-/** Tope de cada llamada de red a Gemini: una llamada colgada no puede bloquear /inbox. */
-const TOPE_RED_MS = 120_000
-
 export const MAX_VIDEO_INLINE_BYTES = 12 * 1024 * 1024
 
 async function parteDeVideo(video, clave) {

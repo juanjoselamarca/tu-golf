@@ -94,7 +94,9 @@ Además:
 Commitea las fichas en ese worktree, en un PR propio (`chore(rrss): N referencias desde el inbox`,
 solo datos, sin revisión), mergéalo con los checks en verde y corre `--cerrar-mergeadas` en esta
 misma corrida. Si el PR no se pudo mergear, los reportes quedan esperando y los cierra una corrida
-posterior: nada se pierde. Van al resumen bajo "Referencias a /rrss".
+posterior; si a los 3 días la ficha sigue sin llegar a `main` (PR cerrado, worktree descartado),
+`--cerrar-mergeadas` los devuelve a la cola y la próxima corrida rehace su ficha. Un comentario
+(`--nota-de` o un link reenviado con texto) solo se cierra cuando ese comentario ya está en `main`. Van al resumen bajo "Referencias a /rrss".
 
 Después ejecutá:
 

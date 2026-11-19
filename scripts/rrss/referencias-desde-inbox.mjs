@@ -69,9 +69,42 @@ export function agregarNota(notasPrevias, linea, cuando = new Date()) {
   return previas ? `${previas}\n${fechada}` : fechada
 }
 
-/** El id de ficha que espera un reporte, sacado de sus notas. */
+/**
+ * La ficha que espera un reporte y desde cuándo, sacadas de sus notas (la última
+ * marca: un reporte reintentado vuelve a marcarse con fecha nueva).
+ */
 export function fichaEsperada(notas) {
-  return String(notas ?? '').match(new RegExp(`${ESPERA_MERGE}([A-Za-z0-9_-]+)`))?.[1] ?? null
+  const marcas = [
+    ...String(notas ?? '').matchAll(new RegExp(`(?:(\\d{4}-\\d{2}-\\d{2}): )?${ESPERA_MERGE}([A-Za-z0-9_-]+)`, 'g')),
+  ]
+  const ultima = marcas.at(-1)
+  return ultima ? { id: ultima[2], desde: ultima[1] ?? null } : null
+}
+
+/** Días que un reporte espera su PR de fichas antes de volver a la cola para reintentarse. */
+export const DIAS_ESPERA_MAX = 3
+
+/** Lo que Juanjo dijo en el reporte, sin el link si traía uno. Es lo que la ficha tiene que guardar. */
+export const notaEsperada = (r) => notaDelReporte(r, linkDeReferencia(`${r.texto ?? ''}\n${r.caption ?? ''}`))
+
+/**
+ * ¿La versión de la ficha que está en main ya trae lo que este reporte aportó?
+ * No basta que el archivo exista: un `--nota-de` o un link reenviado con
+ * comentario escriben en una ficha que ya estaba en main, y el reporte se
+ * cerraría antes de que su nota llegue.
+ */
+export function fichaCumple(fichaEnMain, nota) {
+  if (!fichaEnMain) return false
+  return !nota || String(fichaEnMain.nota_juanjo ?? '').includes(nota)
+}
+
+/** Agrega la nota de Juanjo a una ficha local, sin repetirla. Devuelve si cambió algo. */
+function anotarFicha(ruta, nota) {
+  const ficha = JSON.parse(readFileSync(ruta, 'utf8'))
+  if (!nota || String(ficha.nota_juanjo ?? '').includes(nota)) return false
+  ficha.nota_juanjo = [ficha.nota_juanjo, nota].filter(Boolean).join(' · ')
+  writeFileSync(ruta, `${JSON.stringify(ficha, null, 2)}\n`)
+  return true
 }
 
 function cliente() {
@@ -109,8 +142,12 @@ async function links({ dry }) {
   const s = cliente()
   const { data, error } = await s.from('inbox_reports').select('*').in('status', PENDIENTES).order('recibido_en')
   if (error) throw new Error(error.message)
-  const candidatos = reportesDeReferencia(data ?? [])
+  const todos = reportesDeReferencia(data ?? [])
+  // Un post de imagen no lo baja yt-dlp nunca: reintentarlo solo gasta minutos. Se revisa a mano.
+  const imagen = todos.filter((x) => /post de imagen/.test(x.reporte.notas ?? ''))
+  const candidatos = todos.filter((x) => !imagen.includes(x))
   console.log(`${candidatos.length} referencias pendientes en el inbox`)
+  for (const { reporte: r, link } of imagen) console.log(`   🖼  ${r.id.slice(0, 8)} post de imagen, revisar a mano: ${link}`)
   let fallos = 0
   for (const { reporte: r, link } of candidatos) {
     const id = idDeLink(link)
@@ -119,7 +156,10 @@ async function links({ dry }) {
       continue
     }
     try {
-      const res = await ingerir(link, { nota: notaDelReporte(r, link), origen: `inbox:${r.id}` })
+      const nota = notaDelReporte(r, link)
+      const res = await ingerir(link, { nota, origen: `inbox:${r.id}` })
+      // Reenvío de un link que ya tenía ficha: el comentario nuevo no se pierde.
+      if (res.reusada) anotarFicha(res.ruta, nota)
       await esperarMerge(s, r, res.id)
       console.log(`   ${res.reusada ? '↩︎' : '✅'} ${r.id.slice(0, 8)} → ${res.id}${res.ficha.es_de_golf === false ? ' [NO es de golf]' : ''}`)
     } catch (e) {
@@ -160,28 +200,25 @@ async function notaDe(uuid, idFicha, { dry }) {
   exigirPendiente(r) // correrlo dos veces duplicaría la nota
   const ruta = rutaFicha(idFicha)
   if (!existsSync(ruta)) throw new Error(`No existe la ficha ${idFicha}.`)
-  const nota = notaDelReporte(r)
+  const nota = notaEsperada(r)
   if (!nota) throw new Error(`El reporte ${uuid} no trae texto.`)
   if (dry) return console.log(`   [dry] "${nota}" → nota de ${idFicha}`)
-  const ficha = JSON.parse(readFileSync(ruta, 'utf8'))
-  if (!String(ficha.nota_juanjo ?? '').includes(nota)) {
-    ficha.nota_juanjo = [ficha.nota_juanjo, nota].filter(Boolean).join(' · ')
-    writeFileSync(ruta, `${JSON.stringify(ficha, null, 2)}\n`)
-  }
+  anotarFicha(ruta, nota)
   await esperarMerge(s, r, idFicha)
   console.log(`   ✅ ${r.id.slice(0, 8)} → nota de ${idFicha}`)
 }
 
-/** ¿La ficha ya está en origin/main? Es lo que lee /rrss; mientras no, el reporte no se cierra. */
+/** La ficha tal como está en origin/main (lo que lee /rrss), o null si todavía no llega. */
 function fichaEnMain(idFicha) {
   try {
-    execFileSync('git', ['cat-file', '-e', `origin/main:scripts/rrss/referencias/${idFicha}.json`], {
+    const texto = execFileSync('git', ['show', `origin/main:scripts/rrss/referencias/${idFicha}.json`], {
       cwd: RAIZ,
       stdio: 'pipe',
+      encoding: 'utf8',
     })
-    return true
+    return JSON.parse(texto)
   } catch {
-    return false
+    return null
   }
 }
 
@@ -196,9 +233,29 @@ async function cerrarMergeadas({ dry }) {
   if (error) throw new Error(error.message)
   let esperando = 0
   for (const r of data ?? []) {
-    const idFicha = fichaEsperada(r.notas)
-    if (!idFicha) continue
-    if (!fichaEnMain(idFicha)) {
+    const espera = fichaEsperada(r.notas)
+    if (!espera) continue
+    const idFicha = espera.id
+    if (!fichaCumple(fichaEnMain(idFicha), notaEsperada(r))) {
+      const dias = espera.desde ? (Date.now() - Date.parse(espera.desde)) / 86_400_000 : 0
+      if (dias > DIAS_ESPERA_MAX) {
+        // El PR de fichas no llegó nunca (worktree descartado, PR cerrado): de vuelta
+        // a la cola, para que la próxima corrida la rehaga. La marca vieja se reescribe
+        // para que la nueva espera parta con fecha propia.
+        if (dry) {
+          console.log(`   [dry] ${r.id.slice(0, 8)} → vuelve a la cola (${idFicha} no llegó a main)`)
+          continue
+        }
+        await actualizar(s, r, {
+          status: 'triaged',
+          notas: agregarNota(
+            r.notas.replaceAll(ESPERA_MERGE, 'no llegó a main la ficha RRSS: '),
+            `${Math.floor(dias)} días sin que ${idFicha} llegue a main: se reintenta`,
+          ),
+        })
+        console.log(`   ↺ ${r.id.slice(0, 8)} → vuelve a la cola (${idFicha} no llegó a main)`)
+        continue
+      }
       esperando++
       console.log(`   ⏳ ${r.id.slice(0, 8)} → ${idFicha} todavía no está en main`)
       continue

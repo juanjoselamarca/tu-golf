@@ -14,9 +14,11 @@ import {
 import {
   agregarNota,
   ESPERA_MERGE,
+  fichaCumple,
   fichaEsperada,
   MAX_PALABRAS_NOTA,
   notaDelReporte,
+  notaEsperada,
   reportesDeReferencia,
 } from '../../../scripts/rrss/referencias-desde-inbox.mjs'
 
@@ -153,9 +155,39 @@ describe('notas del reporte', () => {
     expect(agregarNota(null, linea, cuando)).toBe(`2026-11-19: ${linea}`)
   })
 
-  it('fichaEsperada saca de las notas el id que el reporte espera ver en main', () => {
-    expect(fichaEsperada(`algo\n2026-11-19: ${ESPERA_MERGE}vt-tiktok-com-ZSpv4bqmC`)).toBe('vt-tiktok-com-ZSpv4bqmC')
+  it('fichaEsperada saca de las notas la ficha que el reporte espera ver en main y desde cuándo', () => {
+    expect(fichaEsperada(`algo\n2026-11-19: ${ESPERA_MERGE}vt-tiktok-com-ZSpv4bqmC`)).toEqual({
+      id: 'vt-tiktok-com-ZSpv4bqmC',
+      desde: '2026-11-19',
+    })
     expect(fichaEsperada('esperando promoción: abc123')).toBeNull()
     expect(fichaEsperada(null)).toBeNull()
+  })
+
+  it('un reporte reintentado vale por su última marca, no por la que no llegó', () => {
+    const notas = `2026-11-10: no llegó a main la ficha RRSS: reel-A\n2026-11-19: ${ESPERA_MERGE}reel-A`
+    expect(fichaEsperada(notas)).toEqual({ id: 'reel-A', desde: '2026-11-19' })
+  })
+})
+
+describe('fichaCumple (cuándo se cierra un reporte)', () => {
+  it('sin la ficha en main, nunca', () => {
+    expect(fichaCumple(null, '')).toBe(false)
+  })
+
+  it('una referencia sin comentario se cierra apenas la ficha está en main', () => {
+    expect(fichaCumple({ nota_juanjo: '' }, '')).toBe(true)
+  })
+
+  it('un comentario sobre una ficha que ya estaba en main espera a que el comentario llegue', () => {
+    expect(fichaCumple({ nota_juanjo: '' }, 'esto pero más pro')).toBe(false)
+    expect(fichaCumple({ nota_juanjo: 'otra cosa · esto pero más pro' }, 'esto pero más pro')).toBe(true)
+  })
+
+  it('notaEsperada es lo que Juanjo escribió sin el link, igual que lo que se guarda en la ficha', () => {
+    expect(notaEsperada({ texto: 'https://www.instagram.com/reel/AAA/ hagamos este primero', caption: null })).toBe(
+      'hagamos este primero',
+    )
+    expect(notaEsperada({ texto: 'esto pero más pro', caption: null })).toBe('esto pero más pro')
   })
 })
