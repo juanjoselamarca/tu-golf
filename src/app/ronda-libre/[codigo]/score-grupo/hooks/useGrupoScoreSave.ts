@@ -58,6 +58,12 @@ export interface PendingScoreConfirm {
 export interface GrupoScoreSave {
   saveStatus: GrupoSaveStatus
   setSaveStatus: React.Dispatch<React.SetStateAction<GrupoSaveStatus>>
+  /**
+   * Cuántos envíos entraron completos al servidor en esta sesión. Sube SOLO cuando el servidor ya tiene todos los
+   * golpes: sirve de señal para volver a leer lo que se calcula con ellos (el juego de la Timba). `saveStatus` no
+   * sirve para eso: pasa por "guardando" y "listo" en cada envío, y cada cambio era un pedido de más.
+   */
+  guardados: number
   hasUnsaved: boolean
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
   /** A1: jugador/hoyo esperando el segundo tap. */
@@ -137,6 +143,7 @@ export function useGrupoScoreSave(input: {
   const { ronda, codigo, currentHole, setScores, parMap } = input
 
   const [saveStatus, setSaveStatus] = useState<GrupoSaveStatus>('idle')
+  const [guardados, setGuardados] = useState(0)
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [pendingScoreConfirm, setPendingScoreConfirm] = useState<PendingScoreConfirm | null>(null)
   const pendingScoreConfirmRef = useRef<PendingScoreConfirm | null>(null)
@@ -335,6 +342,7 @@ export function useGrupoScoreSave(input: {
         const veniaDeCaida = sinEnviarRef.current
         marcarSinEnviar(false)
         setSaveStatus('saved')
+        setGuardados(n => n + 1)
         setHasUnsaved(false)
         haptic(20)
         setTimeout(() => setSaveStatus('idle'), 1500)
@@ -497,7 +505,7 @@ export function useGrupoScoreSave(input: {
   }, [pendienteDeEnvio, rondaCerrada])
 
   return {
-    saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm,
+    saveStatus, setSaveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm,
     handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida,
   }
 }
