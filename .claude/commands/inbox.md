@@ -52,7 +52,29 @@ Primero recupera los archivos que el webhook no pudo bajar de Telegram (quedan a
 node --env-file=.env.local scripts/inbox-recuperar-archivos.mjs
 ```
 
-Si alguno sigue pendiente, va al resumen. Después ejecutá:
+Si alguno sigue pendiente, va al resumen.
+
+**Referencias de RRSS primero.** Juanjo manda al mismo bot los links (Instagram, TikTok, YouTube) que
+le parecen benchmark para las redes. No son bugs y no pasan por el triage: van a la bandeja que lee
+`/rrss` (`scripts/rrss/referencias/`). Si se quedan en el inbox, `/rrss` no las ve nunca:
+
+```bash
+node --env-file=.env.local scripts/rrss/referencias-desde-inbox.mjs
+```
+
+Baja y analiza cada link con Gemini, deja su ficha y cierra el reporte como `resuelto` con la ruta de
+la ficha en las notas. Un link que falla queda pendiente y se reintenta en la próxima corrida. Además:
+
+- **Foto que es referencia** (pantallazo de la competencia, un post fotografiado, "mira esto"):
+  `... referencias-desde-inbox.mjs --foto <uuid>`. Decídelo tú mirando la foto; si dudas entre
+  referencia y bug, es bug y sigue el flujo normal.
+- **Comentario suelto sobre una referencia** ("esto pero más pro"): `--nota-de <uuid> --para <id-ficha>`.
+
+Las fichas son archivos del repo y `/rrss` las lee desde `main`: commitéalas en un PR propio
+(`chore(rrss): N referencias desde el inbox`, solo datos, sin revisión) y mergéalo con los checks en
+verde en esta misma corrida. Van al resumen bajo "Referencias a /rrss".
+
+Después ejecutá:
 
 ```bash
 cd "C:/Users/juanj/OneDrive/Escritorio/Proyectos IA/tu-golf" && \
@@ -248,6 +270,9 @@ RESUMEN /inbox
 
 ⏳ Promovidos con smoke pendiente (evento en vivo; los cierra una corrida sin evento): Q
   - PR #Y: <descripción>
+
+📎 Referencias a /rrss: R (PR #F)
+  - <id-ficha>: <formato> — <una línea>
 
 ⚠ Decisiones pendientes (esperan tu input): K
   - <reporte>: <razón>

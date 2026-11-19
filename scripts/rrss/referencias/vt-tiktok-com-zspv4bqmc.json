@@ -1,0 +1,26 @@
+{
+  "id": "vt-tiktok-com-zspv4bqmc",
+  "url": "https://vt.tiktok.com/ZSpv4bqmC/",
+  "recibida": "2026-11-19T20:20:22.059Z",
+  "caption": "Aiming at the apex is why you miss low. Pick an aim point above it 👇 #golf #putting #puttingtips #golftips",
+  "nota_juanjo": "",
+  "origen": "inbox:a0cd4ed2-fdfd-4fd8-87a4-629457031b79",
+  "formato": "Explicativo animado con data y técnica",
+  "gancho": "Aparece una estadística impactante en pantalla (96% de los golfistas leen mal la caída de sus putts) junto a una animación 3D.",
+  "por_que_funciona": "Ataca un problema muy frecuente en el golfista promedio usando datos estadísticos concretos y una visualización gráfica clara que resuelve la duda de inmediato.",
+  "ritmo": "Sin cortes abruptos, animaciones fluidas con cambios de plano cada 3 a 5 segundos, acompañado de voz en off narrativa y música suave.",
+  "estructura": [
+    "Dato estadístico de impacto sobre el error al leer putts",
+    "Desglose de datos de fallos (porcentaje de fallos por el lado bajo)",
+    "Explicación del error conceptual común (apuntar directo al apex)",
+    "Demostración visual de por qué la bola falla si rompe desde el inicio",
+    "Solución práctica (apuntar por sobre el apex)",
+    "Demostración del castigo extra (el fallo por abajo deja un putt de regreso más largo)",
+    "Llamado a seguir la cuenta para más consejos"
+  ],
+  "adaptacion_golfers": "Usar estadísticas reales extraídas de las tarjetas de Golfers+ (ej: porcentaje de 3-putts según hándicap o promedio de golpes en hoyos difíciles) mostrando capturas o animaciones UI de la app, concluyendo con una lección estratégica de juego.",
+  "no_copiar": "El renderizado 3D complejo desde cero (requiere recursos altos de animación) y enfocar el contenido en técnica pura de swing en lugar de estadísticas de torneo o scorecard.",
+  "es_de_golf": true,
+  "resumen": "Un video educativo animado que explica con datos y apoyo gráfico visual por qué los golfistas fallan sus putts por el lado bajo y cómo corregirlo.",
+  "usada_en": []
+}

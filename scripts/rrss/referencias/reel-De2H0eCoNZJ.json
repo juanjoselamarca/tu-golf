@@ -1,0 +1,23 @@
+{
+  "id": "reel-De2H0eCoNZJ",
+  "url": "https://www.instagram.com/reel/De2H0eCoNZJ/?gwpx=bG9wdDJxcWZ1dzAx",
+  "recibida": "2026-11-19T20:15:52.905Z",
+  "caption": "@granthorvat sticking it close at the 8th hole at St Andrews. Doesn’t get much better than that. #TP5x #TeamTaylorMade",
+  "nota_juanjo": "",
+  "origen": "inbox:394e8a82-e034-46f6-845b-c865f15b51fe",
+  "formato": "Reel de tiro destacado con tracer",
+  "gancho": "Overlay gráfico tipo videojuego con datos del tiro (188 yardas en St Andrews) mientras el jugador anuncia su tiro.",
+  "por_que_funciona": "Combina la anticipación de la jugada declarada con la precisión visual del ball tracer y el remate satisfactorio de la pelota quedando cerca del hoyo.",
+  "ritmo": "5 cortes dinámicos: setup (4s), swing con tracer (4s), reacción inicial (3s), llegada al green (8s) y cierre/celebración (5s). Audio ambiente y micrófono de solapa.",
+  "estructura": [
+    "Presentación gráfica del hoyo, yardaje y declaración del jugador.",
+    "Ejecución del swing con gráfica de trayectoria (tracer).",
+    "Seguimiento visual de la pelota llegando al green hasta quedar cerca de la bandera.",
+    "Reacción y celebración relajada del jugador tras el tiro perfecto."
+  ],
+  "adaptacion_golfers": "Reemplazar el overlay superior por la gráfica oficial de Golfers+ (leaderboard en vivo y tarjeta del hoyo). Aplicar este formato a tiros decisivos grabados en torneos locales asociados a la app, mostrando en pantalla cómo ese tiro impactó el hándicap o la posición en la tabla.",
+  "no_copiar": "No intentar replicar la producción en canchas internacionales icónicas ni el branding de marcas de palos/pelotas que resta foco al producto digital.",
+  "es_de_golf": true,
+  "resumen": "Un contenido aspiracional centrado en la ejecución perfecta de un tiro, apoyado en gráficas de datos y seguimiento visual de la pelota.",
+  "usada_en": []
+}
