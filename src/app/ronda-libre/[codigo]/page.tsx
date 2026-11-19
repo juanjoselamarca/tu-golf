@@ -47,7 +47,7 @@ import { GwiPanel } from './components/GwiPanel'
 import { RecentTimeline } from './components/RecentTimeline'
 import { RefreshStatus } from '@/components/RefreshStatus'
 import { ShareLeaderboardButton } from './components/ShareLeaderboardButton'
-import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, RegistrationBanner } from './components/FooterBars'
+import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, RegistrationBanner, PieFijo } from './components/FooterBars'
 import { LiveStyles } from './components/LiveStyles'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
@@ -423,17 +423,19 @@ function RondaLibrePageContent() {
         )}
       </div>
 
-      {isAdmin && isEnCurso && <AdminScoringBar codigo={codigo} />}
+      <PieFijo>
+        {isAdmin && isEnCurso && <AdminScoringBar codigo={codigo} />}
 
-      {/* Jugador autenticado (no admin) en ronda individual en curso → enlace al scorer */}
-      {!isAdmin && !isAdminRound && isEnCurso && !isAnonymous && currentUserId &&
-        ronda.ronda_libre_jugadores.some(j => j.user_id === currentUserId) && (
-        <PlayerScoringBar codigo={codigo} />
-      )}
+        {/* Jugador autenticado (no admin) en ronda individual en curso → enlace al scorer */}
+        {!isAdmin && !isAdminRound && isEnCurso && !isAnonymous && currentUserId &&
+          ronda.ronda_libre_jugadores.some(j => j.user_id === currentUserId) && (
+          <PlayerScoringBar codigo={codigo} />
+        )}
 
-      {showBanner && isAnonymous && (
-        <RegistrationBanner codigo={codigo} onDismiss={dismissBanner} />
-      )}
+        {showBanner && isAnonymous && (
+          <RegistrationBanner codigo={codigo} onDismiss={dismissBanner} />
+        )}
+      </PieFijo>
 
       {showAuthModal && (
         <AuthModal action={authModalAction} codigo={codigo} onClose={closeAuthModal} />

@@ -1,5 +1,8 @@
 // Bloques chicos del pie de la vista live: info admin, links post-ronda,
 // barra admin "volver a scorear", banner de registro. Verbatim del monolito.
+'use client'
+
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ClipboardList } from '@/components/icons'
 import { registerUrl } from '@/lib/auth/login-url'
@@ -50,11 +53,43 @@ export function PostRondaLinks({ isAnonymous, onRequireAuth }: { isAnonymous: bo
   )
 }
 
-/** Barra fija "Volver a scorear" para el admin de la ronda en curso. */
+/**
+ * Pie fijo abajo de la pantalla para las barras de esta vista, que RESERVA su alto al final de la página: sin eso las
+ * barras flotaban sobre lo último (el pie del sitio con Términos y Privacidad, "Copiar link") y no se podía ver.
+ *
+ * El alto se mide (cambia con el texto y el ancho) y se suma como `padding-bottom` del `body`, porque el pie del sitio
+ * vive en el layout, fuera de esta página. No se usa `position: sticky`: `html, body { overflow-x: hidden }`
+ * (globals.css) hace del body un contenedor de scroll y el sticky nunca se pega a la pantalla.
+ */
+export function PieFijo({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [alto, setAlto] = useState(0)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const medir = () => setAlto(Math.ceil(el.getBoundingClientRect().height))
+    medir()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(medir)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (alto <= 0) return
+    const antes = document.body.style.paddingBottom
+    document.body.style.paddingBottom = `${alto}px`
+    return () => { document.body.style.paddingBottom = antes }
+  }, [alto])
+
+  return <div ref={ref} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50 }}>{children}</div>
+}
+
+/** Barra "Volver a scorear" para el admin de la ronda en curso (va dentro de `PieFijo`). */
 export function AdminScoringBar({ codigo }: { codigo: string }) {
   return (
     <div style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
       background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
       padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
       display: 'flex', justifyContent: 'center',
@@ -71,11 +106,10 @@ export function AdminScoringBar({ codigo }: { codigo: string }) {
   )
 }
 
-/** Barra fija "Continuar marcando" para jugadores (no-admin) en ronda individual en curso. */
+/** Barra "Continuar marcando" para jugadores (no-admin) en ronda individual en curso (va dentro de `PieFijo`). */
 export function PlayerScoringBar({ codigo }: { codigo: string }) {
   return (
     <div style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
       background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
       padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
       display: 'flex', justifyContent: 'center',
@@ -92,11 +126,10 @@ export function PlayerScoringBar({ codigo }: { codigo: string }) {
   )
 }
 
-/** Banner de registro para espectadores anónimos (tras 8s o scroll). */
+/** Banner de registro para espectadores anónimos (tras 8s o scroll; va dentro de `PieFijo`). */
 export function RegistrationBanner({ codigo, onDismiss }: { codigo: string; onDismiss: () => void }) {
   return (
     <div style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
       // Superficie del tema (antes blanco fijo: en oscuro el texto claro no se leía).
       background: 'var(--bg-surface)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
