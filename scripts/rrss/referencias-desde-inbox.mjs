@@ -3,29 +3,45 @@
 // Juanjo manda los links que le parecen benchmark al bot del inbox
 // (@Golfers_App_Bot), no al bot RRSS aparte que planteó el diseño del 26-oct.
 // Sin este puente, el análisis quedaba en `inbox_reports.notas` y `/rrss` —que
-// solo lee `scripts/rrss/referencias/`— no veía ninguna referencia: al 19-nov
-// había 14 analizadas en el inbox y 0 en la bandeja.
+// solo lee `scripts/rrss/referencias/` en `main`— no veía ninguna referencia: al
+// 19-nov había 14 analizadas en el inbox y 0 en la bandeja.
 //
-// Qué hace:
-//   (sin flags)  cada reporte pendiente (nuevo/triaged) cuyo texto trae un link de
-//                Instagram/TikTok/YouTube → ficha en scripts/rrss/referencias/ y el
-//                reporte queda `resuelto` con la ruta de la ficha en las notas.
+// Ciclo de un reporte:
+//   pendiente ──(ficha escrita)──► en_progreso "esperando merge ficha RRSS: <id>"
+//             ──(ficha en origin/main, --cerrar-mergeadas)──► resuelto
+//   Si no se pudo bajar: queda triaged con categoria='referencia-rrss' y el motivo
+//   en las notas. El snapshot de /inbox excluye esa categoría, así que nunca entra
+//   al triage como si fuera un bug, y la próxima corrida lo reintenta.
+//
+// Modos:
+//   (sin flags)                   links pendientes → fichas.
 //   --foto <uuid>                 la foto de ese reporte → ficha de imagen.
-//   --nota-de <uuid> --para <id>  el texto de ese reporte se agrega como nota de
-//                                 Juanjo a una ficha que ya existe (cuando manda
-//                                 el link y después, aparte, el comentario).
+//   --nota-de <uuid> --para <id>  el texto de ese reporte va como nota de Juanjo a
+//                                 una ficha existente (link y comentario por separado).
+//   --cerrar-mergeadas            cierra los reportes cuya ficha ya está en origin/main.
 //   --dry                         solo muestra qué haría.
 //
-// Las fichas son archivos del repo: hay que commitearlas para que `/rrss` las vea
-// desde cualquier sesión (lo dice `/inbox`).
+// Correr desde un worktree propio (`setup-worktree.mjs`): las fichas se escriben
+// junto a este script y van en un PR.
 import { createClient } from '@supabase/supabase-js'
+import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { idDeLink, ingerir, ingerirImagen, linkDeReferencia, rutaFicha } from './referencias.mjs'
 
 const PENDIENTES = ['nuevo', 'triaged']
+export const CATEGORIA = 'referencia-rrss'
+export const ESPERA_MERGE = 'esperando merge ficha RRSS: '
+const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+
+/**
+ * Sobre este largo, el texto que acompaña al link deja de ser "una referencia con
+ * un comentario" y pasa a ser un reporte que trae un link (p. ej. un bug del
+ * botón compartir). Ese va al triage, no se cierra solo.
+ */
+export const MAX_PALABRAS_NOTA = 25
 
 /** El texto del reporte sin el link: lo que Juanjo dijo de la referencia, si dijo algo. */
 export function notaDelReporte(reporte, link) {
@@ -42,12 +58,20 @@ export function reportesDeReferencia(reportes) {
     .filter((r) => PENDIENTES.includes(r.status))
     .map((r) => ({ reporte: r, link: linkDeReferencia(`${r.texto ?? ''}\n${r.caption ?? ''}`) }))
     .filter((x) => x.link)
+    .filter((x) => notaDelReporte(x.reporte, x.link).split(/\s+/).filter(Boolean).length <= MAX_PALABRAS_NOTA)
 }
 
-/** Las notas con las que el reporte queda cerrado: lo que ya tenía, más dónde quedó la ficha. */
-export function notasAlCerrar(notasPrevias, idFicha, cuando = new Date()) {
-  const linea = `${cuando.toISOString().slice(0, 10)}: ficha RRSS scripts/rrss/referencias/${idFicha}.json`
-  return notasPrevias?.trim() ? `${notasPrevias.trim()}\n${linea}` : linea
+/** Agrega una línea fechada a las notas sin perder lo que ya tenían (ni repetirla). */
+export function agregarNota(notasPrevias, linea, cuando = new Date()) {
+  const previas = notasPrevias?.trim() ?? ''
+  if (previas.includes(linea)) return previas
+  const fechada = `${cuando.toISOString().slice(0, 10)}: ${linea}`
+  return previas ? `${previas}\n${fechada}` : fechada
+}
+
+/** El id de ficha que espera un reporte, sacado de sus notas. */
+export function fichaEsperada(notas) {
+  return String(notas ?? '').match(new RegExp(`${ESPERA_MERGE}([A-Za-z0-9_-]+)`))?.[1] ?? null
 }
 
 function cliente() {
@@ -57,23 +81,28 @@ function cliente() {
   return createClient(url, clave, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
-async function cerrar(s, reporte, idFicha) {
-  const { error } = await s
-    .from('inbox_reports')
-    .update({
-      status: 'resuelto',
-      categoria: 'referencia-rrss',
-      procesado_en: new Date().toISOString(),
-      notas: notasAlCerrar(reporte.notas, idFicha),
-    })
-    .eq('id', reporte.id)
-  if (error) throw new Error(`No pude cerrar el reporte ${reporte.id}: ${error.message}`)
+async function actualizar(s, reporte, cambios) {
+  const { error } = await s.from('inbox_reports').update(cambios).eq('id', reporte.id)
+  if (error) throw new Error(`No pude actualizar el reporte ${reporte.id}: ${error.message}`)
 }
+
+/** Ficha escrita: el reporte espera que llegue a main. No se cierra todavía. */
+const esperarMerge = (s, reporte, idFicha) =>
+  actualizar(s, reporte, {
+    status: 'en_progreso',
+    categoria: CATEGORIA,
+    notas: agregarNota(reporte.notas, `${ESPERA_MERGE}${idFicha}`),
+  })
 
 async function reporte(s, id) {
   const { data, error } = await s.from('inbox_reports').select('*').eq('id', id).single()
   if (error) throw new Error(`No encontré el reporte ${id}: ${error.message}`)
   return data
+}
+
+function exigirPendiente(r) {
+  if (!PENDIENTES.includes(r.status))
+    throw new Error(`El reporte ${r.id} está "${r.status}": ya se procesó. No lo toco dos veces.`)
 }
 
 async function links({ dry }) {
@@ -91,12 +120,18 @@ async function links({ dry }) {
     }
     try {
       const res = await ingerir(link, { nota: notaDelReporte(r, link), origen: `inbox:${r.id}` })
-      await cerrar(s, r, res.id)
+      await esperarMerge(s, r, res.id)
       console.log(`   ${res.reusada ? '↩︎' : '✅'} ${r.id.slice(0, 8)} → ${res.id}${res.ficha.es_de_golf === false ? ' [NO es de golf]' : ''}`)
     } catch (e) {
       fallos++
-      // Queda pendiente en el inbox: la próxima corrida lo reintenta.
-      console.error(`   ❌ ${r.id.slice(0, 8)} (${link}): ${e.message.split('\n')[0]}`)
+      const motivo = e.message.split('\n')[0]
+      // Queda pendiente pero marcado como referencia: fuera del triage de bugs.
+      await actualizar(s, r, {
+        status: 'triaged',
+        categoria: CATEGORIA,
+        notas: agregarNota(r.notas, `referencia RRSS que no se pudo bajar: ${motivo}`),
+      }).catch((err) => console.error(`      (y no pude anotarlo: ${err.message})`))
+      console.error(`   ❌ ${r.id.slice(0, 8)} (${link}): ${motivo}`)
     }
   }
   if (fallos) process.exitCode = 1
@@ -105,8 +140,9 @@ async function links({ dry }) {
 async function foto(uuid, { dry }) {
   const s = cliente()
   const r = await reporte(s, uuid)
+  exigirPendiente(r)
   if (!r.fotos_paths?.length) throw new Error(`El reporte ${uuid} no trae foto.`)
-  const id = `inbox-${uuid.slice(0, 8)}`
+  const id = `inbox-${r.id.slice(0, 8)}`
   if (dry) return console.log(`   [dry] foto ${r.fotos_paths[0]} → ${id}`)
   const { data, error } = await s.storage.from('inbox-photos').download(r.fotos_paths[0])
   if (error) throw new Error(`No pude bajar la foto: ${error.message}`)
@@ -114,23 +150,71 @@ async function foto(uuid, { dry }) {
   const archivo = path.join(mkdtempSync(path.join(tmpdir(), 'rrss-foto-')), `foto${ext}`)
   writeFileSync(archivo, Buffer.from(await data.arrayBuffer()))
   const res = await ingerirImagen(archivo, { id, nota: notaDelReporte(r), origen: `inbox:${r.id}` })
-  await cerrar(s, r, res.id)
-  console.log(`   ✅ ${uuid.slice(0, 8)} → ${res.id}`)
+  await esperarMerge(s, r, res.id)
+  console.log(`   ✅ ${r.id.slice(0, 8)} → ${res.id}`)
 }
 
 async function notaDe(uuid, idFicha, { dry }) {
   const s = cliente()
   const r = await reporte(s, uuid)
+  exigirPendiente(r) // correrlo dos veces duplicaría la nota
   const ruta = rutaFicha(idFicha)
   if (!existsSync(ruta)) throw new Error(`No existe la ficha ${idFicha}.`)
   const nota = notaDelReporte(r)
   if (!nota) throw new Error(`El reporte ${uuid} no trae texto.`)
   if (dry) return console.log(`   [dry] "${nota}" → nota de ${idFicha}`)
   const ficha = JSON.parse(readFileSync(ruta, 'utf8'))
-  ficha.nota_juanjo = [ficha.nota_juanjo, nota].filter(Boolean).join(' · ')
-  writeFileSync(ruta, `${JSON.stringify(ficha, null, 2)}\n`)
-  await cerrar(s, r, idFicha)
-  console.log(`   ✅ ${uuid.slice(0, 8)} → nota de ${idFicha}`)
+  if (!String(ficha.nota_juanjo ?? '').includes(nota)) {
+    ficha.nota_juanjo = [ficha.nota_juanjo, nota].filter(Boolean).join(' · ')
+    writeFileSync(ruta, `${JSON.stringify(ficha, null, 2)}\n`)
+  }
+  await esperarMerge(s, r, idFicha)
+  console.log(`   ✅ ${r.id.slice(0, 8)} → nota de ${idFicha}`)
+}
+
+/** ¿La ficha ya está en origin/main? Es lo que lee /rrss; mientras no, el reporte no se cierra. */
+function fichaEnMain(idFicha) {
+  try {
+    execFileSync('git', ['cat-file', '-e', `origin/main:scripts/rrss/referencias/${idFicha}.json`], {
+      cwd: RAIZ,
+      stdio: 'pipe',
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function cerrarMergeadas({ dry }) {
+  const s = cliente()
+  execFileSync('git', ['fetch', '--quiet', 'origin', 'main'], { cwd: RAIZ, stdio: 'pipe', timeout: 120_000 })
+  const { data, error } = await s
+    .from('inbox_reports')
+    .select('*')
+    .eq('status', 'en_progreso')
+    .eq('categoria', CATEGORIA)
+  if (error) throw new Error(error.message)
+  let esperando = 0
+  for (const r of data ?? []) {
+    const idFicha = fichaEsperada(r.notas)
+    if (!idFicha) continue
+    if (!fichaEnMain(idFicha)) {
+      esperando++
+      console.log(`   ⏳ ${r.id.slice(0, 8)} → ${idFicha} todavía no está en main`)
+      continue
+    }
+    if (dry) {
+      console.log(`   [dry] ${r.id.slice(0, 8)} → resuelto (${idFicha} en main)`)
+      continue
+    }
+    await actualizar(s, r, {
+      status: 'resuelto',
+      procesado_en: new Date().toISOString(),
+      notas: agregarNota(r.notas, `ficha RRSS en main: scripts/rrss/referencias/${idFicha}.json`),
+    })
+    console.log(`   ✅ ${r.id.slice(0, 8)} → resuelto (${idFicha})`)
+  }
+  if (esperando) console.log(`${esperando} esperando merge de su PR de fichas`)
 }
 
 async function main() {
@@ -140,6 +224,7 @@ async function main() {
     const i = args.indexOf(flag)
     return i >= 0 ? args[i + 1] : undefined
   }
+  if (args.includes('--cerrar-mergeadas')) return cerrarMergeadas({ dry })
   if (valor('--foto')) return foto(valor('--foto'), { dry })
   if (valor('--nota-de')) {
     if (!valor('--para')) throw new Error('Uso: --nota-de <uuid> --para <id-de-ficha>')

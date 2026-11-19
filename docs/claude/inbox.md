@@ -26,4 +26,6 @@ App tiene canal directo de feedback: bot **`@Golfers_App_Bot`** recibe foto/text
 
 **Referencias de RRSS** (19-nov-2026): los links de Instagram/TikTok/YouTube que Juanjo manda al bot no son
 bugs. `/inbox` los pasa primero por `scripts/rrss/referencias-desde-inbox.mjs`, que los deja como ficha en
-`scripts/rrss/referencias/` (lo que lee `/rrss` en su PASO 0) y cierra el reporte. Las fichas se commitean.
+`scripts/rrss/referencias/` (lo que lee `/rrss` en su PASO 0). El reporte queda `en_progreso` ("esperando
+merge ficha RRSS") hasta que la ficha llega a `main`, y ahí lo cierra `--cerrar-mergeadas` (PASO 0). Las que no
+se pudieron bajar quedan con `categoria='referencia-rrss'`, fuera del triage de bugs.

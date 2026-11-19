@@ -46,22 +46,39 @@ export function binarioYtDlp(env = process.env) {
 
 /** Un id estable para la referencia, sacado del link. Dos envíos del mismo link dan la misma ficha. */
 export function idDeLink(url) {
-  const m = String(url).match(/\/(reel|p|tv|shorts|watch|video)\/([A-Za-z0-9_-]+)/)
-  if (m) return `${m[1]}-${m[2]}`
+  // youtube.com/watch?v=ID: el id del video va en el query, que abajo se descarta.
+  // Sin este caso, todos los videos de YouTube compartían una sola ficha.
+  try {
+    const u = new URL(String(url))
+    const v = u.searchParams.get('v')
+    if (/(^|\.)youtube\.com$/i.test(u.hostname) && /^[A-Za-z0-9_-]+$/.test(v ?? '')) return `watch-${v}`
+  } catch {}
+  const m = String(url).match(/\/(reels?|p|tv|shorts|video)\/([A-Za-z0-9_-]+)/)
+  if (m) return `${m[1] === 'reels' ? 'reel' : m[1]}-${m[2]}`
   // El query string de un link compartido es un token de rastreo distinto en cada
-  // envío: si entra al id, el mismo reel mandado dos veces da dos fichas.
+  // envío: si entra al id, el mismo reel mandado dos veces da dos fichas. Sin
+  // minúsculas: los códigos de youtu.be y vt.tiktok.com distinguen mayúsculas.
   const limpio = String(url)
     .replace(/[?#].*$/, '')
     .replace(/^https?:\/\//, '')
     .replace(/[^A-Za-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-    .toLowerCase()
   if (!limpio) throw new Error(`No puedo sacar un id de "${url}".`)
   return limpio.slice(0, 60)
 }
 
-/** Hosts de donde llegan referencias. Un link a otra cosa (GitHub, la app) no es una referencia. */
-const HOSTS_REFERENCIA = /^(?:[a-z0-9-]+\.)*(?:instagram\.com|tiktok\.com|youtube\.com|youtu\.be)$/i
+/**
+ * Links a UNA pieza (reel, post, short, video), por host. Un perfil, una story o
+ * la home no son referencias: si vienen en un mensaje, es otra cosa (p. ej. un
+ * bug del botón compartir) y va al triage.
+ */
+const PIEZAS_REFERENCIA = [
+  { host: /^(?:www\.|m\.)?instagram\.com$/i, ruta: /^\/(?:[^/]+\/)?(?:reels?|p|tv)\/[A-Za-z0-9_-]+/ },
+  { host: /^(?:www\.|m\.)?tiktok\.com$/i, ruta: /^\/@[^/]+\/video\/\d+/ },
+  { host: /^(?:vt|vm)\.tiktok\.com$/i, ruta: /^\/[A-Za-z0-9]+\/?$/ },
+  { host: /^(?:www\.|m\.)?youtube\.com$/i, ruta: /^\/(?:shorts\/[A-Za-z0-9_-]+|watch$)/ },
+  { host: /^youtu\.be$/i, ruta: /^\/[A-Za-z0-9_-]+\/?$/ },
+]
 
 /**
  * El link de referencia que trae un mensaje, o null. Juanjo manda las referencias
@@ -73,7 +90,9 @@ export function linkDeReferencia(texto) {
   for (const candidato of String(texto ?? '').match(/https?:\/\/\S+/g) ?? []) {
     try {
       const u = new URL(candidato)
-      if (HOSTS_REFERENCIA.test(u.hostname) && u.pathname.length > 1) return candidato
+      const pieza = PIEZAS_REFERENCIA.some((p) => p.host.test(u.hostname) && p.ruta.test(u.pathname))
+      const conVideo = !/^\/watch$/.test(u.pathname) || u.searchParams.get('v')
+      if (pieza && conVideo) return candidato
     } catch {}
   }
   return null
@@ -115,7 +134,8 @@ export function bajar(url, { env = process.env } = {}) {
         '30',
         url,
       ],
-      { stdio: 'pipe', encoding: 'utf8' },
+      // Sin tope, un yt-dlp colgado bloquea la corrida entera de /inbox (y los fixes reales).
+      { stdio: 'pipe', encoding: 'utf8', timeout: 180_000 },
     )
   } catch (e) {
     throw new Error(motivoDeFalloDescarga(`${e.stderr ?? ''}\n${e.message ?? ''}`))
@@ -167,6 +187,9 @@ export function mimeDeImagen(ruta) {
  * el base64 infla un tercio: un reel de 15 MB ya no entra. Sobre este umbral se
  * sube por la Files API, que es el camino documentado para archivos grandes.
  */
+/** Tope de cada llamada de red a Gemini: una llamada colgada no puede bloquear /inbox. */
+const TOPE_RED_MS = 120_000
+
 export const MAX_VIDEO_INLINE_BYTES = 12 * 1024 * 1024
 
 async function parteDeVideo(video, clave) {
@@ -184,6 +207,7 @@ async function parteDeVideo(video, clave) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({ file: { display_name: path.basename(video) } }),
+    signal: AbortSignal.timeout(TOPE_RED_MS),
   })
   const destino = inicio.headers.get('x-goog-upload-url')
   if (!inicio.ok || !destino) throw new Error(`Files API no abrió la subida: HTTP ${inicio.status}`)
@@ -191,13 +215,16 @@ async function parteDeVideo(video, clave) {
     method: 'POST',
     headers: { 'X-Goog-Upload-Offset': '0', 'X-Goog-Upload-Command': 'upload, finalize' },
     body: bytes,
+    signal: AbortSignal.timeout(TOPE_RED_MS),
   })
   if (!subida.ok) throw new Error(`Files API rechazó el video: HTTP ${subida.status}`)
   let archivo = (await subida.json()).file
   // El video queda PROCESSING unos segundos; analizarlo antes devuelve 400.
   for (let i = 0; i < 60 && archivo?.state === 'PROCESSING'; i++) {
     await new Promise((r) => setTimeout(r, 3000))
-    archivo = await (await fetch(`${base}/v1beta/${archivo.name}?key=${clave}`)).json()
+    archivo = await (
+      await fetch(`${base}/v1beta/${archivo.name}?key=${clave}`, { signal: AbortSignal.timeout(TOPE_RED_MS) })
+    ).json()
   }
   if (archivo?.state !== 'ACTIVE')
     throw new Error(`Files API dejó el video en estado ${archivo?.state ?? 'desconocido'}`)
@@ -225,7 +252,12 @@ export async function analizar({ video, imagen, caption }, { env = process.env }
     try {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${clave}`,
-        { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo) },
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(cuerpo),
+          signal: AbortSignal.timeout(TOPE_RED_MS),
+        },
       )
       if (!res.ok) {
         fallos.push(`${modelo}: HTTP ${res.status} ${sinClave((await res.text()).slice(0, 200), clave)}`)
@@ -239,7 +271,7 @@ export async function analizar({ video, imagen, caption }, { env = process.env }
       }
       // Los modelos chicos envuelven el JSON en un bloque de código aunque se les
       // pida responseMimeType JSON.
-      return JSON.parse(texto.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, ''))
+      return validarAnalisis(JSON.parse(texto.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')))
     } catch (e) {
       fallos.push(`${modelo}: ${sinClave(e.message, clave)}`)
     }
@@ -277,8 +309,22 @@ export async function ingerirImagen(
   return { id, ruta, ficha, reusada: false }
 }
 
+/**
+ * Lo mínimo que /rrss necesita de una ficha. Si Gemini devuelve otra cosa, se
+ * corta acá y el reporte queda pendiente, en vez de cerrarse con una ficha vacía.
+ */
+export function validarAnalisis(analisis) {
+  const faltan = ['formato', 'gancho', 'adaptacion_golfers', 'no_copiar'].filter(
+    (k) => typeof analisis?.[k] !== 'string' || !analisis[k].trim(),
+  )
+  if (faltan.length) throw new Error(`El análisis de Gemini vino sin: ${faltan.join(', ')}`)
+  return analisis
+}
+
 function guardarFicha({ id, url, cuando, caption, analisis, nota, origen }) {
   const ficha = {
+    // El análisis va primero: si Gemini devolviera un id o una url, no pisa los nuestros.
+    ...analisis,
     id,
     url,
     recibida: cuando.toISOString(),
@@ -287,7 +333,6 @@ function guardarFicha({ id, url, cuando, caption, analisis, nota, origen }) {
     // ("esto pero más pro y menos IA"), y es lo primero que tiene que leer /rrss.
     nota_juanjo: String(nota ?? '').trim(),
     origen, // p. ej. "inbox:<uuid>": de dónde llegó
-    ...analisis,
     usada_en: [], // tandas que se inspiraron en esta referencia
   }
   mkdirSync(DIR_REFERENCIAS, { recursive: true })
