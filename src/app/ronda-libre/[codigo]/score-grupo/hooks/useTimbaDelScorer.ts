@@ -9,6 +9,16 @@ import { useMarcasDeLaTimba, type MarcasDeLaTimba } from './useMarcasDeLaTimba'
 
 const SIN_RETIROS: Readonly<Record<string, number>> = Object.freeze({})
 
+/**
+ * Cada cuánto el scorer vuelve a leer el juego con la pantalla quieta. Una Timba se anota en un solo celular
+ * (`MENSAJE_TIMBA_UN_CELULAR`): los golpes y marcas nuevos son de este teléfono y ya piden el juego al guardarse
+ * (`firma`). El poll cubre lo que pasa en otro lado (la ronda cerrada desde otro dispositivo) y, con la pantalla
+ * quieta, el reintento de marcas que quedaron en cola sin señal (`useMarcasDeLaTimba` reintenta con cada vista
+ * nueva): a lo más 60 s después de volver la señal; al finalizar se envían igual. Con el ritmo de 20 s del
+ * espectador, la pantalla quieta pedía el juego 3-4 veces por minuto.
+ */
+export const INTERVALO_JUEGO_SCORER_S = 60
+
 export interface JugadorParaRetiro {
   id: string
   nombre: string
@@ -48,7 +58,11 @@ export function useTimbaDelScorer(input: {
   conexion: string
   jugadores: ReadonlyArray<{ id: string; nombre: string }>
   scores: Readonly<Record<string, Readonly<Record<number, number>>>>
-  /** Cambia cuando el servidor tiene golpes nuevos: vuelve a pedir el juego. */
+  /**
+   * Cambia SOLO cuando el servidor ya tiene golpes nuevos (`guardados` de `useGrupoScoreSave`): vuelve a pedir el
+   * juego. Nada que cambie sin un guardado (estado del envío, golpes aún en el teléfono): sería un pedido de más,
+   * y uno que llega antes que el guardado trae el juego viejo.
+   */
   firma: string
   currentHole: number
   ordenHoyos: readonly number[]
@@ -56,7 +70,7 @@ export function useTimbaDelScorer(input: {
   par: number | undefined
 }): TimbaDelScorer {
   const { codigo, activo, conexion, jugadores, scores, firma, currentHole, ordenHoyos, par } = input
-  const { juego, vista, vistaPedidaEn, recargar } = useJuegoDeLaTimba(codigo, { activo, firma })
+  const { juego, vista, vistaPedidaEn, recargar } = useJuegoDeLaTimba(codigo, { activo, firma, intervaloS: INTERVALO_JUEGO_SCORER_S })
   const marcas = useMarcasDeLaTimba({ codigo, activo, vista, vistaPedidaEn, recargar, conexion })
 
   const nombres = useMemo(() => Object.fromEntries(jugadores.map(j => [j.id, j.nombre])), [jugadores])
