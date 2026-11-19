@@ -13,6 +13,7 @@ import {
 } from '../../../scripts/rrss/referencias.mjs'
 import {
   agregarNota,
+  categoriaAlReintentar,
   ESPERA_MERGE,
   fichaCumple,
   fichaEsperada,
@@ -167,6 +168,24 @@ describe('notas del reporte', () => {
   it('un reporte reintentado vale por su última marca, no por la que no llegó', () => {
     const notas = `2026-11-10: no llegó a main la ficha RRSS: reel-A\n2026-11-19: ${ESPERA_MERGE}reel-A`
     expect(fichaEsperada(notas)).toEqual({ id: 'reel-A', desde: '2026-11-19' })
+  })
+})
+
+describe('reintento de una ficha que no llegó a main', () => {
+  it('un reporte con link vuelve como referencia (lo rehace links()); foto o comentario vuelven al triage', () => {
+    expect(categoriaAlReintentar({ texto: 'https://www.instagram.com/reel/AAA/', caption: null })).toBe(
+      'referencia-rrss',
+    )
+    expect(categoriaAlReintentar({ texto: null, caption: 'mira esta pantalla' })).toBeNull()
+    expect(categoriaAlReintentar({ texto: 'esto pero más pro', caption: null })).toBeNull()
+  })
+
+  it('al reescribir la marca vieja, la nueva espera se anota con fecha propia', () => {
+    const vieja = agregarNota(null, `${ESPERA_MERGE}reel-A`, new Date('2026-11-10T12:00:00Z'))
+    const devuelta = vieja.replaceAll(ESPERA_MERGE, 'no llegó a main la ficha RRSS: ')
+    expect(fichaEsperada(devuelta)).toBeNull()
+    const nueva = agregarNota(devuelta, `${ESPERA_MERGE}reel-A`, new Date('2026-11-19T12:00:00Z'))
+    expect(fichaEsperada(nueva)).toEqual({ id: 'reel-A', desde: '2026-11-19' })
   })
 })
 

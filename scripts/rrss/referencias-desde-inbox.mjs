@@ -98,6 +98,16 @@ export function fichaCumple(fichaEnMain, nota) {
   return !nota || String(fichaEnMain.nota_juanjo ?? '').includes(nota)
 }
 
+/**
+ * Con qué categoría vuelve a la cola un reporte cuya ficha no llegó a main.
+ * Solo un reporte con link lo recoge `links()` solo; uno de `--foto` o
+ * `--nota-de` tiene que verlo una persona, así que vuelve sin categoría y cae
+ * al snapshot de /inbox (si conservara 'referencia-rrss', no lo vería nadie).
+ */
+export function categoriaAlReintentar(r) {
+  return linkDeReferencia(`${r.texto ?? ''}\n${r.caption ?? ''}`) ? CATEGORIA : null
+}
+
 /** Agrega la nota de Juanjo a una ficha local, sin repetirla. Devuelve si cambió algo. */
 function anotarFicha(ruta, nota) {
   const ficha = JSON.parse(readFileSync(ruta, 'utf8'))
@@ -189,7 +199,8 @@ async function foto(uuid, { dry }) {
   const ext = path.extname(r.fotos_paths[0]) || '.jpg'
   const archivo = path.join(mkdtempSync(path.join(tmpdir(), 'rrss-foto-')), `foto${ext}`)
   writeFileSync(archivo, Buffer.from(await data.arrayBuffer()))
-  const res = await ingerirImagen(archivo, { id, nota: notaDelReporte(r), origen: `inbox:${r.id}` })
+  // notaEsperada: la misma fuente con la que --cerrar-mergeadas la busca en main.
+  const res = await ingerirImagen(archivo, { id, nota: notaEsperada(r), origen: `inbox:${r.id}` })
   await esperarMerge(s, r, res.id)
   console.log(`   ✅ ${r.id.slice(0, 8)} → ${res.id}`)
 }
@@ -246,11 +257,15 @@ async function cerrarMergeadas({ dry }) {
           console.log(`   [dry] ${r.id.slice(0, 8)} → vuelve a la cola (${idFicha} no llegó a main)`)
           continue
         }
+        const categoria = categoriaAlReintentar(r)
         await actualizar(s, r, {
           status: 'triaged',
+          categoria,
           notas: agregarNota(
             r.notas.replaceAll(ESPERA_MERGE, 'no llegó a main la ficha RRSS: '),
-            `${Math.floor(dias)} días sin que ${idFicha} llegue a main: se reintenta`,
+            `${Math.floor(dias)} días sin que ${idFicha} llegue a main: ${
+              categoria ? 'se reintenta' : 'rehacer a mano con --foto o --nota-de'
+            }`,
           ),
         })
         console.log(`   ↺ ${r.id.slice(0, 8)} → vuelve a la cola (${idFicha} no llegó a main)`)
