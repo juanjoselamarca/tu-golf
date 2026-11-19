@@ -152,7 +152,7 @@ const UNIQUE_VIOLATION = '23505'
 /** Copy cuando otro inicio del mismo torneo corre en paralelo (doble toque, reintento con mala señal). */
 export const ERROR_OTRO_INICIO = 'El torneo se está iniciando en otra sesión. Espera unos segundos y recarga.'
 /** Reintentos si el código aleatorio de la ronda ya existe (`rondas_libres_codigo_key`). */
-const CODIGO_INTENTOS = 3
+export const CODIGO_INTENTOS = 3
 
 /**
  * Contexto del handicap de equipo para la ronda 1, o null si el formato no
@@ -231,8 +231,48 @@ export async function ensureRound1Cards(
   return true
 }
 
-function nuevoCodigo(): string {
+/** Código aleatorio de la tarjeta de un grupo de torneo (UNIQUE: si choca, se pide otro). */
+export function nuevoCodigo(): string {
   return 'T' + Math.random().toString(36).substring(2, 8).toUpperCase()
+}
+
+/** Lo que la tarjeta compartida de un grupo hereda del torneo (`rondas_libres`, sin código ni creador). */
+export interface TarjetaDeGrupo {
+  course_id: string | null
+  course_name: string
+  tees: string
+  holes: number
+  fecha: string
+  formato_juego: string
+  modo_juego: string
+  hcp_pct: number
+}
+
+/**
+ * La tarjeta de un grupo de `jugadoresDelGrupo` jugadores, tal como la arma el inicio. Fuente única: la usan
+ * `materializeGroupScorecard` y el grupo nuevo con el torneo en juego (#814 · PR4, `crearGrupoEnJuego`), para
+ * que un grupo creado después juegue exactamente lo mismo que los del inicio.
+ */
+export function tarjetaDeGrupoDeTorneo(
+  t: StartTournamentInfo,
+  ronda1: StartRoundConfig,
+  jugadoresDelGrupo: number,
+  ahora: Date = new Date(),
+): TarjetaDeGrupo {
+  return {
+    course_id: ronda1.courseId,
+    course_name: t.courses?.nombre || t.course_name || 'Cancha',
+    tees: t.tees || 'blanco',
+    holes: ronda1.holeCount,
+    // Sin fecha: el día de Chile (no el UTC, que de noche ya es mañana).
+    fecha: ronda1.date || fechaHoyChile(ahora),
+    // La tarjeta del grupo juega lo mismo que el torneo: formato (fuente única, no la columna vieja `format`)
+    // y modo. Antes no copiaba el modo y el scorer del grupo mostraba gross en un torneo neto (#510).
+    formato_juego: formatoDeLaTarjetaDelGrupo(resolveFormatoJuego(t), jugadoresDelGrupo),
+    modo_juego: modoDeJuego(t.modo_juego),
+    // Handicap de juego: el % con que puntúa la tarjeta (scramble/foursome y gross → 100).
+    hcp_pct: hcpPctDelTorneo(t),
+  }
 }
 
 /**
@@ -428,8 +468,6 @@ export async function materializeGroupScorecard(
   },
 ): Promise<GroupResult> {
   const { tournament: t, group, players, ronda1, creatorId, hcpEquipos } = args
-  // La tarjeta del grupo juega lo mismo que el torneo: formato (fuente única, no la columna vieja `format`)
-  // y modo. Antes no copiaba el modo y el scorer del grupo mostraba gross en un torneo neto (#510).
   const formato = resolveFormatoJuego(t)
   const teamFormat = isProducerTeamFormat(formato)
   const fallo = (context: string, err: unknown, deshecho = true): GroupResult => {
@@ -451,17 +489,8 @@ export async function materializeGroupScorecard(
       .insert({
         codigo: nuevoCodigo(),
         creador_id: creatorId,
-        course_id: ronda1.courseId,
-        course_name: t.courses?.nombre || t.course_name || 'Cancha',
-        tees: t.tees || 'blanco',
-        holes: ronda1.holeCount,
-        // Sin fecha: el día de Chile (no el UTC, que de noche ya es mañana).
-        fecha: ronda1.date || fechaHoyChile(new Date()),
+        ...tarjetaDeGrupoDeTorneo(t, ronda1, group.players.length),
         estado: 'en_curso',
-        formato_juego: formatoDeLaTarjetaDelGrupo(formato, group.players.length),
-        modo_juego: modoDeJuego(t.modo_juego),
-        // Handicap de juego: el % con que puntúa la tarjeta (scramble/foursome y gross → 100).
-        hcp_pct: hcpPctDelTorneo(t),
       })
       .select('id')
       .single()
