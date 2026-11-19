@@ -180,6 +180,11 @@ describe('reintento de una ficha que no llegó a main', () => {
     expect(categoriaAlReintentar({ texto: 'esto pero más pro', caption: null })).toBeNull()
   })
 
+  it('un link con nota larga (que links() no recoge) también vuelve al triage, no queda invisible', () => {
+    const texto = `https://www.instagram.com/reel/AAA/ ${'palabra '.repeat(MAX_PALABRAS_NOTA + 5)}`
+    expect(categoriaAlReintentar({ texto, caption: null })).toBeNull()
+  })
+
   it('al reescribir la marca vieja, la nueva espera se anota con fecha propia', () => {
     const vieja = agregarNota(null, `${ESPERA_MERGE}reel-A`, new Date('2026-11-10T12:00:00Z'))
     const devuelta = vieja.replaceAll(ESPERA_MERGE, 'no llegó a main la ficha RRSS: ')

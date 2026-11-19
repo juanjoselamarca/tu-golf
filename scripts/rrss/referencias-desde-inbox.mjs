@@ -105,7 +105,9 @@ export function fichaCumple(fichaEnMain, nota) {
  * al snapshot de /inbox (si conservara 'referencia-rrss', no lo vería nadie).
  */
 export function categoriaAlReintentar(r) {
-  return linkDeReferencia(`${r.texto ?? ''}\n${r.caption ?? ''}`) ? CATEGORIA : null
+  // La misma regla con la que links() elige: si no, un reporte con link y nota larga
+  // quedaría excluido del snapshot y de links() a la vez.
+  return reportesDeReferencia([{ ...r, status: 'triaged' }]).length ? CATEGORIA : null
 }
 
 /** Agrega la nota de Juanjo a una ficha local, sin repetirla. Devuelve si cambió algo. */
