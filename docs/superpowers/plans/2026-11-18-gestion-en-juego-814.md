@@ -234,3 +234,22 @@ La RPC `colocar_inscrito_en_grupo` (migración 20261122100000) quedó con firma 
   el lock, la RPC escribe sin confirmación. Agregar `p_confirmado` y que la RPC niegue con golpes sin él.
 - `p_esperado` lleva por jugador la huella `status`, `handicap`, `tee_id`, `genero`, `category_id` (lo que entra al
   hándicap de equipo).
+
+## Pendientes que deja el PR4 para el PR5
+Migración 20261123100000: `crear_grupo_en_juego(p_tournament_id, p_group_id, p_nombre, p_tarjeta)` y
+`borrar_grupo_en_juego(p_tournament_id, p_group_id)`; rutas `POST /api/torneos/[slug]/grupos` y
+`DELETE /api/torneos/[slug]/grupos/[groupId]` (capa `src/lib/data/tournaments/grupoEnJuego.ts`).
+- **Tarjeta del grupo nuevo:** nace vacía y sin `ronda_equipos`, con `tarjetaDeGrupoDeTorneo(t, ronda1, 0)` (la misma
+  función que ahora usa `materializeGroupScorecard`). En match play nace en stroke play; el primero que llega entra por
+  `colocar_inscrito_en_grupo`, que crea el equipo y fija el formato. La RPC exige que la tarjeta calce con alguna del
+  inicio (cancha, hoyos, tees, fecha, modo, %): si el torneo se editó después del inicio, `tarjeta-distinta` (Sentry).
+- **"Grupo nuevo" en el selector (PR5):** POST sin body → "Grupo N"/"Equipo N" (`nombreDeGrupoNuevo`), y después el PUT
+  de colocar con el `groupId` devuelto. Son dos llamadas: si la segunda falla queda un grupo vacío, que se borra con el
+  DELETE (o se reutiliza).
+- **Grupo vacío del inicio:** el inicio no arma grupos sin aprobados, así que un grupo vacío creado antes de iniciar
+  queda sin tarjeta (`grupo-sin-tarjeta` al colocar). POST con `{ groupId }` le arma la suya. Un grupo sin tarjeta con
+  solo pendientes/lista de espera falla cerrado (`grupo-con-jugadores`); sus inscritos no se pueden colocar hasta que
+  alguien decida qué hacer con ese caso.
+- **Nombre repetido:** en juego la RPC rechaza un nombre que ya existe (sin mayúsculas ni espacios). Antes de iniciar,
+  `createGroup` (cliente) los deja repetir: inconsistencia preexistente, sin tocar.
+- **Hora de salida del grupo nuevo:** la ruta no la recibe (queda null).
