@@ -995,6 +995,24 @@ create table public."tournaments" (
   "cierre_automatico" boolean default true not null
 );
 -- ===== 5. funciones =====
+CREATE OR REPLACE FUNCTION public.aprobar_en_juego_guard()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF current_user IN ('anon', 'authenticated', 'service_role')
+     AND NEW.status = 'approved'
+     -- Mover el tournament_id también cuenta: sacar al inscrito a un torneo abierto, aprobarlo y devolverlo
+     -- aprobado sería el mismo atajo en tres pasos.
+     AND (OLD.status IS DISTINCT FROM 'approved' OR NEW.tournament_id IS DISTINCT FROM OLD.tournament_id)
+     AND COALESCE(public.torneo_con_grupos_fijos(NEW.tournament_id), false) THEN
+    RAISE EXCEPTION 'El torneo ya empezó: asigna al jugador a un grupo para sumarlo'
+      USING ERRCODE = 'P0001', HINT = 'grupos_fijos';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.asegurar_tarjeta_vigente(p_tournament_id uuid, p_player_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -3733,6 +3751,7 @@ CREATE TRIGGER trg_cerebro_weights_notify AFTER INSERT OR UPDATE ON public.cereb
 CREATE TRIGGER update_courses_updated_at BEFORE UPDATE ON public.courses FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_hole_scores_updated_at BEFORE UPDATE ON public.hole_scores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER trg_knowledge_sources_updated_at BEFORE UPDATE ON public.knowledge_sources FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER aprobar_en_juego BEFORE UPDATE OF status, tournament_id ON public.players FOR EACH ROW EXECUTE FUNCTION public.aprobar_en_juego_guard();
 CREATE TRIGGER grupos_fijos_inscrito BEFORE DELETE ON public.players FOR EACH ROW EXECUTE FUNCTION public.grupos_fijos_guard_inscrito();
 CREATE TRIGGER trigger_log_role_change BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.log_role_change();
 CREATE TRIGGER trigger_protect_last_admin BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.protect_last_admin();
@@ -4147,6 +4166,7 @@ revoke all on sequence public."external_priors_amateur_benchmarks_id_seq" from p
 revoke all on sequence public."external_priors_course_norms_id_seq" from public, anon, authenticated, service_role, postgres;
 revoke all on sequence public."external_priors_handicap_dist_id_seq" from public, anon, authenticated, service_role, postgres;
 revoke all on sequence public."pattern_observations_id_seq" from public, anon, authenticated, service_role, postgres;
+revoke all on function public.aprobar_en_juego_guard() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.asegurar_tarjeta_vigente(uuid,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.backfill_handicap_de_inscripcion() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.calcular_indice_golfers(uuid) from public, anon, authenticated, service_role, postgres;
@@ -4457,6 +4477,7 @@ grant SELECT ("admin_mode", "admin_user_id", "codigo", "course_id", "course_name
 grant SELECT ("closed_at", "id", "player_id", "round_number", "status", "total_gross", "total_net", "total_points", "tournament_id") on table public."rounds" to anon;
 grant SELECT ("group_id", "id", "jugador_ronda_id", "player_id") on table public."tournament_group_players" to anon;
 grant SELECT ("id", "name", "ronda_libre_id", "sort_order", "tee_time", "tournament_id") on table public."tournament_groups" to anon;
+grant EXECUTE on function public.aprobar_en_juego_guard() to postgres;
 grant EXECUTE on function public.asegurar_tarjeta_vigente(uuid,uuid) to postgres;
 grant EXECUTE on function public.asegurar_tarjeta_vigente(uuid,uuid) to service_role;
 grant EXECUTE on function public.backfill_handicap_de_inscripcion() to postgres;

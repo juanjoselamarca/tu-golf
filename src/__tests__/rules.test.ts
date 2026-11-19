@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { isMatchPlayFormat } from '@/golf/formats'
 import {
   FORMAT_META,
   formatLabel,
@@ -45,7 +46,7 @@ describe('FORMAT_META completeness', () => {
   })
 
   it('match_play requires pairs', () => {
-    expect(FORMAT_META.match_play.requiereParejas).toBe(true)
+    expect(isMatchPlayFormat('match_play')).toBe(true)
   })
 
   it('individual formats do not require teams', () => {

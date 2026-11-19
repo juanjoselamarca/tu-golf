@@ -13,7 +13,7 @@
  */
 
 import { FORMAT_META, type FormatoJuego } from '@/golf/core/rules'
-import { isTeamFormat } from '@/golf/formats'
+import { isMatchPlayFormat, isTeamFormat } from '@/golf/formats'
 
 /**
  * Jugadores que admite una ronda libre, creador incluido.
@@ -52,13 +52,13 @@ export function maxEquipos(formato: FormatoJuego): number {
 /** Rivales que el creador puede agregar además de sí mismo. */
 export function maxRivales(formato: FormatoJuego): number {
   // Match Play es 1 vs 1: un solo rival, ni uno más.
-  if (FORMAT_META[formato]?.requiereParejas) return 1
+  if (isMatchPlayFormat(formato)) return 1
   return MAX_JUGADORES_POR_RONDA - 1
 }
 
 /** Jugadores que el formato necesita como mínimo para ser jugable. */
 export function jugadoresMinimos(formato: FormatoJuego): number {
-  if (FORMAT_META[formato]?.requiereParejas) return 2
+  if (isMatchPlayFormat(formato)) return 2
   const porEquipo = jugadoresPorEquipo(formato)
   if (porEquipo) return porEquipo.min * EQUIPOS_MINIMOS
   return 1

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { patronVoseo } from '../../../scripts/lib/voseo.mjs'
 import {
   equipoAlPie,
   equipoIncompleto,
@@ -6,6 +7,11 @@ import {
   handicapDeEquipoCalculable,
   motivoParaNoColocar,
   motivoTamanoDeEquipo,
+  mensajeDeMotivo,
+  esCodigoMotivoColocar,
+  politicaDeColocar,
+  MENSAJE_MOTIVO_DESCONOCIDO,
+  type CodigoMotivoColocar,
   tarjetaTieneAnotaciones,
   type CodigoMotivoNoColocar,
   type GrupoEnJuego,
@@ -13,18 +19,7 @@ import {
   type OperacionEnJuego,
 } from './gestion-en-juego'
 import { CONCEDE } from '@/golf/formats/match-play'
-import { isMatchPlayFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
-import { FORMAT_META, type FormatoJuego } from '@/golf/core/rules'
 import type { TeamHandicapConfig } from '@/golf/formats/team-handicap'
-
-describe('match play: una sola noción', () => {
-  it('isMatchPlayFormat (esta gestión) y FORMAT_META.requiereParejas (formatoDeLaTarjetaDelGrupo) coinciden', () => {
-    const claves = new Set([...KNOWN_FORMAT_KEYS, ...Object.keys(FORMAT_META)])
-    for (const k of claves) {
-      expect(isMatchPlayFormat(k), k).toBe(Boolean(FORMAT_META[k as FormatoJuego]?.requiereParejas))
-    }
-  })
-})
 
 const HOYOS_18 = Array.from({ length: 18 }, (_, i) => i + 1)
 const HOYOS_9_DESDE_EL_10 = [10, 11, 12, 13, 14, 15, 16, 17, 18]
@@ -141,10 +136,10 @@ describe('handicapDeEquipoCalculable', () => {
 const G = (id: string, miembros: number, tieneGolpes = false, integrantes = miembros): GrupoEnJuego => ({
   id, miembros, integrantes, tieneGolpes,
 })
-const ACTIVO: InscritoAColocar = { tieneGolpes: false, estado: 'compite' }
-const ACTIVO_CON_GOLPES: InscritoAColocar = { tieneGolpes: true, estado: 'compite' }
-const WD: InscritoAColocar = { tieneGolpes: false, estado: 'retirado' }
-const PENDIENTE: InscritoAColocar = { tieneGolpes: false, estado: 'sin-aprobar' }
+const ACTIVO: InscritoAColocar = { tieneGolpes: false, estado: 'compite', tieneFila: true }
+const ACTIVO_CON_GOLPES: InscritoAColocar = { tieneGolpes: true, estado: 'compite', tieneFila: true }
+const WD: InscritoAColocar = { tieneGolpes: false, estado: 'retirado', tieneFila: true }
+const PENDIENTE: InscritoAColocar = { tieneGolpes: false, estado: 'sin-aprobar', tieneFila: false }
 const PERSONALIZADO_4: TeamHandicapConfig = { modo: 'personalizado', porcentajes: [25, 20, 15, 10] }
 
 type Caso = {
@@ -167,8 +162,8 @@ const casos: Caso[] = [
   { nombre: 'D1 individual · borrar con golpes: WD', format: 'stroke_play', op: { tipo: 'borrar', origen: G('o', 3, true) }, inscrito: ACTIVO_CON_GOLPES, esperado: 'borrar-con-golpes' },
   { nombre: 'D1 · borrar inscrito sin grupo y sin golpes', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, esperado: null },
   { nombre: 'D1 · inscrito sin grupo con golpes en su tarjeta individual (#828): WD', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, inscrito: ACTIVO_CON_GOLPES, esperado: 'borrar-con-golpes' },
-  { nombre: 'D1 · un WD con golpes tampoco se elimina (y no se le ofrece retirar)', format: 'stroke_play', op: { tipo: 'borrar', origen: G('o', 2, true, 3) }, inscrito: { tieneGolpes: true, estado: 'retirado' as const }, esperado: 'borrar-con-golpes' },
-  { nombre: 'D8 · un DQ de un match en juego no se elimina ni pasa a WD', format: 'match_play', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: { tieneGolpes: false, estado: 'retirado' as const }, esperado: 'borrar-match-en-juego' },
+  { nombre: 'D1 · un WD con golpes tampoco se elimina (y no se le ofrece retirar)', format: 'stroke_play', op: { tipo: 'borrar', origen: G('o', 2, true, 3) }, inscrito: { tieneGolpes: true, estado: 'retirado' as const, tieneFila: true }, esperado: 'borrar-con-golpes' },
+  { nombre: 'D8 · un DQ de un match en juego no se elimina ni pasa a WD', format: 'match_play', op: { tipo: 'borrar', origen: G('o', 1, true, 2) }, inscrito: { tieneGolpes: false, estado: 'retirado' as const, tieneFila: true }, esperado: 'borrar-match-en-juego' },
 
   // ── Stableford (individual) ──
   { nombre: 'stableford · agregar', format: 'stableford', op: { tipo: 'agregar', destino: G('d', 2) }, esperado: null },
@@ -215,7 +210,7 @@ const casos: Caso[] = [
   { nombre: 'mejor bola · agregar a un equipo con golpes y un WD, con activos: no está al pie', format: 'best_ball', op: { tipo: 'agregar', destino: G('d', 1, true, 2) }, esperado: null },
   { nombre: 'mejor bola · borrar al WD sin golpes de una pareja sin golpes (D7)', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 1, false, 2) }, inscrito: WD, esperado: null },
   { nombre: 'D11 mejor bola · un WD no se cambia de grupo', format: 'best_ball', op: { tipo: 'mover', origen: G('o', 2, false, 3), destino: G('d', 2) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
-  { nombre: 'D11 individual · un DQ con golpes no se cambia de grupo', format: 'stroke_play', op: { tipo: 'mover', origen: G('o', 2, true, 3), destino: G('d', 2) }, inscrito: { tieneGolpes: true, estado: 'retirado' as const }, esperado: 'retirado-no-se-mueve' },
+  { nombre: 'D11 individual · un DQ con golpes no se cambia de grupo', format: 'stroke_play', op: { tipo: 'mover', origen: G('o', 2, true, 3), destino: G('d', 2) }, inscrito: { tieneGolpes: true, estado: 'retirado' as const, tieneFila: true }, esperado: 'retirado-no-se-mueve' },
   { nombre: 'D11 match play · un WD no se cambia de grupo', format: 'match_play', op: { tipo: 'mover', origen: G('o', 1, false, 2), destino: G('d', 1) }, inscrito: WD, esperado: 'retirado-no-se-mueve' },
 
   // ── Scramble (D3, D7) ──
@@ -273,11 +268,14 @@ const casos: Caso[] = [
   { nombre: 'D12 foursome · un sin aprobar completa una pareja', format: 'foursome', op: { tipo: 'agregar', destino: G('d', 1) }, inscrito: PENDIENTE, esperado: null },
   { nombre: 'sin aprobar · borrar de un match en juego: se elimina, no va al pie (no tiene fila)', format: 'match_play', op: { tipo: 'borrar', origen: G('o', 2, true) }, inscrito: PENDIENTE, esperado: null },
   { nombre: 'sin aprobar · borrar de un equipo con golpes: se elimina sin tocar la tarjeta', format: 'scramble', op: { tipo: 'borrar', origen: G('o', 2, true) }, inscrito: PENDIENTE, esperado: null },
-  { nombre: 'sin aprobar · con golpes (no debería existir): falla cerrado y sin retirar', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, inscrito: { tieneGolpes: true, estado: 'sin-aprobar' }, esperado: 'borrar-con-golpes' },
+  { nombre: 'sin aprobar · con golpes (no debería existir): falla cerrado y sin retirar', format: 'stroke_play', op: { tipo: 'borrar', origen: null }, inscrito: { tieneGolpes: true, estado: 'sin-aprobar', tieneFila: false }, esperado: 'borrar-con-golpes' },
 
   // ── Formato desconocido: falla cerrado ──
   { nombre: 'formato null', format: null, op: { tipo: 'borrar', origen: null }, esperado: 'formato-desconocido' },
   { nombre: 'formato inventado', format: 'inventado', op: { tipo: 'agregar', destino: G('d', 1) }, esperado: 'formato-desconocido' },
+  // (a) PR3: solo se resta la fila que existe (espejo de `v_sale_f`). Un WD sin fila (se retiró antes del inicio) no deja al equipo sin filas.
+  { nombre: '(a) mejor bola · borrar a un WD SIN fila de un equipo con golpes y una sola fila: se elimina', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 1, true, 1) }, inscrito: { tieneGolpes: false, estado: 'retirado', tieneFila: false }, esperado: null },
+  { nombre: '(a) mejor bola · borrar a un WD CON fila (la única) de un equipo con golpes: sin miembros', format: 'best_ball', op: { tipo: 'borrar', origen: G('o', 0, true, 1) }, inscrito: { tieneGolpes: false, estado: 'retirado', tieneFila: true }, esperado: 'equipo-con-golpes-sin-miembros' },
 ]
 
 const SEIS_FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome']
@@ -304,5 +302,50 @@ describe('motivoParaNoColocar (D1-D14)', () => {
         expect(casos.some((c) => c.format === f && c.op.tipo === t), `${f} × ${t}`).toBe(true)
       }
     }
+  })
+})
+
+describe('mensajes de los motivos (d): un solo mapa, español sin voseo', () => {
+  const TODOS: CodigoMotivoColocar[] = [
+    'formato-desconocido', 'mismo-grupo', 'retirado-no-se-mueve', 'agregar-con-tarjeta-individual', 'borrar-con-golpes',
+    'borrar-match-en-juego', 'match-play-grupo-lleno', 'match-play-con-golpes', 'mejor-bola-con-golpes', 'equipo-lleno',
+    'equipo-al-pie', 'equipo-con-golpes-incompleto', 'equipo-con-golpes-sin-miembros', 'handicap-de-equipo',
+    'conflicto', 'torneo-no-en-juego', 'torneo-varias-rondas', 'tarjeta-cerrada', 'tarjeta-con-timba',
+    'grupo-sin-tarjeta', 'cupo-lleno',
+  ]
+  it.each(TODOS)('%s tiene mensaje corto, sin voseo y sin números sin detalle', (codigo) => {
+    expect(esCodigoMotivoColocar(codigo)).toBe(true)
+    const m = mensajeDeMotivo(codigo)
+    expect(m.length).toBeGreaterThan(10)
+    expect(m.length).toBeLessThanOrEqual(120)
+    expect(m).not.toMatch(/undefined|null|NaN/)
+    // Voseo: "ingresá", "podés", "tenés", "recargá"…
+    expect(m).not.toMatch(patronVoseo())
+  })
+  it('un código que no conocemos no tiene mensaje propio', () => {
+    expect(esCodigoMotivoColocar('otra-cosa')).toBe(false)
+    expect(esCodigoMotivoColocar('toString')).toBe(false)
+    expect(MENSAJE_MOTIVO_DESCONOCIDO.length).toBeGreaterThan(0)
+  })
+  it('con detalle, el mensaje lleva los números', () => {
+    expect(mensajeDeMotivo('equipo-lleno', { actuales: 4, maximo: 4 })).toBe('El equipo ya tiene 4 jugadores; el máximo es 4.')
+    expect(mensajeDeMotivo('equipo-con-golpes-incompleto', { enJuego: 1, minimo: 2 })).toMatch(/1 jugador en juego; el mínimo es 2/)
+  })
+})
+
+describe('politicaDeColocar (b): la arma el servidor con las fuentes canónicas', () => {
+  it.each([
+    ['stroke_play', { equipo: false, bola_compartida: false, match_play: false, al_pie_con_retirado: false, jugadores_por_equipo: null }],
+    ['stableford', { equipo: false, bola_compartida: false, match_play: false, al_pie_con_retirado: false, jugadores_por_equipo: null }],
+    ['match_play', { equipo: false, bola_compartida: false, match_play: true, al_pie_con_retirado: false, jugadores_por_equipo: null }],
+    ['best_ball', { equipo: true, bola_compartida: false, match_play: false, al_pie_con_retirado: false, jugadores_por_equipo: { min: 2, max: 4 } }],
+    ['scramble', { equipo: true, bola_compartida: true, match_play: false, al_pie_con_retirado: false, jugadores_por_equipo: { min: 2, max: 4 } }],
+    ['foursome', { equipo: true, bola_compartida: true, match_play: false, al_pie_con_retirado: true, jugadores_por_equipo: { min: 2, max: 2 } }],
+  ])('%s', (formato, esperado) => {
+    expect(politicaDeColocar(formato)).toEqual({ formato, jugadores_por_match: 2, ...esperado })
+  })
+  it('formato desconocido o null → null (falla cerrado)', () => {
+    expect(politicaDeColocar(null)).toBeNull()
+    expect(politicaDeColocar('fourball_inventado')).toBeNull()
   })
 })

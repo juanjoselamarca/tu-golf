@@ -5,7 +5,7 @@ import { numerosEnPantalla } from '../hooks/equipos-del-formulario'
 import { nombreOJugadorN } from '@/lib/nombre-de-jugador'
 import { mensajeIndiceQueBloquea } from '@/golf/handicap-index-range'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
-import { FORMAT_META } from '@/golf/core/rules'
+import { isMatchPlayFormat } from '@/golf/formats'
 import { maxRivales, puedeSumarCompanero } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { CourseTee, JugadorReciente, RondaReciente } from '@/lib/data/ronda-libre-nueva'
 import {
@@ -114,7 +114,7 @@ export function PasoJugadores(props: Props) {
   }
   const frecuentes = [...porNombre.values()].slice(0, 4)
 
-  const esMatchPlay = FORMAT_META[props.formato]?.requiereParejas
+  const esMatchPlay = isMatchPlayFormat(props.formato)
 
   const tarjetaDelCreador = (
     <TarjetaDelCreador

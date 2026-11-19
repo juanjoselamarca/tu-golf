@@ -225,5 +225,12 @@ La RPC `colocar_inscrito_en_grupo` (migración 20261122100000) quedó con firma 
   `mismo-grupo` (además de `conflicto`, `torneo-no-en-juego`, `tarjeta-cerrada`, `grupo-sin-tarjeta`, `cupo-lleno`).
 - **(e) Cola offline tras mover (PR5):** un dispositivo con la tarjeta vieja recibe RONDA_NOT_FOUND al reintentar un
   golpe de la fila movida; la cola no puede reintentar para siempre: debe descartar o reencauzar ese golpe.
+- **(f) `editarHandicapInscrito` contando solo a los que compiten: DESCARTADO** (vuelta 1 de Fable del PR3, D14 "sin
+  regla de hándicap nueva"): la edición conserva la composición del inicio (miembros materializados, WD incluidos,
+  también en `p_base`). Contar solo a los que compiten (`miembrosQueCompiten`) aplica al colocar, cuando cambia la
+  composición (`colocarInscrito`).
+- **Pendiente (PR siguiente): `p_confirmado` en la RPC.** Hoy la confirmación de las acciones que tocan golpes la exige
+  solo la ruta (`requiere-confirmacion`); la RPC no la vuelve a mirar bajo lock. Si aparecen golpes entre la lectura y
+  el lock, la RPC escribe sin confirmación. Agregar `p_confirmado` y que la RPC niegue con golpes sin él.
 - `p_esperado` lleva por jugador la huella `status`, `handicap`, `tee_id`, `genero`, `category_id` (lo que entra al
   hándicap de equipo).

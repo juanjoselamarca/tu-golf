@@ -2,7 +2,10 @@
 //
 // PATCH: el admin asigna (o limpia) el tee_id de un jugador inscrito en un torneo.
 // Bug #6 inbox 25-may.
-
+//
+// DELETE: con el torneo EN JUEGO, el organizador borra a un inscrito sin golpes (#814 · PR3, D1). Con golpes la
+// respuesta es 409 `borrar-con-golpes` y ofrece retirarlo (WD). Antes de iniciar, el panel borra por su camino.
+// Body: `{ desde, confirmado? }` (ver PUT .../grupo).
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
@@ -10,6 +13,9 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { colocarInscrito } from '@/lib/data/tournaments/colocarInscrito'
+import { respuestaDeColocar, torneoDelOrganizador } from '@/lib/api/gestion-en-juego'
+import { createClient as createSessionClient } from '@/utils/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -138,4 +144,39 @@ export async function PATCH(
   }
 
   return NextResponse.json({ ok: true })
+}
+
+const deleteSchema = z.object({
+  desde: z.string().uuid().nullable(),
+  confirmado: z.boolean().optional(),
+})
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ slug: string; playerId: string }> },
+) {
+  const { slug, playerId } = await params
+  if (!z.string().uuid().safeParse(playerId).success) return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
+
+  let raw: unknown
+  try {
+    raw = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
+  }
+  const body = deleteSchema.safeParse(raw)
+  if (!body.success) return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
+
+  const supabase = await createSessionClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
+
+  const acceso = await torneoDelOrganizador(slug, user)
+  if (!acceso.ok) return acceso.respuesta
+
+  const res = await colocarInscrito(acceso.svc, acceso.torneo, playerId, null, {
+    desde: body.data.desde,
+    confirmado: body.data.confirmado === true,
+  })
+  return respuestaDeColocar(res)
 }

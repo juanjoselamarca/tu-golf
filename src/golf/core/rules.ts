@@ -56,7 +56,6 @@ export const FORMAT_META: Record<FormatoJuego, {
   label: string
   description: string
   requiereEquipos: boolean
-  requiereParejas: boolean
   jugadoresPorEquipo: { min: number; max: number } | null
   modosPermitidos: ModoJuego[]
 }> = {
@@ -65,7 +64,6 @@ export const FORMAT_META: Record<FormatoJuego, {
     label: 'Stroke Play',
     description: 'Gana el jugador con menos golpes totales',
     requiereEquipos: false,
-    requiereParejas: false,
     jugadoresPorEquipo: null,
     modosPermitidos: ['gross', 'neto'],
   },
@@ -74,7 +72,6 @@ export const FORMAT_META: Record<FormatoJuego, {
     label: 'Stableford',
     description: 'Gana el jugador con más puntos Stableford',
     requiereEquipos: false,
-    requiereParejas: false,
     jugadoresPorEquipo: null,
     // Stableford se juega gross y neto. Neto es más común en Chile pero
     // gross es válido y no depende de stroke index.
@@ -85,7 +82,6 @@ export const FORMAT_META: Record<FormatoJuego, {
     label: 'Match Play',
     description: 'Hoyo a hoyo — gana quien gane más hoyos',
     requiereEquipos: false,
-    requiereParejas: true,
     jugadoresPorEquipo: null,
     // Match Play se juega gross y neto. Neto es más común en Chile pero
     // gross es válido y no depende de stroke index.
@@ -96,7 +92,6 @@ export const FORMAT_META: Record<FormatoJuego, {
     label: 'Best Ball',
     description: 'Equipo: cuenta el mejor score individual por hoyo',
     requiereEquipos: true,
-    requiereParejas: false,
     jugadoresPorEquipo: { min: 2, max: 4 },
     modosPermitidos: ['gross', 'neto'],
   },
@@ -105,7 +100,6 @@ export const FORMAT_META: Record<FormatoJuego, {
     label: 'Scramble',
     description: 'Equipo: todos tiran, eligen el mejor y juegan desde ahí',
     requiereEquipos: true,
-    requiereParejas: false,
     jugadoresPorEquipo: { min: 2, max: 4 },
     modosPermitidos: ['gross', 'neto'],
   },
@@ -114,7 +108,6 @@ export const FORMAT_META: Record<FormatoJuego, {
     label: 'Foursome',
     description: 'Equipo de 2: tiros alternados, una bola',
     requiereEquipos: true,
-    requiereParejas: false,
     jugadoresPorEquipo: { min: 2, max: 2 },
     modosPermitidos: ['gross', 'neto'],
   },
