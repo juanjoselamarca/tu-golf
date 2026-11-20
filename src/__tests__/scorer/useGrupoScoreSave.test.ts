@@ -187,6 +187,42 @@ describe('useGrupoScoreSave', () => {
     expect(result.current.save.saveStatus).toBe('error')
     onLine.mockRestore()
   })
+
+  it('guardados sube una vez por envío completo; no con "guardando"/"listo", ni con un envío fallido (poll Timba 18-nov)', async () => {
+    const { result } = montar()
+    expect(result.current.save.guardados).toBe(0)
+    act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
+    expect(result.current.save.guardados).toBe(0) // golpe solo en el teléfono: el servidor no lo tiene
+    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+    expect(result.current.save.saveStatus).toBe('saved')
+    expect(result.current.save.guardados).toBe(1)
+    // "listo" vuelve a reposo a los 1,5 s: eso no es un guardado nuevo.
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    expect(result.current.save.saveStatus).toBe('idle')
+    expect(result.current.save.guardados).toBe(1)
+
+    saveRondaLibreScores.mockResolvedValue({ error: { code: '08006' } })
+    act(() => { result.current.save.handleScoreChange('p2', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(500 + 400 + 800 + 100) })
+    expect(result.current.save.saveStatus).toBe('error')
+    expect(result.current.save.guardados).toBe(1)
+  })
+
+  it.each([
+    ['rechazada en firme (P0004)', 'P0004'],
+    ['sin respuesta', 'SIN_RESPUESTA'],
+  ])('envío mixto: una tarjeta entra y la otra queda %s → guardados sube igual (Fable 19-nov)', async (_caso, code) => {
+    saveRondaLibreScores.mockImplementation((async (_c: unknown, args: { jugadorId: string }) =>
+      ({ error: args.jugadorId === 'p2' ? { code } : null })) as never)
+    const { result } = montar()
+    act(() => {
+      result.current.save.handleScoreChange('p1', 1, 1)
+      result.current.save.handleScoreChange('p2', 1, 1)
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(500 + 400 + 800 + 100) })
+    expect(result.current.save.saveStatus).toBe('error')
+    expect(result.current.save.guardados).toBe(1)
+  })
 })
 
 describe('useGrupoScoreSave — sincronización automática (caída 04-oct)', () => {

@@ -1,14 +1,15 @@
 import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { VistaDelJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
-import { useTimbaDelScorer } from './useTimbaDelScorer'
+import { INTERVALO_JUEGO_SCORER_S, useTimbaDelScorer } from './useTimbaDelScorer'
 
 const h = vi.hoisted(() => ({
   vista: null as unknown,
   marcas: { marcas: [] as unknown[], enCola: [] as unknown[], rechazadas: [] as unknown[], retirosConfirmados: {} as Record<string, number | null> },
+  opcionesJuego: null as unknown,
 }))
 vi.mock('../../hooks/useJuegoDeLaTimba', () => ({
-  useJuegoDeLaTimba: () => ({ juego: h.vista ? { estado: 'ok', vista: h.vista, desactualizado: false } : { estado: 'cargando' }, vista: h.vista, recargar: vi.fn() }),
+  useJuegoDeLaTimba: (_codigo: string, opciones: unknown) => (h.opcionesJuego = opciones, { juego: h.vista ? { estado: 'ok', vista: h.vista, desactualizado: false } : { estado: 'cargando' }, vista: h.vista, recargar: vi.fn() }),
 }))
 vi.mock('./useMarcasDeLaTimba', () => ({ useMarcasDeLaTimba: () => h.marcas }))
 
@@ -86,5 +87,11 @@ describe('useTimbaDelScorer', () => {
     expect(t.puntosDelHoyo).toEqual([])
     expect(t.retiros).toEqual({})
     expect(t.lineasRechazadas).toEqual([])
+  })
+
+  it('pide el juego con el poll lento del scorer (un solo celular) y con la firma que le pasan, sin agregarle nada', () => {
+    renderHook(() => useTimbaDelScorer({ codigo: 'X', activo: true, conexion: 'ok', jugadores, scores: {}, firma: '3', currentHole: 1, ordenHoyos: orden, par: 4 }))
+    expect(h.opcionesJuego).toEqual({ activo: true, firma: '3', intervaloS: INTERVALO_JUEGO_SCORER_S })
+    expect(INTERVALO_JUEGO_SCORER_S).toBeGreaterThanOrEqual(60)
   })
 })

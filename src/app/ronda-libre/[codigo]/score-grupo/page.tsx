@@ -78,7 +78,7 @@ export default function ScoreGrupoPage() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
-  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
+  const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
@@ -102,7 +102,7 @@ export default function ScoreGrupoPage() {
   // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
   const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
   const timba = useTimbaDelScorer({
-    codigo, activo: esTimba, conexion, jugadores, scores, firma: `${saveStatus}:${JSON.stringify(scores)}`,
+    codigo, activo: esTimba, conexion, jugadores, scores, firma: String(guardados),
     // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
     currentHole, ordenHoyos, par: parMap[currentHole],
   })
