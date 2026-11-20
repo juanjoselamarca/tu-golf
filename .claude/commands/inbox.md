@@ -10,7 +10,8 @@ Sos Claude actuando como CTO de Golfers+. Procesás autónomamente los reportes 
 
 - NUNCA borrar reportes (sólo UPDATE status).
 - NUNCA commitear `.env.local`.
-- NUNCA marcar `resuelto` sin smoke post-deploy verde.
+- NUNCA marcar `resuelto` sin smoke post-deploy verde. Única excepción: las referencias de RRSS (PASO 1), que no
+  tocan prod y se cierran cuando su ficha llega a `main`.
 - NUNCA seguir si confidence promedio del triage < 0.7 → parar y consultar al user.
 - Cap absoluto por corrida: **5 fixes técnicos + 2 visuales**.
 - Modelo de aprobaciones: yo decido todo lo técnico/visual solo. SÓLO pregunto al user si: clasificación ambigua de un reporte específico, empate visual sin ganador objetivo, decisión de producto pura.
@@ -43,6 +44,13 @@ esperando y va al resumen en "Esperando promoción". Si lo es, ya está en prod:
 "Promovidos con smoke pendiente" y lo cierra una corrida sin evento) y después el poll de 8.10 (deploy READY), 8.11
 (smoke) y 8.12 (resuelto) de ese reporte.
 
+Después cierra las referencias de RRSS cuya ficha ya llegó a `main` (las que quedaron `en_progreso` con
+"esperando merge ficha RRSS: <id>"; ver PASO 1):
+
+```bash
+node --env-file=.env.local scripts/rrss/referencias-desde-inbox.mjs --cerrar-mergeadas
+```
+
 ### PASO 1 — Snapshot de pendientes
 
 Primero recupera los archivos que el webhook no pudo bajar de Telegram (quedan anotados con su
@@ -52,7 +60,46 @@ Primero recupera los archivos que el webhook no pudo bajar de Telegram (quedan a
 node --env-file=.env.local scripts/inbox-recuperar-archivos.mjs
 ```
 
-Si alguno sigue pendiente, va al resumen. Después ejecutá:
+Si alguno sigue pendiente, va al resumen.
+
+**Referencias de RRSS primero.** Juanjo manda al mismo bot los links (Instagram, TikTok, YouTube) que
+le parecen benchmark para las redes. No son bugs y no pasan por el triage: van a la bandeja que lee
+`/rrss` (`scripts/rrss/referencias/`). Si se quedan en el inbox, `/rrss` no las ve nunca:
+
+Las fichas son archivos del repo y van en un PR, así que esto corre en un worktree propio, nunca en el
+checkout principal:
+
+```bash
+node scripts/setup-worktree.mjs rrss-refs-<fecha> chore
+cd .claude/worktrees/rrss-refs-<fecha>
+node --env-file=../../../.env.local scripts/rrss/referencias-desde-inbox.mjs
+```
+
+Toma solo los reportes cuyo link apunta a UNA pieza (reel, post, short, video) y cuyo texto es un
+comentario corto (hasta 25 palabras). Un link a un perfil, o un mensaje largo que trae un link, es un
+reporte normal y sigue al triage. Para cada referencia baja y analiza el link con Gemini, deja la ficha
+y pasa el reporte a `en_progreso` con "esperando merge ficha RRSS: <id>". **No se cierra todavía:**
+`/rrss` lee desde `main`, y el reporte pasa a `resuelto` recién cuando la ficha está ahí (el
+`--cerrar-mergeadas` del PASO 0). Un link que no se pudo bajar queda `triaged` con
+`categoria='referencia-rrss'` y el motivo en las notas: el snapshot de abajo lo excluye, así que no
+entra al triage como bug, y la próxima corrida lo reintenta. Si es un post de imagen (`/p/` con
+"post de imagen" en las notas), no se va a poder bajar nunca: míralo en Chrome y ciérralo a mano.
+Además:
+
+- **Foto que es referencia** (pantallazo de la competencia, un post fotografiado, "mira esto"):
+  `... referencias-desde-inbox.mjs --foto <uuid>`. Decídelo tú mirando la foto; si dudas entre
+  referencia y bug, es bug y sigue el flujo normal.
+- **Comentario suelto sobre una referencia** ("esto pero más pro"): `--nota-de <uuid> --para <id-ficha>`.
+
+Commitea las fichas en ese worktree, en un PR propio (`chore(rrss): N referencias desde el inbox`,
+solo datos, sin revisión), mergéalo con los checks en verde y corre `--cerrar-mergeadas` en esta
+misma corrida. Si el PR no se pudo mergear, los reportes quedan esperando y los cierra una corrida
+posterior; si a los 3 días la ficha sigue sin llegar a `main` (PR cerrado, worktree descartado),
+`--cerrar-mergeadas` los devuelve a la cola: los de link los rehace la próxima corrida sola; los de
+`--foto`/`--nota-de` vuelven al snapshot sin categoría, con la nota "rehacer a mano", y se rehacen ahí. Un comentario
+(`--nota-de` o un link reenviado con texto) solo se cierra cuando ese comentario ya está en `main`. Van al resumen bajo "Referencias a /rrss".
+
+Después ejecutá:
 
 ```bash
 cd "C:/Users/juanj/OneDrive/Escritorio/Proyectos IA/tu-golf" && \
@@ -62,6 +109,7 @@ const { createClient } = require('@supabase/supabase-js');
   const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
   const { data, error } = await s.from('inbox_reports')
     .select('*').in('status', ['nuevo','triaged'])
+    .or('categoria.is.null,categoria.neq.referencia-rrss') // las referencias que no bajaron no son bugs
     .order('recibido_en', { ascending: true }).limit(20);
   if (error) { console.error(error.message); process.exit(1); }
   console.log(JSON.stringify(data ?? [], null, 2));
@@ -248,6 +296,10 @@ RESUMEN /inbox
 
 ⏳ Promovidos con smoke pendiente (evento en vivo; los cierra una corrida sin evento): Q
   - PR #Y: <descripción>
+
+📎 Referencias a /rrss: R (PR #F)
+  - <id-ficha>: <formato> — <una línea>
+  Referencias que no se pudieron bajar (se reintentan): <uuid>: <motivo>
 
 ⚠ Decisiones pendientes (esperan tu input): K
   - <reporte>: <razón>
