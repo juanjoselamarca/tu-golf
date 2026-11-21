@@ -91,6 +91,11 @@ if (existsSync(envSrc)) {
 } else {
   console.warn('⚠ .env.local no existe en la raíz. Pre-push del worktree va a fallar hasta que lo crees.');
 }
+const devEnvSrc = resolve(repoRoot, '.env.development.local');
+if (existsSync(devEnvSrc)) {
+  copyFileSync(devEnvSrc, resolve(repoRoot, wtPath, '.env.development.local'));
+  console.log('→ .env.development.local copiado al worktree (Supabase local)');
+}
 
 const mainSha = shOut('git rev-parse --short origin/main');
 

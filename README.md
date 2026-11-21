@@ -65,6 +65,7 @@ Errores frecuentes al escribir queries. La fuente de verdad completa está en [d
 
 ```bash
 npm install
+npm run db:local      # Supabase local en Docker (docs/claude/base-local.md)
 npm run dev           # http://localhost:3000
 npm run test          # vitest (1000+ tests)
 npx tsc --noEmit      # typecheck

@@ -1,0 +1,13 @@
+# Local Supabase for `npm run dev` (`npm run db:local`, docs/claude/base-local.md). Only the keys that differ from
+# the CLI defaults: the CI runs an older CLI (migraciones-prod.yml) and also reads this file.
+project_id = "tu-golf"
+
+[db]
+major_version = 17
+
+[db.seed]
+enabled = false
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:*/**", "http://127.0.0.1:*/**"]

@@ -10,6 +10,7 @@ Hoja corta de los comandos que usamos día a día. Si pides cualquiera de estos,
 
 | Comando | Cuándo usarlo |
 |---------|---------------|
+| `npm run db:local` | Antes de `npm run dev`: levanta la base local en Docker. `next dev` no arranca contra prod. Detalle: `docs/claude/base-local.md`. |
 | `/health` | "¿Cómo está la app?" — diagnóstico completo de producción (BD, APIs, errores recientes). |
 | `/pre-push` | Antes de cada push. Valida tipos, tests, build, seguridad, archivos protegidos. **Obligatorio.** |
 | `/pre-torneo` | **Antes de un torneo real con jugadores.** Smoke test del flujo completo + verificación de prod. |
