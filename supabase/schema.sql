@@ -1106,6 +1106,96 @@ BEGIN
   RETURN n;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.borrar_grupo_en_juego(p_tournament_id uuid, p_group_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_tstatus text;
+  v_rondas  integer;
+  v_card    uuid;
+  v_estado  text;
+  v_n       integer;
+BEGIN
+  IF p_tournament_id IS NULL OR p_group_id IS NULL THEN
+    RAISE EXCEPTION 'borrar_grupo_en_juego: p_tournament_id y p_group_id son obligatorios';
+  END IF;
+
+  -- ── Locks 1-2: torneo ─────────────────────────────────────────────────────────────────────────────────────
+  PERFORM pg_advisory_xact_lock(hashtextextended('grupos:' || p_tournament_id::text, 0));
+  SELECT t.status, COALESCE(t.total_rounds, 1) INTO v_tstatus, v_rondas
+    FROM public.tournaments t WHERE t.id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'borrar_grupo_en_juego: el torneo % no existe', p_tournament_id;
+  END IF;
+  IF v_tstatus IS DISTINCT FROM 'in_progress' THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'torneo-no-en-juego');
+  END IF;
+  IF v_rondas > 1 THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'torneo-varias-rondas');
+  END IF;
+
+  SELECT g.ronda_libre_id INTO v_card
+    FROM public.tournament_groups g WHERE g.id = p_group_id AND g.tournament_id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'grupo-no-existe');
+  END IF;
+
+  -- ── Lock 3: su tarjeta, sus filas y su equipo ─────────────────────────────────────────────────────────────
+  IF v_card IS NOT NULL THEN
+    SELECT rl.estado INTO v_estado FROM public.rondas_libres rl WHERE rl.id = v_card FOR UPDATE;
+    PERFORM 1 FROM public.ronda_libre_jugadores j WHERE j.ronda_id = v_card ORDER BY j.id FOR UPDATE;
+    PERFORM 1 FROM public.ronda_equipos re WHERE re.ronda_id = v_card ORDER BY re.id FOR UPDATE;
+  END IF;
+
+  -- ── Vacío, bajo lock ──────────────────────────────────────────────────────────────────────────────────────
+  IF EXISTS (SELECT 1 FROM public.tournament_group_players gp WHERE gp.group_id = p_group_id)
+     OR (v_card IS NOT NULL AND EXISTS (SELECT 1 FROM public.ronda_libre_jugadores j WHERE j.ronda_id = v_card)) THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'grupo-con-jugadores');
+  END IF;
+  IF v_card IS NOT NULL THEN
+    -- Golpes de equipo (bola compartida) sin filas no deberían existir; si existen, no se borran.
+    IF EXISTS (SELECT 1 FROM public.ronda_equipos re WHERE re.ronda_id = v_card
+                AND public.tarjeta_tiene_anotaciones(re.scores)) THEN
+      RETURN jsonb_build_object('ok', false, 'motivo', 'grupo-con-golpes');
+    END IF;
+    IF v_estado IS DISTINCT FROM 'en_curso' THEN
+      RETURN jsonb_build_object('ok', false, 'motivo', 'tarjeta-cerrada');
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.rondas_libres rl WHERE rl.id = v_card AND rl.reglas_juego IS NOT NULL)
+       OR EXISTS (SELECT 1 FROM public.ronda_libre_puntitos x WHERE x.ronda_id = v_card)
+       OR EXISTS (SELECT 1 FROM public.ronda_libre_retiros x WHERE x.ronda_id = v_card)
+       OR EXISTS (SELECT 1 FROM public.ronda_libre_juego_orden x WHERE x.ronda_id = v_card) THEN
+      RETURN jsonb_build_object('ok', false, 'motivo', 'tarjeta-con-timba');
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.match_pairings x WHERE x.ronda_id = v_card) THEN
+      RAISE EXCEPTION 'borrar_grupo_en_juego: la tarjeta tiene match_pairings';
+    END IF;
+    -- Una tarjeta compartida por dos grupos sería una corrupción: borrarla dejaría al otro sin tarjeta.
+    IF (SELECT count(*) FROM public.tournament_groups g WHERE g.ronda_libre_id = v_card) <> 1 THEN
+      RAISE EXCEPTION 'borrar_grupo_en_juego: la tarjeta % es de más de un grupo', v_card;
+    END IF;
+  END IF;
+
+  -- ── Escrituras: el grupo (suelta la FK sin cascada) y después su tarjeta (arrastra un equipo vacío) ─────────
+  DELETE FROM public.tournament_groups g WHERE g.id = p_group_id AND g.tournament_id = p_tournament_id;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 1 THEN
+    RAISE EXCEPTION 'borrar_grupo_en_juego: el grupo borró % filas', v_n;
+  END IF;
+  IF v_card IS NOT NULL THEN
+    DELETE FROM public.rondas_libres rl WHERE rl.id = v_card;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    IF v_n <> 1 THEN
+      RAISE EXCEPTION 'borrar_grupo_en_juego: la tarjeta borró % filas', v_n;
+    END IF;
+  END IF;
+
+  RETURN jsonb_build_object('ok', true, 'ronda_libre_id', v_card);
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.calcular_indice_golfers(p_user_id uuid)
  RETURNS numeric
  LANGUAGE plpgsql
@@ -1910,6 +2000,142 @@ AS $function$
         '18','9','hole','holes','hoyos'
       )
   ) t
+$function$;
+CREATE OR REPLACE FUNCTION public.crear_grupo_en_juego(p_tournament_id uuid, p_group_id uuid, p_nombre text, p_tarjeta jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_tstatus  text;
+  v_rondas   integer;
+  v_card     uuid;
+  v_grupo    uuid;
+  v_nombre   text;
+  v_previa   uuid;
+  v_n        integer;
+BEGIN
+  -- ── Forma de los parámetros ───────────────────────────────────────────────────────────────────────────────
+  IF p_tournament_id IS NULL THEN
+    RAISE EXCEPTION 'crear_grupo_en_juego: p_tournament_id es obligatorio';
+  END IF;
+  IF (p_group_id IS NULL) = (p_nombre IS NULL) THEN
+    RAISE EXCEPTION 'crear_grupo_en_juego: grupo nuevo lleva nombre; un grupo existente, no';
+  END IF;
+  IF p_nombre IS NOT NULL AND (btrim(p_nombre) = '' OR char_length(btrim(p_nombre)) > 60) THEN
+    RAISE EXCEPTION 'crear_grupo_en_juego: nombre vacío o de más de 60 caracteres';
+  END IF;
+  IF jsonb_typeof(p_tarjeta) IS DISTINCT FROM 'object'
+     OR EXISTS (SELECT 1 FROM jsonb_object_keys(p_tarjeta) k
+                 WHERE k NOT IN ('codigo', 'creador_id', 'course_id', 'course_name', 'tees', 'holes', 'fecha',
+                                 'formato_juego', 'modo_juego', 'hcp_pct'))
+     OR jsonb_typeof(p_tarjeta->'codigo') IS DISTINCT FROM 'string' OR btrim(p_tarjeta->>'codigo') = ''
+     OR jsonb_typeof(p_tarjeta->'creador_id') IS DISTINCT FROM 'string'
+     OR jsonb_typeof(p_tarjeta->'course_id') NOT IN ('string', 'null') OR NOT (p_tarjeta ? 'course_id')
+     OR jsonb_typeof(p_tarjeta->'course_name') IS DISTINCT FROM 'string'
+     OR jsonb_typeof(p_tarjeta->'tees') IS DISTINCT FROM 'string'
+     OR jsonb_typeof(p_tarjeta->'holes') IS DISTINCT FROM 'number'
+     OR jsonb_typeof(p_tarjeta->'fecha') IS DISTINCT FROM 'string'
+     OR jsonb_typeof(p_tarjeta->'formato_juego') IS DISTINCT FROM 'string'
+     OR jsonb_typeof(p_tarjeta->'modo_juego') IS DISTINCT FROM 'string'
+     OR jsonb_typeof(p_tarjeta->'hcp_pct') IS DISTINCT FROM 'number' THEN
+    RAISE EXCEPTION 'crear_grupo_en_juego: p_tarjeta mal formada';
+  END IF;
+
+  -- ── Locks 1-2: torneo ─────────────────────────────────────────────────────────────────────────────────────
+  PERFORM pg_advisory_xact_lock(hashtextextended('grupos:' || p_tournament_id::text, 0));
+  SELECT t.status, COALESCE(t.total_rounds, 1) INTO v_tstatus, v_rondas
+    FROM public.tournaments t WHERE t.id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'crear_grupo_en_juego: el torneo % no existe', p_tournament_id;
+  END IF;
+  IF v_tstatus IS DISTINCT FROM 'in_progress' THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'torneo-no-en-juego');
+  END IF;
+  IF v_rondas > 1 THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'torneo-varias-rondas');
+  END IF;
+
+  -- ── El grupo ──────────────────────────────────────────────────────────────────────────────────────────────
+  IF p_group_id IS NOT NULL THEN
+    SELECT g.name, g.ronda_libre_id INTO v_nombre, v_previa
+      FROM public.tournament_groups g WHERE g.id = p_group_id AND g.tournament_id = p_tournament_id FOR UPDATE;
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('ok', false, 'motivo', 'grupo-no-existe');
+    END IF;
+    IF v_previa IS NOT NULL THEN
+      RETURN jsonb_build_object('ok', false, 'motivo', 'grupo-con-tarjeta');
+    END IF;
+    -- Uno con inscritos (p. ej. solo pendientes, que el inicio no materializa) no se arma acá: sus inscritos
+    -- tendrían que entrar por `colocar_inscrito_en_grupo`, con sus reglas. Falla cerrado.
+    IF EXISTS (SELECT 1 FROM public.tournament_group_players gp WHERE gp.group_id = p_group_id) THEN
+      RETURN jsonb_build_object('ok', false, 'motivo', 'grupo-con-jugadores');
+    END IF;
+  ELSE
+    v_nombre := btrim(p_nombre);
+    IF EXISTS (SELECT 1 FROM public.tournament_groups g
+                WHERE g.tournament_id = p_tournament_id AND lower(btrim(g.name)) = lower(v_nombre)) THEN
+      RETURN jsonb_build_object('ok', false, 'motivo', 'nombre-repetido');
+    END IF;
+  END IF;
+
+  -- La tarjeta juega lo mismo que las del inicio (`tarjetaDeGrupoDeTorneo`). Si ya hay tarjetas de grupo, la nueva
+  -- calza con alguna; si no, algo cambió en el torneo desde el inicio y no se adivina cuál vale.
+  IF EXISTS (SELECT 1 FROM public.tournament_groups g WHERE g.tournament_id = p_tournament_id AND g.ronda_libre_id IS NOT NULL)
+     AND NOT EXISTS (
+       SELECT 1 FROM public.tournament_groups g JOIN public.rondas_libres rl ON rl.id = g.ronda_libre_id
+        WHERE g.tournament_id = p_tournament_id
+          AND rl.course_id IS NOT DISTINCT FROM (p_tarjeta->>'course_id')::uuid
+          AND rl.holes IS NOT DISTINCT FROM (p_tarjeta->>'holes')::integer
+          AND rl.tees IS NOT DISTINCT FROM p_tarjeta->>'tees'
+          AND rl.fecha IS NOT DISTINCT FROM (p_tarjeta->>'fecha')::date
+          AND rl.modo_juego IS NOT DISTINCT FROM p_tarjeta->>'modo_juego'
+          AND rl.hcp_pct IS NOT DISTINCT FROM (p_tarjeta->>'hcp_pct')::smallint
+          AND (rl.formato_juego = p_tarjeta->>'formato_juego'
+               OR (rl.formato_juego = 'match_play' AND p_tarjeta->>'formato_juego' = 'stroke_play'))) THEN
+    RETURN jsonb_build_object('ok', false, 'motivo', 'tarjeta-distinta');
+  END IF;
+
+  -- ── Escrituras ────────────────────────────────────────────────────────────────────────────────────────────
+  BEGIN
+    INSERT INTO public.rondas_libres (codigo, creador_id, course_id, course_name, tees, holes, fecha, estado,
+                                      formato_juego, modo_juego, hcp_pct)
+    VALUES (btrim(p_tarjeta->>'codigo'), (p_tarjeta->>'creador_id')::uuid, (p_tarjeta->>'course_id')::uuid,
+            p_tarjeta->>'course_name', p_tarjeta->>'tees', (p_tarjeta->>'holes')::integer, (p_tarjeta->>'fecha')::date,
+            'en_curso', p_tarjeta->>'formato_juego', p_tarjeta->>'modo_juego', (p_tarjeta->>'hcp_pct')::smallint)
+    RETURNING id INTO v_card;
+  EXCEPTION WHEN unique_violation THEN
+    -- rondas_libres_codigo_key: el código aleatorio ya existe. Nada quedó escrito; la app pide otro.
+    RETURN jsonb_build_object('ok', false, 'motivo', 'codigo-repetido');
+  END;
+
+  IF p_group_id IS NULL THEN
+    INSERT INTO public.tournament_groups (tournament_id, name, sort_order, ronda_libre_id)
+    SELECT p_tournament_id, v_nombre, COALESCE(max(g.sort_order) + 1, 0), v_card
+      FROM public.tournament_groups g WHERE g.tournament_id = p_tournament_id
+    RETURNING id INTO v_grupo;
+  ELSE
+    UPDATE public.tournament_groups g SET ronda_libre_id = v_card
+     WHERE g.id = p_group_id AND g.tournament_id = p_tournament_id AND g.ronda_libre_id IS NULL;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    IF v_n <> 1 THEN
+      RAISE EXCEPTION 'crear_grupo_en_juego: enlazar la tarjeta actualizó % grupos', v_n;
+    END IF;
+    v_grupo := p_group_id;
+  END IF;
+
+  -- ── Invariantes: un grupo sin inscritos, enlazado a una tarjeta en curso, vacía y sin equipo ───────────────
+  IF (SELECT count(*) FROM public.tournament_groups g WHERE g.ronda_libre_id = v_card) <> 1
+     OR NOT EXISTS (SELECT 1 FROM public.tournament_groups g WHERE g.id = v_grupo AND g.ronda_libre_id = v_card)
+     OR EXISTS (SELECT 1 FROM public.tournament_group_players gp WHERE gp.group_id = v_grupo)
+     OR EXISTS (SELECT 1 FROM public.ronda_libre_jugadores j WHERE j.ronda_id = v_card)
+     OR EXISTS (SELECT 1 FROM public.ronda_equipos re WHERE re.ronda_id = v_card) THEN
+    RAISE EXCEPTION 'crear_grupo_en_juego: el grupo nuevo no quedó vacío y enlazado a su tarjeta';
+  END IF;
+
+  RETURN jsonb_build_object('ok', true, 'group_id', v_grupo, 'ronda_libre_id', v_card, 'nombre', v_nombre);
+END;
 $function$;
 CREATE OR REPLACE FUNCTION public.descartar_ronda_libre(p_codigo text)
  RETURNS void
@@ -4169,12 +4395,14 @@ revoke all on sequence public."pattern_observations_id_seq" from public, anon, a
 revoke all on function public.aprobar_en_juego_guard() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.asegurar_tarjeta_vigente(uuid,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.backfill_handicap_de_inscripcion() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.borrar_grupo_en_juego(uuid,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.calcular_indice_golfers(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.cleanup_old_e2e_runs() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.colocar_inscrito_en_grupo(uuid,uuid,uuid,jsonb,jsonb,jsonb,jsonb,boolean) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.course_name_canonical_ordered(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.course_name_canonical(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.course_name_tokens(text) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.crear_grupo_en_juego(uuid,uuid,text,jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.descartar_ronda_libre(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.editar_handicap_inscrito(uuid,numeric,numeric,boolean,numeric,jsonb,jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.eliminar_cuenta(uuid) from public, anon, authenticated, service_role, postgres;
@@ -4481,6 +4709,8 @@ grant EXECUTE on function public.aprobar_en_juego_guard() to postgres;
 grant EXECUTE on function public.asegurar_tarjeta_vigente(uuid,uuid) to postgres;
 grant EXECUTE on function public.asegurar_tarjeta_vigente(uuid,uuid) to service_role;
 grant EXECUTE on function public.backfill_handicap_de_inscripcion() to postgres;
+grant EXECUTE on function public.borrar_grupo_en_juego(uuid,uuid) to postgres;
+grant EXECUTE on function public.borrar_grupo_en_juego(uuid,uuid) to service_role;
 grant EXECUTE on function public.calcular_indice_golfers(uuid) to authenticated;
 grant EXECUTE on function public.calcular_indice_golfers(uuid) to postgres;
 grant EXECUTE on function public.calcular_indice_golfers(uuid) to service_role;
@@ -4503,6 +4733,8 @@ grant EXECUTE on function public.course_name_tokens(text) to authenticated;
 grant EXECUTE on function public.course_name_tokens(text) to postgres;
 grant EXECUTE on function public.course_name_tokens(text) to public;
 grant EXECUTE on function public.course_name_tokens(text) to service_role;
+grant EXECUTE on function public.crear_grupo_en_juego(uuid,uuid,text,jsonb) to postgres;
+grant EXECUTE on function public.crear_grupo_en_juego(uuid,uuid,text,jsonb) to service_role;
 grant EXECUTE on function public.descartar_ronda_libre(text) to authenticated;
 grant EXECUTE on function public.descartar_ronda_libre(text) to postgres;
 grant EXECUTE on function public.descartar_ronda_libre(text) to service_role;

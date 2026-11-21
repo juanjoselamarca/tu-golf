@@ -4,6 +4,8 @@
 //   PUT    /api/torneos/[slug]/players/[playerId]/grupo
 //   DELETE /api/torneos/[slug]/players/[playerId]
 //   POST   /api/torneos/[slug]/players  (con `groupId`)
+//   POST   /api/torneos/[slug]/grupos            (#814 · PR4)
+//   DELETE /api/torneos/[slug]/grupos/[groupId]  (#814 · PR4)
 // Auth: sesión + `organizer_id` del torneo, igual que /start y /players/[playerId]/handicap (no existe otro rol con
 // permiso sobre el torneo). Escribe con service role vía `colocarInscrito`.
 
@@ -14,6 +16,7 @@ import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { TORNEO_PARA_EDITAR_SELECT, type TorneoParaEditar } from '@/lib/data/tournaments/editarHandicapInscrito'
 import type { ResultadoColocar } from '@/lib/data/tournaments/colocarInscrito'
+import type { ResultadoGrupoEnJuego } from '@/lib/data/tournaments/grupoEnJuego'
 
 export type TorneoDelOrganizador =
   | { ok: true; svc: SupabaseClient; torneo: TorneoParaEditar; userId: string }
@@ -80,4 +83,11 @@ export function cuerpoDeColocarFallido(res: Exclude<ResultadoColocar, { ok: true
 export function respuestaDeColocar(res: ResultadoColocar): NextResponse {
   if (res.ok) return NextResponse.json(res)
   return NextResponse.json(cuerpoDeColocarFallido(res), { status: estadoHttpDeColocar(res) })
+}
+
+/** La respuesta de un `ResultadoGrupoEnJuego`: `exito` si salió (201 al crear), 404/500/409 como `estadoHttpDeColocar`. */
+export function respuestaDeGrupo(res: ResultadoGrupoEnJuego, exito: 200 | 201): NextResponse {
+  if (res.ok) return NextResponse.json(res, { status: exito })
+  const status = res.motivo === 'grupo-no-existe' ? 404 : res.motivo === 'error' ? 500 : 409
+  return NextResponse.json({ error: res.mensaje, codigo: res.motivo }, { status })
 }
