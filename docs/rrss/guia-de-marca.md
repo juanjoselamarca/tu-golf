@@ -37,6 +37,25 @@ Le hablamos a dos públicos, en este orden:
 - **Golf de verdad.** Vocabulario correcto (bogey, GIR, putts, índice, hándicap de juego). Cada regla
   y cada dato se verifica contra la fuente oficial antes de publicar.
 
+### Suena a golfista, no a IA (Juanjo, 20-nov-2026)
+
+El estándar: alguien que nació jugando y vive el golf todo el día, con oficio de periodista
+deportivo que maneja estadística. Antes de mandarle copy o guion de voz a Juanjo, cada línea se
+lee en voz alta con una pregunta: **¿esto lo diría un golfista en el hoyo 19 o un comentarista de
+golf?** Si suena a manual, a traducción o a fórmula de IA, se reescribe.
+
+- **Nunca jerga inventada.** Si un término no está confirmado por Juanjo o por la prensa de golf en
+  español, va la forma más llana. Rechazados por Juanjo: «mojarla», «mancha» (por dispersión),
+  «blanco» (se dice «apuntar a»), «se abre» (en golf es la pelota que se va a la derecha), «deja el
+  green» (se dice «llega al green»), «¿cuántas te quedan secas?».
+- **El golfista es su pelota: segunda persona.** «De 10 pelotas, ¿cuántas llegas al green y
+  cuántas te vas al agua?», no «¿cuántas llegan?».
+- **Vocabulario de cancha que sí se usa:** green, bandera, al centro, corto, largo, irse al agua,
+  llegar al green, salvar el par, golpe, palo, hierro 8, «la dejó a X de la bandera». En Chile se
+  dice **cancha**, no campo.
+- **Fuera las fórmulas de IA:** «No es X, es Y», metáforas inventadas, adjetivos vacíos.
+- **Hilo narrativo:** cada escena empuja la siguiente; no son láminas sueltas.
+
 Ejemplos:
 
 | Sí | No |

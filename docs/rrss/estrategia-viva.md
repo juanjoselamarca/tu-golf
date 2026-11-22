@@ -43,7 +43,7 @@ para que una corrida futura de `/rrss` no las re-litigue cada semana:
 
 | Decisión | De dónde viene | Qué la cambiaría |
 | --- | --- | --- |
-| Las piezas 1 y 2 van **mudas** | La voz sintética es el delator de "esto lo hizo una máquina" | Nada en métricas. Solo voz humana o una voz sintética que pase una prueba a ciegas |
+| Todo reel lleva **voz en off** (Iapetus) | Juanjo, 22-nov-2026: un reel sin voz se ve IA. La regla anterior (piezas mudas) fue un malentendido | Nada. La voz se mejora, no se quita |
 | Nunca la palabra "premium" en el copy | Plan, sección 1 (`validarPieza` lo verifica) | Nada |
 | Un objeto real en cuadro, siempre | Plan, sección 5 | Nada |
 | Todo número con fuente y fecha | Directiva de cero fallos | Nada |
@@ -147,6 +147,8 @@ Instagram web. Formato: estilo verde animado (Remotion), voz sintética, dato de
   (33,6 s, -13,8 LUFS), con portada propia y caption de 1.709 caracteres.
 - **Variable que cambió respecto de la pieza 1:** voz sintética → texto en pantalla con música, y
   cada dato con su fuente en pantalla (respuesta al comentario «Muestren los datos»).
+  **Salió sin voz por error** (ver «Decisión de Juanjo del 22-nov-2026»): la lectura de esta pieza
+  mezcla el efecto de la fuente en cuadro con el de quitar la voz.
 - **Hipótesis:** mostrar la fuente en cuadro y cerrar con una pregunta de respuesta numérica sube
   guardados y comentarios por espectador sobre la pieza 1 (0,43 % y 0,04 %).
 - Lecturas pendientes: 72 h (lun 23-nov) y 7 días (vie 27-nov).
@@ -257,11 +259,23 @@ No son datos de métricas: son decisiones de producto del dueño, y por eso vale
   cenital → consejo), estilo «mundo de golf verde» animado. La app aparece solo como teléfono unos
   segundos o en el cierre. Reglas y hándicap quedan fuera de este formato.
 - Distancias **siempre en yardas**.
-- Voz sintética: **no** desde la pieza 2. Mientras no haya voz humana, la pieza va con texto en
-  pantalla y música.
+- ~~Voz sintética: no desde la pieza 2.~~ **Anulada el 22-nov-2026** (ver abajo): fue un
+  malentendido y dejó las piezas 2 y 3 publicadas sin voz.
 - Gráficas: nada plano ni infantil. Hoyos con **silueta reconocible de canchas icónicas, sin
   nombres ni logos**. Si se muestra dispersión de pelotas, tiene que corresponder al dato.
 - Portada: todo el texto dentro del 3:4 central (la grilla recorta arriba y abajo).
+
+## Decisión de Juanjo del 22-nov-2026 — voz en off en todo reel
+
+- **Todo reel lleva voz en off**, la de la pieza 1 (Gemini TTS, voz Iapetus), idealmente mejorada.
+  Lo que Juanjo pide desde el principio es que un reel no se note IA jamás, y un reel sin voz se ve
+  IA. El «no me convence la voz sintética» del 16-nov y la regla de piezas mudas del 29-oct se
+  leyeron al revés.
+- Las piezas 2 y 3 se publicaron mudas (20 y 21-nov). Hay versiones con voz listas
+  («Pieza 2 - Green isla (v9 CON VOZ) IG.mp4» y «Pieza 3 - Dónde se van los golpes (v3 CON VOZ)
+  IG.mp4»); Instagram no deja cambiar el video de un reel publicado, así que reemplazarlas es
+  archivar la original y publicar la nueva.
+- Ningún reel se entrega sin pasar `scripts/rrss/voz-en-reel.mjs` (regla dura 9 de `/rrss`).
 
 ## Decisiones de Juanjo del 19-nov-2026
 
