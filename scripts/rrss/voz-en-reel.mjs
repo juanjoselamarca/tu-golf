@@ -99,7 +99,10 @@ export function medirLinea(mezcla, voz, inicioS, { hz = HZ_MEDICION, desfaseMaxS
 
 /**
  * Juzga las medidas. Puro: recibe lo medido y devuelve las fallas en castellano.
- * `audio` = { hayPista, duracionS, integradoLufs, picoDbtp }; `lineas` = [{ archivo, inicioS, duracionS, medida }].
+ * @param {{ audio: { hayPista: boolean, duracionS: number, integradoLufs: number, picoDbtp: number },
+ *   lineas: { archivo: string, inicioS: number, duracionS: number, medida: { correlacion: number, desfaseS: number, vozSobreFondoDb: number } }[],
+ *   sinVoz?: { aprobadoPor?: string, fecha?: string, cita?: string } }} medido
+ * @returns {string[]}
  */
 export function juzgar({ audio, lineas, sinVoz }) {
   const fallas = []
