@@ -182,7 +182,7 @@ magnitud estamos, no para decidir. La comparación que manda es contra nuestras 
 ### Cuentas de golf de EE. UU. como referencia (medido el 19-nov-2026)
 
 Decisión de Juanjo del 19-nov: las cuentas de golf de EE. UU. son referentes aunque publiquen en
-inglés. Medí los últimos 12 reels de cada una en su pestaña de reels (visualizaciones públicas).
+inglés. Se midieron los últimos 12 reels de cada una en su pestaña de reels (visualizaciones públicas).
 Mediana sin los reels fijados, cuando se pudo identificarlos.
 
 | Cuenta | Tipo | Seguidores | Mediana vis./reel | Mediana ÷ seguidores | Mejor reel |
