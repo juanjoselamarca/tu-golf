@@ -1,4 +1,4 @@
-// Pieza 1 del lanzamiento — "Anota. Todos ven lo mismo." Muda, 9:16.
+// Pieza 1 del lanzamiento — "Anota. Todos ven lo mismo." 9:16. (Se grabó muda; desde el 22-nov-2026 todo reel lleva voz en off.)
 //
 // Un solo trabajo: que se entienda qué es la app. Tres planos, y el del medio
 // es el gesto:

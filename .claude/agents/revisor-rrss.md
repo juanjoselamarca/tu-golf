@@ -53,15 +53,16 @@ cabeza, ese es exactamente el hallazgo.
    comentarista de golf?** Una palabra que no usaría (jerga inventada, la pelota como sujeto en
    vez de «llegas / te vas al agua», «campo» en vez de cancha) es CORREGIR. La lista de términos
    rechazados está en `docs/rrss/guia-de-marca.md`, sección 3.
-6. **Las ocho reglas duras** del expediente. Se rompe una, la pieza no sale: no es negociable
+6. **Las nueve reglas duras** del expediente. Se rompe una, la pieza no sale: no es negociable
    ni compensable con lo bueno que tenga el resto.
 7. **El golf.** ¿Un golfista de verdad reconoce la situación? Un leaderboard con posiciones
    imposibles, un score que no calza con el par, una tarjeta con stroke index raro: todo eso lo
    ve un socio antes que nosotros.
 8. **La voz del reel.** El expediente tiene que traer la salida de
-   `node scripts/rrss/voz-en-reel.mjs <manifiesto>` con `OK: el reel lleva su voz.` (o un `sinVoz`
-   aprobado por Juanjo con fecha y cita). Si no la trae, o no dice OK: **CORREGIR**, sin mirar el
-   resto. Las piezas 2 y 3 se publicaron sin voz el 20 y 21-nov-2026 porque nadie lo midió.
+   `node scripts/rrss/voz-en-reel.mjs <manifiesto>` con `OK: el reel lleva su voz.` Si no la trae, o no dice OK:
+   **CORREGIR**, sin mirar el resto. Un reel mudo no tiene excepción: todo reel lleva voz en off
+   (decisión de Juanjo, 22-nov-2026). Las piezas 2 y 3 se publicaron sin voz el 20 y 21-nov-2026
+   porque nadie lo midió.
 
 ## Qué devuelves (lo lee el hilo principal, no un humano)
 

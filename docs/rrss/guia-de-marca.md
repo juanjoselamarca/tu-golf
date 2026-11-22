@@ -29,6 +29,8 @@ Le hablamos a dos públicos, en este orden:
 
 ## 3. Voz
 
+- **Voz en off en todo reel.** La de la pieza 1 (Gemini TTS, voz Iapetus), mejorándola pieza a pieza.
+  Un reel sin voz se ve hecho por una máquina y no se entrega (`scripts/rrss/voz-en-reel.mjs`).
 - **Tú, español de Chile.** Nunca voseo ("ingresa", no "ingresá"). Sin modismos forzados.
 - **Corto y con punch.** Portada de 7 palabras o menos. Lámina de 20 palabras o menos.
   Caption de 3 líneas antes del "más".

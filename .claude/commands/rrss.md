@@ -19,6 +19,7 @@ llega precalculado y no se lee nada más que lo que esta checklist dice.
 6. **Español de Chile, sin voseo** (`scripts/lib/voseo.mjs` lo verifica; el canario del CI también).
 7. **Cero datos de usuarios reales** sin autorización explícita por escrito.
 8. Las referencias se replican como **idea**, nunca como copia.
+9. **Todo reel lleva voz en off, la de la pieza 1 (Gemini TTS, voz Iapetus), además de subtítulos.** Un reel sin voz se ve hecho por una máquina y no se entrega: `scripts/rrss/voz-en-reel.mjs` lo mide y no admite excepciones (decisión de Juanjo, 22-nov-2026).
 
 ## PASO 0 — Recoger lo que Juanjo ya decidió
 
@@ -106,13 +107,12 @@ problema es la pieza, no el control.
    ```
    Exige pista de audio, -14 ± 1 LUFS, pico ≤ -1 dBTP, cada línea de voz al menos 3 dB sobre la
    música (por correlación con su WAV, así que no lo engaña un fondo fuerte) y voz en ≥ 40 % del
-   reel. **Exit 1 = no se manda a revisar ni se le muestra a Juanjo.** Un reel mudo solo pasa con
-   `"sinVoz": { "aprobadoPor": "Juanjo", "fecha", "cita" }` literal suyo. Al presentarle la pieza,
-   di en la primera línea si va **CON VOZ** o **SIN VOZ**. (Incidente: piezas 2 y 3 publicadas sin
+   reel. **Exit 1 = no se manda a revisar ni se le muestra a Juanjo.** No hay excepción para un reel
+   mudo (regla 9). (Incidente: piezas 2 y 3 publicadas sin
    voz el 20 y 21-nov-2026; tenían música a -13,8 LUFS y ningún control miraba la voz.)
 1. **Mira la hoja de contactos de cada pieza** (`out/rrss/<slug>/hoja-de-contactos.png`) y el MP4 del
    reel. No mandes a revisar algo que no miraste: el error de ortografía es tuyo, no del revisor.
-2. Checklist, contra lo que ves y no contra lo que escribiste: las 8 reglas duras de arriba, el
+2. Checklist, contra lo que ves y no contra lo que escribiste: las 9 reglas duras de arriba, el
    gancho en el segundo 0, ninguna lámina quieta más de 6 s, zona segura del story respetada, y el
    golf correcto contra las reglas reales. **Lo que encuentres acá lo arreglas antes del punto 3.**
 3. **Revisión independiente** — obligatoria, porque el que escribió la pieza lee lo que quiso

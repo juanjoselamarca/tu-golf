@@ -16,8 +16,8 @@
 //
 // Uso: node scripts/rrss/voz-en-reel.mjs <manifiesto.json>   (exit 1 si falla)
 // Manifiesto: { "reel": "x.mp4", "voz": [{ "archivo": "l1.wav", "inicio_s": 0.15 }, ...] }
-// Rutas relativas al manifiesto. Un reel sin voz solo pasa con
-// "sinVoz": { "aprobadoPor": "Juanjo", "fecha": "AAAA-MM-DD", "cita": "<lo que dijo, literal>" }.
+// Rutas relativas al manifiesto. No hay excepción para un reel mudo: todo reel lleva voz en off
+// (decisión de Juanjo, 22-nov-2026: un reel sin voz se ve hecho por una máquina).
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
@@ -101,10 +101,10 @@ export function medirLinea(mezcla, voz, inicioS, { hz = HZ_MEDICION, desfaseMaxS
  * Juzga las medidas. Puro: recibe lo medido y devuelve las fallas en castellano.
  * @param {{ audio: { hayPista: boolean, duracionS: number, integradoLufs: number, picoDbtp: number },
  *   lineas: { archivo: string, inicioS: number, duracionS: number, medida: { correlacion: number, desfaseS: number, vozSobreFondoDb: number } }[],
- *   sinVoz?: { aprobadoPor?: string, fecha?: string, cita?: string } }} medido
+ * }} medido
  * @returns {string[]}
  */
-export function juzgar({ audio, lineas, sinVoz }) {
+export function juzgar({ audio, lineas }) {
   const fallas = []
   if (!audio.hayPista) {
     fallas.push('el MP4 no tiene pista de audio')
@@ -115,13 +115,6 @@ export function juzgar({ audio, lineas, sinVoz }) {
     fallas.push(`volumen integrado ${audio.integradoLufs} LUFS (tiene que ser ${objetivo} ± ${tolerancia})`)
   if (!(audio.picoDbtp <= picoMax)) fallas.push(`pico real ${audio.picoDbtp} dBTP (máximo ${picoMax})`)
 
-  if (sinVoz) {
-    const { aprobadoPor, fecha, cita } = sinVoz
-    if (aprobadoPor !== 'Juanjo' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha ?? '') || !(cita ?? '').trim())
-      fallas.push('reel sin voz sin la aprobación explícita de Juanjo (sinVoz necesita aprobadoPor "Juanjo", fecha y cita literal)')
-    if (lineas.length) fallas.push('el manifiesto dice sinVoz y a la vez trae líneas de voz')
-    return fallas
-  }
   if (!lineas.length) {
     fallas.push('el manifiesto no trae ninguna línea de voz: un reel no se entrega mudo')
     return fallas
@@ -147,6 +140,26 @@ export function juzgar({ audio, lineas, sinVoz }) {
   const cobertura = locutado / audio.duracionS
   if (cobertura < COBERTURA_MIN)
     fallas.push(`solo ${(cobertura * 100).toFixed(0)} % del reel tiene voz (mínimo ${COBERTURA_MIN * 100} %)`)
+  return fallas
+}
+
+/**
+ * Lo que el manifiesto tiene que cumplir antes de medir nada. No hay campo que exima a un reel de
+ * la voz: un «sinVoz» (la excepción que existió hasta el 22-nov-2026) se rechaza con nombre.
+ * @param {any} m
+ * @returns {string[]}
+ */
+export function revisarManifiesto(m) {
+  const fallas = []
+  if (!m || typeof m !== 'object') return ['el manifiesto no es un objeto JSON']
+  if (typeof m.reel !== 'string' || !m.reel) fallas.push('el manifiesto no dice qué MP4 se mide («reel»)')
+  if ('sinVoz' in m) fallas.push('el manifiesto pide «sinVoz»: esa excepción no existe, todo reel lleva voz en off')
+  if (!Array.isArray(m.voz) || !m.voz.length) fallas.push('el manifiesto no trae líneas de voz («voz»)')
+  else
+    m.voz.forEach((v, i) => {
+      if (typeof v?.archivo !== 'string' || !v.archivo) fallas.push(`línea ${i + 1}: falta «archivo»`)
+      if (!(Number.isFinite(v?.inicio_s) && v.inicio_s >= 0)) fallas.push(`línea ${i + 1}: «inicio_s» tiene que ser un número >= 0`)
+    })
   return fallas
 }
 
@@ -200,7 +213,7 @@ export function verificarVozEnReel(rutaManifiesto) {
       })
     }
   }
-  return { fallas: juzgar({ audio, lineas, sinVoz: m.sinVoz }), audio, lineas }
+  return { fallas: [...revisarManifiesto(m), ...juzgar({ audio, lineas })], audio, lineas }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

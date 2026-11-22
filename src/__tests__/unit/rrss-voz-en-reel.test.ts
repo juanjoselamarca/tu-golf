@@ -12,6 +12,7 @@ import {
   correlacion,
   juzgar,
   medirLinea,
+  revisarManifiesto,
   vozSobreFondoDb,
 } from '../../../scripts/rrss/voz-en-reel.mjs'
 
@@ -132,10 +133,24 @@ describe('juzgar: qué reel se entrega', () => {
     expect(juzgar({ audio: { ...AUDIO_OK, integradoLufs: NaN }, lineas })[0]).toMatch(/volumen integrado/)
   })
 
-  it('reel mudo solo con la aprobación explícita de Juanjo, con fecha y cita', () => {
-    const ok = { aprobadoPor: 'Juanjo', fecha: '2026-11-21', cita: 'Este va sin voz.' }
-    expect(juzgar({ audio: AUDIO_OK, lineas: [], sinVoz: ok })).toEqual([])
-    expect(juzgar({ audio: AUDIO_OK, lineas: [], sinVoz: { ...ok, cita: ' ' } })[0]).toMatch(/aprobación explícita/)
-    expect(juzgar({ audio: AUDIO_OK, lineas: [], sinVoz: { ...ok, aprobadoPor: 'Claude' } })[0]).toMatch(/aprobación explícita/)
+})
+
+describe('revisarManifiesto: no hay reel exento de voz', () => {
+  const ok = { reel: 'p.mp4', voz: [{ archivo: 'l1.wav', inicio_s: 0.15 }] }
+
+  it('manifiesto completo: pasa', () => {
+    expect(revisarManifiesto(ok)).toEqual([])
+  })
+
+  it('«sinVoz» se rechaza aunque venga con aprobación, fecha y cita (decisión de Juanjo, 22-nov-2026)', () => {
+    const conExcepcion = { ...ok, voz: [], sinVoz: { aprobadoPor: 'Juanjo', fecha: '2026-11-21', cita: 'Sin voz.' } }
+    const fallas = revisarManifiesto(conExcepcion)
+    expect(fallas.some((f) => /esa excepción no existe/.test(f))).toBe(true)
+    expect(fallas.some((f) => /no trae líneas de voz/.test(f))).toBe(true)
+  })
+
+  it('líneas mal escritas o sin reel', () => {
+    expect(revisarManifiesto({ voz: [{ inicio_s: -1 }] })).toHaveLength(3)
+    expect(revisarManifiesto(null)).toEqual(['el manifiesto no es un objeto JSON'])
   })
 })
