@@ -17,6 +17,7 @@ import { SLUG_PIEZA, destinoInstagram, huellaDeCaptura, huellaTexto, huellaVisua
 import { ESCENAS, huellaEscena } from './escenas.mjs'
 import { motivoNoPublicable, validarPieza } from './validar.mjs'
 import { escribirTanda, leerTanda, transicionar } from './cola.mjs'
+import { exigirVozEnReel } from './voz-en-reel.mjs'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 /**
@@ -234,6 +235,10 @@ export function videoDePieza(pieza) {
         `   node scripts/rrss/render.mjs scripts/rrss/piezas/${delCierre.pieza}.json\n` +
         `   node scripts/rrss/montar.mjs ${pieza.escena}`,
     )
+  // Regla 9: todo reel lleva voz en off. montar.mjs saca el MP4 con una pista de silencio,
+  // así que hasta que alguien le mezcle la voz y deje `<escena>.voz.json` al lado, esto
+  // revienta. También revienta si el manifiesto mide otro archivo que el que se sube.
+  exigirVozEnReel(archivo)
   return archivo
 }
 
