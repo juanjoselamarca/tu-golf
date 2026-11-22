@@ -10,6 +10,12 @@
 // Sale H.264 + yuv420p + faststart y una pista de silencio: es lo que Instagram
 // acepta sin recomprimir de más, y un reel sin pista de audio se cuelga en
 // algunos reproductores.
+//
+// Este MP4 sale MUDO a propósito y NO es entregable: montar no mezcla voz. Todo reel
+// lleva voz en off (regla 9 de /rrss), así que antes de publicar hay que mezclarle la
+// voz encima y dejar `<escena>.voz.json` al lado; publicar.mjs (exigirVozEnReel)
+// revienta mientras eso no pase scripts/rrss/voz-en-reel.mjs. Volver a montar pisa la
+// mezcla con el MP4 mudo, y el portón lo vuelve a cazar.
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'

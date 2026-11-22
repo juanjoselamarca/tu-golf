@@ -28,7 +28,9 @@ Lo único que sí se puede afirmar hoy, porque no depende de métricas:
 
 - **El reel 1 está producido y empaquetado**, mudo, 13,9 s, 1080×1920 (`anota-todos-ven`). La
   captura sale de la base de pruebas con el motor de golf real: el gesto en cámara cambia al líder
-  de verdad, no es una animación.
+  de verdad, no es una animación. **Así no se publica:** está mudo y todo reel lleva voz en off
+  (decisión de Juanjo, 22-nov-2026). `publicar.mjs` no lo empaqueta hasta que tenga la voz mezclada
+  y su `anota-todos-ven.voz.json` pase `scripts/rrss/voz-en-reel.mjs`.
 - **No hay material de cancha.** Todo lo producible hoy es *screen-first*. El plan ya lo asume
   (sección 7), y mientras no existan 3 minutos de vertical grabados en cancha, el formato 2 del
   plan ("EL PRODUCTO EN LA MANO") no se puede producir, por mucho que sea el segundo en valor.
@@ -267,7 +269,7 @@ No son datos de métricas: son decisiones de producto del dueño, y por eso vale
 
 ## Decisión de Juanjo del 22-nov-2026 — voz en off en todo reel
 
-- **Todo reel lleva voz en off**, la de la pieza 1 (Gemini TTS, voz Iapetus), idealmente mejorada.
+- **Todo reel lleva voz en off**, la voz Iapetus del reel publicado el 16-nov (Dfz1NrnMAG0, Gemini TTS), idealmente mejorada.
   Lo que Juanjo pide desde el principio es que un reel no se note IA jamás, y un reel sin voz se ve
   IA. El «no me convence la voz sintética» del 16-nov y la regla de piezas mudas del 29-oct se
   leyeron al revés.

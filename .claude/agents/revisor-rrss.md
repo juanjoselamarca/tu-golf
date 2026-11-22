@@ -58,9 +58,10 @@ cabeza, ese es exactamente el hallazgo.
 7. **El golf.** ¿Un golfista de verdad reconoce la situación? Un leaderboard con posiciones
    imposibles, un score que no calza con el par, una tarjeta con stroke index raro: todo eso lo
    ve un socio antes que nosotros.
-8. **La voz del reel.** El expediente tiene que traer la salida de
-   `node scripts/rrss/voz-en-reel.mjs <manifiesto>` con `OK: el reel lleva su voz.` Si no la trae, o no dice OK:
-   **CORREGIR**, sin mirar el resto. Un reel mudo no tiene excepción: todo reel lleva voz en off
+8. **La voz del reel.** El expediente tiene que traer la medición de la voz (el bloque «La voz del
+   reel, medida» o la salida de `node scripts/rrss/entregar-reel.mjs`) con el sha256 del MP4 y
+   `OK: el reel lleva su voz.` Si no la trae, si no dice OK o si el sha256 no es el del archivo que
+   se va a subir: **CORREGIR**, sin mirar el resto. Un reel mudo no tiene excepción: todo reel lleva voz en off
    (decisión de Juanjo, 22-nov-2026). Las piezas 2 y 3 se publicaron sin voz el 20 y 21-nov-2026
    porque nadie lo midió.
 

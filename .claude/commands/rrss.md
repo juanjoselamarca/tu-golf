@@ -19,7 +19,7 @@ llega precalculado y no se lee nada más que lo que esta checklist dice.
 6. **Español de Chile, sin voseo** (`scripts/lib/voseo.mjs` lo verifica; el canario del CI también).
 7. **Cero datos de usuarios reales** sin autorización explícita por escrito.
 8. Las referencias se replican como **idea**, nunca como copia.
-9. **Todo reel lleva voz en off, la de la pieza 1 (Gemini TTS, voz Iapetus), además de subtítulos.** Un reel sin voz se ve hecho por una máquina y no se entrega: `scripts/rrss/voz-en-reel.mjs` lo mide y no admite excepciones (decisión de Juanjo, 22-nov-2026).
+9. **Todo reel lleva voz en off, la voz Iapetus del reel publicado el 16-nov (Dfz1NrnMAG0, Gemini TTS), además de subtítulos.** Un reel sin voz se ve hecho por una máquina y no se entrega: `scripts/rrss/voz-en-reel.mjs` lo mide y no admite excepciones (decisión de Juanjo, 22-nov-2026).
 
 ## PASO 0 — Recoger lo que Juanjo ya decidió
 
@@ -100,16 +100,30 @@ problema es la pieza, no el control.
 
 ## PASO 4 — Revisar, hacer revisar y mandar a aprobar
 
-0. **La voz del reel, medida.** Cada reel lleva su manifiesto de voz (`{ "reel", "voz": [{ "archivo",
-   "inicio_s" }] }`, rutas relativas al manifiesto) y se mide el MP4 que se va a subir, no un intermedio:
+0. **La voz del reel, medida.** Cada reel lleva al lado su manifiesto de voz, `<reel>.voz.json`
+   (`{ "reel", "voz": [{ "archivo": "voz/<línea>.wav", "inicio_s" }] }`, con los WAV en la carpeta
+   `voz/` junto al manifiesto), y se mide el MP4 que se va a subir, no un intermedio:
    ```bash
-   node scripts/rrss/voz-en-reel.mjs <reel>.manifiesto.json
+   node scripts/rrss/voz-en-reel.mjs <reel>.voz.json
    ```
-   Exige pista de audio, -14 ± 1 LUFS, pico ≤ -1 dBTP, cada línea de voz al menos 3 dB sobre la
-   música (por correlación con su WAV, así que no lo engaña un fondo fuerte) y voz en ≥ 40 % del
+   Exige pista de audio que dure lo que el video, -14 ± 1 LUFS, pico ≤ -1 dBTP y la voz al menos
+   3 dB sobre la música en cada tramo de 0,5 s con voz (se tolera un 10 % de tramos flojos si
+   ninguno queda bajo 0 dB). Mide por correlación con el WAV de cada línea, así que no lo engaña un
+   fondo fuerte, y un golpe de música al final de una frase no se esconde en el promedio. Además:
+   voz en ≥ 40 % del reel contando solo tramos con voz, ninguna línea de más de 20 s ni del 80 % del
    reel. **Exit 1 = no se manda a revisar ni se le muestra a Juanjo.** No hay excepción para un reel
-   mudo (regla 9). (Incidente: piezas 2 y 3 publicadas sin
-   voz el 20 y 21-nov-2026; tenían música a -13,8 LUFS y ningún control miraba la voz.)
+   mudo (regla 9). (Incidente: piezas 2 y 3 publicadas sin voz el 20 y 21-nov-2026; tenían música a
+   -13,8 LUFS y ningún control miraba la voz.)
+
+   **El archivo que se sube sale de un solo lugar.** Los reels de escena (capturados) los empaqueta
+   `publicar.mjs`, que revienta si el MP4 no pasa esta medición. Los reels hechos en Remotion (piezas
+   1 a 3, `rrss-video`, fuera del repo) se entregan SOLO con:
+   ```bash
+   node scripts/rrss/entregar-reel.mjs <reel>.mp4 "<Escritorio>/<nombre> IG.mp4"
+   ```
+   que mide, copia y comprueba que la copia tiene el mismo sha256 que lo medido. Copiar el MP4 a mano
+   está prohibido: es exactamente cómo salieron mudas la 2 y la 3. La hoja que va a Juanjo cita el
+   sha256 que imprime la entrega.
 1. **Mira la hoja de contactos de cada pieza** (`out/rrss/<slug>/hoja-de-contactos.png`) y el MP4 del
    reel. No mandes a revisar algo que no miraste: el error de ortografía es tuyo, no del revisor.
 2. Checklist, contra lo que ves y no contra lo que escribiste: las 9 reglas duras de arriba, el

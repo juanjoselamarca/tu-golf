@@ -90,7 +90,7 @@ Una pieza no sale si falla cualquiera de estas:
 - Todo número tiene fuente y fecha verificables. Cero redondeos "para que suene mejor".
 - El primer segundo ya muestra golf y producto. Sin intro y **sin logo al principio**.
 - Subtítulos siempre, en español chileno, sin voseo (`scripts/lib/voseo.mjs` lo verifica).
-- Todo reel lleva voz en off, la de la pieza 1 (Gemini TTS, voz Iapetus), además de subtítulos. Un reel sin voz se ve hecho por una máquina y no se entrega: `scripts/rrss/voz-en-reel.mjs` lo mide y no admite excepciones (decisión de Juanjo, 22-nov-2026).
+- Todo reel lleva voz en off, la voz Iapetus del reel publicado el 16-nov (Dfz1NrnMAG0, Gemini TTS), además de subtítulos. Un reel sin voz se ve hecho por una máquina y no se entrega: `scripts/rrss/voz-en-reel.mjs` lo mide y no admite excepciones (decisión de Juanjo, 22-nov-2026).
 - Cero datos de usuarios reales sin autorización explícita.
 - Cero clips, música o fotografía sin licencia.
 
@@ -108,7 +108,7 @@ filmar y porque lo que muestran existe. Así presentan producto Linear o Arc, y 
 | 3 | Para quien organiza | Un torneo armado de cero, en tiempo real, con voz en off. | Tu torneo, listo en dos minutos. |
 | 4 | La prueba | El primer torneo real que corra en la app. Requiere el OK de la sección 3. | — |
 
-**Todas las piezas llevan voz en off** (Iapetus, la de la pieza 1 publicada). La regla anterior
+**Todas las piezas llevan voz en off** (la voz Iapetus del reel publicado el 16-nov, Dfz1NrnMAG0). La regla anterior
 —piezas mudas, porque «la voz sintética delata a la máquina»— fue un malentendido: lo que Juanjo
 pide es que un reel no se note IA jamás, y un reel sin voz se ve IA (decisión del 22-nov-2026, tras
 publicarse mudas las piezas 2 y 3). La voz se mejora pieza a pieza; no se quita.
