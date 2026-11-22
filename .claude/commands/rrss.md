@@ -99,6 +99,17 @@ problema es la pieza, no el control.
 
 ## PASO 4 — Revisar, hacer revisar y mandar a aprobar
 
+0. **La voz del reel, medida.** Cada reel lleva su manifiesto de voz (`{ "reel", "voz": [{ "archivo",
+   "inicio_s" }] }`, rutas relativas al manifiesto) y se mide el MP4 que se va a subir, no un intermedio:
+   ```bash
+   node scripts/rrss/voz-en-reel.mjs <reel>.manifiesto.json
+   ```
+   Exige pista de audio, -14 ± 1 LUFS, pico ≤ -1 dBTP, cada línea de voz al menos 3 dB sobre la
+   música (por correlación con su WAV, así que no lo engaña un fondo fuerte) y voz en ≥ 40 % del
+   reel. **Exit 1 = no se manda a revisar ni se le muestra a Juanjo.** Un reel mudo solo pasa con
+   `"sinVoz": { "aprobadoPor": "Juanjo", "fecha", "cita" }` literal suyo. Al presentarle la pieza,
+   di en la primera línea si va **CON VOZ** o **SIN VOZ**. (Incidente: piezas 2 y 3 publicadas sin
+   voz el 20 y 21-nov-2026; tenían música a -13,8 LUFS y ningún control miraba la voz.)
 1. **Mira la hoja de contactos de cada pieza** (`out/rrss/<slug>/hoja-de-contactos.png`) y el MP4 del
    reel. No mandes a revisar algo que no miraste: el error de ortografía es tuyo, no del revisor.
 2. Checklist, contra lo que ves y no contra lo que escribiste: las 8 reglas duras de arriba, el

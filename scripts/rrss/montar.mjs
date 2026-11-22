@@ -36,7 +36,7 @@ export const MEDIDA = { ancho: FORMATO.story.ancho, alto: FORMATO.story.alto, fp
  * marketing que corre una vez por semana en esta máquina. Se busca en orden:
  * `FFMPEG_PATH`, el módulo si está instalado, y el `ffmpeg` del PATH.
  */
-function binarioFfmpeg() {
+export function binarioFfmpeg() {
   if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH
   try {
     const ruta = require('ffmpeg-static')

@@ -58,6 +58,10 @@ cabeza, ese es exactamente el hallazgo.
 7. **El golf.** ¿Un golfista de verdad reconoce la situación? Un leaderboard con posiciones
    imposibles, un score que no calza con el par, una tarjeta con stroke index raro: todo eso lo
    ve un socio antes que nosotros.
+8. **La voz del reel.** El expediente tiene que traer la salida de
+   `node scripts/rrss/voz-en-reel.mjs <manifiesto>` con `OK: el reel lleva su voz.` (o un `sinVoz`
+   aprobado por Juanjo con fecha y cita). Si no la trae, o no dice OK: **CORREGIR**, sin mirar el
+   resto. Las piezas 2 y 3 se publicaron sin voz el 20 y 21-nov-2026 porque nadie lo midió.
 
 ## Qué devuelves (lo lee el hilo principal, no un humano)
 
