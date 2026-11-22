@@ -1,0 +1,24 @@
+{
+  "formato": "Reel educativo animado en 2D/3D",
+  "gancho": "Muestra un wedge de golf destacando el número de bounce ignorado con texto explicativo en pantalla.",
+  "por_que_funciona": "Resuelve un problema común del golfista (pegarle mal a la bola) explicando un concepto técnico complejo de forma ultra visual e intuitiva.",
+  "ritmo": "Voz en off constante, animación fluida con cambios de plano/gráfico cada 1 a 2 segundos. Duración total de 1 minuto.",
+  "estructura": [
+    "Hook: Presentación del detalle ignorado en el palo (número de bounce).",
+    "Definición visual: Explicación gráfica del ángulo de bounce en la suela.",
+    "Desglose por categorías: Explicación de bounce bajo (4-6°), alto (10°+) y medio (7-10°) según terreno y tipo de swing.",
+    "Empatía / Dolor: Relación del bounce con errores comunes (chunkear o enterrarse en el bunker).",
+    "Cierre y Call to Action: Llamado a revisar el palo y seguir la cuenta."
+  ],
+  "adaptacion_golfers": "Usar la misma estructura visual para explicar un dato ignorado en la app: 'El número en la tarjeta que arruina tu torneo'. Mostrar en pantalla real de Golfers+ cómo se calcula el hándicap de juego según la cancha versus el hándicap índice, comparando un jugador que anota bien vs. uno que no ajusta sus golpes de ventaja.",
+  "no_copiar": "La animación 3D hecha desde cero si no se cuenta con diseñador de motion graphics; es mejor usar grabaciones reales de la app combinadas con gráficos 2D sencillos sobrepuestos.",
+  "es_de_golf": true,
+  "resumen": "Video animado educativo que explica de manera ultra gráfica el concepto de bounce en los wedges y cómo impacta el contacto según el terreno y swing.",
+  "id": "reel-DfzgJSGIk6z",
+  "url": "https://www.instagram.com/reel/DfzgJSGIk6z/?lqvp=MWY5em9hbzZwcDhrbg==",
+  "recibida": "2026-11-22T01:38:33.166Z",
+  "caption": "There’s a number on your wedge most golfers ignore 👀\nIt’s the bounce, the angle that decides if your wedge digs or glides 📐\n🟢 Low (4 to 6°): firm turf, sweepers\n🟡 Mid (7 to 10°): most players\n🟠 High (10°+): soft sand, big divots\nChunking chips? It might be your bounce, not your swing 💡\nCheck your wedge and follow for more 🙌 @vitsportlive",
+  "nota_juanjo": "",
+  "origen": "inbox:64b51bc7-d313-40a5-bf06-473d49288dc4",
+  "usada_en": []
+}
