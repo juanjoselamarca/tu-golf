@@ -49,6 +49,10 @@ cabeza, ese es exactamente el hallazgo.
 5. **Si se nota hecho por una máquina.** Es la peor falla de marca que tenemos. Señales: texto
    flotando sin un objeto real en cuadro, simetría perfecta, una frase que ningún chileno diría,
    adjetivos vacíos, español neutro o voseo argentino, emoji decorativo.
+   Lee cada línea de texto y de voz en voz alta: **¿la diría un golfista en el hoyo 19 o un
+   comentarista de golf?** Una palabra que no usaría (jerga inventada, la pelota como sujeto en
+   vez de «llegas / te vas al agua», «campo» en vez de cancha) es CORREGIR. La lista de términos
+   rechazados está en `docs/rrss/guia-de-marca.md`, sección 3.
 6. **Las ocho reglas duras** del expediente. Se rompe una, la pieza no sale: no es negociable
    ni compensable con lo bueno que tenga el resto.
 7. **El golf.** ¿Un golfista de verdad reconoce la situación? Un leaderboard con posiciones
