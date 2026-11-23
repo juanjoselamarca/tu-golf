@@ -6,6 +6,7 @@
  */
 
 import { createClient } from '@/lib/supabase'
+import { captureError } from '@/lib/error-tracking'
 import { esEquipoDeClub, type HandicapOrigen } from '@/golf/ronda-libre/equipos-de-club'
 
 export interface PerfilCreador {
@@ -124,7 +125,7 @@ export async function fetchRondasRecientes(
   limite = 3,
 ): Promise<RondaReciente[]> {
   const supabase = createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('rondas_libres')
     .select('course_name, course_id, tees, holes, formato_juego, modo_juego, fecha, ronda_libre_jugadores(nombre, user_id, handicap, tees), ronda_equipos(nombre, handicap_origen)')
     .eq('creador_id', userId)
@@ -136,6 +137,12 @@ export async function fetchRondasRecientes(
     .order('id', { referencedTable: 'ronda_equipos', ascending: true })
     .limit(limite)
 
+  // El atajo es opcional: sin datos la pantalla sigue sin él. Pero un error (p. ej. el embed de `ronda_equipos`
+  // sin permiso o sin la columna) se reporta: callado, el atajo desaparecería para todos sin que nadie lo sepa.
+  if (error) {
+    void captureError(error, { context: 'ronda-libre-nueva.rondas-recientes', level: 'warning', meta: { limite } })
+    return []
+  }
   if (!data) return []
 
   return data.map(r => ({
