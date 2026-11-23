@@ -78,3 +78,25 @@ export function esEquipoDeClub(equipo: { handicap_origen?: HandicapOrigen | null
 export function integrantesQueSeMuestran<T>(equipo: { handicap_origen?: HandicapOrigen | null }, integrantes: readonly T[]): T[] {
   return esEquipoDeClub(equipo) ? [] : [...integrantes]
 }
+
+/** Lo mínimo de un equipo para saber quién juega en él. */
+interface EquipoConMiembros {
+  jugadorIds: readonly string[]
+  handicap_origen?: HandicapOrigen | null
+}
+
+/**
+ * El equipo en que JUEGA el jugador: el que lo tiene como miembro y no es de club. El creador de una ronda de club
+ * está en el primer equipo solo por estructura (plan §1): ese equipo no es suyo y su tarjeta no va a su historial.
+ */
+export function equipoQueJuega<E extends EquipoConMiembros>(equipos: readonly E[], jugadorId: string): E | undefined {
+  return equipos.find(e => !esEquipoDeClub(e) && e.jugadorIds.includes(jugadorId))
+}
+
+/**
+ * El jugador va en la ronda solo por estructura (miembro de un equipo de club): no jugó una tarjeta propia, así que
+ * no se guarda en su historial, no mueve su índice y no se le avisa al coach.
+ */
+export function vaSoloPorEstructura(equipos: readonly EquipoConMiembros[], jugadorId: string): boolean {
+  return equipos.some(e => esEquipoDeClub(e) && e.jugadorIds.includes(jugadorId))
+}

@@ -65,6 +65,21 @@ describe('useGuardarEnMiHistorial', () => {
     expect(tarjetaYaEnMiHistorial).not.toHaveBeenCalled()
   })
 
+  it('scramble de equipos de club: el creador va en el equipo por estructura → no se ofrece ni se guarda', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    const { result } = renderHook(() => useGuardarEnMiHistorial({
+      ronda: { ...(ronda as object), formato_juego: 'scramble' } as never, isFinished: true, currentUserId: 'u2',
+      parMap: { 10: 4 }, siMap: { 10: 1 }, courseHcpMap: {}, courseHcpCompletoMap: {}, sinIndice: [],
+      equipos: [{ id: 'e1', nombre: 'Los Tigres', handicap_equipo: 8, handicap_equipo_juego: 8, jugadorIds: ['p2'], scores: { '10': 4 }, handicap_origen: 'club' }],
+    }))
+    await new Promise(r => setTimeout(r, 0))
+    expect(result.current.estado).toBe('oculto')
+    expect(tarjetaYaEnMiHistorial).not.toHaveBeenCalled()
+    await act(async () => { await result.current.guardar() })
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(avisarAlCoachRondaNueva).not.toHaveBeenCalled()
+  })
+
   it('guardar: SU tarjeta con su userId, recalcula índice, avisa al coach y se oculta', async () => {
     tarjetaYaEnMiHistorial.mockResolvedValue(false)
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: {} })

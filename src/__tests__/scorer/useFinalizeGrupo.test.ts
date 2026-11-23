@@ -427,6 +427,21 @@ describe('useFinalizeGrupo', () => {
     expect(input.scores).toBe(teamScores)
   })
 
+  it('scramble de equipos de club: la tarjeta del equipo no va al historial del anotador, ni índice ni coach, y cierra', async () => {
+    const ronda = { ...rondaBase, formato_juego: 'scramble' }
+    const teamScores = { '10': 4, '11': 3, '12': 4, '13': 4, '14': 3, '15': 4, '16': 4, '17': 5, '18': 4 }
+    const { result } = montar({ ronda, teamEquipos: [
+      { id: 'e1', nombre: 'Los Tigres', handicap_equipo: 8, scores: teamScores, jugadorIds: ['p1'], jugadorNombres: ['Ana'], handicap_origen: 'club' },
+      { id: 'e2', nombre: 'Los Pumas', handicap_equipo: 12, scores: teamScores, jugadorIds: [], jugadorNombres: [], handicap_origen: 'club' },
+    ] })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(recalcularIndiceGolfers).not.toHaveBeenCalled()
+    expect(avisarAlCoachRondaNueva).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
   it('#602 scramble: completa con par los hoyos del EQUIPO y NO inventa tarjetas individuales', async () => {
     const ronda = { ...rondaBase, formato_juego: 'scramble' }
     // El marcador no tocó +/- en el 18: el equipo no tiene score ahí.
