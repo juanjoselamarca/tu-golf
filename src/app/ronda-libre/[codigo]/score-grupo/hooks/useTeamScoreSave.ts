@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { haptic } from '@/lib/ronda/helpers'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
@@ -45,8 +45,15 @@ export function useTeamScoreSave(input: {
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
   /** Envía lo pendiente (useGrupoScoreSave). */
   programarEnvio: () => void
+  /**
+   * Un celular por equipo: equipos que anota OTRO celular (`equiposDeOtroCelular`). El par al pasar de hoyo y al
+   * finalizar nunca los toca, aunque una lista vieja los tuviera en pantalla (se rellena solo `equiposQueAnota`).
+   */
+  ajenos?: ReadonlyArray<{ id: string }>
 }): TeamScoreSave {
   const { codigo, parMap, setTeamEquipos, setHasUnsaved, programarEnvio } = input
+  const ajenosRef = useRef<ReadonlySet<string>>(new Set())
+  useEffect(() => { ajenosRef.current = new Set((input.ajenos ?? []).map(e => e.id)) }, [input.ajenos])
   const [foursomeInvertido, setFoursomeInvertido] = useState<Record<string, boolean>>({})
 
   const handleTeamScoreChange = useCallback((equipoId: string, hole: number, delta: number) => {
@@ -72,7 +79,7 @@ export function useTeamScoreSave(input: {
     const key = String(hole)
     setTeamEquipos(prev => {
       const next = prev.map(eq => {
-        if (eq.scores[key] != null) return eq
+        if (eq.scores[key] != null || ajenosRef.current.has(eq.id)) return eq
         marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(eq.id), { [key]: par })
         return { ...eq, scores: { ...eq.scores, [key]: par } }
       })
@@ -84,7 +91,10 @@ export function useTeamScoreSave(input: {
   }, [codigo, setTeamEquipos, setHasUnsaved, programarEnvio])
 
   const completarEquiposConPar = useCallback((equipos: EquipoDelScorer[], hoyos: readonly number[]) => {
-    const { equipos: next, rellenados } = completarEquiposSinMarcarConPar(equipos, hoyos, parMap)
+    const ajenos = ajenosRef.current
+    const { equipos: propios, rellenados } = completarEquiposSinMarcarConPar(equipos.filter(e => !ajenos.has(e.id)), hoyos, parMap)
+    const completados = new Map(propios.map(e => [e.id, e]))
+    const next = rellenados.length > 0 ? equipos.map(e => completados.get(e.id) ?? e) : equipos
     for (const { id, delta } of rellenados) marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(id), delta)
     if (rellenados.length > 0) {
       setTeamEquipos(next)

@@ -107,7 +107,7 @@ export default function ScoreGrupoPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al cambiar la conexión / terminar la carga
   }, [conexion, golpesSinSubir, loading])
   const { handleTeamScoreChange, autoFillTeamsWithPar, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido } =
-    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio })
+    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio, ajenos: unCelularPorEquipo ? equiposDeOtroCelular : undefined })
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES

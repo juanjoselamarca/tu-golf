@@ -74,6 +74,28 @@ describe('useGrupoScoreSave — un celular por equipo', () => {
     expect(result.current.pendienteDeEnvio).toBe(false)
   })
 
+  it('P0003 «equipo_de_otro_anotador» (otro celular lo reclamó antes de que la pantalla se enterara): definitivo, se descarta y se relee', async () => {
+    saveRondaEquiposScores.mockResolvedValue({ error: { code: 'P0003', message: 'RONDA_FORBIDDEN', details: 'equipo_de_otro_anotador' } })
+    const alPerderEquipo = vi.fn()
+    // Pendiente de antes del reclamo: la lista de ajenos todavía no lo sabe.
+    marcarPendientes('ABC', 'eq:e3', { 2: 5 })
+    const { result } = montar([{ id: 'e3', scores: { '2': 5 } }], { ajenos: [], alPerderEquipo })
+    await act(async () => { await result.current.saveAllScores() })
+    expect(saveRondaEquiposScores).toHaveBeenCalledTimes(1)
+    expect(leerPendientes('ABC')['eq:e3']).toBeUndefined()
+    expect(alPerderEquipo).toHaveBeenCalledTimes(1)
+    expect(addToast).not.toHaveBeenCalled()
+  })
+
+  it('P0003 «equipo_de_otro_anotador» sin datos de un celular por equipo (copia vieja): igual definitivo, no queda en cola', async () => {
+    saveRondaEquiposScores.mockResolvedValue({ error: { code: 'P0003', message: 'RONDA_FORBIDDEN', details: 'equipo_de_otro_anotador' } })
+    marcarPendientes('ABC', 'eq:e3', { 2: 5 })
+    const { result } = montar([{ id: 'e3', scores: { '2': 5 } }])
+    await act(async () => { const p = result.current.saveAllScores(); await vi.runAllTimersAsync(); await p })
+    expect(saveRondaEquiposScores).toHaveBeenCalledTimes(1)
+    expect(leerPendientes('ABC')['eq:e3']).toBeUndefined()
+  })
+
   it('ronda de un celular: un P0003 en un equipo sigue pendiente y se reintenta, como siempre', async () => {
     saveRondaEquiposScores.mockResolvedValue({ error: { code: 'P0003', message: 'RONDA_FORBIDDEN' } })
     marcarPendientes('ABC', 'eq:e2', { 5: 4 })

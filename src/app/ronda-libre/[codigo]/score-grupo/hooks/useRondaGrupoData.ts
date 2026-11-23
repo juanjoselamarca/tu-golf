@@ -227,6 +227,9 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   /** Se pidió leer mientras otra lectura iba en vuelo (p. ej. justo después de reclamar o liberar): una vuelta más. */
   const otraVueltaRef = useRef(false)
   const cargarRef = useRef<() => Promise<void>>(async () => {})
+  /** Los equipos que este celular tiene en pantalla: al releer, uno que ya no es suyo se avisa. */
+  const idsEnPantallaRef = useRef<string[]>([])
+  useEffect(() => { idsEnPantallaRef.current = teamEquipos.map(e => e.id) }, [teamEquipos])
 
   const aplicarMetadatos = useCallback((s: Omit<ScorerGrupoSnapshot, 'v'>) => {
     const nueva = s.ronda as RondaLibre
@@ -313,6 +316,12 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
         return
       }
       if (c.tipo === 'ok') {
+        // Un celular por equipo: otro celular tomó (o le liberaron) un equipo que este tenía en pantalla. Sus golpes
+        // pendientes los descarta el envío (`useGrupoScoreSave`); acá solo se avisa.
+        if (cargadaRef.current && c.snap.unCelularPorEquipo) {
+          const ahora = new Set((c.snap.teamEquipos as EquipoDelScorer[]).map(e => e.id))
+          if (idsEnPantallaRef.current.some(id => !ahora.has(id))) addToast({ type: 'info', title: MENSAJE_YA_NO_ANOTAS, duration: 6000 })
+        }
         setEleccion(null)
         saveScorerGrupoSnapshot(codigo, c.snap)
         aplicarMetadatos(c.snap)

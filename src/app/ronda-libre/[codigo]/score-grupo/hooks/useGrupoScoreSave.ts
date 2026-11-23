@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { saveRondaLibreScores, saveRondaEquiposScores, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
-import { RONDA_ERRCODE, esNoReintentable, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, esNoReintentable, esRechazoDeEquipoAjeno, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { addToast } from '@/hooks/useToast'
 import { haptic } from '@/lib/ronda/helpers'
@@ -305,8 +305,9 @@ export function useGrupoScoreSave(input: {
           }
           // No encontró ronda+jugador (o equipo): se decide abajo, con UNA lectura de la ronda.
           else if (r.error.code === RONDA_ERRCODE.NOT_FOUND) { noEncontrados.push([id, golpes]); return { error: null } }
-          // Un celular por equipo: con sesión (anon recibe 42501), P0003 en un equipo es que ya no lo anota.
-          else if (porCelular && id.startsWith('eq:') && r.error.code === RONDA_ERRCODE.FORBIDDEN) {
+          // Un celular por equipo: el equipo lo anota otro celular (P0003 'equipo_de_otro_anotador', también para el
+          // creador) o lo liberaron (con sesión P0003; anon recibe 42501). Definitivo: el pendiente se descarta.
+          else if (id.startsWith('eq:') && (esRechazoDeEquipoAjeno(r.error) || (porCelular && r.error.code === RONDA_ERRCODE.FORBIDDEN))) {
             confirmarPendientes(codigo, id, golpes)
             equipoPerdido = true
             return { error: null }

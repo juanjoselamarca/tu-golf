@@ -25,6 +25,18 @@ export const RONDA_ERRCODE = {
  */
 export const RONDA_DEMO_DETAIL = 'ronda demo'
 
+/**
+ * DETAIL del P0003 de `upsert_ronda_equipos_scores` cuando el equipo (de club, ronda sin `admin_mode`) tiene anotador
+ * y quien escribe no es él, aunque sea el creador (migración 20261123200000_equipo_tomado_lo_escribe_su_anotador).
+ * Es definitivo: ese celular no anota ese equipo; reintentar no sirve y el pendiente se descarta.
+ */
+export const EQUIPO_DE_OTRO_ANOTADOR_DETAIL = 'equipo_de_otro_anotador'
+
+/** El servidor rechazó los golpes de un equipo porque lo anota otro celular (`EQUIPO_DE_OTRO_ANOTADOR_DETAIL`). */
+export function esRechazoDeEquipoAjeno(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
+  return error?.code === RONDA_ERRCODE.FORBIDDEN && error.details === EQUIPO_DE_OTRO_ANOTADOR_DETAIL
+}
+
 /** Código del error sintético de "venció el plazo". Sin red postgrest-js no lanza: devuelve `code: ''`. */
 export const ERRCODE_SIN_RESPUESTA = 'SIN_RESPUESTA'
 
@@ -37,7 +49,7 @@ export const ERRCODE_SIN_RESPUESTA = 'SIN_RESPUESTA'
  */
 export function rechazoQuePuedeSerSesion(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
   if (!error?.code || error.code === ERRCODE_SIN_RESPUESTA) return false
-  return !(error.code === RONDA_ERRCODE.FORBIDDEN && error.details === RONDA_DEMO_DETAIL)
+  return !(error.code === RONDA_ERRCODE.FORBIDDEN && (error.details === RONDA_DEMO_DETAIL || esRechazoDeEquipoAjeno(error)))
 }
 
 /**
@@ -70,8 +82,9 @@ const RECHAZOS_DEFINITIVOS: readonly string[] = [
   PARAMETRO_INVALIDO,
 ]
 
-export function esNoReintentable(error: { code?: string | null } | null | undefined): boolean {
-  return !!error?.code && RECHAZOS_DEFINITIVOS.includes(error.code)
+export function esNoReintentable(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
+  // P0003 de equipo ajeno: definitivo (no es sesión vencida; el equipo lo anota otro celular).
+  return !!error?.code && (RECHAZOS_DEFINITIVOS.includes(error.code) || esRechazoDeEquipoAjeno(error))
 }
 
 /**

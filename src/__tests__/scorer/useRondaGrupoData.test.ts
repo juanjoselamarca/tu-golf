@@ -310,11 +310,14 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1', 'e3'])
+    addToast.mockClear()
     lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e3', 'u-pedro', 'Pedro')]
     await act(async () => { await result.current.recargar() })
     // autoFillTeamsWithPar y completarEquiposConPar recorren teamEquipos: e3 ya no está ahí.
     expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1'])
     expect(result.current.equiposDeOtroCelular.map(e => e.id)).toEqual(['e3'])
+    // Era suyo en pantalla: se avisa.
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
   })
   it('lo liberaron mientras anotaba (P0003 → recargar): «Ya no anotas este equipo.» y vuelve a elegir equipo', async () => {
     sesion.valor = { session: { user: { id: 'u-pedro' } }, error: null }
