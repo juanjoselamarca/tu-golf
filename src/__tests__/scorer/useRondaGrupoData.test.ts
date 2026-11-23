@@ -38,7 +38,7 @@ const RONDA = {
 }
 const carga = { valor: { estado: 'ok', ronda: RONDA } as { estado: string; ronda?: unknown } }
 const opcionesDeCarga: unknown[] = []
-const lecturaDeEquipos = { falla: false }
+const lecturaDeEquipos = { falla: false, equipos: [] as unknown[] }
 vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
   const real = await orig<typeof import('@/lib/data/ronda-libre-scorer')>()
   return {
@@ -48,7 +48,7 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
     resolverHandicapsDelScorer: async () => ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 }, sinIndice: new Set<string>() }),
     fetchEquiposDelScorer: async () => {
       if (lecturaDeEquipos.falla) throw new Error('Failed to fetch')
-      return []
+      return lecturaDeEquipos.equipos
     },
   }
 })
@@ -63,6 +63,7 @@ function snapshotPrevio(teamEquipos: unknown[] = []) {
 beforeEach(() => {
   opcionesDeCarga.length = 0
   lecturaDeEquipos.falla = false
+  lecturaDeEquipos.equipos = []
   localStorage.clear()
   push.mockClear()
   replace.mockClear()
@@ -263,5 +264,42 @@ describe('useRondaGrupoData — orden de los jugadores al reconectar', () => {
     expect(result.current.ronda?.ronda_libre_jugadores.map(j => j.handicap)).toEqual([8.2, 13, 21])
     expect(opcionesDeCarga.length).toBeGreaterThan(0)
     expect(opcionesDeCarga.every(o => (o as { conReglasDelJuego?: boolean })?.conReglasDelJuego === true)).toBe(true)
+  })
+})
+
+describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () => {
+  const SCRAMBLE = { ...RONDA, formato_juego: 'scramble', admin_mode: false, admin_user_id: null }
+  const eq = (id: string, anotador: string | null, nombre: string | null = null) => ({
+    id, nombre: id, handicap_equipo: 10, handicap_equipo_juego: 3, handicap_origen: 'club', scores: {}, jugadorIds: [], jugadorNombres: [],
+    anotador_user_id: anotador, anotador_nombre: nombre,
+  })
+  it('el creador carga solo su equipo y los libres; el de Pedro queda aparte y nunca en teamEquipos', async () => {
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro'), eq('e3', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1', 'e3'])
+    expect(result.current.equiposDeOtroCelular.map(e => e.id)).toEqual(['e2'])
+    expect(result.current.unCelularPorEquipo).toBe(true)
+    expect(result.current.eleccion).toBeNull()
+    // La copia local también guarda solo los suyos: al abrir sin red no aparece el equipo de Pedro.
+    expect(loadScorerGrupoSnapshot('B4F5Y2')?.teamEquipos.map((e: { id: string }) => e.id)).toEqual(['e1', 'e3'])
+  })
+  it('una cuenta sin equipo (abrió el link): elige equipo, no anota ni va a la ronda en vivo', async () => {
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.eleccion).not.toBeNull())
+    expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
+    expect(result.current.teamEquipos).toEqual([])
+    expect(replace).not.toHaveBeenCalled()
+  })
+  it('ronda de un celular (admin_mode): un extraño va a la ronda en vivo, como siempre', async () => {
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: { ...SCRAMBLE, admin_mode: true, admin_user_id: 'u1' } }
+    lecturaDeEquipos.equipos = [eq('e1', null)]
+    renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/ronda-libre/B4F5Y2'))
   })
 })

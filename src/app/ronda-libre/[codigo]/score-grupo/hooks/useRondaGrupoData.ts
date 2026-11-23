@@ -9,6 +9,9 @@ import { captureError } from '@/lib/error-tracking'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
+import { entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposQueAnota, unCelularPorEquipo } from '@/golf/ronda-libre/anotador-de-equipo'
+import { MENSAJE_YA_NO_ANOTAS } from '@/lib/data/ronda-libre-anotador'
+import { addToast } from '@/hooks/useToast'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import { hoyoParaRetomar, hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import {
@@ -72,11 +75,20 @@ export interface RondaGrupoData {
   conexion: ConexionScorer
   /** Hay golpes PENDIENTES de confirmar en el teléfono (p.ej. se recargó en plena caída): enviarlos. */
   golpesSinSubir: boolean
+  /** Un celular por equipo (`unCelularPorEquipo`): `teamEquipos` son solo los de este celular. */
+  unCelularPorEquipo: boolean
+  /** Un celular por equipo: los equipos que anota otro celular (la franja «lo anota Pedro»; nunca se tocan). */
+  equiposDeOtroCelular: EquipoDelScorer[]
+  /** Este celular todavía no anota ningún equipo: tiene que elegir uno (`ElegirEquipo`). */
+  eleccion: { ronda: RondaLibre; equipos: EquipoDelScorer[] } | null
+  /** Vuelve a leer la ronda y quién anota qué (tras reclamar o liberar un equipo, o si el servidor rechazó uno). */
+  recargar: () => Promise<void>
 }
 
 type Carga =
   | { tipo: 'ok'; ronda: RondaLibre; userId: string; email: string | null; snap: Omit<ScorerGrupoSnapshot, 'v'> }
   | { tipo: 'redirigir'; a: string; reemplazar: boolean }
+  | { tipo: 'elegir_equipo'; ronda: RondaLibre; equipos: EquipoDelScorer[] }
   | { tipo: 'sin_conexion'; userId: string | null }
   | { tipo: 'sin_sesion' }
 
@@ -132,22 +144,29 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
     const a = esFormatoPersonalizado(r.formato_juego) ? `/ronda-libre/${codigo}` : `/ronda-libre/${codigo}/score`
     return { tipo: 'redirigir', a, reemplazar: true }
   }
-  // For team formats without admin_mode, any player in the round can score
-  if (isTeamFormat(r.formato_juego) && !r.admin_mode && !r.ronda_libre_jugadores.some(j => j.user_id === userId)) {
-    return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
-  }
   // Demo rondas son spectator-only (misma regla que /score); finalizada → vista de resultados.
   if (r.es_demo || esRondaCerrada(r.estado)) {
     return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
   }
 
   try {
+    // scramble/foursome usan equipo.scores (compartido); best_ball lee la
+    // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo.
+    const equipos = await fetchEquiposDelScorer(supabase, r)
+    // Formatos por equipo: quién entra lo decide `entradaAlScorerDeEquipos` (un celular por equipo: elegir equipo;
+    // un celular: solo quien puede anotar la ronda; el resto, a la ronda en vivo).
+    if (isTeamFormat(r.formato_juego)) {
+      const entrada = entradaAlScorerDeEquipos(r, equipos, userId)
+      if (entrada === 'en_vivo') return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
+      if (entrada === 'elegir_equipo') return { tipo: 'elegir_equipo', ronda: r, equipos }
+    }
     const hoyos = await cargarHoyosDelScorer(supabase, r)
     // El scorer de grupo exige sesión (arriba): `profiles` es legible.
     const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal, leerIndicesDelCliente(supabase))
-    // scramble/foursome usan equipo.scores (compartido); best_ball lee la
-    // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo.
-    const teamEquipos = await fetchEquiposDelScorer(supabase, r)
+    // UN solo filtro: este celular carga solo los equipos que anota. Todo lo que manda golpes (par al pasar de hoyo,
+    // completar al finalizar, pendientes, hoyo inicial, copia local) parte de esta lista: nunca toca un equipo de
+    // otro celular. En una ronda de un celular son todos.
+    const teamEquipos = equiposQueAnota(r, equipos, userId)
     // Identidad del anotador: su nombre en la ronda; si no juega, el prefijo del email.
     const anotadorNombre = r.ronda_libre_jugadores.find(j => j.user_id === userId)?.nombre
       || (sesion.email ? sesion.email.split('@')[0] : '')
@@ -158,6 +177,8 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
         at: Date.now(), authUserId: userId, anotadorNombre, ronda: r,
         parMap: hoyos.parMap, holeDataMap: hoyos.holeDataMap,
         playerHcp: hcpMap, playerDisplayHcp: displayMap, teamEquipos,
+        equiposDeOtroCelular: equiposDeOtroCelular(r, equipos, userId),
+        unCelularPorEquipo: unCelularPorEquipo(r, equipos),
       },
     }
   } catch (err) {
@@ -196,10 +217,16 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const [authUserId, setAuthUserId] = useState<string | null>(null)
   const [conexion, setConexion] = useState<ConexionScorer>('ok')
   const [golpesSinSubir, setGolpesSinSubir] = useState(false)
+  const [unCelular, setUnCelular] = useState(false)
+  const [ajenos, setAjenos] = useState<EquipoDelScorer[]>([])
+  const [eleccion, setEleccion] = useState<RondaGrupoData['eleccion']>(null)
 
   /** ¿Ya hay una ronda en pantalla? (la recarga de fondo no toca golpes ni hoyo) */
   const cargadaRef = useRef(false)
   const enCursoRef = useRef(false)
+  /** Se pidió leer mientras otra lectura iba en vuelo (p. ej. justo después de reclamar o liberar): una vuelta más. */
+  const otraVueltaRef = useRef(false)
+  const cargarRef = useRef<() => Promise<void>>(async () => {})
 
   const aplicarMetadatos = useCallback((s: Omit<ScorerGrupoSnapshot, 'v'>) => {
     const nueva = s.ronda as RondaLibre
@@ -222,6 +249,8 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     }
     setAnotadorNombre(s.anotadorNombre)
     setAuthUserId(s.authUserId)
+    setUnCelular(!!s.unCelularPorEquipo)
+    setAjenos((s.equiposDeOtroCelular ?? []) as EquipoDelScorer[])
   }, [])
 
   /**
@@ -263,7 +292,8 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   }, [codigo])
 
   const cargar = useCallback(async () => {
-    if (enCursoRef.current) return
+    // La lectura en vuelo pudo salir ANTES del reclamo o la liberación: la que se pide ahora corre después.
+    if (enCursoRef.current) { otraVueltaRef.current = true; return }
     enCursoRef.current = true
     try {
       const c = await cargarDelServidor(codigo)
@@ -272,7 +302,18 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
         else router.push(c.a)
         return
       }
+      if (c.tipo === 'elegir_equipo') {
+        // Lo liberaron mientras anotaba: al volver a elegir, el próximo equipo abre como recién cargado.
+        if (cargadaRef.current) addToast({ type: 'info', title: MENSAJE_YA_NO_ANOTAS, duration: 6000 })
+        cargadaRef.current = false
+        setEleccion({ ronda: c.ronda, equipos: c.equipos })
+        setConexion('ok')
+        setLoadError(null)
+        setLoading(false)
+        return
+      }
       if (c.tipo === 'ok') {
+        setEleccion(null)
         saveScorerGrupoSnapshot(codigo, c.snap)
         aplicarMetadatos(c.snap)
         if (!cargadaRef.current) pintarPrimeraVez(c.ronda, false, c.snap.teamEquipos as EquipoDelScorer[])
@@ -296,21 +337,26 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       setLoading(false)
     } finally {
       enCursoRef.current = false
+      if (otraVueltaRef.current) { otraVueltaRef.current = false; void cargarRef.current() }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable (Next.js App Router)
   }, [codigo, aplicarMetadatos, pintarPrimeraVez])
+  useEffect(() => { cargarRef.current = cargar }, [cargar])
 
   useEffect(() => { void cargar() }, [cargar])
 
   // Reintento solo mientras el servidor no responde (o la pantalla quedó en "sin conexión").
   const reintentando = conexion !== 'ok' || loadError === MENSAJE_SCORER_SIN_CONEXION
+  // Un celular por equipo: también con conexión se relee quién anota qué. Un equipo que otro celular reclamó sale de
+  // este (y sus pendientes no se envían: useGrupoScoreSave); uno liberado vuelve al creador.
+  const releer = reintentando || unCelular
   useEffect(() => {
-    if (!reintentando) return
+    if (!releer) return
     const id = setInterval(() => { void cargar() }, REINTENTO_CARGA_MS)
     const onOnline = () => { void cargar() }
     window.addEventListener('online', onOnline)
     return () => { clearInterval(id); window.removeEventListener('online', onOnline) }
-  }, [reintentando, cargar])
+  }, [releer, cargar])
   useRefreshOnResume(useCallback(() => { void cargar() }, [cargar]), reintentando)
 
   return {
@@ -321,5 +367,6 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     teamEquipos, setTeamEquipos,
     anotadorNombre, authUserId,
     conexion, golpesSinSubir,
+    unCelularPorEquipo: unCelular, equiposDeOtroCelular: ajenos, eleccion, recargar: cargar,
   }
 }

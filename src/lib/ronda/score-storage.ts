@@ -107,7 +107,12 @@ export interface ScorerGrupoSnapshot<R = unknown, H = unknown, E = unknown> {
   holeDataMap: Record<number, H>
   playerHcp: Record<string, number>
   playerDisplayHcp: Record<string, number>
+  /** Los equipos que anota ESTE celular (`equiposQueAnota`): lo único que el scorer puede tocar. */
   teamEquipos: E[]
+  /** Un celular por equipo: los que anota otro celular (solo se muestran). Falta en copias de antes: ninguno. */
+  equiposDeOtroCelular?: E[]
+  /** La ronda es de un celular por equipo (`unCelularPorEquipo`). Falta en copias de antes: no. */
+  unCelularPorEquipo?: boolean
 }
 
 export function saveScorerGrupoSnapshot(codigo: string, snap: Omit<ScorerGrupoSnapshot, 'v'>): void {
