@@ -92,6 +92,9 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
     fireEvent.click(soloEquipos())
     expect(revisar().disabled).toBe(true)
     expect(aviso().textContent).toBe('Escribe el hándicap de Equipo 1.')
+    // Solo falta completar: neutro (--text-2), no rojo de error con el paso recién abierto.
+    expect(aviso().style.color).toBe('var(--text-2)')
+    expect(aviso().style.fontSize).toBe('12px')
     fireEvent.change(handicaps()[0], { target: { value: '8' } })
     expect(revisar().disabled).toBe(false)
     fireEvent.click(revisar())
@@ -104,7 +107,7 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
     fireEvent.change(handicaps()[0], { target: { value: '19' } })
     expect(handicaps()[0].getAttribute('aria-invalid')).toBe('true')
     expect(aviso().textContent).toBe('El hándicap de Equipo 1 va de 0 a 18, sin decimales.')
-    // Todo lo que frena se lee igual que el aviso del índice: color de error a 12px (AA en los dos temas).
+    // Un dato mal se lee igual que el aviso del índice: color de error a 12px (AA en los dos temas).
     expect(aviso().style.color).toBe('var(--error-fg)')
     expect(aviso().style.fontSize).toBe('12px')
     expect(handicaps()[0].placeholder).toBe('0–18')

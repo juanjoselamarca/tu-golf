@@ -23,7 +23,7 @@ import { EquiposDeClub, SelectorSoloEquipos } from './EquiposDeClub'
 import type { EquiposDeClubDelFormulario } from '../hooks/useEquiposDeClub'
 import { TarjetaDelCreador } from './TarjetaDelCreador'
 import { TarjetaDeRival } from './TarjetaDeRival'
-import { avisoQueFrena, colores, etiqueta, primario, secundario, tarjeta } from './estilos'
+import { avisoQueFalta, avisoQueFrena, colores, etiqueta, primario, secundario, tarjeta } from './estilos'
 
 interface Props {
   creador: { nombre: string; indice: number | null }
@@ -281,7 +281,8 @@ export function PasoJugadores(props: Props) {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px' }}>
+      {/* flex-start: con un aviso de dos líneas, «← Atrás» no se estira a la altura de la columna. */}
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
         <button type="button" onClick={props.onAtras} style={secundario}>
           ← Atrás
         </button>
@@ -299,7 +300,7 @@ export function PasoJugadores(props: Props) {
           <div
             id="paso-jugadores-aviso"
             role="status"
-            style={avisoQueFrena}
+            style={avisoDeIndice != null || props.problema?.esError ? avisoQueFrena : avisoQueFalta}
           >
             {detalleDelBoton}
           </div>

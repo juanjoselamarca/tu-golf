@@ -78,15 +78,24 @@ export const inputQueBloquea = {
 } as const
 
 /**
- * El aviso bajo el botón que no deja avanzar (índice, falta un dato, rango). Un solo estilo para todo lo que frena:
- * `--error-fg` a 12px pasa AA compositado en los dos temas (claro 6,2:1 sobre `--bg`; oscuro 9,0:1 sobre
- * `--bg-surface`). El ámbar `colores.aviso` daba ~3:1 sobre claro.
+ * El aviso bajo el botón cuando un dato está mal (índice o hándicap fuera de rango, repetido, sobra). `--error-fg`
+ * a 12px pasa AA compositado en los dos temas (claro 6,2:1 sobre `--bg`; oscuro 9,0:1 sobre `--bg-surface`). El
+ * ámbar `colores.aviso` daba ~3:1 sobre claro.
  */
 export const avisoQueFrena = {
   fontSize: '12px',
   color: 'var(--error-fg)',
   textAlign: 'center' as const,
   lineHeight: 1.3,
+} as const
+
+/**
+ * El aviso bajo el botón cuando solo falta completar algo (el paso recién abierto): mismo tamaño, en `--text-2`
+ * para no gritar error antes de que el usuario haga nada. AA en los dos temas (claro ~5,6:1, oscuro ~8:1).
+ */
+export const avisoQueFalta = {
+  ...avisoQueFrena,
+  color: colores.texto2,
 } as const
 
 /** "HCP n" junto a cada jugador. */

@@ -82,6 +82,11 @@ export interface RondaAValidar {
 export interface ProblemaDeLaRonda {
   titulo: string
   detalle: string
+  /**
+   * `true` = un dato está mal (fuera de rango, repetido, sobra): se muestra como error. Sin él, falta algo por
+   * completar: el paso recién abierto no arranca en rojo.
+   */
+  esError?: true
 }
 
 /** `null` cuando la ronda se puede crear. */
@@ -123,22 +128,22 @@ function problemaDeRondaConEquiposDeClub(
   { equipos, holes, quienAnota }: EquiposDeClubAValidar,
 ): ProblemaDeLaRonda | null {
   if (!admiteEquiposDeClub(formato)) {
-    return { titulo: 'Solo en Scramble', detalle: 'Los equipos con hándicap del club se juegan solo en Scramble.' }
+    return { titulo: 'Solo en Scramble', esError: true, detalle: 'Los equipos con hándicap del club se juegan solo en Scramble.' }
   }
   // El creador es la única tarjeta: los equipos no tienen jugadores (plan §1).
   if (jugadores.length > 1) {
-    return { titulo: 'Sobran jugadores', detalle: 'Con equipos del club solo vas tú en la ronda. Quita los demás jugadores.' }
+    return { titulo: 'Sobran jugadores', esError: true, detalle: 'Con equipos del club solo vas tú en la ronda. Quita los demás jugadores.' }
   }
   // Sin el creador o sin su nombre: su perfil todavía no cargó (mismo caso que en la ronda con jugadores).
   if (!jugadores[0]?.nombre.trim()) return PERFIL_CARGANDO
   if (!esHoyosDeEquiposDeClub(holes)) {
-    return { titulo: 'Hoyos no disponibles', detalle: `Este modo se juega a ${HOYOS_DE_EQUIPOS_DE_CLUB.join(' o ')} hoyos.` }
+    return { titulo: 'Hoyos no disponibles', esError: true, detalle: `Este modo se juega a ${HOYOS_DE_EQUIPOS_DE_CLUB.join(' o ')} hoyos.` }
   }
   if (equipos.length === 0) {
     return { titulo: 'Faltan equipos', detalle: 'Agrega al menos un equipo.' }
   }
   if (equipos.length > MAX_EQUIPOS_DE_CLUB) {
-    return { titulo: 'Demasiados equipos', detalle: DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB }
+    return { titulo: 'Demasiados equipos', esError: true, detalle: DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB }
   }
 
   // Gross no usa hándicap: el campo ni se pide.
@@ -149,7 +154,7 @@ function problemaDeRondaConEquiposDeClub(
       }
       if (!esHandicapDeClubValido(equipo.handicap, holes)) {
         return {
-          titulo: 'Hándicap fuera de rango',
+          titulo: 'Hándicap fuera de rango', esError: true,
           // Con el nombre, igual que «falta»: con 3 o 4 equipos el aviso dice cuál es.
           detalle: `El hándicap de ${nombreVisibleDeEquipo(equipo.nombre, i)} va de 0 a ${handicapDeClubMaximo(holes)}, sin decimales.`,
         }
@@ -161,7 +166,7 @@ function problemaDeRondaConEquiposDeClub(
   // filas que no se pueden distinguir.
   const nombres = equipos.map((e, i) => nombreVisibleDeEquipo(e.nombre, i).toLocaleLowerCase('es-CL'))
   if (new Set(nombres).size !== nombres.length) {
-    return { titulo: 'Nombres repetidos', detalle: 'Dos equipos se llaman igual. Cambia uno.' }
+    return { titulo: 'Nombres repetidos', esError: true, detalle: 'Dos equipos se llaman igual. Cambia uno.' }
   }
 
   if (equipos.length >= 2 && quienAnota == null) {
@@ -185,7 +190,7 @@ function problemaDeCantidad({ formato, jugadores }: RondaAValidar): ProblemaDeLa
 
   if (jugadores.length > MAX_JUGADORES_POR_RONDA) {
     return {
-      titulo: 'Demasiados jugadores',
+      titulo: 'Demasiados jugadores', esError: true,
       detalle: `Una ronda libre admite hasta ${MAX_JUGADORES_POR_RONDA} jugadores.`,
     }
   }
@@ -226,13 +231,13 @@ function problemaDePerfiles({ jugadores, creadorId }: RondaAValidar): ProblemaDe
     if (!j.perfilId) continue
     if (creadorId && j.perfilId === creadorId) {
       return {
-        titulo: 'Ya estás en la ronda',
+        titulo: 'Ya estás en la ronda', esError: true,
         detalle: `Elegiste tu propia cuenta para ${j.nombre || 'un rival'}. Tú ya juegas esta ronda: elige a otra persona.`,
       }
     }
     if (vistos.has(j.perfilId)) {
       return {
-        titulo: 'Jugador repetido',
+        titulo: 'Jugador repetido', esError: true,
         detalle: `${j.nombre || 'Un jugador'} está dos veces en la ronda. Quita una de sus tarjetas.`,
       }
     }
@@ -283,7 +288,7 @@ function problemaDeRangoDeIndices({ jugadores }: RondaAValidar): ProblemaDeLaRon
   const fuera = jugadores.filter(j => j.indice != null && !esIndiceDeHandicapValido(j.indice))
   if (fuera.length === 0) return null
   return {
-    titulo: 'Índice fuera de rango',
+    titulo: 'Índice fuera de rango', esError: true,
     detalle: `${fuera.map(j => j.nombre || 'Sin nombre').join(', ')}: ${MENSAJE_INDICE_FUERA_DE_RANGO}`,
   }
 }
