@@ -151,7 +151,10 @@ export function PasoConfirmar(props: Props) {
               : formatLabel(props.formato, props.modo)}
         </Fila>
 
-        <Fila etiqueta="Tees">{nombreVisibleDeTee(props.teeGlobal, props.recorridosElegidos.length === 2)}</Fila>
+        {/* Equipos de club: nadie juega con su índice, el tee no cambia ningún número. */}
+        {!club && (
+          <Fila etiqueta="Tees">{nombreVisibleDeTee(props.teeGlobal, props.recorridosElegidos.length === 2)}</Fila>
+        )}
 
         <Fila etiqueta="Fecha">
           {new Date(`${props.fecha}T12:00:00`).toLocaleDateString('es-CL', {
@@ -159,7 +162,9 @@ export function PasoConfirmar(props: Props) {
           })}
         </Fila>
 
-        <Fila etiqueta="Anota">{props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'}</Fila>
+        <Fila etiqueta="Anota">
+          {club ? 'Tú, todos los equipos' : props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'}
+        </Fila>
 
         {club ? (
           <div style={{ padding: '10px 0' }}>
@@ -169,13 +174,16 @@ export function PasoConfirmar(props: Props) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {club.map((e, i) => (
                 <div key={`${i}-${e.nombre}`} style={{
+                  display: 'flex', alignItems: 'baseline', gap: '4px',
                   padding: '8px 12px', borderRadius: '8px', background: 'rgba(196,153,42,0.05)',
-                  fontSize: '14px', fontWeight: 500, color: colores.texto,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  fontSize: '14px', fontWeight: 500, color: colores.texto, whiteSpace: 'nowrap',
                 }}>
-                  {e.nombre}
+                  {/* El nombre cede (puntos suspensivos); el hándicap se ve siempre entero. */}
+                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.nombre}</span>
                   {/* Solo en neto: en gross el hándicap no juega. «(club)»: no lo calculó Golfers+. */}
-                  {props.modo === 'neto' && e.handicap != null ? ` · HCP ${formatearHandicap(e.handicap)} (club)` : ''}
+                  {props.modo === 'neto' && e.handicap != null && (
+                    <span style={{ flexShrink: 0 }}>· HCP {formatearHandicap(e.handicap)} (club)</span>
+                  )}
                 </div>
               ))}
             </div>
