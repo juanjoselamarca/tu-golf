@@ -21,13 +21,13 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { isSharedBallFormat } from '@/golf/formats'
-import { equipoAjenoIncompleto, equiposDeOtroCelular, equiposQueAnota } from '@/golf/ronda-libre/anotador-de-equipo'
+import { equipoAjenoIncompleto, equiposQueAnota, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
 import { fetchEquiposConAnotador } from '@/lib/data/ronda-libre'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-de-club'
@@ -73,7 +73,7 @@ export function useFinalizeGrupo(input: {
   parMap: Record<number, number>
   teamEquipos: EquipoDelScorer[]
   /** Bola compartida: completa con par los hoyos sin score del equipo (`useTeamScoreSave`). */
-  completarEquiposConPar: (equipos: EquipoDelScorer[], hoyos: readonly number[]) => EquipoDelScorer[]
+  completarEquiposConPar: (equipos: EquipoDelScorer[], hoyos: readonly number[], sinPar?: ReadonlyArray<{ id: string }>) => EquipoDelScorer[]
   /** Match play de la ronda (`useMatchPlayState`, A = primer jugador); `null` en otros formatos. */
   matchResult: MatchResult | null
   /**
@@ -191,7 +191,9 @@ export function useFinalizeGrupo(input: {
       marcarRespaldosDeRondaCerrada(codigo)
     }
 
-    // Un celular por equipo: los equipos al día, antes de rellenar nada con par.
+    // Un celular por equipo: los equipos al día, antes de rellenar nada con par. Los que este celular no rellena
+    // (de otro celular o sin reclamar) se leen acá y son los mismos que después no se completan.
+    let sinPar: ReadonlyArray<{ id: string }> | undefined
     if (!rondaYaCerrada && input.unCelularPorEquipo) {
       let todos: Awaited<ReturnType<typeof fetchEquiposConAnotador>>
       try {
@@ -200,9 +202,14 @@ export function useFinalizeGrupo(input: {
         avisarSinServidor()
         return
       }
-      const ajeno = equipoAjenoIncompleto(equiposDeOtroCelular(ronda, todos, authUserId), hoyos)
+      sinPar = equiposSinParAutomatico(ronda, todos, authUserId)
+      // Incompleto de otro celular o sin reclamar: frena. El sin reclamar no se rellena con par (P1-a).
+      const ajeno = equipoAjenoIncompleto(equiposSinParAutomatico(ronda, todos, authUserId), hoyos)
       if (ajeno) {
-        addToast({ type: 'error', title: avisoEquipoAjenoIncompleto(ajeno.equipo.nombre, ajeno.hoyo), duration: 8000 })
+        const aviso = ajeno.equipo.anotador_user_id
+          ? avisoEquipoAjenoIncompleto(ajeno.equipo.nombre, ajeno.hoyo)
+          : avisoEquipoSinReclamarIncompleto(ajeno.equipo.nombre, ajeno.hoyo)
+        addToast({ type: 'error', title: aviso, duration: 8000 })
         haptic([30, 60, 30])
         return
       }
@@ -245,7 +252,7 @@ export function useFinalizeGrupo(input: {
       // (quedaría como pendiente y subiría con par si la ronda se reabre).
       if (bolaCompartida) equiposFinales = completarEquiposSinMarcarConPar(teamEquipos, hoyos, parMap).equipos
     } else {
-      if (bolaCompartida) equiposFinales = completarEquiposConPar(teamEquipos, hoyos)
+      if (bolaCompartida) equiposFinales = completarEquiposConPar(teamEquipos, hoyos, sinPar)
       else setScores(filledScores)
       // UN envío con la clasificación del scorer: respalda y marca pendiente todo (también las tarjetas
       // que el servidor rechazó antes), y P0001 se confirma con la ronda. Sin servidor (o sesión vencida)

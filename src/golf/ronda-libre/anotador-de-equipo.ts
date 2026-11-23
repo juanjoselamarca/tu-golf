@@ -69,6 +69,35 @@ export function equiposDeOtroCelular<E extends EquipoConAnotador>(
   return equipos.filter(e => !mios.has(e.id))
 }
 
+/**
+ * Los equipos a los que ESTE celular les pone par solo (al pasar de hoyo y al cerrar). Ronda de un celular: todos,
+ * como siempre. Un celular por equipo: solo el que reclamó (`anotador_user_id === userId`). Un equipo sin reclamar
+ * lo ve y lo edita a mano el creador, pero el par no se inventa: sería un par falso en el servidor y en la tabla en
+ * vivo para un equipo que todavía no abre el link (revisión Fable PR4, P1-a).
+ */
+export function equiposConParAutomatico<E extends EquipoConAnotador>(
+  ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode'>,
+  equipos: readonly E[],
+  userId: string | null | undefined,
+): E[] {
+  if (!unCelularPorEquipo(ronda, equipos)) return [...equipos]
+  if (!userId) return []
+  return equipos.filter(e => e.anotador_user_id === userId)
+}
+
+/**
+ * Complemento exacto de `equiposConParAutomatico`: los de otro celular y los sin reclamar. Al cerrar, uno de estos
+ * con hoyos sin golpes BLOQUEA el cierre (`equipoAjenoIncompleto`): no se rellena con par.
+ */
+export function equiposSinParAutomatico<E extends EquipoConAnotador>(
+  ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode'>,
+  equipos: readonly E[],
+  userId: string | null | undefined,
+): E[] {
+  const conPar = new Set(equiposConParAutomatico(ronda, equipos, userId).map(e => e.id))
+  return equipos.filter(e => !conPar.has(e.id))
+}
+
 /** Nombre con que se muestra quién anota un equipo. Sin nombre (cuenta sin nombre o borrada): «otro celular». */
 export function nombreDelAnotador(equipo: Pick<EquipoConAnotador, 'anotador_nombre'>): string {
   return equipo.anotador_nombre?.trim() || 'otro celular'
@@ -136,7 +165,7 @@ export function anotadoresDeEquipos(
 }
 
 /**
- * Equipo de otro celular al que le faltan hoyos: el primero que bloquea el cierre y el hoyo en que va (el primero
+ * Equipo sin par automático (de otro celular o sin reclamar) al que le faltan hoyos: el primero que bloquea el cierre y el hoyo en que va (el primero
  * sin golpes, en el orden de la ronda). `null` = todos completos.
  */
 export function equipoAjenoIncompleto<E extends EquipoConAnotador & { nombre: string; scores: Record<string, number> }>(

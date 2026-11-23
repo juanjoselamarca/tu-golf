@@ -132,3 +132,11 @@ export const AVISO_EQUIPOS_CAMBIARON = {
 export function avisoEquipoAjenoIncompleto(nombreEquipo: string, hoyo: number): string {
   return `${nombreEquipo} va en el hoyo ${hoyo}. Espera a que termine o libéralo para cerrarlo tú.`
 }
+
+/**
+ * Un celular por equipo: Finalizar se frena mientras a un equipo que nadie reclamó le faltan hoyos. No se rellena con
+ * par (sería un par inventado para un equipo que nunca anotó): lo anota a mano quien cierra.
+ */
+export function avisoEquipoSinReclamarIncompleto(nombreEquipo: string, hoyo: number): string {
+  return `${nombreEquipo} no tiene golpes en el hoyo ${hoyo}. Anótalo para cerrar la ronda.`
+}

@@ -18,7 +18,7 @@ import { getYardajeForTee, type Jugador } from '@/types/ronda'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
-import { cierraLaRonda, nombreDelCreador } from '@/golf/ronda-libre/anotador-de-equipo'
+import { cierraLaRonda, equiposSinParAutomatico, nombreDelCreador } from '@/golf/ronda-libre/anotador-de-equipo'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores } from '@/lib/ronda/score-storage'
 import { BestBallTeamCard } from './components/BestBallTeamCard'
@@ -106,8 +106,14 @@ export default function ScoreGrupoPage() {
     if (!loading && conexion === 'ok' && (hasUnsaved || golpesSinSubir)) void saveAllRef.current()
   // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al cambiar la conexión / terminar la carga
   }, [conexion, golpesSinSubir, loading])
+  // Un celular por equipo: el par al pasar de hoyo y al cerrar solo va al equipo que este celular reclamó; los de otro
+  // celular y los sin reclamar se editan a mano (un par inventado se vería en la tabla en vivo).
+  const sinParAutomatico = useMemo(
+    () => unCelularPorEquipo && ronda ? equiposSinParAutomatico(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId) : undefined,
+    [unCelularPorEquipo, ronda, teamEquipos, equiposDeOtroCelular, authUserId],
+  )
   const { handleTeamScoreChange, autoFillTeamsWithPar, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido } =
-    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio, ajenos: unCelularPorEquipo ? equiposDeOtroCelular : undefined })
+    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio, sinParAutomatico })
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
@@ -161,7 +167,7 @@ export default function ScoreGrupoPage() {
     if (currentHoleIdx < 0) { nav.advanceHole(); return }
 
     if (isSharedBallFormat(formatoJuego)) {
-      // Auto-fill teams without scores with par
+      // Equipos sin golpes en el hoyo → par. Un celular por equipo: solo el que reclamó este celular (`sinParAutomatico`).
       await autoFillTeamsWithPar(currentHole, par)
     } else {
       // Auto-fill ALL players who don't have a score for the current hole with par

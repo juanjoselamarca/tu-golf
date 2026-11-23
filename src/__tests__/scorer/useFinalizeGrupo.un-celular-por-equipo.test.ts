@@ -95,7 +95,29 @@ describe('useFinalizeGrupo — un celular por equipo', () => {
     lectura.equipos = [mio, eq('e2', 'Los Pumas', 'u-pedro', lleno)]
     const { result } = montar([mio])
     await finalizar(result)
-    expect(completarEquiposConPar).toHaveBeenCalledWith([mio], hoyos)
+    // Lo que no se rellena es lo recién leído: el equipo de otro celular.
+    expect(completarEquiposConPar).toHaveBeenCalledWith([mio], hoyos, [lectura.equipos[1]])
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
+  it('P1-a: un equipo SIN RECLAMAR con hoyos sin golpes frena el cierre del creador (no se rellena con par)', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    const sinReclamar = eq('e3', 'Los Cóndores', null, { 1: 4, 2: 3 })
+    lectura.equipos = [mio, sinReclamar]
+    const { result } = montar([mio, sinReclamar])
+    await finalizar(result)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Los Cóndores no tiene golpes en el hoyo 3. Anótalo para cerrar la ronda.' }))
+    expect(completarEquiposConPar).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('P1-a: el equipo sin reclamar completo a mano no frena, y no se rellena (solo el reclamado)', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, { 1: 4 })
+    const sinReclamar = eq('e3', 'Los Cóndores', null, lleno)
+    lectura.equipos = [mio, sinReclamar]
+    const { result } = montar([mio, sinReclamar])
+    await finalizar(result)
+    expect(completarEquiposConPar).toHaveBeenCalledWith([mio, sinReclamar], hoyos, [sinReclamar])
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
   })
 

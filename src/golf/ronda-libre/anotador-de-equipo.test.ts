@@ -4,8 +4,10 @@ import {
   cierraLaRonda,
   entradaAlScorerDeEquipos,
   equipoAjenoIncompleto,
+  equiposConParAutomatico,
   equiposDeOtroCelular,
   equiposQueAnota,
+  equiposSinParAutomatico,
   nombreDelAnotador,
   nombreDelCreador,
   unCelularPorEquipo,
@@ -152,5 +154,25 @@ describe('nombreDelCreador', () => {
     expect(nombreDelCreador({ creador_id: null, ronda_libre_jugadores: [] })).toBeNull()
     expect(nombreDelCreador({ creador_id: CREADOR, ronda_libre_jugadores: [{ user_id: EXTRANO, nombre: 'X' }] })).toBeNull()
     expect(nombreDelCreador({ creador_id: CREADOR, ronda_libre_jugadores: [{ user_id: CREADOR, nombre: '  ' }] })).toBeNull()
+  })
+})
+
+describe('equiposConParAutomatico / equiposSinParAutomatico (par fantasma, P1-a)', () => {
+  it('un celular por equipo, creador: solo su equipo reclamado; el sin reclamar NO recibe par aunque lo anote', () => {
+    expect(ids(equiposQueAnota(multi, equipos, CREADOR))).toEqual(['e1', 'e3'])
+    expect(ids(equiposConParAutomatico(multi, equipos, CREADOR))).toEqual(['e1'])
+    expect(ids(equiposSinParAutomatico(multi, equipos, CREADOR))).toEqual(['e2', 'e3'])
+  })
+  it('un celular por equipo, anotador: solo el suyo', () => {
+    expect(ids(equiposConParAutomatico(multi, equipos, PEDRO))).toEqual(['e2'])
+    expect(ids(equiposSinParAutomatico(multi, equipos, PEDRO))).toEqual(['e1', 'e3'])
+  })
+  it('sin sesión: ninguno recibe par', () => {
+    expect(equiposConParAutomatico(multi, equipos, null)).toEqual([])
+    expect(ids(equiposSinParAutomatico(multi, equipos, undefined))).toEqual(['e1', 'e2', 'e3'])
+  })
+  it('«Yo anoto todos» (un celular): todos reciben par, como siempre', () => {
+    expect(ids(equiposConParAutomatico(unCelular, equipos, CREADOR))).toEqual(['e1', 'e2', 'e3'])
+    expect(equiposSinParAutomatico(unCelular, equipos, CREADOR)).toEqual([])
   })
 })

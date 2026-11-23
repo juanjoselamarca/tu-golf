@@ -11,14 +11,18 @@ import { completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-hist
 export interface TeamScoreSave {
   /** +/- sobre el score COMPARTIDO del equipo (scramble / foursome) en un hoyo. */
   handleTeamScoreChange: (equipoId: string, hole: number, delta: number) => void
-  /** Equipos sin score en el hoyo → par (al pasar de hoyo). No espera al servidor. */
+  /**
+   * Equipos sin score en el hoyo → par (al pasar de hoyo). No espera al servidor. Nunca toca `sinParAutomatico`
+   * (un celular por equipo: los de otro celular y los sin reclamar).
+   */
   autoFillTeamsWithPar: (hole: number, par: number) => Promise<void>
   /**
    * Al finalizar (bola compartida): los hoyos DE LA RONDA sin score del equipo → par.
    * Deja los pendientes marcados ANTES de volver (los envía `enviarPendientes`) y
    * devuelve los equipos completos (lo que se guarda en el historial).
+   * `sinPar`: los equipos que no se rellenan, leídos recién del servidor al cerrar; sin él, `sinParAutomatico`.
    */
-  completarEquiposConPar: (equipos: EquipoDelScorer[], hoyos: readonly number[]) => EquipoDelScorer[]
+  completarEquiposConPar: (equipos: EquipoDelScorer[], hoyos: readonly number[], sinPar?: ReadonlyArray<{ id: string }>) => EquipoDelScorer[]
   /** Foursome: invertir orden de salida por equipo (A→pares, B→impares). */
   foursomeInvertido: Record<string, boolean>
   toggleFoursomeInvertido: (equipoId: string) => void
@@ -46,14 +50,15 @@ export function useTeamScoreSave(input: {
   /** Envía lo pendiente (useGrupoScoreSave). */
   programarEnvio: () => void
   /**
-   * Un celular por equipo: equipos que anota OTRO celular (`equiposDeOtroCelular`). El par al pasar de hoyo y al
-   * finalizar nunca los toca, aunque una lista vieja los tuviera en pantalla (se rellena solo `equiposQueAnota`).
+   * Un celular por equipo: los equipos que este celular NO rellena con par (`equiposSinParAutomatico`: los de otro
+   * celular y los sin reclamar). El par al pasar de hoyo y al finalizar nunca los toca, aunque una lista vieja los
+   * tuviera en pantalla. Se editan a mano.
    */
-  ajenos?: ReadonlyArray<{ id: string }>
+  sinParAutomatico?: ReadonlyArray<{ id: string }>
 }): TeamScoreSave {
   const { codigo, parMap, setTeamEquipos, setHasUnsaved, programarEnvio } = input
-  const ajenosRef = useRef<ReadonlySet<string>>(new Set())
-  useEffect(() => { ajenosRef.current = new Set((input.ajenos ?? []).map(e => e.id)) }, [input.ajenos])
+  const sinParRef = useRef<ReadonlySet<string>>(new Set())
+  useEffect(() => { sinParRef.current = new Set((input.sinParAutomatico ?? []).map(e => e.id)) }, [input.sinParAutomatico])
   const [foursomeInvertido, setFoursomeInvertido] = useState<Record<string, boolean>>({})
 
   const handleTeamScoreChange = useCallback((equipoId: string, hole: number, delta: number) => {
@@ -79,7 +84,7 @@ export function useTeamScoreSave(input: {
     const key = String(hole)
     setTeamEquipos(prev => {
       const next = prev.map(eq => {
-        if (eq.scores[key] != null || ajenosRef.current.has(eq.id)) return eq
+        if (eq.scores[key] != null || sinParRef.current.has(eq.id)) return eq
         marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(eq.id), { [key]: par })
         return { ...eq, scores: { ...eq.scores, [key]: par } }
       })
@@ -90,9 +95,9 @@ export function useTeamScoreSave(input: {
     programarEnvio()
   }, [codigo, setTeamEquipos, setHasUnsaved, programarEnvio])
 
-  const completarEquiposConPar = useCallback((equipos: EquipoDelScorer[], hoyos: readonly number[]) => {
-    const ajenos = ajenosRef.current
-    const { equipos: propios, rellenados } = completarEquiposSinMarcarConPar(equipos.filter(e => !ajenos.has(e.id)), hoyos, parMap)
+  const completarEquiposConPar = useCallback((equipos: EquipoDelScorer[], hoyos: readonly number[], sinPar?: ReadonlyArray<{ id: string }>) => {
+    const excluidos = sinPar ? new Set(sinPar.map(e => e.id)) : sinParRef.current
+    const { equipos: propios, rellenados } = completarEquiposSinMarcarConPar(equipos.filter(e => !excluidos.has(e.id)), hoyos, parMap)
     const completados = new Map(propios.map(e => [e.id, e]))
     const next = rellenados.length > 0 ? equipos.map(e => completados.get(e.id) ?? e) : equipos
     for (const { id, delta } of rellenados) marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(id), delta)
