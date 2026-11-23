@@ -75,6 +75,8 @@ $function$;
 DROP FUNCTION IF EXISTS public.reclamar_equipo_de_ronda(text, uuid);
 DROP FUNCTION IF EXISTS public.liberar_equipo_de_ronda(text, uuid);
 
+DROP TRIGGER IF EXISTS ronda_equipos_anotador_guard ON public.ronda_equipos;
+DROP FUNCTION IF EXISTS public.ronda_equipos_anotador_guard();
 DROP TRIGGER IF EXISTS ronda_equipos_anotador_nombre ON public.ronda_equipos;
 DROP FUNCTION IF EXISTS public.ronda_equipos_anotador_nombre();
 

@@ -3033,6 +3033,22 @@ AS $function$
   WHERE p.schemaname = 'public'
   ORDER BY p.tablename, p.cmd, p.policyname;
 $function$;
+CREATE OR REPLACE FUNCTION public.ronda_equipos_anotador_guard()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF current_user IN ('anon', 'authenticated')
+     AND NEW.anotador_user_id IS NOT NULL
+     AND NEW.anotador_user_id IS DISTINCT FROM auth.uid()
+     AND (TG_OP = 'INSERT' OR NEW.anotador_user_id IS DISTINCT FROM OLD.anotador_user_id) THEN
+    RAISE EXCEPTION 'ANOTADOR_AJENO' USING ERRCODE = '42501',
+      DETAIL = 'un equipo se reclama con reclamar_equipo_de_ronda; desde el cliente solo puedes ponerte a ti';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.ronda_equipos_anotador_nombre()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -3242,6 +3258,8 @@ DECLARE
   v_es_demo boolean;
   v_scores jsonb;
   v_anotador uuid;
+  v_origen text;
+  v_admin_mode boolean;
   v_is_service boolean := COALESCE(auth.role(), '') = 'service_role';
   v_new_scores jsonb;
 BEGIN
@@ -3251,8 +3269,8 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  SELECT rl.id, rl.estado, rl.es_demo, re.scores, re.anotador_user_id
-    INTO v_ronda_id, v_estado, v_es_demo, v_scores, v_anotador
+  SELECT rl.id, rl.estado, rl.es_demo, rl.admin_mode, re.scores, re.anotador_user_id, re.handicap_origen
+    INTO v_ronda_id, v_estado, v_es_demo, v_admin_mode, v_scores, v_anotador, v_origen
   FROM public.rondas_libres rl
   INNER JOIN public.ronda_equipos re ON re.ronda_id = rl.id
   WHERE re.id = p_equipo_id AND rl.codigo = p_codigo
@@ -3271,10 +3289,14 @@ BEGIN
   -- El anotador de un equipo (un celular por equipo) escribe SOLO ese equipo: v_anotador es el de esta fila, leído
   -- bajo su lock. puede_anotar_ronda (creador, marcador, jugadores) sigue escribiendo cualquiera, como antes.
   -- IS NOT DISTINCT FROM y no `=`: con el equipo sin anotador, `NULL = uid` es NULL y NOT (false OR NULL) también,
-  -- y el IF no cortaría.
+  -- y el IF no cortaría. La rama del anotador vale solo en un equipo de club de una ronda de un celular por equipo
+  -- (admin_mode no TRUE), las mismas condiciones con que reclamar_equipo_de_ronda lo asigna.
   IF NOT (
     v_is_service
-    OR (auth.uid() IS NOT NULL AND (public.puede_anotar_ronda(v_ronda_id) OR v_anotador IS NOT DISTINCT FROM auth.uid()))
+    OR (auth.uid() IS NOT NULL AND (
+      public.puede_anotar_ronda(v_ronda_id)
+      OR (v_origen = 'club' AND v_admin_mode IS NOT TRUE AND v_anotador IS NOT DISTINCT FROM auth.uid())
+    ))
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
   END IF;
@@ -3922,6 +3944,7 @@ CREATE TRIGGER grupos_fijos_inscrito BEFORE DELETE ON public.players FOR EACH RO
 CREATE TRIGGER trigger_log_role_change BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.log_role_change();
 CREATE TRIGGER trigger_protect_last_admin BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.protect_last_admin();
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER ronda_equipos_anotador_guard BEFORE INSERT OR UPDATE OF anotador_user_id ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_guard();
 CREATE TRIGGER ronda_equipos_anotador_nombre BEFORE INSERT OR UPDATE OF anotador_user_id, anotador_nombre ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_nombre();
 CREATE TRIGGER update_ronda_equipos_updated_at BEFORE UPDATE ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_ronda_libre_jugadores_updated_at BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
@@ -4368,6 +4391,7 @@ revoke all on function public.reclamar_equipo_de_ronda(text,uuid) from public, a
 revoke all on function public.resolve_and_link_course(text,jsonb,real,text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.restamp_round_metrics_target(uuid,numeric) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.rls_write_policies_audit() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.ronda_equipos_anotador_guard() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_anotador_nombre() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.tarjeta_tiene_anotaciones(jsonb) from public, anon, authenticated, service_role, postgres;
@@ -4742,6 +4766,7 @@ grant EXECUTE on function public.restamp_round_metrics_target(uuid,numeric) to p
 grant EXECUTE on function public.restamp_round_metrics_target(uuid,numeric) to service_role;
 grant EXECUTE on function public.rls_write_policies_audit() to postgres;
 grant EXECUTE on function public.rls_write_policies_audit() to service_role;
+grant EXECUTE on function public.ronda_equipos_anotador_guard() to postgres;
 grant EXECUTE on function public.ronda_equipos_anotador_nombre() to postgres;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to postgres;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to service_role;

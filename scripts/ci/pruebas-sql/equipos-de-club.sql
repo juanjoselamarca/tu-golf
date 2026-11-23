@@ -362,4 +362,103 @@ DO $$ BEGIN
   RAISE NOTICE 'OK borrar la cuenta del anotador libera el equipo y borra su nombre (FK SET NULL + trigger)';
 END $$;
 
+-- ── Revisión Fable: sin sesión, demo, anotador puesto a mano y anotador fuera de un equipo de club ───────────
+-- Datos como postgres (la guarda del anotador no corre para el dueño: así se arma lo que el cliente no puede).
+INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, formato_juego, modo_juego, holes, estado, admin_mode, es_demo) VALUES
+  ('b5c00000-0000-4000-8000-000000000005', 'CLUB05', 'Cancha', current_date,
+   'a5c00000-0000-4000-8000-000000000001', 'scramble', 'neto', 18, 'en_curso', false, true);
+INSERT INTO public.ronda_equipos (id, ronda_id, nombre, handicap_equipo, handicap_equipo_juego, handicap_origen, anotador_user_id) VALUES
+  ('f5c00000-0000-4000-8000-000000000051', 'b5c00000-0000-4000-8000-000000000005', 'Demo', 8, 8, 'club',
+   'a5c00000-0000-4000-8000-000000000002'),
+  ('f5c00000-0000-4000-8000-000000000052', 'b5c00000-0000-4000-8000-000000000005', 'Demo libre', 8, 8, 'club', NULL);
+-- Pedro de anotador de un equipo calculado (CLUB01) y de uno de una ronda de un celular (CLUB02): situaciones que
+-- reclamar no crea, pero que una ruta futura o un cambio de admin_mode a mitad de ronda podrían dejar.
+UPDATE public.ronda_equipos SET anotador_user_id = 'a5c00000-0000-4000-8000-000000000002'
+  WHERE id IN ('f5c00000-0000-4000-8000-000000000014', 'f5c00000-0000-4000-8000-000000000021');
+
+-- anon: el upsert no está otorgado.
+SET LOCAL ROLE anon;
+SET LOCAL request.jwt.claims = '{"role":"anon"}';
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000012', 'CLUB01', '{"1": 4}'::jsonb);
+  RAISE EXCEPTION 'FALLA: anon escribió un equipo libre';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK anon no escribe equipos -> 42501';
+END $$;
+RESET ROLE;
+
+-- authenticated sin sub (auth.uid() NULL): con un equipo libre, NULL IS NOT DISTINCT FROM NULL sería TRUE; el
+-- "auth.uid() IS NOT NULL" del upsert es lo que lo corta, y esta prueba lo fija.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"role":"authenticated"}';
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000012', 'CLUB01', '{"1": 4}'::jsonb);
+  RAISE EXCEPTION 'FALLA: una llamada sin sesión escribió un equipo libre';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK sin sesión no escribe un equipo libre -> P0003';
+END $$;
+DO $$ BEGIN
+  PERFORM public.reclamar_equipo_de_ronda('CLUB01', 'f5c00000-0000-4000-8000-000000000012');
+  RAISE EXCEPTION 'FALLA: una llamada sin sesión reclamó un equipo';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK sin sesión no reclama -> P0003';
+END $$;
+DO $$ BEGIN
+  PERFORM public.liberar_equipo_de_ronda('CLUB01', 'f5c00000-0000-4000-8000-000000000011');
+  RAISE EXCEPTION 'FALLA: una llamada sin sesión liberó un equipo';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK sin sesión no libera -> P0003';
+END $$;
+
+-- Ronda demo: ni reclamar, ni liberar, ni escribir (aunque Pedro figure de anotador).
+SET LOCAL request.jwt.claims = '{"sub":"a5c00000-0000-4000-8000-000000000002","role":"authenticated"}';
+DO $$ BEGIN
+  PERFORM public.reclamar_equipo_de_ronda('CLUB05', 'f5c00000-0000-4000-8000-000000000052');
+  RAISE EXCEPTION 'FALLA: se reclamó un equipo de una ronda demo';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK reclamo en ronda demo -> P0003';
+END $$;
+DO $$ BEGIN
+  PERFORM public.liberar_equipo_de_ronda('CLUB05', 'f5c00000-0000-4000-8000-000000000051');
+  RAISE EXCEPTION 'FALLA: se liberó un equipo de una ronda demo';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK liberar en ronda demo -> P0003';
+END $$;
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000051', 'CLUB05', '{"1": 4}'::jsonb);
+  RAISE EXCEPTION 'FALLA: el anotador escribió en una ronda demo';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK el anotador no escribe en una ronda demo -> P0003';
+END $$;
+
+-- La rama del anotador vale solo en un equipo de club de una ronda de un celular por equipo.
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000014', 'CLUB01', '{"1": 4}'::jsonb);
+  RAISE EXCEPTION 'FALLA: el anotador escribió un equipo calculado';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK anotador de un equipo calculado no escribe -> P0003';
+END $$;
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000021', 'CLUB02', '{"1": 4}'::jsonb);
+  RAISE EXCEPTION 'FALLA: el anotador escribió en una ronda con admin_mode';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK anotador en ronda de un celular (admin_mode) no escribe -> P0003';
+END $$;
+
+-- El creador escribe la fila por la policy, pero no puede nombrar anotador a otra cuenta (ni leer su nombre así).
+SET LOCAL request.jwt.claims = '{"sub":"a5c00000-0000-4000-8000-000000000001","role":"authenticated"}';
+DO $$ BEGIN
+  UPDATE public.ronda_equipos SET anotador_user_id = 'a5c00000-0000-4000-8000-000000000004'
+    WHERE id = 'f5c00000-0000-4000-8000-000000000012';
+  RAISE EXCEPTION 'FALLA: el creador nombró anotador a otra cuenta desde la tabla';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK el creador no pone a otra cuenta de anotador -> 42501';
+END $$;
+DO $$ BEGIN
+  INSERT INTO public.ronda_equipos (ronda_id, nombre, handicap_origen, anotador_user_id)
+    VALUES ('b5c00000-0000-4000-8000-000000000001', 'Espía', 'club', 'a5c00000-0000-4000-8000-000000000004');
+  RAISE EXCEPTION 'FALLA: el creador insertó un equipo con anotador ajeno';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK el creador no inserta un equipo con anotador ajeno -> 42501';
+END $$;
+DO $$ BEGIN
+  UPDATE public.ronda_equipos SET anotador_user_id = NULL WHERE id = 'f5c00000-0000-4000-8000-000000000011';
+  IF (SELECT anotador_nombre FROM public.ronda_equipos WHERE id = 'f5c00000-0000-4000-8000-000000000011') IS NOT NULL THEN
+    RAISE EXCEPTION 'FALLA: soltar el anotador desde la tabla dejó el nombre';
+  END IF;
+  UPDATE public.ronda_equipos SET anotador_user_id = 'a5c00000-0000-4000-8000-000000000001'
+    WHERE id = 'f5c00000-0000-4000-8000-000000000011';
+  RAISE NOTICE 'OK el creador puede soltarse y volver a ponerse a sí mismo';
+END $$;
+RESET ROLE;
+
 ROLLBACK;

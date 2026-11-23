@@ -80,6 +80,36 @@ CREATE TRIGGER ronda_equipos_anotador_nombre
   BEFORE INSERT OR UPDATE OF anotador_user_id, anotador_nombre ON public.ronda_equipos
   FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_nombre();
 
+-- ── Nadie pone de anotador a otra cuenta desde el cliente ────────────────────────────────────────────────────────
+-- La policy manage_ronda_equipos deja al creador escribir la fila entera. Sin esta guarda podría nombrar anotador a
+-- cualquier cuenta (también en una ronda con admin_mode o de torneo) y, vía el trigger del nombre, leer el
+-- profiles.name de un uuid ajeno. Desde el cliente (anon/authenticated) solo vale ponerse a sí mismo (el insert del
+-- equipo 1 con el creador) o dejarlo NULL; las RPC corren como su dueño y pasan. SIN SECURITY DEFINER: current_user
+-- tiene que ser el de quien escribe. Se dispara antes que ronda_equipos_anotador_nombre (orden alfabético).
+CREATE OR REPLACE FUNCTION public.ronda_equipos_anotador_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $
+BEGIN
+  IF current_user IN ('anon', 'authenticated')
+     AND NEW.anotador_user_id IS NOT NULL
+     AND NEW.anotador_user_id IS DISTINCT FROM auth.uid()
+     AND (TG_OP = 'INSERT' OR NEW.anotador_user_id IS DISTINCT FROM OLD.anotador_user_id) THEN
+    RAISE EXCEPTION 'ANOTADOR_AJENO' USING ERRCODE = '42501',
+      DETAIL = 'un equipo se reclama con reclamar_equipo_de_ronda; desde el cliente solo puedes ponerte a ti';
+  END IF;
+  RETURN NEW;
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.ronda_equipos_anotador_guard() FROM PUBLIC, anon, authenticated, service_role;
+
+DROP TRIGGER IF EXISTS ronda_equipos_anotador_guard ON public.ronda_equipos;
+CREATE TRIGGER ronda_equipos_anotador_guard
+  BEFORE INSERT OR UPDATE OF anotador_user_id ON public.ronda_equipos
+  FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_guard();
+
 -- ── upsert_ronda_equipos_scores: también escribe el anotador de ese equipo ───────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.upsert_ronda_equipos_scores(p_equipo_id uuid, p_codigo text, p_delta jsonb, p_seq bigint DEFAULT NULL::bigint, p_dispositivo uuid DEFAULT NULL::uuid)
  RETURNS jsonb
@@ -93,6 +123,8 @@ DECLARE
   v_es_demo boolean;
   v_scores jsonb;
   v_anotador uuid;
+  v_origen text;
+  v_admin_mode boolean;
   v_is_service boolean := COALESCE(auth.role(), '') = 'service_role';
   v_new_scores jsonb;
 BEGIN
@@ -102,8 +134,8 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  SELECT rl.id, rl.estado, rl.es_demo, re.scores, re.anotador_user_id
-    INTO v_ronda_id, v_estado, v_es_demo, v_scores, v_anotador
+  SELECT rl.id, rl.estado, rl.es_demo, rl.admin_mode, re.scores, re.anotador_user_id, re.handicap_origen
+    INTO v_ronda_id, v_estado, v_es_demo, v_admin_mode, v_scores, v_anotador, v_origen
   FROM public.rondas_libres rl
   INNER JOIN public.ronda_equipos re ON re.ronda_id = rl.id
   WHERE re.id = p_equipo_id AND rl.codigo = p_codigo
@@ -122,10 +154,14 @@ BEGIN
   -- El anotador de un equipo (un celular por equipo) escribe SOLO ese equipo: v_anotador es el de esta fila, leído
   -- bajo su lock. puede_anotar_ronda (creador, marcador, jugadores) sigue escribiendo cualquiera, como antes.
   -- IS NOT DISTINCT FROM y no `=`: con el equipo sin anotador, `NULL = uid` es NULL y NOT (false OR NULL) también,
-  -- y el IF no cortaría.
+  -- y el IF no cortaría. La rama del anotador vale solo en un equipo de club de una ronda de un celular por equipo
+  -- (admin_mode no TRUE), las mismas condiciones con que reclamar_equipo_de_ronda lo asigna.
   IF NOT (
     v_is_service
-    OR (auth.uid() IS NOT NULL AND (public.puede_anotar_ronda(v_ronda_id) OR v_anotador IS NOT DISTINCT FROM auth.uid()))
+    OR (auth.uid() IS NOT NULL AND (
+      public.puede_anotar_ronda(v_ronda_id)
+      OR (v_origen = 'club' AND v_admin_mode IS NOT TRUE AND v_anotador IS NOT DISTINCT FROM auth.uid())
+    ))
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
   END IF;
