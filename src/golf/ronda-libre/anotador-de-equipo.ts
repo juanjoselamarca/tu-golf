@@ -98,6 +98,16 @@ export function equiposSinParAutomatico<E extends EquipoConAnotador>(
   return equipos.filter(e => !conPar.has(e.id))
 }
 
+/** Equipos que nadie anota desde su celular: los que se pueden reclamar en «Elige tu equipo». */
+export function equiposLibres<E extends EquipoConAnotador>(equipos: readonly E[]): E[] {
+  return equipos.filter(e => e.anotador_user_id == null)
+}
+
+/** Equipos que ya anota alguien desde su celular. Complemento exacto de `equiposLibres`. */
+export function equiposTomados<E extends EquipoConAnotador>(equipos: readonly E[]): E[] {
+  return equipos.filter(e => e.anotador_user_id != null)
+}
+
 /** Nombre con que se muestra quién anota un equipo. Sin nombre (cuenta sin nombre o borrada): «otro celular». */
 export function nombreDelAnotador(equipo: Pick<EquipoConAnotador, 'anotador_nombre'>): string {
   return equipo.anotador_nombre?.trim() || 'otro celular'

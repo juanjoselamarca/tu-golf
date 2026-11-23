@@ -6,8 +6,10 @@ import {
   equipoAjenoIncompleto,
   equiposConParAutomatico,
   equiposDeOtroCelular,
+  equiposLibres,
   equiposQueAnota,
   equiposSinParAutomatico,
+  equiposTomados,
   nombreDelAnotador,
   nombreDelCreador,
   unCelularPorEquipo,
@@ -174,5 +176,17 @@ describe('equiposConParAutomatico / equiposSinParAutomatico (par fantasma, P1-a)
   it('«Yo anoto todos» (un celular): todos reciben par, como siempre', () => {
     expect(ids(equiposConParAutomatico(unCelular, equipos, CREADOR))).toEqual(['e1', 'e2', 'e3'])
     expect(equiposSinParAutomatico(unCelular, equipos, CREADOR)).toEqual([])
+  })
+})
+
+describe('equiposLibres / equiposTomados («Elige tu equipo»)', () => {
+  it('libres = sin anotador; tomados = con anotador; juntos cubren todos sin repetir', () => {
+    expect(ids(equiposLibres(equipos))).toEqual(['e3'])
+    expect(ids(equiposTomados(equipos))).toEqual(['e1', 'e2'])
+  })
+  it('anotador undefined (copia sin las columnas) cuenta como libre', () => {
+    const viejo = { id: 'e9', handicap_origen: 'club' as const }
+    expect(ids(equiposLibres([viejo]))).toEqual(['e9'])
+    expect(equiposTomados([viejo])).toEqual([])
   })
 })

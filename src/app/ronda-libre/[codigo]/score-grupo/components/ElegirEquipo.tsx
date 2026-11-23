@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { nombreDelAnotador } from '@/golf/ronda-libre/anotador-de-equipo'
+import { equiposLibres, equiposTomados, nombreDelAnotador } from '@/golf/ronda-libre/anotador-de-equipo'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 
 interface ElegirEquipoProps {
@@ -20,8 +20,8 @@ interface ElegirEquipoProps {
  * anota otro celular se ven con su anotador y no se tocan. Sin libres: a la tabla en vivo.
  */
 export function ElegirEquipo({ codigo, courseName, equipos, enCurso, aviso, onElegir }: ElegirEquipoProps) {
-  const libres = equipos.filter(e => e.anotador_user_id == null)
-  const tomados = equipos.filter(e => e.anotador_user_id != null)
+  const libres = equiposLibres(equipos)
+  const tomados = equiposTomados(equipos)
 
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', padding: '24px 16px calc(24px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: '16px' }}>
