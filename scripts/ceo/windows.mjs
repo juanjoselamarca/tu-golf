@@ -10,7 +10,7 @@
  * de procesos por un archivo (ver __tests__/night.test.mjs).
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -49,7 +49,7 @@ export function scheduleResume({ at, scriptPath, repoRoot }) {
     `$s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Hours 16);`,
     `Register-ScheduledTask -TaskName ${psQuote(RESUME_TASK)} -Action $a -Trigger $t -Settings $s -Force | Out-Null;`,
     `(Get-ScheduledTask -TaskName ${psQuote(RESUME_TASK)}).Triggers[0].StartBoundary`,
-  ].join(' '));
+  ].join(' '), 90000); // de noche PowerShell puede tardar >30 s en partir
 }
 
 export function clearResume() {
@@ -153,4 +153,45 @@ export function releasePidLock(file) {
   try {
     if (Number(readFileSync(file, 'utf8').trim()) === process.pid) unlinkSync(file);
   } catch { /* no era nuestro */ }
+}
+
+// ─── Mantener el PC despierto ─────────────────────────────────────────────────
+
+/**
+ * El PC de la noche es un notebook con espera moderna (S0): la tarea WakeToRun lo
+ * despierta, pero a los pocos minutos sin nadie vuelve a dormir y congela a los
+ * agentes. Así se perdieron las noches del 17 al 22-nov: la tarea no partía, el
+ * CLI no respondía o un agente quedaba congelado a la mitad.
+ *
+ * Esto deja un PowerShell oculto con una solicitud de energía "sistema requerido"
+ * (SetThreadExecutionState ES_CONTINUOUS|ES_SYSTEM_REQUIRED): la pantalla se puede
+ * apagar, el PC no se duerme. La solicitud muere sola al llegar `until` o, si se
+ * pasa `parentPid`, cuando ese proceso termina. No cambia ninguna configuración.
+ * Se ve con `powercfg /requests` (sección SYSTEM, powershell.exe).
+ */
+export function keepAwake({ until, parentPid = null }) {
+  if (fakeFile()) {
+    const d = fakeLoad();
+    d.awake = [...(d.awake || []), { until: new Date(until).toISOString(), parentPid }];
+    fakeSave(d);
+    return null;
+  }
+  const script = [
+    `$sig = '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f);';`,
+    `$k = Add-Type -MemberDefinition $sig -Name CeoAwake -Namespace CeoPower -PassThru;`,
+    `$null = $k::SetThreadExecutionState([uint32]2147483649);`,
+    `$end = [DateTimeOffset]::FromUnixTimeMilliseconds(${Math.round(until)}).LocalDateTime;`,
+    `while ((Get-Date) -lt $end) {`,
+    parentPid ? `  if (-not (Get-Process -Id ${Number(parentPid)} -ErrorAction SilentlyContinue)) { break };` : '',
+    `  Start-Sleep -Seconds 20`,
+    `}`,
+  ].join(' ');
+  const child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    // detached: true NO sirve: PowerShell sin consola sale al instante sin registrar la solicitud
+    // (probado 22-nov con powercfg /requests). Hijo normal y oculto: vive hasta parentPid o until.
+    stdio: 'ignore', windowsHide: true,
+  });
+  child.on('error', () => { /* sin PowerShell: la noche sigue sin el seguro */ });
+  child.unref(); // que el proceso de la noche pueda salir sin esperarlo
+  return child.pid ?? null;
 }
