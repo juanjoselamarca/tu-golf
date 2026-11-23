@@ -50,6 +50,12 @@ const MIN_CLI = '2.1.286';
 const MAX_ATTEMPTS_PER_JOB = 8;
 const OWNER_CMD = 'ceo-autonomo';              // identifica al proceso dueño del candado (PID reciclado)
 const RESUME_OVERDUE_MS = 10 * 60 * 1000;      // retoma que no disparó → la noche está muerta
+// El CLI no responde al partir (20 y 22-nov-2026: el PC sale de la espera moderna a las 00:00 y auth,
+// versión y cupo agotan su tiempo). Antes se rendía al primer intento y la noche entera se perdía.
+// Ahora reintenta dentro del proceso y, si sigue mudo, se reprograma en vez de abandonar.
+const CLI_RETRY_DELAYS_MS = [30_000, 90_000, 180_000];
+const CLI_RESCHEDULE_MS = 30 * 60 * 1000;
+const MAX_CLI_RESCHEDULES = 4;
 const START_MS = Date.now();
 
 export function makeClock() {
@@ -86,6 +92,8 @@ export function nextQuietEnd(ms) {
 export function createNightRunner(ctx) {
   const { repoRoot, logsDir, locksDir, promptsDir, scriptPath, agents, refreshAuth } = ctx;
   const now = ctx.now || makeClock();
+  const cliRetryDelays = ctx.cliRetryDelaysMs ?? CLI_RETRY_DELAYS_MS;
+  const sleep = ctx.sleep || (ms => new Promise(r => setTimeout(r, ms)));
   const nightsDir = resolve(logsDir, 'nights');
   const activeFile = resolve(locksDir, 'active-night.json');
   const nightLock = resolve(locksDir, 'night.lock');
@@ -226,7 +234,22 @@ export function createNightRunner(ctx) {
     const env = envParaClaude();
     env.CEO_LOGS = logsDir;
     env.CEO_NIGHT = '1';
+    // Que ningún agente reemplace claude.exe a mitad de la noche mientras otros lo usan
+    // (la versión cambió dos noches seguidas). Se actualiza con las sesiones de día.
+    env.DISABLE_AUTOUPDATER = '1';
     return env;
+  }
+
+  /** Lee el cupo; si el CLI no responde, reintenta con espera creciente. */
+  async function probeWithRetry() {
+    let probe;
+    for (let i = 0; ; i++) {
+      probe = probeQuota({ bin: claudeBin(), env: childEnv(), cwd: repoRoot });
+      if (probe.seen || probe.exitCode === 0) return probe;
+      if (i >= cliRetryDelays.length) return probe;
+      log(`El CLI no respondió al leer el cupo (exit ${probe.exitCode}, intento ${i + 1}). Reintento en ${Math.round(cliRetryDelays[i] / 1000)} s.`);
+      await sleep(cliRetryDelays[i]);
+    }
   }
 
   async function runJob(night, job) {
@@ -455,14 +478,28 @@ export function createNightRunner(ctx) {
         notify(night, `Había ${interactive.length} sesión(es) interactiva(s) de Claude Code abiertas al partir la noche (consumen el mismo cupo). No las toqué.`, { now: now() });
       }
 
-      const probe = probeQuota({ bin: claudeBin(), env: childEnv(), cwd: repoRoot });
+      const probe = await probeWithRetry();
       recordQuota(probe, 'probe');
       if (!probe.seen && probe.exitCode !== 0) {
-        // El CLI no responde (instalación rota, sin red): no se lanza nada a ciegas.
-        notify(night, `🚨 CEO Autónomo: el CLI de Claude no respondió al leer el cupo (exit ${probe.exitCode}). La noche no corre. ${probe.raw.slice(-200)}`, { now: now(), kind: 'p0' });
+        // El CLI no responde (recién salido de la suspensión, sin red, instalación rota):
+        // no se lanza nada a ciegas, pero tampoco se pierde la noche: se reprograma.
+        night.cliReschedules = (night.cliReschedules || 0) + 1;
+        const retryAt = now() + CLI_RESCHEDULE_MS;
+        if (night.cliReschedules <= MAX_CLI_RESCHEDULES && inNightWindow(retryAt)) {
+          night.status = 'waiting';
+          night.resumeAt = new Date(retryAt).toISOString();
+          scheduleResume({ at: retryAt, scriptPath, repoRoot });
+          log(`El CLI sigue sin responder (exit ${probe.exitCode}). Reintento la noche ${new Date(retryAt).toLocaleTimeString('es-CL')} (${night.cliReschedules}/${MAX_CLI_RESCHEDULES}).`);
+          save(night);
+          await updateStatus(night);
+          return;
+        }
+        log(`El CLI no respondió en toda la noche (exit ${probe.exitCode}): la noche no corre; lo pendiente sigue la próxima.`);
+        notify(night, `🚨 CEO Autónomo: el CLI de Claude no respondió al leer el cupo (exit ${probe.exitCode}) en ${night.cliReschedules} intentos a lo largo de la noche. La noche no corre; lo pendiente sigue la próxima. ${probe.raw.slice(-200)}`, { now: now(), kind: 'p0' });
         save(night);
         return;
       }
+      night.cliReschedules = 0;
       night.lastQuota = mergeQuota(night.lastQuota, probe);
       if (night.budget && night.budget.sevenStart == null) night.budget.sevenStart = probe.seven.utilization ?? null;
       log(`Cupo: 5 h ${pct(probe.five.utilization)} (${probe.five.status ?? '?'}), semanal ${pct(probe.seven.utilization)}${probe.estimated ? ' (estimado)' : ''}.`);

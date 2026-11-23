@@ -3,7 +3,7 @@
  * CLI de Claude falso para las pruebas del scheduler. Reproduce respuestas
  * definidas en el escenario (CEO_FAKE_SCENARIO) con la forma real del stream-json.
  *
- * Escenario: { probe: {five, seven, fiveReset, sevenReset, status},
+ * Escenario: { probe: {five, seven, fiveReset, sevenReset, status}, probeFails: N,
  *              agents: { <agente>: [ { kind, turns, commit, resetAt, costUsd } ... ] } }
  * kinds: ok · limit_five · limit_seven · noverify · loop (repite la misma llamada) ·
  *        spend (un mensaje con usage que pasa el tope duro) · otro = error real.
@@ -32,6 +32,11 @@ const unified = (q) => ({
 });
 
 if (args.includes('haiku')) {
+  // probeFails: N → las primeras N lecturas de cupo salen mudas con error (CLI que no responde).
+  const p = state.__probe || 0;
+  state.__probe = p + 1;
+  writeFileSync(stateFile, JSON.stringify(state));
+  if (p < (scenario.probeFails || 0)) process.exit(1);
   out({ type: 'system', subtype: 'init', session_id: 'probe' });
   out(unified(scenario.probe));
   out({ type: 'result', subtype: 'success', is_error: false, num_turns: 1, result: 'ok' });
