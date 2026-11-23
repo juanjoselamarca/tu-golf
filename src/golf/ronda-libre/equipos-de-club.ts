@@ -29,9 +29,10 @@ export function esHoyosDeEquiposDeClub(holes: number): boolean {
 }
 
 /**
- * Hándicap de club más alto que se acepta: 2 golpes por hoyo (36 en 18 hoyos, 18 en 9). Es lo que
- * `calcularScramble` reparte completo sobre el stroke index de los hoyos jugados; más arriba ya no se modela.
- * En 9 hoyos el número del club se usa tal cual (no se parte), así que su techo es el de 9 hoyos.
+ * Hándicap de club más alto que se acepta: 2 golpes por hoyo (36 en 18 hoyos, 18 en 9; decisión de producto).
+ * Queda dentro de lo que `calcularScramble` reparte completo sobre el stroke index de los hoyos jugados (hasta 3
+ * por hoyo, `strokesRecibidosEnHoyo`). En 9 hoyos el número del club se usa tal cual (no se parte), por eso su
+ * techo es el de 9 hoyos y no 36.
  */
 export function handicapDeClubMaximo(holes: number): number {
   return 2 * holes
