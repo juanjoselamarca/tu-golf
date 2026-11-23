@@ -1,6 +1,6 @@
 -- Rollback de 20261123100000_scramble_equipos_de_club.sql: vuelve upsert_ronda_equipos_scores al cuerpo de
 -- 20261020200000_orden_guardados_ronda_equipos (solo puede_anotar_ronda escribe), borra las RPC de reclamar/liberar,
--- el trigger del nombre del anotador, el índice y las tres columnas.
+-- los triggers del anotador (guarda y nombre), el índice y las tres columnas.
 -- Antes de correrlo: el código que lee handicap_origen / anotador_* (PR2 a PR4 del scramble rápido) debe estar
 -- revertido en prod, o sus INSERT y SELECT fallan con PGRST204. Se pierden los anotadores y la marca de equipos de
 -- club (los equipos y sus scores quedan).

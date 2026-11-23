@@ -3290,7 +3290,8 @@ BEGIN
   -- bajo su lock. puede_anotar_ronda (creador, marcador, jugadores) sigue escribiendo cualquiera, como antes.
   -- IS NOT DISTINCT FROM y no `=`: con el equipo sin anotador, `NULL = uid` es NULL y NOT (false OR NULL) también,
   -- y el IF no cortaría. La rama del anotador vale solo en un equipo de club de una ronda de un celular por equipo
-  -- (admin_mode no TRUE), las mismas condiciones con que reclamar_equipo_de_ronda lo asigna.
+  -- (admin_mode no TRUE). Rondas de torneo y demo no llegan acá con anotador: reclamar_equipo_de_ronda las rechaza
+  -- y ronda_equipos_anotador_guard impide asignarlo desde el cliente (la demo, además, corta arriba).
   IF NOT (
     v_is_service
     OR (auth.uid() IS NOT NULL AND (

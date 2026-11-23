@@ -442,13 +442,17 @@ DO $$ BEGIN
   UPDATE public.ronda_equipos SET anotador_user_id = 'a5c00000-0000-4000-8000-000000000004'
     WHERE id = 'f5c00000-0000-4000-8000-000000000012';
   RAISE EXCEPTION 'FALLA: el creador nombró anotador a otra cuenta desde la tabla';
-EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK el creador no pone a otra cuenta de anotador -> 42501';
+EXCEPTION WHEN insufficient_privilege THEN
+  IF SQLERRM <> 'ANOTADOR_AJENO' THEN RAISE; END IF;  -- que lo corte la guarda, no otra regla
+  RAISE NOTICE 'OK el creador no pone a otra cuenta de anotador -> 42501 ANOTADOR_AJENO';
 END $$;
 DO $$ BEGIN
   INSERT INTO public.ronda_equipos (ronda_id, nombre, handicap_origen, anotador_user_id)
     VALUES ('b5c00000-0000-4000-8000-000000000001', 'Espía', 'club', 'a5c00000-0000-4000-8000-000000000004');
   RAISE EXCEPTION 'FALLA: el creador insertó un equipo con anotador ajeno';
-EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK el creador no inserta un equipo con anotador ajeno -> 42501';
+EXCEPTION WHEN insufficient_privilege THEN
+  IF SQLERRM <> 'ANOTADOR_AJENO' THEN RAISE; END IF;
+  RAISE NOTICE 'OK el creador no inserta un equipo con anotador ajeno -> 42501 ANOTADOR_AJENO';
 END $$;
 DO $$ BEGIN
   UPDATE public.ronda_equipos SET anotador_user_id = NULL WHERE id = 'f5c00000-0000-4000-8000-000000000011';
@@ -458,6 +462,18 @@ DO $$ BEGIN
   UPDATE public.ronda_equipos SET anotador_user_id = 'a5c00000-0000-4000-8000-000000000001'
     WHERE id = 'f5c00000-0000-4000-8000-000000000011';
   RAISE NOTICE 'OK el creador puede soltarse y volver a ponerse a sí mismo';
+END $$;
+
+-- El camino de /api/ronda-libre/create (PR2, cliente con la sesión del creador): insertar el equipo 1 con él de anotador.
+DO $$ BEGIN
+  INSERT INTO public.ronda_equipos (id, ronda_id, nombre, handicap_equipo, handicap_equipo_juego, handicap_origen, anotador_user_id)
+    VALUES ('f5c00000-0000-4000-8000-000000000022', 'b5c00000-0000-4000-8000-000000000002', 'Tu equipo', 8, 8, 'club',
+            'a5c00000-0000-4000-8000-000000000001');
+  IF (SELECT anotador_nombre FROM public.ronda_equipos WHERE id = 'f5c00000-0000-4000-8000-000000000022') IS DISTINCT FROM 'Creador' THEN
+    RAISE EXCEPTION 'FALLA: el insert del creador como anotador no resolvió su nombre';
+  END IF;
+  DELETE FROM public.ronda_equipos WHERE id = 'f5c00000-0000-4000-8000-000000000022';
+  RAISE NOTICE 'OK el creador inserta un equipo con él de anotador (camino de create)';
 END $$;
 RESET ROLE;
 
