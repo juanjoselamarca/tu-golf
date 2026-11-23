@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { equiposLibres, equiposTomados, nombreDelAnotador } from '@/golf/ronda-libre/anotador-de-equipo'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 
@@ -12,16 +14,19 @@ interface ElegirEquipoProps {
   enCurso: string | null
   /** Último reclamo que no resultó (otro celular lo ganó, sin señal): se muestra arriba de la lista ya refrescada. */
   aviso: { equipoId: string; mensaje: string } | null
+  /** Solo tras confirmar en el modal: un toque suelto no reclama un equipo. */
   onElegir: (equipoId: string) => void
 }
 
 /**
- * Un celular por equipo: quien abre el link y todavía no anota un equipo elige cuál. Los libres se tocan; los que ya
- * anota otro celular se ven con su anotador y no se tocan. Sin libres: a la tabla en vivo.
+ * Un celular por equipo: quien abre el link y todavía no anota un equipo elige cuál. Los libres se tocan y se
+ * confirman (un toque suelto con el guante no reclama un equipo ajeno); los que ya anota otro celular se ven con su
+ * anotador y no se tocan. Sin libres: a la tabla en vivo.
  */
 export function ElegirEquipo({ codigo, courseName, equipos, enCurso, aviso, onElegir }: ElegirEquipoProps) {
   const libres = equiposLibres(equipos)
   const tomados = equiposTomados(equipos)
+  const [porReclamar, setPorReclamar] = useState<EquipoDelScorer | null>(null)
 
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', padding: '24px 16px calc(24px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -49,7 +54,7 @@ export function ElegirEquipo({ codigo, courseName, equipos, enCurso, aviso, onEl
               <li key={e.id}>
                 <button
                   type="button"
-                  onClick={() => onElegir(e.id)}
+                  onClick={() => setPorReclamar(e)}
                   disabled={enCurso != null}
                   aria-busy={tomando}
                   style={{
@@ -101,6 +106,21 @@ export function ElegirEquipo({ codigo, courseName, equipos, enCurso, aviso, onEl
       >
         Ver tabla en vivo
       </Link>
+
+      <ConfirmModal
+        isOpen={porReclamar != null}
+        variant="warning"
+        title={porReclamar ? `¿Anotar ${porReclamar.nombre} desde este celular?` : ''}
+        description="Desde ahora solo este celular anota su score."
+        confirmText="Anotar"
+        cancelText="Cancelar"
+        onCancel={() => setPorReclamar(null)}
+        onConfirm={() => {
+          const e = porReclamar
+          setPorReclamar(null)
+          if (e) onElegir(e.id)
+        }}
+      />
     </main>
   )
 }

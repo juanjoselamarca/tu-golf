@@ -15,8 +15,22 @@ describe('ElegirEquipo', () => {
     expect(screen.getByText('lo anota Juanjo')).toBeTruthy()
     expect(screen.getByText('lo anota otro celular')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Los Tigres/ })).toBeNull()
+    // Un toque abre la confirmación; recién «Anotar» reclama.
     fireEvent.click(screen.getByRole('button', { name: /Los Pumas/ }))
+    expect(onElegir).not.toHaveBeenCalled()
+    expect(screen.getByText('¿Anotar Los Pumas desde este celular?')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Anotar' }))
     expect(onElegir).toHaveBeenCalledWith('e2')
+  })
+
+  it('«Cancelar» en la confirmación no reclama nada', () => {
+    const onElegir = vi.fn()
+    render(<ElegirEquipo codigo="ABC" courseName={null} enCurso={null} aviso={null} onElegir={onElegir}
+      equipos={[eq('e2', 'Los Pumas', null)]} />)
+    fireEvent.click(screen.getByRole('button', { name: /Los Pumas/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(onElegir).not.toHaveBeenCalled()
+    expect(screen.queryByText('¿Anotar Los Pumas desde este celular?')).toBeNull()
   })
 
   it('conflicto: el aviso «ya lo anota» sale arriba y la lista ya viene refrescada (el equipo perdido figura tomado)', () => {
