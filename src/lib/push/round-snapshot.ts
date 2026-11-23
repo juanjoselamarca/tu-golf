@@ -78,12 +78,22 @@ function participantsOf(row: AccessRow): RoundParticipants {
   }
 }
 
+/**
+ * Un error de la lectura NO es «la ronda no existe»: se lanza (los llamadores lo reportan con captureError y responden
+ * 500). Antes se ignoraba y cualquier falla (p. ej. una columna de ronda_equipos que la base todavía no tiene)
+ * terminaba en un 404 silencioso: el aviso a los seguidores dejaba de salir sin que nadie lo viera.
+ */
+function lanzarSiFallo(error: { message?: string; code?: string } | null, que: string): void {
+  if (error) throw new Error(`${que}: ${error.code ?? ''} ${error.message ?? 'error de lectura'}`.trim())
+}
+
 export async function loadRoundAccess(admin: SupabaseClient, codigo: string): Promise<RoundPushAccess | null> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from('rondas_libres')
     .select(`${COLUMNAS_ACCESO}, ronda_libre_jugadores(id, user_id)`)
     .eq('codigo', codigo)
     .maybeSingle()
+  lanzarSiFallo(error, 'loadRoundAccess')
   if (!data) return null
   const row = data as unknown as AccessRow
   return { estado: row.estado ?? 'en_curso', participants: participantsOf(row) }
@@ -106,11 +116,12 @@ interface RondaRow extends AccessRow {
 }
 
 export async function loadRoundForPush(admin: SupabaseClient, codigo: string): Promise<RoundPushSnapshot | null> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from('rondas_libres')
     .select(`id, codigo, course_name, course_id, holes, hoyo_inicio, modo_juego, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores), ${COLUMNAS_ACCESO}`)
     .eq('codigo', codigo)
     .maybeSingle()
+  lanzarSiFallo(error, 'loadRoundForPush')
   if (!data) return null
 
   const ronda = data as unknown as RondaRow

@@ -12,8 +12,8 @@ vi.mock('@/lib/data/ronda-libre', () => ({ fetchRondaEquipos: vi.fn(async () => 
 import { loadRoundForPush, loadRoundAccess, isRoundParticipant } from './round-snapshot'
 import { fetchRondaEquipos } from '@/lib/data/ronda-libre'
 
-function fakeAdmin(row: Record<string, unknown> | null) {
-  return { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row }) }) }) }) } as unknown as SupabaseClient
+function fakeAdmin(row: Record<string, unknown> | null, error: { code: string; message: string } | null = null) {
+  return { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row, error }) }) }) }) } as unknown as SupabaseClient
 }
 
 const base = {
@@ -81,5 +81,19 @@ describe('loadRoundAccess — quien anota un equipo desde su celular puede avisa
   it('ronda sin equipos: sin anotadores', async () => {
     const access = await loadRoundAccess(fakeAdmin({ ...fila, formato_juego: 'stroke_play', admin_mode: false, ronda_equipos: [] }), 'X')
     expect(access?.participants.teamScorerUserIds).toEqual([])
+  })
+})
+
+describe('lectura con error: se lanza, nunca un 404 silencioso (revisión Fable PR4)', () => {
+  const columnaFaltante = { code: '42703', message: 'column ronda_equipos_1.anotador_user_id does not exist' }
+  it('loadRoundAccess lanza con el código del error', async () => {
+    await expect(loadRoundAccess(fakeAdmin(null, columnaFaltante), 'X')).rejects.toThrow(/loadRoundAccess: 42703/)
+  })
+  it('loadRoundForPush lanza con el código del error', async () => {
+    await expect(loadRoundForPush(fakeAdmin(null, columnaFaltante), 'X')).rejects.toThrow(/loadRoundForPush: 42703/)
+  })
+  it('sin error y sin fila: null (la ronda de verdad no existe)', async () => {
+    expect(await loadRoundAccess(fakeAdmin(null), 'X')).toBeNull()
+    expect(await loadRoundForPush(fakeAdmin(null), 'X')).toBeNull()
   })
 })

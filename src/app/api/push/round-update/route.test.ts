@@ -160,6 +160,14 @@ describe('entradas', () => {
     expect(res.status).toBe(404)
     expect(roundBucketCalls()).toHaveLength(0)
   })
+
+  it('la lectura de la ronda falla → 500 reportado, no un 404 silencioso', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: SCORER } } })
+    loadRoundAccess.mockRejectedValue(new Error('loadRoundAccess: 42703 column does not exist'))
+    const res = await post({ codigo: CODIGO })
+    expect(res.status).toBe(500)
+    expect(roundBucketCalls()).toHaveLength(0)
+  })
 })
 
 describe('ronda en curso sin puntajes (primer aviso con el primer puntaje, 23-oct-2026)', () => {
