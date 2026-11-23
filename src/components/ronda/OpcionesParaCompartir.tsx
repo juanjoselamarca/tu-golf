@@ -4,16 +4,19 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Check } from '@/components/icons'
 import { useShare } from '@/components/share/useShare'
-import { buildLiveShare, buildOrganizerShare } from '@/golf/share/payload'
+import { buildLiveShare, buildRoundInviteShare, buildTournamentLiveShare } from '@/golf/share/payload'
 import type { SharePayload } from '@/golf/share/types'
 import { SITE_URL } from '@/lib/site-url'
 
-/** Links de una ronda en juego. Sin `jugar` (un solo celular anota por todos) solo se invita a seguir. */
+/**
+ * Qué se comparte: el mensaje completo (texto + link) de cada invitación, armado con los builders de
+ * `golf/share`. Sin `jugar` (un solo celular anota por todos, o un torneo) solo se invita a seguir.
+ */
 export interface EnlacesDeLaRonda {
-  /** Link para sumarse a anotar (`/ronda-libre/<codigo>/score`). */
-  jugar?: string
-  /** Link para seguirla en vivo, sin cuenta. */
-  seguir: string
+  /** Sumarse a anotar (`/ronda-libre/<codigo>/score`). */
+  jugar?: SharePayload
+  /** Seguirla en vivo, sin cuenta. */
+  seguir: SharePayload
 }
 
 /**
@@ -21,18 +24,22 @@ export interface EnlacesDeLaRonda {
  * admin anotando): un link para "sumarse a anotar" no lleva a ninguna parte útil.
  */
 export function enlacesDeRondaLibre(codigo: string, { conJugar }: { conJugar: boolean }): EnlacesDeLaRonda {
-  const seguir = `${SITE_URL}/ronda-libre/${codigo}`
-  return conJugar ? { jugar: `${seguir}/score`, seguir } : { seguir }
+  const url = `${SITE_URL}/ronda-libre/${codigo}`
+  const seguir = buildLiveShare({ url })
+  return conJugar ? { jugar: buildRoundInviteShare({ url: `${url}/score` }), seguir } : { seguir }
+}
+
+/**
+ * Un torneo se invita a seguir por su página pública (`/torneo/<slug>`): `/en-vivo` pide sesión y PRO, y
+ * quien recibe el link por WhatsApp se topaba con el muro de pago.
+ */
+export function enlacesDeTorneo(slug: string, nombre: string): EnlacesDeLaRonda {
+  return { seguir: buildTournamentLiveShare({ tournamentName: nombre, url: `${SITE_URL}/torneo/${slug}` }) }
 }
 
 type Destino = 'jugar' | 'seguir'
 
 const TITULO: Record<Destino, string> = { jugar: 'Invitar a jugar', seguir: 'Invitar a seguir' }
-
-const PAYLOAD: Record<Destino, (url: string) => SharePayload> = {
-  jugar: url => buildOrganizerShare({ url }),
-  seguir: url => buildLiveShare({ url }),
-}
 
 interface OpcionesParaCompartirProps {
   enlaces: EnlacesDeLaRonda
@@ -59,11 +66,11 @@ export function OpcionesParaCompartir({ enlaces, onCompartido }: OpcionesParaCom
   const destinos = (['jugar', 'seguir'] as const).filter(d => enlaces[d])
 
   const compartir = async (destino: Destino) => {
-    if ((await share(PAYLOAD[destino](enlaces[destino]!))).ok) onCompartido?.()
+    if ((await share(enlaces[destino]!)).ok) onCompartido?.()
   }
 
   const copiar = async (destino: Destino) => {
-    if (await copyLink(enlaces[destino]!)) setCopiado(c => ({ destino, n: (c?.n ?? 0) + 1 }))
+    if (await copyLink(enlaces[destino]!.url)) setCopiado(c => ({ destino, n: (c?.n ?? 0) + 1 }))
   }
 
   return (

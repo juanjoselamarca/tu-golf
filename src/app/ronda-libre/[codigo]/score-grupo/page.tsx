@@ -257,7 +257,7 @@ export default function ScoreGrupoPage() {
         showNetStableford={showNetStableford}
         maxStrokes={maxStrokesOnHole}
         // Este celular anota por todo el grupo: no hay a quién invitar a anotar, solo a seguir.
-        accion={<CompartirEnJuego enlaces={enlacesDeRondaLibre(codigo, { conJugar: false })} color={theme.textFaint} />}
+        accion={<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre(codigo, { conJugar: false })} color={theme.textFaint} />}
         theme={theme}
       />
 

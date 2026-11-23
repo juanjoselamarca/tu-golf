@@ -45,7 +45,7 @@ import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA } from '@/components/ronda/finalizar-copy'
-import { MS_ANTES_DE_ARMAR } from '@/components/ronda/ConfirmarFinalizarHoja'
+import { MS_ANTES_DE_ARMAR } from '@/components/ronda/HojaDelScorer'
 import type { ResultadoGuardado } from './useScoreSave'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 

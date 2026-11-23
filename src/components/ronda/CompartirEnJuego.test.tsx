@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { CompartirEnJuego } from './CompartirEnJuego'
-import { enlacesDeRondaLibre } from './OpcionesParaCompartir'
-import { MS_ANTES_DE_ARMAR } from './ConfirmarFinalizarHoja'
+import { enlacesDeRondaLibre, enlacesDeTorneo } from './OpcionesParaCompartir'
+import { MS_ANTES_DE_ARMAR } from './HojaDelScorer'
 
 /** Vacía microtasks + un macrotask (la cascada de useShare encadena varios awaits). */
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)) })
@@ -39,7 +39,7 @@ describe('CompartirEnJuego', () => {
   it('el ícono primero pregunta; "No" vuelve al scorer sin compartir nada', () => {
     const share = vi.fn()
     setNavigator({ share } as unknown as Navigator)
-    render(<CompartirEnJuego enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Compartir la ronda' }))
     expect(screen.getByRole('dialog', { name: '¿Quieres compartir tu ronda con amigos?' })).toBeTruthy()
@@ -50,7 +50,7 @@ describe('CompartirEnJuego', () => {
   })
 
   it('el ícono mide 44 px de toque (uso en cancha)', () => {
-    render(<CompartirEnJuego enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
     const boton = screen.getByRole('button', { name: 'Compartir la ronda' })
     expect(boton.style.minWidth).toBe('44px')
     expect(boton.style.minHeight).toBe('44px')
@@ -59,7 +59,7 @@ describe('CompartirEnJuego', () => {
   it('"Sí" muestra las opciones de "Ronda creada"; invitar a seguir comparte el link en vivo y vuelve al scorer', async () => {
     const share = vi.fn().mockResolvedValue(undefined)
     setNavigator({ share } as unknown as Navigator)
-    render(<CompartirEnJuego enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
     await abrirOpciones()
 
     expect(screen.getByText('Invitar a jugar')).toBeTruthy()
@@ -78,21 +78,21 @@ describe('CompartirEnJuego', () => {
   it('invitar a jugar comparte el link del scorer', async () => {
     const share = vi.fn().mockResolvedValue(undefined)
     setNavigator({ share } as unknown as Navigator)
-    render(<CompartirEnJuego enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
     await abrirOpciones()
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Compartir' })[0])
     await flush()
 
     expect(share).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'Únete a jugar en Golfers+', url: `${SITE}/ronda-libre/ABC/score` }),
+      expect.objectContaining({ text: 'Únete a mi ronda en Golfers+', url: `${SITE}/ronda-libre/ABC/score` }),
     )
   })
 
   it('si la persona cancela la hoja del teléfono, las opciones siguen abiertas', async () => {
     const abort = Object.assign(new Error('cancel'), { name: 'AbortError' })
     setNavigator({ share: vi.fn().mockRejectedValue(abort) } as unknown as Navigator)
-    render(<CompartirEnJuego enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
     await abrirOpciones()
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Compartir' })[1])
@@ -105,7 +105,7 @@ describe('CompartirEnJuego', () => {
     setNavigator({} as unknown as Navigator)
     const open = vi.fn().mockReturnValue({} as Window)
     window.open = open as unknown as typeof window.open
-    render(<CompartirEnJuego enlaces={enlacesDeRondaLibre('XYZ', { conJugar: false })} color="red" />)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('XYZ', { conJugar: false })} color="red" />)
     await abrirOpciones()
 
     fireEvent.click(screen.getByRole('button', { name: 'Compartir' }))
@@ -118,7 +118,7 @@ describe('CompartirEnJuego', () => {
   // Un solo celular anota por todos: el link para sumarse a anotar llevaba a "El admin de grupo lleva tu score".
   it('sin link para jugar solo ofrece invitar a seguir', async () => {
     setNavigator({ share: vi.fn() } as unknown as Navigator)
-    render(<CompartirEnJuego enlaces={enlacesDeRondaLibre('ABC', { conJugar: false })} color="red" />)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: false })} color="red" />)
     await abrirOpciones()
 
     expect(screen.queryByText('Invitar a jugar')).toBeNull()
@@ -127,7 +127,7 @@ describe('CompartirEnJuego', () => {
 
   it('"Volver al scorer" y tocar fuera cierran las opciones', async () => {
     setNavigator({ share: vi.fn() } as unknown as Navigator)
-    render(<CompartirEnJuego enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
     await abrirOpciones()
     fireEvent.click(screen.getByRole('button', { name: 'Volver al scorer' }))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -140,7 +140,7 @@ describe('CompartirEnJuego', () => {
   it('copiar link copia el link en vivo y avisa "Copiado"', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     setNavigator({ share: vi.fn(), clipboard: { writeText } } as unknown as Navigator)
-    render(<CompartirEnJuego enlaces={enlacesDeRondaLibre('ABC', { conJugar: false })} color="red" />)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: false })} color="red" />)
     await abrirOpciones()
 
     fireEvent.click(screen.getByRole('button', { name: 'Copiar link' }))
@@ -148,5 +148,54 @@ describe('CompartirEnJuego', () => {
 
     expect(writeText).toHaveBeenCalledWith(`${SITE}/ronda-libre/ABC`)
     expect(screen.getByRole('button', { name: 'Copiado' })).toBeTruthy()
+  })
+
+  // La hoja de opciones aparece donde estaba "Sí": el segundo toque de un doble toque caía en "Compartir".
+  it('las opciones no reciben toques hasta pasado el doble toque que las abrió', async () => {
+    setNavigator({ share: vi.fn() } as unknown as Navigator)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: false })} color="red" />)
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir la ronda' }))
+    act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
+    fireEvent.click(screen.getByRole('button', { name: 'Sí' }))
+    const capa = screen.getByRole('button', { name: 'Compartir' }).closest('[style*="pointer-events"]') as HTMLElement
+    expect(capa.style.pointerEvents).toBe('none')
+    act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
+    expect(capa.style.pointerEvents).toBe('auto')
+  })
+
+  it('el foco entra a la hoja de opciones y vuelve al ícono al cerrarla', async () => {
+    setNavigator({ share: vi.fn() } as unknown as Navigator)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: false })} color="red" />)
+    const icono = screen.getByRole('button', { name: 'Compartir la ronda' })
+    icono.focus()
+    await abrirOpciones()
+    expect(screen.getByRole('dialog', { name: 'Compartir la ronda' }).contains(document.activeElement)).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Volver al scorer' }))
+    expect(document.activeElement).toBe(icono)
+  })
+
+  // /en-vivo pide sesión y PRO: los amigos que reciben el link se topaban con el muro de pago.
+  it('en un torneo pregunta por el torneo y comparte su página pública con el nombre', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    setNavigator({ share } as unknown as Navigator)
+    render(<CompartirEnJuego de="torneo" enlaces={enlacesDeTorneo('copa-verano', 'Copa Verano')} color="red" />)
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir el torneo' }))
+    expect(screen.getByRole('dialog', { name: '¿Quieres compartir el torneo con amigos?' })).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
+    fireEvent.click(screen.getByRole('button', { name: 'Sí' }))
+    act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
+    vi.useRealTimers()
+
+    expect(screen.queryByText('Invitar a jugar')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir' }))
+    await flush()
+
+    expect(share).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Copa Verano',
+      text: 'Mira el leaderboard en vivo de Copa Verano en Golfers+',
+      url: `${SITE}/torneo/copa-verano`,
+    }))
   })
 })

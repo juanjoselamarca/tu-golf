@@ -352,7 +352,7 @@ function ScorePageContent() {
         yardaje={getYardajeForTee(holeData, teeDelJugador(activePlayer, ronda))}
         showStrokes={(showNet || showStableford) && !isStrokePlayNeto}
         strokesOnHole={strokesOnHole}
-        accion={<CompartirEnJuego enlaces={enlacesDeRondaLibre(codigo, { conJugar: !ronda.admin_mode })} color={theme.textFaint} />}
+        accion={<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre(codigo, { conJugar: !ronda.admin_mode })} color={theme.textFaint} />}
         theme={theme}
       />
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
 
 interface HojaDelScorerProps {
@@ -15,13 +15,35 @@ interface HojaDelScorerProps {
   children: ReactNode
 }
 
+/** Más que el intervalo de un doble toque y menos de lo que tarda alguien en leer la pregunta. */
+export const MS_ANTES_DE_ARMAR = 400
+
 /**
  * Hoja de los scorers: aparece abajo, al alcance del pulgar, sin animación de entrada (en cancha la hoja que
  * se desliza se siente lenta). Fuente única del contenedor para las decisiones que se toman en medio de la
  * ronda: finalizar, retirar a un jugador de la Timba y compartir la ronda.
+ *
+ * Los botones no reciben toques durante los primeros 400 ms: la hoja aparece bajo el dedo que tocó el botón
+ * que la abrió, y el segundo toque de un doble toque caía en lo que hubiera ahí (cerraba la ronda, o el "Sí"
+ * de compartir abría la hoja del teléfono). El foco entra a la hoja y vuelve a donde estaba al cerrarla.
  */
 export function HojaDelScorer({ titulo, detalle, onCerrar, fondoTestId, children }: HojaDelScorerProps) {
   const tituloId = useId()
+  const dialogoRef = useRef<HTMLDivElement>(null)
+  const [armada, setArmada] = useState(false)
+  // Se captura al renderizar, antes de que un hijo tome el foco en su efecto (los efectos de los hijos
+  // corren antes que los de la hoja).
+  const [focoPrevio] = useState(() => (typeof document === 'undefined' ? null : document.activeElement))
+
+  useEffect(() => {
+    const t = setTimeout(() => setArmada(true), MS_ANTES_DE_ARMAR)
+    return () => clearTimeout(t)
+  }, [])
+
+  useEffect(() => {
+    if (!dialogoRef.current?.contains(document.activeElement)) dialogoRef.current?.focus()
+    return () => { if (focoPrevio instanceof HTMLElement && focoPrevio.isConnected) focoPrevio.focus() }
+  }, [focoPrevio])
 
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar() }
@@ -41,7 +63,9 @@ export function HojaDelScorer({ titulo, detalle, onCerrar, fondoTestId, children
         }}
       >
         <div
+          ref={dialogoRef}
           role="dialog"
+          tabIndex={-1}
           aria-modal="true"
           aria-labelledby={tituloId}
           onClick={(e) => e.stopPropagation()}
@@ -49,7 +73,7 @@ export function HojaDelScorer({ titulo, detalle, onCerrar, fondoTestId, children
             background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
             borderRadius: '16px 16px 0 0', width: '100%', maxWidth: '480px',
             padding: '24px 16px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
-            display: 'flex', flexDirection: 'column', gap: '10px',
+            display: 'flex', flexDirection: 'column', gap: '10px', outline: 'none',
           }}
         >
           <div id={tituloId} style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', textAlign: 'center', marginBottom: '8px', lineHeight: 1.3 }}>
@@ -60,7 +84,9 @@ export function HojaDelScorer({ titulo, detalle, onCerrar, fondoTestId, children
               {detalle}
             </p>
           )}
-          {children}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', pointerEvents: armada ? 'auto' : 'none' }}>
+            {children}
+          </div>
         </div>
       </div>
     </Portal>

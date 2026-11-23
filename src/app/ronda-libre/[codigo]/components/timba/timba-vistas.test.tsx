@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import type { PuntitoConfig } from '@/golf/formats/personalizado'
-import { MS_ANTES_DE_ARMAR } from '@/components/ronda/ConfirmarFinalizarHoja'
+import { MS_ANTES_DE_ARMAR } from '@/components/ronda/HojaDelScorer'
 import { PanelDelJuego, TEXTO_SIN_JUEGO } from './PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from './PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from './RetiroDeJugadores'
