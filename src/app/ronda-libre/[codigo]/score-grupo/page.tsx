@@ -382,6 +382,7 @@ export default function ScoreGrupoPage() {
             <EquiposDeOtroCelular
               codigo={codigo}
               equipos={equiposDeOtroCelular}
+              nombreCreador={nombreDelCreador(ronda)}
               puedeLiberar={cierraEsteCelular}
               enCurso={anotador.enCurso}
               onLiberar={(id, nombre) => { void anotador.liberar(id, nombre) }}

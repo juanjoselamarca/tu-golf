@@ -126,6 +126,18 @@ export function nombreDelAnotador(equipo: Pick<EquipoConAnotador, 'anotador_nomb
 }
 
 /**
+ * Quién anota un equipo de otro celular, para la franja «lo anota …». Uno sin reclamar lo anota el creador desde su
+ * celular: se muestra su nombre (`nombreDelCreador`), no «otro celular». Uno reclamado: `nombreDelAnotador`.
+ */
+export function nombreDeQuienAnota(
+  equipo: Pick<EquipoConAnotador, 'anotador_user_id' | 'anotador_nombre'>,
+  nombreCreador: string | null,
+): string {
+  if (equipo.anotador_user_id == null) return nombreCreador ?? 'quien creó la ronda'
+  return nombreDelAnotador(equipo)
+}
+
+/**
  * ¿Este celular cierra la ronda y libera equipos? Un celular por equipo: solo el creador (la base rechaza Finalizar a
  * quien anota un equipo desde su celular). Ronda de un celular: sin cambio, cierra quien anota.
  */

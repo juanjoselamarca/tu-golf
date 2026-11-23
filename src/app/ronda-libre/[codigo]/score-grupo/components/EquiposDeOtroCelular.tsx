@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { nombreDelAnotador } from '@/golf/ronda-libre/anotador-de-equipo'
+import { nombreDeQuienAnota } from '@/golf/ronda-libre/anotador-de-equipo'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 
 interface EquiposDeOtroCelularProps {
   codigo: string
   equipos: readonly EquipoDelScorer[]
+  /** `nombreDelCreador`: quien anota los equipos sin reclamar (para quien no es el creador). */
+  nombreCreador: string | null
   /** Quien cierra la ronda (`cierraLaRonda`) puede liberar un equipo: vuelve a su celular. */
   puedeLiberar: boolean
   /** Equipo cuyo pedido está en vuelo (`useAnotadorDeEquipo.enCurso`). */
@@ -20,7 +22,7 @@ interface EquiposDeOtroCelularProps {
  * Un celular por equipo: los equipos que anota otro celular, como franja (no tarjeta: desde acá no se tocan). Sus
  * golpes se ven en la tabla en vivo. El creador puede liberar uno (con confirmación) para anotarlo él.
  */
-export function EquiposDeOtroCelular({ codigo, equipos, puedeLiberar, enCurso, onLiberar }: EquiposDeOtroCelularProps) {
+export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLiberar, enCurso, onLiberar }: EquiposDeOtroCelularProps) {
   const [porLiberar, setPorLiberar] = useState<EquipoDelScorer | null>(null)
   if (equipos.length === 0) return null
 
@@ -31,7 +33,7 @@ export function EquiposDeOtroCelular({ codigo, equipos, puedeLiberar, enCurso, o
           <li key={e.id} style={{ minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '15px', color: 'var(--text)' }}>
             <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
               <span style={{ fontWeight: 600 }}>{e.nombre}</span>
-              <span style={{ color: 'var(--text-2)' }}> · lo anota {nombreDelAnotador(e)}</span>
+              <span style={{ color: 'var(--text-2)' }}> · lo anota {nombreDeQuienAnota(e, nombreCreador)}</span>
             </span>
             {puedeLiberar && (
               <button
@@ -57,7 +59,7 @@ export function EquiposDeOtroCelular({ codigo, equipos, puedeLiberar, enCurso, o
         isOpen={porLiberar != null}
         variant="warning"
         title={porLiberar ? `¿Liberar ${porLiberar.nombre}?` : ''}
-        description={porLiberar ? `Pasa a tu celular y ${nombreDelAnotador(porLiberar)} ya no puede anotarlo. Lo que ya subió queda guardado.` : ''}
+        description={porLiberar ? `Pasa a tu celular y ${nombreDeQuienAnota(porLiberar, nombreCreador)} ya no puede anotarlo. Lo que ya subió queda guardado.` : ''}
         confirmText="Liberar"
         onCancel={() => setPorLiberar(null)}
         onConfirm={() => {

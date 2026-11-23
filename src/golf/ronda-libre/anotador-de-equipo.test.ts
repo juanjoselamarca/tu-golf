@@ -12,6 +12,7 @@ import {
   equiposTomados,
   nombreDelAnotador,
   nombreDelCreador,
+  nombreDeQuienAnota,
   ofreceAnotarMiEquipo,
   unCelularPorEquipo,
   type EquipoConAnotador,
@@ -203,5 +204,16 @@ describe('ofreceAnotarMiEquipo (CTA de la ronda en vivo)', () => {
   })
   it('sin sesión: nunca', () => {
     expect(ofreceAnotarMiEquipo(equipos, null)).toBe(false)
+  })
+})
+
+describe('nombreDeQuienAnota (franja de equipos de otro celular)', () => {
+  it('sin reclamar: lo anota el creador, con su nombre (no «otro celular»)', () => {
+    expect(nombreDeQuienAnota(club('e3', null), 'Juanjo')).toBe('Juanjo')
+    expect(nombreDeQuienAnota(club('e3', null), null)).toBe('quien creó la ronda')
+  })
+  it('reclamado: el nombre del anotador; sin nombre, «otro celular»', () => {
+    expect(nombreDeQuienAnota(club('e2', PEDRO, 'Pedro'), 'Juanjo')).toBe('Pedro')
+    expect(nombreDeQuienAnota(club('e2', PEDRO, null), 'Juanjo')).toBe('otro celular')
   })
 })
