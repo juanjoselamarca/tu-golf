@@ -128,6 +128,15 @@ Meta post-reordenamiento: **8/10** (nivel The Grint / V-Par).
 
 Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones detectadas y su estado.
 
+### PENDIENTE (23-nov, scramble rápido PR3): «Neto»/«Gross» escrito a mano → `nombreDelModo()` en `src/golf/core/rules.ts`
+Ya migrados: `formatLabel` (mismo archivo), `TeamLeaderboards.tsx` (ronda libre) y `components/TeamLeaderboard.tsx`.
+Quedan escribiendo el texto a mano (mismo resultado, sin cambiar textos visibles al migrar):
+`ronda-libre/[codigo]/components/CourseInfoCard.tsx:49`, `IndividualLeaderboard.tsx:60,82,173`,
+`WinnerCelebration.tsx:39`, `ronda-libre/[codigo]/layout.tsx:66`, `nueva/components/timba/ElegirJuegoTimba.tsx:131`,
+`organizador/nuevo/sections/PremiosSection.tsx:173`, `components/TournamentTabs.tsx:197` y
+`golf/ronda-libre/resultado-de-la-timba.ts:210`. Ojo en `IndividualLeaderboard.tsx:60`: es el modo *contrario*
+(«secundario»), no el de la ronda.
+
 ### PENDIENTE (23-oct, PR-C hándicap de equipos): `tournaments.tees` guarda el MODO y se copia como tee de la tarjeta
 `tournaments.tees` no es siempre un tee: cuando cada jugador sale de su tee guarda el modo (`'per_player'`). `materializeGroupScorecard` (`src/lib/data/tournaments/startTournament.ts`, insert de `rondas_libres`) lo copia tal cual a `rondas_libres.tees`, así que la tarjeta del grupo queda con `tees = 'per_player'` y cualquier lector que lo tome como nombre de tee (`teeDelJugador`, `resolverCourseData` en el scorer de ronda libre) no encuentra fila y cae al rating de la cancha. Preexistente; el handicap del torneo (board y handicap de equipo) no lo usa: resuelve el tee por jugador (`resolvePlayerTee`). Arreglo: separar modo y tee (columna `tee_assignment_mode`) o copiar el tee resuelto de cada jugador a `ronda_libre_jugadores.tees`. Requiere decidir qué muestra la tarjeta.
 

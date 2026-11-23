@@ -10,6 +10,7 @@ import {
   teePlayerEnHoyo, hoyosDelMotor,
 } from '@/golf/formats'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { nombreDelModo } from '@/golf/core/rules'
 import type { BestBallPlayer, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
@@ -43,7 +44,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
 
   // Fix 126: al expandir un equipo en best ball se muestran las tarjetas
   // (Scorecard estándar) de cada miembro — igual que al tocar un jugador individual.
-  const modoSuffix = ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'
+  const modoSuffix = nombreDelModo(ronda.modo_juego)
   const renderTeamDetail = (teamId: string) => {
     const eq = equipos.find(e => e.id === teamId)
     if (!eq) return null

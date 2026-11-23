@@ -10,7 +10,7 @@
 import type { ReactNode } from 'react'
 import { formatearHandicap } from '@/golf/handicap-index-range'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
-import { formatOverUnder } from '@/golf/core/rules'
+import { formatOverUnder, nombreDelModo } from '@/golf/core/rules'
 import { getScoreColor } from '@/golf/core/colors'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
@@ -93,7 +93,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
             fontSize: '10px', fontWeight: 600, color: 'var(--brand-on-bg)',
             background: 'rgba(196,153,42,0.08)', padding: '2px 8px', borderRadius: '10px',
           }}>
-            {isStableford ? 'Stableford' : modoJuego === 'neto' ? 'Neto' : 'Gross'}
+            {isStableford ? 'Stableford' : nombreDelModo(modoJuego)}
           </span>
         </div>
       </div>
