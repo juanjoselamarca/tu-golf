@@ -1,4 +1,4 @@
-// Las 9 rutas de escritura que quedaron sin rate limit (04-nov-2026) lo consultan después de la
+// Las rutas de escritura que quedaron sin rate limit (04-nov-2026; eran 9, share-link se borró el 23-nov) lo consultan después de la
 // sesión y ANTES de tocar la base: con el cupo agotado responden 429 sin una sola consulta.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
