@@ -55,18 +55,45 @@ export async function fetchEquiposDeRondas(
   supabase: Pick<SupabaseClient, 'from'>,
   rondaIds: readonly string[],
 ): Promise<Map<string, Equipo[]>> {
+  return leerEquiposDeRondas(supabase, rondaIds, false)
+}
+
+/** Equipo leído con quién lo anota (null = nadie lo reclamó). */
+export type EquipoConAnotadorLeido = Equipo & { anotador_user_id: string | null; anotador_nombre: string | null }
+
+/**
+ * Los equipos de UNA ronda con quién anota cada uno (`anotador_user_id`, `anotador_nombre`): el scorer de grupo
+ * (un celular por equipo, `@/golf/ronda-libre/anotador-de-equipo`). SOLO con sesión: anon no tiene el grant de esas
+ * columnas y la lectura entera fallaría. Misma query que `fetchEquiposDeRondas` (un error se lanza igual).
+ */
+export async function fetchEquiposConAnotador(
+  supabase: Pick<SupabaseClient, 'from'>,
+  rondaId: string,
+): Promise<EquipoConAnotadorLeido[]> {
+  return ((await leerEquiposDeRondas(supabase, [rondaId], true)).get(rondaId) ?? []) as EquipoConAnotadorLeido[]
+}
+
+const COLUMNAS_EQUIPO = 'id, nombre, handicap_equipo, handicap_equipo_juego, handicap_origen, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)'
+
+async function leerEquiposDeRondas(
+  supabase: Pick<SupabaseClient, 'from'>,
+  rondaIds: readonly string[],
+  conAnotador: boolean,
+): Promise<Map<string, Equipo[]>> {
   const porRonda = new Map<string, Equipo[]>()
   if (rondaIds.length === 0) return porRonda
   // `id` desempata equipos insertados en el mismo instante (un solo INSERT comparte
   // now()): sin eso el "1." de dos equipos en cero podía alternar entre requests.
+  // `string` y no el literal: con la plantilla, supabase-js no logra tipar la fila; la forma la fija el mapeo de abajo.
+  const columnas: string = conAnotador ? `${COLUMNAS_EQUIPO}, anotador_user_id, anotador_nombre` : COLUMNAS_EQUIPO
   const { data: eqData, error } = await supabase
     .from('ronda_equipos')
-    .select('id, nombre, handicap_equipo, handicap_equipo_juego, handicap_origen, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
+    .select(columnas)
     .in('ronda_id', [...rondaIds])
     .order('created_at')
     .order('id')
   if (error) throw error
-  for (const e of eqData ?? []) {
+  for (const e of (eqData ?? []) as unknown as Array<Record<string, unknown>>) {
     const rondaId = e.ronda_id as string
     const lista = porRonda.get(rondaId) ?? []
     lista.push({
@@ -79,6 +106,10 @@ export async function fetchEquiposDeRondas(
       jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         .map(m => m.jugador_id),
+      ...(conAnotador ? {
+        anotador_user_id: (e.anotador_user_id as string | null | undefined) ?? null,
+        anotador_nombre: (e.anotador_nombre as string | null | undefined) ?? null,
+      } : {}),
     })
     porRonda.set(rondaId, lista)
   }
