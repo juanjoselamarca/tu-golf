@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
-import { MAX_EQUIPOS_DE_CLUB, admiteEquiposDeClub } from '@/golf/ronda-libre/equipos-de-club'
+import { MAX_EQUIPOS_DE_CLUB, adminModeDeEquiposDeClub, admiteEquiposDeClub, type QuienAnota } from '@/golf/ronda-libre/equipos-de-club'
 import { NOMBRE_EQUIPO_MAX, nombreDeEquipo, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import type { EquipoDeClubAValidar } from '@/golf/ronda-libre/validar-nueva-ronda'
 
@@ -69,6 +69,12 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
 
   const [soloEquiposElegido, setSoloEquiposElegido] = useState(false)
   const [equipos, setEquipos] = useState<EquipoDeClubDelFormulario[]>(() => [equipoVacio()])
+  /**
+   * «Yo anoto todos» | «Cada equipo en su celular». Sin preselección (`null`): con 2 o más equipos el validador
+   * pide elegir. Con 1 equipo no se pregunta y no viaja (anota el creador).
+   */
+  const [quienAnota, setQuienAnota] = useState<QuienAnota | null>(null)
+  const seElige = equipos.length >= 2
 
   /** Lo elegido solo cuenta en un formato que lo admite: volver a Best Ball no arrastra equipos sin jugadores. */
   const soloEquipos = admiteEquiposDeClub(formato) && soloEquiposElegido
@@ -138,10 +144,13 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     modoAntesDeSoloEquipos.current = null
     if (!nombres || nombres.length === 0) {
       setSoloEquiposElegido(false)
+      setQuienAnota(null)
       setEquipos([equipoVacio()])
       return
     }
     setSoloEquiposElegido(true)
+    // Repetir no arrastra la elección: con 2 o más equipos se vuelve a preguntar.
+    setQuienAnota(null)
     setEquipos(nombres.slice(0, MAX_EQUIPOS_DE_CLUB).map((n, i) =>
       equipoVacio(n === nombreDeEquipo(i) ? '' : n.slice(0, NOMBRE_EQUIPO_MAX))))
   }
@@ -157,6 +166,14 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     renombrar,
     escribirHandicap,
     restaurar,
+    /** Con 2 o más equipos se elige quién anota; con 1 no se pregunta. */
+    seEligeQuienAnota: seElige,
+    quienAnota,
+    elegirQuienAnota: setQuienAnota,
+    /** Lo que viaja en `equipos_de_club.quien_anota` (y valida): `null` con 1 equipo o sin elegir. */
+    quienAnotaParaEnviar: seElige ? quienAnota : null,
+    /** La ronda queda de un celular por equipo (`admin_mode` false): la misma regla que aplica el servidor. */
+    unCelularPorEquipo: soloEquipos && !adminModeDeEquiposDeClub(seElige ? quienAnota : null, equipos.length),
     /** `null` fuera de «Solo equipos»: la ronda va con jugadores, como siempre. */
     paraEnviar: soloEquipos ? equiposDeClubParaEnviar(equipos, modo) : null,
   }

@@ -28,7 +28,7 @@ function Paso({ formato = 'scramble', modoInicial = 'gross', netoBloqueado = fal
   const problema = club.paraEnviar
     ? validarNuevaRonda({
         cancha: 'Los Leones', formato, modo, jugadores: [{ nombre: 'Ana', indice: 12 }], equipos: [],
-        equiposDeClub: { equipos: club.paraEnviar, holes, quienAnota: 'uno' },
+        equiposDeClub: { equipos: club.paraEnviar, holes, quienAnota: club.quienAnotaParaEnviar },
       })
     : null
   return (
@@ -142,6 +142,26 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
     expect(aviso().textContent).toBe('Dos equipos se llaman igual. Cambia uno.')
   })
 
+  it('«¿Quién anota?»: no se pregunta con 1 equipo; con 2 es obligatorio y sin nada elegido', () => {
+    render(<Paso />)
+    fireEvent.click(soloEquipos())
+    expect(screen.queryByRole('button', { name: 'Cada equipo en su celular' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '+ Agregar equipo' }))
+    handicaps().forEach(h => fireEvent.change(h, { target: { value: '8' } }))
+    const yo = screen.getByRole('button', { name: 'Yo anoto todos' })
+    const cada = screen.getByRole('button', { name: 'Cada equipo en su celular' })
+    expect(yo.getAttribute('aria-pressed')).toBe('false')
+    expect(cada.getAttribute('aria-pressed')).toBe('false')
+    expect(aviso().textContent).toBe('Elige quién anota.')
+    expect(revisar().disabled).toBe(true)
+    fireEvent.click(cada)
+    expect(cada.getAttribute('aria-pressed')).toBe('true')
+    expect(aviso().textContent).toBe('')
+    // Vuelve a 1 equipo: la pregunta se va.
+    fireEvent.click(screen.getAllByRole('button', { name: /^Quitar/ })[1])
+    expect(screen.queryByRole('button', { name: 'Cada equipo en su celular' })).toBeNull()
+  })
+
   it('volver a «Con jugadores» devuelve las tarjetas de jugador tal como estaban', () => {
     render(<Paso />)
     fireEvent.click(soloEquipos())
@@ -152,11 +172,11 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
 })
 
 describe('PasoConfirmar — equipos de club', () => {
-  const pintar = (modo: ModoJuego, equiposDeClub: Array<{ nombre: string; handicap: number | null }>) => render(
+  const pintar = (modo: ModoJuego, equiposDeClub: Array<{ nombre: string; handicap: number | null }>, unCelularPorEquipo = false) => render(
     <PasoConfirmar
       cancha="Los Leones" forma={{ holes: 18, hoyoInicio: 1, esMultiRecorrido: false }} mitad="front"
       recorridosElegidos={[]} formato="scramble" modo={modo} teeGlobal="Azul" fecha="2026-11-23"
-      jugadores={[]} equipos={[]} equiposDeClub={equiposDeClub} llevaElScoreDelGrupo hcpVisibleDe={() => null}
+      jugadores={[]} equipos={[]} equiposDeClub={equiposDeClub} unCelularPorEquipo={unCelularPorEquipo} llevaElScoreDelGrupo hcpVisibleDe={() => null}
       hayVariosTees={false} problema={null} creando={false} onEditar={vi.fn()} onCrear={vi.fn()}
     />,
   )
@@ -181,6 +201,14 @@ describe('PasoConfirmar — equipos de club', () => {
     expect(nombre.style.minWidth).toBe('0px')
     expect(nombre.style.textOverflow).toBe('ellipsis')
     expect(screen.getByText('· HCP 8 (club)').style.flexShrink).toBe('0')
+  })
+
+  it('anota: «Cada equipo en su celular» o «Tú, todos los equipos»', () => {
+    pintar('neto', [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: 'Los Pumas', handicap: 0 }], true)
+    expect(screen.getByText('Cada equipo en su celular')).toBeTruthy()
+    cleanup()
+    pintar('neto', [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: 'Los Pumas', handicap: 0 }])
+    expect(screen.getByText('Tú, todos los equipos')).toBeTruthy()
   })
 
   it('gross: sin HCP y en singular con un equipo', () => {

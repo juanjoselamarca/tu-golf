@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { ModoJuego } from '@/golf/core/rules'
-import { esHandicapDeClubValido, handicapDeClubMaximo } from '@/golf/ronda-libre/equipos-de-club'
+import { esHandicapDeClubValido, handicapDeClubMaximo, type QuienAnota } from '@/golf/ronda-libre/equipos-de-club'
 import { NOMBRE_EQUIPO_MAX, nombreDeEquipo, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import { DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { handicapDeClubDesdeTexto, type EquipoDeClubDelFormulario } from '../hooks/useEquiposDeClub'
@@ -38,6 +38,47 @@ export function SelectorSoloEquipos({ soloEquipos, onElegir }: { soloEquipos: bo
   )
 }
 
+const OPCIONES_QUIEN_ANOTA: ReadonlyArray<{ valor: QuienAnota; titulo: string }> = [
+  { valor: 'uno', titulo: 'Yo anoto todos' },
+  { valor: 'cada_equipo', titulo: 'Cada equipo en su celular' },
+]
+
+/**
+ * Con 2 o más equipos: quién anota, obligatorio y sin nada elegido de antemano (`useEquiposDeClub.quienAnota`).
+ * «Cada equipo en su celular»: al crear la ronda se comparte un link y cada equipo elige el suyo.
+ */
+export function SelectorQuienAnotaEquipos({ quienAnota, onElegir }: { quienAnota: QuienAnota | null; onElegir: (q: QuienAnota) => void }) {
+  return (
+    <div style={{ marginTop: '16px' }}>
+      <div id="equipos-club-quien-anota" style={{ ...etiqueta, fontSize: '14px', color: colores.texto }}>¿Quién anota?</div>
+      <div role="group" aria-labelledby="equipos-club-quien-anota" style={{ display: 'flex', gap: '8px' }}>
+        {OPCIONES_QUIEN_ANOTA.map(op => {
+          const activo = quienAnota === op.valor
+          return (
+            <button
+              key={op.valor}
+              type="button"
+              aria-pressed={activo}
+              onClick={() => onElegir(op.valor)}
+              style={{
+                ...opcion(activo), flex: 1, minHeight: '56px', padding: '10px 12px', textAlign: 'center',
+                fontSize: '14px', fontWeight: 600, lineHeight: 1.3, color: activo ? colores.oroTexto : colores.texto,
+              }}
+            >
+              {op.titulo}
+            </button>
+          )
+        })}
+      </div>
+      {quienAnota === 'cada_equipo' && (
+        <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4 }}>
+          Al crear la ronda envías un link y cada equipo elige el suyo. Tú anotas el primero y cierras la ronda.
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   equipos: EquipoDeClubDelFormulario[]
   /** Modo efectivo de la ronda: el hándicap del club solo se pide en neto. */
@@ -67,7 +108,8 @@ export function EquiposDeClub(props: Props) {
   return (
     <div>
       <div style={{ fontSize: '13px', color: colores.texto2, marginBottom: '12px', lineHeight: 1.4 }}>
-        Anotas todos los equipos desde tu celular.{' '}
+        {/* Con 2 o más equipos lo dice la elección de quién anota (abajo). */}
+        {props.equipos.length < 2 && <>Anotas el equipo desde tu celular.{' '}</>}
         {esNeto ? `El hándicap es el que les dio el club, de 0 a ${maximo}.` : 'Juegan gross, sin hándicap.'}
       </div>
 

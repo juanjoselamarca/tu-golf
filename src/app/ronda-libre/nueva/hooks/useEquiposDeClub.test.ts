@@ -206,6 +206,32 @@ describe('useEquiposDeClub', () => {
     expect(result.current.equipos.map(e => e.nombre)).toEqual(['', '', 'Equipo 2'])
   })
 
+  it('quién anota: sin elegir de antemano; con 1 equipo no viaja ni deja la ronda en un celular por equipo', () => {
+    const { result } = montar()
+    act(() => result.current.elegirSoloEquipos(true))
+    expect(result.current.seEligeQuienAnota).toBe(false)
+    act(() => result.current.agregar())
+    expect(result.current.seEligeQuienAnota).toBe(true)
+    expect(result.current.quienAnota).toBeNull()
+    expect(result.current.quienAnotaParaEnviar).toBeNull()
+    expect(result.current.unCelularPorEquipo).toBe(false)
+    act(() => result.current.elegirQuienAnota('cada_equipo'))
+    expect(result.current.quienAnotaParaEnviar).toBe('cada_equipo')
+    expect(result.current.unCelularPorEquipo).toBe(true)
+    act(() => result.current.quitar(1))
+    expect(result.current.quienAnotaParaEnviar).toBeNull()
+    expect(result.current.unCelularPorEquipo).toBe(false)
+  })
+
+  it('repetir una ronda de club vuelve a preguntar quién anota', () => {
+    const { result } = montar()
+    act(() => result.current.elegirSoloEquipos(true))
+    act(() => result.current.agregar())
+    act(() => result.current.elegirQuienAnota('cada_equipo'))
+    act(() => result.current.restaurar(['Los Tigres', 'Los Pumas']))
+    expect(result.current.quienAnota).toBeNull()
+  })
+
   it('repetir una ronda sin equipos de club vuelve a «Con jugadores» y limpia lo escrito', () => {
     const { result } = montar()
     act(() => result.current.elegirSoloEquipos(true))
