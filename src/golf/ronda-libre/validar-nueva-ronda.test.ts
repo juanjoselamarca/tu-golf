@@ -340,6 +340,22 @@ describe('cuentas elegidas para los rivales', () => {
   })
 })
 
+describe('esError: dato mal (rojo) vs falta completar (neutro)', () => {
+  const esError = (r: RondaAValidar) => validarNuevaRonda(r)?.esError === true
+  it.each([
+    ['demasiados jugadores', ronda({ jugadores: [...CUATRO, { nombre: 'Quinto', indice: 10 }] })],
+    ['match play con 3', ronda({ formato: 'match_play', modo: 'neto', jugadores: CUATRO.slice(0, 3) })],
+    ['jugador repetido', ronda({ jugadores: [{ ...CUATRO[0], perfilId: 'p1' }, { ...CUATRO[1], perfilId: 'p1' }] })],
+  ])('%s es error', (_, r) => { expect(esError(r)).toBe(true) })
+  it.each([
+    ['sin cancha', ronda({ cancha: '' })],
+    ['match play con 1', ronda({ formato: 'match_play', modo: 'neto' })],
+  ])('%s solo falta completar', (_, r) => {
+    expect(validarNuevaRonda(r)).not.toBeNull()
+    expect(esError(r)).toBe(false)
+  })
+})
+
 describe('equipos de club (scramble rápido)', () => {
   const club = (over: Partial<RondaAValidar> = {}, clubOver: Partial<NonNullable<RondaAValidar['equiposDeClub']>> = {}) =>
     ronda({

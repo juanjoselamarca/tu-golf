@@ -98,6 +98,11 @@ export const avisoQueFalta = {
   color: colores.texto2,
 } as const
 
+/** El estilo del aviso de un problema: rojo si un dato está mal (o `forzarError`, p. ej. un índice a medio escribir). */
+export function estiloDeAviso(problema: { esError?: true } | null | undefined, forzarError = false) {
+  return forzarError || problema?.esError ? avisoQueFrena : avisoQueFalta
+}
+
 /** "HCP n" junto a cada jugador. */
 export const hcpDeJugador = {
   fontFamily: 'var(--font-dm-mono), monospace',

@@ -7,7 +7,7 @@ import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
 import type { EquipoDeLaRonda } from '../hooks/useFormularioDeRonda'
 import { nombreVisibleDeTee } from './SelectorTees'
-import { avisoQueFrena, colores, primario, secundario, tarjeta } from './estilos'
+import { estiloDeAviso, colores, primario, secundario, tarjeta } from './estilos'
 import { formatearHandicap, formatearIndice } from '@/golf/handicap-index-range'
 import { nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 
@@ -234,7 +234,7 @@ export function PasoConfirmar(props: Props) {
       </div>
 
       {props.problema && (
-        <div style={{ ...avisoQueFrena, marginTop: '8px' }}>
+        <div style={{ ...estiloDeAviso(props.problema), marginTop: '8px' }}>
           {props.problema.detalle}
         </div>
       )}

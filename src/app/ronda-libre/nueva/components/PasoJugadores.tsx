@@ -23,7 +23,7 @@ import { EquiposDeClub, SelectorSoloEquipos } from './EquiposDeClub'
 import type { EquiposDeClubDelFormulario } from '../hooks/useEquiposDeClub'
 import { TarjetaDelCreador } from './TarjetaDelCreador'
 import { TarjetaDeRival } from './TarjetaDeRival'
-import { avisoQueFalta, avisoQueFrena, colores, etiqueta, primario, secundario, tarjeta } from './estilos'
+import { estiloDeAviso, colores, etiqueta, primario, secundario, tarjeta } from './estilos'
 
 interface Props {
   creador: { nombre: string; indice: number | null }
@@ -300,7 +300,7 @@ export function PasoJugadores(props: Props) {
           <div
             id="paso-jugadores-aviso"
             role="status"
-            style={avisoDeIndice != null || props.problema?.esError ? avisoQueFrena : avisoQueFalta}
+            style={estiloDeAviso(props.problema, avisoDeIndice != null)}
           >
             {detalleDelBoton}
           </div>

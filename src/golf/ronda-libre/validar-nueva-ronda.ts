@@ -84,7 +84,9 @@ export interface ProblemaDeLaRonda {
   detalle: string
   /**
    * `true` = un dato está mal (fuera de rango, repetido, sobra): se muestra como error. Sin él, falta algo por
-   * completar: el paso recién abierto no arranca en rojo.
+   * completar: el paso recién abierto no arranca en rojo. Los problemas de la Timba («Revisa el juego») van sin él a
+   * propósito: llegan como texto del validador canónico del juego, que no distingue «falta» de «está mal».
+   * Estilo: `estiloDeAviso` (nueva/components/estilos.ts).
    */
   esError?: true
 }
@@ -197,12 +199,9 @@ function problemaDeCantidad({ formato, jugadores }: RondaAValidar): ProblemaDeLa
 
   // Match Play es el único formato con un techo propio: 1 vs 1, ni uno más.
   if (isMatchPlayFormat(formato) && jugadores.length !== 2) {
-    return {
-      titulo: `${label} requiere 2 jugadores`,
-      detalle: jugadores.length < 2
-        ? 'Agrega exactamente un rival para jugar Match Play.'
-        : 'Match Play es 1 vs 1 — quita los jugadores de más.',
-    }
+    return jugadores.length < 2
+      ? { titulo: `${label} requiere 2 jugadores`, detalle: 'Agrega exactamente un rival para jugar Match Play.' }
+      : { titulo: `${label} requiere 2 jugadores`, esError: true, detalle: 'Match Play es 1 vs 1 — quita los jugadores de más.' }
   }
 
   // Un formato por equipos se puede jugar con un solo equipo contra el par, pero
