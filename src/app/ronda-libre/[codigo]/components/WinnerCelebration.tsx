@@ -45,7 +45,7 @@ function formatoLabel(ronda: RondaLibre): string {
 }
 
 /**
- * Héroe editorial compartido: pill formato + ícono + etiqueta + nombre serif +
+ * Héroe editorial compartido: pill formato + ícono + etiqueta + nombre +
  * (integrantes) + score grande + cancha·fecha + UN botón de compartir.
  * Sin tabla de posiciones embebida (vive una sola vez abajo).
  */
@@ -77,27 +77,28 @@ function HeroCard({
           <span style={{
             padding: '4px 12px', background: 'rgba(196,153,42,0.1)', color: 'var(--brand-on-bg)',
             border: '1px solid rgba(196,153,42,0.28)', borderRadius: '999px',
-            fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em',
-            fontFamily: 'DM Mono, monospace', textTransform: 'uppercase',
+            fontSize: '13px', fontWeight: 600,
           }}>{formatoLabel(ronda)}</span>
         </div>
         <div style={{ padding: '18px 20px 20px', textAlign: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--brand-on-bg)', marginBottom: '8px' }}>
             {contraElPar ? <Flag size={34} /> : isTie ? <Handshake size={34} /> : <Trophy size={34} />}
           </div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '6px' }}>
+          {/* DESIGN.md §4: Playfair solo en el h1 de la página (el "Resultado final" del header),
+              números en DM Sans tabular (.num), nada bajo 13 px y sin caption en mayúsculas. */}
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--brand-on-bg)', marginBottom: '6px' }}>
             {etiqueta}
           </div>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '30px', fontWeight: 700, color: 'var(--text)', lineHeight: 1.05, marginBottom: '2px' }}>
+          <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text)', lineHeight: 1.15, marginBottom: '2px' }}>
             {nombre}
           </div>
           {integrantes && (
-            <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '4px' }}>{integrantes}</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '4px' }}>{integrantes}</div>
           )}
-          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '40px', fontWeight: 500, color: scoreColor, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+          <div className="num" data-testid="winner-score" style={{ fontSize: '40px', fontWeight: 700, color: scoreColor, lineHeight: 1.1 }}>
             {scoreNode}
           </div>
-          <div style={{ fontSize: '12.5px', color: 'var(--text-3)', marginTop: '6px' }}>{ronda.course_name} · {fechaDisplay}</div>
+          <div style={{ fontSize: '14px', color: 'var(--text-3)', marginTop: '6px' }}>{ronda.course_name} · {fechaDisplay}</div>
         </div>
         <div style={{ padding: '0 20px 20px' }}>
           <Button variant={shareVariant} fullWidth onClick={onShare}>

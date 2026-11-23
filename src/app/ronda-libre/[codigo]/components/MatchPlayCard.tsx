@@ -44,7 +44,7 @@ export function MatchPlayCard({ ronda, mr, courseHcpMap, hcpAMostrar }: MatchPla
         background: 'var(--bg)', borderRadius: '10px', marginBottom: '12px',
       }}>
         <div style={{
-          fontSize: '28px', fontWeight: 700, fontFamily: '"Playfair Display", serif',
+          fontSize: '28px', fontWeight: 700, fontVariantNumeric: 'tabular-nums lining-nums',
           color: mr.state === 0 ? 'var(--text-3)' : 'var(--brand-on-bg)',
         }}>
           {mr.holesPlayed > 0 ? mr.display : 'All Square'}

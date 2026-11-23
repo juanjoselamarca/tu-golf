@@ -117,7 +117,7 @@ export function IndividualLeaderboard({
                 padding: '13px 16px', alignItems: 'center', textAlign: 'left', gap: '4px',
               }}
             >
-              <span style={{ fontSize: '14px', color: 'var(--text-3)', fontWeight: 600, fontFamily: '"DM Mono", monospace', whiteSpace: 'nowrap' }} data-testid="posicion">{posiciones[idx] ?? '—'}</span>
+              <span style={{ fontSize: '14px', color: 'var(--text-3)', fontWeight: 600, fontVariantNumeric: 'tabular-nums lining-nums', whiteSpace: 'nowrap' }} data-testid="posicion">{posiciones[idx] ?? '—'}</span>
               {/* El chevron es HERMANO del nombre, no hijo: dentro del span con ellipsis, un nombre largo
                   ("Alberto Chadwick") lo truncaba y no se veía qué fila estaba expandida (inbox 16-oct). */}
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
@@ -131,7 +131,7 @@ export function IndividualLeaderboard({
                 )}
               </span>
               {showSecondary && (
-                <span style={{ fontSize: '13px', color: 'var(--brand-on-bg)', fontWeight: 700, textAlign: 'center', fontFamily: '"DM Mono", monospace' }}>
+                <span style={{ fontSize: '13px', color: 'var(--brand-on-bg)', fontWeight: 700, textAlign: 'center', fontVariantNumeric: 'tabular-nums lining-nums' }}>
                   {/* HCP COMPLETO (18h): una ronda de 9h muestra el handicap entero,
                       no la mitad. El scoring sigue usando courseHcpMap (9h). Fallback
                       al índice redondeado (NO j.courseHcp, que es la mitad en 9h). */}
@@ -139,18 +139,18 @@ export function IndividualLeaderboard({
                 </span>
               )}
               <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '17px', fontWeight: 700, color: scoreColor, fontFamily: '"DM Mono", monospace' }}>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: scoreColor, fontVariantNumeric: 'tabular-nums lining-nums' }}>
                   {vsParStr}
                 </span>
                 {showSecondary && j.holesPlayed > 0 && j.vsParGross !== j.vsParNeto && (
-                  <div style={{ fontSize: '10px', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums lining-nums' }}>
                     {secondaryLabel} {formatOverUnder(isNetoMode ? j.vsParGross : j.vsParNeto)}
                   </div>
                 )}
               </div>
               <span style={{
                 fontSize: '13px', color: 'var(--text-3)', textAlign: 'right',
-                fontFamily: '"DM Mono", monospace', fontVariantNumeric: 'tabular-nums',
+                fontVariantNumeric: 'tabular-nums lining-nums',
               }}>
                 {formatThru(j.holesPlayed, ronda.holes)}
               </span>

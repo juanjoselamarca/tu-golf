@@ -105,3 +105,20 @@ describe('WinnerCelebration — individual: el empate es el de la tabla', () => 
     expect(container.textContent).toBe('')
   })
 })
+
+// 23-nov-2026 (QA diseño) — DESIGN.md §4: Playfair solo en el h1 de la página y los números en
+// DM Sans tabular (.num). El cuadro del ganador tenía el nombre en Playfair y el score en DM Mono.
+describe('WinnerCelebration — tipografía (DESIGN.md §4)', () => {
+  it('sin Playfair ni DM Mono; el score va en .num y nada bajo 13 px', () => {
+    const { container } = render(
+      <WinnerCelebration ronda={ronda} leaderboard={[]} fechaDisplay="7 nov" onShare={() => {}}
+        teams={[equipo('Los Cóndores', -2, ['A', 'B']), equipo('Las Águilas', 1, ['C', 'D'])]} />,
+    )
+    const estilos = Array.from(container.querySelectorAll<HTMLElement>('[style]')).map(el => el.getAttribute('style') ?? '')
+    expect(estilos.some(s => /playfair|dm mono|monospace/i.test(s))).toBe(false)
+    const tamanos = estilos.flatMap(s => Array.from(s.matchAll(/font-size:\s*([\d.]+)px/g), m => Number(m[1])))
+    expect(tamanos.length).toBeGreaterThan(0)
+    expect(Math.min(...tamanos)).toBeGreaterThanOrEqual(13)
+    expect(screen.getByTestId('winner-score').classList.contains('num')).toBe(true)
+  })
+})

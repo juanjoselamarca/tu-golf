@@ -24,10 +24,9 @@ export function CourseInfoCard({ ronda, fechaDisplay }: { ronda: RondaLibre; fec
               color: 'var(--brand-on-bg)',
               border: ronda.holes <= 9 ? '1px solid rgba(196,153,42,0.55)' : '1px solid rgba(196,153,42,0.28)',
               borderRadius: '999px',
-              fontSize: '9px',
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              fontFamily: 'DM Mono, monospace',
+              fontSize: '13px',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
               textTransform: 'uppercase',
               whiteSpace: 'nowrap',
             }}>{ronda.holes}H</span>

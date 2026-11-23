@@ -39,8 +39,8 @@ export function RondaHeader({
                   background: 'rgba(34,197,94,0.15)',
                   color: LIVE_ON_DEEP,
                   border: '1px solid rgba(34,197,94,0.4)',
-                  padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
-                  letterSpacing: '0.05em', flexShrink: 0,
+                  padding: '3px 10px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
+                  letterSpacing: '0.04em', flexShrink: 0,
                 }}>
                   <span className="live-dot" style={{
                     width: '6px', height: '6px', borderRadius: '50%',
@@ -54,8 +54,8 @@ export function RondaHeader({
                   background: 'rgba(196,153,42,0.12)',
                   color: 'var(--gold)', // sobre --bg-deep: dorado claro (ver etiqueta de hoyos)
                   border: '1px solid rgba(196,153,42,0.35)',
-                  padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
-                  letterSpacing: '0.05em', flexShrink: 0,
+                  padding: '3px 10px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
+                  letterSpacing: '0.04em', flexShrink: 0,
                 }}>
                   FINALIZADA
                 </span>
@@ -68,9 +68,9 @@ export function RondaHeader({
               {courseName}
             </div>
 
-            <div style={{
+            <div className="num" style={{
               display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap',
-              fontSize: '12px', color: 'var(--ivory-muted)', fontFamily: '"DM Mono", monospace',
+              fontSize: '13px', color: 'var(--ivory-muted)',
             }}>
               <span>{fechaDisplay}</span>
               <span style={{ opacity: 0.4 }}>·</span>
@@ -87,15 +87,15 @@ export function RondaHeader({
                 color: 'var(--gold)',
                 border: holes <= 9 ? '1px solid rgba(196,153,42,0.6)' : '1px solid rgba(196,153,42,0.3)',
                 borderRadius: '999px',
-                fontSize: '10px',
-                fontWeight: 700,
-                letterSpacing: '0.06em',
+                fontSize: '13px',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
                 textTransform: 'uppercase',
               }}>{holes}H</span>
             </div>
 
             {!isFinished && timeSinceUpdate && (
-              <div style={{ fontSize: '11px', color: 'var(--ivory-muted)', marginTop: '4px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--ivory-muted)', marginTop: '4px' }}>
                 {timeSinceUpdate}
               </div>
             )}
