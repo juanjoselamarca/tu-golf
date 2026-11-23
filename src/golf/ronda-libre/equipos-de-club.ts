@@ -8,6 +8,11 @@
 
 import type { HandicapsDeEquipo } from '@/golf/formats/team-handicap'
 
+/** El único formato que admite equipos de club: en scramble el equipo juega una bola y un solo número. */
+export function admiteEquiposDeClub(formato: string): boolean {
+  return formato === 'scramble'
+}
+
 /** Tope de equipos del modo. */
 export const MAX_EQUIPOS_DE_CLUB = 4
 
@@ -58,4 +63,40 @@ export function handicapsDeEquipoDeClub(v: number | null): HandicapsDeEquipo {
  */
 export function adminModeDeEquiposDeClub(quienAnota: QuienAnota | null, cantidadDeEquipos: number): boolean {
   return cantidadDeEquipos <= 1 || quienAnota !== 'cada_equipo'
+}
+
+/** El equipo entró con el hándicap del club (sin jugadores). Una fila sin la columna (lectura vieja) no lo es. */
+export function esEquipoDeClub(equipo: { handicap_origen?: HandicapOrigen | null }): boolean {
+  return equipo.handicap_origen === 'club'
+}
+
+/**
+ * Los integrantes que se muestran de un equipo (tarjeta del scorer, tabla, cuadro ganador, imagen para
+ * compartir). Un equipo de club no muestra ninguno: el creador va como miembro del primero solo para que la ronda
+ * tenga su tarjeta (plan §1), no porque juegue en ese equipo.
+ */
+export function integrantesQueSeMuestran<T>(equipo: { handicap_origen?: HandicapOrigen | null }, integrantes: readonly T[]): T[] {
+  return esEquipoDeClub(equipo) ? [] : [...integrantes]
+}
+
+/** Lo mínimo de un equipo para saber quién juega en él. */
+interface EquipoConMiembros {
+  jugadorIds: readonly string[]
+  handicap_origen?: HandicapOrigen | null
+}
+
+/**
+ * El equipo en que JUEGA el jugador: el que lo tiene como miembro y no es de club. El creador de una ronda de club
+ * está en el primer equipo solo por estructura (plan §1): ese equipo no es suyo y su tarjeta no va a su historial.
+ */
+export function equipoQueJuega<E extends EquipoConMiembros>(equipos: readonly E[], jugadorId: string): E | undefined {
+  return equipos.find(e => !esEquipoDeClub(e) && e.jugadorIds.includes(jugadorId))
+}
+
+/**
+ * El jugador va en la ronda solo por estructura (miembro de un equipo de club): no jugó una tarjeta propia, así que
+ * no se guarda en su historial, no mueve su índice y no se le avisa al coach.
+ */
+export function vaSoloPorEstructura(equipos: readonly EquipoConMiembros[], jugadorId: string): boolean {
+  return equipos.some(e => esEquipoDeClub(e) && e.jugadorIds.includes(jugadorId))
 }

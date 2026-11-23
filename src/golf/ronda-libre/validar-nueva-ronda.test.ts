@@ -340,6 +340,22 @@ describe('cuentas elegidas para los rivales', () => {
   })
 })
 
+describe('esError: dato mal (rojo) vs falta completar (neutro)', () => {
+  const esError = (r: RondaAValidar) => validarNuevaRonda(r)?.esError === true
+  it.each([
+    ['demasiados jugadores', ronda({ jugadores: [...CUATRO, { nombre: 'Quinto', indice: 10 }] })],
+    ['match play con 3', ronda({ formato: 'match_play', modo: 'neto', jugadores: CUATRO.slice(0, 3) })],
+    ['jugador repetido', ronda({ jugadores: [{ ...CUATRO[0], perfilId: 'p1' }, { ...CUATRO[1], perfilId: 'p1' }] })],
+  ])('%s es error', (_, r) => { expect(esError(r)).toBe(true) })
+  it.each([
+    ['sin cancha', ronda({ cancha: '' })],
+    ['match play con 1', ronda({ formato: 'match_play', modo: 'neto' })],
+  ])('%s solo falta completar', (_, r) => {
+    expect(validarNuevaRonda(r)).not.toBeNull()
+    expect(esError(r)).toBe(false)
+  })
+})
+
 describe('equipos de club (scramble rápido)', () => {
   const club = (over: Partial<RondaAValidar> = {}, clubOver: Partial<NonNullable<RondaAValidar['equiposDeClub']>> = {}) =>
     ronda({
@@ -377,11 +393,11 @@ describe('equipos de club (scramble rápido)', () => {
   it('hándicap decimal, negativo o sobre el tope: el rango depende de los hoyos', () => {
     const con = (handicap: number, holes: number) =>
       detalle(club({}, { holes, equipos: [{ nombre: 'Los Tigres', handicap }] , quienAnota: null }))
-    expect(con(8.5, 18)).toBe('El hándicap de equipo va de 0 a 36, sin decimales.')
-    expect(con(-1, 18)).toBe('El hándicap de equipo va de 0 a 36, sin decimales.')
-    expect(con(37, 18)).toBe('El hándicap de equipo va de 0 a 36, sin decimales.')
+    expect(con(8.5, 18)).toBe('El hándicap de Los Tigres va de 0 a 36, sin decimales.')
+    expect(con(-1, 18)).toBe('El hándicap de Los Tigres va de 0 a 36, sin decimales.')
+    expect(con(37, 18)).toBe('El hándicap de Los Tigres va de 0 a 36, sin decimales.')
     expect(con(36, 18)).toBeUndefined()
-    expect(con(19, 9)).toBe('El hándicap de equipo va de 0 a 18, sin decimales.')
+    expect(con(19, 9)).toBe('El hándicap de Los Tigres va de 0 a 18, sin decimales.')
     expect(con(18, 9)).toBeUndefined()
   })
 

@@ -113,6 +113,11 @@ export const FORMAT_META: Record<FormatoJuego, {
   },
 }
 
+/** Nombre del modo para mostrar ("Neto" / "Gross"). */
+export function nombreDelModo(modo: ModoJuego): string {
+  return modo === 'neto' ? 'Neto' : 'Gross'
+}
+
 /**
  * Display label de un formato de juego (con modo opcional).
  * Ej: formatLabel('stroke_play', 'neto') → 'Stroke Play Neto'
@@ -121,14 +126,13 @@ export const FORMAT_META: Record<FormatoJuego, {
  */
 export function formatLabel(formato: FormatoJuego | string, modo?: ModoJuego | string | null): string {
   // Timba libre no es un formato de FORMAT_META: sin esto caía en "Stroke Play" en encabezados y tarjetas.
-  if (esFormatoPersonalizado(formato)) return modo === 'neto' ? `${NOMBRE_FORMATO_PERSONALIZADO} Neto` : NOMBRE_FORMATO_PERSONALIZADO
+  if (esFormatoPersonalizado(formato)) return modo === 'neto' ? `${NOMBRE_FORMATO_PERSONALIZADO} ${nombreDelModo(modo)}` : NOMBRE_FORMATO_PERSONALIZADO
   const meta = FORMAT_META[formato as FormatoJuego]
   const base = meta?.label ?? 'Stroke Play'
   // Stableford + Match Play son SIEMPRE neto en Golfers+ (cultura Chile / R&A)
   // → no tiene sentido mostrar el sufijo "Neto" porque es redundante
   if (formato === 'stableford' || formato === 'match_play') return base
-  if (modo === 'neto') return `${base} Neto`
-  if (modo === 'gross') return `${base} Gross`
+  if (modo === 'neto' || modo === 'gross') return `${base} ${nombreDelModo(modo)}`
   return base
 }
 

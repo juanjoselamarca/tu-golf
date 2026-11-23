@@ -10,11 +10,13 @@ import {
   teePlayerEnHoyo, hoyosDelMotor,
 } from '@/golf/formats'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { nombreDelModo } from '@/golf/core/rules'
 import type { BestBallPlayer, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { integrantesQueSeMuestran } from '@/golf/ronda-libre/equipos-de-club'
 
 export interface TeamLeaderboardsProps {
   ronda: RondaLibre
@@ -42,7 +44,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
 
   // Fix 126: al expandir un equipo en best ball se muestran las tarjetas
   // (Scorecard estándar) de cada miembro — igual que al tocar un jugador individual.
-  const modoSuffix = ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'
+  const modoSuffix = nombreDelModo(ronda.modo_juego)
   const renderTeamDetail = (teamId: string) => {
     const eq = equipos.find(e => e.id === teamId)
     if (!eq) return null
@@ -70,10 +72,14 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
     )
   }
 
-  const nombresDe = (teamId: string) =>
-    equipos.find(e => e.id === teamId)?.jugadorIds
-      .map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '')
-      .filter(Boolean) || []
+  const nombresDe = (teamId: string): string[] => {
+    const equipo = equipos.find(e => e.id === teamId)
+    if (!equipo) return []
+    return integrantesQueSeMuestran(
+      equipo,
+      equipo.jugadorIds.map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean),
+    )
+  }
 
   if (ronda.formato_juego === 'best_ball') {
     const teams = equipos.map(eq => ({

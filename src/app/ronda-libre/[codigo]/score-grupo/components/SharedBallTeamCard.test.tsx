@@ -40,3 +40,31 @@ describe('SharedBallTeamCard — totales del equipo', () => {
     expect(screen.queryByText(/^HCP/)).toBeNull()
   })
 })
+
+describe('SharedBallTeamCard — equipo de club (scramble rápido)', () => {
+  const deClub = {
+    ...equipo, nombre: 'Los Tigres', handicap_equipo: 8, handicap_equipo_juego: 8,
+    handicap_origen: 'club' as const, jugadorIds: ['creador'], jugadorNombres: ['Juanjo'],
+  }
+  const pintarDeClub = (modoJuego: 'gross' | 'neto') => render(
+    <SharedBallTeamCard
+      equipo={deClub} formatoJuego="scramble" modoJuego={modoJuego} currentHole={9} par={4}
+      totales={totalesBolaCompartida('scramble', deClub, hoyosDeBolaCompartida(ordenHoyos, parMap, holeDataMap))}
+      foursomeInvertido={false} onToggleInvertido={() => {}} onChange={() => {}} theme={SCORER_THEME}
+    />,
+  )
+
+  it('no muestra al creador como integrante: solo el nombre del equipo y su HCP del club', () => {
+    pintarDeClub('neto')
+    expect(screen.getByText('Los Tigres')).toBeTruthy()
+    expect(screen.queryByText('Juanjo')).toBeNull()
+    expect(screen.getByText('HCP 8')).toBeTruthy()
+  })
+
+  it('en gross tampoco muestra integrantes ni HCP, y no deja una fila vacía bajo el nombre', () => {
+    pintarDeClub('gross')
+    expect(screen.queryByText('Juanjo')).toBeNull()
+    expect(screen.queryByText(/^HCP/)).toBeNull()
+    expect(screen.getByText('Los Tigres').nextElementSibling).toBeNull()
+  })
+})

@@ -636,7 +636,7 @@ describe('POST /api/ronda-libre/create — equipos con hándicap del club (scram
     llamadas = []
     const res = await POST(req(nueve(19)))
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toBe('El hándicap de equipo va de 0 a 18, sin decimales.')
+    expect((await res.json()).error).toBe('El hándicap de Los Tigres va de 0 a 18, sin decimales.')
     nadaEscrito()
   })
 
@@ -658,7 +658,7 @@ describe('POST /api/ronda-libre/create — equipos con hándicap del club (scram
   it('un hándicap con decimales se rechaza', async () => {
     const res = await POST(req(club({}, { equipos: [{ nombre: 'Los Tigres', handicap: 8.5 }], quien_anota: null })))
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toBe('El hándicap de equipo va de 0 a 36, sin decimales.')
+    expect((await res.json()).error).toBe('El hándicap de Los Tigres va de 0 a 36, sin decimales.')
     nadaEscrito()
   })
 

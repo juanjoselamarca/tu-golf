@@ -6,6 +6,11 @@ import {
   esHoyosDeEquiposDeClub,
   handicapDeClubMaximo,
   handicapsDeEquipoDeClub,
+  esEquipoDeClub,
+  admiteEquiposDeClub,
+  integrantesQueSeMuestran,
+  equipoQueJuega,
+  vaSoloPorEstructura,
 } from './equipos-de-club'
 
 describe('equipos de club — reglas del modo', () => {
@@ -49,5 +54,55 @@ describe('equipos de club — reglas del modo', () => {
     expect(adminModeDeEquiposDeClub('cada_equipo', 3)).toBe(false)
     expect(adminModeDeEquiposDeClub('cada_equipo', 1)).toBe(true)
     expect(adminModeDeEquiposDeClub(null, 1)).toBe(true)
+  })
+})
+
+describe('equipos de club — qué se muestra', () => {
+  it('solo handicap_origen "club" es equipo de club; sin la columna o "calculado", no', () => {
+    expect(esEquipoDeClub({ handicap_origen: 'club' })).toBe(true)
+    expect(esEquipoDeClub({ handicap_origen: 'calculado' })).toBe(false)
+    expect(esEquipoDeClub({ handicap_origen: null })).toBe(false)
+    expect(esEquipoDeClub({})).toBe(false)
+  })
+
+  it('un equipo de club no muestra integrantes (el creador va en el primero solo por la tarjeta)', () => {
+    expect(integrantesQueSeMuestran({ handicap_origen: 'club' }, ['Juanjo'])).toEqual([])
+  })
+
+  it('un equipo con jugadores muestra a los suyos, en el mismo orden', () => {
+    expect(integrantesQueSeMuestran({ handicap_origen: 'calculado' }, ['Ana', 'Beto'])).toEqual(['Ana', 'Beto'])
+    expect(integrantesQueSeMuestran({}, ['Ana'])).toEqual(['Ana'])
+  })
+})
+
+describe('equipos de club — formato', () => {
+  it('solo scramble admite equipos de club', () => {
+    expect(admiteEquiposDeClub('scramble')).toBe(true)
+    for (const f of ['best_ball', 'foursome', 'stroke_play', 'stableford', 'match_play', 'personalizado']) {
+      expect(admiteEquiposDeClub(f)).toBe(false)
+    }
+  })
+})
+
+describe('equipos de club — quién juega', () => {
+  const deClub = { id: 't', jugadorIds: ['creador'], handicap_origen: 'club' as const }
+  const otroDeClub = { id: 'p', jugadorIds: [] as string[], handicap_origen: 'club' as const }
+  const conJugadores = { id: 'a', jugadorIds: ['ana', 'beto'], handicap_origen: 'calculado' as const }
+  const lecturaVieja = { id: 'v', jugadorIds: ['caro'] }
+
+  it('el creador de una ronda de club no juega en el equipo donde va por estructura', () => {
+    expect(equipoQueJuega([deClub, otroDeClub], 'creador')).toBeUndefined()
+    expect(vaSoloPorEstructura([deClub, otroDeClub], 'creador')).toBe(true)
+  })
+
+  it('en un equipo con jugadores (o una lectura sin la columna) el miembro juega en su equipo', () => {
+    expect(equipoQueJuega([conJugadores, lecturaVieja], 'beto')).toBe(conJugadores)
+    expect(equipoQueJuega([conJugadores, lecturaVieja], 'caro')).toBe(lecturaVieja)
+    expect(vaSoloPorEstructura([conJugadores, lecturaVieja], 'beto')).toBe(false)
+  })
+
+  it('alguien que no es miembro de ningún equipo no juega en ninguno ni va por estructura', () => {
+    expect(equipoQueJuega([conJugadores, deClub], 'nadie')).toBeUndefined()
+    expect(vaSoloPorEstructura([conJugadores, deClub], 'nadie')).toBe(false)
   })
 })

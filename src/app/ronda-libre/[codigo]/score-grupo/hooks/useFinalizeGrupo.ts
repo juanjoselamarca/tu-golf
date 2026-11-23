@@ -28,6 +28,7 @@ import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
+import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-de-club'
 import { completarHoyosSinMarcarConPar, completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import { hoyosQueNoSeRellenan } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import type { MatchResult } from '@/golf/formats/match-play'
@@ -260,11 +261,14 @@ export function useFinalizeGrupo(input: {
     const ratingsPorTee: RatingsPorTee = new Map()
     for (const j of ronda.ronda_libre_jugadores) {
       if (!esMiTarjeta(j, anotador?.id)) continue
+      // Ronda de equipos de club: el anotador va en el primer equipo solo por estructura, no jugó esa tarjeta.
+      // No va a su historial, no mueve su índice ni se le avisa al coach.
+      if (vaSoloPorEstructura(equiposFinales, j.id)) continue
       try {
         // Para Scramble/Foursome: usar score del equipo (es el score real de la ronda)
         let playerScores: Record<string | number, number> = filledScores[j.id] ?? {}
         if (bolaCompartida) {
-          const equipoDelJugador = equiposFinales.find(eq => eq.jugadorIds.includes(j.id))
+          const equipoDelJugador = equipoQueJuega(equiposFinales, j.id)
           if (equipoDelJugador) playerScores = equipoDelJugador.scores
         }
         const guardado = await guardarTarjetaEnHistorial(supabase, {

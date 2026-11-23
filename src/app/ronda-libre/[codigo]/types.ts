@@ -3,18 +3,10 @@
 // Los tipos de dominio (RondaLibre, Jugador, etc.) viven en @/types/ronda.
 
 import type { RondaLibre } from '@/types/ronda'
+import type { Equipo } from '@/lib/ronda/team-ranking'
 
-/** Equipo de una ronda por equipos (best_ball / scramble / foursome). */
-export interface Equipo {
-  id: string
-  nombre: string
-  /** Handicap COMPLETO del equipo (18h): el que se muestra. */
-  handicap_equipo: number | null
-  /** Handicap que PUNTÚA, en la escala de los hoyos de la ronda; null = fila anterior (se parte el completo). */
-  handicap_equipo_juego: number | null
-  jugadorIds: string[]
-  scores: Record<string, number>
-}
+/** Equipo de una ronda por equipos (best_ball / scramble / foursome). Una sola definición: la del ranking. */
+export type { Equipo }
 
 /** Resultado del fetch de la ronda + datos derivados de cancha y handicaps. */
 export interface RondaLibreBundle {

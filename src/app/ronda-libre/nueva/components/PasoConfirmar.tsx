@@ -1,12 +1,13 @@
 'use client'
 
-import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
+import { FORMAT_META, formatLabel, nombreDelModo, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
+import type { EquipoDeClubAValidar } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { FormaDeLaRonda, MitadDeCancha } from '@/golf/ronda-libre/forma-de-la-ronda'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
 import type { EquipoDeLaRonda } from '../hooks/useFormularioDeRonda'
 import { nombreVisibleDeTee } from './SelectorTees'
-import { colores, primario, secundario, tarjeta } from './estilos'
+import { estiloDeAviso, colores, primario, secundario, tarjeta } from './estilos'
 import { formatearHandicap, formatearIndice } from '@/golf/handicap-index-range'
 import { nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 
@@ -29,11 +30,17 @@ interface Props {
   /** Más de un tee disponible: recién ahí el tee por jugador aporta información. */
   hayVariosTees: boolean
   problema: ProblemaDeLaRonda | null
+  /** Scramble rápido: los equipos como viajan (`equiposDeClubParaEnviar`). Reemplazan a la lista de jugadores. */
+  equiposDeClub?: EquipoDeClubAValidar[] | null
   /** Timba libre: su nombre reemplaza al del formato, y `juego` (las parejas) va antes de crear. */
   timba?: { nombre: string; juego: React.ReactNode }
   creando: boolean
   onEditar: () => void
   onCrear: () => void
+}
+
+function cantidadDeEquipos(n: number): string {
+  return n === 1 ? '1 equipo' : `${n} equipos`
 }
 
 function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
@@ -80,6 +87,8 @@ export function PasoConfirmar(props: Props) {
         { titulo: null, jugadores: props.jugadores.filter(j => !enAlgunEquipo.has(j.id)) },
       ].filter(g => g.jugadores.length > 0)
     : [{ titulo: null, jugadores: props.jugadores }]
+
+  const club = props.equiposDeClub ?? null
 
   const filaDeJugador = (j: JugadorDeLaRonda) => {
     const hcp = props.hcpVisibleDe(j.indice, j.tees)
@@ -135,10 +144,17 @@ export function PasoConfirmar(props: Props) {
         )}
 
         <Fila etiqueta="Formato">
-          {props.timba ? `${props.timba.nombre} · ${props.modo === 'neto' ? 'Neto' : 'Gross'}` : formatLabel(props.formato, props.modo)}
+          {props.timba
+            ? `${props.timba.nombre} · ${nombreDelModo(props.modo)}`
+            : club
+              ? [FORMAT_META[props.formato].label, nombreDelModo(props.modo), cantidadDeEquipos(club.length)].join(' · ')
+              : formatLabel(props.formato, props.modo)}
         </Fila>
 
-        <Fila etiqueta="Tees">{nombreVisibleDeTee(props.teeGlobal, props.recorridosElegidos.length === 2)}</Fila>
+        {/* Equipos de club: nadie juega con su índice, el tee no cambia ningún número. */}
+        {!club && (
+          <Fila etiqueta="Tees">{nombreVisibleDeTee(props.teeGlobal, props.recorridosElegidos.length === 2)}</Fila>
+        )}
 
         <Fila etiqueta="Fecha">
           {new Date(`${props.fecha}T12:00:00`).toLocaleDateString('es-CL', {
@@ -146,26 +162,52 @@ export function PasoConfirmar(props: Props) {
           })}
         </Fila>
 
-        <Fila etiqueta="Anota">{props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'}</Fila>
+        <Fila etiqueta="Anota">
+          {club ? 'Tú, todos los equipos' : props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'}
+        </Fila>
 
-        <div style={{ padding: '10px 0' }}>
-          <span style={{ fontSize: '13px', color: colores.texto2, display: 'block', marginBottom: '8px' }}>
-            Jugadores ({props.jugadores.length})
-          </span>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {grupos.map((grupo, i) => (
-              <div key={grupo.titulo ?? `sin-equipo-${i}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {grupo.titulo && (
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: colores.texto, padding: '0 2px' }}>
-                    {grupo.titulo}
-                  </span>
-                )}
-                {grupo.jugadores.map(filaDeJugador)}
-              </div>
-            ))}
+        {club ? (
+          <div style={{ padding: '10px 0' }}>
+            <span style={{ fontSize: '13px', color: colores.texto2, display: 'block', marginBottom: '8px' }}>
+              Equipos ({club.length})
+            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {club.map((e, i) => (
+                <div key={`${i}-${e.nombre}`} style={{
+                  display: 'flex', alignItems: 'baseline', gap: '4px',
+                  padding: '8px 12px', borderRadius: '8px', background: 'rgba(196,153,42,0.05)',
+                  fontSize: '14px', fontWeight: 500, color: colores.texto, whiteSpace: 'nowrap',
+                }}>
+                  {/* El nombre cede (puntos suspensivos); el hándicap se ve siempre entero. */}
+                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.nombre}</span>
+                  {/* Solo en neto: en gross el hándicap no juega. «(club)»: no lo calculó Golfers+. */}
+                  {props.modo === 'neto' && e.handicap != null && (
+                    <span style={{ flexShrink: 0 }}>· HCP {formatearHandicap(e.handicap)} (club)</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ padding: '10px 0' }}>
+            <span style={{ fontSize: '13px', color: colores.texto2, display: 'block', marginBottom: '8px' }}>
+              Jugadores ({props.jugadores.length})
+            </span>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {grupos.map((grupo, i) => (
+                <div key={grupo.titulo ?? `sin-equipo-${i}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {grupo.titulo && (
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: colores.texto, padding: '0 2px' }}>
+                      {grupo.titulo}
+                    </span>
+                  )}
+                  {grupo.jugadores.map(filaDeJugador)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {props.timba?.juego}
@@ -192,7 +234,7 @@ export function PasoConfirmar(props: Props) {
       </div>
 
       {props.problema && (
-        <div style={{ fontSize: '12px', color: colores.aviso, textAlign: 'center', marginTop: '8px', lineHeight: 1.4 }}>
+        <div style={{ ...estiloDeAviso(props.problema), marginTop: '8px' }}>
           {props.problema.detalle}
         </div>
       )}

@@ -19,9 +19,11 @@ import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { DiferenciaDeHandicap } from './DiferenciaDeHandicap'
 import { EquiposDeLaRonda } from './EquiposDeLaRonda'
 import { SelectorQuienAnota } from './SelectorQuienAnota'
+import { EquiposDeClub, SelectorSoloEquipos } from './EquiposDeClub'
+import type { EquiposDeClubDelFormulario } from '../hooks/useEquiposDeClub'
 import { TarjetaDelCreador } from './TarjetaDelCreador'
 import { TarjetaDeRival } from './TarjetaDeRival'
-import { colores, etiqueta, primario, secundario, tarjeta } from './estilos'
+import { estiloDeAviso, colores, etiqueta, primario, secundario, tarjeta } from './estilos'
 
 interface Props {
   creador: { nombre: string; indice: number | null }
@@ -57,6 +59,11 @@ interface Props {
   rondasRecientes: RondaReciente[]
   /** Problema que impide crear la ronda, si lo hay. */
   problema: ProblemaDeLaRonda | null
+  /**
+   * Scramble rápido: «Con jugadores» | «Solo equipos» (`useEquiposDeClub`). `null` en los formatos que no lo
+   * admiten: el paso queda como siempre.
+   */
+  club?: EquiposDeClubDelFormulario | null
   onAtras: () => void
   onSiguiente: () => void
 }
@@ -83,7 +90,9 @@ export function PasoJugadores(props: Props) {
   const numeroDe = (id: string) => numeroEnPantalla.get(id) ?? 0
   const primeroQueBloquea = [...numeroEnPantalla.keys()].find(id => camposQueBloquean.has(id))
   const rivalQueBloquea = props.rivales.find(r => r.id === primeroQueBloquea)
-  const avisoDeIndice = primeroQueBloquea == null
+  const soloEquipos = props.club?.soloEquipos ?? false
+  // En «Solo equipos» las tarjetas de jugador no están a la vista: un índice a medio escribir en ellas no frena.
+  const avisoDeIndice = primeroQueBloquea == null || soloEquipos
     ? null
     : mensajeIndiceQueBloquea(rivalQueBloquea ? nombreOJugadorN(rivalQueBloquea.nombre, numeroDe(rivalQueBloquea.id)) : null)
   const noAvanza = avisoDeIndice != null || props.problema != null
@@ -132,130 +141,148 @@ export function PasoJugadores(props: Props) {
   return (
     <div>
       <div style={tarjeta}>
-        {props.preguntaQuienAnota ? (
-          <SelectorQuienAnota anotaPorTodos={props.anotaPorTodos} onElegir={props.onQuienAnota} />
-        ) : (
-          <div style={{ fontSize: '12px', color: colores.texto2, marginBottom: '12px', lineHeight: 1.4 }}>
-            {/* El formato lo decide: con más de una persona por tarjeta, anota uno. */}
-            {props.rivales.length > 0 ? 'Tú anotas por el grupo desde tu celular.' : 'Anotas desde tu celular.'}
-          </div>
-        )}
+        {props.club && <SelectorSoloEquipos soloEquipos={soloEquipos} onElegir={props.club.elegirSoloEquipos} />}
 
-        <label style={{ ...etiqueta, marginBottom: '10px' }}>Jugadores</label>
-
-        {props.esFormatoDeEquipo ? (
-          <EquiposDeLaRonda
-            formato={props.formato}
-            equipos={props.equipos}
-            rivales={props.rivales}
-            creador={props.creador}
-            onIndiceCreador={props.onIndiceCreador}
-            teeGlobal={props.teeGlobal}
-            onTeeGlobal={props.onTeeGlobal}
-            tees={props.tees}
-            hcpVisibleDe={props.hcpVisibleDe}
-            onCampoRival={props.onCampoRival}
-            onQuitarRival={props.onQuitarRival}
-            onAgregarCompanero={equipoIdx => props.onAgregarRival(undefined, equipoIdx)}
-            onAgregarEquipo={props.onAgregarEquipo}
-            onQuitarEquipo={props.onQuitarEquipo}
-            onRenombrarEquipo={props.onRenombrarEquipo}
-            onMoverAlEquipo={props.onMoverAlEquipo}
-            onBloqueoDe={onBloqueoDe}
-            numeroDe={numeroDe}
+        {props.club && soloEquipos ? (
+          <EquiposDeClub
+            equipos={props.club.equipos}
+            modo={props.modo}
+            holes={props.hoyos}
+            puedeAgregar={props.club.puedeAgregar}
+            onAgregar={props.club.agregar}
+            onQuitar={props.club.quitar}
+            onRenombrar={props.club.renombrar}
+            onHandicap={props.club.escribirHandicap}
           />
         ) : (
           <>
-            {tarjetaDelCreador}
+            {props.preguntaQuienAnota ? (
+              <SelectorQuienAnota anotaPorTodos={props.anotaPorTodos} onElegir={props.onQuienAnota} />
+            ) : (
+              <div style={{ fontSize: '12px', color: colores.texto2, marginBottom: '12px', lineHeight: 1.4 }}>
+                {/* El formato lo decide: con más de una persona por tarjeta, anota uno. */}
+                {props.rivales.length > 0 ? 'Tú anotas por el grupo desde tu celular.' : 'Anotas desde tu celular.'}
+              </div>
+            )}
 
-            {props.llevaElScoreDelGrupo && props.rivales.map((rival, idx) => (
-              <TarjetaDeRival
-                key={rival.id}
-                rival={rival}
-                indiceEnLista={idx}
-                numeroEnPantalla={numeroDe(rival.id)}
-                tees={props.tees}
+            <label style={{ ...etiqueta, marginBottom: '10px' }}>Jugadores</label>
+
+            {props.esFormatoDeEquipo ? (
+              <EquiposDeLaRonda
+                formato={props.formato}
+                equipos={props.equipos}
+                rivales={props.rivales}
+                creador={props.creador}
+                onIndiceCreador={props.onIndiceCreador}
                 teeGlobal={props.teeGlobal}
-                hcp={props.hcpVisibleDe(rival.handicap, rival.tees ?? props.teeGlobal)}
-                onCampo={(campo, valor) => props.onCampoRival(idx, campo, valor)}
-                onQuitar={() => props.onQuitarRival(idx)}
-                onBloqueo={onBloqueoDe(rival.id)}
+                onTeeGlobal={props.onTeeGlobal}
+                tees={props.tees}
+                hcpVisibleDe={props.hcpVisibleDe}
+                onCampoRival={props.onCampoRival}
+                onQuitarRival={props.onQuitarRival}
+                onAgregarCompanero={equipoIdx => props.onAgregarRival(undefined, equipoIdx)}
+                onAgregarEquipo={props.onAgregarEquipo}
+                onQuitarEquipo={props.onQuitarEquipo}
+                onRenombrarEquipo={props.onRenombrarEquipo}
+                onMoverAlEquipo={props.onMoverAlEquipo}
+                onBloqueoDe={onBloqueoDe}
+                numeroDe={numeroDe}
               />
-            ))}
+            ) : (
+              <>
+                {tarjetaDelCreador}
 
-            {props.llevaElScoreDelGrupo && props.rivales.length < maxRivales(props.formato) && (
-              <button
-                type="button"
-                onClick={() => props.onAgregarRival()}
-                style={{
-                  width: '100%', background: 'transparent',
-                  border: `1px dashed ${colores.oro}`, color: colores.oroTexto,
-                  borderRadius: '10px', padding: '12px', cursor: 'pointer',
-                  fontSize: '14px', fontWeight: 500, textAlign: 'center', minHeight: '44px',
+                {props.llevaElScoreDelGrupo && props.rivales.map((rival, idx) => (
+                  <TarjetaDeRival
+                    key={rival.id}
+                    rival={rival}
+                    indiceEnLista={idx}
+                    numeroEnPantalla={numeroDe(rival.id)}
+                    tees={props.tees}
+                    teeGlobal={props.teeGlobal}
+                    hcp={props.hcpVisibleDe(rival.handicap, rival.tees ?? props.teeGlobal)}
+                    onCampo={(campo, valor) => props.onCampoRival(idx, campo, valor)}
+                    onQuitar={() => props.onQuitarRival(idx)}
+                    onBloqueo={onBloqueoDe(rival.id)}
+                  />
+                ))}
+
+                {props.llevaElScoreDelGrupo && props.rivales.length < maxRivales(props.formato) && (
+                  <button
+                    type="button"
+                    onClick={() => props.onAgregarRival()}
+                    style={{
+                      width: '100%', background: 'transparent',
+                      border: `1px dashed ${colores.oro}`, color: colores.oroTexto,
+                      borderRadius: '10px', padding: '12px', cursor: 'pointer',
+                      fontSize: '14px', fontWeight: 500, textAlign: 'center', minHeight: '44px',
+                    }}
+                  >
+                    + Agregar jugador
+                  </button>
+                )}
+              </>
+            )}
+
+            {hayCupo && frecuentes.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                <span style={{ fontSize: '12px', color: colores.texto2, width: '100%' }}>
+                  Jugadores recientes:
+                </span>
+                {frecuentes.map(j => (
+                  <button
+                    key={j.nombre}
+                    type="button"
+                    onClick={() => props.onAgregarRival({
+                      nombre: j.nombre,
+                      handicap: j.handicap,
+                      // Sólo si el tee existe en esta cancha: si no, hereda el de la ronda.
+                      tees: j.tees && props.tees.some(t => t.nombre.toLowerCase() === j.tees?.toLowerCase()) ? j.tees : null,
+                    })}
+                    style={{
+                      padding: '8px 14px', borderRadius: '22px', minHeight: '44px',
+                      background: 'rgba(196,153,42,0.08)', border: `1px solid rgba(196,153,42,0.3)`,
+                      color: colores.oroTexto, fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+                    }}
+                  >
+                    + {j.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Sólo en neto: en Match Play Gross nadie recibe golpes, y anunciarlos
+                prometía una ventaja que el marcador no da. */}
+            {esMatchPlay && props.modo === 'neto' && props.llevaElScoreDelGrupo && props.rivales.length === 1 && (
+              <DiferenciaDeHandicap
+                hoyos={props.hoyos}
+                jugadorA={{
+                  nombre: nombreOJugadorN(props.creador.nombre, numeroDe(ID_DEL_CREADOR)),
+                  golpes: golpesCreador,
+                  hcp: props.hcpVisibleDe(props.creador.indice, props.teeGlobal),
                 }}
-              >
-                + Agregar jugador
-              </button>
+                jugadorB={{
+                  nombre: nombreOJugadorN(props.rivales[0].nombre, numeroDe(props.rivales[0].id)),
+                  golpes: props.golpesDe(props.rivales[0].handicap, props.rivales[0].tees ?? props.teeGlobal),
+                  hcp: props.hcpVisibleDe(props.rivales[0].handicap, props.rivales[0].tees ?? props.teeGlobal),
+                }}
+              />
+            )}
+
+            {!props.llevaElScoreDelGrupo && (
+              <div style={{
+                padding: '14px', background: 'rgba(196,153,42,0.04)', borderRadius: '10px',
+                fontSize: '13px', color: colores.texto2, lineHeight: 1.5,
+              }}>
+                Otros jugadores pueden unirse compartiendo el enlace después de crear la ronda.
+              </div>
             )}
           </>
         )}
-
-        {hayCupo && frecuentes.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-            <span style={{ fontSize: '12px', color: colores.texto2, width: '100%' }}>
-              Jugadores recientes:
-            </span>
-            {frecuentes.map(j => (
-              <button
-                key={j.nombre}
-                type="button"
-                onClick={() => props.onAgregarRival({
-                  nombre: j.nombre,
-                  handicap: j.handicap,
-                  // Sólo si el tee existe en esta cancha: si no, hereda el de la ronda.
-                  tees: j.tees && props.tees.some(t => t.nombre.toLowerCase() === j.tees?.toLowerCase()) ? j.tees : null,
-                })}
-                style={{
-                  padding: '8px 14px', borderRadius: '22px', minHeight: '44px',
-                  background: 'rgba(196,153,42,0.08)', border: `1px solid rgba(196,153,42,0.3)`,
-                  color: colores.oroTexto, fontSize: '13px', fontWeight: 500, cursor: 'pointer',
-                }}
-              >
-                + {j.nombre}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Sólo en neto: en Match Play Gross nadie recibe golpes, y anunciarlos
-            prometía una ventaja que el marcador no da. */}
-        {esMatchPlay && props.modo === 'neto' && props.llevaElScoreDelGrupo && props.rivales.length === 1 && (
-          <DiferenciaDeHandicap
-            hoyos={props.hoyos}
-            jugadorA={{
-              nombre: nombreOJugadorN(props.creador.nombre, numeroDe(ID_DEL_CREADOR)),
-              golpes: golpesCreador,
-              hcp: props.hcpVisibleDe(props.creador.indice, props.teeGlobal),
-            }}
-            jugadorB={{
-              nombre: nombreOJugadorN(props.rivales[0].nombre, numeroDe(props.rivales[0].id)),
-              golpes: props.golpesDe(props.rivales[0].handicap, props.rivales[0].tees ?? props.teeGlobal),
-              hcp: props.hcpVisibleDe(props.rivales[0].handicap, props.rivales[0].tees ?? props.teeGlobal),
-            }}
-          />
-        )}
-
-        {!props.llevaElScoreDelGrupo && (
-          <div style={{
-            padding: '14px', background: 'rgba(196,153,42,0.04)', borderRadius: '10px',
-            fontSize: '13px', color: colores.texto2, lineHeight: 1.5,
-          }}>
-            Otros jugadores pueden unirse compartiendo el enlace después de crear la ronda.
-          </div>
-        )}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px' }}>
+      {/* flex-start: con un aviso de dos líneas, «← Atrás» no se estira a la altura de la columna. */}
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
         <button type="button" onClick={props.onAtras} style={secundario}>
           ← Atrás
         </button>
@@ -273,9 +300,7 @@ export function PasoJugadores(props: Props) {
           <div
             id="paso-jugadores-aviso"
             role="status"
-            style={avisoDeIndice != null
-              ? { fontSize: '12px', color: 'var(--error-fg)', textAlign: 'center', lineHeight: 1.3 }
-              : { fontSize: '11px', color: colores.aviso, textAlign: 'center', lineHeight: 1.3 }}
+            style={estiloDeAviso(props.problema, avisoDeIndice != null)}
           >
             {detalleDelBoton}
           </div>
