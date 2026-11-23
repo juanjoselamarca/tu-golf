@@ -61,7 +61,7 @@
       "name": "Borradores de torneo",
       "priority": "medium",
       "pages": ["/organizador/nuevo"],
-      "apis": ["/api/torneos/draft", "/api/torneos/draft/[id]", "/api/torneos/draft/[id]/assistant", "/api/torneos/draft/[id]/collaborators", "/api/torneos/draft/[id]/cover", "/api/torneos/draft/[id]/create-tournament", "/api/torneos/draft/[id]/preview", "/api/torneos/draft/[id]/share-link", "/api/torneos/draft/[id]/transfer-ownership", "/api/torneos/draft/duplicate-from/[tournamentId]", "/api/torneos/draft/join"],
+      "apis": ["/api/torneos/draft", "/api/torneos/draft/[id]", "/api/torneos/draft/[id]/assistant", "/api/torneos/draft/[id]/collaborators", "/api/torneos/draft/[id]/cover", "/api/torneos/draft/[id]/create-tournament", "/api/torneos/draft/[id]/preview", "/api/torneos/draft/[id]/transfer-ownership", "/api/torneos/draft/duplicate-from/[tournamentId]"],
       "tables": ["tournament_drafts", "draft_collaborators"]
     },
     {
