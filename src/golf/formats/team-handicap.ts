@@ -15,6 +15,18 @@ import { courseHandicapParaHoyos } from '../core/course-handicap'
 
 export type TamanoEquipo = 2 | 3 | 4
 
+/** Los dos handicaps de equipo que se guardan en `ronda_equipos`. */
+export interface HandicapsDeEquipo {
+  /** `handicap_equipo`: escala de 18 hoyos, el que se muestra. */
+  completo: number | null
+  /**
+   * `handicap_equipo_juego`: el que reparte golpes, en la escala de los hoyos
+   * de la ronda. `null` en modo raw/legacy: el motor parte el completo como
+   * siempre (`handicapDeEquipoParaHoyos`).
+   */
+  juego: number | null
+}
+
 /**
  * Handicap del equipo (scramble y foursome). Best ball NO lo usa: cada jugador
  * juega con su propio handicap de juego (`hcp_pct`).
