@@ -19,6 +19,8 @@ import { buildRoundUpdatePlayers } from '@/golf/notifications/round-update-paylo
 import { buildTeamRoundPlayers, type TeamHole } from '@/golf/notifications/team-round-payload'
 import type { SpectatorPlayer } from '@/golf/notifications/spectator'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { anotadoresDeEquipos } from '@/golf/ronda-libre/anotador-de-equipo'
+import type { HandicapOrigen } from '@/golf/ronda-libre/equipos-de-club'
 
 /** Quiénes pueden disparar el push de esta ronda. */
 export interface RoundParticipants {
@@ -27,6 +29,11 @@ export interface RoundParticipants {
   playerUserIds: string[]
   /** ids de ronda_libre_jugadores: un invitado sin cuenta prueba con el suyo. */
   playerIds: string[]
+  /**
+   * Cuentas que anotan un equipo desde su celular (un celular por equipo, `anotadoresDeEquipos`): no son jugadores
+   * de la ronda pero escriben su equipo. Vacío en cualquier otra ronda.
+   */
+  teamScorerUserIds: string[]
 }
 
 /**
@@ -51,8 +58,14 @@ interface AccessRow {
   estado: string | null
   creador_id: string | null
   admin_user_id: string | null
+  admin_mode: boolean | null
+  formato_juego: string | null
   ronda_libre_jugadores: Array<{ id: string; user_id: string | null }> | null
+  ronda_equipos: Array<{ id: string; handicap_origen: HandicapOrigen | null; anotador_user_id: string | null }> | null
 }
+
+/** Columnas de la ronda que deciden quién puede disparar el push, salvo los jugadores (las lee también el snapshot). */
+const COLUMNAS_ACCESO = 'estado, creador_id, admin_user_id, admin_mode, formato_juego, ronda_equipos(id, handicap_origen, anotador_user_id)'
 
 function participantsOf(row: AccessRow): RoundParticipants {
   const jugadores = row.ronda_libre_jugadores ?? []
@@ -61,13 +74,14 @@ function participantsOf(row: AccessRow): RoundParticipants {
     adminUserId: row.admin_user_id ?? null,
     playerUserIds: jugadores.map(j => j.user_id).filter((id): id is string => !!id),
     playerIds: jugadores.map(j => j.id),
+    teamScorerUserIds: anotadoresDeEquipos(row, row.ronda_equipos ?? []),
   }
 }
 
 export async function loadRoundAccess(admin: SupabaseClient, codigo: string): Promise<RoundPushAccess | null> {
   const { data } = await admin
     .from('rondas_libres')
-    .select('estado, creador_id, admin_user_id, ronda_libre_jugadores(id, user_id)')
+    .select(`${COLUMNAS_ACCESO}, ronda_libre_jugadores(id, user_id)`)
     .eq('codigo', codigo)
     .maybeSingle()
   if (!data) return null
@@ -75,7 +89,7 @@ export async function loadRoundAccess(admin: SupabaseClient, codigo: string): Pr
   return { estado: row.estado ?? 'en_curso', participants: participantsOf(row) }
 }
 
-interface RondaRow {
+interface RondaRow extends AccessRow {
   id: string
   codigo: string
   course_name: string | null
@@ -94,7 +108,7 @@ interface RondaRow {
 export async function loadRoundForPush(admin: SupabaseClient, codigo: string): Promise<RoundPushSnapshot | null> {
   const { data } = await admin
     .from('rondas_libres')
-    .select('id, codigo, course_name, course_id, holes, hoyo_inicio, estado, formato_juego, modo_juego, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores)')
+    .select(`id, codigo, course_name, course_id, holes, hoyo_inicio, modo_juego, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores), ${COLUMNAS_ACCESO}`)
     .eq('codigo', codigo)
     .maybeSingle()
   if (!data) return null
@@ -149,10 +163,14 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
   }
 }
 
-/** Creador, admin de grupo o jugador con cuenta: los únicos que anotan en la ronda. */
+/**
+ * Creador, admin de grupo, jugador con cuenta o quien anota un equipo desde su celular: los únicos que anotan en la
+ * ronda (`upsert_ronda_libre_scores` / `upsert_ronda_equipos_scores`). Una cuenta cualquiera con el código, no.
+ */
 export function isRoundParticipant(access: RoundPushAccess, userId: string): boolean {
   const p = access.participants
   return p.creadorId === userId || p.adminUserId === userId || p.playerUserIds.includes(userId)
+    || p.teamScorerUserIds.includes(userId)
 }
 
 /** Un invitado sin cuenta prueba pertenencia con el id de su fila de jugador (misma prueba que la RPC de guardado). */

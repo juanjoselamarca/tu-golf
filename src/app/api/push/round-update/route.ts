@@ -8,7 +8,8 @@
  * rechazaba con 400 → ningún push, nunca (inbox f6cca8e3).
  *
  * Quién puede dispararlo (quien anota en la ronda):
- *  - con sesión: creador, admin de grupo o jugador con cuenta → si no, 403.
+ *  - con sesión: creador, admin de grupo, jugador con cuenta o quien anota un equipo desde su celular (un
+ *    celular por equipo, `anotadoresDeEquipos`) → si no, 403.
  *  - sin sesión (invitado; en prod 94/139 jugadores recientes no tienen cuenta):
  *    `jugadorId` de su fila en ronda_libre_jugadores — la misma prueba que usa
  *    la RPC de guardado. Sin sesión ni jugadorId → 401.

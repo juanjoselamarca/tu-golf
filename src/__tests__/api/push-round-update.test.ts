@@ -50,7 +50,7 @@ const OTHER_ID = '22222222-2222-4222-8222-222222222222'
 const BASE: RoundPushSnapshot = {
   codigo: '4YDC3G', courseName: 'Club de Golf Los Leones', holes: 9, estado: 'en_curso',
   players: [{ nombre: 'Juan José Lamarca', vsPar: 4, holesCompleted: 3, totalHoles: 9 }],
-  participants: { creadorId: 'u-creador', adminUserId: 'u-admin', playerUserIds: ['u-jugador'], playerIds: [GUEST_ID] },
+  participants: { creadorId: 'u-creador', adminUserId: 'u-admin', playerUserIds: ['u-jugador'], playerIds: [GUEST_ID], teamScorerUserIds: [] },
 }
 const SUBS = [
   { id: 'sub-a', user_id: null, endpoint: 'https://fcm.googleapis.com/fcm/send/a', p256dh: 'k', auth: 'a' },

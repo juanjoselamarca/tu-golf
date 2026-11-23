@@ -9,7 +9,7 @@ const catalogo9 = [4, 4, 3, 4, 5, 4, 3, 4, 5].map((par, i) => ({ numero: i + 1, 
 vi.mock('@/lib/data/course-holes', () => ({ fetchHoyosDeLaRonda: vi.fn(async () => catalogo9) }))
 vi.mock('@/lib/data/ronda-libre', () => ({ fetchRondaEquipos: vi.fn(async () => []) }))
 
-import { loadRoundForPush } from './round-snapshot'
+import { loadRoundForPush, loadRoundAccess, isRoundParticipant } from './round-snapshot'
 import { fetchRondaEquipos } from '@/lib/data/ronda-libre'
 
 function fakeAdmin(row: Record<string, unknown> | null) {
@@ -54,5 +54,32 @@ describe('loadRoundForPush — cancha de 9 hoyos jugada a 18', () => {
 
   it('ronda inexistente → null', async () => {
     expect(await loadRoundForPush(fakeAdmin(null), 'NOPE')).toBeNull()
+  })
+})
+
+describe('loadRoundAccess — quien anota un equipo desde su celular puede avisar', () => {
+  const equipos = [
+    { id: 'e1', handicap_origen: 'club', anotador_user_id: 'u-creador' },
+    { id: 'e2', handicap_origen: 'club', anotador_user_id: 'u-pedro' },
+    { id: 'e3', handicap_origen: 'club', anotador_user_id: null },
+  ]
+  const fila = { estado: 'en_curso', creador_id: 'u-creador', admin_user_id: null, formato_juego: 'scramble', ronda_libre_jugadores: [{ id: 'j1', user_id: 'u-creador' }] }
+
+  it('un celular por equipo: el anotador de un equipo de club participa; un extraño no', async () => {
+    const access = await loadRoundAccess(fakeAdmin({ ...fila, admin_mode: false, ronda_equipos: equipos }), 'X')
+    expect(access?.participants.teamScorerUserIds).toEqual(['u-creador', 'u-pedro'])
+    expect(isRoundParticipant(access!, 'u-pedro')).toBe(true)
+    expect(isRoundParticipant(access!, 'u-extrano')).toBe(false)
+  })
+
+  it('ronda de un celular (admin_mode): un anotador anotado en la fila no gana el permiso (la RPC tampoco lo deja escribir)', async () => {
+    const access = await loadRoundAccess(fakeAdmin({ ...fila, admin_mode: true, ronda_equipos: equipos }), 'X')
+    expect(access?.participants.teamScorerUserIds).toEqual([])
+    expect(isRoundParticipant(access!, 'u-pedro')).toBe(false)
+  })
+
+  it('ronda sin equipos: sin anotadores', async () => {
+    const access = await loadRoundAccess(fakeAdmin({ ...fila, formato_juego: 'stroke_play', admin_mode: false, ronda_equipos: [] }), 'X')
+    expect(access?.participants.teamScorerUserIds).toEqual([])
   })
 })
