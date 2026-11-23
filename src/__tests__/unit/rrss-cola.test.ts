@@ -19,6 +19,20 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
+// El portón de la voz (voz-en-reel.mjs) mide el MP4 con ffmpeg y acá los MP4 son bytes de
+// mentira, así que su veredicto se simula. El portón real se prueba en «un reel sin su voz
+// no se empaqueta» (abajo) y la medición, en rrss-voz-en-reel.test.ts.
+const portonVoz = vi.hoisted(() => ({ real: false }))
+vi.mock('../../../scripts/rrss/voz-en-reel.mjs', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../../scripts/rrss/voz-en-reel.mjs')>()
+  const simulado = { ok: true, lineas: ['OK: el reel lleva su voz. (simulado en el test)'], sha256: 'simulado' }
+  return {
+    ...real,
+    informeVozEnReel: (mp4: string) => (portonVoz.real ? real.informeVozEnReel(mp4) : simulado),
+    exigirVozEnReel: (mp4: string) => (portonVoz.real ? real.exigirVozEnReel(mp4) : simulado),
+  }
+})
+
 const MODULO_COLA = '../../../scripts/rrss/cola.mjs'
 const MODULO_APROBACION = '../../../scripts/rrss/aprobacion.mjs'
 const MODULO_MARCA = '../../../scripts/rrss/marca.mjs'
@@ -1537,6 +1551,24 @@ describe('el video de un reel llega al paquete', () => {
       expect(archivos[0]).toMatch(/anota-todos-ven[\\/]anota-todos-ven\.mp4$/)
       expect(archivos.join(' ')).not.toMatch(/\.png$/)
     })
+  })
+
+  it('un reel sin su voz no se empaqueta: sin manifiesto de voz, o con uno que mide otro MP4', async () => {
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    portonVoz.real = true
+    try {
+      await conDiscoDeUnReel((pieza) => {
+        expect(() => mediosDePieza(pieza)).toThrow(/voz en off[\s\S]*no trae manifiesto de voz/i)
+        const dirEscena = path.join(process.env.RRSS_DIR_SALIDA as string, PIEZA_REEL.escena)
+        writeFileSync(
+          path.join(dirEscena, `${PIEZA_REEL.escena}.voz.json`),
+          JSON.stringify({ reel: 'otro.mp4', voz: [{ archivo: 'voz/l1.wav', inicio_s: 0 }] }),
+        )
+        expect(() => mediosDePieza(pieza)).toThrow(/mide otro archivo/i)
+      })
+    } finally {
+      portonVoz.real = false
+    }
   })
 
   it('una pieza sin escena sigue subiendo sus láminas', async () => {

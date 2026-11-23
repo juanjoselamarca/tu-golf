@@ -32,6 +32,7 @@ import {
   rutaPiezaJson,
 } from './publicar.mjs'
 import { motivoNoPublicable, validarPieza } from './validar.mjs'
+import { informeVozEnReel } from './voz-en-reel.mjs'
 
 /** Cuándo se montó el MP4, para que el revisor sepa qué tan viejo es lo que mira. */
 function montada(manifiesto) {
@@ -269,6 +270,14 @@ function seccionDePieza(sello, n) {
             `El último momento es la lámina de cierre y sale de OTRA pieza (\`${escena.cierre.pieza}\`): su texto está en \`scripts/rrss/piezas/${escena.cierre.pieza}.json\`.`,
           )
         lineas.push(`El MP4 montado: \`${rutaLegible(mp4)}\` · ${montada(manifiesto)}`)
+        // Regla 9: la voz se mide acá, no se declara. Sin el OK de este bloque el revisor
+        // devuelve CORREGIR, y publicar.mjs tampoco empaqueta el MP4 (exigirVozEnReel).
+        lineas.push('')
+        lineas.push('La voz del reel, medida (`scripts/rrss/voz-en-reel.mjs`):')
+        lineas.push('')
+        lineas.push('```')
+        lineas.push(...(existsSync(mp4) ? informeVozEnReel(mp4).lineas : ['NO SE ENTREGA: el MP4 no está en disco.']))
+        lineas.push('```')
       }
     }
     lineas.push('')
@@ -354,7 +363,7 @@ export function expedienteDeTanda(tandaOSlug) {
   lineas.push('- `docs/rrss/guia-de-marca.md` — cómo se ve y cómo se escribe.')
   lineas.push('- `docs/rrss/plan-lanzamiento.md` — qué se está tratando de lograr.')
   lineas.push('')
-  lineas.push('Las ocho reglas duras (se rompe una, la pieza no sale):')
+  lineas.push('Las nueve reglas duras (se rompe una, la pieza no sale):')
   lineas.push('')
   lineas.push('1. Nada se publica sin que Juanjo lo apruebe.')
   lineas.push('2. Nunca se escribe la palabra "premium" en el copy.')
@@ -364,6 +373,7 @@ export function expedienteDeTanda(tandaOSlug) {
   lineas.push('6. Español de Chile, sin voseo.')
   lineas.push('7. Cero datos de usuarios reales sin autorización escrita.')
   lineas.push('8. Las referencias se replican como idea, nunca como copia.')
+  lineas.push('9. Todo reel lleva voz en off (Iapetus) y trae el OK de scripts/rrss/voz-en-reel.mjs. Un reel mudo no sale.')
   lineas.push('')
   lineas.push('Y además, mirando las imágenes: el gancho en el segundo 0, ninguna lámina quieta más de')
   lineas.push('6 s, la zona segura del story respetada, el contraste legible con sol, y el golf correcto')

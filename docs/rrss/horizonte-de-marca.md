@@ -25,8 +25,8 @@ Las tres palabras son el filtro de cada pieza, y cada una descarta algo concreto
 
 1. **Que lo hizo una máquina.** Es el riesgo número uno y es irreversible: una cuenta que se leyó
    como contenido generado no se recupera, se abandona. De ahí salen tres reglas duras que ya están
-   en el código: un objeto real en cuadro siempre, las primeras piezas mudas (la voz sintética es
-   el delator nº 1) y nunca una afirmación sin fuente.
+   en el código: un objeto real en cuadro siempre, todo reel con voz en off (un reel mudo se ve
+   hecho por una máquina; decisión de Juanjo, 22-nov-2026) y nunca una afirmación sin fuente.
 2. **Que es una app pidiendo descargas.** Nadie sigue a un instalador. Se publica el golf, no el
    producto; la app aparece porque es donde el golf está ocurriendo.
 3. **Que es una empresa grande.** No lo somos y fingirlo se nota. El tono es el de alguien que
@@ -45,7 +45,7 @@ funciona de verdad**. No reconocimiento, no comunidad: existencia comprobable.
 - **La prueba de que se logró:** 3 de cada 10 visitas al perfil toca el link, y hay rondas creadas
   que vienen del perfil. Seguidores no es métrica.
 - **Lo que se descarta en este tramo:** estadísticas personales e historial (nadie comparte sus
-  propios números malos: es retención, no adquisición), voz en off, colaboraciones.
+  propios números malos: es retención, no adquisición), colaboraciones.
 - **El techo real:** sin material de cancha y sin un club autorizado, lo producible es
   *screen-first*. No bloquea el tramo, pero lo limita a una sola textura visual.
 
@@ -63,7 +63,7 @@ nuestro. El público que importa acá no es el golfista: es **quien organiza**.
   suyo —decisión de Juanjo, no de Claude—; (2) 3 minutos de vertical grabados en cancha, que suben
   el techo de todo; (3) la serie fija "el torneo de la semana".
 - **La prueba:** un club pregunta por la app sin que nosotros lo contactemos primero.
-- **Acá entra la voz** (humana, o sintética solo si pasa una prueba a ciegas) y recién acá el pilar
+- **Acá entra una voz humana** si la hay (la voz en off sintética va desde el tramo 1) y recién acá el pilar
   "historial y patrones", y siempre con la cara de un usuario real, nunca como gráfico suelto.
 
 ## Largo plazo — mes 9 a 24: **el lugar donde se ve el golf amateur chileno**

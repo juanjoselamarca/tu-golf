@@ -90,6 +90,7 @@ Una pieza no sale si falla cualquiera de estas:
 - Todo número tiene fuente y fecha verificables. Cero redondeos "para que suene mejor".
 - El primer segundo ya muestra golf y producto. Sin intro y **sin logo al principio**.
 - Subtítulos siempre, en español chileno, sin voseo (`scripts/lib/voseo.mjs` lo verifica).
+- Todo reel lleva voz en off, la voz Iapetus del reel publicado el 16-nov (Dfz1NrnMAG0, Gemini TTS), además de subtítulos. Un reel sin voz se ve hecho por una máquina y no se entrega: `scripts/rrss/voz-en-reel.mjs` lo mide y no admite excepciones (decisión de Juanjo, 22-nov-2026).
 - Cero datos de usuarios reales sin autorización explícita.
 - Cero clips, música o fotografía sin licencia.
 
@@ -102,15 +103,15 @@ filmar y porque lo que muestran existe. Así presentan producto Linear o Arc, y 
 
 | # | Trabajo | Qué se ve | Línea |
 | --- | --- | --- | --- |
-| 1 | Qué es | El scorer anotando un hoyo y, en la misma pantalla, el leaderboard de los otros tres moviéndose. 12-15 s, **muda**. | Anota. Todos ven lo mismo. |
+| 1 | Qué es | El scorer anotando un hoyo y, en la misma pantalla, el leaderboard de los otros tres moviéndose. 12-15 s, con voz en off. | Anota. Todos ven lo mismo. |
 | 2 | Por qué sirve | El neto con hándicap: cuatro jugadores con índices distintos, mismo torneo, posiciones que cambian al aplicar el hándicap. | Cada uno con su hándicap. |
 | 3 | Para quien organiza | Un torneo armado de cero, en tiempo real, con voz en off. | Tu torneo, listo en dos minutos. |
 | 4 | La prueba | El primer torneo real que corra en la app. Requiere el OK de la sección 3. | — |
 
-**Las piezas 1 y 2 van sin voz en off**, contra lo que habíamos acordado. La voz sintética es el
-delator número uno de "esto lo hizo una máquina" y no puede ser la primera impresión de la cuenta;
-Garmin y TaylorMade publican muchísimo contenido mudo. La voz entra en la pieza 3, recién después
-de compararla contra referencias.
+**Todas las piezas llevan voz en off** (la voz Iapetus del reel publicado el 16-nov, Dfz1NrnMAG0). La regla anterior
+—piezas mudas, porque «la voz sintética delata a la máquina»— fue un malentendido: lo que Juanjo
+pide es que un reel no se note IA jamás, y un reel sin voz se ve IA (decisión del 22-nov-2026, tras
+publicarse mudas las piezas 2 y 3). La voz se mejora pieza a pieza; no se quita.
 
 Antes de la pieza 1: bio y destacados listos. Bio propuesta:
 
@@ -127,7 +128,7 @@ tres o cuatro stories derivados.
 ## 7. Producción: qué hace Claude y qué no puede hacer
 
 **Claude produce completo:** captura de la app en movimiento (Playwright contra datos demo,
-1080×1920), gráficas de transmisión (HTML + `scripts/rrss/`), voz (Gemini TTS es-CL), subtítulos
+1080×1920), gráficas de transmisión (HTML + `scripts/rrss/`), voz en off (Gemini TTS, voz Iapetus; obligatoria en todo reel), subtítulos
 quemados y montaje (ffmpeg, pendiente de instalar como dependencia del proyecto).
 
 **Claude no puede producir:** los planos de cancha. Una mano con guante sosteniendo el teléfono
@@ -168,6 +169,8 @@ comentarios a seguidores: con cero seguidores eso apaga la única conversación 
 
 ## 10. Lo que este plan descarta a propósito
 
+- **Reels mudos.** Todo reel lleva voz en off (sección 5). Las piezas 2 y 3 salieron sin voz el 20
+  y 21-nov-2026 y se veían hechas por una máquina; desde el 22-nov no hay excepción.
 - **"La pantalla del Tour para tu club"** y cualquier frase que venda una analogía en vez del
   producto. La línea del lanzamiento es **"El torneo de tu club, en vivo."**
 - El truco de "gráfica de televisión que se encoge dentro del teléfono": a los tres segundos el
