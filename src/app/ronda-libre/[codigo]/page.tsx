@@ -56,6 +56,7 @@ import { GuardarEnMiHistorial } from './components/GuardarEnMiHistorial'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import { TimbaEnVivo } from './components/timba/TimbaEnVivo'
 import { useTimbaDeLaRonda } from './hooks/useTimbaDeLaRonda'
+import { useOfreceAnotarMiEquipo } from './hooks/useOfreceAnotarMiEquipo'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
 
@@ -147,6 +148,14 @@ function RondaLibrePageContent() {
     totalHoles,
     isFinished: isFinished,
   })
+  // «Anotar mi equipo» (un celular por equipo): con sesión, sin anotar la ronda entera, en curso.
+  const ofreceAnotarEquipo = useOfreceAnotarMiEquipo({
+    rondaId: ronda?.id ?? null,
+    userId: currentUserId,
+    activo: !!ronda && !esRondaCerrada(ronda.estado) && !isAnonymous && !!currentUserId
+      && !anotaLaRonda(ronda, currentUserId) && unCelularPorEquipo(ronda, equipos),
+    equipos,
+  })
 
   /* ── Guards ── */
   if (loading) return <LoadingView />
@@ -165,7 +174,8 @@ function RondaLibrePageContent() {
 
   const isAdmin = anotaLaRonda(ronda, currentUserId)
   const isAdminRound = !!ronda.admin_mode
-  // Un celular por equipo: con sesión, cualquiera puede ir a anotar su equipo (el scorer le pide elegirlo).
+  // Un celular por equipo: con sesión, puede ir a anotar su equipo quien ya anota uno o si queda alguno libre (el
+  // scorer le pide elegirlo y confirmar).
   const celularPorEquipo = unCelularPorEquipo(ronda, equipos)
   const adminPlayerName = isAdminRound
     ? ronda.ronda_libre_jugadores.find(j => j.user_id === ronda.admin_user_id)?.nombre ?? 'El admin'
@@ -435,7 +445,7 @@ function RondaLibrePageContent() {
           <PlayerScoringBar codigo={codigo} />
         )}
 
-        {!isAdmin && celularPorEquipo && isEnCurso && !isAnonymous && currentUserId && <TeamScoringBar codigo={codigo} />}
+        {ofreceAnotarEquipo && <TeamScoringBar codigo={codigo} />}
 
         {showBanner && isAnonymous && (
           <RegistrationBanner codigo={codigo} onDismiss={dismissBanner} />

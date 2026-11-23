@@ -108,6 +108,18 @@ export function equiposTomados<E extends EquipoConAnotador>(equipos: readonly E[
   return equipos.filter(e => e.anotador_user_id != null)
 }
 
+/**
+ * ¿La ronda en vivo ofrece «Anotar mi equipo» a esta cuenta? A quien ya anota uno (vuelve a su scorer) o si queda
+ * alguno libre para reclamar. Con todos tomados por otros, el botón solo llevaría a «Ya tienen quién los anote».
+ */
+export function ofreceAnotarMiEquipo(
+  equipos: readonly EquipoConAnotador[],
+  userId: string | null | undefined,
+): boolean {
+  if (!userId) return false
+  return equipos.some(e => e.anotador_user_id === userId) || equiposLibres(equipos).length > 0
+}
+
 /** Nombre con que se muestra quién anota un equipo. Sin nombre (cuenta sin nombre o borrada): «otro celular». */
 export function nombreDelAnotador(equipo: Pick<EquipoConAnotador, 'anotador_nombre'>): string {
   return equipo.anotador_nombre?.trim() || 'otro celular'

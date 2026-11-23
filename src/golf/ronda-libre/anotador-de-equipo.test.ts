@@ -12,6 +12,7 @@ import {
   equiposTomados,
   nombreDelAnotador,
   nombreDelCreador,
+  ofreceAnotarMiEquipo,
   unCelularPorEquipo,
   type EquipoConAnotador,
 } from './anotador-de-equipo'
@@ -188,5 +189,19 @@ describe('equiposLibres / equiposTomados («Elige tu equipo»)', () => {
     const viejo = { id: 'e9', handicap_origen: 'club' as const }
     expect(ids(equiposLibres([viejo]))).toEqual(['e9'])
     expect(equiposTomados([viejo])).toEqual([])
+  })
+})
+
+describe('ofreceAnotarMiEquipo (CTA de la ronda en vivo)', () => {
+  it('queda un equipo libre: se ofrece a cualquier cuenta', () => {
+    expect(ofreceAnotarMiEquipo(equipos, EXTRANO)).toBe(true)
+  })
+  it('todos tomados: solo a quien ya anota uno (vuelve a su scorer)', () => {
+    const tomados = [club('e1', CREADOR), club('e2', PEDRO)]
+    expect(ofreceAnotarMiEquipo(tomados, EXTRANO)).toBe(false)
+    expect(ofreceAnotarMiEquipo(tomados, PEDRO)).toBe(true)
+  })
+  it('sin sesión: nunca', () => {
+    expect(ofreceAnotarMiEquipo(equipos, null)).toBe(false)
   })
 })
