@@ -7,14 +7,18 @@
 // juzgada por tramos de 0,5 s para que un golpe de música no se esconda en el promedio.
 import { describe, expect, it } from 'vitest'
 import {
+  ACTIVO_MIN_S,
   AUDIO_CORTO_MAX_S,
   COBERTURA_MIN,
+  CORRELACION_TECHO,
   DURACION_LINEA_MAX_S,
   HZ_MEDICION,
   VOZ_SOBRE_FONDO_MIN_DB,
   correlacion,
+  hayFondoFueraDeLineas,
   juzgar,
   medirLinea,
+  parsearEbur128,
   revisarManifiesto,
   rutaManifiestoVoz,
   vozSobreFondoDb,
@@ -254,5 +258,116 @@ describe('revisarManifiesto: no hay reel exento de voz', () => {
   it('el manifiesto de voz va al lado del MP4 con su nombre', () => {
     expect(rutaManifiestoVoz('/x/p2-con-voz.mp4')).toBe('/x/p2-con-voz.voz.json')
     expect(rutaManifiestoVoz('C:\\x\\Reel.MP4')).toBe('C:\\x\\Reel.voz.json')
+  })
+})
+
+describe('palabra débil seguida de silencio (subtramos de 25 ms)', () => {
+  // Última palabra 20 dB más baja que el resto de la frase y después silencio en el mismo tramo
+  // de 0,5 s. Con la ventana entera a -25 dB ese tramo ni se juzgaba (el silencio bajaba su RMS).
+  // Ahora se juzga, y si la música la tapa da bajo 0 dB.
+  const hz = HZ_MEDICION
+  const voz = Float32Array.from(ruido(hz * 2, 99))
+  const debilDesde = Math.round(1.5 * hz)
+  const debilHasta = Math.round(1.7 * hz)
+  for (let i = debilDesde; i < voz.length; i++) voz[i] = i < debilHasta ? voz[i] * 0.1 : 0
+  const fondo = ruido(hz * 6, 7)
+  const inicio = 2
+  const mezcla = Float32Array.from(fondo).map((v) => v * 0.05)
+  // la música sube justo en la palabra débil
+  for (let i = (inicio + 1.5) * hz; i < (inicio + 1.7) * hz; i++) mezcla[i] = fondo[i] * 0.2
+  for (let i = 0; i < voz.length; i++) mezcla[inicio * hz + i] += voz[i]
+  const m = medirLinea(mezcla, voz, inicio)
+
+  it('el tramo de la palabra débil se mide solo con sus subtramos con voz', () => {
+    const ultimo = m.ventanas[m.ventanas.length - 1]
+    expect(ultimo.desdeS).toBeCloseTo(1.5, 2)
+    expect(ultimo.activoS).toBeGreaterThanOrEqual(ACTIVO_MIN_S)
+    expect(ultimo.activoS).toBeLessThan(0.25)
+    expect(ultimo.vozSobreFondoDb).toBeLessThan(0)
+  })
+
+  it('un tramo con menos de 0,15 s de voz no cuenta (un respiro no es una palabra)', () => {
+    const corta = new Float32Array(hz)
+    corta.set(ruido(Math.round(0.1 * hz), 5), 0)
+    const mm = medirLinea(mezclar(fondo, corta, 2, 10), corta, 2)
+    expect(mm.ventanas).toEqual([])
+  })
+})
+
+describe('techo de correlación: el «WAV de voz» no puede ser la mezcla', () => {
+  const audio = { ...AUDIO_OK, duracionS: 10, duracionAudioS: 10 }
+  const linea = (c: number) => ({
+    archivo: 'voz/l.wav',
+    inicioS: 0,
+    duracionS: 6,
+    medida: { ...medidaCon(20, 12), correlacion: c },
+  })
+
+  it('con música de fondo, una correlación de 0,999 o más no se entrega', () => {
+    const f = juzgar({ audio: { ...audio, hayFondo: true }, lineas: [linea(CORRELACION_TECHO)] })
+    expect(f.some((x: string) => /parece ser la mezcla/.test(x))).toBe(true)
+  })
+
+  it('bajo el techo (0,998, lo mejor medido en p2) pasa', () => {
+    const f = juzgar({ audio: { ...audio, hayFondo: true }, lineas: [linea(0.998)] })
+    expect(f.some((x: string) => /parece ser la mezcla/.test(x))).toBe(false)
+  })
+
+  it('sin fondo (solo voz) una correlación ~1 es legítima', () => {
+    const f = juzgar({ audio: { ...audio, hayFondo: false }, lineas: [linea(0.9999)] })
+    expect(f.some((x: string) => /parece ser la mezcla/.test(x))).toBe(false)
+  })
+
+  it('si no se sabe si hay fondo, se aplica el techo (lo más estricto)', () => {
+    const f = juzgar({ audio, lineas: [linea(0.9999)] })
+    expect(f.some((x: string) => /parece ser la mezcla/.test(x))).toBe(true)
+  })
+})
+
+describe('hayFondoFueraDeLineas', () => {
+  const hz = HZ_MEDICION
+  const lineas = [{ inicioS: 1, duracionS: 2 }]
+
+  it('música fuera de las líneas: hay fondo', () => {
+    expect(hayFondoFueraDeLineas(ruido(hz * 4, 3), lineas)).toBe(true)
+  })
+
+  it('silencio fuera de las líneas: no hay fondo', () => {
+    const m = new Float32Array(hz * 4)
+    m.set(ruido(hz * 2, 3), hz)
+    expect(hayFondoFueraDeLineas(m, lineas)).toBe(false)
+  })
+
+  it('sin muestras fuera de las líneas o mezcla muda: se asume fondo', () => {
+    expect(hayFondoFueraDeLineas(ruido(hz * 2, 3), [{ inicioS: 0, duracionS: 2 }])).toBe(true)
+    expect(hayFondoFueraDeLineas(new Float32Array(hz * 4), lineas)).toBe(true)
+  })
+})
+
+describe('parsearEbur128', () => {
+  const stderr = (tiempos: string) =>
+    [
+      'Duration: 00:00:34.30, start: 0.000000, bitrate: 2000 kb/s',
+      '  Stream #0:1[0x2](und): Audio: aac (LC), 48000 Hz, stereo, fltp',
+      tiempos,
+      'Summary:',
+      '  Integrated loudness:',
+      '    I:         -14.2 LUFS',
+      '  True peak:',
+      '    Peak:       -1.7 dBFS',
+    ].join('\n')
+
+  it('lee duración, hasta dónde llega el audio, LUFS y pico', () => {
+    const a = parsearEbur128(stderr('[Parsed_ebur128_0] t: 0.1 TARGET\n[Parsed_ebur128_0] t: 34.2 TARGET'))
+    expect(a).toMatchObject({ hayPista: true, duracionS: 34.3, duracionAudioS: 34.2, integradoLufs: -14.2, picoDbtp: -1.7 })
+  })
+
+  it('con pista y sin líneas «t:» revienta: no se deja pasar un final mudo como 0 s', () => {
+    expect(() => parsearEbur128(stderr(''))).toThrow(/ebur128 no imprimió/)
+  })
+
+  it('sin pista de audio no exige líneas «t:»', () => {
+    const a = parsearEbur128('Duration: 00:00:10.00, start: 0\n  Stream #0:0: Video: h264')
+    expect(a.hayPista).toBe(false)
   })
 })

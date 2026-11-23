@@ -39,8 +39,25 @@ export const VOZ_SOBRE_FONDO_MIN_DB = 3
 /** Largo de cada tramo que se juzga. */
 export const VENTANA_S = 0.5
 
-/** Un tramo tiene voz si su RMS supera el pico del WAV menos 40 dB (lo demás es silencio o aire). */
-export const ACTIVIDAD_DB = -25
+/**
+ * La actividad se decide en subtramos de 25 ms: uno tiene voz si su RMS supera el pico del WAV
+ * menos 40 dB (lo demás es silencio). En cada ventana de 0,5 s la voz sobre el fondo se calcula
+ * solo con las muestras de sus subtramos con voz, y la ventana cuenta si junta al menos 0,15 s.
+ * Así una última palabra débil seguida de silencio se mide igual que el resto de la frase.
+ */
+export const SUBTRAMO_S = 0.025
+export const ACTIVIDAD_DB = -40
+export const ACTIVO_MIN_S = 0.15
+
+/**
+ * Techo de la correlación de una línea en un reel con fondo: con música debajo, ni la mejor
+ * mezcla pasa de ~0,996 (medido en p2/p3, 22-nov). Una línea a 0,999 o más es que el «WAV de voz»
+ * es la mezcla misma (o un trozo de ella), y la medición se estaría engañando sola.
+ */
+export const CORRELACION_TECHO = 0.999
+
+/** Hay fondo (música/efectos) si fuera de las líneas la mezcla suena a más de -30 dB de su RMS total. */
+export const FONDO_DB = -30
 
 /**
  * Tolerancia para un tramo flojo (una sílaba suave, una consonante): pasa la línea si el 90 % de
@@ -153,16 +170,29 @@ export function medirLinea(
   for (let i = 0; i < voz.length; i++) pico = Math.max(pico, Math.abs(voz[i]))
   const umbral = pico * 10 ** (ACTIVIDAD_DB / 20)
   const n = Math.max(1, Math.round(voz.length / (ventanaS * hz)))
+  const sub = Math.max(1, Math.round(SUBTRAMO_S * hz))
   const desde0 = base + mejor.d
   const cabe = mejor.c > -1
   const ventanas = []
   for (let k = 0; k < n; k++) {
     const a = Math.floor((k * voz.length) / n)
     const b = Math.floor(((k + 1) * voz.length) / n)
-    const v = voz.subarray(a, b)
-    if (!(pico > 0 && rmsDe(v) > umbral)) continue
-    const c = cabe ? correlacion(mezcla.subarray(desde0 + a, desde0 + b), v) : 0
-    ventanas.push({ desdeS: a / hz, duracionS: (b - a) / hz, correlacion: c, vozSobreFondoDb: vozSobreFondoDb(c) })
+    // Solo las muestras de los subtramos de 25 ms con voz, concatenadas: una palabra débil
+    // seguida de silencio se mide sin que el silencio la diluya ni la deje fuera del juicio.
+    const vv = []
+    const mm = []
+    for (let s = a; s < b; s += sub) {
+      const e = Math.min(b, s + sub)
+      if (!(pico > 0 && rmsDe(voz.subarray(s, e)) > umbral)) continue
+      for (let i = s; i < e; i++) {
+        vv.push(voz[i])
+        mm.push(cabe ? mezcla[desde0 + i] : 0)
+      }
+    }
+    const activoS = vv.length / hz
+    if (activoS < ACTIVO_MIN_S) continue
+    const c = cabe ? correlacion(mm, vv) : 0
+    ventanas.push({ desdeS: a / hz, duracionS: (b - a) / hz, activoS, correlacion: c, vozSobreFondoDb: vozSobreFondoDb(c) })
   }
   return { correlacion: mejor.c, desfaseS: mejor.d / hz, vozSobreFondoDb: vozSobreFondoDb(mejor.c), ventanas }
 }
@@ -171,9 +201,9 @@ const dB = (x) => (Number.isFinite(x) ? x.toFixed(1) : String(x))
 
 /**
  * Juzga las medidas. Puro: recibe lo medido y devuelve las fallas en castellano.
- * @param {{ audio: { hayPista: boolean, duracionS: number, duracionAudioS: number, integradoLufs: number, picoDbtp: number },
+ * @param {{ audio: { hayPista: boolean, duracionS: number, duracionAudioS: number, integradoLufs: number, picoDbtp: number, hayFondo?: boolean },
  *   lineas: { archivo: string, inicioS: number, duracionS: number, medida: { correlacion: number, desfaseS: number, vozSobreFondoDb: number,
- *     ventanas: { desdeS: number, duracionS: number, correlacion: number, vozSobreFondoDb: number }[] } }[],
+ *     ventanas: { desdeS: number, duracionS: number, activoS?: number, correlacion: number, vozSobreFondoDb: number }[] } }[],
  * }} medido
  * @returns {string[]}
  */
@@ -215,8 +245,15 @@ export function juzgar({ audio, lineas }) {
       fallas.push(`${l.archivo}: termina en ${(l.inicioS + l.duracionS).toFixed(2)} s y el audio del reel dura ${finS.toFixed(2)} s (se corta)`)
       continue
     }
+    if (audio.hayFondo !== false && l.medida.correlacion >= CORRELACION_TECHO) {
+      fallas.push(
+        `${l.archivo}: correlación ${l.medida.correlacion.toFixed(4)} con música en el reel (techo ${CORRELACION_TECHO}): ` +
+          "la 'voz' parece ser la mezcla, no la línea de voz",
+      )
+      continue
+    }
     if (!ventanas.length) {
-      fallas.push(`${l.archivo}: el WAV no tiene voz (ningún tramo sobre ${ACTIVIDAD_DB} dB de su pico)`)
+      fallas.push(`${l.archivo}: el WAV no tiene voz (ningún tramo de 0,5 s junta ${ACTIVO_MIN_S} s sobre ${ACTIVIDAD_DB} dB de su pico)`)
       continue
     }
     for (const v of ventanas) locutadoS += v.duracionS
@@ -286,21 +323,28 @@ export function decodificar(archivo, bin = binarioFfmpeg()) {
 }
 
 /** ¿Tiene pista de audio? Duración, LUFS integrado y pico real, con ebur128. */
-export function medirAudio(mp4, bin = binarioFfmpeg()) {
-  const r = ffmpeg(bin, ['-hide_banner', '-nostats', '-i', mp4, '-map', '0:a:0?', '-af', 'ebur128=peak=true', '-f', 'null', '-'], {
-    encoding: 'utf8',
-    maxBuffer: 1 << 28,
-  })
-  const err = r.stderr ?? ''
+/**
+ * Lee lo que imprime `ffmpeg … -af ebur128=peak=true`: pista de audio, duración del contenedor,
+ * hasta dónde llega el audio, LUFS integrado y pico real. Puro, para poder probarlo sin ffmpeg.
+ *
+ * ebur128 escribe una línea por cada 100 ms de audio («t: 30.9 …», nivel info; verificado con el
+ * ffmpeg de WinGet el 22-nov-2026): la última dice dónde termina el audio. Si hay pista y no salió
+ * ninguna, no se puede saber si el final del reel quedó mudo, y eso no se deja pasar como «0 s».
+ */
+export function parsearEbur128(err) {
   const hayPista = /Stream #\d+:\d+[^\n]*: Audio:/.test(err)
   const dur = /Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/.exec(err)
   const duracionS = dur ? Number(dur[1]) * 3600 + Number(dur[2]) * 60 + Number(dur[3]) : 0
   const resumen = err.slice(err.lastIndexOf('Summary:'))
   const i = /I:\s+(-?\d+(?:\.\d+)?) LUFS/.exec(resumen)
   const p = /Peak:\s+(-?\d+(?:\.\d+)?|-inf) dBFS/.exec(resumen)
-  // ebur128 escribe una línea cada 100 ms de audio («t: 30.9 …»): la última dice hasta dónde llega.
   const tiempos = [...err.matchAll(/\bt:\s*(\d+(?:\.\d+)?)/g)]
   const duracionAudioS = tiempos.length ? Number(tiempos[tiempos.length - 1][1]) : 0
+  if (hayPista && !(duracionAudioS > 0))
+    throw new Error(
+      'ebur128 no imprimió sus líneas «t:» (o todas en 0): no se puede medir hasta dónde llega el audio. ' +
+        'Revisa la versión de ffmpeg (hace falta el filtro ebur128 con su registro por cuadro, nivel info).',
+    )
   return {
     hayPista,
     duracionS,
@@ -308,6 +352,42 @@ export function medirAudio(mp4, bin = binarioFfmpeg()) {
     integradoLufs: i ? Number(i[1]) : NaN,
     picoDbtp: p ? (p[1] === '-inf' ? -Infinity : Number(p[1])) : NaN,
   }
+}
+
+/** ¿Tiene pista de audio? Duración, LUFS integrado y pico real, con ebur128. */
+export function medirAudio(mp4, bin = binarioFfmpeg()) {
+  const r = ffmpeg(bin, ['-hide_banner', '-nostats', '-i', mp4, '-map', '0:a:0?', '-af', 'ebur128=peak=true', '-f', 'null', '-'], {
+    encoding: 'utf8',
+    maxBuffer: 1 << 28,
+  })
+  return parsearEbur128(r.stderr ?? '')
+}
+
+/**
+ * ¿La mezcla tiene fondo (música, efectos) fuera de las líneas de voz? Compara el RMS de lo que
+ * queda fuera de todas las líneas contra el RMS de la mezcla entera. Sin muestras fuera, se asume
+ * que sí (es lo más estricto: aplica el techo de correlación).
+ */
+export function hayFondoFueraDeLineas(mezcla, lineas, hz = HZ_MEDICION) {
+  const dentro = new Uint8Array(mezcla.length)
+  for (const l of lineas) {
+    const a = Math.max(0, Math.round(l.inicioS * hz))
+    const b = Math.min(mezcla.length, Math.round((l.inicioS + l.duracionS) * hz))
+    dentro.fill(1, a, Math.max(a, b))
+  }
+  let sFuera = 0
+  let nFuera = 0
+  let sTodo = 0
+  for (let i = 0; i < mezcla.length; i++) {
+    const x = mezcla[i] * mezcla[i]
+    sTodo += x
+    if (!dentro[i]) {
+      sFuera += x
+      nFuera++
+    }
+  }
+  if (!nFuera || !sTodo) return true
+  return 10 * Math.log10(sFuera / nFuera / (sTodo / mezcla.length)) > FONDO_DB
 }
 
 /** Mide el reel del manifiesto y lo juzga. Devuelve { fallas, audio, lineas, reel, sha256 }. */
@@ -331,6 +411,7 @@ export function verificarVozEnReel(rutaManifiesto) {
         medida: medirLinea(mezcla, voz, v.inicio_s),
       })
     }
+    audio.hayFondo = hayFondoFueraDeLineas(mezcla, lineas)
   }
   const fallas = [...previas, ...(previas.length ? [] : juzgar({ audio, lineas }))]
   return { fallas, audio, lineas, reel, sha256: huellaArchivo(reel) }
