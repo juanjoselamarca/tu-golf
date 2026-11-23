@@ -668,6 +668,12 @@ describe('POST /api/ronda-libre/create — equipos con hándicap del club (scram
     nadaEscrito()
   })
 
+  it('equipos: [] cuenta como ausente (el cliente de la ronda con jugadores lo manda vacío en formatos de equipo)', async () => {
+    const res = await POST(req(club({ equipos: [] })))
+    expect(res.status).toBe(200)
+    expect(equiposGrabados()).toHaveLength(3)
+  })
+
   it('con 2 o más equipos hay que decir quién anota', async () => {
     const res = await POST(req(club({}, { quien_anota: null })))
     expect(res.status).toBe(400)

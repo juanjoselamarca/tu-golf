@@ -149,7 +149,8 @@ export async function POST(req: NextRequest) {
     // sus jugadores ya creados, y `[0,0] + [1,1]` dejaba a dos jugadores sin equipo.
     const isTeamFormat = TEAM_FORMAT_KEYS.includes(body.formato_juego)
     const club = body.equipos_de_club ?? null
-    if (club && body.equipos !== undefined) {
+    // `equipos: []` cuenta como ausente: el cliente de la ronda con jugadores lo manda vacío en todo formato de equipos.
+  if (club && body.equipos && body.equipos.length > 0) {
       return NextResponse.json({ error: 'La ronda lleva equipos con jugadores o equipos del club, no los dos.' }, { status: 400 })
     }
     const problema = validarNuevaRonda({

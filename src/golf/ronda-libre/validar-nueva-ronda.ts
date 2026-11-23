@@ -22,6 +22,7 @@ import {
   maxEquipos,
 } from './plantilla-de-jugadores'
 import {
+  HOYOS_DE_EQUIPOS_DE_CLUB,
   MAX_EQUIPOS_DE_CLUB,
   esHandicapDeClubValido,
   esHoyosDeEquiposDeClub,
@@ -130,7 +131,7 @@ function problemaDeRondaConEquiposDeClub(
   // Sin el creador o sin su nombre: su perfil todavía no cargó (mismo caso que en la ronda con jugadores).
   if (!jugadores[0]?.nombre.trim()) return PERFIL_CARGANDO
   if (!esHoyosDeEquiposDeClub(holes)) {
-    return { titulo: 'Hoyos no disponibles', detalle: 'Este modo se juega a 9 o 18 hoyos.' }
+    return { titulo: 'Hoyos no disponibles', detalle: `Este modo se juega a ${HOYOS_DE_EQUIPOS_DE_CLUB.join(' o ')} hoyos.` }
   }
   if (equipos.length === 0) {
     return { titulo: 'Faltan equipos', detalle: 'Agrega al menos un equipo.' }
