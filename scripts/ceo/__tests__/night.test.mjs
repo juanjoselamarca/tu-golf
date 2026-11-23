@@ -81,6 +81,8 @@ function setup(scenario) {
     ],
     refreshAuth: async () => true,
     now: () => clock,
+    cliRetryDelaysMs: [1, 1],
+    sleep: async () => {},
   });
   return { runner, repo, scenarioFile };
 }
@@ -473,5 +475,43 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     expect(calls().map(x => x.agent)).toEqual(['a1', 'resumen-ceo']);
     expect(job('r1:a1').status).toBe('paused_limit'); // se retoma la noche siguiente
     expect(night().status).toBe('done');
+  });
+
+  it('w) el CLI no responde un par de veces al partir → reintenta en el mismo proceso y la noche corre', async () => {
+    const { runner } = setup({ probe: probe(), probeFails: 2, agents: { a1: [{ kind: 'ok' }], a2: [{ kind: 'ok' }], 'resumen-ceo': [{ kind: 'ok' }] } });
+    clock = at(2, 0, 2);
+    await runner.runNight();
+    expect(calls().map(x => x.agent)).toEqual(['a1', 'a2']);
+    expect(telegram().some(m => /no respondió/.test(JSON.stringify(m)))).toBe(false);
+  });
+
+  it('x) noche del 22-nov: el CLI sigue mudo tras los reintentos → se reprograma en 30 min, no se pierde la noche', async () => {
+    // 3 lecturas por proceso (1 + 2 reintentos): la 1ª corrida falla entera, la retoma ya responde.
+    const { runner } = setup({ probe: probe(), probeFails: 3, agents: { a1: [{ kind: 'ok' }], a2: [{ kind: 'ok' }], 'resumen-ceo': [{ kind: 'ok' }] } });
+    clock = at(2, 0, 2);
+    await runner.runNight();
+    expect(calls()).toEqual([]);
+    expect(night()).toMatchObject({ status: 'waiting', cliReschedules: 1 });
+    expect(windows().tasks[RESUME_TASK].at).toBe(new Date(at(2, 0, 32)).toISOString());
+    expect(telegram().some(m => /no respondió/.test(JSON.stringify(m)))).toBe(false);
+
+    clock = at(2, 0, 32);
+    await runner.runNight();
+    expect(calls().map(x => x.agent)).toEqual(['a1', 'a2']);
+    expect(night().cliReschedules).toBe(0);
+  });
+
+  it('y) el CLI no responde en toda la noche → tras los reintentos avisa P0 una vez y no programa más', async () => {
+    const { runner } = setup({ probe: probe(), probeFails: 999, agents: { a1: [{ kind: 'ok' }], 'resumen-ceo': [{ kind: 'ok' }] } });
+    clock = at(2, 0, 2);
+    for (let i = 0; i < 5; i++) {
+      await runner.runNight();
+      clock += 30 * 60 * 1000;
+    }
+    expect(calls()).toEqual([]);
+    expect(night().cliReschedules).toBe(5);
+    const p0 = night().notifications.filter(n => n.kind === 'p0');
+    expect(p0).toHaveLength(1);
+    expect(p0[0].text).toContain('en 5 intentos a lo largo de la noche');
   });
 });
