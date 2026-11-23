@@ -4,6 +4,8 @@
 --
 -- Qué exige (plan docs/superpowers/plans/2026-11-23-scramble-rapido.md, §1 y §2):
 --   · un extraño no escribe ningún equipo; el anotador escribe SU equipo y ningún otro;
+--   · el equipo que anota otro celular no lo escribe nadie más, tampoco el creador, ni por RPC ni por la tabla
+--     (20261123200000); liberado, vuelve a anotarlo el creador;
 --   · un equipo tiene un solo anotador ('tomado' para el segundo) y una cuenta anota un solo equipo por ronda
 --     ('ya_tienes_equipo'; el índice único lo sostiene también con dos reclamos simultáneos);
 --   · el reclamo se rechaza en rondas de un celular (admin_mode), de torneo, no en curso y en equipos que no son de club;
@@ -276,16 +278,43 @@ DO $$ BEGIN
 EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'OK índice único: una cuenta, un equipo por ronda -> 23505';
 END $$;
 
--- ── Creador: escribe cualquier equipo (como hoy), no falsifica el nombre, libera ─────────────────────────────
+-- ── Creador: escribe los equipos sin anotador y el suyo; no el de otro celular; no falsifica el nombre; libera ─
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"a5c00000-0000-4000-8000-000000000001","role":"authenticated"}';
 
 DO $$
 DECLARE r jsonb;
 BEGIN
-  r := public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000012', 'CLUB01', '{"2": 5}'::jsonb);
-  IF r IS DISTINCT FROM '{"1": 4, "2": 5}'::jsonb THEN RAISE EXCEPTION 'FALLA: el creador perdió escribir los equipos: %', r; END IF;
-  RAISE NOTICE 'OK el creador sigue escribiendo cualquier equipo (puede_anotar_ronda sin cambios)';
+  r := public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000014', 'CLUB01', '{"2": 5}'::jsonb);
+  IF r IS DISTINCT FROM '{"2": 5}'::jsonb THEN RAISE EXCEPTION 'FALLA: el creador perdió escribir un equipo sin anotador: %', r; END IF;
+  r := public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000011', 'CLUB01', '{"2": 5}'::jsonb);
+  IF r->>'2' IS DISTINCT FROM '5' THEN RAISE EXCEPTION 'FALLA: el creador no escribió su propio equipo: %', r; END IF;
+  RAISE NOTICE 'OK el creador escribe los equipos sin anotador y el que anota él';
+END $$;
+
+-- 20261123200000: el equipo que anota otro celular lo escribe solo ese celular, ni por la RPC ni por la tabla.
+DO $$ BEGIN
+  PERFORM public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000012', 'CLUB01', '{"2": 5}'::jsonb);
+  RAISE EXCEPTION 'FALLA: el creador escribió el equipo que anota Pedro';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK el creador no escribe el equipo de otro anotador (RPC) -> P0003';
+END $$;
+
+DO $$ BEGIN
+  UPDATE public.ronda_equipos SET scores = '{"1": 9}'::jsonb WHERE id = 'f5c00000-0000-4000-8000-000000000012';
+  RAISE EXCEPTION 'FALLA: el creador cambió por la tabla los scores del equipo que anota Pedro';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK el creador no escribe el equipo de otro anotador (tabla) -> 42501';
+END $$;
+
+DO $$
+DECLARE n integer;
+BEGIN
+  UPDATE public.ronda_equipos SET nombre = 'Los Tigres' WHERE id = 'f5c00000-0000-4000-8000-000000000012';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'FALLA: el creador no pudo tocar otra columna del equipo tomado'; END IF;
+  IF (SELECT scores FROM public.ronda_equipos WHERE id = 'f5c00000-0000-4000-8000-000000000012') IS DISTINCT FROM '{"1": 4}'::jsonb THEN
+    RAISE EXCEPTION 'FALLA: los scores del equipo de Pedro cambiaron';
+  END IF;
+  RAISE NOTICE 'OK el resto de la fila sigue siendo del creador; los scores de Pedro intactos';
 END $$;
 
 DO $$
@@ -341,6 +370,16 @@ DO $$ BEGIN
   PERFORM public.liberar_equipo_de_ronda('CLUB01', 'f5c00000-0000-4000-8000-000000000012');
   RAISE EXCEPTION 'FALLA: un ex anotador liberó un equipo libre';
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK un ex anotador no libera de nuevo (ni el creador ni el anotador) -> P0003';
+END $$;
+
+-- Liberado, el equipo vuelve a ser del creador: lo anota él.
+SET LOCAL request.jwt.claims = '{"sub":"a5c00000-0000-4000-8000-000000000001","role":"authenticated"}';
+DO $$
+DECLARE r jsonb;
+BEGIN
+  r := public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000012', 'CLUB01', '{"3": 4}'::jsonb);
+  IF r->>'3' IS DISTINCT FROM '4' THEN RAISE EXCEPTION 'FALLA: el creador no escribió el equipo liberado: %', r; END IF;
+  RAISE NOTICE 'OK liberado el equipo, el creador lo anota';
 END $$;
 
 -- ── Eliminar la cuenta del anotador libera el equipo y borra su nombre (como postgres) ───────────────────────
