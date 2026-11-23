@@ -32,6 +32,8 @@ import { checkAuth, refreshTokenDirect } from './ceo/auth.mjs';
 import { probeQuota, weeklyCeiling, pct, DEFAULT_DAILY_USE } from './ceo/quota.mjs';
 import { sendNew } from './ceo/telegram.mjs';
 import { claudeBin, claudeVersion } from './ceo/runner.mjs';
+import { keepAwake } from './ceo/windows.mjs';
+import { execFileSync } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(__filename), '..');
@@ -52,6 +54,24 @@ function fatalLog(msg) {
   } catch { /* último recurso: consola */ }
   console.error(msg);
 }
+/**
+ * La noche corre el código de este checkout, no el de GitHub: un fix mergeado no
+ * llega a la noche si nadie hace pull (pasó con #850). A las 23:30 se avanza `main`
+ * solo por fast-forward; si hay cambios locales que chocan, git no toca nada y queda en el log.
+ */
+function pullMain(log) {
+  const git = a => execFileSync('git', ['-C', REPO_ROOT, ...a], { encoding: 'utf8', timeout: 90_000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  try {
+    if (git(['branch', '--show-current']) !== 'main') { log('Pull de main: el checkout no está en main; no lo toco.'); return; }
+    const before = git(['rev-parse', '--short', 'HEAD']);
+    git(['pull', '--ff-only', '-q', 'origin', 'main']);
+    const after = git(['rev-parse', '--short', 'HEAD']);
+    log(before === after ? `Pull de main: al día (${after}).` : `Pull de main: ${before} → ${after}.`);
+  } catch (e) {
+    log(`⚠ Pull de main falló; la noche corre con el código local. ${String(e.stderr || e.message).split('\n')[0]}`);
+  }
+}
+
 process.on('unhandledRejection', err => fatalLog(`🔴 unhandledRejection: ${err?.stack || err}`));
 process.on('uncaughtException', err => { fatalLog(`🔴 uncaughtException: ${err?.stack || err}`); process.exit(1); });
 
@@ -88,6 +108,8 @@ const args = process.argv.slice(2);
 mkdirSync(LOGS_DIR, { recursive: true });
 
 if (args.includes('--night')) {
+  // Que el PC no se vuelva a dormir mientras corre la noche (la solicitud muere con este proceso).
+  keepAwake({ until: Date.now() + 10 * 3600_000, parentPid: process.pid });
   await runner.runNight();
   await safeExit(0);
 }
@@ -98,6 +120,7 @@ if (args.includes('--watchdog') || args.includes('--deadman')) {
 }
 
 if (args.includes('--warmup')) {
+  pullMain(m => runner.log(m));
   runner.log('Token warmup: refrescando OAuth...');
   if (await refreshTokenDirect(m => runner.log(m))) runner.log('✓ Token warmup OK.');
   else await sendNew('⚠️ CEO Autónomo — no pude refrescar el token OAuth. Los agentes de esta noche pueden fallar. Abre Claude Code y corre /login.', m => runner.log(m));
