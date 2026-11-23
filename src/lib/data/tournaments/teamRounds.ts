@@ -18,7 +18,7 @@
 // handicap individual en el torneo (`courseHandicapSinRedondearDelTorneo`).
 
 import { TEAM_FORMAT_KEYS, isTeamFormat } from '@/golf/formats'
-import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
+import { handicapDeEquipo, type HandicapsDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
 import {
   courseHandicapSinRedondearDelTorneo,
   esModoHcpWhs,
@@ -52,17 +52,8 @@ export function isProducerTeamFormat(format: string | null | undefined): boolean
   return isTeamFormat(format)
 }
 
-/** Los dos handicaps de equipo que se guardan en `ronda_equipos`. */
-export interface HandicapsDeEquipo {
-  /** `handicap_equipo`: escala de 18 hoyos, el que se muestra. */
-  completo: number | null
-  /**
-   * `handicap_equipo_juego`: el que reparte golpes, en la escala de los hoyos
-   * de la ronda. `null` en modo raw/legacy: el motor parte el completo como
-   * siempre (`handicapDeEquipoParaHoyos`).
-   */
-  juego: number | null
-}
+// El tipo es de golf (lo produce también el equipo con hándicap del club, src/golf/ronda-libre/equipos-de-club.ts).
+export type { HandicapsDeEquipo }
 
 /**
  * Handicaps de equipo de un grupo al iniciar el torneo.

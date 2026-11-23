@@ -6,9 +6,16 @@ import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import type { FormatoJuego } from '@/golf/core/rules'
 import { prepararJuegoDeRondaNueva } from '@/golf/ronda-libre/juego-de-ronda-nueva'
 import { puedeCrearJuegoPersonalizado } from '@/lib/auth/juego-personalizado'
-import { handicapsDeEquipoDeRondaNueva } from '@/lib/data/ronda-libre-equipos'
-import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
-import { NOMBRE_EQUIPO_MAX } from '@/golf/ronda-libre/nombre-de-equipo'
+import { handicapsDeEquipoDeRondaNueva, insertarEquiposDeRonda } from '@/lib/data/ronda-libre-equipos'
+import { generarCodigoDeRonda, nombreDeCanchaDeRonda } from '@/lib/data/ronda-libre-crear'
+import { DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB, validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { NOMBRE_EQUIPO_MAX, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
+import {
+  MAX_EQUIPOS_DE_CLUB,
+  OPCIONES_QUIEN_ANOTA,
+  adminModeDeEquiposDeClub,
+  handicapsDeEquipoDeClub,
+} from '@/golf/ronda-libre/equipos-de-club'
 import { parseFechaISO } from '@/golf/tournament-fechas'
 import { evaluarRondaLibre } from '@/lib/data/course-aptitud'
 import { bloqueaRondaLibre, seArreglaJugandoGross } from '@/golf/courses/aptitud-torneo'
@@ -52,6 +59,19 @@ const equipoSchema = z.object({
   jugadorIndices: z.array(z.number().int().min(0)),
 })
 
+/**
+ * Scramble rápido: equipos con el hándicap del club y sin jugadores. Zod solo mira la forma; entero, rango
+ * (depende de los hoyos), nombres repetidos y quién anota los responde `validarNuevaRonda` con el copy del modo.
+ */
+const equiposDeClubSchema = z.object({
+  equipos: z.array(z.object({
+    // Vacío vale: se graba el nombre por defecto, el mismo que muestra el formulario (`nombreVisibleDeEquipo`).
+    nombre: z.string().trim().max(NOMBRE_EQUIPO_MAX, `El nombre del equipo puede tener hasta ${NOMBRE_EQUIPO_MAX} caracteres.`),
+    handicap: z.number().nullable(),
+  })).max(MAX_EQUIPOS_DE_CLUB, DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB),
+  quien_anota: z.enum(OPCIONES_QUIEN_ANOTA).nullable(),
+})
+
 const createSchema = z.object({
   course_id: z.string().uuid().nullable(),
   course_name: z.string().min(1).max(200),
@@ -68,6 +88,8 @@ const createSchema = z.object({
   recorridos: z.array(z.string()).optional(),
   jugadores: z.array(playerSchema).min(1).max(4),
   equipos: z.array(equipoSchema).optional(),
+  /** Excluyente con `equipos`. `admin_mode` lo decide el servidor (`adminModeDeEquiposDeClub`). */
+  equipos_de_club: equiposDeClubSchema.optional(),
   /** Timba libre: config del juego (la valida `validarJuegoPersonalizado`). Solo con formato `personalizado`. */
   reglas_juego: z.unknown().optional(),
 })
@@ -82,19 +104,6 @@ const createSchema = z.object({
 function perfilSugerido(j: z.infer<typeof playerSchema>, i: number): string | null {
   if (i === 0 || j.is_guest || j.telefono_invitado || j.nombre_invitado) return null
   return j.perfil_sugerido_id ?? null
-}
-
-/** Generate a crypto-safe 6-char code and verify uniqueness */
-async function generarCodigoUnico(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
-  for (let i = 0; i < 5; i++) {
-    const bytes = new Uint8Array(4)
-    crypto.getRandomValues(bytes)
-    const codigo = Array.from(bytes).map(b => b.toString(36)).join('').substring(0, 6).toUpperCase()
-    const { data } = await supabase.from('rondas_libres').select('id').eq('codigo', codigo).maybeSingle()
-    if (!data) return codigo
-  }
-  // Fallback: UUID prefix
-  return crypto.randomUUID().substring(0, 8).toUpperCase()
 }
 
 export async function POST(req: NextRequest) {
@@ -139,13 +148,19 @@ export async function POST(req: NextRequest) {
     // `equipos`, así que un índice fuera de rango tiraba un 500 con la ronda y
     // sus jugadores ya creados, y `[0,0] + [1,1]` dejaba a dos jugadores sin equipo.
     const isTeamFormat = TEAM_FORMAT_KEYS.includes(body.formato_juego)
+    const club = body.equipos_de_club ?? null
+    // `equipos: []` cuenta como ausente: el cliente de la ronda con jugadores lo manda vacío en todo formato de equipos.
+  if (club && body.equipos && body.equipos.length > 0) {
+      return NextResponse.json({ error: 'La ronda lleva equipos con jugadores o equipos del club, no los dos.' }, { status: 400 })
+    }
     const problema = validarNuevaRonda({
       cancha: body.course_name,
       formato: body.formato_juego as FormatoJuego,
       modo: body.modo_juego,
       jugadores: body.jugadores.map((j, i) => ({ nombre: j.nombre, indice: j.handicap, perfilId: perfilSugerido(j, i) })),
-      equipos: isTeamFormat ? body.equipos ?? [] : [],
+      equipos: isTeamFormat && !club ? body.equipos ?? [] : [],
       creadorId: user.id,
+      ...(club ? { equiposDeClub: { equipos: club.equipos, holes: body.holes, quienAnota: club.quien_anota } } : {}),
     })
     if (problema) {
       return NextResponse.json({ error: problema.detalle }, { status: 400 })
@@ -218,7 +233,9 @@ export async function POST(req: NextRequest) {
         body.course_id,
         body.holes,
         body.recorridos ?? null,
-        { requiereRating: body.modo_juego === 'neto' },
+        // Con equipos de club el neto sale del número del club, no de un course handicap: sin rating igual se
+        // juega. El par por hoyo se sigue exigiendo.
+        { requiereRating: body.modo_juego === 'neto' && !club },
       ).catch((err) => {
         // Se reporta SIEMPRE: este catch no distingue "se cayó PostgREST" de
         // "nuestro código está roto", y sin rastro el guardarrail se apaga en
@@ -242,7 +259,10 @@ export async function POST(req: NextRequest) {
     // handicap sin redondear de cada jugador con su tee (src/lib/data/ronda-libre-equipos.ts).
     // Best ball: null (cada jugador juega con el suyo). Se calcula ANTES de crear
     // la ronda: lee la base, y si falla no puede dejar una ronda sin sus equipos.
-    const handicaps = isTeamFormat && body.equipos && body.equipos.length > 0
+    // Equipos de club: el número del club tal cual (gross: null), sin leer la base.
+    const handicaps = club
+      ? club.equipos.map(e => handicapsDeEquipoDeClub(body.modo_juego === 'neto' ? e.handicap : null))
+      : isTeamFormat && body.equipos && body.equipos.length > 0
       ? await handicapsDeEquipoDeRondaNueva(
           supabase,
           { formato: body.formato_juego, courseId: body.course_id, holes: body.holes, recorridos: body.recorridos ?? null },
@@ -255,40 +275,13 @@ export async function POST(req: NextRequest) {
     // Un equipo de bola compartida sin handicap jugaría con 0. El validador deja
     // equipos de 2 a 4 en scramble y best ball (todos con tabla) y de 2 exactos
     // en foursome; si eso cambia sin tabla nueva, se rechaza acá.
-    if (isSharedBallFormat(body.formato_juego) && handicaps.some(h => h.juego == null)) {
+    // Un equipo de club en gross va sin hándicap a propósito: la regla no le aplica.
+    if (!club && isSharedBallFormat(body.formato_juego) && handicaps.some(h => h.juego == null)) {
       return NextResponse.json({ error: 'No hay handicap de equipo para equipos de ese tamaño. Arma equipos de un tamaño permitido para este formato.' }, { status: 400 })
     }
 
-    // Generate unique code
-    const codigo = await generarCodigoUnico(supabase)
-
-    // Normalizar course_name: si tenemos course_id, buscar el nombre más usado
-    // en rondas anteriores del mismo course_id para evitar variantes
-    // ("Lomas de La Dehesa" vs "Club de Golf Lomas de La Dehesa").
-    // Bug 30-ago-2026: usuario abandonó ronda por nombres duplicados en En Vivo.
-    // NO usamos courses.nombre (es el formato largo de FedeGolf, peor para UX).
-    let normalizedCourseName = body.course_name
-    if (body.course_id) {
-      const { data: prevRondas } = await supabase
-        .from('rondas_libres')
-        .select('course_name')
-        .eq('course_id', body.course_id)
-        .not('course_name', 'is', null)
-        .limit(20)
-      if (prevRondas && prevRondas.length > 0) {
-        // Usar el nombre más frecuente entre las rondas anteriores
-        const counts: Record<string, number> = {}
-        for (const r of prevRondas) {
-          counts[r.course_name] = (counts[r.course_name] ?? 0) + 1
-        }
-        let maxName = body.course_name
-        let maxCount = 0
-        for (const name of Object.keys(counts)) {
-          if (counts[name] > maxCount) { maxCount = counts[name]; maxName = name }
-        }
-        normalizedCourseName = maxName
-      }
-    }
+    const codigo = await generarCodigoDeRonda(supabase)
+    const normalizedCourseName = await nombreDeCanchaDeRonda(supabase, body.course_id, body.course_name)
 
     // B1: Atomic insert — ronda + jugadores in one transaction-like flow
     // Supabase JS doesn't support real transactions, but we can:
@@ -310,7 +303,8 @@ export async function POST(req: NextRequest) {
       formato_juego: body.formato_juego,
     }
 
-    if (body.admin_mode) {
+    const adminMode = club ? adminModeDeEquiposDeClub(club.quien_anota, club.equipos.length) : body.admin_mode
+    if (adminMode) {
       rondaData.admin_mode = true
       rondaData.admin_user_id = user.id
     }
@@ -412,37 +406,30 @@ export async function POST(req: NextRequest) {
     }
 
     // Team format: insert equipos + members
-    if (isTeamFormat && body.equipos && body.equipos.length > 0) {
-      for (const [i, equipo] of body.equipos.entries()) {
-        const jugadoresEquipo = equipo.jugadorIndices.map(idx => ({ dbRecord: insertedPlayers[idx] }))
-
-        const { data: equipoDB, error: equipoErr } = await supabase
-          .from('ronda_equipos')
-          .insert({
-            ronda_id: ronda.id,
-            nombre: equipo.nombre,
-            // Ya redondeados (WHS): las dos columnas son smallint.
-            handicap_equipo: handicaps[i].completo,
-            handicap_equipo_juego: handicaps[i].juego,
-            scores: {},
-          })
-          .select('id')
-          .single()
-
-        // Antes un equipo que no se grababa se saltaba en silencio y la ronda
-        // por equipos quedaba en juego sin equipos: el scorer no tenía a quién
-        // sumarle. Una ronda por equipos sin sus equipos no se entrega.
-        const members = equipoDB
-          ? jugadoresEquipo.map((j, idx) => ({ equipo_id: equipoDB.id, jugador_id: j.dbRecord.id, orden: idx }))
-          : []
-        const { error: miembrosErr } = equipoDB
-          ? await supabase.from('ronda_equipo_jugadores').insert(members)
-          : { error: null }
-        if (!equipoDB || equipoErr || miembrosErr) {
-          void captureError(equipoErr ?? miembrosErr ?? new Error('insert de equipo sin fila'), { context: 'ronda-libre.create.insert-equipos', userId: user.id })
-          await deshacerRonda()
-          return NextResponse.json({ error: 'Error al armar los equipos. La ronda no fue creada.' }, { status: 500 })
-        }
+    const equiposAInsertar = club
+      ? club.equipos.map((equipo, i) => ({
+          nombre: nombreVisibleDeEquipo(equipo.nombre, i),
+          handicaps: handicaps[i],
+          // El creador es la única tarjeta y el único miembro del equipo 1 (plan §1): su historial, el cierre y
+          // "repetir ronda" siguen funcionando igual. Los demás equipos no tienen jugadores.
+          jugadorIds: i === 0 ? [insertedPlayers[0].id] : [],
+          handicapOrigen: 'club' as const,
+          // Un celular por equipo: el equipo 1 lo anota el creador desde ya. Los demás los reclama cada celular.
+          anotadorUserId: i === 0 && !adminMode ? user.id : null,
+        }))
+      : isTeamFormat && body.equipos && body.equipos.length > 0
+      ? body.equipos.map((equipo, i) => ({
+          nombre: equipo.nombre,
+          handicaps: handicaps[i],
+          jugadorIds: equipo.jugadorIndices.map(idx => insertedPlayers[idx].id),
+        }))
+      : []
+    if (equiposAInsertar.length > 0) {
+      const grabados = await insertarEquiposDeRonda(supabase, ronda.id, equiposAInsertar)
+      if (!grabados.ok) {
+        void captureError(grabados.error, { context: 'ronda-libre.create.insert-equipos', userId: user.id })
+        await deshacerRonda()
+        return NextResponse.json({ error: 'Error al armar los equipos. La ronda no fue creada.' }, { status: 500 })
       }
     }
 

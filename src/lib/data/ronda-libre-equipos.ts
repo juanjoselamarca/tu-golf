@@ -15,7 +15,8 @@ import { handicapDeEquipo } from '@/golf/formats/team-handicap'
 import { resolverCourseData, resolverCourseHandicapSinRedondear, type CourseData } from '@/golf/core/course-handicap'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { parYSiDeLaRonda, type HoyoDeCatalogoEnVivo } from './ronda-libre'
-import type { HandicapsDeEquipo } from './tournaments/teamRounds'
+import type { HandicapsDeEquipo } from '@/golf/formats/team-handicap'
+import type { HandicapOrigen } from '@/golf/ronda-libre/equipos-de-club'
 
 export type { HandicapsDeEquipo }
 
@@ -91,4 +92,60 @@ export async function handicapsDeEquipoDeRondaNueva(
       return { completo, juego }
     }),
   )
+}
+
+/** Un equipo listo para grabar: nombre final, sus dos handicaps y las filas de jugador que lo forman (en orden). */
+export interface EquipoAInsertar {
+  nombre: string
+  handicaps: HandicapsDeEquipo
+  /** Ids de `ronda_libre_jugadores`, en el orden del equipo. Un equipo de club puede no tener ninguno. */
+  jugadorIds: readonly string[]
+  /** Solo equipos de club ('club'). Ausente = no se nombra la columna y queda su default ('calculado'). */
+  handicapOrigen?: HandicapOrigen
+  /**
+   * Cuenta que anota este equipo desde su celular (un celular por equipo). Solo puede ser la sesión que inserta:
+   * el trigger `ronda_equipos_anotador_guard` rechaza cualquier otra.
+   */
+  anotadorUserId?: string | null
+}
+
+export type ResultadoInsertarEquipos = { ok: true } | { ok: false; error: unknown }
+
+/**
+ * Graba los equipos de una ronda libre recién creada y sus miembros, en orden.
+ * Se corta en el primer equipo que no se graba y devuelve el error: una ronda por
+ * equipos sin sus equipos no se entrega (antes un equipo fallido se saltaba en
+ * silencio y el scorer quedaba sin a quién sumarle). Deshacer la ronda es de quien
+ * llama, que es quien la creó.
+ */
+export async function insertarEquiposDeRonda(
+  supabase: SupabaseClient,
+  rondaId: string,
+  equipos: readonly EquipoAInsertar[],
+): Promise<ResultadoInsertarEquipos> {
+  for (const equipo of equipos) {
+    const { data: equipoDB, error: equipoErr } = await supabase
+      .from('ronda_equipos')
+      .insert({
+        ronda_id: rondaId,
+        nombre: equipo.nombre,
+        // Ya redondeados (WHS): las dos columnas son smallint.
+        handicap_equipo: equipo.handicaps.completo,
+        handicap_equipo_juego: equipo.handicaps.juego,
+        scores: {},
+        // Las columnas nuevas solo se nombran cuando hacen falta: una ronda con jugadores no depende de ellas.
+        ...(equipo.handicapOrigen ? { handicap_origen: equipo.handicapOrigen } : {}),
+        ...(equipo.anotadorUserId ? { anotador_user_id: equipo.anotadorUserId } : {}),
+      })
+      .select('id')
+      .single()
+    if (equipoErr || !equipoDB) return { ok: false, error: equipoErr ?? new Error('insert de equipo sin fila') }
+
+    // Un equipo de club sin jugadores no tiene miembros que grabar.
+    if (equipo.jugadorIds.length === 0) continue
+    const miembros = equipo.jugadorIds.map((jugadorId, orden) => ({ equipo_id: equipoDB.id, jugador_id: jugadorId, orden }))
+    const { error: miembrosErr } = await supabase.from('ronda_equipo_jugadores').insert(miembros)
+    if (miembrosErr) return { ok: false, error: miembrosErr }
+  }
+  return { ok: true }
 }

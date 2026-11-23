@@ -96,6 +96,7 @@ const PERMITIDOS: Array<{ archivo: string; fragmento: string; veces: number; por
   { archivo: 'lib/data/coach-handicap.ts', fragmento: 'DISTINTO del índice (${indice})', veces: 2, porque: PROMPT },
   { archivo: 'lib/import/confirmar.ts', fragmento: '(índice: ${profile?.indice ?? ', veces: 1, porque: PROMPT },
   { archivo: 'lib/import-round.ts', fragmento: 'Indice de handicap negativo (${profile.indice})', veces: 1, porque: 'aviso interno (no UI) que nombra el valor crudo guardado' },
+  { archivo: 'golf/ronda-libre/validar-nueva-ronda.ts', fragmento: 'va de 0 a ${handicapDeClubMaximo(holes)}, sin decimales.`', veces: 1, porque: 'el tope del rango (entero 18 o 36, equipos-de-club.ts), no un hándicap guardado' },
 ]
 
 /** Reglas 1 y 4: receptor de cada `.toFixed(n)` / `.toString()` de la línea, con su método. */
