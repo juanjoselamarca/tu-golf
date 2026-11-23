@@ -332,5 +332,7 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     await act(async () => { await result.current.recargar() })
     expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
+    // La copia local del equipo perdido se borra: sin señal no vuelve a abrir el scorer de e2.
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u-pedro')).toBeNull()
   })
 })

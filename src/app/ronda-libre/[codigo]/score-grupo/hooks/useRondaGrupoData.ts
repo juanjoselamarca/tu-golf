@@ -33,6 +33,7 @@ import {
   ID_PENDIENTE_EQUIPO,
   saveScorerGrupoSnapshot,
   loadScorerGrupoSnapshot,
+  clearScorerGrupoSnapshot,
   type ScorerGrupoSnapshot,
   limpiarCopiaLocalDeRonda,
 } from '@/lib/ronda/score-storage'
@@ -309,6 +310,8 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
         // Lo liberaron mientras anotaba: al volver a elegir, el próximo equipo abre como recién cargado.
         if (cargadaRef.current) addToast({ type: 'info', title: MENSAJE_YA_NO_ANOTAS, duration: 6000 })
         cargadaRef.current = false
+        // La copia local era de un equipo que ya no anota: sin señal, el scorer lo volvería a abrir con ella.
+        clearScorerGrupoSnapshot(codigo)
         setEleccion({ ronda: c.ronda, equipos: c.equipos })
         setConexion('ok')
         setLoadError(null)
