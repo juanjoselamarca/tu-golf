@@ -9,6 +9,7 @@ import type { FormatoJuego, ModoJuego } from '@/types/ronda'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 import { chipLabelCorto } from './chip-label'
 import { puedeSumarGolpe, puedeRestarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
+import { integrantesQueSeMuestran } from '@/golf/ronda-libre/equipos-de-club'
 
 interface SharedBallTeamCardProps {
   equipo: EquipoDelScorer
@@ -47,7 +48,7 @@ export function SharedBallTeamCard({
         <div>
           <div style={{ fontSize: '13px', fontWeight: 700, color: theme.text, letterSpacing: '0.02em', textTransform: 'uppercase' as const }}>{equipo.nombre}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-            {equipo.jugadorNombres.map((nombre, i) => (
+            {integrantesQueSeMuestran(equipo, equipo.jugadorNombres).map((nombre, i) => (
               <span
                 key={`${equipo.id}-jugador-${i}`}
                 style={{

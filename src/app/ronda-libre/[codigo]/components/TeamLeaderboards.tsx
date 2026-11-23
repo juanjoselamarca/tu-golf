@@ -15,6 +15,7 @@ import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { integrantesQueSeMuestran } from '@/golf/ronda-libre/equipos-de-club'
 
 export interface TeamLeaderboardsProps {
   ronda: RondaLibre
@@ -70,10 +71,14 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
     )
   }
 
-  const nombresDe = (teamId: string) =>
-    equipos.find(e => e.id === teamId)?.jugadorIds
-      .map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '')
-      .filter(Boolean) || []
+  const nombresDe = (teamId: string): string[] => {
+    const equipo = equipos.find(e => e.id === teamId)
+    if (!equipo) return []
+    return integrantesQueSeMuestran(
+      equipo,
+      equipo.jugadorIds.map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean),
+    )
+  }
 
   if (ronda.formato_juego === 'best_ball') {
     const teams = equipos.map(eq => ({

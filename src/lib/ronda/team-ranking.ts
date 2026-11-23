@@ -9,6 +9,7 @@ import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { scorePrimarioDeEquipo } from '@/golf/leaderboard/team-tiebreak'
 import type { FormatoJuego, ModoJuego, Jugador } from '@/types/ronda'
+import { integrantesQueSeMuestran, type HandicapOrigen } from '@/golf/ronda-libre/equipos-de-club'
 
 /**
  * Centraliza el cálculo de ranking de equipos para la share card de ronda libre
@@ -32,6 +33,8 @@ export interface Equipo {
   handicap_equipo_juego: number | null
   jugadorIds: string[]
   scores: Record<string, number>
+  /** 'club' = equipo de scramble rápido, sin jugadores (`esEquipoDeClub`). Ausente en lecturas que no la piden. */
+  handicap_origen?: HandicapOrigen
 }
 
 export type JugadorRanking = Pick<Jugador, 'id' | 'nombre' | 'scores'> & { handicap?: number | null }
@@ -116,10 +119,15 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
   const isStab: boolean = formato === 'stableford'
   const isNeto = modo === 'neto'
 
+  const integrantesDe = (teamId: string): string[] => {
+    const equipo = equipos.find(e => e.id === teamId)
+    if (!equipo) return []
+    return integrantesQueSeMuestran(equipo, equipo.jugadorIds.map(jid => jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean))
+  }
+
   return sorted.map(r => ({
     nombre: r.teamNombre,
-    jugadores: equipos.find(e => e.id === r.teamId)?.jugadorIds
-      .map(jid => jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean) || [],
+    jugadores: integrantesDe(r.teamId),
     score: isStab ? r.totalStableford : isNeto ? r.totalNeto : r.totalGross,
     // El mismo score primario con que la tabla de equipos da el lugar (`scorePrimarioDeEquipo`):
     // imagen, cuadro ganador y tabla comparan lo mismo.

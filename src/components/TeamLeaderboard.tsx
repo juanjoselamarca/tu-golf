@@ -152,14 +152,18 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
-                {team.jugadores.join(' · ')}
-                {team.teamHandicap != null && (
-                  <span style={{ marginLeft: '6px', color: 'var(--brand-on-bg)' }}>
-                    HCP {formatearHandicap(team.teamHandicap)}
-                  </span>
-                )}
-              </div>
+              {/* Un equipo sin integrantes a la vista (equipo de club) muestra solo su HCP, sin el hueco de la
+                  lista vacía; sin integrantes ni HCP, la línea no existe. */}
+              {(team.jugadores.length > 0 || team.teamHandicap != null) && (
+                <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
+                  {team.jugadores.join(' · ')}
+                  {team.teamHandicap != null && (
+                    <span style={{ marginLeft: team.jugadores.length > 0 ? '6px' : 0, color: 'var(--brand-on-bg)' }}>
+                      HCP {formatearHandicap(team.teamHandicap)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Score */}

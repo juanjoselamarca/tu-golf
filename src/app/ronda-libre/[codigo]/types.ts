@@ -3,6 +3,7 @@
 // Los tipos de dominio (RondaLibre, Jugador, etc.) viven en @/types/ronda.
 
 import type { RondaLibre } from '@/types/ronda'
+import type { HandicapOrigen } from '@/golf/ronda-libre/equipos-de-club'
 
 /** Equipo de una ronda por equipos (best_ball / scramble / foursome). */
 export interface Equipo {
@@ -14,6 +15,8 @@ export interface Equipo {
   handicap_equipo_juego: number | null
   jugadorIds: string[]
   scores: Record<string, number>
+  /** 'club' = equipo de scramble rápido, sin jugadores (`esEquipoDeClub`). Ausente en lecturas que no la piden. */
+  handicap_origen?: HandicapOrigen
 }
 
 /** Resultado del fetch de la ronda + datos derivados de cancha y handicaps. */

@@ -24,6 +24,7 @@ import {
 import {
   HOYOS_DE_EQUIPOS_DE_CLUB,
   MAX_EQUIPOS_DE_CLUB,
+  admiteEquiposDeClub,
   esHandicapDeClubValido,
   esHoyosDeEquiposDeClub,
   handicapDeClubMaximo,
@@ -121,7 +122,7 @@ function problemaDeRondaConEquiposDeClub(
   { formato, modo, jugadores }: RondaAValidar,
   { equipos, holes, quienAnota }: EquiposDeClubAValidar,
 ): ProblemaDeLaRonda | null {
-  if (formato !== 'scramble') {
+  if (!admiteEquiposDeClub(formato)) {
     return { titulo: 'Solo en Scramble', detalle: 'Los equipos con hándicap del club se juegan solo en Scramble.' }
   }
   // El creador es la única tarjeta: los equipos no tienen jugadores (plan §1).

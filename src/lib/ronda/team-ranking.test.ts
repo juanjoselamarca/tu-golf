@@ -206,3 +206,19 @@ describe('rankTeams', () => {
     expect(rows[0].diff).toBe(9)
   })
 })
+
+describe('rankTeams — equipos de club (scramble rápido)', () => {
+  it('no nombra integrantes de un equipo de club (el creador va en el primero solo por la tarjeta)', () => {
+    const equipos: Equipo[] = [
+      { ...baseEquipos[0], nombre: 'Los Tigres', handicap_equipo: 8, handicap_equipo_juego: 8, handicap_origen: 'club', jugadorIds: ['j1'] },
+      { ...baseEquipos[1], nombre: 'Los Pumas', handicap_equipo: 12, handicap_equipo_juego: 12, handicap_origen: 'club', jugadorIds: [] },
+    ]
+    const rows = rankTeams({ ...baseInput, formato: 'scramble', modo: 'neto', equipos })
+    expect(rows.map(r => [r.nombre, r.jugadores])).toEqual([['Los Tigres', []], ['Los Pumas', []]])
+  })
+
+  it('un equipo con jugadores sigue nombrando a los suyos', () => {
+    const rows = rankTeams({ ...baseInput, formato: 'scramble', modo: 'gross' })
+    expect(rows.find(r => r.nombre === 'Team A')?.jugadores).toEqual(['Ana', 'Diego'])
+  })
+})

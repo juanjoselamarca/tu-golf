@@ -8,6 +8,11 @@
 
 import type { HandicapsDeEquipo } from '@/golf/formats/team-handicap'
 
+/** El único formato que admite equipos de club: en scramble el equipo juega una bola y un solo número. */
+export function admiteEquiposDeClub(formato: string): boolean {
+  return formato === 'scramble'
+}
+
 /** Tope de equipos del modo. */
 export const MAX_EQUIPOS_DE_CLUB = 4
 
@@ -58,4 +63,18 @@ export function handicapsDeEquipoDeClub(v: number | null): HandicapsDeEquipo {
  */
 export function adminModeDeEquiposDeClub(quienAnota: QuienAnota | null, cantidadDeEquipos: number): boolean {
   return cantidadDeEquipos <= 1 || quienAnota !== 'cada_equipo'
+}
+
+/** El equipo entró con el hándicap del club (sin jugadores). Una fila sin la columna (lectura vieja) no lo es. */
+export function esEquipoDeClub(equipo: { handicap_origen?: HandicapOrigen | null }): boolean {
+  return equipo.handicap_origen === 'club'
+}
+
+/**
+ * Los integrantes que se muestran de un equipo (tarjeta del scorer, tabla, cuadro ganador, imagen para
+ * compartir). Un equipo de club no muestra ninguno: el creador va como miembro del primero solo para que la ronda
+ * tenga su tarjeta (plan §1), no porque juegue en ese equipo.
+ */
+export function integrantesQueSeMuestran<T>(equipo: { handicap_origen?: HandicapOrigen | null }, integrantes: readonly T[]): T[] {
+  return esEquipoDeClub(equipo) ? [] : [...integrantes]
 }
