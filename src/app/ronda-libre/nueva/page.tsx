@@ -219,7 +219,7 @@ export default function NuevaRondaLibrePage() {
             formato={form.formato}
             onFormato={f => { timba.soltar(); form.elegirFormato(f) }}
             modo={form.modo}
-            onModo={form.setModo}
+            onModo={club.elegirModo}
             netoBloqueado={form.netoBloqueado}
             holes={forma.holes}
             timba={{

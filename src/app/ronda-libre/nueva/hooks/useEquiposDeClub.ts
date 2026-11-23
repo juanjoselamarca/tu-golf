@@ -82,8 +82,8 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
 
   /**
    * «Con jugadores» | «Solo equipos». Solo la transición cuenta: tocar el segmento que ya está activo no hace
-   * nada. Entrar deja la ronda en Neto si el plan lo permite; salir deshace ese cambio si el usuario no tocó el
-   * modo entremedio (si lo tocó, manda lo último que eligió).
+   * nada. Entrar deja la ronda en Neto si el plan lo permite; salir deshace ese cambio solo si el usuario no
+   * eligió un modo entremedio (`elegirModo` lo olvida: manda lo último que eligió).
    */
   const elegirSoloEquipos = (solo: boolean) => {
     if (solo === soloEquiposElegido) return
@@ -98,6 +98,15 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     const previo = modoAntesDeSoloEquipos.current
     modoAntesDeSoloEquipos.current = null
     if (previo !== null && modo === 'neto') onModo(previo)
+  }
+
+  /**
+   * El modo que elige el usuario en el paso Formato. Pasa siempre por acá y no directo a `onModo`: una elección
+   * suya, aunque vuelva a Neto, reemplaza lo que «Solo equipos» guardó para devolver.
+   */
+  const elegirModo = (m: ModoJuego) => {
+    modoAntesDeSoloEquipos.current = null
+    onModo(m)
   }
 
   const puedeAgregar = equipos.length < MAX_EQUIPOS_DE_CLUB
@@ -140,6 +149,7 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
   return {
     soloEquipos,
     elegirSoloEquipos,
+    elegirModo,
     equipos,
     puedeAgregar,
     agregar,

@@ -126,13 +126,23 @@ describe('useEquiposDeClub', () => {
     expect(result.current.soloEquipos).toBe(true)
   })
 
+  it('si el usuario elige un modo entremedio (aunque termine en Neto), al volver manda lo que eligió', () => {
+    const { result, onModo } = montar({ modo: 'gross' })
+    act(() => result.current.elegirSoloEquipos(true))
+    act(() => result.current.elegirModo('gross'))
+    act(() => result.current.elegirModo('neto'))
+    act(() => result.current.elegirSoloEquipos(false))
+    expect(result.current.modo).toBe('neto')
+    expect(onModo.mock.calls).toEqual([['neto'], ['gross'], ['neto']])
+  })
+
   it('si el usuario elige Gross dentro de «Solo equipos», al volver manda lo que eligió', () => {
     const { result, onModo } = montar({ modo: 'gross' })
     act(() => result.current.elegirSoloEquipos(true))
-    act(() => result.current.setModo('gross'))
+    act(() => result.current.elegirModo('gross'))
     act(() => result.current.elegirSoloEquipos(false))
     expect(result.current.modo).toBe('gross')
-    expect(onModo).toHaveBeenCalledTimes(1)
+    expect(onModo.mock.calls).toEqual([['neto'], ['gross']])
   })
 
   it('con el Neto bloqueado por plan entra igual, sin tocar el modo (queda en Gross)', () => {
