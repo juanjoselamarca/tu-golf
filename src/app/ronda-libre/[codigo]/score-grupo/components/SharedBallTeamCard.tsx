@@ -38,6 +38,9 @@ export function SharedBallTeamCard({
   // En neto 9h el handicap de equipo (escala 18h) se reparte por la mitad, igual que en el board.
   const esNeto = modoJuego === 'neto'
   const vsParPrincipal = tot ? (esNeto ? tot.overUnderNeto : tot.overUnderGross) : 0
+  const integrantes = integrantesQueSeMuestran(equipo, equipo.jugadorNombres)
+  // El handicap de equipo sólo juega en neto.
+  const hcpQueSeMuestra = esNeto ? equipo.handicap_equipo : null
 
   return (
     <div style={{
@@ -47,31 +50,33 @@ export function SharedBallTeamCard({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div>
           <div style={{ fontSize: '13px', fontWeight: 700, color: theme.text, letterSpacing: '0.02em', textTransform: 'uppercase' as const }}>{equipo.nombre}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-            {integrantesQueSeMuestran(equipo, equipo.jugadorNombres).map((nombre, i) => (
-              <span
-                key={`${equipo.id}-jugador-${i}`}
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  color: theme.textMuted,
-                  background: 'rgba(196,153,42,0.08)',
-                  border: '1px solid rgba(196,153,42,0.2)',
-                  borderRadius: '10px',
-                  padding: '2px 8px',
-                  lineHeight: 1.3,
-                }}
-              >
-                {nombre}
-              </span>
-            ))}
-            {/* El handicap de equipo sólo juega en neto. */}
-            {esNeto && equipo.handicap_equipo != null && (
-              <span style={{ fontSize: '11px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
-                HCP {formatearHandicap(equipo.handicap_equipo)}
-              </span>
-            )}
-          </div>
+          {/* Un equipo de club en gross no tiene ni integrantes ni HCP: sin fila vacía bajo el nombre. */}
+          {(integrantes.length > 0 || hcpQueSeMuestra != null) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+              {integrantes.map((nombre, i) => (
+                <span
+                  key={`${equipo.id}-jugador-${i}`}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: theme.textMuted,
+                    background: 'rgba(196,153,42,0.08)',
+                    border: '1px solid rgba(196,153,42,0.2)',
+                    borderRadius: '10px',
+                    padding: '2px 8px',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {nombre}
+                </span>
+              ))}
+              {hcpQueSeMuestra != null && (
+                <span style={{ fontSize: '11px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
+                  HCP {formatearHandicap(hcpQueSeMuestra)}
+                </span>
+              )}
+            </div>
+          )}
           {formatoJuego === 'foursome' && equipo.jugadorNombres.length === 2 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
               <span style={{ fontSize: '10px', color: 'var(--brand-on-bg)' }}>

@@ -61,9 +61,10 @@ describe('SharedBallTeamCard — equipo de club (scramble rápido)', () => {
     expect(screen.getByText('HCP 8')).toBeTruthy()
   })
 
-  it('en gross tampoco muestra integrantes ni HCP', () => {
+  it('en gross tampoco muestra integrantes ni HCP, y no deja una fila vacía bajo el nombre', () => {
     pintarDeClub('gross')
     expect(screen.queryByText('Juanjo')).toBeNull()
     expect(screen.queryByText(/^HCP/)).toBeNull()
+    expect(screen.getByText('Los Tigres').nextElementSibling).toBeNull()
   })
 })
