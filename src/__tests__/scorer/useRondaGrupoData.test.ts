@@ -363,4 +363,17 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     // La copia local del equipo perdido se borra: sin señal no vuelve a abrir el scorer de e2.
     expect(loadScorerGrupoSnapshot('B4F5Y2', 'u-pedro')).toBeNull()
   })
+  it('«Dejar este equipo»: vuelve a elegir equipo SIN el aviso «Ya no anotas» y sin la copia local', async () => {
+    sesion.valor = { session: { user: { id: 'u-pedro' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro')]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    addToast.mockClear()
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    await act(async () => { await result.current.recargarTrasDejarEquipo() })
+    expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u-pedro')).toBeNull()
+  })
 })

@@ -20,7 +20,7 @@ import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import { cierraLaRonda, equiposSinParAutomatico, nombreDelCreador } from '@/golf/ronda-libre/anotador-de-equipo'
 import { haptic } from '@/lib/ronda/helpers'
-import { saveGroupScores } from '@/lib/ronda/score-storage'
+import { saveGroupScores, hayPendientes } from '@/lib/ronda/score-storage'
 import { BestBallTeamCard } from './components/BestBallTeamCard'
 import { GrupoScorerHeader } from './components/GrupoScorerHeader'
 import { HoleProgressRow } from './components/HoleProgressRow'
@@ -34,6 +34,7 @@ import { DiscardRoundModal } from './components/DiscardRoundModal'
 import { ConexionScorerBanner } from './components/ConexionScorerBanner'
 import { ElegirEquipo } from './components/ElegirEquipo'
 import { EquiposDeOtroCelular } from './components/EquiposDeOtroCelular'
+import { DejarEsteEquipo } from './components/DejarEsteEquipo'
 import { useRondaGrupoData } from './hooks/useRondaGrupoData'
 import { useAnotadorDeEquipo } from './hooks/useAnotadorDeEquipo'
 import { useGrupoScoreSave } from './hooks/useGrupoScoreSave'
@@ -68,10 +69,10 @@ export default function ScoreGrupoPage() {
     ronda, loading, loadError, currentHole, setCurrentHole,
     scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
     teamEquipos, setTeamEquipos, anotadorNombre, authUserId, conexion, golpesSinSubir,
-    unCelularPorEquipo, equiposDeOtroCelular, eleccion, recargar,
+    unCelularPorEquipo, equiposDeOtroCelular, eleccion, recargar, recargarTrasDejarEquipo,
   } = useRondaGrupoData(codigo)
   // Un celular por equipo: elegir equipo, liberar uno de otro celular y no pisar nunca lo suyo.
-  const anotador = useAnotadorDeEquipo({ codigo, recargar })
+  const anotador = useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo })
   const porCelular = useMemo(
     () => unCelularPorEquipo ? { ajenos: equiposDeOtroCelular, alPerderEquipo: () => { void recargar() } } : undefined,
     [unCelularPorEquipo, equiposDeOtroCelular, recargar],
@@ -357,6 +358,23 @@ export default function ScoreGrupoPage() {
               onToggleInvertido={() => toggleFoursomeInvertido(equipo.id)}
               onChange={(delta) => anotarEquipo(equipo.id, delta)}
               theme={theme}
+            />
+          ))}
+
+          {/* Quien anota un equipo sin ser el creador puede soltarlo (antes sube lo anotado). */}
+          {unCelularPorEquipo && !cierraEsteCelular && teamEquipos.map(equipo => (
+            <DejarEsteEquipo
+              key={`dejar-${equipo.id}`}
+              equipo={equipo}
+              nombreCreador={nombreDelCreador(ronda)}
+              enCurso={anotador.enCurso}
+              onDejar={(id, nombre) => {
+                void anotador.dejar(id, nombre, async () => {
+                  const envio = await saveAllScores()
+                  // Cerrada o borrada: la RPC lo dice con su propio aviso.
+                  return envio.estado !== 'ronda_abierta' || !hayPendientes(codigo)
+                })
+              }}
             />
           ))}
 

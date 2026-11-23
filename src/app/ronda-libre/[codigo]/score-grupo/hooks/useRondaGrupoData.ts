@@ -84,6 +84,8 @@ export interface RondaGrupoData {
   eleccion: { ronda: RondaLibre; equipos: EquipoDelScorer[] } | null
   /** Vuelve a leer la ronda y quién anota qué (tras reclamar o liberar un equipo, o si el servidor rechazó uno). */
   recargar: () => Promise<void>
+  /** Igual que `recargar`, tras «Dejar este equipo»: vuelve a elegir equipo sin el aviso «Ya no anotas». */
+  recargarTrasDejarEquipo: () => Promise<void>
 }
 
 type Carga =
@@ -227,6 +229,8 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const enCursoRef = useRef(false)
   /** Se pidió leer mientras otra lectura iba en vuelo (p. ej. justo después de reclamar o liberar): una vuelta más. */
   const otraVueltaRef = useRef(false)
+  /** Este celular soltó su equipo a propósito: la vuelta a «Elige tu equipo» no avisa «Ya no anotas». */
+  const dejoElEquipoRef = useRef(false)
   const cargarRef = useRef<() => Promise<void>>(async () => {})
   /** Los equipos que este celular tiene en pantalla: al releer, uno que ya no es suyo se avisa. */
   const idsEnPantallaRef = useRef<string[]>([])
@@ -308,7 +312,8 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       }
       if (c.tipo === 'elegir_equipo') {
         // Lo liberaron mientras anotaba: al volver a elegir, el próximo equipo abre como recién cargado.
-        if (cargadaRef.current) addToast({ type: 'info', title: MENSAJE_YA_NO_ANOTAS, duration: 6000 })
+        if (cargadaRef.current && !dejoElEquipoRef.current) addToast({ type: 'info', title: MENSAJE_YA_NO_ANOTAS, duration: 6000 })
+        dejoElEquipoRef.current = false
         cargadaRef.current = false
         // La copia local era de un equipo que ya no anota: sin señal, el scorer lo volvería a abrir con ella.
         clearScorerGrupoSnapshot(codigo)
@@ -354,6 +359,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable (Next.js App Router)
   }, [codigo, aplicarMetadatos, pintarPrimeraVez])
   useEffect(() => { cargarRef.current = cargar }, [cargar])
+  const recargarTrasDejarEquipo = useCallback(() => { dejoElEquipoRef.current = true; return cargar() }, [cargar])
 
   useEffect(() => { void cargar() }, [cargar])
 
@@ -380,6 +386,6 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     teamEquipos, setTeamEquipos,
     anotadorNombre, authUserId,
     conexion, golpesSinSubir,
-    unCelularPorEquipo: unCelular, equiposDeOtroCelular: ajenos, eleccion, recargar: cargar,
+    unCelularPorEquipo: unCelular, equiposDeOtroCelular: ajenos, eleccion, recargar: cargar, recargarTrasDejarEquipo,
   }
 }

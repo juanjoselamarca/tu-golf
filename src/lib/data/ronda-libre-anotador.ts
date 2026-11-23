@@ -19,6 +19,9 @@ const PLAZO_ANOTADOR_MS = 12_000
 /** Copy cuando el servidor rechaza los golpes de un equipo que este celular ya no anota (lo liberaron). */
 export const MENSAJE_YA_NO_ANOTAS = 'Ya no anotas este equipo.'
 
+/** Copy cuando «Dejar este equipo» no puede subir antes lo anotado (sin señal): no se suelta con golpes en el teléfono. */
+export const MENSAJE_DEJAR_CON_PENDIENTES = 'Hay golpes sin subir. Espera señal y vuelve a intentar.'
+
 /** Copy cuando otro celular ganó el equipo. */
 export function mensajeEquipoTomado(anotadorNombre: string | null | undefined): string {
   return `Ese equipo ya lo anota ${nombreDelAnotador({ anotador_nombre: anotadorNombre ?? null })}. Elige otro.`
