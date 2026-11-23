@@ -7,7 +7,8 @@ import { captureError } from '@/lib/error-tracking'
 import { useToast } from '@/hooks/useToast'
 import { isTeamFormat } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
-import { validarNuevaRonda, type ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { validarNuevaRonda, type EquipoDeClubAValidar, type ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import type { QuienAnota } from '@/golf/ronda-libre/equipos-de-club'
 import { FORMATO_PERSONALIZADO, type ConfigJuego } from '@/golf/formats/personalizado'
 import { MENSAJE_NETO_PRO, MENSAJE_PLAN_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import type { FormaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
@@ -123,7 +124,7 @@ export function jugadoresParaLaApi(jugadores: JugadorDeLaRonda[], userId: string
   }))
 }
 
-interface Args {
+export interface Args {
   userId: string | null
   courseId: string | null
   cancha: string
@@ -142,7 +143,18 @@ interface Args {
    * `problemaParaCrearLaTimba`, la misma función que corre la API. `formato` sigue siendo el individual de base.
    */
   timba?: { reglasJuego: ConfigJuego; problema: ProblemaDeLaRonda | null } | null
+  /**
+   * Scramble rápido («Solo equipos»): los equipos como viajan (`equiposDeClubParaEnviar`). Presente, la ronda
+   * va con `equipos_de_club` y sin `equipos`; `jugadores` es solo el creador (lo arma la página).
+   */
+  equiposDeClub?: EquipoDeClubAValidar[] | null
 }
+
+/**
+ * Quién anota una ronda de equipos de club creada desde este formulario: siempre un celular. «Cada equipo en su
+ * celular» (`admin_mode=false`) todavía no lo entiende el resto de la app (plan, PR4).
+ */
+const QUIEN_ANOTA_EQUIPOS_DE_CLUB: QuienAnota = 'uno'
 
 export interface RondaCreada {
   codigo: string
@@ -157,6 +169,32 @@ export function formatoQueViaja(formatoDelFormulario: FormatoJuego, conTimba: bo
   return conTimba ? (FORMATO_PERSONALIZADO as unknown as FormatoJuego) : formatoDelFormulario
 }
 
+/**
+ * El body de `POST /api/ronda-libre/create`. Con equipos de club viaja `equipos_de_club` y NO `equipos` (la
+ * API los rechaza juntos); `admin_mode` lo decide el servidor en ese caso (`adminModeDeEquiposDeClub`).
+ * `equipos` son los MISMOS que se validaron (`equiposConIndices`), no una segunda resolución.
+ */
+export function cuerpoParaCrearRonda(args: Args, equipos: ReturnType<typeof equiposConIndices>) {
+  const formatoAEnviar = formatoQueViaja(args.formato, !!args.timba)
+  const club = args.equiposDeClub ?? null
+  return {
+    course_id: args.courseId || null,
+    course_name: args.cancha,
+    tees: args.teeGlobal,
+    holes: args.forma.holes,
+    fecha: args.fecha,
+    hoyo_inicio: args.forma.hoyoInicio,
+    formato_juego: formatoAEnviar,
+    modo_juego: args.modo,
+    admin_mode: args.llevaElScoreDelGrupo,
+    recorridos: args.recorridos.length > 0 ? args.recorridos : undefined,
+    jugadores: jugadoresParaLaApi(args.jugadores, args.userId),
+    equipos: isTeamFormat(formatoAEnviar) && !club ? equipos : undefined,
+    equipos_de_club: club ? { equipos: club, quien_anota: QUIEN_ANOTA_EQUIPOS_DE_CLUB } : undefined,
+    reglas_juego: args.timba?.reglasJuego,
+  }
+}
+
 export function useCrearRonda(args: Args) {
   const { showError } = useToast()
   const [creando, setCreando] = useState(false)
@@ -168,6 +206,7 @@ export function useCrearRonda(args: Args) {
   const equipos = equiposConIndices(args.equipos, args.jugadores)
 
   const formatoAEnviar = formatoQueViaja(args.formato, !!args.timba)
+  const club = args.equiposDeClub ?? null
 
   // Sin el juego: el paso Jugadores lo usa, porque las parejas de la Timba se eligen después, en Confirmar.
   const problemaDeLaRonda = validarNuevaRonda({
@@ -179,8 +218,9 @@ export function useCrearRonda(args: Args) {
       indice: j.handicap,
       perfilId: j.perfil_sugerido_id,
     })),
-    equipos,
+    equipos: club ? [] : equipos,
     creadorId: args.userId,
+    ...(club ? { equiposDeClub: { equipos: club, holes: args.forma.holes, quienAnota: QUIEN_ANOTA_EQUIPOS_DE_CLUB } } : {}),
   })
   const problema = problemaDeLaRonda ?? args.timba?.problema ?? null
 
@@ -221,21 +261,7 @@ export function useCrearRonda(args: Args) {
       const res = await fetch('/api/ronda-libre/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          course_id: args.courseId || null,
-          course_name: args.cancha,
-          tees: args.teeGlobal,
-          holes: args.forma.holes,
-          fecha: args.fecha,
-          hoyo_inicio: args.forma.hoyoInicio,
-          formato_juego: formatoAEnviar,
-          modo_juego: args.modo,
-          admin_mode: args.llevaElScoreDelGrupo,
-          recorridos: args.recorridos.length > 0 ? args.recorridos : undefined,
-          jugadores: jugadoresParaLaApi(args.jugadores, args.userId),
-          equipos: isTeamFormat(formatoAEnviar) ? equipos : undefined,
-          reglas_juego: args.timba?.reglasJuego,
-        }),
+        body: JSON.stringify(cuerpoParaCrearRonda(args, equipos)),
       })
 
       const result = await res.json()

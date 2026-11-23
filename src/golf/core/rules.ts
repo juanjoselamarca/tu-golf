@@ -113,6 +113,11 @@ export const FORMAT_META: Record<FormatoJuego, {
   },
 }
 
+/** Nombre del modo para mostrar ("Neto" / "Gross"). */
+export function nombreDelModo(modo: ModoJuego): string {
+  return modo === 'neto' ? 'Neto' : 'Gross'
+}
+
 /**
  * Display label de un formato de juego (con modo opcional).
  * Ej: formatLabel('stroke_play', 'neto') → 'Stroke Play Neto'

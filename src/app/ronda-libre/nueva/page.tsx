@@ -17,6 +17,8 @@ import { useCreadorDeRonda, recordarUltimaCancha } from './hooks/useCreadorDeRon
 import { useCrearRonda, jugadoresDeLaRonda } from './hooks/useCrearRonda'
 import { useFormularioDeRonda, volverDeEtapa } from './hooks/useFormularioDeRonda'
 import { useHandicapDeCancha } from './hooks/useHandicapDeCancha'
+import { useEquiposDeClub } from './hooks/useEquiposDeClub'
+import { admiteEquiposDeClub } from '@/golf/ronda-libre/equipos-de-club'
 import { useSetupDeCancha } from './hooks/useSetupDeCancha'
 import { useTeesCoherentes } from './hooks/useTeesCoherentes'
 import { configParaEnviar } from './hooks/timba-del-formulario'
@@ -40,6 +42,13 @@ export default function NuevaRondaLibrePage() {
   const creador = useCreadorDeRonda()
   const form = useFormularioDeRonda()
   const timba = useTimbaDeLaRonda()
+  // Scramble rápido: «Solo equipos», con el hándicap del club y sin jugadores.
+  const club = useEquiposDeClub({
+    formato: form.formato,
+    modo: form.modo,
+    netoBloqueado: form.netoBloqueado,
+    onNeto: () => form.setModo('neto'),
+  })
 
   const setup = useSetupDeCancha({ courseId: form.courseId })
 
@@ -79,8 +88,11 @@ export default function NuevaRondaLibrePage() {
   const jugadores = jugadoresDeLaRonda({
     creador: { nombre: creador.nombre, indice: creador.indice },
     teeGlobal: form.tees,
-    rivales: form.rivalesEnJuego,
+    // «Solo equipos»: el creador es la única tarjeta (los rivales escritos quedan guardados por si vuelve).
+    rivales: club.soloEquipos ? [] : form.rivalesEnJuego,
   })
+  // Las tarjetas de jugador sin nombre no frenan una ronda que no las lleva.
+  const problemaDelFormulario = club.soloEquipos ? null : form.problemaDelFormulario
 
   const { golpesDe, hcpVisibleDe } = useHandicapDeCancha({
     courseId: form.courseId,
@@ -120,6 +132,7 @@ export default function NuevaRondaLibrePage() {
     recorridos: setup.recorridosElegidos,
     llevaElScoreDelGrupo: form.llevaElScoreDelGrupo,
     timba: juegoTimba,
+    equiposDeClub: club.paraEnviar,
   })
 
   if (creada) {
@@ -131,7 +144,8 @@ export default function NuevaRondaLibrePage() {
         llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
         onEmpezar={() =>
           router.push(
-            form.llevaElScoreDelGrupo
+            // Un formato de equipos se anota siempre en el scorer de grupo (los equipos de club incluidos).
+            form.llevaElScoreDelGrupo || form.esFormatoDeEquipo
               ? `/ronda-libre/${creada.codigo}/score-grupo`
               : `/ronda-libre/${creada.codigo}/score`,
           )
@@ -246,7 +260,8 @@ export default function NuevaRondaLibrePage() {
             hcpVisibleDe={hcpVisibleDe}
             hoyos={forma.holes}
             rondasRecientes={creador.rondasRecientes}
-            problema={form.problemaDelFormulario ?? problemaTimbaJugadores ?? problemaDeLaRonda}
+            problema={problemaDelFormulario ?? problemaTimbaJugadores ?? problemaDeLaRonda}
+            club={admiteEquiposDeClub(form.formato) ? club : null}
             onAtras={() => form.setPaso(2)}
             onSiguiente={() => form.setPaso(4)}
           />
@@ -263,11 +278,12 @@ export default function NuevaRondaLibrePage() {
             teeGlobal={form.tees}
             fecha={form.fecha}
             jugadores={jugadores}
-            equipos={form.esFormatoDeEquipo ? form.equipos : []}
+            equipos={form.esFormatoDeEquipo && !club.soloEquipos ? form.equipos : []}
+            equiposDeClub={club.paraEnviar}
             llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
             hcpVisibleDe={hcpVisibleDe}
             hayVariosTees={setup.tees.length > 1}
-            problema={form.problemaDelFormulario ?? problema}
+            problema={problemaDelFormulario ?? problema}
             timba={timba.timba ? {
               nombre: `${NOMBRE_FORMATO_PERSONALIZADO} · ${NOMBRE_PLANTILLA[timba.timba.config.plantilla]}`,
               juego: (
