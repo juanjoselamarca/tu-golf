@@ -13,7 +13,7 @@ import { ID_DEL_CREADOR, useFormularioDeRonda } from './useFormularioDeRonda'
 
 const rondaVieja = (over: Partial<RondaReciente> = {}): RondaReciente => ({
   course_name: 'Club de Golf Los Leones', course_id: null, tees: 'blanco', holes: 18,
-  formato_juego: 'match_play', modo_juego: 'neto', fecha: '2026-09-01', jugadores: [
+  formato_juego: 'match_play', modo_juego: 'neto', fecha: '2026-09-01', equiposDeClub: null, jugadores: [
     { nombre: 'Juanjo', handicap: 12.4, tees: null, esCreador: true },
     { nombre: 'Nico', handicap: 8.1, tees: 'azul', esCreador: false },
   ],

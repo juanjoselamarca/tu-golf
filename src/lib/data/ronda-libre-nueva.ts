@@ -6,6 +6,7 @@
  */
 
 import { createClient } from '@/lib/supabase'
+import { esEquipoDeClub, type HandicapOrigen } from '@/golf/ronda-libre/equipos-de-club'
 
 export interface PerfilCreador {
   nombre: string
@@ -21,6 +22,11 @@ export interface RondaReciente {
   modo_juego: string | null
   fecha: string
   jugadores: JugadorReciente[]
+  /**
+   * Nombres de los equipos de una ronda de equipos de club (scramble rápido), en orden; `null` si la ronda no
+   * lo fue. Solo los nombres: el hándicap del club no se repite (cambia de un torneo a otro).
+   */
+  equiposDeClub: string[] | null
 }
 
 /** Un jugador de una ronda anterior, con lo que hace falta para volver a sumarlo sin retipear. */
@@ -92,6 +98,17 @@ export async function fetchPerfilCreador(
   }
 }
 
+interface FilaDeEquipoReciente {
+  nombre: string
+  handicap_origen: HandicapOrigen | null
+}
+
+/** Los nombres de los equipos si la ronda fue de equipos de club; si no, `null`. */
+export function equiposDeClubDeLaRonda(equipos: readonly FilaDeEquipoReciente[] | null | undefined): string[] | null {
+  if (!equipos || equipos.length === 0 || !equipos.every(esEquipoDeClub)) return null
+  return equipos.map(e => e.nombre)
+}
+
 interface FilaDeJugadorReciente {
   nombre: string
   user_id: string | null
@@ -109,11 +126,14 @@ export async function fetchRondasRecientes(
   const supabase = createClient()
   const { data } = await supabase
     .from('rondas_libres')
-    .select('course_name, course_id, tees, holes, formato_juego, modo_juego, fecha, ronda_libre_jugadores(nombre, user_id, handicap, tees)')
+    .select('course_name, course_id, tees, holes, formato_juego, modo_juego, fecha, ronda_libre_jugadores(nombre, user_id, handicap, tees), ronda_equipos(nombre, handicap_origen)')
     .eq('creador_id', userId)
     .eq('estado', 'finalizada')
     .order('fecha', { ascending: false })
     .order('created_at', { referencedTable: 'ronda_libre_jugadores', ascending: true })
+    // Mismo orden que la ronda (`fetchEquiposDeRondas`): "Equipo 2" sigue siendo el segundo.
+    .order('created_at', { referencedTable: 'ronda_equipos', ascending: true })
+    .order('id', { referencedTable: 'ronda_equipos', ascending: true })
     .limit(limite)
 
   if (!data) return []
@@ -132,6 +152,7 @@ export async function fetchRondasRecientes(
       tees: j.tees || null,
       esCreador: j.user_id === userId,
     })),
+    equiposDeClub: equiposDeClubDeLaRonda(r.ronda_equipos as FilaDeEquipoReciente[] | null),
   }))
 }
 

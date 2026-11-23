@@ -191,7 +191,7 @@ export default function NuevaRondaLibrePage() {
         {form.paso === 1 && (
           <PasoCancha
             rondasRecientes={creador.rondasRecientes}
-            onRepetir={form.repetirRonda}
+            onRepetir={r => { form.repetirRonda(r); club.restaurar(r.equiposDeClub) }}
             cancha={form.cancha}
             onElegirCancha={c => { form.elegirCancha(c); recordarUltimaCancha(c) }}
             onLimpiarCancha={form.limpiarCancha}
