@@ -3064,6 +3064,25 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.ronda_equipos_scores_de_su_anotador()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  -- Mismo predicado que upsert_ronda_equipos_scores. Si RLS no deja leer la ronda, admin_mode sale NULL y bloquea.
+  IF current_user IN ('anon', 'authenticated')
+     AND OLD.handicap_origen = 'club'
+     AND (SELECT rl.admin_mode FROM public.rondas_libres rl WHERE rl.id = OLD.ronda_id) IS NOT TRUE
+     AND OLD.anotador_user_id IS NOT NULL
+     AND OLD.anotador_user_id IS DISTINCT FROM auth.uid()
+     AND NEW.scores IS DISTINCT FROM OLD.scores THEN
+    RAISE EXCEPTION 'EQUIPO_DE_OTRO_ANOTADOR' USING ERRCODE = '42501',
+      DETAIL = 'este equipo lo anota otro celular; para anotarlo tú, libéralo primero';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.search_chunks_hybrid(query_embedding public.vector, query_text text, alpha numeric DEFAULT 0.7, top_k integer DEFAULT 20, jurisdictions text[] DEFAULT NULL::text[], block_filter text DEFAULT NULL::text)
  RETURNS TABLE(id uuid, source_id uuid, breadcrumb text, content text, vec_score numeric, bm25_score numeric, final_score numeric)
  LANGUAGE plpgsql
@@ -3287,7 +3306,7 @@ BEGIN
   END IF;
 
   -- El anotador de un equipo (un celular por equipo) escribe SOLO ese equipo: v_anotador es el de esta fila, leído
-  -- bajo su lock. puede_anotar_ronda (creador, marcador, jugadores) sigue escribiendo cualquiera, como antes.
+  -- bajo su lock. puede_anotar_ronda (creador, marcador, jugadores) escribe los equipos SIN anotador (ver abajo).
   -- IS NOT DISTINCT FROM y no `=`: con el equipo sin anotador, `NULL = uid` es NULL y NOT (false OR NULL) también,
   -- y el IF no cortaría. La rama del anotador vale solo en un equipo de club de una ronda de un celular por equipo
   -- (admin_mode no TRUE). Rondas de torneo y demo no llegan acá con anotador: reclamar_equipo_de_ronda las rechaza
@@ -3300,6 +3319,16 @@ BEGIN
     ))
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
+  END IF;
+
+  -- Un equipo con anotador lo escribe SOLO su anotador: tampoco el creador ni los jugadores (puede_anotar_ronda).
+  -- Sin esto, el celular del creador y el del equipo podían pisarse el mismo hoyo (gana el último en llegar).
+  -- Para anotarlo él, el creador lo libera primero (liberar_equipo_de_ronda). v_anotador se leyó bajo el FOR UPDATE.
+  -- Mismo predicado que la rama del anotador de arriba (equipo de club, ronda sin admin_mode): fuera de él un
+  -- anotador no da derechos, así que tampoco los quita (el creador sigue anotando, como en toda ronda de un celular).
+  IF NOT v_is_service AND v_origen = 'club' AND v_admin_mode IS NOT TRUE
+     AND v_anotador IS NOT NULL AND v_anotador IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'equipo_de_otro_anotador';
   END IF;
 
   IF p_seq IS NOT NULL AND p_dispositivo IS NOT NULL THEN
@@ -3947,6 +3976,7 @@ CREATE TRIGGER trigger_protect_last_admin BEFORE UPDATE ON public.profiles FOR E
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER ronda_equipos_anotador_guard BEFORE INSERT OR UPDATE OF anotador_user_id ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_guard();
 CREATE TRIGGER ronda_equipos_anotador_nombre BEFORE INSERT OR UPDATE OF anotador_user_id, anotador_nombre ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_nombre();
+CREATE TRIGGER ronda_equipos_scores_de_su_anotador BEFORE UPDATE OF scores ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_scores_de_su_anotador();
 CREATE TRIGGER update_ronda_equipos_updated_at BEFORE UPDATE ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_ronda_libre_jugadores_updated_at BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_taiger_sessions_updated_at BEFORE UPDATE ON public.taiger_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
@@ -4394,6 +4424,7 @@ revoke all on function public.restamp_round_metrics_target(uuid,numeric) from pu
 revoke all on function public.rls_write_policies_audit() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_anotador_guard() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_anotador_nombre() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.ronda_equipos_scores_de_su_anotador() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.tarjeta_tiene_anotaciones(jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
@@ -4769,6 +4800,7 @@ grant EXECUTE on function public.rls_write_policies_audit() to postgres;
 grant EXECUTE on function public.rls_write_policies_audit() to service_role;
 grant EXECUTE on function public.ronda_equipos_anotador_guard() to postgres;
 grant EXECUTE on function public.ronda_equipos_anotador_nombre() to postgres;
+grant EXECUTE on function public.ronda_equipos_scores_de_su_anotador() to postgres;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to postgres;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to service_role;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to postgres;
