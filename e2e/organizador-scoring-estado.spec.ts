@@ -156,7 +156,9 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
     await abrirScoring(page)
     await expect(cabecera(page)).toContainText('● En curso')
     await expect(page.getByText(AVISO_NO_EMPIEZA)).toHaveCount(0)
-    await expect(page.getByRole('status')).toHaveCount(0)
+    // Desde #838 la cabecera deja montada su región viva (role="status", vacía) para anunciar los hoyos sin
+    // guardar: lo que no debe haber es ningún aviso CON texto (ni "no empieza", ni cerrado, ni pendientes).
+    await expect(page.getByRole('status').filter({ hasText: /\S/ })).toHaveCount(0)
 
     await tarjetaJugadora(page).click()
     await expect(inputsDeHoyos(page)).toHaveCount(18)
@@ -182,13 +184,15 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
     const deshacer = page.getByRole('button', { name: 'Deshacer hoyo 1', exact: true })
     await expect(deshacer).toBeVisible()
     const undo1 = page.waitForResponse(res => res.url().includes('/api/game') && res.request().method() === 'POST')
+    // Desde #838 el toast sale al tocar (optimista, 1,5 s) y dice a qué volvió el hoyo: se espera desde antes del clic.
+    const toastUndo1 = expect(page.getByText('Hoyo 1: sin golpe', { exact: true })).toBeVisible()
     await deshacer.click()
     const undo1Res = await undo1
     expect(undo1Res.status(), 'el servidor acepta el deshacer').toBe(200)
     expect(undo1Res.request().postDataJSON(), 'el deshacer manda gross NULL a la ronda donde se anotó').toMatchObject({
       action: 'upsert_score', round_id: roundId, hole_number: 1, gross_score: null,
     })
-    await expect(page.getByText('Hoyo 1 restaurado')).toBeVisible()
+    await toastUndo1
     await expect(deshacer, 'el deshacer se consume: no hay un segundo "Deshacer" fantasma').toHaveCount(0)
     await expect(inputsDeHoyos(page).first()).toHaveValue('')
     await expect.poll(async () => {
@@ -220,7 +224,9 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
       return data?.gross_score
     }, { timeout: 15_000 }).toBe(golpes + 1)
     const undo2 = page.waitForResponse(res => res.url().includes('/api/game') && res.request().method() === 'POST')
+    const toastUndo2 = expect(page.getByText(`Hoyo 1: ${golpes}`, { exact: true }), 'el toast dice el golpe al que volvió').toBeVisible()
     await page.getByRole('button', { name: 'Deshacer hoyo 1', exact: true }).click()
+    await toastUndo2
     const undo2Res = await undo2
     expect(undo2Res.status()).toBe(200)
     expect(undo2Res.request().postDataJSON(), 'deshacer una corrección repone el golpe anterior').toMatchObject({
