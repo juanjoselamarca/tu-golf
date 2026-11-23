@@ -26,7 +26,6 @@ const params = Promise.resolve({ id: ID, userId: ID, tournamentId: ID })
 const req = (method: string, body = '{}') => new Request('http://g/', { method, headers: { 'content-type': 'application/json' }, body })
 const RUTAS: Array<[string, string, () => Promise<{ POST?: unknown; PUT?: unknown; DELETE?: unknown }>]> = [
   ['draft-cover', 'POST', () => import('@/app/api/torneos/draft/[id]/cover/route')],
-  ['draft-share-link', 'POST', () => import('@/app/api/torneos/draft/[id]/share-link/route')],
   ['draft-collab', 'POST', () => import('@/app/api/torneos/draft/[id]/collaborators/route')],
   ['draft-collab-remove', 'DELETE', () => import('@/app/api/torneos/draft/[id]/collaborators/[userId]/route')],
   ['draft-transfer', 'POST', () => import('@/app/api/torneos/draft/[id]/transfer-ownership/route')],
