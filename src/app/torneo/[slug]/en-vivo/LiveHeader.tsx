@@ -12,7 +12,7 @@ import type { StatusAudience } from '@/golf/tournament-status'
 import { TorneoHeader } from '@/components/torneo/TorneoHeader'
 import { useShare } from '@/components/share/useShare'
 import { SITE_URL } from '@/lib/site-url'
-import { buildTournamentLiveShare } from '@/golf/share/payload'
+import { buildFollowTournamentShare } from '@/golf/share/payload'
 
 /* ── ConnectionStatus — indicador de conectividad en vivo ── */
 function ConnectionStatus() {
@@ -75,7 +75,7 @@ function LiveShareButton({ tournament }: { tournament: LiveTournament }) {
   const [toast, setToast] = useState(false)
 
   const handleShare = useCallback(async () => {
-    const result = await share(buildTournamentLiveShare({
+    const result = await share(buildFollowTournamentShare({
       tournamentName: tournament.name, url: `${SITE_URL}/torneo/${tournament.slug}/en-vivo`,
     }))
     if (result.ok && (result.method === 'clipboard' || result.method === 'download')) {

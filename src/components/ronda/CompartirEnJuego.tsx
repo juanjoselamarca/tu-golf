@@ -15,7 +15,7 @@ const TEXTOS = {
   },
   torneo: {
     pregunta: '¿Quieres compartir el torneo con amigos?',
-    detalle: 'Siguen el leaderboard en vivo desde su celular.',
+    detalle: 'Ven cómo va el torneo desde su celular.',
     titulo: 'Compartir el torneo',
   },
 } as const

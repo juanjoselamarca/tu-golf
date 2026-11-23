@@ -26,13 +26,14 @@ function setNavigator(nav: Partial<Navigator>) {
   Object.defineProperty(globalThis, 'navigator', { value: nav, configurable: true, writable: true })
 }
 
-/** Toca el ícono y contesta "Sí" (armado tras los 400 ms contra el doble toque). */
+/** Toca el ícono, contesta "Sí" y espera que las opciones se armen (400 ms contra el doble toque). */
 async function abrirOpciones() {
   vi.useFakeTimers()
   fireEvent.click(screen.getByRole('button', { name: 'Compartir la ronda' }))
   act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
-  vi.useRealTimers()
   fireEvent.click(screen.getByRole('button', { name: 'Sí' }))
+  act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
+  vi.useRealTimers()
 }
 
 describe('CompartirEnJuego', () => {
@@ -194,7 +195,7 @@ describe('CompartirEnJuego', () => {
 
     expect(share).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Copa Verano',
-      text: 'Mira el leaderboard en vivo de Copa Verano en Golfers+',
+      text: 'Mira cómo va Copa Verano en Golfers+',
       url: `${SITE}/torneo/copa-verano`,
     }))
   })

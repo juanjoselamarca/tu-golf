@@ -26,7 +26,10 @@ describe('ConfirmarFinalizarHoja', () => {
   })
 
   it('Cancelar, tocar el fondo o Escape cancelan sin confirmar', () => {
+    vi.useFakeTimers()
     const { onConfirmar, onCancelar } = montar()
+    act(() => { vi.advanceTimersByTime(400) })
+    vi.useRealTimers()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     fireEvent.click(screen.getByTestId('confirmar-finalizar-fondo'))
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -43,6 +46,12 @@ describe('ConfirmarFinalizarHoja', () => {
     unmount()
     expect(document.activeElement).toBe(abrir)
     abrir.remove()
+  })
+
+  it('tocar el fondo apenas abierta no la cierra (segundo toque de un doble toque)', () => {
+    const { onCancelar } = montar()
+    fireEvent.click(screen.getByTestId('confirmar-finalizar-fondo'))
+    expect(onCancelar).not.toHaveBeenCalled()
   })
 
   it('tocar dentro de la hoja no la cierra', () => {

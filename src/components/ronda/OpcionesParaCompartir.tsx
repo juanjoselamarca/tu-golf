@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Check } from '@/components/icons'
 import { useShare } from '@/components/share/useShare'
-import { buildLiveShare, buildRoundInviteShare, buildTournamentLiveShare } from '@/golf/share/payload'
+import { buildLiveShare, buildRoundInviteShare, buildFollowTournamentShare } from '@/golf/share/payload'
 import type { SharePayload } from '@/golf/share/types'
 import { SITE_URL } from '@/lib/site-url'
 
@@ -34,7 +34,7 @@ export function enlacesDeRondaLibre(codigo: string, { conJugar }: { conJugar: bo
  * quien recibe el link por WhatsApp se topaba con el muro de pago.
  */
 export function enlacesDeTorneo(slug: string, nombre: string): EnlacesDeLaRonda {
-  return { seguir: buildTournamentLiveShare({ tournamentName: nombre, url: `${SITE_URL}/torneo/${slug}` }) }
+  return { seguir: buildFollowTournamentShare({ tournamentName: nombre, url: `${SITE_URL}/torneo/${slug}` }) }
 }
 
 type Destino = 'jugar' | 'seguir'

@@ -48,9 +48,12 @@ export function liveText(): string {
   return `Sigue mi ronda en vivo en ${BRAND}`
 }
 
-/** Seguir un torneo en vivo: el nombre del torneo va en el mensaje ("mi ronda" no calza con un torneo). */
-export function tournamentLiveText(tournamentName: string): string {
-  return `Mira el leaderboard en vivo de ${tournamentName} en ${BRAND}`
+/**
+ * Seguir un torneo: el nombre va en el mensaje ("mi ronda" no calza con un torneo). No dice "en vivo": la
+ * página pública muestra la tabla al abrirla, no se actualiza sola.
+ */
+export function followTournamentText(tournamentName: string): string {
+  return `Mira cómo va ${tournamentName} en ${BRAND}`
 }
 
 /** Invitar a sumarse a anotar en una ronda libre ya creada. */

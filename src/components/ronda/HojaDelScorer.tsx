@@ -23,9 +23,9 @@ export const MS_ANTES_DE_ARMAR = 400
  * se desliza se siente lenta). Fuente única del contenedor para las decisiones que se toman en medio de la
  * ronda: finalizar, retirar a un jugador de la Timba y compartir la ronda.
  *
- * Los botones no reciben toques durante los primeros 400 ms: la hoja aparece bajo el dedo que tocó el botón
- * que la abrió, y el segundo toque de un doble toque caía en lo que hubiera ahí (cerraba la ronda, o el "Sí"
- * de compartir abría la hoja del teléfono). El foco entra a la hoja y vuelve a donde estaba al cerrarla.
+ * Ni los botones ni el fondo reciben toques durante los primeros 400 ms: el segundo toque de un doble toque
+ * caía en lo que hubiera bajo el dedo (cerraba la ronda, el "Sí" de compartir abría la hoja del teléfono, o el
+ * fondo la cerraba apenas abierta). El foco entra a la hoja y vuelve a donde estaba al cerrarla.
  */
 export function HojaDelScorer({ titulo, detalle, onCerrar, fondoTestId, children }: HojaDelScorerProps) {
   const tituloId = useId()
@@ -55,7 +55,7 @@ export function HojaDelScorer({ titulo, detalle, onCerrar, fondoTestId, children
     <Portal>
       <div
         data-testid={fondoTestId}
-        onClick={onCerrar}
+        onClick={armada ? onCerrar : undefined}
         style={{
           position: 'fixed', inset: 0, zIndex: Z_OVERLAY,
           background: 'rgba(0,0,0,0.6)',

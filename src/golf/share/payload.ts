@@ -14,7 +14,7 @@ import {
   resultText,
   tournamentText,
   liveText,
-  tournamentLiveText,
+  followTournamentText,
   joinText,
   joinRoundText,
   INVITE_TITLE,
@@ -76,9 +76,9 @@ export function buildLiveShare(input: { url: string }): SharePayload {
   return { title: BRAND, text: liveText(), url: input.url }
 }
 
-/** Seguir un torneo en vivo, con su nombre en el mensaje. */
-export function buildTournamentLiveShare(input: { tournamentName: string; url: string }): SharePayload {
-  return { title: input.tournamentName, text: tournamentLiveText(input.tournamentName), url: input.url }
+/** Seguir un torneo, con su nombre en el mensaje. */
+export function buildFollowTournamentShare(input: { tournamentName: string; url: string }): SharePayload {
+  return { title: input.tournamentName, text: followTournamentText(input.tournamentName), url: input.url }
 }
 
 /** Invitar a sumarse a anotar en una ronda libre ("Únete a mi ronda"). */
