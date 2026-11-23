@@ -339,3 +339,86 @@ describe('cuentas elegidas para los rivales', () => {
     expect(p?.titulo).toBe('Ya estás en la ronda')
   })
 })
+
+describe('equipos de club (scramble rápido)', () => {
+  const club = (over: Partial<RondaAValidar> = {}, clubOver: Partial<NonNullable<RondaAValidar['equiposDeClub']>> = {}) =>
+    ronda({
+      formato: 'scramble',
+      modo: 'neto',
+      // El índice del creador no cuenta en este modo: ni sin cargar frena el neto.
+      jugadores: [{ nombre: 'Juanjo', indice: null }],
+      equiposDeClub: {
+        equipos: [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: '', handicap: 12 }],
+        holes: 18,
+        quienAnota: 'uno',
+        ...clubOver,
+      },
+      ...over,
+    })
+  const detalle = (r: RondaAValidar) => validarNuevaRonda(r)?.detalle
+
+  it('neto con hándicap del club en cada equipo y quién anota elegido: se crea', () => {
+    expect(validarNuevaRonda(club())).toBeNull()
+  })
+
+  it('un solo equipo no pregunta quién anota', () => {
+    expect(validarNuevaRonda(club({}, { equipos: [{ nombre: 'Los Tigres', handicap: 0 }], quienAnota: null }))).toBeNull()
+  })
+
+  it('con 2 o más equipos hay que elegir quién anota', () => {
+    expect(detalle(club({}, { quienAnota: null }))).toBe('Elige quién anota.')
+  })
+
+  it('sin hándicap en neto nombra al equipo (el vacío con su nombre por defecto)', () => {
+    expect(detalle(club({}, { equipos: [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: '  ', handicap: null }] })))
+      .toBe('Escribe el hándicap de Equipo 2.')
+  })
+
+  it('hándicap decimal, negativo o sobre el tope: el rango depende de los hoyos', () => {
+    const con = (handicap: number, holes: number) =>
+      detalle(club({}, { holes, equipos: [{ nombre: 'Los Tigres', handicap }] , quienAnota: null }))
+    expect(con(8.5, 18)).toBe('El hándicap de equipo va de 0 a 36, sin decimales.')
+    expect(con(-1, 18)).toBe('El hándicap de equipo va de 0 a 36, sin decimales.')
+    expect(con(37, 18)).toBe('El hándicap de equipo va de 0 a 36, sin decimales.')
+    expect(con(36, 18)).toBeUndefined()
+    expect(con(19, 9)).toBe('El hándicap de equipo va de 0 a 18, sin decimales.')
+    expect(con(18, 9)).toBeUndefined()
+  })
+
+  it('gross no pide hándicap', () => {
+    expect(validarNuevaRonda(club({ modo: 'gross' }, { equipos: [{ nombre: 'A', handicap: null }, { nombre: 'B', handicap: null }] }))).toBeNull()
+  })
+
+  it('dos equipos con el mismo nombre visible (sin distinguir mayúsculas ni el por defecto)', () => {
+    expect(detalle(club({}, { equipos: [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: 'los tigres ', handicap: 9 }] })))
+      .toBe('Dos equipos se llaman igual. Cambia uno.')
+    expect(detalle(club({}, { equipos: [{ nombre: 'Equipo 2', handicap: 8 }, { nombre: '', handicap: 9 }] })))
+      .toBe('Dos equipos se llaman igual. Cambia uno.')
+  })
+
+  it('hasta 4 equipos y al menos uno', () => {
+    const equipos = (n: number) => Array.from({ length: n }, (_, i) => ({ nombre: `E${i}`, handicap: 10 }))
+    expect(validarNuevaRonda(club({}, { equipos: equipos(4) }))).toBeNull()
+    expect(detalle(club({}, { equipos: equipos(5) }))).toBe('Este modo admite hasta 4 equipos.')
+    expect(detalle(club({}, { equipos: [] }))).toBe('Agrega al menos un equipo.')
+  })
+
+  it('solo a 9 o 18 hoyos', () => {
+    expect(validarNuevaRonda(club({}, { holes: 9 }))).toBeNull()
+    expect(detalle(club({}, { holes: 27 }))).toBe('Este modo se juega a 9 o 18 hoyos.')
+  })
+
+  it('solo en scramble', () => {
+    expect(validarNuevaRonda(club({ formato: 'foursome' }))?.titulo).toBe('Solo en Scramble')
+    expect(validarNuevaRonda(club({ formato: 'best_ball' }))?.titulo).toBe('Solo en Scramble')
+  })
+
+  it('el creador es la única tarjeta: más jugadores se rechaza; sin su nombre, perfil cargando', () => {
+    expect(validarNuevaRonda(club({ jugadores: CUATRO }))?.titulo).toBe('Sobran jugadores')
+    expect(validarNuevaRonda(club({ jugadores: [{ nombre: ' ', indice: null }] }))?.titulo).toBe('Falta un nombre')
+  })
+
+  it('la cancha se pide igual que siempre', () => {
+    expect(validarNuevaRonda(club({ cancha: '' }))?.titulo).toBe('Selecciona una cancha')
+  })
+})

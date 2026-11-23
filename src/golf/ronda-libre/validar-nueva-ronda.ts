@@ -21,6 +21,14 @@ import {
   jugadoresPorEquipo,
   maxEquipos,
 } from './plantilla-de-jugadores'
+import {
+  MAX_EQUIPOS_DE_CLUB,
+  esHandicapDeClubValido,
+  esHoyosDeEquiposDeClub,
+  handicapDeClubMaximo,
+  type QuienAnota,
+} from './equipos-de-club'
+import { nombreVisibleDeEquipo } from './nombre-de-equipo'
 
 export interface JugadorAValidar {
   nombre: string
@@ -39,6 +47,20 @@ export interface EquipoAValidar {
   jugadorIndices: number[]
 }
 
+/** Un equipo de club tal como lo escribió el creador. `handicap` null = el campo vacío. */
+export interface EquipoDeClubAValidar {
+  nombre: string
+  handicap: number | null
+}
+
+/** Scramble rápido: equipos con el hándicap del club, sin jugadores (src/golf/ronda-libre/equipos-de-club.ts). */
+export interface EquiposDeClubAValidar {
+  equipos: EquipoDeClubAValidar[]
+  holes: number
+  /** Con un solo equipo no se pregunta: llega null. */
+  quienAnota: QuienAnota | null
+}
+
 export interface RondaAValidar {
   cancha: string
   formato: FormatoJuego
@@ -48,6 +70,11 @@ export interface RondaAValidar {
   equipos: EquipoAValidar[]
   /** Cuenta del creador. Sin ella no se puede chequear que no se eligió a sí mismo. */
   creadorId?: string | null
+  /**
+   * Presente = la ronda es de equipos de club: `equipos` va vacío, `jugadores` es solo el creador y los índices
+   * no cuentan (los golpes salen del hándicap del club, no de los jugadores).
+   */
+  equiposDeClub?: EquiposDeClubAValidar
 }
 
 export interface ProblemaDeLaRonda {
@@ -57,6 +84,11 @@ export interface ProblemaDeLaRonda {
 
 /** `null` cuando la ronda se puede crear. */
 export function validarNuevaRonda(ronda: RondaAValidar): ProblemaDeLaRonda | null {
+  // Rama propia y no una regla más de la cadena: con equipos de club no aplican el mínimo de jugadores por equipo
+  // ni el índice del creador en neto.
+  if (ronda.equiposDeClub) {
+    return problemaDeCancha(ronda) ?? problemaDeRondaConEquiposDeClub(ronda, ronda.equiposDeClub)
+  }
   return (
     problemaDeCancha(ronda) ??
     problemaDeCantidad(ronda) ??
@@ -72,6 +104,69 @@ function problemaDeCancha({ cancha }: RondaAValidar): ProblemaDeLaRonda | null {
   return { titulo: 'Selecciona una cancha', detalle: 'Elige la cancha donde vas a jugar.' }
 }
 
+const PERFIL_CARGANDO: ProblemaDeLaRonda = {
+  titulo: 'Falta un nombre',
+  detalle: 'Todavía estamos cargando tu perfil. Espera un segundo e intenta de nuevo.',
+}
+
+/** Lo usa también el zod de POST /api/ronda-libre/create, para que el tope responda con la misma frase. */
+export const DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB = `Este modo admite hasta ${MAX_EQUIPOS_DE_CLUB} equipos.`
+
+/**
+ * Ronda de equipos de club. El orden sigue el del formulario (hoyos, equipos de arriba abajo, quién anota al
+ * final): el primer problema que se muestra es el del campo más arriba.
+ */
+function problemaDeRondaConEquiposDeClub(
+  { formato, modo, jugadores }: RondaAValidar,
+  { equipos, holes, quienAnota }: EquiposDeClubAValidar,
+): ProblemaDeLaRonda | null {
+  if (formato !== 'scramble') {
+    return { titulo: 'Solo en Scramble', detalle: 'Los equipos con hándicap del club se juegan solo en Scramble.' }
+  }
+  // El creador es la única tarjeta: los equipos no tienen jugadores (plan §1).
+  if (jugadores.length > 1) {
+    return { titulo: 'Sobran jugadores', detalle: 'Con equipos del club solo vas tú en la ronda. Quita los demás jugadores.' }
+  }
+  // Sin el creador o sin su nombre: su perfil todavía no cargó (mismo caso que en la ronda con jugadores).
+  if (!jugadores[0]?.nombre.trim()) return PERFIL_CARGANDO
+  if (!esHoyosDeEquiposDeClub(holes)) {
+    return { titulo: 'Hoyos no disponibles', detalle: 'Este modo se juega a 9 o 18 hoyos.' }
+  }
+  if (equipos.length === 0) {
+    return { titulo: 'Faltan equipos', detalle: 'Agrega al menos un equipo.' }
+  }
+  if (equipos.length > MAX_EQUIPOS_DE_CLUB) {
+    return { titulo: 'Demasiados equipos', detalle: DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB }
+  }
+
+  // Gross no usa hándicap: el campo ni se pide.
+  if (modo === 'neto') {
+    for (const [i, equipo] of equipos.entries()) {
+      if (equipo.handicap == null) {
+        return { titulo: 'Falta el hándicap', detalle: `Escribe el hándicap de ${nombreVisibleDeEquipo(equipo.nombre, i)}.` }
+      }
+      if (!esHandicapDeClubValido(equipo.handicap, holes)) {
+        return {
+          titulo: 'Hándicap fuera de rango',
+          detalle: `El hándicap de equipo va de 0 a ${handicapDeClubMaximo(holes)}, sin decimales.`,
+        }
+      }
+    }
+  }
+
+  // Con el nombre que se ve (el vacío cae a "Equipo N") y sin distinguir mayúsculas: en la tabla serían dos
+  // filas que no se pueden distinguir.
+  const nombres = equipos.map((e, i) => nombreVisibleDeEquipo(e.nombre, i).toLocaleLowerCase('es-CL'))
+  if (new Set(nombres).size !== nombres.length) {
+    return { titulo: 'Nombres repetidos', detalle: 'Dos equipos se llaman igual. Cambia uno.' }
+  }
+
+  if (equipos.length >= 2 && quienAnota == null) {
+    return { titulo: 'Falta quién anota', detalle: 'Elige quién anota.' }
+  }
+  return null
+}
+
 function problemaDeCantidad({ formato, jugadores }: RondaAValidar): ProblemaDeLaRonda | null {
   const label = FORMAT_META[formato]?.label ?? formato
 
@@ -83,12 +178,7 @@ function problemaDeCantidad({ formato, jugadores }: RondaAValidar): ProblemaDeLa
   // nombre — esos se filtran antes de llegar acá — sino el creador cuando su
   // perfil todavía no cargó: con señal mala en cancha se puede llegar al botón
   // antes que el nombre, y la ronda muere en un 400 sin explicación.
-  if (jugadores.some(j => !j.nombre.trim())) {
-    return {
-      titulo: 'Falta un nombre',
-      detalle: 'Todavía estamos cargando tu perfil. Espera un segundo e intenta de nuevo.',
-    }
-  }
+  if (jugadores.some(j => !j.nombre.trim())) return PERFIL_CARGANDO
 
   if (jugadores.length > MAX_JUGADORES_POR_RONDA) {
     return {
