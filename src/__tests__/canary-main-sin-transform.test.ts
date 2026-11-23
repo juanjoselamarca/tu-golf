@@ -136,7 +136,7 @@ describe('canario — overlays de uso en cancha montan vía Portal', () => {
     'src/components/TournamentBottomSheet.tsx',
     'src/components/QRModal.tsx',
     'src/components/ronda/AuthModal.tsx',
-    'src/components/ronda/ShareMenu.tsx',
+    'src/components/ronda/HojaDelScorer.tsx', // finalizar, retiro de la Timba y compartir en juego
     'src/components/ronda/FollowRoundButton.tsx',
     'src/app/ronda-libre/[codigo]/score-grupo/components/DiscardRoundModal.tsx',
     'src/app/ronda-libre/[codigo]/score/components/SaveStatusBadge.tsx',

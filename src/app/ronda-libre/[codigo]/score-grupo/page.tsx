@@ -24,6 +24,8 @@ import { BestBallTeamCard } from './components/BestBallTeamCard'
 import { GrupoScorerHeader } from './components/GrupoScorerHeader'
 import { HoleProgressRow } from './components/HoleProgressRow'
 import { GrupoHoleInfoRow } from './components/GrupoHoleInfoRow'
+import { CompartirEnJuego } from '@/components/ronda/CompartirEnJuego'
+import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
 import { SharedBallTeamCard } from './components/SharedBallTeamCard'
 import { PlayerScoreCard } from './components/PlayerScoreCard'
 import { GrupoNavBar } from './components/GrupoNavBar'
@@ -254,6 +256,8 @@ export default function ScoreGrupoPage() {
         yardaje={yardaje}
         showNetStableford={showNetStableford}
         maxStrokes={maxStrokesOnHole}
+        // Este celular anota por todo el grupo: no hay a quién invitar a anotar, solo a seguir.
+        accion={<CompartirEnJuego enlaces={enlacesDeRondaLibre(codigo, { conJugar: false })} color={theme.textFaint} />}
         theme={theme}
       />
 

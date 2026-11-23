@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 
 interface GrupoHoleInfoRowProps {
@@ -10,6 +11,8 @@ interface GrupoHoleInfoRowProps {
   showNetStableford: boolean
   /** Máximo de golpes recibidos entre los jugadores en este hoyo. */
   maxStrokes: number
+  /** Acción al final de la fila: el botón de compartir la ronda (`CompartirEnJuego`), igual que en el scorer individual. */
+  accion: ReactNode
   theme: ScorerTheme
 }
 
@@ -30,7 +33,7 @@ interface GrupoHoleInfoRowProps {
  * Los golpes de CADA jugador siguen estando donde sirven para anotar: los puntos
  * dorados al lado de su score, en su tarjeta.
  */
-export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford, maxStrokes, theme }: GrupoHoleInfoRowProps) {
+export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford, maxStrokes, accion, theme }: GrupoHoleInfoRowProps) {
   const cols = [
     { label: 'PAR', value: String(par) },
     { label: 'SI', value: String(strokeIndex) },
@@ -44,22 +47,26 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
     // con dos columnas (stroke play bruto sin yardaje) repartirlas al 50 % dejaba
     // "PAR 4" solo en 195 px. Con tres queda igual que siempre y con cuatro el
     // flex las encoge a un cuarto.
-    <div style={{ display: 'flex', justifyContent: 'center', borderBottom: `1px solid ${theme.border}`, background: 'var(--bg-surface)', flexShrink: 0 }}>
-      {cols.map((col, i, arr) => (
-        <div key={col.label} style={{
-          flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px',
-          borderRight: i < arr.length - 1 || showNetStableford ? `1px solid ${theme.border}` : 'none',
-        }}>
-          <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>{col.label}</div>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: theme.text }}>{col.value}</div>
-        </div>
-      ))}
-      {showNetStableford && (
-        <div style={{ flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px' }}>
-          <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES GRUPO</div>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>{maxStrokes > 0 ? `+${maxStrokes}` : '0'}</div>
-        </div>
-      )}
+    // La acción va fuera del grupo centrado, como en HoleInfoRow: las columnas se centran en el ancho que deja.
+    <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'var(--bg-surface)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', flex: 1, justifyContent: 'center', minWidth: 0 }}>
+        {cols.map((col, i, arr) => (
+          <div key={col.label} style={{
+            flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px',
+            borderRight: i < arr.length - 1 || showNetStableford ? `1px solid ${theme.border}` : 'none',
+          }}>
+            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>{col.label}</div>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: theme.text }}>{col.value}</div>
+          </div>
+        ))}
+        {showNetStableford && (
+          <div style={{ flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px' }}>
+            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES GRUPO</div>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>{maxStrokes > 0 ? `+${maxStrokes}` : '0'}</div>
+          </div>
+        )}
+      </div>
+      {accion}
     </div>
   )
 }

@@ -16,7 +16,8 @@ import { PushPermissionPrompt } from '@/components/ronda/PushPermissionPrompt'
 import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
 import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
-import { ShareMenu } from '@/components/ronda/ShareMenu'
+import { CompartirEnJuego } from '@/components/ronda/CompartirEnJuego'
+import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
 import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
 import { useScoreSync } from '@/hooks/useScoreSync'
@@ -85,7 +86,6 @@ function ScorePageContent() {
   const isOnline = useOnlineStatus()
   const [historicalRoundId, setHistoricalRoundId] = useState<string | null>(null)
   const [saveCheckVisible, setSaveCheckVisible] = useState(false) // FIX #8: save feedback toast
-  const [showShareMenu, setShowShareMenu] = useState(false)
   const [showRanking, setShowRanking] = useState(false)
 
   // Offline score sync — guarda localmente ANTES de enviar al servidor
@@ -294,7 +294,6 @@ function ScorePageContent() {
       {!roundDone && ronda && <NotifConfirmationToast type="player" />}
 
       {/* ── Share menu modal ── */}
-      {showShareMenu && <ShareMenu codigo={codigo} onClose={() => setShowShareMenu(false)} isAdminMode={!!ronda?.admin_mode} />}
 
       {/* ── Offline banner ── */}
       {!isOnline && (
@@ -353,7 +352,7 @@ function ScorePageContent() {
         yardaje={getYardajeForTee(holeData, teeDelJugador(activePlayer, ronda))}
         showStrokes={(showNet || showStableford) && !isStrokePlayNeto}
         strokesOnHole={strokesOnHole}
-        onShare={() => setShowShareMenu(true)}
+        accion={<CompartirEnJuego enlaces={enlacesDeRondaLibre(codigo, { conJugar: !ronda.admin_mode })} color={theme.textFaint} />}
         theme={theme}
       />
 
