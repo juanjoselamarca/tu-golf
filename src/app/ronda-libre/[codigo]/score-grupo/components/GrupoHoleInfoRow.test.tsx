@@ -7,7 +7,7 @@ function renderFila(yardaje: number | null, showNetStableford = false) {
   render(
     <GrupoHoleInfoRow
       par={4} strokeIndex={13} yardaje={yardaje}
-      showNetStableford={showNetStableford} maxStrokes={1} theme={SCORER_THEME}
+      showNetStableford={showNetStableford} maxStrokes={1} accion={null} theme={SCORER_THEME}
     />,
   )
 }

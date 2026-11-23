@@ -7,7 +7,7 @@ function renderFila(yardaje: number | null, showStrokes = false) {
   render(
     <HoleInfoRow
       par={4} strokeIndex={13} yardaje={yardaje}
-      showStrokes={showStrokes} strokesOnHole={1} onShare={() => {}} theme={SCORER_THEME}
+      showStrokes={showStrokes} strokesOnHole={1} accion={null} theme={SCORER_THEME}
     />,
   )
 }

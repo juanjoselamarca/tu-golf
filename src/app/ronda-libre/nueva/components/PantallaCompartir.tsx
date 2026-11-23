@@ -1,14 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { copyToClipboard } from '@/lib/clipboard'
 import { Button } from '@/components/ui/Button'
-import { Check } from '@/components/icons'
 import { RoundCode } from '@/components/ui/RoundCode'
+import { OpcionesParaCompartir, enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
 import { colores } from './estilos'
-import { SITE_URL } from '@/lib/site-url'
-
-type DestinoDelLink = 'jugar' | 'seguir'
 
 interface Props {
   codigo: string
@@ -16,40 +11,6 @@ interface Props {
   holes: number
   llevaElScoreDelGrupo: boolean
   onEmpezar: () => void
-}
-
-function urlDeLaRonda(codigo: string, destino: DestinoDelLink): string {
-  return destino === 'jugar' ? `${SITE_URL}/ronda-libre/${codigo}/score` : `${SITE_URL}/ronda-libre/${codigo}`
-}
-
-const TEXTO: Record<DestinoDelLink, string> = {
-  jugar: 'Únete a mi ronda en Golfers+',
-  seguir: 'Sigue mi ronda en vivo en Golfers+',
-}
-
-/**
- * P15: share unificado. Usa la API nativa cuando existe (iOS Safari, Android
- * Chrome) y cae a WhatsApp cuando no. Copiar link queda como acción secundaria
- * explícita, no como botón dominante.
- *
- * TODO(foundation): reemplazar por `<ShareSheet url title text onShare />`
- * cuando Foundation publique el componente. Mantener la prioridad
- * navigator.share > WhatsApp > copiar.
- */
-async function compartir(codigo: string, destino: DestinoDelLink): Promise<void> {
-  const url = urlDeLaRonda(codigo, destino)
-  const text = TEXTO[destino]
-
-  if (typeof navigator !== 'undefined' && navigator.share) {
-    try {
-      await navigator.share({ title: 'Golfers+', text, url })
-    } catch {
-      // El usuario canceló el share nativo. No hay nada que hacer ni que avisar.
-    }
-    return
-  }
-
-  window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`, '_blank')
 }
 
 /**
@@ -60,19 +21,6 @@ async function compartir(codigo: string, destino: DestinoDelLink): Promise<void>
  * idénticos y el usuario no distinguía cuál lo lleva al scorer.
  */
 export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo, onEmpezar }: Props) {
-  // Qué link se acaba de copiar: sin este feedback, "Copiar link" no hacía nada visible.
-  // `n` cambia en cada copia para que copiar dos veces reinicie los 2 s.
-  const [copiado, setCopiado] = useState<{ destino: DestinoDelLink; n: number } | null>(null)
-  useEffect(() => {
-    if (!copiado) return
-    const t = setTimeout(() => setCopiado(null), 2000)
-    return () => clearTimeout(t)
-  }, [copiado])
-
-  const copiar = async (destino: DestinoDelLink) => {
-    if (await copyToClipboard(urlDeLaRonda(codigo, destino))) setCopiado(c => ({ destino, n: (c?.n ?? 0) + 1 }))
-  }
-
   return (
     <div style={{
       background: colores.fondo, minHeight: '100vh', padding: '20px 16px',
@@ -101,35 +49,11 @@ export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo,
             {cancha} &middot; {holes} hoyos
           </div>
 
-          {([
-            { destino: 'jugar' as const, titulo: 'Invitar a jugar' },
-            { destino: 'seguir' as const, titulo: 'Invitar a seguir' },
-          ]).map((bloque, i) => (
-            <div key={bloque.destino} style={{ marginBottom: i === 0 ? '16px' : '32px' }}>
-              <div style={{
-                fontFamily: '"DM Sans", sans-serif', fontSize: '13px',
-                color: colores.texto2, marginBottom: '8px', fontWeight: 500,
-              }}>
-                {bloque.titulo}
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Button variant="nav" className="flex-1" onClick={() => compartir(codigo, bloque.destino)}>
-                  Compartir
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="min-w-[128px]"
-                  onClick={() => copiar(bloque.destino)}
-                  leftIcon={copiado?.destino === bloque.destino ? <Check size={16} strokeWidth={2} /> : undefined}
-                >
-                  {copiado?.destino === bloque.destino ? 'Copiado' : 'Copiar link'}
-                </Button>
-              </div>
-            </div>
-          ))}
-
-          {/* El lector de pantalla no siempre anuncia un cambio de texto dentro del botón enfocado. */}
-          <span role="status" className="sr-only">{copiado ? 'Link copiado' : ''}</span>
+          {/* Con un solo celular anotando por todos, "Invitar a jugar" llevaba a un aviso de que el admin
+              lleva el score: solo se invita a seguir. Las mismas opciones que el botón de compartir del scorer. */}
+          <div style={{ marginBottom: '32px' }}>
+            <OpcionesParaCompartir enlaces={enlacesDeRondaLibre(codigo, { conJugar: !llevaElScoreDelGrupo })} />
+          </div>
 
           <Button variant="commit" size="lg" fullWidth onClick={onEmpezar}>
             {llevaElScoreDelGrupo ? 'Empezar score de grupo →' : 'Empezar a jugar →'}

@@ -42,6 +42,8 @@ import type { CourseHole } from '@/golf/leaderboard/types'
 import { registerUrl } from '@/lib/auth/login-url'
 import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
 import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
+import { CompartirEnJuego } from '@/components/ronda/CompartirEnJuego'
+import { enlacesDeTorneo } from '@/components/ronda/OpcionesParaCompartir'
 import { claveAvisoTorneo } from '@/hooks/ronda/useAvisoNoMolestar'
 
 type Player = ScoringPlayer
@@ -330,30 +332,41 @@ export default function PlayerScoringPage() {
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
       {/* Header */}
       <div data-theme="dark" style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '16px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <Link href={`/torneo/${tournament.slug}`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
-          {saveStatus !== 'idle' && (() => {
-            const pendingCount = !isOnline || saveStatus === 'error' ? hoyosEnCola() : 0
-            const colors = {
-              saving:  { bg: 'rgba(196,153,42,0.15)', fg: 'var(--brand-on-bg)', label: 'Guardando...' },
-              saved:   { bg: 'rgba(0,230,118,0.15)',  fg: 'var(--status-live-fg)', label: '✓ Guardado' },
-              offline: { bg: 'rgba(252,211,77,0.15)', fg: 'var(--bogey)', label: pendingCount > 0 ? `Offline — ${pendingCount} en cola` : 'Sin conexión' },
-              error:   { bg: 'rgba(239,68,68,0.15)',  fg: 'var(--double)', label: pendingCount > 0 ? `Reintentando (${pendingCount})` : 'Error' },
-              sin_acceso: { bg: 'rgba(239,68,68,0.15)', fg: 'var(--double)', label: 'No guardado' },
-              idle:    { bg: 'transparent', fg: 'transparent', label: '' },
-            } as const
-            const s = colors[saveStatus]
-            return (
-              <span style={{ fontSize: '12px', color: s.fg, background: s.bg, padding: '4px 10px', borderRadius: '8px', fontWeight: 600 }}>
-                {s.label}
-              </span>
-            )
-          })()}
-          {saveError && (
-            <button onClick={limpiarSaveError} style={{ fontSize: '12px', color: 'var(--double)', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer', marginLeft: '8px' }}>
-              {saveError}
-            </button>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+          <Link href={`/torneo/${tournament.slug}`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none', flexShrink: 0 }}>← Leaderboard</Link>
+          {/* Estado del guardado y compartir, juntos a la derecha: compartir es el mismo botón de los scorers de
+              ronda libre y lleva a la página pública del torneo. Con un error de guardado largo, los avisos se
+              acomodan en dos líneas y compartir no se mueve. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '4px', minWidth: 0 }}>
+              {saveStatus !== 'idle' && (() => {
+                const pendingCount = !isOnline || saveStatus === 'error' ? hoyosEnCola() : 0
+                const colors = {
+                  saving:  { bg: 'rgba(196,153,42,0.15)', fg: 'var(--brand-on-bg)', label: 'Guardando...' },
+                  saved:   { bg: 'rgba(0,230,118,0.15)',  fg: 'var(--status-live-fg)', label: '✓ Guardado' },
+                  offline: { bg: 'rgba(252,211,77,0.15)', fg: 'var(--bogey)', label: pendingCount > 0 ? `Offline — ${pendingCount} en cola` : 'Sin conexión' },
+                  error:   { bg: 'rgba(239,68,68,0.15)',  fg: 'var(--double)', label: pendingCount > 0 ? `Reintentando (${pendingCount})` : 'Error' },
+                  sin_acceso: { bg: 'rgba(239,68,68,0.15)', fg: 'var(--double)', label: 'No guardado' },
+                  idle:    { bg: 'transparent', fg: 'transparent', label: '' },
+                } as const
+                const s = colors[saveStatus]
+                return (
+                  <span style={{ fontSize: '12px', color: s.fg, background: s.bg, padding: '4px 10px', borderRadius: '8px', fontWeight: 600 }}>
+                    {s.label}
+                  </span>
+                )
+              })()}
+              {saveError && (
+                <button onClick={limpiarSaveError} style={{ fontSize: '12px', color: 'var(--double)', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer' }}>
+                  {saveError}
+                </button>
+              )}
+            </div>
+            {/* 44 px de toque sin agrandar la fila: el margen negativo se come el alto extra. */}
+            <div style={{ margin: '-10px -12px -10px 0' }}>
+              <CompartirEnJuego de="torneo" enlaces={enlacesDeTorneo(tournament.slug, tournament.name)} color="var(--text-2)" />
+            </div>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>

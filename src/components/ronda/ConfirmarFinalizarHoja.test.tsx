@@ -26,12 +26,32 @@ describe('ConfirmarFinalizarHoja', () => {
   })
 
   it('Cancelar, tocar el fondo o Escape cancelan sin confirmar', () => {
+    vi.useFakeTimers()
     const { onConfirmar, onCancelar } = montar()
+    act(() => { vi.advanceTimersByTime(400) })
+    vi.useRealTimers()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     fireEvent.click(screen.getByTestId('confirmar-finalizar-fondo'))
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onCancelar).toHaveBeenCalledTimes(3)
     expect(onConfirmar).not.toHaveBeenCalled()
+  })
+
+  it('el foco entra en Finalizar y vuelve al botón que abrió la hoja', () => {
+    const abrir = document.createElement('button')
+    document.body.appendChild(abrir)
+    abrir.focus()
+    const { unmount } = render(<ConfirmarFinalizarHoja titulo="¿Finalizar ronda?" onConfirmar={() => {}} onCancelar={() => {}} />)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Finalizar' }))
+    unmount()
+    expect(document.activeElement).toBe(abrir)
+    abrir.remove()
+  })
+
+  it('tocar el fondo apenas abierta no la cierra (segundo toque de un doble toque)', () => {
+    const { onCancelar } = montar()
+    fireEvent.click(screen.getByTestId('confirmar-finalizar-fondo'))
+    expect(onCancelar).not.toHaveBeenCalled()
   })
 
   it('tocar dentro de la hoja no la cierra', () => {
@@ -40,16 +60,17 @@ describe('ConfirmarFinalizarHoja', () => {
     expect(onCancelar).not.toHaveBeenCalled()
   })
 
+  // `pointer-events` se hereda: la hoja lo pone en la capa que envuelve sus botones.
   it('Finalizar no recibe toques hasta pasado el doble toque que abrió la hoja', () => {
     vi.useFakeTimers()
     try {
       montar()
-      const finalizar = screen.getByRole('button', { name: 'Finalizar' })
-      expect(finalizar.style.pointerEvents).toBe('none')
+      const capa = screen.getByRole('button', { name: 'Finalizar' }).parentElement!
+      expect(capa.style.pointerEvents).toBe('none')
       act(() => { vi.advanceTimersByTime(399) })
-      expect(finalizar.style.pointerEvents).toBe('none')
+      expect(capa.style.pointerEvents).toBe('none')
       act(() => { vi.advanceTimersByTime(1) })
-      expect(finalizar.style.pointerEvents).toBe('auto')
+      expect(capa.style.pointerEvents).toBe('auto')
     } finally {
       vi.useRealTimers()
     }

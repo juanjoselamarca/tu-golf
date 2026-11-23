@@ -6,6 +6,8 @@ import {
   buildTournamentShare,
   buildLiveShare,
   buildOrganizerShare,
+  buildFollowTournamentShare,
+  buildRoundInviteShare,
   buildInviteShare,
 } from './payload'
 
@@ -78,6 +80,17 @@ describe('buildLiveShare / buildOrganizerShare / buildInviteShare', () => {
     const p = buildOrganizerShare({ url: 'https://golfersplus.vercel.app/torneo/x/unirse' })
     expect(p.text.toLowerCase()).toMatch(/únete|unite|sumate|unirse/)
     expect(p.url).toContain('unirse')
+  })
+  it('seguir un torneo: el mensaje y el título nombran el torneo', () => {
+    const p = buildFollowTournamentShare({ tournamentName: 'Copa Verano', url: 'https://golfersplus.vercel.app/torneo/copa' })
+    expect(p.title).toBe('Copa Verano')
+    expect(p.text).toBe('Mira cómo va Copa Verano en Golfers+')
+    expect(p.url).toBe('https://golfersplus.vercel.app/torneo/copa')
+  })
+  it('invitar a una ronda: "Únete a mi ronda"', () => {
+    const p = buildRoundInviteShare({ url: 'https://golfersplus.vercel.app/ronda-libre/ABC/score' })
+    expect(p.text).toBe('Únete a mi ronda en Golfers+')
+    expect(p.url).toContain('/score')
   })
   it('invite: copy fijo con título y texto', () => {
     const p = buildInviteShare()
