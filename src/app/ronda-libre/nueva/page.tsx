@@ -144,8 +144,9 @@ export default function NuevaRondaLibrePage() {
         llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
         onEmpezar={() =>
           router.push(
-            // Un formato de equipos se anota siempre en el scorer de grupo (los equipos de club incluidos).
-            form.llevaElScoreDelGrupo || form.esFormatoDeEquipo
+            // Un formato de equipos (los equipos de club incluidos) siempre lleva el score del grupo:
+            // `exigeLlevarElScoreDelGrupo` lo fuerza, así que va al scorer de grupo por esta misma condición.
+            form.llevaElScoreDelGrupo
               ? `/ronda-libre/${creada.codigo}/score-grupo`
               : `/ronda-libre/${creada.codigo}/score`,
           )
