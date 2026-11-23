@@ -132,6 +132,7 @@ export function EquiposDeClub(props: Props) {
                     autoComplete="off"
                     enterKeyHint="done"
                     value={equipo.handicap}
+                    placeholder={`0–${maximo}`}
                     aria-invalid={invalido || undefined}
                     aria-describedby={invalido ? 'paso-jugadores-aviso' : undefined}
                     onChange={e => props.onHandicap(i, e.target.value)}

@@ -24,7 +24,7 @@ function Paso({ formato = 'scramble', modoInicial = 'gross', netoBloqueado = fal
   formato?: FormatoJuego; modoInicial?: ModoJuego; netoBloqueado?: boolean; holes?: number; onSiguiente?: () => void
 }) {
   const [modo, setModo] = useState<ModoJuego>(modoInicial)
-  const club = useEquiposDeClub({ formato, modo, netoBloqueado, onNeto: () => setModo('neto') })
+  const club = useEquiposDeClub({ formato, modo, netoBloqueado, onModo: setModo })
   const problema = club.paraEnviar
     ? validarNuevaRonda({
         cancha: 'Los Leones', formato, modo, jugadores: [{ nombre: 'Ana', indice: 12 }], equipos: [],
@@ -103,7 +103,11 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
     fireEvent.click(soloEquipos())
     fireEvent.change(handicaps()[0], { target: { value: '19' } })
     expect(handicaps()[0].getAttribute('aria-invalid')).toBe('true')
-    expect(aviso().textContent).toBe('El hándicap de equipo va de 0 a 18, sin decimales.')
+    expect(aviso().textContent).toBe('El hándicap de Equipo 1 va de 0 a 18, sin decimales.')
+    // Todo lo que frena se lee igual que el aviso del índice: color de error a 12px (AA en los dos temas).
+    expect(aviso().style.color).toBe('var(--error-fg)')
+    expect(aviso().style.fontSize).toBe('12px')
+    expect(handicaps()[0].placeholder).toBe('0–18')
     fireEvent.change(handicaps()[0], { target: { value: '18' } })
     expect(handicaps()[0].getAttribute('aria-invalid')).toBeNull()
   })
@@ -157,10 +161,23 @@ describe('PasoConfirmar — equipos de club', () => {
   it('neto: «Scramble · Neto · 3 equipos» y una línea por equipo con su HCP del club', () => {
     pintar('neto', [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: 'Los Pumas', handicap: 0 }, { nombre: 'Equipo 3', handicap: 12 }])
     expect(screen.getByText('Scramble · Neto · 3 equipos')).toBeTruthy()
-    expect(screen.getByText('Los Tigres · HCP 8 (club)')).toBeTruthy()
-    expect(screen.getByText('Los Pumas · HCP 0 (club)')).toBeTruthy()
+    // Nombre y HCP en elementos hermanos: la fila se lee entera, el HCP no se encoge.
+    expect(screen.getByText('Los Tigres').parentElement?.textContent).toBe('Los Tigres· HCP 8 (club)')
+    expect(screen.getByText('· HCP 0 (club)').style.flexShrink).toBe('0')
+    // Un celular anota todos los equipos; sin fila de Tees (nadie juega con su índice).
+    expect(screen.getByText('Tú, todos los equipos')).toBeTruthy()
+    expect(screen.queryByText('Tees')).toBeNull()
     expect(screen.getByText('Equipos (3)')).toBeTruthy()
     expect(screen.queryByText(/^Jugadores \(/)).toBeNull()
+  })
+
+  it('un nombre de 50 caracteres cede con puntos suspensivos; el HCP se ve entero', () => {
+    const largo = 'Los Tigres del Club de Golf Los Leones de Santiago'
+    pintar('neto', [{ nombre: largo, handicap: 8 }])
+    const nombre = screen.getByText(largo)
+    expect(nombre.style.minWidth).toBe('0px')
+    expect(nombre.style.textOverflow).toBe('ellipsis')
+    expect(screen.getByText('· HCP 8 (club)').style.flexShrink).toBe('0')
   })
 
   it('gross: sin HCP y en singular con un equipo', () => {
