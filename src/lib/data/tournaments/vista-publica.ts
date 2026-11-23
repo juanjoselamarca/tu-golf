@@ -107,6 +107,7 @@ export function filaPublica(p: Player, vista: VistaPublica, ocultos: ReadonlySet
     pos: p.pos,
     id: p.id,
     name: p.name,
+    nombreBase: p.nombreBase,
     country: p.country,
     cat: p.cat,
     hcp: hcpOculto ? null : p.hcp,

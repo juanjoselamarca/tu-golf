@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import type { Player } from '@/lib/golf-data'
+import { nombreDelJugador, type Player } from '@/lib/golf-data'
 import GWILeaderboard from '@/components/GWILeaderboard'
 import { hoyosJugadosGWI, type GWIResponse } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
@@ -358,7 +358,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                               modo: supportsDualLeaderboard ? viewMode : (modoJuego === 'neto' ? 'neto' : 'gross'),
                               formato: (formato ?? 'stroke_play') as ScorecardProps['formato'],
                             })}
-                        playerName={p.name}
+                        playerName={nombreDelJugador(p)}
                         courseName={courseName}
                         formatLabel={formatLabelProp}
                       />

@@ -2,7 +2,7 @@
 // Pestaña "Grupos" del board de torneo: cada grupo de salida con su estado y
 // el score de sus jugadores, más los que no tienen grupo. Salió de TournamentTabs.
 import { useMemo } from 'react'
-import type { Player } from '@/lib/golf-data'
+import { nombreDelJugador, type Player } from '@/lib/golf-data'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
 import type { GroupData } from '@/components/TournamentTabs'
@@ -119,7 +119,7 @@ export function GruposDelTorneo({ groups, players, playerIdToIndex, totalHoyos, 
                       flex: 1,
                       minWidth: 0,
                     }}>
-                      {p.name}
+                      {nombreDelJugador(p)}
                       {hcpAMostrar(p) != null && <span style={{ color: T.muted, fontWeight: 400 }}> ({formatearHandicap(hcpAMostrar(p))})</span>}
                     </span>
 
@@ -192,7 +192,7 @@ export function GruposDelTorneo({ groups, players, playerIdToIndex, totalHoyos, 
                 fontSize: '13px',
                 color: T.muted,
               }}>
-                {p.name}
+                {nombreDelJugador(p)}
                 {hcpAMostrar(p) != null && <span style={{ color: T.faint }}> ({formatearHandicap(hcpAMostrar(p))})</span>}
               </span>
             </div>
