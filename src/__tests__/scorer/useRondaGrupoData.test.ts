@@ -297,6 +297,34 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     expect(result.current.teamEquipos).toEqual([])
     expect(replace).not.toHaveBeenCalled()
   })
+  it('«Elige tu equipo» se relee solo: un equipo que otro toma aparece tomado sin recargar la página', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.eleccion).not.toBeNull())
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro')]
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
+    await waitFor(() => expect(result.current.eleccion?.equipos.find(e => e.id === 'e2')?.anotador_user_id).toBe('u-pedro'))
+  })
+  it('«Elige tu equipo» relee al volver a la app (más de 2 s afuera)', async () => {
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.eleccion).not.toBeNull())
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro')]
+    const ahora = Date.now()
+    const visible = vi.spyOn(document, 'visibilityState', 'get')
+    const reloj = vi.spyOn(Date, 'now')
+    visible.mockReturnValue('hidden'); reloj.mockReturnValue(ahora)
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    visible.mockReturnValue('visible'); reloj.mockReturnValue(ahora + 5000)
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    visible.mockRestore(); reloj.mockRestore()
+    await waitFor(() => expect(result.current.eleccion?.equipos.find(e => e.id === 'e2')?.anotador_user_id).toBe('u-pedro'))
+  })
   it('ronda de un celular (admin_mode): un extraño va a la ronda en vivo, como siempre', async () => {
     sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
     carga.valor = { estado: 'ok', ronda: { ...SCRAMBLE, admin_mode: true, admin_user_id: 'u1' } }

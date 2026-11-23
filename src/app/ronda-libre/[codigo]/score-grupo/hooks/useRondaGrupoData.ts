@@ -360,8 +360,9 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   // Reintento solo mientras el servidor no responde (o la pantalla quedó en "sin conexión").
   const reintentando = conexion !== 'ok' || loadError === MENSAJE_SCORER_SIN_CONEXION
   // Un celular por equipo: también con conexión se relee quién anota qué. Un equipo que otro celular reclamó sale de
-  // este (y sus pendientes no se envían: useGrupoScoreSave); uno liberado vuelve al creador.
-  const releer = reintentando || unCelular
+  // este (y sus pendientes no se envían: useGrupoScoreSave); uno liberado vuelve al creador. «Elige tu equipo» también
+  // relee: un equipo que liberan o que otro toma aparece al día sin que nadie recargue la página.
+  const releer = reintentando || unCelular || eleccion != null
   useEffect(() => {
     if (!releer) return
     const id = setInterval(() => { void cargar() }, REINTENTO_CARGA_MS)
@@ -369,7 +370,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     window.addEventListener('online', onOnline)
     return () => { clearInterval(id); window.removeEventListener('online', onOnline) }
   }, [releer, cargar])
-  useRefreshOnResume(useCallback(() => { void cargar() }, [cargar]), reintentando)
+  useRefreshOnResume(useCallback(() => { void cargar() }, [cargar]), releer)
 
   return {
     ronda, loading, loadError,
