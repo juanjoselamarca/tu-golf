@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import {
   anotadoresDeEquipos,
+  cierraLaRonda,
   entradaAlScorerDeEquipos,
   equipoAjenoIncompleto,
   equiposDeOtroCelular,
   equiposQueAnota,
   nombreDelAnotador,
+  nombreDelCreador,
   unCelularPorEquipo,
   type EquipoConAnotador,
 } from './anotador-de-equipo'
@@ -127,5 +129,28 @@ describe('equipoAjenoIncompleto', () => {
   it('todos completos o sin ajenos: null', () => {
     expect(equipoAjenoIncompleto([{ ...club('e2', PEDRO), nombre: 'X', scores: lleno }], hoyos)).toBeNull()
     expect(equipoAjenoIncompleto([], hoyos)).toBeNull()
+  })
+})
+
+describe('cierraLaRonda', () => {
+  it('un celular por equipo: solo el creador', () => {
+    expect(cierraLaRonda(multi, equipos, CREADOR)).toBe(true)
+    expect(cierraLaRonda(multi, equipos, PEDRO)).toBe(false)
+    expect(cierraLaRonda(multi, equipos, null)).toBe(false)
+  })
+  it('ronda de un celular: sin cambio (cierra quien anota)', () => {
+    expect(cierraLaRonda(unCelular, equipos, PEDRO)).toBe(true)
+    expect(cierraLaRonda({ ...multi, formato_juego: 'best_ball' }, equipos, JUAN)).toBe(true)
+  })
+})
+
+describe('nombreDelCreador', () => {
+  it('el jugador de la ronda con la cuenta del creador', () => {
+    expect(nombreDelCreador({ creador_id: CREADOR, ronda_libre_jugadores: [{ user_id: CREADOR, nombre: ' Juanjo ' }] })).toBe('Juanjo')
+  })
+  it('sin creador, sin jugador o sin nombre: null', () => {
+    expect(nombreDelCreador({ creador_id: null, ronda_libre_jugadores: [] })).toBeNull()
+    expect(nombreDelCreador({ creador_id: CREADOR, ronda_libre_jugadores: [{ user_id: EXTRANO, nombre: 'X' }] })).toBeNull()
+    expect(nombreDelCreador({ creador_id: CREADOR, ronda_libre_jugadores: [{ user_id: CREADOR, nombre: '  ' }] })).toBeNull()
   })
 })

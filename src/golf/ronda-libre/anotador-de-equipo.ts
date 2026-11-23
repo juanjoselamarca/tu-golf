@@ -74,6 +74,27 @@ export function nombreDelAnotador(equipo: Pick<EquipoConAnotador, 'anotador_nomb
   return equipo.anotador_nombre?.trim() || 'otro celular'
 }
 
+/**
+ * ¿Este celular cierra la ronda y libera equipos? Un celular por equipo: solo el creador (la base rechaza Finalizar a
+ * quien anota un equipo desde su celular). Ronda de un celular: sin cambio, cierra quien anota.
+ */
+export function cierraLaRonda(
+  ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
+  equipos: ReadonlyArray<Pick<EquipoConAnotador, 'handicap_origen'>>,
+  userId: string | null | undefined,
+): boolean {
+  if (!unCelularPorEquipo(ronda, equipos)) return true
+  return !!userId && ronda.creador_id === userId
+}
+
+/** Nombre de quien creó la ronda (es jugador del equipo 1). `null` si no está entre los jugadores o no tiene nombre. */
+export function nombreDelCreador(
+  ronda: Pick<RondaDeEquipos, 'creador_id'> & { ronda_libre_jugadores?: ReadonlyArray<{ user_id?: string | null; nombre?: string | null }> },
+): string | null {
+  if (!ronda.creador_id) return null
+  return ronda.ronda_libre_jugadores?.find(j => j.user_id === ronda.creador_id)?.nombre?.trim() || null
+}
+
 /** Qué hace el scorer de equipos con quien lo abre. */
 export type EntradaAlScorerDeEquipos = 'anota' | 'elegir_equipo' | 'en_vivo'
 

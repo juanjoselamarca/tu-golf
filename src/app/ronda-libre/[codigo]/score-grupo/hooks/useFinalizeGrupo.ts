@@ -21,12 +21,14 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { isSharedBallFormat } from '@/golf/formats'
+import { equipoAjenoIncompleto, equiposDeOtroCelular, equiposQueAnota } from '@/golf/ronda-libre/anotador-de-equipo'
+import { fetchEquiposConAnotador } from '@/lib/data/ronda-libre'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-de-club'
 import { completarHoyosSinMarcarConPar, completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
@@ -94,6 +96,12 @@ export function useFinalizeGrupo(input: {
    */
   /** Timba libre (solo entonces): retiros, envío de marcas y el hoyo en pantalla (el único que se rellena con par). */
   timba?: { retiros: Readonly<Record<string, number>>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number }
+  /**
+   * Un celular por equipo (`@/golf/ronda-libre/anotador-de-equipo`), solo entonces. Antes de cerrar se relee quién
+   * anota qué: con un equipo de otro celular sin terminar no se cierra (quedaría con hoyos de menos), y si los equipos
+   * de este celular cambiaron desde la última lectura se recargan (`recargar`) en vez de cerrar con la lista vieja.
+   */
+  unCelularPorEquipo?: { recargar: () => Promise<void> }
 }): FinalizeGrupo {
   const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes, timba } = input
   const router = useRouter()
@@ -181,6 +189,30 @@ export function useFinalizeGrupo(input: {
     if (rondaYaCerrada) {
       addToast({ ...AVISO_RONDA_YA_FINALIZADA, type: 'info' })
       marcarRespaldosDeRondaCerrada(codigo)
+    }
+
+    // Un celular por equipo: los equipos al día, antes de rellenar nada con par.
+    if (!rondaYaCerrada && input.unCelularPorEquipo) {
+      let todos: Awaited<ReturnType<typeof fetchEquiposConAnotador>>
+      try {
+        todos = await conTimeout(fetchEquiposConAnotador(supabase, ronda.id), PLAZO_CARGA_SCORER_MS)
+      } catch {
+        avisarSinServidor()
+        return
+      }
+      const ajeno = equipoAjenoIncompleto(equiposDeOtroCelular(ronda, todos, authUserId), hoyos)
+      if (ajeno) {
+        addToast({ type: 'error', title: avisoEquipoAjenoIncompleto(ajeno.equipo.nombre, ajeno.hoyo), duration: 8000 })
+        haptic([30, 60, 30])
+        return
+      }
+      // Un equipo liberado (o tomado) desde la última lectura: se cierra solo con la tarjeta que se ve en pantalla.
+      const mios = new Set(equiposQueAnota(ronda, todos, authUserId).map(e => e.id))
+      if (mios.size !== teamEquipos.length || teamEquipos.some(e => !mios.has(e.id))) {
+        addToast({ ...AVISO_EQUIPOS_CAMBIARON, type: 'info', duration: 7000 })
+        await input.unCelularPorEquipo.recargar()
+        return
+      }
     }
 
     // Bug fix 30-abr-2026: si el último hoyo se jugó en par y el usuario no

@@ -16,6 +16,8 @@ const push = vi.fn()
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
+const addToast = vi.hoisted(() => vi.fn())
+vi.mock('@/hooks/useToast', () => ({ addToast }))
 
 type SesionMock = { session: unknown; error: unknown } | 'lanza'
 const sesion = { valor: { session: { user: { id: 'u1', email: 'juanjo@x.cl' } }, error: null } as SesionMock }
@@ -301,5 +303,31 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     lecturaDeEquipos.equipos = [eq('e1', null)]
     renderHook(() => useRondaGrupoData('B4F5Y2'))
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/ronda-libre/B4F5Y2'))
+  })
+  it('par al pasar de hoyo: otro celular reclama un equipo del creador y sale de teamEquipos (lo que se rellena con par)', async () => {
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e3', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1', 'e3'])
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e3', 'u-pedro', 'Pedro')]
+    await act(async () => { await result.current.recargar() })
+    // autoFillTeamsWithPar y completarEquiposConPar recorren teamEquipos: e3 ya no está ahí.
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1'])
+    expect(result.current.equiposDeOtroCelular.map(e => e.id)).toEqual(['e3'])
+  })
+  it('lo liberaron mientras anotaba (P0003 → recargar): «Ya no anotas este equipo.» y vuelve a elegir equipo', async () => {
+    sesion.valor = { session: { user: { id: 'u-pedro' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro')]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e2'])
+    addToast.mockClear()
+    // El creador liberó e2: la relectura (la que dispara el P0003 vía alPerderEquipo) ya no lo trae como suyo.
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    await act(async () => { await result.current.recargar() })
+    expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
   })
 })

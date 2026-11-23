@@ -1,9 +1,13 @@
 'use client'
 
+import { textoTarjetaCompleta } from './finalizar-copy'
+
 interface AvisoTarjetaCompletaProps {
   /** Ya no falta ningún hoyo por anotar. */
   completa: boolean
   enUltimoHoyo: boolean
+  /** Texto con la tarjeta completa (`textoTarjetaCompleta`). Por omisión, el de quien cierra la ronda. */
+  texto?: string
 }
 
 /**
@@ -12,7 +16,7 @@ interface AvisoTarjetaCompletaProps {
  * anotar, los controles de +/- saltarían bajo el dedo. La región `status` queda montada y
  * cambia su texto: pasar de oculta a visible no lo anuncian todos los lectores de pantalla.
  */
-export function AvisoTarjetaCompleta({ completa, enUltimoHoyo }: AvisoTarjetaCompletaProps) {
+export function AvisoTarjetaCompleta({ completa, enUltimoHoyo, texto = textoTarjetaCompleta(true, null) }: AvisoTarjetaCompletaProps) {
   if (!completa && !enUltimoHoyo) return null
   return (
     <div
@@ -24,7 +28,7 @@ export function AvisoTarjetaCompleta({ completa, enUltimoHoyo }: AvisoTarjetaCom
         color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600,
       }}
     >
-      {completa ? 'Tarjeta completa · Finalizar ronda' : <>&nbsp;</>}
+      {completa ? texto : <>&nbsp;</>}
     </div>
   )
 }

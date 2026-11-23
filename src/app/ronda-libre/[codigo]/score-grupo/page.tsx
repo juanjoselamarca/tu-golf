@@ -1,13 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
 import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
 import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
-import { hojaFinalizarTimba, textoConfirmarFinalizar } from '@/components/ronda/finalizar-copy'
+import { hojaFinalizarTimba, textoConfirmarFinalizar, textoTarjetaCompleta } from '@/components/ronda/finalizar-copy'
 import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
 import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
@@ -18,6 +18,7 @@ import { getYardajeForTee, type Jugador } from '@/types/ronda'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
+import { cierraLaRonda, nombreDelCreador } from '@/golf/ronda-libre/anotador-de-equipo'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores } from '@/lib/ronda/score-storage'
 import { BestBallTeamCard } from './components/BestBallTeamCard'
@@ -31,7 +32,10 @@ import { PlayerScoreCard } from './components/PlayerScoreCard'
 import { GrupoNavBar } from './components/GrupoNavBar'
 import { DiscardRoundModal } from './components/DiscardRoundModal'
 import { ConexionScorerBanner } from './components/ConexionScorerBanner'
+import { ElegirEquipo } from './components/ElegirEquipo'
+import { EquiposDeOtroCelular } from './components/EquiposDeOtroCelular'
 import { useRondaGrupoData } from './hooks/useRondaGrupoData'
+import { useAnotadorDeEquipo } from './hooks/useAnotadorDeEquipo'
 import { useGrupoScoreSave } from './hooks/useGrupoScoreSave'
 import { useTeamScoreSave } from './hooks/useTeamScoreSave'
 import { useFinalizeGrupo } from './hooks/useFinalizeGrupo'
@@ -64,7 +68,16 @@ export default function ScoreGrupoPage() {
     ronda, loading, loadError, currentHole, setCurrentHole,
     scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
     teamEquipos, setTeamEquipos, anotadorNombre, authUserId, conexion, golpesSinSubir,
+    unCelularPorEquipo, equiposDeOtroCelular, eleccion, recargar,
   } = useRondaGrupoData(codigo)
+  // Un celular por equipo: elegir equipo, liberar uno de otro celular y no pisar nunca lo suyo.
+  const anotador = useAnotadorDeEquipo({ codigo, recargar })
+  const porCelular = useMemo(
+    () => unCelularPorEquipo ? { ajenos: equiposDeOtroCelular, alPerderEquipo: () => { void recargar() } } : undefined,
+    [unCelularPorEquipo, equiposDeOtroCelular, recargar],
+  )
+  // Un celular por equipo: solo el creador cierra la ronda y libera equipos. En cualquier otra ronda, sin cambio.
+  const cierraEsteCelular = !ronda || cierraLaRonda(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId)
 
   // Al volver de background (WhatsApp, etc.), forzar re-render para que la UI
   // no se quede frozen por WebSockets muertos (post-mortem 30-ago-2026).
@@ -81,7 +94,7 @@ export default function ScoreGrupoPage() {
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
   const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
-    useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos })
+    useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos, unCelularPorEquipo: porCelular })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
     if (rondaNoExiste) router.push('/dashboard')
@@ -120,6 +133,7 @@ export default function ScoreGrupoPage() {
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores,
       timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
+      unCelularPorEquipo: unCelularPorEquipo ? { recargar } : undefined,
     })
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
   // Con el aviso de sesión, "Iniciar sesión" navega a propósito y los golpes quedan en el teléfono: sin advertencia.
@@ -174,6 +188,18 @@ export default function ScoreGrupoPage() {
   /* ── Render ── */
   if (loading) return <BrandedLoading message="Preparando scorer" variant="dark" />
   if (loadError) return <ScorerMessageScreen message={loadError} codigo={codigo} reload />
+  if (eleccion) {
+    return (
+      <ElegirEquipo
+        codigo={codigo}
+        courseName={eleccion.ronda.course_name}
+        equipos={eleccion.equipos}
+        enCurso={anotador.enCurso}
+        aviso={anotador.aviso}
+        onElegir={(id) => { void anotador.reclamar(id) }}
+      />
+    )
+  }
   if (!ronda) return <ScorerMessageScreen message="No se pudo cargar la ronda" codigo={codigo} />
 
   // Admin es quien opera la UI. Si admin es jugador de la ronda, usar su tee.
@@ -256,8 +282,8 @@ export default function ScoreGrupoPage() {
         yardaje={yardaje}
         showNetStableford={showNetStableford}
         maxStrokes={maxStrokesOnHole}
-        // Este celular anota por todo el grupo: no hay a quién invitar a anotar, solo a seguir.
-        accion={<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre(codigo, { conJugar: false })} color={theme.textFaint} />}
+        // Un celular: anota por todo el grupo, solo se invita a seguir. Un celular por equipo: también a anotar el suyo.
+        accion={<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre(codigo, { conJugar: false, unCelularPorEquipo })} color={theme.textFaint} />}
         theme={theme}
       />
 
@@ -328,6 +354,16 @@ export default function ScoreGrupoPage() {
             />
           ))}
 
+          {unCelularPorEquipo && (
+            <EquiposDeOtroCelular
+              codigo={codigo}
+              equipos={equiposDeOtroCelular}
+              puedeLiberar={cierraEsteCelular}
+              enCurso={anotador.enCurso}
+              onLiberar={(id, nombre) => { void anotador.liberar(id, nombre) }}
+            />
+          )}
+
           {/* Individual scoring (hidden for team scoring formats: scramble, foursome, best_ball) */}
           {!isTeamFormat(formatoJuego) && jugadores.map(j => esTimba && timba.retiradoEn(j.id, currentHole) ? (
             <p key={j.id} style={{ margin: 0, padding: '12px 14px', borderRadius: '12px', border: '1px dashed var(--border-md)', color: 'var(--text-2)', fontSize: '14px' }}>
@@ -383,12 +419,18 @@ export default function ScoreGrupoPage() {
         </div>
       </div>
 
-      {canFinalize && <AvisoTarjetaCompleta completa={hoyosPorMarcar === 0 && hoyosSinJugarTimba.length === 0 && !finalizing} enUltimoHoyo={isLastHole} />}
+      {canFinalize && (
+        <AvisoTarjetaCompleta
+          completa={hoyosPorMarcar === 0 && hoyosSinJugarTimba.length === 0 && !finalizing}
+          enUltimoHoyo={isLastHole}
+          texto={textoTarjetaCompleta(cierraEsteCelular, nombreDelCreador(ronda))}
+        />
+      )}
 
       <GrupoNavBar
         currentHoleIdx={currentHoleIdx}
         isLastHole={isLastHole}
-        canFinalize={canFinalize}
+        canFinalize={canFinalize && cierraEsteCelular}
         finalizing={finalizing}
         onPrev={nav.goToPrevHole}
         onNext={goToNextHole}
