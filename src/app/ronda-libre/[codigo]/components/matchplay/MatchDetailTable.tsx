@@ -41,7 +41,7 @@ export function MatchDetailTable({ mr, nombreA, nombreB }: { mr: MatchResult; no
                   padding: '7px 6px', textAlign: 'center', fontWeight: 700, fontSize: '13px',
                   color: winA ? 'var(--status-live-fg)' : 'var(--text-2)',
                   background: winA ? 'rgba(22,163,74,0.06)' : 'transparent',
-                  fontFamily: '"DM Mono", monospace',
+                  fontVariantNumeric: 'tabular-nums lining-nums',
                 }}>
                   {h.grossA ?? '—'}
                   {h.strokesA > 0 && <span style={{ color: 'var(--brand-on-bg)', marginLeft: '2px', fontSize: '9px' }}>{'●'.repeat(h.strokesA)}</span>}
@@ -63,7 +63,7 @@ export function MatchDetailTable({ mr, nombreA, nombreB }: { mr: MatchResult; no
                   padding: '7px 6px', textAlign: 'center', fontWeight: 700, fontSize: '13px',
                   color: winB ? 'var(--status-live-fg)' : 'var(--text-2)',
                   background: winB ? 'rgba(22,163,74,0.06)' : 'transparent',
-                  fontFamily: '"DM Mono", monospace',
+                  fontVariantNumeric: 'tabular-nums lining-nums',
                 }}>
                   {h.grossB ?? '—'}
                   {h.strokesB > 0 && <span style={{ color: 'var(--brand-on-bg)', marginLeft: '2px', fontSize: '9px' }}>{'●'.repeat(h.strokesB)}</span>}

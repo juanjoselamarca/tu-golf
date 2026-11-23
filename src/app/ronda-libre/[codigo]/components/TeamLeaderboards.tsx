@@ -185,7 +185,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
             ))}
             {/* Scores */}
             {res.holes.slice(0, Math.min(ronda.holes, 9)).map(h => (
-              <div key={`s-${h.numero}`} style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>
+              <div key={`s-${h.numero}`} style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums lining-nums' }}>
                 {h.gross ?? '—'}
               </div>
             ))}
@@ -206,7 +206,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
                 <div key={`h2-${h.numero}`} style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 600 }}>{h.numero}</div>
               ))}
               {res.holes.slice(9, 18).map(h => (
-                <div key={`s2-${h.numero}`} style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>
+                <div key={`s2-${h.numero}`} style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums lining-nums' }}>
                   {h.gross ?? '—'}
                 </div>
               ))}

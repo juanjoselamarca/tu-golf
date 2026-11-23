@@ -37,24 +37,23 @@ export function MatchPlayWinner({ ronda, mr, onShare, shareVariant = 'commit' }:
           <span style={{
             padding: '4px 12px', background: 'rgba(196,153,42,0.1)', color: 'var(--brand-on-bg)',
             border: '1px solid rgba(196,153,42,0.28)', borderRadius: '999px',
-            fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em',
-            fontFamily: 'DM Mono, monospace', textTransform: 'uppercase',
+            fontSize: '13px', fontWeight: 600,
           }}>{ronda.modo_juego === 'neto' ? 'Match Play Neto' : 'Match Play Gross'}</span>
         </div>
         <div style={{ padding: '18px 20px 20px', textAlign: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--brand-on-bg)', marginBottom: '8px' }}>
             {isAllSquare ? <Handshake size={34} /> : <Trophy size={34} />}
           </div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '6px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--brand-on-bg)', marginBottom: '6px' }}>
             {etiqueta}
           </div>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '30px', fontWeight: 700, color: 'var(--text)', lineHeight: 1.05, marginBottom: '2px' }}>
+          <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text)', lineHeight: 1.15, marginBottom: '2px' }}>
             {nombre}
           </div>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '40px', fontWeight: 700, color: 'var(--brand-on-bg)', lineHeight: 1.1 }}>
+          <div className="num" style={{ fontSize: '40px', fontWeight: 700, color: 'var(--brand-on-bg)', lineHeight: 1.1 }}>
             {mr.display}
           </div>
-          <div style={{ fontSize: '12.5px', color: 'var(--text-3)', marginTop: '6px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--text-3)', marginTop: '6px' }}>
             {jug[0].nombre} vs {jug[1].nombre} · {ronda.course_name}
           </div>
         </div>
