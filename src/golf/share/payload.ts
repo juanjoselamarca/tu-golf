@@ -17,6 +17,7 @@ import {
   followTournamentText,
   joinText,
   joinRoundText,
+  teamScorerText,
   INVITE_TITLE,
   INVITE_TEXT,
 } from './copy'
@@ -84,6 +85,11 @@ export function buildFollowTournamentShare(input: { tournamentName: string; url:
 /** Invitar a sumarse a anotar en una ronda libre ("Únete a mi ronda"). */
 export function buildRoundInviteShare(input: { url: string }): SharePayload {
   return { title: BRAND, text: joinRoundText(), url: input.url }
+}
+
+/** Un celular por equipo: invitar a un jugador de cada equipo a anotar el suyo (el link abre el scorer de grupo). */
+export function buildTeamScorerShare(input: { url: string }): SharePayload {
+  return { title: BRAND, text: teamScorerText(), url: input.url }
 }
 
 /** Organizador comparte el link de inscripción ("Únete a jugar"). */

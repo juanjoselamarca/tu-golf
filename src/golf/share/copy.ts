@@ -61,6 +61,11 @@ export function joinRoundText(): string {
   return `Únete a mi ronda en ${BRAND}`
 }
 
+/** Anotar el score de su equipo (un celular por equipo: al abrir el link elige su equipo). */
+export function teamScorerText(): string {
+  return `Anota el score de tu equipo en ${BRAND}`
+}
+
 /** Unirse a jugar (organizador comparte el link de inscripción). */
 export function joinText(): string {
   return `Únete a jugar en ${BRAND}`

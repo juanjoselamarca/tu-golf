@@ -8,6 +8,7 @@ import {
   buildOrganizerShare,
   buildFollowTournamentShare,
   buildRoundInviteShare,
+  buildTeamScorerShare,
   buildInviteShare,
 } from './payload'
 
@@ -91,6 +92,11 @@ describe('buildLiveShare / buildOrganizerShare / buildInviteShare', () => {
     const p = buildRoundInviteShare({ url: 'https://golfersplus.vercel.app/ronda-libre/ABC/score' })
     expect(p.text).toBe('Únete a mi ronda en Golfers+')
     expect(p.url).toContain('/score')
+  })
+  it('un celular por equipo: "Anota el score de tu equipo"', () => {
+    const p = buildTeamScorerShare({ url: 'https://golfersplus.vercel.app/ronda-libre/ABC/score-grupo' })
+    expect(p.text).toBe('Anota el score de tu equipo en Golfers+')
+    expect(p.url).toContain('/score-grupo')
   })
   it('invite: copy fijo con título y texto', () => {
     const p = buildInviteShare()

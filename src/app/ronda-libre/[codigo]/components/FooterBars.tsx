@@ -93,44 +93,42 @@ export function PieFijo({ children }: { children: ReactNode }) {
   return <div ref={ref} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: Z_PIE_FIJO }}>{children}</div>
 }
 
-/** Barra "Volver a scorear" para el admin de la ronda en curso (va dentro de `PieFijo`). */
-export function AdminScoringBar({ codigo }: { codigo: string }) {
+/** Barra con el botón para ir a anotar (va dentro de `PieFijo`). */
+function BarraParaAnotar({ href, children }: { href: string; children: ReactNode }) {
   return (
     <div style={{
       background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
       padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
       display: 'flex', justifyContent: 'center',
     }}>
-      <Link href={`/ronda-libre/${codigo}/score-grupo`} style={{
+      <Link href={href} style={{
         background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
         fontSize: '15px', padding: '14px 32px', borderRadius: '12px',
         textDecoration: 'none', textAlign: 'center', width: '100%', maxWidth: '400px',
         display: 'block',
       }}>
-        Volver a scorear
+        {children}
       </Link>
     </div>
   )
 }
 
-/** Barra "Continuar marcando" para jugadores (no-admin) en ronda individual en curso (va dentro de `PieFijo`). */
+/** Barra "Volver a scorear" para el admin de la ronda en curso. */
+export function AdminScoringBar({ codigo }: { codigo: string }) {
+  return <BarraParaAnotar href={`/ronda-libre/${codigo}/score-grupo`}>Volver a scorear</BarraParaAnotar>
+}
+
+/** Barra "Continuar marcando" para jugadores (no-admin) en ronda individual en curso. */
 export function PlayerScoringBar({ codigo }: { codigo: string }) {
-  return (
-    <div style={{
-      background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
-      padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
-      display: 'flex', justifyContent: 'center',
-    }}>
-      <Link href={`/ronda-libre/${codigo}/score`} style={{
-        background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
-        fontSize: '15px', padding: '14px 32px', borderRadius: '12px',
-        textDecoration: 'none', textAlign: 'center', width: '100%', maxWidth: '400px',
-        display: 'block',
-      }}>
-        Continuar marcando
-      </Link>
-    </div>
-  )
+  return <BarraParaAnotar href={`/ronda-libre/${codigo}/score`}>Continuar marcando</BarraParaAnotar>
+}
+
+/**
+ * Un celular por equipo: cualquiera que llegue a la ronda en vivo puede ir a anotar su equipo (el scorer de grupo le
+ * pide elegir uno, o lo lleva al que ya anota; sin sesión, al login y de vuelta).
+ */
+export function TeamScoringBar({ codigo }: { codigo: string }) {
+  return <BarraParaAnotar href={`/ronda-libre/${codigo}/score-grupo`}>Anotar mi equipo</BarraParaAnotar>
 }
 
 /** Banner de registro para espectadores anónimos (tras 8s o scroll; va dentro de `PieFijo`). */

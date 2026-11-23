@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Check } from '@/components/icons'
 import { useShare } from '@/components/share/useShare'
-import { buildLiveShare, buildRoundInviteShare, buildFollowTournamentShare } from '@/golf/share/payload'
+import { buildLiveShare, buildRoundInviteShare, buildFollowTournamentShare, buildTeamScorerShare } from '@/golf/share/payload'
 import type { SharePayload } from '@/golf/share/types'
 import { SITE_URL } from '@/lib/site-url'
 
@@ -13,6 +13,8 @@ import { SITE_URL } from '@/lib/site-url'
  * `golf/share`. Sin `jugar` (un solo celular anota por todos, o un torneo) solo se invita a seguir.
  */
 export interface EnlacesDeLaRonda {
+  /** Un celular por equipo: anotar el score de su equipo (`/ronda-libre/<codigo>/score-grupo`, elige equipo). */
+  anotar?: SharePayload
   /** Sumarse a anotar (`/ronda-libre/<codigo>/score`). */
   jugar?: SharePayload
   /** Seguirla en vivo, sin cuenta. */
@@ -21,11 +23,16 @@ export interface EnlacesDeLaRonda {
 
 /**
  * Links de una ronda libre. `conJugar: false` cuando un solo celular anota por todos (score de grupo, o el
- * admin anotando): un link para "sumarse a anotar" no lleva a ninguna parte útil.
+ * admin anotando): un link para "sumarse a anotar" no lleva a ninguna parte útil. `unCelularPorEquipo`
+ * (`@/golf/ronda-libre/anotador-de-equipo`): primero el link para que cada equipo anote el suyo.
  */
-export function enlacesDeRondaLibre(codigo: string, { conJugar }: { conJugar: boolean }): EnlacesDeLaRonda {
+export function enlacesDeRondaLibre(
+  codigo: string,
+  { conJugar, unCelularPorEquipo = false }: { conJugar: boolean; unCelularPorEquipo?: boolean },
+): EnlacesDeLaRonda {
   const url = `${SITE_URL}/ronda-libre/${codigo}`
   const seguir = buildLiveShare({ url })
+  if (unCelularPorEquipo) return { anotar: buildTeamScorerShare({ url: `${url}/score-grupo` }), seguir }
   return conJugar ? { jugar: buildRoundInviteShare({ url: `${url}/score` }), seguir } : { seguir }
 }
 
@@ -37,9 +44,13 @@ export function enlacesDeTorneo(slug: string, nombre: string): EnlacesDeLaRonda 
   return { seguir: buildFollowTournamentShare({ tournamentName: nombre, url: `${SITE_URL}/torneo/${slug}` }) }
 }
 
-type Destino = 'jugar' | 'seguir'
+type Destino = 'anotar' | 'jugar' | 'seguir'
 
-const TITULO: Record<Destino, string> = { jugar: 'Invitar a jugar', seguir: 'Invitar a seguir' }
+const TITULO: Record<Destino, string> = { anotar: 'Un celular por equipo', jugar: 'Invitar a jugar', seguir: 'Invitar a seguir' }
+/** Lo que hace quien recibe el link, cuando no es obvio. */
+const DETALLE: Partial<Record<Destino, string>> = {
+  anotar: 'Envía este link a un jugador de cada equipo. Al abrirlo elige su equipo.',
+}
 
 interface OpcionesParaCompartirProps {
   enlaces: EnlacesDeLaRonda
@@ -63,7 +74,7 @@ export function OpcionesParaCompartir({ enlaces, onCompartido }: OpcionesParaCom
     return () => clearTimeout(t)
   }, [copiado])
 
-  const destinos = (['jugar', 'seguir'] as const).filter(d => enlaces[d])
+  const destinos = (['anotar', 'jugar', 'seguir'] as const).filter(d => enlaces[d])
 
   const compartir = async (destino: Destino) => {
     if ((await share(enlaces[destino]!)).ok) onCompartido?.()
@@ -80,6 +91,9 @@ export function OpcionesParaCompartir({ enlaces, onCompartido }: OpcionesParaCom
           <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '8px', fontWeight: 500 }}>
             {TITULO[destino]}
           </div>
+          {DETALLE[destino] && (
+            <p style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.4, margin: '0 0 10px' }}>{DETALLE[destino]}</p>
+          )}
           <div style={{ display: 'flex', gap: '8px' }}>
             <Button variant="nav" className="flex-1" onClick={() => { void compartir(destino) }}>
               Compartir

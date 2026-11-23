@@ -18,6 +18,7 @@ import { captureError } from '@/lib/error-tracking'
 import { buildLeaderboard, mostrarCopiarLink, mostrarVerMisEstadisticas, rondaTieneDatos } from '@/lib/ronda/leaderboard'
 import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
+import { unCelularPorEquipo } from '@/golf/ronda-libre/anotador-de-equipo'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
@@ -47,7 +48,7 @@ import { GwiPanel } from './components/GwiPanel'
 import { RecentTimeline } from './components/RecentTimeline'
 import { RefreshStatus } from '@/components/RefreshStatus'
 import { ShareLeaderboardButton } from './components/ShareLeaderboardButton'
-import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, RegistrationBanner, PieFijo } from './components/FooterBars'
+import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, TeamScoringBar, RegistrationBanner, PieFijo } from './components/FooterBars'
 import { LiveStyles } from './components/LiveStyles'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
@@ -164,6 +165,8 @@ function RondaLibrePageContent() {
 
   const isAdmin = anotaLaRonda(ronda, currentUserId)
   const isAdminRound = !!ronda.admin_mode
+  // Un celular por equipo: con sesión, cualquiera puede ir a anotar su equipo (el scorer le pide elegirlo).
+  const celularPorEquipo = unCelularPorEquipo(ronda, equipos)
   const adminPlayerName = isAdminRound
     ? ronda.ronda_libre_jugadores.find(j => j.user_id === ronda.admin_user_id)?.nombre ?? 'El admin'
     : null
@@ -427,10 +430,12 @@ function RondaLibrePageContent() {
         {isAdmin && isEnCurso && <AdminScoringBar codigo={codigo} />}
 
         {/* Jugador autenticado (no admin) en ronda individual en curso → enlace al scorer */}
-        {!isAdmin && !isAdminRound && isEnCurso && !isAnonymous && currentUserId &&
+        {!isAdmin && !isAdminRound && !celularPorEquipo && isEnCurso && !isAnonymous && currentUserId &&
           ronda.ronda_libre_jugadores.some(j => j.user_id === currentUserId) && (
           <PlayerScoringBar codigo={codigo} />
         )}
+
+        {!isAdmin && celularPorEquipo && isEnCurso && !isAnonymous && currentUserId && <TeamScoringBar codigo={codigo} />}
 
         {showBanner && isAnonymous && (
           <RegistrationBanner codigo={codigo} onDismiss={dismissBanner} />

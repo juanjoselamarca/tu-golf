@@ -283,7 +283,7 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     expect(result.current.unCelularPorEquipo).toBe(true)
     expect(result.current.eleccion).toBeNull()
     // La copia local también guarda solo los suyos: al abrir sin red no aparece el equipo de Pedro.
-    expect(loadScorerGrupoSnapshot('B4F5Y2')?.teamEquipos.map((e: { id: string }) => e.id)).toEqual(['e1', 'e3'])
+    expect((loadScorerGrupoSnapshot('B4F5Y2', 'u1')?.teamEquipos as { id: string }[] | undefined)?.map(e => e.id)).toEqual(['e1', 'e3'])
   })
   it('una cuenta sin equipo (abrió el link): elige equipo, no anota ni va a la ronda en vivo', async () => {
     sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
