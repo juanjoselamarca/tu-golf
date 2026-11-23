@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
+import { useState } from 'react'
 import { act, renderHook } from '@testing-library/react'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { MAX_EQUIPOS_DE_CLUB } from '@/golf/ronda-libre/equipos-de-club'
@@ -14,11 +15,18 @@ import {
 
 interface Props { formato: FormatoJuego; modo: ModoJuego; netoBloqueado: boolean }
 
+/** El modo vive en un estado de verdad (como en el formulario): lo que el hook pide con `onModo` se ve en `modo`. */
 const montar = (over: Partial<Props> = {}) => {
-  const onNeto = vi.fn()
+  const onModo = vi.fn()
   const props: Props = { formato: 'scramble', modo: 'neto', netoBloqueado: false, ...over }
-  const hook = renderHook((p: Props) => useEquiposDeClub({ ...p, onNeto }), { initialProps: props })
-  return { ...hook, onNeto, props }
+  const hook = renderHook((p: Props) => {
+    const [modo, setModo] = useState<ModoJuego>(p.modo)
+    const club = useEquiposDeClub({
+      ...p, modo, onModo: m => { onModo(m); setModo(m) },
+    })
+    return { ...club, modo, setModo }
+  }, { initialProps: props })
+  return { ...hook, onModo, props }
 }
 
 describe('textoDeHandicapDeClub / handicapDeClubDesdeTexto', () => {
@@ -82,27 +90,57 @@ describe('useEquiposDeClub', () => {
     expect(result.current.paraEnviar).toBeNull()
   })
 
-  it('entrar a «Solo equipos» pasa la ronda a Neto si el plan lo permite', () => {
-    const { result, onNeto } = montar()
+  it('entrar a «Solo equipos» desde Gross pasa la ronda a Neto si el plan lo permite', () => {
+    const { result, onModo } = montar({ modo: 'gross' })
     act(() => result.current.elegirSoloEquipos(true))
     expect(result.current.soloEquipos).toBe(true)
-    expect(onNeto).toHaveBeenCalledTimes(1)
+    expect(onModo).toHaveBeenCalledExactlyOnceWith('neto')
+    expect(result.current.modo).toBe('neto')
     expect(result.current.paraEnviar).toEqual([{ nombre: 'Equipo 1', handicap: null }])
   })
 
-  it('con el Neto bloqueado por plan entra igual, sin tocar el modo (queda en Gross)', () => {
-    const { result, onNeto } = montar({ netoBloqueado: true, modo: 'gross' })
-    act(() => result.current.elegirSoloEquipos(true))
-    expect(result.current.soloEquipos).toBe(true)
-    expect(onNeto).not.toHaveBeenCalled()
-  })
-
-  it('volver a «Con jugadores» no llama al Neto y no envía equipos de club', () => {
-    const { result, onNeto } = montar()
+  it('ida y vuelta: Gross → «Solo equipos» (Neto) → «Con jugadores» devuelve Gross', () => {
+    const { result, onModo } = montar({ modo: 'gross' })
     act(() => result.current.elegirSoloEquipos(true))
     act(() => result.current.elegirSoloEquipos(false))
-    expect(onNeto).toHaveBeenCalledTimes(1)
+    expect(result.current.modo).toBe('gross')
+    expect(onModo.mock.calls).toEqual([['neto'], ['gross']])
     expect(result.current.paraEnviar).toBeNull()
+  })
+
+  it('ida y vuelta desde Neto: el modo no se toca ni al entrar ni al salir', () => {
+    const { result, onModo } = montar({ modo: 'neto' })
+    act(() => result.current.elegirSoloEquipos(true))
+    act(() => result.current.elegirSoloEquipos(false))
+    expect(result.current.modo).toBe('neto')
+    expect(onModo).not.toHaveBeenCalled()
+  })
+
+  it('tocar el segmento que ya está activo no hace nada', () => {
+    const { result, onModo } = montar({ modo: 'gross' })
+    act(() => result.current.elegirSoloEquipos(false))
+    expect(onModo).not.toHaveBeenCalled()
+    act(() => result.current.elegirSoloEquipos(true))
+    act(() => result.current.elegirSoloEquipos(true))
+    expect(onModo).toHaveBeenCalledTimes(1)
+    expect(result.current.soloEquipos).toBe(true)
+  })
+
+  it('si el usuario elige Gross dentro de «Solo equipos», al volver manda lo que eligió', () => {
+    const { result, onModo } = montar({ modo: 'gross' })
+    act(() => result.current.elegirSoloEquipos(true))
+    act(() => result.current.setModo('gross'))
+    act(() => result.current.elegirSoloEquipos(false))
+    expect(result.current.modo).toBe('gross')
+    expect(onModo).toHaveBeenCalledTimes(1)
+  })
+
+  it('con el Neto bloqueado por plan entra igual, sin tocar el modo (queda en Gross)', () => {
+    const { result, onModo } = montar({ netoBloqueado: true, modo: 'gross' })
+    act(() => result.current.elegirSoloEquipos(true))
+    act(() => result.current.elegirSoloEquipos(false))
+    expect(result.current.modo).toBe('gross')
+    expect(onModo).not.toHaveBeenCalled()
   })
 
   it('fuera de Scramble lo elegido no cuenta: la ronda va con jugadores', () => {
@@ -142,14 +180,20 @@ describe('useEquiposDeClub', () => {
   })
 
   it('repetir una ronda de club: «Solo equipos», mismos nombres, hándicaps vacíos y sin tocar el modo', () => {
-    const { result, onNeto } = montar()
+    const { result, onModo } = montar()
     act(() => result.current.escribirHandicap(0, '15'))
     act(() => result.current.restaurar(['Los Tigres', 'Los Pumas', 'Los Cóndores']))
     expect(result.current.soloEquipos).toBe(true)
     expect(result.current.equipos.map(e => [e.nombre, e.handicap])).toEqual([
       ['Los Tigres', ''], ['Los Pumas', ''], ['Los Cóndores', ''],
     ])
-    expect(onNeto).not.toHaveBeenCalled()
+    expect(onModo).not.toHaveBeenCalled()
+  })
+
+  it('repetir: el nombre que se puso solo («Equipo 2» en la posición 2) vuelve vacío; uno escrito se respeta', () => {
+    const { result } = montar()
+    act(() => result.current.restaurar(['Equipo 1', 'Equipo 2', 'Equipo 2']))
+    expect(result.current.equipos.map(e => e.nombre)).toEqual(['', '', 'Equipo 2'])
   })
 
   it('repetir una ronda sin equipos de club vuelve a «Con jugadores» y limpia lo escrito', () => {

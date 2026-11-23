@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { MAX_EQUIPOS_DE_CLUB, admiteEquiposDeClub } from '@/golf/ronda-libre/equipos-de-club'
-import { NOMBRE_EQUIPO_MAX, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
+import { NOMBRE_EQUIPO_MAX, nombreDeEquipo, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import type { EquipoDeClubAValidar } from '@/golf/ronda-libre/validar-nueva-ronda'
 
 /**
@@ -55,11 +55,11 @@ interface Args {
   modo: ModoJuego
   /** El Neto del formato actual pide un plan que el usuario no tiene (`netoBloqueadoPorPlan`). */
   netoBloqueado: boolean
-  /** Pasa la ronda a Neto (el hándicap del club solo juega en neto). */
-  onNeto: () => void
+  /** Cambia el modo de la ronda (el hándicap del club solo juega en neto). */
+  onModo: (modo: ModoJuego) => void
 }
 
-export function useEquiposDeClub({ formato, modo, netoBloqueado, onNeto }: Args) {
+export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args) {
   // Contador y no `crypto.randomUUID()`: igual que los rivales, da el mismo id en el servidor y al hidratar.
   const ultimoId = useRef(0)
   const equipoVacio = (nombre = ''): EquipoDeClubDelFormulario => {
@@ -73,10 +73,31 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onNeto }: Args)
   /** Lo elegido solo cuenta en un formato que lo admite: volver a Best Ball no arrastra equipos sin jugadores. */
   const soloEquipos = admiteEquiposDeClub(formato) && soloEquiposElegido
 
-  /** «Con jugadores» | «Solo equipos». Entrar a «Solo equipos» deja la ronda en Neto si el plan lo permite. */
+  /**
+   * El modo que tenía la ronda antes de que «Solo equipos» la pasara a Neto. Al volver a «Con jugadores» se
+   * devuelve: el scramble con jugadores sigue en el modo que el usuario eligió (con Gross no pide índices).
+   * `null` = «Solo equipos» no cambió el modo y no hay nada que devolver.
+   */
+  const modoAntesDeSoloEquipos = useRef<ModoJuego | null>(null)
+
+  /**
+   * «Con jugadores» | «Solo equipos». Solo la transición cuenta: tocar el segmento que ya está activo no hace
+   * nada. Entrar deja la ronda en Neto si el plan lo permite; salir deshace ese cambio si el usuario no tocó el
+   * modo entremedio (si lo tocó, manda lo último que eligió).
+   */
   const elegirSoloEquipos = (solo: boolean) => {
+    if (solo === soloEquiposElegido) return
     setSoloEquiposElegido(solo)
-    if (solo && !netoBloqueado) onNeto()
+    if (solo) {
+      if (modo !== 'neto' && !netoBloqueado) {
+        modoAntesDeSoloEquipos.current = modo
+        onModo('neto')
+      }
+      return
+    }
+    const previo = modoAntesDeSoloEquipos.current
+    modoAntesDeSoloEquipos.current = null
+    if (previo !== null && modo === 'neto') onModo(previo)
   }
 
   const puedeAgregar = equipos.length < MAX_EQUIPOS_DE_CLUB
@@ -101,16 +122,19 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onNeto }: Args)
   /**
    * Repetir una ronda: vuelve a «Solo equipos» con los mismos nombres y los hándicaps VACÍOS (un hándicap de
    * club viejo es un resultado equivocado: el club lo cambia de un torneo a otro). Sin equipos de club, «Con
-   * jugadores». No toca el modo: lo repite `repetirRonda` del formulario.
+   * jugadores». No toca el modo: lo repite `repetirRonda` del formulario (y por eso no queda modo que devolver).
+   * Un nombre igual al de su posición («Equipo 2») vuelve vacío: es el que se pone solo, no uno que se escribió.
    */
   const restaurar = (nombres: readonly string[] | null) => {
+    modoAntesDeSoloEquipos.current = null
     if (!nombres || nombres.length === 0) {
       setSoloEquiposElegido(false)
       setEquipos([equipoVacio()])
       return
     }
     setSoloEquiposElegido(true)
-    setEquipos(nombres.slice(0, MAX_EQUIPOS_DE_CLUB).map(n => equipoVacio(n.slice(0, NOMBRE_EQUIPO_MAX))))
+    setEquipos(nombres.slice(0, MAX_EQUIPOS_DE_CLUB).map((n, i) =>
+      equipoVacio(n === nombreDeEquipo(i) ? '' : n.slice(0, NOMBRE_EQUIPO_MAX))))
   }
 
   return {

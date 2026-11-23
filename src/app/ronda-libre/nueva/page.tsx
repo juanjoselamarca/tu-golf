@@ -47,7 +47,7 @@ export default function NuevaRondaLibrePage() {
     formato: form.formato,
     modo: form.modo,
     netoBloqueado: form.netoBloqueado,
-    onNeto: () => form.setModo('neto'),
+    onModo: form.setModo,
   })
 
   const setup = useSetupDeCancha({ courseId: form.courseId })
