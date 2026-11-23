@@ -564,3 +564,136 @@ describe('POST /api/ronda-libre/create — Timba libre (formato personalizado)',
     expect(res.status).toBe(400)
   })
 })
+
+describe('POST /api/ronda-libre/create — equipos con hándicap del club (scramble rápido)', () => {
+  type FilaEquipo = Record<string, unknown>
+  const club = (over: Record<string, unknown> = {}, clubOver: Record<string, unknown> = {}) => payload({
+    formato_juego: 'scramble',
+    modo_juego: 'neto',
+    // El body trae admin_mode, pero en este modo lo decide el servidor.
+    admin_mode: false,
+    jugadores: [{ nombre: 'Juanjo', user_id: CREADOR_ID, handicap: null, tees: 'blanco' }],
+    equipos: undefined,
+    equipos_de_club: {
+      equipos: [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: '', handicap: 36 }, { nombre: 'Halcones', handicap: 0 }],
+      quien_anota: 'uno',
+      ...clubOver,
+    },
+    ...over,
+  })
+  const equiposGrabados = () => escrituras('ronda_equipos').map(l => l.payload as FilaEquipo)
+  const nadaEscrito = () => expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+
+  beforeEach(() => { tierDelCreador = 'pro' })
+
+  it('neto: el número del club va a las dos columnas, con origen club y el nombre por defecto si viene vacío', async () => {
+    const res = await POST(req(club()))
+    expect(res.status).toBe(200)
+    expect(equiposGrabados().map(e => [e.nombre, e.handicap_equipo, e.handicap_equipo_juego, e.handicap_origen])).toEqual([
+      ['Los Tigres', 8, 8, 'club'], ['Equipo 2', 36, 36, 'club'], ['Halcones', 0, 0, 'club'],
+    ])
+  })
+
+  it('el creador es la única tarjeta y el único miembro del equipo 1; los demás equipos van sin miembros', async () => {
+    await POST(req(club()))
+    expect(escrituras('ronda_libre_jugadores')[0].payload).toHaveLength(1)
+    const miembros = escrituras('ronda_equipo_jugadores')
+    expect(miembros).toHaveLength(1)
+    expect(miembros[0].payload).toEqual([{ equipo_id: 'eq-1', jugador_id: 'jug-0', orden: 0 }])
+  })
+
+  it('un celular para todos: admin_mode lo pone el servidor aunque el body diga false, y nadie queda de anotador', async () => {
+    await POST(req(club()))
+    expect(escrituras('rondas_libres')[0].payload).toMatchObject({ admin_mode: true, admin_user_id: CREADOR_ID })
+    expect(equiposGrabados().every(e => !('anotador_user_id' in e))).toBe(true)
+  })
+
+  it('un solo equipo no pregunta quién anota y es de un celular', async () => {
+    const res = await POST(req(club({}, { equipos: [{ nombre: 'Los Tigres', handicap: 8 }], quien_anota: null })))
+    expect(res.status).toBe(200)
+    expect(escrituras('rondas_libres')[0].payload).toMatchObject({ admin_mode: true })
+  })
+
+  it('un celular por equipo: sin admin_mode aunque el body diga true, y el equipo 1 lo anota el creador', async () => {
+    const res = await POST(req(club({ admin_mode: true }, { quien_anota: 'cada_equipo' })))
+    expect(res.status).toBe(200)
+    expect(escrituras('rondas_libres')[0].payload).not.toHaveProperty('admin_mode')
+    expect(equiposGrabados().map(e => e.anotador_user_id)).toEqual([CREADOR_ID, undefined, undefined])
+  })
+
+  it('gross: sin hándicap en las dos columnas aunque el body lo traiga', async () => {
+    const res = await POST(req(club({ modo_juego: 'gross' }, {
+      equipos: [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: 'Halcones', handicap: null }],
+    })))
+    expect(res.status).toBe(200)
+    expect(equiposGrabados().map(e => [e.handicap_equipo, e.handicap_equipo_juego])).toEqual([[null, null], [null, null]])
+  })
+
+  it('9 hoyos: el número del club tal cual (no se parte) hasta 18; 19 se rechaza', async () => {
+    const nueve = (handicap: number) => club({ holes: 9 }, { equipos: [{ nombre: 'Los Tigres', handicap }], quien_anota: null })
+    expect((await POST(req(nueve(18)))).status).toBe(200)
+    expect(equiposGrabados()[0]).toMatchObject({ handicap_equipo: 18, handicap_equipo_juego: 18 })
+    llamadas = []
+    const res = await POST(req(nueve(19)))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('El hándicap de equipo va de 0 a 18, sin decimales.')
+    nadaEscrito()
+  })
+
+  it('27 hoyos se rechaza antes de crear nada', async () => {
+    const res = await POST(req(club({ holes: 27 })))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Este modo se juega a 9 o 18 hoyos.')
+    nadaEscrito()
+  })
+
+  it('5 equipos se rechaza con la frase del modo', async () => {
+    const cinco = Array.from({ length: 5 }, (_, i) => ({ nombre: `E${i}`, handicap: 10 }))
+    const res = await POST(req(club({}, { equipos: cinco })))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Este modo admite hasta 4 equipos.')
+    nadaEscrito()
+  })
+
+  it('un hándicap con decimales se rechaza', async () => {
+    const res = await POST(req(club({}, { equipos: [{ nombre: 'Los Tigres', handicap: 8.5 }], quien_anota: null })))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('El hándicap de equipo va de 0 a 36, sin decimales.')
+    nadaEscrito()
+  })
+
+  it('equipos con jugadores y equipos del club juntos se rechaza', async () => {
+    const res = await POST(req(club({ equipos: [{ nombre: 'Equipo 1', jugadorIndices: [0] }] })))
+    expect(res.status).toBe(400)
+    nadaEscrito()
+  })
+
+  it('con 2 o más equipos hay que decir quién anota', async () => {
+    const res = await POST(req(club({}, { quien_anota: null })))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Elige quién anota.')
+    nadaEscrito()
+  })
+
+  it('solo en scramble', async () => {
+    const res = await POST(req(club({ formato_juego: 'foursome' })))
+    expect(res.status).toBe(400)
+    nadaEscrito()
+  })
+
+  it('si un equipo no se graba, la ronda se deshace', async () => {
+    fallaEquipos = true
+    const res = await POST(req(club()))
+    expect(res.status).toBe(500)
+    expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
+  })
+
+  it('la ronda con jugadores no nombra las columnas nuevas (no depende de la migración)', async () => {
+    const res = await POST(req(payload({ formato_juego: 'scramble' })))
+    expect(res.status).toBe(200)
+    for (const e of equiposGrabados()) {
+      expect(e).not.toHaveProperty('handicap_origen')
+      expect(e).not.toHaveProperty('anotador_user_id')
+    }
+  })
+})

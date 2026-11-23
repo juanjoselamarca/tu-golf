@@ -15,7 +15,14 @@ export const MAX_EQUIPOS_DE_CLUB = 4
 export const HOYOS_DE_EQUIPOS_DE_CLUB = [9, 18] as const
 
 /** Quién anota: un celular para todos los equipos o uno por equipo (el segundo necesita cuenta). */
-export type QuienAnota = 'uno' | 'cada_equipo'
+export const OPCIONES_QUIEN_ANOTA = ['uno', 'cada_equipo'] as const
+export type QuienAnota = (typeof OPCIONES_QUIEN_ANOTA)[number]
+
+/**
+ * `ronda_equipos.handicap_origen`: 'club' marca al equipo de club sin inferirlo de "equipo con menos de 2
+ * miembros". Los equipos de siempre quedan en 'calculado', el default de la columna.
+ */
+export type HandicapOrigen = 'calculado' | 'club'
 
 export function esHoyosDeEquiposDeClub(holes: number): boolean {
   return (HOYOS_DE_EQUIPOS_DE_CLUB as readonly number[]).includes(holes)
