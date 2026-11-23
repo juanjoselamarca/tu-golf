@@ -150,7 +150,8 @@ function problemaDeRondaConEquiposDeClub(
       if (!esHandicapDeClubValido(equipo.handicap, holes)) {
         return {
           titulo: 'Hándicap fuera de rango',
-          detalle: `El hándicap de equipo va de 0 a ${handicapDeClubMaximo(holes)}, sin decimales.`,
+          // Con el nombre, igual que «falta»: con 3 o 4 equipos el aviso dice cuál es.
+          detalle: `El hándicap de ${nombreVisibleDeEquipo(equipo.nombre, i)} va de 0 a ${handicapDeClubMaximo(holes)}, sin decimales.`,
         }
       }
     }

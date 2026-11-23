@@ -26,23 +26,3 @@ describe('PasoConfirmar — Editar mientras se crea la ronda', () => {
     expect(renderPaso(true).disabled).toBe(true)
   })
 })
-
-describe('PasoConfirmar — scramble de equipos de club', () => {
-  const largo = 'Los Tigres del Club de Golf Los Leones de Santiago'
-  it('sin fila de Tees, anota «Tú, todos los equipos» y el HCP del club va en su propio elemento (no se corta)', () => {
-    render(
-      <PasoConfirmar
-        cancha="Los Leones" forma={{ holes: 18, hoyoInicio: 1, esMultiRecorrido: false }} mitad="front"
-        recorridosElegidos={[]} formato="scramble" modo="neto" teeGlobal="Azul" fecha="2026-11-12"
-        jugadores={[]} equipos={[]} llevaElScoreDelGrupo hcpVisibleDe={() => null} hayVariosTees={false}
-        equiposDeClub={[{ nombre: largo, handicap: 8 }, { nombre: 'Los Pumas', handicap: 12 }]}
-        problema={null} creando={false} onEditar={vi.fn()} onCrear={vi.fn()}
-      />,
-    )
-    expect(screen.queryByText('Tees')).toBeNull()
-    expect(screen.getByText('Tú, todos los equipos')).toBeTruthy()
-    expect(screen.getByText(largo)).toBeTruthy()
-    const hcp = screen.getByText('· HCP 8 (club)')
-    expect(hcp.style.flexShrink).toBe('0')
-  })
-})

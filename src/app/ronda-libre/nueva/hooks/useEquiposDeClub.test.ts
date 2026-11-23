@@ -77,7 +77,7 @@ describe('equiposDeClubParaEnviar', () => {
     })
     expect(problema(equiposDeClubParaEnviar(equipos, 'neto'))?.detalle).toBe('Escribe el hándicap de Equipo 2.')
     expect(problema(equiposDeClubParaEnviar([{ id: 'a', nombre: '', handicap: '8,5' }], 'neto'))?.detalle)
-      .toBe('El hándicap de equipo va de 0 a 36, sin decimales.')
+      .toBe('El hándicap de Equipo 1 va de 0 a 36, sin decimales.')
     expect(problema(equiposDeClubParaEnviar([{ id: 'a', nombre: '', handicap: '8' }], 'neto'))).toBeNull()
   })
 })
