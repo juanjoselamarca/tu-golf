@@ -4,7 +4,7 @@
 -- equipo, también uno reclamado por otra cuenta. Con dos celulares anotando el mismo equipo, el último guardado pisa
 -- al otro hoyo por hoyo sin que nadie lo vea. El cliente ya no lo intenta, pero la regla tiene que ser del servidor:
 --
---   · upsert_ronda_equipos_scores: si el equipo tiene anotador y no es quien llama, P0003 (DETAIL
+--   · upsert_ronda_equipos_scores: si el equipo (de club, ronda sin admin_mode) tiene anotador y no es quien llama, P0003 (DETAIL
 --     equipo_de_otro_anotador). service_role sigue pasando. El creador libera el equipo y recién ahí lo anota.
 --   · ronda_equipos_scores_de_su_anotador: la policy manage_ronda_equipos deja al creador escribir la fila entera;
 --     el trigger cierra ese camino para scores de un equipo con anotador ajeno (anon/authenticated; las RPC SECURITY
@@ -73,7 +73,10 @@ BEGIN
   -- Un equipo con anotador lo escribe SOLO su anotador: tampoco el creador ni los jugadores (puede_anotar_ronda).
   -- Sin esto, el celular del creador y el del equipo podían pisarse el mismo hoyo (gana el último en llegar).
   -- Para anotarlo él, el creador lo libera primero (liberar_equipo_de_ronda). v_anotador se leyó bajo el FOR UPDATE.
-  IF NOT v_is_service AND v_anotador IS NOT NULL AND v_anotador IS DISTINCT FROM auth.uid() THEN
+  -- Mismo predicado que la rama del anotador de arriba (equipo de club, ronda sin admin_mode): fuera de él un
+  -- anotador no da derechos, así que tampoco los quita (el creador sigue anotando, como en toda ronda de un celular).
+  IF NOT v_is_service AND v_origen = 'club' AND v_admin_mode IS NOT TRUE
+     AND v_anotador IS NOT NULL AND v_anotador IS DISTINCT FROM auth.uid() THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'equipo_de_otro_anotador';
   END IF;
 
@@ -112,7 +115,10 @@ LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
+  -- Mismo predicado que upsert_ronda_equipos_scores. Si RLS no deja leer la ronda, admin_mode sale NULL y bloquea.
   IF current_user IN ('anon', 'authenticated')
+     AND OLD.handicap_origen = 'club'
+     AND (SELECT rl.admin_mode FROM public.rondas_libres rl WHERE rl.id = OLD.ronda_id) IS NOT TRUE
      AND OLD.anotador_user_id IS NOT NULL
      AND OLD.anotador_user_id IS DISTINCT FROM auth.uid()
      AND NEW.scores IS DISTINCT FROM OLD.scores THEN

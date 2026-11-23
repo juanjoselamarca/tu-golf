@@ -293,17 +293,56 @@ BEGIN
 END $$;
 
 -- 20261123200000: el equipo que anota otro celular lo escribe solo ese celular, ni por la RPC ni por la tabla.
-DO $$ BEGIN
+DO $$
+DECLARE d text;
+BEGIN
   PERFORM public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000012', 'CLUB01', '{"2": 5}'::jsonb);
   RAISE EXCEPTION 'FALLA: el creador escribió el equipo que anota Pedro';
-EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK el creador no escribe el equipo de otro anotador (RPC) -> P0003';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN
+  GET STACKED DIAGNOSTICS d = PG_EXCEPTION_DETAIL;
+  -- El cliente (PR4) distingue este rechazo por el DETAIL: lo trata como definitivo, no como reintentable.
+  IF d IS DISTINCT FROM 'equipo_de_otro_anotador' THEN RAISE EXCEPTION 'FALLA: P0003 sin el DETAIL esperado: %', d; END IF;
+  RAISE NOTICE 'OK el creador no escribe el equipo de otro anotador (RPC) -> P0003 equipo_de_otro_anotador';
 END $$;
 
 DO $$ BEGIN
   UPDATE public.ronda_equipos SET scores = '{"1": 9}'::jsonb WHERE id = 'f5c00000-0000-4000-8000-000000000012';
   RAISE EXCEPTION 'FALLA: el creador cambió por la tabla los scores del equipo que anota Pedro';
-EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK el creador no escribe el equipo de otro anotador (tabla) -> 42501';
+EXCEPTION WHEN insufficient_privilege THEN
+  IF SQLERRM <> 'EQUIPO_DE_OTRO_ANOTADOR' THEN RAISE; END IF;
+  RAISE NOTICE 'OK el creador no escribe el equipo de otro anotador (tabla) -> 42501 EQUIPO_DE_OTRO_ANOTADOR';
 END $$;
+
+-- Control positivo: el trigger corta solo el equipo ajeno, no todo UPDATE de scores del creador.
+DO $$
+DECLARE n integer;
+BEGIN
+  UPDATE public.ronda_equipos SET scores = scores || '{"4": 4}'::jsonb WHERE id = 'f5c00000-0000-4000-8000-000000000011';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'FALLA: el creador no actualizó por la tabla su propio equipo'; END IF;
+  UPDATE public.ronda_equipos SET scores = scores || '{"4": 4}'::jsonb WHERE id = 'f5c00000-0000-4000-8000-000000000014';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'FALLA: el creador no actualizó por la tabla un equipo sin anotador'; END IF;
+  RAISE NOTICE 'OK por la tabla el creador sigue escribiendo su equipo y los sin anotador';
+END $$;
+
+-- service_role pasa (RPC y tabla) sobre el equipo de Pedro; queda como estaba.
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims = '{"role":"service_role"}';
+DO $$
+DECLARE r jsonb; n integer;
+BEGIN
+  r := public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000012', 'CLUB01', '{"9": 4}'::jsonb);
+  IF r->>'9' IS DISTINCT FROM '4' THEN RAISE EXCEPTION 'FALLA: service_role no escribió por la RPC: %', r; END IF;
+  UPDATE public.ronda_equipos SET scores = scores - '9' WHERE id = 'f5c00000-0000-4000-8000-000000000012';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'FALLA: service_role no escribió por la tabla'; END IF;
+  RAISE NOTICE 'OK service_role escribe el equipo de otro anotador (RPC y tabla)';
+END $$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"a5c00000-0000-4000-8000-000000000001","role":"authenticated"}';
 
 DO $$
 DECLARE n integer;
@@ -475,8 +514,24 @@ DO $$ BEGIN
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK anotador en ronda de un celular (admin_mode) no escribe -> P0003';
 END $$;
 
--- El creador escribe la fila por la policy, pero no puede nombrar anotador a otra cuenta (ni leer su nombre así).
+-- Un anotador fuera de un equipo de club de una ronda de un celular por equipo no da derechos y tampoco los quita:
+-- el creador sigue escribiendo esos equipos (RPC y tabla), con el mismo predicado que la rama del anotador.
 SET LOCAL request.jwt.claims = '{"sub":"a5c00000-0000-4000-8000-000000000001","role":"authenticated"}';
+DO $$
+DECLARE r jsonb; n integer;
+BEGIN
+  r := public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000014', 'CLUB01', '{"5": 4}'::jsonb);
+  IF r->>'5' IS DISTINCT FROM '4' THEN RAISE EXCEPTION 'FALLA: el creador perdió un equipo calculado con anotador: %', r; END IF;
+  r := public.upsert_ronda_equipos_scores('f5c00000-0000-4000-8000-000000000021', 'CLUB02', '{"5": 4}'::jsonb);
+  IF r->>'5' IS DISTINCT FROM '4' THEN RAISE EXCEPTION 'FALLA: el creador perdió un equipo de ronda admin_mode con anotador: %', r; END IF;
+  UPDATE public.ronda_equipos SET scores = scores || '{"6": 4}'::jsonb
+   WHERE id IN ('f5c00000-0000-4000-8000-000000000014', 'f5c00000-0000-4000-8000-000000000021');
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 2 THEN RAISE EXCEPTION 'FALLA: el creador no actualizó por la tabla esos equipos (% filas)', n; END IF;
+  RAISE NOTICE 'OK fuera de club sin admin_mode, un anotador no le quita los equipos al creador';
+END $$;
+
+-- El creador escribe la fila por la policy, pero no puede nombrar anotador a otra cuenta (ni leer su nombre así).
 DO $$ BEGIN
   UPDATE public.ronda_equipos SET anotador_user_id = 'a5c00000-0000-4000-8000-000000000004'
     WHERE id = 'f5c00000-0000-4000-8000-000000000012';
