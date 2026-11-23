@@ -222,6 +222,7 @@ export function rankEntries(
       pos:     idx + 1,
       id:      e.id,
       name:    annotatedName,
+      nombreBase: nameOf(e, idx),
       country: 'CL',
       cat:     e.cat ?? 'General',
       hcp:     e.handicap,

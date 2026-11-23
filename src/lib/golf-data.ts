@@ -21,12 +21,23 @@ export type Category   = 'General' | 'Categoría A' | 'Categoría B'
  *  Lo oculta, si corresponde, la capa que arma la respuesta para el visor. */
 export type PlayerConHandicap = Player & { hcp: number; hcpDisplay?: number }
 
+/** Nombre del jugador sin la marca del countback ("(desempate)"/"(empate)"),
+ *  para todo lo que no es la fila del ranking: grupos, título de la tarjeta. */
+export function nombreDelJugador(p: Pick<Player, 'name' | 'nombreBase'>): string {
+  return p.nombreBase ?? p.name
+}
+
 export interface Player {
   pos:     number
   /** ID del jugador en su tabla de origen. Presente cuando el ranking viene
    *  del motor (`rankEntries`); ausente en los datos mock de abajo. */
   id?:     string
+  /** Nombre para la fila del ranking: si el countback resolvió un empate, lleva
+   *  la marca pegada ("Ana Soto (desempate)"). Fuera del ranking usar
+   *  `nombreDelJugador`, que da el nombre sin esa marca. */
   name:    string
+  /** Nombre sin la marca del countback. Lo emite el motor (`rankEntries`). */
+  nombreBase?: string
   country: string
   cat:     string
   /**
