@@ -4,7 +4,7 @@
  * Verifica la página de estadísticas personales:
  * 1. Carga sin errores y muestra "Mis estadísticas"
  * 2. Muestra conteo de rondas registradas
- * 3. Range toggles (5R, 10R, 20R, Todo) visibles y funcionales
+ * 3. Rango (Últimas 5/10/20, Todas) con aria-pressed, y recorta las rondas del promedio
  * 4. Un solo gráfico ("Tu score vs par"), sin GWI, y resumen cards
  * 5. Datos numéricos reales (no solo "carga")
  *
@@ -110,22 +110,38 @@ test.describe('Perfil Stats — /perfil/stats', () => {
     // en cada corrida). Se espera a que la página se asiente antes de buscar por texto.
     await esperarStreaming(page)
 
-    // Los 4 toggles deben estar visibles
-    for (const label of ['5R', '10R', '20R', 'Todo']) {
-      await expect(page.getByText(label, { exact: true }).first()).toBeVisible({ timeout: 5_000 })
+    // Desde #802 el rango es un control segmentado con nombre ("Rondas a considerar") y estado aria-pressed.
+    const rango = page.getByRole('group', { name: 'Rondas a considerar' })
+    await expect(rango).toBeVisible({ timeout: 10_000 })
+    await expect(rango.getByRole('button')).toHaveText(['Últimas 5', 'Últimas 10', 'Últimas 20', 'Todas'])
+    const todas = rango.getByRole('button', { name: 'Todas', exact: true })
+    const ultimas5 = rango.getByRole('button', { name: 'Últimas 5', exact: true })
+    // Por defecto se ven todas las rondas.
+    await expect(todas).toHaveAttribute('aria-pressed', 'true')
+    await expect(ultimas5).toHaveAttribute('aria-pressed', 'false')
+
+    // El héroe dice cuántas rondas promedia: "Promedio vs par · 18 hoyos · N rondas" (sin cifras no trae N).
+    const heroe = page.getByText(/^Promedio vs par/)
+    const rondasDelHeroe = async (): Promise<number | null> => {
+      const m = (await heroe.innerText()).match(/· (\d+) rondas?\s*$/)
+      return m ? Number(m[1]) : null
+    }
+    const conTodas = await rondasDelHeroe()
+
+    await ultimas5.click()
+    await expect(ultimas5).toHaveAttribute('aria-pressed', 'true')
+    await expect(todas).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByText('Algo salió mal')).toBeHidden()
+    if (conTodas != null) {
+      // El rango recorta: nunca más de 5 rondas, ni más que con "Todas".
+      await expect.poll(rondasDelHeroe).toBeLessThanOrEqual(Math.min(5, conTodas))
     }
 
-    // Click "5R" y verificar que no rompe
-    await page.getByText('5R', { exact: true }).first().click()
-    await page.waitForTimeout(500)
-
-    // La página sigue mostrando stats (no error boundary)
-    await expect(page.getByText('Algo salió mal')).toBeHidden({ timeout: 3000 })
-
-    // Click "Todo" para volver al default
-    await page.getByText('Todo', { exact: true }).first().click()
-    await page.waitForTimeout(500)
-    await expect(page.getByText('Algo salió mal')).toBeHidden({ timeout: 3000 })
+    // Volver a "Todas" repone el número original.
+    await todas.click()
+    await expect(todas).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByText('Algo salió mal')).toBeHidden()
+    if (conTodas != null) await expect.poll(rondasDelHeroe).toBe(conTodas)
   })
 
   test('un solo gráfico "Tu score vs par" y sin GWI', async ({ page }) => {

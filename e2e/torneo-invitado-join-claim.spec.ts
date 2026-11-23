@@ -299,8 +299,10 @@ test.describe('Torneo: el invitado se inscribe sin cuenta, anota con su token y 
     // Otro dispositivo que sólo sabe el guestId (sin token) no obtiene el token: antes el endpoint era un
     // oráculo y con eso se anotaban golpes ajenos y se reclamaba el jugador (P0 #565).
     const sinToken = await guestJoin(torneo, { guestId, name: NOMBRE_INVITADO, handicap: INDICE_INVITADO })
+    // Desde #833 el código distingue ESTE torneo (guest_access_lost: el cliente NO se reinscribe con otro
+    // guestId, sería la misma persona dos veces) de OTRO torneo (guest_token_required, más abajo).
     expect(sinToken.status, 'sin token: no se reemite').toBe(403)
-    expect(sinToken.body.error).toBe('guest_token_required')
+    expect(sinToken.body.error, 'ya inscrito en este torneo: acceso perdido, no token requerido').toBe('guest_access_lost')
     expect(sinToken.body.guestToken, 'ni asoma el token').toBeUndefined()
     expect(await jugadoresEnBase(torneo), 'y no se inscribió una segunda fila').toHaveLength(1)
 

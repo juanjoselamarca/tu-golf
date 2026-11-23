@@ -156,7 +156,9 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
     await abrirScoring(page)
     await expect(cabecera(page)).toContainText('● En curso')
     await expect(page.getByText(AVISO_NO_EMPIEZA)).toHaveCount(0)
-    await expect(page.getByRole('status')).toHaveCount(0)
+    // Desde #838 la cabecera deja montada su región viva (role="status", vacía) para anunciar los hoyos sin
+    // guardar: lo que no debe haber es ningún aviso CON texto (ni "no empieza", ni cerrado, ni pendientes).
+    await expect(page.getByRole('status').filter({ hasText: /\S/ })).toHaveCount(0)
 
     await tarjetaJugadora(page).click()
     await expect(inputsDeHoyos(page)).toHaveCount(18)

@@ -285,7 +285,8 @@ test.describe('Coach tAIger+ — Progreso con datos controlados', () => {
     // Desde #727 las etiquetas del gráfico son texto HTML encima del SVG (antes eran <text> dentro del SVG, que se
     // achicaba con el viewBox). Viven en el mismo marco que el SVG y se tienen que VER, no sólo existir.
     const marco = grafico.locator('xpath=..')
-    const etiquetaMeta = marco.getByText('meta 12', { exact: true })
+    // Desde #765 la etiqueta usa formatearIndice, igual que la tarjeta "Meta" (12.0): un índice siempre con decimal.
+    const etiquetaMeta = marco.getByText('meta 12.0', { exact: true })
     const etiquetaHcp = marco.getByText('hcp 15.4', { exact: true })
     await expect(etiquetaMeta).toBeVisible()
     await expect(etiquetaHcp).toBeVisible()
