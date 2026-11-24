@@ -70,3 +70,21 @@ describe('UpsellCard — "¿Ya tienes PRO? Entrar"', () => {
     expect(screen.getByRole('link', { name: 'Entrar' }).getAttribute('href')).toBe('/login?next=%2Ftorneo%2Fx%2Ftv')
   })
 })
+
+describe('UpsellCard — salida a la versión gratis (volver)', () => {
+  it('full: muestra el link de salida bajo el CTA', () => {
+    render(<UpsellCard feature="leaderboard-live" variant="full" title="t" description="d" volver={{ href: '/torneo/x', label: 'Ver el leaderboard del torneo' }} />)
+    expect(screen.getByRole('link', { name: /Ver el leaderboard del torneo/ }).getAttribute('href')).toBe('/torneo/x')
+    expect(cta()).toBeDefined()
+  })
+
+  it('compact: no la muestra (la página ya es usable sin PRO)', () => {
+    render(<UpsellCard feature="leaderboard-live" variant="compact" title="t" description="d" volver={{ href: '/torneo/x', label: 'Ver el leaderboard del torneo' }} />)
+    expect(screen.queryByRole('link', { name: /Ver el leaderboard del torneo/ })).toBeNull()
+  })
+
+  it('sin volver no hay link de salida', () => {
+    render(<UpsellCard feature="leaderboard-live" variant="full" title="t" description="d" />)
+    expect(screen.queryByRole('link', { name: /Ver el leaderboard/ })).toBeNull()
+  })
+})

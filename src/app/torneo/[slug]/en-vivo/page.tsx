@@ -30,7 +30,7 @@ export default async function LivePage(props: PageProps) {
   // Gate server-side de la vista: ruta pública, usar getUser() (no getPageUser).
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !(await canAccessServer('leaderboard-live', supabase, user.id))) {
-    return <LiveUpsell loginNext={user ? undefined : `/torneo/${slug}/en-vivo`} />
+    return <LiveUpsell slug={slug} loginNext={user ? undefined : `/torneo/${slug}/en-vivo`} />
   }
 
   // Visor con sesión y PRO (gate de arriba): ve todo. Índices: lectura canónica de #509.
