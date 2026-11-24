@@ -11,6 +11,7 @@ import { notFound, redirect } from 'next/navigation'
 import { loginUrl } from '@/lib/auth/login-url'
 import LiveView from './LiveView'
 import { armarTorneoEnVivo, fetchTorneoEnVivoRow } from '@/lib/data/tournaments/en-vivo'
+import { SLUG_TORNEO_VALIDO } from '@/lib/data/tournaments/en-vivo-servidor'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 
@@ -22,6 +23,9 @@ interface PageProps {
 
 export default async function LivePage(props: PageProps) {
   const { slug } = await props.params
+  // Un slug con caracteres que ningún torneo tiene (#, ?, mayúsculas…) es 404 sin
+  // consultar la base ni armar un next raro hacia el login. Misma regla que /live y /neto.
+  if (!SLUG_TORNEO_VALIDO.test(slug)) notFound()
   const supabase = await createClient()
 
   // PRIMERO verificar que el torneo exista — un slug inexistente es 404, NO un

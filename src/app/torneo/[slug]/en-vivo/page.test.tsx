@@ -75,6 +75,14 @@ describe('/torneo/[slug]/en-vivo — slug inexistente', () => {
   })
 })
 
+describe('/torneo/[slug]/en-vivo — slug con caracteres que no existen en un slug', () => {
+  it.each(['copa#x', 'copa?next=/x', 'Copa-Verano', 'copa%2F..'])('«%s» es 404 sin consultar la base ni pedir login', async (slug) => {
+    const error = await pintar(slug).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(NoEncontrado)
+    expect(fetchTorneoEnVivoRow).not.toHaveBeenCalled()
+  })
+})
+
 describe('/torneo/[slug]/en-vivo — con sesión de plan gratis', () => {
   it('ve el en vivo, no un upsell', async () => {
     estado.user = { id: 'u-free' }
