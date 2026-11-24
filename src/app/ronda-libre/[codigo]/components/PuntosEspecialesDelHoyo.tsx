@@ -1,25 +1,37 @@
 'use client'
 
-import { useId, useState } from 'react'
-import { PUNTITOS_CON_PAR_O_MEJOR, type PuntitoConfig } from '@/golf/formats/personalizado'
+import { Fragment, useId, useState } from 'react'
+import type { PuntitoConfig } from '@/golf/formats/personalizado'
 import type { MarcasDeUnPuntito } from '@/golf/ronda-libre/marcas-de-la-timba'
 
-/** Una línea por marca puesta en el hoyo: "Sandy · Pedro ✓" (o "(no cuenta)"). Nunca queda una marca escondida. */
-export function resumenDeMarcas(grupos: readonly MarcasDeUnPuntito[], nombres: Readonly<Record<string, string>>): string[] {
+export interface LineaDelResumen {
+  texto: string
+  /** `cuenta` = ✓; `no_cuenta` y `sin_enviar` se dicen con palabras (nunca un ✓ que no es seguro). */
+  estado: 'cuenta' | 'no_cuenta' | 'sin_enviar'
+}
+
+/** Una línea por marca puesta en el hoyo ("Sandy · Pedro ✓"): cerrado, nunca queda una marca escondida. */
+export function resumenDeMarcas(grupos: readonly MarcasDeUnPuntito[], nombres: Readonly<Record<string, string>>): LineaDelResumen[] {
   return grupos.flatMap(g =>
-    g.jugadores.filter(j => j.marcado).map(j => `${g.nombre} · ${nombres[j.jugadorId] ?? ''} ${j.noCuenta ? '(no cuenta)' : '✓'}`),
+    g.jugadores
+      .filter(j => j.marcado)
+      .map(j => ({
+        texto: `${g.nombre} · ${nombres[j.jugadorId] ?? ''}`,
+        estado: j.noCuenta ? ('no_cuenta' as const) : j.enEspera ? ('sin_enviar' as const) : ('cuenta' as const),
+      })),
   )
 }
 
 const primeraEnMinuscula = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
 
 /**
- * Puntos especiales que se marcan a mano en el hoyo (sandy, chipingo, greenie, propios). Cerrado es una fila de
- * 48 px; abierto, un botón por jugador y punto que el motor contaría (lo decide `marcasDelHoyo`), marcado con ✓ y
- * borde (no solo color). Una marca que no cuenta se ve con su razón y se puede quitar: nunca se borra sola.
+ * Puntos especiales que se marcan a mano en el hoyo. Cerrado es una fila de 48 px; abierto, un botón por jugador y
+ * punto, marcado con ✓ y borde (no solo color). Qué botón se ofrece, la nota y la pista de cada punto y el "no
+ * cuenta" los decide `marcasDelHoyo`: acá solo se pintan (sin reglas de golf, se reusa en otros juegos). Una marca
+ * que no cuenta se ve con su razón y se puede quitar: nunca se borra sola.
  *
  * Al cambiar de hoyo vuelve a cerrado, salvo que el hoyo ya tenga marcas (abre para mostrarlas); cerrado igual las
- * resume. Genérico: no sabe de qué juego viene.
+ * resume.
  */
 export function PuntosEspecialesDelHoyo(props: {
   hoyo: number
@@ -36,8 +48,8 @@ export function PuntosEspecialesDelHoyo(props: {
 
   const resumen = resumenDeMarcas(grupos, nombres)
   const abierto = eleccion?.hoyo === hoyo ? eleccion.abierto : resumen.length > 0
-  const conBotones = grupos.filter(g => g.jugadores.length > 0)
-  const sinBotonesPorScore = grupos.filter(g => g.jugadores.length === 0 && PUNTITOS_CON_PAR_O_MEJOR.includes(g.puntito.tipo))
+  const conBotones = grupos.filter(g => g.jugadores.some(j => j.visible))
+  const conPista = grupos.filter(g => !g.jugadores.some(j => j.visible) && g.pista)
 
   return (
     <section
@@ -60,7 +72,17 @@ export function PuntosEspecialesDelHoyo(props: {
             {resumen.length > 0 ? 'Puntos especiales' : <><span aria-hidden style={{ color: 'var(--brand-on-bg)' }}>+ </span>Punto especial</>}
           </span>
           {!abierto && resumen.length > 0 && (
-            <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-2)', lineHeight: 1.35 }}>{resumen.join(', ')}</span>
+            <span data-resumen style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-2)', lineHeight: 1.35 }}>
+              {resumen.map((l, i) => (
+                <Fragment key={i}>
+                  {i > 0 && ', '}
+                  {l.texto}{' '}
+                  {l.estado === 'cuenta'
+                    ? <span style={{ color: 'var(--brand-on-bg)' }}>✓</span>
+                    : <span style={{ fontWeight: 700, color: 'var(--text)' }}>{l.estado === 'no_cuenta' ? '(no cuenta)' : '(sin enviar)'}</span>}
+                </Fragment>
+              ))}
+            </span>
           )}
         </span>
         <span aria-hidden style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-2)' }}>{abierto ? 'Cerrar' : resumen.length > 0 ? 'Editar' : ''}</span>
@@ -74,13 +96,15 @@ export function PuntosEspecialesDelHoyo(props: {
             <div key={g.puntito.id} role="group" aria-label={g.nombre} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-2)' }}>
                 {g.nombre} <span style={{ fontWeight: 500 }}>+{g.puntito.valor}</span>
-                {g.puntito.tipo === 'greenie' && <span style={{ fontWeight: 500 }}> · uno por hoyo</span>}
+                {g.nota && <span style={{ fontWeight: 500 }}> · {g.nota}</span>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
                 {g.jugadores.map(j => {
+                  // Oculto = hueco: cada jugador conserva su columna aunque cambie un score.
+                  if (!j.visible) return <div key={j.jugadorId} aria-hidden />
                   const nombre = nombres[j.jugadorId] ?? ''
                   return (
-                    <div key={j.jugadorId} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <div key={j.jugadorId} style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                       <button
                         type="button"
                         aria-pressed={j.marcado}
@@ -91,7 +115,8 @@ export function PuntosEspecialesDelHoyo(props: {
                           display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left',
                           fontFamily: 'inherit', fontSize: '15px', fontWeight: j.marcado ? 700 : 500,
                           background: j.marcado ? 'var(--status-open-bg)' : 'transparent',
-                          border: j.marcado ? '2px solid var(--brand)' : '1px solid var(--border-md)',
+                          // Sin marcar, el borde es de --text-3 (≥3:1 contra la tarjeta, WCAG 1.4.11).
+                          border: j.marcado ? '2px solid var(--brand)' : '1px solid var(--text-3)',
                           color: 'var(--text)',
                         }}
                       >
@@ -100,7 +125,7 @@ export function PuntosEspecialesDelHoyo(props: {
                         {j.enEspera && <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-2)' }}>sin enviar</span>}
                       </button>
                       {j.noCuenta && (
-                        <span style={{ fontSize: '12px', lineHeight: 1.3, color: 'var(--text-2)' }}>No cuenta: {primeraEnMinuscula(j.noCuenta)}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.3, color: 'var(--text-2)' }}>No cuenta: {primeraEnMinuscula(j.noCuenta)}</span>
                       )}
                     </div>
                   )
@@ -108,11 +133,11 @@ export function PuntosEspecialesDelHoyo(props: {
               </div>
             </div>
           ))}
-          {sinBotonesPorScore.length > 0 && (
-            <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.35, color: 'var(--text-2)' }}>
-              {sinBotonesPorScore.map(g => g.nombre).join(' y ')}: {sinBotonesPorScore.length > 1 ? 'aparecen' : 'aparece'} cuando alguien anota par o mejor.
+          {conPista.map(g => (
+            <p key={g.puntito.id} style={{ margin: 0, fontSize: '13px', lineHeight: 1.35, color: 'var(--text-2)' }}>
+              {g.nombre}: {primeraEnMinuscula(g.pista ?? '')}
             </p>
-          )}
+          ))}
         </div>
       )}
     </section>
