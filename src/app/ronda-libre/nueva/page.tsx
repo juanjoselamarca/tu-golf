@@ -133,6 +133,7 @@ export default function NuevaRondaLibrePage() {
     llevaElScoreDelGrupo: form.llevaElScoreDelGrupo,
     timba: juegoTimba,
     equiposDeClub: club.paraEnviar,
+    quienAnotaEquiposDeClub: club.quienAnotaParaEnviar,
   })
 
   if (creada) {
@@ -142,6 +143,7 @@ export default function NuevaRondaLibrePage() {
         cancha={form.cancha}
         holes={forma.holes}
         llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
+        unCelularPorEquipo={club.unCelularPorEquipo}
         onEmpezar={() =>
           router.push(
             // Un formato de equipos (los equipos de club incluidos) siempre lleva el score del grupo:
@@ -281,6 +283,7 @@ export default function NuevaRondaLibrePage() {
             jugadores={jugadores}
             equipos={form.esFormatoDeEquipo && !club.soloEquipos ? form.equipos : []}
             equiposDeClub={club.paraEnviar}
+            unCelularPorEquipo={club.unCelularPorEquipo}
             llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
             hcpVisibleDe={hcpVisibleDe}
             hayVariosTees={setup.tees.length > 1}

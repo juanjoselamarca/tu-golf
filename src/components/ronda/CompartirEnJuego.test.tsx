@@ -90,6 +90,22 @@ describe('CompartirEnJuego', () => {
     )
   })
 
+  it('un celular por equipo: primero el bloque para que cada equipo anote el suyo (link al scorer de grupo)', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    setNavigator({ share } as unknown as Navigator)
+    render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: false, unCelularPorEquipo: true })} color="red" />)
+    await abrirOpciones()
+
+    expect(screen.getByText('Un celular por equipo')).toBeTruthy()
+    expect(screen.getByText('Envía este link a un jugador de cada equipo. Al abrirlo elige su equipo.')).toBeTruthy()
+    expect(screen.queryByText('Invitar a jugar')).toBeNull()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Compartir' })[0])
+    await flush()
+    expect(share).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Anota el score de tu equipo en Golfers+', url: `${SITE}/ronda-libre/ABC/score-grupo` }),
+    )
+  })
+
   it('si la persona cancela la hoja del teléfono, las opciones siguen abiertas', async () => {
     const abort = Object.assign(new Error('cancel'), { name: 'AbortError' })
     setNavigator({ share: vi.fn().mockRejectedValue(abort) } as unknown as Navigator)

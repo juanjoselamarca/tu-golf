@@ -20,11 +20,19 @@ describe('cuerpoParaCrearRonda — equipos de club', () => {
   const club = [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: 'Equipo 2', handicap: 12 }]
 
   it('manda equipos_de_club con un celular, sin `equipos`, y al creador como único jugador', () => {
-    const body = cuerpo(base({ equiposDeClub: club }))
+    const body = cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'uno' }))
     expect(body.equipos_de_club).toEqual({ equipos: club, quien_anota: 'uno' })
     expect(body.equipos).toBeUndefined()
     expect(body.jugadores.map(j => [j.nombre, j.user_id])).toEqual([['Juanjo', 'u1']])
     expect(JSON.parse(JSON.stringify(body))).not.toHaveProperty('equipos')
+  })
+
+  it('«Cada equipo en su celular» viaja tal cual (el servidor deriva admin_mode)', () => {
+    expect(cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'cada_equipo' })).equipos_de_club?.quien_anota).toBe('cada_equipo')
+  })
+
+  it('con 1 equipo no se pregunta: quien_anota viaja null', () => {
+    expect(cuerpo(base({ equiposDeClub: [club[0]] })).equipos_de_club?.quien_anota).toBeNull()
   })
 
   it('gross: los hándicaps viajan null', () => {

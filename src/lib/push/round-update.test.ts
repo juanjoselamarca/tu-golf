@@ -15,7 +15,7 @@ function snapshot(estado: 'en_curso' | 'finalizada'): RoundPushSnapshot {
     codigo: CODIGO, courseName: 'Los Leones', holes: 18, estado,
     // Ana ya terminó 3 hoyos: con cero hoyos terminados el push en curso no sale (shouldNotifySpectators).
     players: [{ nombre: 'Ana', vsPar: 1, holesCompleted: 3, totalHoles: 18 }],
-    participants: { creadorId: 'u9', adminUserId: null, playerUserIds: [], playerIds: ['j1'] },
+    participants: { creadorId: 'u9', adminUserId: null, playerUserIds: [], playerIds: ['j1'], teamScorerUserIds: [] },
   }
 }
 

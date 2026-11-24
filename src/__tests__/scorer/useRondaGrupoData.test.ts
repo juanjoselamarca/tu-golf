@@ -16,6 +16,8 @@ const push = vi.fn()
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
+const addToast = vi.hoisted(() => vi.fn())
+vi.mock('@/hooks/useToast', () => ({ addToast }))
 
 type SesionMock = { session: unknown; error: unknown } | 'lanza'
 const sesion = { valor: { session: { user: { id: 'u1', email: 'juanjo@x.cl' } }, error: null } as SesionMock }
@@ -38,7 +40,7 @@ const RONDA = {
 }
 const carga = { valor: { estado: 'ok', ronda: RONDA } as { estado: string; ronda?: unknown } }
 const opcionesDeCarga: unknown[] = []
-const lecturaDeEquipos = { falla: false }
+const lecturaDeEquipos = { falla: false, equipos: [] as unknown[] }
 vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
   const real = await orig<typeof import('@/lib/data/ronda-libre-scorer')>()
   return {
@@ -48,7 +50,7 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
     resolverHandicapsDelScorer: async () => ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 }, sinIndice: new Set<string>() }),
     fetchEquiposDelScorer: async () => {
       if (lecturaDeEquipos.falla) throw new Error('Failed to fetch')
-      return []
+      return lecturaDeEquipos.equipos
     },
   }
 })
@@ -63,6 +65,7 @@ function snapshotPrevio(teamEquipos: unknown[] = []) {
 beforeEach(() => {
   opcionesDeCarga.length = 0
   lecturaDeEquipos.falla = false
+  lecturaDeEquipos.equipos = []
   localStorage.clear()
   push.mockClear()
   replace.mockClear()
@@ -263,5 +266,114 @@ describe('useRondaGrupoData — orden de los jugadores al reconectar', () => {
     expect(result.current.ronda?.ronda_libre_jugadores.map(j => j.handicap)).toEqual([8.2, 13, 21])
     expect(opcionesDeCarga.length).toBeGreaterThan(0)
     expect(opcionesDeCarga.every(o => (o as { conReglasDelJuego?: boolean })?.conReglasDelJuego === true)).toBe(true)
+  })
+})
+
+describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () => {
+  const SCRAMBLE = { ...RONDA, formato_juego: 'scramble', admin_mode: false, admin_user_id: null }
+  const eq = (id: string, anotador: string | null, nombre: string | null = null) => ({
+    id, nombre: id, handicap_equipo: 10, handicap_equipo_juego: 3, handicap_origen: 'club', scores: {}, jugadorIds: [], jugadorNombres: [],
+    anotador_user_id: anotador, anotador_nombre: nombre,
+  })
+  it('el creador carga solo su equipo y los libres; el de Pedro queda aparte y nunca en teamEquipos', async () => {
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro'), eq('e3', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1', 'e3'])
+    expect(result.current.equiposDeOtroCelular.map(e => e.id)).toEqual(['e2'])
+    expect(result.current.unCelularPorEquipo).toBe(true)
+    expect(result.current.eleccion).toBeNull()
+    // La copia local también guarda solo los suyos: al abrir sin red no aparece el equipo de Pedro.
+    expect((loadScorerGrupoSnapshot('B4F5Y2', 'u1')?.teamEquipos as { id: string }[] | undefined)?.map(e => e.id)).toEqual(['e1', 'e3'])
+  })
+  it('una cuenta sin equipo (abrió el link): elige equipo, no anota ni va a la ronda en vivo', async () => {
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.eleccion).not.toBeNull())
+    expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
+    expect(result.current.teamEquipos).toEqual([])
+    expect(replace).not.toHaveBeenCalled()
+  })
+  it('«Elige tu equipo» se relee solo: un equipo que otro toma aparece tomado sin recargar la página', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.eleccion).not.toBeNull())
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro')]
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
+    await waitFor(() => expect(result.current.eleccion?.equipos.find(e => e.id === 'e2')?.anotador_user_id).toBe('u-pedro'))
+  })
+  it('«Elige tu equipo» relee al volver a la app (más de 2 s afuera)', async () => {
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.eleccion).not.toBeNull())
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro')]
+    const ahora = Date.now()
+    const visible = vi.spyOn(document, 'visibilityState', 'get')
+    const reloj = vi.spyOn(Date, 'now')
+    visible.mockReturnValue('hidden'); reloj.mockReturnValue(ahora)
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    visible.mockReturnValue('visible'); reloj.mockReturnValue(ahora + 5000)
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    visible.mockRestore(); reloj.mockRestore()
+    await waitFor(() => expect(result.current.eleccion?.equipos.find(e => e.id === 'e2')?.anotador_user_id).toBe('u-pedro'))
+  })
+  it('ronda de un celular (admin_mode): un extraño va a la ronda en vivo, como siempre', async () => {
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: { ...SCRAMBLE, admin_mode: true, admin_user_id: 'u1' } }
+    lecturaDeEquipos.equipos = [eq('e1', null)]
+    renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/ronda-libre/B4F5Y2'))
+  })
+  it('par al pasar de hoyo: otro celular reclama un equipo del creador y sale de teamEquipos (lo que se rellena con par)', async () => {
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e3', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1', 'e3'])
+    addToast.mockClear()
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e3', 'u-pedro', 'Pedro')]
+    await act(async () => { await result.current.recargar() })
+    // autoFillTeamsWithPar y completarEquiposConPar recorren teamEquipos: e3 ya no está ahí.
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1'])
+    expect(result.current.equiposDeOtroCelular.map(e => e.id)).toEqual(['e3'])
+    // Era suyo en pantalla: se avisa.
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
+  })
+  it('lo liberaron mientras anotaba (P0003 → recargar): «Ya no anotas este equipo.» y vuelve a elegir equipo', async () => {
+    sesion.valor = { session: { user: { id: 'u-pedro' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro')]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e2'])
+    addToast.mockClear()
+    // El creador liberó e2: la relectura (la que dispara el P0003 vía alPerderEquipo) ya no lo trae como suyo.
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    await act(async () => { await result.current.recargar() })
+    expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
+    // La copia local del equipo perdido se borra: sin señal no vuelve a abrir el scorer de e2.
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u-pedro')).toBeNull()
+  })
+  it('«Dejar este equipo»: vuelve a elegir equipo SIN el aviso «Ya no anotas» y sin la copia local', async () => {
+    sesion.valor = { session: { user: { id: 'u-pedro' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro')]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    addToast.mockClear()
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    await act(async () => { await result.current.recargarTrasDejarEquipo() })
+    expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u-pedro')).toBeNull()
   })
 })

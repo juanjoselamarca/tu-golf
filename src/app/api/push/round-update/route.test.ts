@@ -40,7 +40,7 @@ const JUGADOR_ID = '33333333-3333-4333-8333-333333333333'
 
 const ACCESS = {
   estado: 'en_curso',
-  participants: { creadorId: SCORER, adminUserId: null, playerUserIds: [], playerIds: [JUGADOR_ID] },
+  participants: { creadorId: SCORER, adminUserId: null, playerUserIds: [], playerIds: [JUGADOR_ID], teamScorerUserIds: [] },
 }
 const SNAPSHOT = { ...ACCESS, codigo: CODIGO, courseName: 'Los Leones', holes: 18, players: [] }
 
@@ -160,6 +160,14 @@ describe('entradas', () => {
     expect(res.status).toBe(404)
     expect(roundBucketCalls()).toHaveLength(0)
   })
+
+  it('la lectura de la ronda falla → 500 reportado, no un 404 silencioso', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: SCORER } } })
+    loadRoundAccess.mockRejectedValue(new Error('loadRoundAccess: 42703 column does not exist'))
+    const res = await post({ codigo: CODIGO })
+    expect(res.status).toBe(500)
+    expect(roundBucketCalls()).toHaveLength(0)
+  })
 })
 
 describe('ronda en curso sin puntajes (primer aviso con el primer puntaje, 23-oct-2026)', () => {
@@ -169,5 +177,26 @@ describe('ronda en curso sin puntajes (primer aviso con el primer puntaje, 23-oc
     const res = await post({ codigo: CODIGO })
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toMatchObject({ skipped: 'sin_puntajes', sent: 0, finished: false })
+  })
+})
+
+describe('un celular por equipo: el anotador de un equipo no es jugador de la ronda', () => {
+  const ANOTADOR = '44444444-4444-4444-8444-444444444444'
+  const CON_ANOTADOR = { ...ACCESS, participants: { ...ACCESS.participants, teamScorerUserIds: [ANOTADOR] } }
+
+  it('quien anota un equipo puede avisar a los seguidores', async () => {
+    loadRoundAccess.mockResolvedValue(CON_ANOTADOR)
+    getUser.mockResolvedValue({ data: { user: { id: ANOTADOR } } })
+    const res = await post({ codigo: CODIGO })
+    expect(res.status).toBe(200)
+    expect(pushRoundUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('una cuenta que no anota nada sigue recibiendo 403', async () => {
+    loadRoundAccess.mockResolvedValue(CON_ANOTADOR)
+    getUser.mockResolvedValue({ data: { user: { id: STRANGER } } })
+    const res = await post({ codigo: CODIGO })
+    expect(res.status).toBe(403)
+    expect(pushRoundUpdate).not.toHaveBeenCalled()
   })
 })

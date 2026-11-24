@@ -10,6 +10,8 @@ interface Props {
   cancha: string
   holes: number
   llevaElScoreDelGrupo: boolean
+  /** Un celular por equipo: el primer bloque es el link para que cada equipo anote el suyo. */
+  unCelularPorEquipo?: boolean
   onEmpezar: () => void
 }
 
@@ -20,7 +22,7 @@ interface Props {
  * jugar". Antes los dos "Compartir" también eran dorado sólido → tres CTAs
  * idénticos y el usuario no distinguía cuál lo lleva al scorer.
  */
-export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo, onEmpezar }: Props) {
+export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo, unCelularPorEquipo = false, onEmpezar }: Props) {
   return (
     <div style={{
       background: colores.fondo, minHeight: '100vh', padding: '20px 16px',
@@ -52,11 +54,11 @@ export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo,
           {/* Con un solo celular anotando por todos, "Invitar a jugar" llevaba a un aviso de que el admin
               lleva el score: solo se invita a seguir. Las mismas opciones que el botón de compartir del scorer. */}
           <div style={{ marginBottom: '32px' }}>
-            <OpcionesParaCompartir enlaces={enlacesDeRondaLibre(codigo, { conJugar: !llevaElScoreDelGrupo })} />
+            <OpcionesParaCompartir enlaces={enlacesDeRondaLibre(codigo, { conJugar: !llevaElScoreDelGrupo, unCelularPorEquipo })} />
           </div>
 
           <Button variant="commit" size="lg" fullWidth onClick={onEmpezar}>
-            {llevaElScoreDelGrupo ? 'Empezar score de grupo →' : 'Empezar a jugar →'}
+            {unCelularPorEquipo ? 'Anotar mi equipo →' : llevaElScoreDelGrupo ? 'Empezar score de grupo →' : 'Empezar a jugar →'}
           </Button>
         </div>
       </div>

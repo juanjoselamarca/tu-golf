@@ -32,6 +32,8 @@ interface Props {
   problema: ProblemaDeLaRonda | null
   /** Scramble rápido: los equipos como viajan (`equiposDeClubParaEnviar`). Reemplazan a la lista de jugadores. */
   equiposDeClub?: EquipoDeClubAValidar[] | null
+  /** Equipos de club con «Cada equipo en su celular» (`useEquiposDeClub.unCelularPorEquipo`). */
+  unCelularPorEquipo?: boolean
   /** Timba libre: su nombre reemplaza al del formato, y `juego` (las parejas) va antes de crear. */
   timba?: { nombre: string; juego: React.ReactNode }
   creando: boolean
@@ -163,7 +165,9 @@ export function PasoConfirmar(props: Props) {
         </Fila>
 
         <Fila etiqueta="Anota">
-          {club ? 'Tú, todos los equipos' : props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'}
+          {club
+            ? (props.unCelularPorEquipo ? 'Cada equipo en su celular' : 'Tú, todos los equipos')
+            : props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'}
         </Fila>
 
         {club ? (

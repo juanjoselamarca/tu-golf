@@ -26,7 +26,7 @@ import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { conTimeout } from '@/lib/red/con-timeout'
-import { fetchEquiposDeRondas, courseHandicapsDeRonda } from './ronda-libre'
+import { fetchEquiposConAnotador, courseHandicapsDeRonda } from './ronda-libre'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 import { crearHcpAMostrar, type HcpAMostrar } from './ronda-libre-live-api'
 import type { HoleData, RondaLibre } from '@/types/ronda'
@@ -221,14 +221,20 @@ export async function resolverHandicapsDelScorer(
   return { hcpMap, displayMap, sinIndice, hcpAMostrar: crearHcpAMostrar(ronda.ronda_libre_jugadores, displayMap, [...sinIndice], leerIndices ? 'todos' : new Set()) }
 }
 
-/** Equipo tal como lo anota el scorer de grupo: miembros en orden + sus nombres. */
+/**
+ * Equipo tal como lo anota el scorer de grupo: miembros en orden + sus nombres, y quién lo anota (un celular por
+ * equipo, `@/golf/ronda-libre/anotador-de-equipo`). `anotador_*` falta en una copia local de antes de leerlos.
+ */
 export interface EquipoDelScorer extends Equipo {
   jugadorNombres: string[]
+  anotador_user_id?: string | null
+  anotador_nombre?: string | null
 }
 
 /**
- * Equipos de la ronda (sólo formatos por equipo; `[]` en el resto). Fuente
- * única `fetchEquiposDeRondas`; acá sólo se resuelven los nombres de los miembros.
+ * Equipos de la ronda (sólo formatos por equipo; `[]` en el resto), con quién anota cada uno. Fuente
+ * única `fetchEquiposConAnotador` (la query de `fetchEquiposDeRondas`; el scorer exige sesión, así que puede leer
+ * las columnas del anotador); acá sólo se resuelven los nombres de los miembros.
  * Un error de lectura se LANZA y la carga termina en `sin_conexion`: con `[]` el
  * scorer creía que la ronda no tiene equipos y Finalizar decía "Tarjeta completa".
  */
@@ -237,7 +243,7 @@ export async function fetchEquiposDelScorer(
   ronda: Pick<RondaLibre, 'id' | 'formato_juego' | 'ronda_libre_jugadores'>,
 ): Promise<EquipoDelScorer[]> {
   if (!isTeamFormat(ronda.formato_juego)) return []
-  const equipos = (await fetchEquiposDeRondas(supabase, [ronda.id])).get(ronda.id) ?? []
+  const equipos = await fetchEquiposConAnotador(supabase, ronda.id)
   return equipos.map(e => ({
     ...e,
     jugadorNombres: e.jugadorIds.map(id => ronda.ronda_libre_jugadores.find(j => j.id === id)?.nombre || '?'),

@@ -13,10 +13,10 @@ const hoyos = [10, 11, 12]
 const eq = (id: string, scores: Record<string, number>): EquipoDelScorer =>
   ({ id, nombre: id, handicap_equipo: null, scores, jugadorIds: [], jugadorNombres: [] }) as unknown as EquipoDelScorer
 
-function montar(inicial: EquipoDelScorer[]) {
+function montar(inicial: EquipoDelScorer[], ajenos?: { id: string }[]) {
   return renderHook(() => {
     const [teamEquipos, setTeamEquipos] = useState(inicial)
-    const save = useTeamScoreSave({ codigo: 'QA602', parMap: PAR, teamEquipos, setTeamEquipos, setHasUnsaved: vi.fn(), programarEnvio: vi.fn() })
+    const save = useTeamScoreSave({ codigo: 'QA602', parMap: PAR, teamEquipos, setTeamEquipos, setHasUnsaved: vi.fn(), programarEnvio: vi.fn(), sinParAutomatico: ajenos })
     return { teamEquipos, save }
   })
 }
@@ -55,5 +55,49 @@ describe('useTeamScoreSave.handleTeamScoreChange con la tarjeta del equipo recha
     act(() => { result.current.save.handleTeamScoreChange('e1', 10, -1) })
     expect(leerRechazados('QA602')).toEqual({ [ID_PENDIENTE_EQUIPO('e1')]: { 11: 3 } })
     expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e1')]).toEqual({ 10: 6 })
+  })
+})
+
+describe('useTeamScoreSave — un celular por equipo: el par nunca toca un equipo de otro celular', () => {
+  // Lista vieja: e2 todavía en pantalla aunque ya lo anota otro celular (ajenos al día).
+  const AJENOS = [{ id: 'e2' }]
+  it('al pasar de hoyo rellena solo los propios', async () => {
+    const { result } = montar([eq('e1', {}), eq('e2', {})], AJENOS)
+    await act(async () => { await result.current.save.autoFillTeamsWithPar(10, 4) })
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e1')]).toEqual({ '10': 4 })
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e2')]).toBeUndefined()
+    expect(result.current.teamEquipos.find(e => e.id === 'e2')?.scores).toEqual({})
+  })
+  it('al finalizar completa solo los propios', () => {
+    const { result } = montar([eq('e1', { '10': 4 }), eq('e2', { '10': 5 })], AJENOS)
+    let out: EquipoDelScorer[] = []
+    act(() => { out = result.current.save.completarEquiposConPar(result.current.teamEquipos, hoyos) })
+    expect(out.find(e => e.id === 'e1')?.scores).toEqual({ '10': 4, '11': 3, '12': 5 })
+    expect(out.find(e => e.id === 'e2')?.scores).toEqual({ '10': 5 })
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e2')]).toBeUndefined()
+  })
+})
+
+describe('useTeamScoreSave — par fantasma (P1-a): el equipo sin reclamar del creador no recibe par', () => {
+  it('al pasar de hoyo: e1 (reclamado por el creador) sí, e3 (sin reclamar, en pantalla del creador) no', async () => {
+    const { result } = montar([eq('e1', {}), eq('e3', {})], [{ id: 'e3' }])
+    await act(async () => { await result.current.save.autoFillTeamsWithPar(10, 4) })
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e1')]).toEqual({ '10': 4 })
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e3')]).toBeUndefined()
+    expect(loadGroupTeamScores('QA602').e3).toEqual({})
+  })
+  it('a mano sí se edita el equipo sin reclamar', () => {
+    const { result } = montar([eq('e1', {}), eq('e3', {})], [{ id: 'e3' }])
+    act(() => { result.current.save.handleTeamScoreChange('e3', 10, 1) })
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e3')]).toEqual({ '10': 5 })
+  })
+  it('al finalizar, la lista recién leída (`sinPar`) manda sobre la de pantalla', () => {
+    // En pantalla nadie está excluido (lista vieja); el servidor dice que e3 está sin reclamar.
+    const { result } = montar([eq('e1', {}), eq('e3', {})], [])
+    let out: EquipoDelScorer[] = []
+    act(() => { out = result.current.save.completarEquiposConPar(result.current.teamEquipos, hoyos, [{ id: 'e3' }]) })
+    expect(out.find(e => e.id === 'e1')?.scores).toEqual({ '10': 4, '11': 3, '12': 5 })
+    expect(out.find(e => e.id === 'e3')?.scores).toEqual({})
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e3')]).toBeUndefined()
   })
 })

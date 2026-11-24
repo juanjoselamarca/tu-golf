@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { saveRondaLibreScores, saveRondaEquiposScores, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
-import { RONDA_ERRCODE, esNoReintentable, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, esNoReintentable, esRechazoDeEquipoAjeno, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { addToast } from '@/hooks/useToast'
 import { haptic } from '@/lib/ronda/helpers'
@@ -140,6 +140,14 @@ export function useGrupoScoreSave(input: {
   parMap: Record<number, number>
   /** Scores de equipo en pantalla (scramble/foursome): también se reenvían tras una caída. */
   teamEquipos?: ReadonlyArray<{ id: string; scores: Record<string, number> }>
+  /**
+   * Un celular por equipo (`@/golf/ronda-libre/anotador-de-equipo`). Sin esto (ronda de un celular) nada cambia.
+   *  - `ajenos`: equipos que anota otro celular. Lo pendiente de uno de ellos (anotado antes de que lo reclamaran)
+   *    NO se envía y sale de pendientes: el creador pasa `puede_anotar_ronda` y pisaría los golpes del otro celular.
+   *  - `alPerderEquipo`: el servidor rechazó (P0003) los golpes de un equipo que este celular ya no anota (lo
+   *    liberaron). No hay reintento posible: salen de pendientes y la pantalla relee quién anota qué.
+   */
+  unCelularPorEquipo?: { ajenos: ReadonlyArray<{ id: string }>; alPerderEquipo: () => void }
 }): GrupoScoreSave {
   const { ronda, codigo, currentHole, setScores, parMap } = input
 
@@ -207,6 +215,8 @@ export function useGrupoScoreSave(input: {
   useEffect(() => { scoresRef.current = input.scores }, [input.scores])
   const equiposRef = useRef(input.teamEquipos ?? [])
   useEffect(() => { equiposRef.current = input.teamEquipos ?? [] }, [input.teamEquipos])
+  const porCelularRef = useRef(input.unCelularPorEquipo)
+  useEffect(() => { porCelularRef.current = input.unCelularPorEquipo }, [input.unCelularPorEquipo])
 
   /* ── Envía TODO lo pendiente (jugadores y equipos) ── */
   const enviarTodo = useCallback(async (overrideScores?: Record<string, Record<number, number>>) => {
@@ -242,6 +252,7 @@ export function useGrupoScoreSave(input: {
       // Tarjetas que entraron en este envío (en cualquier vuelta): decide si `guardados` sube.
       let entraron = 0
       let rechazoDeSesion = false
+      let equipoPerdido = false
       // La sesión del teléfono se consulta a lo más UNA vez por ciclo (antes, con sesión válida y un rebote en
       // cada intento, eran hasta 3 getSession seguidos).
       let sesionDelCiclo: ReturnType<typeof sesionDelScorer> | null = null
@@ -278,7 +289,11 @@ export function useGrupoScoreSave(input: {
       }
       while (!ok && attempts < SAVE_RETRIES) {
         const noEncontrados: [string, Record<number, number>][] = []
+        const porCelular = porCelularRef.current
+        const ajenos = new Set((porCelular?.ajenos ?? []).map(e => ID_PENDIENTE_EQUIPO(e.id)))
         const envios = Object.entries(leerPendientes(codigo)).map(async ([id, golpes]) => {
+          // Equipo de otro celular: lo suyo no se pisa desde acá.
+          if (ajenos.has(id)) { confirmarPendientes(codigo, id, golpes); return { error: null } }
           const r = id.startsWith('eq:')
             ? await saveRondaEquiposScores(supabase, { codigo, equipoId: id.slice(3), delta: golpes })
             : await saveRondaLibreScores(supabase, { codigo, jugadorId: id, delta: golpes })
@@ -290,6 +305,13 @@ export function useGrupoScoreSave(input: {
           }
           // No encontró ronda+jugador (o equipo): se decide abajo, con UNA lectura de la ronda.
           else if (r.error.code === RONDA_ERRCODE.NOT_FOUND) { noEncontrados.push([id, golpes]); return { error: null } }
+          // Un celular por equipo: el equipo lo anota otro celular (P0003 'equipo_de_otro_anotador', también para el
+          // creador) o lo liberaron (con sesión P0003; anon recibe 42501). Definitivo: el pendiente se descarta.
+          else if (id.startsWith('eq:') && (esRechazoDeEquipoAjeno(r.error) || (porCelular && r.error.code === RONDA_ERRCODE.FORBIDDEN))) {
+            confirmarPendientes(codigo, id, golpes)
+            equipoPerdido = true
+            return { error: null }
+          }
           else if (esNoReintentable(r.error)) { rechazar(id, golpes, r.error.code); return { error: null } }
           return r
         })
@@ -316,6 +338,7 @@ export function useGrupoScoreSave(input: {
         if (!ok && attempts < SAVE_RETRIES) await new Promise(r => setTimeout(r, 400 * attempts))
       }
 
+      if (equipoPerdido) porCelularRef.current?.alPerderEquipo()
       if (noExiste) {
         // Igual que el scorer individual: se borra toda la copia local de la ronda, se avisa y se sale.
         rondaBorradaRef.current = true

@@ -40,6 +40,12 @@ export interface GrupoScoreboard {
   canFinalize: boolean
   /** Hoyos distintos que el cierre marcará como par (`hoyosPorMarcarAlFinalizar`); en 0 no falta nada. */
   hoyosPorMarcar: number
+  /**
+   * Hoyos distintos que alguna tarjeta de esta pantalla todavía no tiene, se rellenen o no con par al cerrar. Decide
+   * «Tarjeta completa»: un equipo sin par automático (sin reclamar, lo anota el creador) con hoyos vacíos no cuenta en
+   * `hoyosPorMarcar`, pero la tarjeta no está completa. Sin equipos sin par automático coincide con `hoyosPorMarcar`.
+   */
+  hoyosSinAnotar: number
   /** Timba libre: hoyos que al cerrar quedan "no jugados" (`hoyosQueQuedanSinJugarEnLaTimba`); `[]` fuera de una Timba. */
   hoyosSinJugarTimba: number[]
   /** Timba libre: de `hoyosSinJugarTimba`, los que nadie anotó (no reparten puntos); `[]` fuera de una Timba. */
@@ -87,8 +93,13 @@ export function useGrupoScoreboard(input: {
   matchResult: MatchResult | null
   /** Timba libre: retiros (`VistaDelJuego.retiros`); sus hoyos no se cuentan como "se marcan con par". */
   retiros?: Readonly<Record<string, number>>
+  /**
+   * Un celular por equipo: los equipos a los que el cierre NO les pone par (`equiposSinParAutomatico`, de otro
+   * celular o sin reclamar). No cuentan en `hoyosPorMarcar`: con hoyos vacíos bloquean el cierre, no se marcan.
+   */
+  sinParAutomatico?: ReadonlyArray<{ id: string }>
 }): GrupoScoreboard {
-  const { ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros } = input
+  const { ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros, sinParAutomatico } = input
   const holes = ronda?.holes
   const modo = ronda?.modo_juego
   const formato = ronda?.formato_juego
@@ -142,7 +153,14 @@ export function useGrupoScoreboard(input: {
       scores: scores[j.id],
       noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores }),
     }))
-    const hoyosPorMarcar = hoyosPorMarcarAlFinalizar(bolaCompartida ? tarjetas : tarjetasConRelleno, ordenHoyos).length
+    // Bola compartida: solo cuentan los equipos a los que el cierre les pone par (la hoja promete lo que se hará). Un
+    // equipo sin par automático no se rellena en ningún hoyo; sin equipos cargados siguen faltando todos.
+    const sinPar = new Set((sinParAutomatico ?? []).map(e => e.id))
+    const tarjetasDeEquipo = equipos.map(e => ({ scores: e.scores, noRellenar: sinPar.has(e.id) ? ordenHoyos : undefined }))
+    const hoyosPorMarcar = hoyosPorMarcarAlFinalizar(bolaCompartida ? tarjetasDeEquipo : tarjetasConRelleno, ordenHoyos).length
+    const hoyosSinAnotar = bolaCompartida
+      ? hoyosPorMarcarAlFinalizar(equipos.map(e => ({ scores: e.scores })), ordenHoyos).length
+      : hoyosPorMarcar
     const entradaTimba = { jugadores, scores, retiros, ordenHoyos, hoyoEnPantalla: currentHole }
     const hoyosSinJugarTimba = esTimba ? hoyosQueQuedanSinJugarEnLaTimba(entradaTimba) : []
     const hoyosNadieJugoTimba = esTimba ? hoyosQueNadieJugoEnLaTimba(entradaTimba) : []
@@ -165,8 +183,8 @@ export function useGrupoScoreboard(input: {
 
     return {
       totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford, isMatchPlay,
-      siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal,
+      siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinAnotar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal,
       strokesOnHole, maxStrokesOnHole, hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
     }
-  }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros])
+  }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros, sinParAutomatico])
 }

@@ -19,7 +19,7 @@ import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { DiferenciaDeHandicap } from './DiferenciaDeHandicap'
 import { EquiposDeLaRonda } from './EquiposDeLaRonda'
 import { SelectorQuienAnota } from './SelectorQuienAnota'
-import { EquiposDeClub, SelectorSoloEquipos } from './EquiposDeClub'
+import { EquiposDeClub, SelectorQuienAnotaEquipos, SelectorSoloEquipos } from './EquiposDeClub'
 import type { EquiposDeClubDelFormulario } from '../hooks/useEquiposDeClub'
 import { TarjetaDelCreador } from './TarjetaDelCreador'
 import { TarjetaDeRival } from './TarjetaDeRival'
@@ -144,6 +144,7 @@ export function PasoJugadores(props: Props) {
         {props.club && <SelectorSoloEquipos soloEquipos={soloEquipos} onElegir={props.club.elegirSoloEquipos} />}
 
         {props.club && soloEquipos ? (
+          <>
           <EquiposDeClub
             equipos={props.club.equipos}
             modo={props.modo}
@@ -154,6 +155,10 @@ export function PasoJugadores(props: Props) {
             onRenombrar={props.club.renombrar}
             onHandicap={props.club.escribirHandicap}
           />
+          {props.club.seEligeQuienAnota && (
+            <SelectorQuienAnotaEquipos quienAnota={props.club.quienAnota} onElegir={props.club.elegirQuienAnota} />
+          )}
+          </>
         ) : (
           <>
             {props.preguntaQuienAnota ? (

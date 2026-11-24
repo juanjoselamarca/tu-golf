@@ -148,13 +148,9 @@ export interface Args {
    * va con `equipos_de_club` y sin `equipos`; `jugadores` es solo el creador (lo arma la página).
    */
   equiposDeClub?: EquipoDeClubAValidar[] | null
+  /** Con equipos de club: quién anota (`useEquiposDeClub.quienAnotaParaEnviar`; `null` con 1 equipo o sin elegir). */
+  quienAnotaEquiposDeClub?: QuienAnota | null
 }
-
-/**
- * Quién anota una ronda de equipos de club creada desde este formulario: siempre un celular. «Cada equipo en su
- * celular» (`admin_mode=false`) todavía no lo entiende el resto de la app (plan, PR4).
- */
-const QUIEN_ANOTA_EQUIPOS_DE_CLUB: QuienAnota = 'uno'
 
 export interface RondaCreada {
   codigo: string
@@ -190,7 +186,7 @@ export function cuerpoParaCrearRonda(args: Args, equipos: ReturnType<typeof equi
     recorridos: args.recorridos.length > 0 ? args.recorridos : undefined,
     jugadores: jugadoresParaLaApi(args.jugadores, args.userId),
     equipos: isTeamFormat(formatoAEnviar) && !club ? equipos : undefined,
-    equipos_de_club: club ? { equipos: club, quien_anota: QUIEN_ANOTA_EQUIPOS_DE_CLUB } : undefined,
+    equipos_de_club: club ? { equipos: club, quien_anota: args.quienAnotaEquiposDeClub ?? null } : undefined,
     reglas_juego: args.timba?.reglasJuego,
   }
 }
@@ -220,7 +216,7 @@ export function useCrearRonda(args: Args) {
     })),
     equipos: club ? [] : equipos,
     creadorId: args.userId,
-    ...(club ? { equiposDeClub: { equipos: club, holes: args.forma.holes, quienAnota: QUIEN_ANOTA_EQUIPOS_DE_CLUB } } : {}),
+    ...(club ? { equiposDeClub: { equipos: club, holes: args.forma.holes, quienAnota: args.quienAnotaEquiposDeClub ?? null } } : {}),
   })
   const problema = problemaDeLaRonda ?? args.timba?.problema ?? null
 
