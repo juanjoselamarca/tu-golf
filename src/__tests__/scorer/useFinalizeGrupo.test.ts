@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useFinalizeGrupo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useFinalizeGrupo'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { claveDelRespaldo, contarHoyosPendientes, leerRespaldoPendiente } from '@/lib/ronda/respaldo-local'
+import { PLAZO_GUARDADO_MS } from '@/lib/red/plazos'
 import type { ResultadoEnvio } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 
 const respaldoSinSubir = () => localStorage.setItem(claveDelRespaldo('ABC', 'p1'), JSON.stringify({ scores: { 18: 4 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC', jugadorId: 'p1' }))
@@ -633,6 +634,23 @@ describe('useFinalizeGrupo — finalizar y descartar se excluyen', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
+  it('descarte sin respuesta del servidor: vence el plazo, se suelta y Finalizar abre la hoja', async () => {
+    const real = await vi.importActual<typeof import('@/lib/data/ronda-libre-cierre')>('@/lib/data/ronda-libre-cierre')
+    descartarRondaLibre.mockImplementationOnce(((_sb: unknown, codigo: string) =>
+      real.descartarRondaLibre({ rpc: () => new Promise(() => {}) } as never, codigo)) as never)
+    vi.useFakeTimers()
+    try {
+      const { result } = montar()
+      await act(async () => { void result.current.fin.discardRound() })
+      expect(result.current.fin.discarding).toBe(true)
+      await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_GUARDADO_MS) })
+      expect(result.current.fin.discarding).toBe(false)
+      expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', message: 'No se pudo descartar la ronda. Intenta de nuevo.' }))
+      await act(async () => { await result.current.fin.finalizeRound() })
+      expect(result.current.fin.confirmFinalize).toBe(true)
+    } finally { vi.useRealTimers() }
   })
 
   it('un cierre que no salió (sin servidor) libera: después se puede descartar', async () => {

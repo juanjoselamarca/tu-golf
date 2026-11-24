@@ -6,6 +6,7 @@ import { fetchRondaParaCierre } from '@/lib/data/ronda-libre-finalizar'
 import { addToast } from '@/hooks/useToast'
 import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
+import { PLAZO_GUARDADO_MS } from '@/lib/red/plazos'
 
 const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn((..._a: unknown[]) => Promise.resolve({})) }))
 
@@ -377,5 +378,52 @@ describe('useFinalizeRonda — finalizar y descartar se excluyen', () => {
     expect(descartes()).toBe(1)
     expect(fetchRondaParaCierre).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('descarte sin respuesta del servidor: vence el plazo, se suelta y Finalizar abre la hoja', async () => {
+    rpcMock.mockImplementationOnce(() => new Promise<unknown>(() => {}) as never)
+    vi.useFakeTimers()
+    try {
+      const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+      await act(async () => { await result.current.discardRound() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+      await act(async () => { void result.current.discardRound() })
+      expect(result.current.discarding).toBe(true)
+      await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_GUARDADO_MS) })
+      expect(result.current.discarding).toBe(false)
+      expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', title: 'No se pudo descartar la ronda. Intenta de nuevo.' }))
+      await act(async () => { await result.current.finalizeRound() })
+      expect(result.current.confirmFinalize).toBe(true)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('descartar que falla libera: después se puede finalizar', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: '', message: 'Failed to fetch', details: '' } })
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await conReloj(async (avanzar) => {
+      await act(async () => { await result.current.discardRound() })
+      avanzar(2000)
+      await act(async () => { await result.current.discardRound() })
+    })
+    expect(descartes()).toBe(1)
+    expect(result.current.discarding).toBe(false)
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
+  it('un cierre que no salió (sin servidor) libera: después se puede descartar', async () => {
+    vi.mocked(fetchRondaParaCierre).mockResolvedValueOnce(null as never)
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.finalizando).toBe(false)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    await conReloj(async (avanzar) => {
+      await act(async () => { await result.current.discardRound() })
+      avanzar(2000)
+      await act(async () => { await result.current.discardRound() })
+    })
+    expect(descartes()).toBe(1)
   })
 })

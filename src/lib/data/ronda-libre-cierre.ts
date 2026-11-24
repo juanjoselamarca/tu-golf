@@ -10,6 +10,8 @@
 // permisivas).
 
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
+import { conTimeout } from '@/lib/red/con-timeout'
+import { PLAZO_GUARDADO_MS } from '@/lib/red/plazos'
 
 /** Errcodes de los RPCs de ronda libre (ver migración 20260929b). */
 export const RONDA_ERRCODE = {
@@ -128,12 +130,21 @@ export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'deta
  * la borró y la respuesta se perdió (mala señal): para quien descarta es un descarte hecho, y los
  * dos scorers siguen por el camino de éxito (limpiar las copias locales y salir). Sólo P0001:
  * sin red, 5xx o sin permiso la ronda puede seguir viva y no se limpia nada.
+ *
+ * Con plazo y sin lanzar: un RPC colgado (mala señal, app en segundo plano) dejaba tomado el cierre del scorer y
+ * Finalizar no respondía. Vencido, es "sin respuesta" (se puede reintentar); si el borrado igual llegó, el siguiente
+ * Finalizar lo ve como ronda que ya no existe.
  */
 export async function descartarRondaLibre(
   supabase: RpcClient,
   codigo: string,
 ): Promise<{ error: string | null; noExiste: boolean }> {
-  const { error } = await supabase.rpc('descartar_ronda_libre', { p_codigo: codigo })
+  let error: PostgrestError | null
+  try {
+    ;({ error } = await conTimeout(supabase.rpc('descartar_ronda_libre', { p_codigo: codigo }), PLAZO_GUARDADO_MS))
+  } catch {
+    return { error: mensajeErrorDescartar({ code: ERRCODE_SIN_RESPUESTA, details: '', message: '' }), noExiste: false }
+  }
   if (!error) return { error: null, noExiste: false }
   return { error: mensajeErrorDescartar(error), noExiste: error.code === RONDA_ERRCODE.NOT_FOUND }
 }

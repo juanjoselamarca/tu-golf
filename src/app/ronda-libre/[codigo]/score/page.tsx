@@ -456,6 +456,7 @@ function ScorePageContent() {
         isLastHole={isLastHole}
         canFinalize={canFinalize}
         finalizando={finalizando}
+        descartando={discarding}
         onPrev={nav.goToPrevHole}
         onNext={goToNextHole}
         onFinalize={finalizeRound}

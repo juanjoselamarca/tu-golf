@@ -146,8 +146,8 @@ export default function ScoreGrupoPage() {
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
   // Con el aviso de sesión, "Iniciar sesión" navega a propósito y los golpes quedan en el teléfono: sin advertencia.
   useBeforeUnloadWarning(hasUnsaved && !sesionPerdida)
-  // Mientras se finaliza, o mientras cambia quién anota un equipo, no se aceptan golpes ni se descarta (`tarjetaCongelada`).
-  const congelada = tarjetaCongelada({ finalizing, anotadorEnCurso: anotador.enCurso })
+  // Mientras se finaliza o se descarta, o mientras cambia quién anota un equipo: ni golpes, ni finalizar, ni descartar (`tarjetaCongelada`).
+  const congelada = tarjetaCongelada({ finalizing, discarding, anotadorEnCurso: anotador.enCurso })
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
@@ -462,6 +462,7 @@ export default function ScoreGrupoPage() {
         isLastHole={isLastHole}
         canFinalize={canFinalize && cierraEsteCelular}
         finalizing={finalizing}
+        congelada={congelada}
         onPrev={nav.goToPrevHole}
         onNext={goToNextHole}
         onFinalize={finalizeRound}

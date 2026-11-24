@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { PLAZO_GUARDADO_MS } from '@/lib/red/plazos'
 import {
   descartarRondaLibre,
   mensajeErrorDescartar,
@@ -14,6 +15,22 @@ function cliente(respuesta: { data?: unknown; error?: unknown }) {
 }
 
 describe('descartarRondaLibre', () => {
+  afterEach(() => { vi.useRealTimers() })
+
+  // Revisión P1 (24-nov): sin plazo, un descarte colgado dejaba tomado el cierre del scorer y Finalizar no respondía.
+  it('sin respuesta del servidor: vence el plazo y devuelve el error de reintento, sin lanzar', async () => {
+    vi.useFakeTimers()
+    const sb = { rpc: vi.fn(() => new Promise(() => {})) }
+    const p = descartarRondaLibre(sb as never, 'ABC123')
+    await vi.advanceTimersByTimeAsync(PLAZO_GUARDADO_MS)
+    expect(await p).toEqual({ error: 'No se pudo descartar la ronda. Intenta de nuevo.', noExiste: false })
+  })
+
+  it('red caída (el RPC rechaza): mismo error de reintento, sin lanzar', async () => {
+    const sb = { rpc: vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))) }
+    expect(await descartarRondaLibre(sb as never, 'ABC123')).toEqual({ error: 'No se pudo descartar la ronda. Intenta de nuevo.', noExiste: false })
+  })
+
   it('éxito sin error', async () => {
     const sb = cliente({})
     expect(await descartarRondaLibre(sb as never, 'ABC123')).toEqual({ error: null, noExiste: false })

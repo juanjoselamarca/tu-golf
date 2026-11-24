@@ -3,10 +3,11 @@
  * y mientras va en vuelo un cambio de quién anota un equipo (`useAnotadorDeEquipo.enCurso`: reclamar, liberar o
  * «Dejar este equipo»): un golpe anotado justo antes de soltar el equipo quedaría pendiente, el servidor lo rechaza
  * (P0003, ya no es tuyo) y se descarta sin aviso. Congelada tampoco se ofrece «Descartar ronda» (`DiscardRoundModal`):
- * descartar con «Finalizando…» borraba la ronda en pleno cierre (P0 24-nov).
+ * descartar con «Finalizando…» borraba la ronda en pleno cierre (P0 24-nov). Y al revés: con «Descartando…» la ronda
+ * se está borrando, así que tampoco se finaliza (`GrupoNavBar`) ni se anotan golpes.
  */
-export function tarjetaCongelada(estado: { finalizing: boolean; anotadorEnCurso: string | null }): boolean {
-  return estado.finalizing || estado.anotadorEnCurso != null
+export function tarjetaCongelada(estado: { finalizing: boolean; discarding: boolean; anotadorEnCurso: string | null }): boolean {
+  return estado.finalizing || estado.discarding || estado.anotadorEnCurso != null
 }
 
 /**

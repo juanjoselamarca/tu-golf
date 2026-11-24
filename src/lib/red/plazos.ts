@@ -73,3 +73,12 @@ export const PLAZO_CERRAR_TARJETA_MS = 15_000
  * ya está cerrada en la base: si la lectura no llega, el cierre igual termina y el listado se actualiza después.
  */
 export const PLAZO_RELEER_TARJETAS_MS = 10_000
+
+/**
+ * Plazo de un guardado de score de la ronda libre, y de su cierre y su descarte (`@/lib/data/ronda-libre-scores`,
+ * `@/lib/data/ronda-libre-cierre`). Caída del 04-oct-2026: con la base saturada un guardado tardaba 20-80 s y el
+ * scorer quedaba colgado esperando. Pasado el plazo se devuelve un error de transporte: el golpe ya está en el
+ * respaldo local y el scorer reintenta solo. Si la RPC termina tarde, cuando este dispositivo ya guardó algo más
+ * nuevo, el servidor la descarta (ver `nuevaSecuencia`).
+ */
+export const PLAZO_GUARDADO_MS = 12_000
