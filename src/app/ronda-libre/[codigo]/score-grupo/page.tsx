@@ -152,7 +152,7 @@ export default function ScoreGrupoPage() {
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
-    retiros: esTimba ? timba.retiros : undefined,
+    retiros: esTimba ? timba.retiros : undefined, sinParAutomatico,
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,

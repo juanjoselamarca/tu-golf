@@ -37,6 +37,22 @@ describe('useGrupoScoreboard — bola compartida (#602)', () => {
     expect(b.hoyoCompleto(4)).toBe(false) // e2 no lo anotó
   })
 
+  it('un celular por equipo: la hoja solo cuenta los hoyos de los equipos a los que el cierre les pone par', () => {
+    const conSinPar = (sinParAutomatico?: ReadonlyArray<{ id: string }>) => renderHook(() => useGrupoScoreboard({
+      ronda: { holes: 9, modo_juego: 'neto', formato_juego: 'scramble' } as never,
+      jugadores, scores: {}, parMap, holeDataMap, playerHcp, equipos, ordenHoyos: orden, currentHole: 9, isLastHole: true, matchResult: null,
+      sinParAutomatico,
+    })).result.current
+    // e2 (Pumas, le faltan 4-9) es de otro celular o sin reclamar: no se marca con par, así que no se promete.
+    expect(conSinPar([{ id: 'e2' }]).hoyosPorMarcar).toBe(4) // solo e1: 6-9
+    // Ningún equipo con par automático: «¿Finalizar ronda?», sin prometer par.
+    expect(conSinPar([{ id: 'e1' }, { id: 'e2' }]).hoyosPorMarcar).toBe(0)
+    // Sin la lista (ronda de un celular): como siempre, todos.
+    expect(conSinPar(undefined).hoyosPorMarcar).toBe(6)
+    // La fila de progreso y THRU siguen mirando todos los equipos.
+    expect(conSinPar([{ id: 'e2' }]).hoyoCompleto(4)).toBe(false)
+  })
+
   it('GOLPES con el handicap del EQUIPO en 9h (mitad de 10 = 5 → SI 1-5), no el del jugador', () => {
     expect(montar('scramble', 'neto', 6).maxStrokesOnHole).toBe(0)
     expect(montar('scramble', 'neto', 5).maxStrokesOnHole).toBe(1)
