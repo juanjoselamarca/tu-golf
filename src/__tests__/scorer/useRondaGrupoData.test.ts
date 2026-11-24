@@ -57,6 +57,9 @@ const RONDA = {
 }
 const carga = { valor: { estado: 'ok', ronda: RONDA } as { estado: string; ronda?: unknown } }
 const opcionesDeCarga: unknown[] = []
+/** Código pedido en cada lectura, y la respuesta por código cuando un test necesita distinguirlas. */
+const codigosDeCarga: string[] = []
+const cargaPorCodigo: Record<string, { estado: string; ronda?: unknown }> = {}
 /** Compuerta de la lectura de la ronda: mientras `espera` no se resuelva, la lectura queda en vuelo. */
 const lecturaEnVuelo = { espera: null as Promise<void> | null }
 function compuerta() {
@@ -74,10 +77,11 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
   const real = await orig<typeof import('@/lib/data/ronda-libre-scorer')>()
   return {
     ...real,
-    fetchRondaLibreParaScorer: async (_sb: unknown, _codigo: string, opciones?: unknown) => {
+    fetchRondaLibreParaScorer: async (_sb: unknown, codigo: string, opciones?: unknown) => {
       opcionesDeCarga.push(opciones)
+      codigosDeCarga.push(codigo)
       if (lecturaEnVuelo.espera) await lecturaEnVuelo.espera
-      return carga.valor
+      return cargaPorCodigo[codigo] ?? carga.valor
     },
     cargarHoyosDelScorer: async () => colgada.lectura === 'hoyos'
       ? nunca()
@@ -105,6 +109,8 @@ function snapshotPrevio(teamEquipos: unknown[] = []) {
 
 beforeEach(() => {
   opcionesDeCarga.length = 0
+  codigosDeCarga.length = 0
+  for (const k of Object.keys(cargaPorCodigo)) delete cargaPorCodigo[k]
   senalesDeConsulta.length = 0
   lecturaDeEquipos.falla = false
   colgada.lectura = null
@@ -690,4 +696,22 @@ describe('useRondaGrupoData — lecturas vencidas se cancelan y nunca se aplican
     expect(captureError).not.toHaveBeenCalled()
   })
 
+  it('otro `codigo` sin desmontar: la lectura vieja se aborta, se lee el nuevo y lo tardío del viejo no se aplica', async () => {
+    snapshotPrevio()
+    const abrir = compuerta()
+    const { rerender } = renderHook(({ codigo }) => useRondaGrupoData(codigo), { initialProps: { codigo: 'B4F5Y2' } })
+    await waitFor(() => expect(opcionesDeCarga).toHaveLength(1))
+    const primera = (opcionesDeCarga[0] as { signal: AbortSignal }).signal
+    rerender({ codigo: 'ZZ9ZZ9' })
+    expect(primera.aborted).toBe(true)
+    // La vieja contesta tarde «no existe»: sin la cancelación borraría la copia de B4F5Y2 y mandaría al dashboard.
+    cargaPorCodigo.B4F5Y2 = { estado: 'no_existe' }
+    abrir()
+    await waitFor(() => expect(codigosDeCarga).toEqual(['B4F5Y2', 'ZZ9ZZ9']))
+    const segunda = (opcionesDeCarga[1] as { signal: AbortSignal }).signal
+    expect(segunda.aborted).toBe(false)
+    await new Promise(r => setTimeout(r, 20))
+    expect(push).not.toHaveBeenCalledWith('/dashboard')
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u1')).not.toBeNull()
+  })
 })
