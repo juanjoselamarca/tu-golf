@@ -119,6 +119,7 @@ export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'deta
     return 'Solo quien creó la ronda puede descartarla.'
   }
   if (error.code === RONDA_ERRCODE.NOT_FOUND) return 'Esta ronda ya no existe.'
+  if (error.code === RONDA_ERRCODE.FINALIZED) return 'Esta ronda ya terminó y no se puede descartar.'
   return 'No se pudo descartar la ronda. Intenta de nuevo.'
 }
 
@@ -134,17 +135,28 @@ export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'deta
  * Con plazo y sin lanzar: un RPC colgado (mala señal, app en segundo plano) dejaba tomado el cierre del scorer y
  * Finalizar no respondía. Vencido, es "sin respuesta" (se puede reintentar); si el borrado igual llegó, el siguiente
  * Finalizar lo ve como ronda que ya no existe.
+ *
+ * `cerrada`: el servidor respondió P0002, la ronda ya no está en curso y no se descarta (migración
+ * 20261124120000). El scorer deja de ofrecer «Descartar ronda».
  */
 export async function descartarRondaLibre(
   supabase: RpcClient,
   codigo: string,
-): Promise<{ error: string | null; noExiste: boolean }> {
+): Promise<{ error: string | null; noExiste: boolean; cerrada: boolean }> {
   let error: PostgrestError | null
   try {
     ;({ error } = await conTimeout(supabase.rpc('descartar_ronda_libre', { p_codigo: codigo }), PLAZO_GUARDADO_MS))
   } catch {
-    return { error: mensajeErrorDescartar({ code: ERRCODE_SIN_RESPUESTA, details: '', message: '' }), noExiste: false }
+    return {
+      error: mensajeErrorDescartar({ code: ERRCODE_SIN_RESPUESTA, details: '', message: '' }),
+      noExiste: false,
+      cerrada: false,
+    }
   }
-  if (!error) return { error: null, noExiste: false }
-  return { error: mensajeErrorDescartar(error), noExiste: error.code === RONDA_ERRCODE.NOT_FOUND }
+  if (!error) return { error: null, noExiste: false, cerrada: false }
+  return {
+    error: mensajeErrorDescartar(error),
+    noExiste: error.code === RONDA_ERRCODE.NOT_FOUND,
+    cerrada: error.code === RONDA_ERRCODE.FINALIZED,
+  }
 }

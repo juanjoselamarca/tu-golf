@@ -95,6 +95,8 @@ export interface UseFinalizeRondaResult {
   confirmDiscard: boolean
   setConfirmDiscard: React.Dispatch<React.SetStateAction<boolean>>
   discarding: boolean
+  /** La tarjeta ya está en el historial o la ronda cerró: «Descartar ronda» no se ofrece más. */
+  descarteCerrado: boolean
   roundDone: boolean
   setRoundDone: React.Dispatch<React.SetStateAction<boolean>>
   finalScore: { gross: number; totalPar: number }
@@ -119,6 +121,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   // Finalizar y descartar se excluyen (P0 24-nov: descartar en pleno cierre borraba la ronda). Ref y no `discarding`:
   // un descarte y un cierre del mismo tick verían el state viejo y correrían los dos.
   const descartandoRef = useRef(false)
+  // Con la tarjeta ya en el historial (o la ronda cerrada en el servidor) no se descarta: «Seguir anotando» vuelve a
+  // mostrar el scorer y el descarte borraba la ronda con las tarjetas de todos. No se reabre: no hay vuelta atrás.
+  const [descarteCerrado, setDescarteCerrado] = useState(false)
   /** La ronda ya no existe (la descartó quien la creó): avisa, borra las copias locales y saca al jugador. */
   const salirPorRondaBorrada = () => {
     addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
@@ -130,7 +135,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   const descarteArmadoEn = useRef(0)
 
   const discardRound = async () => {
-    if (!ronda || discarding || descartandoRef.current || finalizandoRef.current) return
+    if (!ronda || discarding || descarteCerrado || descartandoRef.current || finalizandoRef.current) return
     if (!confirmDiscard) {
       descarteArmadoEn.current = Date.now()
       setConfirmDiscard(true)
@@ -145,8 +150,13 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     let descartada = false
     try {
       // noExiste: el servidor ya la borró (un intento anterior cuya respuesta se perdió). Es un descarte hecho.
-      const { error, noExiste } = await descartarRondaLibre(createClient(), codigo)
-      if (error && !noExiste) { setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
+      const { error, noExiste, cerrada } = await descartarRondaLibre(createClient(), codigo)
+      if (error && !noExiste) {
+        setConfirmDiscard(false)
+        if (cerrada) setDescarteCerrado(true)
+        addToast({ title: error, type: 'error' })
+        return
+      }
       descartada = true
       limpiarCopiaLocalDeRonda(codigo)
       addToast({ title: 'Ronda descartada', type: 'info' })
@@ -401,6 +411,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     let finalTotalPar = 0
     tarjetaGuardada.hoyos.forEach((h, i) => { if (tarjetaGuardada.scores[i] != null) finalTotalPar += parMap[h] ?? 4 })
     setFinalScore({ gross: tarjetaGuardada.totalGross, totalPar: finalTotalPar })
+    setDescarteCerrado(true)
     setRoundDone(true)
     setHasUnsaved(false)
   }
@@ -414,6 +425,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     confirmDiscard,
     setConfirmDiscard,
     discarding,
+    descarteCerrado,
     roundDone,
     setRoundDone,
     finalScore,

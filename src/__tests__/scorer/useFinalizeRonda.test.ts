@@ -427,3 +427,60 @@ describe('useFinalizeRonda — finalizar y descartar se excluyen', () => {
     expect(descartes()).toBe(1)
   })
 })
+
+// Revisión Fable #867: tras «Seguir anotando» en la pantalla final, «Descartar ronda» volvía a estar activo y borraba
+// la ronda con las tarjetas de todos. Con la tarjeta ya en el historial, el descarte queda cerrado.
+describe('useFinalizeRonda — descarte cerrado tras finalizar', () => {
+  const dosToques = async (result: { current: { discardRound: () => Promise<void> } }) => {
+    const ahora = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
+    try {
+      await act(async () => { await result.current.discardRound() })
+      ahora.mockReturnValue(1_002_000)
+      await act(async () => { await result.current.discardRound() })
+    } finally { ahora.mockRestore() }
+  }
+  const llamadasDeDescarte = () => rpcMock.mock.calls.filter(c => c[0] === 'descartar_ronda_libre')
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear() })
+
+  it('al empezar se puede descartar', () => {
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    expect(result.current.descarteCerrado).toBe(false)
+  })
+
+  it('finalizada la tarjeta, sigue cerrado después de «Seguir anotando» y descartar no llama al servidor', async () => {
+    const onDiscardSuccess = vi.fn()
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), onDiscardSuccess }))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(true)
+    expect(result.current.descarteCerrado).toBe(true)
+
+    act(() => { result.current.setRoundDone(false) }) // «Seguir anotando»
+    expect(result.current.descarteCerrado).toBe(true)
+    await dosToques(result)
+    expect(llamadasDeDescarte()).toHaveLength(0)
+    expect(onDiscardSuccess).not.toHaveBeenCalled()
+  })
+
+  it('finalizar sin servidor no cierra el descarte (la tarjeta no llegó al historial)', async () => {
+    const opts = { ...baseOpts(), guardarAhora: vi.fn(async () => 'sin_conexion' as const) }
+    const { result } = renderHook(() => useFinalizeRonda(opts))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(false)
+    expect(result.current.descarteCerrado).toBe(false)
+  })
+
+  it('el servidor responde P0002 (la ronda ya cerró): avisa, cierra el descarte y no sale de la pantalla', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED', details: '' } })
+    const onDiscardSuccess = vi.fn()
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), onDiscardSuccess }))
+    await dosToques(result)
+    expect(llamadasDeDescarte()).toHaveLength(1)
+    expect(result.current.descarteCerrado).toBe(true)
+    expect(result.current.discarding).toBe(false)
+    expect(onDiscardSuccess).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya terminó y no se puede descartar.', type: 'error' }))
+  })
+})
