@@ -138,6 +138,8 @@ test.describe('Página /planes — pricing', () => {
       'Scoring completo',
       'Índice Golfers+',
       'Import de rondas',
+      // Gratis desde el 24-nov-2026 (antes PRO): basta una cuenta.
+      'Leaderboard en vivo',
     ]
 
     for (const feature of freeFeatures) {
@@ -156,7 +158,6 @@ test.describe('Página /planes — pricing', () => {
       'Coach tAIger+ con IA',
       'Detección de patrones',
       'Golf Win Index',
-      'Leaderboard en vivo',
       'Modo TV',
     ]
 

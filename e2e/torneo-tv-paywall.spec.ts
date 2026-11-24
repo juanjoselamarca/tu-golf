@@ -7,7 +7,7 @@ import { createIndividualTournamentFixture, tarjeta } from './helpers/tournament
  *
  * Cubre:
  * 1. /torneo/[slug]/tv — modo TV (Pro-gated, debe mostrar UpsellCard para free)
- * 2. /torneo/[slug]/en-vivo — leaderboard en vivo (paywall behavior para free)
+ * 2. /torneo/[slug]/en-vivo — sin sesión manda al login (no es PRO desde el 24-nov-2026: basta una cuenta gratis)
  * 3. Slug inexistente → error controlado (no 500)
  * 4. UpsellCard contenido y CTA verificados
  *
@@ -153,63 +153,32 @@ test.describe('TV mode — /torneo/[slug]/tv (anónimo)', () => {
 /* ═══════════════════════════════════════════════════════ */
 
 test.describe('En vivo torneo — /torneo/[slug]/en-vivo (anónimo)', () => {
-  test('torneo demo carga y muestra nombre o gate', async ({ page }) => {
-    const { pageErrors, serverErrors } = attachErrorTrackers(page)
+  // Sin sesión, el en vivo (en curso o cerrado) manda al login y vuelve acá al entrar.
+  // Nunca un upsell PRO: el en vivo lo ve cualquier cuenta, gratis incluida.
+  for (const caso of [
+    { nombre: 'torneo en curso', slug: () => DEMO_SLUG },
+    { nombre: 'torneo cerrado', slug: () => CLOSED_SLUG },
+  ]) {
+    test(`${caso.nombre}: sin sesión manda al login con la vuelta al en vivo`, async ({ page }) => {
+      const { pageErrors, serverErrors } = attachErrorTrackers(page)
+      const destino = `/torneo/${caso.slug()}/en-vivo`
 
-    await page.goto(`/torneo/${DEMO_SLUG}/en-vivo`, {
-      waitUntil: 'domcontentloaded',
+      await page.goto(destino, { waitUntil: 'domcontentloaded' })
+
+      test.fixme(
+        await isBlockedByVercel(page),
+        'Vercel Security Checkpoint bloqueó el headless browser',
+      )
+
+      await page.waitForURL(/\/login/, { timeout: 15_000 })
+      const url = new URL(page.url())
+      expect(url.pathname, 'sin sesión el en vivo pide entrar').toBe('/login')
+      expect(url.searchParams.get('next'), 'al entrar vuelve al en vivo').toBe(destino)
+
+      expect(pageErrors, `pageerrors en en-vivo (${caso.nombre})`).toEqual([])
+      expect(serverErrors, `5xx en en-vivo (${caso.nombre})`).toEqual([])
     })
-
-    test.fixme(
-      await isBlockedByVercel(page),
-      'Vercel Security Checkpoint bloqueó el headless browser',
-    )
-
-    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
-
-    const body = await page.locator('body').innerText()
-
-    // Debe mostrar el nombre del torneo, upsell Pro, o contenido de leaderboard
-    const hasContent =
-      body.includes('Copa') ||
-      body.includes('Demo') ||
-      body.includes('Leaderboard') ||
-      body.includes('En vivo') ||
-      body.includes('En Vivo') ||
-      body.includes('Pro') ||
-      body.includes('Probar')
-
-    expect(
-      hasContent,
-      'La página en-vivo debe mostrar datos del torneo o gate Pro',
-    ).toBe(true)
-
-    expect(pageErrors, 'pageerrors en en-vivo demo').toEqual([])
-    expect(serverErrors, '5xx en en-vivo demo').toEqual([])
-  })
-
-  test('torneo cerrado muestra leaderboard final o mensaje apropiado', async ({ page }) => {
-    const { pageErrors, serverErrors } = attachErrorTrackers(page)
-
-    await page.goto(`/torneo/${CLOSED_SLUG}/en-vivo`, {
-      waitUntil: 'domcontentloaded',
-    })
-
-    test.fixme(
-      await isBlockedByVercel(page),
-      'Vercel Security Checkpoint bloqueó el headless browser',
-    )
-
-    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
-
-    const body = await page.locator('body').innerText()
-
-    // Torneo cerrado — puede mostrar resultados finales, leaderboard, o gate
-    expect(body.length, 'La página no debe estar en blanco').toBeGreaterThan(50)
-
-    expect(pageErrors, 'pageerrors en en-vivo cerrado').toEqual([])
-    expect(serverErrors, '5xx en en-vivo cerrado').toEqual([])
-  })
+  }
 
   test('slug inexistente no produce 500', async ({ page }) => {
     const { serverErrors } = attachErrorTrackers(page)
@@ -227,6 +196,8 @@ test.describe('En vivo torneo — /torneo/[slug]/en-vivo (anónimo)', () => {
 
     const status = response?.status() ?? 0
     expect(status, 'slug inexistente no debe dar 500').not.toBe(500)
+    // 404 antes que login: pedir entrar insinuaría que el torneo existe.
+    expect(new URL(page.url()).pathname, 'slug inexistente no pide login').not.toBe('/login')
     expect(serverErrors, '5xx en slug inexistente en-vivo').toEqual([])
   })
 })
