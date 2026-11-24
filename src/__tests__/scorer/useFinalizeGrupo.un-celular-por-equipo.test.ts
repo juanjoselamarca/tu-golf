@@ -212,7 +212,7 @@ describe('useFinalizeGrupo — la hoja de confirmación anticipa al equipo sin r
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
-  it('al frenar antes de la hoja relee la lista: si otro celular ya lo reclamó, el siguiente toque no pide «Anótalo»', async () => {
+  it('al frenar antes de la hoja relee la lista (recargar una vez), para que el siguiente toque vea si otro celular ya lo reclamó', async () => {
     const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
     // Lista vieja: Pedro reclamó Los Pumas y va en el 13, pero este celular aún lo ve sin reclamar.
     const pumas = eq('e3', 'Los Pumas', null, { 1: 4 })
