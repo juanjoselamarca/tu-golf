@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { IdentidadTab } from '../IdentidadTab'
 import { indiceVisible } from '@/golf/core/indice-visible'
+import { buttonClassName } from '@/components/ui/button-classes'
 
 const props = {
   userName: 'Ana',
@@ -52,10 +53,11 @@ describe('IdentidadTab — tipografía DESIGN.md §4/§13', () => {
     expect(screen.getByText('Prince of Wales').className).not.toContain('num')
   })
 
-  it('el CTA del coach no pone texto blanco sobre el dorado', () => {
+  it('el CTA del coach es el botón commit canónico (navy sobre dorado), no blanco sobre dorado', () => {
     render(<IdentidadTab {...props} />)
     const cta = screen.getByRole('link', { name: /Hablar con tAIger\+/ })
-    expect(cta.style.color).toBe('var(--brand-dark)')
-    expect(cta.style.background).toBe('var(--brand)')
+    expect(cta.className).toBe(buttonClassName({ variant: 'commit', size: 'md' }))
+    expect(cta.style.color).toBe('')
+    expect(cta.style.background).toBe('')
   })
 })

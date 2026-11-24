@@ -172,7 +172,7 @@ function DraftCard({ id, name, updatedAt }: { id: string; name: string | null; u
       >
         {name || 'Borrador sin nombre'}
       </span>
-      <span className="shrink-0 text-[13px] tabular-nums" style={{ color: 'var(--text-2)' }}>
+      <span className="num shrink-0 text-[13px]" style={{ color: 'var(--text-2)' }}>
         {fechaCorta(updatedAt)}
       </span>
     </Link>

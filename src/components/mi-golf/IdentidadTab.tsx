@@ -6,6 +6,8 @@ import { LevelsBar } from '@/components/perfil/LevelsBar'
 import { ROTULO_INDICE, CTA_SIN_INDICE, type IndiceVisible } from '@/golf/core/indice-visible'
 import { RUTA_EDITAR_INDICE } from '@/lib/rutas'
 import { textoVsPar } from '@/golf/share/vs-par'
+import { buttonClassName } from '@/components/ui/button-classes'
+import { LINK_SECUNDARIO } from './competencia-tokens'
 
 type Props = {
   userName: string
@@ -346,37 +348,17 @@ function TaigerCard({
       <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
         <Link
           href={line.cta_href}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            minHeight: '44px',
-            padding: '0 16px',
-            // Dorado sólido + navy en ambos modos (7.35:1). Antes blanco sobre --brand-on-bg:
-            // 2.65:1 en oscuro, donde --brand-on-bg vuelve a ser #C4992A (falla WCAG AA).
-            background: 'var(--brand)',
-            color: 'var(--brand-dark)',
-            borderRadius: '12px',
-            fontSize: '14px',
-            fontWeight: 700,
-            textDecoration: 'none',
-          }}
+          // Botón commit canónico (dorado + navy, 7.35:1 en ambos modos, foco visible). Antes era blanco
+          // sobre --brand-on-bg hecho a mano: 2.65:1 en oscuro, donde --brand-on-bg vuelve a ser #C4992A.
+          className={buttonClassName({ variant: 'commit', size: 'md' })}
+          style={{ textDecoration: 'none' }}
         >
           {line.cta_texto.replace('→', '').trim()} →
         </Link>
         {hasUsed && (
           <Link
             href="/coach/sesion/nueva"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              fontSize: '14px',
-              color: TEXT_2,
-              fontWeight: 500,
-              textDecoration: 'underline',
-              textDecorationColor: BORDER,
-              textUnderlineOffset: '4px',
-            }}
+            style={{ ...LINK_SECUNDARIO, fontSize: '14px' }}
           >
             Nueva sesión
           </Link>

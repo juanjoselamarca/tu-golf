@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { Plus } from '@/components/icons'
 import type { RondaLibre } from '@/lib/mi-golf/types'
 import type { PlayingTournament } from '@/lib/mi-golf/dashboard-derive'
-import { GOLD, TEXT, TEXT_2, BORDER, BG_SOFT, GREEN } from './competencia-tokens'
+import { GOLD, TEXT, TEXT_2, BG_SOFT, LINK_SECUNDARIO } from './competencia-tokens'
 
 // DESIGN.md §4: etiquetas en DM Sans 13/600 en oración (nada de mono ni mayúsculas espaciadas);
 // números en DM Sans tabular (`.num`), nunca serif. Tres tamaños por tarjeta: 13 · 16 · 24.
@@ -47,7 +47,8 @@ export function HeroActiva({
               width: '7px',
               height: '7px',
               borderRadius: '50%',
-              background: GREEN,
+              // Navy sobre el dorado: el verde daba ~1.9:1 (claro) y no se leía al sol. "En vivo" lleva el significado.
+              background: 'var(--brand-dark)',
               flexShrink: 0,
             }}
           />
@@ -141,20 +142,6 @@ export function HeroVacio() {
       <div style={{ fontSize: '14px', color: TEXT_2 }}>¿Quieres jugar hoy?</div>
     </div>
   )
-}
-
-// Links secundarios bajo "Nueva ronda". La regla global de toque (`a { min-height: 44px }`)
-// estira el link a 44 px: con `borderBottom` la raya quedaba ~30 px bajo el texto, suelta.
-// El subrayado va pegado al texto y el link se centra en su área de toque de 44 px.
-const LINK_SECUNDARIO: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  color: TEXT_2,
-  fontWeight: 500,
-  textDecoration: 'underline',
-  textDecorationColor: BORDER,
-  textDecorationThickness: '1px',
-  textUnderlineOffset: '4px',
 }
 
 export function Acciones() {
