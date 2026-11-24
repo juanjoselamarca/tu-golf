@@ -79,7 +79,8 @@ export function PuntosEspecialesDelHoyo(props: {
               {resumen.map((l, i) => (
                 <Fragment key={i}>
                   {i > 0 && ', '}
-                  {l.texto}{' '}
+                  {/* Espacio duro: el ✓ o el «(sin enviar)» nunca queda en la línea siguiente, pegado a otra marca. */}
+                  {l.texto}{' '}
                   {l.estado === 'marcada'
                     ? <span style={{ color: 'var(--brand-on-bg)' }}>✓</span>
                     : <span style={{ fontWeight: 700, color: 'var(--text)' }}>{l.estado === 'no_cuenta' ? '(no cuenta)' : '(sin enviar)'}</span>}

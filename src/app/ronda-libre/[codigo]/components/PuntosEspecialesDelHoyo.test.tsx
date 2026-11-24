@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { PuntitoConfig } from '@/golf/formats/personalizado'
 import type { BotonDeMarca, MarcasDeUnPuntito } from '@/golf/ronda-libre/marcas-de-la-timba'
-import { PuntosEspecialesDelHoyo } from './PuntosEspecialesDelHoyo'
+import { PuntosEspecialesDelHoyo, resumenDeMarcas } from './PuntosEspecialesDelHoyo'
 
 const sandy = { id: 's', tipo: 'sandy', valor: 1, activo: true } as PuntitoConfig
 const chipingo = { id: 'c', tipo: 'chipingo', valor: 1, activo: true } as PuntitoConfig
@@ -68,7 +68,7 @@ describe('PuntosEspecialesDelHoyo', () => {
     expect(screen.getByText('No cuenta: el sandy cuenta solo con par o mejor')).toBeTruthy()
     fireEvent.click(fila())
     expect(fila().getAttribute('aria-expanded')).toBe('false')
-    expect(resumen(container)).toBe('Sandy · Juan (no cuenta), Chipingo · Juan (sin enviar), Chipingo · Pedro ✓')
+    expect(resumen(container)).toBe('Sandy · Juan (no cuenta), Chipingo · Juan (sin enviar), Chipingo · Pedro ✓')
     expect(screen.queryByRole('button', { name: 'Sandy de Juan' })).toBeNull()
   })
 
@@ -83,5 +83,24 @@ describe('PuntosEspecialesDelHoyo', () => {
   it('sin puntos especiales en el juego no muestra nada', () => {
     const { container } = render(<Bloque grupos={[]} />)
     expect(container.firstChild).toBeNull()
+  })
+})
+
+describe('resumenDeMarcas', () => {
+  const boton = (jugadorId: string, b: Partial<BotonDeMarca>): BotonDeMarca =>
+    ({ jugadorId, visible: true, marcado: true, enEspera: false, noCuenta: null, ...b }) as BotonDeMarca
+  const grupo = (nombre: string, jugadores: BotonDeMarca[]): MarcasDeUnPuntito =>
+    ({ puntito: {} as PuntitoConfig, nombre, nota: null, pista: null, jugadores }) as MarcasDeUnPuntito
+
+  it('los tres estados; «no cuenta» manda sobre «sin enviar»; lo no marcado no aparece', () => {
+    const r = resumenDeMarcas(
+      [grupo('Sandy', [boton('a', {}), boton('b', { enEspera: true }), boton('c', { noCuenta: 'x', enEspera: true }), boton('d', { marcado: false })])],
+      { a: 'Ana', b: 'Beto', c: 'Coni', d: 'Dani' },
+    )
+    expect(r).toEqual([
+      { texto: 'Sandy · Ana', estado: 'marcada' },
+      { texto: 'Sandy · Beto', estado: 'sin_enviar' },
+      { texto: 'Sandy · Coni', estado: 'no_cuenta' },
+    ])
   })
 })

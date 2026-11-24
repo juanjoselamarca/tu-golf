@@ -4,7 +4,9 @@
  * qué muestra cada botón (marcado, en espera, "no cuenta" con la razón que da el motor).
  *
  * La regla de "cuenta o no" vive en `puntos-especiales.ts` (la aplica el motor, `calcularJuegoPersonalizado`): acá
- * se usa para no ofrecer lo que seguro no contaría y para avisar al tiro un "sobre par"; el resto lo juzga el motor.
+ * se usa la misma función para no ofrecer lo que seguro no contaría y para juzgar en el teléfono cuando ya hay golpe
+ * anotado con par conocido o el jugador se retiró (así un score corregido no espera al motor). Sin golpe anotado
+ * decide el motor.
  */
 import {
   PUNTITOS_MANUALES,
