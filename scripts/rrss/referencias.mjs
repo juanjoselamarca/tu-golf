@@ -164,8 +164,16 @@ Devuelve SOLO un JSON con estas claves:
   "adaptacion_golfers": "cómo se usa esta ESTRUCTURA con lo que Golfers+ tiene (pantalla real de la app, torneos reales, datos propios). Concreto y producible sin salir a filmar si se puede.",
   "no_copiar": "qué de esta pieza NO se debe replicar (porque es del autor, porque exige medios que no tenemos, o porque no calza con la marca)",
   "es_de_golf": true o false,
-  "resumen": "una frase"
+  "resumen": "una frase",
+  "tipo": "contenido" o "metodo",
+  "leccion_metodo": "solo si tipo es metodo: qué cambiar en CÓMO trabaja Golfers+ (proceso, herramientas, uso de IA, cómo se decide o se produce), en 1-3 frases accionables; si tipo es contenido, cadena vacía"
 }
+
+Cómo elegir tipo:
+- "contenido": la pieza vale por cómo está hecha (gancho, ritmo, formato) y la idea es hacer un video parecido.
+- "metodo": la pieza enseña una FORMA DE TRABAJAR (un proceso, una herramienta, cómo usar IA o agentes,
+  cómo decidir, cómo organizar un equipo o el marketing). Lo valioso es aplicar eso a cómo trabajamos,
+  no imitar el video. Ante la duda, "contenido".
 
 Reglas: si el video no es de golf, dilo en es_de_golf y adapta igual (la estructura puede servir).
 No inventes nada que no esté en el video. Español de Chile, sin voseo.`
@@ -318,7 +326,26 @@ export function validarAnalisis(analisis) {
     (k) => typeof analisis?.[k] !== 'string' || !analisis[k].trim(),
   )
   if (faltan.length) throw new Error(`El análisis de Gemini vino sin: ${faltan.join(', ')}`)
-  return analisis
+  // Un tipo desconocido o ausente cae a contenido: es el camino de siempre y /rrss lo ve.
+  const tipo = TIPOS_REFERENCIA.includes(analisis.tipo) ? analisis.tipo : 'contenido'
+  const leccion = typeof analisis.leccion_metodo === 'string' ? analisis.leccion_metodo.trim() : ''
+  // Una lección de método sin lección no le sirve a nadie: mejor que la vea /rrss como contenido.
+  if (tipo === 'metodo' && !leccion) return { ...analisis, tipo: 'contenido', leccion_metodo: '' }
+  return { ...analisis, tipo, leccion_metodo: tipo === 'metodo' ? leccion : '' }
+}
+
+/**
+ * Las dos clases de referencia que manda Juanjo. "contenido": un video que vale por cómo está hecho,
+ * y /rrss lo usa como idea de pieza. "metodo": un video que enseña una forma de trabajar (un proceso,
+ * una herramienta, cómo usar IA); lo que vale es aplicarlo a cómo trabaja Golfers+, no imitar el video.
+ * Hasta el 24-nov todas se trataban como contenido y la lección se perdía (p. ej. "Claude Council"
+ * quedó como "no copiar el tema IA").
+ */
+export const TIPOS_REFERENCIA = ['contenido', 'metodo']
+
+/** Fuente única de "¿esta ficha es de método?". Las fichas anteriores al campo `tipo` son contenido. */
+export function esDeMetodo(ficha) {
+  return ficha?.tipo === 'metodo'
 }
 
 function guardarFicha({ id, url, cuando, caption, analisis, nota, origen }) {
@@ -334,6 +361,8 @@ function guardarFicha({ id, url, cuando, caption, analisis, nota, origen }) {
     nota_juanjo: String(nota ?? '').trim(),
     origen, // p. ej. "inbox:<uuid>": de dónde llegó
     usada_en: [], // tandas que se inspiraron en esta referencia
+    // Solo método: dónde quedó aplicada la lección (un PR, un comando, una regla). Vacío = pendiente.
+    ...(esDeMetodo(analisis) ? { aplicada_en: [] } : {}),
   }
   mkdirSync(DIR_REFERENCIAS, { recursive: true })
   writeFileSync(rutaFicha(id), `${JSON.stringify(ficha, null, 2)}\n`)
@@ -356,9 +385,10 @@ export function listarReferencias() {
  * sino en "ponerse al día": si `/rrss` leyera las fichas completas, una semana con
  * diez referencias se come el contexto antes de escribir la primera idea.
  */
-export function sinUsar() {
-  return listarReferencias()
-    .filter((r) => !r.usada_en?.length)
+export function sinUsar(fichas = listarReferencias()) {
+  return fichas
+    // Las de método no son ideas de video: van a metodoSinAplicar(), no a la tanda.
+    .filter((r) => !esDeMetodo(r) && !r.usada_en?.length)
     .map((r) => ({
       id: r.id,
       nota_juanjo: r.nota_juanjo || undefined,
@@ -368,6 +398,38 @@ export function sinUsar() {
       adaptacion: r.adaptacion_golfers,
       no_copiar: r.no_copiar,
     }))
+}
+
+/**
+ * Las lecciones de método que todavía no se aplicaron. Las lee el aviso de inicio de sesión
+ * (`scripts/inbox-bootstrap.mjs`): una lección que nadie ve al empezar a trabajar no se aplica nunca.
+ */
+export function metodoSinAplicar(fichas = listarReferencias()) {
+  return fichas
+    .filter((r) => esDeMetodo(r) && !r.aplicada_en?.length)
+    .map((r) => ({ id: r.id, leccion: r.leccion_metodo, nota_juanjo: r.nota_juanjo || undefined, url: r.url }))
+}
+
+/** La línea del aviso de inicio de sesión, o '' si no hay lecciones pendientes. */
+export function avisoMetodo(pendientes = metodoSinAplicar()) {
+  if (!pendientes.length) return ''
+  const n = pendientes.length
+  return (
+    `🧭 ${n} ${n === 1 ? 'lección' : 'lecciones'} de método sin aplicar (links que mandó Juanjo sobre cómo trabajar mejor). ` +
+    'Verlas: node scripts/rrss/referencias.mjs --metodo'
+  )
+}
+
+/** Marca una lección de método como aplicada y dónde (un PR, un comando, una regla). */
+export function marcarAplicada(id, donde) {
+  if (!String(donde ?? '').trim()) throw new Error('Di dónde quedó aplicada (PR, comando o regla).')
+  const ruta = rutaFicha(id)
+  if (!existsSync(ruta)) throw new Error(`No existe la referencia ${id}.`)
+  const ficha = JSON.parse(readFileSync(ruta, 'utf8'))
+  if (!esDeMetodo(ficha)) throw new Error(`${id} no es una referencia de método.`)
+  ficha.aplicada_en = [...new Set([...(ficha.aplicada_en ?? []), String(donde).trim()])]
+  writeFileSync(ruta, `${JSON.stringify(ficha, null, 2)}\n`)
+  return ficha
 }
 
 /** Marca una referencia como usada por una tanda, para que no vuelva a proponerse. */
@@ -391,10 +453,27 @@ async function main() {
     })
     return
   }
+  if (args[0] === '--metodo') {
+    const pendientes = metodoSinAplicar()
+    const n = pendientes.length
+    console.log(`${n} ${n === 1 ? 'lección' : 'lecciones'} de método sin aplicar`)
+    pendientes.forEach((r) => {
+      console.log(`   ${r.id} · ${r.leccion}`)
+      if (r.nota_juanjo) console.log(`      Juanjo: "${r.nota_juanjo}"`)
+    })
+    if (pendientes.length) console.log('Al aplicar una: node scripts/rrss/referencias.mjs --aplicada <id> "<PR, comando o regla>"')
+    return
+  }
+  if (args[0] === '--aplicada') {
+    const ficha = marcarAplicada(args[1], args[2])
+    console.log(`✅ ${ficha.id} aplicada en: ${ficha.aplicada_en.join(' · ')}`)
+    return
+  }
   const url = args.find((a) => a.startsWith('http'))
   if (!url) {
     console.error('Uso: node --env-file=.env.local scripts/rrss/referencias.mjs <url> [--rehacer]')
-    console.error('     node scripts/rrss/referencias.mjs --listar')
+    console.error('     node scripts/rrss/referencias.mjs --listar | --metodo')
+    console.error('     node scripts/rrss/referencias.mjs --aplicada <id> "<dónde>"')
     process.exit(1)
   }
   const { id, ficha, reusada } = await ingerir(url, { rehacer: args.includes('--rehacer') })

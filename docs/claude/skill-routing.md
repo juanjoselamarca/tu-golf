@@ -43,6 +43,7 @@ Estos defaults se aplican SIEMPRE que el contexto matchee, sin que Juanjo deba m
 ### Routing por frase del usuario:
 
 - "torneo real próximo", "antes del torneo" → `/pre-torneo`
+- "consulta al consejo", decisión grande de producto/marketing/negocio antes de preguntarle a Juanjo → `/consejo`
 - "ship", "push", "deploy", "PR" → skill `ship` (gstack)
 - "bug", "error", "no funciona", "500" → skill `investigate` (gstack)
 - "QA", "probar la app", "encontrar bugs" → skill `qa` (gstack)

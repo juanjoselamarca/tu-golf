@@ -21,5 +21,10 @@
   "caption": "Anthropic publicó su guía para crear una startup en 2026. La idea central: el founder ya no ejecuta todo, dirige agentes de IA. Te explico las 4 etapas: Idea, MVP, Launch y Scale.\n\nVarios me pidieron la guía, así que aquí la tienes.\n📄 El PDF oficial del Founder’s Playbook de Anthropic y mi explicación en español: 8pluscore.com/r/playbook\n\nEl PDF está en inglés, por eso lo explico en español. La parte 2 ya está en mi perfil 👀\n\n#startups #ias #claude #anthropic",
   "nota_juanjo": "",
   "origen": "inbox:0d16ed0a-f4a2-4414-aa89-c97c1c942e89",
-  "usada_en": []
+  "usada_en": [],
+  "tipo": "metodo",
+  "leccion_metodo": "El founder dirige agentes en vez de ejecutar, por etapas (idea, MVP, lanzamiento, escala). En Golfers+ ya rige: Juanjo decide producto y Claude (CTO) dirige agentes con roles fijos (nocturnos, /inbox, /rrss, revisores). Lo que queda de la lección es medir que esos agentes de verdad corran: una noche sin agentes es trabajo perdido.",
+  "aplicada_en": [
+    "ya vigente: CLAUDE.md (ROL DE CLAUDE, MODELOS) y agentes nocturnos (scripts/ceo-autonomo.mjs)"
+  ]
 }

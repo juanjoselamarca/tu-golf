@@ -19,6 +19,7 @@
 
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { avisoMetodo } from './rrss/referencias.mjs';
 
 const CACHE_PATH = '.claude/inbox-pending.json';
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -79,7 +80,19 @@ async function queryPending() {
   return [...(pendientes.data ?? []), ...(esperando.data ?? [])];
 }
 
+// Las lecciones de método (links de Juanjo sobre cómo trabajar mejor) se leen de archivos locales, sin
+// red ni caché: van aparte del inbox y nunca pueden tumbar el aviso.
+function imprimirAvisoMetodo() {
+  try {
+    const aviso = avisoMetodo();
+    if (aviso) process.stdout.write(aviso + '\n');
+  } catch (err) {
+    process.stdout.write(`(aviso de método: ${err.message})\n`);
+  }
+}
+
 async function main() {
+  imprimirAvisoMetodo();
   // 1) Cache hit
   const cached = readCache();
   if (cached) {

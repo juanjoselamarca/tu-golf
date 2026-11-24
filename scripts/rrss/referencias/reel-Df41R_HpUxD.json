@@ -22,5 +22,10 @@
   "caption": "Comentá CONSEJO y te mando la skill por DM.\n\nClaude es el chupamedias más convincente del mundo: te da la razón para el lado que lo empujes. Por eso no podés confiarle una decisión.\n\nCon Claude Council le decís \"consultá al consejo\" y levanta 5 asesores de IA que atacan tu pregunta desde lados distintos. Después un presidente junta todo en un solo veredicto y un paso claro.\n\n#claude #ia #skills #decisiones #productividad",
   "nota_juanjo": "",
   "origen": "inbox:debd28a7-28eb-42e0-8a3f-009938c87665",
-  "usada_en": []
+  "usada_en": [],
+  "tipo": "metodo",
+  "leccion_metodo": "La IA le da la razón a quien la empuja. Las decisiones grandes de producto, marketing o negocio no se toman con un solo Claude: se consultan a un consejo de asesores independientes con miradas opuestas (que no se ven entre sí) y un presidente que junta todo en un veredicto y un paso claro, antes de llevárselas a Juanjo.",
+  "aplicada_en": [
+    "comando /consejo (.claude/commands/consejo.md, PR feat/metodo-consejo-claude)"
+  ]
 }
