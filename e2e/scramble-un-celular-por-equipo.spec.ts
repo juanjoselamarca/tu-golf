@@ -11,6 +11,7 @@ import {
   DEFAULT_COURSE_NAME,
 } from './helpers/ronda-fixture'
 import { marcarAvisoNoMolestarVisto } from './helpers/aviso-no-molestar'
+import { REINTENTO_CARGA_MS } from '../src/lib/data/ronda-libre-scorer'
 
 /**
  * Scramble rápido «un celular por equipo» — /ronda-libre/[codigo]/score-grupo (#857–#862).
@@ -37,6 +38,18 @@ let testUserId = ''
 let nombreCreador = ''
 let pedro: { id: string; email: string; password: string } | null = null
 let pedroDb: SupabaseClient | null = null
+let creadorDb: SupabaseClient | null = null
+
+/** Cliente con la sesión de una cuenta (anon key + login): las RPC corren como ese celular, no como service_role. */
+async function clienteConSesion(email: string, password: string): Promise<SupabaseClient> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !anon) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  const db = createClient(url, anon, { auth: { autoRefreshToken: false, persistSession: false } })
+  const { error } = await db.auth.signInWithPassword({ email, password })
+  if (error) throw new Error(`login de ${email}: ${error.message}`)
+  return db
+}
 
 type FilaEquipo = { id: string; nombre: string; handicap_origen: string; anotador_user_id: string | null; anotador_nombre: string | null; scores: Record<string, number> | null }
 
@@ -95,24 +108,27 @@ test.describe('Scramble rápido — un celular por equipo', () => {
   test.beforeAll(async () => {
     testUserId = await getTestUserId()
     const perfil = await sinError('perfil del usuario e2e', adminClient().from('profiles').select('name').eq('id', testUserId).single())
-    nombreCreador = (perfil as { name: string | null }).name?.trim() || 'E2E'
+    // El trigger copia profiles.name tal cual: se compara con el valor crudo, y sin nombre el fixture no sirve.
+    nombreCreador = (perfil as { name: string | null }).name ?? ''
+    if (!nombreCreador.trim()) throw new Error('El usuario e2e no tiene nombre en profiles: «lo anota …» no se puede afirmar')
 
     pedro = await createEphemeralUserConCredenciales('e2e-scramble-celular')
     await sinError('nombre de Pedro', adminClient().from('profiles').update({ name: NOMBRE_PEDRO }).eq('id', pedro.id).select('id'))
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !anon) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY')
-    pedroDb = createClient(url, anon, { auth: { autoRefreshToken: false, persistSession: false } })
-    const { error } = await pedroDb.auth.signInWithPassword({ email: pedro.email, password: pedro.password })
-    if (error) throw new Error(`login de Pedro: ${error.message}`)
+    pedroDb = await clienteConSesion(pedro.email, pedro.password)
+    const email = process.env.E2E_TEST_USER_EMAIL
+    const password = process.env.E2E_TEST_USER_PASSWORD
+    if (!email || !password) throw new Error('Faltan E2E_TEST_USER_EMAIL/PASSWORD (correr con scripts/test-db/e2e-local.mjs)')
+    creadorDb = await clienteConSesion(email, password)
   })
 
   test.afterAll(async () => {
-    for (const id of rondasCreadas) await cleanupRondaFixture(id)
-    if (pedro) {
-      const errs = await deleteEphemeralUser(pedro.id)
-      if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
+    // Se junta cada error y se sigue: una ronda que no se borra no deja viva la cuenta efímera ni las demás rondas.
+    const errs: string[] = []
+    for (const id of rondasCreadas) {
+      try { await cleanupRondaFixture(id) } catch (e) { errs.push((e as Error).message) }
     }
+    if (pedro) errs.push(...await deleteEphemeralUser(pedro.id))
+    if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
   })
 
   test('creador: el equipo de otro celular sale en la franja, el «+» escribe solo el propio y «Liberar» lo devuelve', async ({ page }) => {
@@ -143,6 +159,16 @@ test.describe('Scramble rápido — un celular por equipo', () => {
     expect(equipos['Las Águilas'].anotador_nombre).toBe(NOMBRE_PEDRO)
     expect(equipos['Los Cóndores'].anotador_user_id, 'reclamar uno no toca el otro').toBe(testUserId)
 
+    // La regla del servidor (20261123200000), con las sesiones reales de los dos celulares: un equipo con anotador
+    // lo escribe SOLO ese anotador. Ni el creador pisa el hoyo de Las Águilas ni Pedro el de Los Cóndores.
+    const creadorPisa = await creadorDb!.rpc('upsert_ronda_equipos_scores', { p_equipo_id: equipos['Las Águilas'].id, p_codigo: codigo, p_delta: { '9': 7 } })
+    expect(creadorPisa.error?.code, 'el creador no escribe el equipo que anota Pedro').toBe('P0003')
+    expect(creadorPisa.error?.details).toBe('equipo_de_otro_anotador')
+    const pedroPisa = await pedroDb!.rpc('upsert_ronda_equipos_scores', { p_equipo_id: equipos['Los Cóndores'].id, p_codigo: codigo, p_delta: { '9': 7 } })
+    expect(pedroPisa.error?.code, 'Pedro no escribe el equipo del creador').toBe('P0003')
+    expect(await golpeDelEquipo(id, 'Las Águilas', 9)).toBeNull()
+    expect(await golpeDelEquipo(id, 'Los Cóndores', 9)).toBeNull()
+
     await marcarAvisoNoMolestarVisto(page, codigo)
     await page.goto(`/ronda-libre/${codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
 
@@ -161,7 +187,7 @@ test.describe('Scramble rápido — un celular por equipo', () => {
     await expect.poll(() => golpeDelEquipo(id, 'Los Cóndores', 1), { timeout: 15_000, message: 'golpe de Los Cóndores en el servidor' }).not.toBeNull()
     const golpe = await golpeDelEquipo(id, 'Los Cóndores', 1)
     expect(golpe).toBeGreaterThanOrEqual(1)
-    expect(await golpeDelEquipo(id, 'Las Águilas', 1), 'el creador no escribe el equipo de otro celular').toBeNull()
+    expect(await golpeDelEquipo(id, 'Las Águilas', 1), 'el par automático no toca el equipo de otro celular').toBeNull()
 
     // «Liberar» con confirmación → el equipo vuelve al creador: anotador NULL en la base y ya anota los dos.
     await franja.getByRole('button', { name: 'Liberar' }).click()
@@ -194,7 +220,7 @@ test.describe('Scramble rápido — un celular por equipo', () => {
       // La crea el usuario e2e (request de su sesión). Pedro entra con su propio navegador.
       const creadorCtx = await browser.newContext({ baseURL: testInfo.project.use.baseURL, storageState: testInfo.project.use.storageState as string })
       const { id, codigo } = await crearScrambleDeClub(creadorCtx.request, ['Los Cóndores', 'Las Águilas', 'Los Zorzales'])
-      await creadorCtx.close()
+        .finally(() => creadorCtx.close())
       let equipos = await equiposDe(id)
       expect(equipos['Los Cóndores'].anotador_user_id, 'el equipo 1 lo anota el creador desde ya').toBe(testUserId)
 
@@ -217,13 +243,15 @@ test.describe('Scramble rápido — un celular por equipo', () => {
       await expect(tomados).toContainText(`lo anota ${nombreCreador}`)
       await expect(page.getByRole('link', { name: 'Ver tabla en vivo' })).toHaveAttribute('href', `/ronda-libre/${codigo}`)
 
-      // Carrera: mientras Pedro mira la lista, el otro celular suelta Los Cóndores y toma Los Zorzales.
+      // Carrera: Pedro abre la confirmación de Los Zorzales y, mientras confirma, el otro celular suelta Los Cóndores
+      // y toma Los Zorzales. La base se mueve con el modal YA abierto (guarda su equipo en estado propio): la relectura
+      // automática de la lista no puede esconder el botón antes del clic.
       // service_role: el guard ANOTADOR_AJENO es para anon/authenticated (el reclamo real lo cubre el test 1).
-      await sinError('soltar Cóndores', adminClient().from('ronda_equipos').update({ anotador_user_id: null }).eq('id', equipos['Los Cóndores'].id).select('id'))
-      await sinError('tomar Zorzales', adminClient().from('ronda_equipos').update({ anotador_user_id: testUserId }).eq('id', equipos['Los Zorzales'].id).select('id'))
       await libres.getByRole('button', { name: /Los Zorzales/ }).click()
       const confirmar = page.getByRole('dialog').filter({ hasText: '¿Anotar Los Zorzales desde este celular?' })
       await expect(confirmar).toBeVisible()
+      await sinError('soltar Cóndores', adminClient().from('ronda_equipos').update({ anotador_user_id: null }).eq('id', equipos['Los Cóndores'].id).select('id'))
+      await sinError('tomar Zorzales', adminClient().from('ronda_equipos').update({ anotador_user_id: testUserId }).eq('id', equipos['Los Zorzales'].id).select('id'))
       await confirmar.getByRole('button', { name: 'Anotar' }).click()
       await expect(page.getByRole('alert').filter({ hasText: 'Ese equipo ya lo anota' })).toHaveText(`Ese equipo ya lo anota ${nombreCreador}. Elige otro.`, { timeout: 15_000 })
       // La lista se relee del servidor: Zorzales pasa a tomados y Cóndores a libres.
@@ -257,11 +285,14 @@ test.describe('Scramble rápido — un celular por equipo', () => {
       await page.getByRole('dialog').filter({ hasText: '¿Dejar Las Águilas?' }).getByRole('button', { name: 'Dejar', exact: true }).click()
       await expect(page.getByText('Dejaste Las Águilas')).toBeVisible({ timeout: 15_000 })
       await expect(page.getByRole('heading', { name: 'Elige tu equipo' })).toBeVisible()
-      await expect(page.getByText('Ya no anotas este equipo.'), 'dejarlo a propósito no avisa «Ya no anotas»').toHaveCount(0)
       await expect(libres.getByRole('button', { name: /Las Águilas/ })).toBeVisible()
       equipos = await equiposDe(id)
       expect(equipos['Las Águilas'].anotador_user_id).toBeNull()
       expect(equipos['Las Águilas'].scores?.['1'], 'lo que subió queda guardado').toBe(golpe)
+      // Dejarlo a propósito no avisa «Ya no anotas»: se espera una relectura automática completa antes de afirmarlo.
+      await page.waitForTimeout(REINTENTO_CARGA_MS + 1_000)
+      await expect(page.getByText('Ya no anotas este equipo.')).toHaveCount(0)
+      await expect(page.getByRole('heading', { name: 'Elige tu equipo' })).toBeVisible()
 
       expect(pageErrors).toEqual([])
     } finally {
