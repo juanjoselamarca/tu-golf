@@ -5,21 +5,20 @@
  * hoyo, los skins de cada jugador y la liquidación del pozo. Sirven igual para un torneo de varios grupos y
  * para una Timba de un grupo: quien llama arma la entrada, el motor no sabe de dónde vino.
  */
+import type { ModoJuego } from '../../core/rules'
 import { strokesRecibidosEnHoyo } from '../../core/stableford-score'
+import { isValidStrokeIndexPermutation } from '../../core/stroke-index'
 import { esHandicapUsable, golpesALaDiferenciaDelMasBajo } from '../match-play'
 
 /** «Fuera del hoyo»: levantó la bola. Nunca se convierte en número. */
 export const FUERA_DEL_HOYO = 'X' as const
 export type ScoreSkins = number | typeof FUERA_DEL_HOYO
 
-export const MODOS_SKINS = ['neto', 'gross'] as const
-export type ModoSkins = (typeof MODOS_SKINS)[number]
-
 export const EMPATES_ULTIMO_HOYO = ['repartir', 'se_pierde'] as const
 export type EmpateUltimoHoyo = (typeof EMPATES_ULTIMO_HOYO)[number]
 
 export interface OpcionesSkins {
-  modo: ModoSkins
+  modo: ModoJuego
   empateUltimoHoyo: EmpateUltimoHoyo
   /** Spec «Validación»: solo hoyos con arrastre, par neto o mejor en el hoyo siguiente. */
   validacion: boolean
@@ -29,10 +28,17 @@ export interface OpcionesSkins {
 
 export interface JugadorSkins {
   id: string
-  /** Hándicap de juego (CH × %, ya redondeado: `handicapDeJuego`). `null` = no se conoce. Ignorado en gross. */
+  /**
+   * Hándicap de juego (CH × %, ya redondeado: `handicapDeJuego`), en la escala de los hoyos de la ronda (de 9 en
+   * una de 9). `null` = no se conoce. Ignorado en gross. Quien llama lo CONGELA al empezar: si cambiara a mitad de
+   * ronda, cambiaría el más bajo del campo y un hoyo ya ganado podría cambiar de dueño.
+   */
   handicapDeJuego: number | null
-  /** Primer hoyo (número) que ya no juega por retiro; `null` si no se retiró. */
-  retiradoDesdeHoyo?: number | null
+  /**
+   * Hoyos (números) que no juega por retiro. Conjunto, no «desde el hoyo N»: con salida por el 10 o shotgun, el
+   * orden de juego no es el de numeración. Quien llama lo arma con el hoyo de salida de su grupo.
+   */
+  hoyosQueNoJuega?: readonly number[]
 }
 
 export interface HoyoSkins {
@@ -45,7 +51,11 @@ export interface HoyoSkins {
 export interface EntradaSkins {
   opciones: OpcionesSkins
   jugadores: readonly JugadorSkins[]
-  /** En orden de numeración (1..18, o los 9 de la ronda). */
+  /**
+   * En el ORDEN DEL ARRASTRE (spec «Arrastre en orden»): el empate de un hoyo pasa al siguiente de esta lista y
+   * el último de la lista es el «último hoyo». Torneo: numeración. Timba de un grupo: el orden en que lo juega
+   * (sale por el 10 → 10..18, 1..9).
+   */
   hoyos: readonly HoyoSkins[]
   /** `scores[jugadorId][numeroHoyo]`; ausente = sin anotar. */
   scores: Readonly<Record<string, Readonly<Record<number, ScoreSkins | undefined>>>>
@@ -53,7 +63,7 @@ export interface EntradaSkins {
    * Puntos especiales que valen (ya evaluados con la regla compartida con la Timba). Cada uno = 1 skin.
    * Spec «Puntos especiales».
    */
-  especialesValidos?: readonly { jugadorId: string; hoyo: number }[]
+  especialesValidos?: readonly { jugadorId: string; hoyo: number; puntitoId: string }[]
 }
 
 export type EstadoHoyoSkins =
@@ -70,7 +80,11 @@ export interface ResultadoHoyoSkins {
   estado: EstadoHoyoSkins
   /** Skins en juego en el hoyo (1 + arrastre). */
   valor: number
-  /** El valor puede cambiar: algún hoyo anterior todavía no se resuelve. */
+  /**
+   * Algún hoyo anterior todavía no se resuelve: el valor puede subir. Con validación también podría cambiar el
+   * estado (un hoyo que hoy vale 1 podría terminar necesitando validación); por eso, con validación, un hoyo
+   * provisional ganado sin validar queda `por_validar` y no se acredita.
+   */
   valorProvisional: boolean
   /** Mejor neto entre los que ya anotaron golpes; `null` si nadie anotó golpes. */
   mejorNeto: number | null
@@ -92,7 +106,7 @@ export interface ResultadoJugadorSkins {
   skins: number
   /** Pesos que cobra (estimado mientras `definitivo` sea false). */
   cobra: number
-  /** `cobra − pozoPorJugador`. */
+  /** `cobra − pozoPorJugador`; 0 mientras no haya liquidación (nadie cobró aún, o bloqueada). */
   neto: number
 }
 
@@ -109,30 +123,51 @@ export interface ResultadoSkins {
   definitivo: boolean
   /** Ronda terminada sin ningún skin cobrado: se devuelve el pozo. */
   devolucion: boolean
-  /** Jugadores sin hándicap usable en modo neto. Si hay alguno, nadie recibe golpes: quien llama debe bloquear. */
-  handicapsIncompletos: string[]
+  /** Motivos que impiden liquidar. Con alguno, no hay plata ni resultado definitivo: quien llama debe bloquear. */
+  bloqueos: BloqueosSkins
+  /** Sin bloqueos: los skins y la plata valen. */
+  liquidable: boolean
+}
+
+export interface BloqueosSkins {
+  /** Jugadores sin hándicap usable en modo neto (mismo nombre que en la Timba). */
+  sinHandicap: string[]
+  /** Los SI de la ronda no son una permutación 1..N: los golpes caerían mal. */
+  indiceDificultadInvalido: boolean
+  /** Jugadores con más golpes que 3 por hoyo en todos los hoyos (más no se modela). */
+  golpesSobreElTope: string[]
+}
+
+/** Hoyo cerrado: anotar más no lo cambia (salvo el valor, si `valorProvisional`). */
+export function esHoyoResuelto(estado: EstadoHoyoSkins): boolean {
+  return estado === 'ganado' || estado === 'arrastre' || estado === 'repartido' || estado === 'perdido'
 }
 
 /** Golpes del skins: el más bajo del campo juega a 0 (spec «Golpes»). */
 export function golpesDelSkins(
   entrada: Pick<EntradaSkins, 'opciones' | 'jugadores' | 'hoyos'>,
-): { golpes: Record<string, Record<number, number>>; handicapsIncompletos: string[] } {
+): { golpes: Record<string, Record<number, number>>; bloqueos: BloqueosSkins } {
   const { opciones, jugadores, hoyos } = entrada
-  const incompletos =
-    opciones.modo === 'neto' ? jugadores.filter(j => !esHandicapUsable(j.handicapDeJuego)).map(j => j.id) : []
-  const base =
-    opciones.modo === 'gross' || incompletos.length > 0
-      ? jugadores.map(() => 0)
-      : golpesALaDiferenciaDelMasBajo(jugadores.map(j => j.handicapDeJuego as number))
+  const n = hoyos.length
+  const siPorPosicion: Record<number, number> = {}
+  hoyos.forEach((h, i) => { siPorPosicion[i + 1] = h.si })
+  const bloqueos: BloqueosSkins = {
+    sinHandicap: opciones.modo === 'neto' ? jugadores.filter(j => !esHandicapUsable(j.handicapDeJuego)).map(j => j.id) : [],
+    indiceDificultadInvalido: opciones.modo === 'neto' && n > 0 && !isValidStrokeIndexPermutation(siPorPosicion, n),
+    golpesSobreElTope: [],
+  }
+  const sinGolpes = opciones.modo === 'gross' || bloqueos.sinHandicap.length > 0 || bloqueos.indiceDificultadInvalido
+  const base = sinGolpes ? jugadores.map(() => 0) : golpesALaDiferenciaDelMasBajo(jugadores.map(j => j.handicapDeJuego as number))
+  bloqueos.golpesSobreElTope = jugadores.filter((_, i) => base[i] > 3 * n).map(j => j.id)
   const golpes: Record<string, Record<number, number>> = {}
   jugadores.forEach((j, i) => {
     golpes[j.id] = {}
-    for (const h of hoyos) golpes[j.id][h.numero] = strokesRecibidosEnHoyo(base[i], h.si, hoyos.length)
+    for (const h of hoyos) golpes[j.id][h.numero] = strokesRecibidosEnHoyo(base[i], h.si, n)
   })
-  return { golpes, handicapsIncompletos: incompletos }
+  return { golpes, bloqueos }
 }
 
-const juegaElHoyo = (j: JugadorSkins, hoyo: number) => j.retiradoDesdeHoyo == null || hoyo < j.retiradoDesdeHoyo
+const juegaElHoyo = (j: JugadorSkins, hoyo: number) => !j.hoyosQueNoJuega?.includes(hoyo)
 
 /**
  * Reparte `total` pesos en proporción a `pesos` (enteros ≥ 0) con resto mayor: la suma es exacta. El resto va
@@ -155,7 +190,9 @@ export function repartirPorRestoMayor(total: number, pesos: readonly number[]): 
 
 export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
   const { opciones, jugadores, hoyos, scores } = entrada
-  const { golpes, handicapsIncompletos } = golpesDelSkins(entrada)
+  const { golpes, bloqueos } = golpesDelSkins(entrada)
+  const liquidable =
+    bloqueos.sinHandicap.length === 0 && !bloqueos.indiceDificultadInvalido && bloqueos.golpesSobreElTope.length === 0
   const ultimo = hoyos.length - 1
 
   // Skins en unidades de 1/k (k = cuántos empataron el último hoyo con `repartir`): aritmética entera exacta.
@@ -219,19 +256,23 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
     }
 
     const ganador = lideres[0]
-    const debeValidar = opciones.validacion && valor >= 2 && idx < ultimo
-    if (debeValidar) {
+    // Con un hoyo anterior abierto el valor real puede ser ≥ 2 aunque hoy muestre 1: se mira la validación igual.
+    const puedeNecesitarValidar = opciones.validacion && idx < ultimo && (valor >= 2 || provisional)
+    if (puedeNecesitarValidar) {
       const siguiente = hoyos[idx + 1]
       const j = jugadores.find(x => x.id === ganador)!
       const neto = juegaElHoyo(j, siguiente.numero) ? netoDe(ganador, siguiente) : FUERA_DEL_HOYO
-      if (neto === null) {
-        fila.estado = 'por_validar'
-        fila.lideres = [ganador]
-        provisional = true
-        arrastre = 0
-        return
-      }
-      if (neto === FUERA_DEL_HOYO || neto > siguiente.par) {
+      const valida = typeof neto === 'number' && neto <= siguiente.par
+      if (!valida) {
+        if (neto === null || valor < 2) {
+          // Todavía no anota el siguiente, o no validó pero no se sabe si hacía falta (el valor real depende de un
+          // hoyo abierto): queda pendiente, sin acreditar.
+          fila.estado = 'por_validar'
+          fila.lideres = [ganador]
+          provisional = true
+          arrastre = 0
+          return
+        }
         fila.estado = 'arrastre'
         fila.noValidado = true
         arrastre = valor
@@ -242,6 +283,8 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
     fila.ganador = ganador
     unidadesHoyo[ganador] += valor
     arrastre = 0
+    // Ganado es firme sea cual sea el valor real: el hoyo siguiente arranca de cero, seguro.
+    provisional = false
   })
 
   // Reparto del último hoyo: pasar todo a unidades de 1/k.
@@ -251,18 +294,27 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
     for (const id of Object.keys(unidadesHoyo)) unidadesHoyo[id] *= divisor
     for (const id of reparto.entre) unidadesHoyo[id] += reparto.valor
   }
+  // Cada (jugador, hoyo, punto) vale una vez; un jugador que no está en la ronda no cobra nada.
+  const especialesVistos = new Set<string>()
   for (const e of entrada.especialesValidos ?? []) {
-    if (e.jugadorId in unidadesHoyo) unidadesHoyo[e.jugadorId] += divisor
+    const clave = `${e.jugadorId}|${e.hoyo}|${e.puntitoId}`
+    if (!(e.jugadorId in unidadesHoyo) || especialesVistos.has(clave)) continue
+    especialesVistos.add(clave)
+    unidadesHoyo[e.jugadorId] += divisor
   }
 
   const unidades = jugadores.map(j => unidadesHoyo[j.id])
   const totalUnidades = unidades.reduce((a, b) => a + b, 0)
-  const definitivo = resultado.every(r => !['por_jugar', 'en_disputa', 'por_validar'].includes(r.estado))
-  const pozoTotal = Math.max(0, Math.trunc(opciones.pozoPorJugador)) * jugadores.length
+  const definitivo = liquidable && resultado.every(r => esHoyoResuelto(r.estado))
+  const aporte = Number.isFinite(opciones.pozoPorJugador) ? Math.max(0, Math.trunc(opciones.pozoPorJugador)) : 0
+  const pozoTotal = aporte * jugadores.length
   const devolucion = definitivo && totalUnidades === 0 && pozoTotal > 0
-  const cobros = devolucion
-    ? jugadores.map(() => pozoTotal / jugadores.length)
-    : repartirPorRestoMayor(pozoTotal, unidades)
+  const hayLiquidacion = liquidable && pozoTotal > 0 && (totalUnidades > 0 || devolucion)
+  const cobros = !hayLiquidacion
+    ? jugadores.map(() => 0)
+    : devolucion
+      ? jugadores.map(() => aporte)
+      : repartirPorRestoMayor(pozoTotal, unidades)
 
   const skinsCobrados = totalUnidades / divisor
   return {
@@ -271,14 +323,15 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
       id: j.id,
       skins: unidades[i] / divisor,
       cobra: cobros[i],
-      neto: cobros[i] - (pozoTotal > 0 ? pozoTotal / jugadores.length : 0),
+      neto: hayLiquidacion ? cobros[i] - aporte : 0,
     })),
     golpes,
     skinsCobrados,
     pozoTotal,
-    valorSkin: pozoTotal > 0 && totalUnidades > 0 ? pozoTotal / skinsCobrados : null,
+    valorSkin: hayLiquidacion && !devolucion ? pozoTotal / skinsCobrados : null,
     definitivo,
     devolucion,
-    handicapsIncompletos,
+    bloqueos,
+    liquidable,
   }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcularSkins,
+  esHoyoResuelto,
   FUERA_DEL_HOYO as X,
   EMPATES_ULTIMO_HOYO,
   type EntradaSkins,
@@ -25,29 +26,37 @@ function barajarSI(r: ReturnType<typeof prng>, n: number): number[] {
   return si
 }
 
-/** Una ronda al azar. `completa` = todos anotan todo (salvo retiros). */
+/**
+ * Una ronda al azar. `completa` = todos anotan todo (salvo retiros). La mitad de las veces el orden del arrastre
+ * no es el de numeración (sale por el 10 / por el 5) y cada retirado deja de jugar la cola de ESE orden.
+ */
 function rondaAlAzar(semilla: number, completa: boolean): EntradaSkins {
   const r = prng(semilla)
   const n = r.uno([9, 18])
   const si = barajarSI(r, n)
-  const hoyos = si.map((s, i) => ({ numero: i + 1, par: r.uno([3, 4, 4, 5]), si: s }))
+  const numerados = si.map((s, i) => ({ numero: i + 1, par: r.uno([3, 4, 4, 5]), si: s }))
+  const salida = r.azar() < 0.5 ? 0 : r.entre(1, n - 1)
+  const hoyos = [...numerados.slice(salida), ...numerados.slice(0, salida)]
   const cuantos = r.entre(2, 12)
-  const jugadores = Array.from({ length: cuantos }, (_, i) => ({
-    id: `j${i}`,
-    handicapDeJuego: r.entre(-3, 36),
-    retiradoDesdeHoyo: r.azar() < 0.1 ? r.entre(2, n) : null,
-  }))
+  const jugadores = Array.from({ length: cuantos }, (_, i) => {
+    const retiro = r.azar() < 0.1 ? r.entre(1, n - 1) : null
+    return {
+      id: `j${i}`,
+      handicapDeJuego: r.entre(-3, 30),
+      hoyosQueNoJuega: retiro == null ? [] : hoyos.slice(retiro).map(h => h.numero),
+    }
+  })
   const scores: Record<string, Record<number, ScoreSkins>> = {}
   for (const j of jugadores) {
     scores[j.id] = {}
     for (const h of hoyos) {
-      if (j.retiradoDesdeHoyo != null && h.numero >= j.retiradoDesdeHoyo) continue
+      if (j.hoyosQueNoJuega.includes(h.numero)) continue
       if (!completa && r.azar() < 0.15) continue
       scores[j.id][h.numero] = r.azar() < 0.08 ? X : h.par + r.entre(-2, 3)
     }
   }
   const especialesValidos = r.azar() < 0.4
-    ? Array.from({ length: r.entre(1, 4) }, () => ({ jugadorId: r.uno(jugadores).id, hoyo: r.uno(hoyos).numero }))
+    ? Array.from({ length: r.entre(1, 4) }, (_, k) => ({ jugadorId: r.uno(jugadores).id, hoyo: r.uno(hoyos).numero, puntitoId: `p${k}` }))
     : []
   return {
     opciones: {
@@ -63,11 +72,18 @@ function rondaAlAzar(semilla: number, completa: boolean): EntradaSkins {
 const SEMILLAS = Array.from({ length: 400 }, (_, i) => i * 7919 + 13)
 
 describe('propiedades del motor de skins (400 rondas al azar)', () => {
+  it('la muestra no es vacía: la gran mayoría de las rondas se puede liquidar y hay de todos los estados', () => {
+    const rondas = SEMILLAS.map(s => calcularSkins(rondaAlAzar(s, false)))
+    expect(rondas.filter(r => r.liquidable).length).toBeGreaterThan(SEMILLAS.length * 0.8)
+    const estados = new Set(rondas.flatMap(r => r.hoyos.map(h => h.estado)))
+    for (const e of ['por_jugar', 'en_disputa', 'por_validar', 'ganado', 'arrastre', 'repartido', 'perdido']) expect(estados.has(e as never), e).toBe(true)
+  })
+
   it('ronda completa: cada skin de hoyo termina cobrado o perdido, nunca se crea ni se pierde de más', () => {
     for (const s of SEMILLAS) {
       const e = rondaAlAzar(s, true)
       const r = calcularSkins(e)
-      expect(r.definitivo, `semilla ${s}`).toBe(true)
+      expect(r.definitivo, `semilla ${s}`).toBe(r.liquidable)
       const cobradosEnHoyos = r.hoyos.reduce((t, h) => t + (h.estado === 'ganado' || h.estado === 'repartido' ? h.valor : 0), 0)
       const perdidos = r.hoyos.reduce((t, h) => t + (h.estado === 'perdido' ? h.valor : 0), 0)
       expect(cobradosEnHoyos + perdidos, `semilla ${s}`).toBe(e.hoyos.length)
@@ -82,10 +98,10 @@ describe('propiedades del motor de skins (400 rondas al azar)', () => {
         const r = calcularSkins(rondaAlAzar(s, completa))
         const suma = r.jugadores.reduce((t, j) => t + j.cobra, 0)
         expect(r.jugadores.every(j => Number.isInteger(j.cobra) && j.cobra >= 0), `semilla ${s}`).toBe(true)
-        if (r.pozoTotal > 0 && (r.skinsCobrados > 0 || r.devolucion)) expect(suma, `semilla ${s}`).toBe(r.pozoTotal)
+        if (r.liquidable && r.pozoTotal > 0 && (r.skinsCobrados > 0 || r.devolucion)) expect(suma, `semilla ${s}`).toBe(r.pozoTotal)
         else expect(suma, `semilla ${s}`).toBe(0)
         const netos = r.jugadores.reduce((t, j) => t + j.neto, 0)
-        if (r.pozoTotal > 0 && (r.skinsCobrados > 0 || r.devolucion)) expect(netos, `semilla ${s}`).toBe(0)
+        if (r.liquidable && r.pozoTotal > 0 && (r.skinsCobrados > 0 || r.devolucion)) expect(netos, `semilla ${s}`).toBe(0)
       }
     }
   })
@@ -104,7 +120,7 @@ describe('propiedades del motor de skins (400 rondas al azar)', () => {
     }
   })
 
-  it('anotar más scores nunca cambia un hoyo que ya estaba resuelto y no provisional', () => {
+  it('anotar más scores nunca cambia el estado ni el ganador de un hoyo resuelto (ni su valor si no era provisional)', () => {
     for (const s of SEMILLAS) {
       const parcial = rondaAlAzar(s, false)
       const antes = calcularSkins(parcial)
@@ -113,28 +129,31 @@ describe('propiedades del motor de skins (400 rondas al azar)', () => {
       for (const j of parcial.jugadores) {
         scores[j.id] = { ...parcial.scores[j.id] } as Record<number, ScoreSkins>
         for (const h of parcial.hoyos) {
-          if (j.retiradoDesdeHoyo != null && h.numero >= j.retiradoDesdeHoyo) continue
+          if (j.hoyosQueNoJuega?.includes(h.numero)) continue
           if (scores[j.id][h.numero] === undefined) scores[j.id][h.numero] = h.par + 1
         }
       }
       const despues = calcularSkins({ ...parcial, scores })
       antes.hoyos.forEach((h, i) => {
-        const resuelto = ['ganado', 'arrastre', 'repartido', 'perdido'].includes(h.estado)
-        if (resuelto && !h.valorProvisional) {
-          expect(despues.hoyos[i].estado, `semilla ${s} hoyo ${h.numero}`).toBe(h.estado)
-          expect(despues.hoyos[i].ganador, `semilla ${s} hoyo ${h.numero}`).toBe(h.ganador)
-          expect(despues.hoyos[i].valor, `semilla ${s} hoyo ${h.numero}`).toBe(h.valor)
-        }
+        if (!esHoyoResuelto(h.estado)) return
+        expect(despues.hoyos[i].estado, `semilla ${s} hoyo ${h.numero}`).toBe(h.estado)
+        expect(despues.hoyos[i].ganador, `semilla ${s} hoyo ${h.numero}`).toBe(h.ganador)
+        if (!h.valorProvisional) expect(despues.hoyos[i].valor, `semilla ${s} hoyo ${h.numero}`).toBe(h.valor)
+        else expect(despues.hoyos[i].valor, `semilla ${s} hoyo ${h.numero}`).toBeGreaterThanOrEqual(h.valor)
       })
     }
   })
 
-  it('el orden de los jugadores no cambia cuántos skins cobra cada uno', () => {
-    for (const s of SEMILLAS.slice(0, 100)) {
+  it('el orden de los jugadores no cambia los skins de nadie, y la plata a lo más en $1 (resto)', () => {
+    for (const s of SEMILLAS.slice(0, 150)) {
       const e = rondaAlAzar(s, true)
       const a = calcularSkins(e)
       const b = calcularSkins({ ...e, jugadores: [...e.jugadores].reverse() })
-      for (const j of a.jugadores) expect(b.jugadores.find(x => x.id === j.id)!.skins, `semilla ${s}`).toBeCloseTo(j.skins, 9)
+      for (const j of a.jugadores) {
+        const otro = b.jugadores.find(x => x.id === j.id)!
+        expect(otro.skins, `semilla ${s}`).toBeCloseTo(j.skins, 9)
+        expect(Math.abs(otro.cobra - j.cobra), `semilla ${s}`).toBeLessThanOrEqual(1)
+      }
     }
   })
 })

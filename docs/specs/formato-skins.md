@@ -42,6 +42,12 @@ Fijo (no se elige): el arrastre por empate y el reparto del pozo por skins ganad
    el del **campo completo** (todos los jugadores del torneo), no el del grupo.
 3. Esos golpes se reparten por índice de dificultad con `strokesRecibidosEnHoyo` (en 9 hoyos, en escala de 9).
 4. Gross: todos reciben 0.
+5. Los hándicaps se **congelan al empezar** la ronda: si un índice cambiara a mitad de ronda, cambiaría el más
+   bajo del campo y un hoyo ya ganado podría cambiar de dueño. Quien se retira o no se presenta sigue contando
+   para el mínimo (los golpes se fijaron al empezar).
+6. Sin datos confiables **no hay plata** (el motor lo devuelve como bloqueo y la pantalla no deja jugar así): un
+   jugador sin hándicap en neto, SI que no es permutación 1..N (p. ej. SI de 18 en una ronda de 9), o una
+   diferencia de golpes sobre 3 por hoyo.
 
 Esto NO equivale al neto de stroke play con hándicap completo: cambian los hoyos donde cae el golpe de ventaja
 (ej.: PH 20 y PH 5 — con hándicap completo la diferencia cae en SI 1-2 y 6-18; desde el más bajo, en SI 1-15).
@@ -52,7 +58,8 @@ Cada jugador, en cada hoyo, tiene uno de:
 - **golpes** (entero 1..15): compite;
 - **X** («fuera del hoyo», levantó la bola): no compite ese hoyo, nunca gana; la X nunca se convierte en número;
 - **sin anotar**: el hoyo no se puede cerrar todavía;
-- **retirado**: el jugador se retiró antes de ese hoyo; no compite desde ahí y no bloquea el cierre.
+- **retirado**: el jugador no juega ese hoyo porque se retiró; no compite y no bloquea el cierre. Se guarda
+  como el conjunto de hoyos que no juega (con salida por el 10 o shotgun, «desde el hoyo N» no sirve).
 
 ## Estado de cada hoyo
 
@@ -68,8 +75,11 @@ Un hoyo está **completo** cuando todo jugador no retirado tiene golpes o X.
 | `repartido` | último hoyo, empatado, regla `repartir`: el valor se divide en partes iguales entre los empatados |
 | `perdido` | último hoyo, empatado (o todos X), regla `se_pierde`; o el valor arrastrado no tiene hoyo siguiente |
 
-**Arrastre en orden:** el valor de un hoyo depende de cómo se cerró el anterior. Si el hoyo h−1 no está cerrado
-(en disputa o por validar), el valor del hoyo h es **provisional**: se calcula con lo seguro y se marca así.
+**Arrastre en orden:** el valor de un hoyo depende de cómo se cerró el anterior. El orden es el de
+**numeración en un torneo** (aunque haya shotgun) y el **orden en que lo juega el grupo en una Timba** (sale por
+el 10: 10…18, 1…9, y el último hoyo es el 9). Si el hoyo anterior no está cerrado (en disputa o por validar), el
+valor del hoyo es **provisional**: se calcula con lo seguro (solo puede subir) y se marca así. Un hoyo `ganado`
+corta la cadena: el siguiente vale 1 seguro.
 
 ## Validación (opcional)
 
@@ -81,6 +91,9 @@ tiene que hacer **par neto o mejor** en el hoyo siguiente (neto con los mismos g
   jugador). Si el h+1 queda empatado, sigue arrastrándose como cualquier empate.
 - En el **último hoyo no hay validación** (no existe hoyo siguiente): se cobra directo.
 - Mientras el ganador no anote el hoyo siguiente, el hoyo queda `por_validar`.
+- Con un hoyo anterior abierto el valor real puede terminar siendo ≥ 2 aunque hoy muestre 1. Por eso, con
+  validación activa, un hoyo provisional ganado solo queda `por_validar` (sin acreditar) hasta que el ganador
+  valide o el hoyo anterior se cierre: la pantalla nunca muestra un ganador que después se retira.
 
 ## Último hoyo empatado
 
@@ -94,7 +107,7 @@ tiene que hacer **par neto o mejor** en el hoyo siguiente (neto con los mismos g
 Los mismos de la Timba, con la misma regla de elegibilidad (función compartida; sandy y greenie solo con par
 o mejor, gross; greenie uno por hoyo y solo en par 3; birdie automático NO existe en skins — el birdie ya
 gana skins por sí mismo). **Cada punto especial válido vale 1 skin** y entra al reparto del mismo pozo. No
-se arrastra ni se valida.
+se arrastra ni se valida. Cada (jugador, hoyo, punto) vale una vez.
 
 ## Pozo y liquidación
 
@@ -113,6 +126,17 @@ se arrastra ni se valida.
 
 El retirado conserva los skins que ya cobró. Desde el hoyo en que se retira, no compite ni bloquea el cierre.
 Un hoyo por validar cuyo ganador se retira en el hoyo siguiente: no valida → arrastre.
+
+## Datos
+
+- **Ronda libre**: `rondas_libres.formato_juego = 'skins'` y `reglas_juego = { config, jugadorIds }`, con
+  `config` = `ConfigSkins` versionada (`src/golf/formats/skins/config.ts`). Mismo permiso que la Timba
+  (`usuario_puede_crear_timba()` en las guardas de la base).
+- **La X no es un número de golpes.** Más de 20 lugares de la app suman golpes sin filtrar (totales, leaderboard,
+  historial, stats) y los torneos guardan los golpes en `hole_scores` con CHECK 1..19: un valor especial
+  negativo los corrompería. La X se guarda **aparte** del registro de golpes, en la misma escritura (la misma
+  función y la misma secuencia por teléfono): marcar X borra los golpes de ese hoyo y anotar golpes borra la X.
+  Para el resto de la app un hoyo con X es «sin golpes», la lectura honesta.
 
 ## Fuera del motor (pantallas, fases siguientes)
 
