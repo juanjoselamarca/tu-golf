@@ -50,6 +50,27 @@ describe('useAnotadorDeEquipo: enCurso vuelve a null aunque la relectura lance',
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: MENSAJE_EQUIPOS_TARDAN }))
   })
 
+  it.each([
+    ['liberar con error', () => liberar.mockResolvedValue({ estado: 'error', mensaje: 'No se pudo liberar.' }),
+      (h: ReturnType<typeof useAnotadorDeEquipo>) => h.liberar('e2', 'Los Pumas')],
+    ['reclamar tomado', () => reclamar.mockResolvedValue({ estado: 'tomado', mensaje: 'Lo anota Pedro.' }),
+      (h: ReturnType<typeof useAnotadorDeEquipo>) => h.reclamar('e2')],
+  ])('%s y la relectura tarda: solo el mensaje del error, sin el aviso de demora encima', async (_n, preparar, accion) => {
+    vi.useFakeTimers()
+    try {
+      preparar()
+      const colgada = () => new Promise<void>(() => {})
+      const { result } = renderHook(() => useAnotadorDeEquipo({ codigo: 'ABC', recargar: colgada, recargarTrasDejarEquipo: colgada }))
+      let fin: Promise<void> | undefined
+      act(() => { fin = accion(result.current) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_CARGA_SCORER_MS); await fin })
+      expect(result.current.enCurso).toBeNull()
+      expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: MENSAJE_EQUIPOS_TARDAN }))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('reclamar con la RPC que lanza: también se suelta', async () => {
     reclamar.mockRejectedValue(new Error('red'))
     const { result } = montar()

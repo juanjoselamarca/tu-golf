@@ -18,12 +18,13 @@ import { conTimeout, TiempoAgotadoError } from '@/lib/red/con-timeout'
  * periódico no lee otra: `useRondaGrupoData` no superpone lecturas), y se avisa: sin aviso, la lista vieja parecía la
  * respuesta.
  */
-async function releer(recargar: () => Promise<void>): Promise<void> {
+async function releer(recargar: () => Promise<void>, { avisarDemora = true }: { avisarDemora?: boolean } = {}): Promise<void> {
   try {
     await conTimeout(recargar(), PLAZO_CARGA_SCORER_MS)
   } catch (e) {
     if (!(e instanceof TiempoAgotadoError)) throw e
-    addToast({ type: 'info', title: MENSAJE_EQUIPOS_TARDAN, duration: 5000 })
+    // Con un mensaje de error recién mostrado, ese es el que importa: no se le apila otro encima.
+    if (avisarDemora) addToast({ type: 'info', title: MENSAJE_EQUIPOS_TARDAN, duration: 5000 })
   }
 }
 
@@ -57,8 +58,9 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
         return
       }
       // ok / ya_tienes_equipo: al releer, el scorer abre en su equipo. tomado / error: queda el aviso y la lista al día.
-      if (r.estado === 'tomado' || r.estado === 'error') setAviso({ equipoId, mensaje: r.mensaje })
-      await releer(recargar)
+      const fallo = r.estado === 'tomado' || r.estado === 'error'
+      if (fallo) setAviso({ equipoId, mensaje: r.mensaje })
+      await releer(recargar, { avisarDemora: !fallo })
     } finally {
       setEnCurso(null)
     }
@@ -72,7 +74,7 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
       const r = await liberarEquipoDeRonda(createClient(), codigo, equipoId)
       if (r.estado === 'ok') addToast({ type: 'success', title: `${nombreEquipo} queda en tu celular`, duration: 4000 })
       else addToast({ type: 'error', title: r.mensaje, duration: 6000 })
-      await releer(recargar)
+      await releer(recargar, { avisarDemora: r.estado === 'ok' })
     } finally {
       setEnCurso(null)
     }
