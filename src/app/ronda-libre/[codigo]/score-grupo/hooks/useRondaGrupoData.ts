@@ -252,6 +252,11 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const enVueloRef = useRef<Promise<void> | null>(null)
   /** La vuelta de lectura en curso: se aborta al desmontar o con un `codigo` nuevo. */
   const vueltaRef = useRef<AbortController | null>(null)
+  /**
+   * Vida de la pantalla para este `codigo`: abortada (desmontada o `codigo` nuevo), la corrida no arranca más vueltas.
+   * Sin ella, una vuelta ENCOLADA (`recargar` con otra en vuelo) corría y aplicaba todo desde una pantalla cerrada.
+   */
+  const vidaRef = useRef<AbortController | null>(null)
   /** Se pidió leer mientras otra lectura iba en vuelo (p. ej. justo después de reclamar o liberar): una vuelta más. */
   const otraVueltaRef = useRef(false)
   /** Un bug determinista se repetiría en cada reintento: solo el primero va como error, el resto como warning. */
@@ -409,6 +414,8 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       try {
         do {
           otraVueltaRef.current = false
+          // Pantalla cerrada (o el `codigo` cambió y su efecto todavía no repone la vida): no se lee nada más.
+          if (!vidaRef.current || vidaRef.current.signal.aborted) break
           const vuelta = new AbortController()
           vueltaRef.current = vuelta
           try {
@@ -442,9 +449,14 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const recargar = useCallback(() => cargar(), [cargar])
   const recargarTrasDejarEquipo = useCallback(() => { dejoElEquipoRef.current = true; return cargar() }, [cargar])
 
-  // Al desmontar (o con un `codigo` nuevo) la vuelta en curso se cancela: su fetch se corta y lo que llegue tarde no
-  // navega ni pinta. Va antes de la carga inicial: con un `codigo` nuevo, la cancelada deja lugar a la vuelta encolada.
-  useEffect(() => () => { vueltaRef.current?.abort() }, [codigo])
+  // Vida por `codigo`. Al desmontar (o con un `codigo` nuevo) muere la vida y se cancela la vuelta en curso: su fetch se
+  // corta, lo que llegue tarde no navega ni pinta, y ninguna vuelta encolada arranca. Va ANTES de la carga inicial: con
+  // un `codigo` nuevo la vida nueva ya está puesta cuando la corrida (que terminó la vuelta cancelada) retoma.
+  useEffect(() => {
+    const vida = new AbortController()
+    vidaRef.current = vida
+    return () => { vida.abort(); vueltaRef.current?.abort() }
+  }, [codigo])
   // Carga inicial (y con un `codigo` nuevo): no es un tic, sí encola si quedó otra lectura en vuelo.
   useEffect(() => { void cargar() }, [cargar])
 
