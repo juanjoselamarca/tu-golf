@@ -158,6 +158,12 @@ describe('marcasDelHoyo — solo se ofrece lo que puede contar', () => {
     expect(r.s).toEqual(['b', 'c', 'd'])
     expect(r.c).toEqual(['b', 'c', 'd'])
   })
+  it('todos retirados: el sandy no tiene botones ni pista', () => {
+    const s = grupos({ par: 4, golpes: { a: 5, b: 6 }, retirados: ['a', 'b', 'c', 'd'] })[0]
+    expect(s.puntito.id).toBe('s')
+    expect(s.jugadores.some(j => j.visible)).toBe(false)
+    expect(s.pista).toBeNull()
+  })
   it('todos retirados: el chipingo no tiene botones ni pista', () => {
     const c = grupos({ par: 4, golpes: {}, retirados: ['a', 'b', 'c', 'd'] })[1]
     expect(c.jugadores.some(j => j.visible)).toBe(false)

@@ -9,7 +9,6 @@
 import {
   PUNTITOS_MANUALES,
   nombreDelPuntito,
-  PUNTITOS_CON_PAR_O_MEJOR,
   esUnoPorHoyo,
   porQueNoCuenta,
   seJuegaEnElHoyo,
@@ -113,11 +112,13 @@ export function marcasDelHoyo(input: {
       return { jugadorId, visible, marcado, enEspera: enEspera.some(m => misma(m, clave)), noCuenta: marcado ? razonNoCuenta(puntito, jugadorId) : null }
     })
     const hayBotones = jugadores.some(j => j.visible)
+    // La pista explica un hueco que el scorer ve: alguien en juego anotó sobre par (si todos están retirados, nada).
+    const alguienSobrePar = jugadorIds.some(id => !retirados.has(id) && porQueNoCuenta(puntito.tipo, golpes[id], par)?.motivo === 'sobre_par')
     return {
       puntito,
       nombre: nombreDelPuntito(puntito),
       nota: esUnoPorHoyo(puntito.tipo) ? 'uno por hoyo' : null,
-      pista: !hayBotones && PUNTITOS_CON_PAR_O_MEJOR.includes(puntito.tipo) && seJuegaEnElHoyo(puntito.tipo, par) ? 'Nadie en par o mejor' : null,
+      pista: !hayBotones && alguienSobrePar ? 'Nadie en par o mejor' : null,
       jugadores,
     }
   })
