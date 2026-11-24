@@ -53,7 +53,7 @@ export default async function OrganizadorPage() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <h1
-            className="whitespace-nowrap text-2xl font-bold leading-tight min-[360px]:text-[28px] min-[390px]:text-[32px]"
+            className="whitespace-nowrap text-2xl font-semibold leading-tight min-[360px]:text-[28px]"
             style={{ fontFamily: 'var(--font-playfair)', color: 'var(--text)' }}
           >
             Mis Torneos
@@ -79,7 +79,7 @@ export default async function OrganizadorPage() {
 
             {drafts.length > 0 && tournaments.length > 0 && (
               <p
-                className="mt-3 mb-1 text-xs font-semibold uppercase tracking-wider"
+                className="mt-3 mb-1 text-[13px] font-semibold"
                 style={{ color: 'var(--text-2)' }}
               >
                 Borradores sin publicar
@@ -110,10 +110,10 @@ function TournamentCard({ tournament: t }: { tournament: TournamentRow }) {
   return (
     <Link
       href={`/organizador/${t.slug}/jugadores`}
-      className="block rounded-2xl border transition-shadow hover:shadow-md"
+      className="block rounded-2xl border"
       style={{
         background: 'var(--bg-surface)',
-        borderColor: 'rgba(196,153,42,0.22)',
+        borderColor: 'var(--border)',
       }}
     >
       <div className="flex flex-col gap-2.5 p-4">
@@ -126,7 +126,7 @@ function TournamentCard({ tournament: t }: { tournament: TournamentRow }) {
             {t.name}
           </span>
           <span
-            className="shrink-0 rounded-md px-2.5 py-0.5 text-xs font-semibold"
+            className="shrink-0 rounded-lg px-2.5 py-0.5 text-[13px] font-semibold"
             style={{ background: bg, color: fg }}
           >
             {label}
@@ -160,19 +160,19 @@ function DraftCard({ id, name, updatedAt }: { id: string; name: string | null; u
   return (
     <Link
       href={`/organizador/nuevo?draft=${id}`}
-      className="flex items-center justify-between gap-3 rounded-2xl border border-dashed p-3.5 transition-shadow hover:shadow-sm"
+      className="flex items-center justify-between gap-3 rounded-2xl border border-dashed p-4"
       style={{
         background: 'var(--bg-surface)',
         borderColor: 'var(--border)',
       }}
     >
       <span
-        className="min-w-0 flex-1 truncate text-[15px] font-medium"
+        className="min-w-0 flex-1 truncate text-base font-medium"
         style={{ color: 'var(--text)' }}
       >
         {name || 'Borrador sin nombre'}
       </span>
-      <span className="shrink-0 text-xs" style={{ color: 'var(--text-2)' }}>
+      <span className="shrink-0 text-[13px] tabular-nums" style={{ color: 'var(--text-2)' }}>
         {fechaCorta(updatedAt)}
       </span>
     </Link>
@@ -182,12 +182,11 @@ function DraftCard({ id, name, updatedAt }: { id: string; name: string | null; u
 function EmptyState() {
   return (
     <div className="flex flex-col items-center px-5 py-16 text-center">
-      <div className="mb-4 rounded-2xl p-4" style={{ background: 'rgba(196,153,42,0.08)' }}>
-        <Trophy size={32} strokeWidth={1.5} style={{ color: 'var(--brand-on-bg)' }} />
-      </div>
+      {/* DESIGN.md §13: ícono de línea sin cuadrado teñido detrás; §4: Playfair solo en el h1. */}
+      <Trophy size={32} strokeWidth={1.75} className="mb-4" style={{ color: 'var(--text-2)' }} aria-hidden="true" />
       <h2
-        className="mb-2 text-xl font-semibold"
-        style={{ fontFamily: 'var(--font-playfair)', color: 'var(--text)' }}
+        className="mb-2 text-lg font-semibold"
+        style={{ color: 'var(--text)' }}
       >
         Sin torneos todavía
       </h2>
@@ -199,7 +198,7 @@ function EmptyState() {
       </p>
       <Link
         href="/organizador/nuevo"
-        className="inline-flex items-center gap-1.5 rounded-xl px-7 py-3 text-[15px] font-semibold text-bg-deep transition-opacity hover:opacity-90"
+        className="inline-flex items-center gap-1.5 rounded-xl px-7 py-3 text-base font-semibold text-bg-deep transition-opacity hover:opacity-90"
         style={{ background: 'var(--brand)' }}
       >
         <Plus size={16} strokeWidth={2.5} />
