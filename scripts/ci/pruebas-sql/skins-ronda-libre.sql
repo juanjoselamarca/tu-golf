@@ -193,12 +193,31 @@ END $$;
 DO $$
 DECLARE n int;
 BEGIN
+  -- Control positivo: el mismo UPDATE a otro formato sí pasa (el 42501 de abajo es la guarda del skins, no otra).
+  UPDATE public.rondas_libres SET formato_juego = 'stableford' WHERE id = 'e1000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'FALLA: el ajeno no pudo cambiar el formato de su propia ronda (n=%)', n; END IF;
+  RAISE NOTICE 'OK ajeno: cambia su ronda a stableford';
+END $$;
+DO $$
+DECLARE n int;
+BEGIN
   UPDATE public.rondas_libres SET formato_juego = 'skins', reglas_juego = (SELECT r FROM reglas)
   WHERE id = 'e1000000-0000-4000-8000-000000000003';
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n = 0 THEN RAISE EXCEPTION 'FALLA: la prueba no discrimina: el UPDATE no tocó la ronda propia'; END IF;
   RAISE EXCEPTION 'FALLA: un no probador pasó su ronda a skins';
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK ajeno: UPDATE a skins -> 42501';
+END $$;
+
+-- ── service_role: el CHECK de la X corre en toda escritura de jugadores y exige EXECUTE de su función ────────
+RESET ROLE;
+SET LOCAL ROLE service_role;
+DO $$ BEGIN
+  INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre)
+  VALUES ('e2000000-0000-4000-8000-000000000005', 'e1000000-0000-4000-8000-000000000002', 'Servidor');
+  UPDATE public.ronda_libre_jugadores SET scores = '{"1":4}' WHERE id = 'e2000000-0000-4000-8000-000000000005';
+  RAISE NOTICE 'OK service_role: inserta y actualiza jugadores con el CHECK de la X';
 END $$;
 
 -- ── anon ───────────────────────────────────────────────────────────────────────────────────────────────────

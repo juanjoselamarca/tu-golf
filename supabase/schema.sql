@@ -3701,8 +3701,8 @@ alter table public."ronda_equipos" add constraint "ronda_equipos_pkey" PRIMARY K
 alter table public."ronda_equipos_scores_orden" add constraint "ronda_equipos_scores_orden_pkey" PRIMARY KEY (equipo_id, dispositivo);
 alter table public."ronda_libre_juego_orden" add constraint "ronda_libre_juego_orden_pkey" PRIMARY KEY (ronda_id, clave, dispositivo);
 alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_fuera_del_hoyo_check" CHECK ((jsonb_typeof(fuera_del_hoyo) = 'object'::text));
-alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_x_sin_golpes_check" CHECK (public.ronda_libre_x_sin_golpes(scores, fuera_del_hoyo));
 alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_pkey" PRIMARY KEY (id);
+alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_x_sin_golpes_check" CHECK (public.ronda_libre_x_sin_golpes(scores, fuera_del_hoyo));
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_hoyo_check" CHECK (((hoyo >= 1) AND (hoyo <= 27)));
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_pkey" PRIMARY KEY (id);
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_puntito_id_check" CHECK (((char_length(puntito_id) >= 1) AND (char_length(puntito_id) <= 40)));
