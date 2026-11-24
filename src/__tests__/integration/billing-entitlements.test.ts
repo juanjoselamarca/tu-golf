@@ -164,8 +164,8 @@ describe('Escenario 6: estado loading (sub=null)', () => {
 // ---------------------------------------------------------------------------
 
 describe('Escenario 7: integridad del catalogo de planes', () => {
-  it('23 features en el catalogo', () => {
-    expect(Object.keys(FEATURE_MIN_TIER)).toHaveLength(23)
+  it('22 features en el catalogo (leaderboard-live salió en #872: el en vivo es gratis)', () => {
+    expect(Object.keys(FEATURE_MIN_TIER)).toHaveLength(22)
   })
 
   it('ningun feature mapeado a un tier inexistente', () => {
