@@ -7,7 +7,13 @@ import Link from 'next/link'
 import { Plus } from '@/components/icons'
 import type { RondaLibre } from '@/lib/mi-golf/types'
 import type { PlayingTournament } from '@/lib/mi-golf/dashboard-derive'
-import { GOLD, TEXT, TEXT_2, BORDER, BG_SOFT } from './competencia-tokens'
+import { GOLD, TEXT, TEXT_2, BORDER, BG_SOFT, GREEN } from './competencia-tokens'
+
+// DESIGN.md §4: etiquetas en DM Sans 13/600 en oración (nada de mono ni mayúsculas espaciadas);
+// números en DM Sans tabular (`.num`), nunca serif. Tres tamaños por tarjeta: 13 · 16 · 24.
+const ETIQUETA: CSSProperties = { fontSize: '13px', fontWeight: 600, lineHeight: 1.3 }
+const TITULO: CSSProperties = { fontSize: '16px', fontWeight: 700, lineHeight: 1.25 }
+const NUMERO: CSSProperties = { fontSize: '24px', fontWeight: 600, lineHeight: 1 }
 
 export function HeroActiva({
   ronda,
@@ -41,27 +47,15 @@ export function HeroActiva({
               width: '7px',
               height: '7px',
               borderRadius: '50%',
-              background: '#22c55e',
-              boxShadow: '0 0 8px rgba(34,197,94,0.7)',
-              animation: 'livePulse 2s ease-in-out infinite',
+              background: GREEN,
               flexShrink: 0,
             }}
           />
-          <span
-            style={{
-              fontFamily: 'var(--font-dm-mono)',
-              fontSize: '10px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              fontWeight: 700,
-            }}
-          >
-            En vivo
-          </span>
+          <span style={ETIQUETA}>En vivo</span>
         </div>
-        <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{ronda.course_name}</div>
+        <div style={TITULO}>{ronda.course_name}</div>
         {/* Sin posición conocida (bola compartida, error) no se afirma un hoyo, pero la acción se ve igual. */}
-        <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '4px' }}>
+        <div style={{ fontSize: '13px', marginTop: '4px' }}>
           {summary && (
             <>
               {summary.siguienteHoyo != null ? `Hoyo ${summary.siguienteHoyo} · ` : ''}
@@ -73,12 +67,10 @@ export function HeroActiva({
       </div>
       {summary?.scoreParcial != null && (
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '32px', fontWeight: 700, lineHeight: 1 }}>
+          <div className="num" style={NUMERO}>
             {summary.scoreParcial >= 0 ? '+' : ''}{summary.scoreParcial}
           </div>
-          <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, opacity: 0.85 }}>
-            vs par
-          </div>
+          <div style={{ ...ETIQUETA, marginTop: '4px' }}>vs par</div>
         </div>
       )}
     </Link>
@@ -116,19 +108,17 @@ export function HeroProximo({
       }}
     >
       <div>
-        <div style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, color: GOLD, marginBottom: '6px' }}>
+        <div style={{ ...ETIQUETA, color: GOLD, marginBottom: '4px' }}>
           {enCurso ? 'En curso' : 'Próximo compromiso'}
         </div>
-        <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{torneo.name}</div>
-        <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>{sub}</div>
+        <div style={TITULO}>{torneo.name}</div>
+        <div style={{ fontSize: '13px', color: TEXT_2, marginTop: '4px' }}>{sub}</div>
       </div>
       {!enCurso && <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '32px', fontWeight: 700, lineHeight: 1, color: GOLD }}>
+        <div className="num" style={{ ...NUMERO, color: TEXT }}>
           {countdown}
         </div>
-        <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, color: TEXT_2 }}>
-          restantes
-        </div>
+        <div style={{ ...ETIQUETA, color: TEXT_2, marginTop: '4px' }}>restantes</div>
       </div>}
     </Link>
   )
@@ -145,10 +135,10 @@ export function HeroVacio() {
         textAlign: 'center',
       }}
     >
-      <div style={{ fontSize: '14px', color: TEXT, fontWeight: 500, marginBottom: '6px' }}>
+      <div style={{ fontSize: '16px', color: TEXT, fontWeight: 500, marginBottom: '4px' }}>
         Sin torneos ni rondas en curso
       </div>
-      <div style={{ fontSize: '12px', color: TEXT_2 }}>¿Quieres jugar hoy?</div>
+      <div style={{ fontSize: '14px', color: TEXT_2 }}>¿Quieres jugar hoy?</div>
     </div>
   )
 }
@@ -179,13 +169,12 @@ export function Acciones() {
           gap: '10px',
           background: TEXT,
           color: 'var(--bg)',
-          borderRadius: '14px',
+          borderRadius: '12px',
           padding: '16px 20px',
-          fontSize: '15px',
+          fontSize: '16px',
           fontWeight: 700,
           textDecoration: 'none',
           minHeight: '56px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
           marginBottom: '12px',
         }}
       >
@@ -196,8 +185,8 @@ export function Acciones() {
         style={{
           display: 'flex',
           justifyContent: 'center',
-          gap: '20px',
-          fontSize: '12px',
+          gap: '24px',
+          fontSize: '14px',
         }}
       >
         <Link
