@@ -13,7 +13,7 @@ Hoja corta de los comandos que usamos día a día. Si pides cualquiera de estos,
 | `/health` | "¿Cómo está la app?" — diagnóstico completo de producción (BD, APIs, errores recientes). |
 | `/pre-push` | Antes de cada push. Valida tipos, tests, build, seguridad, archivos protegidos. **Obligatorio.** |
 | `/pre-torneo` | **Antes de un torneo real con jugadores.** Smoke test del flujo completo + verificación de prod. |
-| `/consejo` | **Decisiones grandes** (abrir algo a todos, precios, prioridades del sprint, estrategia). Varios asesores con miradas opuestas y un presidente dan un veredicto con un paso claro; tú decides. Claude también lo usa solo antes de preguntarte algo grande. |
+| `/consejo` | **Decisiones grandes** (abrir algo a todos, precios, prioridades del sprint, estrategia). Varios asesores con miradas opuestas y un presidente dan un veredicto con un paso claro; tú decides. Claude también lo usa solo antes de preguntarte algo grande. **Modo pantalla:** «esta pantalla espanta usuarios»: recorre la pantalla real, la prueba un usuario que nunca usó la app y el consejo dice qué sacar. |
 | `/rrss` | **Una vez por semana.** El equipo de RRSS completo: idea, producción, revisión y la tanda lista para que la apruebes. Termina pidiéndote el visto bueno; nada se publica sin él. |
 
 ## 2. Cuando algo se rompe
