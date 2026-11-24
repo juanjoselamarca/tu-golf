@@ -32,6 +32,7 @@ import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { conTimeout } from '@/lib/red/con-timeout'
+import { esFuncionInexistente } from '@/lib/data/funcion-inexistente'
 import { RONDA_NO_EXISTE } from '@/lib/data/ronda-libre-estado'
 import {
   fetchIndiceParaTope,
@@ -241,9 +242,28 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
   // ronda» (que la toma FOR UPDATE): o el descarte ve esta tarjeta y no borra, o la ronda ya no está y no queda una
   // fila apuntando a una ronda borrada (P0001). Mismos permisos que la RLS (42501) y misma unicidad (23505).
   const { data, error } = await supabase.rpc('guardar_tarjeta_ronda_libre', { p_fila: fila })
+  if (esFuncionInexistente(error)) return guardarSinRpc(supabase, fila, tarjeta, input.userId)
   if (error?.code === '23505') return { status: 'duplicada', tarjeta }
   if (error) return { status: 'error', tarjeta, error }
   return { status: 'insertada', tarjeta, id: typeof data === 'string' ? data : null }
+}
+
+/**
+ * RESPALDO TEMPORAL: la base todavía no tiene `guardar_tarjeta_ronda_libre` (el código llegó a prod antes de que se
+ * aprobara la migración 20261125120000). Sin esto nadie podría guardar su ronda. Es el INSERT directo de antes, con
+ * los mismos permisos (RLS) y la misma unicidad (23505); solo vuelve la carrera con «Descartar ronda» que el RPC
+ * cierra. Se reporta con `historial.respaldo_sin_rpc`: cuando deje de aparecer, este camino se borra.
+ */
+async function guardarSinRpc(
+  supabase: Client, fila: ReturnType<typeof filaHistorialRondaLibre>, tarjeta: TarjetaHistorica, userId: string,
+): Promise<ResultadoGuardarTarjeta> {
+  void captureError(new Error('guardar_tarjeta_ronda_libre no existe: historial por INSERT directo'), {
+    context: 'historial.respaldo_sin_rpc', level: 'warning', meta: { userId },
+  })
+  const { data, error } = await supabase.from('historical_rounds').insert(fila).select('id').single()
+  if (error?.code === '23505') return { status: 'duplicada', tarjeta }
+  if (error) return { status: 'error', tarjeta, error }
+  return { status: 'insertada', tarjeta, id: (data?.id as string | undefined) ?? null }
 }
 
 /**

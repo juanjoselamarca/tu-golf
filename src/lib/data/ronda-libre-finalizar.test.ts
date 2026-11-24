@@ -202,6 +202,38 @@ describe('guardarTarjetaEnHistorial', () => {
     expect(sb.llamadas.some(l => l.tabla === 'historical_rounds' && l.cadena.some(c => c[0] === 'insert'))).toBe(false)
   })
 
+  describe('respaldo mientras la migración del RPC no está aplicada (PGRST202)', () => {
+    /** RPC inexistente; el INSERT directo contesta `insert`. */
+    const sinRpc = (insert: { data?: unknown; error?: unknown }) => fakeSupabase({
+      course_tees: { data: TEE },
+      historical_rounds: c => (c[0][0] === 'guardar'
+        ? { error: { code: 'PGRST202', message: 'Could not find the function public.guardar_tarjeta_ronda_libre' } }
+        : insert),
+    })
+    const insertDirecto = (sb: ReturnType<typeof fakeSupabase>) =>
+      sb.llamadas.find(l => l.tabla === 'historical_rounds' && l.cadena.some(c => c[0] === 'insert'))
+
+    it('guarda igual por el INSERT directo de antes, con la misma fila, y lo reporta con su tag', async () => {
+      const sb = sinRpc({ data: { id: 'h9' } })
+      const r = await guardarTarjetaEnHistorial(sb as never, base())
+      expect(r).toMatchObject({ status: 'insertada', id: 'h9' })
+      const fila = (sb.rpc.mock.calls[0][1] as { p_fila: unknown }).p_fila
+      expect(insertDirecto(sb)?.cadena).toEqual([['insert', [fila]], ['select', ['id']], ['single', []]])
+      expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'historial.respaldo_sin_rpc', level: 'warning' }))
+    })
+    it('23505 en el respaldo → duplicada; otro error → error', async () => {
+      expect((await guardarTarjetaEnHistorial(sinRpc({ error: { code: '23505' } }) as never, base())).status).toBe('duplicada')
+      const r = await guardarTarjetaEnHistorial(sinRpc({ error: { code: '42501' } }) as never, base())
+      expect(r.status).toBe('error')
+    })
+    it('con el RPC presente nunca usa el respaldo', async () => {
+      const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: { error: { code: '42501' } } })
+      await guardarTarjetaEnHistorial(sb as never, base())
+      expect(insertDirecto(sb)).toBeUndefined()
+      expect(captureError).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'historial.respaldo_sin_rpc' }))
+    })
+  })
+
   it('ronda descartada mientras se guardaba (P0001 del RPC) → error, nunca «insertada»', async () => {
     const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: { error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } } })
     const r = await guardarTarjetaEnHistorial(sb as never, base())
