@@ -248,22 +248,25 @@ export function useFinalizeGrupo(input: {
         avisarSinServidor()
         return
       }
-      sinPar = equiposSinParAutomatico(ronda, todos, authUserId)
+      // Un equipo liberado (o tomado) desde la última lectura: se cierra solo con la tarjeta que se ve en pantalla.
+      // Va ANTES del bloqueo por equipo incompleto: si Pedro dejó Los Pumas y la pantalla no se refrescó, el aviso
+      // «Anótalo» hablaría de un equipo que esta pantalla todavía muestra en la franja de otro celular.
+      const mios = new Set(equiposQueAnota(ronda, todos, authUserId).map(e => e.id))
+      if (mios.size !== teamEquipos.length || teamEquipos.some(e => !mios.has(e.id))) {
+        addToast({ ...AVISO_EQUIPOS_CAMBIARON, type: 'info', duration: 7000 })
+        await input.unCelularPorEquipo.recargar()
+        return
+      }
+      const sinParLeidos = equiposSinParAutomatico(ronda, todos, authUserId)
+      sinPar = sinParLeidos
       // Incompleto de otro celular o sin reclamar: frena. El sin reclamar no se rellena con par (P1-a).
-      const ajeno = equipoAjenoIncompleto(equiposSinParAutomatico(ronda, todos, authUserId), hoyos)
+      const ajeno = equipoAjenoIncompleto(sinParLeidos, hoyos)
       if (ajeno) {
         const aviso = ajeno.equipo.anotador_user_id
           ? avisoEquipoAjenoIncompleto(ajeno.equipo.nombre, ajeno.hoyo)
           : avisoEquipoSinReclamarIncompleto(ajeno.equipo.nombre, ajeno.hoyo)
         addToast({ type: 'error', title: aviso, duration: 8000 })
         haptic([30, 60, 30])
-        return
-      }
-      // Un equipo liberado (o tomado) desde la última lectura: se cierra solo con la tarjeta que se ve en pantalla.
-      const mios = new Set(equiposQueAnota(ronda, todos, authUserId).map(e => e.id))
-      if (mios.size !== teamEquipos.length || teamEquipos.some(e => !mios.has(e.id))) {
-        addToast({ ...AVISO_EQUIPOS_CAMBIARON, type: 'info', duration: 7000 })
-        await input.unCelularPorEquipo.recargar()
         return
       }
     }

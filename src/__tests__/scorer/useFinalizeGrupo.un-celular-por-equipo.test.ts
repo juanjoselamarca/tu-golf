@@ -177,4 +177,16 @@ describe('useFinalizeGrupo — un celular por equipo', () => {
     expect(addToast).toHaveBeenCalledTimes(1)
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', title: 'No se pudo finalizar todavía' }))
   })
+
+  it('P2-a: Pedro dejó Los Pumas con hoyos vacíos y la pantalla no se refrescó: recarga, no pide «Anótalo»', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    // En pantalla, Los Pumas todavía es de Pedro (franja de otro celular); en el servidor ya quedó sin reclamar.
+    lectura.equipos = [mio, eq('e2', 'Los Pumas', null, { 1: 4, 2: 3 })]
+    const { result } = montar([mio])
+    await finalizar(result)
+    expect(recargar).toHaveBeenCalledTimes(1)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Cambió quién anota los equipos' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: expect.stringContaining('Anótalo') }))
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
 })
