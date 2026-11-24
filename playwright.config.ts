@@ -86,6 +86,7 @@ export default defineConfig({
         'organizador-hoja-salida.spec.ts',
         'ronda-libre-neto-leaderboard.spec.ts',
         'ronda-libre-foursome-neto.spec.ts',
+        'scramble-un-celular-por-equipo.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
