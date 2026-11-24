@@ -111,11 +111,18 @@ export function esRechazoDefinitivoDeTimba(error: { code?: string | null } | nul
 
 type RpcClient = Pick<SupabaseClient, 'rpc'>
 
+/**
+ * DETAIL del P0003 de `descartar_ronda_libre` cuando alguna tarjeta de la ronda ya está en un historial
+ * (migración 20261124120000_descartar_solo_ronda_en_curso). Definitivo: la ronda ya no se descarta.
+ */
+export const RONDA_CON_TARJETAS_GUARDADAS_DETAIL = 'ronda con tarjetas guardadas'
+
 /** Mensaje para el usuario según el error del RPC de descarte. */
 export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'details' | 'message'>): string {
   if (error.code === RONDA_ERRCODE.FORBIDDEN) {
     if (error.details === 'ronda de torneo') return 'Las rondas de un torneo no se pueden descartar.'
     if (error.details === 'ronda con datos asociados') return 'Esta ronda tiene datos asociados y no se puede descartar.'
+    if (error.details === RONDA_CON_TARJETAS_GUARDADAS_DETAIL) return 'Ya hay una tarjeta de esta ronda en un historial: no se puede descartar.'
     return 'Solo quien creó la ronda puede descartarla.'
   }
   if (error.code === RONDA_ERRCODE.NOT_FOUND) return 'Esta ronda ya no existe.'
@@ -136,8 +143,9 @@ export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'deta
  * Finalizar no respondía. Vencido, es "sin respuesta" (se puede reintentar); si el borrado igual llegó, el siguiente
  * Finalizar lo ve como ronda que ya no existe.
  *
- * `cerrada`: el servidor respondió P0002, la ronda ya no está en curso y no se descarta (migración
- * 20261124120000). El scorer deja de ofrecer «Descartar ronda».
+ * `cerrada`: el servidor dijo que esta ronda ya no se descarta, nunca más (migración 20261124120000): P0002
+ * (ya no está en curso) o P0003 con `RONDA_CON_TARJETAS_GUARDADAS_DETAIL` (alguien guardó su tarjeta en su
+ * historial). Los dos scorers dejan de ofrecer «Descartar ronda».
  */
 export async function descartarRondaLibre(
   supabase: RpcClient,
@@ -157,6 +165,7 @@ export async function descartarRondaLibre(
   return {
     error: mensajeErrorDescartar(error),
     noExiste: error.code === RONDA_ERRCODE.NOT_FOUND,
-    cerrada: error.code === RONDA_ERRCODE.FINALIZED,
+    cerrada: error.code === RONDA_ERRCODE.FINALIZED
+      || (error.code === RONDA_ERRCODE.FORBIDDEN && error.details === RONDA_CON_TARJETAS_GUARDADAS_DETAIL),
   }
 }

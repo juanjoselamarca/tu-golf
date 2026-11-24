@@ -471,6 +471,66 @@ describe('useFinalizeRonda — descarte cerrado tras finalizar', () => {
     expect(result.current.descarteCerrado).toBe(false)
   })
 
+  // Revisión Fable (1ª vuelta): se cierra al quedar la tarjeta en el historial, no al llegar a la pantalla final.
+  it('tarjeta en el historial pero sin poder leer la ronda para cerrarla: el descarte ya queda cerrado', async () => {
+    const abierta = { estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4 } }] }
+    vi.mocked(fetchRondaParaCierre)
+      .mockResolvedValueOnce(abierta as never) // la lectura del inicio
+      .mockResolvedValueOnce(null as never)    // la de justo antes de cerrar
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(false)
+    expect(result.current.descarteCerrado).toBe(true)
+  })
+
+  it('tarjeta en el historial y el cierre sin respuesta firme: el descarte ya queda cerrado', async () => {
+    vi.mocked(finalizarRondaLibre).mockResolvedValueOnce({ finalizada: false, error: { code: '503' } as never })
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(false)
+    expect(result.current.descarteCerrado).toBe(true)
+  })
+
+  it('tarjeta de otra cuenta (no va a ningún historial) con la ronda aún en curso: se sigue pudiendo descartar', async () => {
+    const otrosJugando = { estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }, { id: 'p2', scores: { 1: 5 } }] }
+    vi.mocked(fetchRondaParaCierre).mockResolvedValueOnce(otrosJugando as never).mockResolvedValueOnce(otrosJugando as never)
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), authUserId: 'u2' }))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(true)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.descarteCerrado).toBe(false)
+  })
+
+  it('tarjeta de otra cuenta y la ronda se cierra: el descarte queda cerrado', async () => {
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), authUserId: 'u2' }))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+    expect(result.current.descarteCerrado).toBe(true)
+  })
+
+  it('tarjeta de otra cuenta y otro jugador ya cerró la ronda: el descarte queda cerrado', async () => {
+    const cerrada = { estado: 'finalizada', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] }
+    vi.mocked(fetchRondaParaCierre).mockResolvedValueOnce(cerrada as never)
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), authUserId: 'u2' }))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(true)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.descarteCerrado).toBe(true)
+  })
+
+  it('el servidor responde «ronda con tarjetas guardadas» (tras recargar): avisa y cierra el descarte', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: 'P0003', message: 'RONDA_FORBIDDEN', details: 'ronda con tarjetas guardadas' } })
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await dosToques(result)
+    expect(result.current.descarteCerrado).toBe(true)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya hay una tarjeta de esta ronda en un historial: no se puede descartar.', type: 'error' }))
+  })
+
   it('el servidor responde P0002 (la ronda ya cerró): avisa, cierra el descarte y no sale de la pantalla', async () => {
     rpcMock.mockResolvedValueOnce({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED', details: '' } })
     const onDiscardSuccess = vi.fn()

@@ -10,9 +10,11 @@
  * El RPC además rechaza rondas ligadas a un torneo y rondas con datos asociados:
  * eso NO se replica (requiere consultar otras tablas), así que al creador se le
  * puede ofrecer "Descartar" y el servidor responder con un mensaje claro.
- * Desde 20261124120000 rechaza también una ronda que no está 'en_curso' (P0002). Tampoco se
- * replica acá: los scorers ya no la muestran abierta, y el individual cierra el descarte al
- * guardar la tarjeta (`descarteCerrado` en useFinalizeRonda).
+ * Desde 20261124120000 rechaza también una ronda que no está 'en_curso' (P0002) y una en curso
+ * con alguna tarjeta ya guardada en un historial (P0003 'ronda con tarjetas guardadas'). Tampoco
+ * se replica acá (otra tabla). El individual cierra el descarte en memoria al guardar la tarjeta
+ * (`descarteCerrado` en useFinalizeRonda); tras recargar, o en el scorer de grupo, el botón se
+ * ofrece y la respuesta del servidor lo cierra (`cerrada` de `descartarRondaLibre`).
  */
 
 export function puedeDescartarRonda(

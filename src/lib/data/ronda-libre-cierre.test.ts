@@ -8,6 +8,7 @@ import {
   esRechazoQueDescarta,
   esRechazoDefinitivoDeTimba,
   esRechazoDelCierre,
+  RONDA_CON_TARJETAS_GUARDADAS_DETAIL,
 } from './ronda-libre-cierre'
 
 function cliente(respuesta: { data?: unknown; error?: unknown }) {
@@ -62,9 +63,18 @@ describe('descartarRondaLibre', () => {
     expect(r).toEqual({ error: 'Esta ronda ya terminó y no se puede descartar.', noExiste: false, cerrada: true })
   })
 
-  it('sin red, sin permiso o 5xx: NO es cerrada', async () => {
-    for (const code of ['', 'P0001', 'P0003', '08006']) {
-      const r = await descartarRondaLibre(cliente({ error: { code, message: 'x', details: '' } }) as never, 'ABC123')
+  // Decisión 24-nov: si alguien ya guardó su tarjeta en su historial, la ronda (aún en curso) no se descarta.
+  it('P0003 «ronda con tarjetas guardadas»: cerrada, con un mensaje claro', async () => {
+    const r = await descartarRondaLibre(
+      cliente({ error: { code: 'P0003', message: 'RONDA_FORBIDDEN', details: RONDA_CON_TARJETAS_GUARDADAS_DETAIL } }) as never,
+      'ABC123',
+    )
+    expect(r).toEqual({ error: 'Ya hay una tarjeta de esta ronda en un historial: no se puede descartar.', noExiste: false, cerrada: true })
+  })
+
+  it('sin red, sin permiso, otro P0003 o 5xx: NO es cerrada', async () => {
+    for (const [code, details] of [['', ''], ['P0001', ''], ['P0003', ''], ['P0003', 'ronda de torneo'], ['P0003', 'ronda con datos asociados'], ['08006', '']]) {
+      const r = await descartarRondaLibre(cliente({ error: { code, message: 'x', details } }) as never, 'ABC123')
       expect(r.cerrada).toBe(false)
     }
   })
