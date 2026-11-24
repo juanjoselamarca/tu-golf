@@ -60,13 +60,15 @@ const enviarPendientes = vi.fn(async (): Promise<ResultadoEnvio> => ({ estado: '
 const completarEquiposConPar = vi.fn((eqs: unknown[]) => eqs)
 const recargar = vi.fn(async () => {})
 
-function montar(teamEquipos: unknown[]) {
+/** `yoAnotoTodos`: ronda de un celular (sin `unCelularPorEquipo`). */
+function montar(teamEquipos: unknown[], opciones: { yoAnotoTodos?: boolean } = {}) {
   return renderHook(() => {
     const [scores, setScores] = useState<Record<string, Record<number, number>>>({})
     return useFinalizeGrupo({
-      ronda: ronda as never, codigo: 'ABC', hoyos, scores, setScores, parMap: PAR,
+      ronda: (opciones.yoAnotoTodos ? { ...ronda, admin_mode: true } : ronda) as never, codigo: 'ABC', hoyos, scores, setScores, parMap: PAR,
       teamEquipos: teamEquipos as never, completarEquiposConPar: completarEquiposConPar as never, matchResult: null,
-      authUserId: CREADOR, enviarPendientes: enviarPendientes as never, unCelularPorEquipo: { recargar },
+      authUserId: CREADOR, enviarPendientes: enviarPendientes as never,
+      unCelularPorEquipo: opciones.yoAnotoTodos ? undefined : { recargar },
     })
   })
 }
@@ -107,11 +109,11 @@ describe('useFinalizeGrupo — un celular por equipo', () => {
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
   })
 
-  it('P1-a: un equipo SIN RECLAMAR con hoyos sin golpes frena el cierre del creador (no se rellena con par)', async () => {
+  it('P1-a: un equipo SIN RECLAMAR con hoyos sin golpes en el servidor frena el cierre del creador (no se rellena con par)', async () => {
     const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
-    const sinReclamar = eq('e3', 'Los Cóndores', null, { 1: 4, 2: 3 })
-    lectura.equipos = [mio, sinReclamar]
-    const { result } = montar([mio, sinReclamar])
+    // Completo en este celular (pasa el chequeo de antes de la hoja), incompleto en el servidor: frena la relectura.
+    lectura.equipos = [mio, eq('e3', 'Los Cóndores', null, { 1: 4, 2: 3 })]
+    const { result } = montar([mio, eq('e3', 'Los Cóndores', null, lleno)])
     await finalizar(result)
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Los Cóndores no tiene golpes en el hoyo 3. Anótalo para cerrar la ronda.' }))
     expect(completarEquiposConPar).not.toHaveBeenCalled()
@@ -188,5 +190,64 @@ describe('useFinalizeGrupo — un celular por equipo', () => {
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Cambió quién anota los equipos' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: expect.stringContaining('Anótalo') }))
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+})
+
+describe('useFinalizeGrupo — la hoja de confirmación anticipa al equipo sin reclamar incompleto', () => {
+  const abrirHoja = async (result: { current: ReturnType<typeof useFinalizeGrupo> }) => {
+    await act(async () => { await result.current.finalizeRound() })
+  }
+
+  it('Los Pumas sin reclamar sin golpes en el 9: no abre la hoja, avisa con su nombre y no toca el servidor', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    // Último hoyo sin golpes: «Siguiente» no le pone par (sin reclamar) y nadie tocó +/-.
+    const sinElUltimo = Object.fromEntries(hoyos.filter(h => h !== 9).map(h => [String(h), PAR[h]]))
+    const pumas = eq('e3', 'Los Pumas', null, sinElUltimo)
+    const { result } = montar([mio, pumas])
+    await abrirHoja(result)
+    expect(result.current.confirmFinalize).toBe(false)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', title: 'Los Pumas no tiene golpes en el hoyo 9. Anótalo para cerrar la ronda.' }))
+    expect(enviarPendientes).not.toHaveBeenCalled()
+    expect(fetchEquiposConAnotador).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('al frenar antes de la hoja relee la lista (recargar una vez), para que el siguiente toque vea si otro celular ya lo reclamó', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    // Lista vieja: Pedro reclamó Los Pumas y va en el 13, pero este celular aún lo ve sin reclamar.
+    const pumas = eq('e3', 'Los Pumas', null, { 1: 4 })
+    const { result } = montar([mio, pumas])
+    await abrirHoja(result)
+    expect(result.current.confirmFinalize).toBe(false)
+    expect(recargar).toHaveBeenCalledTimes(1)
+  })
+
+  it('con todo completo la hoja se abre igual que antes, y confirmar cierra', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    const pumas = eq('e3', 'Los Pumas', null, lleno)
+    lectura.equipos = [mio, pumas]
+    const { result } = montar([mio, pumas])
+    await abrirHoja(result)
+    expect(result.current.confirmFinalize).toBe(true)
+    expect(addToast).not.toHaveBeenCalled()
+    await act(async () => { await result.current.finalizeRound() })
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
+  it('«Yo anoto todos»: sin cambios, un equipo con hoyos vacíos no frena la hoja (el cierre lo rellena con par)', async () => {
+    const pumas = eq('e3', 'Los Pumas', null, { 1: 4 })
+    const { result } = montar([pumas], { yoAnotoTodos: true })
+    await abrirHoja(result)
+    expect(result.current.confirmFinalize).toBe(true)
+    expect(addToast).not.toHaveBeenCalled()
+  })
+
+  it('un equipo de OTRO celular incompleto en la lista local no frena la hoja: lo decide la relectura del servidor', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    const deOtro = eq('e2', 'Los Pumas', 'u-pedro', { 1: 4 })
+    const { result } = montar([mio, deOtro])
+    await abrirHoja(result)
+    expect(result.current.confirmFinalize).toBe(true)
+    expect(addToast).not.toHaveBeenCalled()
   })
 })

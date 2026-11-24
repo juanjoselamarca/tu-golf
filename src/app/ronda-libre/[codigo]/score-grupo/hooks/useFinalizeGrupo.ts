@@ -27,7 +27,7 @@ import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { isSharedBallFormat } from '@/golf/formats'
-import { equipoAjenoIncompleto, equiposQueAnota, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
+import { equipoAjenoIncompleto, equiposLibres, equiposQueAnota, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
 import { fetchEquiposConAnotador } from '@/lib/data/ronda-libre'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-de-club'
@@ -100,6 +100,8 @@ export function useFinalizeGrupo(input: {
    * Un celular por equipo (`@/golf/ronda-libre/anotador-de-equipo`), solo entonces. Antes de cerrar se relee quién
    * anota qué: con un equipo de otro celular sin terminar no se cierra (quedaría con hoyos de menos), y si los equipos
    * de este celular cambiaron desde la última lectura se recargan (`recargar`) en vez de cerrar con la lista vieja.
+   * Un equipo sin reclamar (`equiposLibres`) incompleto frena ANTES de abrir la hoja de confirmación: la hoja no ofrece
+   * un cierre que el paso siguiente rechaza.
    */
   unCelularPorEquipo?: { recargar: () => Promise<void> }
 }): FinalizeGrupo {
@@ -130,6 +132,19 @@ export function useFinalizeGrupo(input: {
   const finalizeRound = async () => {
     if (!ronda || finalizing) return
     if (!confirmFinalize) {
+      // Un celular por equipo: un equipo sin reclamar sin golpes en un hoyo frena ya, sin abrir la hoja (el cierre
+      // lo rechazaría igual). Solo los sin reclamar: los anota este celular, así que su tarjeta local es la vigente.
+      // Los de otro celular NO: su lista local puede estar vieja y frenaría de más; esos quedan al chequeo con la
+      // relectura del servidor (`finalizarUnaVez`), que sigue siendo la garantía para todos.
+      const sinReclamar = input.unCelularPorEquipo ? equipoAjenoIncompleto(equiposLibres(teamEquipos), hoyos) : null
+      if (sinReclamar) {
+        addToast({ type: 'error', title: avisoEquipoSinReclamarIncompleto(sinReclamar.equipo.nombre, sinReclamar.hoyo), duration: 8000 })
+        haptic([30, 60, 30])
+        // La lista local puede estar vieja (otro celular lo reclamó desde la última lectura): se relee ya, para que
+        // el segundo toque vea la lista al día y no se anote un equipo ajeno por este aviso.
+        void input.unCelularPorEquipo?.recargar()
+        return
+      }
       setConfirmFinalize(true)
       haptic([20, 50, 20])
       return
