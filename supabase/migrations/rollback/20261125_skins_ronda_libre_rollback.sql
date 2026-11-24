@@ -1,6 +1,11 @@
 -- Rollback de 20261125100000_skins_ronda_libre. Solo si la migraci√≥n rompe algo.
 -- ANTES: no debe quedar ninguna ronda 'skins' (el CHECK viejo no la acepta y el ALTER falla). Si hay, se deciden
 -- a mano (cerrarlas o borrarlas) antes de correr esto. La columna fuera_del_hoyo se borra con sus datos.
+-- Todo o nada (BEGIN/COMMIT). Orden: primero las funciones vuelven a su versi√≥n anterior y reci√©n al final se borra
+-- la columna: nunca queda una funci√≥n viva escribiendo en una columna que ya no existe.
+-- Archivo en UTF-8. Cuerpos copiados tal cual de 20261118120000 y 20261121120000.
+
+BEGIN;
 
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM public.rondas_libres WHERE formato_juego = 'skins') THEN
@@ -30,9 +35,7 @@ CREATE POLICY "rondas_libres_personalizado_solo_admin_update" ON public.rondas_l
   USING (true)
   WITH CHECK (formato_juego <> 'personalizado' OR public.usuario_puede_crear_timba());
 
-ALTER TABLE public.ronda_libre_jugadores DROP COLUMN IF EXISTS fuera_del_hoyo;
-
--- Funciones: las versiones anteriores, copiadas de sus migraciones.
+-- Funciones: las versiones anteriores.
 CREATE OR REPLACE FUNCTION public.timba_ronda_para_escribir(p_codigo text, p_jugador_id uuid)
  RETURNS TABLE(ronda_id uuid, reglas jsonb, holes integer)
  LANGUAGE plpgsql
@@ -55,7 +58,7 @@ BEGIN
   FROM public.rondas_libres rl
   INNER JOIN public.ronda_libre_jugadores rlj ON rlj.ronda_id = rl.id
   WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo
-  -- Mismo lock que upsert_ronda_libre_scores: lo toma la RPC que llama (misma transacciÛn) hasta confirmar.
+  -- Mismo lock que upsert_ronda_libre_scores: lo toma la RPC que llama (misma transacci√≥n) hasta confirmar.
   FOR SHARE OF rl;
 
   IF v_ronda_id IS NULL THEN
@@ -64,18 +67,18 @@ BEGIN
   IF v_es_demo THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
   END IF;
-  IF v_estado IS DISTINCT FROM 'en_curso' THEN  -- con estado NULL, <> no cortarÌa
+  IF v_estado IS DISTINCT FROM 'en_curso' THEN  -- con estado NULL, <> no cortar√≠a
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
   END IF;
   IF v_formato <> 'personalizado' OR v_reglas IS NULL THEN
     RAISE EXCEPTION 'RONDA_SIN_JUEGO' USING ERRCODE = '22023';
   END IF;
-  -- Siempre con sesiÛn (nada para anon). Al invitado sin cuenta (user_id NULL) lo marca solo quien anota la
-  -- ronda (creador, marcador o un jugador de ella): antes bastaba tener el cÛdigo.
+  -- Siempre con sesi√≥n (nada para anon). Al invitado sin cuenta (user_id NULL) lo marca solo quien anota la
+  -- ronda (creador, marcador o un jugador de ella): antes bastaba tener el c√≥digo.
   IF NOT (
     v_is_service
     -- IS NOT DISTINCT FROM y no `=`: con un invitado (user_id NULL) `=` da NULL, el IF NOT (NULL) no corta y el
-    -- ajeno pasarÌa (lo cazÛ la prueba SQL).
+    -- ajeno pasar√≠a (lo caz√≥ la prueba SQL).
     OR (v_uid IS NOT NULL AND (v_user_id IS NOT DISTINCT FROM v_uid OR public.puede_anotar_ronda(v_ronda_id)))
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
@@ -84,6 +87,7 @@ BEGIN
   RETURN QUERY SELECT v_ronda_id, v_reglas, v_holes;
 END;
 $function$;
+REVOKE ALL ON FUNCTION public.timba_ronda_para_escribir(text, uuid) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.upsert_ronda_libre_scores(p_jugador_id uuid, p_codigo text, p_delta jsonb, p_seq bigint DEFAULT NULL::bigint, p_dispositivo uuid DEFAULT NULL::uuid)
  RETURNS jsonb
@@ -104,10 +108,10 @@ DECLARE
 BEGIN
   PERFORM public.validate_score_delta(p_delta);
 
-  -- Primero la ronda (FOR SHARE), despuÈs el jugador (FOR UPDATE), en dos sentencias: el mismo orden que el cierre
+  -- Primero la ronda (FOR SHARE), despu√©s el jugador (FOR UPDATE), en dos sentencias: el mismo orden que el cierre
   -- y los borrados de ronda (descartar_ronda_libre, DELETE con CASCADE), para que no se crucen en un deadlock.
   -- El cierre (finalizar_ronda_libre, FOR UPDATE; o un UPDATE directo) espera a que esta escritura confirme, y una
-  -- que llega despuÈs ve el estado ya cerrado. Varias escrituras a la vez no se bloquean (SHARE con SHARE).
+  -- que llega despu√©s ve el estado ya cerrado. Varias escrituras a la vez no se bloquean (SHARE con SHARE).
   SELECT rl.id, rl.estado, rl.es_demo, rl.formato_juego
     INTO v_ronda_id, v_estado, v_es_demo, v_formato
   FROM public.rondas_libres rl
@@ -131,16 +135,16 @@ BEGIN
   IF v_es_demo THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
   END IF;
-  IF v_estado IS DISTINCT FROM 'en_curso' THEN  -- con estado NULL, <> no cortarÌa
+  IF v_estado IS DISTINCT FROM 'en_curso' THEN  -- con estado NULL, <> no cortar√≠a
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
   END IF;
 
   IF NOT (
     v_is_service
     OR (v_uid IS NOT NULL AND (v_user_id IS NOT DISTINCT FROM v_uid OR public.puede_anotar_ronda(v_ronda_id)))
-    -- Tarjeta de un invitado sin cuenta: cualquiera con el cÛdigo la anota, salvo en la Timba (hay plata en juego y
-    -- los ids de los jugadores salen en /juego/publico): ahÌ solo quien anota la ronda (rama de arriba). DecisiÛn de
-    -- Juanjo 18-nov; migraciÛn 20261121120000. IS DISTINCT FROM: formato_juego es NOT NULL, pero no se apuesta a eso.
+    -- Tarjeta de un invitado sin cuenta: cualquiera con el c√≥digo la anota, salvo en la Timba (hay plata en juego y
+    -- los ids de los jugadores salen en /juego/publico): ah√≠ solo quien anota la ronda (rama de arriba). Decisi√≥n de
+    -- Juanjo 18-nov; migraci√≥n 20261121120000. IS DISTINCT FROM: formato_juego es NOT NULL, pero no se apuesta a eso.
     OR (v_user_id IS NULL AND v_formato IS DISTINCT FROM 'personalizado')
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
@@ -150,7 +154,7 @@ BEGIN
     INSERT INTO public.ronda_libre_scores_orden AS o (jugador_id, dispositivo, seq)
     VALUES (p_jugador_id, p_dispositivo, p_seq)
     ON CONFLICT (jugador_id, dispositivo) DO UPDATE SET seq = EXCLUDED.seq WHERE o.seq < EXCLUDED.seq;
-    -- Ese dispositivo ya guardÛ una tarjeta m·s nueva: Èsta no la pisa.
+    -- Ese dispositivo ya guard√≥ una tarjeta m√°s nueva: √©sta no la pisa.
     IF NOT FOUND THEN
       RETURN COALESCE(v_scores, '{}'::jsonb);
     END IF;
@@ -168,3 +172,12 @@ BEGIN
   RETURN v_new_scores;
 END;
 $function$;
+REVOKE ALL ON FUNCTION public.upsert_ronda_libre_scores(uuid, text, jsonb, bigint, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.upsert_ronda_libre_scores(uuid, text, jsonb, bigint, uuid) TO anon, authenticated, service_role;
+
+-- La guarda de la X y, al final, la columna.
+DROP TRIGGER IF EXISTS ronda_libre_jugadores_x_sin_golpes ON public.ronda_libre_jugadores;
+DROP FUNCTION IF EXISTS public.ronda_libre_jugadores_x_sin_golpes();
+ALTER TABLE public.ronda_libre_jugadores DROP COLUMN IF EXISTS fuera_del_hoyo;
+
+COMMIT;

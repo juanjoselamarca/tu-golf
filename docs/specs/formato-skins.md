@@ -150,3 +150,17 @@ Un hoyo por validar cuyo ganador se retira en el hoyo siguiente: no valida → a
   (en 9 hoyos, el CH de 9): con el de 18 el tope de 3 golpes por hoyo bloquearía de más y los golpes caerían mal.
 - Puntos especiales en el scorer: `puntitosMarcables` de la Timba filtra por `activo`, que la config del skins no
   tiene; el scorer del skins necesita su propia lista o una versión de esa función que acepte las dos formas.
+- **Adaptador base → motor** (lo que lee `fuera_del_hoyo` y `scores` y arma la entrada de `calcularSkins`):
+  - Ignora golpes y X de hoyos que no son de la ronda: la base valida 1..27 fijo, así que en una ronda de 18
+    entra un `{"25":"X"}` y en una de 9 que sale del 10 entra un `{"3":"X"}`. Con test.
+  - Un `-1` en `scores` (conceder, de match play) lo acepta la base en cualquier formato: en skins el adaptador
+    lo trata como hoyo sin anotar, nunca como golpes. Con test.
+  - La X la lee siempre de `fuera_del_hoyo` en todos los selects, el poll y el realtime de jugadores (las listas de
+    columnas son explícitas). La RPC devuelve solo `scores`: tras escribir, la X se aplica optimista.
+  - Golpes y X en el mismo hoyo no pueden existir (trigger en la base); el adaptador no decide precedencia.
+- **Cierre de una ronda de skins:** `guardarTarjetaEnHistorial` no se llama en skins (el CHECK de
+  `historical_rounds` la rechaza y quedaría en «reintentar» para siempre); `tarjetaCompleta` y la rama de
+  `finalizar_ronda_libre` para quien no anota cuentan un hoyo con X como anotado.
+- **Promover:** la migración `20261125100000` se aprueba en prod ANTES de promover código que seleccione
+  `fuera_del_hoyo` (si no, 42703 en todas las rondas libres, no solo en skins). Nunca dentro de una ventana de
+  evento en vivo.

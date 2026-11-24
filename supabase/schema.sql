@@ -3099,6 +3099,29 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.ronda_libre_jugadores_x_sin_golpes()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF NEW.fuera_del_hoyo = '{}'::jsonb THEN
+    RETURN NEW;
+  END IF;
+  IF EXISTS (SELECT 1 FROM jsonb_each(NEW.fuera_del_hoyo) e
+             WHERE e.value <> 'true'::jsonb OR e.key !~ '^([1-9]|1[0-9]|2[0-7])$') THEN
+    RAISE EXCEPTION 'INVALID_DELTA: fuera_del_hoyo solo lleva hoyos 1..27 con valor true' USING ERRCODE = 'P0004';
+  END IF;
+  IF NEW.scores ?| ARRAY(SELECT jsonb_object_keys(NEW.fuera_del_hoyo)) THEN
+    RAISE EXCEPTION 'INVALID_DELTA: un hoyo no puede tener golpes y X a la vez' USING ERRCODE = 'P0004';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.rondas_libres r WHERE r.id = NEW.ronda_id AND r.formato_juego = 'skins') THEN
+    RAISE EXCEPTION 'INVALID_DELTA: "X" solo vale en una ronda de skins' USING ERRCODE = 'P0004';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.search_chunks_hybrid(query_embedding public.vector, query_text text, alpha numeric DEFAULT 0.7, top_k integer DEFAULT 20, jurisdictions text[] DEFAULT NULL::text[], block_filter text DEFAULT NULL::text)
  RETURNS TABLE(id uuid, source_id uuid, breadcrumb text, content text, vec_score numeric, bm25_score numeric, final_score numeric)
  LANGUAGE plpgsql
@@ -4015,6 +4038,7 @@ CREATE TRIGGER ronda_equipos_anotador_guard BEFORE INSERT OR UPDATE OF anotador_
 CREATE TRIGGER ronda_equipos_anotador_nombre BEFORE INSERT OR UPDATE OF anotador_user_id, anotador_nombre ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_nombre();
 CREATE TRIGGER ronda_equipos_scores_de_su_anotador BEFORE UPDATE OF scores ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_scores_de_su_anotador();
 CREATE TRIGGER update_ronda_equipos_updated_at BEFORE UPDATE ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER ronda_libre_jugadores_x_sin_golpes BEFORE INSERT OR UPDATE OF scores, fuera_del_hoyo ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.ronda_libre_jugadores_x_sin_golpes();
 CREATE TRIGGER update_ronda_libre_jugadores_updated_at BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_taiger_sessions_updated_at BEFORE UPDATE ON public.taiger_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER trg_tournament_drafts_dueno_colaborador AFTER INSERT ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador();
@@ -4462,6 +4486,7 @@ revoke all on function public.rls_write_policies_audit() from public, anon, auth
 revoke all on function public.ronda_equipos_anotador_guard() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_anotador_nombre() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_scores_de_su_anotador() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.ronda_libre_jugadores_x_sin_golpes() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.tarjeta_tiene_anotaciones(jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
@@ -4838,6 +4863,7 @@ grant EXECUTE on function public.rls_write_policies_audit() to service_role;
 grant EXECUTE on function public.ronda_equipos_anotador_guard() to postgres;
 grant EXECUTE on function public.ronda_equipos_anotador_nombre() to postgres;
 grant EXECUTE on function public.ronda_equipos_scores_de_su_anotador() to postgres;
+grant EXECUTE on function public.ronda_libre_jugadores_x_sin_golpes() to postgres;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to postgres;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to service_role;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to postgres;

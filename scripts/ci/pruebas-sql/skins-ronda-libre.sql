@@ -3,7 +3,8 @@ BEGIN;
 
 INSERT INTO auth.users (id, email) VALUES
   ('e0000000-0000-4000-8000-000000000001', 'organiza@prueba.test'),
-  ('e0000000-0000-4000-8000-000000000002', 'ajeno@prueba.test');
+  ('e0000000-0000-4000-8000-000000000002', 'ajeno@prueba.test'),
+  ('e0000000-0000-4000-8000-000000000003', 'jugador@prueba.test');
 INSERT INTO public.timba_probadores (user_id) VALUES ('e0000000-0000-4000-8000-000000000001');
 CREATE TEMP TABLE reglas AS SELECT '{"config":{"version":1,"modo":"neto","hcpPct":75,"empateUltimoHoyo":"repartir",
   "validacion":false,"pozoPorJugador":10000,"puntitos":[{"id":"sandy","tipo":"sandy"}]},"jugadorIds":[]}'::jsonb AS r;
@@ -18,7 +19,9 @@ INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, fo
 INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre, user_id) VALUES
   ('e2000000-0000-4000-8000-000000000001', 'e1000000-0000-4000-8000-000000000001', 'Organiza', 'e0000000-0000-4000-8000-000000000001'),
   ('e2000000-0000-4000-8000-000000000002', 'e1000000-0000-4000-8000-000000000001', 'Invitado', NULL),
-  ('e2000000-0000-4000-8000-000000000003', 'e1000000-0000-4000-8000-000000000002', 'Invitado normal', NULL);
+  ('e2000000-0000-4000-8000-000000000003', 'e1000000-0000-4000-8000-000000000002', 'Invitado normal', NULL),
+  -- El caso real del campeonato: un jugador con cuenta, que no es probador, anota su propia tarjeta.
+  ('e2000000-0000-4000-8000-000000000004', 'e1000000-0000-4000-8000-000000000001', 'Jugador', 'e0000000-0000-4000-8000-000000000003');
 
 -- ── Esquema ─────────────────────────────────────────────────────────────────────────────────────────────────
 DO $$ BEGIN
@@ -77,8 +80,9 @@ BEGIN
 
   -- Marca un punto especial de las reglas del skins con la misma RPC de la Timba.
   PERFORM public.marcar_puntito_ronda_libre('SKINS1', 'e2000000-0000-4000-8000-000000000001', 3, 'sandy', true);
-  IF NOT EXISTS (SELECT 1 FROM public.ronda_libre_jugadores WHERE id = 'e2000000-0000-4000-8000-000000000001') THEN
-    RAISE EXCEPTION 'FALLA: fila perdida';
+  IF NOT EXISTS (SELECT 1 FROM public.ronda_libre_puntitos WHERE ronda_id = 'e1000000-0000-4000-8000-000000000001'
+                 AND jugador_id = 'e2000000-0000-4000-8000-000000000001' AND hoyo = 3 AND puntito_id = 'sandy') THEN
+    RAISE EXCEPTION 'FALLA: la marca del punto especial no quedó guardada';
   END IF;
   RAISE NOTICE 'OK puntos especiales: marcar_puntito_ronda_libre acepta un skins';
   PERFORM public.marcar_retiro_ronda_libre('SKINS1', 'e2000000-0000-4000-8000-000000000002', 10);
@@ -113,6 +117,40 @@ DO $$ BEGIN
   RAISE NOTICE 'OK X: el rechazo no deja escritura a medias';
 END $$;
 
+-- La base garantiza «nunca conviven» aunque la escritura no pase por la RPC (el creador tiene UPDATE directo).
+DO $$ BEGIN
+  -- El invitado tiene X en el 1 (arriba): golpes directos en el 1 no entran.
+  UPDATE public.ronda_libre_jugadores SET scores = COALESCE(scores, '{}'::jsonb) || '{"1":5}'
+  WHERE id = 'e2000000-0000-4000-8000-000000000002';
+  RAISE EXCEPTION 'FALLA: un UPDATE directo dejó golpes y X en el mismo hoyo';
+EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: golpes directos sobre una X -> P0004';
+END $$;
+DO $$ BEGIN
+  -- El organizador tiene golpes en el 1: una X directa en el 1 no entra.
+  UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"1":true}'
+  WHERE id = 'e2000000-0000-4000-8000-000000000001';
+  RAISE EXCEPTION 'FALLA: un UPDATE directo dejó X sobre golpes';
+EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: X directa sobre golpes -> P0004';
+END $$;
+DO $$ BEGIN
+  UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"9":false}'
+  WHERE id = 'e2000000-0000-4000-8000-000000000001';
+  RAISE EXCEPTION 'FALLA: fuera_del_hoyo aceptó un valor distinto de true';
+EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: valor distinto de true -> P0004';
+END $$;
+DO $$ BEGIN
+  UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"28":true}'
+  WHERE id = 'e2000000-0000-4000-8000-000000000001';
+  RAISE EXCEPTION 'FALLA: fuera_del_hoyo aceptó el hoyo 28';
+EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: hoyo fuera de rango -> P0004';
+END $$;
+DO $$ BEGIN
+  UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"9":true}'
+  WHERE id = 'e2000000-0000-4000-8000-000000000003';
+  RAISE EXCEPTION 'FALLA: una X directa en una ronda que no es skins';
+EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: X directa fuera de skins -> P0004';
+END $$;
+
 -- Secuencia por dispositivo: una X vieja que llega tarde no pisa golpes más nuevos.
 DO $$
 DECLARE v jsonb; x jsonb;
@@ -122,6 +160,17 @@ BEGIN
   SELECT fuera_del_hoyo INTO x FROM public.ronda_libre_jugadores WHERE id = 'e2000000-0000-4000-8000-000000000001';
   IF NOT (v ? '5') OR x ? '5' THEN RAISE EXCEPTION 'FALLA: la X vieja pisó: scores % fuera %', v, x; END IF;
   RAISE NOTICE 'OK orden: una X con secuencia vieja no se aplica';
+END $$;
+
+-- ── Jugador con cuenta, no probador: anota su propia X (el caso del campeonato) ─────────────────────────────
+SET LOCAL request.jwt.claims = '{"sub":"e0000000-0000-4000-8000-000000000003","role":"authenticated"}';
+DO $$
+DECLARE v jsonb; x jsonb;
+BEGIN
+  v := public.upsert_ronda_libre_scores('e2000000-0000-4000-8000-000000000004', 'SKINS1', '{"1":5,"2":"X"}');
+  SELECT fuera_del_hoyo INTO x FROM public.ronda_libre_jugadores WHERE id = 'e2000000-0000-4000-8000-000000000004';
+  IF v <> '{"1":5}'::jsonb OR x <> '{"2":true}'::jsonb THEN RAISE EXCEPTION 'FALLA: jugador: scores % fuera %', v, x; END IF;
+  RAISE NOTICE 'OK jugador no probador: anota sus golpes y su X';
 END $$;
 
 -- ── Ajeno (ni probador ni de la ronda) ─────────────────────────────────────────────────────────────────────
@@ -141,6 +190,22 @@ DO $$ BEGIN
   PERFORM 1 FROM public.ronda_libre_jugadores WHERE fuera_del_hoyo ? '1';
   RAISE NOTICE 'OK authenticated: lee fuera_del_hoyo';
 END $$;
+-- Un no probador no convierte su ronda normal en un skins (la guarda RESTRICTIVE de UPDATE cubre 'skins').
+DO $$ BEGIN
+  INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, formato_juego)
+  VALUES ('e1000000-0000-4000-8000-000000000003', 'AJENA1', 'Cancha', current_date, 'e0000000-0000-4000-8000-000000000002', 'stroke_play');
+  RAISE NOTICE 'OK ajeno: crea su ronda normal';
+END $$;
+DO $$
+DECLARE n int;
+BEGIN
+  UPDATE public.rondas_libres SET formato_juego = 'skins', reglas_juego = (SELECT r FROM reglas)
+  WHERE id = 'e1000000-0000-4000-8000-000000000003';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n = 0 THEN RAISE EXCEPTION 'FALLA: la prueba no discrimina: el UPDATE no tocó la ronda propia'; END IF;
+  RAISE EXCEPTION 'FALLA: un no probador pasó su ronda a skins';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK ajeno: UPDATE a skins -> 42501';
+END $$;
 
 -- ── anon ───────────────────────────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
@@ -155,6 +220,11 @@ DO $$ BEGIN
   -- Fuera de la Timba y el Skins, la tarjeta de un invitado sigue abierta con el código (sin cambios).
   PERFORM public.upsert_ronda_libre_scores('e2000000-0000-4000-8000-000000000003', 'NORMAL', '{"3":5}');
   RAISE NOTICE 'OK anon: invitado de una ronda normal, como antes';
+END $$;
+DO $$ BEGIN
+  -- La vista en vivo pública suma fuera_del_hoyo al select: sin el grant de columna daría 42501.
+  PERFORM fuera_del_hoyo FROM public.ronda_libre_jugadores LIMIT 1;
+  RAISE NOTICE 'OK anon: lee fuera_del_hoyo';
 END $$;
 
 ROLLBACK;
