@@ -10,7 +10,8 @@ const guardarTarjetaEnHistorial = vi.fn()
 const recalcularIndiceGolfers = vi.fn(async () => true)
 const actualizarNivelDelJugador = vi.fn(async () => {})
 const avisarAlCoachRondaNueva = vi.fn()
-vi.mock('@/lib/data/ronda-libre-finalizar', () => ({
+vi.mock('@/lib/data/ronda-libre-finalizar', async () => ({
+  esTarjetaDeRondaDescartada: (await vi.importActual<typeof import('@/lib/data/ronda-libre-finalizar')>('@/lib/data/ronda-libre-finalizar')).esTarjetaDeRondaDescartada,
   tarjetaYaEnMiHistorial: (...a: unknown[]) => tarjetaYaEnMiHistorial(...a),
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...a),
   recalcularIndiceGolfers: (...a: unknown[]) => recalcularIndiceGolfers(...(a as [])),
@@ -102,6 +103,17 @@ describe('useGuardarEnMiHistorial', () => {
     await act(async () => { await result.current.guardar() })
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
     expect(result.current.estado).toBe('disponible')
+  })
+
+  it('la ronda ya no existe (P0001): lo dice y el botón se va (reintentar fallaría igual)', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001' }, tarjeta: {} })
+    const { result } = montar()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    await act(async () => { await result.current.guardar() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
+    expect(result.current.estado).toBe('oculto')
   })
 
   it('guarda la misma fila que el finalizador: le pasa las tarjetas de TODOS (el match necesita al rival)', async () => {

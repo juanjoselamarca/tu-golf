@@ -28,6 +28,7 @@ vi.mock('@/lib/data/ronda-libre-scores', () => ({
 }))
 vi.mock('@/lib/data/ronda-libre-finalizar', async () => ({
   RONDA_NO_EXISTE: 'no_existe',
+  esTarjetaDeRondaDescartada: (await vi.importActual<typeof import('@/lib/data/ronda-libre-finalizar')>('@/lib/data/ronda-libre-finalizar')).esTarjetaDeRondaDescartada,
   esRondaCerrada: (await import('@/lib/data/ronda-libre-estado')).esRondaCerrada,
   fetchEstadoRondaLibre: async () => 'en_curso',
   guardarTarjetaEnHistorial: async () => ({ status: 'insertada', id: null, tarjeta: {} }),

@@ -18,6 +18,7 @@ import {
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
   avisarAlCoachRondaNueva,
+  esTarjetaDeRondaDescartada,
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
@@ -387,6 +388,13 @@ export function useFinalizeGrupo(input: {
           // queda la primera. Se registra para poder auditar si difieren. El índice se
           // recalcula igual: si el primer intento venció el plazo, nadie lo recalculó.
           void captureError(new Error('historical_rounds duplicada'), { context: 'score_grupo_finalize_historical.duplicada', level: 'info', meta: { codigo, jugadorId: j.id } })
+        }
+        if (esTarjetaDeRondaDescartada(guardado)) {
+          // La descartaron mientras se guardaba: no queda ronda que cerrar ni tarjeta que reintentar.
+          addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
+          limpiarCopiaLocalDeRonda(codigo)
+          irA('/dashboard')
+          return
         }
         if (guardado.status === 'error') {
           // Sólo puede fallar la tarjeta PROPIA (las ajenas ya no se insertan). El botón se libera para

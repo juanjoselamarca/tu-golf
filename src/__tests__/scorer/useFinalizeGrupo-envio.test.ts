@@ -47,6 +47,7 @@ vi.mock('@/lib/data/ronda-libre-finalizar', async () => {
   const estado = await import('@/lib/data/ronda-libre-estado')
   return {
     RONDA_NO_EXISTE: estado.RONDA_NO_EXISTE,
+    esTarjetaDeRondaDescartada: (await vi.importActual<typeof import('@/lib/data/ronda-libre-finalizar')>('@/lib/data/ronda-libre-finalizar')).esTarjetaDeRondaDescartada,
     esRondaCerrada: estado.esRondaCerrada,
     fetchEstadoRondaLibre: estado.fetchEstadoRondaLibre,
     guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...(a as [])),

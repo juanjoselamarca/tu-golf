@@ -130,6 +130,19 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
     expect(result.current.roundDone).toBe(false)
   })
 
+  it('la descartaron mientras se guardaba (P0001): «Esta ronda ya no existe», sale y no ofrece reintentar', async () => {
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001', message: 'RONDA_NOT_FOUND' }, tarjeta: TARJETA })
+    const onDiscardSuccess = vi.fn()
+    const result = await finalizar({ ...baseOpts(), onDiscardSuccess })
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('Esta ronda ya no existe')
+    expect(titulos).not.toContain('No pudimos guardar la ronda en tu historial')
+    expect(captureError).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'finalize-ronda.historial' }))
+    expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.roundDone).toBe(false)
+  })
+
   it('tarjeta ya guardada (duplicada): se registra para auditar y la ronda cierra igual', async () => {
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'duplicada', tarjeta: TARJETA })
     const result = await finalizar()

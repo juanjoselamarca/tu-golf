@@ -32,6 +32,7 @@ import {
   guardarTarjetaEnHistorial,
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
+  esTarjetaDeRondaDescartada,
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
@@ -325,6 +326,12 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       if (guardado.status === 'insertada' || guardado.status === 'duplicada') setDescarteCerrado(true)
       // No guardada (RLS, red…): no se anuncia "Ronda guardada" ni se recalcula el
       // índice sobre un historial que no cambió. Los golpes siguen en la tarjeta.
+      if (esTarjetaDeRondaDescartada(guardado)) {
+        // La descartaron mientras se guardaba: no hay historial que reintentar. Mismo aviso y salida que al leerla borrada.
+        salirPorRondaBorrada()
+        historialFallo = true
+        throw new Error('historial-ronda-descartada')
+      }
       if (guardado.status === 'error') {
         void captureError(guardado.error, { context: 'finalize-ronda.historial', meta: { codigo, jugadorId: activeJugadorId } })
         addToast({

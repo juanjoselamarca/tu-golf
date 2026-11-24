@@ -33,6 +33,7 @@ import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { esFuncionInexistente } from '@/lib/data/funcion-inexistente'
+import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import { RONDA_NO_EXISTE } from '@/lib/data/ronda-libre-estado'
 import {
   fetchIndiceParaTope,
@@ -246,6 +247,15 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
   if (error?.code === '23505') return { status: 'duplicada', tarjeta }
   if (error) return { status: 'error', tarjeta, error }
   return { status: 'insertada', tarjeta, id: typeof data === 'string' ? data : null }
+}
+
+/**
+ * La ronda ya no existe: la descartaron (o la borró un admin) mientras se guardaba, y el RPC respondió P0001 sin
+ * dejar fila. No es una falla de red ni de permisos: los tres caminos avisan «Esta ronda ya no existe» y no ofrecen
+ * reintentar (fallaría igual).
+ */
+export function esTarjetaDeRondaDescartada(r: ResultadoGuardarTarjeta): boolean {
+  return r.status === 'error' && (r.error as { code?: unknown }).code === RONDA_ERRCODE.NOT_FOUND
 }
 
 /**
