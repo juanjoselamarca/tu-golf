@@ -153,6 +153,20 @@
   background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
+/* Salida a la versión gratis (el leaderboard del torneo): terciaria, bajo el CTA. */
+.volver {
+  composes: cta;
+  background: transparent;
+  color: var(--brand-on-bg);
+  margin-top: 4px;
+  padding: 0 10px 0 6px;
+  align-self: center;
+}
+
+.volver:hover {
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+
 /* "¿Ya tienes PRO? Entrar": acción terciaria bajo el CTA, sólo sin sesión.
    --text-2 es el mismo color de la descripción (AA en claro y oscuro). */
 .yaTengo {

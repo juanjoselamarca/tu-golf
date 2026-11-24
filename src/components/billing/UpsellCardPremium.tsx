@@ -1,7 +1,7 @@
 'use client'
 import type { Feature } from '@/golf/billing/plans'
 import { FEATURE_MIN_TIER } from '@/golf/billing/plans'
-import { ChevronRight } from '@/components/icons'
+import { ChevronLeft, ChevronRight } from '@/components/icons'
 import { ProBadge } from './ProBadge'
 import styles from './UpsellCard.module.css'
 import { loginUrl } from '@/lib/auth/login-url'
@@ -24,6 +24,12 @@ interface UpsellCardProps {
    * Ignorado en `compact` (fila de un solo CTA dentro de páginas usables sin PRO).
    */
   loginNext?: string
+  /**
+   * Salida a la versión gratis de lo mismo (el leaderboard del torneo desde /en-vivo o /tv). Sin ella, quien llegaba
+   * por la pestaña «En Vivo» o por un link compartido quedaba ante un upsell de pantalla completa sin camino de
+   * vuelta al torneo. Ignorado en `compact` (ahí la página ya es usable sin PRO).
+   */
+  volver?: { href: string; label: string }
 }
 
 /**
@@ -31,7 +37,7 @@ interface UpsellCardProps {
  * absoluta sobre una caja fija de 160px con overflow oculto, y el badge y el
  * "Conocer PRO" quedaban recortados (reporte del wizard de torneo, 23-sep).
  */
-export function UpsellCard({ feature, title, description, variant = 'medium', loginNext }: UpsellCardProps) {
+export function UpsellCard({ feature, title, description, variant = 'medium', loginNext, volver }: UpsellCardProps) {
   const tier = FEATURE_MIN_TIER[feature] === 'pro_plus' ? 'pro_plus' : 'pro'
   const tierLabel = tier === 'pro_plus' ? 'PRO+' : 'PRO'
   const label = `Conocer ${tierLabel}`
@@ -63,6 +69,12 @@ export function UpsellCard({ feature, title, description, variant = 'medium', lo
       <a href={hrefPlanes} className={full ? styles.ctaCommit : styles.ctaNav}>
         {label}
       </a>
+      {volver && (
+        <a href={volver.href} className={styles.volver}>
+          <ChevronLeft size={16} aria-hidden="true" />
+          {volver.label}
+        </a>
+      )}
       {loginNext && (
         <p className={styles.yaTengo}>
           ¿Ya tienes {tierLabel}?
