@@ -49,7 +49,7 @@ import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
 import { PanelDelJuego } from '../components/timba/PanelDelJuego'
-import { PuntosEspecialesDelHoyo } from '../components/timba/PuntosEspecialesDelHoyo'
+import { PuntosEspecialesDelHoyo } from '../components/PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from '../components/timba/RetiroDeJugadores'
 import { HojaDeRetiro } from '../components/timba/HojaDeRetiro'
 import { useRetomarConLosRetiros } from './hooks/useRetomarConLosRetiros'
@@ -442,7 +442,6 @@ export default function ScoreGrupoPage() {
               hoyo={currentHole}
               grupos={timba.puntosDelHoyo}
               nombres={timba.nombres}
-              retirados={timba.retiradosDelHoyo}
               birdieAutomatico={timba.birdieAutomatico}
               onAlternar={(jugadorId, puntito) => { if (!finalizing) { marcarInteraccion(); timba.marcas.alternar(jugadorId, puntito, currentHole) } }}
             />

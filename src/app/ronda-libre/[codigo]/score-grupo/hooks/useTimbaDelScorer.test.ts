@@ -37,10 +37,10 @@ beforeEach(() => {
 })
 
 describe('useTimbaDelScorer', () => {
-  it('ofrece los puntos manuales y activos del hoyo, con "no cuenta" del motor', () => {
+  it('ofrece los puntos manuales y activos del hoyo; un sobre par anotado se avisa en el teléfono', () => {
     const t = montar(3, 4)
     expect(t.puntosDelHoyo.map(g => g.puntito.id)).toEqual(['s'])
-    expect(t.puntosDelHoyo[0].jugadores[0]).toMatchObject({ jugadorId: 'a', marcado: true, noCuenta: 'Hizo más de par' })
+    expect(t.puntosDelHoyo[0].jugadores[0]).toMatchObject({ jugadorId: 'a', marcado: true, noCuenta: 'El sandy cuenta solo con par o mejor' })
     expect(t.birdieAutomatico).toBe(true)
   })
 

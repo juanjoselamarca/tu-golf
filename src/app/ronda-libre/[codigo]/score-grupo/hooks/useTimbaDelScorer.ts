@@ -93,6 +93,10 @@ export function useTimbaDelScorer(input: {
           marcas: marcas.marcas,
           enEspera: marcas.enCola,
           resultadoDelHoyo: vista.resultado.hoyos.find(h => h.numero === currentHole) ?? null,
+          // Los golpes como están en el teléfono: el botón aparece apenas se anota el par, sin esperar al servidor.
+          golpes: Object.fromEntries(vista.jugadorIds.map(id => [id, scores[id]?.[currentHole]])),
+          par,
+          retirados: retiradosDelHoyo,
         })
       : []
     const birdieAutomatico = !!vista?.config.puntitos.some(p => p.tipo === 'birdie' && p.activo)
