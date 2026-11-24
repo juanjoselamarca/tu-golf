@@ -58,14 +58,18 @@ function descripcionDe(texto) {
 function carpetaMemoria() {
   if (process.env.CONSEJO_MEMORIA) return process.env.CONSEJO_MEMORIA
   // En un worktree, el checkout principal es el padre del .git común: la memoria es la de ese proyecto.
-  const comun = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8' }).trim()
-  return join(homedir(), '.claude', 'projects', slugDeProyecto(dirname(comun)), 'memory')
+  try {
+    const comun = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    return join(homedir(), '.claude', 'projects', slugDeProyecto(dirname(comun)), 'memory')
+  } catch {
+    return '' // fuera de un checkout o git sin --path-format: se sigue solo con docs/design-decisions
+  }
 }
 
 function fuentes() {
   const salida = []
   const mem = carpetaMemoria()
-  if (existsSync(mem)) {
+  if (mem && existsSync(mem)) {
     for (const f of readdirSync(mem)) if (/^(feedback|project)_.+\.md$/.test(f)) salida.push({ origen: `memoria/${f}`, ruta: join(mem, f) })
   } else {
     console.error(`(sin memoria en ${mem}: solo docs/design-decisions)`)
@@ -98,11 +102,16 @@ export function buscarDecisiones(palabras, docs, max = 10) {
     .slice(0, max)
 }
 
-function main() {
-  const args = process.argv.slice(2)
+/** Separa las palabras de `--max N`. Pura: la usan los tests. */
+export function leerArgs(args) {
   const i = args.indexOf('--max')
   const max = i >= 0 ? Number(args[i + 1]) || 10 : 10
-  const palabras = args.filter((a, j) => a !== '--max' && j !== i + 1)
+  const palabras = args.filter((a, j) => a !== '--max' && (i < 0 || j !== i + 1))
+  return { palabras, max }
+}
+
+function main() {
+  const { palabras, max } = leerArgs(process.argv.slice(2))
   if (!palabras.length) {
     console.error('uso: node scripts/consejo/decisiones-previas.mjs <palabra> [<palabra> ...] [--max 10]')
     process.exit(2)

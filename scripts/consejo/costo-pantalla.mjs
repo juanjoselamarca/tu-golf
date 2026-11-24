@@ -136,7 +136,9 @@ function listarPaginas(dir, acc = []) {
   for (const d of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, d.name)
     if (d.isDirectory()) listarPaginas(p, acc)
-    else if (d.name === 'page.tsx') acc.push(p)
+    // Toda raíz que arrastra código: pantallas, layouts y rutas de API. Un archivo que usa una ruta de API no es
+    // «solo de esta pantalla» aunque una sola página lo importe.
+    else if (/^(page|layout|route)\.(tsx|ts)$/.test(d.name)) acc.push(p)
   }
   return acc
 }
@@ -177,7 +179,8 @@ export function costoEnTexto({ ruta, pagina, filas, tests, prefijos }) {
   const criticos = filas.filter((f) => enZonaCritica(f.archivo, prefijos))
   const porArea = new Map()
   for (const f of filas) porArea.set(areaDe(f.archivo), (porArea.get(areaDe(f.archivo)) ?? 0) + f.lineas)
-  const exclusivos = filas.filter((f) => f.paginas <= 1)
+  // Zona crítica y motor de golf nunca cuentan como «se puede borrar con la pantalla»: se tocan con revisión aparte.
+  const exclusivos = filas.filter((f) => f.paginas <= 1 && !enZonaCritica(f.archivo, prefijos) && !f.archivo.startsWith('src/golf/'))
   return [
     `## Costo en código de ${ruta}`,
     '',
@@ -185,8 +188,8 @@ export function costoEnTexto({ ruta, pagina, filas, tests, prefijos }) {
       `${criticos.length} en zona crítica (${criticos.reduce((s, f) => s + f.lineas, 0)} líneas) · ${tests.length} archivos de test la cubren`,
     '',
     `**Solo esta pantalla: ${exclusivos.length} archivos, ${exclusivos.reduce((s, f) => s + f.lineas, 0)} líneas.** ` +
-      'Es lo que se puede borrar o simplificar sin tocar otras pantallas; el resto (motor de golf, componentes ' +
-      'compartidos) lo usan otras y no baja por simplificar esta.',
+      'Es lo que se puede borrar o simplificar sin tocar otras pantallas ni rutas de API. No cuenta la zona ' +
+      'crítica ni el motor de golf (se tocan aparte, con revisión) ni lo compartido, que no baja por simplificar esta.',
     '',
     '| Área | Líneas |',
     '|---|---|',

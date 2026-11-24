@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { areaDe, costoEnTexto, enZonaCritica, extraerImports, leerPrefijos, rutaDeLaApp } from './costo-pantalla.mjs'
-import { buscarDecisiones, normalizar, pesosPorRareza, puntuar, slugDeProyecto } from './decisiones-previas.mjs'
+import { buscarDecisiones, leerArgs, normalizar, pesosPorRareza, puntuar, slugDeProyecto } from './decisiones-previas.mjs'
 
 describe('costo-pantalla', () => {
   it('extrae imports estáticos, dinámicos, de efecto y re-exports, sin los comentados', () => {
@@ -56,6 +56,12 @@ describe('costo-pantalla', () => {
 })
 
 describe('decisiones-previas', () => {
+  it('lee todas las palabras, con y sin --max', () => {
+    expect(leerArgs(['inscripción', 'invitado', 'whatsapp'])).toEqual({ palabras: ['inscripción', 'invitado', 'whatsapp'], max: 10 })
+    expect(leerArgs(['indice'])).toEqual({ palabras: ['indice'], max: 10 })
+    expect(leerArgs(['a', '--max', '3', 'b'])).toEqual({ palabras: ['a', 'b'], max: 3 })
+  })
+
   it('normaliza tildes y mayúsculas', () => {
     expect(normalizar('Inscripción ÍNDICE')).toBe('inscripcion indice')
   })
