@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { useFinalizeGrupo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useFinalizeGrupo'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { ResultadoEnvio } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
+import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }))
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
@@ -138,6 +139,27 @@ describe('useFinalizeGrupo — un celular por equipo', () => {
     expect(recargar).toHaveBeenCalledTimes(1)
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Cambió quién anota los equipos' }))
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('equipos cambiados y la relectura colgada (señal lenta): Finalizar se suelta al vencer el plazo', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      recargar.mockImplementation(() => new Promise<void>(() => {}))
+      const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+      lectura.equipos = [mio, eq('e2', 'Los Pumas', null, lleno)]
+      const { result } = montar([mio])
+      await act(async () => { await result.current.finalizeRound() }) // abre la hoja
+      act(() => { void result.current.finalizeRound() }) // confirma
+      await act(async () => { await vi.advanceTimersByTimeAsync(50) })
+      expect(recargar).toHaveBeenCalledTimes(1)
+      expect(result.current.finalizing).toBe(true)
+      await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_CARGA_SCORER_MS) })
+      expect(result.current.finalizing).toBe(false)
+      expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    } finally {
+      recargar.mockImplementation(async () => {})
+      vi.useRealTimers()
+    }
   })
 
   it('sin servidor al releer los equipos: no cierra (aviso de sin servidor)', async () => {

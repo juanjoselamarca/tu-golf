@@ -294,7 +294,9 @@ export function useFinalizeGrupo(input: {
       const mios = new Set(equiposQueAnota(ronda, todos, authUserId).map(e => e.id))
       if (mios.size !== teamEquipos.length || teamEquipos.some(e => !mios.has(e.id))) {
         addToast({ ...AVISO_EQUIPOS_CAMBIARON, type: 'info', duration: 7000 })
-        await input.unCelularPorEquipo.recargar()
+        // Con plazo: con señal lenta la relectura puede tardar; Finalizar no queda tomado (tarjeta congelada, Descartar
+        // bloqueado) esperándola. Vencida, la lista se pone al día en segundo plano.
+        await conTimeout(input.unCelularPorEquipo.recargar(), PLAZO_CARGA_SCORER_MS).catch(() => {})
         return
       }
       const sinParLeidos = equiposSinParAutomatico(ronda, todos, authUserId)
