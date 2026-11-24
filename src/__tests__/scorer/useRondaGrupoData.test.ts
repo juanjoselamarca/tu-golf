@@ -57,9 +57,6 @@ const RONDA = {
 }
 const carga = { valor: { estado: 'ok', ronda: RONDA } as { estado: string; ronda?: unknown } }
 const opcionesDeCarga: unknown[] = []
-/** Código pedido en cada lectura, y la respuesta por código cuando un test necesita distinguirlas. */
-const codigosDeCarga: string[] = []
-const cargaPorCodigo: Record<string, { estado: string; ronda?: unknown }> = {}
 /** Compuerta de la lectura de la ronda: mientras `espera` no se resuelva, la lectura queda en vuelo. */
 const lecturaEnVuelo = { espera: null as Promise<void> | null }
 function compuerta() {
@@ -77,11 +74,10 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
   const real = await orig<typeof import('@/lib/data/ronda-libre-scorer')>()
   return {
     ...real,
-    fetchRondaLibreParaScorer: async (_sb: unknown, codigo: string, opciones?: unknown) => {
+    fetchRondaLibreParaScorer: async (_sb: unknown, _codigo: string, opciones?: unknown) => {
       opcionesDeCarga.push(opciones)
-      codigosDeCarga.push(codigo)
       if (lecturaEnVuelo.espera) await lecturaEnVuelo.espera
-      return cargaPorCodigo[codigo] ?? carga.valor
+      return carga.valor
     },
     cargarHoyosDelScorer: async () => colgada.lectura === 'hoyos'
       ? nunca()
@@ -109,8 +105,6 @@ function snapshotPrevio(teamEquipos: unknown[] = []) {
 
 beforeEach(() => {
   opcionesDeCarga.length = 0
-  codigosDeCarga.length = 0
-  for (const k of Object.keys(cargaPorCodigo)) delete cargaPorCodigo[k]
   senalesDeConsulta.length = 0
   lecturaDeEquipos.falla = false
   colgada.lectura = null
@@ -684,6 +678,16 @@ describe('useRondaGrupoData — lecturas vencidas se cancelan y nunca se aplican
     expect(push).not.toHaveBeenCalled()
     expect(replace).not.toHaveBeenCalled()
     expect(loadScorerGrupoSnapshot('B4F5Y2', 'u1')).not.toBeNull()
+  })
+
+  it('desmontada con un paso colgado: la cancelación no se reporta como error y la consulta queda abortada', async () => {
+    colgada.lectura = 'equipos'
+    const { unmount } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(senalesDeConsulta).toHaveLength(1))
+    unmount()
+    await new Promise(r => setTimeout(r, 20))
+    expect(senalesDeConsulta[0].aborted).toBe(true)
+    expect(captureError).not.toHaveBeenCalled()
   })
 
 })
