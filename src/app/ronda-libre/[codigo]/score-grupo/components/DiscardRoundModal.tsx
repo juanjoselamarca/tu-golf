@@ -6,18 +6,21 @@ interface DiscardRoundModalProps {
   showConfirm: boolean
   setShowConfirm: (v: boolean) => void
   discarding: boolean
+  /** Tarjeta congelada (`tarjetaCongelada`: finalizando o cambiando quién anota): ni el botón ni la hoja descartan. */
+  bloqueado: boolean
   onDiscard: () => void
 }
 
 /** Botón "Descartar ronda" + modal de confirmación (scorer de grupo). */
-export function DiscardRoundModal({ showConfirm, setShowConfirm, discarding, onDiscard }: DiscardRoundModalProps) {
+export function DiscardRoundModal({ showConfirm, setShowConfirm, discarding, bloqueado, onDiscard }: DiscardRoundModalProps) {
+  const inactivo = discarding || bloqueado
   return (
     <>
       {/* Descartar ronda */}
       <div style={{ padding: '0 16px 12px', textAlign: 'center' }}>
         <button
           onClick={() => setShowConfirm(true)}
-          disabled={discarding}
+          disabled={inactivo}
           aria-label="Descartar ronda"
           style={{
             background: 'transparent',
@@ -25,8 +28,8 @@ export function DiscardRoundModal({ showConfirm, setShowConfirm, discarding, onD
             color: 'var(--text-2)',
             fontSize: '14px', fontWeight: 400,
             padding: '8px 14px', borderRadius: '8px',
-            cursor: discarding ? 'not-allowed' : 'pointer',
-            opacity: discarding ? 0.5 : 1,
+            cursor: inactivo ? 'not-allowed' : 'pointer',
+            opacity: inactivo ? 0.5 : 1,
             letterSpacing: '0.02em',
             WebkitTapHighlightColor: 'transparent',
           }}
@@ -73,13 +76,13 @@ export function DiscardRoundModal({ showConfirm, setShowConfirm, discarding, onD
                 </button>
                 <button
                   onClick={onDiscard}
-                  disabled={discarding}
+                  disabled={inactivo}
                   style={{
                     flex: 1, padding: '12px', borderRadius: '10px',
                     background: '#dc2626', border: 'none',
                     color: '#ffffff', fontSize: '14px', fontWeight: 600,
-                    cursor: discarding ? 'not-allowed' : 'pointer', minHeight: '44px',
-                    opacity: discarding ? 0.7 : 1,
+                    cursor: inactivo ? 'not-allowed' : 'pointer', minHeight: '44px',
+                    opacity: inactivo ? 0.7 : 1,
                   }}
                 >
                   {discarding ? 'Descartando…' : 'Sí, descartar'}

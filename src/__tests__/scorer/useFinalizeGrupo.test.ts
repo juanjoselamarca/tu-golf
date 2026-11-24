@@ -564,3 +564,84 @@ describe('useFinalizeGrupo', () => {
     })
   })
 })
+
+// P0 24-nov (E2E scramble): «Descartar ronda» seguía activo mientras decía «Finalizando…» y borraba la ronda; el cierre
+// caía en RONDA_NOT_FOUND y el marcador en «Ronda no encontrada». Finalizar y descartar se excluyen, también en el mismo tick.
+describe('useFinalizeGrupo — finalizar y descartar se excluyen', () => {
+  it('descartar mientras se finaliza (cierre lento) no borra la ronda y el cierre termina', async () => {
+    let cerrar: (v: { finalizada: boolean; error: unknown }) => void = () => {}
+    finalizarRondaLibre.mockImplementationOnce(() => new Promise(r => { cerrar = r }))
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    let cierre: Promise<void> = Promise.resolve()
+    await act(async () => { cierre = result.current.fin.finalizeRound() })
+    expect(result.current.fin.finalizing).toBe(true)
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+    act(() => { result.current.fin.setShowDiscardConfirm(true) })
+    await act(async () => { await result.current.fin.discardRound() })
+    expect(descartarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.fin.discarding).toBe(false)
+    await act(async () => { cerrar({ finalizada: true, error: null }); await cierre })
+    expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+    expect(push).not.toHaveBeenCalledWith('/dashboard?discarded=1')
+  })
+
+  it('finalizar en el mismo tick que se confirma el cierre: descartar no corre', async () => {
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => {
+      const a = result.current.fin.finalizeRound()
+      const b = result.current.fin.discardRound()
+      await Promise.all([a, b])
+    })
+    expect(descartarRondaLibre).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
+  it('finalizar mientras se descarta no lee, no envía ni cierra (ni abre la hoja)', async () => {
+    let descartar: (v: { error: string | null; noExiste: boolean }) => void = () => {}
+    descartarRondaLibre.mockImplementationOnce(() => new Promise(r => { descartar = r }))
+    const { result } = montar()
+    let descarte: Promise<void> = Promise.resolve()
+    await act(async () => { descarte = result.current.fin.discardRound() })
+    expect(result.current.fin.discarding).toBe(true)
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.fin.confirmFinalize).toBe(false)
+    await act(async () => { descartar({ error: null, noExiste: false }); await descarte })
+    expect(fetchEstadoRondaLibre).not.toHaveBeenCalled()
+    expect(enviarPendientes).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('descartar y confirmar el cierre en el mismo tick: el cierre no corre', async () => {
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => {
+      const b = result.current.fin.discardRound()
+      const a = result.current.fin.finalizeRound()
+      await Promise.all([a, b])
+    })
+    expect(descartarRondaLibre).toHaveBeenCalledTimes(1)
+    expect(fetchEstadoRondaLibre).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('descartar que falla libera: después se puede finalizar', async () => {
+    descartarRondaLibre.mockResolvedValueOnce({ error: 'No se pudo descartar la ronda. Intenta de nuevo.', noExiste: false })
+    const { result } = montar()
+    await act(async () => { await result.current.fin.discardRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
+  it('un cierre que no salió (sin servidor) libera: después se puede descartar', async () => {
+    fetchEstadoRondaLibre.mockResolvedValueOnce(null)
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.fin.finalizing).toBe(false)
+    await act(async () => { await result.current.fin.discardRound() })
+    expect(descartarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+})
