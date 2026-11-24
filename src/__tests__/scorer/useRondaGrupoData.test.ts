@@ -322,6 +322,23 @@ describe('useRondaGrupoData — recargar con una lectura en vuelo (revisión Fab
   })
 })
 
+describe('useRondaGrupoData — la primera lectura lanza (un bug, no la red) (Fable, 3ª vuelta)', () => {
+  it('no queda en «Preparando scorer»: pantalla de espera que reintenta sola, y el error se reporta como error', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    carga.valor = { estado: 'ok', ronda: { ...RONDA, es_demo: true } } // redirige a la ronda en vivo…
+    replace.mockImplementationOnce(() => { throw new Error('navegación') }) // …y la navegación revienta
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.loadError).toBe(MENSAJE_SCORER_SIN_CONEXION)
+    expect(result.current.conexion).toBe('sin_conexion')
+    expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ message: 'navegación' }), expect.objectContaining({ level: 'error' }))
+
+    // El reintento de siempre vuelve a leer.
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
+    expect(replace).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe('useRondaGrupoData — pendientes ganan (revisión Fable)', () => {
   it('corrección offline (hoyo 12: 6 → 7) sobrevive a reabrir con el servidor de vuelta', async () => {
     marcarPendientes('B4F5Y2', 'j1', { 12: 7 }) // la BD tiene 12: 6
@@ -498,6 +515,21 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     await waitFor(() => expect(estados).toEqual(['p1 ok', 'p2 ok']))
     expect(replace).toHaveBeenCalledTimes(2) // la vuelta encolada corrió igual
     expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ message: 'navegación' }), expect.anything())
+  })
+
+  it('una vuelta que lanza con «Elige tu equipo» en pantalla: la lista se queda (sin pantalla de error)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.eleccion).not.toBeNull())
+    carga.valor = { estado: 'ok', ronda: { ...SCRAMBLE, es_demo: true } }
+    replace.mockImplementationOnce(() => { throw new Error('navegación') })
+    await act(async () => { await result.current.recargar() })
+    expect(captureError).toHaveBeenCalled()
+    expect(result.current.loadError).toBeNull()
+    expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
   })
 
   it('«Elige tu equipo» relee al volver a la app (más de 2 s afuera)', async () => {

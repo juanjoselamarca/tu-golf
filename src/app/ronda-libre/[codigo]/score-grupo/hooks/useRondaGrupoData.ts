@@ -395,7 +395,14 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
           try {
             await leerRef.current()
           } catch (err) {
-            captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_grupo_load', level: 'warning' })
+            // No es la red (cargarDelServidor no lanza): es un bug. Se reporta como error y, si todavía no hay nada en
+            // pantalla, se sale de «Preparando scorer» a la pantalla de espera, que reintenta sola.
+            captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_grupo_load', level: 'error' })
+            if (!cargadaRef.current && !eligiendoRef.current) {
+              setConexion('sin_conexion')
+              setLoadError(MENSAJE_SCORER_SIN_CONEXION)
+              setLoading(false)
+            }
           }
         } while (otraVueltaRef.current)
       } finally {
