@@ -8,9 +8,17 @@ const eq = (id: string, nombre: string, anotador: string | null, anotadorNombre:
   ({ id, nombre, handicap_equipo: 8, handicap_equipo_juego: 8, handicap_origen: 'club' as const, scores: {}, jugadorIds: [], jugadorNombres: [], ronda_id: 'r1', anotador_user_id: anotador, anotador_nombre: anotadorNombre })
 
 describe('ElegirEquipo', () => {
+  it('sin conexión muestra el aviso de sin conexión de los scorers; con conexión, nada', () => {
+    const props = { codigo: 'ABC', courseName: null, enCurso: null, aviso: null, onElegir: vi.fn(), equipos: [eq('e2', 'Los Pumas', null)] }
+    const { rerender } = render(<ElegirEquipo {...props} conexion="sin_conexion" />)
+    expect(screen.getByRole('status').textContent).toMatch(/^Sin conexión con el servidor\./)
+    rerender(<ElegirEquipo {...props} conexion="ok" />)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
   it('libres se tocan; los tomados muestran quién los anota (sin nombre: «otro celular»)', () => {
     const onElegir = vi.fn()
-    render(<ElegirEquipo codigo="ABC" courseName="Los Leones" enCurso={null} aviso={null} onElegir={onElegir}
+    render(<ElegirEquipo codigo="ABC" conexion="ok" courseName="Los Leones" enCurso={null} aviso={null} onElegir={onElegir}
       equipos={[eq('e1', 'Los Tigres', 'u1', 'Juanjo'), eq('e2', 'Los Pumas', null), eq('e3', 'Los Cóndores', 'u3', null)]} />)
     expect(screen.getByText('lo anota Juanjo')).toBeTruthy()
     expect(screen.getByText('lo anota otro celular')).toBeTruthy()
@@ -25,7 +33,7 @@ describe('ElegirEquipo', () => {
 
   it('«Cancelar» en la confirmación no reclama nada', () => {
     const onElegir = vi.fn()
-    render(<ElegirEquipo codigo="ABC" courseName={null} enCurso={null} aviso={null} onElegir={onElegir}
+    render(<ElegirEquipo codigo="ABC" conexion="ok" courseName={null} enCurso={null} aviso={null} onElegir={onElegir}
       equipos={[eq('e2', 'Los Pumas', null)]} />)
     fireEvent.click(screen.getByRole('button', { name: /Los Pumas/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
@@ -34,7 +42,7 @@ describe('ElegirEquipo', () => {
   })
 
   it('conflicto: el aviso «ya lo anota» sale arriba y la lista ya viene refrescada (el equipo perdido figura tomado)', () => {
-    render(<ElegirEquipo codigo="ABC" courseName="Los Leones" enCurso={null}
+    render(<ElegirEquipo codigo="ABC" conexion="ok" courseName="Los Leones" enCurso={null}
       aviso={{ equipoId: 'e2', mensaje: 'Ese equipo ya lo anota Pedro. Elige otro.' }} onElegir={vi.fn()}
       equipos={[eq('e1', 'Los Tigres', 'u1', 'Juanjo'), eq('e2', 'Los Pumas', 'u-pedro', 'Pedro'), eq('e3', 'Los Cóndores', null)]} />)
     expect(screen.getByRole('alert').textContent).toBe('Ese equipo ya lo anota Pedro. Elige otro.')
@@ -44,7 +52,7 @@ describe('ElegirEquipo', () => {
 
   it('con un reclamo en vuelo ningún equipo acepta otro toque', () => {
     const onElegir = vi.fn()
-    render(<ElegirEquipo codigo="ABC" courseName={null} enCurso="e2" aviso={null} onElegir={onElegir}
+    render(<ElegirEquipo codigo="ABC" conexion="ok" courseName={null} enCurso="e2" aviso={null} onElegir={onElegir}
       equipos={[eq('e2', 'Los Pumas', null), eq('e3', 'Los Cóndores', null)]} />)
     expect(screen.getByText('Tomando…')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Los Cóndores/ }))
@@ -52,7 +60,7 @@ describe('ElegirEquipo', () => {
   })
 
   it('sin equipos libres: lo dice y ofrece la tabla en vivo', () => {
-    render(<ElegirEquipo codigo="ABC" courseName={null} enCurso={null} aviso={null} onElegir={vi.fn()}
+    render(<ElegirEquipo codigo="ABC" conexion="ok" courseName={null} enCurso={null} aviso={null} onElegir={vi.fn()}
       equipos={[eq('e1', 'Los Tigres', 'u1', 'Juanjo')]} />)
     expect(screen.getByText('Todos los equipos ya tienen quién los anote.')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Ver tabla en vivo' }).getAttribute('href')).toBe('/ronda-libre/ABC')

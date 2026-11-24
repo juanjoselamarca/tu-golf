@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { equiposLibres, equiposTomados, nombreDelAnotador } from '@/golf/ronda-libre/anotador-de-equipo'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
+import type { ConexionScorer } from '../hooks/useRondaGrupoData'
+import { ConexionScorerBanner } from './ConexionScorerBanner'
 
 interface ElegirEquipoProps {
   codigo: string
@@ -16,6 +18,8 @@ interface ElegirEquipoProps {
   aviso: { equipoId: string; mensaje: string } | null
   /** Solo tras confirmar en el modal: un toque suelto no reclama un equipo. */
   onElegir: (equipoId: string) => void
+  /** Sin conexión, la lista puede estar vieja: el mismo aviso que el scorer (`ConexionScorerBanner`). */
+  conexion: ConexionScorer
 }
 
 /**
@@ -23,13 +27,14 @@ interface ElegirEquipoProps {
  * confirman (un toque suelto con el guante no reclama un equipo ajeno); los que ya anota otro celular se ven con su
  * anotador y no se tocan. Sin libres: a la tabla en vivo.
  */
-export function ElegirEquipo({ codigo, courseName, equipos, enCurso, aviso, onElegir }: ElegirEquipoProps) {
+export function ElegirEquipo({ codigo, courseName, equipos, enCurso, aviso, onElegir, conexion }: ElegirEquipoProps) {
   const libres = equiposLibres(equipos)
   const tomados = equiposTomados(equipos)
   const [porReclamar, setPorReclamar] = useState<EquipoDelScorer | null>(null)
 
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', padding: '24px 16px calc(24px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <ConexionScorerBanner conexion={conexion} pendienteDeEnvio={false} codigo={codigo} eleccion />
       <header>
         <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, lineHeight: 1.2 }}>Elige tu equipo</h1>
         <p style={{ margin: '6px 0 0', fontSize: '15px', color: 'var(--text-2)', lineHeight: 1.4 }}>

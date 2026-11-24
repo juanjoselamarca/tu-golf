@@ -26,6 +26,7 @@ import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } 
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
+import { releerConPlazo } from './releer-con-plazo'
 import { isSharedBallFormat } from '@/golf/formats'
 import { equipoAjenoIncompleto, equiposLibres, equiposQueAnota, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
 import { fetchEquiposConAnotador } from '@/lib/data/ronda-libre'
@@ -294,7 +295,9 @@ export function useFinalizeGrupo(input: {
       const mios = new Set(equiposQueAnota(ronda, todos, authUserId).map(e => e.id))
       if (mios.size !== teamEquipos.length || teamEquipos.some(e => !mios.has(e.id))) {
         addToast({ ...AVISO_EQUIPOS_CAMBIARON, type: 'info', duration: 7000 })
-        await input.unCelularPorEquipo.recargar()
+        // Con plazo (`releerConPlazo`): con señal lenta Finalizar no queda tomado (tarjeta congelada, Descartar
+        // bloqueado) esperándola; vencida, avisa que la lista tarda y se pone al día en segundo plano.
+        await releerConPlazo(input.unCelularPorEquipo.recargar)
         return
       }
       const sinParLeidos = equiposSinParAutomatico(ronda, todos, authUserId)

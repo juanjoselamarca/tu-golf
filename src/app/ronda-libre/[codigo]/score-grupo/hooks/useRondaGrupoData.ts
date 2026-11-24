@@ -21,6 +21,7 @@ import {
   fetchEquiposDelScorer,
   tarjetasDesdeLaRonda,
   MENSAJE_SCORER_SIN_CONEXION,
+  PLAZO_CARGA_SCORER_MS,
   REINTENTO_CARGA_MS,
   type EquipoDelScorer,
 } from '@/lib/data/ronda-libre-scorer'
@@ -42,6 +43,7 @@ import type { HoleData, RondaLibre } from '@/types/ronda'
 import { conOrdenEnPantalla } from '@/lib/ronda/orden-jugadores'
 import { loginUrl } from '@/lib/auth/login-url'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
+import { conTimeout } from '@/lib/red/con-timeout'
 
 /**
  * Estado de la conexión del scorer con el servidor.
@@ -125,6 +127,8 @@ export function hoyoInicial(
 /**
  * Lee del servidor todo lo que el scorer necesita. Nunca lanza: una falla de red,
  * 5xx o timeout vuelve como `sin_conexion` (jamás como "la ronda no existe").
+ * Cada lectura espera a lo más `PLAZO_CARGA_SCORER_MS` (la sesión y la ronda traen el suyo): una colgada dejaba el
+ * scorer en "Cargando…" para siempre, sin copia local ni reintento (la carga en vuelo bloquea las siguientes).
  */
 async function cargarDelServidor(codigo: string): Promise<Carga> {
   const supabase = createClient()
@@ -155,7 +159,7 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
   try {
     // scramble/foursome usan equipo.scores (compartido); best_ball lee la
     // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo.
-    const equipos = await fetchEquiposDelScorer(supabase, r)
+    const equipos = await conTimeout(fetchEquiposDelScorer(supabase, r), PLAZO_CARGA_SCORER_MS)
     // Formatos por equipo: quién entra lo decide `entradaAlScorerDeEquipos` (un celular por equipo: elegir equipo;
     // un celular: solo quien puede anotar la ronda; el resto, a la ronda en vivo).
     if (isTeamFormat(r.formato_juego)) {
@@ -163,9 +167,12 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
       if (entrada === 'en_vivo') return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
       if (entrada === 'elegir_equipo') return { tipo: 'elegir_equipo', ronda: r, equipos }
     }
-    const hoyos = await cargarHoyosDelScorer(supabase, r)
+    const hoyos = await conTimeout(cargarHoyosDelScorer(supabase, r), PLAZO_CARGA_SCORER_MS)
     // El scorer de grupo exige sesión (arriba): `profiles` es legible.
-    const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal, leerIndicesDelCliente(supabase))
+    const { hcpMap, displayMap } = await conTimeout(
+      resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal, leerIndicesDelCliente(supabase)),
+      PLAZO_CARGA_SCORER_MS,
+    )
     // UN solo filtro: este celular carga solo los equipos que anota. Todo lo que manda golpes (par al pasar de hoyo,
     // completar al finalizar, pendientes, hoyo inicial, copia local) parte de esta lista: nunca toca un equipo de
     // otro celular. En una ronda de un celular son todos.
@@ -226,12 +233,20 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
 
   /** ¿Ya hay una ronda en pantalla? (la recarga de fondo no toca golpes ni hoyo) */
   const cargadaRef = useRef(false)
-  const enCursoRef = useRef(false)
+  /**
+   * La corrida de lecturas en vuelo (una o más vueltas). Quien pide leer mientras hay una recibe ESTA promesa, que no
+   * se resuelve hasta la vuelta que atiende su pedido: `useAnotadorDeEquipo` espera la lista de verdad nueva tras
+   * reclamar o liberar, no una lectura que salió antes (revisión Fable).
+   */
+  const enVueloRef = useRef<Promise<void> | null>(null)
   /** Se pidió leer mientras otra lectura iba en vuelo (p. ej. justo después de reclamar o liberar): una vuelta más. */
   const otraVueltaRef = useRef(false)
+  /** Un bug determinista se repetiría en cada reintento: solo el primero va como error, el resto como warning. */
+  const errorDeLecturaReportadoRef = useRef(false)
+  /** «Elige tu equipo» en pantalla: sin señal, la lista se queda (no la pantalla de sin conexión). */
+  const eligiendoRef = useRef(false)
   /** Este celular soltó su equipo a propósito: la vuelta a «Elige tu equipo» no avisa «Ya no anotas». */
   const dejoElEquipoRef = useRef(false)
-  const cargarRef = useRef<() => Promise<void>>(async () => {})
   /** Los equipos que este celular tiene en pantalla: al releer, uno que ya no es suyo se avisa. */
   const idsEnPantallaRef = useRef<string[]>([])
   useEffect(() => { idsEnPantallaRef.current = teamEquipos.map(e => e.id) }, [teamEquipos])
@@ -299,11 +314,9 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     setLoading(false)
   }, [codigo])
 
-  const cargar = useCallback(async () => {
-    // La lectura en vuelo pudo salir ANTES del reclamo o la liberación: la que se pide ahora corre después.
-    if (enCursoRef.current) { otraVueltaRef.current = true; return }
-    enCursoRef.current = true
-    try {
+  /** Una vuelta de lectura. Nunca se llama directo: pasa por `cargar`, que no superpone vueltas. */
+  const leerUnaVez = useCallback(async () => {
+    {
       const c = await cargarDelServidor(codigo)
       if (c.tipo === 'redirigir') {
         if (c.reemplazar) router.replace(c.a)
@@ -317,6 +330,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
         cargadaRef.current = false
         // La copia local era de un equipo que ya no anota: sin señal, el scorer lo volvería a abrir con ella.
         clearScorerGrupoSnapshot(codigo)
+        eligiendoRef.current = true
         setEleccion({ ronda: c.ronda, equipos: c.equipos })
         setConexion('ok')
         setLoadError(null)
@@ -330,6 +344,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
           const ahora = new Set((c.snap.teamEquipos as EquipoDelScorer[]).map(e => e.id))
           if (idsEnPantallaRef.current.some(id => !ahora.has(id))) addToast({ type: 'info', title: MENSAJE_YA_NO_ANOTAS, duration: 6000 })
         }
+        eligiendoRef.current = false
         setEleccion(null)
         saveScorerGrupoSnapshot(codigo, c.snap)
         aplicarMetadatos(c.snap)
@@ -340,6 +355,8 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       // Sin servidor o sin sesión: nunca se expulsa a alguien que ya está anotando.
       setConexion(c.tipo)
       if (cargadaRef.current) return
+      // «Elige tu equipo» (sin copia local: se borró al entrar): la lista sigue en pantalla y se relee sola.
+      if (c.tipo === 'sin_conexion' && eligiendoRef.current) return
       const snap = loadScorerGrupoSnapshot(codigo, c.tipo === 'sin_conexion' ? c.userId : null)
       if (snap) {
         aplicarMetadatos(snap)
@@ -352,15 +369,62 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       }
       setLoadError(MENSAJE_SCORER_SIN_CONEXION)
       setLoading(false)
-    } finally {
-      enCursoRef.current = false
-      if (otraVueltaRef.current) { otraVueltaRef.current = false; void cargarRef.current() }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable (Next.js App Router)
   }, [codigo, aplicarMetadatos, pintarPrimeraVez])
-  useEffect(() => { cargarRef.current = cargar }, [cargar])
+  const leerRef = useRef(leerUnaVez)
+  useEffect(() => { leerRef.current = leerUnaVez }, [leerUnaVez])
+
+  /**
+   * Lee la ronda sin superponer lecturas. La lectura en vuelo pudo salir ANTES del reclamo o la liberación: el pedido
+   * nuevo deja una vuelta más y recibe la promesa de la corrida entera, que termina después de esa vuelta. Un bucle
+   * (no recursión): cada vuelta atiende todos los pedidos llegados durante la anterior.
+   * `deFondo` (refresco periódico, `online`, volver a la app) NO encola vuelta: con señal lenta una vuelta dura más que
+   * el intervalo, siempre le caería un tic adentro y la corrida no terminaría nunca (Finalizar la espera). Solo
+   * `recargar` y `recargarTrasDejarEquipo`, que necesitan una lectura posterior a su cambio, encolan.
+   * La corrida nunca rechaza: una vuelta que lanza se registra y el bucle sigue (los `void cargar()` no dejan rechazos
+   * sin manejar y un pedido encolado no se pierde).
+   */
+  const cargar = useCallback(({ deFondo = false }: { deFondo?: boolean } = {}): Promise<void> => {
+    if (enVueloRef.current) {
+      if (!deFondo) otraVueltaRef.current = true
+      return enVueloRef.current
+    }
+    const corrida = (async () => {
+      try {
+        do {
+          otraVueltaRef.current = false
+          try {
+            await leerRef.current()
+          } catch (err) {
+            // No es la red (cargarDelServidor no lanza): es un bug. Se reporta como error y, si todavía no hay nada en
+            // pantalla, se sale de «Preparando scorer» a la pantalla de espera, que reintenta sola. Solo el primero va
+            // como error: si el bug se repite en cada reintento, no llena el tracking con el mismo evento en un torneo.
+            captureError(err instanceof Error ? err : new Error(String(err)), {
+              context: 'score_grupo_load', level: errorDeLecturaReportadoRef.current ? 'warning' : 'error',
+            })
+            errorDeLecturaReportadoRef.current = true
+            if (!cargadaRef.current && !eligiendoRef.current) {
+              setConexion('sin_conexion')
+              setLoadError(MENSAJE_SCORER_SIN_CONEXION)
+              setLoading(false)
+            }
+          }
+        } while (otraVueltaRef.current)
+      } finally {
+        enVueloRef.current = null
+        otraVueltaRef.current = false
+      }
+    })()
+    enVueloRef.current = corrida
+    return corrida
+  // leerUnaVez en las deps: un `codigo` nuevo vuelve a disparar la carga inicial (el efecto de abajo).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leerUnaVez])
+  const recargar = useCallback(() => cargar(), [cargar])
   const recargarTrasDejarEquipo = useCallback(() => { dejoElEquipoRef.current = true; return cargar() }, [cargar])
 
+  // Carga inicial (y con un `codigo` nuevo): no es un tic, sí encola si quedó otra lectura en vuelo.
   useEffect(() => { void cargar() }, [cargar])
 
   // Reintento solo mientras el servidor no responde (o la pantalla quedó en "sin conexión").
@@ -371,12 +435,12 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const releer = reintentando || unCelular || eleccion != null
   useEffect(() => {
     if (!releer) return
-    const id = setInterval(() => { void cargar() }, REINTENTO_CARGA_MS)
-    const onOnline = () => { void cargar() }
+    const id = setInterval(() => { void cargar({ deFondo: true }) }, REINTENTO_CARGA_MS)
+    const onOnline = () => { void cargar({ deFondo: true }) }
     window.addEventListener('online', onOnline)
     return () => { clearInterval(id); window.removeEventListener('online', onOnline) }
   }, [releer, cargar])
-  useRefreshOnResume(useCallback(() => { void cargar() }, [cargar]), releer)
+  useRefreshOnResume(useCallback(() => { void cargar({ deFondo: true }) }, [cargar]), releer)
 
   return {
     ronda, loading, loadError,
@@ -386,6 +450,6 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     teamEquipos, setTeamEquipos,
     anotadorNombre, authUserId,
     conexion, golpesSinSubir,
-    unCelularPorEquipo: unCelular, equiposDeOtroCelular: ajenos, eleccion, recargar: cargar, recargarTrasDejarEquipo,
+    unCelularPorEquipo: unCelular, equiposDeOtroCelular: ajenos, eleccion, recargar, recargarTrasDejarEquipo,
   }
 }

@@ -22,6 +22,12 @@ export const MENSAJE_YA_NO_ANOTAS = 'Ya no anotas este equipo.'
 /** Copy cuando «Dejar este equipo» no puede subir antes lo anotado (sin señal): no se suelta con golpes en el teléfono. */
 export const MENSAJE_DEJAR_CON_PENDIENTES = 'Hay golpes sin subir. Espera señal y vuelve a intentar.'
 
+/**
+ * Copy cuando, tras reclamar, liberar o dejar un equipo, la lista de quién anota qué no llega en el plazo: la lectura
+ * sigue en segundo plano y el refresco periódico la pone al día.
+ */
+export const MENSAJE_EQUIPOS_TARDAN = 'La lista de equipos tarda en cargar. Se actualiza sola.'
+
 /** Copy cuando otro celular ganó el equipo. */
 export function mensajeEquipoTomado(anotadorNombre: string | null | undefined): string {
   return `Ese equipo ya lo anota ${nombreDelAnotador({ anotador_nombre: anotadorNombre ?? null })}. Elige otro.`
