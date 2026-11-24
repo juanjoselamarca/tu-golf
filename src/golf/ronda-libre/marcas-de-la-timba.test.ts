@@ -158,7 +158,10 @@ describe('marcasDelHoyo — solo se ofrece lo que puede contar', () => {
     ])
     expect(r[0].pista).toBeNull()
   })
-  it('retirado con una marca puesta: se sigue viendo para poder quitarla', () => {
-    expect(visibles({ par: 4, golpes: {}, retirados: ['a'], marcas: [{ jugadorId: 'a', hoyo: 4, puntitoId: 's' }] }).s).toEqual(['a', 'b', 'c', 'd'])
+  it('retirado con una marca puesta: se sigue viendo, con «no jugó», para poder quitarla', () => {
+    const marcas = [{ jugadorId: 'a', hoyo: 4, puntitoId: 's' }, { jugadorId: 'a', hoyo: 4, puntitoId: 'c' }]
+    const r = grupos({ par: 4, golpes: { a: 4 }, retirados: ['a'], marcas })
+    expect(r[0].jugadores[0]).toEqual({ jugadorId: 'a', visible: true, marcado: true, enEspera: false, noCuenta: 'No jugó el hoyo' })
+    expect(r[1].jugadores[0].noCuenta).toBe('No jugó el hoyo')
   })
 })

@@ -66,7 +66,7 @@ export interface BotonDeMarca {
   enEspera: boolean
   /**
    * Razón si está marcada y no cuenta; `null` si cuenta o si todavía no se sabe. Un score anotado sobre par se
-   * juzga en el teléfono sin esperar al motor; el resto lo dice el motor.
+   * juzga en el teléfono sin esperar al motor (igual que un retiro); el resto lo dice el motor.
    */
   noCuenta: string | null
 }
@@ -123,9 +123,11 @@ export function marcasDelHoyo(input: {
   })
 
   function razonNoCuenta(puntito: PuntitoConfig, jugadorId: string): string | null {
-    // Solo "sobre par" se juzga en el teléfono: un chipingo marcado antes de anotar el score es legítimo.
-    const local = porQueNoCuenta(puntito.tipo, golpes[jugadorId], par)
-    if (local?.motivo === 'sobre_par') return local.razon
+    // En el teléfono se juzga solo lo seguro: un score anotado sobre par, o un retiro (no jugó el hoyo). Un score
+    // sin anotar no: un chipingo marcado antes de anotar es legítimo.
+    const retirado = retirados.has(jugadorId)
+    const local = porQueNoCuenta(puntito.tipo, retirado ? null : golpes[jugadorId], par)
+    if (local && (retirado || local.motivo === 'sobre_par')) return local.razon
     const evaluado = resultadoDelHoyo?.especiales.find(e => e.jugadorId === jugadorId && e.puntitoId === puntito.id)
     return evaluado && !evaluado.cuenta ? evaluado.razon ?? 'No cuenta' : null
   }
