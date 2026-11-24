@@ -25,6 +25,7 @@ import { haptic } from '@/lib/ronda/helpers'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
+import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { releerConPlazo } from './releer-con-plazo'
@@ -390,11 +391,17 @@ export function useFinalizeGrupo(input: {
           void captureError(new Error('historical_rounds duplicada'), { context: 'score_grupo_finalize_historical.duplicada', level: 'info', meta: { codigo, jugadorId: j.id } })
         }
         if (esTarjetaDeRondaDescartada(guardado)) {
-          // La descartaron mientras se guardaba: no queda ronda que cerrar ni tarjeta que reintentar.
-          addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
-          limpiarCopiaLocalDeRonda(codigo)
-          irA('/dashboard')
-          return
+          // P0001: la ronda o el jugador no están. Sólo con la ronda borrada de verdad (la descartaron
+          // mientras se guardaba) no queda ronda que cerrar ni tarjeta que reintentar. Viva (sacaron al
+          // jugador) o cerrada: error normal, más abajo. Sin señal: no se limpia nada, se reintenta.
+          const veredicto = await confirmarRondaBorrada(supabase, codigo)
+          if (veredicto === 'ronda_borrada') {
+            addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
+            limpiarCopiaLocalDeRonda(codigo)
+            irA('/dashboard')
+            return
+          }
+          if (veredicto === 'sin_senal') { avisarSinServidor(); return }
         }
         if (guardado.status === 'error') {
           // Sólo puede fallar la tarjeta PROPIA (las ajenas ya no se insertan). El botón se libera para

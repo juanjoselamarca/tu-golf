@@ -38,6 +38,7 @@ import {
   esTarjetaDeRondaDescartada,
 } from '@/lib/data/ronda-libre-finalizar'
 import { AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
+import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '../types'
 
@@ -154,7 +155,9 @@ export function useGuardarEnMiHistorial(input: {
       ratingsPorTee: new Map(),
       retiradoDesde,
     })
-    if (esTarjetaDeRondaDescartada(resultado)) {
+    // P0001: la ronda o el jugador no están. Sólo si el servidor confirma la ronda borrada el botón se
+    // va; viva, cerrada o sin señal es un error normal y se puede reintentar.
+    if (esTarjetaDeRondaDescartada(resultado) && await confirmarRondaBorrada(supabase, ronda.codigo) === 'ronda_borrada') {
       // La ronda ya no existe (descartada o borrada): no hay dónde guardarla, el botón se va.
       addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
       setEstado('oculto')

@@ -5,6 +5,11 @@ vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 const addToast = vi.fn()
 vi.mock('@/hooks/useToast', () => ({ addToast: (...a: unknown[]) => addToast(...a) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
+const confirmarRondaBorrada = vi.fn(async (..._a: unknown[]) => 'ronda_borrada' as string)
+vi.mock('@/lib/data/ronda-libre-estado', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data/ronda-libre-estado')>()),
+  confirmarRondaBorrada: (...a: unknown[]) => confirmarRondaBorrada(...a),
+}))
 const tarjetaYaEnMiHistorial = vi.fn()
 const guardarTarjetaEnHistorial = vi.fn()
 const recalcularIndiceGolfers = vi.fn(async () => true)
@@ -114,6 +119,18 @@ describe('useGuardarEnMiHistorial', () => {
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
     expect(result.current.estado).toBe('oculto')
+  })
+
+  it.each([['ronda_viva'], ['ronda_cerrada'], ['sin_senal']])('P0001 con %s (no está borrada): error normal y se puede reintentar', async (veredicto) => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001' }, tarjeta: {} })
+    confirmarRondaBorrada.mockResolvedValueOnce(veredicto)
+    const { result } = montar()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    await act(async () => { await result.current.guardar() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
+    expect(result.current.estado).toBe('disponible')
   })
 
   it('guarda la misma fila que el finalizador: le pasa las tarjetas de TODOS (el match necesita al rival)', async () => {

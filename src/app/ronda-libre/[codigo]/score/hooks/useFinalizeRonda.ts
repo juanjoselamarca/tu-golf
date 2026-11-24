@@ -45,6 +45,7 @@ import { saveScores as lsSave, limpiarCopiaLocalDeRonda } from '@/lib/ronda/scor
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
+import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA } from '@/components/ronda/finalizar-copy'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/HojaDelScorer'
 import type { ResultadoGuardado } from './useScoreSave'
@@ -327,10 +328,20 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       // No guardada (RLS, red…): no se anuncia "Ronda guardada" ni se recalcula el
       // índice sobre un historial que no cambió. Los golpes siguen en la tarjeta.
       if (esTarjetaDeRondaDescartada(guardado)) {
-        // La descartaron mientras se guardaba: no hay historial que reintentar. Mismo aviso y salida que al leerla borrada.
-        salirPorRondaBorrada()
-        historialFallo = true
-        throw new Error('historial-ronda-descartada')
+        // P0001: la ronda o el jugador no están. Sólo con la ronda borrada de verdad (la descartaron
+        // mientras se guardaba) se limpia y se sale; si sigue viva (sacaron al jugador) o cerrada, es un
+        // error normal, y sin señal no se toca nada: se reintenta.
+        const veredicto = await confirmarRondaBorrada(supabase, codigo)
+        if (veredicto === 'ronda_borrada') {
+          salirPorRondaBorrada()
+          historialFallo = true
+          throw new Error('historial-ronda-descartada')
+        }
+        if (veredicto === 'sin_senal') {
+          addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
+          historialFallo = true
+          throw new Error('historial-sin-senal')
+        }
       }
       if (guardado.status === 'error') {
         void captureError(guardado.error, { context: 'finalize-ronda.historial', meta: { codigo, jugadorId: activeJugadorId } })

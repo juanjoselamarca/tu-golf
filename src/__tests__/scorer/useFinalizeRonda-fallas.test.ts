@@ -86,6 +86,11 @@ const recalcularIndice = vi.fn(async () => true)
 const fetchIndice = vi.fn(async () => null as IndicesDelJugador | null)
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
+const confirmarRondaBorrada = vi.fn(async (..._a: unknown[]) => 'ronda_borrada' as string)
+vi.mock('@/lib/data/ronda-libre-estado', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data/ronda-libre-estado')>()),
+  confirmarRondaBorrada: (...a: unknown[]) => confirmarRondaBorrada(...a),
+}))
 const finalizarRondaLibre = vi.fn(async () => ({ error: null }))
 vi.mock('@/lib/data/ronda-libre-finalizar', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-finalizar')>()),
@@ -139,6 +144,36 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
     expect(titulos).not.toContain('No pudimos guardar la ronda en tu historial')
     expect(captureError).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'finalize-ronda.historial' }))
     expect(onDiscardSuccess).toHaveBeenCalledTimes(1)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.roundDone).toBe(false)
+    expect(limpiarCopiaLocalDeRonda).toHaveBeenCalled()
+  })
+
+  it.each([['ronda_viva'], ['ronda_cerrada']])('P0001 con la ronda %s (sacaron al jugador): error normal; no limpia lo local ni sale', async (veredicto) => {
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001', message: 'RONDA_NOT_FOUND' }, tarjeta: TARJETA })
+    confirmarRondaBorrada.mockResolvedValueOnce(veredicto)
+    const onDiscardSuccess = vi.fn()
+    const result = await finalizar({ ...baseOpts(), onDiscardSuccess })
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('No pudimos guardar la ronda en tu historial')
+    expect(titulos).not.toContain('Esta ronda ya no existe')
+    expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ code: 'P0001' }), expect.objectContaining({ context: 'finalize-ronda.historial' }))
+    expect(onDiscardSuccess).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.roundDone).toBe(false)
+  })
+
+  it('P0001 sin señal para confirmar: aviso sin servidor; no limpia lo local ni sale', async () => {
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001', message: 'RONDA_NOT_FOUND' }, tarjeta: TARJETA })
+    confirmarRondaBorrada.mockResolvedValueOnce('sin_senal')
+    const onDiscardSuccess = vi.fn()
+    const result = await finalizar({ ...baseOpts(), onDiscardSuccess })
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('No se pudo finalizar todavía')
+    expect(titulos).not.toContain('Esta ronda ya no existe')
+    expect(onDiscardSuccess).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(result.current.roundDone).toBe(false)
   })
