@@ -191,9 +191,55 @@ export function useFinalizeGrupo(input: {
       marcarRespaldosDeRondaCerrada(codigo)
     }
 
+    /**
+     * Lo que dice un envío de Finalizar: `corta` (ya se avisó, no se cierra), `cerrada` (P0002: la tarjeta sigue
+     * al historial) o `sigue`. Lo usan el envío previo al chequeo de equipos y el envío con el relleno de par.
+     */
+    const resolverEnvio = (envio: ResultadoEnvio): 'sigue' | 'cerrada' | 'corta' => {
+      // Borrada: el envío ya avisó, limpió la copia local y saca al marcador.
+      if (envio.estado === 'ronda_borrada') return 'corta'
+      // Cerrada mientras tanto (P0002): lo pendiente se queda en el teléfono a propósito (se puede
+      // reabrir); no es falta de señal, y la tarjeta sigue al historial.
+      if (envio.estado === 'ronda_cerrada') {
+        // El envío de Finalizar va en silencio (el aviso con nombre es de Finalizar): el P0002 se avisa acá.
+        addToast({ ...AVISO_RONDA_YA_FINALIZADA, type: 'info' })
+        marcarRespaldosDeRondaCerrada(codigo)
+        return 'cerrada'
+      }
+      if (envio.rechazadas.length > 0) {
+        // Rechazo firme de una tarjeta (P0004/22023 = INVALID_DELTA: golpe u hoyo inválido). NO se cierra:
+        // cerrar borraría la copia del grupo, el único lugar con esos golpes. Quedan en el teléfono, el
+        // marcador sigue en la pantalla para revisarlos y el aviso nombra a cada uno (el genérico del envío
+        // no sale encima). Una cuyo reenvío no tuvo respuesta no viene acá: eso es señal (abajo).
+        // (P0001 con la ronda viva = el jugador ya no está: el envío lo deja fuera y no bloquea.)
+        const nombres = envio.rechazadas.map(({ id }) => nombreDeTarjeta(ronda, teamEquipos, id))
+        addToast({ ...avisoTarjetasNoGuardadas(nombres), type: 'error', duration: 10000 })
+        haptic([30, 60, 30])
+        return 'corta'
+      }
+      if (envio.sesionPerdida) {
+        // Sin sesión el cierre no sale: lo mismo que dice el aviso fijo, no "sin conexión".
+        addToast({ ...avisoFinalizarSinSesion({ habiaSesion: true }), type: 'error', duration: 7000 })
+        return 'corta'
+      }
+      if (hayPendientes(codigo)) {
+        avisarSinServidor()
+        return 'corta'
+      }
+      return 'sigue'
+    }
+
     // Un celular por equipo: los equipos al día, antes de rellenar nada con par. Los que este celular no rellena
     // (de otro celular o sin reclamar) se leen acá y son los mismos que después no se completan.
     let sinPar: ReadonlyArray<{ id: string }> | undefined
+    if (!rondaYaCerrada && input.unCelularPorEquipo) {
+      // Primero sube lo de este celular: el creador anota los equipos sin reclamar, y un golpe que todavía no sube
+      // (debounce de 500 ms o un reintento) haría que el servidor diga «sin golpes en el hoyo 18» con el golpe en
+      // pantalla. Todavía no se rellenó ningún par: lo que sube es solo lo que se anotó.
+      const previo = resolverEnvio(await enviarPendientes(undefined, { reintentarRechazados: true }))
+      if (previo === 'corta') return
+      rondaYaCerrada = previo === 'cerrada'
+    }
     if (!rondaYaCerrada && input.unCelularPorEquipo) {
       let todos: Awaited<ReturnType<typeof fetchEquiposConAnotador>>
       try {
@@ -257,34 +303,9 @@ export function useFinalizeGrupo(input: {
       // UN envío con la clasificación del scorer: respalda y marca pendiente todo (también las tarjetas
       // que el servidor rechazó antes), y P0001 se confirma con la ronda. Sin servidor (o sesión vencida)
       // lo pendiente sigue: no se cierra a medias (caída 04-oct-2026).
-      const envio = await enviarPendientes(bolaCompartida ? undefined : filledScores, { reintentarRechazados: true })
-      // Borrada: el envío ya avisó, limpió la copia local y saca al marcador.
-      if (envio.estado === 'ronda_borrada') return
-      // Cerrada mientras tanto (P0002): lo pendiente se queda en el teléfono a propósito (se puede
-      // reabrir); no es falta de señal, y la tarjeta sigue al historial.
-      rondaYaCerrada = envio.estado === 'ronda_cerrada'
-      if (rondaYaCerrada) {
-        // El envío de Finalizar va en silencio (el aviso con nombre es de Finalizar): el P0002 se avisa acá.
-        addToast({ ...AVISO_RONDA_YA_FINALIZADA, type: 'info' })
-        marcarRespaldosDeRondaCerrada(codigo)
-      } else if (envio.rechazadas.length > 0) {
-        // Rechazo firme de una tarjeta (P0004/22023 = INVALID_DELTA: golpe u hoyo inválido). NO se cierra:
-        // cerrar borraría la copia del grupo, el único lugar con esos golpes. Quedan en el teléfono, el
-        // marcador sigue en la pantalla para revisarlos y el aviso nombra a cada uno (el genérico del envío
-        // no sale encima). Una cuyo reenvío no tuvo respuesta no viene acá: eso es señal (abajo).
-        // (P0001 con la ronda viva = el jugador ya no está: el envío lo deja fuera y no bloquea.)
-        const nombres = envio.rechazadas.map(({ id }) => nombreDeTarjeta(ronda, teamEquipos, id))
-        addToast({ ...avisoTarjetasNoGuardadas(nombres), type: 'error', duration: 10000 })
-        haptic([30, 60, 30])
-        return
-      } else if (envio.sesionPerdida) {
-        // Sin sesión el cierre no sale: lo mismo que dice el aviso fijo, no "sin conexión".
-        addToast({ ...avisoFinalizarSinSesion({ habiaSesion: true }), type: 'error', duration: 7000 })
-        return
-      } else if (hayPendientes(codigo)) {
-        avisarSinServidor()
-        return
-      }
+      const envio = resolverEnvio(await enviarPendientes(bolaCompartida ? undefined : filledScores, { reintentarRechazados: true }))
+      if (envio === 'corta') return
+      rondaYaCerrada = envio === 'cerrada'
       if (timba && !(await timba.enviarMarcas())) {
         addToast({ ...AVISO_MARCAS_SIN_ENVIAR, type: 'error', duration: 8000 })
         haptic([30, 60, 30])

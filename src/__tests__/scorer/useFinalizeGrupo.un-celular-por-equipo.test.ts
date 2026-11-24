@@ -15,8 +15,9 @@ const addToast = vi.fn()
 vi.mock('@/hooks/useToast', () => ({ addToast: (...a: unknown[]) => addToast(...a) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 vi.mock('@/lib/ronda/helpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/ronda/helpers')>()), haptic: vi.fn() }))
+const pendiente = { hay: false }
 vi.mock('@/lib/ronda/score-storage', () => ({
-  loadGroupScores: () => ({}), hayPendientes: () => false, limpiarCopiaLocalDeRonda: vi.fn(), cerrarCopiaLocalAlFinalizar: vi.fn(),
+  loadGroupScores: () => ({}), hayPendientes: () => pendiente.hay, limpiarCopiaLocalDeRonda: vi.fn(), cerrarCopiaLocalAlFinalizar: vi.fn(),
 }))
 const finalizarRondaLibre = vi.fn(async () => ({ finalizada: true, error: null as unknown }))
 vi.mock('@/lib/data/ronda-libre-scores', () => ({
@@ -33,9 +34,11 @@ vi.mock('@/lib/data/ronda-libre-finalizar', async () => ({
   avisarAlCoachRondaNueva: vi.fn(),
 }))
 const lectura = { equipos: [] as unknown[], falla: false }
+const fetchEquiposConAnotador = vi.fn()
 vi.mock('@/lib/data/ronda-libre', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre')>()),
   fetchEquiposConAnotador: async () => {
+    fetchEquiposConAnotador()
     if (lectura.falla) throw new Error('Failed to fetch')
     return lectura.equipos
   },
@@ -76,6 +79,8 @@ async function finalizar(result: { current: ReturnType<typeof useFinalizeGrupo> 
 beforeEach(() => {
   vi.clearAllMocks()
   lectura.falla = false
+  pendiente.hay = false
+  enviarPendientes.mockImplementation(async () => ({ estado: 'ronda_abierta', rechazadas: [] }))
 })
 
 describe('useFinalizeGrupo — un celular por equipo', () => {
@@ -86,7 +91,9 @@ describe('useFinalizeGrupo — un celular por equipo', () => {
     await finalizar(result)
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Los Pumas va en el hoyo 5. Espera a que termine o libéralo para cerrarlo tú.' }))
     expect(completarEquiposConPar).not.toHaveBeenCalled()
-    expect(enviarPendientes).not.toHaveBeenCalled()
+    // Solo el envío previo de lo anotado (sin relleno de par): el que lleva el par no sale.
+    expect(enviarPendientes).toHaveBeenCalledTimes(1)
+    expect(enviarPendientes).toHaveBeenCalledWith(undefined, { reintentarRechazados: true })
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
@@ -137,5 +144,37 @@ describe('useFinalizeGrupo — un celular por equipo', () => {
     await finalizar(result)
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }))
+  })
+
+  it('P1: el golpe del hoyo 9 de un equipo sin reclamar que aún no subía se sube antes de leer, y no frena', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    const sinHoyo9 = { ...lleno }; delete sinHoyo9['9']
+    // El servidor todavía no tiene el hoyo 9 de Los Cóndores: lo tiene este celular en el debounce.
+    lectura.equipos = [mio, eq('e3', 'Los Cóndores', null, sinHoyo9)]
+    const orden: string[] = []
+    enviarPendientes.mockImplementation(async () => {
+      orden.push('envio')
+      lectura.equipos = [mio, eq('e3', 'Los Cóndores', null, lleno)]
+      return { estado: 'ronda_abierta', rechazadas: [] }
+    })
+    fetchEquiposConAnotador.mockImplementation(() => { orden.push('lectura') })
+    const { result } = montar([mio, eq('e3', 'Los Cóndores', null, lleno)])
+    await finalizar(result)
+    expect(orden.slice(0, 2)).toEqual(['envio', 'lectura'])
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: expect.stringContaining('no tiene golpes') }))
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
+  it('P1: si lo pendiente no sube (sin servidor), no lee ni rellena nada: aviso de sin servidor', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    lectura.equipos = [mio, eq('e3', 'Los Cóndores', null, { 1: 4 })]
+    pendiente.hay = true
+    const { result } = montar([mio, eq('e3', 'Los Cóndores', null, lleno)])
+    await finalizar(result)
+    expect(fetchEquiposConAnotador).not.toHaveBeenCalled()
+    expect(completarEquiposConPar).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledTimes(1)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', title: 'No se pudo finalizar todavía' }))
   })
 })
