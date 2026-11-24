@@ -7,8 +7,10 @@ import { NOMBRE_FORMATO_PERSONALIZADO, esFormatoPersonalizado } from '../formats
  */
 
 /** Lente de scoring: cómo se calculan los puntos */
+/** Modos de scoring: gross (sin handicap) o neto (con handicap). Fuente única de la lista. */
+export const MODOS_JUEGO = ['gross', 'neto'] as const
 /** Modo de scoring: gross (sin handicap) o neto (con handicap) */
-export type ModoJuego = 'gross' | 'neto'
+export type ModoJuego = (typeof MODOS_JUEGO)[number]
 
 /**
  * FUENTE ÚNICA de "¿cuántos golpes de ventaja reparte la modalidad?".

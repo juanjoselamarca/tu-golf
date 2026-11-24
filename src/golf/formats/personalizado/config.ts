@@ -30,7 +30,9 @@ export const TIPOS_PUNTITO = ['birdie', 'sandy', 'chipingo', 'greenie', 'propio'
 export type TipoPuntito = (typeof TIPOS_PUNTITO)[number]
 
 /** Puntitos que se marcan a mano en el scorer (el birdie sale solo de los golpes). */
-export const PUNTITOS_MANUALES: readonly TipoPuntito[] = ['sandy', 'chipingo', 'greenie', 'propio']
+export const TIPOS_PUNTITO_MANUAL = ['sandy', 'chipingo', 'greenie', 'propio'] as const satisfies readonly TipoPuntito[]
+/** La misma lista, con el tipo ancho para preguntar por cualquier puntito (`.includes(p.tipo)`). */
+export const PUNTITOS_MANUALES: readonly TipoPuntito[] = TIPOS_PUNTITO_MANUAL
 
 const entero = (min: number, max: number) => z.number().int().min(min).max(max)
 
