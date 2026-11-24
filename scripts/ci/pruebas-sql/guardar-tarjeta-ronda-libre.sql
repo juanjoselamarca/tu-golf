@@ -43,6 +43,13 @@ INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre, user_id, handica
    'b3000000-0000-4000-8000-000000000002', 20, '{"1": 6}'::jsonb);
 
 -- ── Parte 1: permisos ────────────────────────────────────────────────────────────────────────────────────────
+-- El permiso mismo, no solo el rechazo: un GRANT a anon con la función rechazando por auth.uid() nulo pasaría abajo.
+DO $$ BEGIN
+  IF has_function_privilege('anon', 'public.guardar_tarjeta_ronda_libre(jsonb)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'FALLA: anon tiene EXECUTE sobre guardar_tarjeta_ronda_libre';
+  END IF;
+  RAISE NOTICE 'OK anon no tiene EXECUTE';
+END $$;
 SET LOCAL ROLE anon;
 DO $$ BEGIN
   PERFORM public.guardar_tarjeta_ronda_libre('{}'::jsonb);
