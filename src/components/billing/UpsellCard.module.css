@@ -160,6 +160,10 @@
   color: var(--brand-on-bg);
   margin-top: 4px;
   padding: 0 10px 0 6px;
+  /* Texto largo: con letra grande o a 320 px envuelve en vez de salirse de la tarjeta (WCAG 1.4.4/1.4.10). */
+  white-space: normal;
+  text-align: center;
+  line-height: 1.3;
   align-self: center;
 }
 

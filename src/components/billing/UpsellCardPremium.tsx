@@ -1,6 +1,7 @@
 'use client'
 import type { Feature } from '@/golf/billing/plans'
 import { FEATURE_MIN_TIER } from '@/golf/billing/plans'
+import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from '@/components/icons'
 import { ProBadge } from './ProBadge'
 import styles from './UpsellCard.module.css'
@@ -70,10 +71,10 @@ export function UpsellCard({ feature, title, description, variant = 'medium', lo
         {label}
       </a>
       {volver && (
-        <a href={volver.href} className={styles.volver}>
+        <Link href={volver.href} className={styles.volver}>
           <ChevronLeft size={16} aria-hidden="true" />
           {volver.label}
-        </a>
+        </Link>
       )}
       {loginNext && (
         <p className={styles.yaTengo}>
