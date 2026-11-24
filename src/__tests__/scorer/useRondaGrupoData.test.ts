@@ -10,7 +10,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useRondaGrupoData, hoyoInicial } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useRondaGrupoData'
 import { saveScorerGrupoSnapshot, saveGroupScores, loadScorerGrupoSnapshot, marcarPendientes } from '@/lib/ronda/score-storage'
-import { MENSAJE_SCORER_SIN_CONEXION, REINTENTO_CARGA_MS } from '@/lib/data/ronda-libre-scorer'
+import { MENSAJE_SCORER_SIN_CONEXION, PLAZO_CARGA_SCORER_MS, REINTENTO_CARGA_MS } from '@/lib/data/ronda-libre-scorer'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -41,14 +41,23 @@ const RONDA = {
 const carga = { valor: { estado: 'ok', ronda: RONDA } as { estado: string; ronda?: unknown } }
 const opcionesDeCarga: unknown[] = []
 const lecturaDeEquipos = { falla: false, equipos: [] as unknown[] }
+/** Lectura que no contesta nunca (wifi del club que acepta la conexión y no responde). */
+type LecturaDeCarga = 'equipos' | 'hoyos' | 'handicaps'
+const colgada = { lectura: null as LecturaDeCarga | null }
+const nunca = <T,>() => new Promise<T>(() => {})
 vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
   const real = await orig<typeof import('@/lib/data/ronda-libre-scorer')>()
   return {
     ...real,
     fetchRondaLibreParaScorer: async (_sb: unknown, _codigo: string, opciones?: unknown) => { opcionesDeCarga.push(opciones); return carga.valor },
-    cargarHoyosDelScorer: async () => ({ parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, finalParTotal: 72 }),
-    resolverHandicapsDelScorer: async () => ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 }, sinIndice: new Set<string>() }),
+    cargarHoyosDelScorer: async () => colgada.lectura === 'hoyos'
+      ? nunca()
+      : ({ parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, finalParTotal: 72 }),
+    resolverHandicapsDelScorer: async () => colgada.lectura === 'handicaps'
+      ? nunca()
+      : ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 }, sinIndice: new Set<string>() }),
     fetchEquiposDelScorer: async () => {
+      if (colgada.lectura === 'equipos') return nunca()
       if (lecturaDeEquipos.falla) throw new Error('Failed to fetch')
       return lecturaDeEquipos.equipos
     },
@@ -65,6 +74,7 @@ function snapshotPrevio(teamEquipos: unknown[] = []) {
 beforeEach(() => {
   opcionesDeCarga.length = 0
   lecturaDeEquipos.falla = false
+  colgada.lectura = null
   lecturaDeEquipos.equipos = []
   localStorage.clear()
   push.mockClear()
@@ -205,6 +215,43 @@ describe('useRondaGrupoData — resiliencia ante caídas del servidor', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.conexion).toBe('sin_sesion')
     expect(push).not.toHaveBeenCalled()
+  })
+})
+
+describe('useRondaGrupoData — cada lectura de la carga tiene plazo (revisión Fable #867)', () => {
+  // Sin plazo, una de estas lecturas colgada dejaba el scorer en "Cargando…" para siempre (ni copia local ni
+  // reintento: la carga en vuelo bloquea las siguientes). Al vencer, el mismo camino que una caída del servidor.
+  const LECTURAS: LecturaDeCarga[] = ['equipos', 'hoyos', 'handicaps']
+
+  it.each(LECTURAS)('%s colgada sin copia local: al vencer el plazo, pantalla de espera que reintenta sola', async (lectura) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    colgada.lectura = lectura
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_CARGA_SCORER_MS - 1_000) })
+    expect(result.current.loading).toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_050) })
+    expect(result.current.loading).toBe(false)
+    expect(result.current.loadError).toBe(MENSAJE_SCORER_SIN_CONEXION)
+    expect(result.current.conexion).toBe('sin_conexion')
+    expect(push).not.toHaveBeenCalled()
+
+    // La señal vuelve: el reintento de siempre la recupera.
+    colgada.lectura = null
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
+    await waitFor(() => expect(result.current.conexion).toBe('ok'))
+    expect(result.current.loadError).toBeNull()
+  })
+
+  it.each(LECTURAS)('%s colgada con copia local: al vencer el plazo abre desde la copia', async (lectura) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    snapshotPrevio()
+    colgada.lectura = lectura
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_CARGA_SCORER_MS + 50) })
+    expect(result.current.loading).toBe(false)
+    expect(result.current.conexion).toBe('sin_conexion')
+    expect(result.current.loadError).toBeNull()
+    expect(result.current.ronda?.id).toBe('r1')
   })
 })
 

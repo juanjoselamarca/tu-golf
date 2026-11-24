@@ -21,6 +21,7 @@ import {
   fetchEquiposDelScorer,
   tarjetasDesdeLaRonda,
   MENSAJE_SCORER_SIN_CONEXION,
+  PLAZO_CARGA_SCORER_MS,
   REINTENTO_CARGA_MS,
   type EquipoDelScorer,
 } from '@/lib/data/ronda-libre-scorer'
@@ -42,6 +43,7 @@ import type { HoleData, RondaLibre } from '@/types/ronda'
 import { conOrdenEnPantalla } from '@/lib/ronda/orden-jugadores'
 import { loginUrl } from '@/lib/auth/login-url'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
+import { conTimeout } from '@/lib/red/con-timeout'
 
 /**
  * Estado de la conexión del scorer con el servidor.
@@ -125,6 +127,8 @@ export function hoyoInicial(
 /**
  * Lee del servidor todo lo que el scorer necesita. Nunca lanza: una falla de red,
  * 5xx o timeout vuelve como `sin_conexion` (jamás como "la ronda no existe").
+ * Cada lectura espera a lo más `PLAZO_CARGA_SCORER_MS` (la sesión y la ronda traen el suyo): una colgada dejaba el
+ * scorer en "Cargando…" para siempre, sin copia local ni reintento (la carga en vuelo bloquea las siguientes).
  */
 async function cargarDelServidor(codigo: string): Promise<Carga> {
   const supabase = createClient()
@@ -155,7 +159,7 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
   try {
     // scramble/foursome usan equipo.scores (compartido); best_ball lee la
     // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo.
-    const equipos = await fetchEquiposDelScorer(supabase, r)
+    const equipos = await conTimeout(fetchEquiposDelScorer(supabase, r), PLAZO_CARGA_SCORER_MS)
     // Formatos por equipo: quién entra lo decide `entradaAlScorerDeEquipos` (un celular por equipo: elegir equipo;
     // un celular: solo quien puede anotar la ronda; el resto, a la ronda en vivo).
     if (isTeamFormat(r.formato_juego)) {
@@ -163,9 +167,12 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
       if (entrada === 'en_vivo') return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
       if (entrada === 'elegir_equipo') return { tipo: 'elegir_equipo', ronda: r, equipos }
     }
-    const hoyos = await cargarHoyosDelScorer(supabase, r)
+    const hoyos = await conTimeout(cargarHoyosDelScorer(supabase, r), PLAZO_CARGA_SCORER_MS)
     // El scorer de grupo exige sesión (arriba): `profiles` es legible.
-    const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal, leerIndicesDelCliente(supabase))
+    const { hcpMap, displayMap } = await conTimeout(
+      resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal, leerIndicesDelCliente(supabase)),
+      PLAZO_CARGA_SCORER_MS,
+    )
     // UN solo filtro: este celular carga solo los equipos que anota. Todo lo que manda golpes (par al pasar de hoyo,
     // completar al finalizar, pendientes, hoyo inicial, copia local) parte de esta lista: nunca toca un equipo de
     // otro celular. En una ronda de un celular son todos.
