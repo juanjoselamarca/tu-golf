@@ -2550,7 +2550,10 @@ BEGIN
     match_result, team_name
   ) VALUES (
     v_fila.user_id, v_fila.course_name, v_fila.course_id, v_fila.played_at, v_fila.total_gross, v_fila.adjusted_gross,
-    v_fila.scores, v_fila.par_per_hole, v_fila.metadata, v_fila.holes_played, v_fila.tee_color,
+    v_fila.scores, v_fila.par_per_hole,
+    -- El id del jugador en forma canónica (minúsculas): el índice único compara texto; 'E3…' y 'e3…' no chocarían.
+    jsonb_set(v_fila.metadata, '{ronda_libre_jugador_id}', to_jsonb(v_jugador_id::text)),
+    v_fila.holes_played, v_fila.tee_color,
     coalesce(v_fila.privacy, 'private'), v_fila.slope_rating, v_fila.course_rating, v_fila.diferencial,
     coalesce(v_fila.formato_juego, 'stroke_play'), coalesce(v_fila.modo_juego, 'gross'),
     v_fila.match_result, v_fila.team_name

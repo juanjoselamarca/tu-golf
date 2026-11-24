@@ -112,7 +112,8 @@ BEGIN
     'par_per_hole', '[4, 4]'::jsonb, 'holes_played', 2, 'tee_color', 'Azul', 'privacy', 'private',
     'slope_rating', 130, 'course_rating', 71.5, 'diferencial', 12.3, 'formato_juego', 'stroke_play',
     'modo_juego', 'gross', 'match_result', NULL, 'team_name', NULL,
-    'metadata', jsonb_build_object('ronda_libre_jugador_id', 'e3000000-0000-4000-8000-000000000002', 'hoyos', '[1, 2]'::jsonb)));
+    -- En mayúsculas a propósito: se guarda en forma canónica (y el duplicado de abajo, en minúsculas, choca).
+    'metadata', jsonb_build_object('ronda_libre_jugador_id', 'E3000000-0000-4000-8000-000000000002', 'hoyos', '[1, 2]'::jsonb)));
   SELECT * INTO v_fila FROM public.historical_rounds WHERE id = v_id;
   IF v_fila.id IS NULL OR v_fila.user_id <> 'b3000000-0000-4000-8000-000000000002' OR v_fila.total_gross <> 90
      OR v_fila.adjusted_gross <> 88 OR v_fila.diferencial <> 12.3 OR v_fila.tee_color <> 'Azul'
@@ -120,7 +121,10 @@ BEGIN
      OR v_fila.metadata ->> 'ronda_libre_jugador_id' <> 'e3000000-0000-4000-8000-000000000002' THEN
     RAISE EXCEPTION 'FALLA: la fila guardada no es la esperada: %', row_to_json(v_fila);
   END IF;
-  RAISE NOTICE 'OK el amigo guarda su tarjeta y la fila queda con los defaults de la tabla';
+  IF v_fila.metadata -> 'hoyos' <> '[1, 2]'::jsonb THEN
+    RAISE EXCEPTION 'FALLA: normalizar el id del jugador pisó el resto de metadata: %', v_fila.metadata;
+  END IF;
+  RAISE NOTICE 'OK el amigo guarda su tarjeta, el id del jugador queda canónico y la fila con los defaults de la tabla';
 END $$;
 
 DO $$ BEGIN
