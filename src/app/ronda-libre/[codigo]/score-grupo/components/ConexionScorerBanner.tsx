@@ -47,7 +47,10 @@ export function ConexionScorerBanner({
   pendienteDeEnvio: boolean
   codigo: string
   sesionPerdida?: boolean
-  /** En «Elige tu equipo»: el aviso habla de la lista de equipos, no de golpes. */
+  /**
+   * En «Elige tu equipo»: el aviso habla de la lista de equipos, no de golpes, y va como tarjeta (radio y borde
+   * completo) dentro del contenido con margen; en el scorer es una franja a todo el ancho bajo el encabezado.
+   */
   eleccion?: boolean
 }) {
   const texto = textoConexionScorer(conexion, pendienteDeEnvio, codigo, sesionPerdida, eleccion)
@@ -63,7 +66,9 @@ export function ConexionScorerBanner({
         display: 'flex', alignItems: 'center', gap: '10px',
         padding: '8px 14px', minHeight: '44px', flexShrink: 0,
         background: 'rgba(217, 119, 6, 0.14)',
-        borderBottom: '1px solid rgba(217, 119, 6, 0.45)',
+        ...(eleccion
+          ? { border: '1px solid rgba(217, 119, 6, 0.45)', borderRadius: '12px' }
+          : { borderBottom: '1px solid rgba(217, 119, 6, 0.45)' }),
         color: 'var(--text)', fontSize: '14px', lineHeight: 1.35,
       }}
     >
