@@ -157,7 +157,7 @@ describe('useFinalizeGrupo', () => {
     // Historial: sólo p1 (su propia tarjeta; p2 es invitado), con id para avisar al coach.
     expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
-    expect(input).toMatchObject({ userId: 'u1', conId: true, hoyos: back9 })
+    expect(input).toMatchObject({ userId: 'u1', hoyos: back9 })
     expect((input.scores as Record<number, number>)[18]).toBe(5)
     // El error del RPC se reporta con contexto propio (antes: `.then(() => {})` lo descartaba).
     expect(recalcularIndiceGolfers).toHaveBeenCalledWith(cliente, 'u1', {

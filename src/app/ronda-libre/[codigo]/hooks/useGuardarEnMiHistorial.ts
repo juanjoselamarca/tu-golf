@@ -150,7 +150,6 @@ export function useGuardarEnMiHistorial(input: {
       hoyos,
       parMap,
       ratingsPorTee: new Map(),
-      conId: true,
       retiradoDesde,
     })
     if (resultado.status === 'error') {

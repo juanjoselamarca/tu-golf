@@ -32,18 +32,28 @@ function fakeSupabase(
   rpc: (fn: string, args: unknown) => Respuesta = () => ({ data: true, error: null }),
 ) {
   const llamadas: Array<{ tabla: string; cadena: Cadena }> = []
-  const rpcSpy = vi.fn(async (fn: string, args: unknown) => ({ data: null, error: null, ...rpc(fn, args) }))
+  const resolverTabla = (tabla: string, cadena: Cadena) => {
+    const r = porTabla[tabla]
+    const base = typeof r === 'function' ? r(cadena) : (r ?? {})
+    return { data: null, error: null, ...base }
+  }
+  // El guardado del historial va por RPC (`guardar_tarjeta_ronda_libre`): se registra como una llamada a
+  // `historical_rounds` con la cadena [['guardar', [fila]]] y contesta lo que diga `porTabla.historical_rounds`.
+  const rpcSpy = vi.fn(async (fn: string, args: unknown) => {
+    if (fn === 'guardar_tarjeta_ronda_libre') {
+      const cadena: Cadena = [['guardar', [(args as { p_fila: unknown }).p_fila]]]
+      llamadas.push({ tabla: 'historical_rounds', cadena })
+      return resolverTabla('historical_rounds', cadena)
+    }
+    return { data: null, error: null, ...rpc(fn, args) }
+  })
   return {
     llamadas,
     rpc: rpcSpy,
     from(tabla: string) {
       const cadena: Cadena = []
       llamadas.push({ tabla, cadena })
-      const resolver = () => {
-        const r = porTabla[tabla]
-        const base = typeof r === 'function' ? r(cadena) : (r ?? {})
-        return { data: null, error: null, ...base }
-      }
+      const resolver = () => resolverTabla(tabla, cadena)
       const proxy: Record<string, unknown> = new Proxy({}, {
         get(_t, prop) {
           if (prop === 'then') return (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => Promise.resolve(resolver()).then(res, rej)
@@ -55,9 +65,9 @@ function fakeSupabase(
   }
 }
 
-/** El INSERT en `historical_rounds` (antes va la lectura del índice del día). */
+/** El guardado en `historical_rounds` por RPC (antes va la lectura del índice del día). */
 const insercion = (sb: ReturnType<typeof fakeSupabase>) =>
-  sb.llamadas.find(l => l.tabla === 'historical_rounds' && l.cadena[0]?.[0] === 'insert')!
+  sb.llamadas.find(l => l.tabla === 'historical_rounds' && l.cadena[0]?.[0] === 'guardar')!
 
 const PAR: Record<number, number> = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5, 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5, 18: 5 }
 const TEE = { rating: 71.3, slope: 128, front_course_rating: 35.6, front_slope_rating: 126, back_course_rating: 35.7, back_slope_rating: 130 }
@@ -132,7 +142,7 @@ describe('fetchRatingsDelTee', () => {
 describe('guardarTarjetaEnHistorial', () => {
   const base = () => ({
     ronda, jugador: { id: 'p1', tees: null }, userId: 'u1', scores: scores18, scoresPorJugador: {},
-    hoyos: hoyosDeLaRonda(1, 18), parMap: PAR, ratingsPorTee: new Map() as RatingsPorTee, conId: true,
+    hoyos: hoyosDeLaRonda(1, 18), parMap: PAR, ratingsPorTee: new Map() as RatingsPorTee,
   })
 
   it('si la base no responde vence el plazo y vuelve como error, con la tarjeta para mostrar', async () => {
@@ -157,15 +167,15 @@ describe('guardarTarjetaEnHistorial', () => {
     expect(sb.llamadas.some(l => l.tabla === 'historical_rounds')).toBe(false)
   })
 
-  it('inserta la fila canónica con ratings, diferencial y pide el id (scorer individual)', async () => {
-    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: c => (c[0][0] === 'insert' ? { data: { id: 'h1' } } : {}) })
+  it('guarda la fila canónica con ratings y diferencial, y devuelve el id', async () => {
+    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: c => (c[0][0] === 'guardar' ? { data: 'h1' } : {}) })
     const r = await guardarTarjetaEnHistorial(sb as never, base())
     expect(r.status).toBe('insertada')
     if (r.status !== 'insertada') return
     expect(r.id).toBe('h1')
     const ins = insercion(sb)
     const [metodo, [fila]] = ins.cadena[0] as [string, [Record<string, unknown>]]
-    expect(metodo).toBe('insert')
+    expect(metodo).toBe('guardar')
     expect(fila).toMatchObject({
       user_id: 'u1', course_name: 'Los Leones', course_id: 'c1', total_gross: 90, holes_played: 18,
       tee_color: 'azul', slope_rating: 128, course_rating: 71.3,
@@ -174,23 +184,28 @@ describe('guardarTarjetaEnHistorial', () => {
     })
     // (90 − 71.3) × 113 / 128
     expect(fila.diferencial).toBeCloseTo(16.51, 2)
-    expect(ins.cadena.map(c => c[0])).toEqual(['insert', 'select', 'single'])
+    expect(ins.cadena.map(c => c[0])).toEqual(['guardar'])
   })
 
   it('Timba: la tarjeta del retirado no lleva los golpes anotados desde su retiro (el motor tampoco los cuenta)', async () => {
-    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: c => (c[0][0] === 'insert' ? { data: { id: 'h1' } } : {}) })
+    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: c => (c[0][0] === 'guardar' ? { data: 'h1' } : {}) })
     const r = await guardarTarjetaEnHistorial(sb as never, { ...base(), retiradoDesde: 10 })
     expect(r.status).toBe('insertada')
     expect(r.tarjeta.holesPlayed).toBe(9)
     expect(r.tarjeta.scores.slice(9).every(g => g == null)).toBe(true)
   })
 
-  it('scorer de grupo (conId=false): inserta sin pedir el id (no tropieza con RLS de otro usuario)', async () => {
-    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
-    const r = await guardarTarjetaEnHistorial(sb as never, { ...base(), conId: false })
-    expect(r).toMatchObject({ status: 'insertada', id: null })
-    const ins = insercion(sb)
-    expect(ins.cadena.map(c => c[0])).toEqual(['insert'])
+  it('va por el RPC que toma la ronda (no se cruza con «Descartar ronda», #868): nunca un INSERT directo', async () => {
+    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: c => (c[0][0] === 'guardar' ? { data: 'h1' } : {}) })
+    await guardarTarjetaEnHistorial(sb as never, base())
+    expect(sb.rpc).toHaveBeenCalledWith('guardar_tarjeta_ronda_libre', { p_fila: expect.objectContaining({ user_id: 'u1' }) })
+    expect(sb.llamadas.some(l => l.tabla === 'historical_rounds' && l.cadena.some(c => c[0] === 'insert'))).toBe(false)
+  })
+
+  it('ronda descartada mientras se guardaba (P0001 del RPC) → error, nunca «insertada»', async () => {
+    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: { error: { code: 'P0001', message: 'RONDA_NOT_FOUND' } } })
+    const r = await guardarTarjetaEnHistorial(sb as never, base())
+    expect(r.status).toBe('error')
   })
 
   it('23505 (ya guardada desde el otro scorer) → duplicada, la primera queda', async () => {
@@ -208,7 +223,7 @@ describe('guardarTarjetaEnHistorial', () => {
 
   it('scramble / foursome: diferencial null (el score es del equipo)', async () => {
     const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
-    await guardarTarjetaEnHistorial(sb as never, { ...base(), ronda: { ...ronda, formato_juego: 'scramble' as never }, conId: false })
+    await guardarTarjetaEnHistorial(sb as never, { ...base(), ronda: { ...ronda, formato_juego: 'scramble' as never } })
     const [, [fila]] = insercion(sb).cadena[0] as [string, [Record<string, unknown>]]
     expect(fila.diferencial).toBeNull()
     expect(fila.slope_rating).toBe(128) // los ratings sí se guardan
@@ -217,15 +232,15 @@ describe('guardarTarjetaEnHistorial', () => {
   it('el cache de ratings por tee evita consultar dos veces el mismo tee', async () => {
     const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
     const cache: RatingsPorTee = new Map()
-    await guardarTarjetaEnHistorial(sb as never, { ...base(), ratingsPorTee: cache, conId: false })
-    await guardarTarjetaEnHistorial(sb as never, { ...base(), jugador: { id: 'p2', tees: 'AZUL' }, ratingsPorTee: cache, conId: false })
+    await guardarTarjetaEnHistorial(sb as never, { ...base(), ratingsPorTee: cache })
+    await guardarTarjetaEnHistorial(sb as never, { ...base(), jugador: { id: 'p2', tees: 'AZUL' }, ratingsPorTee: cache })
     expect(sb.llamadas.filter(l => l.tabla === 'course_tees')).toHaveLength(1)
     expect(cache.has('azul')).toBe(true)
   })
 
   it('menos de 9 hoyos: sin diferencial aunque haya ratings', async () => {
     const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
-    await guardarTarjetaEnHistorial(sb as never, { ...base(), scores: { 1: 4, 2: 4, 3: 3 }, conId: false })
+    await guardarTarjetaEnHistorial(sb as never, { ...base(), scores: { 1: 4, 2: 4, 3: 3 } })
     const [, [fila]] = insercion(sb).cadena[0] as [string, [Record<string, unknown>]]
     expect(fila.holes_played).toBe(3)
     expect(fila.diferencial).toBeNull()
@@ -236,7 +251,7 @@ describe('guardarTarjetaEnHistorial', () => {
       course_tees: { data: TEE }, historical_rounds: {},
       ronda_equipo_jugadores: { data: { ronda_equipos: { nombre: 'Cóndores' } } },
     })
-    await guardarTarjetaEnHistorial(sb as never, { ...base(), ronda: { ...ronda, formato_juego: 'best_ball' as never }, conId: false })
+    await guardarTarjetaEnHistorial(sb as never, { ...base(), ronda: { ...ronda, formato_juego: 'best_ball' as never } })
     const [, [fila]] = insercion(sb).cadena[0] as [string, [Record<string, unknown>]]
     expect(fila).toMatchObject({ match_result: null, team_name: 'Cóndores' })
   })
@@ -252,7 +267,7 @@ describe('guardarTarjetaEnHistorial — Adjusted Gross Score WHS 3.1 (#545)', ()
   }) as never
   const base = (r: unknown, scores: Record<number, number>, parMap: Record<number, number> = PAR) => ({
     ronda: r as typeof ronda, jugador: { id: 'p1', tees: null }, userId: 'u1', scores, scoresPorJugador: {},
-    hoyos: hoyosDeLaRonda(1, 18), parMap, ratingsPorTee: new Map() as RatingsPorTee, conId: false,
+    hoyos: hoyosDeLaRonda(1, 18), parMap, ratingsPorTee: new Map() as RatingsPorTee,
   })
   const filaInsertada = (sb: ReturnType<typeof fakeSupabase>) =>
     (insercion(sb).cadena[0] as [string, [Record<string, unknown>]])[1][0]
@@ -378,7 +393,7 @@ describe('finalizar y después corregir un hoyo: el ajuste de los demás no camb
   const conJugador = { ...ronda, ronda_libre_jugadores: [{ id: 'p1', nombre: 'Ana', handicap: null, user_id: 'u1', scores: {}, tees: null }] } as never
   const input = (scores: Record<number, number>, parMap: Record<number, number>) => ({
     ronda: conJugador as typeof ronda, jugador: { id: 'p1', tees: null }, userId: 'u1', scores, scoresPorJugador: {},
-    hoyos: hoyosDeLaRonda(1, 18), parMap, ratingsPorTee: new Map() as RatingsPorTee, conId: false,
+    hoyos: hoyosDeLaRonda(1, 18), parMap, ratingsPorTee: new Map() as RatingsPorTee,
   })
   /** Edita la fila recién insertada: la lectura devuelve esa fila; el UPDATE se captura. */
   const editar = async (fila: Record<string, unknown>, tablas: Record<string, Respuesta>, scores: (number | null)[]) => {

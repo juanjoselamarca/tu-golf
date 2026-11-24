@@ -317,7 +317,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       const guardado = await guardarTarjetaEnHistorial(supabase, {
         ronda, jugador: activePlayer ?? { id: activeJugadorId, tees: null }, userId: historicalUserId,
         scores: playerScores, scoresPorJugador: { ...scoresPorJugador, [activeJugadorId]: playerScores },
-        hoyos, parMap, ratingsPorTee, conId: true,
+        hoyos, parMap, ratingsPorTee,
       })
       // Mi tarjeta quedó en el historial: desde ya la ronda no se descarta (el servidor lo rechaza igual,
       // P0003 'ronda con tarjetas guardadas'), aunque después el cierre no tenga respuesta.
