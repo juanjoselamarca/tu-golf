@@ -5,28 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { haptic } from '@/lib/ronda/helpers'
 import { addToast } from '@/hooks/useToast'
-import {
-  liberarEquipoDeRonda, reclamarEquipoDeRonda, MENSAJE_DEJAR_CON_PENDIENTES, MENSAJE_EQUIPOS_TARDAN,
-} from '@/lib/data/ronda-libre-anotador'
-import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
-import { conTimeout, TiempoAgotadoError } from '@/lib/red/con-timeout'
-
-/**
- * La relectura tras reclamar/liberar/dejar espera a lo más `PLAZO_CARGA_SCORER_MS`: `enCurso` congela la tarjeta y
- * Finalizar (`tarjetaCongelada`), y una relectura colgada (mala señal) los dejaba congelados hasta recargar. Si vence,
- * la lectura sigue en segundo plano y pone la lista al día cuando termine (mientras siga en vuelo, el refresco
- * periódico no lee otra: `useRondaGrupoData` no superpone lecturas), y se avisa: sin aviso, la lista vieja parecía la
- * respuesta.
- */
-async function releer(recargar: () => Promise<void>, { avisarDemora = true }: { avisarDemora?: boolean } = {}): Promise<void> {
-  try {
-    await conTimeout(recargar(), PLAZO_CARGA_SCORER_MS)
-  } catch (e) {
-    if (!(e instanceof TiempoAgotadoError)) throw e
-    // Con un mensaje de error recién mostrado, ese es el que importa: no se le apila otro encima.
-    if (avisarDemora) addToast({ type: 'info', title: MENSAJE_EQUIPOS_TARDAN, duration: 5000 })
-  }
-}
+import { liberarEquipoDeRonda, reclamarEquipoDeRonda, MENSAJE_DEJAR_CON_PENDIENTES } from '@/lib/data/ronda-libre-anotador'
+import { releerConPlazo } from './releer-con-plazo'
 
 /**
  * Un celular por equipo: reclamar un equipo (`ElegirEquipo`), liberarlo (franja de equipos de otro celular, solo el
@@ -60,7 +40,7 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
       // ok / ya_tienes_equipo: al releer, el scorer abre en su equipo. tomado / error: queda el aviso y la lista al día.
       const fallo = r.estado === 'tomado' || r.estado === 'error'
       if (fallo) setAviso({ equipoId, mensaje: r.mensaje })
-      await releer(recargar, { avisarDemora: !fallo })
+      await releerConPlazo(recargar, { avisarDemora: !fallo })
     } finally {
       setEnCurso(null)
     }
@@ -74,7 +54,7 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
       const r = await liberarEquipoDeRonda(createClient(), codigo, equipoId)
       if (r.estado === 'ok') addToast({ type: 'success', title: `${nombreEquipo} queda en tu celular`, duration: 4000 })
       else addToast({ type: 'error', title: r.mensaje, duration: 6000 })
-      await releer(recargar, { avisarDemora: r.estado === 'ok' })
+      await releerConPlazo(recargar, { avisarDemora: r.estado === 'ok' })
     } finally {
       setEnCurso(null)
     }
@@ -99,7 +79,7 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
         return
       }
       addToast({ type: 'success', title: `Dejaste ${nombreEquipo}`, duration: 4000 })
-      await releer(recargarTrasDejarEquipo)
+      await releerConPlazo(recargarTrasDejarEquipo)
     } finally {
       setEnCurso(null)
     }

@@ -9,6 +9,7 @@ import { useFinalizeGrupo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/u
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { ResultadoEnvio } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
+import { MENSAJE_EQUIPOS_TARDAN } from '@/lib/data/ronda-libre-anotador'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }))
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
@@ -138,6 +139,7 @@ describe('useFinalizeGrupo — un celular por equipo', () => {
     await finalizar(result)
     expect(recargar).toHaveBeenCalledTimes(1)
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Cambió quién anota los equipos' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: MENSAJE_EQUIPOS_TARDAN })) // llegó a tiempo
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
@@ -156,6 +158,9 @@ describe('useFinalizeGrupo — un celular por equipo', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_CARGA_SCORER_MS) })
       expect(result.current.finalizing).toBe(false)
       expect(finalizarRondaLibre).not.toHaveBeenCalled()
+      // Vencido no es mudo: el mismo aviso que tras reclamar o liberar, una sola vez, después del de equipos cambiados.
+      const titulos = addToast.mock.calls.map(([t]) => (t as { title: string }).title)
+      expect(titulos).toEqual(['Cambió quién anota los equipos', MENSAJE_EQUIPOS_TARDAN])
     } finally {
       recargar.mockImplementation(async () => {})
       vi.useRealTimers()
