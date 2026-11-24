@@ -3,10 +3,18 @@
 // real termina como ficha y nadie lo arregla; para el otro, las referencias
 // vuelven a quedarse en el inbox y /rrss no las ve (lo que pasaba hasta el
 // 19-nov: 14 analizadas, 0 en la bandeja).
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
+  avisoMetodo,
+  conservarDeLaPrevia,
+  esDeMetodo,
+  marcarAplicada,
+  rutaFicha,
   idDeLink,
   linkDeReferencia,
+  metodoSinAplicar,
+  sinUsar,
   mimeDeImagen,
   motivoDeFalloDescarga,
   validarAnalisis,
@@ -80,13 +88,82 @@ describe('validarAnalisis', () => {
   const completo = { formato: 'a', gancho: 'b', adaptacion_golfers: 'c', no_copiar: 'd' }
 
   it('deja pasar un análisis completo', () => {
-    expect(validarAnalisis(completo)).toBe(completo)
+    expect(validarAnalisis(completo)).toMatchObject(completo)
   })
 
   it('corta un análisis al que le falta algo que /rrss lee, en vez de guardar una ficha vacía', () => {
     expect(() => validarAnalisis({ ...completo, gancho: '' })).toThrow(/gancho/)
     expect(() => validarAnalisis({ formato: 'a' })).toThrow(/adaptacion_golfers/)
     expect(() => validarAnalisis(null)).toThrow(/formato/)
+  })
+
+  it('sin tipo, o con uno desconocido, la ficha es de contenido (el camino que /rrss ve)', () => {
+    expect(validarAnalisis(completo).tipo).toBe('contenido')
+    expect(validarAnalisis({ ...completo, tipo: 'otra-cosa', leccion_metodo: 'x' })).toMatchObject({
+      tipo: 'contenido',
+      leccion_metodo: '',
+    })
+  })
+
+  it('método con lección queda como método; método sin lección cae a contenido en vez de perderse', () => {
+    expect(validarAnalisis({ ...completo, tipo: 'metodo', leccion_metodo: '  usar un consejo  ' })).toMatchObject({
+      tipo: 'metodo',
+      leccion_metodo: 'usar un consejo',
+    })
+    expect(validarAnalisis({ ...completo, tipo: 'metodo', leccion_metodo: ' ' }).tipo).toBe('contenido')
+  })
+})
+
+describe('referencias de método (links sobre cómo trabajar mejor)', () => {
+  const contenido = { id: 'reel-a', formato: 'f', gancho: 'g', usada_en: [] }
+  const metodo = { id: 'reel-b', tipo: 'metodo', leccion_metodo: 'consejo para decisiones', aplicada_en: [], usada_en: [] }
+  const aplicada = { ...metodo, id: 'reel-c', aplicada_en: ['/consejo'] }
+
+  it('esDeMetodo: las fichas viejas sin tipo son contenido', () => {
+    expect(esDeMetodo(contenido)).toBe(false)
+    expect(esDeMetodo(metodo)).toBe(true)
+    expect(esDeMetodo(null)).toBe(false)
+  })
+
+  it('/rrss no recibe las de método como idea de video', () => {
+    expect(sinUsar([contenido, metodo]).map((r) => r.id)).toEqual(['reel-a'])
+  })
+
+  it('metodoSinAplicar lista solo las de método que nadie aplicó todavía', () => {
+    expect(metodoSinAplicar([contenido, metodo, aplicada])).toEqual([
+      { id: 'reel-b', leccion: 'consejo para decisiones', nota_juanjo: undefined, url: undefined },
+    ])
+  })
+
+  it('el aviso de inicio de sesión calla si no hay nada y dice cómo verlas si hay', () => {
+    expect(avisoMetodo([])).toBe('')
+    expect(avisoMetodo(metodoSinAplicar([metodo]))).toMatch(/1 lección de método sin aplicar.*--metodo/)
+    expect(avisoMetodo(metodoSinAplicar([metodo, { ...metodo, id: 'reel-d' }]))).toMatch(/^🧭 2 lecciones/)
+  })
+
+  it('--rehacer conserva dónde se usó, dónde se aplicó y la clasificación corregida a mano', () => {
+    const previa = { ...metodo, leccion_metodo: 'corregida a mano', aplicada_en: ['/consejo'], usada_en: ['t1'] }
+    const { analisis, historial } = conservarDeLaPrevia({ formato: 'nuevo', tipo: 'contenido', leccion_metodo: '' }, previa)
+    expect(analisis).toMatchObject({ formato: 'nuevo', tipo: 'metodo', leccion_metodo: 'corregida a mano' })
+    expect(historial).toEqual({ usada_en: ['t1'], aplicada_en: ['/consejo'] })
+    expect(conservarDeLaPrevia({ formato: 'x' }, null)).toEqual({ analisis: { formato: 'x' }, historial: {} })
+  })
+
+  it('marcarAplicada: exige dónde, rechaza contenido, no duplica y saca la lección del aviso', () => {
+    const id = `zz-test-metodo-${process.pid}`
+    const ruta = rutaFicha(id)
+    try {
+      writeFileSync(ruta, JSON.stringify({ ...metodo, id }))
+      expect(() => marcarAplicada(id, '  ')).toThrow(/dónde/)
+      marcarAplicada(id, '/consejo')
+      const ficha = marcarAplicada(id, '/consejo')
+      expect(ficha.aplicada_en).toEqual(['/consejo'])
+      expect(metodoSinAplicar([JSON.parse(readFileSync(ruta, 'utf8'))])).toEqual([])
+      writeFileSync(ruta, JSON.stringify({ ...contenido, id }))
+      expect(() => marcarAplicada(id, '/consejo')).toThrow(/no es una referencia de método/)
+    } finally {
+      if (existsSync(ruta)) rmSync(ruta)
+    }
   })
 })
 

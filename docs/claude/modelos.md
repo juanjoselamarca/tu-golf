@@ -38,6 +38,8 @@ turno siguiente (~14× su precio en una sesión larga). Lanzar un subagente mín
 | `debug-profundo` | Fable | Read, Grep, Glob, Bash, Edit, Write | Bug que resistió 2 intentos: Fable de punta a punta (el razonamiento durante la ejecución ES el valor) |
 | `ingeniero` | Opus · tope 120 pasos | Read, Grep, Glob, Bash, PowerShell, Edit, Write, Skill | Implementación delegada en segundo plano (fix, frente de un plan). Reemplaza al agente genérico: archivo de estado en `.claude/estado/`, commit por etapa, salidas largas a archivo |
 | `tarea-mecanica` | Sonnet | Read, Grep, Glob, Bash, Edit, Write | Renombres, seed, docs, boilerplate 1:1 |
+| `asesor-consejo` | Opus | Read, Grep, Glob | Un rol del `/consejo` (socio, organizador, negocio, abogado del diablo, reglas). Opina sin ver a los demás |
+| `presidente-consejo` | Fable | Read, Grep, Glob | Juzga las opiniones del `/consejo` y da un veredicto con un paso. Solo decisiones grandes de producto |
 | `explorador-haiku` | Haiku | Read, Grep, Glob | "Lee estos N archivos y ubica dónde se decide X". Salida literal + conteo |
 
 Restringir `tools:` saca del arranque las definiciones de MCP/skills que el agente no usa. Meta: arranque

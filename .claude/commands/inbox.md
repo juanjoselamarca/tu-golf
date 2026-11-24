@@ -99,6 +99,13 @@ posterior; si a los 3 días la ficha sigue sin llegar a `main` (PR cerrado, work
 `--foto`/`--nota-de` vuelven al snapshot sin categoría, con la nota "rehacer a mano", y se rehacen ahí. Un comentario
 (`--nota-de` o un link reenviado con texto) solo se cierra cuando ese comentario ya está en `main`. Van al resumen bajo "Referencias a /rrss".
 
+**Links de método.** Gemini marca `tipo: "metodo"` cuando el link enseña una forma de trabajar (un proceso,
+una herramienta, cómo usar IA) en vez de un video para imitar. Esas fichas no van a `/rrss`: quedan como
+lecciones pendientes (`node scripts/rrss/referencias.mjs --metodo`, también avisadas al iniciar sesión).
+En el resumen, bajo "Lecciones de método", cada una con tu propuesta concreta de cómo aplicarla; la
+que sea decisión de producto grande va por `/consejo`. Revisa también la clasificación: si Gemini marcó
+como contenido algo que es método (o al revés), corrige `tipo` y `leccion_metodo` en la ficha.
+
 Después ejecutá:
 
 ```bash
@@ -296,6 +303,9 @@ RESUMEN /inbox
 
 ⏳ Promovidos con smoke pendiente (evento en vivo; los cierra una corrida sin evento): Q
   - PR #Y: <descripción>
+
+🧭 Lecciones de método sin aplicar: L
+  - <id-ficha>: <lección> → <cómo la aplicarías>
 
 📎 Referencias a /rrss: R (PR #F)
   - <id-ficha>: <formato> — <una línea>

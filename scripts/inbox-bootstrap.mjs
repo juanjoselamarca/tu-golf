@@ -79,7 +79,22 @@ async function queryPending() {
   return [...(pendientes.data ?? []), ...(esperando.data ?? [])];
 }
 
+// Las lecciones de método (links de Juanjo sobre cómo trabajar mejor) se leen de archivos locales, sin
+// red ni caché: van aparte del inbox y nunca pueden tumbar el aviso.
+// Import dinámico DENTRO del try: si referencias.mjs no carga (lo tocan /inbox, /rrss y el puente), cae
+// solo este aviso y el del inbox sigue saliendo. Un import estático tumbaría el hook entero.
+async function imprimirAvisoMetodo() {
+  try {
+    const { avisoMetodo } = await import('./rrss/referencias.mjs');
+    const aviso = avisoMetodo();
+    if (aviso) process.stdout.write(aviso + '\n');
+  } catch (err) {
+    process.stdout.write(`(aviso de método: ${err.message})\n`);
+  }
+}
+
 async function main() {
+  await imprimirAvisoMetodo();
   // 1) Cache hit
   const cached = readCache();
   if (cached) {
