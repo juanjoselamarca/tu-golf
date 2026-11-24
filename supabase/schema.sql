@@ -2490,6 +2490,79 @@ BEGIN
   RETURN jsonb_build_object('aplicado', true, 'id', v_id);
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.guardar_tarjeta_ronda_libre(p_fila jsonb)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_fila public.historical_rounds;
+  v_jugador_texto text;
+  v_jugador_id uuid;
+  v_ronda_id uuid;
+  v_dueno uuid;
+  v_id uuid;
+BEGIN
+  IF v_uid IS NULL OR p_fila IS NULL OR jsonb_typeof(p_fila) <> 'object' THEN
+    RAISE EXCEPTION 'TARJETA_FORBIDDEN' USING ERRCODE = '42501';
+  END IF;
+
+  v_fila := jsonb_populate_record(NULL::public.historical_rounds, p_fila);
+  IF v_fila.user_id IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'TARJETA_FORBIDDEN' USING ERRCODE = '42501', DETAIL = 'historial ajeno';
+  END IF;
+
+  v_jugador_texto := p_fila -> 'metadata' ->> 'ronda_libre_jugador_id';
+  IF v_jugador_texto IS NULL
+     OR v_jugador_texto !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+    RAISE EXCEPTION 'TARJETA_INVALIDA' USING ERRCODE = '22023', DETAIL = 'sin ronda_libre_jugador_id';
+  END IF;
+  v_jugador_id := v_jugador_texto::uuid;
+
+  -- La ronda del jugador, sin bloquear: solo para saber cuál bloquear.
+  SELECT j.ronda_id INTO v_ronda_id FROM public.ronda_libre_jugadores j WHERE j.id = v_jugador_id;
+  IF v_ronda_id IS NULL THEN
+    RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Primero la ronda (FOR SHARE), en su propia sentencia: el mismo orden que upsert_ronda_libre_scores, el cierre y
+  -- el descarte. Si un descarte la borró mientras esperábamos, no vuelve ninguna fila.
+  PERFORM 1 FROM public.rondas_libres r WHERE r.id = v_ronda_id FOR SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Con la ronda tomada, el jugador sigue en ella y es de quien guarda.
+  SELECT j.user_id INTO v_dueno FROM public.ronda_libre_jugadores j
+  WHERE j.id = v_jugador_id AND j.ronda_id = v_ronda_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+  IF v_dueno IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'TARJETA_FORBIDDEN' USING ERRCODE = '42501', DETAIL = 'tarjeta ajena';
+  END IF;
+
+  INSERT INTO public.historical_rounds (
+    user_id, course_name, course_id, played_at, total_gross, adjusted_gross, scores, par_per_hole, metadata,
+    holes_played, tee_color, privacy, slope_rating, course_rating, diferencial, formato_juego, modo_juego,
+    match_result, team_name
+  ) VALUES (
+    v_fila.user_id, v_fila.course_name, v_fila.course_id, v_fila.played_at, v_fila.total_gross, v_fila.adjusted_gross,
+    v_fila.scores, v_fila.par_per_hole,
+    -- El id del jugador en forma canónica (minúsculas): el índice único compara texto; 'E3…' y 'e3…' no chocarían.
+    jsonb_set(v_fila.metadata, '{ronda_libre_jugador_id}', to_jsonb(v_jugador_id::text)),
+    v_fila.holes_played, v_fila.tee_color,
+    coalesce(v_fila.privacy, 'private'), v_fila.slope_rating, v_fila.course_rating, v_fila.diferencial,
+    coalesce(v_fila.formato_juego, 'stroke_play'), coalesce(v_fila.modo_juego, 'gross'),
+    v_fila.match_result, v_fila.team_name
+  )
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -4422,6 +4495,7 @@ revoke all on function public.grupos_fijos_guard_inscrito() from public, anon, a
 revoke all on function public.grupos_fijos_guard_jugadores_de_grupo() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.guard_tournament_drafts_owner_change() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.guardar_hole_score(jsonb,bigint,uuid) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.guardar_tarjeta_ronda_libre(jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.handle_new_user() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.is_draft_collaborator(uuid,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.liberar_equipo_de_ronda(text,uuid) from public, anon, authenticated, service_role, postgres;
@@ -4769,6 +4843,9 @@ grant EXECUTE on function public.guard_tournament_drafts_owner_change() to postg
 grant EXECUTE on function public.guard_tournament_drafts_owner_change() to service_role;
 grant EXECUTE on function public.guardar_hole_score(jsonb,bigint,uuid) to postgres;
 grant EXECUTE on function public.guardar_hole_score(jsonb,bigint,uuid) to service_role;
+grant EXECUTE on function public.guardar_tarjeta_ronda_libre(jsonb) to authenticated;
+grant EXECUTE on function public.guardar_tarjeta_ronda_libre(jsonb) to postgres;
+grant EXECUTE on function public.guardar_tarjeta_ronda_libre(jsonb) to service_role;
 grant EXECUTE on function public.handle_new_user() to postgres;
 grant EXECUTE on function public.handle_new_user() to service_role;
 grant EXECUTE on function public.is_draft_collaborator(uuid,uuid) to anon;
