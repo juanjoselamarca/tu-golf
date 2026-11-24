@@ -12,7 +12,8 @@ import { conTimeout, TiempoAgotadoError } from '@/lib/red/con-timeout'
 /**
  * La relectura tras reclamar/liberar/dejar espera a lo más `PLAZO_CARGA_SCORER_MS`: `enCurso` congela la tarjeta y
  * Finalizar (`tarjetaCongelada`), y una relectura colgada (mala señal) los dejaba congelados hasta recargar. Si vence,
- * la lectura sigue sola en segundo plano y el refresco periódico pone la lista al día.
+ * la lectura sigue en segundo plano y pone la lista al día cuando termine (mientras siga en vuelo, el refresco
+ * periódico no lee otra: `useRondaGrupoData` no superpone lecturas).
  */
 async function releer(recargar: () => Promise<void>): Promise<void> {
   try {
