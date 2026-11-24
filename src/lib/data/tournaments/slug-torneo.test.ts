@@ -24,6 +24,11 @@ describe('genTournamentSlug ↔ SLUG_TORNEO_VALIDO', () => {
     'Ñandú Club de Golf — Abierto Otoño 2026',
     'x'.repeat(300),
     'a '.repeat(200),
+    'İstanbul Open',
+    'Copa\u00a0Verano',
+    'Copa\tVerano\nFinal',
+    'Copa_Verano',
+    'Copa.2026',
   ])('«%s» genera un slug que las rutas del en vivo aceptan', (nombre) => {
     const slug = genTournamentSlug(nombre, AHORA)
     expect(slug).toMatch(SLUG_TORNEO_VALIDO)
