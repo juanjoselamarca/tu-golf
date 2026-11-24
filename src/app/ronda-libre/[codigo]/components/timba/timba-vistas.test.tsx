@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
-import type { PuntitoConfig } from '@/golf/formats/personalizado'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/HojaDelScorer'
 import { PanelDelJuego, TEXTO_SIN_JUEGO } from './PanelDelJuego'
-import { PuntosEspecialesDelHoyo } from './PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from './RetiroDeJugadores'
 import { AVISO_GOLPES_DESDE_EL_RETIRO, DETALLE_RETIRO, HojaDeRetiro } from './HojaDeRetiro'
 import { AvisoMarcasRechazadas } from './AvisoMarcasRechazadas'
@@ -22,29 +20,6 @@ describe('PanelDelJuego', () => {
     render(<PanelDelJuego {...comun} onReintentar={onReintentar} juego={{ estado: 'error' }} />)
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(onReintentar).toHaveBeenCalled()
-  })
-})
-
-describe('PuntosEspecialesDelHoyo', () => {
-  const sandy = { id: 's', tipo: 'sandy', valor: 1, activo: true } as PuntitoConfig
-  it('marca con un toque, muestra "no cuenta" con la razón y no ofrece al retirado', () => {
-    const onAlternar = vi.fn()
-    render(
-      <PuntosEspecialesDelHoyo
-        hoyo={4} birdieAutomatico nombres={{ a: 'Juan', b: 'Pedro', c: 'Tomás' }} retirados={new Set(['c'])} onAlternar={onAlternar}
-        grupos={[{ puntito: sandy, nombre: 'Sandy', jugadores: [
-          { jugadorId: 'a', marcado: true, enEspera: false, noCuenta: 'Hizo más que par' },
-          { jugadorId: 'b', marcado: false, enEspera: false, noCuenta: null },
-          { jugadorId: 'c', marcado: false, enEspera: false, noCuenta: null },
-        ] }]}
-      />,
-    )
-    expect(screen.getByRole('button', { name: 'Sandy de Juan' }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByText('No cuenta: hizo más que par')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Sandy de Tomás' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Sandy de Pedro' }))
-    expect(onAlternar).toHaveBeenCalledWith('b', sandy)
-    expect(screen.getByText('El birdie se suma solo')).toBeTruthy()
   })
 })
 

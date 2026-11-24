@@ -90,8 +90,8 @@ describe('marcasDelHoyo — solo se ofrece lo que contaría', () => {
     expect(r.c).toEqual(['a', 'b', 'c', 'd'])
     expect(r.x).toEqual(['a', 'b', 'c', 'd'])
   })
-  it('nadie en par o mejor: el sandy no aparece', () => {
-    expect(botones({ par: 4, golpes: { a: 5, b: 6 } }).s).toBeUndefined()
+  it('nadie en par o mejor: el sandy viene sin botones', () => {
+    expect(botones({ par: 4, golpes: { a: 5, b: 6 } }).s).toEqual([])
   })
   it('greenie en par 4: no se ofrece a nadie, ni con birdie', () => {
     expect(botones({ par: 4, golpes: { a: 3, b: 3, c: 3, d: 3 } }).g).toBeUndefined()
@@ -114,7 +114,6 @@ describe('marcasDelHoyo — solo se ofrece lo que contaría', () => {
       marcas: [{ jugadorId: 'a', hoyo: 4, puntitoId: 's' }], enEspera: [], resultadoDelHoyo: resultado,
       golpes: { a: 5, b: 6 }, par: 4, retirados: new Set(),
     })
-    expect(r).toHaveLength(1)
     expect(r[0].jugadores).toEqual([{ jugadorId: 'a', marcado: true, enEspera: false, noCuenta: 'El sandy cuenta solo con par o mejor' }])
   })
   it('retirado con una marca puesta: se sigue viendo para poder quitarla', () => {

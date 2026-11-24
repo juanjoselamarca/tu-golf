@@ -63,7 +63,7 @@ export interface BotonDeMarca {
 export interface MarcasDeUnPuntito {
   puntito: PuntitoConfig
   nombre: string
-  /** Solo los botones que tiene sentido mostrar (ver `marcasDelHoyo`); nunca vacío. */
+  /** Solo los botones que tiene sentido mostrar (ver `marcasDelHoyo`); vacío si todavía nadie puede ganarlo. */
   jugadores: BotonDeMarca[]
 }
 
@@ -71,7 +71,7 @@ export interface MarcasDeUnPuntito {
  * Los botones del hoyo: a cada jugador se le ofrece un punto solo si contaría (`sePuedeOfrecer`: sandy y greenie
  * con el score ya anotado y par o mejor; chipingo y propios a todos) y si no está retirado. Una marca ya puesta se
  * muestra SIEMPRE (aunque le hayan corregido el score o se haya retirado), con el "no cuenta" del motor, para que
- * se pueda quitar: nunca se esconde una marca. Un punto sin botones no aparece.
+ * se pueda quitar: nunca se esconde una marca. Un punto sin botones viene igual (vacío), para explicar cuándo aparece.
  */
 export function marcasDelHoyo(input: {
   puntitos: readonly PuntitoConfig[]
@@ -106,5 +106,5 @@ export function marcasDelHoyo(input: {
         noCuenta: marcado && evaluado && !evaluado.cuenta ? evaluado.razon ?? 'No cuenta' : null,
       }]
     }),
-  })).filter(g => g.jugadores.length > 0)
+  }))
 }
