@@ -337,6 +337,24 @@ describe('useRondaGrupoData — la primera lectura lanza (un bug, no la red) (Fa
     await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
     expect(replace).toHaveBeenCalledTimes(2)
   })
+
+  // Opus, 4ª vuelta: un bug determinista se repite en cada reintento; solo el primero va como error.
+  it('si la lectura lanza en cada reintento, solo el primer reporte es error; los siguientes, warning', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    carga.valor = { estado: 'ok', ronda: { ...RONDA, es_demo: true } }
+    replace.mockImplementation(() => { throw new Error('navegación') })
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
+    const niveles = captureError.mock.calls
+      .filter(([e]) => (e as Error)?.message === 'navegación')
+      .map(([, ctx]) => (ctx as { level: string }).level)
+    expect(niveles.length).toBeGreaterThanOrEqual(3)
+    expect(niveles[0]).toBe('error')
+    expect(niveles.slice(1).every(n => n === 'warning')).toBe(true)
+    replace.mockReset()
+  })
 })
 
 describe('useRondaGrupoData — pendientes ganan (revisión Fable)', () => {
