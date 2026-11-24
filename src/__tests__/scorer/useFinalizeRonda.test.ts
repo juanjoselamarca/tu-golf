@@ -2,7 +2,8 @@ import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useFinalizeRonda } from '@/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda'
 import { finalizarRondaLibre, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
-import { fetchRondaParaCierre } from '@/lib/data/ronda-libre-finalizar'
+import { fetchRondaParaCierre, guardarTarjetaEnHistorial } from '@/lib/data/ronda-libre-finalizar'
+import { armarTarjetaHistorica } from '@/golf/ronda-libre/tarjeta-historica'
 import { addToast } from '@/hooks/useToast'
 import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
@@ -56,6 +57,8 @@ vi.mock('@/hooks/useToast', () => ({ addToast: vi.fn() }))
 // finalizador aborta ("Sin conexión") antes de tocar nada.
 vi.mock('@/lib/data/ronda-libre-finalizar', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-finalizar')>()),
+  // El real, espiable: un test fuerza un resultado que no inserta nada.
+  guardarTarjetaEnHistorial: vi.fn((await importOriginal<typeof import('@/lib/data/ronda-libre-finalizar')>()).guardarTarjetaEnHistorial),
   fetchRondaParaCierre: vi.fn(async () => ({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] })),
 }))
 vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
@@ -425,5 +428,133 @@ describe('useFinalizeRonda — finalizar y descartar se excluyen', () => {
       await act(async () => { await result.current.discardRound() })
     })
     expect(descartes()).toBe(1)
+  })
+})
+
+// Revisión Fable #867: tras «Seguir anotando» en la pantalla final, «Descartar ronda» volvía a estar activo y borraba
+// la ronda con las tarjetas de todos. Con la tarjeta ya en el historial, el descarte queda cerrado.
+describe('useFinalizeRonda — descarte cerrado tras finalizar', () => {
+  const dosToques = async (result: { current: { discardRound: () => Promise<void> } }) => {
+    const ahora = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
+    try {
+      await act(async () => { await result.current.discardRound() })
+      ahora.mockReturnValue(1_002_000)
+      await act(async () => { await result.current.discardRound() })
+    } finally { ahora.mockRestore() }
+  }
+  const llamadasDeDescarte = () => rpcMock.mock.calls.filter(c => c[0] === 'descartar_ronda_libre')
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear() })
+
+  it('al empezar se puede descartar', () => {
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    expect(result.current.descarteCerrado).toBe(false)
+  })
+
+  it('finalizada la tarjeta, sigue cerrado después de «Seguir anotando» y descartar no llama al servidor', async () => {
+    const onDiscardSuccess = vi.fn()
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), onDiscardSuccess }))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(true)
+    expect(result.current.descarteCerrado).toBe(true)
+
+    act(() => { result.current.setRoundDone(false) }) // «Seguir anotando»
+    expect(result.current.descarteCerrado).toBe(true)
+    await dosToques(result)
+    expect(llamadasDeDescarte()).toHaveLength(0)
+    expect(onDiscardSuccess).not.toHaveBeenCalled()
+  })
+
+  it('finalizar sin servidor no cierra el descarte (la tarjeta no llegó al historial)', async () => {
+    const opts = { ...baseOpts(), guardarAhora: vi.fn(async () => 'sin_conexion' as const) }
+    const { result } = renderHook(() => useFinalizeRonda(opts))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(false)
+    expect(result.current.descarteCerrado).toBe(false)
+  })
+
+  // Revisión Fable (1ª vuelta): se cierra al quedar la tarjeta en el historial, no al llegar a la pantalla final.
+  it('tarjeta en el historial pero sin poder leer la ronda para cerrarla: el descarte ya queda cerrado', async () => {
+    const abierta = { estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4 } }] }
+    vi.mocked(fetchRondaParaCierre)
+      .mockResolvedValueOnce(abierta as never) // la lectura del inicio
+      .mockResolvedValueOnce(null as never)    // la de justo antes de cerrar
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(false)
+    expect(result.current.descarteCerrado).toBe(true)
+  })
+
+  it('el historial no inserta nada (sin hoyos para el historial) con la ronda en curso: se sigue pudiendo descartar', async () => {
+    vi.mocked(guardarTarjetaEnHistorial).mockResolvedValueOnce({ status: 'sin_hoyos', tarjeta: armarTarjetaHistorica({ scores: {}, hoyos: [1], roundHoles: 9, parMap: { 1: 4 } }) })
+    const otrosJugando = { estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4 } }, { id: 'p2', scores: { 1: 5 } }] }
+    vi.mocked(fetchRondaParaCierre).mockResolvedValueOnce(otrosJugando as never).mockResolvedValueOnce(otrosJugando as never)
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalled()
+    expect(result.current.descarteCerrado).toBe(false)
+  })
+
+  it('tarjeta en el historial y el cierre sin respuesta firme: el descarte ya queda cerrado', async () => {
+    vi.mocked(finalizarRondaLibre).mockResolvedValueOnce({ finalizada: false, error: { code: '503' } as never })
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(false)
+    expect(result.current.descarteCerrado).toBe(true)
+  })
+
+  it('tarjeta de otra cuenta (no va a ningún historial) con la ronda aún en curso: se sigue pudiendo descartar', async () => {
+    const otrosJugando = { estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }, { id: 'p2', scores: { 1: 5 } }] }
+    vi.mocked(fetchRondaParaCierre).mockResolvedValueOnce(otrosJugando as never).mockResolvedValueOnce(otrosJugando as never)
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), authUserId: 'u2' }))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(true)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.descarteCerrado).toBe(false)
+  })
+
+  it('tarjeta de otra cuenta y la ronda se cierra: el descarte queda cerrado', async () => {
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), authUserId: 'u2' }))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+    expect(result.current.descarteCerrado).toBe(true)
+  })
+
+  it('tarjeta de otra cuenta y otro jugador ya cerró la ronda: el descarte queda cerrado', async () => {
+    const cerrada = { estado: 'finalizada', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] }
+    vi.mocked(fetchRondaParaCierre).mockResolvedValueOnce(cerrada as never)
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), authUserId: 'u2' }))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.roundDone).toBe(true)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.descarteCerrado).toBe(true)
+  })
+
+  it('el servidor responde «ronda con tarjetas guardadas» (tras recargar): avisa y cierra el descarte', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: 'P0003', message: 'RONDA_FORBIDDEN', details: 'ronda con tarjetas guardadas' } })
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await dosToques(result)
+    expect(result.current.descarteCerrado).toBe(true)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya hay una tarjeta de esta ronda en un historial: no se puede descartar.', type: 'error' }))
+  })
+
+  it('el servidor responde P0002 (la ronda ya cerró): avisa, cierra el descarte y no sale de la pantalla', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED', details: '' } })
+    const onDiscardSuccess = vi.fn()
+    const { result } = renderHook(() => useFinalizeRonda({ ...baseOpts(), onDiscardSuccess }))
+    await dosToques(result)
+    expect(llamadasDeDescarte()).toHaveLength(1)
+    expect(result.current.descarteCerrado).toBe(true)
+    expect(result.current.discarding).toBe(false)
+    expect(onDiscardSuccess).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya terminó y no se puede descartar.', type: 'error' }))
   })
 })

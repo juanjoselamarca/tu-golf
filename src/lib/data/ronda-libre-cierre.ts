@@ -111,14 +111,28 @@ export function esRechazoDefinitivoDeTimba(error: { code?: string | null } | nul
 
 type RpcClient = Pick<SupabaseClient, 'rpc'>
 
+/**
+ * DETAIL del P0003 de `descartar_ronda_libre` cuando alguna tarjeta de la ronda ya está en un historial
+ * (migración 20261124120000_descartar_solo_ronda_en_curso). Definitivo: la ronda ya no se descarta.
+ */
+export const RONDA_CON_TARJETAS_GUARDADAS_DETAIL = 'ronda con tarjetas guardadas'
+
+/** DETAIL del P0003 de `descartar_ronda_libre` para una ronda ligada a un torneo (migración 20260929b). */
+export const RONDA_DE_TORNEO_DETAIL = 'ronda de torneo'
+
+/** DETAIL del P0003 de `descartar_ronda_libre` cuando otra tabla la referencia (p. ej. taiger_sessions). */
+export const RONDA_CON_DATOS_ASOCIADOS_DETAIL = 'ronda con datos asociados'
+
 /** Mensaje para el usuario según el error del RPC de descarte. */
 export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'details' | 'message'>): string {
   if (error.code === RONDA_ERRCODE.FORBIDDEN) {
-    if (error.details === 'ronda de torneo') return 'Las rondas de un torneo no se pueden descartar.'
-    if (error.details === 'ronda con datos asociados') return 'Esta ronda tiene datos asociados y no se puede descartar.'
+    if (error.details === RONDA_DE_TORNEO_DETAIL) return 'Las rondas de un torneo no se pueden descartar.'
+    if (error.details === RONDA_CON_DATOS_ASOCIADOS_DETAIL) return 'Esta ronda tiene datos asociados y no se puede descartar.'
+    if (error.details === RONDA_CON_TARJETAS_GUARDADAS_DETAIL) return 'Ya hay una tarjeta de esta ronda en un historial: no se puede descartar.'
     return 'Solo quien creó la ronda puede descartarla.'
   }
   if (error.code === RONDA_ERRCODE.NOT_FOUND) return 'Esta ronda ya no existe.'
+  if (error.code === RONDA_ERRCODE.FINALIZED) return 'Esta ronda ya terminó y no se puede descartar.'
   return 'No se pudo descartar la ronda. Intenta de nuevo.'
 }
 
@@ -134,17 +148,30 @@ export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'deta
  * Con plazo y sin lanzar: un RPC colgado (mala señal, app en segundo plano) dejaba tomado el cierre del scorer y
  * Finalizar no respondía. Vencido, es "sin respuesta" (se puede reintentar); si el borrado igual llegó, el siguiente
  * Finalizar lo ve como ronda que ya no existe.
+ *
+ * `cerrada`: el servidor dijo que esta ronda ya no se descarta, nunca más (migración 20261124120000): P0002
+ * (ya no está en curso) o P0003 con `RONDA_CON_TARJETAS_GUARDADAS_DETAIL` (alguien guardó su tarjeta en su
+ * historial). Los dos scorers dejan de ofrecer «Descartar ronda».
  */
 export async function descartarRondaLibre(
   supabase: RpcClient,
   codigo: string,
-): Promise<{ error: string | null; noExiste: boolean }> {
+): Promise<{ error: string | null; noExiste: boolean; cerrada: boolean }> {
   let error: PostgrestError | null
   try {
     ;({ error } = await conTimeout(supabase.rpc('descartar_ronda_libre', { p_codigo: codigo }), PLAZO_GUARDADO_MS))
   } catch {
-    return { error: mensajeErrorDescartar({ code: ERRCODE_SIN_RESPUESTA, details: '', message: '' }), noExiste: false }
+    return {
+      error: mensajeErrorDescartar({ code: ERRCODE_SIN_RESPUESTA, details: '', message: '' }),
+      noExiste: false,
+      cerrada: false,
+    }
   }
-  if (!error) return { error: null, noExiste: false }
-  return { error: mensajeErrorDescartar(error), noExiste: error.code === RONDA_ERRCODE.NOT_FOUND }
+  if (!error) return { error: null, noExiste: false, cerrada: false }
+  return {
+    error: mensajeErrorDescartar(error),
+    noExiste: error.code === RONDA_ERRCODE.NOT_FOUND,
+    cerrada: error.code === RONDA_ERRCODE.FINALIZED
+      || (error.code === RONDA_ERRCODE.FORBIDDEN && error.details === RONDA_CON_TARJETAS_GUARDADAS_DETAIL),
+  }
 }

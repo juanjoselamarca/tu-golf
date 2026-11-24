@@ -95,6 +95,8 @@ export interface UseFinalizeRondaResult {
   confirmDiscard: boolean
   setConfirmDiscard: React.Dispatch<React.SetStateAction<boolean>>
   discarding: boolean
+  /** La tarjeta ya está en el historial o la ronda cerró: «Descartar ronda» no se ofrece más. */
+  descarteCerrado: boolean
   roundDone: boolean
   setRoundDone: React.Dispatch<React.SetStateAction<boolean>>
   finalScore: { gross: number; totalPar: number }
@@ -119,6 +121,11 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   // Finalizar y descartar se excluyen (P0 24-nov: descartar en pleno cierre borraba la ronda). Ref y no `discarding`:
   // un descarte y un cierre del mismo tick verían el state viejo y correrían los dos.
   const descartandoRef = useRef(false)
+  // Con la tarjeta ya en el historial (o la ronda cerrada en el servidor) no se descarta: «Seguir anotando» vuelve a
+  // mostrar el scorer y el descarte borraba la ronda con las tarjetas de todos. No se reabre: no hay vuelta atrás.
+  // Vive en memoria: al recargar el botón vuelve, pero el servidor rechaza el descarte (P0002 o P0003 'ronda con
+  // tarjetas guardadas') y esa respuesta lo cierra.
+  const [descarteCerrado, setDescarteCerrado] = useState(false)
   /** La ronda ya no existe (la descartó quien la creó): avisa, borra las copias locales y saca al jugador. */
   const salirPorRondaBorrada = () => {
     addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
@@ -130,7 +137,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   const descarteArmadoEn = useRef(0)
 
   const discardRound = async () => {
-    if (!ronda || discarding || descartandoRef.current || finalizandoRef.current) return
+    if (!ronda || discarding || descarteCerrado || descartandoRef.current || finalizandoRef.current) return
     if (!confirmDiscard) {
       descarteArmadoEn.current = Date.now()
       setConfirmDiscard(true)
@@ -145,8 +152,13 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     let descartada = false
     try {
       // noExiste: el servidor ya la borró (un intento anterior cuya respuesta se perdió). Es un descarte hecho.
-      const { error, noExiste } = await descartarRondaLibre(createClient(), codigo)
-      if (error && !noExiste) { setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
+      const { error, noExiste, cerrada } = await descartarRondaLibre(createClient(), codigo)
+      if (error && !noExiste) {
+        setConfirmDiscard(false)
+        if (cerrada) setDescarteCerrado(true)
+        addToast({ title: error, type: 'error' })
+        return
+      }
       descartada = true
       limpiarCopiaLocalDeRonda(codigo)
       addToast({ title: 'Ronda descartada', type: 'info' })
@@ -307,7 +319,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         scores: playerScores, scoresPorJugador: { ...scoresPorJugador, [activeJugadorId]: playerScores },
         hoyos, parMap, ratingsPorTee, conId: true,
       })
+      // Mi tarjeta quedó en el historial: desde ya la ronda no se descarta (el servidor lo rechaza igual,
+      // P0003 'ronda con tarjetas guardadas'), aunque después el cierre no tenga respuesta.
       if (guardado.status !== 'error') tarjetaGuardada = guardado.tarjeta
+      if (guardado.status === 'insertada' || guardado.status === 'duplicada') setDescarteCerrado(true)
       // No guardada (RLS, red…): no se anuncia "Ronda guardada" ni se recalcula el
       // índice sobre un historial que no cambió. Los golpes siguen en la tarjeta.
       if (guardado.status === 'error') {
@@ -370,6 +385,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     } else if (esRondaCerrada(freshRonda.estado)) {
       // Otro jugador ya finalizo — no duplicar
       marcarRespaldosDeRondaCerrada(codigo)
+      setDescarteCerrado(true)
       setRoundDone(true)
     } else {
       // Completa = todos los hoyos de la ronda anotados, salvo los que el match no exige.
@@ -392,7 +408,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         }
         if (finErr) void captureError(finErr, { context: 'finalize-ronda.finalizar_ronda_libre', meta: { codigo } })
         // Cerrada (por este cierre o por otro, P0002): lo que no subió sale del banner y se guarda.
-        if (!finErr || finErr.code === RONDA_ERRCODE.FINALIZED) marcarRespaldosDeRondaCerrada(codigo)
+        if (!finErr || finErr.code === RONDA_ERRCODE.FINALIZED) { marcarRespaldosDeRondaCerrada(codigo); setDescarteCerrado(true) }
       }
     }
 
@@ -414,6 +430,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     confirmDiscard,
     setConfirmDiscard,
     discarding,
+    descarteCerrado,
     roundDone,
     setRoundDone,
     finalScore,

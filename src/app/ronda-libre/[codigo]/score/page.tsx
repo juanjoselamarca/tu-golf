@@ -129,7 +129,7 @@ function ScorePageContent() {
     finalizeRound, discardRound,
     confirmFinalize, setConfirmFinalize, finalizando,
     confirmDiscard,
-    discarding, roundDone, setRoundDone, finalScore,
+    discarding, descarteCerrado, roundDone, setRoundDone, finalScore,
   } = useFinalizeRonda({
     ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, authUserId, netoNoDisponible,
     guardarAhora, marcarFinalizando, setScores, setHasUnsaved,
@@ -471,8 +471,9 @@ function ScorePageContent() {
         />
       )}
 
-      {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. */}
-      {puedeDescartarRonda(ronda, authUserId) && (
+      {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. Con la
+          tarjeta ya en el historial tampoco: «Seguir anotando» lo volvía a mostrar sobre una ronda terminada. */}
+      {puedeDescartarRonda(ronda, authUserId) && !descarteCerrado && (
         <DiscardRoundButton confirmDiscard={confirmDiscard} discarding={discarding} bloqueado={finalizando} onClick={discardRound} />
       )}
 

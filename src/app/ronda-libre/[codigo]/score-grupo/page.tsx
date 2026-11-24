@@ -136,7 +136,7 @@ export default function ScoreGrupoPage() {
     ronda, listo: !loading, scores, equipos: teamEquipos, retiros: esTimba && timba.juego.estado === 'ok' ? timba.retiros : null,
     currentHole, setCurrentHole,
   })
-  const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
+  const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, descarteCerrado, showDiscardConfirm, setShowDiscardConfirm } =
     useFinalizeGrupo({
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores,
@@ -492,8 +492,9 @@ export default function ScoreGrupoPage() {
         />
       )}
 
-      {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. */}
-      {puedeDescartarRonda(ronda, authUserId) && (
+      {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. Tampoco
+          cuando el servidor ya dijo que esta ronda no se descarta (`descarteCerrado`). */}
+      {puedeDescartarRonda(ronda, authUserId) && !descarteCerrado && (
         <DiscardRoundModal
           showConfirm={showDiscardConfirm}
           setShowConfirm={setShowDiscardConfirm}

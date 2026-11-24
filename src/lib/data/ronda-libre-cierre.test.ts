@@ -8,6 +8,7 @@ import {
   esRechazoQueDescarta,
   esRechazoDefinitivoDeTimba,
   esRechazoDelCierre,
+  RONDA_CON_TARJETAS_GUARDADAS_DETAIL,
 } from './ronda-libre-cierre'
 
 function cliente(respuesta: { data?: unknown; error?: unknown }) {
@@ -23,17 +24,17 @@ describe('descartarRondaLibre', () => {
     const sb = { rpc: vi.fn(() => new Promise(() => {})) }
     const p = descartarRondaLibre(sb as never, 'ABC123')
     await vi.advanceTimersByTimeAsync(PLAZO_GUARDADO_MS)
-    expect(await p).toEqual({ error: 'No se pudo descartar la ronda. Intenta de nuevo.', noExiste: false })
+    expect(await p).toEqual({ error: 'No se pudo descartar la ronda. Intenta de nuevo.', noExiste: false, cerrada: false })
   })
 
   it('red caída (el RPC rechaza): mismo error de reintento, sin lanzar', async () => {
     const sb = { rpc: vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))) }
-    expect(await descartarRondaLibre(sb as never, 'ABC123')).toEqual({ error: 'No se pudo descartar la ronda. Intenta de nuevo.', noExiste: false })
+    expect(await descartarRondaLibre(sb as never, 'ABC123')).toEqual({ error: 'No se pudo descartar la ronda. Intenta de nuevo.', noExiste: false, cerrada: false })
   })
 
   it('éxito sin error', async () => {
     const sb = cliente({})
-    expect(await descartarRondaLibre(sb as never, 'ABC123')).toEqual({ error: null, noExiste: false })
+    expect(await descartarRondaLibre(sb as never, 'ABC123')).toEqual({ error: null, noExiste: false, cerrada: false })
     expect(sb.rpc).toHaveBeenCalledWith('descartar_ronda_libre', { p_codigo: 'ABC123' })
   })
 
@@ -50,6 +51,31 @@ describe('descartarRondaLibre', () => {
       const r = await descartarRondaLibre(cliente({ error: { code, message: 'x', details: '' } }) as never, 'ABC123')
       expect(r.noExiste).toBe(false)
       expect(r.error).not.toBeNull()
+    }
+  })
+
+  // Revisión Fable #867: «Seguir anotando» dejaba descartar una ronda ya cerrada; ahora el RPC responde P0002.
+  it('P0002 (la ronda ya está cerrada): cerrada, con un mensaje claro y sin noExiste', async () => {
+    const r = await descartarRondaLibre(
+      cliente({ error: { code: 'P0002', message: 'RONDA_FINALIZED', details: '' } }) as never,
+      'ABC123',
+    )
+    expect(r).toEqual({ error: 'Esta ronda ya terminó y no se puede descartar.', noExiste: false, cerrada: true })
+  })
+
+  // Decisión 24-nov: si alguien ya guardó su tarjeta en su historial, la ronda (aún en curso) no se descarta.
+  it('P0003 «ronda con tarjetas guardadas»: cerrada, con un mensaje claro', async () => {
+    const r = await descartarRondaLibre(
+      cliente({ error: { code: 'P0003', message: 'RONDA_FORBIDDEN', details: RONDA_CON_TARJETAS_GUARDADAS_DETAIL } }) as never,
+      'ABC123',
+    )
+    expect(r).toEqual({ error: 'Ya hay una tarjeta de esta ronda en un historial: no se puede descartar.', noExiste: false, cerrada: true })
+  })
+
+  it('sin red, sin permiso, otro P0003 o 5xx: NO es cerrada', async () => {
+    for (const [code, details] of [['', ''], ['P0001', ''], ['P0003', ''], ['P0003', 'ronda de torneo'], ['P0003', 'ronda con datos asociados'], ['08006', '']]) {
+      const r = await descartarRondaLibre(cliente({ error: { code, message: 'x', details } }) as never, 'ABC123')
+      expect(r.cerrada).toBe(false)
     }
   })
 

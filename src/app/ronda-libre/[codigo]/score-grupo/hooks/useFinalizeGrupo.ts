@@ -45,6 +45,8 @@ export interface FinalizeGrupo {
   setConfirmFinalize: React.Dispatch<React.SetStateAction<boolean>>
   discardRound: () => Promise<void>
   discarding: boolean
+  /** El servidor dijo que esta ronda ya no se descarta (P0002 o P0003 'ronda con tarjetas guardadas'): no se ofrece más. */
+  descarteCerrado: boolean
   showDiscardConfirm: boolean
   setShowDiscardConfirm: React.Dispatch<React.SetStateAction<boolean>>
 }
@@ -119,8 +121,11 @@ export function useFinalizeGrupo(input: {
    */
   const cierreEnCurso = useRef<'finalizar' | 'descartar' | null>(null)
 
+  // El servidor dijo que esta ronda ya no se descarta (cerrada o con una tarjeta en un historial): no se ofrece más.
+  const [descarteCerrado, setDescarteCerrado] = useState(false)
+
   const discardRound = useCallback(async () => {
-    if (!ronda || discarding || cierreEnCurso.current) return
+    if (!ronda || discarding || descarteCerrado || cierreEnCurso.current) return
     cierreEnCurso.current = 'descartar'
     setDiscarding(true)
     setShowDiscardConfirm(false)
@@ -128,8 +133,9 @@ export function useFinalizeGrupo(input: {
     let descartada = false
     try {
       // noExiste: un intento anterior ya la borró y la respuesta se perdió. Es un descarte hecho.
-      const { error, noExiste } = await descartarRondaLibre(createClient(), codigo)
+      const { error, noExiste, cerrada } = await descartarRondaLibre(createClient(), codigo)
       if (error && !noExiste) {
+        if (cerrada) setDescarteCerrado(true)
         addToast({ type: 'error', title: 'No se descartó la ronda', message: error, duration: 5000 })
         return
       }
@@ -142,7 +148,7 @@ export function useFinalizeGrupo(input: {
         setDiscarding(false)
       }
     }
-  }, [ronda, discarding, codigo, router])
+  }, [ronda, discarding, descarteCerrado, codigo, router])
 
   const finalizeRound = async () => {
     if (!ronda || finalizing || cierreEnCurso.current) return
@@ -428,5 +434,5 @@ export function useFinalizeGrupo(input: {
     irA(`/ronda-libre/${codigo}?finished=true`)
   }
 
-  return { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm }
+  return { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, descarteCerrado, showDiscardConfirm, setShowDiscardConfirm }
 }

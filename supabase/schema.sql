@@ -1924,8 +1924,9 @@ DECLARE
   v_id uuid;
   v_creador uuid;
   v_es_demo boolean;
+  v_estado text;
 BEGIN
-  SELECT id, creador_id, es_demo INTO v_id, v_creador, v_es_demo
+  SELECT id, creador_id, es_demo, estado INTO v_id, v_creador, v_es_demo, v_estado
   FROM public.rondas_libres
   WHERE codigo = p_codigo
   FOR UPDATE;
@@ -1938,6 +1939,20 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM public.tournament_groups g WHERE g.ronda_libre_id = v_id) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda de torneo';
+  END IF;
+  -- Una ronda cerrada no se descarta: borrarla se lleva las tarjetas de todos y no tiene vuelta.
+  IF v_estado IS DISTINCT FROM 'en_curso' THEN
+    RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
+  END IF;
+  -- Alguien ya guardó su tarjeta de esta ronda en su historial (decisión de producto 24-nov): borrarla dejaría esa
+  -- tarjeta apuntando a una ronda que no existe. Vale con la ronda aún en curso (otros siguen jugando).
+  IF EXISTS (
+    SELECT 1 FROM public.ronda_libre_jugadores j
+    JOIN public.historical_rounds h
+      ON h.metadata ? 'ronda_libre_jugador_id' AND h.metadata ->> 'ronda_libre_jugador_id' = j.id::text
+    WHERE j.ronda_id = v_id
+  ) THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda con tarjetas guardadas';
   END IF;
 
   BEGIN
