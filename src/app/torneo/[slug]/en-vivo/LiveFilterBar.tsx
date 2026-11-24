@@ -13,7 +13,8 @@ export interface LiveFilterBarProps {
   onCategoryChange: (cat: string | null) => void
   onGroupChange: (g: string | null) => void
   onMyViewToggle: (enabled: boolean) => void
-  onTVMode: () => void
+  /** Sólo con acceso al Modo TV (PRO): sin él, el botón no se muestra. */
+  onTVMode?: () => void
 }
 
 const labelStyle: React.CSSProperties = {
@@ -151,9 +152,11 @@ export default function LiveFilterBar({
 
       <div style={{ flex: 1 }} />
 
-      <button type="button" style={tvButtonStyle} onClick={onTVMode}>
-        TV mode
-      </button>
+      {onTVMode && (
+        <button type="button" style={tvButtonStyle} onClick={onTVMode}>
+          TV mode
+        </button>
+      )}
     </div>
   )
 }
