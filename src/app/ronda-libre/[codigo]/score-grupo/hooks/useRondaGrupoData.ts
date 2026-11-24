@@ -233,12 +233,18 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
 
   /** ¿Ya hay una ronda en pantalla? (la recarga de fondo no toca golpes ni hoyo) */
   const cargadaRef = useRef(false)
-  const enCursoRef = useRef(false)
+  /**
+   * La corrida de lecturas en vuelo (una o más vueltas). Quien pide leer mientras hay una recibe ESTA promesa, que no
+   * se resuelve hasta la vuelta que atiende su pedido: `useAnotadorDeEquipo` espera la lista de verdad nueva tras
+   * reclamar o liberar, no una lectura que salió antes (revisión Fable).
+   */
+  const enVueloRef = useRef<Promise<void> | null>(null)
   /** Se pidió leer mientras otra lectura iba en vuelo (p. ej. justo después de reclamar o liberar): una vuelta más. */
   const otraVueltaRef = useRef(false)
+  /** «Elige tu equipo» en pantalla: sin señal, la lista se queda (no la pantalla de sin conexión). */
+  const eligiendoRef = useRef(false)
   /** Este celular soltó su equipo a propósito: la vuelta a «Elige tu equipo» no avisa «Ya no anotas». */
   const dejoElEquipoRef = useRef(false)
-  const cargarRef = useRef<() => Promise<void>>(async () => {})
   /** Los equipos que este celular tiene en pantalla: al releer, uno que ya no es suyo se avisa. */
   const idsEnPantallaRef = useRef<string[]>([])
   useEffect(() => { idsEnPantallaRef.current = teamEquipos.map(e => e.id) }, [teamEquipos])
@@ -306,11 +312,9 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     setLoading(false)
   }, [codigo])
 
-  const cargar = useCallback(async () => {
-    // La lectura en vuelo pudo salir ANTES del reclamo o la liberación: la que se pide ahora corre después.
-    if (enCursoRef.current) { otraVueltaRef.current = true; return }
-    enCursoRef.current = true
-    try {
+  /** Una vuelta de lectura. Nunca se llama directo: pasa por `cargar`, que no superpone vueltas. */
+  const leerUnaVez = useCallback(async () => {
+    {
       const c = await cargarDelServidor(codigo)
       if (c.tipo === 'redirigir') {
         if (c.reemplazar) router.replace(c.a)
@@ -324,6 +328,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
         cargadaRef.current = false
         // La copia local era de un equipo que ya no anota: sin señal, el scorer lo volvería a abrir con ella.
         clearScorerGrupoSnapshot(codigo)
+        eligiendoRef.current = true
         setEleccion({ ronda: c.ronda, equipos: c.equipos })
         setConexion('ok')
         setLoadError(null)
@@ -337,6 +342,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
           const ahora = new Set((c.snap.teamEquipos as EquipoDelScorer[]).map(e => e.id))
           if (idsEnPantallaRef.current.some(id => !ahora.has(id))) addToast({ type: 'info', title: MENSAJE_YA_NO_ANOTAS, duration: 6000 })
         }
+        eligiendoRef.current = false
         setEleccion(null)
         saveScorerGrupoSnapshot(codigo, c.snap)
         aplicarMetadatos(c.snap)
@@ -347,6 +353,8 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       // Sin servidor o sin sesión: nunca se expulsa a alguien que ya está anotando.
       setConexion(c.tipo)
       if (cargadaRef.current) return
+      // «Elige tu equipo» (sin copia local: se borró al entrar): la lista sigue en pantalla y se relee sola.
+      if (c.tipo === 'sin_conexion' && eligiendoRef.current) return
       const snap = loadScorerGrupoSnapshot(codigo, c.tipo === 'sin_conexion' ? c.userId : null)
       if (snap) {
         aplicarMetadatos(snap)
@@ -359,13 +367,35 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       }
       setLoadError(MENSAJE_SCORER_SIN_CONEXION)
       setLoading(false)
-    } finally {
-      enCursoRef.current = false
-      if (otraVueltaRef.current) { otraVueltaRef.current = false; void cargarRef.current() }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable (Next.js App Router)
   }, [codigo, aplicarMetadatos, pintarPrimeraVez])
-  useEffect(() => { cargarRef.current = cargar }, [cargar])
+  const leerRef = useRef(leerUnaVez)
+  useEffect(() => { leerRef.current = leerUnaVez }, [leerUnaVez])
+
+  /**
+   * Lee la ronda sin superponer lecturas. La lectura en vuelo pudo salir ANTES del reclamo o la liberación: el pedido
+   * nuevo deja una vuelta más y recibe la promesa de la corrida entera, que termina después de esa vuelta. Un bucle
+   * (no recursión): cada vuelta atiende todos los pedidos llegados durante la anterior.
+   */
+  const cargar = useCallback((): Promise<void> => {
+    if (enVueloRef.current) { otraVueltaRef.current = true; return enVueloRef.current }
+    const corrida = (async () => {
+      try {
+        do {
+          otraVueltaRef.current = false
+          await leerRef.current()
+        } while (otraVueltaRef.current)
+      } finally {
+        enVueloRef.current = null
+        otraVueltaRef.current = false
+      }
+    })()
+    enVueloRef.current = corrida
+    return corrida
+  // leerUnaVez en las deps: un `codigo` nuevo vuelve a disparar la carga inicial (el efecto de abajo).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leerUnaVez])
   const recargarTrasDejarEquipo = useCallback(() => { dejoElEquipoRef.current = true; return cargar() }, [cargar])
 
   useEffect(() => { void cargar() }, [cargar])

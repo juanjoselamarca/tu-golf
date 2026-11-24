@@ -11,6 +11,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useRondaGrupoData, hoyoInicial } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useRondaGrupoData'
 import { saveScorerGrupoSnapshot, saveGroupScores, loadScorerGrupoSnapshot, marcarPendientes } from '@/lib/ronda/score-storage'
 import { MENSAJE_SCORER_SIN_CONEXION, PLAZO_CARGA_SCORER_MS, REINTENTO_CARGA_MS } from '@/lib/data/ronda-libre-scorer'
+import { useAnotadorDeEquipo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useAnotadorDeEquipo'
+import { MENSAJE_EQUIPOS_TARDAN } from '@/lib/data/ronda-libre-anotador'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -18,6 +20,11 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 const addToast = vi.hoisted(() => vi.fn())
 vi.mock('@/hooks/useToast', () => ({ addToast }))
+const reclamarEquipo = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/data/ronda-libre-anotador', async (orig) => ({
+  ...(await orig<typeof import('@/lib/data/ronda-libre-anotador')>()),
+  reclamarEquipoDeRonda: reclamarEquipo,
+}))
 
 type SesionMock = { session: unknown; error: unknown } | 'lanza'
 const sesion = { valor: { session: { user: { id: 'u1', email: 'juanjo@x.cl' } }, error: null } as SesionMock }
@@ -40,6 +47,14 @@ const RONDA = {
 }
 const carga = { valor: { estado: 'ok', ronda: RONDA } as { estado: string; ronda?: unknown } }
 const opcionesDeCarga: unknown[] = []
+/** Compuerta de la lectura de la ronda: mientras `espera` no se resuelva, la lectura queda en vuelo. */
+const lecturaEnVuelo = { espera: null as Promise<void> | null }
+function compuerta() {
+  let abrir = () => {}
+  const espera = new Promise<void>(r => { abrir = r })
+  lecturaEnVuelo.espera = espera
+  return () => { if (lecturaEnVuelo.espera === espera) lecturaEnVuelo.espera = null; abrir() }
+}
 const lecturaDeEquipos = { falla: false, equipos: [] as unknown[] }
 /** Lectura que no contesta nunca (wifi del club que acepta la conexión y no responde). */
 type LecturaDeCarga = 'equipos' | 'hoyos' | 'handicaps'
@@ -49,7 +64,11 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
   const real = await orig<typeof import('@/lib/data/ronda-libre-scorer')>()
   return {
     ...real,
-    fetchRondaLibreParaScorer: async (_sb: unknown, _codigo: string, opciones?: unknown) => { opcionesDeCarga.push(opciones); return carga.valor },
+    fetchRondaLibreParaScorer: async (_sb: unknown, _codigo: string, opciones?: unknown) => {
+      opcionesDeCarga.push(opciones)
+      if (lecturaEnVuelo.espera) await lecturaEnVuelo.espera
+      return carga.valor
+    },
     cargarHoyosDelScorer: async () => colgada.lectura === 'hoyos'
       ? nunca()
       : ({ parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, finalParTotal: 72 }),
@@ -75,6 +94,9 @@ beforeEach(() => {
   opcionesDeCarga.length = 0
   lecturaDeEquipos.falla = false
   colgada.lectura = null
+  lecturaEnVuelo.espera = null
+  addToast.mockClear()
+  reclamarEquipo.mockReset()
   lecturaDeEquipos.equipos = []
   localStorage.clear()
   push.mockClear()
@@ -255,6 +277,49 @@ describe('useRondaGrupoData — cada lectura de la carga tiene plazo (revisión 
   })
 })
 
+describe('useRondaGrupoData — recargar con una lectura en vuelo (revisión Fable, 1ª vuelta)', () => {
+  it('la promesa de recargar() no se resuelve hasta que termina la vuelta que de verdad atiende el pedido', async () => {
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const abrir1 = compuerta()
+    let primera: Promise<void> | undefined
+    act(() => { primera = result.current.recargar() })
+    let atendida = false
+    act(() => { void result.current.recargar().then(() => { atendida = true }) })
+    await act(async () => { await new Promise(r => setTimeout(r, 20)) })
+    expect(atendida).toBe(false)
+    // Termina la lectura vieja (salió antes del pedido): arranca otra vuelta, que sigue en vuelo.
+    const abrir2 = compuerta()
+    abrir1()
+    await act(async () => { await new Promise(r => setTimeout(r, 20)) })
+    expect(atendida).toBe(false)
+    abrir2()
+    await waitFor(() => expect(atendida).toBe(true))
+    await act(async () => { await primera })
+  })
+
+  it('reclamar con una lectura colgada en vuelo: la tarjeta sigue congelada y al vencer el plazo avisa que la lista tarda', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    reclamarEquipo.mockResolvedValue({ estado: 'ok' })
+    const { result } = renderHook(() => {
+      const data = useRondaGrupoData('B4F5Y2')
+      const anotador = useAnotadorDeEquipo({ codigo: 'B4F5Y2', recargar: data.recargar, recargarTrasDejarEquipo: data.recargarTrasDejarEquipo })
+      return { data, anotador }
+    })
+    await waitFor(() => expect(result.current.data.loading).toBe(false))
+    const abrir = compuerta()
+    act(() => { void result.current.data.recargar() }) // el refresco periódico, colgado por la mala señal
+    act(() => { void result.current.anotador.reclamar('e2') })
+    await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_CARGA_SCORER_MS - 1_000) })
+    expect(result.current.anotador.enCurso).toBe('e2')
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: MENSAJE_EQUIPOS_TARDAN }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_050) })
+    expect(result.current.anotador.enCurso).toBeNull()
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: MENSAJE_EQUIPOS_TARDAN }))
+    abrir()
+  })
+})
+
 describe('useRondaGrupoData — pendientes ganan (revisión Fable)', () => {
   it('corrección offline (hoyo 12: 6 → 7) sobrevive a reabrir con el servidor de vuelta', async () => {
     marcarPendientes('B4F5Y2', 'j1', { 12: 7 }) // la BD tiene 12: 6
@@ -355,6 +420,28 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
     await waitFor(() => expect(result.current.eleccion?.equipos.find(e => e.id === 'e2')?.anotador_user_id).toBe('u-pedro'))
   })
+  it('«Elige tu equipo» sin señal (plazo vencido): la lista se queda, no la pantalla de sin conexión', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.eleccion).not.toBeNull())
+    colgada.lectura = 'equipos'
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + PLAZO_CARGA_SCORER_MS + 50) })
+    expect(result.current.conexion).toBe('sin_conexion')
+    expect(result.current.loadError).toBeNull()
+    expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
+    expect(push).not.toHaveBeenCalled()
+
+    // La señal vuelve: se relee y la lista se pone al día.
+    colgada.lectura = null
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro')]
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
+    await waitFor(() => expect(result.current.conexion).toBe('ok'))
+    expect(result.current.eleccion?.equipos.find(e => e.id === 'e2')?.anotador_user_id).toBe('u-pedro')
+  })
+
   it('«Elige tu equipo» relee al volver a la app (más de 2 s afuera)', async () => {
     sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
     carga.valor = { estado: 'ok', ronda: SCRAMBLE }
