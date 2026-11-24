@@ -209,6 +209,7 @@ export default function ScoreGrupoPage() {
         enCurso={anotador.enCurso}
         aviso={anotador.aviso}
         onElegir={(id) => { void anotador.reclamar(id) }}
+        conexion={conexion}
       />
     )
   }
