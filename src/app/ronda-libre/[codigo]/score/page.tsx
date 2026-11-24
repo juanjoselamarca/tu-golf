@@ -456,6 +456,7 @@ function ScorePageContent() {
         isLastHole={isLastHole}
         canFinalize={canFinalize}
         finalizando={finalizando}
+        descartando={discarding}
         onPrev={nav.goToPrevHole}
         onNext={goToNextHole}
         onFinalize={finalizeRound}
@@ -472,7 +473,7 @@ function ScorePageContent() {
 
       {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. */}
       {puedeDescartarRonda(ronda, authUserId) && (
-        <DiscardRoundButton confirmDiscard={confirmDiscard} discarding={discarding} onClick={discardRound} />
+        <DiscardRoundButton confirmDiscard={confirmDiscard} discarding={discarding} bloqueado={finalizando} onClick={discardRound} />
       )}
 
       {/* ── Post-round celebration modal ── */}

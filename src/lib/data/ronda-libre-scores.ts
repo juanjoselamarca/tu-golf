@@ -17,14 +17,8 @@ import { triggerRoundUpdatePush } from '@/lib/round-notifications'
 import { esRechazoDelCierre } from '@/lib/data/ronda-libre-cierre'
 import { conTimeout } from '@/lib/red/con-timeout'
 
-/**
- * Plazo de un guardado de score. Caída del 04-oct-2026: con la base saturada un
- * guardado tardaba 20-80 s y el scorer quedaba colgado esperando. Pasado el plazo
- * se devuelve un error de transporte: el golpe ya está en el respaldo local y el
- * scorer reintenta solo. Si la RPC termina tarde, cuando este dispositivo ya
- * guardó algo más nuevo, el servidor la descarta (ver `nuevaSecuencia`).
- */
-export const PLAZO_GUARDADO_MS = 12_000
+// Plazo de un guardado de score (y del cierre y el descarte de la ronda): vive en la fuente única de plazos.
+import { PLAZO_GUARDADO_MS } from '@/lib/red/plazos'
 
 // El servidor descarta un guardado de este dispositivo si ya aplicó uno con
 // secuencia igual o mayor (`p_seq`, `p_dispositivo`). Fuente única del id y de

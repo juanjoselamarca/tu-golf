@@ -9,6 +9,8 @@ interface ScorerNavBarProps {
   /** Finalizar en curso: el botón dice "Finalizando..." y ningún botón acepta toques
    *  (Siguiente auto-llena el par y guarda: saldría después de que Finalizar leyó la tarjeta). */
   finalizando: boolean
+  /** Descarte en curso: la ronda se está borrando, Finalizar no responde. */
+  descartando: boolean
   onPrev: () => void
   onNext: () => void
   onFinalize: () => void
@@ -17,9 +19,10 @@ interface ScorerNavBarProps {
 
 /** Barra inferior: Anterior / Siguiente / Finalizar (secundario desde el 9, primario en el último). */
 export function ScorerNavBar({
-  currentHoleIdx, isLastHole, canFinalize, finalizando,
+  currentHoleIdx, isLastHole, canFinalize, finalizando, descartando,
   onPrev, onNext, onFinalize, theme,
 }: ScorerNavBarProps) {
+  const finalizarInactivo = finalizando || descartando
   return (
     <div style={{
       flexShrink: 0, background: theme.navBg,
@@ -62,7 +65,7 @@ export function ScorerNavBar({
         <button
           onTouchStart={() => {}}
           onClick={onFinalize}
-          disabled={finalizando}
+          disabled={finalizarInactivo}
           aria-busy={finalizando}
           aria-label={finalizando ? 'Finalizando ronda' : 'Finalizar ronda'}
           style={{
@@ -73,7 +76,7 @@ export function ScorerNavBar({
             borderRadius: '12px',
             fontSize: isLastHole ? '16px' : '13px',
             fontWeight: isLastHole ? 600 : 500,
-            cursor: finalizando ? 'wait' : 'pointer', opacity: finalizando ? 0.7 : 1,
+            cursor: finalizando ? 'wait' : descartando ? 'not-allowed' : 'pointer', opacity: finalizarInactivo ? 0.7 : 1,
             WebkitTapHighlightColor: 'transparent',
             touchAction: 'manipulation', letterSpacing: '0.01em',
             transition: 'background 0.3s ease',

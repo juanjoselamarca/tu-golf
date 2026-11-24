@@ -7,6 +7,8 @@ interface GrupoNavBarProps {
   isLastHole: boolean
   canFinalize: boolean
   finalizing: boolean
+  /** Tarjeta congelada (`tarjetaCongelada`: finalizando, descartando o cambiando quién anota): Finalizar no responde. */
+  congelada: boolean
   onPrev: () => void
   onNext: () => void
   onFinalize: () => void
@@ -15,9 +17,10 @@ interface GrupoNavBarProps {
 
 /** Barra inferior del scorer de grupo: Anterior / Siguiente / Finalizar. */
 export function GrupoNavBar({
-  currentHoleIdx, isLastHole, canFinalize, finalizing,
+  currentHoleIdx, isLastHole, canFinalize, finalizing, congelada,
   onPrev, onNext, onFinalize, theme,
 }: GrupoNavBarProps) {
+  const finalizarInactivo = finalizing || congelada
   return (
     <div style={{
       flexShrink: 0, background: theme.navBg,
@@ -57,7 +60,7 @@ export function GrupoNavBar({
       {canFinalize && (
         <button
           onClick={onFinalize}
-          disabled={finalizing}
+          disabled={finalizarInactivo}
           style={{
             flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
             background: finalizing ? '#9ca3af' : isLastHole ? theme.gold : 'transparent',
@@ -66,10 +69,10 @@ export function GrupoNavBar({
             borderRadius: '12px',
             fontSize: isLastHole ? '16px' : '13px',
             fontWeight: isLastHole ? 600 : 500,
-            cursor: finalizing ? 'not-allowed' : 'pointer', minHeight: '48px',
+            cursor: finalizarInactivo ? 'not-allowed' : 'pointer', minHeight: '48px',
             touchAction: 'manipulation', letterSpacing: '0.01em',
             transition: 'background 0.2s ease',
-            opacity: finalizing ? 0.7 : 1,
+            opacity: finalizarInactivo ? 0.7 : 1,
           }}
         >
           {finalizing ? 'Finalizando...' : 'Finalizar ronda ✓'}

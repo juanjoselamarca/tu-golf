@@ -116,6 +116,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   // rápidos (o un reintento con mala señal) no deben correr el flujo dos veces.
   const finalizandoRef = useRef(false)
   const [finalizando, setFinalizando] = useState(false)
+  // Finalizar y descartar se excluyen (P0 24-nov: descartar en pleno cierre borraba la ronda). Ref y no `discarding`:
+  // un descarte y un cierre del mismo tick verían el state viejo y correrían los dos.
+  const descartandoRef = useRef(false)
   /** La ronda ya no existe (la descartó quien la creó): avisa, borra las copias locales y saca al jugador. */
   const salirPorRondaBorrada = () => {
     addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
@@ -127,7 +130,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   const descarteArmadoEn = useRef(0)
 
   const discardRound = async () => {
-    if (!ronda || discarding) return
+    if (!ronda || discarding || descartandoRef.current || finalizandoRef.current) return
     if (!confirmDiscard) {
       descarteArmadoEn.current = Date.now()
       setConfirmDiscard(true)
@@ -136,18 +139,26 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       return
     }
     if (Date.now() - descarteArmadoEn.current < MS_ANTES_DE_ARMAR) return
+    descartandoRef.current = true
     setDiscarding(true)
     haptic(30)
-    // noExiste: el servidor ya la borró (un intento anterior cuya respuesta se perdió). Es un descarte hecho.
-    const { error, noExiste } = await descartarRondaLibre(createClient(), codigo)
-    if (error && !noExiste) { setDiscarding(false); setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
-    limpiarCopiaLocalDeRonda(codigo)
-    addToast({ title: 'Ronda descartada', type: 'info' })
-    onDiscardSuccess?.()
+    let descartada = false
+    try {
+      // noExiste: el servidor ya la borró (un intento anterior cuya respuesta se perdió). Es un descarte hecho.
+      const { error, noExiste } = await descartarRondaLibre(createClient(), codigo)
+      if (error && !noExiste) { setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
+      descartada = true
+      limpiarCopiaLocalDeRonda(codigo)
+      addToast({ title: 'Ronda descartada', type: 'info' })
+      onDiscardSuccess?.()
+    } finally {
+      // Descartada, la pantalla se va: queda tomado. Si no salió, se suelta (se puede reintentar o finalizar).
+      if (!descartada) { descartandoRef.current = false; setDiscarding(false) }
+    }
   }
 
   const finalizeRound = async () => {
-    if (!ronda || !activeJugadorId || finalizandoRef.current) return
+    if (!ronda || !activeJugadorId || finalizandoRef.current || descartandoRef.current) return
     if (netoNoDisponible && ronda.formato_juego === 'match_play') {
       addToast({ ...AVISO_FINALIZAR_MATCH_SIN_SESION, type: 'info', duration: 7000 })
       return

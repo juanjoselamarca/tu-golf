@@ -3,16 +3,19 @@
 interface DiscardRoundButtonProps {
   confirmDiscard: boolean
   discarding: boolean
+  /** Mientras se finaliza no se descarta (P0 24-nov: borraba la ronda en pleno cierre). */
+  bloqueado: boolean
   onClick: () => void
 }
 
 /** Descartar ronda — dos pasos (toca otra vez), destructivo sutil. */
-export function DiscardRoundButton({ confirmDiscard, discarding, onClick }: DiscardRoundButtonProps) {
+export function DiscardRoundButton({ confirmDiscard, discarding, bloqueado, onClick }: DiscardRoundButtonProps) {
+  const inactivo = discarding || bloqueado
   return (
     <div style={{ padding: '0 16px 12px', textAlign: 'center' }}>
       <button
         onClick={onClick}
-        disabled={discarding}
+        disabled={inactivo}
         aria-label={confirmDiscard ? 'Confirmar descarte' : 'Descartar ronda'}
         style={{
           background: confirmDiscard ? 'rgba(220,38,38,0.1)' : 'transparent',
@@ -20,8 +23,8 @@ export function DiscardRoundButton({ confirmDiscard, discarding, onClick }: Disc
           color: confirmDiscard ? 'var(--double)' : 'var(--text-3)',
           fontSize: '14px', fontWeight: confirmDiscard ? 600 : 400,
           padding: '8px 14px', borderRadius: '8px',
-          cursor: discarding ? 'not-allowed' : 'pointer',
-          opacity: discarding ? 0.5 : 1,
+          cursor: inactivo ? 'not-allowed' : 'pointer',
+          opacity: inactivo ? 0.5 : 1,
           letterSpacing: '0.02em',
           WebkitTapHighlightColor: 'transparent',
           transition: 'all 0.2s ease',

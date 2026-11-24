@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -112,25 +112,40 @@ export function useFinalizeGrupo(input: {
   const [confirmFinalize, setConfirmFinalize] = useState(false)
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discarding, setDiscarding] = useState(false)
+  /**
+   * Finalizar y descartar se excluyen (P0 24-nov): descartar con «Finalizando…» borraba la ronda en pleno cierre, que
+   * caía en RONDA_NOT_FOUND. Es un ref y no el state: dos toques del mismo tick ven el state viejo y correrían los dos.
+   * Queda tomado mientras navega (la pantalla se va); cualquier otra salida lo suelta.
+   */
+  const cierreEnCurso = useRef<'finalizar' | 'descartar' | null>(null)
 
   const discardRound = useCallback(async () => {
-    if (!ronda || discarding) return
+    if (!ronda || discarding || cierreEnCurso.current) return
+    cierreEnCurso.current = 'descartar'
     setDiscarding(true)
     setShowDiscardConfirm(false)
     haptic(30)
-    // noExiste: un intento anterior ya la borró y la respuesta se perdió. Es un descarte hecho.
-    const { error, noExiste } = await descartarRondaLibre(createClient(), codigo)
-    if (error && !noExiste) {
-      setDiscarding(false)
-      addToast({ type: 'error', title: 'No se descartó la ronda', message: error, duration: 5000 })
-      return
+    let descartada = false
+    try {
+      // noExiste: un intento anterior ya la borró y la respuesta se perdió. Es un descarte hecho.
+      const { error, noExiste } = await descartarRondaLibre(createClient(), codigo)
+      if (error && !noExiste) {
+        addToast({ type: 'error', title: 'No se descartó la ronda', message: error, duration: 5000 })
+        return
+      }
+      descartada = true
+      limpiarCopiaLocalDeRonda(codigo)
+      router.push('/dashboard?discarded=1')
+    } finally {
+      if (!descartada) {
+        cierreEnCurso.current = null
+        setDiscarding(false)
+      }
     }
-    limpiarCopiaLocalDeRonda(codigo)
-    router.push('/dashboard?discarded=1')
   }, [ronda, discarding, codigo, router])
 
   const finalizeRound = async () => {
-    if (!ronda || finalizing) return
+    if (!ronda || finalizing || cierreEnCurso.current) return
     if (!confirmFinalize) {
       // Un celular por equipo: un equipo sin reclamar sin golpes en un hoyo frena ya, sin abrir la hoja (el cierre
       // lo rechazaría igual). Solo los sin reclamar: los anota este celular, así que su tarjeta local es la vigente.
@@ -151,6 +166,7 @@ export function useFinalizeGrupo(input: {
     }
     // Se cierra la hoja: si no hay servidor, el aviso pide volver a tocar Finalizar.
     setConfirmFinalize(false)
+    cierreEnCurso.current = 'finalizar'
     setFinalizing(true)
     haptic(30)
     // Mientras navega al resultado el botón sigue en "Finalizando" (no se toca dos veces). Cualquier otra
@@ -163,7 +179,10 @@ export function useFinalizeGrupo(input: {
       void captureError(e instanceof Error ? e : new Error(String(e)), { context: 'score_grupo_finalize.excepcion', meta: { codigo } })
       addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
     } finally {
-      if (!nav.navegando) setFinalizing(false)
+      if (!nav.navegando) {
+        cierreEnCurso.current = null
+        setFinalizing(false)
+      }
     }
   }
 
