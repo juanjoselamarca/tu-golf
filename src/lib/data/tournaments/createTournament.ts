@@ -16,9 +16,13 @@ import { hcpPctEfectivo } from '@/golf/core/playing-handicap'
  * Slug único a partir del nombre: kebab-case sin acentos + sufijo temporal
  * base36. Fuente única: lo usa el wizard (`draft/[id]/create-tournament`). El
  * camino legacy `api/torneos/create`, que tenía otra copia, se eliminó (oct-2026).
+ *
+ * Sin guiones al inicio ni al final («🏆 Copa» → `copa-<ts>`, no `-copa-<ts>`); un
+ * nombre sin letras ni dígitos queda sólo con el sufijo. Siempre cumple
+ * `SLUG_TORNEO_VALIDO` (en-vivo-servidor.ts): lo ata slug-torneo.test.ts.
  */
 export function genTournamentSlug(name: string, now: number = Date.now()): string {
-  return (
+  const base =
     name
       .toLowerCase()
       .normalize('NFD')
@@ -26,10 +30,11 @@ export function genTournamentSlug(name: string, now: number = Date.now()): strin
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
-      .slice(0, 50) +
-    '-' +
-    now.toString(36)
-  )
+      .replace(/^-+/, '')
+      .slice(0, 50)
+      .replace(/-+$/, '')
+  const sufijo = now.toString(36)
+  return base ? `${base}-${sufijo}` : sufijo
 }
 
 /** Alfabeto sin 0/O/1/I para que el código se dicte por teléfono sin ambigüedad. */

@@ -32,7 +32,7 @@ vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 vi.mock('next/cache', () => ({ unstable_cache: (fn: () => unknown) => fn }))
 const armar = vi.fn(async () => ({ tournament: { id: 't1' }, players: [], teams: [], categories: [], groups: [] }))
 vi.mock('@/lib/data/tournaments/en-vivo-servidor', () => ({
-  SLUG_TORNEO_VALIDO: /^[a-z0-9][a-z0-9-]{0,119}$/,
+  SLUG_TORNEO_VALIDO: /^[a-z0-9-]{1,120}$/,
   armarTorneoEnVivoParaRuta: (...a: unknown[]) => armar(...(a as [])),
 }))
 

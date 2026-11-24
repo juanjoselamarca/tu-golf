@@ -11,7 +11,7 @@ vi.mock('@/utils/supabase/server', () => ({
 }))
 const armar = vi.fn()
 vi.mock('@/lib/data/tournaments/en-vivo-servidor', () => ({
-  SLUG_TORNEO_VALIDO: /^[a-z0-9][a-z0-9-]{0,119}$/,
+  SLUG_TORNEO_VALIDO: /^[a-z0-9-]{1,120}$/,
   armarTorneoEnVivoParaRuta: (...a: unknown[]) => armar(...a),
 }))
 const cacheLlamadas: Array<{ claves: string[]; opciones: unknown; resultado?: Promise<unknown> }> = []
