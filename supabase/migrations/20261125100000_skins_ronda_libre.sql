@@ -18,7 +18,7 @@
 --  6. upsert_ronda_libre_scores acepta en el delta el valor "X" (string JSON) SOLO en una ronda de skins. Golpes y
 --     X van en la MISMA escritura (mismo lock, misma secuencia por dispositivo): marcar X borra los golpes de ese
 --     hoyo y anotar golpes borra la X, así nunca conviven. Fuera de skins, "X" es INVALID_DELTA como hasta hoy.
---     Un trigger lo garantiza también para cualquier otra escritura (UPDATE directo del creador, otras RPC).
+--     Un CHECK lo garantiza también para cualquier otra escritura (UPDATE directo del creador, otras RPC).
 --     Devuelve lo mismo que antes (solo scores): ningún cliente existente cambia.
 --  7. En skins, la tarjeta de un invitado sin cuenta la anota solo quien anota la ronda (hay plata en juego), igual
 --     que en la Timba.
@@ -121,7 +121,7 @@ ALTER TABLE public.ronda_libre_jugadores ADD CONSTRAINT ronda_libre_jugadores_fu
   CHECK (jsonb_typeof(fuera_del_hoyo) = 'object');
 
 COMMENT ON COLUMN public.ronda_libre_jugadores.fuera_del_hoyo IS
-  'Skins: hoyos donde el jugador levantó la pelota (la X del scorer), { "7": true }. Nunca convive con golpes en scores para el mismo hoyo (lo garantiza el trigger ronda_libre_jugadores_x_sin_golpes); la escribe upsert_ronda_libre_scores.';
+  'Skins: hoyos donde el jugador levantó la pelota (la X del scorer), { "7": true }. Nunca convive con golpes en scores para el mismo hoyo (lo garantiza el CHECK ronda_libre_jugadores_x_sin_golpes_check); la escribe upsert_ronda_libre_scores.';
 
 -- La leen los mismos que leen scores (grant por columna, como el resto de la tabla), anon incluido: la vista en
 -- vivo de la ronda la necesita para mostrar el hoyo «fuera» y no como «falta anotar». No es un dato privado.
@@ -129,38 +129,32 @@ GRANT SELECT (fuera_del_hoyo) ON public.ronda_libre_jugadores TO anon, authentic
 
 -- «Nunca conviven» lo garantiza la base, no solo la RPC: el creador de la ronda tiene UPDATE de la tabla (policy
 -- gestionar_jugadores) y merge_ronda_player_scores escribe golpes sin mirar la X. Con plata en juego, un hoyo con
--- golpes y X a la vez no lo decide en silencio la pantalla: la escritura falla. SECURITY DEFINER para que el
--- formato de la ronda se lea igual escriba quien escriba (RLS no puede esconder la ronda y dejar pasar la X).
-CREATE OR REPLACE FUNCTION public.ronda_libre_jugadores_x_sin_golpes()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
+-- golpes y X a la vez no lo decide en silencio la pantalla: la escritura falla (23514). Es un CHECK sobre las dos
+-- columnas y no un trigger: un trigger recibe la fila entera (perfil_sugerido_id incluido) y la regla
+-- perfil-sugerido-sin-poderes no lo permite. Que la X sea solo de skins lo controla la RPC; una X en otra ronda
+-- (solo posible con un UPDATE directo del creador) no la lee nadie: fuera de skins un hoyo con X es «sin golpes».
+CREATE OR REPLACE FUNCTION public.ronda_libre_x_sin_golpes(p_scores jsonb, p_fuera jsonb)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
  SET search_path TO ''
 AS $function$
-BEGIN
-  IF NEW.fuera_del_hoyo = '{}'::jsonb THEN
-    RETURN NEW;
-  END IF;
-  IF EXISTS (SELECT 1 FROM jsonb_each(NEW.fuera_del_hoyo) e
-             WHERE e.value <> 'true'::jsonb OR e.key !~ '^([1-9]|1[0-9]|2[0-7])$') THEN
-    RAISE EXCEPTION 'INVALID_DELTA: fuera_del_hoyo solo lleva hoyos 1..27 con valor true' USING ERRCODE = 'P0004';
-  END IF;
-  IF NEW.scores ?| ARRAY(SELECT jsonb_object_keys(NEW.fuera_del_hoyo)) THEN
-    RAISE EXCEPTION 'INVALID_DELTA: un hoyo no puede tener golpes y X a la vez' USING ERRCODE = 'P0004';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.rondas_libres r WHERE r.id = NEW.ronda_id AND r.formato_juego = 'skins') THEN
-    RAISE EXCEPTION 'INVALID_DELTA: "X" solo vale en una ronda de skins' USING ERRCODE = 'P0004';
-  END IF;
-  RETURN NEW;
-END;
+  SELECT CASE
+    WHEN jsonb_typeof(p_fuera) IS DISTINCT FROM 'object' THEN false
+    WHEN p_fuera = '{}'::jsonb THEN true
+    ELSE NOT EXISTS (SELECT 1 FROM jsonb_each(p_fuera) e
+                     WHERE e.value <> 'true'::jsonb OR e.key !~ '^([1-9]|1[0-9]|2[0-7])$')
+     AND NOT (COALESCE(p_scores, '{}'::jsonb) ?| ARRAY(SELECT jsonb_object_keys(p_fuera)))
+  END
 $function$;
 
-REVOKE ALL ON FUNCTION public.ronda_libre_jugadores_x_sin_golpes() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.ronda_libre_x_sin_golpes(jsonb, jsonb) FROM PUBLIC;
+-- Función pura (solo mira sus argumentos): la ejecuta quien escriba la fila al evaluar el CHECK.
+GRANT EXECUTE ON FUNCTION public.ronda_libre_x_sin_golpes(jsonb, jsonb) TO anon, authenticated, service_role;
 
-DROP TRIGGER IF EXISTS ronda_libre_jugadores_x_sin_golpes ON public.ronda_libre_jugadores;
-CREATE TRIGGER ronda_libre_jugadores_x_sin_golpes
-  BEFORE INSERT OR UPDATE OF scores, fuera_del_hoyo ON public.ronda_libre_jugadores
-  FOR EACH ROW EXECUTE FUNCTION public.ronda_libre_jugadores_x_sin_golpes();
+ALTER TABLE public.ronda_libre_jugadores DROP CONSTRAINT IF EXISTS ronda_libre_jugadores_x_sin_golpes_check;
+ALTER TABLE public.ronda_libre_jugadores ADD CONSTRAINT ronda_libre_jugadores_x_sin_golpes_check
+  CHECK (public.ronda_libre_x_sin_golpes(scores, fuera_del_hoyo));
 
 -- 6 y 7. Escritura de golpes y X -------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.upsert_ronda_libre_scores(p_jugador_id uuid, p_codigo text, p_delta jsonb, p_seq bigint DEFAULT NULL::bigint, p_dispositivo uuid DEFAULT NULL::uuid)

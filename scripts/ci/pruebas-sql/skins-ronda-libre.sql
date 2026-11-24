@@ -117,38 +117,32 @@ DO $$ BEGIN
   RAISE NOTICE 'OK X: el rechazo no deja escritura a medias';
 END $$;
 
--- La base garantiza «nunca conviven» aunque la escritura no pase por la RPC (el creador tiene UPDATE directo).
+-- La base garantiza «nunca conviven» aunque la escritura no pase por la RPC (el creador tiene UPDATE directo): CHECK.
 DO $$ BEGIN
   -- El invitado tiene X en el 1 (arriba): golpes directos en el 1 no entran.
   UPDATE public.ronda_libre_jugadores SET scores = COALESCE(scores, '{}'::jsonb) || '{"1":5}'
   WHERE id = 'e2000000-0000-4000-8000-000000000002';
   RAISE EXCEPTION 'FALLA: un UPDATE directo dejó golpes y X en el mismo hoyo';
-EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: golpes directos sobre una X -> P0004';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'OK CHECK: golpes directos sobre una X -> 23514';
 END $$;
 DO $$ BEGIN
   -- El organizador tiene golpes en el 1: una X directa en el 1 no entra.
   UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"1":true}'
   WHERE id = 'e2000000-0000-4000-8000-000000000001';
   RAISE EXCEPTION 'FALLA: un UPDATE directo dejó X sobre golpes';
-EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: X directa sobre golpes -> P0004';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'OK CHECK: X directa sobre golpes -> 23514';
 END $$;
 DO $$ BEGIN
   UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"9":false}'
   WHERE id = 'e2000000-0000-4000-8000-000000000001';
   RAISE EXCEPTION 'FALLA: fuera_del_hoyo aceptó un valor distinto de true';
-EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: valor distinto de true -> P0004';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'OK CHECK: valor distinto de true -> 23514';
 END $$;
 DO $$ BEGIN
   UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"28":true}'
   WHERE id = 'e2000000-0000-4000-8000-000000000001';
   RAISE EXCEPTION 'FALLA: fuera_del_hoyo aceptó el hoyo 28';
-EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: hoyo fuera de rango -> P0004';
-END $$;
-DO $$ BEGIN
-  UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"9":true}'
-  WHERE id = 'e2000000-0000-4000-8000-000000000003';
-  RAISE EXCEPTION 'FALLA: una X directa en una ronda que no es skins';
-EXCEPTION WHEN SQLSTATE 'P0004' THEN RAISE NOTICE 'OK trigger: X directa fuera de skins -> P0004';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'OK CHECK: hoyo fuera de rango -> 23514';
 END $$;
 
 -- Secuencia por dispositivo: una X vieja que llega tarde no pisa golpes más nuevos.

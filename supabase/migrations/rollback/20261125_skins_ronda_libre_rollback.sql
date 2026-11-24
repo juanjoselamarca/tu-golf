@@ -176,8 +176,8 @@ REVOKE ALL ON FUNCTION public.upsert_ronda_libre_scores(uuid, text, jsonb, bigin
 GRANT EXECUTE ON FUNCTION public.upsert_ronda_libre_scores(uuid, text, jsonb, bigint, uuid) TO anon, authenticated, service_role;
 
 -- La guarda de la X y, al final, la columna.
-DROP TRIGGER IF EXISTS ronda_libre_jugadores_x_sin_golpes ON public.ronda_libre_jugadores;
-DROP FUNCTION IF EXISTS public.ronda_libre_jugadores_x_sin_golpes();
+ALTER TABLE public.ronda_libre_jugadores DROP CONSTRAINT IF EXISTS ronda_libre_jugadores_x_sin_golpes_check;
+DROP FUNCTION IF EXISTS public.ronda_libre_x_sin_golpes(jsonb, jsonb);
 ALTER TABLE public.ronda_libre_jugadores DROP COLUMN IF EXISTS fuera_del_hoyo;
 
 COMMIT;

@@ -157,7 +157,9 @@ Un hoyo por validar cuyo ganador se retira en el hoyo siguiente: no valida → a
     lo trata como hoyo sin anotar, nunca como golpes. Con test.
   - La X la lee siempre de `fuera_del_hoyo` en todos los selects, el poll y el realtime de jugadores (las listas de
     columnas son explícitas). La RPC devuelve solo `scores`: tras escribir, la X se aplica optimista.
-  - Golpes y X en el mismo hoyo no pueden existir (trigger en la base); el adaptador no decide precedencia.
+  - Golpes y X en el mismo hoyo no pueden existir (CHECK en la base); el adaptador no decide precedencia.
+  - Solo lee `fuera_del_hoyo` en rondas de skins (la RPC solo escribe X ahí; la base no lo impide en un UPDATE
+    directo del creador, y fuera de skins un hoyo con X es «sin golpes»).
 - **Cierre de una ronda de skins:** `guardarTarjetaEnHistorial` no se llama en skins (el CHECK de
   `historical_rounds` la rechaza y quedaría en «reintentar» para siempre); `tarjetaCompleta` y la rama de
   `finalizar_ronda_libre` para quien no anota cuentan un hoyo con X como anotado.
