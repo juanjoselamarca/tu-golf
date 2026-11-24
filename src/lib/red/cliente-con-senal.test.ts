@@ -47,3 +47,18 @@ describe('clienteConSenal', () => {
     expect(c.rpc()).toEqual({ marca: 2 })
   })
 })
+
+describe('clienteConSenal — getters y campos privados', () => {
+  it('lee getters y métodos con #privados sobre el cliente real, no sobre el proxy', () => {
+    class Cliente {
+      #url = 'https://x'
+      get functions() { return this.#url }
+      from() { return { select: () => this.#url } }
+      rpc() { return this.#url }
+    }
+    const c = clienteConSenal(new Cliente() as never, new AbortController().signal) as unknown as Cliente
+    expect(c.functions).toBe('https://x')
+    expect(c.rpc()).toBe('https://x')
+    expect(c.from().select()).toBe('https://x')
+  })
+})

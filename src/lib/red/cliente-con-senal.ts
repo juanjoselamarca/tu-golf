@@ -19,8 +19,10 @@ const conSenal = <B,>(builder: B, signal: AbortSignal): B =>
 
 export function clienteConSenal<C extends Pick<SupabaseClient, 'from' | 'rpc'>>(cliente: C, signal: AbortSignal): C {
   return new Proxy(cliente, {
-    get(objetivo, prop, receptor) {
-      const valor = Reflect.get(objetivo, prop, receptor)
+    // Receptor = el cliente real, nunca el proxy: un getter (`functions`) o un campo `#privado` (hoy supabase-js
+    // 2.116 no tiene ninguno) se leen sobre el objeto verdadero.
+    get(objetivo, prop) {
+      const valor = Reflect.get(objetivo, prop)
       if (typeof valor !== 'function') return valor
       if (prop === 'rpc') {
         return (...args: unknown[]) => conSenal((valor as (...a: unknown[]) => unknown).apply(objetivo, args), signal)
@@ -29,8 +31,8 @@ export function clienteConSenal<C extends Pick<SupabaseClient, 'from' | 'rpc'>>(
         return (...args: unknown[]) => {
           const consulta = (valor as (...a: unknown[]) => object).apply(objetivo, args)
           return new Proxy(consulta, {
-            get(q, p, r) {
-              const metodo = Reflect.get(q, p, r)
+            get(q, p) {
+              const metodo = Reflect.get(q, p)
               if (typeof metodo !== 'function' || !METODOS_DE_CONSULTA.has(String(p))) return metodo
               return (...a: unknown[]) => conSenal((metodo as (...x: unknown[]) => unknown).apply(q, a), signal)
             },
