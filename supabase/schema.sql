@@ -1944,6 +1944,16 @@ BEGIN
   IF v_estado IS DISTINCT FROM 'en_curso' THEN
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
   END IF;
+  -- Alguien ya guardó su tarjeta de esta ronda en su historial (decisión de producto 24-nov): borrarla dejaría esa
+  -- tarjeta apuntando a una ronda que no existe. Vale con la ronda aún en curso (otros siguen jugando).
+  IF EXISTS (
+    SELECT 1 FROM public.ronda_libre_jugadores j
+    JOIN public.historical_rounds h
+      ON h.metadata ? 'ronda_libre_jugador_id' AND h.metadata ->> 'ronda_libre_jugador_id' = j.id::text
+    WHERE j.ronda_id = v_id
+  ) THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda con tarjetas guardadas';
+  END IF;
 
   BEGIN
     DELETE FROM public.rondas_libres WHERE id = v_id;

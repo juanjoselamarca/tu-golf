@@ -8,6 +8,11 @@
 --   · Con la ronda en otro estado que 'en_curso': RONDA_FINALIZED (P0002), el mismo código del guardado y del cierre.
 --     El chequeo va después de los de permiso: a quien no es el creador se le sigue diciendo que no puede (P0003).
 --   · El estado se lee en el mismo SELECT ... FOR UPDATE: un cierre concurrente espera o ya quedó visto.
+--   · Con la ronda en curso pero alguna tarjeta ya guardada en un historial (historical_rounds con
+--     metadata.ronda_libre_jugador_id de un jugador de la ronda): RONDA_FORBIDDEN (P0003) con DETAIL
+--     'ronda con tarjetas guardadas'. Decisión de producto (Juanjo, 24-nov): si nadie guardó, se descarta; si
+--     alguien guardó, no. Pasa cuando uno finaliza y los demás siguen jugando: al recargar, «Descartar» volvía.
+--     Usa el índice único ux_historical_rounds_ronda_libre_jugador (por eso el `metadata ? ...` en el JOIN).
 --
 -- Prueba: scripts/ci/pruebas-sql/descartar-ronda-libre.sql. Idempotente.
 -- Rollback: supabase/migrations/rollback/20261124_descartar_solo_ronda_en_curso_rollback.sql
@@ -41,6 +46,16 @@ BEGIN
   -- Una ronda cerrada no se descarta: borrarla se lleva las tarjetas de todos y no tiene vuelta.
   IF v_estado IS DISTINCT FROM 'en_curso' THEN
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
+  END IF;
+  -- Alguien ya guardó su tarjeta de esta ronda en su historial (decisión de producto 24-nov): borrarla dejaría esa
+  -- tarjeta apuntando a una ronda que no existe. Vale con la ronda aún en curso (otros siguen jugando).
+  IF EXISTS (
+    SELECT 1 FROM public.ronda_libre_jugadores j
+    JOIN public.historical_rounds h
+      ON h.metadata ? 'ronda_libre_jugador_id' AND h.metadata ->> 'ronda_libre_jugador_id' = j.id::text
+    WHERE j.ronda_id = v_id
+  ) THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda con tarjetas guardadas';
   END IF;
 
   BEGIN
