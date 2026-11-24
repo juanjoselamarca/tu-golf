@@ -192,7 +192,7 @@ describe('CompartirEnJuego', () => {
     expect(document.activeElement).toBe(icono)
   })
 
-  // /en-vivo pide sesión y PRO: los amigos que reciben el link se topaban con el muro de pago.
+  // /en-vivo pide sesión: los amigos sin cuenta que reciben el link se toparían con el login.
   it('en un torneo pregunta por el torneo y comparte su página pública con el nombre', async () => {
     const share = vi.fn().mockResolvedValue(undefined)
     setNavigator({ share } as unknown as Navigator)

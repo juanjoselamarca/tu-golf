@@ -37,8 +37,8 @@ export function enlacesDeRondaLibre(
 }
 
 /**
- * Un torneo se invita a seguir por su página pública (`/torneo/<slug>`): `/en-vivo` pide sesión y PRO, y
- * quien recibe el link por WhatsApp se topaba con el muro de pago.
+ * Un torneo se invita a seguir por su página pública (`/torneo/<slug>`): `/en-vivo` pide sesión (cuenta
+ * gratis basta), y quien recibe el link por WhatsApp sin cuenta se toparía con el login.
  */
 export function enlacesDeTorneo(slug: string, nombre: string): EnlacesDeLaRonda {
   return { seguir: buildFollowTournamentShare({ tournamentName: nombre, url: `${SITE_URL}/torneo/${slug}` }) }

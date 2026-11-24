@@ -27,7 +27,6 @@ export type Feature =
   | 'history-full'
   | 'countback'
   // Display premium
-  | 'leaderboard-live'
   | 'share-cards-premium'
   // Organizador premium
   | 'tournament-tv'
@@ -56,7 +55,6 @@ export const FEATURE_MIN_TIER: Record<Feature, Tier> = {
   'gwi': 'pro',
   'history-full': 'pro',
   'countback': 'pro',
-  'leaderboard-live': 'pro',
   'share-cards-premium': 'pro',
   'tournament-tv': 'pro',
   'tournament-ai-assistant': 'pro',

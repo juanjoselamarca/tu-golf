@@ -14,8 +14,6 @@
 
 import { useMemo, useState } from 'react'
 import { isTeamFormat } from '@/golf/formats'
-import { ProGate } from '@/components/billing/ProGate'
-import { LiveUpsell } from './LiveUpsell'
 import Link from 'next/link'
 import { RefreshStatus } from '@/components/RefreshStatus'
 import { loginUrl } from '@/lib/auth/login-url'
@@ -207,11 +205,6 @@ export default function LiveView({
   }
 
   return (
-    <ProGate
-      feature="leaderboard-live"
-      initialAllowed
-      fallback={({ signedIn }) => <LiveUpsell loginNext={signedIn ? undefined : `/torneo/${tournament.slug}/en-vivo`} />}
-    >
     <main
       style={{
         display: 'flex',
@@ -280,6 +273,5 @@ export default function LiveView({
         </p>
       )}
     </main>
-    </ProGate>
   )
 }

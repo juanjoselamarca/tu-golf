@@ -4,7 +4,7 @@
  * `<ProGate initialAllowed>` cortocircuita el gate del cliente: muestra el
  * contenido premium sin preguntar (ProGate.tsx). Es correcto SÓLO si la
  * page.tsx que renderiza ese componente ya decidió el acceso server-side con
- * `canAccessServer('<feature>', …)` — hoy /torneo/[slug]/en-vivo y /tv.
+ * `canAccessServer('<feature>', …)` — hoy /torneo/[slug]/tv (/en-vivo dejó de ser PRO el 24-nov-2026).
  *
  * Sin este canario, copiar `initialAllowed` a otra pantalla regala la feature
  * PRO a todo el mundo y ningún test lo nota (el componente renderiza feliz).
@@ -84,7 +84,6 @@ describe('Canario: <ProGate initialAllowed> exige autorización server-side', ()
   it('encuentra los usos conocidos (guard de cardinalidad: no pasa en vacío)', () => {
     const rel = usos.map((f) => path.relative(SRC, f).split(path.sep).join('/'))
     expect(rel).toEqual(expect.arrayContaining([
-      'app/torneo/[slug]/en-vivo/LiveView.tsx',
       'app/torneo/[slug]/tv/TVBoard.tsx',
     ]))
   })
@@ -97,12 +96,12 @@ describe('Canario: <ProGate initialAllowed> exige autorización server-side', ()
   })
 
   it('el detector discrimina: sin canAccessServer, o con otra feature, falla', () => {
-    const comp = `<ProGate feature="leaderboard-live" initialAllowed fallback={null}>x</ProGate>`
+    const comp = `<ProGate feature="tournament-tv" initialAllowed fallback={null}>x</ProGate>`
     const leer = (p: string) => ({
-      ok: `if (!(await canAccessServer('leaderboard-live', supabase, user.id))) redirect('/')`,
-      otra: `await canAccessServer('tournament-tv', supabase, user.id)`,
+      ok: `if (!(await canAccessServer('tournament-tv', supabase, user.id))) redirect('/')`,
+      otra: `await canAccessServer('coach-v3', supabase, user.id)`,
       nada: `export default function Page() { return null }`,
-      comentada: `// canAccessServer('leaderboard-live', supabase, id)`,
+      comentada: `// canAccessServer('tournament-tv', supabase, id)`,
     })[p] ?? ''
     expect(violaciones('X.tsx', comp, leer, 'ok')).toEqual([])
     expect(violaciones('X.tsx', comp, leer, 'nada')).toHaveLength(1)

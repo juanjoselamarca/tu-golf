@@ -1,8 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import type { ReactNode } from 'react'
 
-vi.mock('@/components/billing/ProGate', () => ({ ProGate: ({ children }: { children: ReactNode }) => <>{children}</> }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }), usePathname: () => '/torneo/copa/en-vivo' }))
 
 import LiveView, { type LiveViewProps } from './LiveView'

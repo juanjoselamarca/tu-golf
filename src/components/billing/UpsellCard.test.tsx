@@ -50,23 +50,23 @@ describe('UpsellCard', () => {
 
 describe('UpsellCard — "¿Ya tienes PRO? Entrar"', () => {
   it('con loginNext muestra Entrar hacia /login con la ruta de vuelta codificada', () => {
-    render(<UpsellCard feature="leaderboard-live" variant="full" title="t" description="d" loginNext="/torneo/copa x/en-vivo" />)
+    render(<UpsellCard feature="tournament-tv" variant="full" title="t" description="d" loginNext="/torneo/copa x/tv" />)
     const entrar = screen.getByRole('link', { name: 'Entrar' })
     // loginUrl() (fuente única) valida y normaliza: /login lee `next` y navega a la
     // ruta original, con el espacio encodeado una sola vez como lo haría el navegador.
     const url = new URL(entrar.getAttribute('href') ?? '', 'https://golfersplus.vercel.app')
     expect(url.pathname).toBe('/login')
-    expect(url.searchParams.get('next')).toBe('/torneo/copa%20x/en-vivo')
+    expect(url.searchParams.get('next')).toBe('/torneo/copa%20x/tv')
     expect(screen.getByText(/¿Ya tienes PRO\?/)).toBeTruthy()
   })
 
   it('sin loginNext (hay sesión) no aparece', () => {
-    render(<UpsellCard feature="leaderboard-live" variant="full" title="t" description="d" />)
+    render(<UpsellCard feature="tournament-tv" variant="full" title="t" description="d" />)
     expect(screen.queryByRole('link', { name: 'Entrar' })).toBeNull()
   })
 
   it('también en la variante medium', () => {
-    render(<UpsellCard feature="leaderboard-live" title="t" description="d" loginNext="/torneo/x/tv" />)
+    render(<UpsellCard feature="tournament-tv" title="t" description="d" loginNext="/torneo/x/tv" />)
     expect(screen.getByRole('link', { name: 'Entrar' }).getAttribute('href')).toBe('/login?next=%2Ftorneo%2Fx%2Ftv')
   })
 })
