@@ -1,7 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { describe, it, expect } from 'vitest'
-import { tarjetaCongelada } from './tarjeta-congelada'
+import { describe, it, expect, vi } from 'vitest'
+import { accionesDeLaTarjeta, tarjetaCongelada } from './tarjeta-congelada'
 
 describe('tarjetaCongelada', () => {
   it('acepta golpes solo sin finalizar y sin un cambio de quién anota en vuelo', () => {
@@ -10,11 +8,44 @@ describe('tarjetaCongelada', () => {
     // «Dejar este equipo» en vuelo: un +/− ahora quedaría pendiente y el servidor lo rechazaría (P0003) sin aviso.
     expect(tarjetaCongelada({ finalizing: false, anotadorEnCurso: 'e1' })).toBe(true)
   })
+})
 
-  it('el scorer de grupo pasa los golpes (jugador y equipo) por este predicado, con el enCurso del anotador', () => {
-    const page = readFileSync(join(__dirname, '..', 'page.tsx'), 'utf-8')
-    expect(page).toMatch(/const congelada = tarjetaCongelada\(\{ finalizing, anotadorEnCurso: anotador\.enCurso \}\)/)
-    expect(page).toMatch(/const anotar = \([^)]*\) => \{ if \(!congelada\)/)
-    expect(page).toMatch(/const anotarEquipo = \([^)]*\) => \{ if \(!congelada\)/)
+describe('accionesDeLaTarjeta', () => {
+  const montar = (congelada: boolean) => {
+    const espias = {
+      marcarInteraccion: vi.fn(),
+      anotarJugador: vi.fn(),
+      anotarEquipo: vi.fn(),
+      pasarAlSiguienteHoyo: vi.fn(async () => {}),
+    }
+    return { espias, acciones: accionesDeLaTarjeta({ congelada, ...espias }) }
+  }
+
+  it('con la tarjeta congelada (Dejar este equipo en vuelo) ni golpes ni «Siguiente»: no hay par del relleno pendiente', async () => {
+    const { espias, acciones } = montar(tarjetaCongelada({ finalizing: false, anotadorEnCurso: 'e1' }))
+    acciones.anotar('j1', 1)
+    acciones.anotarEquipo('e1', -1)
+    await acciones.siguiente()
+    expect(espias.anotarJugador).not.toHaveBeenCalled()
+    expect(espias.anotarEquipo).not.toHaveBeenCalled()
+    expect(espias.pasarAlSiguienteHoyo).not.toHaveBeenCalled()
+    expect(espias.marcarInteraccion).not.toHaveBeenCalled()
+  })
+
+  it('finalizando, «Siguiente» tampoco rellena ni avanza', async () => {
+    const { espias, acciones } = montar(tarjetaCongelada({ finalizing: true, anotadorEnCurso: null }))
+    await acciones.siguiente()
+    expect(espias.pasarAlSiguienteHoyo).not.toHaveBeenCalled()
+  })
+
+  it('sin congelar: anota (marcando la interacción) y «Siguiente» rellena y avanza', async () => {
+    const { espias, acciones } = montar(false)
+    acciones.anotar('j1', 1)
+    acciones.anotarEquipo('e1', -1)
+    await acciones.siguiente()
+    expect(espias.anotarJugador).toHaveBeenCalledWith('j1', 1)
+    expect(espias.anotarEquipo).toHaveBeenCalledWith('e1', -1)
+    expect(espias.marcarInteraccion).toHaveBeenCalledTimes(2)
+    expect(espias.pasarAlSiguienteHoyo).toHaveBeenCalledTimes(1)
   })
 })

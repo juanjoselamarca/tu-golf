@@ -43,7 +43,7 @@ import { useFinalizeGrupo } from './hooks/useFinalizeGrupo'
 import { useIrAlResultadoSiCerrada } from './hooks/useIrAlResultadoSiCerrada'
 import { useMatchPlayState } from '../hooks/useMatchPlayState'
 import { useGrupoScoreboard } from './hooks/useGrupoScoreboard'
-import { tarjetaCongelada } from './hooks/tarjeta-congelada'
+import { accionesDeLaTarjeta, tarjetaCongelada } from './hooks/tarjeta-congelada'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
@@ -148,8 +148,6 @@ export default function ScoreGrupoPage() {
   useBeforeUnloadWarning(hasUnsaved && !sesionPerdida)
   // Mientras se finaliza, o mientras cambia quién anota un equipo, no se aceptan golpes (`tarjetaCongelada`).
   const congelada = tarjetaCongelada({ finalizing, anotadorEnCurso: anotador.enCurso })
-  const anotar = (jugadorId: string, delta: number) => { if (!congelada) { marcarInteraccion(); handleScoreChange(jugadorId, currentHole, delta) } }
-  const anotarEquipo = (equipoId: string, delta: number) => { if (!congelada) { marcarInteraccion(); handleTeamScoreChange(equipoId, currentHole, delta) } }
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
@@ -162,7 +160,7 @@ export default function ScoreGrupoPage() {
   } = board
 
 
-  const goToNextHole = async () => {
+  const pasarAlSiguienteHoyo = async () => {
     if (!ronda) return
     haptic(30)
     // Hoyo fuera de la ronda: sólo se mueve al primero de la ronda, sin rellenar ni guardar.
@@ -192,6 +190,12 @@ export default function ScoreGrupoPage() {
     // NOW advance
     nav.advanceHole()
   }
+  // Golpes y «Siguiente» pasan por la tarjeta congelada (finalizando o cambiando quién anota): ver `accionesDeLaTarjeta`.
+  const { anotar, anotarEquipo, siguiente: goToNextHole } = accionesDeLaTarjeta({
+    congelada, marcarInteraccion, pasarAlSiguienteHoyo,
+    anotarJugador: (jugadorId, delta) => handleScoreChange(jugadorId, currentHole, delta),
+    anotarEquipo: (equipoId, delta) => handleTeamScoreChange(equipoId, currentHole, delta),
+  })
 
   /* ── Render ── */
   if (loading) return <BrandedLoading message="Preparando scorer" variant="dark" />
