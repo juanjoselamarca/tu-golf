@@ -29,8 +29,17 @@ vi.mock('@/lib/data/ronda-libre-anotador', async (orig) => ({
 
 type SesionMock = { session: unknown; error: unknown } | 'lanza'
 const sesion = { valor: { session: { user: { id: 'u1', email: 'juanjo@x.cl' } }, error: null } as SesionMock }
+/** Señales que las lecturas del scorer ataron a sus consultas (`clienteConSenal` → `.abortSignal`). */
+const senalesDeConsulta: AbortSignal[] = []
 vi.mock('@/lib/supabase', () => ({
   createClient: () => ({
+    from: () => {
+      const q: Record<string, unknown> = {}
+      q.select = () => q
+      q.abortSignal = (s: AbortSignal) => { senalesDeConsulta.push(s); return q }
+      return q
+    },
+    rpc: () => ({}),
     auth: {
       getSession: async () => {
         if (sesion.valor === 'lanza') throw new TypeError('Failed to fetch')
@@ -76,8 +85,11 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
     resolverHandicapsDelScorer: async () => colgada.lectura === 'handicaps'
       ? nunca()
       : ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 }, sinIndice: new Set<string>() }),
-    fetchEquiposDelScorer: async () => {
-      if (colgada.lectura === 'equipos') return nunca()
+    fetchEquiposDelScorer: async (sb: { from: (t: string) => { select: (c: string) => unknown } }) => {
+      if (colgada.lectura === 'equipos') {
+        sb.from('ronda_equipos').select('*') // la consulta que el plazo debe cortar
+        return nunca()
+      }
       if (lecturaDeEquipos.falla) throw new Error('Failed to fetch')
       return lecturaDeEquipos.equipos
     },
@@ -93,6 +105,7 @@ function snapshotPrevio(teamEquipos: unknown[] = []) {
 
 beforeEach(() => {
   opcionesDeCarga.length = 0
+  senalesDeConsulta.length = 0
   lecturaDeEquipos.falla = false
   colgada.lectura = null
   lecturaEnVuelo.espera = null
@@ -617,5 +630,36 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
     expect(loadScorerGrupoSnapshot('B4F5Y2', 'u-pedro')).toBeNull()
+  })
+})
+
+describe('useRondaGrupoData — lecturas vencidas se cancelan y nunca se aplican', () => {
+  it('desmontada con la lectura en vuelo: la vuelta se aborta y lo que llega tarde no navega ni borra la copia', async () => {
+    snapshotPrevio()
+    const abrir = compuerta()
+    const { unmount } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(opcionesDeCarga).toHaveLength(1))
+    const { signal } = opcionesDeCarga[0] as { signal: AbortSignal }
+    expect(signal.aborted).toBe(false)
+    unmount()
+    expect(signal.aborted).toBe(true)
+    // Sin la cancelación: «no existe» tardío → limpiaba la copia local y mandaba al dashboard desde una pantalla cerrada.
+    carga.valor = { estado: 'no_existe' }
+    abrir()
+    await new Promise(r => setTimeout(r, 20))
+    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u1')).not.toBeNull()
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('un paso colgado: al vencer el plazo su consulta queda abortada (no sigue ocupando la conexión)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    colgada.lectura = 'equipos'
+    renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(senalesDeConsulta).toHaveLength(1))
+    expect(senalesDeConsulta[0].aborted).toBe(false)
+    await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_CARGA_SCORER_MS + 50) })
+    expect(senalesDeConsulta[0].aborted).toBe(true)
   })
 })

@@ -44,6 +44,7 @@ function makeQueryBuilder(table: string) {
 
   builder['select'] = () => builder
   builder['eq'] = () => builder
+  builder['abortSignal'] = () => builder
   builder['in'] = () => builder
   builder['order'] = () => awaitableOrderChain
   builder['single'] = async () => {
