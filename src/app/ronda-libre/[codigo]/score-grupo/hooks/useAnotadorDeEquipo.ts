@@ -29,27 +29,33 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
     haptic(30)
     setEnCurso(equipoId)
     setAviso(null)
-    const r = await reclamarEquipoDeRonda(createClient(), codigo, equipoId)
-    if (r.estado === 'error' && r.ronda === 'cerrada') {
+    // try/finally: si la RPC o la relectura lanzan, la tarjeta no queda congelada (`tarjetaCongelada`) para siempre.
+    try {
+      const r = await reclamarEquipoDeRonda(createClient(), codigo, equipoId)
+      if (r.estado === 'error' && r.ronda === 'cerrada') {
+        router.replace(`/ronda-libre/${codigo}`)
+        return
+      }
+      // ok / ya_tienes_equipo: al releer, el scorer abre en su equipo. tomado / error: queda el aviso y la lista al día.
+      if (r.estado === 'tomado' || r.estado === 'error') setAviso({ equipoId, mensaje: r.mensaje })
+      await recargar()
+    } finally {
       setEnCurso(null)
-      router.replace(`/ronda-libre/${codigo}`)
-      return
     }
-    // ok / ya_tienes_equipo: al releer, el scorer abre en su equipo. tomado / error: queda el aviso y la lista al día.
-    if (r.estado === 'tomado' || r.estado === 'error') setAviso({ equipoId, mensaje: r.mensaje })
-    await recargar()
-    setEnCurso(null)
   }, [codigo, enCurso, recargar, router])
 
   const liberar = useCallback(async (equipoId: string, nombreEquipo: string) => {
     if (enCurso) return
     haptic(30)
     setEnCurso(equipoId)
-    const r = await liberarEquipoDeRonda(createClient(), codigo, equipoId)
-    if (r.estado === 'ok') addToast({ type: 'success', title: `${nombreEquipo} queda en tu celular`, duration: 4000 })
-    else addToast({ type: 'error', title: r.mensaje, duration: 6000 })
-    await recargar()
-    setEnCurso(null)
+    try {
+      const r = await liberarEquipoDeRonda(createClient(), codigo, equipoId)
+      if (r.estado === 'ok') addToast({ type: 'success', title: `${nombreEquipo} queda en tu celular`, duration: 4000 })
+      else addToast({ type: 'error', title: r.mensaje, duration: 6000 })
+      await recargar()
+    } finally {
+      setEnCurso(null)
+    }
   }, [codigo, enCurso, recargar])
 
   /**
