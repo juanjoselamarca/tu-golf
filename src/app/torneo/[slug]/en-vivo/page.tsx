@@ -1,14 +1,17 @@
 // src/app/torneo/[slug]/en-vivo/page.tsx
-// Server component: gate PRO de la VISTA + render inicial. Los datos salen de la
+// Server component: exige SESIÓN (cualquier cuenta, gratis incluida) + render inicial.
+// No es PRO (decisión 24-nov-2026: la parte operativa del torneo nunca se bloquea),
+// pero tampoco se abre a anónimos: el polling en pleno torneo pesa sobre Supabase.
+// El Modo TV (/torneo/[slug]/tv) sí sigue siendo PRO. Los datos salen de la
 // fuente única `armarTorneoEnVivo` (la misma que la ruta pública cacheable
 // `/api/torneo/[slug]/live`, de la que LiveView se actualiza por polling).
 
 import { createClient } from '@/utils/supabase/server'
-import { notFound } from 'next/navigation'
-import { canAccessServer } from '@/golf/billing/server'
+import { notFound, redirect } from 'next/navigation'
+import { loginUrl } from '@/lib/auth/login-url'
 import LiveView from './LiveView'
-import { LiveUpsell } from './LiveUpsell'
 import { armarTorneoEnVivo, fetchTorneoEnVivoRow } from '@/lib/data/tournaments/en-vivo'
+import { SLUG_TORNEO_VALIDO } from '@/lib/data/tournaments/en-vivo-servidor'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 
@@ -20,20 +23,21 @@ interface PageProps {
 
 export default async function LivePage(props: PageProps) {
   const { slug } = await props.params
+  // Un slug con caracteres que ningún torneo tiene (#, ?, mayúsculas…) es 404 sin
+  // consultar la base ni armar un next raro hacia el login. Misma regla que /live y /neto.
+  if (!SLUG_TORNEO_VALIDO.test(slug)) notFound()
   const supabase = await createClient()
 
   // PRIMERO verificar que el torneo exista — un slug inexistente es 404, NO un
-  // upsell de PRO (haría creer que el torneo existe detrás de un paywall).
+  // pedido de login (haría creer que el torneo existe detrás del login).
   const row = await fetchTorneoEnVivoRow(supabase, slug)
   if (!row) notFound()
 
-  // Gate server-side de la vista: ruta pública, usar getUser() (no getPageUser).
+  // Sin sesión → login, y vuelve acá al entrar. Ruta pública: getUser() (no getPageUser).
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !(await canAccessServer('leaderboard-live', supabase, user.id))) {
-    return <LiveUpsell loginNext={user ? undefined : `/torneo/${slug}/en-vivo`} />
-  }
+  if (!user) redirect(loginUrl(`/torneo/${slug}/en-vivo`))
 
-  // Visor con sesión y PRO (gate de arriba): ve todo. Índices: lectura canónica de #509.
+  // Visor con sesión (cualquier plan): ve todo. Índices: lectura canónica de #509.
   const data = await armarTorneoEnVivo(supabase, row, { visorConSesion: true, leerIndices: indicesDePerfil, leerNombres: nombresDePerfil })
   return (
     <LiveView

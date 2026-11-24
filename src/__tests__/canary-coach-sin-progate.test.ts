@@ -69,7 +69,7 @@ describe('Coach: el acceso vive en canUseCoach, no en ProGate', () => {
     expect(GATE_DE_PLAN.test(`if (canAccess(ctx, 'coach-plan', true))`)).toBe(true)
     expect(GATE_DE_PLAN.test(`const sub = await getSubscription(supabase, id)`)).toBe(true)
     expect(GATE_DE_PLAN.test(`.select('subscription_tier')`)).toBe(true)
-    expect(GATE_DE_PLAN.test(`useEntitlement('leaderboard-live')`)).toBe(false)
+    expect(GATE_DE_PLAN.test(`useEntitlement('tournament-tv')`)).toBe(false)
   })
 
   it('la fuente única consulta el plan con la feature canónica coach-plan', () => {

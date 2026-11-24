@@ -11,7 +11,7 @@ interface UpsellPageProps {
 
 /**
  * Pantalla completa de upsell: para rutas donde el upsell es la única acción
- * (coach, progreso, en vivo, modo TV). La tarjeta `full` ES el título de la
+ * (coach, progreso, modo TV). La tarjeta `full` ES el título de la
  * página; no se agrega otro header encima.
  */
 export function UpsellPage({ feature, title, description, loginNext }: UpsellPageProps) {

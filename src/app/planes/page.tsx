@@ -18,7 +18,7 @@ const FREE_FEATURES = [
   'Scoring completo',
   'Índice Golfers+',
   'Import de rondas',
-  'Leaderboard',
+  'Leaderboard en vivo',
   'Historial básico',
   'Perfil y ranking',
 ]
@@ -30,7 +30,6 @@ const PRO_FEATURES = [
   'Detección de patrones',
   'Golf Win Index',
   'Historial avanzado',
-  'Leaderboard en vivo',
   'Modos neto avanzados',
   'Herramientas de organizador',
   'Modo TV',

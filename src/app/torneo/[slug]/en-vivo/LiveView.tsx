@@ -14,8 +14,7 @@
 
 import { useMemo, useState } from 'react'
 import { isTeamFormat } from '@/golf/formats'
-import { ProGate } from '@/components/billing/ProGate'
-import { LiveUpsell } from './LiveUpsell'
+import { useEntitlement } from '@/hooks/useEntitlement'
 import Link from 'next/link'
 import { RefreshStatus } from '@/components/RefreshStatus'
 import { loginUrl } from '@/lib/auth/login-url'
@@ -73,6 +72,9 @@ export default function LiveView({
   const [groupFilter, setGroupFilter] = useState<string | null>(null)
   const [myViewEnabled, setMyViewEnabled] = useState<boolean>(false)
   const [tvMode, setTvMode] = useState<boolean>(false)
+  // El en vivo es de cualquier cuenta, pero el Modo TV sigue PRO (misma feature que /tv).
+  // Sin acceso (o mientras se lee el plan) no hay botón y `tvMode` no se respeta.
+  const { allowed: puedeModoTV } = useEntitlement('tournament-tv')
 
   // selectedRound se preserva para cuando agreguemos slicing por ronda (Wave 3 tanda 2).
   // Por ahora los datos llegan ya agregados desde el server component.
@@ -192,7 +194,7 @@ export default function LiveView({
   )
   const pie = fueraFiltrados.length > 0 ? <TournamentWithdrawnList withdrawnPlayers={fueraFiltrados} tv={tvMode} /> : null
 
-  if (tvMode) {
+  if (tvMode && puedeModoTV) {
     return (
       <TVMode
         categories={categories}
@@ -207,11 +209,6 @@ export default function LiveView({
   }
 
   return (
-    <ProGate
-      feature="leaderboard-live"
-      initialAllowed
-      fallback={({ signedIn }) => <LiveUpsell loginNext={signedIn ? undefined : `/torneo/${tournament.slug}/en-vivo`} />}
-    >
     <main
       style={{
         display: 'flex',
@@ -258,7 +255,7 @@ export default function LiveView({
         onCategoryChange={setCategoryFilter}
         onGroupChange={setGroupFilter}
         onMyViewToggle={setMyViewEnabled}
-        onTVMode={() => setTvMode(true)}
+        onTVMode={puedeModoTV ? () => setTvMode(true) : undefined}
       />
       {avisoEquipos}
       <div>{body}</div>
@@ -280,6 +277,5 @@ export default function LiveView({
         </p>
       )}
     </main>
-    </ProGate>
   )
 }

@@ -54,7 +54,7 @@ describe('ProGate', () => {
 
   it('fallback como función recibe signedIn (para ofrecer "Entrar" sólo sin sesión)', () => {
     ;(useEntitlement as ReturnType<typeof vi.fn>).mockReturnValue({ allowed: false, loading: false, tier: 'free', signedIn: false })
-    render(<ProGate feature="leaderboard-live" fallback={({ signedIn }) => <p>{signedIn ? 'con sesión' : 'sin sesión'}</p>}><p>pro</p></ProGate>)
+    render(<ProGate feature="tournament-tv" fallback={({ signedIn }) => <p>{signedIn ? 'con sesión' : 'sin sesión'}</p>}><p>pro</p></ProGate>)
     expect(screen.getByText('sin sesión')).toBeTruthy()
     expect(screen.queryByText('pro')).toBeNull()
   })
@@ -63,13 +63,13 @@ describe('ProGate', () => {
 describe('ProGate — initialAllowed (el servidor ya autorizó)', () => {
   it('mientras revalida muestra el contenido, no la pantalla en blanco', () => {
     ;(useEntitlement as ReturnType<typeof vi.fn>).mockReturnValue({ allowed: false, loading: true, tier: null })
-    render(<ProGate feature="leaderboard-live" initialAllowed fallback={<p>upsell</p>}><p>leaderboard</p></ProGate>)
+    render(<ProGate feature="tournament-tv" initialAllowed fallback={<p>upsell</p>}><p>leaderboard</p></ProGate>)
     expect(screen.getByText('leaderboard')).toBeTruthy()
   })
 
   it('una revalidación negativa del cliente (p. ej. red caída → cae a free) no quita el contenido', () => {
     ;(useEntitlement as ReturnType<typeof vi.fn>).mockReturnValue({ allowed: false, loading: false, tier: 'free', signedIn: false })
-    render(<ProGate feature="leaderboard-live" initialAllowed fallback={<p>upsell</p>}><p>leaderboard</p></ProGate>)
+    render(<ProGate feature="tournament-tv" initialAllowed fallback={<p>upsell</p>}><p>leaderboard</p></ProGate>)
     expect(screen.getByText('leaderboard')).toBeTruthy()
     expect(screen.queryByText('upsell')).toBeNull()
   })

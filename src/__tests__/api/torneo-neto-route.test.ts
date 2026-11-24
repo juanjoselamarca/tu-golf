@@ -10,8 +10,8 @@ vi.mock('@/utils/supabase/server', () => ({
   createClient: vi.fn(async () => ({ auth: { getClaims: async () => ({ data: claims ? { claims } : null, error: null }) } })),
 }))
 const armar = vi.fn()
-vi.mock('@/lib/data/tournaments/en-vivo-servidor', () => ({
-  SLUG_TORNEO_VALIDO: /^[a-z0-9][a-z0-9-]{0,119}$/,
+vi.mock('@/lib/data/tournaments/en-vivo-servidor', async (orig) => ({
+  ...(await orig<typeof import('@/lib/data/tournaments/en-vivo-servidor')>()),
   armarTorneoEnVivoParaRuta: (...a: unknown[]) => armar(...a),
 }))
 const cacheLlamadas: Array<{ claves: string[]; opciones: unknown; resultado?: Promise<unknown> }> = []

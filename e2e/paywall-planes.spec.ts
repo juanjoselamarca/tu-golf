@@ -36,6 +36,11 @@ function attachErrorTrackers(page: Page) {
 /*  /planes — pricing page (público, sin auth)            */
 /* ═══════════════════════════════════════════════════════ */
 
+/** La tarjeta (<section>) de un plan en /planes, por su título exacto. */
+function tarjetaDelPlan(page: Page, plan: 'Gratis' | 'Pro') {
+  return page.locator('section').filter({ has: page.getByRole('heading', { level: 2, name: plan, exact: true }) })
+}
+
 test.describe('Página /planes — pricing', () => {
   test('carga sin errores y muestra hero', async ({ page }) => {
     const { pageErrors, serverErrors } = attachErrorTrackers(page)
@@ -138,11 +143,20 @@ test.describe('Página /planes — pricing', () => {
       'Scoring completo',
       'Índice Golfers+',
       'Import de rondas',
+      // Gratis desde el 24-nov-2026 (antes PRO): basta una cuenta.
+      'Leaderboard en vivo',
     ]
 
+    // Acotado a la tarjeta de cada plan: buscar en toda la página pasaría aunque la
+    // feature estuviera en la lista equivocada.
+    const gratis = tarjetaDelPlan(page, 'Gratis')
     for (const feature of freeFeatures) {
-      await expect(page.getByText(feature)).toBeVisible()
+      await expect(gratis.getByRole('listitem').filter({ hasText: feature })).toBeVisible()
     }
+    await expect(
+      tarjetaDelPlan(page, 'Pro').getByRole('listitem').filter({ hasText: 'Leaderboard en vivo' }),
+      'el en vivo no es PRO desde el 24-nov-2026',
+    ).toHaveCount(0)
   })
 
   test('features del plan Pro están listadas', async ({ page }) => {
@@ -156,12 +170,12 @@ test.describe('Página /planes — pricing', () => {
       'Coach tAIger+ con IA',
       'Detección de patrones',
       'Golf Win Index',
-      'Leaderboard en vivo',
       'Modo TV',
     ]
 
+    const pro = tarjetaDelPlan(page, 'Pro')
     for (const feature of proFeatures) {
-      await expect(page.getByText(feature)).toBeVisible()
+      await expect(pro.getByRole('listitem').filter({ hasText: feature })).toBeVisible()
     }
   })
 

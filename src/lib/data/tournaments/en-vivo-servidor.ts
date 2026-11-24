@@ -10,8 +10,13 @@ import { nombresDePerfil } from '@/lib/data/nombres-de-perfil'
 import { armarTorneoEnVivo, fetchTorneoEnVivoRow, type TorneoEnVivo } from './en-vivo'
 import type { Client } from './leaderboard'
 
-/** Slugs: minúsculas, dígitos y guiones (lo demás ni se consulta). */
-export const SLUG_TORNEO_VALIDO = /^[a-z0-9][a-z0-9-]{0,119}$/
+/**
+ * Slugs: minúsculas, dígitos y guiones, de 1 a 120 (lo demás ni se consulta: #, ?, %,
+ * /, mayúsculas). Admite guion inicial: `genTournamentSlug` los generaba así hasta el
+ * 24-nov-2026 («🏆 Copa» → `-copa-<ts>`) y esos torneos tienen que seguir abriendo.
+ * Mismo alfabeto que el generador: lo ata slug-torneo.test.ts.
+ */
+export const SLUG_TORNEO_VALIDO = /^[a-z0-9-]{1,120}$/
 
 /**
  * `null` = el torneo no existe o no es público. Un error de la base se propaga.

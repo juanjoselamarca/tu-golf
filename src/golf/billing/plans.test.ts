@@ -28,7 +28,11 @@ describe('catálogo de planes', () => {
     expect(FEATURE_MIN_TIER['handicap-trend']).toBe('pro_plus')
   })
 
-  it('tiene exactamente 23 features', () => {
-    expect(Object.keys(FEATURE_MIN_TIER)).toHaveLength(23)
+  it('tiene exactamente 22 features', () => {
+    expect(Object.keys(FEATURE_MIN_TIER)).toHaveLength(22)
+  })
+
+  it('el leaderboard en vivo del torneo no tiene gate de plan (24-nov-2026: lo ve cualquier cuenta)', () => {
+    expect(FEATURE_MIN_TIER).not.toHaveProperty('leaderboard-live')
   })
 })

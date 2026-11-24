@@ -19,9 +19,9 @@ import { rechazarQueryString } from '@/lib/api-en-vivo'
 // consulta a Auth por poll; si venció, getClaims lo refresca y @supabase/ssr escribe
 // la cookie (la ruta sale antes del middleware: src/proxy.ts, esApiEnVivo).
 //
-// Gate PRO: es de la VISTA (la página /torneo/[slug]/en-vivo), no de los datos.
-// Esta ruta NO exige PRO: lo que devuelve es el mismo leaderboard que ve cualquier
+// Sin gate de plan: lo que devuelve es el mismo leaderboard que ve cualquier
 // jugador del torneo; sólo exige sesión (decisión de Juanjo: neto sólo con sesión).
+// La vista /torneo/[slug]/en-vivo tampoco es PRO desde el 24-nov-2026: sólo sesión.
 
 export const dynamic = 'force-dynamic'
 

@@ -17,7 +17,7 @@ interface ProGateProps {
    */
   loadingFallback?: ReactNode
   /**
-   * El servidor YA autorizó este render (gate server-side de /en-vivo, /tv) y su
+   * El servidor YA autorizó este render (gate server-side de /tv) y su
    * veredicto manda durante toda la vida de la página: el contenido se muestra desde
    * el primer frame y la revalidación del cliente no lo quita. Ante "red caída" el cliente
    * queda fail-closed (`useEntitlement` → `allowed: false` con `planDesconocido`; este gate
