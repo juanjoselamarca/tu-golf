@@ -43,6 +43,7 @@ import { useFinalizeGrupo } from './hooks/useFinalizeGrupo'
 import { useIrAlResultadoSiCerrada } from './hooks/useIrAlResultadoSiCerrada'
 import { useMatchPlayState } from '../hooks/useMatchPlayState'
 import { useGrupoScoreboard } from './hooks/useGrupoScoreboard'
+import { tarjetaCongelada } from './hooks/tarjeta-congelada'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
@@ -145,10 +146,10 @@ export default function ScoreGrupoPage() {
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
   // Con el aviso de sesión, "Iniciar sesión" navega a propósito y los golpes quedan en el teléfono: sin advertencia.
   useBeforeUnloadWarning(hasUnsaved && !sesionPerdida)
-  // Mientras se finaliza no se aceptan golpes: un tap tardío llegaría después del cierre
-  // (P0002), no entraría al historial y mostraría "se cerró desde otro dispositivo".
-  const anotar = (jugadorId: string, delta: number) => { if (!finalizing) { marcarInteraccion(); handleScoreChange(jugadorId, currentHole, delta) } }
-  const anotarEquipo = (equipoId: string, delta: number) => { if (!finalizing) { marcarInteraccion(); handleTeamScoreChange(equipoId, currentHole, delta) } }
+  // Mientras se finaliza, o mientras cambia quién anota un equipo, no se aceptan golpes (`tarjetaCongelada`).
+  const congelada = tarjetaCongelada({ finalizing, anotadorEnCurso: anotador.enCurso })
+  const anotar = (jugadorId: string, delta: number) => { if (!congelada) { marcarInteraccion(); handleScoreChange(jugadorId, currentHole, delta) } }
+  const anotarEquipo = (equipoId: string, delta: number) => { if (!congelada) { marcarInteraccion(); handleTeamScoreChange(equipoId, currentHole, delta) } }
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
