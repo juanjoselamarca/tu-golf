@@ -117,11 +117,17 @@ type RpcClient = Pick<SupabaseClient, 'rpc'>
  */
 export const RONDA_CON_TARJETAS_GUARDADAS_DETAIL = 'ronda con tarjetas guardadas'
 
+/** DETAIL del P0003 de `descartar_ronda_libre` para una ronda ligada a un torneo (migración 20260929b). */
+export const RONDA_DE_TORNEO_DETAIL = 'ronda de torneo'
+
+/** DETAIL del P0003 de `descartar_ronda_libre` cuando otra tabla la referencia (p. ej. taiger_sessions). */
+export const RONDA_CON_DATOS_ASOCIADOS_DETAIL = 'ronda con datos asociados'
+
 /** Mensaje para el usuario según el error del RPC de descarte. */
 export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'details' | 'message'>): string {
   if (error.code === RONDA_ERRCODE.FORBIDDEN) {
-    if (error.details === 'ronda de torneo') return 'Las rondas de un torneo no se pueden descartar.'
-    if (error.details === 'ronda con datos asociados') return 'Esta ronda tiene datos asociados y no se puede descartar.'
+    if (error.details === RONDA_DE_TORNEO_DETAIL) return 'Las rondas de un torneo no se pueden descartar.'
+    if (error.details === RONDA_CON_DATOS_ASOCIADOS_DETAIL) return 'Esta ronda tiene datos asociados y no se puede descartar.'
     if (error.details === RONDA_CON_TARJETAS_GUARDADAS_DETAIL) return 'Ya hay una tarjeta de esta ronda en un historial: no se puede descartar.'
     return 'Solo quien creó la ronda puede descartarla.'
   }

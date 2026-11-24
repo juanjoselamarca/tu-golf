@@ -13,6 +13,10 @@
 --     'ronda con tarjetas guardadas'. Decisión de producto (Juanjo, 24-nov): si nadie guardó, se descarta; si
 --     alguien guardó, no. Pasa cuando uno finaliza y los demás siguen jugando: al recargar, «Descartar» volvía.
 --     Usa el índice único ux_historical_rounds_ronda_libre_jugador (por eso el `metadata ? ...` en el JOIN).
+--     Límite conocido: el historial lo inserta el cliente directo, sin tomar el lock de la ronda. Si alguien guarda
+--     su tarjeta en los milisegundos entre este EXISTS y el DELETE, la ronda se borra igual y esa fila del historial
+--     queda con el vínculo huérfano (autocontenida, como pasaba siempre antes de esta migración). Cerrarlo del todo
+--     exige que el guardado del historial pase por un RPC que bloquee la ronda.
 --
 -- Prueba: scripts/ci/pruebas-sql/descartar-ronda-libre.sql. Idempotente.
 -- Rollback: supabase/migrations/rollback/20261124_descartar_solo_ronda_en_curso_rollback.sql

@@ -321,7 +321,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       })
       // Mi tarjeta quedó en el historial: desde ya la ronda no se descarta (el servidor lo rechaza igual,
       // P0003 'ronda con tarjetas guardadas'), aunque después el cierre no tenga respuesta.
-      if (guardado.status !== 'error') { tarjetaGuardada = guardado.tarjeta; setDescarteCerrado(true) }
+      if (guardado.status !== 'error') tarjetaGuardada = guardado.tarjeta
+      if (guardado.status === 'insertada' || guardado.status === 'duplicada') setDescarteCerrado(true)
       // No guardada (RLS, red…): no se anuncia "Ronda guardada" ni se recalcula el
       // índice sobre un historial que no cambió. Los golpes siguen en la tarjeta.
       if (guardado.status === 'error') {
