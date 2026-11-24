@@ -60,7 +60,16 @@ const SIN_JUGADORES: Jugador[] = []
 const PADDING_PANEL_JUEGO_PX = 16
 
 /* ── Main ── */
+/**
+ * Un scorer por ronda: con otro `codigo` se monta de cero (key). Sin la key, refs y estado de la ronda anterior
+ * (cargada, eligiendo, golpes, equipos) sobrevivirían al cambio y la carga nueva mezclaría golpes entre rondas.
+ */
 export default function ScoreGrupoPage() {
+  const codigo = useParams().codigo as string
+  return <ScorerDeGrupo key={codigo} />
+}
+
+function ScorerDeGrupo() {
   const params = useParams()
   const router = useRouter()
   const codigo = params.codigo as string
