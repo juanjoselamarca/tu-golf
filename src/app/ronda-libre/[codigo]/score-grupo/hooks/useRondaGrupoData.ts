@@ -137,6 +137,8 @@ export function hoyoInicial(
  * local de una ronda "borrada").
  */
 async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<Carga> {
+  // Nacida cancelada: ni siquiera se espera la sesión (hasta 8 s).
+  if (signal.aborted) return { tipo: 'cancelada' }
   const supabase = createClient()
   /** Un paso de la lectura: su plazo propio, cancelable, con el cliente que lleva la señal al fetch. */
   const paso = <T,>(leer: (cliente: typeof supabase) => PromiseLike<T>) =>
