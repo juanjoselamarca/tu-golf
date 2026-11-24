@@ -109,6 +109,9 @@ BEGIN
 END;
 $function$;
 
+-- Sigue privada (solo la llaman las RPC SECURITY DEFINER): CREATE OR REPLACE conserva el ACL, pero se declara.
+REVOKE ALL ON FUNCTION public.timba_ronda_para_escribir(text, uuid) FROM PUBLIC, anon, authenticated;
+
 -- 5. La X, aparte de los golpes --------------------------------------------------------------------------------
 ALTER TABLE public.ronda_libre_jugadores
   ADD COLUMN IF NOT EXISTS fuera_del_hoyo jsonb NOT NULL DEFAULT '{}'::jsonb;
