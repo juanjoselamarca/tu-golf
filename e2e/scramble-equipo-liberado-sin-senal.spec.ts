@@ -21,6 +21,8 @@ import {
 } from './helpers/scramble-club-fixture'
 import { REINTENTO_CARGA_MS } from '../src/lib/data/ronda-libre-scorer'
 import { MENSAJE_YA_NO_ANOTAS } from '../src/lib/data/ronda-libre-anotador'
+import { ID_PENDIENTE_EQUIPO, leerPendientes } from '../src/lib/ronda/score-storage'
+import { SAVE_DEBOUNCE_MS } from '../src/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 
 /**
  * Scramble rápido «un celular por equipo»: a Pedro le liberan el equipo MIENTRAS anota (#861, useGrupoScoreSave).
@@ -66,6 +68,22 @@ async function abrirScorerDePedro(browser: Browser, testInfo: TestInfo, codigo: 
   return { ctx, page, pageErrors }
 }
 
+/**
+ * Los golpes de un equipo que el teléfono de Pedro tiene pendientes de subir, o null si no hay. Se copia su
+ * localStorage y se lee con `leerPendientes` (la cola canónica del scorer), sin repetir acá su clave ni su forma.
+ */
+async function pendientesDeEquipo(page: Page, codigo: string, equipoId: string): Promise<Record<string, number> | null> {
+  const almacen: Record<string, string> = await page.evaluate(() => Object.fromEntries(Object.entries(localStorage)))
+  const previo = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (k: string) => almacen[k] ?? null } })
+  try {
+    return leerPendientes(codigo)[ID_PENDIENTE_EQUIPO(equipoId)] ?? null
+  } finally {
+    if (previo) Object.defineProperty(globalThis, 'localStorage', previo)
+    else delete (globalThis as { localStorage?: unknown }).localStorage
+  }
+}
+
 async function liberarComoCreador(codigo: string, equipoId: string): Promise<void> {
   const r = await creadorDb!.rpc('liberar_equipo_de_ronda', { p_codigo: codigo, p_equipo_id: equipoId })
   expect(r.error, JSON.stringify(r.error)).toBeNull()
@@ -100,7 +118,10 @@ test.describe('Scramble rápido — a Pedro le liberan el equipo mientras anota'
       // Pedro pierde la señal y anota el hoyo 1: el golpe queda pendiente en el teléfono.
       await ctx.setOffline(true)
       await tarjetaDeEquipo(page, 'Las Águilas').getByRole('button', { name: '+', exact: true }).click()
-      await expect(tarjetaDeEquipo(page, 'Las Águilas').getByText(/^\d+$/).first(), 'el golpe se ve en pantalla').toBeVisible()
+      await expect
+        .poll(() => pendientesDeEquipo(page, codigo, aguilasId), { message: 'el golpe del hoyo 1 queda pendiente en el teléfono' })
+        .toHaveProperty('1')
+      expect(await golpeDelEquipo(id, 'Las Águilas', 1), 'sin señal no llega al servidor').toBeNull()
 
       // Mientras tanto, el creador libera Las Águilas desde su celular.
       await liberarComoCreador(codigo, aguilasId)
@@ -123,6 +144,16 @@ test.describe('Scramble rápido — a Pedro le liberan el equipo mientras anota'
       await expect(page.getByRole('heading', { name: 'Elige tu equipo' })).toBeVisible({ timeout: 20_000 })
       await expect(tarjetaDeEquipo(page, 'Las Águilas')).toHaveCount(0)
       expect(await golpeDelEquipo(id, 'Las Águilas', 1)).toBeNull()
+      expect(await pendientesDeEquipo(page, codigo, aguilasId), 'el pendiente del equipo perdido se borró del teléfono').toBeNull()
+
+      // Pedro vuelve a tomar Las Águilas: el golpe viejo no resucita ni sube (se espera más que el debounce del guardado).
+      await page.getByRole('list', { name: 'Equipos libres' }).getByRole('button', { name: /Las Águilas/ }).click()
+      await page.getByRole('dialog').getByRole('button', { name: 'Anotar', exact: true }).click()
+      await expect(tarjetaDeEquipo(page, 'Las Águilas')).toBeVisible({ timeout: 20_000 })
+      expect((await equiposDe(id))['Las Águilas'].anotador_user_id, 'Pedro vuelve a anotar Las Águilas').toBe(pedro!.id)
+      await page.waitForTimeout(SAVE_DEBOUNCE_MS + 2_500)
+      expect(await golpeDelEquipo(id, 'Las Águilas', 1), 'al volver a tomarlo, el golpe viejo no sube').toBeNull()
+      expect(await pendientesDeEquipo(page, codigo, aguilasId)).toBeNull()
 
       expect(pageErrors).toEqual([])
     } finally {
