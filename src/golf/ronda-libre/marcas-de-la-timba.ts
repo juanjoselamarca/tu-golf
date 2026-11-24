@@ -65,8 +65,8 @@ export interface BotonDeMarca {
   /** Marcada (o quitada) en el teléfono y todavía sin confirmar por el servidor. */
   enEspera: boolean
   /**
-   * Razón si está marcada y no cuenta; `null` si cuenta o si todavía no se sabe. Un score anotado sobre par se
-   * juzga en el teléfono sin esperar al motor (igual que un retiro); el resto lo dice el motor.
+   * Razón si está marcada y no cuenta; `null` si cuenta o si todavía no se sabe. Con score anotado (y par
+   * conocido) o un retiro, lo juzga el teléfono sin esperar al motor; sin score, lo dice el motor.
    */
   noCuenta: string | null
 }
@@ -123,11 +123,14 @@ export function marcasDelHoyo(input: {
   })
 
   function razonNoCuenta(puntito: PuntitoConfig, jugadorId: string): string | null {
-    // En el teléfono se juzga solo lo seguro: un score anotado sobre par, o un retiro (no jugó el hoyo). Un score
-    // sin anotar no: un chipingo marcado antes de anotar es legítimo.
+    // Con un dato local seguro (score anotado con par conocido, o un retiro) el juicio del teléfono es el definitivo,
+    // en los dos sentidos: el del motor puede venir atrasado (corregir un 5 a 4 tiene que sacar el "no cuenta" al
+    // tiro). Sin score anotado manda el motor: un chipingo marcado antes de anotar es legítimo.
     const retirado = retirados.has(jugadorId)
-    const local = porQueNoCuenta(puntito.tipo, retirado ? null : golpes[jugadorId], par)
-    if (local && (retirado || local.motivo === 'sobre_par')) return local.razon
+    const g = golpes[jugadorId]
+    if (retirado || (typeof g === 'number' && g > 0 && typeof par === 'number')) {
+      return porQueNoCuenta(puntito.tipo, retirado ? null : g, par)?.razon ?? null
+    }
     const evaluado = resultadoDelHoyo?.especiales.find(e => e.jugadorId === jugadorId && e.puntitoId === puntito.id)
     return evaluado && !evaluado.cuenta ? evaluado.razon ?? 'No cuenta' : null
   }

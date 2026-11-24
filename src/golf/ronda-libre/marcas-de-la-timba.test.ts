@@ -77,6 +77,27 @@ describe('marcasDelHoyo — qué ve el scorer en cada botón', () => {
       expect(r[0].jugadores[0].noCuenta).toBe('El sandy cuenta solo con par o mejor')
     }
   })
+  it('score corregido a par con el motor atrasado (todavía dice que no): el teléfono manda, ya cuenta', () => {
+    const r = marcasDelHoyo({
+      puntitos: puntitosMarcables(config, 4), jugadorIds: ['a'], hoyo: 4, marcas, enEspera: [], golpes: { a: 4 }, par: 4, retirados: new Set(),
+      resultadoDelHoyo: hoyo([{ jugadorId: 'a', puntitoId: 's', tipo: 'sandy', puntos: 0, cuenta: false, razon: 'El sandy cuenta solo con par o mejor' }]),
+    })
+    expect(r[0].jugadores[0].noCuenta).toBeNull()
+  })
+  it('sin score anotado manda el motor', () => {
+    const r = marcasDelHoyo({
+      puntitos: puntitosMarcables(config, 4), jugadorIds: ['a'], hoyo: 4, marcas, enEspera: [], golpes: {}, par: 4, retirados: new Set(),
+      resultadoDelHoyo: hoyo([{ jugadorId: 'a', puntitoId: 's', tipo: 'sandy', puntos: 0, cuenta: false, razon: 'No jugó el hoyo' }]),
+    })
+    expect(r[0].jugadores[0].noCuenta).toBe('No jugó el hoyo')
+  })
+  it('par desconocido: no se juzga en el teléfono (un greenie no pasa a «solo en par 3» por no saber el par)', () => {
+    const r = marcasDelHoyo({
+      puntitos: [GREENIE], jugadorIds: ['a'], hoyo: 4, marcas: [{ jugadorId: 'a', hoyo: 4, puntitoId: 'g' }], enEspera: [],
+      golpes: { a: 3 }, par: undefined, retirados: new Set(), resultadoDelHoyo: null,
+    })
+    expect(r[0].jugadores[0].noCuenta).toBeNull()
+  })
   it('chipingo marcado antes de anotar el score: no se avisa nada (es legítimo)', () => {
     const chip = { id: 'c', tipo: 'chipingo', valor: 1, destino: 'individual', activo: true } as const
     const r = marcasDelHoyo({
