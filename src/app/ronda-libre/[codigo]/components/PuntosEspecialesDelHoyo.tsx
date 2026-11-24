@@ -6,8 +6,11 @@ import type { MarcasDeUnPuntito } from '@/golf/ronda-libre/marcas-de-la-timba'
 
 export interface LineaDelResumen {
   texto: string
-  /** `cuenta` = ✓; `no_cuenta` y `sin_enviar` se dicen con palabras (nunca un ✓ que no es seguro). */
-  estado: 'cuenta' | 'no_cuenta' | 'sin_enviar'
+  /**
+   * `marcada` = ✓: marcada y guardada (puede que el motor todavía no juzgue el hoyo). `no_cuenta` y `sin_enviar` se
+   * dicen con palabras.
+   */
+  estado: 'marcada' | 'no_cuenta' | 'sin_enviar'
 }
 
 /** Una línea por marca puesta en el hoyo ("Sandy · Pedro ✓"): cerrado, nunca queda una marca escondida. */
@@ -17,7 +20,7 @@ export function resumenDeMarcas(grupos: readonly MarcasDeUnPuntito[], nombres: R
       .filter(j => j.marcado)
       .map(j => ({
         texto: `${g.nombre} · ${nombres[j.jugadorId] ?? ''}`,
-        estado: j.noCuenta ? ('no_cuenta' as const) : j.enEspera ? ('sin_enviar' as const) : ('cuenta' as const),
+        estado: j.noCuenta ? ('no_cuenta' as const) : j.enEspera ? ('sin_enviar' as const) : ('marcada' as const),
       })),
   )
 }
@@ -77,7 +80,7 @@ export function PuntosEspecialesDelHoyo(props: {
                 <Fragment key={i}>
                   {i > 0 && ', '}
                   {l.texto}{' '}
-                  {l.estado === 'cuenta'
+                  {l.estado === 'marcada'
                     ? <span style={{ color: 'var(--brand-on-bg)' }}>✓</span>
                     : <span style={{ fontWeight: 700, color: 'var(--text)' }}>{l.estado === 'no_cuenta' ? '(no cuenta)' : '(sin enviar)'}</span>}
                 </Fragment>
