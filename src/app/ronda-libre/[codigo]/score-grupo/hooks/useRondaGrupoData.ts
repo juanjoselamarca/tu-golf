@@ -377,14 +377,26 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
    * Lee la ronda sin superponer lecturas. La lectura en vuelo pudo salir ANTES del reclamo o la liberación: el pedido
    * nuevo deja una vuelta más y recibe la promesa de la corrida entera, que termina después de esa vuelta. Un bucle
    * (no recursión): cada vuelta atiende todos los pedidos llegados durante la anterior.
+   * `deFondo` (refresco periódico, `online`, volver a la app) NO encola vuelta: con señal lenta una vuelta dura más que
+   * el intervalo, siempre le caería un tic adentro y la corrida no terminaría nunca (Finalizar la espera). Solo
+   * `recargar` y `recargarTrasDejarEquipo`, que necesitan una lectura posterior a su cambio, encolan.
+   * La corrida nunca rechaza: una vuelta que lanza se registra y el bucle sigue (los `void cargar()` no dejan rechazos
+   * sin manejar y un pedido encolado no se pierde).
    */
-  const cargar = useCallback((): Promise<void> => {
-    if (enVueloRef.current) { otraVueltaRef.current = true; return enVueloRef.current }
+  const cargar = useCallback(({ deFondo = false }: { deFondo?: boolean } = {}): Promise<void> => {
+    if (enVueloRef.current) {
+      if (!deFondo) otraVueltaRef.current = true
+      return enVueloRef.current
+    }
     const corrida = (async () => {
       try {
         do {
           otraVueltaRef.current = false
-          await leerRef.current()
+          try {
+            await leerRef.current()
+          } catch (err) {
+            captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_grupo_load', level: 'warning' })
+          }
         } while (otraVueltaRef.current)
       } finally {
         enVueloRef.current = null
@@ -396,8 +408,10 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   // leerUnaVez en las deps: un `codigo` nuevo vuelve a disparar la carga inicial (el efecto de abajo).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leerUnaVez])
+  const recargar = useCallback(() => cargar(), [cargar])
   const recargarTrasDejarEquipo = useCallback(() => { dejoElEquipoRef.current = true; return cargar() }, [cargar])
 
+  // Carga inicial (y con un `codigo` nuevo): no es un tic, sí encola si quedó otra lectura en vuelo.
   useEffect(() => { void cargar() }, [cargar])
 
   // Reintento solo mientras el servidor no responde (o la pantalla quedó en "sin conexión").
@@ -408,12 +422,12 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const releer = reintentando || unCelular || eleccion != null
   useEffect(() => {
     if (!releer) return
-    const id = setInterval(() => { void cargar() }, REINTENTO_CARGA_MS)
-    const onOnline = () => { void cargar() }
+    const id = setInterval(() => { void cargar({ deFondo: true }) }, REINTENTO_CARGA_MS)
+    const onOnline = () => { void cargar({ deFondo: true }) }
     window.addEventListener('online', onOnline)
     return () => { clearInterval(id); window.removeEventListener('online', onOnline) }
   }, [releer, cargar])
-  useRefreshOnResume(useCallback(() => { void cargar() }, [cargar]), releer)
+  useRefreshOnResume(useCallback(() => { void cargar({ deFondo: true }) }, [cargar]), releer)
 
   return {
     ronda, loading, loadError,
@@ -423,6 +437,6 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     teamEquipos, setTeamEquipos,
     anotadorNombre, authUserId,
     conexion, golpesSinSubir,
-    unCelularPorEquipo: unCelular, equiposDeOtroCelular: ajenos, eleccion, recargar: cargar, recargarTrasDejarEquipo,
+    unCelularPorEquipo: unCelular, equiposDeOtroCelular: ajenos, eleccion, recargar, recargarTrasDejarEquipo,
   }
 }

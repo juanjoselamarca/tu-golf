@@ -17,7 +17,8 @@ import { MENSAJE_EQUIPOS_TARDAN } from '@/lib/data/ronda-libre-anotador'
 const push = vi.fn()
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }))
-vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
+const captureError = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/error-tracking', () => ({ captureError }))
 const addToast = vi.hoisted(() => vi.fn())
 vi.mock('@/hooks/useToast', () => ({ addToast }))
 const reclamarEquipo = vi.hoisted(() => vi.fn())
@@ -97,6 +98,7 @@ beforeEach(() => {
   lecturaEnVuelo.espera = null
   addToast.mockClear()
   reclamarEquipo.mockReset()
+  captureError.mockClear()
   lecturaDeEquipos.equipos = []
   localStorage.clear()
   push.mockClear()
@@ -440,6 +442,62 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) })
     await waitFor(() => expect(result.current.conexion).toBe('ok'))
     expect(result.current.eleccion?.equipos.find(e => e.id === 'e2')?.anotador_user_id).toBe('u-pedro')
+  })
+
+  /** Los tres pedidos de fondo que pasan por `cargar` (Fable, 2ª vuelta): ninguno encola vuelta. */
+  const TICS: Array<[string, () => Promise<void>]> = [
+    ['el intervalo', async () => { await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) }) }],
+    ['«online»', async () => { act(() => { window.dispatchEvent(new Event('online')) }) }],
+    ['volver a la app', async () => {
+      const ahora = Date.now()
+      const visible = vi.spyOn(document, 'visibilityState', 'get')
+      const reloj = vi.spyOn(Date, 'now')
+      visible.mockReturnValue('hidden'); reloj.mockReturnValue(ahora)
+      act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+      visible.mockReturnValue('visible'); reloj.mockReturnValue(ahora + 5000)
+      act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+      visible.mockRestore(); reloj.mockRestore()
+    }],
+  ]
+  it.each(TICS)('con señal lenta, %s no alarga la corrida: recargar() se resuelve tras la vuelta siguiente', async (_n, tic) => {
+    // Revisión Fable, 2ª vuelta: cada tic (15 s) caía dentro de una vuelta de ~58 s y encolaba otra; la corrida no
+    // terminaba nunca y Finalizar, que espera recargar(), quedaba en «Finalizando…».
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.eleccion).not.toBeNull())
+    const abrir1 = compuerta()
+    await act(async () => { await vi.advanceTimersByTimeAsync(REINTENTO_CARGA_MS + 50) }) // tic: vuelta 1, colgada
+    let atendida = false
+    act(() => { void result.current.recargar().then(() => { atendida = true }) })
+    const abrir2 = compuerta()
+    abrir1() // termina la vuelta 1; la 2 (la del pedido) queda colgada
+    await act(async () => { await vi.advanceTimersByTimeAsync(50) })
+    await tic() // un pedido de fondo dentro de la vuelta 2
+    expect(atendida).toBe(false)
+    const abrir3 = compuerta()
+    abrir2()
+    await act(async () => { await vi.advanceTimersByTimeAsync(50) })
+    expect(atendida).toBe(true)
+    abrir3()
+  })
+
+  it('una vuelta que lanza no pierde el pedido encolado ni deja un rechazo sin manejar', async () => {
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const abrir1 = compuerta()
+    const estados: string[] = []
+    act(() => { result.current.recargar().then(() => estados.push('p1 ok'), () => estados.push('p1 rechazo')) })
+    act(() => { result.current.recargar().then(() => estados.push('p2 ok'), () => estados.push('p2 rechazo')) })
+    // La vuelta 1 termina en una ronda demo (redirige) y la navegación revienta una vez.
+    carga.valor = { estado: 'ok', ronda: { ...RONDA, es_demo: true } }
+    replace.mockImplementationOnce(() => { throw new Error('navegación') })
+    abrir1()
+    await waitFor(() => expect(estados).toEqual(['p1 ok', 'p2 ok']))
+    expect(replace).toHaveBeenCalledTimes(2) // la vuelta encolada corrió igual
+    expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ message: 'navegación' }), expect.anything())
   })
 
   it('«Elige tu equipo» relee al volver a la app (más de 2 s afuera)', async () => {
