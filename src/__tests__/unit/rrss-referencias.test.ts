@@ -3,10 +3,14 @@
 // real termina como ficha y nadie lo arregla; para el otro, las referencias
 // vuelven a quedarse en el inbox y /rrss no las ve (lo que pasaba hasta el
 // 19-nov: 14 analizadas, 0 en la bandeja).
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   avisoMetodo,
+  conservarDeLaPrevia,
   esDeMetodo,
+  marcarAplicada,
+  rutaFicha,
   idDeLink,
   linkDeReferencia,
   metodoSinAplicar,
@@ -135,6 +139,31 @@ describe('referencias de método (links sobre cómo trabajar mejor)', () => {
     expect(avisoMetodo([])).toBe('')
     expect(avisoMetodo(metodoSinAplicar([metodo]))).toMatch(/1 lección de método sin aplicar.*--metodo/)
     expect(avisoMetodo(metodoSinAplicar([metodo, { ...metodo, id: 'reel-d' }]))).toMatch(/^🧭 2 lecciones/)
+  })
+
+  it('--rehacer conserva dónde se usó, dónde se aplicó y la clasificación corregida a mano', () => {
+    const previa = { ...metodo, leccion_metodo: 'corregida a mano', aplicada_en: ['/consejo'], usada_en: ['t1'] }
+    const { analisis, historial } = conservarDeLaPrevia({ formato: 'nuevo', tipo: 'contenido', leccion_metodo: '' }, previa)
+    expect(analisis).toMatchObject({ formato: 'nuevo', tipo: 'metodo', leccion_metodo: 'corregida a mano' })
+    expect(historial).toEqual({ usada_en: ['t1'], aplicada_en: ['/consejo'] })
+    expect(conservarDeLaPrevia({ formato: 'x' }, null)).toEqual({ analisis: { formato: 'x' }, historial: {} })
+  })
+
+  it('marcarAplicada: exige dónde, rechaza contenido, no duplica y saca la lección del aviso', () => {
+    const id = `zz-test-metodo-${process.pid}`
+    const ruta = rutaFicha(id)
+    try {
+      writeFileSync(ruta, JSON.stringify({ ...metodo, id }))
+      expect(() => marcarAplicada(id, '  ')).toThrow(/dónde/)
+      marcarAplicada(id, '/consejo')
+      const ficha = marcarAplicada(id, '/consejo')
+      expect(ficha.aplicada_en).toEqual(['/consejo'])
+      expect(metodoSinAplicar([JSON.parse(readFileSync(ruta, 'utf8'))])).toEqual([])
+      writeFileSync(ruta, JSON.stringify({ ...contenido, id }))
+      expect(() => marcarAplicada(id, '/consejo')).toThrow(/no es una referencia de método/)
+    } finally {
+      if (existsSync(ruta)) rmSync(ruta)
+    }
   })
 })
 

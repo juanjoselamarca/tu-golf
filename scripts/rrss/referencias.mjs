@@ -297,7 +297,7 @@ export async function ingerir(
   if (existsSync(ruta) && !rehacer) return { id, ruta, ficha: JSON.parse(readFileSync(ruta, 'utf8')), reusada: true }
   const descarga = bajar(url, { env })
   const analisis = await analizar(descarga, { env })
-  const ficha = guardarFicha({ id, url, cuando, caption: descarga.caption, analisis, nota, origen })
+  const ficha = guardarFicha({ id, url, cuando, caption: descarga.caption, analisis, nota, origen, previa: fichaPrevia(ruta) })
   return { id, ruta, ficha, reusada: false }
 }
 
@@ -313,7 +313,7 @@ export async function ingerirImagen(
   const ruta = rutaFicha(id)
   if (existsSync(ruta) && !rehacer) return { id, ruta, ficha: JSON.parse(readFileSync(ruta, 'utf8')), reusada: true }
   const analisis = await analizar({ imagen, caption: nota }, { env })
-  const ficha = guardarFicha({ id, url: null, cuando, caption: '', analisis, nota, origen })
+  const ficha = guardarFicha({ id, url: null, cuando, caption: '', analisis, nota, origen, previa: fichaPrevia(ruta) })
   return { id, ruta, ficha, reusada: false }
 }
 
@@ -348,7 +348,25 @@ export function esDeMetodo(ficha) {
   return ficha?.tipo === 'metodo'
 }
 
-function guardarFicha({ id, url, cuando, caption, analisis, nota, origen }) {
+function fichaPrevia(ruta) {
+  return existsSync(ruta) ? JSON.parse(readFileSync(ruta, 'utf8')) : null
+}
+
+/**
+ * Lo que `--rehacer` NO puede pisar de una ficha existente: en qué tandas se usó, dónde quedó aplicada
+ * la lección y la clasificación de método (que /inbox puede haber corregido a mano). Sin esto, una
+ * lección ya aplicada volvía a avisarse en cada sesión.
+ */
+export function conservarDeLaPrevia(analisis, previa) {
+  if (!previa) return { analisis, historial: {} }
+  const clasificacion = previa.tipo ? { tipo: previa.tipo, leccion_metodo: previa.leccion_metodo ?? '' } : {}
+  const historial = { usada_en: previa.usada_en ?? [] }
+  if (previa.aplicada_en) historial.aplicada_en = previa.aplicada_en
+  return { analisis: { ...analisis, ...clasificacion }, historial }
+}
+
+function guardarFicha({ id, url, cuando, caption, analisis: nuevo, nota, origen, previa = null }) {
+  const { analisis, historial } = conservarDeLaPrevia(nuevo, previa)
   const ficha = {
     // El análisis va primero: si Gemini devolviera un id o una url, no pisa los nuestros.
     ...analisis,
@@ -363,6 +381,7 @@ function guardarFicha({ id, url, cuando, caption, analisis, nota, origen }) {
     usada_en: [], // tandas que se inspiraron en esta referencia
     // Solo método: dónde quedó aplicada la lección (un PR, un comando, una regla). Vacío = pendiente.
     ...(esDeMetodo(analisis) ? { aplicada_en: [] } : {}),
+    ...historial,
   }
   mkdirSync(DIR_REFERENCIAS, { recursive: true })
   writeFileSync(rutaFicha(id), `${JSON.stringify(ficha, null, 2)}\n`)
@@ -445,8 +464,13 @@ export function marcarUsada(id, slugTanda) {
 async function main() {
   const args = process.argv.slice(2)
   if (args[0] === '--listar') {
-    const pendientes = sinUsar()
-    console.log(`${listarReferencias().length} referencias · ${pendientes.length} sin usar`)
+    const todas = listarReferencias()
+    const pendientes = sinUsar(todas)
+    const metodo = todas.filter(esDeMetodo).length
+    console.log(
+      `${todas.length - metodo} referencias de video · ${pendientes.length} sin usar` +
+        (metodo ? ` · ${metodo} de método aparte (no son para /rrss: --metodo)` : ''),
+    )
     pendientes.forEach((r) => {
       console.log(`   ${r.id}${r.es_de_golf === false ? ' [NO es de golf]' : ''} · ${r.formato} · ${r.gancho}`)
       if (r.nota_juanjo) console.log(`      Juanjo: "${r.nota_juanjo}"`)

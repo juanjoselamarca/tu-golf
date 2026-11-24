@@ -15,6 +15,8 @@ revisor independiente; en decisiones de producto no había nada. Este comando lo
   **alto impacto o difícil de revertir**: abrir una función a todos (p. ej. la Timba), precios o paywall,
   qué priorizar en un sprint completo, la estrategia de RRSS, sumar o sacar un formato, cambiar cómo se
   ve el hándicap. Una por decisión, no por cada detalle.
+- **No se usa de noche** (agentes nocturnos): la decisión final es de Juanjo y el presidente corre en
+  Fable, que de noche no se usa (`scripts/ceo-prompts/night-rules.md`). Queda anotada para la mañana.
 - **No se usa** para decisiones técnicas (las decide Claude como CTO, con `revisor-fable` si aplica),
   copy menor, ni cuando hay un torneo inminente (velocidad manda).
 
