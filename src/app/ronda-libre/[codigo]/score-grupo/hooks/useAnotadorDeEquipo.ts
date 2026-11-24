@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { haptic } from '@/lib/ronda/helpers'
 import { addToast } from '@/hooks/useToast'
-import { liberarEquipoDeRonda, reclamarEquipoDeRonda, MENSAJE_DEJAR_CON_PENDIENTES } from '@/lib/data/ronda-libre-anotador'
+import {
+  liberarEquipoDeRonda, reclamarEquipoDeRonda, MENSAJE_DEJAR_CON_PENDIENTES, MENSAJE_EQUIPOS_TARDAN,
+} from '@/lib/data/ronda-libre-anotador'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import { conTimeout, TiempoAgotadoError } from '@/lib/red/con-timeout'
 
@@ -13,13 +15,15 @@ import { conTimeout, TiempoAgotadoError } from '@/lib/red/con-timeout'
  * La relectura tras reclamar/liberar/dejar espera a lo más `PLAZO_CARGA_SCORER_MS`: `enCurso` congela la tarjeta y
  * Finalizar (`tarjetaCongelada`), y una relectura colgada (mala señal) los dejaba congelados hasta recargar. Si vence,
  * la lectura sigue en segundo plano y pone la lista al día cuando termine (mientras siga en vuelo, el refresco
- * periódico no lee otra: `useRondaGrupoData` no superpone lecturas).
+ * periódico no lee otra: `useRondaGrupoData` no superpone lecturas), y se avisa: sin aviso, la lista vieja parecía la
+ * respuesta.
  */
 async function releer(recargar: () => Promise<void>): Promise<void> {
   try {
     await conTimeout(recargar(), PLAZO_CARGA_SCORER_MS)
   } catch (e) {
     if (!(e instanceof TiempoAgotadoError)) throw e
+    addToast({ type: 'info', title: MENSAJE_EQUIPOS_TARDAN, duration: 5000 })
   }
 }
 
