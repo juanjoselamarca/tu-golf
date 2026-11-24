@@ -6,6 +6,21 @@ import { createClient } from '@/lib/supabase'
 import { haptic } from '@/lib/ronda/helpers'
 import { addToast } from '@/hooks/useToast'
 import { liberarEquipoDeRonda, reclamarEquipoDeRonda, MENSAJE_DEJAR_CON_PENDIENTES } from '@/lib/data/ronda-libre-anotador'
+import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
+import { conTimeout, TiempoAgotadoError } from '@/lib/red/con-timeout'
+
+/**
+ * La relectura tras reclamar/liberar/dejar espera a lo más `PLAZO_CARGA_SCORER_MS`: `enCurso` congela la tarjeta y
+ * Finalizar (`tarjetaCongelada`), y una relectura colgada (mala señal) los dejaba congelados hasta recargar. Si vence,
+ * la lectura sigue sola en segundo plano y el refresco periódico pone la lista al día.
+ */
+async function releer(recargar: () => Promise<void>): Promise<void> {
+  try {
+    await conTimeout(recargar(), PLAZO_CARGA_SCORER_MS)
+  } catch (e) {
+    if (!(e instanceof TiempoAgotadoError)) throw e
+  }
+}
 
 /**
  * Un celular por equipo: reclamar un equipo (`ElegirEquipo`), liberarlo (franja de equipos de otro celular, solo el
@@ -38,7 +53,7 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
       }
       // ok / ya_tienes_equipo: al releer, el scorer abre en su equipo. tomado / error: queda el aviso y la lista al día.
       if (r.estado === 'tomado' || r.estado === 'error') setAviso({ equipoId, mensaje: r.mensaje })
-      await recargar()
+      await releer(recargar)
     } finally {
       setEnCurso(null)
     }
@@ -52,7 +67,7 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
       const r = await liberarEquipoDeRonda(createClient(), codigo, equipoId)
       if (r.estado === 'ok') addToast({ type: 'success', title: `${nombreEquipo} queda en tu celular`, duration: 4000 })
       else addToast({ type: 'error', title: r.mensaje, duration: 6000 })
-      await recargar()
+      await releer(recargar)
     } finally {
       setEnCurso(null)
     }
@@ -77,7 +92,7 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
         return
       }
       addToast({ type: 'success', title: `Dejaste ${nombreEquipo}`, duration: 4000 })
-      await recargarTrasDejarEquipo()
+      await releer(recargarTrasDejarEquipo)
     } finally {
       setEnCurso(null)
     }

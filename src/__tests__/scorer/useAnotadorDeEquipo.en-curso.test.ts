@@ -5,6 +5,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useAnotadorDeEquipo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useAnotadorDeEquipo'
+import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }))
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
@@ -46,5 +47,31 @@ describe('useAnotadorDeEquipo: enCurso vuelve a null aunque la relectura lance',
     await act(async () => { await expect(result.current.reclamar('e2')).rejects.toThrow('red') })
     expect(recargar).not.toHaveBeenCalled()
     expect(result.current.enCurso).toBeNull()
+  })
+})
+
+describe('useAnotadorDeEquipo: una relectura colgada no congela la tarjeta ni Finalizar', () => {
+  const colgada = () => new Promise<void>(() => {})
+  const montarColgada = () => renderHook(() => useAnotadorDeEquipo({ codigo: 'ABC', recargar: colgada, recargarTrasDejarEquipo: colgada }))
+
+  it.each([
+    ['reclamar', (h: ReturnType<typeof useAnotadorDeEquipo>) => h.reclamar('e2')],
+    ['liberar', (h: ReturnType<typeof useAnotadorDeEquipo>) => h.liberar('e2', 'Los Pumas')],
+    ['dejar', (h: ReturnType<typeof useAnotadorDeEquipo>) => h.dejar('e2', 'Los Pumas', async () => true)],
+  ])('%s: al vencer el plazo, enCurso vuelve a null', async (_n, accion) => {
+    vi.useFakeTimers()
+    try {
+      reclamar.mockResolvedValue({ estado: 'ok' })
+      liberar.mockResolvedValue({ estado: 'ok' })
+      const { result } = montarColgada()
+      let fin: Promise<void> | undefined
+      act(() => { fin = accion(result.current) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(result.current.enCurso).toBe('e2')
+      await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_CARGA_SCORER_MS); await fin })
+      expect(result.current.enCurso).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

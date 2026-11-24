@@ -19,7 +19,6 @@ import { conTimeout } from '@/lib/red/con-timeout'
 
 // Plazo de un guardado de score (y del cierre y el descarte de la ronda): vive en la fuente única de plazos.
 import { PLAZO_GUARDADO_MS } from '@/lib/red/plazos'
-export { PLAZO_GUARDADO_MS }
 
 // El servidor descarta un guardado de este dispositivo si ya aplicó uno con
 // secuencia igual o mayor (`p_seq`, `p_dispositivo`). Fuente única del id y de
