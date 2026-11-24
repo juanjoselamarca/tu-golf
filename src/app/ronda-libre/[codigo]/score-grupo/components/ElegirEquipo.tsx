@@ -34,7 +34,7 @@ export function ElegirEquipo({ codigo, courseName, equipos, enCurso, aviso, onEl
 
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', padding: '24px 16px calc(24px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <ConexionScorerBanner conexion={conexion} pendienteDeEnvio={false} codigo={codigo} />
+      <ConexionScorerBanner conexion={conexion} pendienteDeEnvio={false} codigo={codigo} eleccion />
       <header>
         <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, lineHeight: 1.2 }}>Elige tu equipo</h1>
         <p style={{ margin: '6px 0 0', fontSize: '15px', color: 'var(--text-2)', lineHeight: 1.4 }}>

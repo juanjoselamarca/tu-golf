@@ -29,4 +29,14 @@ describe('ConexionScorerBanner (score-grupo)', () => {
     expect(textoConexionScorer('ok', true, 'ABC123')).toMatch(/^Sin conexión con el servidor/)
     expect(textoConexionScorer('ok', false, 'ABC123')).toBeNull()
   })
+
+  it('en «Elige tu equipo» sin conexión habla de la lista de equipos, no de golpes; sin sesión, el copy canónico', () => {
+    const t = textoConexionScorer('sin_conexion', false, 'ABC123', false, true)
+    expect(t).toBe('Sin conexión con el servidor. La lista de equipos se actualiza sola cuando vuelva la señal.')
+    expect(t).not.toContain('golpes')
+    render(<ConexionScorerBanner conexion="sin_conexion" pendienteDeEnvio={false} codigo="ABC123" eleccion />)
+    expect(screen.getByRole('status').textContent).toContain('La lista de equipos se actualiza sola')
+    expect(textoConexionScorer('sin_sesion', false, 'ABC123', false, true)).toMatch(/^Inicia sesión para guardar/)
+    expect(textoConexionScorer('ok', false, 'ABC123', false, true)).toBeNull()
+  })
 })

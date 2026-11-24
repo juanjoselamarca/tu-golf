@@ -19,11 +19,17 @@ export function avisoSinSesionGrupo(codigo: string, conexion: ConexionScorer, se
   return avisoSesionCerrada(`/ronda-libre/${codigo}/score-grupo`, { habiaSesion: sesionPerdida && conexion !== 'sin_sesion' })
 }
 
+/**
+ * `eleccion`: en «Elige tu equipo» todavía no hay golpes; lo que puede estar viejo es la lista de equipos.
+ */
 export function textoConexionScorer(
-  conexion: ConexionScorer, pendienteDeEnvio: boolean, codigo: string, sesionPerdida = false,
+  conexion: ConexionScorer, pendienteDeEnvio: boolean, codigo: string, sesionPerdida = false, eleccion = false,
 ): string | null {
   const aviso = avisoSinSesionGrupo(codigo, conexion, sesionPerdida)
   if (aviso) return `${aviso.titulo}. ${aviso.detalle}`
+  if (eleccion && conexion === 'sin_conexion') {
+    return 'Sin conexión con el servidor. La lista de equipos se actualiza sola cuando vuelva la señal.'
+  }
   if (conexion === 'sin_conexion' || pendienteDeEnvio) {
     return 'Sin conexión con el servidor. Tus golpes quedan guardados en este teléfono y se envían solos.'
   }
@@ -35,13 +41,16 @@ export function ConexionScorerBanner({
   pendienteDeEnvio,
   codigo,
   sesionPerdida = false,
+  eleccion = false,
 }: {
   conexion: ConexionScorer
   pendienteDeEnvio: boolean
   codigo: string
   sesionPerdida?: boolean
+  /** En «Elige tu equipo»: el aviso habla de la lista de equipos, no de golpes. */
+  eleccion?: boolean
 }) {
-  const texto = textoConexionScorer(conexion, pendienteDeEnvio, codigo, sesionPerdida)
+  const texto = textoConexionScorer(conexion, pendienteDeEnvio, codigo, sesionPerdida, eleccion)
   const sinSesion = avisoSinSesionGrupo(codigo, conexion, sesionPerdida)
   // Sin sesión, el banner global no promete "Sincronizando…" encima del encabezado.
   useAnunciarAvisoDeSesion(!!sinSesion)
