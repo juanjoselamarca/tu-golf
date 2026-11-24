@@ -100,8 +100,10 @@ export function useFinalizeGrupo(input: {
    * Un celular por equipo (`@/golf/ronda-libre/anotador-de-equipo`), solo entonces. Antes de cerrar se relee quién
    * anota qué: con un equipo de otro celular sin terminar no se cierra (quedaría con hoyos de menos), y si los equipos
    * de este celular cambiaron desde la última lectura se recargan (`recargar`) en vez de cerrar con la lista vieja.
+   * `sinParAutomatico` (`equiposSinParAutomatico` de la página): con él, un equipo sin reclamar incompleto frena
+   * ANTES de abrir la hoja de confirmación (la hoja no ofrece un cierre que el paso siguiente rechaza).
    */
-  unCelularPorEquipo?: { recargar: () => Promise<void> }
+  unCelularPorEquipo?: { recargar: () => Promise<void>; sinParAutomatico?: ReadonlyArray<{ id: string }> }
 }): FinalizeGrupo {
   const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes, timba } = input
   const router = useRouter()
@@ -130,6 +132,17 @@ export function useFinalizeGrupo(input: {
   const finalizeRound = async () => {
     if (!ronda || finalizing) return
     if (!confirmFinalize) {
+      // Un celular por equipo: un equipo sin reclamar sin golpes en un hoyo frena ya, sin abrir la hoja (el cierre
+      // lo rechazaría igual). Solo los sin reclamar: los anota este celular, así que su tarjeta local es la vigente.
+      // Los de otro celular NO: su lista local puede estar vieja y frenaría de más; esos quedan al chequeo con la
+      // relectura del servidor (`finalizarUnaVez`), que sigue siendo la garantía para todos.
+      const sinPar = new Set((input.unCelularPorEquipo?.sinParAutomatico ?? []).map(e => e.id))
+      const sinReclamar = equipoAjenoIncompleto(teamEquipos.filter(e => sinPar.has(e.id)), hoyos)
+      if (sinReclamar) {
+        addToast({ type: 'error', title: avisoEquipoSinReclamarIncompleto(sinReclamar.equipo.nombre, sinReclamar.hoyo), duration: 8000 })
+        haptic([30, 60, 30])
+        return
+      }
       setConfirmFinalize(true)
       haptic([20, 50, 20])
       return
