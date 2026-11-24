@@ -25,8 +25,10 @@ export const LIMITES_SKINS = {
 /**
  * Puntos especiales de un skins: los mismos que se marcan a mano en la Timba (sandy, chipingo, greenie,
  * propios). Valen 1 skin cada uno, así que no llevan valor. El birdie no existe acá: ya gana skins solo.
- * Misma forma {id, tipo, nombre?} y mismo lugar (`config.puntitos`) que en la Timba: la RPC que guarda las marcas
- * (marcar_puntito_ronda_libre) busca el tipo ahí para los dos formatos.
+ * Van en el mismo lugar que en la Timba (`config.puntitos`, con `id` y `tipo`) para que la RPC que guarda las marcas
+ * (marcar_puntito_ronda_libre) sirva tal cual: la acepta en un skins la migración 20261125100000_skins_ronda_libre.
+ * NO es la forma completa de la Timba: no hay `activo`, `valor` ni `destino`, así que `puntitosMarcables` de
+ * `ronda-libre/marcas-de-la-timba.ts` (filtra por `activo`) no sirve para un skins sin adaptarla.
  */
 const puntitoSkinsSchema = z.object({
   /** Identificador estable dentro de la config: las marcas del scorer lo referencian. */
@@ -79,6 +81,10 @@ export type ResultadoValidacionSkins =
 /**
  * Valida las reglas contra la ronda concreta. Mensajes para mostrar tal cual; la API usa el mismo validador
  * para rechazar lo que la pantalla no debió dejar pasar.
+ *
+ * La lista de errores no es exhaustiva en un solo paso: con un jugador sin hándicap o un SI inválido el motor no
+ * reparte golpes, así que «más de 3 golpes por hoyo» recién puede aparecer después de corregir lo otro. La
+ * pantalla debe volver a validar en cada cambio, no asumir que arreglar lo mostrado basta.
  */
 export function validarConfigSkins(config: unknown, ctx: ContextoValidacionSkins): ResultadoValidacionSkins {
   const parsed = configSkinsSchema.safeParse(config)

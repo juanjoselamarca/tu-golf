@@ -146,3 +146,7 @@ Un hoyo por validar cuyo ganador se retira en el hoyo siguiente: no valida → a
   skins con plata estimada, liquidación final.
 - Un torneo con hoyos sin anotar al cierre no se liquida solo: el organizador ve el aviso y resuelve.
 - No cuenta para el índice (pendiente verificar WHS sobre hoyos levantados).
+- Quien llame a `validarConfigSkins` y al motor pasa el course handicap **en la escala de los hoyos de la ronda**
+  (en 9 hoyos, el CH de 9): con el de 18 el tope de 3 golpes por hoyo bloquearía de más y los golpes caerían mal.
+- Puntos especiales en el scorer: `puntitosMarcables` de la Timba filtra por `activo`, que la config del skins no
+  tiene; el scorer del skins necesita su propia lista o una versión de esa función que acepte las dos formas.
