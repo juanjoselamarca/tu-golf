@@ -699,7 +699,7 @@ describe('useRondaGrupoData — lecturas vencidas se cancelan y nunca se aplican
   it('otro `codigo` sin desmontar: la lectura vieja se aborta, se lee el nuevo y lo tardío del viejo no se aplica', async () => {
     snapshotPrevio()
     const abrir = compuerta()
-    const { rerender } = renderHook(({ codigo }) => useRondaGrupoData(codigo), { initialProps: { codigo: 'B4F5Y2' } })
+    const { result, rerender } = renderHook(({ codigo }) => useRondaGrupoData(codigo), { initialProps: { codigo: 'B4F5Y2' } })
     await waitFor(() => expect(opcionesDeCarga).toHaveLength(1))
     const primera = (opcionesDeCarga[0] as { signal: AbortSignal }).signal
     rerender({ codigo: 'ZZ9ZZ9' })
@@ -710,6 +710,8 @@ describe('useRondaGrupoData — lecturas vencidas se cancelan y nunca se aplican
     await waitFor(() => expect(codigosDeCarga).toEqual(['B4F5Y2', 'ZZ9ZZ9']))
     const segunda = (opcionesDeCarga[1] as { signal: AbortSignal }).signal
     expect(segunda.aborted).toBe(false)
+    // La ronda nueva sí se aplica (la cancelación no deja el scorer colgado en «cargando»).
+    await waitFor(() => expect(result.current.loading).toBe(false))
     await new Promise(r => setTimeout(r, 20))
     expect(push).not.toHaveBeenCalledWith('/dashboard')
     expect(loadScorerGrupoSnapshot('B4F5Y2', 'u1')).not.toBeNull()

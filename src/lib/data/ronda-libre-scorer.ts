@@ -79,7 +79,11 @@ export async function fetchRondaLibreParaScorer(
     signal,
   }: {
     conReglasDelJuego?: boolean
-    /** La del que llama (p. ej. la vuelta de lectura de una pantalla que se desmontó): abortada, la lectura se corta. */
+    /**
+     * La del que llama (p. ej. la vuelta de lectura de una pantalla que se desmontó): abortada, la lectura se corta y
+     * devuelve `sin_conexion`. Quien pasa señal mira `signal.aborted` después de leer y descarta el resultado; si no,
+     * pintaría «sin conexión» desde una pantalla que ya se cerró.
+     */
     signal?: AbortSignal
   } = {},
 ): Promise<CargaRondaScorer> {
