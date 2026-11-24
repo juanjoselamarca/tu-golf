@@ -253,7 +253,9 @@ describe('validación (spec «Validación»: solo con arrastre, par neto o mejor
     // h1 en disputa (c no anotó). h2: a gana solo (vale «1» provisional) y hace bogey en h3.
     const parcial = { a: [4, 3, 5, ...llenar(15, 4)], b: [4, 4, 4, ...llenar(15, 4)], c: [undefined, 4, 4, ...llenar(15, 4)] }
     const r = calcularSkins(entrada(parcial, op))
-    expect(r.hoyos[1]).toMatchObject({ estado: 'por_validar', valorProvisional: true, ganador: null })
+    // Ya anotó el 3 y no validó: lo que falta es el hoyo anterior, no la validación.
+    expect(r.hoyos[1]).toMatchObject({ estado: 'por_validar', valorProvisional: true, ganador: null, esperando: 'hoyo_anterior' })
+    expect(calcularSkins(entrada({ ...parcial, a: [4, 3] }, op)).hoyos[1]).toMatchObject({ estado: 'por_validar', esperando: 'validacion' })
     // h1 cierra empatado: h2 vale 2, a no validó → arrastre. Nunca mostró un ganado que después se retiró.
     const cerrado = calcularSkins(entrada({ ...parcial, c: [4, 4, 4, ...llenar(15, 4)] }, op))
     expect(cerrado.hoyos[1]).toMatchObject({ estado: 'arrastre', noValidado: true, valor: 2 })
@@ -490,5 +492,26 @@ describe('puntos especiales en el reparto', () => {
     expect(r.jugadores.map(j => j.skins)).toEqual([6, 6, 6, 1])
     expect(r.jugadores.reduce((s, j) => s + j.cobra, 0)).toBe(40000)
     expect(r.jugadores.map(j => j.cobra)).toEqual([12632, 12632, 12631, 2105])
+  })
+})
+
+describe('bordes de la entrada (revisión Fable, 2ª vuelta)', () => {
+  it('sin hoyos (cancha aún sin cargar): no es definitivo ni devuelve el pozo', () => {
+    const r = calcularSkins({ opciones: { ...BASE, pozoPorJugador: 10000 }, jugadores: [{ id: 'a', handicapDeJuego: 0 }, { id: 'b', handicapDeJuego: 0 }], hoyos: [], scores: {} })
+    expect(r.definitivo).toBe(false)
+    expect(r.devolucion).toBe(false)
+    expect(r.jugadores.every(j => j.cobra === 0)).toBe(true)
+  })
+
+  it('un punto especial en un hoyo que no es de la ronda o que el jugador no juega no suma', () => {
+    const r = calcularSkins(entrada(
+      { a: [3, 4, ...llenar(16, 4)], b: [4, 4, ...llenar(16, 5)] },
+      {},
+      {
+        jugadores: [{ id: 'a', handicapDeJuego: 0 }, { id: 'b', handicapDeJuego: 0, hoyosQueNoJuega: desde(3) }],
+        especialesValidos: [{ jugadorId: 'b', hoyo: 7, puntitoId: 's' }, { jugadorId: 'b', hoyo: 25, puntitoId: 's' }, { jugadorId: 'b', hoyo: 2, puntitoId: 's' }],
+      },
+    ))
+    expect(r.jugadores.find(j => j.id === 'b')!.skins).toBe(1)
   })
 })

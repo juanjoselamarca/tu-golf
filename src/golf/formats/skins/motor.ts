@@ -96,6 +96,11 @@ export interface ResultadoHoyoSkins {
   repartidoEntre: string[]
   /** `arrastre` porque el ganador no validó (spec «Validación»). */
   noValidado: boolean
+  /**
+   * Solo en `por_validar`: qué falta. `validacion` = el ganador todavía no anota el hoyo siguiente.
+   * `hoyo_anterior` = ya anotó y no validó, pero un hoyo anterior abierto decide si hacía falta validar.
+   */
+  esperando: 'validacion' | 'hoyo_anterior' | null
   /** Neto (o gross en modo gross) de cada jugador en el hoyo; X; `null` = sin anotar o retirado. */
   netos: Record<string, number | typeof FUERA_DEL_HOYO | null>
 }
@@ -158,7 +163,8 @@ export function golpesDelSkins(
   }
   const sinGolpes = opciones.modo === 'gross' || bloqueos.sinHandicap.length > 0 || bloqueos.indiceDificultadInvalido
   const base = sinGolpes ? jugadores.map(() => 0) : golpesALaDiferenciaDelMasBajo(jugadores.map(j => j.handicapDeJuego as number))
-  bloqueos.golpesSobreElTope = jugadores.filter((_, i) => base[i] > 3 * n).map(j => j.id)
+  // Sin hoyos no hay tope que medir (lo bloquea quien llama: no hay ronda).
+  bloqueos.golpesSobreElTope = n === 0 ? [] : jugadores.filter((_, i) => base[i] > 3 * n).map(j => j.id)
   const golpes: Record<string, Record<number, number>> = {}
   jugadores.forEach((j, i) => {
     golpes[j.id] = {}
@@ -224,7 +230,7 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
 
     const fila: ResultadoHoyoSkins = {
       numero: h.numero, estado: 'por_jugar', valor, valorProvisional: provisional, mejorNeto, lideres,
-      ganador: null, repartidoEntre: [], noValidado: false, netos,
+      ganador: null, repartidoEntre: [], noValidado: false, esperando: null, netos,
     }
     resultado.push(fila)
 
@@ -268,6 +274,7 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
           // Todavía no anota el siguiente, o no validó pero no se sabe si hacía falta (el valor real depende de un
           // hoyo abierto): queda pendiente, sin acreditar.
           fila.estado = 'por_validar'
+          fila.esperando = neto === null ? 'validacion' : 'hoyo_anterior'
           fila.lideres = [ganador]
           provisional = true
           arrastre = 0
@@ -294,18 +301,23 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
     for (const id of Object.keys(unidadesHoyo)) unidadesHoyo[id] *= divisor
     for (const id of reparto.entre) unidadesHoyo[id] += reparto.valor
   }
-  // Cada (jugador, hoyo, punto) vale una vez; un jugador que no está en la ronda no cobra nada.
+  // Cada (jugador, hoyo, punto) vale una vez. No cobra quien no está en la ronda ni en un hoyo que no es de la
+  // ronda o que no juega (retirado).
   const especialesVistos = new Set<string>()
+  const numeros = new Set(hoyos.map(h => h.numero))
+  const porId = new Map(jugadores.map(j => [j.id, j]))
   for (const e of entrada.especialesValidos ?? []) {
     const clave = `${e.jugadorId}|${e.hoyo}|${e.puntitoId}`
-    if (!(e.jugadorId in unidadesHoyo) || especialesVistos.has(clave)) continue
+    const j = porId.get(e.jugadorId)
+    if (!j || !numeros.has(e.hoyo) || !juegaElHoyo(j, e.hoyo) || especialesVistos.has(clave)) continue
     especialesVistos.add(clave)
     unidadesHoyo[e.jugadorId] += divisor
   }
 
   const unidades = jugadores.map(j => unidadesHoyo[j.id])
   const totalUnidades = unidades.reduce((a, b) => a + b, 0)
-  const definitivo = liquidable && resultado.every(r => esHoyoResuelto(r.estado))
+  // Sin hoyos no hay ronda que cerrar (`[].every` daría true y saldría «se devuelve el pozo»).
+  const definitivo = liquidable && resultado.length > 0 && resultado.every(r => esHoyoResuelto(r.estado))
   const aporte = Number.isFinite(opciones.pozoPorJugador) ? Math.max(0, Math.trunc(opciones.pozoPorJugador)) : 0
   const pozoTotal = aporte * jugadores.length
   const devolucion = definitivo && totalUnidades === 0 && pozoTotal > 0

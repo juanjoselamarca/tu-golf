@@ -4,15 +4,13 @@
  * con `opcionesDelMotor`. La cantidad de hoyos no está acá: la manda la ronda.
  */
 import { z } from 'zod'
-import { HCP_PCT_DEFAULT, esHcpPctValido, type HcpPct } from '../../core/playing-handicap'
+import { HCP_PCT_DEFAULT, esHcpPctValido, handicapDeJuego, type HcpPct } from '../../core/playing-handicap'
 import { esHandicapUsable } from '../match-play'
-import { PUNTITOS_MANUALES, LIMITES_JUEGO } from '../personalizado/config'
+import { TIPOS_PUNTITO_MANUAL, LIMITES_JUEGO } from '../personalizado/config'
 import { MODOS_JUEGO } from '../../core/rules'
-import { EMPATES_ULTIMO_HOYO, type OpcionesSkins } from './motor'
+import { EMPATES_ULTIMO_HOYO, golpesDelSkins, type HoyoSkins, type OpcionesSkins } from './motor'
 
-/** Clave del formato en `formato_juego`. Fuente única. */
-export const FORMATO_SKINS = 'skins' as const
-export const NOMBRE_FORMATO_SKINS = 'Skins'
+export { FORMATO_SKINS, NOMBRE_FORMATO_SKINS, esFormatoSkins } from './clave'
 
 export const VERSION_CONFIG_SKINS = 1
 
@@ -20,21 +18,21 @@ export const LIMITES_SKINS = {
   jugadores: { min: 2 },
   /** Pozo por jugador en pesos chilenos. El techo solo frena un dedo de más (un cero extra). */
   pozoPorJugador: { min: 0, max: 5_000_000 },
-  maxEspeciales: LIMITES_JUEGO.maxPuntitos,
-  largoNombreEspecial: LIMITES_JUEGO.largoNombrePuntito,
+  maxPuntitos: LIMITES_JUEGO.maxPuntitos,
+  largoNombrePuntito: LIMITES_JUEGO.largoNombrePuntito,
 } as const
 
 /**
  * Puntos especiales de un skins: los mismos que se marcan a mano en la Timba (sandy, chipingo, greenie,
  * propios). Valen 1 skin cada uno, así que no llevan valor. El birdie no existe acá: ya gana skins solo.
+ * Misma forma {id, tipo, nombre?} y mismo lugar (`config.puntitos`) que en la Timba: la RPC que guarda las marcas
+ * (marcar_puntito_ronda_libre) busca el tipo ahí para los dos formatos.
  */
-export const TIPOS_ESPECIAL_SKINS = PUNTITOS_MANUALES as readonly ['sandy', 'chipingo', 'greenie', 'propio']
-
-const especialSchema = z.object({
+const puntitoSkinsSchema = z.object({
   /** Identificador estable dentro de la config: las marcas del scorer lo referencian. */
   id: z.string().min(1).max(40),
-  tipo: z.enum(TIPOS_ESPECIAL_SKINS),
-  nombre: z.string().trim().min(1).max(LIMITES_SKINS.largoNombreEspecial).optional(),
+  tipo: z.enum(TIPOS_PUNTITO_MANUAL),
+  nombre: z.string().trim().min(1).max(LIMITES_SKINS.largoNombrePuntito).optional(),
 })
 
 export const configSkinsSchema = z.object({
@@ -45,11 +43,11 @@ export const configSkinsSchema = z.object({
   empateUltimoHoyo: z.enum(EMPATES_ULTIMO_HOYO),
   validacion: z.boolean(),
   pozoPorJugador: z.number().int().min(LIMITES_SKINS.pozoPorJugador.min).max(LIMITES_SKINS.pozoPorJugador.max),
-  especiales: z.array(especialSchema).max(LIMITES_SKINS.maxEspeciales),
+  puntitos: z.array(puntitoSkinsSchema).max(LIMITES_SKINS.maxPuntitos),
 })
 
 export type ConfigSkins = z.infer<typeof configSkinsSchema>
-export type EspecialSkins = z.infer<typeof especialSchema>
+export type PuntitoSkins = z.infer<typeof puntitoSkinsSchema>
 
 /** Lo que propone el armado al abrirlo (spec: defaults de la tabla «Variantes»). */
 export const CONFIG_SKINS_POR_DEFECTO: ConfigSkins = {
@@ -59,11 +57,7 @@ export const CONFIG_SKINS_POR_DEFECTO: ConfigSkins = {
   empateUltimoHoyo: 'repartir',
   validacion: false,
   pozoPorJugador: 0,
-  especiales: [],
-}
-
-export function esFormatoSkins(formato: string | null | undefined): formato is typeof FORMATO_SKINS {
-  return formato === FORMATO_SKINS
+  puntitos: [],
 }
 
 /** Las perillas que usa el motor (el % de hándicap se aplica antes, al calcular cada hándicap de juego). */
@@ -72,8 +66,10 @@ export function opcionesDelMotor(c: ConfigSkins): OpcionesSkins {
 }
 
 export interface ContextoValidacionSkins {
-  /** Nombre y course handicap de cada jugador (`null` si no tiene índice). */
+  /** Nombre y course handicap de cada jugador (`null` si no tiene índice), en la escala de los hoyos de la ronda. */
   jugadores: readonly { nombre: string; courseHandicap: number | null }[]
+  /** Hoyos de la ronda con su SI (normalizado a 1..N). Sin ellos no se pueden revisar los golpes. */
+  hoyos: readonly HoyoSkins[]
 }
 
 export type ResultadoValidacionSkins =
@@ -93,21 +89,31 @@ export function validarConfigSkins(config: unknown, ctx: ContextoValidacionSkins
   if (ctx.jugadores.length < LIMITES_SKINS.jugadores.min) errores.push('El skins es para 2 jugadores o más.')
 
   if (c.modo === 'neto') {
-    const sinIndice = ctx.jugadores.filter(j => !esHandicapUsable(j.courseHandicap)).map(j => j.nombre)
-    if (sinIndice.length) {
-      errores.push(
-        `${sinIndice.join(', ')} no ${sinIndice.length === 1 ? 'tiene' : 'tienen'} hándicap: el skins neto lo necesita. Juega en gross o agrega su índice.`,
-      )
+    // Los mismos bloqueos que el motor (una sola regla): lo que la pantalla deja crear, el motor lo puede liquidar.
+    const jugadores = ctx.jugadores.map((j, i) => ({
+      id: String(i),
+      handicapDeJuego: esHandicapUsable(j.courseHandicap) ? handicapDeJuego(j.courseHandicap as number, c.hcpPct) : null,
+    }))
+    const { bloqueos } = golpesDelSkins({ opciones: opcionesDelMotor(c), jugadores, hoyos: ctx.hoyos })
+    for (const i of bloqueos.sinHandicap) {
+      errores.push(`${ctx.jugadores[Number(i)].nombre} no tiene hándicap: el skins neto lo necesita. Juega en gross o agrega su índice.`)
+    }
+    if (bloqueos.indiceDificultadInvalido) {
+      errores.push('La cancha no tiene bien los índices de dificultad de estos hoyos. Juega en gross o elige otro recorrido.')
+    }
+    for (const i of bloqueos.golpesSobreElTope) {
+      errores.push(`${ctx.jugadores[Number(i)].nombre} recibe más de 3 golpes por hoyo: baja el % de hándicap o juega en gross.`)
     }
   }
+  if (ctx.hoyos.length === 0) errores.push('Elige la cancha y los hoyos antes de armar el skins.')
 
   const ids = new Set<string>()
-  for (const e of c.especiales) {
+  for (const e of c.puntitos) {
     if (ids.has(e.id)) { errores.push('Hay dos puntos especiales repetidos.'); break }
     ids.add(e.id)
   }
-  if (c.especiales.some(e => e.tipo === 'propio' && !e.nombre)) errores.push('Ponle nombre a tu punto especial.')
-  const tipos = c.especiales.filter(e => e.tipo !== 'propio').map(e => e.tipo)
+  if (c.puntitos.some(e => e.tipo === 'propio' && !e.nombre)) errores.push('Ponle nombre a tu punto especial.')
+  const tipos = c.puntitos.filter(e => e.tipo !== 'propio').map(e => e.tipo)
   if (new Set(tipos).size !== tipos.length) errores.push('Cada punto especial va una sola vez.')
 
   return errores.length ? { ok: false, errores } : { ok: true, config: c }

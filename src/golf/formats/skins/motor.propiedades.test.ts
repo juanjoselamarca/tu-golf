@@ -56,7 +56,12 @@ function rondaAlAzar(semilla: number, completa: boolean): EntradaSkins {
     }
   }
   const especialesValidos = r.azar() < 0.4
-    ? Array.from({ length: r.entre(1, 4) }, (_, k) => ({ jugadorId: r.uno(jugadores).id, hoyo: r.uno(hoyos).numero, puntitoId: `p${k}` }))
+    ? Array.from({ length: r.entre(1, 4) }, (_, k) => {
+        // Como en la cancha: el punto se marca en un hoyo que el jugador juega.
+        const j = r.uno(jugadores)
+        const jugables = hoyos.filter(h => !j.hoyosQueNoJuega.includes(h.numero))
+        return { jugadorId: j.id, hoyo: (jugables.length ? r.uno(jugables) : r.uno(hoyos)).numero, puntitoId: `p${k}` }
+      }).filter(e => !jugadores.find(j => j.id === e.jugadorId)!.hoyosQueNoJuega.includes(e.hoyo))
     : []
   return {
     opciones: {
@@ -120,17 +125,20 @@ describe('propiedades del motor de skins (400 rondas al azar)', () => {
     }
   })
 
-  it('anotar más scores nunca cambia el estado ni el ganador de un hoyo resuelto (ni su valor si no era provisional)', () => {
+  // Completar con la ronda completa de la misma semilla no sirve (otro azar). Se completa de tres maneras: bogeys
+  // (nunca validan), pares (validan los netos con golpe) y al azar entre birdie y doble (validan a veces).
+  it.each(['bogey', 'par', 'azar'] as const)('anotar más scores (completando con %s) nunca cambia el estado ni el ganador de un hoyo resuelto', (relleno) => {
     for (const s of SEMILLAS) {
       const parcial = rondaAlAzar(s, false)
       const antes = calcularSkins(parcial)
-      // Completar con la ronda completa de la misma semilla no sirve (otro azar): se completa con bogeys.
+      const r = prng(s + 7)
       const scores: Record<string, Record<number, ScoreSkins>> = {}
       for (const j of parcial.jugadores) {
         scores[j.id] = { ...parcial.scores[j.id] } as Record<number, ScoreSkins>
         for (const h of parcial.hoyos) {
           if (j.hoyosQueNoJuega?.includes(h.numero)) continue
-          if (scores[j.id][h.numero] === undefined) scores[j.id][h.numero] = h.par + 1
+          if (scores[j.id][h.numero] !== undefined) continue
+          scores[j.id][h.numero] = relleno === 'bogey' ? h.par + 1 : relleno === 'par' ? h.par : h.par + r.entre(-1, 2)
         }
       }
       const despues = calcularSkins({ ...parcial, scores })
