@@ -165,7 +165,7 @@ test.describe('Scramble rápido — un celular por equipo', () => {
     expect(creadorPisa.error?.code, 'el creador no escribe el equipo que anota Pedro').toBe('P0003')
     expect(creadorPisa.error?.details).toBe('equipo_de_otro_anotador')
     const pedroPisa = await pedroDb!.rpc('upsert_ronda_equipos_scores', { p_equipo_id: equipos['Los Cóndores'].id, p_codigo: codigo, p_delta: { '9': 7 } })
-    expect(pedroPisa.error?.code, 'Pedro no escribe el equipo del creador').toBe('P0003')
+    expect(pedroPisa.error?.code, 'Pedro no escribe un equipo ajeno (regla general: no es jugador ni anotador)').toBe('P0003')
     expect(await golpeDelEquipo(id, 'Las Águilas', 9)).toBeNull()
     expect(await golpeDelEquipo(id, 'Los Cóndores', 9)).toBeNull()
 
