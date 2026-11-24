@@ -157,7 +157,7 @@ export default function ScoreGrupoPage() {
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
-    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal, maxStrokesOnHole,
+    siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinAnotar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal, maxStrokesOnHole,
     hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
   } = board
 
@@ -447,7 +447,7 @@ export default function ScoreGrupoPage() {
 
       {canFinalize && (
         <AvisoTarjetaCompleta
-          completa={hoyosPorMarcar === 0 && hoyosSinJugarTimba.length === 0 && !finalizing}
+          completa={hoyosSinAnotar === 0 && hoyosSinJugarTimba.length === 0 && !finalizing}
           enUltimoHoyo={isLastHole}
           texto={textoTarjetaCompleta(cierraEsteCelular, nombreDelCreador(ronda))}
         />
