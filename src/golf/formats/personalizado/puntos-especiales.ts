@@ -21,7 +21,11 @@ export function seJuegaEnElHoyo(tipo: TipoPuntito, par: number | null | undefine
   return tipo !== 'greenie' || par === 3
 }
 
-/** Puntos que son uno por hoyo (marcar a otro jugador lo reasigna): el greenie. */
+/**
+ * Puntos que son uno por hoyo (marcar a otro jugador lo reasigna): el greenie. La base aplica lo mismo en la RPC
+ * `marcar_puntito_ronda_libre` (`v_tipo = 'greenie'`, clave del candado por hoyo y borrado del anterior): si esto
+ * cambia, se cambia junto con una migración de esa RPC.
+ */
 export function esUnoPorHoyo(tipo: TipoPuntito): boolean {
   return tipo === 'greenie'
 }
