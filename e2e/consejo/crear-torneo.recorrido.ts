@@ -12,14 +12,25 @@ import { adminClient, getTestUserId, sinError } from '../helpers/ronda-fixture'
  * lista que crece con cada corrida), antes y después se borran los borradores sueltos del usuario de pruebas
  * en la base de pruebas (los que no quedaron ligados a un torneo).
  */
-async function borrarBorradoresSueltos() {
+const MEDIA_HORA = 30 * 60_000
+const inicio = new Date().toISOString()
+
+/**
+ * Borradores sueltos (sin torneo ligado) del usuario de pruebas. `antesDe` / `desde` acotan por fecha para no
+ * pisar un borrador que otro spec esté usando en paralelo sobre la misma base de pruebas.
+ */
+async function borrarBorradoresSueltos(filtro: { antesDe?: string; desde?: string }) {
   const owner = await getTestUserId()
-  await sinError('delete tournament_drafts', adminClient().from('tournament_drafts').delete()
-    .eq('owner_id', owner).is('tournament_id', null).is('pending_tournament_id', null))
+  let q = adminClient().from('tournament_drafts').delete()
+    .eq('owner_id', owner).is('tournament_id', null).is('pending_tournament_id', null)
+  if (filtro.antesDe) q = q.lt('updated_at', filtro.antesDe)
+  if (filtro.desde) q = q.gte('created_at', filtro.desde)
+  await sinError('delete tournament_drafts', q)
 }
 
-test.beforeAll(borrarBorradoresSueltos)
-test.afterAll(borrarBorradoresSueltos)
+// Antes: solo los abandonados hace más de media hora. Después: solo los que nacieron en esta corrida.
+test.beforeAll(() => borrarBorradoresSueltos({ antesDe: new Date(Date.now() - MEDIA_HORA).toISOString() }))
+test.afterAll(() => borrarBorradoresSueltos({ desde: inicio }))
 const SECCIONES: Array<[string, RegExp]> = [
   ['Cómo juegan', /Cómo juegan/i],
   ['Categorías', /Categorías/i],

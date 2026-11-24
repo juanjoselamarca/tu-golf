@@ -69,13 +69,12 @@ const MEDIR = () => {
   const palabras = texto.split(/\s+/).filter((w) => /\p{L}|\d/u.test(w)).length
   const sel = 'button, a[href], input:not([type="hidden"]), select, textarea, [role="button"], [role="radio"], [role="tab"], [role="switch"], [role="checkbox"]'
   const tocables = [...document.querySelectorAll(sel)].filter((el) => visible(el) && !enNav(el))
-  // Lo que se toca de verdad: el mayor entre el elemento y su <label> (un radio sr-only se toca por la tarjeta que
-  // lo envuelve; un input grande con un label chico encima se toca por el input). Un elemento de 1 px o recortado
-  // sin label es solo para lectores de pantalla y no cuenta.
-  const zonaDeToque = (el: Element) => {
-    const rects = [el, ...((el as HTMLInputElement).labels ?? [])].map((x) => x.getBoundingClientRect())
-    return rects.reduce((a, b) => (b.width * b.height > a.width * a.height ? b : a))
-  }
+  // Lo que se toca de verdad: el elemento o cualquiera de sus <label> (un radio sr-only se toca por la tarjeta que
+  // lo envuelve). Es chico solo si NINGUNA de esas zonas llega a 44×44. Un elemento de 1 px o recortado sin label
+  // es solo para lectores de pantalla y no cuenta.
+  const zonas = (el: Element) => [el, ...((el as HTMLInputElement).labels ?? [])].map((x) => x.getBoundingClientRect())
+  const cumple = (r: DOMRect) => r.width >= 44 && r.height >= 44
+  const zonaDeToque = (el: Element) => zonas(el).reduce((a, b) => (b.width * b.height > a.width * a.height ? b : a))
   const soloLector = (el: Element) => {
     const r = el.getBoundingClientRect()
     const s = getComputedStyle(el)
@@ -84,8 +83,7 @@ const MEDIR = () => {
   const tocablesChicos = tocables
     .filter((el) => {
       if (soloLector(el) && !((el as HTMLInputElement).labels?.length)) return false
-      const r = zonaDeToque(el)
-      return r.height < 44 || r.width < 44
+      return !zonas(el).some(cumple)
     })
     .map((el) => {
       const r = zonaDeToque(el)

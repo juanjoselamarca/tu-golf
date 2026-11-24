@@ -45,11 +45,14 @@ describe('costo-pantalla', () => {
         { archivo: 'src/golf/core/motor.ts', lineas: 500, paginas: 20 },
         { archivo: 'src/app/x/page.tsx', lineas: 120, paginas: 1 },
         { archivo: 'src/app/x/Paso.tsx', lineas: 80, paginas: 1 },
+        { archivo: 'src/golf/core/solo-aca.ts', lineas: 400, paginas: 1 },
       ],
     })
-    expect(texto).toContain('arrastra 3 archivos, 700 líneas')
+    expect(texto).toContain('arrastra 4 archivos, 1100 líneas')
     expect(texto).toContain('Solo esta pantalla: 2 archivos, 200 líneas.')
-    expect(texto).toContain('1 en zona crítica (500 líneas)')
+    expect(texto).toContain('2 en zona crítica (900 líneas)')
+    // Un archivo de zona crítica que usa una sola pantalla NO cuenta como «se puede borrar con la pantalla».
+    expect(texto).not.toContain('solo-aca.ts')
     expect(texto).toContain('- ★ `src/golf/core/motor.ts` — 500 (en 20 pantallas)')
     expect(texto).not.toMatch(/★ `src\/app\/x\/page\.tsx`/)
   })
