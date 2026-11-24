@@ -32,7 +32,6 @@ import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { conTimeout } from '@/lib/red/con-timeout'
-import { esFuncionInexistente } from '@/lib/data/funcion-inexistente'
 import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import { RONDA_NO_EXISTE } from '@/lib/data/ronda-libre-estado'
 import {
@@ -243,7 +242,10 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
   // ronda» (que la toma FOR UPDATE): o el descarte ve esta tarjeta y no borra, o la ronda ya no está y no queda una
   // fila apuntando a una ronda borrada (P0001). Mismos permisos que la RLS (42501) y misma unicidad (23505).
   const { data, error } = await supabase.rpc('guardar_tarjeta_ronda_libre', { p_fila: fila })
-  if (esFuncionInexistente(error)) return guardarSinRpc(supabase, fila, tarjeta, input.userId)
+  // Respaldo SOLO con PGRST202 (PostgREST no tiene el RPC: la migración aún no está aplicada). Más estricto que
+  // `esFuncionInexistente` a propósito: un 42883 sólo puede venir de DENTRO del RPC ya instalado (una función que
+  // él llama), y tomarlo como "no hay RPC" guardaría por INSERT directo saltándose el lock de la ronda.
+  if (error?.code === 'PGRST202') return guardarSinRpc(supabase, fila, tarjeta, input.userId)
   if (error?.code === '23505') return { status: 'duplicada', tarjeta }
   if (error) return { status: 'error', tarjeta, error }
   return { status: 'insertada', tarjeta, id: typeof data === 'string' ? data : null }

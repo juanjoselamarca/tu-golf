@@ -232,6 +232,13 @@ describe('guardarTarjetaEnHistorial', () => {
       expect(insertDirecto(sb)).toBeUndefined()
       expect(captureError).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'historial.respaldo_sin_rpc' }))
     })
+    it('42883 con el RPC presente (falla una función que él llama): error, sin respaldo que se salte el lock', async () => {
+      const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: c => (c[0][0] === 'guardar' ? { error: { code: '42883', message: 'function x() does not exist' } } : { data: { id: 'h9' } }) })
+      const r = await guardarTarjetaEnHistorial(sb as never, base())
+      expect(r.status).toBe('error')
+      expect(insertDirecto(sb)).toBeUndefined()
+      expect(captureError).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'historial.respaldo_sin_rpc' }))
+    })
   })
 
   it('ronda descartada mientras se guardaba (P0001 del RPC) → error, nunca «insertada»', async () => {
