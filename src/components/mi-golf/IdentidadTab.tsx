@@ -6,6 +6,8 @@ import { LevelsBar } from '@/components/perfil/LevelsBar'
 import { ROTULO_INDICE, CTA_SIN_INDICE, type IndiceVisible } from '@/golf/core/indice-visible'
 import { RUTA_EDITAR_INDICE } from '@/lib/rutas'
 import { textoVsPar } from '@/golf/share/vs-par'
+import { buttonClassName } from '@/components/ui/button-classes'
+import { LINK_SECUNDARIO } from './competencia-tokens'
 
 type Props = {
   userName: string
@@ -19,12 +21,15 @@ type Props = {
 }
 
 const GOLD = 'var(--brand-on-bg)'
-const GOLD_SOFT = 'rgba(196,153,42,0.08)'
 const TEXT = 'var(--text)'
 const TEXT_2 = 'var(--text-2)'
 const TEXT_3 = 'var(--text-3)'
 const BORDER = 'var(--border)'
 const BG_SOFT = 'var(--bg-surface)'
+
+// DESIGN.md §4: etiquetas en DM Sans 13 en oración (sin mono ni mayúsculas espaciadas), números en `.num`
+// (DM Sans tabular), Playfair solo en el h1. Piso 13 px.
+const ETIQUETA: React.CSSProperties = { fontSize: '13px', fontWeight: 600, color: TEXT_2, lineHeight: 1.3 }
 
 export function IdentidadTab(props: Props) {
   const {
@@ -126,14 +131,7 @@ function Progreso({ label, actual, total }: { label: string; actual: number; tot
         }}
       >
         <span style={{ fontSize: '13px', color: TEXT, fontWeight: 500 }}>{label}</span>
-        <span
-          style={{
-            fontFamily: 'var(--font-playfair)',
-            fontSize: '14px',
-            fontWeight: 700,
-            color: GOLD,
-          }}
-        >
+        <span className="num" style={{ fontSize: '14px', fontWeight: 600, color: TEXT }}>
           {pct}%
         </span>
       </div>
@@ -152,12 +150,12 @@ function TuJuego({ stats }: { stats: StatsForma }) {
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: '10px',
+          gap: '12px',
         }}
       >
         {stats.mejorScore != null && (
           <StatCard
-            icon={<Trophy size={14} />}
+            icon={<Trophy size={16} strokeWidth={1.75} aria-hidden="true" />}
             label="Mejor score"
             value={String(stats.mejorScore.gross)}
             sub={`${textoVsPar(stats.mejorScore.vsPar)} · ${stats.mejorScore.hoyos} hoyos`}
@@ -166,7 +164,7 @@ function TuJuego({ stats }: { stats: StatsForma }) {
         )}
         {stats.promedioUltimas5 != null && (
           <StatCard
-            icon={<BarChart3 size={14} />}
+            icon={<BarChart3 size={16} strokeWidth={1.75} aria-hidden="true" />}
             label="Promedio últimas 5"
             value={stats.promedioUltimas5.promedio.toFixed(1)}
             sub={`golpes · ${stats.promedioUltimas5.hoyos} hoyos`}
@@ -175,14 +173,14 @@ function TuJuego({ stats }: { stats: StatsForma }) {
         )}
         {stats.rondasJugadas > 0 && (
           <StatCard
-            icon={<Flag size={14} />}
+            icon={<Flag size={16} strokeWidth={1.75} aria-hidden="true" />}
             label="Rondas jugadas"
             value={String(stats.rondasJugadas)}
           />
         )}
         {stats.canchaFavorita && (
           <StatCard
-            icon={<MapPin size={14} />}
+            icon={<MapPin size={16} strokeWidth={1.75} aria-hidden="true" />}
             label="Cancha favorita"
             value={stats.canchaFavorita.nombre}
             sub={`${stats.canchaFavorita.vecesJugada} veces`}
@@ -217,9 +215,8 @@ function StatCard({
         background: 'var(--bg-surface)',
         border: `1px solid ${BORDER}`,
         borderTop: accent ? `2px solid ${GOLD}` : `1px solid ${BORDER}`,
-        borderRadius: '12px',
-        padding: '14px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        borderRadius: '16px',
+        padding: '16px',
         minHeight: '96px',
         display: 'flex',
         flexDirection: 'column',
@@ -230,12 +227,8 @@ function StatCard({
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          fontSize: '9px',
-          fontFamily: 'var(--font-dm-mono)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          color: TEXT_3,
-          fontWeight: 700,
+          ...ETIQUETA,
+          fontWeight: 500,
           marginBottom: '8px',
         }}
       >
@@ -243,13 +236,12 @@ function StatCard({
         <span>{label}</span>
       </div>
       <div
+        className={compact ? undefined : 'num'}
         style={{
-          fontFamily: 'var(--font-dm-mono)',
-          fontSize: compact ? '15px' : '26px',
-          fontWeight: 700,
+          fontSize: compact ? '16px' : '24px',
+          fontWeight: 600,
           color: TEXT,
-          lineHeight: 1.1,
-          letterSpacing: '-0.01em',
+          lineHeight: 1.2,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -260,10 +252,10 @@ function StatCard({
       {sub && (
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '13px',
             color: TEXT_2,
             marginTop: '4px',
-            fontWeight: 500,
+            fontWeight: 400,
           }}
         >
           {sub}
@@ -317,58 +309,22 @@ function TaigerCard({
       style={{
         marginTop: '32px',
         padding: '20px',
-        background: `linear-gradient(180deg, ${GOLD_SOFT} 0%, ${BG_SOFT} 100%)`,
+        background: BG_SOFT,
         borderRadius: '16px',
         border: `1px solid ${BORDER}`,
-        borderLeft: `3px solid ${GOLD}`,
-        position: 'relative',
       }}
     >
-      {/* Quote mark decorativo */}
-      <div
-        style={{
-          fontFamily: 'var(--font-playfair)',
-          fontSize: '40px',
-          color: GOLD,
-          opacity: 0.35,
-          position: 'absolute',
-          top: '8px',
-          left: '14px',
-          lineHeight: 1,
-          pointerEvents: 'none',
-        }}
-      >
-        “
-      </div>
-
-      <div
-        style={{
-          fontSize: '9px',
-          fontFamily: 'var(--font-dm-mono)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          color: GOLD,
-          fontWeight: 700,
-          marginBottom: '10px',
-          position: 'relative',
-          zIndex: 1,
-        }}
-      >
+      <div style={{ ...ETIQUETA, color: GOLD, marginBottom: '8px' }}>
         tAIger Coach
       </div>
 
       <div
         style={{
-          fontFamily: 'var(--font-playfair)',
-          fontSize: '15px',
+          fontSize: '16px',
           color: TEXT,
-          fontWeight: 500,
+          fontWeight: 400,
           lineHeight: 1.5,
           marginBottom: '12px',
-          paddingLeft: '18px',
-          position: 'relative',
-          zIndex: 1,
-          fontStyle: 'italic',
         }}
       >
         {line.texto}
@@ -378,12 +334,10 @@ function TaigerCard({
       {hasUsed && (
         <div
           style={{
-            fontSize: '10px',
-            fontFamily: 'var(--font-dm-mono)',
-            color: TEXT_3,
-            fontWeight: 500,
+            fontSize: '13px',
+            color: TEXT_2,
+            fontWeight: 400,
             marginBottom: '12px',
-            paddingLeft: '18px',
           }}
         >
           {taigerSessionCount} {taigerSessionCount === 1 ? 'sesión' : 'sesiones'} · basado en tus últimas {Math.min(totalRounds, 20)} rondas
@@ -391,35 +345,20 @@ function TaigerCard({
       )}
 
       {/* CTAs */}
-      <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
         <Link
           href={line.cta_href}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 14px',
-            background: GOLD,
-            color: '#fff',
-            borderRadius: '20px',
-            fontSize: '12px',
-            fontWeight: 700,
-            textDecoration: 'none',
-          }}
+          // Botón commit canónico (dorado + navy, 7.35:1 en ambos modos, foco visible). Antes era blanco
+          // sobre --brand-on-bg hecho a mano: 2.65:1 en oscuro, donde --brand-on-bg vuelve a ser #C4992A.
+          className={buttonClassName({ variant: 'commit', size: 'md' })}
+          style={{ textDecoration: 'none' }}
         >
           {line.cta_texto.replace('→', '').trim()} →
         </Link>
         {hasUsed && (
           <Link
             href="/coach/sesion/nueva"
-            style={{
-              fontSize: '12px',
-              color: TEXT_2,
-              fontWeight: 500,
-              textDecoration: 'none',
-              borderBottom: `1px solid ${BORDER}`,
-              paddingBottom: '2px',
-            }}
+            style={{ ...LINK_SECUNDARIO, fontSize: '14px' }}
           >
             Nueva sesión
           </Link>
@@ -433,12 +372,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        fontSize: '10px',
-        fontFamily: 'var(--font-dm-mono)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.1em',
-        color: TEXT_3,
-        fontWeight: 700,
+        ...ETIQUETA,
         marginBottom: '16px',
       }}
     >
