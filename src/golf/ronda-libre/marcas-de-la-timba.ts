@@ -4,11 +4,14 @@
  * qué muestra cada botón (marcado, en espera, "no cuenta" con la razón que da el motor).
  *
  * La regla de "cuenta o no" vive en `puntos-especiales.ts` (la aplica el motor, `calcularJuegoPersonalizado`): acá
- * se usa para no ofrecer lo que no contaría y se lee el juicio del motor sobre lo ya marcado.
+ * se usa para no ofrecer lo que seguro no contaría y para avisar al tiro un "sobre par"; el resto lo juzga el motor.
  */
 import {
   PUNTITOS_MANUALES,
   nombreDelPuntito,
+  PUNTITOS_CON_PAR_O_MEJOR,
+  esUnoPorHoyo,
+  porQueNoCuenta,
   seJuegaEnElHoyo,
   sePuedeOfrecer,
   type ConfigJuego,
@@ -53,25 +56,37 @@ export function marcasVigentes(
 
 export interface BotonDeMarca {
   jugadorId: string
+  /**
+   * Si el botón se muestra. Un jugador oculto deja su hueco: cada jugador tiene siempre la misma posición en la
+   * grilla, así un score corregido no corre a los demás de columna (un toque en movimiento no cae en otro).
+   */
+  visible: boolean
   marcado: boolean
   /** Marcada (o quitada) en el teléfono y todavía sin confirmar por el servidor. */
   enEspera: boolean
-  /** Razón del motor si está marcada y no cuenta; `null` si cuenta o si el hoyo todavía no se puntúa. */
+  /**
+   * Razón si está marcada y no cuenta; `null` si cuenta o si todavía no se sabe. Un score anotado sobre par se
+   * juzga en el teléfono sin esperar al motor; el resto lo dice el motor.
+   */
   noCuenta: string | null
 }
 
 export interface MarcasDeUnPuntito {
   puntito: PuntitoConfig
   nombre: string
-  /** Solo los botones que tiene sentido mostrar (ver `marcasDelHoyo`); vacío si todavía nadie puede ganarlo. */
+  /** Aclaración junto al nombre ("uno por hoyo"); `null` si no hay. */
+  nota: string | null
+  /** Por qué no hay ningún botón visible ("Nadie en par o mejor"); `null` si hay botones o no hay nada que decir. */
+  pista: string | null
+  /** Uno por jugador, en el orden de `jugadorIds` (ver `visible`). */
   jugadores: BotonDeMarca[]
 }
 
 /**
- * Los botones del hoyo: a cada jugador se le ofrece un punto solo si contaría (`sePuedeOfrecer`: sandy y greenie
- * con el score ya anotado y par o mejor; chipingo y propios a todos) y si no está retirado. Una marca ya puesta se
- * muestra SIEMPRE (aunque le hayan corregido el score o se haya retirado), con el "no cuenta" del motor, para que
- * se pueda quitar: nunca se esconde una marca. Un punto sin botones viene igual (vacío), para explicar cuándo aparece.
+ * Los botones del hoyo: a cada jugador se le ofrece un punto salvo que el motor seguro lo rechace (`sePuedeOfrecer`:
+ * sandy y greenie con un score ya anotado sobre par; greenie fuera de un par 3) o que esté retirado. Una marca ya
+ * puesta se muestra SIEMPRE (aunque le hayan corregido el score o se haya retirado), con su "no cuenta", para que se
+ * pueda quitar: nunca se esconde una marca.
  */
 export function marcasDelHoyo(input: {
   puntitos: readonly PuntitoConfig[]
@@ -90,21 +105,28 @@ export function marcasDelHoyo(input: {
   retirados: ReadonlySet<string>
 }): MarcasDeUnPuntito[] {
   const { puntitos, jugadorIds, hoyo, marcas, enEspera, resultadoDelHoyo, golpes, par, retirados } = input
-  return puntitos.map(puntito => ({
-    puntito,
-    nombre: nombreDelPuntito(puntito),
-    jugadores: jugadorIds.flatMap((jugadorId): BotonDeMarca[] => {
+  return puntitos.map(puntito => {
+    const jugadores = jugadorIds.map((jugadorId): BotonDeMarca => {
       const clave = { jugadorId, hoyo, puntitoId: puntito.id }
       const marcado = marcas.some(m => misma(m, clave))
-      const seOfrece = !retirados.has(jugadorId) && sePuedeOfrecer(puntito.tipo, golpes[jugadorId], par)
-      if (!marcado && !seOfrece) return []
-      const evaluado = resultadoDelHoyo?.especiales.find(e => e.jugadorId === jugadorId && e.puntitoId === puntito.id)
-      return [{
-        jugadorId,
-        marcado,
-        enEspera: enEspera.some(m => misma(m, clave)),
-        noCuenta: marcado && evaluado && !evaluado.cuenta ? evaluado.razon ?? 'No cuenta' : null,
-      }]
-    }),
-  }))
+      const visible = marcado || (!retirados.has(jugadorId) && sePuedeOfrecer(puntito.tipo, golpes[jugadorId], par))
+      return { jugadorId, visible, marcado, enEspera: enEspera.some(m => misma(m, clave)), noCuenta: marcado ? razonNoCuenta(puntito, jugadorId) : null }
+    })
+    const hayBotones = jugadores.some(j => j.visible)
+    return {
+      puntito,
+      nombre: nombreDelPuntito(puntito),
+      nota: esUnoPorHoyo(puntito.tipo) ? 'uno por hoyo' : null,
+      pista: !hayBotones && PUNTITOS_CON_PAR_O_MEJOR.includes(puntito.tipo) && seJuegaEnElHoyo(puntito.tipo, par) ? 'Nadie en par o mejor' : null,
+      jugadores,
+    }
+  })
+
+  function razonNoCuenta(puntito: PuntitoConfig, jugadorId: string): string | null {
+    // Solo "sobre par" se juzga en el teléfono: un chipingo marcado antes de anotar el score es legítimo.
+    const local = porQueNoCuenta(puntito.tipo, golpes[jugadorId], par)
+    if (local?.motivo === 'sobre_par') return local.razon
+    const evaluado = resultadoDelHoyo?.especiales.find(e => e.jugadorId === jugadorId && e.puntitoId === puntito.id)
+    return evaluado && !evaluado.cuenta ? evaluado.razon ?? 'No cuenta' : null
+  }
 }

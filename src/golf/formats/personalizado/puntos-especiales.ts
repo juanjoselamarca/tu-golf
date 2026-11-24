@@ -21,6 +21,11 @@ export function seJuegaEnElHoyo(tipo: TipoPuntito, par: number | null | undefine
   return tipo !== 'greenie' || par === 3
 }
 
+/** Puntos que son uno por hoyo (marcar a otro jugador lo reasigna): el greenie. */
+export function esUnoPorHoyo(tipo: TipoPuntito): boolean {
+  return tipo === 'greenie'
+}
+
 export type MotivoNoCuenta = 'no_jugo' | 'no_se_juega_en_el_hoyo' | 'sobre_par'
 
 /**
@@ -41,10 +46,11 @@ export function porQueNoCuenta(
 }
 
 /**
- * Si tiene sentido ofrecer el botón en el hoyo: lo que el motor contaría. Los puntos que no dependen del score
- * (chipingo, propios) se ofrecen aunque todavía no se anoten los golpes.
+ * Si tiene sentido ofrecer el botón en el hoyo: se oculta solo lo que el motor seguro rechazaría (greenie fuera de un
+ * par 3, sandy/greenie con un score ya anotado sobre par). Sin score se ofrece todo: en el scorer de grupo el par no
+ * se anota, se rellena al pasar de hoyo, así que "sin score" muchas veces es "hizo par".
  */
 export function sePuedeOfrecer(tipo: TipoPuntito, gross: number | null | undefined, par: number | null | undefined): boolean {
   const motivo = porQueNoCuenta(tipo, gross, par)?.motivo
-  return !motivo || (motivo === 'no_jugo' && !PUNTITOS_CON_PAR_O_MEJOR.includes(tipo) && seJuegaEnElHoyo(tipo, par))
+  return !motivo || (motivo === 'no_jugo' && seJuegaEnElHoyo(tipo, par))
 }

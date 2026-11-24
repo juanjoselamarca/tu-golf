@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { PUNTITOS_CON_PAR_O_MEJOR, porQueNoCuenta, seJuegaEnElHoyo, sePuedeOfrecer } from './puntos-especiales'
+import { PUNTITOS_CON_PAR_O_MEJOR, esUnoPorHoyo, porQueNoCuenta, seJuegaEnElHoyo, sePuedeOfrecer } from './puntos-especiales'
 
 describe('seJuegaEnElHoyo', () => {
   it('el greenie solo en un par 3 conocido; el resto en cualquier hoyo', () => {
@@ -36,17 +36,18 @@ describe('porQueNoCuenta — la regla que aplica el motor', () => {
 })
 
 describe('sePuedeOfrecer — qué botón tiene sentido mostrar en la cancha', () => {
-  it('sandy: solo con score anotado y par o mejor', () => {
-    expect(sePuedeOfrecer('sandy', undefined, 4)).toBe(false)
+  it('sandy: sin score se ofrece (el par se rellena al pasar de hoyo); con score, solo par o mejor', () => {
+    expect(sePuedeOfrecer('sandy', undefined, 4)).toBe(true)
     expect(sePuedeOfrecer('sandy', 5, 4)).toBe(false)
     expect(sePuedeOfrecer('sandy', 4, 4)).toBe(true)
     expect(sePuedeOfrecer('sandy', 3, 4)).toBe(true)
   })
-  it('greenie: solo en par 3, con score anotado y par o mejor', () => {
+  it('greenie: solo en par 3; sin score se ofrece, con score solo par o mejor', () => {
     expect(sePuedeOfrecer('greenie', 3, 4)).toBe(false)
     expect(sePuedeOfrecer('greenie', 3, 3)).toBe(true)
     expect(sePuedeOfrecer('greenie', 4, 3)).toBe(false)
-    expect(sePuedeOfrecer('greenie', undefined, 3)).toBe(false)
+    expect(sePuedeOfrecer('greenie', undefined, 3)).toBe(true)
+    expect(sePuedeOfrecer('greenie', undefined, 4)).toBe(false)
   })
   it('chipingo y propios: a todos, aunque todavía no se anote el score', () => {
     expect(sePuedeOfrecer('chipingo', undefined, 4)).toBe(true)
@@ -54,6 +55,11 @@ describe('sePuedeOfrecer — qué botón tiene sentido mostrar en la cancha', ()
   })
   it('par desconocido: el sandy se ofrece con score anotado (el motor juzga con el par de la cancha)', () => {
     expect(sePuedeOfrecer('sandy', 5, undefined)).toBe(true)
-    expect(sePuedeOfrecer('sandy', undefined, undefined)).toBe(false)
+    expect(sePuedeOfrecer('sandy', undefined, undefined)).toBe(true)
+    expect(sePuedeOfrecer('greenie', 2, undefined)).toBe(false)
+  })
+  it('solo el greenie es uno por hoyo', () => {
+    expect(esUnoPorHoyo('greenie')).toBe(true)
+    expect(esUnoPorHoyo('sandy')).toBe(false)
   })
 })

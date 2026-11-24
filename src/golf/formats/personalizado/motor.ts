@@ -10,7 +10,7 @@ import { strokesRecibidosEnHoyo } from '../../core/stableford-score'
 import { esHandicapUsable, golpesALaDiferenciaDelMasBajo } from '../match-play'
 import { TRAMOS_ROTATIVOS, hoyosPorTramo } from './tramos'
 import { estaRetiradoEn } from './retiro'
-import { porQueNoCuenta } from './puntos-especiales'
+import { esUnoPorHoyo, porQueNoCuenta } from './puntos-especiales'
 import {
   COMBINACIONES_DE_4,
   type ConfigJuego,
@@ -344,7 +344,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
     // Solo entre quienes jugaron el hoyo: marcar a un retirado no le quita el greenie al que sí lo ganó.
     const ultimoGreenie = [...marcasDelHoyo]
       .reverse()
-      .find(m => puntitoPorId.get(m.puntitoId)?.tipo === 'greenie' && typeof gross[m.jugadorId] === 'number')
+      .find(m => { const t = puntitoPorId.get(m.puntitoId)?.tipo; return !!t && esUnoPorHoyo(t) && typeof gross[m.jugadorId] === 'number' })
     for (const marca of marcasDelHoyo) {
       const p = puntitoPorId.get(marca.puntitoId)!
       if (p.tipo === 'birdie') continue
@@ -364,7 +364,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
       const noCuenta = porQueNoCuenta(p.tipo, g, hoyo.par)
       if (noCuenta && noCuenta.motivo !== 'sobre_par') { especiales.push(evaluado(false, noCuenta.razon)); continue }
       // Uno por hoyo: el greenie reasignado desaparece (no queda como "no cuenta").
-      const reasignado = p.tipo === 'greenie' && (marca.jugadorId !== ultimoGreenie?.jugadorId || marca.puntitoId !== ultimoGreenie?.puntitoId)
+      const reasignado = esUnoPorHoyo(p.tipo) && (marca.jugadorId !== ultimoGreenie?.jugadorId || marca.puntitoId !== ultimoGreenie?.puntitoId)
       if (reasignado) continue
       especiales.push(noCuenta ? evaluado(false, noCuenta.razon) : evaluado(true))
     }
