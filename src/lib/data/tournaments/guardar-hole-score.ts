@@ -16,6 +16,7 @@
 import type { SupabaseClient, PostgrestError } from '@supabase/supabase-js'
 import { isUuid } from '@/lib/uuid'
 import { captureError } from '@/lib/error-tracking'
+import { esFuncionInexistente } from '@/lib/data/funcion-inexistente'
 
 export interface OrdenGuardado {
   seq: number
@@ -33,13 +34,6 @@ export function ordenDelBody(body: Record<string, unknown>): OrdenGuardado | nul
   return { seq: seq as number, dispositivo: dispositivo as string }
 }
 
-/**
- * La función todavía no existe en esta base: PostgREST responde PGRST202 (no
- * está en su caché del esquema) y Postgres 42883 (undefined_function).
- */
-function faltaLaFuncion(error: PostgrestError): boolean {
-  return error.code === 'PGRST202' || error.code === '42883'
-}
 
 /**
  * La función existe pero la base no está como la deja la migración: falta la
@@ -85,7 +79,7 @@ export async function guardarHoleScore(
           meta: { code: error.code, round_id: fila.round_id, hole_number: fila.hole_number },
         })
       }
-    } else if (!faltaLaFuncion(error)) {
+    } else if (!esFuncionInexistente(error)) {
       return { ok: false, error }
     }
   }

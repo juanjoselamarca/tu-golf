@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
 import { PLAZO_TARJETA_VIGENTE_MS } from '@/lib/red/plazos'
 import { CODIGO_TARJETA_SIN_SOPORTE } from '@/lib/api/codigos-game'
+import { esFuncionInexistente } from '@/lib/data/funcion-inexistente'
 
 /** Por qué la función no dio tarjeta (los `reason` que devuelve `asegurar_tarjeta_vigente`). */
 export type MotivoSinTarjetaVigente =
@@ -36,15 +37,8 @@ export type ResultadoTarjetaVigente =
   /** La función aún no existe en esta base (deploy antes de aplicar la migración). */
   | { tipo: 'sin_soporte' }
 
-/**
- * ¿El error de `rpc()` es "esa función no existe"? PostgREST responde `PGRST202` (no la encuentra
- * en su caché de esquema); Postgres directo, `42883`. Entre el deploy y la aprobación de la
- * migración en `migraciones-prod` la ruta corre sin la función: eso no es una caída.
- */
-export function esFuncionInexistente(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code
-  return code === 'PGRST202' || code === '42883'
-}
+// Re-exportada: la fuente es `@/lib/data/funcion-inexistente`.
+export { esFuncionInexistente }
 
 /**
  * Servidor (service role). Asegura la tarjeta de la ronda vigente; idempotente (reintentar no
