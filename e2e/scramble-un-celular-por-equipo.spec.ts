@@ -1,5 +1,5 @@
-import { test, expect, devices, type APIRequestContext, type Page } from '@playwright/test'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { test, expect, devices } from '@playwright/test'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   adminClient,
   cleanupRondaFixture,
@@ -7,10 +7,18 @@ import {
   deleteEphemeralUser,
   getTestUserId,
   sinError,
-  DEFAULT_COURSE_ID,
-  DEFAULT_COURSE_NAME,
 } from './helpers/ronda-fixture'
 import { marcarAvisoNoMolestarVisto } from './helpers/aviso-no-molestar'
+import {
+  clienteConSesion,
+  clienteDelUsuarioE2E,
+  crearScrambleDeClub as crearScrambleDeClubConCreador,
+  entrarComo,
+  equiposDe,
+  golpeDelEquipo,
+  nombreDePerfil,
+  tarjetaDeEquipo,
+} from './helpers/scramble-club-fixture'
 import { REINTENTO_CARGA_MS } from '../src/lib/data/ronda-libre-scorer'
 
 /**
@@ -40,66 +48,11 @@ let pedro: { id: string; email: string; password: string } | null = null
 let pedroDb: SupabaseClient | null = null
 let creadorDb: SupabaseClient | null = null
 
-/** Cliente con la sesión de una cuenta (anon key + login): las RPC corren como ese celular, no como service_role. */
-async function clienteConSesion(email: string, password: string): Promise<SupabaseClient> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !anon) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY')
-  const db = createClient(url, anon, { auth: { autoRefreshToken: false, persistSession: false } })
-  const { error } = await db.auth.signInWithPassword({ email, password })
-  if (error) throw new Error(`login de ${email}: ${error.message}`)
-  return db
-}
-
-type FilaEquipo = { id: string; nombre: string; handicap_origen: string; anotador_user_id: string | null; anotador_nombre: string | null; scores: Record<string, number> | null }
-
-/** Ronda scramble gross de 9 hoyos con equipos del club, por la API real del wizard (sesión del usuario e2e). */
-async function crearScrambleDeClub(request: APIRequestContext, equipos: string[]): Promise<{ id: string; codigo: string }> {
-  const res = await request.post('/api/ronda-libre/create', {
-    data: {
-      course_id: DEFAULT_COURSE_ID,
-      course_name: DEFAULT_COURSE_NAME,
-      tees: 'blanco',
-      holes: 9,
-      fecha: new Date().toISOString().slice(0, 10),
-      hoyo_inicio: 1,
-      formato_juego: 'scramble',
-      modo_juego: 'gross',
-      admin_mode: true, // lo decide el servidor con equipos de club: debe quedar en false con 'cada_equipo'
-      jugadores: [{ nombre: nombreCreador, user_id: testUserId, handicap: null, tees: 'blanco' }],
-      equipos_de_club: { equipos: equipos.map(nombre => ({ nombre, handicap: null })), quien_anota: 'cada_equipo' },
-    },
-  })
-  const body = await res.json()
-  expect(res.status(), `create scramble de club: ${JSON.stringify(body)}`).toBe(200)
-  rondasCreadas.push(body.ronda_id)
-  return { id: body.ronda_id, codigo: body.codigo }
-}
-
-async function equiposDe(rondaId: string): Promise<Record<string, FilaEquipo>> {
-  const filas = await sinError(
-    'equipos de la ronda',
-    adminClient().from('ronda_equipos').select('id, nombre, handicap_origen, anotador_user_id, anotador_nombre, scores').eq('ronda_id', rondaId),
-  )
-  return Object.fromEntries((filas as FilaEquipo[]).map(f => [f.nombre, f]))
-}
-
-/** Golpes de un equipo en un hoyo, leídos del servidor (lo que ve la tabla en vivo). */
-async function golpeDelEquipo(rondaId: string, nombre: string, hoyo: number): Promise<number | null> {
-  return (await equiposDe(rondaId))[nombre]?.scores?.[String(hoyo)] ?? null
-}
-
-/**
- * Tarjeta de un equipo en el scorer: el bloque más interno con su nombre y el botón «+». Se excluyen los contenedores
- * que envuelven la franja de otro celular: si no, la página entera «tiene» el nombre (en la franja) y un «+» ajeno.
- */
-function tarjetaDeEquipo(page: Page, nombre: string) {
-  return page
-    .locator('div')
-    .filter({ has: page.getByText(nombre, { exact: true }) })
-    .filter({ has: page.getByRole('button', { name: '+', exact: true }) })
-    .filter({ hasNot: page.getByRole('region', { name: 'Equipos que anota otro celular' }) })
-    .last()
+/** Crea la ronda con la sesión de `request` (la del usuario e2e) y la anota para la limpieza. */
+async function crearScrambleDeClub(request: Parameters<typeof crearScrambleDeClubConCreador>[0], equipos: string[]) {
+  const ronda = await crearScrambleDeClubConCreador(request, { id: testUserId, nombre: nombreCreador }, equipos)
+  rondasCreadas.push(ronda.id)
+  return ronda
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -107,18 +60,12 @@ test.describe.configure({ mode: 'serial' })
 test.describe('Scramble rápido — un celular por equipo', () => {
   test.beforeAll(async () => {
     testUserId = await getTestUserId()
-    const perfil = await sinError('perfil del usuario e2e', adminClient().from('profiles').select('name').eq('id', testUserId).single())
-    // El trigger copia profiles.name tal cual: se compara con el valor crudo, y sin nombre el fixture no sirve.
-    nombreCreador = (perfil as { name: string | null }).name ?? ''
-    if (!nombreCreador.trim()) throw new Error('El usuario e2e no tiene nombre en profiles: «lo anota …» no se puede afirmar')
+    nombreCreador = await nombreDePerfil(testUserId)
 
     pedro = await createEphemeralUserConCredenciales('e2e-scramble-celular')
     await sinError('nombre de Pedro', adminClient().from('profiles').update({ name: NOMBRE_PEDRO }).eq('id', pedro.id).select('id'))
     pedroDb = await clienteConSesion(pedro.email, pedro.password)
-    const email = process.env.E2E_TEST_USER_EMAIL
-    const password = process.env.E2E_TEST_USER_PASSWORD
-    if (!email || !password) throw new Error('Faltan E2E_TEST_USER_EMAIL/PASSWORD (correr con scripts/test-db/e2e-local.mjs)')
-    creadorDb = await clienteConSesion(email, password)
+    creadorDb = await clienteDelUsuarioE2E()
   })
 
   test.afterAll(async () => {
@@ -224,11 +171,7 @@ test.describe('Scramble rápido — un celular por equipo', () => {
       let equipos = await equiposDe(id)
       expect(equipos['Los Cóndores'].anotador_user_id, 'el equipo 1 lo anota el creador desde ya').toBe(testUserId)
 
-      await page.goto('/login')
-      await page.locator('input[type="email"]').first().fill(pedro!.email)
-      await page.locator('input[placeholder="Tu contraseña"]').first().fill(pedro!.password)
-      await page.locator('form button[type="submit"]').first().click()
-      await page.waitForURL(u => !u.pathname.startsWith('/login'), { timeout: 45_000 })
+      await entrarComo(page, pedro!)
 
       await marcarAvisoNoMolestarVisto(page, codigo)
       await page.goto(`/ronda-libre/${codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
