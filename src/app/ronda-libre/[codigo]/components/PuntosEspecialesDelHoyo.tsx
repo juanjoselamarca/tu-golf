@@ -118,8 +118,8 @@ export function PuntosEspecialesDelHoyo(props: {
                           display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left',
                           fontFamily: 'inherit', fontSize: '15px', fontWeight: j.marcado ? 700 : 500,
                           background: j.marcado ? 'var(--status-open-bg)' : 'transparent',
-                          // Sin marcar, el borde es de --text-3 (≥3:1 contra la tarjeta, WCAG 1.4.11).
-                          border: j.marcado ? '2px solid var(--brand)' : '1px solid var(--text-3)',
+                          // Bordes ≥3:1 contra la tarjeta (WCAG 1.4.11): marcado --brand-on-bg, sin marcar --text-3.
+                          border: j.marcado ? '2px solid var(--brand-on-bg)' : '1px solid var(--text-3)',
                           color: 'var(--text)',
                         }}
                       >
