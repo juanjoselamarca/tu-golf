@@ -167,10 +167,11 @@ describe('nombresDeCelda (tira del Skins a 360 px)', () => {
   it('acota a 7 con punto: «Maximiliano» → «Maximi.»; los cortos quedan igual', () => {
     expect(nombresDeCelda(['Maximiliano Ruiz', 'Ana Pérez', 'Bartolomé Soto'])).toEqual(['Maximi.', 'Ana', 'Bartol.'])
   })
-  it('si dos quedan iguales al acortar, esos dos van enteros (nunca el mismo texto para dos)', () => {
-    expect(nombresDeCelda(['Maximiliano', 'Maximino', 'Ana'])).toEqual(['Maximiliano', 'Maximino', 'Ana'])
+  it('si dos quedan iguales al acortar, se alarga el prefijo hasta que difieran (nunca el mismo texto para dos)', () => {
+    expect(nombresDeCelda(['Maximiliano', 'Maximino', 'Ana'])).toEqual(['Maximil.', 'Maximino', 'Ana'])
   })
-  it('respeta la inicial de apellido de nombresCortos', () => {
+  it('con inicial de apellido (mismo nombre) se acorta el nombre y la inicial queda', () => {
     expect(nombresDeCelda(['Ana Pérez', 'Ana Soto'])).toEqual(['Ana P.', 'Ana S.'])
+    expect(nombresDeCelda(['Bartolomé Fernández', 'Bartolomé Soto'])).toEqual(['Bart. F.', 'Bart. S.'])
   })
 })

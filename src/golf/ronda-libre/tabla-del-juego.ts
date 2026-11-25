@@ -160,14 +160,27 @@ export function nombresCortos(nombres: readonly string[]): string[] {
 export const LARGO_NOMBRE_DE_CELDA = 7
 
 /**
- * `nombresCortos` acotados a una celda: «Maximiliano» → «Maximi.» (antes la celda lo cortaba en «Maximilia…»). Si
- * dos quedan iguales al acortar («Maximiliano» y «Maximino»), esos dos usan el corto entero: nunca dos jugadores con
- * el mismo texto en la tira.
+ * `nombresCortos` acotados a una celda: «Maximiliano» → «Maximi.» (antes la celda lo cortaba en «Maximilia…» y la
+ * elipsis podía comerse lo que distingue a dos). Con inicial de apellido se acorta el nombre y la inicial queda:
+ * «Bartolomé F.» → «Bart. F.». Si dos quedan iguales al acortar («Maximiliano» y «Maximino»), se alarga el prefijo
+ * de esos dos hasta que difieran («Maximil.» / «Maximino»): nunca el mismo texto para dos jugadores.
  */
 export function nombresDeCelda(nombres: readonly string[], largo: number = LARGO_NOMBRE_DE_CELDA): string[] {
   const cortos = nombresCortos(nombres)
-  const acotados = cortos.map(c => ([...c].length <= largo ? c : `${[...c].slice(0, largo - 1).join('')}.`))
-  return acotados.map((a, i) => (acotados.filter(x => x === a).length > 1 && cortos.filter(c => c === cortos[i]).length === 1 ? cortos[i] : a))
+  const acotar = (c: string, k: number): string => {
+    const m = /^(.*?)( \S\.)$/u.exec(c)
+    const [nombre, inicial] = m ? [m[1], m[2]] : [c, '']
+    const letras = [...nombre]
+    const cupo = inicial ? Math.max(2, k - 3) : k - 1
+    return [...c].length <= k || letras.length <= cupo ? c : `${letras.slice(0, cupo).join('')}.${inicial}`
+  }
+  return cortos.map((c, i) => {
+    for (let k = largo; ; k++) {
+      const propio = acotar(c, k)
+      const choca = cortos.some((o, j) => j !== i && o !== c && acotar(o, k) === propio)
+      if (!choca || propio === c) return propio
+    }
+  })
 }
 
 export function armarTablaDelJuego(
