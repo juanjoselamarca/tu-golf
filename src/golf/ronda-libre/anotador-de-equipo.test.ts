@@ -9,11 +9,14 @@ import {
   equiposDeOtroCelular,
   equiposLibres,
   equiposQueAnota,
+  equiposQueConfirmanElHoyo,
+  equiposQueNoConfirmanElHoyo,
   equiposSinParAutomatico,
   equiposTomados,
   nombreDelAnotador,
   nombreDelCreador,
   nombreDeQuienAnota,
+  nombreDelAnotadorDelCelular,
   ofreceAnotarMiEquipo,
   unCelularPorEquipo,
   type EquipoConAnotador,
@@ -228,5 +231,48 @@ describe('nombreDeQuienAnota (franja de equipos de otro celular)', () => {
   it('reclamado: el nombre del anotador; sin nombre, «otro celular»', () => {
     expect(nombreDeQuienAnota(club('e2', PEDRO, 'Pedro'), 'Juanjo')).toBe('Pedro')
     expect(nombreDeQuienAnota(club('e2', PEDRO, null), 'Juanjo')).toBe('otro celular')
+  })
+})
+
+describe('equiposQueConfirmanElHoyo: el par gris que este celular guarda (ensayo 24-nov, Liberar)', () => {
+  const conGolpes = (e: EquipoConAnotador, scores: Record<string, number>): EquipoConAnotador => ({ ...e, scores })
+  it('liberado con golpes: el creador confirma su hoyo en pantalla, pero el cierre no le rellena hoyos (sigue P1-a)', () => {
+    const lista = [club('e1', CREADOR), club('e2', PEDRO), conGolpes(club('e3', null), { 1: 4, 2: 5 })]
+    expect(ids(equiposQueConfirmanElHoyo(multi, lista, CREADOR))).toEqual(['e1', 'e3'])
+    expect(ids(equiposQueNoConfirmanElHoyo(multi, lista, CREADOR))).toEqual(['e2'])
+    expect(ids(equiposConParAutomatico(multi, lista, CREADOR))).toEqual(['e1'])
+  })
+  it('sin reclamar y sin golpes: no se confirma (P1-a)', () => {
+    const lista = [club('e1', CREADOR), conGolpes(club('e3', null), {})]
+    expect(ids(equiposQueConfirmanElHoyo(multi, lista, CREADOR))).toEqual(['e1'])
+  })
+  it('solo el creador: otra cuenta nunca confirma un equipo sin reclamar, aunque tenga golpes', () => {
+    const lista = [club('e1', CREADOR), club('e2', PEDRO), conGolpes(club('e3', null), { 1: 4 })]
+    expect(ids(equiposQueConfirmanElHoyo(multi, lista, PEDRO))).toEqual(['e2'])
+  })
+  it('un equipo de otro celular con golpes no se confirma desde acá', () => {
+    const lista = [club('e1', CREADOR), conGolpes(club('e2', PEDRO), { 1: 4 })]
+    expect(ids(equiposQueConfirmanElHoyo(multi, lista, CREADOR))).toEqual(['e1'])
+  })
+  it('sin sesión: ninguno. Ronda de un celular: todos', () => {
+    expect(equiposQueConfirmanElHoyo(multi, equipos, null)).toEqual([])
+    expect(ids(equiposQueConfirmanElHoyo(unCelular, equipos, CREADOR))).toEqual(['e1', 'e2', 'e3'])
+  })
+})
+
+describe('nombreDelAnotadorDelCelular (nunca el correo)', () => {
+  const jugadores = [{ user_id: CREADOR, nombre: 'Juanjo' }, { user_id: null, nombre: 'Invitado' }]
+  it('jugador de la ronda: su nombre en la ronda', () => {
+    expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e1', CREADOR, 'Perfil')], userId: CREADOR })).toBe('Juanjo')
+  })
+  it('no juega pero reclamó un equipo: el nombre de su perfil copiado en el equipo', () => {
+    expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e2', PEDRO, 'Cristián Ross')], userId: PEDRO })).toBe('Cristián Ross')
+  })
+  it('sin equipo con nombre: el perfil leído', () => {
+    expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e2', PEDRO, null)], userId: PEDRO, nombreDePerfil: ' Max ' })).toBe('Max')
+  })
+  it('sin nada: genérico (nunca el correo)', () => {
+    expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [], userId: JUAN, nombreDePerfil: '  ' })).toBe('Anotador')
+    expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [], userId: null })).toBe('Anotador')
   })
 })

@@ -9,7 +9,9 @@ import { captureError } from '@/lib/error-tracking'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
-import { entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposQueAnota, unCelularPorEquipo } from '@/golf/ronda-libre/anotador-de-equipo'
+import {
+  entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposQueAnota, unCelularPorEquipo, nombreDelAnotadorDelCelular, NOMBRE_ANOTADOR_GENERICO,
+} from '@/golf/ronda-libre/anotador-de-equipo'
 import { MENSAJE_YA_NO_ANOTAS } from '@/lib/data/ronda-libre-anotador'
 import { addToast } from '@/hooks/useToast'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
@@ -43,6 +45,7 @@ import type { HoleData, RondaLibre } from '@/types/ronda'
 import { conOrdenEnPantalla } from '@/lib/ronda/orden-jugadores'
 import { loginUrl } from '@/lib/auth/login-url'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
+import { leerNombresDePerfilCon } from '@/lib/data/nombres-de-perfil-lectura'
 import { conPlazoCancelable, LecturaCanceladaError } from '@/lib/red/con-timeout'
 import { clienteConSenal } from '@/lib/red/cliente-con-senal'
 
@@ -188,10 +191,16 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
     // completar al finalizar, pendientes, hoyo inicial, copia local) parte de esta lista: nunca toca un equipo de
     // otro celular. En una ronda de un celular son todos.
     const teamEquipos = equiposQueAnota(r, equipos, userId)
-    // Identidad del anotador: su nombre en la ronda; si no juega, el prefijo del email.
-    const anotadorNombre = r.ronda_libre_jugadores.find(j => j.user_id === userId)?.nombre
-      || (sesion.email ? sesion.email.split('@')[0] : '')
-      || 'Anotador'
+    // Identidad del anotador (`nombreDelAnotadorDelCelular`): nunca el correo. Su perfil se lee solo si la ronda no
+    // trae su nombre, y una falla de esa lectura no frena el scorer (queda el genérico).
+    const delCelular = { jugadores: r.ronda_libre_jugadores, equipos, userId }
+    let anotadorNombre = nombreDelAnotadorDelCelular(delCelular)
+    if (anotadorNombre === NOMBRE_ANOTADOR_GENERICO) {
+      const nombreDePerfil = await paso(c => leerNombresDePerfilCon(c, [userId]))
+        .then(m => m.get(userId) ?? null, (e: unknown) => { if (e instanceof LecturaCanceladaError) throw e; return null })
+      if (signal.aborted) return { tipo: 'cancelada' }
+      anotadorNombre = nombreDelAnotadorDelCelular({ ...delCelular, nombreDePerfil })
+    }
     return {
       tipo: 'ok', ronda: r, userId, email: sesion.email,
       snap: {

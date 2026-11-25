@@ -12,15 +12,22 @@ interface GrupoNavBarProps {
   onPrev: () => void
   onNext: () => void
   onFinalize: () => void
+  /**
+   * Último hoyo de quien NO cierra la ronda (un celular por equipo): en lugar de Siguiente, «Guardar hoyo N» confirma
+   * el valor en pantalla. `guardado`: el hoyo ya tiene golpes en todas las tarjetas de este celular.
+   */
+  guardarUltimoHoyo?: { hoyo: number; guardado: boolean; onGuardar: () => void }
   theme: ScorerTheme
 }
 
-/** Barra inferior del scorer de grupo: Anterior / Siguiente / Finalizar. */
+/** Barra inferior del scorer de grupo: Anterior / Siguiente / Finalizar (o «Guardar hoyo N» en el último hoyo de quien no cierra). */
 export function GrupoNavBar({
   currentHoleIdx, isLastHole, canFinalize, finalizing, congelada,
-  onPrev, onNext, onFinalize, theme,
+  onPrev, onNext, onFinalize, guardarUltimoHoyo, theme,
 }: GrupoNavBarProps) {
   const finalizarInactivo = finalizing || congelada
+  const guardar = isLastHole ? guardarUltimoHoyo : undefined
+  const guardarInactivo = !!guardar && (guardar.guardado || congelada)
   return (
     <div style={{
       flexShrink: 0, background: theme.navBg,
@@ -54,6 +61,25 @@ export function GrupoNavBar({
           }}
         >
           Siguiente {'→'}
+        </button>
+      )}
+      {guardar && (
+        <button
+          type="button"
+          onClick={guardar.onGuardar}
+          disabled={guardarInactivo}
+          style={{
+            flex: 2, padding: '14px',
+            background: guardar.guardado ? 'transparent' : theme.gold,
+            color: guardar.guardado ? 'var(--brand-on-bg)' : 'var(--brand-dark)',
+            border: guardar.guardado ? `1px solid rgba(196,153,42,0.4)` : 'none',
+            borderRadius: '12px', fontSize: '16px', fontWeight: 600,
+            cursor: guardarInactivo ? 'default' : 'pointer', minHeight: '48px',
+            touchAction: 'manipulation', letterSpacing: '0.01em',
+            opacity: congelada && !guardar.guardado ? 0.7 : 1,
+          }}
+        >
+          {guardar.guardado ? `Hoyo ${guardar.hoyo} anotado ✓` : `Guardar hoyo ${guardar.hoyo}`}
         </button>
       )}
       {/* Finalize: secondary from hole 9, primary on last hole */}

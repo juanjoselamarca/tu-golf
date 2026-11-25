@@ -83,6 +83,8 @@ export interface GrupoScoreSave {
   ) => Promise<ResultadoEnvio>
   /** Agenda un envío de lo pendiente (debounced). Lo usa también el score de equipos. */
   programarEnvio: () => void
+  /** Envía lo pendiente YA, sin debounce (confirmar el último hoyo; también al ocultarse la página y al salir). */
+  enviarYa: () => Promise<unknown>
   /** Hay golpes en el teléfono que el servidor todavía no tiene (se reintenta solo). */
   pendienteDeEnvio: boolean
   /** El servidor rechazó un envío porque la ronda ya se cerró (en otro dispositivo). */
@@ -461,6 +463,35 @@ export function useGrupoScoreSave(input: {
     }, SAVE_DEBOUNCE_MS)
   }, [])
 
+  /** Envía lo pendiente YA, sin esperar el debounce (el envío programado, si había, ya no hace falta). */
+  const enviarYa = useCallback(() => {
+    if (envioDebounceRef.current) { clearTimeout(envioDebounceRef.current); envioDebounceRef.current = null }
+    return sincronizarRef.current()
+  }, [])
+
+  /*
+   * ── Lo pendiente sale al dejar la pantalla ──
+   * Cada golpe queda en la cola del teléfono al tocar, pero el envío espera el debounce. Salir del scorer (volver,
+   * bloquear el teléfono, cambiar o cerrar la app) cancelaba ese envío: el golpe llegaba recién al volver a abrir el
+   * scorer, y si el anotador no volvía (hoyo 18 del ensayo 25-nov) su equipo quedaba con un hoyo menos. Al ocultarse
+   * la página y al desmontar se envía YA. Si la página muere antes de la respuesta, la cola persistente lo reenvía al
+   * volver. Con la ronda cerrada no (cada intento daría P0002; lo pendiente espera a que se reabra).
+   */
+  useEffect(() => {
+    const vaciar = () => {
+      if (rondaCerradaRef.current || rondaBorradaRef.current) return
+      if (envioDebounceRef.current || hayPendientes(codigo)) void enviarYa()
+    }
+    const alCambiarVisibilidad = () => { if (document.visibilityState === 'hidden') vaciar() }
+    document.addEventListener('visibilitychange', alCambiarVisibilidad)
+    window.addEventListener('pagehide', vaciar)
+    return () => {
+      document.removeEventListener('visibilitychange', alCambiarVisibilidad)
+      window.removeEventListener('pagehide', vaciar)
+      vaciar()
+    }
+  }, [codigo, enviarYa])
+
   /* ── Score change ── */
   const handleScoreChange = useCallback((jugadorId: string, hole: number, delta: number) => {
     if (rondaBorradaRef.current) return
@@ -534,6 +565,6 @@ export function useGrupoScoreSave(input: {
 
   return {
     saveStatus, setSaveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm,
-    handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida,
+    handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida,
   }
 }

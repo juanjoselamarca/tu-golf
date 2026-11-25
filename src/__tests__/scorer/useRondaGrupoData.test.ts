@@ -31,10 +31,18 @@ type SesionMock = { session: unknown; error: unknown } | 'lanza'
 const sesion = { valor: { session: { user: { id: 'u1', email: 'juanjo@x.cl' } }, error: null } as SesionMock }
 /** Señales que las lecturas del scorer ataron a sus consultas (`clienteConSenal` → `.abortSignal`). */
 const senalesDeConsulta: AbortSignal[] = []
+/** `profiles.name` por id (la lectura del nombre del anotador); `'lanza'` = la lectura falla. */
+const perfiles = { valor: {} as Record<string, string> | 'lanza', pedidos: 0 }
 vi.mock('@/lib/supabase', () => ({
   createClient: () => ({
     from: () => {
       const q: Record<string, unknown> = {}
+      q.in = async (_col: string, ids: string[]) => {
+        perfiles.pedidos++
+        if (perfiles.valor === 'lanza') return { data: null, error: { message: 'Failed to fetch' } }
+        const nombres = perfiles.valor
+        return { data: ids.filter(id => nombres[id]).map(id => ({ id, name: nombres[id] })), error: null }
+      }
       q.select = () => q
       q.abortSignal = (s: AbortSignal) => { senalesDeConsulta.push(s); return q }
       return q
@@ -119,6 +127,8 @@ beforeEach(() => {
   reclamarEquipo.mockReset()
   captureError.mockClear()
   lecturaDeEquipos.equipos = []
+  perfiles.valor = {}
+  perfiles.pedidos = 0
   localStorage.clear()
   push.mockClear()
   replace.mockClear()
@@ -454,6 +464,30 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     expect(result.current.eleccion).toBeNull()
     // La copia local también guarda solo los suyos: al abrir sin red no aparece el equipo de Pedro.
     expect((loadScorerGrupoSnapshot('B4F5Y2', 'u1')?.teamEquipos as { id: string }[] | undefined)?.map(e => e.id)).toEqual(['e1', 'e3'])
+  })
+  it('anotador que no juega la ronda: el encabezado muestra su nombre, nunca el correo (ensayo 24-nov)', async () => {
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    sesion.valor = { session: { user: { id: 'u-ross', email: 'ensayo-ross-1795@x.cl' } }, error: null }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-ross', 'Cristián Ross')]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.anotadorNombre).toBe('Cristián Ross')
+    expect(perfiles.pedidos).toBe(0) // el nombre ya venía en su equipo: no se lee el perfil
+  })
+  it('sin nombre en la ronda ni en el equipo: lee su perfil; si no hay o falla, «Anotador» (nunca el correo)', async () => {
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    sesion.valor = { session: { user: { id: 'u-ross', email: 'ensayo-ross-1795@x.cl' } }, error: null }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-ross', null)]
+    perfiles.valor = { 'u-ross': 'Cristián' }
+    const a = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(a.result.current.loading).toBe(false))
+    expect(a.result.current.anotadorNombre).toBe('Cristián')
+    a.unmount()
+    perfiles.valor = 'lanza'
+    const b = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(b.result.current.loading).toBe(false))
+    expect(b.result.current.anotadorNombre).toBe('Anotador')
+    expect(b.result.current.anotadorNombre).not.toContain('ensayo-ross')
   })
   it('una cuenta sin equipo (abrió el link): elige equipo, no anota ni va a la ronda en vivo', async () => {
     sesion.valor = { session: { user: { id: 'u-juan' } }, error: null }

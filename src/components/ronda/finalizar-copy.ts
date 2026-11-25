@@ -146,10 +146,13 @@ export function hojaFinalizarTimba(input: {
   return { titulo: '¿Finalizar la Timba?', detalle: lineas.length > 0 ? lineas.join(' ') : undefined }
 }
 
-/** Aviso al pie de la tarjeta completa. Un celular por equipo, celular que no cierra: quien cierra es el creador. */
+/**
+ * Aviso al pie de la tarjeta completa. Un celular por equipo, celular que no cierra: su equipo ya terminó y quien
+ * cierra es el creador (ensayo 25-nov: tras el último hoyo, quien anota su equipo tiene que saber que ya no le toca nada).
+ */
 export function textoTarjetaCompleta(cierraEsteCelular: boolean, nombreDelCreador: string | null): string {
   if (cierraEsteCelular) return 'Tarjeta completa · Finalizar ronda'
-  return nombreDelCreador ? `Tarjeta completa. ${nombreDelCreador} cierra la ronda.` : 'Tarjeta completa. Quien creó la ronda la cierra.'
+  return `Tu equipo terminó. Falta que ${nombreDelCreador ?? 'quien creó la ronda'} la finalice.`
 }
 
 /** Un celular por equipo: al finalizar, los equipos de este celular ya no son los que se ven (liberaron o tomaron uno). */

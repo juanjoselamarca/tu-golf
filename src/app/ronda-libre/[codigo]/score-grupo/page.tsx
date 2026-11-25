@@ -18,7 +18,7 @@ import { getYardajeForTee, type Jugador } from '@/types/ronda'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
-import { cierraLaRonda, equiposSinParAutomatico, nombreDelCreador } from '@/golf/ronda-libre/anotador-de-equipo'
+import { cierraLaRonda, equiposQueNoConfirmanElHoyo, equiposSinParAutomatico, nombreDelCreador } from '@/golf/ronda-libre/anotador-de-equipo'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores, hayPendientes } from '@/lib/ronda/score-storage'
 import { BestBallTeamCard } from './components/BestBallTeamCard'
@@ -104,7 +104,7 @@ function ScorerDeGrupo() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
-  const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
+  const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos, unCelularPorEquipo: porCelular })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
@@ -123,8 +123,14 @@ function ScorerDeGrupo() {
     () => unCelularPorEquipo && ronda ? equiposSinParAutomatico(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId) : undefined,
     [unCelularPorEquipo, ronda, teamEquipos, equiposDeOtroCelular, authUserId],
   )
-  const { handleTeamScoreChange, autoFillTeamsWithPar, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido } =
-    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio, sinParAutomatico })
+  // El par gris del hoyo en pantalla (Siguiente / «Guardar hoyo N»): `equiposQueConfirmanElHoyo`, que además del suyo
+  // incluye el equipo sin reclamar que el creador ya anota (uno que liberó).
+  const noConfirmanElHoyo = useMemo(
+    () => unCelularPorEquipo && ronda ? equiposQueNoConfirmanElHoyo(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId) : undefined,
+    [unCelularPorEquipo, ronda, teamEquipos, equiposDeOtroCelular, authUserId],
+  )
+  const { handleTeamScoreChange, confirmarHoyo, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido } =
+    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio, enviarYa, sinParAutomatico, noConfirmanElHoyo })
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
@@ -176,8 +182,8 @@ function ScorerDeGrupo() {
     if (currentHoleIdx < 0) { nav.advanceHole(); return }
 
     if (isSharedBallFormat(formatoJuego)) {
-      // Equipos sin golpes en el hoyo → par. Un celular por equipo: solo el que reclamó este celular (`sinParAutomatico`).
-      await autoFillTeamsWithPar(currentHole, par)
+      // Confirma el valor en pantalla (`confirmarHoyo`): los equipos que este celular confirma sin golpes en el hoyo → par.
+      await confirmarHoyo(currentHole, par)
     } else {
       // Auto-fill ALL players who don't have a score for the current hole with par
       const updatedScores = { ...scores }
@@ -200,8 +206,16 @@ function ScorerDeGrupo() {
     nav.advanceHole()
   }
   // Golpes y «Siguiente» pasan por la tarjeta congelada (finalizando o cambiando quién anota): ver `accionesDeLaTarjeta`.
-  const { anotar, anotarEquipo, siguiente: goToNextHole } = accionesDeLaTarjeta({
+  // Último hoyo sin Siguiente: «Guardar hoyo N» confirma el valor en pantalla con la misma regla que Siguiente
+  // (`confirmarHoyo`) y lo envía YA. Lo usa (a) quien no cierra la ronda (un celular por equipo): no tiene Finalizar
+  // y su par gris quedaba sin guardar (ensayo 25-nov: su equipo 17/18 y el creador sin poder cerrar); (b) el creador
+  // con un equipo liberado sin golpes en el hoyo: el cierre no le rellena hoyos (P1-a) y Finalizar lo frenaría.
+  const liberadoSinElHoyo = isLastHole && teamEquipos.some(e =>
+    (sinParAutomatico ?? []).some(s => s.id === e.id) && !(noConfirmanElHoyo ?? []).some(n => n.id === e.id) && e.scores[String(currentHole)] == null)
+  const guardaElUltimoHoyo = isLastHole && isSharedBallFormat(formatoJuego) && (!cierraEsteCelular || liberadoSinElHoyo)
+  const { anotar, anotarEquipo, siguiente: goToNextHole, guardarHoyo } = accionesDeLaTarjeta({
     congelada, marcarInteraccion, pasarAlSiguienteHoyo,
+    confirmarHoyo: async () => { haptic(30); await confirmarHoyo(currentHole, par, { inmediato: true }) },
     anotarJugador: (jugadorId, delta) => handleScoreChange(jugadorId, currentHole, delta),
     anotarEquipo: (equipoId, delta) => handleTeamScoreChange(equipoId, currentHole, delta),
   })
@@ -469,12 +483,15 @@ function ScorerDeGrupo() {
       <GrupoNavBar
         currentHoleIdx={currentHoleIdx}
         isLastHole={isLastHole}
-        canFinalize={canFinalize && cierraEsteCelular}
+        canFinalize={canFinalize && cierraEsteCelular && !guardaElUltimoHoyo}
         finalizing={finalizing}
         congelada={congelada}
         onPrev={nav.goToPrevHole}
         onNext={goToNextHole}
         onFinalize={finalizeRound}
+        guardarUltimoHoyo={guardaElUltimoHoyo
+          ? { hoyo: currentHole, guardado: !cierraEsteCelular && hoyoCompleto(currentHole), onGuardar: () => { void guardarHoyo() } }
+          : undefined}
         theme={theme}
       />
       </>
