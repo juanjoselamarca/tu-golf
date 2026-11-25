@@ -83,11 +83,13 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   const admin = createAdminClient()
 
   // Buscar torneo por slug
-  const { data: tournament } = await admin
+  const { data: tournament, error: torneoError } = await admin
     .from('tournaments')
     .select('id, status, organizer_id, date_start, date_end')
     .eq('slug', params.slug)
     .maybeSingle()
+  // "No pude preguntar" no es "no existe": 5xx reintentable (el scorer dice «Intenta de nuevo», no «no se pudo»).
+  if (torneoError) return lecturaFallida(torneoError, 'guest-join.torneo')
 
   if (!tournament) {
     return NextResponse.json({ error: 'not_found', message: 'Torneo no encontrado.' }, { status: 404 })
@@ -98,12 +100,15 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     || await pruebaDeInvitadoValida(guestId, guestProof)
 
   // Verificar si este guestId ya está inscrito en este torneo
-  const { data: existing } = await admin
+  const { data: existing, error: yaInscritoError } = await admin
     .from('players')
     .select('id')
     .eq('tournament_id', tournament.id)
     .eq('pending_user_id', guestId)
     .maybeSingle()
+  // Sin esta guarda, un error se leía como "no inscrito": «Recuperar mi tarjeta» respondía 404 not_registered (el
+  // invitado oía «muéstrale tu tarjeta al organizador») y la inscripción normal creaba OTRO jugador.
+  if (yaInscritoError) return lecturaFallida(yaInscritoError, 'guest-join.ya-inscrito')
 
   if (existing) {
     // Ya inscrito. Reemitir el token exige PROBAR que este dispositivo es el dueño de la
@@ -143,13 +148,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
       .eq('pending_user_id', guestId)
       .limit(1)
       .maybeSingle()
-    if (lookupError) {
-      void captureError(lookupError, { context: 'guest-join.lookup', level: 'error' })
-      return NextResponse.json(
-        { error: 'lookup_failed', message: 'No se pudo completar la inscripción. Intenta nuevamente.' },
-        { status: 500 },
-      )
-    }
+    if (lookupError) return lecturaFallida(lookupError, 'guest-join.lookup')
     if (enOtroTorneo) return tokenRequerido()
   }
 
@@ -252,5 +251,17 @@ function tokenRequerido() {
       message: 'Esa inscripción es de otro dispositivo. Pide el enlace del torneo y entra como invitado nuevo.',
     },
     { status: 403 },
+  )
+}
+
+/**
+ * Una lectura de la base falló: no se sabe si el torneo o la inscripción existen. 500 reintentable (la pantalla de
+ * inscripción muestra el mensaje; «Recuperar mi tarjeta» dice «Intenta de nuevo»). Nunca 404 ni inscribir a ciegas.
+ */
+function lecturaFallida(error: unknown, context: string) {
+  void captureError(error, { context, level: 'error' })
+  return NextResponse.json(
+    { error: 'lookup_failed', message: 'No se pudo completar la inscripción. Intenta nuevamente.' },
+    { status: 500 },
   )
 }
