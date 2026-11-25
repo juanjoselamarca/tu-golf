@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ModoJuego } from '@/golf/core/rules'
 import type { ConfigSkins } from '@/golf/formats/skins'
 import { esCantidadDeHoyosDelSkins } from '@/golf/formats/skins'
@@ -46,6 +46,9 @@ function useContextoDelSkins(activo: boolean, ronda: RondaDelSkinsEnElFormulario
       ])
     : null
   const [estado, setEstado] = useState<{ clave: string | null; contexto: ContextoDelSkins }>({ clave: null, contexto: { estado: 'cargando' } })
+  // Las esperas no reinician la lectura: solo la clave (un arreglo nuevo en cada render no vuelve a cero los reintentos).
+  const esperasRef = useRef(esperasMs)
+  useEffect(() => { esperasRef.current = esperasMs }, [esperasMs])
 
   useEffect(() => {
     if (!clave) return
@@ -55,6 +58,7 @@ function useContextoDelSkins(activo: boolean, ronda: RondaDelSkinsEnElFormulario
     let vigente = true
     let reloj: ReturnType<typeof setTimeout> | undefined
     const leer = async (intento: number) => {
+      const esperas = esperasRef.current
       try {
         const { createClient } = await import('@/lib/supabase')
         const contexto = await contextoSkinsDeRondaNueva(createClient(), {
@@ -66,17 +70,17 @@ function useContextoDelSkins(activo: boolean, ronda: RondaDelSkinsEnElFormulario
         if (!vigente) return
         // Agotados los reintentos rápidos se avisa (la pantalla no deja crear) y se sigue probando con la espera más
         // larga: cuando vuelve la señal, el aviso se va solo, sin que el usuario tenga que tocar nada.
-        if (intento === esperasMs.length) {
+        if (intento === esperas.length) {
           void captureError(err, { context: 'ronda-libre.nueva.skins-contexto', level: 'warning', meta: { courseId } })
           setEstado({ clave, contexto: { estado: 'error' } })
         }
-        const espera = esperasMs[Math.min(intento, esperasMs.length - 1)]
+        const espera = esperas[Math.min(intento, esperas.length - 1)]
         if (espera != null) reloj = setTimeout(() => void leer(intento + 1), espera)
       }
     }
     void leer(0)
     return () => { vigente = false; if (reloj) clearTimeout(reloj) }
-  }, [clave, esperasMs])
+  }, [clave])
 
   // Lo leído para otra combinación no vale: mientras llega lo nuevo, «cargando».
   return estado.clave === clave ? estado.contexto : { estado: 'cargando' }

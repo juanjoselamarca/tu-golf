@@ -1,6 +1,7 @@
 // El body de POST /api/ronda-libre/create: con equipos de club (scramble rápido) y sin ellos.
 import { describe, it, expect } from 'vitest'
 import { cuerpoParaCrearRonda, equiposConIndices, jugadoresDeLaRonda, type Args } from './useCrearRonda'
+import { CONFIG_SKINS_POR_DEFECTO } from '@/golf/formats/skins'
 import { ID_DEL_CREADOR, type RivalDelCreador } from './useFormularioDeRonda'
 
 const RIVAL: RivalDelCreador = { id: 'r1', tipo: 'invitado', nombre: 'Pedro', telefono: '', handicap: 10, tees: null, profileId: null }
@@ -55,5 +56,14 @@ describe('cuerpoParaCrearRonda — scramble con jugadores (sin cambios)', () => 
     const body = cuerpo(base({ formato: 'stroke_play', modo: 'gross' }))
     expect(body.equipos).toBeUndefined()
     expect(body.equipos_de_club).toBeUndefined()
+  })
+})
+
+describe('cuerpoParaCrearRonda — skins', () => {
+  it('viaja como skins con sus reglas en reglas_juego', () => {
+    const reglas = { ...CONFIG_SKINS_POR_DEFECTO, pozoPorJugador: 10000 }
+    const body = cuerpo(base({ formato: 'stroke_play', skins: { reglasJuego: reglas, problema: null } }))
+    expect(body.formato_juego).toBe('skins')
+    expect(body.reglas_juego).toEqual(reglas)
   })
 })
