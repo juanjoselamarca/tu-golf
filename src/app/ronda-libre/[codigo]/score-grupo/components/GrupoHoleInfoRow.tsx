@@ -14,6 +14,11 @@ interface GrupoHoleInfoRowProps {
   /** Acción al final de la fila: el botón de compartir la ronda (`CompartirEnJuego`), igual que en el scorer individual. */
   accion: ReactNode
   theme: ScorerTheme
+  /**
+   * Skins: lo que vale el hoyo (1 + arrastre, `useValorDelHoyoSkins`). Reemplaza a GOLPES GRUPO: en el skins los golpes
+   * son desde el más bajo, no los del hándicap absoluto. `null` = aún no se sabe (sin señal o bloqueado): no se inventa.
+   */
+  skins?: { valor: number; provisional: boolean } | null
 }
 
 /**
@@ -33,7 +38,8 @@ interface GrupoHoleInfoRowProps {
  * Los golpes de CADA jugador siguen estando donde sirven para anotar: los puntos
  * dorados al lado de su score, en su tarjeta.
  */
-export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford, maxStrokes, accion, theme }: GrupoHoleInfoRowProps) {
+export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford, maxStrokes, accion, theme, skins }: GrupoHoleInfoRowProps) {
+  const conGolpesGrupo = showNetStableford && skins === undefined
   const cols = [
     { label: 'PAR', value: String(par) },
     { label: 'SI', value: String(strokeIndex) },
@@ -53,13 +59,26 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
         {cols.map((col, i, arr) => (
           <div key={col.label} style={{
             flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px',
-            borderRight: i < arr.length - 1 || showNetStableford ? `1px solid ${theme.border}` : 'none',
+            borderRight: i < arr.length - 1 || conGolpesGrupo || skins ? `1px solid ${theme.border}` : 'none',
           }}>
             <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>{col.label}</div>
             <div style={{ fontSize: '15px', fontWeight: 600, color: theme.text }}>{col.value}</div>
           </div>
         ))}
-        {showNetStableford && (
+        {skins && (
+          // «Vale 3 skins»: el número en dorado legible (--brand-on-bg) y del tamaño de PAR/SI, para leerlo al sol.
+          <div
+            role="status"
+            aria-label={`Vale ${skins.valor} ${skins.valor === 1 ? 'skin' : 'skins'}${skins.provisional ? ' o más' : ''}`}
+            style={{ flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px' }}
+          >
+            <div aria-hidden style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>VALE</div>
+            <div aria-hidden style={{ fontSize: '15px', fontWeight: 700, color: 'var(--brand-on-bg)', whiteSpace: 'nowrap' }}>
+              {skins.valor}{skins.provisional ? '+' : ''} {skins.valor === 1 && !skins.provisional ? 'skin' : 'skins'}
+            </div>
+          </div>
+        )}
+        {conGolpesGrupo && (
           <div style={{ flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px' }}>
             <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES GRUPO</div>
             <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>{maxStrokes > 0 ? `+${maxStrokes}` : '0'}</div>

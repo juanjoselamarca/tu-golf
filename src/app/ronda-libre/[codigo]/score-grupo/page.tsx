@@ -48,6 +48,7 @@ import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { esFormatoSkins } from '@/golf/formats/skins/clave'
 import { FUERA_DEL_HOYO } from '@/golf/formats/skins/motor'
+import { useValorDelHoyoSkins } from './hooks/useValorDelHoyoSkins'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
 import { PanelDelJuego } from '../components/timba/PanelDelJuego'
@@ -110,6 +111,7 @@ function ScorerDeGrupo() {
   const esSkins = esFormatoSkins(ronda?.formato_juego)
   const fueraDelHoyo = useMemo(() => (esSkins ? { fuera, setFuera } : undefined), [esSkins, fuera, setFuera])
   const fueraSkins = esSkins ? fuera : undefined
+  const valorSkins = useValorDelHoyoSkins({ ronda: esSkins ? ronda : null, scores, fuera: fueraSkins, currentHole })
   const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos, unCelularPorEquipo: porCelular, fueraDelHoyo })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
@@ -333,6 +335,7 @@ function ScorerDeGrupo() {
         // Un celular: anota por todo el grupo, solo se invita a seguir. Un celular por equipo: también a anotar el suyo.
         accion={<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre(codigo, { conJugar: false, unCelularPorEquipo })} color={theme.textFaint} />}
         theme={theme}
+        skins={esSkins ? valorSkins : undefined}
       />
 
       {/* Player columns — scrollable main area */}
