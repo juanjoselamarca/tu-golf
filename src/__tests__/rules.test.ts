@@ -60,6 +60,10 @@ describe('formatLabel', () => {
     expect(formatLabel('personalizado', 'gross')).toBe('Timba libre')
     expect(formatLabel('personalizado', 'neto')).toBe('Timba libre Neto')
     expect(formatLabel('personalizado')).toBe('Timba libre')
+    // Skins: igual que la Timba (antes caía en «Stroke Play»).
+    expect(formatLabel('skins', 'gross')).toBe('Skins')
+    expect(formatLabel('skins', 'neto')).toBe('Skins Neto')
+    expect(formatLabel('skins')).toBe('Skins')
   })
   it('stroke_play gross → Stroke Play Gross', () => {
     expect(formatLabel('stroke_play', 'gross')).toBe('Stroke Play Gross')

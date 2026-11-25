@@ -125,7 +125,7 @@ export function marcasDelHoyo(input: {
   golpes: Readonly<Record<string, number | null | undefined>>
   /** Par del hoyo; `null`/`undefined` si no se conoce. */
   par: number | null | undefined
-  /** Retirados en este hoyo: no se les ofrece nada. */
+  /** No juegan este hoyo (retirados; en un skins, también con X): no se les ofrece nada. */
   retirados: ReadonlySet<string>
 }): MarcasDeUnPuntito[] {
   const { puntitos, jugadorIds, hoyo, marcas, enEspera, resultadoDelHoyo, golpes, par, retirados } = input

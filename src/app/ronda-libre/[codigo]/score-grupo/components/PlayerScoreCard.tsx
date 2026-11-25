@@ -114,18 +114,23 @@ export function PlayerScoreCard({
           {played > 0 && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
-                  {out > 0 ? `${out}` : ''}{out > 0 && inn > 0 ? '+' : ''}{inn > 0 ? `${inn}` : ''}={gross}
-                </span>
+                {/* Solo X hasta ahora (skins): sin golpes no hay «=0 E» que mostrar, solo el contador de X. */}
+                {gross > 0 && (
+                  <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
+                    {out > 0 ? `${out}` : ''}{out > 0 && inn > 0 ? '+' : ''}{inn > 0 ? `${inn}` : ''}={gross}
+                  </span>
+                )}
                 {cuantasX > 0 && (
                   // Hoyos con X: no suman golpes (ni par al vs par); se cuentan aparte.
                   <span aria-label={`${cuantasX} ${cuantasX === 1 ? 'hoyo' : 'hoyos'} fuera`} style={{ fontSize: '11px', fontWeight: 700, color: theme.text, fontFamily: '"DM Mono", monospace' }}>
                     {cuantasX}X
                   </span>
                 )}
-                <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(vsPar) }}>
-                  {formatVsPar(vsPar)}
-                </span>
+                {gross > 0 && (
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(vsPar) }}>
+                    {formatVsPar(vsPar)}
+                  </span>
+                )}
               </div>
               {muestraTotales && (
                 <span style={{ fontSize: '10px', color: formatoJuego === 'stableford' ? 'var(--brand-on-bg)' : '#60A5FA' }}>

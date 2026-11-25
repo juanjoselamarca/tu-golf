@@ -152,7 +152,7 @@ function ScorerDeGrupo() {
   const timba = useTimbaDelScorer({
     codigo, activo: conPuntosEspeciales, conexion, jugadores, scores, firma: String(guardados),
     // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
-    currentHole, ordenHoyos, par: parMap[currentHole],
+    currentHole, ordenHoyos, par: parMap[currentHole], fuera: fueraSkins,
   })
   // Con un retirado, el hoyo de la carga no sabe del retiro: al llegar los retiros, el scorer va al hoyo que falta.
   // Abrir "Finalizar" a propósito NO cuenta como interacción: si el salto llega con la hoja abierta, la hoja se

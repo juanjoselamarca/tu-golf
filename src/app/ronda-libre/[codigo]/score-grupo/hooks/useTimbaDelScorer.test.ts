@@ -120,6 +120,18 @@ describe('useTimbaDelScorer', () => {
       expect(t.puntosDelHoyo[0].puntito.valor).toBe(1)
     })
 
+    it('con X en el hoyo no se le ofrece nada; una marca suya ya puesta se ve con «no cuenta»', () => {
+      h.vista = vistaSkins
+      h.marcas = { marcas: [{ jugadorId: 'b', hoyo: 3, puntitoId: 'p' }], enCola: [], rechazadas: [], retirosConfirmados: {} }
+      const t = renderHook(() => useTimbaDelScorer({
+        codigo: 'X', activo: true, conexion: 'ok', jugadores, scores: { a: {}, b: {} }, firma: '', currentHole: 3, ordenHoyos: orden, par: 4,
+        fuera: { b: { 3: true } },
+      })).result.current
+      expect(t.puntosDelHoyo[0].jugadores.map(j => j.visible)).toEqual([true, false])
+      expect(t.puntosDelHoyo[1].jugadores[1]).toMatchObject({ visible: true, marcado: true, noCuenta: 'No jugó el hoyo' })
+      expect([...t.retiradosDelHoyo]).toEqual([]) // la X no es un retiro
+    })
+
     it('el panel «Juego» de la Timba no recibe la vista del skins', () => {
       h.vista = vistaSkins
       expect(montar(3, 4).juego.estado).toBe('error')

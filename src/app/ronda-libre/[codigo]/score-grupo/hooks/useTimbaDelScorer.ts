@@ -5,6 +5,7 @@ import { estaRetiradoEn, hoyoDesdeElQueSeRetira, hoyosParaElegirElRetiro, nombre
 import { retirosVigentes } from '@/golf/ronda-libre/retiros-de-la-timba'
 import { marcasDelHoyo, puntitosMarcables, type MarcasDeUnPuntito, type PuntitoMarcable } from '@/golf/ronda-libre/marcas-de-la-timba'
 import { esVistaDelSkins, type VistaDelSkinsEnElScorer } from '@/golf/ronda-libre/skins-del-scorer'
+import type { FueraPorJugador } from '@/golf/formats/skins'
 import type { VistaDelJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
 import { useJuegoDeLaTimba, type EstadoDelJuego } from '../../hooks/useJuegoDeLaTimba'
 import { useMarcasDeLaTimba, type MarcasDeLaTimba } from './useMarcasDeLaTimba'
@@ -76,8 +77,13 @@ export function useTimbaDelScorer(input: {
   ordenHoyos: readonly number[]
   /** Par del hoyo actual; `undefined` si no se conoce (el greenie, solo par 3, no se ofrece). */
   par: number | undefined
+  /**
+   * Skins: hoyos con X de cada jugador. Con X no terminó el hoyo: como un retirado, no se le ofrece un punto especial
+   * y una marca suya «no cuenta» (la misma regla del motor: sin golpes no hay sandy ni chipingo).
+   */
+  fuera?: FueraPorJugador
 }): TimbaDelScorer {
-  const { codigo, activo, conexion, jugadores, scores, firma, currentHole, ordenHoyos, par } = input
+  const { codigo, activo, conexion, jugadores, scores, firma, currentHole, ordenHoyos, par, fuera } = input
   const { juego, vista, vistaPedidaEn, recargar } = useJuegoDeLaTimba<VistaDelScorer>(codigo, { activo, firma, intervaloS: INTERVALO_JUEGO_SCORER_S })
   const marcas = useMarcasDeLaTimba({ codigo, activo, vista, vistaPedidaEn, recargar, conexion })
 
@@ -105,7 +111,9 @@ export function useTimbaDelScorer(input: {
           // Los golpes como están en el teléfono: el botón aparece apenas se anota el par, sin esperar al servidor.
           golpes: Object.fromEntries(vista.jugadorIds.map(id => [id, scores[id]?.[currentHole]])),
           par,
-          retirados: retiradosDelHoyo,
+          retirados: fuera && jugadores.some(j => fuera[j.id]?.[currentHole])
+            ? new Set([...retiradosDelHoyo, ...jugadores.filter(j => fuera[j.id]?.[currentHole]).map(j => j.id)])
+            : retiradosDelHoyo,
         })
       : []
     const birdieAutomatico = !!timba?.config.puntitos.some(p => p.tipo === 'birdie' && p.activo)
@@ -129,7 +137,7 @@ export function useTimbaDelScorer(input: {
       }
     })
     return { retiradoEn, retiradosDelHoyo, puntosDelHoyo, birdieAutomatico, lineasRechazadas, jugadoresParaRetiro }
-  }, [retiros, ordenHoyos, jugadores, currentHole, vista, par, marcas.marcas, marcas.enCola, marcas.rechazadas, nombres, scores])
+  }, [retiros, ordenHoyos, jugadores, currentHole, vista, par, marcas.marcas, marcas.enCola, marcas.rechazadas, nombres, scores, fuera])
 
   const juegoDeLaTimba = useMemo(
     (): EstadoDelJuego => (juego.estado === 'ok' && esVistaDelSkins(juego.vista) ? { estado: 'error' } : (juego as EstadoDelJuego)),

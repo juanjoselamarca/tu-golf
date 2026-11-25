@@ -119,4 +119,11 @@ describe('PlayerScoreCard · tecla X del skins', () => {
     expect(screen.getByLabelText('1 hoyo fuera').textContent).toBe('1X')
     expect(screen.getByText(/^5=5$/)).toBeTruthy() // solo los golpes del 11; la X no suma
   })
+
+  it('solo con X (sin golpes) muestra el contador de X, sin «=0» ni «E»', () => {
+    tarjeta({ formatoJuego: 'skins', onFuera: () => {}, fuera: { 11: true }, golpes: {} })
+    expect(screen.getByLabelText('1 hoyo fuera').textContent).toBe('1X')
+    expect(screen.queryByText(/=0/)).toBeNull()
+    expect(screen.queryByText('E')).toBeNull()
+  })
 })

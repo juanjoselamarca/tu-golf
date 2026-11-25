@@ -1,5 +1,6 @@
 // Solo `config` (que no importa nada del motor): sin ciclo core ↔ formats.
 import { NOMBRE_FORMATO_PERSONALIZADO, esFormatoPersonalizado } from '../formats/personalizado/config'
+import { NOMBRE_FORMATO_SKINS, esFormatoSkins } from '../formats/skins/clave'
 
 /**
  * Reglas universales de golf — types y utilidades base.
@@ -129,6 +130,8 @@ export function nombreDelModo(modo: ModoJuego): string {
 export function formatLabel(formato: FormatoJuego | string, modo?: ModoJuego | string | null): string {
   // Timba libre no es un formato de FORMAT_META: sin esto caía en "Stroke Play" en encabezados y tarjetas.
   if (esFormatoPersonalizado(formato)) return modo === 'neto' ? `${NOMBRE_FORMATO_PERSONALIZADO} ${nombreDelModo(modo)}` : NOMBRE_FORMATO_PERSONALIZADO
+  // Skins tampoco: el scorer y la ronda decían «Stroke Play» (capturas del PR #888).
+  if (esFormatoSkins(formato)) return modo === 'neto' ? `${NOMBRE_FORMATO_SKINS} ${nombreDelModo(modo)}` : NOMBRE_FORMATO_SKINS
   const meta = FORMAT_META[formato as FormatoJuego]
   const base = meta?.label ?? 'Stroke Play'
   // Stableford + Match Play son SIEMPRE neto en Golfers+ (cultura Chile / R&A)
