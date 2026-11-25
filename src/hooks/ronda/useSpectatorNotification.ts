@@ -30,10 +30,12 @@ interface UseSpectatorNotificationOptions {
   totalHoles: number
   /** Whether the round is finished */
   isFinished: boolean
+  /** Formato de la ronda: Timba y Skins no se ordenan por golpes en el aviso. */
+  formato: string | null
 }
 
 export function useSpectatorNotification(opts: UseSpectatorNotificationOptions): void {
-  const { codigo, courseName, players, totalHoles, isFinished } = opts
+  const { codigo, courseName, players, totalHoles, isFinished, formato } = opts
 
   // Update notification when scores change
   useEffect(() => {
@@ -41,8 +43,8 @@ export function useSpectatorNotification(opts: UseSpectatorNotificationOptions):
     if (!isFollowingRound(codigo)) return
     if (players.length === 0) return
 
-    void showSpectatorNotification({ courseName, codigo, players, totalHoles, finished: isFinished })
-  }, [codigo, courseName, players, totalHoles, isFinished])
+    void showSpectatorNotification({ courseName, codigo, players, totalHoles, finished: isFinished, formato })
+  }, [codigo, courseName, players, totalHoles, isFinished, formato])
 
   // Listen for "unfollow" messages from the Service Worker
   const handleSWMessage = useCallback((event: MessageEvent) => {

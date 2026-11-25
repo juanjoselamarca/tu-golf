@@ -111,6 +111,8 @@ export interface SpectatorNotifPayload {
   /** Hoyos de la ronda (9/18). */
   totalHoles: number
   finished?: boolean
+  /** Timba y Skins: sin ranking por golpes (`buildSpectatorNotification`). */
+  formato: string | null
 }
 
 /**

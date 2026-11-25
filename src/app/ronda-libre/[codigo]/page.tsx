@@ -149,6 +149,7 @@ function RondaLibrePageContent() {
     players: spectatorPlayers,
     totalHoles,
     isFinished: isFinished,
+    formato: ronda?.formato_juego ?? null,
   })
   // «Anotar mi equipo» (un celular por equipo): con sesión, sin anotar la ronda entera, en curso.
   const ofreceAnotarEquipo = useOfreceAnotarMiEquipo({
@@ -360,6 +361,7 @@ function RondaLibrePageContent() {
               courseName={ronda.course_name}
               players={spectatorPlayers}
               totalHoles={totalHoles}
+              formato={ronda.formato_juego}
               onFollowChange={(f) => { if (f) setJustFollowed(true) }}
             />
           </div>

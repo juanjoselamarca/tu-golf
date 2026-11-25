@@ -42,6 +42,8 @@ interface FollowRoundButtonProps {
   players: SpectatorPlayer[]
   /** Hoyos de la ronda (9/18). */
   totalHoles: number
+  /** Formato de la ronda: Timba y Skins no se ordenan por golpes en el aviso. */
+  formato: string | null
   /** Compact mode for feed cards */
   compact?: boolean
   /** Callback when follow state changes */
@@ -76,7 +78,7 @@ const subscribeNoop = () => () => {}
 const useIsClient = () => useSyncExternalStore(subscribeNoop, () => true, () => false)
 
 export function FollowRoundButton({
-  codigo, courseName, players, totalHoles, compact = false, onFollowChange,
+  codigo, courseName, players, totalHoles, formato, compact = false, onFollowChange,
 }: FollowRoundButtonProps) {
   const isClient = useIsClient()
   const support: Support = isClient ? resolveSupport() : 'pending'
@@ -128,12 +130,12 @@ export function FollowRoundButton({
       setFollowingOverride(true)
       onFollowChange?.(true)
       if (players.length > 0) {
-        void showSpectatorNotification({ courseName, codigo, players, totalHoles })
+        void showSpectatorNotification({ courseName, codigo, players, totalHoles, formato })
       }
     } finally {
       setLoading(false)
     }
-  }, [support, codigo, courseName, players, totalHoles, onFollowChange, showFailure])
+  }, [support, codigo, courseName, players, totalHoles, formato, onFollowChange, showFailure])
 
   const handleUnfollow = useCallback(async () => {
     // Instagram pattern: first tap shows "Dejar de seguir?", second tap confirms

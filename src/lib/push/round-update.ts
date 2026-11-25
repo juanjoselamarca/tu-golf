@@ -50,6 +50,7 @@ export function buildRoundUpdatePayload(snapshot: RoundPushSnapshot): { payload:
     players: snapshot.players,
     totalHoles: snapshot.holes,
     finished,
+    formato: snapshot.formato,
   })
   // El ícono/badge los pone el Service Worker: no se manda un path inexistente.
   return {

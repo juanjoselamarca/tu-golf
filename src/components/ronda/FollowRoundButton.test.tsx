@@ -26,7 +26,7 @@ vi.mock('@/components/PWAInstallBanner', () => ({ requestPwaInstall: (r: string)
 
 import { FollowRoundButton, IOS_INSTALL_REASON, IOS_TOO_OLD_COPY, bottomNoticeStyle } from './FollowRoundButton'
 
-const props = { codigo: '4YDC3G', courseName: 'Los Leones', players: [], totalHoles: 9 }
+const props = { codigo: '4YDC3G', courseName: 'Los Leones', players: [], totalHoles: 9, formato: null }
 
 /**
  * La barra inferior fija de Navbar (sólo con sesión) tal como llega al DOM:

@@ -48,7 +48,7 @@ const GUEST_ID = '11111111-1111-4111-8111-111111111111'
 const OTHER_ID = '22222222-2222-4222-8222-222222222222'
 
 const BASE: RoundPushSnapshot = {
-  codigo: '4YDC3G', courseName: 'Club de Golf Los Leones', holes: 9, estado: 'en_curso',
+  codigo: '4YDC3G', courseName: 'Club de Golf Los Leones', holes: 9, estado: 'en_curso', formato: 'stroke_play',
   players: [{ nombre: 'Juan José Lamarca', vsPar: 4, holesCompleted: 3, totalHoles: 9 }],
   participants: { creadorId: 'u-creador', adminUserId: 'u-admin', playerUserIds: ['u-jugador'], playerIds: [GUEST_ID], teamScorerUserIds: [] },
 }

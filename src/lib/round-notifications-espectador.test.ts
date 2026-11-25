@@ -20,7 +20,7 @@ import { showSpectatorNotification, type SpectatorPlayer } from './round-notific
 
 const postMessage = vi.fn()
 const p = (nombre: string, holesCompleted: number): SpectatorPlayer => ({ nombre, vsPar: 0, holesCompleted, totalHoles: 9 })
-const base = { courseName: 'Club de Polo', codigo: '6665J4', totalHoles: 9 }
+const base = { courseName: 'Club de Polo', codigo: '6665J4', totalHoles: 9, formato: null }
 
 beforeEach(() => {
   postMessage.mockClear()

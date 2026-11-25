@@ -2,7 +2,7 @@
  * pushRoundUpdate — limpieza de watchers y señal de reintento (review #449 M1).
  */
 import { describe, it, expect } from 'vitest'
-import { pushRoundUpdate, needsRetry } from './round-update'
+import { buildRoundUpdatePayload, pushRoundUpdate, needsRetry } from './round-update'
 import type { RoundPushSnapshot } from './round-snapshot'
 import type { PushSender } from './deliver'
 import { createFakeAdmin, filterValue, opsOf, type FakeOp } from './__tests__/fake-admin'
@@ -12,7 +12,7 @@ const EP = 'https://fcm.googleapis.com/fcm/send/dev-1'
 
 function snapshot(estado: 'en_curso' | 'finalizada'): RoundPushSnapshot {
   return {
-    codigo: CODIGO, courseName: 'Los Leones', holes: 18, estado,
+    codigo: CODIGO, courseName: 'Los Leones', holes: 18, estado, formato: 'stroke_play',
     // Ana ya terminó 3 hoyos: con cero hoyos terminados el push en curso no sale (shouldNotifySpectators).
     players: [{ nombre: 'Ana', vsPar: 1, holesCompleted: 3, totalHoles: 18 }],
     participants: { creadorId: 'u9', adminUserId: null, playerUserIds: [], playerIds: ['j1'], teamScorerUserIds: [] },
@@ -143,5 +143,31 @@ describe('pushRoundUpdate — ronda en curso sin ningún hoyo terminado (primer 
     const result = await pushRoundUpdate(admin, CODIGO, ok, sinPuntajes('finalizada'))
     expect(result).toEqual({ status: 'sent', sent: 1, failed: 0, transientFailed: 0, cleaned: 0, finished: true })
     expect(opsOf(ops, 'round_watchers', 'delete').length).toBeGreaterThan(0)
+  })
+})
+
+describe('buildRoundUpdatePayload — juegos con plata (Timba y Skins) sin ranking por golpes', () => {
+  const dos = (estado: 'en_curso' | 'finalizada', formato: string): RoundPushSnapshot => ({
+    ...snapshot(estado),
+    formato,
+    // Beto va mejor en golpes; en skins o puntos puede ir perdiendo: el aviso no los ordena por golpes.
+    players: [{ nombre: 'Ana Pérez', vsPar: 4, holesCompleted: 9, totalHoles: 18 }, { nombre: 'Beto Soto', vsPar: -1, holesCompleted: 9, totalHoles: 18 }],
+  })
+  const cuerpo = (s: RoundPushSnapshot) => JSON.parse(buildRoundUpdatePayload(s).payload) as { title: string; body: string }
+
+  it('skins: el resultado final no anuncia a nadie por golpes', () => {
+    const p = cuerpo(dos('finalizada', 'skins'))
+    expect(p.title).toBe('Resultado final · Los Leones')
+    expect(p.body).toBe('Skins: toca para ver el resultado.')
+    expect(p.body).not.toMatch(/Soto|Pérez|-1|\+4/)
+  })
+  it('skins y Timba en curso: sin ranking, invita a la tabla', () => {
+    expect(cuerpo(dos('en_curso', 'skins')).body).toBe('Skins: toca para ver la tabla.')
+    expect(cuerpo(dos('en_curso', 'personalizado')).body).toBe('Timba libre: toca para ver la tabla.')
+  })
+  it('stroke play, stableford y scramble siguen igual (ordenados por vs-par)', () => {
+    for (const f of ['stroke_play', 'stableford', 'scramble']) {
+      expect(cuerpo(dos('finalizada', f)).body).toBe('Soto -1 | Pérez +4')
+    }
   })
 })
