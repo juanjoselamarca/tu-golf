@@ -7,14 +7,20 @@ import { esCantidadDeHoyosDelSkins } from '@/golf/formats/skins'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 import { captureError } from '@/lib/error-tracking'
-import { contextoSkinsDeRondaNueva, type JugadorDelSkinsNuevo } from '@/lib/data/skins-ronda-nueva'
+import {
+  FalloDelContextoSkins, MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, contextoSkinsDeRondaNueva, type JugadorDelSkinsNuevo,
+} from '@/lib/data/skins-ronda-nueva'
 import { problemaPorNombresQueFaltan } from './useFormularioDeRonda'
 import {
   configSkinsParaEnviar, problemaDelSkins, skinsPorDefecto, type ContextoDelSkins,
 } from './skins-del-formulario'
 
-/** Reintentos tras una lectura de cancha que falló (señal intermitente en el club) y la espera entre uno y otro. */
-export const ESPERAS_REINTENTO_CONTEXTO_MS: readonly number[] = [2000, 5000]
+/**
+ * Reintentos tras una lectura de cancha que falló por señal (intermitente en el club) y la espera antes de cada uno.
+ * Agotados, se avisa y se para: se vuelve a intentar solo cuando el teléfono recupera la red (`online`) o la app
+ * vuelve a primer plano. Con la app en segundo plano no se reintenta.
+ */
+export const ESPERAS_REINTENTO_CONTEXTO_MS: readonly number[] = [2000, 5000, 10000]
 
 export interface RondaDelSkinsEnElFormulario {
   courseId: string | null
@@ -35,13 +41,14 @@ export interface RondaDelSkinsEnElFormulario {
 /**
  * Carga el course handicap de cada jugador y el SI de los hoyos con `contextoSkinsDeRondaNueva`, la misma función que
  * corre la API. Solo lee cuando hay un skins elegido. Se vuelve a leer si cambia algo que mueve los números (cancha,
- * hoyos, salida, recorridos, tees o índices); los nombres no, se aplican al validar.
+ * hoyos, salida, recorridos —en su orden, que numera los hoyos—, tees, índices o modo); los nombres no, se aplican al
+ * validar.
  */
 function useContextoDelSkins(activo: boolean, ronda: RondaDelSkinsEnElFormulario, esperasMs: readonly number[]): ContextoDelSkins {
   const listo = activo && !!ronda.courseId && esCantidadDeHoyosDelSkins(ronda.holes)
   const clave = listo
     ? JSON.stringify([
-        ronda.courseId, ronda.holes, ronda.hoyoInicio, [...ronda.recorridos].sort(), ronda.tees,
+        ronda.courseId, ronda.holes, ronda.hoyoInicio, ronda.recorridos, ronda.tees, ronda.modo,
         ronda.jugadores.map(j => [j.indice, j.tees ?? null]),
       ])
     : null
@@ -52,34 +59,53 @@ function useContextoDelSkins(activo: boolean, ronda: RondaDelSkinsEnElFormulario
 
   useEffect(() => {
     if (!clave) return
-    const [courseId, holes, hoyoInicio, recorridos, tees, porJugador] = JSON.parse(clave) as [
-      string, number, number, string[], string, [number | null, string | null][],
+    const [courseId, holes, hoyoInicio, recorridos, tees, modo, porJugador] = JSON.parse(clave) as [
+      string, number, number, string[], string, ModoJuego, [number | null, string | null][],
     ]
     let vigente = true
     let reloj: ReturnType<typeof setTimeout> | undefined
-    const leer = async (intento: number) => {
-      const esperas = esperasRef.current
+    /** Intento que espera a que la app vuelva a primer plano. */
+    let enPausa: number | null = null
+    /** Se avisó el error y se dejó de intentar: vuelve con la red o al volver a la app. */
+    let detenido = false
+
+    const programar = (intento: number) => {
+      if (document.hidden) { enPausa = intento; return }
+      reloj = setTimeout(() => void leer(intento), esperasRef.current[intento - 1] ?? 0)
+    }
+    async function leer(intento: number) {
       try {
         const { createClient } = await import('@/lib/supabase')
         const contexto = await contextoSkinsDeRondaNueva(createClient(), {
-          courseId, holes, hoyoInicio, recorridos, tees,
+          courseId, holes, hoyoInicio, recorridos, tees, modo,
           jugadores: porJugador.map(([indice, tee]) => ({ nombre: '', indice, tees: tee })),
         })
         if (vigente) setEstado({ clave, contexto: { estado: 'listo', contexto } })
       } catch (err) {
         if (!vigente) return
-        // Agotados los reintentos rápidos se avisa (la pantalla no deja crear) y se sigue probando con la espera más
-        // larga: cuando vuelve la señal, el aviso se va solo, sin que el usuario tenga que tocar nada.
-        if (intento === esperas.length) {
-          void captureError(err, { context: 'ronda-libre.nueva.skins-contexto', level: 'warning', meta: { courseId } })
-          setEstado({ clave, contexto: { estado: 'error' } })
-        }
-        const espera = esperas[Math.min(intento, esperas.length - 1)]
-        if (espera != null) reloj = setTimeout(() => void leer(intento + 1), espera)
+        // Falta un dato de la cancha (no de la señal): reintentar solo no lo arregla.
+        const deSenal = !(err instanceof FalloDelContextoSkins) || err.deSenal
+        if (deSenal && intento < esperasRef.current.length) { programar(intento + 1); return }
+        void captureError(err, { context: 'ronda-libre.nueva.skins-contexto', level: 'warning', meta: { courseId } })
+        detenido = true
+        const mensaje = deSenal ? MENSAJE_SKINS_SIN_DATOS_DE_CANCHA : (err as Error).message
+        setEstado({ clave, contexto: { estado: 'error', mensaje } })
       }
     }
+    const alVolver = () => {
+      if (!vigente || document.hidden) return
+      if (enPausa != null) { const i = enPausa; enPausa = null; void leer(i); return }
+      if (detenido) { detenido = false; void leer(0) }
+    }
+    window.addEventListener('online', alVolver)
+    document.addEventListener('visibilitychange', alVolver)
     void leer(0)
-    return () => { vigente = false; if (reloj) clearTimeout(reloj) }
+    return () => {
+      vigente = false
+      if (reloj) clearTimeout(reloj)
+      window.removeEventListener('online', alVolver)
+      document.removeEventListener('visibilitychange', alVolver)
+    }
   }, [clave])
 
   // Lo leído para otra combinación no vale: mientras llega lo nuevo, «cargando».

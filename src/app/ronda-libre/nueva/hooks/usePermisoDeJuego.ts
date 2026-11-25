@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { TIMBA_LIBRE_ABIERTA } from '@/lib/auth/timba-libre-abierta'
+import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 
 /** Esperas antes de cada reintento cuando la pregunta falla por red o por un 5xx (en la cancha la señal va y viene). */
 export const ESPERAS_REINTENTO_PERMISO_MS: readonly number[] = [500, 1500]
@@ -40,7 +41,10 @@ export function usePermisoDeJuegoPersonalizado(
   return abierto && puede
 }
 
-/** Si el usuario puede elegir Timba libre: el permiso, con el interruptor `TIMBA_LIBRE_ABIERTA`. */
-export function usePuedeCrearTimba(esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS): boolean {
-  return usePermisoDeJuegoPersonalizado(TIMBA_LIBRE_ABIERTA, esperasMs)
+/**
+ * El permiso de juegos del asistente (Timba libre y Skins): una sola pregunta mientras alguno de los dos esté
+ * abierto. Cada juego aplica después su interruptor (`useTimbaDeLaRonda`, `useSkinsDeLaRonda`).
+ */
+export function usePermisoDeJuegosDeLaRonda(esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS): boolean {
+  return usePermisoDeJuegoPersonalizado(TIMBA_LIBRE_ABIERTA || SKINS_LIBRE_ABIERTO, esperasMs)
 }

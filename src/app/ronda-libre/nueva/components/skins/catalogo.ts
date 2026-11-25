@@ -15,14 +15,16 @@ export const COMO_SE_JUEGA_SKINS: readonly string[] = [
   'Neto o gross, en 18 o 9 hoyos. Se anota en un solo celular.',
 ]
 
-/** Explicación de cada perilla, en una línea. */
+/** Explicación de cada perilla, en una línea. Las que dependen del modo o del pozo son funciones. */
 export const NOTA_SKINS = {
   hoyos: 'Se cambian en el paso Cancha.',
   neto: 'El más bajo juega a 0 y el resto recibe la diferencia.',
   gross: 'Sin hándicap: gana el menor número de golpes.',
-  hcpPct: 'Porcentaje del hándicap de juego de cada uno.',
+  // WHS: hándicap de juego = hándicap de cancha × %.
+  hcpPct: 'Se aplica al hándicap de cancha y da el hándicap de juego.',
   pozo: 'Lo que pone cada uno. 0 = solo skins, sin plata.',
   empate: 'Repartir: el valor se divide entre los empatados.',
-  validacion: 'Un hoyo con arrastre se cobra solo con par neto o mejor en el hoyo siguiente.',
-  puntos: 'Cada uno vale 1 skin del mismo pozo.',
+  validacion: (neto: boolean) =>
+    `Un hoyo con arrastre se cobra solo si su ganador hace ${neto ? 'par neto' : 'par'} o mejor en el siguiente.`,
+  puntos: (conPozo: boolean) => (conPozo ? 'Cada uno vale 1 skin del pozo.' : 'Cada uno vale 1 skin.'),
 } as const

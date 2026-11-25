@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { useState } from 'react'
+import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
 import { FilaSkins } from './FilaSkins'
 import { ArmarSkins } from './ArmarSkins'
+import { MENSAJE_POZO_TOPE } from './PozoPorJugador'
 import { ResumenSkins } from './ResumenSkins'
 import { skinsPorDefecto, PROBLEMA_SKINS_CARGANDO } from '../../hooks/skins-del-formulario'
 import { FilaTimbaLibre } from '../timba/FilaTimbaLibre'
@@ -85,6 +87,60 @@ describe('ArmarSkins', () => {
   it('el pozo se ve con miles chilenos', () => {
     armar({ skins: { ...skinsPorDefecto(), pozoPorJugador: 20000 } })
     expect((screen.getByLabelText('Pozo por jugador') as HTMLInputElement).value).toBe('20.000')
+  })
+
+  it('pozo sobre el techo (escrito o pegado): no entra y dice el máximo; un monto válido lo quita', () => {
+    const { onSkins } = armar({ skins: { ...skinsPorDefecto(), pozoPorJugador: 20000 } })
+    const campo = screen.getByLabelText('Pozo por jugador') as HTMLInputElement
+    fireEvent.change(campo, { target: { value: '99.999.999' } })
+    expect(onSkins).not.toHaveBeenCalled()
+    expect(campo.value).toBe('20.000')
+    expect(screen.getByRole('status').textContent).toBe(MENSAJE_POZO_TOPE)
+    expect(MENSAJE_POZO_TOPE).toContain('$5.000.000')
+    fireEvent.change(campo, { target: { value: '30.000' } })
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('editar el pozo por el medio deja el cursor tras el mismo dígito aunque se mueva el punto de miles', () => {
+    function Controlado() {
+      const [skins, setSkins] = useState({ ...skinsPorDefecto(), pozoPorJugador: 10000 })
+      return <ArmarSkins skins={skins} onSkins={setSkins} modo="neto" onModo={() => {}} holes={18} />
+    }
+    /** Como el navegador: el texto nuevo y el cursor ya puestos cuando llega el evento (setter nativo: React lo ve). */
+    const teclear = (el: HTMLInputElement, valor: string, cursor: number) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, valor)
+      el.setSelectionRange(cursor, cursor)
+      fireEvent.input(el)
+    }
+    render(<Controlado />)
+    const campo = screen.getByLabelText('Pozo por jugador') as HTMLInputElement
+    campo.focus()
+    // «10.000» → se escribe un 5 tras el 1: «150.000» con el cursor tras el 5 (posición 2).
+    teclear(campo, '150.000', 2)
+    expect(campo.value).toBe('150.000')
+    expect(campo.selectionStart).toBe(2)
+    // «150.000» → «1500.000» tras el 0 (pos 4): queda «1.500.000», el cursor tras el 4º dígito (pos 5).
+    teclear(campo, '1500.000', 4)
+    expect(campo.value).toBe('1.500.000')
+    expect(campo.selectionStart).toBe(5)
+  })
+
+  it('validación: par neto en neto, par en gross; puntos «del pozo» solo si hay pozo', () => {
+    armar({ modo: 'gross' })
+    expect(document.body.textContent).toContain('hace par o mejor en el siguiente')
+    expect(document.body.textContent).not.toContain('par neto')
+    expect(document.body.textContent).toContain('Cada uno vale 1 skin.')
+    cleanup()
+    armar({ skins: { ...skinsPorDefecto(), pozoPorJugador: 5000 } })
+    expect(document.body.textContent).toContain('hace par neto o mejor en el siguiente')
+    expect(document.body.textContent).toContain('Cada uno vale 1 skin del pozo.')
+  })
+
+  it('los seis porcentajes en una grilla de 3 columnas iguales', () => {
+    armar()
+    const grilla = screen.getByRole('button', { name: '100 %' }).parentElement as HTMLElement
+    expect(grilla.style.display).toBe('grid')
+    expect(grilla.style.gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))')
   })
 
   it('27 hoyos: lo dice en rojo, sin dejar avanzar acá', () => {

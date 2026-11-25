@@ -32,12 +32,13 @@ describe('skins en el formulario', () => {
     expect(configSkinsParaEnviar(skinsPorDefecto(), 'gross').modo).toBe('gross')
   })
 
-  it('pozo: acepta miles chilenos, vacío = 0; letras o sobre el techo no entran', () => {
+  it('pozo: acepta miles chilenos, vacío = 0; letras no entran; sobre el techo no entra y se avisa', () => {
     const c = skinsPorDefecto()
-    expect(conPozoEscrito(c, '20.000').pozoPorJugador).toBe(20000)
-    expect(conPozoEscrito({ ...c, pozoPorJugador: 5000 }, '').pozoPorJugador).toBe(0)
-    expect(conPozoEscrito(c, '20a')).toBe(c)
-    expect(conPozoEscrito(c, String(LIMITES_SKINS.pozoPorJugador.max + 1))).toBe(c)
+    expect(conPozoEscrito(c, '20.000')).toEqual({ config: { ...c, pozoPorJugador: 20000 }, sobreElTope: false })
+    expect(conPozoEscrito({ ...c, pozoPorJugador: 5000 }, '').config.pozoPorJugador).toBe(0)
+    expect(conPozoEscrito(c, '20a')).toEqual({ config: c, sobreElTope: false })
+    expect(conPozoEscrito(c, String(LIMITES_SKINS.pozoPorJugador.max + 1))).toEqual({ config: c, sobreElTope: true })
+    expect(conPozoEscrito(c, '5.000.000').config.pozoPorJugador).toBe(LIMITES_SKINS.pozoPorJugador.max)
   })
 
   it('sin problemas: null', () => {
@@ -47,7 +48,9 @@ describe('skins en el formulario', () => {
   it('lo de la ronda va primero, después cargando y error de lectura', () => {
     expect(problemaDelSkins(args({ adminMode: false, contexto: { estado: 'cargando' } }))?.detalle).toBe(MENSAJE_SKINS_UN_CELULAR)
     expect(problemaDelSkins(args({ contexto: { estado: 'cargando' } }))).toBe(PROBLEMA_SKINS_CARGANDO)
-    expect(problemaDelSkins(args({ contexto: { estado: 'error' } }))?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA)
+    expect(problemaDelSkins(args({ contexto: { estado: 'error', mensaje: MENSAJE_SKINS_SIN_DATOS_DE_CANCHA } }))).toMatchObject({
+      detalle: MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, esError: true,
+    })
   })
 
   it('bloqueo del motor con el nombre que se ve ahora', () => {

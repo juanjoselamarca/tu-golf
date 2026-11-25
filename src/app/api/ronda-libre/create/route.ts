@@ -7,6 +7,7 @@ import { esFormatoSkins } from '@/golf/formats/skins/clave'
 import type { FormatoJuego } from '@/golf/core/rules'
 import { prepararJuegoDeRondaNueva } from '@/golf/ronda-libre/juego-de-ronda-nueva'
 import { puedeCrearJuegoPersonalizado } from '@/lib/auth/juego-personalizado'
+import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 import { handicapsDeEquipoDeRondaNueva, insertarEquiposDeRonda } from '@/lib/data/ronda-libre-equipos'
 import { generarCodigoDeRonda, nombreDeCanchaDeRonda } from '@/lib/data/ronda-libre-crear'
 import { DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB, validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
@@ -140,6 +141,11 @@ export async function POST(req: NextRequest) {
     // RESTRICTIVE para el PATCH directo).
     if (esTimba && !(await puedeCrearJuegoPersonalizado(user.id))) {
       return NextResponse.json({ error: 'Timba libre todavía no está disponible para tu cuenta.' }, { status: 403 })
+    }
+    // Skins: cerrado por interruptor hasta que el scorer lo anote (la pantalla lo oculta, pero un POST directo no
+    // puede crear una ronda que después no se puede jugar). Va antes del permiso: cerrado es cerrado para todos.
+    if (esSkins && !SKINS_LIBRE_ABIERTO) {
+      return NextResponse.json({ error: 'Skins todavía no está disponible.' }, { status: 403 })
     }
     // Skins: el mismo permiso (spec formato-skins, «Dónde existe»; la base repite la guarda con usuario_puede_crear_timba()).
     if (esSkins && !(await puedeCrearJuegoPersonalizado(user.id))) {

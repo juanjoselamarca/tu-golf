@@ -3,9 +3,19 @@
 import type { ReactNode } from 'react'
 import { colores } from '../estilos'
 
-/** Rótulo de sección de los paneles de juego (Timba, Skins). */
-export const caption = {
-  fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: colores.texto2,
+/**
+ * Rótulo secundario de los paneles de juego (Timba, Skins): caption de DESIGN.md §4 (13/500, en oración; el caption
+ * «12 px uppercase» está prohibido).
+ */
+export const caption = { fontSize: '13px', fontWeight: 500, color: colores.texto2 }
+
+/** Título de cada regla de un panel de juego: el mismo estilo para todas (en oración, 14/600). */
+export const tituloDePerilla = { fontSize: '14px', fontWeight: 600, color: colores.texto }
+
+export function TituloDePerilla({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
+  return htmlFor
+    ? <label htmlFor={htmlFor} style={tituloDePerilla}>{children}</label>
+    : <span style={tituloDePerilla}>{children}</span>
 }
 
 /** Botón de dos estados de los paneles de juego (chips y segmentos): activo = tinta llena, como en la maqueta. */
@@ -21,7 +31,7 @@ export function Fila({ etiqueta, nota, children }: { etiqueta: string; nota?: st
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', minHeight: '44px' }}>
       <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        <span style={{ fontSize: '14px', color: colores.texto, fontWeight: nota ? 600 : undefined }}>{etiqueta}</span>
+        <span style={nota ? tituloDePerilla : { fontSize: '14px', color: colores.texto }}>{etiqueta}</span>
         {nota && <span style={{ fontSize: '12px', color: colores.texto2, lineHeight: 1.4 }}>{nota}</span>}
       </span>
       {children}
@@ -30,14 +40,18 @@ export function Fila({ etiqueta, nota, children }: { etiqueta: string; nota?: st
 }
 
 /** Una regla con opciones excluyentes (una fila de pastillas). `nota`: la explicación en una línea. */
-export function Opciones<T extends string | number>({ titulo, nota, valor, opciones, onCambiar }: {
+export function Opciones<T extends string | number>({ titulo, nota, valor, opciones, onCambiar, columnas }: {
   titulo: string; nota?: string; valor: T; opciones: { valor: T; etiqueta: string }[]; onCambiar: (v: T) => void
+  /** Grilla de anchos iguales (p. ej. 3 × 2 para seis porcentajes); sin esto, una fila que se reparte. */
+  columnas?: number
 }) {
   return (
     <div role="group" aria-label={titulo} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <span style={{ fontSize: '14px', fontWeight: 600, color: colores.texto }}>{titulo}</span>
+      <span style={tituloDePerilla}>{titulo}</span>
       {nota && <span style={{ fontSize: '12px', color: colores.texto2, lineHeight: 1.4 }}>{nota}</span>}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      <div style={columnas
+        ? { display: 'grid', gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))`, gap: '8px' }
+        : { display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         {opciones.map(o => (
           <button
             key={o.valor}

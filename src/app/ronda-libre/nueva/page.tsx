@@ -24,9 +24,7 @@ import { useTeesCoherentes } from './hooks/useTeesCoherentes'
 import { configParaEnviar } from './hooks/timba-del-formulario'
 import { problemaDeLaTimbaEnJugadores, problemaParaCrearLaTimba, useTimbaDeLaRonda } from './hooks/useTimbaDeLaRonda'
 import { NOMBRE_FORMATO_PERSONALIZADO, NOMBRE_PLANTILLA } from '@/golf/formats/personalizado'
-import { TIMBA_LIBRE_ABIERTA } from '@/lib/auth/timba-libre-abierta'
-import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
-import { usePermisoDeJuegoPersonalizado } from './hooks/usePuedeCrearTimba'
+import { usePermisoDeJuegosDeLaRonda } from './hooks/usePermisoDeJuego'
 import { useSkinsDeLaRonda } from './hooks/useSkinsDeLaRonda'
 import { ResumenSkins } from './components/skins/ResumenSkins'
 import { TITULO_SKINS } from './components/skins/catalogo'
@@ -48,7 +46,7 @@ export default function NuevaRondaLibrePage() {
   const creador = useCreadorDeRonda()
   const form = useFormularioDeRonda()
   // Timba libre y Skins: una sola pregunta del permiso (`puedeCrearJuegoPersonalizado`); cada juego, su interruptor.
-  const permisoDeJuego = usePermisoDeJuegoPersonalizado(TIMBA_LIBRE_ABIERTA || SKINS_LIBRE_ABIERTO)
+  const permisoDeJuego = usePermisoDeJuegosDeLaRonda()
   const timba = useTimbaDeLaRonda(permisoDeJuego)
   // Scramble rápido: «Solo equipos», con el hándicap del club y sin jugadores.
   const club = useEquiposDeClub({

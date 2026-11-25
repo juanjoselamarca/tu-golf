@@ -14,7 +14,7 @@ vi.mock('@/lib/data/skins-ronda-nueva', async importOriginal => ({
 
 import { useSkinsDeLaRonda, type RondaDelSkinsEnElFormulario } from './useSkinsDeLaRonda'
 import { PROBLEMA_SKINS_CARGANDO } from './skins-del-formulario'
-import { MENSAJE_SKINS_SIN_DATOS_DE_CANCHA } from '@/lib/data/skins-ronda-nueva'
+import { FalloDelContextoSkins, MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, mensajeSkinsSinRating } from '@/lib/data/skins-ronda-nueva'
 
 const SIN_ESPERA = [0, 0]
 const hoyos = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, si: i + 1 }))
@@ -64,18 +64,68 @@ describe('useSkinsDeLaRonda', () => {
     expect(result.current.paraEnviar?.reglasJuego.modo).toBe('gross')
   })
 
-  it('sin señal: avisa tras los reintentos y se arregla solo cuando vuelve', async () => {
-    // La señal vuelve recién cuando el aviso ya se vio: el test no depende de los tiempos de la máquina.
+  it('sin señal: reintenta con tope, avisa, se detiene y vuelve a leer cuando vuelve la red', async () => {
     let volvio = false
     lectura.impl.mockImplementation(async () => {
       if (!volvio) throw new Error('sin señal')
       return contextoCon([12, 20])()
     })
-    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 30]))
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
     act(() => result.current.elegir())
     await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
+    expect(result.current.problema?.esError).toBe(true)
+    // 1 + 2 reintentos, y nada más mientras no vuelva la red.
+    await new Promise(r => setTimeout(r, 30))
+    expect(lectura.impl).toHaveBeenCalledTimes(3)
     volvio = true
+    act(() => { window.dispatchEvent(new Event('online')) })
     await waitFor(() => expect(result.current.problema).toBeNull())
+    expect(lectura.impl).toHaveBeenCalledTimes(4)
+  })
+
+  it('con la app en segundo plano no reintenta; al volver, sí', async () => {
+    let n = 0
+    lectura.impl.mockImplementation(async () => {
+      n++
+      if (n === 1) throw new Error('sin señal')
+      return contextoCon([12, 20])()
+    })
+    const oculto = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
+    try {
+      const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+      act(() => result.current.elegir())
+      await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(1))
+      await new Promise(r => setTimeout(r, 30))
+      expect(lectura.impl).toHaveBeenCalledTimes(1)
+      expect(result.current.problema).toBe(PROBLEMA_SKINS_CARGANDO)
+      oculto.mockReturnValue(false)
+      act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+      await waitFor(() => expect(result.current.problema).toBeNull())
+    } finally {
+      oculto.mockRestore()
+    }
+  })
+
+  it('falta el rating del tee (no es la señal): avisa con ese mensaje y no reintenta solo', async () => {
+    lectura.impl.mockImplementation(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('Blanco'), false) })
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(result.current.problema?.detalle).toContain('rating y slope del tee Blanco'))
+    await new Promise(r => setTimeout(r, 30))
+    expect(lectura.impl).toHaveBeenCalledTimes(1)
+  })
+
+  it('el orden de los recorridos es dato: cambiarlo vuelve a leer, y viaja tal cual', async () => {
+    lectura.impl.mockImplementation(contextoCon([12, 20]))
+    const { result, rerender } = renderHook(
+      ({ recorridos }) => useSkinsDeLaRonda(true, { ...RONDA, recorridos }, SIN_ESPERA),
+      { initialProps: { recorridos: ['Norte', 'Sur'] } },
+    )
+    act(() => result.current.elegir())
+    await waitFor(() => expect(result.current.problema).toBeNull())
+    rerender({ recorridos: ['Sur', 'Norte'] })
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(2))
+    expect(lectura.impl.mock.calls[1][1]).toMatchObject({ recorridos: ['Sur', 'Norte'], modo: 'neto' })
   })
 
   it('soltar lo saca; una tarjeta sin nombre se avisa primero en Jugadores', async () => {

@@ -124,12 +124,16 @@ let esAdminElCreador = false
 vi.mock('@/lib/auth/juego-personalizado', () => ({
   puedeCrearJuegoPersonalizado: vi.fn(async () => esAdminElCreador),
 }))
+// Skins: el interruptor se fuerza por test (cerrado = como hoy en prod; abierto = como lo deja el PR del scorer).
+const interruptorSkins = vi.hoisted(() => ({ abierto: true }))
+vi.mock('@/lib/auth/skins-libre-abierto', () => ({ get SKINS_LIBRE_ABIERTO() { return interruptorSkins.abierto } }))
 // Aptitud de la cancha: sin veredicto (la Timba exige course_id y este gate tiene sus propios tests).
 vi.mock('@/lib/data/course-aptitud', () => ({ evaluarRondaLibre: vi.fn(async () => null) }))
 
 // Skins: los hoyos de la cancha y su rating salen de la base. 18 hoyos con SI 1..18; sin rating (null), el CH cae
 // al camino por índice, el mismo de la app. `fallaHoyos` simula la base caída.
 let fallaHoyos = false
+let sinRating = false
 vi.mock('@/lib/data/course-holes', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/course-holes')>()),
   resolverHoyosDeLaRonda: vi.fn(async () => {
@@ -139,7 +143,10 @@ vi.mock('@/lib/data/course-holes', async (importOriginal) => ({
 }))
 vi.mock('@/golf/core/course-handicap', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/golf/core/course-handicap')>()),
-  resolverCourseData: vi.fn(async () => null),
+  // Neto exige rating y slope del tee: por defecto la cancha los tiene; `sinRating` simula la lectura vacía.
+  resolverCourseData: vi.fn(async (_s: unknown, _c: unknown, _t: unknown, holes: number) => (
+    sinRating ? null : { courseRating: holes <= 9 ? 36 : 72, slope: 113, par: holes <= 9 ? 36 : 72, is9Hole: holes <= 9 }
+  )),
 }))
 
 import { POST } from './route'
@@ -189,7 +196,7 @@ beforeEach(() => {
   fallaInsertSinSugerencia = null
   idsDevueltos = null
   esAdminElCreador = false
-  fallaHoyos = false
+  fallaHoyos = false; sinRating = false
   handicapsDeEquipo = 'real'
   perfilesEnLaBase = []
   perfilesQueExisten.mockClear()
@@ -738,6 +745,35 @@ describe('POST /api/ronda-libre/create — Skins', () => {
     expect(res.status).toBe(403)
     expect((await res.json()).error).toBe('Skins todavía no está disponible para tu cuenta.')
     nadaInsertado()
+  })
+
+  it('interruptor cerrado: 403 también para un admin, sin crear nada; abierto, el mismo pedido crea', async () => {
+    esAdminElCreador = true
+    interruptorSkins.abierto = false
+    try {
+      const cerrado = await POST(req(skins()))
+      expect(cerrado.status).toBe(403)
+      expect((await cerrado.json()).error).toBe('Skins todavía no está disponible.')
+      nadaInsertado()
+    } finally {
+      interruptorSkins.abierto = true
+    }
+    expect((await POST(req(skins()))).status).toBe(200)
+  })
+
+  it('neto sin rating y slope del tee (lectura vacía): 503, nunca CH aproximado por índice', async () => {
+    esAdminElCreador = true
+    sinRating = true
+    try {
+      const res = await POST(req(skins({ modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }) })))
+      expect(res.status).toBe(503)
+      expect((await res.json()).error).toContain('rating y slope')
+      nadaInsertado()
+      // En gross no se usa: crea igual.
+      expect((await POST(req(skins()))).status).toBe(200)
+    } finally {
+      sinRating = false
+    }
   })
 
   it('con permiso: formato skins, reglas_juego = { config, jugadorIds } y cada fila con el id de su posición', async () => {

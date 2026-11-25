@@ -7,10 +7,8 @@ import {
 } from './catalogo'
 import { PUNTITOS_DEL_CATALOGO } from '@/golf/formats/personalizado'
 import { BannerDeJuego } from '../juego/BannerDeJuego'
+import { caption } from '../juego/controles'
 
-const caption = {
-  fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'var(--text-2)',
-}
 
 interface Props {
   abierto: boolean
