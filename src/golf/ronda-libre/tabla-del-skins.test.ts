@@ -3,7 +3,7 @@ import { CONFIG_SKINS_POR_DEFECTO, type ConfigSkins } from '@/golf/formats/skins
 import type { MarcaPuntito } from '@/golf/formats/personalizado'
 import { especialesQueValenEnElSkins, resultadoDelSkins, valorDelHoyoSkins } from './skins-del-scorer'
 import {
-  armarResultadoDelSkins, armarTablaDelSkins, detalleDeLaFila, textoDeLaCelda, textoDeLaPlata, textoDeSkins, textoDelNeto,
+  armarResultadoDelSkins, armarTablaDelSkins, detalleDeLaFila, lecturaDeLaCelda, quienLlevaElHoyo, textoDeLaCelda, textoDeLaPlata, textoDeSkins, textoDelNeto,
   textoParaCompartirElSkins,
 } from './tabla-del-skins'
 
@@ -129,6 +129,44 @@ describe('liquidación del skins', () => {
     expect(armarResultadoDelSkins(t, NOMBRES).titular).toBe('Empate entre Ana y Beto')
   })
 
+  it('ronda cerrada con hoyos sin resolver: no anuncia ganador, dice quién iba adelante', () => {
+    // Ana ganó el 1; el 2 y el 3 quedaron abiertos (falta Beto): la plata es estimada, no hay ganador.
+    const t = tabla({ scores: { a: { 1: 3, 2: 3, 3: 5 }, b: { 1: 4 }, c: { 1: 4, 2: 3, 3: 4 } }, c: { pozoPorJugador: 1000 } })
+    expect(t.definitivo).toBe(false)
+    expect(t.plata).toBe('estimada')
+    const r = armarResultadoDelSkins(t, NOMBRES)
+    expect(r.titular).toBe('Quedaron hoyos sin resolver')
+    expect(r.bajada).toBe('Iba adelante Ana con 1 skin.')
+    expect(r.liquidacion).toBeNull()
+    const texto = textoParaCompartirElSkins(r, t, 'Los Leones')
+    expect(texto).toContain('Quedaron hoyos sin resolver. Iba adelante Ana con 1 skin.')
+    expect(texto).toContain('Sin liquidación: hay hoyos por resolver.')
+    expect(texto).not.toContain('Ganó')
+    // Empatados adelante y nadie con skins.
+    const empate = tabla({ scores: { a: { 1: 3, 2: 4 }, b: { 1: 4, 2: 3 }, c: { 1: 4, 2: 4 } } })
+    expect(armarResultadoDelSkins(empate, NOMBRES).bajada).toBe('Iban adelante Ana y Beto con 1 skin cada uno.')
+    const nadie = tabla({ scores: { a: { 1: 4 }, b: { 1: 4 }, c: { 1: 4 } }, c: { pozoPorJugador: 1000 } })
+    expect(armarResultadoDelSkins(nadie, NOMBRES)).toMatchObject({ titular: 'Quedaron hoyos sin resolver', bajada: 'Nadie había ganado un skin.' })
+  })
+
+  it('hoyo en disputa: quién lo lleva o «Emp.», también para el lector de pantalla', () => {
+    const t = tabla({ scores: { a: { 1: 3, 2: 3 }, b: { 1: 4, 2: 3 }, c: { 1: 4, 2: 3, 3: 4 } } })
+    const h3 = t.hoyos.find(h => h.numero === 3)!
+    expect(quienLlevaElHoyo(h3, id => id.toUpperCase())).toBe('C')
+    expect(lecturaDeLaCelda(h3, id => NOMBRES[id as 'a'], 'gross')).toContain('Mejor gross hasta ahora: 4, lo lleva Coni Díaz')
+    const empatado = { ...h3, lideres: ['a', 'c'] }
+    expect(quienLlevaElHoyo(empatado, id => id)).toBe('Emp.')
+    expect(lecturaDeLaCelda(empatado, id => NOMBRES[id as 'a'], 'gross')).toContain('empatado entre Ana Pérez y Coni Díaz')
+    expect(quienLlevaElHoyo(t.hoyos[0], id => id)).toBeNull()
+  })
+
+  it('la fila del reparto explica la fracción', () => {
+    const t = tabla({ scores: { a: { 1: 3, 2: 3, 3: 4 }, b: { 1: 4, 2: 3, 3: 4 }, c: { 1: 4, 2: 3, 3: 5 } } })
+    expect(t.filas[0]).toMatchObject({ jugadorId: 'a', hoyosGanados: [1], hoyosRepartidos: [3] })
+    expect(detalleDeLaFila(t.filas[0])).toBe('Hoyo 1 · reparto del 3')
+    expect(detalleDeLaFila(t.filas.find(f => f.jugadorId === 'b')!)).toBe('Reparto del 3')
+  })
+
   it('el texto para compartir lleva la liquidación', () => {
     const t = tabla({ scores: UNO_CADA_UNO, marcas: CHIP_DE_ANA, c: { pozoPorJugador: 1000 } })
     const texto = textoParaCompartirElSkins(armarResultadoDelSkins(t, NOMBRES), t, 'Los Leones')
@@ -175,7 +213,7 @@ describe('valorDelHoyoSkins sale del mismo resultado', () => {
 })
 
 describe('detalleDeLaFila', () => {
-  const f = (hoyosGanados: number[], especiales = 0, retiradoDesde: number | null = null) => ({ hoyosGanados, especiales, retiradoDesde })
+  const f = (hoyosGanados: number[], especiales = 0, retiradoDesde: number | null = null) => ({ hoyosGanados, hoyosRepartidos: [], especiales, retiradoDesde })
   it('dice hoyo con la palabra (un «Ganó 4» al lado de «3 skins» se leía como cuatro skins)', () => {
     expect(detalleDeLaFila(f([4]))).toBe('Hoyo 4')
     expect(detalleDeLaFila(f([1, 4]))).toBe('Hoyos 1 y 4')

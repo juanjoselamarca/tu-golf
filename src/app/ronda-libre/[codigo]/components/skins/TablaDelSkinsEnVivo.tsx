@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from 'react'
 import {
-  detalleDeLaFila, lecturaDeLaCelda, textoDeLaCelda, textoDeLaPlata, textoDeSkins, type HoyoDeLaTablaSkins, type TablaDelSkins,
+  detalleDeLaFila, lecturaDeLaCelda, quienLlevaElHoyo, textoDeLaCelda, textoDeLaPlata, textoDeSkins, type HoyoDeLaTablaSkins, type TablaDelSkins,
 } from '@/golf/ronda-libre/tabla-del-skins'
 import { formatPesos } from '@/lib/format'
 
@@ -44,11 +44,17 @@ export function TablaDelSkinsEnVivo({ tabla, nombres, cortos, desactualizado }: 
           style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))`, gap: '6px' }}
         >
           {tabla.hoyos.map(h => (
-            <CeldaDelHoyo key={h.numero} h={h} texto={textoDeLaCelda(h, id => cortos[id] ?? '')} lectura={lecturaDeLaCelda(h, nombre, tabla.modo)} />
+            <CeldaDelHoyo
+              key={h.numero}
+              h={h}
+              texto={textoDeLaCelda(h, id => cortos[id] ?? '')}
+              quien={quienLlevaElHoyo(h, id => cortos[id] ?? '')}
+              lectura={lecturaDeLaCelda(h, nombre, tabla.modo)}
+            />
           ))}
         </ol>
         <p style={NOTA}>
-          Nombre: lo ganó. Empate: el hoyo pasa al siguiente. En gris, el mejor {tabla.modo === 'neto' ? 'neto' : 'score'} del hoyo en juego.
+          Nombre: lo ganó. Empate: el hoyo pasa al siguiente. En gris, el mejor {tabla.modo === 'neto' ? 'neto' : 'score'} del hoyo en juego y quién lo lleva.
         </p>
       </section>
 
@@ -113,7 +119,7 @@ function ResumenDelPozo({ tabla }: { tabla: TablaDelSkins }) {
   )
 }
 
-function CeldaDelHoyo({ h, texto, lectura }: { h: HoyoDeLaTablaSkins; texto: string; lectura: string }) {
+function CeldaDelHoyo({ h, texto, quien, lectura }: { h: HoyoDeLaTablaSkins; texto: string; quien: string | null; lectura: string }) {
   const ganado = h.estado === 'ganado' || h.estado === 'repartido'
   const porValidar = h.estado === 'por_validar'
   const enJuego = h.estado === 'en_disputa'
@@ -144,6 +150,14 @@ function CeldaDelHoyo({ h, texto, lectura }: { h: HoyoDeLaTablaSkins; texto: str
       >
         {texto || ' '}
       </span>
+      {quien && (
+        <span
+          aria-hidden
+          style={{ ...NOMBRE, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px', color: 'var(--text-2)' }}
+        >
+          {quien}
+        </span>
+      )}
     </li>
   )
 }

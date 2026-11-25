@@ -7,7 +7,7 @@
  * el neto de cada jugador por hoyo, solo el mejor score del hoyo (lo que la spec pide mostrar en disputa).
  */
 import type { ModoJuego } from '@/golf/core/rules'
-import { hoyosConX, type ConfigSkins, type EstadoHoyoSkins, type FueraPorJugador, type ResultadoSkins } from '@/golf/formats/skins'
+import { esHoyoResuelto, hoyosConX, type ConfigSkins, type EstadoHoyoSkins, type FueraPorJugador, type ResultadoSkins } from '@/golf/formats/skins'
 import { formatPesos } from '@/lib/format'
 import { unirNombres } from './juego-en-vivo'
 import { nombresCortos } from './tabla-del-juego'
@@ -37,6 +37,8 @@ export interface FilaDeLaTablaSkins {
   skins: number
   /** Hoyos que ganó solo (estado `ganado`), en orden de juego. */
   hoyosGanados: number[]
+  /** Hoyos repartidos con otros (último hoyo empatado): explican las fracciones («1,5 skins»). */
+  hoyosRepartidos: number[]
   /** Skins por puntos especiales (1 cada uno). */
   especiales: number
   /** Pesos que cobra: estimado mientras `plata` sea `estimada`. */
@@ -107,13 +109,14 @@ export function armarTablaDelSkins(resultado: ResultadoSkins, input: {
       puesto: anterior && anterior.skins === j.skins ? anterior.puesto : k + 1,
       skins: j.skins,
       hoyosGanados: hoyos.filter(h => h.estado === 'ganado' && h.ganador === j.id).map(h => h.numero),
+      hoyosRepartidos: hoyos.filter(h => h.estado === 'repartido' && h.repartidoEntre.includes(j.id)).map(h => h.numero),
       especiales: j.especiales,
       cobra: j.cobra,
       neto: j.neto,
       retiradoDesde: retiros[j.id] ?? null,
     })
   })
-  const abierto = resultado.hoyos.find(h => !['ganado', 'arrastre', 'repartido', 'perdido'].includes(h.estado))
+  const abierto = resultado.hoyos.find(h => !esHoyoResuelto(h.estado))
   return {
     modo: config.modo,
     pozoPorJugador: config.pozoPorJugador,
@@ -147,16 +150,19 @@ export function textoDeSkins(n: number): string {
   return `${cifra} ${redondo === 1 ? 'skin' : 'skins'}`
 }
 
-/** Plata de una fila: con «~» mientras sea estimada. `null` si no hay plata que mostrar. */
 /**
  * De dónde salen los skins de una fila, bajo el nombre: «Hoyos 1 y 4 · 1 punto especial». Con el número del hoyo
- * solo («Ganó 4») se leía como cuatro skins al lado de «3 skins». `null` si no hay nada que contar.
+ * solo («Ganó 4») se leía como cuatro skins al lado de «3 skins». El reparto del último hoyo explica la fracción
+ * («1,5 skins» → «Hoyo 4 · reparto del 18»). `null` si no hay nada que contar.
  */
-export function detalleDeLaFila(f: Pick<FilaDeLaTablaSkins, 'hoyosGanados' | 'especiales' | 'retiradoDesde'>): string | null {
+export function detalleDeLaFila(
+  f: Pick<FilaDeLaTablaSkins, 'hoyosGanados' | 'hoyosRepartidos' | 'especiales' | 'retiradoDesde'>,
+): string | null {
   const partes: string[] = []
   const h = f.hoyosGanados
   if (h.length === 1) partes.push(`Hoyo ${h[0]}`)
-  else if (h.length > 1) partes.push(`Hoyos ${h.slice(0, -1).join(', ')} y ${h[h.length - 1]}`)
+  else if (h.length > 1) partes.push(`Hoyos ${listaDeHoyos(h)}`)
+  if (f.hoyosRepartidos.length > 0) partes.push(`reparto del ${listaDeHoyos(f.hoyosRepartidos)}`)
   if (f.especiales > 0) partes.push(f.especiales === 1 ? '1 punto especial' : `${f.especiales} puntos especiales`)
   if (f.retiradoDesde != null) partes.push(`se retiró en el ${f.retiradoDesde}`)
   if (partes.length === 0) return null
@@ -164,6 +170,11 @@ export function detalleDeLaFila(f: Pick<FilaDeLaTablaSkins, 'hoyosGanados' | 'es
   return texto[0].toUpperCase() + texto.slice(1)
 }
 
+function listaDeHoyos(h: readonly number[]): string {
+  return h.length === 1 ? String(h[0]) : `${h.slice(0, -1).join(', ')} y ${h[h.length - 1]}`
+}
+
+/** Plata de una fila: con «~» mientras sea estimada. `null` si no hay plata que mostrar. */
 export function textoDeLaPlata(tabla: Pick<TablaDelSkins, 'plata'>, cobra: number): string | null {
   if (tabla.plata === 'estimada') return `~${formatPesos(cobra)}`
   if (tabla.plata === 'definitiva' || tabla.plata === 'devolucion') return formatPesos(cobra)
@@ -190,6 +201,15 @@ export function textoDeLaCelda(h: HoyoDeLaTablaSkins, corto: (id: string) => str
   }
 }
 
+/**
+ * Quién lleva el hoyo en disputa, bajo el mejor score: el nombre corto o «Emp.» si van empatados. `null` si el hoyo
+ * no está en disputa o nadie anotó (el grupo pregunta «¿quién lo tiene?», no solo «¿con cuánto?»).
+ */
+export function quienLlevaElHoyo(h: HoyoDeLaTablaSkins, corto: (id: string) => string): string | null {
+  if (h.estado !== 'en_disputa' || h.mejor == null || h.lideres.length === 0) return null
+  return h.lideres.length > 1 ? 'Emp.' : corto(h.lideres[0])
+}
+
 /** Lectura completa de una celda para lector de pantalla (la tira es visual: esto es lo que se oye). */
 export function lecturaDeLaCelda(h: HoyoDeLaTablaSkins, nombre: (id: string) => string, modo: ModoJuego): string {
   const vale = h.valor > 1 ? `, valía ${textoDeSkins(h.valor)}` : ''
@@ -203,7 +223,8 @@ export function lecturaDeLaCelda(h: HoyoDeLaTablaSkins, nombre: (id: string) => 
     case 'en_disputa':
       return h.mejor == null
         ? `Hoyo ${h.numero}: en juego, vale ${textoDeSkins(h.valor)}`
-        : `Hoyo ${h.numero}: en juego, vale ${textoDeSkins(h.valor)}. Mejor ${score} hasta ahora: ${h.mejor}${h.lideres.length > 1 ? ', empatado' : ''}`
+        : `Hoyo ${h.numero}: en juego, vale ${textoDeSkins(h.valor)}. Mejor ${score} hasta ahora: ${h.mejor}, ${
+          h.lideres.length > 1 ? `empatado entre ${unirNombres(h.lideres.map(nombre))}` : `lo lleva ${nombre(h.lideres[0] ?? '')}`}`
     default: return `Hoyo ${h.numero}: por jugar`
   }
 }
@@ -230,11 +251,19 @@ export function armarResultadoDelSkins(tabla: TablaDelSkins, nombres: Readonly<R
   const primeros = ranking.filter(r => r.puesto === 1)
   let titular: string
   let bajada: string
-  if (tabla.skinsCobrados === 0) {
+  if (!tabla.definitivo) {
+    // Ronda cerrada con hoyos sin resolver: no hay ganador que anunciar (spec «Pozo y liquidación»: no se liquida sola).
+    titular = 'Quedaron hoyos sin resolver'
+    bajada = tabla.skinsCobrados === 0
+      ? 'Nadie había ganado un skin.'
+      : primeros.length === 1
+        ? `Iba adelante ${primeros[0].nombre} con ${primeros[0].texto}.`
+        : `Iban adelante ${unirNombres(primeros.map(p => p.nombre))} con ${primeros[0].texto} cada uno.`
+  } else if (tabla.skinsCobrados === 0) {
     titular = 'Nadie ganó un skin'
     bajada = tabla.plata === 'devolucion'
       ? `Se devuelve el pozo: cada uno recupera ${formatPesos(tabla.pozoPorJugador)}.`
-      : tabla.definitivo ? 'Todos los hoyos quedaron empatados.' : 'Quedaron hoyos sin resolver.'
+      : 'Todos los hoyos quedaron empatados.'
   } else if (primeros.length === 1) {
     titular = `Ganó ${primeros[0].nombre}`
     bajada = `Con ${primeros[0].texto}.`
@@ -266,6 +295,9 @@ export function textoParaCompartirElSkins(r: ResultadoDelSkins, tabla: TablaDelS
     '',
     ...r.ranking.map(f => `${f.puesto}. ${f.nombre} ${f.texto}${f.retiradoDesde != null ? ` (se retiró en el hoyo ${f.retiradoDesde})` : ''}`),
   ]
+  if (!tabla.definitivo && tabla.plata !== 'sin_pozo') {
+    lineas.push('', 'Sin liquidación: hay hoyos por resolver.')
+  }
   if (r.liquidacion) {
     lineas.push('', tabla.valorSkin != null ? `Liquidación (skin a ${formatPesos(tabla.valorSkin)})` : 'Liquidación')
     for (const l of r.liquidacion) lineas.push(`${l.nombre}: cobra ${formatPesos(l.cobra)} · ${textoDelNeto(l.neto).toLowerCase()}`)
