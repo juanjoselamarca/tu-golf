@@ -86,7 +86,7 @@ describe('hoja de Finalizar y cierre: una sola decisión', () => {
   const hasta8 = Object.fromEntries(nueve.slice(0, 8).map(h => [h, 4]))
   // Hoyos que el cierre deja sin golpes ni X para alguien = hoyos que avisa la hoja.
   const quedanVacios = (input: Parameters<typeof hoyosQueQuedanSinJugarEnLaTimba>[0]) => nueve.filter(h => jugadores.some(j => {
-    const noRellenar = hoyosQueNoSeRellenan({ matchResult: null, jugadores, jugadorId: j.id, ordenHoyos: nueve, esTimba: true, ...input })
+    const noRellenar = hoyosQueNoSeRellenan({ ...input, matchResult: null, jugadorId: j.id, esTimba: true })
     const anotado = input.scores[j.id]?.[h] !== undefined || input.fuera?.[j.id]?.[h] === true
     return !anotado && noRellenar.includes(h)
   }))
