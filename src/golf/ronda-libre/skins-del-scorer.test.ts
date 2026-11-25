@@ -28,6 +28,15 @@ describe('valorDelHoyoSkins', () => {
     expect(valorDelHoyoSkins({ reglas: reglas(neto), contexto: ctx([10, null]), scores: {}, fuera: {}, hoyo: 1 })).toBeNull()
     expect(valorDelHoyoSkins({ reglas: reglas(neto), contexto: ctx([10, 12]), scores: {}, fuera: {}, hoyo: 1 })).toEqual({ valor: 1, provisional: false })
   })
+  it('salida por el 10: el arrastre sigue el orden de juego (gana el 10, empatan del 11 al 18 → el 1 vale 9)', () => {
+    // El contexto llega en orden de juego (`hoyosJugadosDeLaRonda(10, 18)` = 10..18, 1..9), no por número.
+    const alDiez = [...Array.from({ length: 9 }, (_, i) => i + 10), ...Array.from({ length: 9 }, (_, i) => i + 1)]
+    const contexto = { jugadores: ctx().jugadores, hoyos: alDiez.map(numero => ({ numero, par: 4, si: numero })) }
+    const vuelta = Object.fromEntries(alDiez.slice(0, 9).map(h => [h, 4]))
+    const scores = { a: { ...vuelta, 10: 3 }, b: vuelta }
+    expect(valorDelHoyoSkins({ reglas: reglas(), contexto, scores, fuera: {}, hoyo: 10 })?.valor).toBe(1)
+    expect(valorDelHoyoSkins({ reglas: reglas(), contexto, scores, fuera: {}, hoyo: 1 })).toEqual({ valor: 9, provisional: false })
+  })
   it('contexto que no calza con las reglas u hoyo fuera del skins: null', () => {
     expect(valorDelHoyoSkins({ reglas: reglas(), contexto: ctx([null]), scores: {}, fuera: {}, hoyo: 1 })).toBeNull()
     expect(valorDelHoyoSkins({ reglas: reglas(), contexto: ctx(), scores: {}, fuera: {}, hoyo: 9 })).toBeNull()

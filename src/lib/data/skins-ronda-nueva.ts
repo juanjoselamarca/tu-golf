@@ -20,6 +20,7 @@ import {
   MENSAJE_SKINS_SIN_CANCHA, hoyosDelSkins, prepararSkinsDeRondaNueva, problemasDeLaRondaDelSkins, type ReglasSkinsGuardadas,
 } from '@/golf/ronda-libre/skins-de-ronda-nueva'
 import { captureError } from '@/lib/error-tracking'
+import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { teeLabel } from '@/golf/courses/category-tee-options'
 import { resolverHoyosDeLaRonda } from './course-holes'
@@ -54,6 +55,16 @@ export class FalloDelContextoSkins extends Error {
     super(message)
     this.name = 'FalloDelContextoSkins'
   }
+}
+
+/**
+ * ¿Volver a leer puede arreglarlo? Sí si falló la red: la lectura de hoyos (`deSenal`), el plazo vencido o el
+ * `TypeError` con que `fetch` rechaza sin conexión. No si falta un dato de la cancha (un tee sin rating) ni ante
+ * cualquier otro error: reintentarlo solo repite la falla.
+ */
+export function esFalloDeSenalDelContextoSkins(err: unknown): boolean {
+  if (err instanceof FalloDelContextoSkins) return err.deSenal
+  return err instanceof TiempoAgotadoError || err instanceof TypeError
 }
 
 export const MENSAJE_SKINS_SIN_DATOS_DE_CANCHA =
