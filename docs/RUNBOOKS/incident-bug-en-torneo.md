@@ -20,11 +20,11 @@ El jugador NO PUEDE esperar a que arregles el código. Opciones según el bug:
 
 | Bug | Workaround para el jugador |
 |---|---|
-| No puede scorear en la app | Scorecard de papel. Tú ingresas scores después por admin. |
+| No puede scorear en la app | Tarjeta de papel ([scorecard-papel.md](scorecard-papel.md)). Si es solo un teléfono, el creador toca **Liberar** en ese equipo y lo anota él; si es la app entera, se transcribe del papel a la misma ronda (sigue en curso) y después se finaliza. |
 | No carga su ronda | Dale el código a mano, que otro jugador del grupo lo scoree |
 | Leaderboard espectador no actualiza | Refrescar manualmente, o compartir URL alternativa |
 | Se cierra sesión constantemente | Recomendar modo navegador (no PWA) mientras investigas |
-| Error al finalizar ronda | Tú finalizas por admin desde `/admin/ronda-libre/<id>` |
+| Error al finalizar ronda | Reintentar con señal en 1 min. Si sigue, dejar la ronda en curso (no se pierde nada) y avisar a Claude. **Nunca «Descartar ronda».** |
 
 ## Paso 3 — Investigación paralela (mientras el torneo sigue)
 
