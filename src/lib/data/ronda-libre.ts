@@ -353,7 +353,8 @@ export async function cargarRondaLibreEnVivo(
       status: 'ok', ronda, parMap, siMap, courseHcpMap, courseHcpCompletoMap, displayHcpMap,
       sinIndice: [...sinIndice], equipos,
     }
-  } catch {
+  } catch (err) {
+    void captureError(err, { context: 'data.cargarRondaLibreEnVivo', level: 'warning', meta: { codigo } })
     return { status: 'error' }
   }
 }

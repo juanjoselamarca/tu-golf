@@ -28,4 +28,9 @@ describe('TeamLeaderboard — gross y neto rotulados', () => {
     render(<TeamLeaderboard modoJuego="neto" totalHoles={18} formato="scramble" teams={[equipo('A', -2, 0), equipo('B', 0, 0, 0)]} />)
     expect(screen.getAllByText(/^Gross /)).toHaveLength(1)
   })
+  it('el score usa los tokens con tema (no un hex fijo que en oscuro queda a ~3:1)', () => {
+    render(<TeamLeaderboard modoJuego="neto" totalHoles={18} formato="scramble" teams={[equipo('Los Ross', -7, 1), equipo('Los Lamarca', 1, 3)]} />)
+    expect((screen.getByText('-7') as HTMLElement).style.color).toBe('var(--score-eagle-fg)')
+    expect((screen.getByText('+1') as HTMLElement).style.color).toBe('var(--score-bogey-fg)')
+  })
 })

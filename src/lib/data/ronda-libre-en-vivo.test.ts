@@ -4,6 +4,9 @@ import { leerIndicesDelCliente } from './indices-de-perfil-lectura'
 import { armarEntradaDelJuego, vistaDelJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
 import { armarReglasGuardadas, calcularJuegoPersonalizado, crearConfigDePlantilla } from '@/golf/formats/personalizado'
 
+const captureError = vi.hoisted(() => vi.fn(async () => {}))
+vi.mock('@/lib/error-tracking', () => ({ captureError }))
+
 vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/golf/core/course-handicap')>()
   return {
@@ -161,8 +164,11 @@ describe('cargarRondaLibreEnVivo — equipos de una ronda por equipos', () => {
   const SCRAMBLE = { ...RONDA, formato_juego: 'scramble', ronda_libre_jugadores: [RONDA.ronda_libre_jugadores[0]] }
   it('si la lectura de equipos falla: status error (la ruta responde 503 no-store), nunca ok sin equipos', async () => {
     const anon = fakeSupabase({ rondas_libres: { data: SCRAMBLE }, ronda_equipos: { data: null, error: { message: 'statement timeout' } } })
+    captureError.mockClear()
     const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', null)
     expect(r.status).toBe('error')
+    // La falla queda registrada (no un catch mudo): contexto propio y el código de la ronda.
+    expect(captureError).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'data.cargarRondaLibreEnVivo', meta: { codigo: 'ABC123' } }))
   })
   it('con la lectura bien: los equipos de club llegan con su origen y su HCP', async () => {
     const fila = (id: string, h: number) => ({ id, nombre: id, handicap_equipo: h, handicap_equipo_juego: h, handicap_origen: 'club', scores: { 1: 4 }, ronda_id: 'r1', ronda_equipo_jugadores: [] })

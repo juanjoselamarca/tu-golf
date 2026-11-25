@@ -11,7 +11,7 @@ import type { ReactNode } from 'react'
 import { formatearHandicap } from '@/golf/handicap-index-range'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { formatOverUnder, nombreDelModo } from '@/golf/core/rules'
-import { getScoreColor } from '@/golf/core/colors'
+import { scoreFgVar } from '@/lib/score-tokens'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 import { esPrimerLugar } from '@/golf/core/posiciones'
@@ -181,9 +181,10 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
               <span style={{
                 fontSize: '16px', fontWeight: 700, fontFamily: '"DM Mono", monospace',
                 // Stableford: pts altos = bueno → mapear a birdie color; stroke: score IS el diff.
+                // Tokens con tema (no hex fijo): #0B6BA6 daba ~3:1 sobre el fondo oscuro.
                 color: isStableford
-                  ? (score > 0 ? getScoreColor(-1) : score === 0 ? getScoreColor(0) : getScoreColor(1))
-                  : getScoreColor(score),
+                  ? (score > 0 ? scoreFgVar(-1) : score === 0 ? scoreFgVar(0) : scoreFgVar(1))
+                  : scoreFgVar(score),
               }}>
                 {displayScore(team, modoJuego, formatoJuego, hasCourse)}
               </span>
