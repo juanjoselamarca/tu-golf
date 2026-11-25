@@ -79,13 +79,32 @@ describe('fetchRondaLibreParaScorer', () => {
     const sb = { from: () => { throw new TypeError('Failed to fetch') } }
     expect((await fetchRondaLibreParaScorer(sb as never, 'X')).estado).toBe('sin_conexion')
   })
-  it('sin_conexion si el servidor no responde dentro del plazo', async () => {
+  /** Consulta que no contesta nunca y registra la señal que le ataron (`.abortSignal`). */
+  const colgada = (senales: AbortSignal[]) => {
+    const q: Record<string, unknown> = {}
+    q.select = () => q
+    q.eq = () => q
+    q.abortSignal = (s: AbortSignal) => { senales.push(s); return q }
+    q.single = () => new Promise(() => {})
+    return { from: () => q }
+  }
+  it('sin_conexion si el servidor no responde dentro del plazo, y la lectura vencida se CANCELA', async () => {
     vi.useFakeTimers()
-    const sb = { from: () => ({ select: () => ({ eq: () => ({ single: () => new Promise(() => {}) }) }) }) }
-    const p = fetchRondaLibreParaScorer(sb as never, 'X')
+    const senales: AbortSignal[] = []
+    const p = fetchRondaLibreParaScorer(colgada(senales) as never, 'X')
     await vi.advanceTimersByTimeAsync(15_000)
     expect((await p).estado).toBe('sin_conexion')
+    expect(senales).toHaveLength(1)
+    expect(senales[0].aborted).toBe(true)
     vi.useRealTimers()
+  })
+  it('la señal del que llama corta la lectura (sin_conexion, nunca no_existe)', async () => {
+    const senales: AbortSignal[] = []
+    const control = new AbortController()
+    const p = fetchRondaLibreParaScorer(colgada(senales) as never, 'X', { signal: control.signal })
+    control.abort()
+    expect((await p).estado).toBe('sin_conexion')
+    expect(senales[0].aborted).toBe(true)
   })
 })
 

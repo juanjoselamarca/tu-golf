@@ -29,8 +29,17 @@ vi.mock('@/lib/data/ronda-libre-anotador', async (orig) => ({
 
 type SesionMock = { session: unknown; error: unknown } | 'lanza'
 const sesion = { valor: { session: { user: { id: 'u1', email: 'juanjo@x.cl' } }, error: null } as SesionMock }
+/** Señales que las lecturas del scorer ataron a sus consultas (`clienteConSenal` → `.abortSignal`). */
+const senalesDeConsulta: AbortSignal[] = []
 vi.mock('@/lib/supabase', () => ({
   createClient: () => ({
+    from: () => {
+      const q: Record<string, unknown> = {}
+      q.select = () => q
+      q.abortSignal = (s: AbortSignal) => { senalesDeConsulta.push(s); return q }
+      return q
+    },
+    rpc: () => ({}),
     auth: {
       getSession: async () => {
         if (sesion.valor === 'lanza') throw new TypeError('Failed to fetch')
@@ -48,6 +57,9 @@ const RONDA = {
 }
 const carga = { valor: { estado: 'ok', ronda: RONDA } as { estado: string; ronda?: unknown } }
 const opcionesDeCarga: unknown[] = []
+/** Código pedido en cada lectura, y la respuesta por código cuando un test necesita distinguirlas. */
+const codigosDeCarga: string[] = []
+const cargaPorCodigo: Record<string, { estado: string; ronda?: unknown }> = {}
 /** Compuerta de la lectura de la ronda: mientras `espera` no se resuelva, la lectura queda en vuelo. */
 const lecturaEnVuelo = { espera: null as Promise<void> | null }
 function compuerta() {
@@ -65,10 +77,11 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
   const real = await orig<typeof import('@/lib/data/ronda-libre-scorer')>()
   return {
     ...real,
-    fetchRondaLibreParaScorer: async (_sb: unknown, _codigo: string, opciones?: unknown) => {
+    fetchRondaLibreParaScorer: async (_sb: unknown, codigo: string, opciones?: unknown) => {
       opcionesDeCarga.push(opciones)
+      codigosDeCarga.push(codigo)
       if (lecturaEnVuelo.espera) await lecturaEnVuelo.espera
-      return carga.valor
+      return cargaPorCodigo[codigo] ?? carga.valor
     },
     cargarHoyosDelScorer: async () => colgada.lectura === 'hoyos'
       ? nunca()
@@ -76,8 +89,11 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
     resolverHandicapsDelScorer: async () => colgada.lectura === 'handicaps'
       ? nunca()
       : ({ hcpMap: { j1: 10 }, displayMap: { j1: 10 }, sinIndice: new Set<string>() }),
-    fetchEquiposDelScorer: async () => {
-      if (colgada.lectura === 'equipos') return nunca()
+    fetchEquiposDelScorer: async (sb: { from: (t: string) => { select: (c: string) => unknown } }) => {
+      if (colgada.lectura === 'equipos') {
+        sb.from('ronda_equipos').select('*') // la consulta que el plazo debe cortar
+        return nunca()
+      }
       if (lecturaDeEquipos.falla) throw new Error('Failed to fetch')
       return lecturaDeEquipos.equipos
     },
@@ -93,6 +109,9 @@ function snapshotPrevio(teamEquipos: unknown[] = []) {
 
 beforeEach(() => {
   opcionesDeCarga.length = 0
+  codigosDeCarga.length = 0
+  for (const k of Object.keys(cargaPorCodigo)) delete cargaPorCodigo[k]
+  senalesDeConsulta.length = 0
   lecturaDeEquipos.falla = false
   colgada.lectura = null
   lecturaEnVuelo.espera = null
@@ -617,5 +636,84 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     expect(result.current.eleccion?.equipos.map(e => e.id)).toEqual(['e1', 'e2'])
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
     expect(loadScorerGrupoSnapshot('B4F5Y2', 'u-pedro')).toBeNull()
+  })
+})
+
+describe('useRondaGrupoData — lecturas vencidas se cancelan y nunca se aplican', () => {
+  it('desmontada con la lectura en vuelo: la vuelta se aborta y lo que llega tarde no navega ni borra la copia', async () => {
+    snapshotPrevio()
+    const abrir = compuerta()
+    const { unmount } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(opcionesDeCarga).toHaveLength(1))
+    const { signal } = opcionesDeCarga[0] as { signal: AbortSignal }
+    expect(signal.aborted).toBe(false)
+    unmount()
+    expect(signal.aborted).toBe(true)
+    // Sin la cancelación: «no existe» tardío → limpiaba la copia local y mandaba al dashboard desde una pantalla cerrada.
+    carga.valor = { estado: 'no_existe' }
+    abrir()
+    await new Promise(r => setTimeout(r, 20))
+    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u1')).not.toBeNull()
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('un paso colgado: al vencer el plazo su consulta queda abortada (no sigue ocupando la conexión)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    colgada.lectura = 'equipos'
+    renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(senalesDeConsulta).toHaveLength(1))
+    expect(senalesDeConsulta[0].aborted).toBe(false)
+    await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_CARGA_SCORER_MS + 50) })
+    expect(senalesDeConsulta[0].aborted).toBe(true)
+  })
+
+  it('desmontada con una vuelta ENCOLADA (tic en vuelo + recargar): la encolada no corre ni aplica nada', async () => {
+    snapshotPrevio()
+    const abrir = compuerta()
+    const { result, unmount } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(opcionesDeCarga).toHaveLength(1))
+    // «Dejar equipo» / Finalizar piden una lectura posterior: queda encolada detrás de la que está en vuelo.
+    act(() => { void result.current.recargar() })
+    unmount()
+    carga.valor = { estado: 'no_existe' }
+    abrir()
+    await new Promise(r => setTimeout(r, 30))
+    expect(opcionesDeCarga).toHaveLength(1)
+    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u1')).not.toBeNull()
+  })
+
+  it('desmontada con un paso colgado: la cancelación no se reporta como error y la consulta queda abortada', async () => {
+    colgada.lectura = 'equipos'
+    const { unmount } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(senalesDeConsulta).toHaveLength(1))
+    unmount()
+    await new Promise(r => setTimeout(r, 20))
+    expect(senalesDeConsulta[0].aborted).toBe(true)
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('otro `codigo` sin desmontar: la lectura vieja se aborta, se lee el nuevo y lo tardío del viejo no se aplica', async () => {
+    snapshotPrevio()
+    const abrir = compuerta()
+    const { result, rerender } = renderHook(({ codigo }) => useRondaGrupoData(codigo), { initialProps: { codigo: 'B4F5Y2' } })
+    await waitFor(() => expect(opcionesDeCarga).toHaveLength(1))
+    const primera = (opcionesDeCarga[0] as { signal: AbortSignal }).signal
+    rerender({ codigo: 'ZZ9ZZ9' })
+    expect(primera.aborted).toBe(true)
+    // La vieja contesta tarde «no existe»: sin la cancelación borraría la copia de B4F5Y2 y mandaría al dashboard.
+    cargaPorCodigo.B4F5Y2 = { estado: 'no_existe' }
+    abrir()
+    await waitFor(() => expect(codigosDeCarga).toEqual(['B4F5Y2', 'ZZ9ZZ9']))
+    const segunda = (opcionesDeCarga[1] as { signal: AbortSignal }).signal
+    expect(segunda.aborted).toBe(false)
+    // La ronda nueva sí se aplica (la cancelación no deja el scorer colgado en «cargando»).
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await new Promise(r => setTimeout(r, 20))
+    expect(push).not.toHaveBeenCalledWith('/dashboard')
+    expect(loadScorerGrupoSnapshot('B4F5Y2', 'u1')).not.toBeNull()
   })
 })

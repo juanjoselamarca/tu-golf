@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
-import { conTimeout } from '@/lib/red/con-timeout'
+import { conPlazoCancelable } from '@/lib/red/con-timeout'
+import { clienteConSenal } from '@/lib/red/cliente-con-senal'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import {
@@ -208,7 +209,8 @@ export function useFinalizeGrupo(input: {
     // Guard: verificar que la ronda no fue finalizada por otro dispositivo/organizador
     let estado: string | null
     try {
-      estado = await conTimeout(fetchEstadoRondaLibre(supabase, codigo), PLAZO_CARGA_SCORER_MS)
+      // Vencida, la lectura se cancela de verdad (el fetch se corta) y se avisa «sin servidor».
+      estado = await conPlazoCancelable(s => fetchEstadoRondaLibre(clienteConSenal(supabase, s), codigo), PLAZO_CARGA_SCORER_MS)
     } catch {
       avisarSinServidor()
       return
@@ -284,7 +286,7 @@ export function useFinalizeGrupo(input: {
     if (!rondaYaCerrada && input.unCelularPorEquipo) {
       let todos: Awaited<ReturnType<typeof fetchEquiposConAnotador>>
       try {
-        todos = await conTimeout(fetchEquiposConAnotador(supabase, ronda.id), PLAZO_CARGA_SCORER_MS)
+        todos = await conPlazoCancelable(s => fetchEquiposConAnotador(clienteConSenal(supabase, s), ronda.id), PLAZO_CARGA_SCORER_MS)
       } catch {
         avisarSinServidor()
         return

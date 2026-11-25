@@ -43,7 +43,8 @@ import type { HoleData, RondaLibre } from '@/types/ronda'
 import { conOrdenEnPantalla } from '@/lib/ronda/orden-jugadores'
 import { loginUrl } from '@/lib/auth/login-url'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
-import { conTimeout } from '@/lib/red/con-timeout'
+import { conPlazoCancelable, LecturaCanceladaError } from '@/lib/red/con-timeout'
+import { clienteConSenal } from '@/lib/red/cliente-con-senal'
 
 /**
  * Estado de la conexión del scorer con el servidor.
@@ -96,6 +97,8 @@ type Carga =
   | { tipo: 'elegir_equipo'; ronda: RondaLibre; equipos: EquipoDelScorer[] }
   | { tipo: 'sin_conexion'; userId: string | null }
   | { tipo: 'sin_sesion' }
+  /** La vuelta se canceló (pantalla desmontada o `codigo` nuevo): lo leído no se aplica. */
+  | { tipo: 'cancelada' }
 
 /** Pendientes vienen con claves string (JSON): a hoyo numérico. */
 function numerico(golpes: Record<string, number> | undefined): Record<number, number> {
@@ -129,16 +132,26 @@ export function hoyoInicial(
  * 5xx o timeout vuelve como `sin_conexion` (jamás como "la ronda no existe").
  * Cada lectura espera a lo más `PLAZO_CARGA_SCORER_MS` (la sesión y la ronda traen el suyo): una colgada dejaba el
  * scorer en "Cargando…" para siempre, sin copia local ni reintento (la carga en vuelo bloquea las siguientes).
+ * Al vencer, la lectura se CANCELA (`conPlazoCancelable` + `clienteConSenal`: la señal llega al fetch), y `signal` (la
+ * de la vuelta) corta todo lo que falte: con la vuelta cancelada devuelve `cancelada` y no toca nada (ni la copia
+ * local de una ronda "borrada").
  */
-async function cargarDelServidor(codigo: string): Promise<Carga> {
+async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<Carga> {
+  // Nacida cancelada: ni siquiera se espera la sesión (hasta 8 s).
+  if (signal.aborted) return { tipo: 'cancelada' }
   const supabase = createClient()
+  /** Un paso de la lectura: su plazo propio, cancelable, con el cliente que lleva la señal al fetch. */
+  const paso = <T,>(leer: (cliente: typeof supabase) => PromiseLike<T>) =>
+    conPlazoCancelable(s => leer(clienteConSenal(supabase, s)), PLAZO_CARGA_SCORER_MS, { signal })
   const sesion = await sesionDelScorer(supabase)
+  if (signal.aborted) return { tipo: 'cancelada' }
   if (sesion.estado === 'sin_sesion') return { tipo: 'sin_sesion' }
   if (sesion.estado === 'sin_conexion') return { tipo: 'sin_conexion', userId: null }
   const userId = sesion.userId
 
   // Con sesión ya confirmada: puede pedir `reglas_juego` (el orden del juego de una Timba; anon no la lee).
-  const carga = await fetchRondaLibreParaScorer(supabase, codigo, { conReglasDelJuego: true })
+  const carga = await fetchRondaLibreParaScorer(supabase, codigo, { conReglasDelJuego: true, signal })
+  if (signal.aborted) return { tipo: 'cancelada' }
   // Ronda borrada (PGRST116, confirmado por el servidor): su copia local ya no tiene dónde subirse.
   if (carga.estado === 'no_existe') { limpiarCopiaLocalDeRonda(codigo); return { tipo: 'redirigir', a: '/dashboard', reemplazar: false } }
   if (carga.estado === 'sin_conexion') return { tipo: 'sin_conexion', userId }
@@ -159,7 +172,7 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
   try {
     // scramble/foursome usan equipo.scores (compartido); best_ball lee la
     // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo.
-    const equipos = await conTimeout(fetchEquiposDelScorer(supabase, r), PLAZO_CARGA_SCORER_MS)
+    const equipos = await paso(c => fetchEquiposDelScorer(c, r))
     // Formatos por equipo: quién entra lo decide `entradaAlScorerDeEquipos` (un celular por equipo: elegir equipo;
     // un celular: solo quien puede anotar la ronda; el resto, a la ronda en vivo).
     if (isTeamFormat(r.formato_juego)) {
@@ -167,12 +180,10 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
       if (entrada === 'en_vivo') return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
       if (entrada === 'elegir_equipo') return { tipo: 'elegir_equipo', ronda: r, equipos }
     }
-    const hoyos = await conTimeout(cargarHoyosDelScorer(supabase, r), PLAZO_CARGA_SCORER_MS)
+    const hoyos = await paso(c => cargarHoyosDelScorer(c, r))
     // El scorer de grupo exige sesión (arriba): `profiles` es legible.
-    const { hcpMap, displayMap } = await conTimeout(
-      resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal, leerIndicesDelCliente(supabase)),
-      PLAZO_CARGA_SCORER_MS,
-    )
+    const { hcpMap, displayMap } = await paso(c => resolverHandicapsDelScorer(c, r, hoyos.finalParTotal, leerIndicesDelCliente(c)))
+    if (signal.aborted) return { tipo: 'cancelada' }
     // UN solo filtro: este celular carga solo los equipos que anota. Todo lo que manda golpes (par al pasar de hoyo,
     // completar al finalizar, pendientes, hoyo inicial, copia local) parte de esta lista: nunca toca un equipo de
     // otro celular. En una ronda de un celular son todos.
@@ -192,6 +203,8 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
       },
     }
   } catch (err) {
+    // Cancelarla no es una falla: no se reporta ni se aplica.
+    if (err instanceof LecturaCanceladaError || signal.aborted) return { tipo: 'cancelada' }
     captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_grupo_load', level: 'warning' })
     return { tipo: 'sin_conexion', userId }
   }
@@ -239,6 +252,13 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
    * reclamar o liberar, no una lectura que salió antes (revisión Fable).
    */
   const enVueloRef = useRef<Promise<void> | null>(null)
+  /** La vuelta de lectura en curso: se aborta al desmontar o con un `codigo` nuevo. */
+  const vueltaRef = useRef<AbortController | null>(null)
+  /**
+   * Vida de la pantalla para este `codigo`: abortada (desmontada o `codigo` nuevo), la corrida no arranca más vueltas.
+   * Sin ella, una vuelta ENCOLADA (`recargar` con otra en vuelo) corría y aplicaba todo desde una pantalla cerrada.
+   */
+  const vidaRef = useRef<AbortController | null>(null)
   /** Se pidió leer mientras otra lectura iba en vuelo (p. ej. justo después de reclamar o liberar): una vuelta más. */
   const otraVueltaRef = useRef(false)
   /** Un bug determinista se repetiría en cada reintento: solo el primero va como error, el resto como warning. */
@@ -315,9 +335,11 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   }, [codigo])
 
   /** Una vuelta de lectura. Nunca se llama directo: pasa por `cargar`, que no superpone vueltas. */
-  const leerUnaVez = useCallback(async () => {
+  const leerUnaVez = useCallback(async (signal: AbortSignal) => {
     {
-      const c = await cargarDelServidor(codigo)
+      const c = await cargarDelServidor(codigo, signal)
+      // Vuelta vencida (desmontada o `codigo` nuevo): nada de lo leído se aplica (ni navegación ni copia local).
+      if (c.tipo === 'cancelada' || signal.aborted) return
       if (c.tipo === 'redirigir') {
         if (c.reemplazar) router.replace(c.a)
         else router.push(c.a)
@@ -394,8 +416,12 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       try {
         do {
           otraVueltaRef.current = false
+          // Pantalla cerrada (o el `codigo` cambió y su efecto todavía no repone la vida): no se lee nada más.
+          if (!vidaRef.current || vidaRef.current.signal.aborted) break
+          const vuelta = new AbortController()
+          vueltaRef.current = vuelta
           try {
-            await leerRef.current()
+            await leerRef.current(vuelta.signal)
           } catch (err) {
             // No es la red (cargarDelServidor no lanza): es un bug. Se reporta como error y, si todavía no hay nada en
             // pantalla, se sale de «Preparando scorer» a la pantalla de espera, que reintenta sola. Solo el primero va
@@ -412,6 +438,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
           }
         } while (otraVueltaRef.current)
       } finally {
+        vueltaRef.current = null
         enVueloRef.current = null
         otraVueltaRef.current = false
       }
@@ -424,6 +451,14 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const recargar = useCallback(() => cargar(), [cargar])
   const recargarTrasDejarEquipo = useCallback(() => { dejoElEquipoRef.current = true; return cargar() }, [cargar])
 
+  // Vida por `codigo`. Al desmontar (o con un `codigo` nuevo) muere la vida y se cancela la vuelta en curso: su fetch se
+  // corta, lo que llegue tarde no navega ni pinta, y ninguna vuelta encolada arranca. Va ANTES de la carga inicial: con
+  // un `codigo` nuevo la vida nueva ya está puesta cuando la corrida (que terminó la vuelta cancelada) retoma.
+  useEffect(() => {
+    const vida = new AbortController()
+    vidaRef.current = vida
+    return () => { vida.abort(); vueltaRef.current?.abort() }
+  }, [codigo])
   // Carga inicial (y con un `codigo` nuevo): no es un tic, sí encola si quedó otra lectura en vuelo.
   useEffect(() => { void cargar() }, [cargar])
 

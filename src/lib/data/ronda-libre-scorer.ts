@@ -25,7 +25,7 @@ import { isTeamFormat } from '@/golf/formats'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
-import { conTimeout } from '@/lib/red/con-timeout'
+import { conPlazoCancelable } from '@/lib/red/con-timeout'
 import { fetchEquiposConAnotador, courseHandicapsDeRonda } from './ronda-libre'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 import { crearHcpAMostrar, type HcpAMostrar } from './ronda-libre-live-api'
@@ -74,16 +74,30 @@ export type CargaRondaScorer =
 export async function fetchRondaLibreParaScorer(
   supabase: Client,
   codigo: string,
-  { conReglasDelJuego = false }: { conReglasDelJuego?: boolean } = {},
+  {
+    conReglasDelJuego = false,
+    signal,
+  }: {
+    conReglasDelJuego?: boolean
+    /**
+     * La del que llama (p. ej. la vuelta de lectura de una pantalla que se desmontó): abortada, la lectura se corta y
+     * devuelve `sin_conexion`. Quien pasa señal mira `signal.aborted` después de leer y descarta el resultado; si no,
+     * pintaría «sin conexión» desde una pantalla que ya se cerró.
+     */
+    signal?: AbortSignal
+  } = {},
 ): Promise<CargaRondaScorer> {
   try {
-    const { data, error } = await conTimeout(
-      supabase
+    // Al vencer el plazo la lectura se cancela de verdad (no queda ocupando la conexión ni contesta tarde).
+    const { data, error } = await conPlazoCancelable(
+      s => supabase
         .from('rondas_libres')
         .select(conReglasDelJuego ? COLUMNAS_RONDA_SCORER_CON_REGLAS : COLUMNAS_RONDA_SCORER)
         .eq('codigo', codigo)
+        .abortSignal(s)
         .single(),
       PLAZO_CARGA_SCORER_MS,
+      { signal },
     )
     // Orden estable de los jugadores: el embebido llega en orden físico, que cambia con cada guardado. En una Timba,
     // el del juego (`reglas_juego`, solo con `conReglasDelJuego`: el scorer de grupo), sin esperar a `GET /juego`.
