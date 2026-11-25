@@ -40,6 +40,11 @@ interface GrupoHoleInfoRowProps {
  * dorados al lado de su score, en su tarjeta.
  */
 /** Rótulo de cada columna (PAR, SI, YDS, VALE, GOLPES GRUPO): 11 px, el mínimo legible al sol con el brazo estirado. */
+/**
+ * La columna de la derecha (VALE o GOLPES GRUPO) lleva el texto más largo de la fila: crece 1,6 veces lo que PAR/SI/YDS.
+ * Con las cuatro a 360 px, «GOLPES GRUPO» repartido en partes iguales llenaba sus 90 px de 90 (revisión Fable PR #888).
+ */
+const FLEX_COLUMNA_LARGA = '1.6 1 0%'
 const ROTULO = { fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: '1px', whiteSpace: 'nowrap' as const }
 
 /** Lo que vale el hoyo, en palabras: lo mismo se ve y se lee en voz alta. */
@@ -85,7 +90,7 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
           <div
             role="status"
             aria-label={skins ? `Vale ${textoDelValorSkins(skins)}` : 'Valor no disponible'}
-            style={{ flex: '1.6 1 0%', minWidth: 0, textAlign: 'center', padding: '6px 2px' }}
+            style={{ flex: FLEX_COLUMNA_LARGA, minWidth: 0, textAlign: 'center', padding: '6px 2px' }}
           >
             <div aria-hidden style={{ ...ROTULO, color: theme.textFaint }}>VALE</div>
             <div aria-hidden style={{ fontSize: '15px', fontWeight: 700, color: skins ? 'var(--brand-on-bg)' : theme.textFaint, whiteSpace: 'nowrap' }}>
@@ -95,7 +100,8 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
           </div>
         )}
         {conGolpesGrupo && (
-          <div style={{ flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px' }}>
+          // Sin `minWidth: 0`: el rótulo (nowrap) nunca queda más ancho que su columna.
+          <div data-columna="golpes-grupo" style={{ flex: FLEX_COLUMNA_LARGA, maxWidth: '40%', textAlign: 'center', padding: '6px 2px' }}>
             <div style={{ ...ROTULO, color: theme.textFaint }}>GOLPES GRUPO</div>
             <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>{maxStrokes > 0 ? `+${maxStrokes}` : '0'}</div>
           </div>

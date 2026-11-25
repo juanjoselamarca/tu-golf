@@ -40,3 +40,16 @@ describe('GrupoHoleInfoRow · «Vale N skins»', () => {
     for (const r of ['PAR', 'SI', 'VALE']) expect(parseFloat(screen.getByText(r).style.fontSize)).toBeGreaterThanOrEqual(11)
   })
 })
+
+// Revisión Fable PR #888, vuelta 3 (P2.6): a 360 px con YDS, «GOLPES GRUPO» repartido en partes iguales llenaba sus
+// 90 px de 90. La columna crece como VALE y no se encoge bajo el rótulo (sin minWidth 0). Medido en las capturas v4.
+describe('GrupoHoleInfoRow · columna GOLPES GRUPO', () => {
+  it('crece como VALE (1,6) y no se encoge bajo su rótulo, que no parte línea', () => {
+    render(<GrupoHoleInfoRow par={4} strokeIndex={3} yardaje={403} showNetStableford maxStrokes={1} accion={null} theme={SCORER_THEME} />)
+    const rotulo = screen.getByText('GOLPES GRUPO')
+    const columna = rotulo.parentElement!
+    expect(columna.style.flex).toBe('1.6 1 0%')
+    expect(columna.style.minWidth).toBe('')
+    expect(rotulo.style.whiteSpace).toBe('nowrap')
+  })
+})
