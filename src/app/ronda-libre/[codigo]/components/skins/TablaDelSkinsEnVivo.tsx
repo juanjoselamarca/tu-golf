@@ -127,7 +127,9 @@ function CeldaDelHoyo({ h, texto, quien, lectura }: { h: HoyoDeLaTablaSkins; tex
   const caja: CSSProperties = {
     minHeight: '56px', padding: '6px 4px', borderRadius: '10px', display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'space-between', gap: '2px', position: 'relative',
-    background: ganado ? 'var(--surface-soft)' : 'var(--bg-surface)',
+    // El tinte se compone sobre --bg-surface, no sobre el fondo de la página: el dorado de 13 px sobre --surface-soft
+    // encima de --bg queda en 4,43:1 en claro (bajo AA); sobre --bg-surface, 4,63:1.
+    background: ganado ? 'linear-gradient(var(--surface-soft), var(--surface-soft)), var(--bg-surface)' : 'var(--bg-surface)',
     border: porJugar ? '1px dashed var(--border-md)' : ganado ? '1px solid var(--brand-on-bg)' : '1px solid var(--border-md)',
   }
   const vale = h.valor > 1 ? `×${h.valor}${h.provisional ? '+' : ''}` : null
