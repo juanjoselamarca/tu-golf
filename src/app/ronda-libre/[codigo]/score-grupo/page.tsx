@@ -29,7 +29,7 @@ import { CompartirEnJuego } from '@/components/ronda/CompartirEnJuego'
 import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
 import { SharedBallTeamCard } from './components/SharedBallTeamCard'
 import { PlayerScoreCard } from './components/PlayerScoreCard'
-import { GrupoNavBar } from './components/GrupoNavBar'
+import { GrupoNavBar, envioDelHoyo } from './components/GrupoNavBar'
 import { DiscardRoundModal } from './components/DiscardRoundModal'
 import { ConexionScorerBanner } from './components/ConexionScorerBanner'
 import { ElegirEquipo } from './components/ElegirEquipo'
@@ -216,7 +216,8 @@ function ScorerDeGrupo() {
   // Golpes de este celular que el servidor todavía no tiene (envío fallido o sin señal) o en viaje: la pantalla no
   // afirma «anotado» ni «tu equipo terminó» mientras tanto (Fable PR A: offline decía terminado y el creador seguía
   // viendo el equipo 17/18).
-  const ultimoHoyoSinSubir = pendienteDeEnvio || saveStatus === 'saving'
+  const envioDelUltimoHoyo = envioDelHoyo({ enviando: saveStatus === 'saving', fallo: pendienteDeEnvio, colaConPendientes: hayPendientes(codigo) })
+  const ultimoHoyoSinSubir = envioDelUltimoHoyo !== 'al_dia'
   const guardaElUltimoHoyo = isLastHole && isSharedBallFormat(formatoJuego) && (!cierraEsteCelular || liberadoSinElHoyo)
   const { anotar, anotarEquipo, siguiente: goToNextHole, guardarHoyo } = accionesDeLaTarjeta({
     congelada, marcarInteraccion, pasarAlSiguienteHoyo,
@@ -481,7 +482,7 @@ function ScorerDeGrupo() {
         <AvisoTarjetaCompleta
           completa={hoyosSinAnotar === 0 && hoyosSinJugarTimba.length === 0 && !finalizing}
           enUltimoHoyo={isLastHole}
-          texto={textoTarjetaCompleta(cierraEsteCelular, nombreDelCreador(ronda), { sinSubir: ultimoHoyoSinSubir })}
+          texto={textoTarjetaCompleta(cierraEsteCelular, nombreDelCreador(ronda), { sinSubir: ultimoHoyoSinSubir, sesionPerdida })}
         />
       )}
 
@@ -498,7 +499,7 @@ function ScorerDeGrupo() {
           ? {
               hoyo: currentHole,
               guardado: !cierraEsteCelular && hoyoCompleto(currentHole),
-              envio: saveStatus === 'saving' ? 'enviando' : pendienteDeEnvio ? 'pendiente' : 'al_dia',
+              envio: envioDelUltimoHoyo,
               onGuardar: () => { void guardarHoyo() },
             }
           : undefined}

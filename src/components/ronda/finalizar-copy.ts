@@ -153,11 +153,13 @@ export function hojaFinalizarTimba(input: {
 export function textoTarjetaCompleta(
   cierraEsteCelular: boolean,
   nombreDelCreador: string | null,
-  opciones?: { sinSubir?: boolean },
+  opciones?: { sinSubir?: boolean; sesionPerdida?: boolean },
 ): string {
   if (cierraEsteCelular) return 'Tarjeta completa · Finalizar ronda'
   // Sin señal el golpe está solo en este teléfono: el creador no lo ve. Decir «terminó» invitaba a guardar el
   // teléfono con la pantalla cerrada, y el reintento solo corre con la pantalla abierta.
+  // Con la sesión perdida no suben solos: el aviso coincide con el banner de iniciar sesión.
+  if (opciones?.sinSubir && opciones.sesionPerdida) return 'Falta enviar tus golpes. Inicia sesión para enviarlos.'
   if (opciones?.sinSubir) return 'Falta enviar tus golpes. Mantén esta pantalla abierta hasta que suban.'
   return `Tu equipo terminó. Falta que ${nombreDelCreador ?? 'quien creó la ronda'} finalice la ronda.`
 }

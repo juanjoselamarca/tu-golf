@@ -18,8 +18,20 @@ interface GrupoNavBarProps {
    * golpes ya están en el servidor. Guardado pero sin subir, el botón sigue activo como reintento («Enviar hoyo N»):
    * nunca dice «anotado ✓» con el golpe solo en el teléfono.
    */
-  guardarUltimoHoyo?: { hoyo: number; guardado: boolean; envio?: 'al_dia' | 'enviando' | 'pendiente'; onGuardar: () => void }
+  guardarUltimoHoyo?: { hoyo: number; guardado: boolean; envio?: EnvioDelHoyo; onGuardar: () => void }
   theme: ScorerTheme
+}
+
+export type EnvioDelHoyo = 'al_dia' | 'enviando' | 'pendiente'
+
+/**
+ * Si los golpes de este celular ya están en el servidor. La cola del teléfono (`hayPendientes`) es la fuente de verdad:
+ * `fallo` solo cuenta los envíos fallidos de esta carga de la página, y al reabrir sin señal (iOS descarta la pestaña)
+ * el último hoyo decía «anotado ✓» con el golpe solo en el teléfono.
+ */
+export function envioDelHoyo(input: { enviando: boolean; fallo: boolean; colaConPendientes: boolean }): EnvioDelHoyo {
+  if (input.enviando) return 'enviando'
+  return input.fallo || input.colaConPendientes ? 'pendiente' : 'al_dia'
 }
 
 /** Barra inferior del scorer de grupo: Anterior / Siguiente / Finalizar (o «Guardar hoyo N» en el último hoyo de quien no cierra). */

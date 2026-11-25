@@ -77,5 +77,6 @@ describe('textoTarjetaCompleta', () => {
   it('sin señal (golpes solo en el teléfono): no dice que terminó, pide mantener la pantalla abierta', () => {
     expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: true })).toBe('Falta enviar tus golpes. Mantén esta pantalla abierta hasta que suban.')
     expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: false })).toBe('Tu equipo terminó. Falta que Juanjo finalice la ronda.')
+    expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: true, sesionPerdida: true })).toBe('Falta enviar tus golpes. Inicia sesión para enviarlos.')
   })
 })

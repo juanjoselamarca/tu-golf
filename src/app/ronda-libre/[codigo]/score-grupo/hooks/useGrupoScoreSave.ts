@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
+import { captureError } from '@/lib/error-tracking'
 import { saveRondaLibreScores, saveRondaEquiposScores, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
 import { RONDA_ERRCODE, esNoReintentable, esRechazoDeEquipoAjeno, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
@@ -246,7 +247,13 @@ export function useGrupoScoreSave(input: {
       setSaveStatus('error')
       return
     }
-    if (!hayPendientes(codigo)) return
+    if (!hayPendientes(codigo)) {
+      // La cola ya está vacía (p.ej. la vació tarde el envío del desmontaje de una visita anterior): si la pantalla
+      // seguía «sin enviar» por un fallo previo, ya no es cierto; sin esto el reintento de 15 s salía por aquí para
+      // siempre y el último hoyo quedaba pegado en «Enviar hoyo N».
+      if (sinEnviarRef.current) { marcarSinEnviar(false); setSaveStatus('idle') }
+      return
+    }
 
     enVueloRef.current = true
     setSaveStatus('saving')
@@ -403,6 +410,11 @@ export function useGrupoScoreSave(input: {
       }
       // Fuera de las ramas: un envío mixto (una tarjeta rechazada en firme, otra adentro) también deja golpes nuevos.
       if (entraron > 0 && !noExiste) setGuardados(n => n + 1)
+    } catch (err) {
+      // Algo lanzó a mitad del envío (no un error devuelto): sin esto quedaba «Enviando…» deshabilitado y sin reintento.
+      void captureError(err, { context: 'useGrupoScoreSave.enviarTodo', level: 'error', meta: { codigo } })
+      marcarSinEnviar(hayPendientes(codigo))
+      setSaveStatus('error')
     } finally {
       enVueloRef.current = false
       try {

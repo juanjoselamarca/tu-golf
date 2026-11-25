@@ -280,8 +280,11 @@ describe('nombreDelAnotadorDelCelular (nunca el correo)', () => {
     const email = 'Ensayo-Ross-17955@gmail.com'
     expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e2', PEDRO, 'ensayo-ross-17955')], userId: PEDRO, email })).toBe('Anotador')
     expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e2', PEDRO, null)], userId: PEDRO, nombreDePerfil: 'ensayo-ross-17955', email })).toBe('Anotador')
-    expect(nombreDelAnotadorDelCelular({ jugadores: [{ user_id: PEDRO, nombre: 'ensayo-ross-17955' }], equipos: [club('e2', PEDRO, 'Cristián Ross')], userId: PEDRO, email })).toBe('Cristián Ross')
+    expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e2', PEDRO, 'Cristián Ross')], userId: PEDRO, email })).toBe('Cristián Ross')
     expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e2', PEDRO, 'ross@golf.cl')], userId: PEDRO })).toBe('Anotador')
+  })
+  it('nombre tecleado en la ronda igual a la parte local («Max» con max@…): es legítimo, se muestra', () => {
+    expect(nombreDelAnotadorDelCelular({ jugadores: [{ user_id: PEDRO, nombre: 'Max' }], equipos: [], userId: PEDRO, email: 'max@golf.cl' })).toBe('Max')
   })
 })
 

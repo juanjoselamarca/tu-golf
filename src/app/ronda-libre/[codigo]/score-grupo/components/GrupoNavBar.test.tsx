@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { GrupoNavBar } from './GrupoNavBar'
+import { GrupoNavBar, envioDelHoyo } from './GrupoNavBar'
 import { SCORER_THEME } from '@/components/ronda/scorer-theme'
 
 function renderBar(congelada: boolean) {
@@ -82,6 +82,13 @@ describe('GrupoNavBar — último hoyo de quien no cierra la ronda', () => {
   it('sin anotar y con el envío en viaje (otro hoyo): sigue «Guardar hoyo 18» activo', () => {
     renderUltimo(false, 'enviando')
     expect((screen.getByRole('button', { name: 'Guardar hoyo 18' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('envioDelHoyo: la cola del teléfono manda (reabrir sin señal con pendientes ≠ «al día»)', () => {
+    expect(envioDelHoyo({ enviando: false, fallo: false, colaConPendientes: true })).toBe('pendiente')
+    expect(envioDelHoyo({ enviando: false, fallo: true, colaConPendientes: false })).toBe('pendiente')
+    expect(envioDelHoyo({ enviando: true, fallo: true, colaConPendientes: true })).toBe('enviando')
+    expect(envioDelHoyo({ enviando: false, fallo: false, colaConPendientes: false })).toBe('al_dia')
   })
 
   it('sin la acción (quien cierra la ronda): el último hoyo sigue con Finalizar, sin «Guardar hoyo»', () => {

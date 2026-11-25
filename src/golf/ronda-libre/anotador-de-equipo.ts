@@ -270,8 +270,9 @@ export const NOMBRE_ANOTADOR_GENERICO = 'Anotador'
  * Nombre con que el scorer de equipos muestra a quien anota en ESTE celular (encabezado). Nunca el correo (ensayo
  * 24-nov: salía «ensayo-ross-17955…»): su nombre de jugador en la ronda → el de su perfil (`anotador_nombre` del
  * equipo que reclamó, que la base copia de profiles.name, o el perfil leído) → «Anotador».
- * El alta sin nombre deja `profiles.name` = la parte local del correo (`handle_new_user`): ese candidato, o uno con
- * «@», se descarta como si no hubiera nombre.
+ * El alta sin nombre deja `profiles.name` = la parte local del correo (`handle_new_user`): en las fuentes que vienen del
+ * perfil ese candidato se descarta como si no hubiera nombre (el nombre en la ronda lo tecleó alguien: «Max» con
+ * max@… es legítimo). Un candidato con «@» se descarta en todas.
  */
 export function nombreDelAnotadorDelCelular(input: {
   jugadores: ReadonlyArray<{ user_id?: string | null; nombre?: string | null }>
@@ -283,14 +284,14 @@ export function nombreDelAnotadorDelCelular(input: {
   const { jugadores, equipos, userId } = input
   if (!userId) return NOMBRE_ANOTADOR_GENERICO
   const parteLocal = input.email?.split('@')[0]?.trim().toLowerCase() || null
-  const valido = (n: string | null | undefined): string | null => {
+  const valido = (n: string | null | undefined, delPerfil: boolean): string | null => {
     const t = n?.trim()
-    if (!t || t.includes('@') || (parteLocal && t.toLowerCase() === parteLocal)) return null
+    if (!t || t.includes('@') || (delPerfil && parteLocal && t.toLowerCase() === parteLocal)) return null
     return t
   }
-  return valido(jugadores.find(j => j.user_id === userId)?.nombre)
-    ?? valido(equipos.find(e => e.anotador_user_id === userId)?.anotador_nombre)
-    ?? valido(input.nombreDePerfil)
+  return valido(jugadores.find(j => j.user_id === userId)?.nombre, false)
+    ?? valido(equipos.find(e => e.anotador_user_id === userId)?.anotador_nombre, true)
+    ?? valido(input.nombreDePerfil, true)
     ?? NOMBRE_ANOTADOR_GENERICO
 }
 

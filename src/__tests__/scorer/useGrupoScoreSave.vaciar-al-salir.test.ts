@@ -21,6 +21,7 @@ const { cliente } = vi.hoisted(() => ({
   },
 }))
 vi.mock('@/lib/supabase', () => ({ createClient: () => cliente }))
+vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 vi.mock('@/hooks/useToast', () => ({ addToast: vi.fn() }))
 vi.mock('@/lib/ronda/helpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/ronda/helpers')>()), haptic: vi.fn() }))
 
@@ -125,5 +126,26 @@ describe('useGrupoScoreSave — lo pendiente sale al dejar la pantalla', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(Math.max(...REENVIO_CONFIRMACION_MS) + 1_000) })
     expect(saveRondaLibreScores.mock.calls.length).toBe(llamadas)
     expect(leerPendientes('ABC')).toEqual({})
+  })
+
+  it('quedó «sin enviar» y la cola se vació por otro lado: el siguiente intento apaga el aviso (no queda pegado)', async () => {
+    saveRondaLibreScores.mockResolvedValue({ error: { message: 'Failed to fetch' } })
+    const { result } = montar()
+    act(() => { result.current.handleScoreChange('p1', 9, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(SAVE_DEBOUNCE_MS + 5_000) })
+    expect(result.current.pendienteDeEnvio).toBe(true)
+    localStorage.clear() // la vació el envío del desmontaje de una visita anterior
+    await act(async () => { await result.current.enviarYa() })
+    expect(result.current.pendienteDeEnvio).toBe(false)
+    expect(result.current.saveStatus).toBe('idle')
+  })
+
+  it('algo lanza a mitad del envío: no queda en «saving», queda «sin enviar» con reintento', async () => {
+    saveRondaLibreScores.mockRejectedValue(new Error('boom'))
+    const { result } = montar()
+    act(() => { result.current.handleScoreChange('p1', 9, 1) })
+    await act(async () => { await result.current.enviarYa().catch(() => {}) })
+    expect(result.current.saveStatus).toBe('error')
+    expect(result.current.pendienteDeEnvio).toBe(true)
   })
 })
