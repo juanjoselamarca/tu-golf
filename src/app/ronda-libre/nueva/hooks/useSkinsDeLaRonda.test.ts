@@ -166,8 +166,13 @@ describe('useSkinsDeLaRonda', () => {
     expect(result.current.enError).toBe(false)
   })
 
+  it('el mensaje sin rating nombra el tee como lo muestra la app (catálogo en minúsculas, 27 hoyos)', () => {
+    expect(mensajeSkinsSinRating('blanco')).toContain('del tee Blanco para')
+    expect(mensajeSkinsSinRating('azul_norte_sur')).toContain('del tee Azul · norte / sur para')
+  })
+
   it('el rating no llega nunca: el mensaje del tee sale solo al agotar los intentos', async () => {
-    lectura.impl.mockImplementation(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('Blanco'), false) })
+    lectura.impl.mockImplementation(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('blanco'), false) })
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
     act(() => result.current.elegir())
     await waitFor(() => expect(result.current.problema?.detalle).toContain('rating y slope del tee Blanco'))

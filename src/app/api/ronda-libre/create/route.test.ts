@@ -767,7 +767,8 @@ describe('POST /api/ronda-libre/create — Skins', () => {
     try {
       const res = await POST(req(skins({ modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }) })))
       expect(res.status).toBe(503)
-      expect((await res.json()).error).toContain('rating y slope')
+      // El tee como se muestra en la app («blanco» del catálogo → «Blanco»), con `teeLabel`.
+      expect((await res.json()).error).toMatch(/rating y slope del tee [A-ZÁÉÍÓÚÑ]/)
       nadaInsertado()
       // En gross no se usa: crea igual.
       expect((await POST(req(skins()))).status).toBe(200)

@@ -21,6 +21,7 @@ import {
 } from '@/golf/ronda-libre/skins-de-ronda-nueva'
 import { captureError } from '@/lib/error-tracking'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
+import { teeLabel } from '@/golf/courses/category-tee-options'
 import { resolverHoyosDeLaRonda } from './course-holes'
 import { parYSiDeLaRonda, type HoyoDeCatalogoEnVivo } from './ronda-libre'
 
@@ -59,7 +60,7 @@ export const MENSAJE_SKINS_SIN_DATOS_DE_CANCHA =
   'No pudimos leer los hoyos de la cancha para armar el skins. Revisa tu señal e intenta de nuevo.'
 
 export function mensajeSkinsSinRating(tee: string): string {
-  return `No pudimos leer el rating y slope del tee ${tee} para el skins neto. Revisa tu señal; si sigue, juega en gross.`
+  return `No pudimos leer el rating y slope del tee ${teeLabel(tee)} para el skins neto. Revisa tu señal; si sigue, juega en gross.`
 }
 
 export async function contextoSkinsDeRondaNueva(
