@@ -30,13 +30,17 @@ DO $$ BEGIN
   RAISE EXCEPTION 'FALLA: un skins sin reglas_juego pasó el CHECK';
 EXCEPTION WHEN check_violation THEN RAISE NOTICE 'OK esquema: skins sin reglas_juego -> CHECK';
 END $$;
+-- Control positivo: la misma fila con stroke_play sí entra (lo de abajo es el CHECK del formato, no otra columna).
 DO $$ BEGIN
-  INSERT INTO public.historical_rounds (user_id, course_name, fecha, formato_juego)
-  VALUES ('e0000000-0000-4000-8000-000000000001', 'Cancha', current_date, 'skins');
+  INSERT INTO public.historical_rounds (user_id, course_name, played_at, holes_played, formato_juego)
+  VALUES ('e0000000-0000-4000-8000-000000000001', 'Cancha', current_date, 18, 'stroke_play');
+  RAISE NOTICE 'OK esquema: historical_rounds acepta la misma fila con stroke_play';
+END $$;
+DO $$ BEGIN
+  INSERT INTO public.historical_rounds (user_id, course_name, played_at, holes_played, formato_juego)
+  VALUES ('e0000000-0000-4000-8000-000000000001', 'Cancha', current_date, 18, 'skins');
   RAISE EXCEPTION 'FALLA: historical_rounds aceptó una ronda de skins';
-EXCEPTION
-  WHEN check_violation THEN RAISE NOTICE 'OK esquema: historical_rounds no acepta skins';
-  WHEN not_null_violation THEN RAISE NOTICE 'OK esquema: historical_rounds no acepta skins (otra columna obligatoria cortó antes; el CHECK se mira abajo)';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'OK esquema: historical_rounds no acepta skins -> CHECK';
 END $$;
 DO $$ BEGIN
   IF pg_get_constraintdef((SELECT oid FROM pg_constraint WHERE conname = 'historical_rounds_formato_check')) LIKE '%skins%' THEN
