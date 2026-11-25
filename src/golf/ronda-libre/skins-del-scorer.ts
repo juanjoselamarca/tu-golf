@@ -99,3 +99,8 @@ export function vistaDelSkinsEnElScorer(input: {
     rondaCerrada,
   }
 }
+
+/** Distingue la vista del skins de la de la Timba en lo que devuelve `GET /juego` (la de la Timba no trae `formato`). */
+export function esVistaDelSkins(vista: VistaConMarcas): vista is VistaDelSkinsEnElScorer {
+  return (vista as { formato?: unknown }).formato === 'skins'
+}

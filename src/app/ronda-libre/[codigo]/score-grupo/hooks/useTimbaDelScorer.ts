@@ -3,9 +3,14 @@
 import { useMemo } from 'react'
 import { estaRetiradoEn, hoyoDesdeElQueSeRetira, hoyosParaElegirElRetiro, nombreDelPuntito, tieneGolpesDesde } from '@/golf/formats/personalizado'
 import { retirosVigentes } from '@/golf/ronda-libre/retiros-de-la-timba'
-import { marcasDelHoyo, puntitosMarcables, type MarcasDeUnPuntito } from '@/golf/ronda-libre/marcas-de-la-timba'
+import { marcasDelHoyo, puntitosMarcables, type MarcasDeUnPuntito, type PuntitoMarcable } from '@/golf/ronda-libre/marcas-de-la-timba'
+import { esVistaDelSkins, type VistaDelSkinsEnElScorer } from '@/golf/ronda-libre/skins-del-scorer'
+import type { VistaDelJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
 import { useJuegoDeLaTimba, type EstadoDelJuego } from '../../hooks/useJuegoDeLaTimba'
 import { useMarcasDeLaTimba, type MarcasDeLaTimba } from './useMarcasDeLaTimba'
+
+/** Lo que el scorer de grupo lee de `GET /juego`: el juego de la Timba, o los puntos especiales de un skins. */
+export type VistaDelScorer = VistaDelJuego | VistaDelSkinsEnElScorer
 
 const SIN_RETIROS: Readonly<Record<string, number>> = Object.freeze({})
 
@@ -32,6 +37,7 @@ export interface JugadorParaRetiro {
 }
 
 export interface TimbaDelScorer {
+  /** El juego de la Timba (panel «Juego»). En un skins no hay juego que mostrar acá: queda en `error`. */
   juego: EstadoDelJuego
   recargar: () => Promise<void>
   marcas: MarcasDeLaTimba
@@ -50,7 +56,9 @@ export interface TimbaDelScorer {
 
 /**
  * Todo lo de la Timba en el scorer de grupo: la vista del juego (`GET /juego`), las marcas con su cola offline y
- * los retiros, armados para las vistas. Fuera de una Timba (`activo: false`) no pide nada.
+ * los retiros, armados para las vistas. En un skins, lo mismo para sus puntos especiales (cada uno vale 1 skin; sin
+ * birdie automático ni juicio del motor: juzga el teléfono con la misma regla). Fuera de una Timba o un skins
+ * (`activo: false`) no pide nada.
  */
 export function useTimbaDelScorer(input: {
   codigo: string
@@ -70,7 +78,7 @@ export function useTimbaDelScorer(input: {
   par: number | undefined
 }): TimbaDelScorer {
   const { codigo, activo, conexion, jugadores, scores, firma, currentHole, ordenHoyos, par } = input
-  const { juego, vista, vistaPedidaEn, recargar } = useJuegoDeLaTimba(codigo, { activo, firma, intervaloS: INTERVALO_JUEGO_SCORER_S })
+  const { juego, vista, vistaPedidaEn, recargar } = useJuegoDeLaTimba<VistaDelScorer>(codigo, { activo, firma, intervaloS: INTERVALO_JUEGO_SCORER_S })
   const marcas = useMarcasDeLaTimba({ codigo, activo, vista, vistaPedidaEn, recargar, conexion })
 
   const nombres = useMemo(() => Object.fromEntries(jugadores.map(j => [j.id, j.nombre])), [jugadores])
@@ -85,23 +93,24 @@ export function useTimbaDelScorer(input: {
   const derivados = useMemo(() => {
     const retiradoEn = (jugadorId: string, hoyo: number) => estaRetiradoEn(retiros[jugadorId], hoyo, ordenHoyos)
     const retiradosDelHoyo = new Set(jugadores.filter(j => retiradoEn(j.id, currentHole)).map(j => j.id))
+    const timba = vista && !esVistaDelSkins(vista) ? vista : null
     const puntosDelHoyo = vista && ordenHoyos.includes(currentHole)
       ? marcasDelHoyo({
-          puntitos: puntitosMarcables(vista.config, par),
+          puntitos: puntitosMarcables<PuntitoMarcable>(vista.config, par),
           jugadorIds: vista.jugadorIds,
           hoyo: currentHole,
           marcas: marcas.marcas,
           enEspera: marcas.enCola,
-          resultadoDelHoyo: vista.resultado.hoyos.find(h => h.numero === currentHole) ?? null,
+          resultadoDelHoyo: timba?.resultado.hoyos.find(h => h.numero === currentHole) ?? null,
           // Los golpes como están en el teléfono: el botón aparece apenas se anota el par, sin esperar al servidor.
           golpes: Object.fromEntries(vista.jugadorIds.map(id => [id, scores[id]?.[currentHole]])),
           par,
           retirados: retiradosDelHoyo,
         })
       : []
-    const birdieAutomatico = !!vista?.config.puntitos.some(p => p.tipo === 'birdie' && p.activo)
+    const birdieAutomatico = !!timba?.config.puntitos.some(p => p.tipo === 'birdie' && p.activo)
     const lineasRechazadas = marcas.rechazadas.map(m => {
-      const puntito = vista?.config.puntitos.find(p => p.id === m.puntitoId)
+      const puntito = vista?.config.puntitos.find((p: PuntitoMarcable) => p.id === m.puntitoId)
       const nombrePuntito = puntito ? nombreDelPuntito(puntito) : 'Punto especial'
       const jugador = nombres[m.jugadorId] ?? 'un jugador'
       const base = `${nombrePuntito} de ${jugador} en el hoyo ${m.hoyo}`
@@ -122,5 +131,10 @@ export function useTimbaDelScorer(input: {
     return { retiradoEn, retiradosDelHoyo, puntosDelHoyo, birdieAutomatico, lineasRechazadas, jugadoresParaRetiro }
   }, [retiros, ordenHoyos, jugadores, currentHole, vista, par, marcas.marcas, marcas.enCola, marcas.rechazadas, nombres, scores])
 
-  return { juego, recargar, marcas, nombres, retiros, ...derivados }
+  const juegoDeLaTimba = useMemo(
+    (): EstadoDelJuego => (juego.estado === 'ok' && esVistaDelSkins(juego.vista) ? { estado: 'error' } : (juego as EstadoDelJuego)),
+    [juego],
+  )
+
+  return { juego: juegoDeLaTimba, recargar, marcas, nombres, retiros, ...derivados }
 }

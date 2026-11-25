@@ -142,13 +142,15 @@ function ScorerDeGrupo() {
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
-  // Timba libre: puntos, marcas y retiros (todo de GET /juego). Fuera de una Timba no pide nada.
+  // Timba libre: puntos, marcas y retiros (todo de GET /juego). En un skins, solo sus puntos especiales. Fuera de
+  // los dos no pide nada.
   const esTimba = esFormatoPersonalizado(ronda?.formato_juego)
+  const conPuntosEspeciales = esTimba || esSkins
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('tarjeta')
   // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
   const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
   const timba = useTimbaDelScorer({
-    codigo, activo: esTimba, conexion, jugadores, scores, firma: String(guardados),
+    codigo, activo: conPuntosEspeciales, conexion, jugadores, scores, firma: String(guardados),
     // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
     currentHole, ordenHoyos, par: parMap[currentHole],
   })
@@ -164,6 +166,7 @@ function ScorerDeGrupo() {
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores, fuera: fueraSkins,
       timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
+      enviarMarcas: esSkins ? timba.marcas.enviarPendientes : undefined,
       unCelularPorEquipo: unCelularPorEquipo ? { recargar } : undefined,
     })
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
@@ -287,13 +290,11 @@ function ScorerDeGrupo() {
         theme={theme}
       />
 
+      {conPuntosEspeciales && <AvisoMarcasRechazadas lineas={timba.lineasRechazadas} onEntendido={timba.marcas.descartarRechazadas} />}
       {esTimba && (
-        <>
-          <AvisoMarcasRechazadas lineas={timba.lineasRechazadas} onEntendido={timba.marcas.descartarRechazadas} />
-          <div style={{ padding: '8px 8px 0' }}>
-            <PestanasDeLaTimba activa={pestana} onCambiar={setPestana} />
-          </div>
-        </>
+        <div style={{ padding: '8px 8px 0' }}>
+          <PestanasDeLaTimba activa={pestana} onCambiar={setPestana} />
+        </div>
       )}
 
       {esTimba && pestana === 'juego' ? (
@@ -477,12 +478,13 @@ function ScorerDeGrupo() {
             />
           ))}
 
-          {esTimba && (
+          {conPuntosEspeciales && (
             <PuntosEspecialesDelHoyo
               hoyo={currentHole}
               grupos={timba.puntosDelHoyo}
               nombres={timba.nombres}
               birdieAutomatico={timba.birdieAutomatico}
+              unidad={esSkins ? ' skin' : undefined}
               onAlternar={(jugadorId, puntito) => { if (!finalizing) { marcarInteraccion(); timba.marcas.alternar(jugadorId, puntito, currentHole) } }}
             />
           )}

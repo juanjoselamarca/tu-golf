@@ -83,14 +83,14 @@ const completarEquiposConPar = vi.fn((eqs: EquipoT[], hoyos: readonly number[]) 
   const faltan = hoyos.filter(h => e.scores[String(h)] == null)
   return faltan.length === 0 ? e : { ...e, scores: { ...e.scores, ...Object.fromEntries(faltan.map(h => [String(h), PAR[h]])) } }
 }))
-function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record<number, number>>; teamEquipos?: unknown[]; authUserId?: string | null; timba?: { retiros: Record<string, number>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number }; fuera?: Record<string, Record<number, true>> } = {}) {
+function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record<number, number>>; teamEquipos?: unknown[]; authUserId?: string | null; timba?: { retiros: Record<string, number>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number }; fuera?: Record<string, Record<number, true>>; enviarMarcas?: () => Promise<boolean> } = {}) {
   const r = opts.ronda ?? rondaBase
   return renderHook(() => {
     const [scores, setScores] = useState(opts.scores ?? { p1: { 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5 }, p2: { 10: 5 } })
     const fin = useFinalizeGrupo({
       ronda: r as never, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR,
       teamEquipos: (opts.teamEquipos ?? []) as never, completarEquiposConPar: completarEquiposConPar as never, matchResult: null,
-      authUserId: opts.authUserId === undefined ? 'u1' : opts.authUserId, enviarPendientes, timba: opts.timba, fuera: opts.fuera,
+      authUserId: opts.authUserId === undefined ? 'u1' : opts.authUserId, enviarPendientes, timba: opts.timba, fuera: opts.fuera, enviarMarcas: opts.enviarMarcas,
     })
     return { scores, fin }
   })
@@ -187,6 +187,24 @@ describe('useFinalizeGrupo', () => {
     expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).toHaveBeenCalledWith(cliente, 'ABC', { jugadorId: 'p1' })
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+  })
+
+  it('skins: con puntos especiales sin enviar NO cierra y lo avisa; enviados, cierra', async () => {
+    const skins = { ...rondaBase, formato_juego: 'skins' }
+    const sinEnviar = vi.fn(async () => false)
+    const r1 = montar({ ronda: skins, enviarMarcas: sinEnviar }).result
+    await act(async () => { await r1.current.fin.finalizeRound() })
+    await act(async () => { await r1.current.fin.finalizeRound() })
+    expect(sinEnviar).toHaveBeenCalledTimes(1)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Hay puntos especiales sin enviar', type: 'error' }))
+
+    const enviadas = vi.fn(async () => true)
+    const r2 = montar({ ronda: skins, enviarMarcas: enviadas }).result
+    await act(async () => { await r2.current.fin.finalizeRound() })
+    await act(async () => { await r2.current.fin.finalizeRound() })
+    expect(enviadas).toHaveBeenCalledTimes(1)
+    expect(finalizarRondaLibre).toHaveBeenCalledWith(cliente, 'ABC', { jugadorId: 'p1' })
   })
 
   it('P0 01-oct: otro jugador CON CUENTA no recibe la tarjeta en su historial y la ronda se cierra igual', async () => {

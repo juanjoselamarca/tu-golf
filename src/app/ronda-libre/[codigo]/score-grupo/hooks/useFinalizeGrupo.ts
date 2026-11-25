@@ -107,6 +107,11 @@ export function useFinalizeGrupo(input: {
   /** Timba libre (solo entonces): retiros, envío de marcas y el hoyo en pantalla (el único que se rellena con par). */
   timba?: { retiros: Readonly<Record<string, number>>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number }
   /**
+   * Skins: el reenvío de sus puntos especiales (sin retiros ni relleno de la Timba). Igual que en la Timba, con
+   * marcas sin enviar NO se cierra.
+   */
+  enviarMarcas?: () => Promise<boolean>
+  /**
    * Un celular por equipo (`@/golf/ronda-libre/anotador-de-equipo`), solo entonces. Antes de cerrar se relee quién
    * anota qué: con un equipo de otro celular sin terminar no se cierra (quedaría con hoyos de menos), y si los equipos
    * de este celular cambiaron desde la última lectura se recargan (`recargar`) en vez de cerrar con la lista vieja.
@@ -360,7 +365,8 @@ export function useFinalizeGrupo(input: {
       const envio = resolverEnvio(await enviarPendientes(bolaCompartida ? undefined : filledScores, { reintentarRechazados: true }))
       if (envio === 'corta') return
       rondaYaCerrada = envio === 'cerrada'
-      if (timba && !(await timba.enviarMarcas())) {
+      const enviarMarcas = timba?.enviarMarcas ?? input.enviarMarcas
+      if (enviarMarcas && !(await enviarMarcas())) {
         addToast({ ...AVISO_MARCAS_SIN_ENVIAR, type: 'error', duration: 8000 })
         haptic([30, 60, 30])
         return

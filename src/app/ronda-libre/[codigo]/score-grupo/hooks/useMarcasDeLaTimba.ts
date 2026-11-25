@@ -12,11 +12,10 @@ import {
   reenviarPuntitosPendientes,
   type MarcaPendiente,
 } from '@/lib/ronda/puntitos-pendientes'
-import { marcasVigentes, type MarcaEnCola } from '@/golf/ronda-libre/marcas-de-la-timba'
+import { marcasVigentes, type MarcaEnCola, type PuntitoMarcable, type VistaConMarcas } from '@/golf/ronda-libre/marcas-de-la-timba'
 import { retirosQueFaltanEnLaVista } from '@/golf/ronda-libre/retiros-de-la-timba'
 import { escribirRetirosConfirmados, guardarRetiroConfirmado, leerRetirosConfirmados } from '@/lib/ronda/retiros-confirmados'
-import type { VistaDelJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
-import { esUnoPorHoyo, type MarcaPuntito, type PuntitoConfig } from '@/golf/formats/personalizado'
+import { esUnoPorHoyo, type MarcaPuntito } from '@/golf/formats/personalizado'
 
 /** Una marca que el servidor rechazó para siempre: salió de la cola y no cuenta. Se le avisa al grupo. */
 export interface MarcaRechazada {
@@ -32,7 +31,7 @@ export interface MarcasDeLaTimba {
   /** Las que esperan envío en este teléfono. */
   enCola: MarcaEnCola[]
   hayPendientes: boolean
-  alternar: (jugadorId: string, puntito: PuntitoConfig, hoyo: number) => void
+  alternar: (jugadorId: string, puntito: PuntitoMarcable, hoyo: number) => void
   /** Reenvía lo pendiente; `true` si ya no queda nada sin enviar (cerrar la ronda lo exige). */
   enviarPendientes: () => Promise<boolean>
   rechazadas: MarcaRechazada[]
@@ -50,7 +49,8 @@ type MarcaEnviada = MarcaEnCola & { confirmadaEn: number }
 const aCola = (m: MarcaPendiente): MarcaEnCola => ({ jugadorId: m.jugadorId, puntitoId: m.puntitoId, hoyo: m.hoyo, marcar: m.marcar })
 
 /**
- * Puntos especiales y retiros desde el scorer de grupo de una Timba libre (spec, "Para el PR C").
+ * Puntos especiales y retiros desde el scorer de grupo de una Timba libre (spec, "Para el PR C"). Las marcas sirven
+ * igual en un skins (misma RPC `marcar_puntito_ronda_libre`, misma cola).
  *
  * Las marcas van por la cola con respaldo del teléfono (`puntitos-pendientes.ts`, mismo patrón que los golpes):
  * se ven al toque, se envían, y al volver la señal se reenvían en orden. Las que el servidor rechaza para siempre
@@ -59,7 +59,8 @@ const aCola = (m: MarcaPendiente): MarcaEnCola => ({ jugadorId: m.jugadorId, pun
 export function useMarcasDeLaTimba(input: {
   codigo: string
   activo: boolean
-  vista: VistaDelJuego | null
+  /** La de la Timba o la del skins: las dos traen puntos, marcas y retiros. */
+  vista: VistaConMarcas | null
   /** Cuándo se pidió `vista` (`useJuegoDeLaTimba`). */
   vistaPedidaEn: number | null
   /** Vuelve a pedir `GET /juego` (los puntos se recalculan en el servidor). */
@@ -154,7 +155,7 @@ export function useMarcasDeLaTimba(input: {
     [vista, enviadas, enCola, esGreenie],
   )
 
-  const alternar = useCallback((jugadorId: string, puntito: PuntitoConfig, hoyo: number) => {
+  const alternar = useCallback((jugadorId: string, puntito: PuntitoMarcable, hoyo: number) => {
     const marcado = marcas.some(m => m.jugadorId === jugadorId && m.hoyo === hoyo && m.puntitoId === puntito.id)
     const marca = { jugadorId, puntitoId: puntito.id, hoyo, marcar: !marcado, esGreenie: esUnoPorHoyo(puntito.tipo) }
     // La cola se escribe antes del primer await: el botón cambia al toque, con o sin señal.
