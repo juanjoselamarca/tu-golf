@@ -111,7 +111,6 @@ function ScorerDeGrupo() {
   const esSkins = esFormatoSkins(ronda?.formato_juego)
   const fueraDelHoyo = useMemo(() => (esSkins ? { setFuera, fueraRef } : undefined), [esSkins, setFuera, fueraRef])
   const fueraSkins = esSkins ? fuera : undefined
-  const valorSkins = useValorDelHoyoSkins({ ronda: esSkins ? ronda : null, scores, fuera: fueraSkins, currentHole })
   const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
     useGrupoScoreSave({ ronda, codigo, currentHole, setScores, scoresRef, parMap, teamEquipos, unCelularPorEquipo: porCelular, fueraDelHoyo })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
@@ -154,6 +153,8 @@ function ScorerDeGrupo() {
     // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
     currentHole, ordenHoyos, par: parMap[currentHole], fuera: fueraSkins,
   })
+  // «Vale N skins»: el mismo cálculo que la tabla en vivo, con los mismos retiros.
+  const valorSkins = useValorDelHoyoSkins({ ronda: esSkins ? ronda : null, scores, fuera: fueraSkins, retiros: esSkins ? timba.retiros : undefined, currentHole })
   // Con un retirado, el hoyo de la carga no sabe del retiro: al llegar los retiros, el scorer va al hoyo que falta.
   // Abrir "Finalizar" a propósito NO cuenta como interacción: si el salto llega con la hoja abierta, la hoja se
   // recalcula con el mismo estado que usará finalizeRound (el hoyo que de verdad falta), que es lo correcto.
