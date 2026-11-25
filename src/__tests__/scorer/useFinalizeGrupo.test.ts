@@ -438,13 +438,21 @@ describe('useFinalizeGrupo', () => {
     expect(confirmarRondaBorrada).toHaveBeenCalledWith(expect.anything(), 'ABC')
   })
 
-  it('P0001 con la ronda VIVA (sacaron al jugador): «Tu lugar en esta ronda cambió», sin invitar a reintentar; no limpia lo local ni sale', async () => {
+  // P0001 con la ronda en pie = al marcador lo sacaron de la ronda (borrado del torneo o retiro). Quien sigue a
+  // cargo del scorer (creó o administra la ronda) recarga y cierra; el resto no tiene nada que reintentar.
+  it.each([
+    ['ronda_viva', { admin_user_id: 'u1' }, 'Este grupo cambió', 'Recarga la ronda y vuelve a tocar Finalizar.'],
+    ['ronda_viva', { creador_id: 'u1' }, 'Este grupo cambió', 'Recarga la ronda y vuelve a tocar Finalizar.'],
+    ['ronda_viva', { admin_user_id: 'otro' }, 'Ya no estás en esta ronda', 'Habla con quien organiza. Tus golpes siguen en este teléfono.'],
+    ['ronda_cerrada', { admin_user_id: 'u1' }, 'Ya no estás en esta ronda', 'Habla con quien organiza. Tus golpes siguen en este teléfono.'],
+  ])('P0001 con %s (%o): «%s»; no limpia lo local, no sale ni cierra', async (veredicto, cargo, title, message) => {
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001', message: 'RONDA_NOT_FOUND' }, tarjeta: {} })
-    confirmarRondaBorrada.mockResolvedValueOnce('ronda_viva')
-    const { result } = montar()
+    confirmarRondaBorrada.mockResolvedValueOnce(veredicto)
+    const ronda = { ...rondaBase, ...cargo }
+    const { result } = montar({ ronda })
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
-    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Tu lugar en esta ronda cambió', message: 'Recarga la ronda para ver tu grupo y finalizar.' }))
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title, message }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Error guardando tu tarjeta' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
     expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ code: 'P0001' }), expect.objectContaining({ context: 'score_grupo_finalize_historical' }))
@@ -452,6 +460,20 @@ describe('useFinalizeGrupo', () => {
     expect(push).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(result.current.fin.finalizing).toBe(false)
+  })
+
+  it('la ronda la cerró otro (P0002 al enviar) y la tarjeta da P0001 con la ronda cerrada: «Ya no estás en esta ronda», sin ir al resultado ni toast genérico', async () => {
+    enviarPendientes.mockResolvedValueOnce({ estado: 'ronda_cerrada', rechazadas: [] })
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001', message: 'RONDA_NOT_FOUND' }, tarjeta: {} })
+    confirmarRondaBorrada.mockResolvedValueOnce('ronda_cerrada')
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no estás en esta ronda' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Error guardando tu tarjeta' }))
+    expect(push).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDeRonda).not.toHaveBeenCalled()
   })
 
   it('P0001 sin señal para confirmar: aviso sin servidor; no limpia lo local ni sale', async () => {

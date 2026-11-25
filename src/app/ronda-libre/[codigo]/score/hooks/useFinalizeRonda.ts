@@ -46,7 +46,7 @@ import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE, AVISO_LUGAR_EN_RONDA_CAMBIO, AVISO_RONDA_YA_FINALIZADA } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE, AVISO_YA_NO_ESTAS_EN_LA_RONDA, AVISO_RONDA_YA_FINALIZADA } from '@/components/ronda/finalizar-copy'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/HojaDelScorer'
 import type { ResultadoGuardado } from './useScoreSave'
 import type { HoleData, RondaLibre } from '@/types/ronda'
@@ -330,7 +330,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       if (guardado.status === 'error' && esTarjetaDeRondaDescartada(guardado)) {
         // P0001: la ronda o el jugador no están. Sólo con la ronda borrada de verdad (la descartaron
         // mientras se guardaba) se limpia y se sale; sin señal no se toca nada: se reintenta. Viva o cerrada:
-        // el jugador ya no está en la ronda (lo movieron de grupo) y reintentar falla igual hasta recargar.
+        // lo sacaron de la ronda (borrado del torneo o retiro); mover de grupo no da P0001 (sigue el mismo id).
+        // Reintentar falla siempre: nada local se borra y no se invita a finalizar.
         const veredicto = await confirmarRondaBorrada(supabase, codigo)
         if (veredicto === 'ronda_borrada') {
           salirPorRondaBorrada()
@@ -343,7 +344,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
           throw new Error('historial-sin-senal')
         }
         void captureError(guardado.error, { context: 'finalize-ronda.historial', meta: { codigo, jugadorId: activeJugadorId, veredicto } })
-        addToast({ ...AVISO_LUGAR_EN_RONDA_CAMBIO, type: 'error', duration: 7000 })
+        addToast({ ...AVISO_YA_NO_ESTAS_EN_LA_RONDA, type: 'error', duration: 8000 })
         historialFallo = true
         throw new Error('historial-jugador-fuera-de-la-ronda')
       }

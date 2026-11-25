@@ -30,12 +30,23 @@ export const AVISO_RONDA_NO_EXISTE = {
 } as const
 
 /**
- * P0001 al guardar la tarjeta con la ronda todavía en pie: el jugador ya no está en ella (p. ej. lo movieron
- * de grupo). Reintentar falla igual hasta recargar, así que no se invita a reintentar: se dice qué hacer.
+ * P0001 al guardar la tarjeta del marcador con la ronda en curso: a él lo sacaron de la ronda (borrado del torneo
+ * o retiro), pero sigue a cargo del scorer de grupo (creó la ronda o la administra). Al recargar su fila ya no
+ * está, su tarjeta no se guarda y el cierre sale.
  */
-export const AVISO_LUGAR_EN_RONDA_CAMBIO = {
-  title: 'Tu lugar en esta ronda cambió',
-  message: 'Recarga la ronda para ver tu grupo y finalizar.',
+export const AVISO_GRUPO_CAMBIO = {
+  title: 'Este grupo cambió',
+  message: 'Recarga la ronda y vuelve a tocar Finalizar.',
+} as const
+
+/**
+ * P0001 al guardar la tarjeta con la ronda todavía en pie y sin nada que hacer desde este teléfono: lo sacaron
+ * de la ronda (borrado del torneo o retiro). Reintentar falla siempre: no se invita a finalizar ni a reintentar,
+ * y nada local se borra.
+ */
+export const AVISO_YA_NO_ESTAS_EN_LA_RONDA = {
+  title: 'Ya no estás en esta ronda',
+  message: 'Habla con quien organiza. Tus golpes siguen en este teléfono.',
 } as const
 
 /**

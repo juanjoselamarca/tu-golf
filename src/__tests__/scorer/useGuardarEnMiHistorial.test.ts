@@ -122,19 +122,30 @@ describe('useGuardarEnMiHistorial', () => {
     expect(result.current.estado).toBe('oculto')
   })
 
-  it.each([['ronda_viva'], ['ronda_cerrada'], ['sin_senal']])('P0001 con %s (no está borrada): error normal y se puede reintentar', async (veredicto) => {
+  it.each([['ronda_viva'], ['ronda_cerrada']])('P0001 con %s: lo sacaron de la ronda; «Ya no estás en esta ronda» y el botón se va (reintentar fallaría siempre)', async (veredicto) => {
     tarjetaYaEnMiHistorial.mockResolvedValue(false)
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001' }, tarjeta: {} })
     confirmarRondaBorrada.mockResolvedValueOnce(veredicto)
     const { result } = montar()
     await waitFor(() => expect(result.current.estado).toBe('disponible'))
     await act(async () => { await result.current.guardar() })
-    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no estás en esta ronda' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
+    expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ code: 'P0001' }), expect.objectContaining({ context: 'ronda-terminada.guardar-en-mi-historial' }))
+    expect(result.current.estado).toBe('oculto')
+  })
+
+  it('P0001 sin señal para confirmar: error normal, se puede reintentar y no se reporta (es la red)', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001' }, tarjeta: {} })
+    confirmarRondaBorrada.mockResolvedValueOnce('sin_senal')
+    const { result } = montar()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    await act(async () => { await result.current.guardar() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
+    expect(captureError).not.toHaveBeenCalled()
     expect(result.current.estado).toBe('disponible')
-    // Sin señal es la red, no un error del guardado: no se reporta. Viva o cerrada sí.
-    if (veredicto === 'sin_senal') expect(captureError).not.toHaveBeenCalled()
-    else expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ code: 'P0001' }), expect.objectContaining({ context: 'ronda-terminada.guardar-en-mi-historial' }))
   })
 
   it('guarda la misma fila que el finalizador: le pasa las tarjetas de TODOS (el match necesita al rival)', async () => {

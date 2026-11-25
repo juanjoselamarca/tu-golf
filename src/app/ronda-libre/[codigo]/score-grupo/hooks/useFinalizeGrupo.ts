@@ -22,7 +22,7 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_LUGAR_EN_RONDA_CAMBIO, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_GRUPO_CAMBIO, AVISO_YA_NO_ESTAS_EN_LA_RONDA, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
@@ -393,8 +393,8 @@ export function useFinalizeGrupo(input: {
         if (guardado.status === 'error' && esTarjetaDeRondaDescartada(guardado)) {
           // P0001: la ronda o el jugador no están. Sólo con la ronda borrada de verdad (la descartaron
           // mientras se guardaba) no queda ronda que cerrar ni tarjeta que reintentar. Sin señal: no se limpia
-          // nada, se reintenta. Viva o cerrada: el jugador ya no está en la ronda (lo movieron de grupo) y
-          // reintentar falla igual hasta recargar: se dice eso, no «Intenta de nuevo».
+          // nada, se reintenta. Viva o cerrada: al marcador lo sacaron de la ronda (borrado del torneo o
+          // retiro); mover de grupo no da P0001 (sigue el mismo id). Reintentar falla igual.
           const veredicto = await confirmarRondaBorrada(supabase, codigo)
           if (veredicto === 'ronda_borrada') {
             addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
@@ -404,7 +404,11 @@ export function useFinalizeGrupo(input: {
           }
           if (veredicto === 'sin_senal') { avisarSinServidor(); return }
           captureError(guardado.error, { context: 'score_grupo_finalize_historical', meta: { codigo, jugadorId: j.id, veredicto } })
-          addToast({ ...AVISO_LUGAR_EN_RONDA_CAMBIO, type: 'error', duration: 7000 })
+          // Viva y a cargo del scorer (creó o administra la ronda): al recargar entra igual, su fila ya no está y
+          // el cierre sale. Si no (anotaba como jugador, o la ronda ya está cerrada), no hay nada que recargar.
+          const sigueACargo = veredicto === 'ronda_viva' && !!authUserId
+            && (ronda.creador_id === authUserId || ronda.admin_user_id === authUserId)
+          addToast({ ...(sigueACargo ? AVISO_GRUPO_CAMBIO : AVISO_YA_NO_ESTAS_EN_LA_RONDA), type: 'error', duration: 8000 })
           return
         }
         if (guardado.status === 'error') {

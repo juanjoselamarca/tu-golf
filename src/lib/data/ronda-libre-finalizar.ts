@@ -253,7 +253,8 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
 
 /**
  * El RPC respondió P0001 = «ronda o jugador no encontrado», sin dejar fila. Puede ser la ronda descartada (o borrada
- * por un admin) mientras se guardaba, o la ronda viva sin ese jugador (lo movieron de grupo). Por eso el llamador
+ * por un admin) mientras se guardaba, o la ronda en pie sin ese jugador: lo sacaron de la ronda (borrado del torneo
+ * o retiro; mover de grupo no da P0001, la fila conserva su id). Por eso el llamador
  * confirma con `confirmarRondaBorrada` antes de limpiar nada o decir «Esta ronda ya no existe».
  */
 export function esTarjetaDeRondaDescartada(r: ResultadoGuardarTarjeta): boolean {
