@@ -12,6 +12,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { createEphemeralUser, createRondaFixture, deleteEphemeralUser } from './helpers/ronda-fixture'
 import { tarjeta } from './helpers/tournament-individual-fixture'
+import { isSharedBallFormat } from '../src/golf/formats'
 
 let creadorId = ''
 let CODIGO = ''
@@ -157,8 +158,13 @@ test.describe('API /api/en-vivo — estructura y datos', () => {
       // jugadores is an array
       expect(Array.isArray(ronda.jugadores)).toBe(true)
 
-      // totalJugadores matches array length
-      expect(ronda.totalJugadores).toBe(ronda.jugadores.length)
+      // totalJugadores cuenta PERSONAS; jugadores trae una fila por jugador, salvo en bola compartida (scramble,
+      // foursome), donde trae una fila por EQUIPO (#650): un scramble de 2 equipos de 2 son 2 filas y 4 personas.
+      if (isSharedBallFormat(ronda.formato_juego)) {
+        expect(ronda.totalJugadores, `${ronda.codigo}: personas ≥ equipos`).toBeGreaterThanOrEqual(ronda.jugadores.length)
+      } else {
+        expect(ronda.totalJugadores, `${ronda.codigo}: una fila por jugador`).toBe(ronda.jugadores.length)
+      }
 
       // maxHolesCompleted is a non-negative number
       expect(ronda.maxHolesCompleted).toBeGreaterThanOrEqual(0)
