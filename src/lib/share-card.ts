@@ -448,12 +448,6 @@ const FILA_RANKING = 56
 const MARGEN_RANKING = 16
 
 /**
- * Cuántas filas del ranking caben entre `rkY` y el bloque inferior (CTA en H − 380, con 24px de aire).
- * Si no caben todas, la última fila visible es «+N más»: `visibles` filas con nombre y `resto` contadas.
- * Truncado = al menos 2 nombres + «+N más» (3 filas). Si no caben (tarjeta de 18 y ranking de 4),
- * no hay ranking: un nombre y «+3 más» no informan, y el ganador ya está arriba en grande.
- */
-/**
  * El nombre de una fila del ranking achicado hasta caber en `anchoMax` (28 → 20 px); si ni a 20 cabe,
  * se corta con «…». `medir(texto, px)` mide con la fuente de la fila.
  */
@@ -465,6 +459,12 @@ export function nombreQueCabe(texto: string, medir: (texto: string, px: number) 
   return { texto: `${corto.trimEnd()}…`, px }
 }
 
+/**
+ * Cuántas filas del ranking caben entre `rkY` y el bloque inferior (CTA en H − 380, con 24px de aire).
+ * Si no caben todas, la última fila visible es «+N más»: `visibles` filas con nombre y `resto` contadas.
+ * Truncado = al menos 2 nombres + «+N más» (3 filas). Si no caben (tarjeta de 18 y ranking de 4),
+ * no hay ranking: un nombre y «+3 más» no informan, y el ganador ya está arriba en grande.
+ */
 export function filasDelRanking(total: number, rkY: number, H: number): { visibles: number; resto: number } {
   const maxFilas = Math.max(0, Math.floor((H - 380 - 24 - rkY - MARGEN_RANKING) / FILA_RANKING))
   if (total <= maxFilas) return { visibles: total, resto: 0 }
@@ -613,7 +613,7 @@ export function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCard
       // Score a la derecha: equipo sin hoyos → «sin score»; stableford → pts; si no, total (neto lo dice:
       // «65 neto (−7)», igual que el número grande) en la escala de totales.
       const [textoScore, colorScore] = j.holesPlayed === 0
-        ? ['sin score', 'rgba(255,255,255,0.3)']
+        ? ['sin score', 'rgba(255,255,255,0.55)']
         : isStableford
           ? [`${j.score} pts`, '#c9a84c']
           : [`${j.score}${data.scoreEsNeto ? ' neto' : ''} (${formatOverUnder(j.diff)})`, colorDeTotal(j.diff)]
