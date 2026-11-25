@@ -39,12 +39,12 @@ interface GrupoHoleInfoRowProps {
  * Los golpes de CADA jugador siguen estando donde sirven para anotar: los puntos
  * dorados al lado de su score, en su tarjeta.
  */
-/** Rótulo de cada columna (PAR, SI, YDS, VALE, GOLPES GRUPO): 11 px, el mínimo legible al sol con el brazo estirado. */
 /**
  * La columna de la derecha (VALE o GOLPES GRUPO) lleva el texto más largo de la fila: crece 1,6 veces lo que PAR/SI/YDS.
  * Con las cuatro a 360 px, «GOLPES GRUPO» repartido en partes iguales llenaba sus 90 px de 90 (revisión Fable PR #888).
  */
 const FLEX_COLUMNA_LARGA = '1.6 1 0%'
+/** Rótulo de cada columna (PAR, SI, YDS, VALE, GOLPES GRUPO): 11 px, el mínimo legible al sol con el brazo estirado. */
 const ROTULO = { fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: '1px', whiteSpace: 'nowrap' as const }
 
 /** Lo que vale el hoyo, en palabras: lo mismo se ve y se lee en voz alta. */
@@ -67,7 +67,7 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
     ...(yardaje ? [{ label: 'YDS', value: String(yardaje) }] : []),
   ]
   return (
-    // Una columna nunca pasa de un tercio de la fila, y el grupo va centrado:
+    // PAR, SI y YDS nunca pasan de un tercio de la fila (la larga, VALE o GOLPES GRUPO, hasta 40 %), y el grupo va centrado:
     // con dos columnas (stroke play bruto sin yardaje) repartirlas al 50 % dejaba
     // "PAR 4" solo en 195 px. Con tres queda igual que siempre y con cuatro el
     // flex las encoge a un cuarto.

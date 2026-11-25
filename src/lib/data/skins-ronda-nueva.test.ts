@@ -11,10 +11,11 @@ import {
 } from '@/__tests__/helpers/postgrest-falso'
 import { resolverCourseData } from '@/golf/core/course-handicap'
 import { LecturaFallidaError } from '@/lib/red/lectura-fallida'
+import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { captureError } from '@/lib/error-tracking'
 import {
-  FalloDelContextoSkins, MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, contextoSkinsDeRondaNueva, esFalloDeSenalDelContextoSkins,
-  mensajeSkinsSinRating, skinsParaCrearRonda, type RondaDelSkinsNuevo,
+  FalloDelContextoSkins, MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, MENSAJE_SKINS_SIN_LEER_LA_CANCHA, contextoSkinsDeRondaNueva, esFalloDeSenalDelContextoSkins,
+  mensajeDelFalloDelContextoSkins, mensajeSkinsSinRating, skinsParaCrearRonda, type RondaDelSkinsNuevo,
 } from './skins-ronda-nueva'
 
 const HOYOS = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
@@ -143,6 +144,17 @@ describe('contextoSkinsDeRondaNueva — base lenta (57014) y mensaje para el jug
   })
 })
 
+describe('mensajeDelFalloDelContextoSkins — sin saber qué lectura falló', () => {
+  it('plazo vencido (cubre todo el contexto): mensaje neutro, no culpa a los hoyos', () => {
+    expect(mensajeDelFalloDelContextoSkins(new TiempoAgotadoError(10_000))).toBe(MENSAJE_SKINS_SIN_LEER_LA_CANCHA)
+    expect(MENSAJE_SKINS_SIN_LEER_LA_CANCHA).not.toMatch(/hoyos/i)
+  })
+
+  it('fallo de una lectura conocida: su propio mensaje', () => {
+    expect(mensajeDelFalloDelContextoSkins(new FalloDelContextoSkins('x', true))).toBe('x')
+  })
+})
+
 describe('skinsParaCrearRonda — 503 con el mensaje de la lectura y el código en el reporte', () => {
   afterEach(() => { vi.mocked(captureError).mockClear() })
   const PEDIDO = {
@@ -159,7 +171,7 @@ describe('skinsParaCrearRonda — 503 con el mensaje de la lectura y el código 
     const supa = clienteFalso({ course_holes: [ok(HOYOS)], courses: [SIN_PERMISO], course_tees: [ok(null)] })
     await skinsParaCrearRonda(supa, PEDIDO)
     expect(vi.mocked(captureError).mock.calls[0][1]?.meta).toMatchObject({
-      codigo: '42501', causa: expect.stringContaining('permission denied'),
+      codigoPostgrest: '42501', causa: expect.stringContaining('permission denied'),
     })
   })
 })

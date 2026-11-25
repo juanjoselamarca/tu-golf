@@ -63,18 +63,22 @@ export class FalloDelContextoSkins extends Error {
 }
 
 /**
- * ¿Volver a leer puede arreglarlo? Sí si falló la red: una lectura que volvió sin `code` de PostgREST (`deSenal`) o
- * el plazo vencido. No si falta un dato de la cancha (un tee sin rating), si PostgREST contestó con código (permisos,
+ * Lo que ve el jugador cuando no se pudo armar el contexto: el de la lectura que falló. Si no se sabe cuál (el plazo
+ * venció a mitad de camino, u otro error), uno neutro que no culpa a los hoyos ni al rating.
+ */
+export function mensajeDelFalloDelContextoSkins(err: unknown): string {
+  return err instanceof FalloDelContextoSkins ? err.message : MENSAJE_SKINS_SIN_LEER_LA_CANCHA
+}
+
+/**
+ * ¿Volver a leer puede arreglarlo? Sí si falló la red: una lectura que volvió sin `code` de PostgREST o con uno
+ * transitorio (`esCodigoTransitorio`: base saturada, plazo de la sentencia), es decir `deSenal`, o el plazo vencido.
+ * No si falta un dato de la cancha (un tee sin rating), si PostgREST contestó con un código permanente (permisos,
  * columna) ni ante cualquier otro error: reintentarlo solo repite la falla.
  *
  * Sin rama `TypeError`: `postgrest-js` no lanza cuando el fetch se cae, lo devuelve como `{ error }` sin `code`
  * (ver `LecturaFallidaError`). Un `TypeError` que llegue hasta acá es un bug, y reintentarlo sería para siempre.
  */
-/** Lo que ve el jugador cuando no se pudo armar el contexto: el de la lectura que falló; si no se sabe, el de los hoyos. */
-export function mensajeDelFalloDelContextoSkins(err: unknown): string {
-  return err instanceof FalloDelContextoSkins ? err.message : MENSAJE_SKINS_SIN_DATOS_DE_CANCHA
-}
-
 export function esFalloDeSenalDelContextoSkins(err: unknown): boolean {
   if (err instanceof FalloDelContextoSkins) return err.deSenal
   return err instanceof TiempoAgotadoError
@@ -91,6 +95,10 @@ function falloDeLectura(err: unknown, mensajeParaElJugador: string): FalloDelCon
 
 export const MENSAJE_SKINS_SIN_DATOS_DE_CANCHA =
   'No pudimos leer los hoyos de la cancha para armar el skins. Revisa tu señal e intenta de nuevo.'
+
+/** Sin saber qué lectura falló (el plazo cubre todo el contexto): no se le dice al jugador que fueron los hoyos. */
+export const MENSAJE_SKINS_SIN_LEER_LA_CANCHA =
+  'No pudimos leer la cancha para armar el skins. Revisa tu señal e intenta de nuevo.'
 
 export function mensajeSkinsSinRating(tee: string): string {
   return `No pudimos leer el rating y slope del tee ${teeLabel(tee)} para el skins neto. Revisa tu señal; si sigue, juega en gross.`

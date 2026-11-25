@@ -45,12 +45,12 @@ describe('detalleDeLecturaFallida', () => {
   it('encuentra el code en la cadena de cause', () => {
     const lectura = new LecturaFallidaError('No se pudo leer el rating del tee: permission denied', '42501')
     const envuelto = new Error('mensaje para el jugador', { cause: lectura })
-    expect(detalleDeLecturaFallida(envuelto)).toEqual({ codigo: '42501', causa: lectura.message })
-    expect(detalleDeLecturaFallida(lectura)).toEqual({ codigo: '42501', causa: lectura.message })
+    expect(detalleDeLecturaFallida(envuelto)).toEqual({ codigoPostgrest: '42501', causa: lectura.message })
+    expect(detalleDeLecturaFallida(lectura)).toEqual({ codigoPostgrest: '42501', causa: lectura.message })
   })
 
   it('sin LecturaFallidaError: sin código, con el error de más adentro', () => {
-    expect(detalleDeLecturaFallida(new Error('a', { cause: new TypeError('b') }))).toEqual({ codigo: null, causa: 'TypeError: b' })
-    expect(detalleDeLecturaFallida('raro')).toEqual({ codigo: null, causa: null })
+    expect(detalleDeLecturaFallida(new Error('a', { cause: new TypeError('b') }))).toEqual({ codigoPostgrest: null, causa: 'TypeError: b' })
+    expect(detalleDeLecturaFallida('raro')).toEqual({ codigoPostgrest: null, causa: null })
   })
 })

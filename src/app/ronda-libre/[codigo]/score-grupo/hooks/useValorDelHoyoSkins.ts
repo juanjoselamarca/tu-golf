@@ -81,7 +81,7 @@ export function useValorDelHoyoSkins(input: {
         if (!reportadosRef.current.has(clase)) {
           reportadosRef.current.add(clase)
           void captureError(err, {
-            context: 'score_grupo.skins_contexto', level: 'warning', meta: { ronda: ronda.codigo, clase, ...detalleDeLecturaFallida(err) },
+            context: 'score_grupo.skins_contexto', level: 'warning', meta: { codigo: ronda.codigo, clase, ...detalleDeLecturaFallida(err) },
           })
         }
         if (!deSenal) return

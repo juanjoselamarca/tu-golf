@@ -45,12 +45,12 @@ export function lanzarSiLecturaFallo(error: ErrorDePostgrest | null | undefined,
  * `cause`, así que quien envuelve una `LecturaFallidaError` (p. ej. `FalloDelContextoSkins`, que lleva el mensaje
  * para el jugador) pierde el 42501 si no lo pasa en `meta`. Recorre la cadena de `cause`.
  */
-export function detalleDeLecturaFallida(err: unknown): { codigo: string | null; causa: string | null } {
+export function detalleDeLecturaFallida(err: unknown): { codigoPostgrest: string | null; causa: string | null } {
   let actual: unknown = err
   for (let i = 0; i < 5 && actual != null; i++) {
-    if (actual instanceof LecturaFallidaError) return { codigo: actual.codigo, causa: actual.message }
+    if (actual instanceof LecturaFallidaError) return { codigoPostgrest: actual.codigo, causa: actual.message }
     actual = (actual as { cause?: unknown }).cause
   }
   const ultimo = err instanceof Error && err.cause instanceof Error ? err.cause : err
-  return { codigo: null, causa: ultimo instanceof Error ? `${ultimo.name}: ${ultimo.message}` : null }
+  return { codigoPostgrest: null, causa: ultimo instanceof Error ? `${ultimo.name}: ${ultimo.message}` : null }
 }

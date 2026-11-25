@@ -11,7 +11,7 @@ import { clienteConSenal } from '@/lib/red/cliente-con-senal'
 import { conPlazoCancelable, LecturaCanceladaError } from '@/lib/red/con-timeout'
 import { detalleDeLecturaFallida } from '@/lib/red/lectura-fallida'
 import {
-  MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, contextoSkinsDeRondaNueva, mensajeDelFalloDelContextoSkins, type JugadorDelSkinsNuevo,
+  MENSAJE_SKINS_SIN_LEER_LA_CANCHA, contextoSkinsDeRondaNueva, mensajeDelFalloDelContextoSkins, type JugadorDelSkinsNuevo,
 } from '@/lib/data/skins-ronda-nueva'
 import { problemaPorNombresQueFaltan } from './useFormularioDeRonda'
 import {
@@ -101,7 +101,7 @@ function useContextoDelSkins(
       reloj = setTimeout(() => void leer(intento), esperasRef.current[intento - 1] ?? 0)
     }
     async function leer(intento: number) {
-      if (sinRed()) { detenido = true; avisar(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA); return }
+      if (sinRed()) { detenido = true; avisar(MENSAJE_SKINS_SIN_LEER_LA_CANCHA); return }
       const esta = ++ultima
       cancelarLaLectura()
       const propio = new AbortController()

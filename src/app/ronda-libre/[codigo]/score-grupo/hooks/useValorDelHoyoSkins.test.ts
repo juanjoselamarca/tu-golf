@@ -226,7 +226,7 @@ describe('useValorDelHoyoSkins — base lenta (57014) con el contexto real', () 
     expect(lectura.impl).toHaveBeenCalledTimes(1)
     expect(result.current).toBeNull()
     expect(vi.mocked(captureError).mock.calls[0][1]?.meta).toMatchObject({
-      ronda: 'ABC', clase: 'permanente', codigo: '42501', causa: expect.stringContaining('permission denied'),
+      codigo: 'ABC', clase: 'permanente', codigoPostgrest: '42501', causa: expect.stringContaining('permission denied'),
     })
   })
 })
