@@ -521,46 +521,49 @@ export function useGrupoScoreSave(input: {
     // Sin el mapa de la X (fuera de un skins) la tecla no existe: una X que llegara igual no se anota.
     const marcaX = esFueraDelHoyo(cambio)
     if (marcaX && !setFuera) return
-    setScores(prev => {
-      const existingScore = prev[jugadorId]?.[hole]
-      const teniaX = estaFueraDelHoyo(fueraRef.current[jugadorId], hole)
-      if (marcaX && teniaX) return prev // ya está marcado
+    // El estado siguiente se calcula aquí, desde las refs (al día aunque dos toques lleguen antes de re-renderizar), y
+    // los efectos (respaldo, cola, anti-toque, vibración) corren una vez por toque. Los updaters de abajo son puros:
+    // React puede llamarlos dos veces (StrictMode) sin anotar ni respaldar dos veces.
+    const prev = scoresRef.current
+    const existingScore = prev[jugadorId]?.[hole]
+    const teniaX = estaFueraDelHoyo(fueraRef.current[jugadorId], hole)
+    if (marcaX && teniaX) return // ya está marcado
 
-      // A1 anti-toque / A3 edit window: cambiar un valor ya anotado (golpes o X) pide el 2º toque.
-      const hayValor = (existingScore != null && existingScore > 0) || teniaX
-      if (!puedeCambiar(jugadorId, hole, hayValor)) return prev
+    // A1 anti-toque / A3 edit window: cambiar un valor ya anotado (golpes o X) pide el 2º toque.
+    const hayValor = (existingScore != null && existingScore > 0) || teniaX
+    if (!puedeCambiar(jugadorId, hole, hayValor)) return
 
-      // Aplicar el cambio: respaldo local + pendiente hasta que el servidor lo confirme.
-      const par = parMap[hole] ?? 4
-      let valor: ValorPendiente
-      let tarjeta: Record<number, number>
-      if (marcaX) {
-        // La X no es un número: el hoyo queda sin golpes (nunca se inventa uno).
-        valor = FUERA_DEL_HOYO
-        tarjeta = Object.fromEntries(Object.entries(prev[jugadorId] ?? {}).filter(([h]) => Number(h) !== hole))
-      } else {
-        // Sobre una X, el primer cambio deja el par (lo que se ve en gris en un hoyo sin anotar) y de ahí se ajusta.
-        valor = teniaX ? limitarGolpes(par) : limitarGolpes((existingScore ?? par) + (cambio as number))
-        tarjeta = { ...(prev[jugadorId] ?? {}), [hole]: valor }
-      }
-      const next = { ...prev, [jugadorId]: tarjeta }
-      if (setFuera && marcaX !== teniaX) {
-        const hoyos = { ...(fueraRef.current[jugadorId] ?? {}) }
-        if (marcaX) hoyos[hole] = true
-        else delete hoyos[hole]
-        const fuera = { ...fueraRef.current, [jugadorId]: hoyos }
-        fueraRef.current = fuera
-        setFuera(fuera)
-        saveGroupFuera(codigo, fuera)
-      }
-      setHasUnsaved(true)
-      saveGroupScores(codigo, next)
-      marcarPendientes(codigo, jugadorId, { [hole]: valor })
-      olvidarRechazado(codigo, jugadorId, hole)
-      haptic(10)
-      programarEnvio()
-      return next
-    })
+    // Aplicar el cambio: respaldo local + pendiente hasta que el servidor lo confirme.
+    const par = parMap[hole] ?? 4
+    let valor: ValorPendiente
+    let tarjeta: Record<number, number>
+    if (marcaX) {
+      // La X no es un número: el hoyo queda sin golpes (nunca se inventa uno).
+      valor = FUERA_DEL_HOYO
+      tarjeta = Object.fromEntries(Object.entries(prev[jugadorId] ?? {}).filter(([h]) => Number(h) !== hole))
+    } else {
+      // Sobre una X, el primer cambio deja el par (lo que se ve en gris en un hoyo sin anotar) y de ahí se ajusta.
+      valor = teniaX ? limitarGolpes(par) : limitarGolpes((existingScore ?? par) + (cambio as number))
+      tarjeta = { ...(prev[jugadorId] ?? {}), [hole]: valor }
+    }
+    const next = { ...prev, [jugadorId]: tarjeta }
+    scoresRef.current = next
+    setScores(actual => aplicarTarjeta(actual, jugadorId, tarjeta))
+    if (setFuera && marcaX !== teniaX) {
+      const hoyos = { ...(fueraRef.current[jugadorId] ?? {}) }
+      if (marcaX) hoyos[hole] = true
+      else delete hoyos[hole]
+      const fuera = { ...fueraRef.current, [jugadorId]: hoyos }
+      fueraRef.current = fuera
+      setFuera(actual => aplicarTarjeta(actual, jugadorId, hoyos))
+      saveGroupFuera(codigo, fuera)
+    }
+    setHasUnsaved(true)
+    saveGroupScores(codigo, next)
+    marcarPendientes(codigo, jugadorId, { [hole]: valor })
+    olvidarRechazado(codigo, jugadorId, hole)
+    haptic(10)
+    programarEnvio()
   }, [parMap, codigo, programarEnvio, setScores, puedeCambiar, setFuera])
 
   /* ── Sincronización automática: reintento periódico + al recuperar la red ── */
@@ -578,4 +581,9 @@ export function useGrupoScoreSave(input: {
     saveStatus, setSaveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm,
     handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida,
   }
+}
+
+/** Updater puro: la tarjeta de un jugador reemplaza la suya (llamarlo dos veces da lo mismo). */
+export function aplicarTarjeta<T>(actual: Record<string, T>, jugadorId: string, tarjeta: T): Record<string, T> {
+  return actual[jugadorId] === tarjeta ? actual : { ...actual, [jugadorId]: tarjeta }
 }

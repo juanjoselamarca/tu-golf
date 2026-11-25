@@ -16,7 +16,8 @@ interface GrupoHoleInfoRowProps {
   theme: ScorerTheme
   /**
    * Skins: lo que vale el hoyo (1 + arrastre, `useValorDelHoyoSkins`). Reemplaza a GOLPES GRUPO: en el skins los golpes
-   * son desde el más bajo, no los del hándicap absoluto. `null` = aún no se sabe (sin señal o bloqueado): no se inventa.
+   * son desde el más bajo, no los del hándicap absoluto. `null` = aún no se sabe (sin señal o bloqueado): la columna
+   * queda con «—» (no se inventa cifra, y la fila no salta cuando llega).
    */
   skins?: { valor: number; provisional: boolean } | null
 }
@@ -38,6 +39,15 @@ interface GrupoHoleInfoRowProps {
  * Los golpes de CADA jugador siguen estando donde sirven para anotar: los puntos
  * dorados al lado de su score, en su tarjeta.
  */
+/** Rótulo de cada columna (PAR, SI, YDS, VALE, GOLPES GRUPO): 11 px, el mínimo legible al sol con el brazo estirado. */
+const ROTULO = { fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: '1px', whiteSpace: 'nowrap' as const }
+
+/** Lo que vale el hoyo, en palabras: lo mismo se ve y se lee en voz alta. */
+export function textoDelValorSkins(skins: { valor: number; provisional: boolean }): string {
+  const unidad = skins.valor === 1 ? 'skin' : 'skins'
+  return `${skins.provisional ? 'desde ' : ''}${skins.valor} ${unidad}`
+}
+
 export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford, maxStrokes, accion, theme, skins }: GrupoHoleInfoRowProps) {
   const conGolpesGrupo = showNetStableford && skins === undefined
   const cols = [
@@ -59,28 +69,29 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
         {cols.map((col, i, arr) => (
           <div key={col.label} style={{
             flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px',
-            borderRight: i < arr.length - 1 || conGolpesGrupo || skins ? `1px solid ${theme.border}` : 'none',
+            borderRight: i < arr.length - 1 || conGolpesGrupo || skins !== undefined ? `1px solid ${theme.border}` : 'none',
           }}>
-            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>{col.label}</div>
+            <div style={{ ...ROTULO, color: theme.textFaint }}>{col.label}</div>
             <div style={{ fontSize: '15px', fontWeight: 600, color: theme.text }}>{col.value}</div>
           </div>
         ))}
-        {skins && (
-          // «Vale 3 skins»: el número en dorado legible (--brand-on-bg) y del tamaño de PAR/SI, para leerlo al sol.
+        {skins !== undefined && (
+          // «Vale 3 skins»: el número en dorado legible (--brand-on-bg) y del tamaño de PAR/SI, para leerlo al sol. Sin
+          // cifra confiable, «—» en gris: la columna sigue ahí y dice que el dato no está.
           <div
             role="status"
-            aria-label={`Vale ${skins.valor} ${skins.valor === 1 ? 'skin' : 'skins'}${skins.provisional ? ' o más' : ''}`}
+            aria-label={skins ? `Vale ${textoDelValorSkins(skins)}` : 'Valor no disponible'}
             style={{ flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px' }}
           >
-            <div aria-hidden style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>VALE</div>
-            <div aria-hidden style={{ fontSize: '15px', fontWeight: 700, color: 'var(--brand-on-bg)', whiteSpace: 'nowrap' }}>
-              {skins.valor}{skins.provisional ? '+' : ''} {skins.valor === 1 && !skins.provisional ? 'skin' : 'skins'}
+            <div aria-hidden style={{ ...ROTULO, color: theme.textFaint }}>VALE</div>
+            <div aria-hidden style={{ fontSize: '15px', fontWeight: 700, color: skins ? 'var(--brand-on-bg)' : theme.textFaint, whiteSpace: 'nowrap' }}>
+              {skins ? textoDelValorSkins(skins) : '—'}
             </div>
           </div>
         )}
         {conGolpesGrupo && (
           <div style={{ flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px' }}>
-            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES GRUPO</div>
+            <div style={{ ...ROTULO, color: theme.textFaint }}>GOLPES GRUPO</div>
             <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>{maxStrokes > 0 ? `+${maxStrokes}` : '0'}</div>
           </div>
         )}

@@ -2,10 +2,11 @@
  * El skins en el scorer de grupo: las reglas guardadas de la ronda y lo que vale el hoyo en pantalla («Vale 3 skins»),
  * con el mismo motor que liquida (`calcularSkins`). Spec docs/specs/formato-skins.md («Arrastre», «Golpes»).
  *
- * Los hándicaps son los CONGELADOS al crear la ronda: el índice que quedó en `ronda_libre_jugadores.handicap` (la API
- * de creación exige índice de todos en neto: `validarConfigSkins` bloquea `sinHandicap`) con el tee fijo de cada
- * jugador, en la escala de los hoyos de la ronda: el contexto lo arma `contextoSkinsDeRondaNueva`, el mismo que validó
- * al crear. Nunca el índice vivo del perfil: cambiaría el más bajo del campo a mitad de ronda.
+ * Lo congelado al crear es el ÍNDICE: el que quedó en `ronda_libre_jugadores.handicap` (la API de creación exige índice
+ * de todos en neto: `validarConfigSkins` bloquea `sinHandicap`), nunca el índice vivo del perfil, que cambiaría el más
+ * bajo del campo a mitad de ronda. El course handicap NO se guarda: se recalcula con ese índice, el tee fijo de cada
+ * jugador y el rating/slope que la cancha tenga al leerlo, en la escala de los hoyos de la ronda. Lo arma
+ * `contextoSkinsDeRondaNueva`, el mismo que validó al crear.
  */
 import { handicapDeJuego } from '@/golf/core/playing-handicap'
 import { esHandicapUsable } from '@/golf/formats/match-play'

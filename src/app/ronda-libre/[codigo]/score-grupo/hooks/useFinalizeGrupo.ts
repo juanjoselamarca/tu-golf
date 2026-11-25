@@ -37,7 +37,7 @@ import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-de-club'
 import { completarHoyosSinMarcarConPar, completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import { hoyosQueNoSeRellenan } from '@/golf/ronda-libre/hoyos-sin-rellenar'
-import { esFormatoSkins } from '@/golf/formats/skins/clave'
+import { tarjetaVaAlHistorial } from '@/golf/formats/skins/clave'
 import type { FueraPorJugador } from '@/golf/formats/skins/fuera-del-hoyo'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
@@ -381,7 +381,7 @@ export function useFinalizeGrupo(input: {
     const ratingsPorTee: RatingsPorTee = new Map()
     // Skins: la tarjeta no va al historial (spec «Cierre de una ronda de skins»: el CHECK de historical_rounds la
     // rechaza y quedaría en «reintentar» para siempre; un hoyo con X no tiene golpes y su ajuste WHS no está resuelto).
-    const vaAlHistorial = !esFormatoSkins(ronda.formato_juego)
+    const vaAlHistorial = tarjetaVaAlHistorial(ronda.formato_juego)
     for (const j of vaAlHistorial ? ronda.ronda_libre_jugadores : []) {
       if (!esMiTarjeta(j, anotador?.id)) continue
       // Ronda de equipos de club: el anotador va en el primer equipo solo por estructura, no jugó esa tarjeta.

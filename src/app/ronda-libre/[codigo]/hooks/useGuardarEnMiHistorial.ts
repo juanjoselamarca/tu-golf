@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import { isSharedBallFormat } from '@/golf/formats'
+import { tarjetaVaAlHistorial } from '@/golf/formats/skins/clave'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { HoyoEstimado } from '@/golf/core/ajuste-whs'
 import { tarjetaParaHistorial } from '@/golf/ronda-libre/tarjeta-para-historial'
@@ -89,6 +90,9 @@ export function useGuardarEnMiHistorial(input: {
   // Ronda de equipos de club: el creador va en el primer equipo solo por estructura. No jugó esa tarjeta, así que
   // no se ofrece guardarla (ni recalcula su índice ni avisa al coach).
   const soloPorEstructura = !!miJugador && vaSoloPorEstructura(equipos, miJugador.id)
+  // Skins: su tarjeta no va al historial (`tarjetaVaAlHistorial`). Ofrecerlo dejaría el botón en «reintentar» para
+  // siempre (el CHECK de historical_rounds la rechaza).
+  const noVaAlHistorial = !!ronda && !tarjetaVaAlHistorial(ronda.formato_juego)
   const hoyos = useMemo(() => (ronda ? hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes ?? 18) : []), [ronda])
   const retiradoDesde = (miJugador && retiros?.[miJugador.id]) ?? null
   const misScores = useMemo(
@@ -126,7 +130,7 @@ export function useGuardarEnMiHistorial(input: {
   const miJugadorId = miJugador?.id ?? null
   const retirosListos = retiros != null
   useEffect(() => {
-    if (!isFinished || !miJugadorId || !retirosListos || soloPorEstructura) { setEstado('oculto'); return }
+    if (!isFinished || !miJugadorId || !retirosListos || soloPorEstructura || noVaAlHistorial) { setEstado('oculto'); return }
     let vivo = true
     void tarjetaYaEnMiHistorial(createClient(), miJugadorId).then(ya => {
       // Lectura fallida (null, p. ej. sin señal): se ofrece igual. El guardado es idempotente
@@ -134,10 +138,10 @@ export function useGuardarEnMiHistorial(input: {
       if (vivo) setEstado(ya === true ? 'guardado' : 'disponible')
     })
     return () => { vivo = false }
-  }, [isFinished, miJugadorId, retirosListos, soloPorEstructura])
+  }, [isFinished, miJugadorId, retirosListos, soloPorEstructura, noVaAlHistorial])
 
   const guardar = useCallback(async () => {
-    if (!ronda || !miJugador || !currentUserId || estado !== 'disponible' || soloPorEstructura) return
+    if (!ronda || !miJugador || !currentUserId || estado !== 'disponible' || soloPorEstructura || noVaAlHistorial) return
     setEstado('guardando')
     const supabase = createClient()
     // Misma fila que guarda el finalizador: `guardarTarjetaEnHistorial` resuelve match
@@ -198,7 +202,7 @@ export function useGuardarEnMiHistorial(input: {
     void actualizarNivelDelJugador(supabase, currentUserId).catch(() => {})
     addToast({ title: 'Ronda guardada en tu historial', type: 'success' })
     setEstado('guardado')
-  }, [ronda, miJugador, currentUserId, estado, misScores, correcciones, hoyos, parMap, retiradoDesde, soloPorEstructura, setEstado])
+  }, [ronda, miJugador, currentUserId, estado, misScores, correcciones, hoyos, parMap, retiradoDesde, soloPorEstructura, noVaAlHistorial, setEstado])
 
   return { estado, guardar, vistaPrevia, corregir }
 }

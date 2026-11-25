@@ -121,3 +121,41 @@ describe('useGrupoScoreSave — X del skins', () => {
     expect(saveRondaLibreScores).not.toHaveBeenCalled()
   })
 })
+
+describe('useGrupoScoreSave — updaters puros', () => {
+  it('los updaters de golpes y de la X dan lo mismo llamados dos veces, y el toque se anota una sola vez', async () => {
+    const updaters: { scores: ((p: never) => unknown)[]; fuera: ((p: never) => unknown)[] } = { scores: [], fuera: [] }
+    const { result } = renderHook(() => {
+      const [scores, setScoresReal] = useState<Record<string, Record<number, number>>>({ p1: { 1: 5 }, p2: {} })
+      const [fuera, setFueraReal] = useState<Record<string, Record<number, true>>>({})
+      const setScores: typeof setScoresReal = a => { if (typeof a === 'function') updaters.scores.push(a as never); setScoresReal(a) }
+      const setFuera: typeof setFueraReal = a => { if (typeof a === 'function') updaters.fuera.push(a as never); setFueraReal(a) }
+      const save = useGrupoScoreSave({ ronda, codigo: 'SKN', currentHole: 1, scores, setScores, parMap: PAR, fueraDelHoyo: { fuera, setFuera } })
+      return { scores, fuera, save }
+    })
+    // X en un hoyo vacío: un toque basta.
+    act(() => { result.current.save.handleScoreChange('p1', 2, 'X') })
+    expect(updaters.scores).toHaveLength(1)
+    expect(updaters.fuera).toHaveLength(1)
+    const base = { p1: { 1: 5, 2: 4 }, p2: {} }
+    const u = updaters.scores[0] as (p: typeof base) => typeof base
+    expect(u(u(base))).toEqual(u(base))
+    expect(u(base).p1).toEqual({ 1: 5 })
+    const f = updaters.fuera[0] as (p: Record<string, Record<number, true>>) => Record<string, Record<number, true>>
+    expect(f(f({}))).toEqual({ p1: { 2: true } })
+    // Una sola X pendiente (no dos), y el estado final es el calculado.
+    expect(leerPendientes('SKN')).toEqual({ p1: { 2: 'X' } })
+    expect(result.current.fuera).toEqual({ p1: { 2: true } })
+    expect(result.current.scores.p1).toEqual({ 1: 5 })
+  })
+
+  it('dos toques seguidos antes de re-renderizar se suman (el estado sale de la ref, no de un render viejo)', () => {
+    const { result } = montar()
+    act(() => {
+      result.current.save.handleScoreChange('p1', 3, 1)
+      result.current.save.handleScoreChange('p1', 3, 1)
+    })
+    // Par 3: el primer toque deja 4 y el segundo 5 (sin anti-toque: subir de a uno no pide confirmación).
+    expect(result.current.scores.p1[3]).toBe(5)
+  })
+})

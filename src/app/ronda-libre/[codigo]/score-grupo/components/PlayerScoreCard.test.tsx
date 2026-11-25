@@ -116,14 +116,22 @@ describe('PlayerScoreCard · tecla X del skins', () => {
     tarjeta({ formatoJuego: 'skins', onFuera: () => {}, fuera: { 12: true }, golpes: { 11: 5 } })
     expect(screen.getByRole('button', { name: 'Fuera del hoyo' }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByText('X', { selector: 'div' })).toBeTruthy()
-    expect(screen.getByLabelText('1 hoyo fuera').textContent).toBe('1X')
+    expect(screen.getByText('1 fuera')).toBeTruthy()
+    expect(screen.queryByText(/1X/)).toBeNull()
     expect(screen.getByText(/^5=5$/)).toBeTruthy() // solo los golpes del 11; la X no suma
   })
 
   it('solo con X (sin golpes) muestra el contador de X, sin «=0» ni «E»', () => {
     tarjeta({ formatoJuego: 'skins', onFuera: () => {}, fuera: { 11: true }, golpes: {} })
-    expect(screen.getByLabelText('1 hoyo fuera').textContent).toBe('1X')
+    expect(screen.getByText('1 fuera')).toBeTruthy()
+    expect(screen.queryByText(/1X/)).toBeNull()
     expect(screen.queryByText(/=0/)).toBeNull()
     expect(screen.queryByText('E')).toBeNull()
+  })
+
+  it('el contador «N fuera» va separado del total por una línea; la tecla X, 8 px más lejos del +', () => {
+    tarjeta({ formatoJuego: 'skins', onFuera: () => {}, fuera: { 11: true, 12: true }, golpes: { 13: 4 } })
+    expect(screen.getByText('2 fuera').style.borderLeft).toContain('1px solid')
+    expect(screen.getByRole('button', { name: 'Fuera del hoyo' }).style.marginLeft).toBe('8px')
   })
 })

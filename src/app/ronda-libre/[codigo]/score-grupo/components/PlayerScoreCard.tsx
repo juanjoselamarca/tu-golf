@@ -120,15 +120,19 @@ export function PlayerScoreCard({
                     {out > 0 ? `${out}` : ''}{out > 0 && inn > 0 ? '+' : ''}{inn > 0 ? `${inn}` : ''}={gross}
                   </span>
                 )}
-                {cuantasX > 0 && (
-                  // Hoyos con X: no suman golpes (ni par al vs par); se cuentan aparte.
-                  <span aria-label={`${cuantasX} ${cuantasX === 1 ? 'hoyo' : 'hoyos'} fuera`} style={{ fontSize: '11px', fontWeight: 700, color: theme.text, fontFamily: '"DM Mono", monospace' }}>
-                    {cuantasX}X
-                  </span>
-                )}
                 {gross > 0 && (
                   <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(vsPar) }}>
                     {formatVsPar(vsPar)}
+                  </span>
+                )}
+                {cuantasX > 0 && (
+                  // Hoyos con X: no suman golpes (ni par al vs par); se cuentan aparte, en palabras («1 fuera», no «1X»,
+                  // que se lee como multiplicador) y separados del total por una línea.
+                  <span style={{
+                    fontSize: '11px', fontWeight: 600, color: theme.textMuted, whiteSpace: 'nowrap',
+                    ...(gross > 0 && { paddingLeft: '6px', borderLeft: `1px solid ${theme.border}` }),
+                  }}>
+                    {cuantasX} fuera
                   </span>
                 )}
               </div>
@@ -265,6 +269,8 @@ export function PlayerScoreCard({
             aria-label="Fuera del hoyo"
             aria-pressed={conX}
             style={{
+              // 8 px más de aire que entre − y +: la X no es un golpe más, y un dedo apurado no la toca por el +.
+              marginLeft: '8px',
               width: '48px', height: '52px', borderRadius: '14px',
               fontSize: '20px', fontWeight: 700,
               fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
