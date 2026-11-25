@@ -8,6 +8,8 @@
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
 import { esEquipoDeClub, type HandicapOrigen } from '@/golf/ronda-libre/equipos-de-club'
+import { esFormatoSkins, type ConfigSkins } from '@/golf/formats/skins'
+import { leerReglasSkins } from '@/golf/ronda-libre/skins-del-scorer'
 
 export interface PerfilCreador {
   nombre: string
@@ -28,6 +30,12 @@ export interface RondaReciente {
    * lo fue. Solo los nombres: el hándicap del club no se repite (cambia de un torneo a otro).
    */
   equiposDeClub: string[] | null
+  /**
+   * Las reglas de un Skins (modo, pozo, empate del último hoyo, validación y puntos especiales), para repetirlo igual
+   * entre los mismos amigos; `null` si la ronda no fue un Skins o sus reglas no se pueden leer. Los ids de los
+   * jugadores no se repiten: la ronda nueva los asigna al crear.
+   */
+  skins: ConfigSkins | null
 }
 
 /** Un jugador de una ronda anterior, con lo que hace falta para volver a sumarlo sin retipear. */
@@ -127,7 +135,7 @@ export async function fetchRondasRecientes(
   const supabase = createClient()
   const { data, error } = await supabase
     .from('rondas_libres')
-    .select('course_name, course_id, tees, holes, formato_juego, modo_juego, fecha, ronda_libre_jugadores(nombre, user_id, handicap, tees), ronda_equipos(nombre, handicap_origen)')
+    .select('course_name, course_id, tees, holes, formato_juego, modo_juego, reglas_juego, fecha, ronda_libre_jugadores(nombre, user_id, handicap, tees), ronda_equipos(nombre, handicap_origen)')
     .eq('creador_id', userId)
     .eq('estado', 'finalizada')
     .order('fecha', { ascending: false })
@@ -160,6 +168,7 @@ export async function fetchRondasRecientes(
       esCreador: j.user_id === userId,
     })),
     equiposDeClub: equiposDeClubDeLaRonda(r.ronda_equipos as FilaDeEquipoReciente[] | null),
+    skins: esFormatoSkins(r.formato_juego) ? (leerReglasSkins(r.reglas_juego)?.config ?? null) : null,
   }))
 }
 

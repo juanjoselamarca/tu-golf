@@ -49,3 +49,31 @@ describe('fetchRondasRecientes — un error no se calla', () => {
     expect(captureError).not.toHaveBeenCalled()
   })
 })
+
+describe('fetchRondasRecientes — repetir un Skins', () => {
+  const fila = (over: Record<string, unknown>) => ({
+    course_name: 'Los Leones', course_id: 'c1', tees: 'blanco', holes: 18, modo_juego: 'gross', fecha: '2026-11-20',
+    ronda_libre_jugadores: [], ronda_equipos: [], ...over,
+  })
+  const config = {
+    version: 1, modo: 'gross', hcpPct: 100, empateUltimoHoyo: 'repartir', validacion: true, pozoPorJugador: 10_000,
+    puntitos: [{ id: 'p1', tipo: 'greenie' }],
+  }
+
+  it('trae las reglas del Skins para repetirlo igual (sin los ids de la ronda vieja)', async () => {
+    respuesta.actual = { data: [fila({ formato_juego: 'skins', reglas_juego: { config, jugadorIds: ['x', 'y'] } })], error: null }
+    const [r] = await fetchRondasRecientes('u1')
+    expect(r.skins).toEqual(config)
+  })
+
+  it('otra ronda, o un Skins con reglas ilegibles: sin reglas (se repite la ronda individual)', async () => {
+    respuesta.actual = {
+      data: [
+        fila({ formato_juego: 'stroke_play', reglas_juego: { config, jugadorIds: [] } }),
+        fila({ formato_juego: 'skins', reglas_juego: { config: { ...config, modo: 'raro' }, jugadorIds: [] } }),
+      ],
+      error: null,
+    }
+    expect((await fetchRondasRecientes('u1')).map(r => r.skins)).toEqual([null, null])
+  })
+})

@@ -214,7 +214,17 @@ export default function NuevaRondaLibrePage() {
         {form.paso === 1 && (
           <PasoCancha
             rondasRecientes={creador.rondasRecientes}
-            onRepetir={r => { form.repetirRonda(r); club.restaurar(r.equiposDeClub) }}
+            onRepetir={r => {
+              form.repetirRonda(r)
+              club.restaurar(r.equiposDeClub)
+              // Un Skins se repite con sus reglas, armado igual que al elegirlo (ronda individual, un solo celular). Sin
+              // permiso para el Skins, o si la ronda no lo fue, queda la ronda individual que repitió el formulario.
+              if (r.skins && skins.puedeElegir) {
+                timba.soltar(); form.elegirQuienAnota(true); club.elegirModo(r.skins.modo); skins.setSkins(r.skins)
+              } else {
+                skins.soltar()
+              }
+            }}
             cancha={form.cancha}
             onElegirCancha={c => { form.elegirCancha(c); recordarUltimaCancha(c) }}
             onLimpiarCancha={form.limpiarCancha}
