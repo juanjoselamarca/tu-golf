@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type React from 'react'
 import { haptic } from '@/lib/ronda/helpers'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
@@ -12,10 +13,13 @@ export interface TeamScoreSave {
   /** +/- sobre el score COMPARTIDO del equipo (scramble / foursome) en un hoyo. */
   handleTeamScoreChange: (equipoId: string, hole: number, delta: number) => void
   /**
-   * Equipos sin score en el hoyo → par (al pasar de hoyo). No espera al servidor. Nunca toca `sinParAutomatico`
-   * (un celular por equipo: los de otro celular y los sin reclamar).
+   * Confirma el valor que la pantalla muestra en el hoyo: los equipos que este celular confirma
+   * (`equiposQueConfirmanElHoyo`) y no tienen score en el hoyo quedan con el par gris. Una sola regla para
+   * «Siguiente» y «Guardar hoyo N». Nunca toca `noConfirmanElHoyo` (un celular por equipo: los de otro celular y
+   * los sin reclamar que nadie anota todavía).
+   * `inmediato`: lo envía YA y la promesa espera ese envío (último hoyo); si no, con el debounce y sin esperar.
    */
-  autoFillTeamsWithPar: (hole: number, par: number) => Promise<void>
+  confirmarHoyo: (hole: number, par: number, opciones?: { inmediato?: boolean }) => Promise<void>
   /**
    * Al finalizar (bola compartida): los hoyos DE LA RONDA sin score del equipo → par.
    * Deja los pendientes marcados ANTES de volver (los envía `enviarPendientes`) y
@@ -49,16 +53,27 @@ export function useTeamScoreSave(input: {
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
   /** Envía lo pendiente (useGrupoScoreSave). */
   programarEnvio: () => void
+  /** Envía lo pendiente YA, sin debounce (useGrupoScoreSave). */
+  enviarYa: () => Promise<unknown>
   /**
    * Un celular por equipo: los equipos que este celular NO rellena con par (`equiposSinParAutomatico`: los de otro
    * celular y los sin reclamar). El par al pasar de hoyo y al finalizar nunca los toca, aunque una lista vieja los
    * tuviera en pantalla. Se editan a mano.
    */
   sinParAutomatico?: ReadonlyArray<{ id: string }>
+  /**
+   * Un celular por equipo: los equipos cuyo par gris este celular NO guarda al confirmar el hoyo
+   * (`equiposQueNoConfirmanElHoyo`). Sin esto, `sinParAutomatico`.
+   */
+  noConfirmanElHoyo?: ReadonlyArray<{ id: string }>
 }): TeamScoreSave {
-  const { codigo, parMap, setTeamEquipos, setHasUnsaved, programarEnvio } = input
+  const { codigo, parMap, setTeamEquipos, setHasUnsaved, programarEnvio, enviarYa } = input
   const sinParRef = useRef<ReadonlySet<string>>(new Set())
   useEffect(() => { sinParRef.current = new Set((input.sinParAutomatico ?? []).map(e => e.id)) }, [input.sinParAutomatico])
+  const noConfirmanRef = useRef<ReadonlySet<string>>(new Set())
+  useEffect(() => {
+    noConfirmanRef.current = new Set((input.noConfirmanElHoyo ?? input.sinParAutomatico ?? []).map(e => e.id))
+  }, [input.noConfirmanElHoyo, input.sinParAutomatico])
   const [foursomeInvertido, setFoursomeInvertido] = useState<Record<string, boolean>>({})
 
   const handleTeamScoreChange = useCallback((equipoId: string, hole: number, delta: number) => {
@@ -80,20 +95,24 @@ export function useTeamScoreSave(input: {
     programarEnvio()
   }, [parMap, codigo, setTeamEquipos, setHasUnsaved, programarEnvio])
 
-  const autoFillTeamsWithPar = useCallback(async (hole: number, par: number) => {
+  const confirmarHoyo = useCallback(async (hole: number, par: number, opciones?: { inmediato?: boolean }) => {
     const key = String(hole)
-    setTeamEquipos(prev => {
-      const next = prev.map(eq => {
-        if (eq.scores[key] != null || sinParRef.current.has(eq.id)) return eq
-        marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(eq.id), { [key]: par })
-        return { ...eq, scores: { ...eq.scores, [key]: par } }
+    // flushSync: el par queda en la cola del teléfono ANTES de enviar (el envío inmediato lee la cola al tiro).
+    flushSync(() => {
+      setTeamEquipos(prev => {
+        const next = prev.map(eq => {
+          if (eq.scores[key] != null || noConfirmanRef.current.has(eq.id)) return eq
+          marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(eq.id), { [key]: par })
+          return { ...eq, scores: { ...eq.scores, [key]: par } }
+        })
+        respaldar(codigo, next)
+        return next
       })
-      respaldar(codigo, next)
-      return next
     })
     setHasUnsaved(true)
-    programarEnvio()
-  }, [codigo, setTeamEquipos, setHasUnsaved, programarEnvio])
+    if (opciones?.inmediato) await enviarYa()
+    else programarEnvio()
+  }, [codigo, setTeamEquipos, setHasUnsaved, programarEnvio, enviarYa])
 
   const completarEquiposConPar = useCallback((equipos: EquipoDelScorer[], hoyos: readonly number[], sinPar?: ReadonlyArray<{ id: string }>) => {
     const excluidos = sinPar ? new Set(sinPar.map(e => e.id)) : sinParRef.current
@@ -113,5 +132,5 @@ export function useTeamScoreSave(input: {
     setFoursomeInvertido(prev => ({ ...prev, [equipoId]: !prev[equipoId] }))
   }, [])
 
-  return { handleTeamScoreChange, autoFillTeamsWithPar, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido }
+  return { handleTeamScoreChange, confirmarHoyo, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido }
 }

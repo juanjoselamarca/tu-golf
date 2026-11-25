@@ -31,6 +31,8 @@ export interface EquipoConAnotador {
   handicap_origen?: HandicapOrigen | null
   anotador_user_id?: string | null
   anotador_nombre?: string | null
+  /** Golpes del equipo por hoyo: dicen si el creador ya anota uno sin reclamar (`equiposQueConfirmanElHoyo`). */
+  scores?: Readonly<Record<string, number | null | undefined>> | null
 }
 
 /**
@@ -70,10 +72,11 @@ export function equiposDeOtroCelular<E extends EquipoConAnotador>(
 }
 
 /**
- * Los equipos a los que ESTE celular les pone par solo (al pasar de hoyo y al cerrar). Ronda de un celular: todos,
- * como siempre. Un celular por equipo: solo el que reclamó (`anotador_user_id === userId`). Un equipo sin reclamar
- * lo ve y lo edita a mano el creador, pero el par no se inventa: sería un par falso en el servidor y en la tabla en
- * vivo para un equipo que todavía no abre el link (revisión Fable PR4, P1-a).
+ * Los equipos a los que ESTE celular les rellena con par los hoyos vacíos al CERRAR la ronda (hoyos que la pantalla
+ * pudo no mostrar nunca). Ronda de un celular: todos, como siempre. Un celular por equipo: solo el que reclamó
+ * (`anotador_user_id === userId`). Un equipo sin reclamar lo ve y lo edita a mano el creador, pero el par no se
+ * inventa: sería un par falso en el servidor y en la tabla en vivo para un equipo que todavía no abre el link
+ * (revisión Fable PR4, P1-a). El valor del hoyo EN PANTALLA es otra regla: `equiposQueConfirmanElHoyo`.
  */
 export function equiposConParAutomatico<E extends EquipoConAnotador>(
   ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode'>,
@@ -96,6 +99,42 @@ export function equiposSinParAutomatico<E extends EquipoConAnotador>(
 ): E[] {
   const conPar = new Set(equiposConParAutomatico(ronda, equipos, userId).map(e => e.id))
   return equipos.filter(e => !conPar.has(e.id))
+}
+
+/** ¿El equipo tiene algún golpe anotado (en el servidor o en este teléfono)? */
+function tieneGolpes(equipo: Pick<EquipoConAnotador, 'scores'>): boolean {
+  return Object.values(equipo.scores ?? {}).some(v => v != null)
+}
+
+/**
+ * FUENTE ÚNICA de «confirmar el valor que muestra el hoyo»: los equipos cuyo par gris (el hoyo sin golpes, en pantalla)
+ * ESTE celular guarda al tocar «Siguiente» o «Guardar hoyo N». Ronda de un celular: todos. Un celular por equipo:
+ *  - los de `equiposConParAutomatico` (el que reclamó);
+ *  - el creador, además, uno sin reclamar que YA tiene golpes: lo está anotando él (lo liberó cuando se apagó el
+ *    otro celular, o empezó a anotarlo a mano). Ensayo 24-nov: tras «Liberar», Siguiente no guardaba el par gris de
+ *    ese equipo, que se veía anotado en pantalla y frenaba el cierre.
+ * Uno sin reclamar y sin ningún golpe no (P1-a: todavía no abre el link). Solo el hoyo en pantalla: los hoyos vacíos
+ * de un equipo sin reclamar siguen frenando el cierre (`equiposSinParAutomatico`).
+ */
+export function equiposQueConfirmanElHoyo<E extends EquipoConAnotador>(
+  ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
+  equipos: readonly E[],
+  userId: string | null | undefined,
+): E[] {
+  if (!unCelularPorEquipo(ronda, equipos)) return [...equipos]
+  if (!userId) return []
+  const esCreador = ronda.creador_id === userId
+  return equipos.filter(e => e.anotador_user_id === userId || (esCreador && e.anotador_user_id == null && tieneGolpes(e)))
+}
+
+/** Complemento exacto de `equiposQueConfirmanElHoyo`: su par gris no se guarda solo (se anotan a mano). */
+export function equiposQueNoConfirmanElHoyo<E extends EquipoConAnotador>(
+  ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
+  equipos: readonly E[],
+  userId: string | null | undefined,
+): E[] {
+  const confirman = new Set(equiposQueConfirmanElHoyo(ronda, equipos, userId).map(e => e.id))
+  return equipos.filter(e => !confirman.has(e.id))
 }
 
 /** Equipos que nadie anota desde su celular: los que se pueden reclamar en «Elige tu equipo». */
@@ -222,4 +261,53 @@ export function equipoAjenoIncompleto<E extends EquipoConAnotador & { nombre: st
     if (hoyo != null) return { equipo: e, hoyo }
   }
   return null
+}
+
+/** Nombre del anotador cuando no hay ninguno que mostrar. */
+export const NOMBRE_ANOTADOR_GENERICO = 'Anotador'
+
+/**
+ * Nombre con que el scorer de equipos muestra a quien anota en ESTE celular (encabezado). Nunca el correo (ensayo
+ * 24-nov: salía «ensayo-ross-17955…»): su nombre de jugador en la ronda → el de su perfil (`anotador_nombre` del
+ * equipo que reclamó, que la base copia de profiles.name, o el perfil leído) → «Anotador».
+ * El alta sin nombre deja `profiles.name` = la parte local del correo (`handle_new_user`): en las fuentes que vienen del
+ * perfil ese candidato se descarta como si no hubiera nombre (el nombre en la ronda lo tecleó alguien: «Max» con
+ * max@… es legítimo). Un candidato con «@» se descarta en todas.
+ */
+export function nombreDelAnotadorDelCelular(input: {
+  jugadores: ReadonlyArray<{ user_id?: string | null; nombre?: string | null }>
+  equipos: ReadonlyArray<Pick<EquipoConAnotador, 'anotador_user_id' | 'anotador_nombre'>>
+  userId: string | null | undefined
+  nombreDePerfil?: string | null
+  email?: string | null
+}): string {
+  const { jugadores, equipos, userId } = input
+  if (!userId) return NOMBRE_ANOTADOR_GENERICO
+  const parteLocal = input.email?.split('@')[0]?.trim().toLowerCase() || null
+  const valido = (n: string | null | undefined, delPerfil: boolean): string | null => {
+    const t = n?.trim()
+    if (!t || t.includes('@') || (delPerfil && parteLocal && t.toLowerCase() === parteLocal)) return null
+    return t
+  }
+  return valido(jugadores.find(j => j.user_id === userId)?.nombre, false)
+    ?? valido(equipos.find(e => e.anotador_user_id === userId)?.anotador_nombre, true)
+    ?? valido(input.nombreDePerfil, true)
+    ?? NOMBRE_ANOTADOR_GENERICO
+}
+
+/**
+ * Último hoyo, celular que cierra la ronda: un equipo que este celular anota tras liberarlo su dueño (no recibe par
+ * automático al cerrar) y que todavía no tiene golpes en el hoyo. Finalizar lo frenaría: primero «Guardar hoyo N».
+ */
+export function equipoLiberadoSinElHoyo(input: {
+  equipos: ReadonlyArray<{ id: string; scores: Record<string, number> }>
+  sinParAutomatico: ReadonlyArray<{ id: string }>
+  noConfirmanElHoyo: ReadonlyArray<{ id: string }>
+  hoyo: number
+}): boolean {
+  const { equipos, sinParAutomatico, noConfirmanElHoyo, hoyo } = input
+  return equipos.some(e =>
+    sinParAutomatico.some(s => s.id === e.id)
+    && !noConfirmanElHoyo.some(n => n.id === e.id)
+    && e.scores[String(hoyo)] == null)
 }

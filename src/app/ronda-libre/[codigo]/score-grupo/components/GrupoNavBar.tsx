@@ -12,15 +12,44 @@ interface GrupoNavBarProps {
   onPrev: () => void
   onNext: () => void
   onFinalize: () => void
+  /**
+   * Último hoyo de quien NO cierra la ronda (un celular por equipo): en lugar de Siguiente, «Guardar hoyo N» confirma
+   * el valor en pantalla. `guardado`: el hoyo ya tiene golpes en todas las tarjetas de este celular. `envio`: si esos
+   * golpes ya están en el servidor. Guardado pero sin subir, el botón sigue activo como reintento («Enviar hoyo N»):
+   * nunca dice «anotado ✓» con el golpe solo en el teléfono.
+   */
+  guardarUltimoHoyo?: { hoyo: number; guardado: boolean; envio?: EnvioDelHoyo; onGuardar: () => void }
   theme: ScorerTheme
 }
 
-/** Barra inferior del scorer de grupo: Anterior / Siguiente / Finalizar. */
+export type EnvioDelHoyo = 'al_dia' | 'enviando' | 'pendiente'
+
+/**
+ * Si los golpes de este celular ya están en el servidor. La cola del teléfono (`hayPendientes`) es la fuente de verdad:
+ * `fallo` solo cuenta los envíos fallidos de esta carga de la página, y al reabrir sin señal (iOS descarta la pestaña)
+ * el último hoyo decía «anotado ✓» con el golpe solo en el teléfono.
+ */
+export function envioDelHoyo(input: { enviando: boolean; fallo: boolean; colaConPendientes: boolean }): EnvioDelHoyo {
+  if (input.enviando) return 'enviando'
+  return input.fallo || input.colaConPendientes ? 'pendiente' : 'al_dia'
+}
+
+/** Barra inferior del scorer de grupo: Anterior / Siguiente / Finalizar (o «Guardar hoyo N» en el último hoyo de quien no cierra). */
 export function GrupoNavBar({
   currentHoleIdx, isLastHole, canFinalize, finalizing, congelada,
-  onPrev, onNext, onFinalize, theme,
+  onPrev, onNext, onFinalize, guardarUltimoHoyo, theme,
 }: GrupoNavBarProps) {
   const finalizarInactivo = finalizing || congelada
+  const guardar = isLastHole ? guardarUltimoHoyo : undefined
+  const envio = guardar?.envio ?? 'al_dia'
+  const anotado = !!guardar && guardar.guardado && envio === 'al_dia'
+  const enviando = !!guardar && guardar.guardado && envio === 'enviando'
+  const guardarInactivo = !!guardar && (anotado || enviando || congelada)
+  const etiquetaGuardar = !guardar ? ''
+    : anotado ? `Hoyo ${guardar.hoyo} anotado ✓`
+    : enviando ? `Enviando hoyo ${guardar.hoyo}…`
+    : guardar.guardado ? `Enviar hoyo ${guardar.hoyo}`
+    : `Guardar hoyo ${guardar.hoyo}`
   return (
     <div style={{
       flexShrink: 0, background: theme.navBg,
@@ -54,6 +83,25 @@ export function GrupoNavBar({
           }}
         >
           Siguiente {'→'}
+        </button>
+      )}
+      {guardar && (
+        <button
+          type="button"
+          onClick={guardar.onGuardar}
+          disabled={guardarInactivo}
+          style={{
+            flex: 2, padding: '14px',
+            background: anotado || enviando ? 'transparent' : theme.gold,
+            color: anotado || enviando ? 'var(--brand-on-bg)' : 'var(--brand-dark)',
+            border: anotado || enviando ? `1px solid rgba(196,153,42,0.4)` : 'none',
+            borderRadius: '12px', fontSize: '16px', fontWeight: 600,
+            cursor: guardarInactivo ? 'default' : 'pointer', minHeight: '48px',
+            touchAction: 'manipulation', letterSpacing: '0.01em',
+            opacity: congelada && !anotado ? 0.7 : 1,
+          }}
+        >
+          {etiquetaGuardar}
         </button>
       )}
       {/* Finalize: secondary from hole 9, primary on last hole */}
