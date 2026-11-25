@@ -342,16 +342,19 @@ export async function cargarRondaLibreEnVivo(
       )
     }
 
-    // Equipos (solo modalidades por equipo).
+    // Equipos (solo modalidades por equipo). La lectura que LANZA: un error no puede pasar por "sin equipos"
+    // (con [] una ronda de equipos de club se publicaba solo bruto, 200 cacheable en el CDN; revisión PR B 25-nov).
+    // El catch devuelve 'error' → 503 no-store y el cliente conserva lo que tenía.
     const equipos: Equipo[] = isTeamFormat(ronda.formato_juego)
-      ? await fetchRondaEquipos(supabase, ronda.id)
+      ? (await fetchEquiposDeRondas(supabase, [ronda.id])).get(ronda.id) ?? []
       : []
 
     return {
       status: 'ok', ronda, parMap, siMap, courseHcpMap, courseHcpCompletoMap, displayHcpMap,
       sinIndice: [...sinIndice], equipos,
     }
-  } catch {
+  } catch (err) {
+    void captureError(err, { context: 'data.cargarRondaLibreEnVivo', level: 'warning', meta: { codigo } })
     return { status: 'error' }
   }
 }

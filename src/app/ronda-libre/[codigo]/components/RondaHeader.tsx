@@ -11,7 +11,16 @@ export interface RondaHeaderProps {
   timeSinceUpdate: string
   /** Label del formato YA resuelto para este visor (quien llama decide: `etiquetaDelFormato`/`formatLabel`). */
   formatoDisplay: string
-  jugadoresCount: number
+  /** Quiénes juegan (`participantesDeLaRonda`): null en lo que no se cuenta. */
+  participantes: { jugadores: number | null; equipos: number | null }
+}
+
+/** «2 equipos · 8 jugadores», «2 equipos» (de club) o «3 jugadores». */
+export function textoDeParticipantes(p: { jugadores: number | null; equipos: number | null }): string {
+  const partes: string[] = []
+  if (p.equipos != null) partes.push(`${p.equipos} equipo${p.equipos !== 1 ? 's' : ''}`)
+  if (p.jugadores != null) partes.push(`${p.jugadores} jugador${p.jugadores !== 1 ? 'es' : ''}`)
+  return partes.join(' · ')
 }
 
 // El header es --bg-deep en ambos temas (superficie brand-locked, DESIGN.md P1): el verde
@@ -21,7 +30,7 @@ const LIVE_ON_DEEP = '#4ade80'
 
 export function RondaHeader({
   isFinished, isEnCurso, courseName, fechaDisplay, holes,
-  timeSinceUpdate, formatoDisplay, jugadoresCount,
+  timeSinceUpdate, formatoDisplay, participantes,
 }: RondaHeaderProps) {
 
   return (
@@ -76,7 +85,7 @@ export function RondaHeader({
               <span style={{ opacity: 0.4 }}>·</span>
               <span>{formatoDisplay}</span>
               <span style={{ opacity: 0.4 }}>·</span>
-              <span>{jugadoresCount} jugador{jugadoresCount !== 1 ? 'es' : ''}</span>
+              <span>{textoDeParticipantes(participantes)}</span>
               {/* Sin "·" antes del chip: a 390px el chip baja de línea y el punto quedaba huérfano. */}
               <span style={{
                 display: 'inline-block',

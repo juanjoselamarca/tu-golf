@@ -107,6 +107,9 @@ function filasDeEquipos(formato: 'scramble' | 'foursome', hoyos: readonly number
  *  - Puntos Stableford SÓLO en gross: en Stableford neto no se publican (con ellos
  *    y el bruto se deduce el handicap del jugador, y de ahí su índice); la ronda
  *    se muestra con golpes brutos. `vistaPublica` la pasa a stroke_play.
+ * EXCEPCIÓN pendiente (follow-up): una ronda de equipos de club (`esRondaDeEquiposDeClub`) se ve completa, con
+ * gross y neto, en su vista en vivo (`datosRondaLibrePublicos`, decisión de Juanjo 25-nov); este feed no lee los
+ * equipos y la sigue publicando solo bruto.
  */
 function vistaDelFeed(ronda: RondaRow): { clasificacionBruta: boolean; muestraPuntos: boolean } {
   const vista = vistaPublicaDeRondaLibre(ronda)

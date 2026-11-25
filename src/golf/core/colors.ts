@@ -162,6 +162,8 @@ export function getHoleBarColor(grossScore: number | null | undefined, par: numb
 
 /**
  * Canonical Garmin score color for a vs-par differential (round total or hole).
+ * Excepción: la imagen de compartir (`src/lib/share-card.ts`) pinta totales con `colorDeTotal` (bajo/par/sobre,
+ * con contraste medido sobre su fondo oscuro). TODO(colores-de-total): unificar ambas fuentes post 28-nov.
  * Reemplaza patrones tipo `diff < 0 ? '#16a34a' : diff > 0 ? '#dc2626' : muted`
  * que perdían la distinción eagle/birdie/bogey/double de Garmin.
  *

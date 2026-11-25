@@ -11,7 +11,7 @@ import type { ReactNode } from 'react'
 import { formatearHandicap } from '@/golf/handicap-index-range'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { formatOverUnder, nombreDelModo } from '@/golf/core/rules'
-import { getScoreColor } from '@/golf/core/colors'
+import { scoreFgVar } from '@/lib/score-tokens'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 import { esPrimerLugar } from '@/golf/core/posiciones'
@@ -55,6 +55,15 @@ const FORMATO_LABEL: Record<string, string> = {
 
 function primaryScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego): number {
   return scorePrimarioDeEquipo(team, formato, modo)
+}
+
+/**
+ * En una tabla NETO, el gross del equipo va debajo del neto, rotulado: gross y neto siempre a la vista y sin
+ * confundirse (ensayo 24-nov: el espectador no sabía cuál de los dos era el número). Sin hoyos no hay gross que dar.
+ */
+export function grossBajoElNeto(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string | null {
+  if (modo !== 'neto' || formato === 'stableford' || team.holesPlayed === 0) return null
+  return `Gross ${hasCourse ? formatOverUnder(team.overUnderGross) : team.totalGross}`
 }
 
 function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string {
@@ -106,7 +115,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>#</span>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>Equipo</span>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'center' }}>
-          {isStableford ? 'PTS' : hasCourse ? '+/- Par' : 'Score'}
+          {isStableford ? 'PTS' : nombreDelModo(modoJuego)}
         </span>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'right' }}>{THRU_LABEL}</span>
       </div>
@@ -122,6 +131,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
         const score = primaryScore(team, modoJuego, formatoJuego)
         const isEven = score === 0 && !isStableford
         const isGood = isStableford ? score > 0 : score < 0
+        const grossLinea = grossBajoElNeto(team, modoJuego, formatoJuego, hasCourse)
 
         return (
           <div key={team.teamId} style={{ borderBottom: '1px solid var(--border)' }}>
@@ -171,12 +181,18 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
               <span style={{
                 fontSize: '16px', fontWeight: 700, fontFamily: '"DM Mono", monospace',
                 // Stableford: pts altos = bueno → mapear a birdie color; stroke: score IS el diff.
+                // Tokens con tema (no hex fijo): #0B6BA6 daba ~3:1 sobre el fondo oscuro.
                 color: isStableford
-                  ? (score > 0 ? getScoreColor(-1) : score === 0 ? getScoreColor(0) : getScoreColor(1))
-                  : getScoreColor(score),
+                  ? (score > 0 ? scoreFgVar(-1) : score === 0 ? scoreFgVar(0) : scoreFgVar(1))
+                  : scoreFgVar(score),
               }}>
                 {displayScore(team, modoJuego, formatoJuego, hasCourse)}
               </span>
+              {grossLinea && (
+                <div style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', marginTop: '1px', whiteSpace: 'nowrap' }}>
+                  {grossLinea}
+                </div>
+              )}
             </div>
 
             {/* Holes */}

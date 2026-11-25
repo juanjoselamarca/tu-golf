@@ -43,6 +43,10 @@ export interface ShareCardRondaLibre {
   matchResult?: string
   /** Total Stableford del jugador (para mostrar "N pts" como subtítulo). */
   stablefordPoints?: number
+  /** `scoreGross`/`scoreDiff` son NETOS (equipos en una ronda neta): el número grande es el vs par
+   *  con el rótulo «neto», como el cuadro ganador de la pantalla. Explícito y no por `modo_juego`:
+   *  la tarjeta individual de `FinishedRoundView` manda el bruto aunque la ronda sea neta. */
+  scoreEsNeto?: boolean
   /** Para formatos de equipo: nombre del equipo ganador */
   teamNombre?: string
   /** Para formatos de equipo: miembros del equipo ganador */
@@ -129,12 +133,17 @@ function drawDivider(ctx: CanvasRenderingContext2D, y: number, W: number) {
   ctx.beginPath(); ctx.moveTo(80, y); ctx.lineTo(W - 80, y); ctx.stroke(); ctx.restore()
 }
 
-function scoreColor(diff: number): string {
-  if (diff <= -2) return '#0B6BA6' // eagle+ azul oscuro Garmin
-  if (diff === -1) return '#14B3D9' // birdie celeste Garmin
-  if (diff === 0) return '#c9a84c'  // par dorado Golfers+
-  if (diff === 1) return '#D4A442'  // bogey dorado Garmin
-  return '#DC3B2E'                   // doble+ rojo Garmin
+/**
+ * Color de un TOTAL (número grande y filas del ranking) sobre el fondo oscuro: bajo par / par / sobre
+ * par. No es la escala de un hoyo (eagle/birdie/doble): un −7 no es «eagle» ni un +3 «doble bogey».
+ * Contraste compositado mínimo (fondo #071510…#111827 + brillo dorado 7 %, y la caja del ranking,
+ * 4 % blanco): bajo par #60A5FA 5.37:1 · par #c9a84c 5.97:1 · sobre par #F87171 4.93:1.
+ * Antes: −7 en #0B6BA6 (2.38:1). La tarjeta hoyo a hoyo usa GARMIN (drawScoreSymbol), aparte.
+ */
+export function colorDeTotal(diff: number): string {
+  if (diff < 0) return '#60A5FA'  // bajo par
+  if (diff === 0) return '#c9a84c' // par, dorado Golfers+
+  return '#F87171'                 // sobre par
 }
 
 // Badge "9 HOYOS" / "18 HOYOS" — defensive UX, el usuario siempre sabe qué ronda es
@@ -264,8 +273,16 @@ function drawScoreSymbol(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
   ctx.restore()
 }
 
-/** Exportada para tests (texto pintado por hoyo); el resto del módulo la usa vía `generarShareCard`. */
-export function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | number, number>, pars: Record<number, number>, hoyosDeLaTarjeta: readonly number[], startY: number, W: number) {
+/** Línea base de lo que va bajo la tarjeta (birdies, ranking): 60px bajo su borde inferior (texto de 30px con aire); nunca más arriba de 1200. */
+export function yBajoLaTarjeta(fondoDelPanel: number): number {
+  return Math.max(1200, fondoDelPanel + 60)
+}
+
+/**
+ * Dibuja el panel blanco de la tarjeta hoyo a hoyo y devuelve su borde inferior (y).
+ * Exportada para tests (texto pintado por hoyo); el resto del módulo la usa vía `generarShareCard`.
+ */
+export function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | number, number>, pars: Record<number, number>, hoyosDeLaTarjeta: readonly number[], startY: number, W: number): number {
   // Por número (OUT arriba, IN abajo): un 9h desde el 10 pinta los hoyos 10-18, no 1-9 vacíos.
   const hoyos = hoyosPorNumero(hoyosDeLaTarjeta)
   const holes = hoyos.length
@@ -363,6 +380,7 @@ export function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<stri
   ctx.fillStyle = diffColor; ctx.font = 'bold 22px Arial, sans-serif'
   ctx.fillText(diffLabel, panelX + panelW - 32, totalY + totalRowH / 2 + 8)
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+  return panelY + panelH
 }
 
 // ── CTA inferior ─────────────────────────────────────────────────
@@ -425,6 +443,36 @@ export function tamanoQueCabe(medir: (px: number) => number, max: number, min: n
   return min
 }
 
+/** Alto de una fila del ranking de la imagen y su margen superior dentro de la caja. */
+const FILA_RANKING = 56
+const MARGEN_RANKING = 16
+
+/**
+ * El nombre de una fila del ranking achicado hasta caber en `anchoMax` (28 → 20 px); si ni a 20 cabe,
+ * se corta con «…». `medir(texto, px)` mide con la fuente de la fila.
+ */
+export function nombreQueCabe(texto: string, medir: (texto: string, px: number) => number, anchoMax: number): { texto: string; px: number } {
+  const px = tamanoQueCabe(p => medir(texto, p), 28, 20, anchoMax)
+  if (medir(texto, px) <= anchoMax) return { texto, px }
+  let corto = texto
+  while (corto.length > 1 && medir(`${corto}…`, px) > anchoMax) corto = corto.slice(0, -1)
+  return { texto: `${corto.trimEnd()}…`, px }
+}
+
+/**
+ * Cuántas filas del ranking caben entre `rkY` y el bloque inferior (CTA en H − 380, con 24px de aire).
+ * Si no caben todas, la última fila visible es «+N más»: `visibles` filas con nombre y `resto` contadas.
+ * Truncado = al menos 2 nombres + «+N más» (3 filas). Si no caben (tarjeta de 18 y ranking de 4),
+ * no hay ranking: un nombre y «+3 más» no informan, y el ganador ya está arriba en grande.
+ */
+export function filasDelRanking(total: number, rkY: number, H: number): { visibles: number; resto: number } {
+  const maxFilas = Math.max(0, Math.floor((H - 380 - 24 - rkY - MARGEN_RANKING) / FILA_RANKING))
+  if (total <= maxFilas) return { visibles: total, resto: 0 }
+  if (maxFilas < 3) return { visibles: 0, resto: 0 }
+  const visibles = maxFilas - 1
+  return { visibles, resto: total - visibles }
+}
+
 /** Parte un texto en dos líneas por el espacio más cercano al medio (una sola línea si no hay espacios). */
 export function partirEnDosLineas(texto: string): [string, string] {
   const medio = texto.length / 2
@@ -435,7 +483,7 @@ export function partirEnDosLineas(texto: string): [string, string] {
   return corte < 0 ? [texto, ''] : [texto.slice(0, corte), texto.slice(corte + 1)]
 }
 
-function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLibre, W: number, H: number) {
+export function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLibre, W: number, H: number) {
   ctx.textAlign = 'center'
   const encabezado = encabezadoDeRondaLibre(data)
   // Share text — emoji OK for external platforms (canvas-rendered share card image)
@@ -482,7 +530,7 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
 
   const isStableford = data.formato_juego === 'stableford'
   const isMatchPlay = data.formato_juego === 'match_play'
-  const clr = isStableford ? '#c9a84c' : isMatchPlay ? '#c9a84c' : scoreColor(data.scoreDiff)
+  const clr = isStableford ? '#c9a84c' : isMatchPlay ? '#c9a84c' : colorDeTotal(data.scoreDiff)
 
   if (isMatchPlay && data.matchResult) {
     // Match Play: el resultado del match es lo que importa, no el stroke total.
@@ -497,32 +545,44 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
     // El empate se decide por vs par; los golpes brutos de los empatados pueden
     // diferir (neto, o distinta cantidad de hoyos anotados). Con empate el número
     // grande es el vs par, como en el cuadro ganador de la pantalla.
+    // Neto (equipos en ronda neta): el número grande es el vs par neto y dice «neto», igual que
+    // la pantalla («−7 Neto»); antes salía el total neto (65) con «7 bajo par», sin decir que era neto.
+    const neto = !!data.scoreEsNeto && !isStableford
     const empateVsPar = data.esEmpate && !isStableford
     ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 35
     ctx.font = 'bold 210px Arial, sans-serif'; ctx.fillStyle = clr
-    ctx.fillText(empateVsPar ? formatOverUnder(data.scoreDiff) : String(data.scoreGross), W / 2, 790)
+    ctx.fillText(empateVsPar || neto ? formatOverUnder(data.scoreDiff) : String(data.scoreGross), W / 2, 790)
     ctx.restore()
     if (isStableford) {
       ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('puntos', W / 2, 848)
+    } else if (neto) {
+      ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('neto', W / 2, 848)
     } else {
       const diffTxt = empateVsPar ? relacionConElPar(data.scoreDiff) : vsParEnPalabras(data.scoreDiff)
       ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
     }
   }
   ctx.font = '32px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 900)
+  // Tarjeta hoyo a hoyo solo si hay golpes: la imagen de equipos (y la del leaderboard) no trae
+  // scores y pintaba un panel blanco vacío con 18 guiones y un TOTAL «0 −72» falso.
+  const hayTarjeta = Object.keys(data.scoresByHole).length > 0
+  const hoyosDeLaTarjeta = data.hoyos ?? hoyosDesdeElUno(data.holesPlayed)
+  let fondoDelPanel = 0
   // Badges: holes + formato (si hay formato, los ponemos apilados para no chocar)
   if (data.formato_juego) {
     drawHolesBadge(ctx, data.holesPlayed, W / 2, 935)
     drawFormatBadge(ctx, data.formato_juego, data.modo_juego, W / 2, 982)
     drawDivider(ctx, 1015, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.hoyos ?? hoyosDesdeElUno(data.holesPlayed), 1035, W)
+    if (hayTarjeta) fondoDelPanel = drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDeLaTarjeta, 1035, W)
   } else {
     drawHolesBadge(ctx, data.holesPlayed, W / 2, 940)
     drawDivider(ctx, 975, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.hoyos ?? hoyosDesdeElUno(data.holesPlayed), 1000, W)
+    if (hayTarjeta) fondoDelPanel = drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDeLaTarjeta, 1000, W)
   }
 
-  const statsY = 1200
+  // Birdies y ranking van BAJO el panel: en 18 hoyos el panel baja hasta ~1285 y el ranking
+  // arrancaba fijo en 1200 → la fila del ganador (blanca) quedaba encima del panel blanco.
+  const statsY = hayTarjeta ? yBajoLaTarjeta(fondoDelPanel) : 1050
   const items: string[] = []
   // Stableford y Match Play: eagles/birdies no son relevantes para el resultado.
   // Solo se muestran en Stroke Play donde el total gross manda.
@@ -534,34 +594,46 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
 
   if (data.ranking && data.ranking.length > 1) {
     const rkY = items.length > 0 ? statsY + 48 : statsY
-    roundRect(ctx, 80, rkY, W - 160, data.ranking.length * 56 + 16, 14)
-    ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill()
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.stroke()
-    data.ranking.forEach((j, i) => {
-      const ly = rkY + 16 + i * 56
+    // Tope: con 9+ equipos (o tarjeta + birdies) las filas se metían bajo el bloque inferior.
+    const { visibles, resto } = filasDelRanking(data.ranking.length, rkY, H)
+    const filas = visibles + (resto > 0 ? 1 : 0)
+    if (filas > 0) {
+      roundRect(ctx, 80, rkY, W - 160, filas * FILA_RANKING + MARGEN_RANKING, 14)
+      ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill()
+      ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.stroke()
+    }
+    if (resto > 0) {
+      ctx.textAlign = 'left'; ctx.font = '28px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.55)'
+      ctx.fillText(`+${resto} más`, 110, rkY + MARGEN_RANKING + visibles * FILA_RANKING + 36)
+    }
+    data.ranking.slice(0, visibles).forEach((j, i) => {
+      const ly = rkY + MARGEN_RANKING + i * FILA_RANKING
       const posicion = j.posicion === undefined ? String(i + 1) : j.posicion
       const lider = j.posicion === undefined ? i === 0 : esPrimerLugar(posicion)
-      ctx.textAlign = 'left'; ctx.font = `${lider ? 'bold ' : ''}28px Arial, sans-serif`
-      ctx.fillStyle = lider ? '#ffffff' : 'rgba(255,255,255,0.45)'; ctx.fillText(posicion ? `${posicion}. ${j.nombre}` : j.nombre, 110, ly + 36)
-      ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'
-      if (j.holesPlayed === 0) {
-        // Equipo que no anotó ningún hoyo: va al final y no tiene score que mostrar.
-        ctx.fillStyle = 'rgba(255,255,255,0.3)'
-        ctx.fillText('sin score', W - 110, ly + 36)
-      } else if (isStableford) {
-        ctx.fillStyle = '#c9a84c'
-        ctx.fillText(`${j.score} pts`, W - 110, ly + 36)
-      } else {
-        ctx.fillStyle = scoreColor(j.diff)
-        ctx.fillText(`${j.score} (${j.diff >= 0 ? '+' : ''}${j.diff})`, W - 110, ly + 36)
-      }
+      // Score a la derecha: equipo sin hoyos → «sin score»; stableford → pts; si no, total (neto lo dice:
+      // «65 neto (−7)», igual que el número grande) en la escala de totales.
+      const [textoScore, colorScore] = j.holesPlayed === 0
+        ? ['sin score', 'rgba(255,255,255,0.55)']
+        : isStableford
+          ? [`${j.score} pts`, '#c9a84c']
+          : [`${j.score}${data.scoreEsNeto ? ' neto' : ''} (${formatOverUnder(j.diff)})`, colorDeTotal(j.diff)]
+      ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'; ctx.fillStyle = colorScore
+      ctx.fillText(textoScore, W - 110, ly + 36)
+      const anchoDelScore = ctx.measureText(textoScore).width
+      // Nombre a la izquierda, achicado o cortado hasta no chocar con el score (24px de aire).
+      const pesoDelNombre = lider ? 'bold ' : ''
+      const etiqueta = posicion ? `${posicion}. ${j.nombre}` : j.nombre
+      const medirNombre = (t: string, px: number) => { ctx.font = `${pesoDelNombre}${px}px Arial, sans-serif`; return ctx.measureText(t).width }
+      const nombre = nombreQueCabe(etiqueta, medirNombre, W - 220 - anchoDelScore - 24)
+      ctx.textAlign = 'left'; ctx.font = `${pesoDelNombre}${nombre.px}px Arial, sans-serif`
+      ctx.fillStyle = lider ? '#ffffff' : 'rgba(255,255,255,0.55)'; ctx.fillText(nombre.texto, 110, ly + 36)
     })
   }
 }
 
 // ── Template: Torneo ─────────────────────────────────────────────
 
-function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: number, H: number) {
+export function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: number, H: number) {
   // Share text — emoji OK for external platforms (canvas-rendered share card image)
   const posEmoji = data.posicion === 1 ? '🥇' : data.posicion === 2 ? '🥈' : data.posicion === 3 ? '🥉' : `#${data.posicion}`
   ctx.textAlign = 'center'; ctx.font = '140px serif'; ctx.fillText(posEmoji, W / 2, 370)
@@ -575,22 +647,23 @@ function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: 
 
   ctx.font = 'bold 64px Georgia, serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(data.jugadorNombre, W / 2, 548)
 
-  const clr = scoreColor(data.scoreDiff)
+  const clr = colorDeTotal(data.scoreDiff)
   ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 30
   ctx.font = 'bold 200px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(String(data.scoreGross), W / 2, 760); ctx.restore()
 
   ctx.font = 'bold 40px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(vsParEnPalabras(data.scoreDiff), W / 2, 815)
   ctx.font = '30px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 862)
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillText(`${data.totalJugadores} jugadores`, W / 2, 898)
+  let fondoDelPanel: number
   if (data.formato_juego) {
     drawHolesBadge(ctx, 18, W / 2, 932)
     drawFormatBadge(ctx, data.formato_juego, data.modo_juego, W / 2, 980)
     drawDivider(ctx, 1013, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 1033, W)
+    fondoDelPanel = drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 1033, W)
   } else {
     drawHolesBadge(ctx, 18, W / 2, 938)
     drawDivider(ctx, 973, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 998, W)
+    fondoDelPanel = drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 998, W)
   }
 
   // Stableford y Match Play: eagles/birdies no son relevantes.
@@ -601,7 +674,7 @@ function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: 
     if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
     if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
   }
-  if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, 1200) }
+  if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, yBajoLaTarjeta(fondoDelPanel)) }
 }
 
 // ── Generador principal ──────────────────────────────────────────
@@ -631,6 +704,7 @@ export async function generarShareCard(data: ShareCardData): Promise<Blob> {
 export function scoreDelTextoParaCompartir(data: ShareCardData): string {
   if (data.tipo !== 'ronda_libre') return String(data.scoreGross)
   if (data.formato_juego === 'stableford') return `${data.scoreGross} pts`
+  if (data.scoreEsNeto) return `${formatOverUnder(data.scoreDiff)} neto`
   if (data.esEmpate) {
     return data.scoreDiff === 0 ? relacionConElPar(0) : `${formatOverUnder(data.scoreDiff)} ${relacionConElPar(data.scoreDiff)}`
   }
@@ -700,6 +774,8 @@ export function tarjetaDeEquipos(data: LeaderboardShareData): ShareCardRondaLibr
     teamNombre: winTeam.nombre,
     teamJugadores: winTeam.jugadores,
     teamFormato: data.formato_juego as 'best_ball' | 'scramble' | 'foursome',
+    // En ronda neta `score`/`diff` de los equipos son netos (rankTeams).
+    scoreEsNeto: data.modo_juego === 'neto',
     contraElPar: juegaContraElPar(data.teams.length),
     ranking: rankingDeEquipos(data.teams),
   }

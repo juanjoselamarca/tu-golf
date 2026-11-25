@@ -45,18 +45,33 @@ function formatoLabel(ronda: RondaLibre): string {
 }
 
 /**
+ * En una ronda NETO de equipos el número grande es el neto: «Neto» va pegado al número y, con un solo ganador,
+ * su gross en una línea aparte (ensayo 24-nov: «EMPATE +1» era el gross y la ronda se jugaba en neto).
+ */
+export function detalleNetoDeEquipos(
+  ronda: Pick<RondaLibre, 'modo_juego' | 'formato_juego'>,
+  ganador: Pick<TeamShareRow, 'diffGross'>,
+  isTie: boolean,
+): { rotulo: 'Neto'; gross: string | null } | undefined {
+  if (ronda.modo_juego !== 'neto' || ronda.formato_juego === 'stableford') return undefined
+  return { rotulo: 'Neto', gross: isTie ? null : `Gross ${formatOverUnder(ganador.diffGross)}` }
+}
+
+/**
  * Héroe editorial compartido: pill formato + ícono + etiqueta + nombre serif +
  * (integrantes) + score grande + cancha·fecha + UN botón de compartir.
  * Sin tabla de posiciones embebida (vive una sola vez abajo).
  */
 function HeroCard({
-  ronda, etiqueta, nombre, integrantes, scoreNode, scoreColor, isTie, contraElPar = false, onShare, fechaDisplay, shareVariant,
+  ronda, etiqueta, nombre, integrantes, scoreNode, detalleDelScore, scoreColor, isTie, contraElPar = false, onShare, fechaDisplay, shareVariant,
 }: {
   ronda: RondaLibre
   etiqueta: string
   nombre: string
   integrantes?: string
   scoreNode: ReactNode
+  /** Qué es el número grande en una ronda neto (`detalleNetoDeEquipos`): gross y neto sin confundirse. */
+  detalleDelScore?: { rotulo: string; gross: string | null }
   scoreColor: string
   isTie: boolean
   /** Un solo equipo, sin rival: bandera en vez de trofeo. */
@@ -96,7 +111,17 @@ function HeroCard({
           )}
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '40px', fontWeight: 500, color: scoreColor, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
             {scoreNode}
+            {detalleDelScore && (
+              <span style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '0.04em', marginLeft: '8px', color: 'var(--text)' }}>
+                {detalleDelScore.rotulo}
+              </span>
+            )}
           </div>
+          {detalleDelScore?.gross && (
+            <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-2)', fontFamily: 'DM Mono, monospace', marginTop: '2px' }}>
+              {detalleDelScore.gross}
+            </div>
+          )}
           <div style={{ fontSize: '12.5px', color: 'var(--text-3)', marginTop: '6px' }}>{ronda.course_name} · {fechaDisplay}</div>
         </div>
         <div style={{ padding: '0 20px 20px' }}>
@@ -127,6 +152,7 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
         nombre={nombrarEquipos(winners.map(t => t.nombre))}
         integrantes={!isTie && teams[0].jugadores.length > 0 ? teams[0].jugadores.join(' · ') : undefined}
         scoreNode={formatOverUnder(winnerDiff)}
+        detalleDelScore={detalleNetoDeEquipos(ronda, teams[0], isTie)}
         scoreColor={scoreFgVar(winnerDiff)}
         isTie={isTie}
         onShare={onShare}
