@@ -82,12 +82,15 @@ describe('parYSiDeLaRonda (pura)', () => {
 })
 
 /** Supabase falso: cada `from(tabla)` resuelve con lo dado, sea cual sea la cadena. */
-function fakeSupabase(tablas: Record<string, { data: unknown; error?: unknown }>) {
+function fakeSupabase(tablas: Record<string, { data: unknown; error?: unknown; rechaza?: unknown }>) {
   const consultas: string[] = []
-  const builder = (res: { data: unknown; error: unknown }): unknown => {
+  const builder = (res: { data: unknown; error: unknown }, rechaza?: unknown): unknown => {
     const b: unknown = new Proxy({}, {
       get(_t, k) {
-        if (k === 'then') return (ok: (r: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(res).then(ok, ko)
+        if (k === 'then') {
+          const p = rechaza !== undefined ? Promise.reject(rechaza) : Promise.resolve(res)
+          return (ok: (r: unknown) => unknown, ko?: (e: unknown) => unknown) => p.then(ok, ko)
+        }
         if (k === 'single' || k === 'maybeSingle') return async () => res
         return () => b
       },
@@ -99,7 +102,7 @@ function fakeSupabase(tablas: Record<string, { data: unknown; error?: unknown }>
     from(tabla: string) {
       consultas.push(tabla)
       const t = tablas[tabla]
-      return builder({ data: t?.data ?? null, error: t?.error ?? null })
+      return builder({ data: t?.data ?? null, error: t?.error ?? null }, t?.rechaza)
     },
   }
 }
@@ -189,6 +192,23 @@ describe('cargarRondaLibreEnVivo — la X del Skins no entra en la lectura compa
     const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', null)
     expect(r.status).toBe('ok')
     expect(captureError).toHaveBeenCalled()
+  })
+  // Vuelta 3 Fable: la lectura de la X solo miraba `error`; si la promesa se rechazaba (red cortada, fetch abortado),
+  // el throw subía al try de afuera y la vista en vivo del Skins caía a transient.
+  it('Skins: si la lectura de la X se rechaza, la vista sigue ok (sin la X) y se reporta con su contexto', async () => {
+    captureError.mockClear()
+    const anon = fakeSupabase({
+      rondas_libres: { data: { ...RONDA, formato_juego: 'skins' } },
+      ronda_libre_jugadores: { data: null, rechaza: new TypeError('Failed to fetch') },
+    })
+    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', null)
+    expect(r.status).toBe('ok')
+    if (r.status !== 'ok') return
+    expect(r.ronda.ronda_libre_jugadores.map(j => j.fuera_del_hoyo ?? null)).toEqual([null, null, null])
+    expect(captureError).toHaveBeenCalledWith(
+      expect.any(TypeError),
+      expect.objectContaining({ context: 'data.cargarRondaLibreEnVivo.fueraDelHoyo' }),
+    )
   })
 })
 

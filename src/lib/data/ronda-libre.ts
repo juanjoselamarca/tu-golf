@@ -282,14 +282,23 @@ export const COLUMNAS_RONDA_EN_VIVO =
  * Skins: la X de cada tarjeta (`fuera_del_hoyo`), leída aparte de `COLUMNAS_RONDA_EN_VIVO` y solo en un Skins. Solo
  * alimenta la firma de refresco de la tabla (`useTimbaDeLaRonda`): si la lectura falla, la ronda sigue sin la X (la
  * tabla la trae igual en su próximo refresco) y se reporta; un dato propio del Skins no tumba la vista en vivo.
+ * Nunca rechaza: tanto el `error` de PostgREST como una promesa rechazada (red cortada, fetch abortado) caen aquí.
  */
 async function conLaXDelSkins(supabase: SupabaseClient, ronda: RondaLibre): Promise<RondaLibre> {
   if (!esFormatoSkins(ronda.formato_juego)) return ronda
-  const { data, error } = await supabase.from('ronda_libre_jugadores').select('id, fuera_del_hoyo').eq('ronda_id', ronda.id)
-  if (error || !Array.isArray(data)) {
-    void captureError(error ?? new Error('sin filas'), { context: 'data.cargarRondaLibreEnVivo.fueraDelHoyo', level: 'warning', meta: { codigo: ronda.codigo } })
+  const reportar = (e: unknown) => {
+    void captureError(e, { context: 'data.cargarRondaLibreEnVivo.fueraDelHoyo', level: 'warning', meta: { codigo: ronda.codigo } })
+  }
+  let data: unknown
+  try {
+    const r = await supabase.from('ronda_libre_jugadores').select('id, fuera_del_hoyo').eq('ronda_id', ronda.id)
+    if (r.error) { reportar(r.error); return ronda }
+    data = r.data
+  } catch (e) {
+    reportar(e)
     return ronda
   }
+  if (!Array.isArray(data)) { reportar(new Error('sin filas')); return ronda }
   const fuera = new Map((data as { id: string; fuera_del_hoyo: unknown }[]).map(j => [j.id, j.fuera_del_hoyo]))
   return { ...ronda, ronda_libre_jugadores: ronda.ronda_libre_jugadores.map(j => ({ ...j, fuera_del_hoyo: fuera.get(j.id) ?? null })) }
 }
@@ -316,19 +325,23 @@ export async function cargarRondaLibreEnVivo(
     }
 
     // Orden estable de los jugadores: el embebido llega en orden físico, que cambia con cada guardado.
-    const ronda = await conLaXDelSkins(supabase, conJugadoresOrdenados(data as unknown as RondaLibre))
+    const base = conJugadoresOrdenados(data as unknown as RondaLibre)
 
     // Par / stroke-index por hoyo (solo si la ronda está ligada a una cancha).
     // Fuente única de hoyos: ya viene ordenada por la selección de recorridos y
     // renumerada (en los complejos de 27 hoyos el par cuelga de los recorridos hijos).
-    const catalogo = ronda.course_id
-      ? ((await fetchHoyosDeLaRonda(
-          supabase,
-          ronda.course_id,
-          ronda.recorridos as string[] | null,
-          'numero, par, stroke_index, recorrido',
-        )) as unknown as CourseHole[])
-      : []
+    // La X del Skins no depende de los hoyos: se lee en paralelo (y nunca rechaza, ver `conLaXDelSkins`).
+    const [ronda, catalogo] = await Promise.all([
+      conLaXDelSkins(supabase, base),
+      base.course_id
+        ? (fetchHoyosDeLaRonda(
+            supabase,
+            base.course_id,
+            base.recorridos as string[] | null,
+            'numero, par, stroke_index, recorrido',
+          ) as unknown as Promise<CourseHole[]>)
+        : Promise.resolve([] as CourseHole[]),
+    ])
     const { parMap, siMap, parTotal: finalParTotal } = parYSiDeLaRonda(catalogo, ronda.holes, ronda.hoyo_inicio)
 
     // Course handicap de SCORING por jugador: fuente única `courseHandicapsDeRonda`
