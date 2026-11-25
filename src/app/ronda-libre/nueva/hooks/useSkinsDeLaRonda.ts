@@ -206,8 +206,6 @@ export function useSkinsDeLaRonda(
     problema,
     problemaEnJugadores,
     enError,
-    /** El aviso de Jugadores (del skins) es el de la lectura fallida: lleva «Reintentar». */
-    reintentableEnJugadores: reintentarSiMuestra(problemaEnJugadores) != null,
     reintentarSiMuestra,
     reintentar,
     /** Lo que viaja a la API (`reglas_juego`) con el modo de la ronda, o null sin skins. */

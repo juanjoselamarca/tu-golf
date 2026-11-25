@@ -273,7 +273,6 @@ describe('useSkinsDeLaRonda', () => {
     expect(result.current.enError).toBe(true)
     // Lo que se ve en Jugadores es «falta un nombre»: sin «Reintentar» ahí.
     expect(result.current.problemaEnJugadores).not.toBe(result.current.problema)
-    expect(result.current.reintentableEnJugadores).toBe(false)
     expect(result.current.reintentarSiMuestra(result.current.problemaEnJugadores)).toBeUndefined()
     // En Confirmar se ve el aviso del skins: ahí sí.
     expect(result.current.reintentarSiMuestra(result.current.problema)).toBeDefined()
@@ -284,7 +283,6 @@ describe('useSkinsDeLaRonda', () => {
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
     act(() => result.current.elegir())
     await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
-    expect(result.current.reintentableEnJugadores).toBe(true)
     expect(result.current.reintentarSiMuestra(result.current.problemaEnJugadores)).toBeDefined()
     // Otro aviso (uno de la pantalla) con el mismo texto no lo lleva: se compara el problema, no el texto.
     expect(result.current.reintentarSiMuestra({ ...result.current.problema! })).toBeUndefined()
@@ -297,7 +295,7 @@ describe('useSkinsDeLaRonda', () => {
     await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(3))
     expect(result.current.problema?.detalle).toContain('un solo celular')
     expect(result.current.enError).toBe(false)
-    expect(result.current.reintentableEnJugadores).toBe(false)
+    expect(result.current.reintentarSiMuestra(result.current.problemaEnJugadores)).toBeUndefined()
   })
 
   it('plazo: una lectura colgada vence, avisa sin señal (no el tee), cancela su señal y programa el siguiente intento', async () => {
