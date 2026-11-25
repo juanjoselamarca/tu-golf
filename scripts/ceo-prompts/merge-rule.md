@@ -3,10 +3,14 @@
 Un PR se mergea SOLO con el CI en verde. Sin excepciones, sin importar el tamaño del diff.
 
 ```bash
-gh pr checks <N> --watch --fail-fast --required   # espera los checks obligatorios
-gh pr merge <N> --squash                         # NUNCA --admin
+gh pr checks <N> --watch --fail-fast   # espera TODOS los checks del PR, no solo los obligatorios
+gh pr merge <N> --squash              # NUNCA --admin
 ```
 
+- **Todos los checks, no `--required`.** `esquema` (pruebas SQL con roles reales) e `Integración` no son
+  obligatorios en `main` porque corren solo cuando el PR toca sus rutas; un check que no se disparó no aparece y no
+  bloquea. El 24-nov-2026 #875 se mergeó esperando solo `--required` con `esquema` en rojo (una prueba SQL usaba
+  `dblink_fdw`, que la base del CI no permite) y dejó `main` en rojo, bloqueando `npm run promover`.
 - **Prohibido `--admin`.** Se salta los checks obligatorios de `main`. El 25-sep-2026 un
   PR nocturno (#413) se mergeó con `--admin` y "Verificación (tsc + tests + build)" en rojo:
   4 deploys de producción seguidos quedaron rotos.

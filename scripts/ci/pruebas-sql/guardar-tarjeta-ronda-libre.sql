@@ -14,16 +14,18 @@
 -- La sesión principal corre en transacciones que terminan en ROLLBACK. Las filas del cruce las confirma la otra
 -- sesión (si no, no las vería) y se borran al final, junto con dblink; los ids son propios de esta prueba.
 
--- dblink fuera de la transacción: la conexión a la otra sesión se usa también después del ROLLBACK. La clave de
--- postgres no va escrita: sale del entorno del contenedor (psql corre ahí, con `docker exec`).
+-- dblink fuera de la transacción: la conexión a la otra sesión se usa también después del ROLLBACK.
+-- Sin FOREIGN SERVER: en Supabase `postgres` no es superusuario ni tiene USAGE sobre dblink_fdw (42501). dblink_connect
+-- con cadena de conexión sí lo puede usar un no superusuario, siempre que el servidor PIDA la clave: por eso se conecta
+-- a la IP del contenedor (su hostname, que Docker resuelve en /etc/hosts) y no a 127.0.0.1, que el pg_hba de Supabase
+-- deja pasar sin clave (trust) y dblink rechazaría. La clave no va escrita: sale del entorno del contenedor (psql corre
+-- ahí, con `docker exec`).
 \getenv clave_db POSTGRES_PASSWORD
+\getenv host_db HOSTNAME
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-CREATE SERVER prueba_otra_sesion FOREIGN DATA WRAPPER dblink_fdw OPTIONS (host '127.0.0.1', port '5432', dbname 'postgres');
-SELECT set_config('prueba.clave_db', :'clave_db', false);
-DO $$ BEGIN
-  EXECUTE format('CREATE USER MAPPING FOR CURRENT_USER SERVER prueba_otra_sesion OPTIONS (user %L, password %L)',
-    'postgres', current_setting('prueba.clave_db'));
-END $$;
+-- La clave va entre comillas simples de libpq, con \ y ' escapados.
+SELECT set_config('prueba.conexion', format('host=%s port=5432 dbname=postgres user=postgres password=''%s''',
+  :'host_db', replace(replace(:'clave_db', '\', '\\'), '''', '\''')), false);
 
 BEGIN;
 
@@ -149,7 +151,7 @@ RESET ROLE;
 -- ── Parte 3: el cruce con el descarte, con dos sesiones ──────────────────────────────────────────────────────
 -- Rondas confirmadas por otra sesión (la principal no confirma nada). CRUZA: el guardado llega primero.
 -- CRUZB: el descarte llega primero.
-SELECT extensions.dblink_connect('otra', 'prueba_otra_sesion');
+SELECT extensions.dblink_connect('otra', current_setting('prueba.conexion'));
 SELECT extensions.dblink_exec('otra', $q$
   INSERT INTO auth.users (id, email) VALUES
     ('a3100000-0000-4000-8000-000000000001', 'creador-cruce@prueba.test'),
@@ -265,6 +267,4 @@ SELECT extensions.dblink_exec('otra', $q$
   DELETE FROM auth.users WHERE id IN ('a3100000-0000-4000-8000-000000000001', 'b3100000-0000-4000-8000-000000000002');
 $q$);
 SELECT extensions.dblink_disconnect('otra');
-DROP USER MAPPING FOR CURRENT_USER SERVER prueba_otra_sesion;
-DROP SERVER prueba_otra_sesion;
 DROP EXTENSION dblink;
