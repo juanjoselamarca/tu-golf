@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { ChevronDown } from '@/components/icons'
 import { Toggle } from '@/components/ui/Toggle'
 import type { ModoJuego } from '@/golf/core/rules'
@@ -10,21 +10,10 @@ import {
 } from '@/golf/formats/personalizado'
 import { conConfig, timbaDePlantilla, type TimbaDelFormulario } from '../../hooks/timba-del-formulario'
 import { colores, tarjeta } from '../estilos'
+import { Fila, Opciones, SegmentoModo, SelectorPuntosEspeciales, caption } from '../juego/controles'
 import { NOMBRE_PUNTITO, PLANTILLAS_DEL_CATALOGO, bajadaDePlantilla, jugadoresDePlantilla } from './catalogo'
 import { ejemploDelHoyo } from './ejemplo-del-hoyo'
 import { FraseDelJuego } from './FraseDelJuego'
-
-const caption = {
-  fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: colores.texto2,
-}
-
-/** Botón de dos estados del panel (chips y segmentos): activo = tinta llena, como en la maqueta. */
-function pastilla(activa: boolean) {
-  return {
-    minHeight: '44px', padding: '0 16px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
-    background: activa ? colores.texto : 'transparent', color: activa ? colores.tarjeta : colores.texto2,
-  }
-}
 
 interface Props {
   timba: TimbaDelFormulario
@@ -97,41 +86,16 @@ export function ElegirJuegoTimba({ timba, onTimba, modo, onModo, holes }: Props)
 
       <section aria-label="Puntos especiales" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <span style={caption}>Puntos especiales</span>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {PUNTITOS_DEL_CATALOGO.map(t => {
-            const on = config.puntitos.some(p => p.tipo === t)
-            return (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={on}
-                onClick={() => cambiar(alternarPuntito(config, t))}
-                style={{ ...pastilla(on), borderRadius: '22px', border: `1px solid ${on ? colores.texto : colores.borde}` }}
-              >
-                {on ? '✓' : '+'} {NOMBRE_PUNTITO[t]}
-              </button>
-            )
-          })}
-        </div>
+        <SelectorPuntosEspeciales
+          tipos={PUNTITOS_DEL_CATALOGO}
+          nombre={t => NOMBRE_PUNTITO[t]}
+          activo={t => config.puntitos.some(p => p.tipo === t)}
+          onAlternar={t => cambiar(alternarPuntito(config, t))}
+        />
       </section>
 
-      <div role="group" aria-label="Modo de scoring" style={{
-        display: 'flex', gap: '8px', background: colores.tarjeta, border: `1px solid ${colores.borde}`, borderRadius: '12px', padding: '4px',
-      }}>
-        {/* Neto | Gross, el mismo orden que el selector estándar. Sin candado Pro: Timba neto no es una feature
-            Pro (`NETO_FEATURE_BY_FORMAT` no la incluye), así que el neto nunca está bloqueado por plan acá. */}
-        {(['neto', 'gross'] as const).map(m => (
-          <button
-            key={m}
-            type="button"
-            aria-pressed={modo === m}
-            onClick={() => onModo(m)}
-            style={{ ...pastilla(modo === m), flex: 1, border: 0, borderRadius: '9px' }}
-          >
-            {m === 'neto' ? 'Neto' : 'Gross'}
-          </button>
-        ))}
-      </div>
+      {/* Sin candado Pro: Timba neto no es una feature Pro (`NETO_FEATURE_BY_FORMAT` no la incluye). */}
+      <SegmentoModo modo={modo} onModo={onModo} />
 
       <div>
         <button
@@ -196,42 +160,6 @@ export function ElegirJuegoTimba({ timba, onTimba, modo, onModo, holes }: Props)
             )}
           </div>
         )}
-      </div>
-    </div>
-  )
-}
-
-function Fila({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', minHeight: '44px' }}>
-      <span style={{ fontSize: '14px', color: colores.texto }}>{etiqueta}</span>
-      {children}
-    </div>
-  )
-}
-
-function Opciones<T extends string>({ titulo, nota, valor, opciones, onCambiar }: {
-  titulo: string; nota?: string; valor: T; opciones: { valor: T; etiqueta: string }[]; onCambiar: (v: T) => void
-}) {
-  return (
-    <div role="group" aria-label={titulo} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <span style={{ fontSize: '14px', fontWeight: 600, color: colores.texto }}>{titulo}</span>
-      {nota && <span style={{ fontSize: '12px', color: colores.texto2 }}>{nota}</span>}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {opciones.map(o => (
-          <button
-            key={o.valor}
-            type="button"
-            aria-pressed={valor === o.valor}
-            onClick={() => onCambiar(o.valor)}
-            style={{
-              ...pastilla(valor === o.valor), flex: '1 1 auto', borderRadius: '10px',
-              border: `1px solid ${valor === o.valor ? colores.texto : colores.borde}`,
-            }}
-          >
-            {o.etiqueta}
-          </button>
-        ))}
       </div>
     </div>
   )

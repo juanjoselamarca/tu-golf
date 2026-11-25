@@ -7,16 +7,18 @@ import { TIMBA_LIBRE_ABIERTA } from '@/lib/auth/timba-libre-abierta'
 export const ESPERAS_REINTENTO_PERMISO_MS: readonly number[] = [500, 1500]
 
 /**
- * Si el usuario puede elegir Timba libre en el asistente. Primero manda el interruptor `TIMBA_LIBRE_ABIERTA`
- * (con `false` nadie la elige y ni se pregunta). Con `true`, no copia la regla: la pregunta a
- * `GET /api/ronda-libre/permiso-timba`, que usa `puedeCrearJuegoPersonalizado` (la misma función que valida
- * `POST /create`). Ante un error de red o un 5xx reintenta (`esperasMs`) antes de rendirse. Falla CERRADO:
- * mientras carga, con un "no", un 4xx o sin señal tras los reintentos, `false` → se ve "Próximamente".
+ * Si el usuario de la sesión puede crear un juego personalizado (Timba libre o Skins): no copia la regla, la pregunta
+ * a `GET /api/ronda-libre/permiso-timba`, que usa `puedeCrearJuegoPersonalizado` (la misma función que valida
+ * `POST /create`). `abierto` es el interruptor del juego: con `false` no se pregunta y la respuesta es `false`.
+ * Ante un error de red o un 5xx reintenta (`esperasMs`) antes de rendirse. Falla CERRADO: mientras carga, con un
+ * "no", un 4xx o sin señal tras los reintentos, `false` → se ve "Próximamente".
  */
-export function usePuedeCrearTimba(esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS): boolean {
+export function usePermisoDeJuegoPersonalizado(
+  abierto: boolean, esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS,
+): boolean {
   const [puede, setPuede] = useState(false)
   useEffect(() => {
-    if (!TIMBA_LIBRE_ABIERTA) return
+    if (!abierto) return
     let vigente = true
     let reloj: ReturnType<typeof setTimeout> | undefined
     const preguntar = (intento: number) => {
@@ -34,6 +36,11 @@ export function usePuedeCrearTimba(esperasMs: readonly number[] = ESPERAS_REINTE
     }
     preguntar(0)
     return () => { vigente = false; if (reloj) clearTimeout(reloj) }
-  }, [esperasMs])
-  return TIMBA_LIBRE_ABIERTA && puede
+  }, [abierto, esperasMs])
+  return abierto && puede
+}
+
+/** Si el usuario puede elegir Timba libre: el permiso, con el interruptor `TIMBA_LIBRE_ABIERTA`. */
+export function usePuedeCrearTimba(esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS): boolean {
+  return usePermisoDeJuegoPersonalizado(TIMBA_LIBRE_ABIERTA, esperasMs)
 }

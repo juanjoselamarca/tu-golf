@@ -10,6 +10,8 @@ import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { validarNuevaRonda, type EquipoDeClubAValidar, type ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { QuienAnota } from '@/golf/ronda-libre/equipos-de-club'
 import { FORMATO_PERSONALIZADO, type ConfigJuego } from '@/golf/formats/personalizado'
+import { FORMATO_SKINS } from '@/golf/formats/skins/clave'
+import type { ConfigSkins } from '@/golf/formats/skins'
 import { MENSAJE_NETO_PRO, MENSAJE_PLAN_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import type { FormaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
 import { nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
@@ -143,6 +145,8 @@ export interface Args {
    * `problemaParaCrearLaTimba`, la misma función que corre la API. `formato` sigue siendo el individual de base.
    */
   timba?: { reglasJuego: ConfigJuego; problema: ProblemaDeLaRonda | null } | null
+  /** Skins elegido: la ronda viaja como `skins` con su `reglas_juego` (lo arma `useSkinsDeLaRonda`). Excluyente con `timba`. */
+  skins?: { reglasJuego: ConfigSkins; problema: ProblemaDeLaRonda | null } | null
   /**
    * Scramble rápido («Solo equipos»): los equipos como viajan (`equiposDeClubParaEnviar`). Presente, la ronda
    * va con `equipos_de_club` y sin `equipos`; `jugadores` es solo el creador (lo arma la página).
@@ -160,9 +164,11 @@ export interface RondaCreada {
  * El formato que viaja a la API, y con el MISMO se valida acá: la API corre `validarNuevaRonda` con
  * `personalizado` en una Timba (el `formato` del formulario es el individual de base).
  */
-export function formatoQueViaja(formatoDelFormulario: FormatoJuego, conTimba: boolean): FormatoJuego {
-  // El tipo de la app aún no incluye `personalizado` (la API lo acepta aparte con `esFormatoPersonalizado`).
-  return conTimba ? (FORMATO_PERSONALIZADO as unknown as FormatoJuego) : formatoDelFormulario
+export function formatoQueViaja(formatoDelFormulario: FormatoJuego, conTimba: boolean, conSkins = false): FormatoJuego {
+  // El tipo de la app aún no incluye `personalizado` ni `skins` (la API los acepta aparte).
+  if (conTimba) return FORMATO_PERSONALIZADO as unknown as FormatoJuego
+  if (conSkins) return FORMATO_SKINS as unknown as FormatoJuego
+  return formatoDelFormulario
 }
 
 /**
@@ -171,7 +177,7 @@ export function formatoQueViaja(formatoDelFormulario: FormatoJuego, conTimba: bo
  * `equipos` son los MISMOS que se validaron (`equiposConIndices`), no una segunda resolución.
  */
 export function cuerpoParaCrearRonda(args: Args, equipos: ReturnType<typeof equiposConIndices>) {
-  const formatoAEnviar = formatoQueViaja(args.formato, !!args.timba)
+  const formatoAEnviar = formatoQueViaja(args.formato, !!args.timba, !!args.skins)
   const club = args.equiposDeClub ?? null
   return {
     course_id: args.courseId || null,
@@ -187,7 +193,7 @@ export function cuerpoParaCrearRonda(args: Args, equipos: ReturnType<typeof equi
     jugadores: jugadoresParaLaApi(args.jugadores, args.userId),
     equipos: isTeamFormat(formatoAEnviar) && !club ? equipos : undefined,
     equipos_de_club: club ? { equipos: club, quien_anota: args.quienAnotaEquiposDeClub ?? null } : undefined,
-    reglas_juego: args.timba?.reglasJuego,
+    reglas_juego: args.timba?.reglasJuego ?? args.skins?.reglasJuego,
   }
 }
 
@@ -201,7 +207,7 @@ export function useCrearRonda(args: Args) {
   // resoluciones distintas podrían aprobar una repartición y mandar otra.
   const equipos = equiposConIndices(args.equipos, args.jugadores)
 
-  const formatoAEnviar = formatoQueViaja(args.formato, !!args.timba)
+  const formatoAEnviar = formatoQueViaja(args.formato, !!args.timba, !!args.skins)
   const club = args.equiposDeClub ?? null
 
   // Sin el juego: el paso Jugadores lo usa, porque las parejas de la Timba se eligen después, en Confirmar.
@@ -218,7 +224,7 @@ export function useCrearRonda(args: Args) {
     creadorId: args.userId,
     ...(club ? { equiposDeClub: { equipos: club, holes: args.forma.holes, quienAnota: args.quienAnotaEquiposDeClub ?? null } } : {}),
   })
-  const problema = problemaDeLaRonda ?? args.timba?.problema ?? null
+  const problema = problemaDeLaRonda ?? args.timba?.problema ?? args.skins?.problema ?? null
 
   const crear = async () => {
     if (creando) return

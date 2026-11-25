@@ -5,6 +5,8 @@ import { primario, secundario } from './estilos'
 import { SelectorFormato } from './SelectorFormato'
 import { ElegirJuegoTimba } from './timba/ElegirJuegoTimba'
 import type { TimbaDelFormulario } from '../hooks/timba-del-formulario'
+import type { ConfigSkins } from '@/golf/formats/skins'
+import { ArmarSkins } from './skins/ArmarSkins'
 
 interface Props {
   formato: FormatoJuego
@@ -19,6 +21,13 @@ interface Props {
     actual: TimbaDelFormulario | null
     onElegir: () => void
     onTimba: (t: TimbaDelFormulario) => void
+  }
+  /** Skins: `actual` null = no elegido. Mismo permiso que la Timba. */
+  skins: {
+    puedeElegir: boolean
+    actual: ConfigSkins | null
+    onElegir: () => void
+    onSkins: (c: ConfigSkins) => void
   }
   onAtras: () => void
   onSiguiente: () => void
@@ -39,12 +48,23 @@ export function PasoFormato(props: Props) {
         onModo={props.onModo}
         netoBloqueado={props.netoBloqueado}
         timba={{ puedeElegir: props.timba.puedeElegir, activa: props.timba.actual != null, onElegir: props.timba.onElegir }}
+        skins={{ puedeElegir: props.skins.puedeElegir, activa: props.skins.actual != null, onElegir: props.skins.onElegir }}
       />
 
       {props.timba.actual && (
         <ElegirJuegoTimba
           timba={props.timba.actual}
           onTimba={props.timba.onTimba}
+          modo={props.modo}
+          onModo={props.onModo}
+          holes={props.holes}
+        />
+      )}
+
+      {props.skins.actual && (
+        <ArmarSkins
+          skins={props.skins.actual}
+          onSkins={props.skins.onSkins}
           modo={props.modo}
           onModo={props.onModo}
           holes={props.holes}

@@ -6,7 +6,7 @@ import {
   MENSAJE_TIMBA_UN_CELULAR, TITULO_REVISA_EL_JUEGO, prepararJuegoDeRondaNueva,
 } from '@/golf/ronda-libre/juego-de-ronda-nueva'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
-import { usePuedeCrearTimba } from './usePuedeCrearTimba'
+import { TIMBA_LIBRE_ABIERTA } from '@/lib/auth/timba-libre-abierta'
 import { problemaPorNombresQueFaltan } from './useFormularioDeRonda'
 import {
   configParaEnviar, problemaDeLaTimba, timbaDePlantilla, type JugadorDeLaTimba, type TimbaDelFormulario,
@@ -50,11 +50,12 @@ export function problemaDeLaTimbaEnJugadores(
 }
 
 /**
- * Timba libre en el asistente. Solo existe si la regla única (`puedeCrearJuegoPersonalizado`, vía la API) lo
- * permite: sin permiso, `timba` es siempre null y la ronda se crea como siempre.
+ * Timba libre en el asistente. Solo existe si la regla única (`puedeCrearJuegoPersonalizado`, vía la API: `permiso`,
+ * de `usePermisoDeJuegoPersonalizado`) y el interruptor `TIMBA_LIBRE_ABIERTA` lo permiten: si no, `timba` es
+ * siempre null y la ronda se crea como siempre.
  */
-export function useTimbaDeLaRonda() {
-  const puedeElegir = usePuedeCrearTimba()
+export function useTimbaDeLaRonda(permiso: boolean) {
+  const puedeElegir = TIMBA_LIBRE_ABIERTA && permiso
   const [elegida, setTimba] = useState<TimbaDelFormulario | null>(null)
   return {
     puedeElegir,

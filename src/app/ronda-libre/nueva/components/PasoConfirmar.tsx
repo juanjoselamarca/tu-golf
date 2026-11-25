@@ -34,8 +34,8 @@ interface Props {
   equiposDeClub?: EquipoDeClubAValidar[] | null
   /** Equipos de club con «Cada equipo en su celular» (`useEquiposDeClub.unCelularPorEquipo`). */
   unCelularPorEquipo?: boolean
-  /** Timba libre: su nombre reemplaza al del formato, y `juego` (las parejas) va antes de crear. */
-  timba?: { nombre: string; juego: React.ReactNode }
+  /** Timba libre o Skins: su nombre reemplaza al del formato, y `detalle` (las parejas, las reglas) va antes de crear. */
+  juego?: { nombre: string; detalle: React.ReactNode }
   creando: boolean
   onEditar: () => void
   onCrear: () => void
@@ -146,8 +146,8 @@ export function PasoConfirmar(props: Props) {
         )}
 
         <Fila etiqueta="Formato">
-          {props.timba
-            ? `${props.timba.nombre} · ${nombreDelModo(props.modo)}`
+          {props.juego
+            ? `${props.juego.nombre} · ${nombreDelModo(props.modo)}`
             : club
               ? [FORMAT_META[props.formato].label, nombreDelModo(props.modo), cantidadDeEquipos(club.length)].join(' · ')
               : formatLabel(props.formato, props.modo)}
@@ -214,7 +214,7 @@ export function PasoConfirmar(props: Props) {
         )}
       </div>
 
-      {props.timba?.juego}
+      {props.juego?.detalle}
 
       <div style={{ display: 'flex', gap: '10px' }}>
         {/* Bloqueado mientras se crea: volver a editar con el POST en vuelo deja la pantalla de compartir

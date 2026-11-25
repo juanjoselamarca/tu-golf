@@ -24,6 +24,12 @@ import { useTeesCoherentes } from './hooks/useTeesCoherentes'
 import { configParaEnviar } from './hooks/timba-del-formulario'
 import { problemaDeLaTimbaEnJugadores, problemaParaCrearLaTimba, useTimbaDeLaRonda } from './hooks/useTimbaDeLaRonda'
 import { NOMBRE_FORMATO_PERSONALIZADO, NOMBRE_PLANTILLA } from '@/golf/formats/personalizado'
+import { TIMBA_LIBRE_ABIERTA } from '@/lib/auth/timba-libre-abierta'
+import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
+import { usePermisoDeJuegoPersonalizado } from './hooks/usePuedeCrearTimba'
+import { useSkinsDeLaRonda } from './hooks/useSkinsDeLaRonda'
+import { ResumenSkins } from './components/skins/ResumenSkins'
+import { TITULO_SKINS } from './components/skins/catalogo'
 
 // Cancha → formato → jugadores. El formato va antes que la gente porque decide
 // cuánta hace falta y quién anota; antes el asistente abría preguntando "¿quién
@@ -41,7 +47,9 @@ export default function NuevaRondaLibrePage() {
   const router = useRouter()
   const creador = useCreadorDeRonda()
   const form = useFormularioDeRonda()
-  const timba = useTimbaDeLaRonda()
+  // Timba libre y Skins: una sola pregunta del permiso (`puedeCrearJuegoPersonalizado`); cada juego, su interruptor.
+  const permisoDeJuego = usePermisoDeJuegoPersonalizado(TIMBA_LIBRE_ABIERTA || SKINS_LIBRE_ABIERTO)
+  const timba = useTimbaDeLaRonda(permisoDeJuego)
   // Scramble rápido: «Solo equipos», con el hándicap del club y sin jugadores.
   const club = useEquiposDeClub({
     formato: form.formato,
@@ -91,6 +99,18 @@ export default function NuevaRondaLibrePage() {
     // «Solo equipos»: el creador es la única tarjeta (los rivales escritos quedan guardados por si vuelve).
     rivales: club.soloEquipos ? [] : form.rivalesEnJuego,
   })
+  // Skins: valida con el MISMO validador y el mismo contexto (CH y SI de la cancha) que la API.
+  const skins = useSkinsDeLaRonda(permisoDeJuego, {
+    courseId: form.courseId,
+    holes: forma.holes,
+    hoyoInicio: forma.hoyoInicio,
+    recorridos: setup.recorridosElegidos,
+    tees: form.tees,
+    jugadores: jugadores.map(j => ({ nombre: j.nombre, indice: j.indice, tees: j.tees })),
+    modo: form.modo,
+    adminMode: form.llevaElScoreDelGrupo,
+    filasSinNombre: form.filasSinNombre,
+  })
   // Las tarjetas de jugador sin nombre no frenan una ronda que no las lleva.
   const problemaDelFormulario = club.soloEquipos ? null : form.problemaDelFormulario
 
@@ -132,6 +152,7 @@ export default function NuevaRondaLibrePage() {
     recorridos: setup.recorridosElegidos,
     llevaElScoreDelGrupo: form.llevaElScoreDelGrupo,
     timba: juegoTimba,
+    skins: skins.paraEnviar,
     equiposDeClub: club.paraEnviar,
     quienAnotaEquiposDeClub: club.quienAnotaParaEnviar,
   })
@@ -219,7 +240,7 @@ export default function NuevaRondaLibrePage() {
         {form.paso === 2 && (
           <PasoFormato
             formato={form.formato}
-            onFormato={f => { timba.soltar(); form.elegirFormato(f) }}
+            onFormato={f => { timba.soltar(); skins.soltar(); form.elegirFormato(f) }}
             modo={form.modo}
             onModo={club.elegirModo}
             netoBloqueado={form.netoBloqueado}
@@ -228,8 +249,18 @@ export default function NuevaRondaLibrePage() {
               puedeElegir: timba.puedeElegir,
               actual: timba.timba,
               // Timba libre se arma sobre la ronda individual base (cada uno con su tarjeta).
-              onElegir: () => { form.elegirFormato('stroke_play'); form.elegirQuienAnota(true); timba.elegir() },
+              onElegir: () => { skins.soltar(); form.elegirFormato('stroke_play'); form.elegirQuienAnota(true); timba.elegir() },
               onTimba: timba.setTimba,
+            }}
+            skins={{
+              puedeElegir: skins.puedeElegir,
+              actual: skins.skins,
+              // Como la Timba: sobre la ronda individual base, un solo celular. Abre en neto (default del spec).
+              onElegir: () => {
+                if (skins.skins) return
+                timba.soltar(); form.elegirFormato('stroke_play'); form.elegirQuienAnota(true); club.elegirModo('neto'); skins.elegir()
+              },
+              onSkins: skins.setSkins,
             }}
             onAtras={() => form.setPaso(1)}
             onSiguiente={() => form.setPaso(3)}
@@ -263,7 +294,7 @@ export default function NuevaRondaLibrePage() {
             hcpVisibleDe={hcpVisibleDe}
             hoyos={forma.holes}
             rondasRecientes={creador.rondasRecientes}
-            problema={problemaDelFormulario ?? problemaTimbaJugadores ?? problemaDeLaRonda}
+            problema={problemaDelFormulario ?? problemaTimbaJugadores ?? skins.problemaEnJugadores ?? problemaDeLaRonda}
             club={admiteEquiposDeClub(form.formato) ? club : null}
             onAtras={() => form.setPaso(2)}
             onSiguiente={() => form.setPaso(4)}
@@ -288,9 +319,9 @@ export default function NuevaRondaLibrePage() {
             hcpVisibleDe={hcpVisibleDe}
             hayVariosTees={setup.tees.length > 1}
             problema={problemaDelFormulario ?? problema}
-            timba={timba.timba ? {
+            juego={timba.timba ? {
               nombre: `${NOMBRE_FORMATO_PERSONALIZADO} · ${NOMBRE_PLANTILLA[timba.timba.config.plantilla]}`,
-              juego: (
+              detalle: (
                 <ParejasDeLaTimba
                   timba={timba.timba}
                   onTimba={timba.setTimba}
@@ -298,6 +329,9 @@ export default function NuevaRondaLibrePage() {
                   holes={forma.holes}
                 />
               ),
+            } : skins.skins ? {
+              nombre: TITULO_SKINS,
+              detalle: <ResumenSkins skins={skins.skins} modo={form.modo} jugadores={jugadores.length} problema={skins.problema} />,
             } : undefined}
             creando={creando}
             onEditar={() => form.setPaso(3)}
