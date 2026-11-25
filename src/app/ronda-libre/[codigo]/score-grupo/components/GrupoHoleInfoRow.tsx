@@ -67,7 +67,7 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
     ...(yardaje ? [{ label: 'YDS', value: String(yardaje) }] : []),
   ]
   return (
-    // PAR, SI y YDS nunca pasan de un tercio de la fila (la larga, VALE o GOLPES GRUPO, hasta 40 %), y el grupo va centrado:
+    // PAR, SI y YDS nunca pasan de un tercio de la fila (GOLPES GRUPO hasta 40 %; VALE sin tope, para que quepa «desde 12 skins»), y el grupo va centrado:
     // con dos columnas (stroke play bruto sin yardaje) repartirlas al 50 % dejaba
     // "PAR 4" solo en 195 px. Con tres queda igual que siempre y con cuatro el
     // flex las encoge a un cuarto.
