@@ -294,7 +294,7 @@ export default function NuevaRondaLibrePage() {
             hoyos={forma.holes}
             rondasRecientes={creador.rondasRecientes}
             problema={problemaEnJugadores}
-            onReintentar={skins.enError && problemaEnJugadores === skins.problema ? skins.reintentar : undefined}
+            onReintentar={skins.reintentarSiMuestra(problemaEnJugadores)}
             club={admiteEquiposDeClub(form.formato) ? club : null}
             onAtras={() => form.setPaso(2)}
             onSiguiente={() => form.setPaso(4)}
@@ -331,7 +331,12 @@ export default function NuevaRondaLibrePage() {
               ),
             } : skins.skins ? {
               nombre: TITULO_SKINS,
-              detalle: <ResumenSkins skins={skins.skins} modo={form.modo} jugadores={jugadores.length} problema={skins.problema} />,
+              detalle: (
+                <ResumenSkins
+                  skins={skins.skins} modo={form.modo} jugadores={jugadores.length} problema={skins.problema}
+                  onReintentar={skins.reintentarSiMuestra(skins.problema)}
+                />
+              ),
             } : undefined}
             creando={creando}
             onEditar={() => form.setPaso(3)}

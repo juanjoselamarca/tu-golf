@@ -44,6 +44,9 @@ export const PROBLEMA_SKINS_CARGANDO: ProblemaDeLaRonda = {
   detalle: 'Estamos leyendo la cancha para revisar el skins.',
 }
 
+/** Un problema del skins. `deLectura`: es el fallo de la lectura de la cancha (lleva «Reintentar»). */
+export type ProblemaDelSkins = ProblemaDeLaRonda & { deLectura?: true }
+
 /**
  * Lo que frena crear la ronda con este skins, o `null`. Mismo orden que la API: lo de la ronda (un celular, cancha,
  * hoyos), después las reglas contra los jugadores y los hoyos. Con los nombres que se ven ahora (el contexto se
@@ -57,11 +60,13 @@ export function problemaDelSkins(args: {
   holes: number
   nombres: readonly string[]
   contexto: ContextoDelSkins
-}): ProblemaDeLaRonda | null {
+}): ProblemaDelSkins | null {
   const previos = problemasDeLaRondaDelSkins(args)
   if (previos.length > 0) return { titulo: TITULO_REVISA_EL_SKINS, detalle: previos.join(' '), esError: true }
   if (args.contexto.estado === 'cargando') return PROBLEMA_SKINS_CARGANDO
-  if (args.contexto.estado === 'error') return { titulo: TITULO_REVISA_EL_SKINS, detalle: args.contexto.mensaje, esError: true }
+  if (args.contexto.estado === 'error') {
+    return { titulo: TITULO_REVISA_EL_SKINS, detalle: args.contexto.mensaje, esError: true, deLectura: true }
+  }
 
   const { contexto } = args.contexto
   // El contexto es de otra lista de jugadores (se está recargando): no se valida con datos de otros.

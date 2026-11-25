@@ -8,13 +8,13 @@ import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 import { captureError } from '@/lib/error-tracking'
 import { clienteConSenal } from '@/lib/red/cliente-con-senal'
-import { conPlazoCancelable } from '@/lib/red/con-timeout'
+import { conPlazoCancelable, LecturaCanceladaError } from '@/lib/red/con-timeout'
 import {
   FalloDelContextoSkins, MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, contextoSkinsDeRondaNueva, type JugadorDelSkinsNuevo,
 } from '@/lib/data/skins-ronda-nueva'
 import { problemaPorNombresQueFaltan } from './useFormularioDeRonda'
 import {
-  configSkinsParaEnviar, problemaDelSkins, skinsPorDefecto, type ContextoDelSkins,
+  configSkinsParaEnviar, problemaDelSkins, skinsPorDefecto, type ContextoDelSkins, type ProblemaDelSkins,
 } from './skins-del-formulario'
 
 /**
@@ -26,10 +26,13 @@ import {
 export const ESPERAS_REINTENTO_CONTEXTO_MS: readonly number[] = [2000, 5000, 10000]
 
 /**
- * Plazo de cada lectura de cancha: una lectura colgada (señal que no responde) se corta acá y cuenta como fallo de
- * señal. Cubre los reintentos propios de postgrest-js ante un error de red (1 + 2 + 4 s).
+ * Plazo de cada lectura de cancha (catálogo de hoyos → rating de cada tee): una lectura colgada se corta acá y cuenta
+ * como fallo de señal. La cadena son hasta 6 consultas en serie (hoyos propios, recorridos hijos y sus hoyos; después
+ * por tee: recorridos hijos, sus tees y cancha + tee), y postgrest-js reintenta cada GET ante un error de red (1, 2 y
+ * 4 s). Con señal lenta pero buena (~3 s por consulta) son ~18 s: 20 s no corta una lectura que iba a llegar, y queda
+ * en la familia de los plazos de varias consultas (`PLAZO_GUARDAR_TARJETA_MS`, `PLAZO_CIERRE_MS`).
  */
-export const PLAZO_LECTURA_CONTEXTO_MS = 10_000
+export const PLAZO_LECTURA_CONTEXTO_MS = 20_000
 
 export interface RondaDelSkinsEnElFormulario {
   courseId: string | null
@@ -56,7 +59,7 @@ const sinRed = () => typeof navigator !== 'undefined' && navigator.onLine === fa
  * validar. `reintentar` vuelve a leer desde cero (el botón «Reintentar» del aviso).
  */
 function useContextoDelSkins(
-  activo: boolean, ronda: RondaDelSkinsEnElFormulario, esperasMs: readonly number[],
+  activo: boolean, ronda: RondaDelSkinsEnElFormulario, esperasMs: readonly number[], plazoMs: number,
 ): { contexto: ContextoDelSkins; reintentar: () => void } {
   const listo = activo && !!ronda.courseId && esCantidadDeHoyosDelSkins(ronda.holes)
   const clave = listo
@@ -68,7 +71,8 @@ function useContextoDelSkins(
   const [estado, setEstado] = useState<{ clave: string | null; contexto: ContextoDelSkins }>({ clave: null, contexto: { estado: 'cargando' } })
   // Las esperas no reinician la lectura: solo la clave (un arreglo nuevo en cada render no vuelve a cero los reintentos).
   const esperasRef = useRef(esperasMs)
-  useEffect(() => { esperasRef.current = esperasMs }, [esperasMs])
+  const plazoRef = useRef(plazoMs)
+  useEffect(() => { esperasRef.current = esperasMs; plazoRef.current = plazoMs }, [esperasMs, plazoMs])
   const reintentarRef = useRef<() => void>(() => {})
 
   useEffect(() => {
@@ -86,8 +90,9 @@ function useContextoDelSkins(
     let ultima = 0
     /** Ya se reportó el fallo de esta combinación: volver a la app y fallar otra vez no lo repite. */
     let reportado = false
-    /** El último fallo fue de un dato de la cancha (no de la señal): volver a la app no lo arregla. */
-    let ultimoEspecifico = false
+    /** La lectura en curso: «Reintentar» y desmontar la cancelan (deja de ocupar la conexión y no contesta tarde). */
+    let control: AbortController | null = null
+    const cancelarLaLectura = () => { control?.abort(); control = null }
 
     const avisar = (mensaje: string) => setEstado({ clave, contexto: { estado: 'error', mensaje } })
     const programar = (intento: number) => {
@@ -97,21 +102,23 @@ function useContextoDelSkins(
     async function leer(intento: number) {
       if (sinRed()) { detenido = true; avisar(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA); return }
       const esta = ++ultima
+      cancelarLaLectura()
+      const propio = new AbortController()
+      control = propio
       try {
         const { createClient } = await import('@/lib/supabase')
         const supabase = createClient()
         const contexto = await conPlazoCancelable(senal => contextoSkinsDeRondaNueva(clienteConSenal(supabase, senal), {
           courseId, holes, hoyoInicio, recorridos, tees, modo,
           jugadores: porJugador.map(([indice, tee]) => ({ nombre: '', indice, tees: tee })),
-        }), PLAZO_LECTURA_CONTEXTO_MS)
+        }), plazoRef.current, { signal: propio.signal })
         if (vigente && esta === ultima) setEstado({ clave, contexto: { estado: 'listo', contexto } })
       } catch (err) {
-        if (!vigente || esta !== ultima) return
+        if (!vigente || esta !== ultima || err instanceof LecturaCanceladaError) return
         // Un rating que no llegó puede ser la señal o la cancha: se dice lo que pasó (el tee sin rating, con su salida
         // «juega en gross») desde el primer fallo, y se reintenta igual por detrás.
         const agotado = intento >= esperasRef.current.length
         const especifico = err instanceof FalloDelContextoSkins && !err.deSenal
-        ultimoEspecifico = especifico
         avisar(especifico ? (err as Error).message : MENSAJE_SKINS_SIN_DATOS_DE_CANCHA)
         if (sinRed()) { detenido = true; return }
         if (!agotado) { programar(intento + 1); return }
@@ -124,31 +131,34 @@ function useContextoDelSkins(
     }
     const desdeCero = () => {
       if (reloj) clearTimeout(reloj)
+      cancelarLaLectura()
       enPausa = null
       detenido = false
       void leer(0)
     }
-    /** `online`: volvió la red, se relee. Volver a la app relee solo si lo que falló fue la señal. */
-    const alVolver = (conRed: boolean) => {
+    /**
+     * Volvió la red o el usuario volvió a la app: si estaba detenido, se relee. También tras un fallo «del tee»: con 0
+     * tees sin rating en la base, ese fallo es casi siempre la señal. `reportado` evita reportarlo dos veces.
+     */
+    const alVolver = () => {
       if (!vigente || document.hidden) return
       if (enPausa != null) { const i = enPausa; enPausa = null; void leer(i); return }
-      if (detenido && (conRed || !ultimoEspecifico)) desdeCero()
+      if (detenido) desdeCero()
     }
-    const alVolverLaRed = () => alVolver(true)
-    const alVolverALaApp = () => alVolver(false)
     reintentarRef.current = () => {
       if (!vigente) return
       setEstado({ clave, contexto: { estado: 'cargando' } })
       desdeCero()
     }
-    window.addEventListener('online', alVolverLaRed)
-    document.addEventListener('visibilitychange', alVolverALaApp)
+    window.addEventListener('online', alVolver)
+    document.addEventListener('visibilitychange', alVolver)
     void leer(0)
     return () => {
       vigente = false
       if (reloj) clearTimeout(reloj)
-      window.removeEventListener('online', alVolverLaRed)
-      document.removeEventListener('visibilitychange', alVolverALaApp)
+      cancelarLaLectura()
+      window.removeEventListener('online', alVolver)
+      document.removeEventListener('visibilitychange', alVolver)
     }
   }, [clave])
 
@@ -165,18 +175,27 @@ function useContextoDelSkins(
  */
 export function useSkinsDeLaRonda(
   permiso: boolean, ronda: RondaDelSkinsEnElFormulario, esperasMs: readonly number[] = ESPERAS_REINTENTO_CONTEXTO_MS,
+  plazoMs: number = PLAZO_LECTURA_CONTEXTO_MS,
 ) {
   const puedeElegir = SKINS_LIBRE_ABIERTO && permiso
   const [elegido, setSkins] = useState<ConfigSkins | null>(null)
   const skins = puedeElegir ? elegido : null
-  const { contexto, reintentar } = useContextoDelSkins(skins != null, ronda, esperasMs)
+  const { contexto, reintentar } = useContextoDelSkins(skins != null, ronda, esperasMs, plazoMs)
 
   const nombres = ronda.jugadores.map(j => j.nombre)
-  const problema: ProblemaDeLaRonda | null = skins
+  const problema: ProblemaDelSkins | null = skins
     ? problemaDelSkins({ config: skins, modo: ronda.modo, adminMode: ronda.adminMode, courseId: ronda.courseId, holes: ronda.holes, nombres, contexto })
     : null
   // En Jugadores, una tarjeta sin nombre se avisa antes (si no, el usuario ve 4 tarjetas y lee «es para 4»).
-  const problemaEnJugadores = skins ? (problemaPorNombresQueFaltan(ronda.filasSinNombre) ?? problema) : null
+  const problemaEnJugadores: ProblemaDeLaRonda | null = skins ? (problemaPorNombresQueFaltan(ronda.filasSinNombre) ?? problema) : null
+  // La lectura de la cancha falló y su aviso es el que manda (no «falta un nombre» ni «un solo celular»).
+  const enError = problema?.deLectura === true
+  /**
+   * FUENTE ÚNICA de cuándo un aviso lleva «Reintentar»: el aviso que muestra la pantalla es el de la lectura fallida.
+   * Cada paso pasa el problema que muestra (Jugadores: el suyo, que puede ser otro; Confirmar: el del skins).
+   */
+  const reintentarSiMuestra = (mostrado: ProblemaDeLaRonda | null): (() => void) | undefined =>
+    enError && mostrado === problema ? reintentar : undefined
 
   return {
     puedeElegir,
@@ -186,9 +205,10 @@ export function useSkinsDeLaRonda(
     soltar: () => setSkins(null),
     problema,
     problemaEnJugadores,
-    /** La lectura de la cancha falló: el aviso lleva «Reintentar», que llama a `reintentar`. */
-    // Solo cuando el aviso que se ve ES el de la lectura (no «falta un nombre» ni «un solo celular»).
-    enError: contexto.estado === 'error' && problema != null && problema.detalle === contexto.mensaje,
+    enError,
+    /** El aviso de Jugadores (del skins) es el de la lectura fallida: lleva «Reintentar». */
+    reintentableEnJugadores: reintentarSiMuestra(problemaEnJugadores) != null,
+    reintentarSiMuestra,
     reintentar,
     /** Lo que viaja a la API (`reglas_juego`) con el modo de la ronda, o null sin skins. */
     paraEnviar: skins ? { reglasJuego: configSkinsParaEnviar(skins, ronda.modo), problema } : null,

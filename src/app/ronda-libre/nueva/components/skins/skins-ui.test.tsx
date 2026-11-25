@@ -174,6 +174,20 @@ describe('ResumenSkins', () => {
     expect(screen.getByRole('alert').textContent).toContain('Ross no tiene hándicap.')
   })
 
+  it('lectura fallida: «Reintentar» (≥ 44 px) dentro del aviso, y lo llama', () => {
+    const onReintentar = vi.fn()
+    render(
+      <ResumenSkins
+        skins={skinsPorDefecto()} modo="neto" jugadores={2} onReintentar={onReintentar}
+        problema={{ titulo: 'Revisa el skins', detalle: 'Revisa tu señal e intenta de nuevo.', esError: true }}
+      />,
+    )
+    const boton = within(screen.getByRole('alert')).getByRole('button', { name: 'Reintentar' })
+    expect(parseInt(boton.style.minHeight, 10)).toBeGreaterThanOrEqual(44)
+    fireEvent.click(boton)
+    expect(onReintentar).toHaveBeenCalledTimes(1)
+  })
+
   it('mientras calcula no muestra un bloqueo', () => {
     render(<ResumenSkins skins={skinsPorDefecto()} modo="gross" jugadores={2} problema={PROBLEMA_SKINS_CARGANDO} />)
     expect(screen.queryByRole('alert')).toBeNull()
