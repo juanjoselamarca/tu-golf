@@ -58,3 +58,21 @@ export function sePuedeOfrecer(tipo: TipoPuntito, gross: number | null | undefin
   const motivo = porQueNoCuenta(tipo, gross, par)?.motivo
   return !motivo || (motivo === 'no_jugo' && seJuegaEnElHoyo(tipo, par))
 }
+
+/**
+ * De las marcas de UN hoyo (en el orden en que se marcaron), la de un punto uno por hoyo (`esUnoPorHoyo`) que vale: la
+ * última entre quienes jugaron el hoyo (`jugo`). Marcar a un retirado o a quien no anotó no le quita el punto al que sí
+ * lo ganó. Fuente única para la Timba y el Skins (spec formato-skins, «Puntos especiales»).
+ */
+export function marcaUnoPorHoyoQueVale<M extends { jugadorId: string; puntitoId: string }>(
+  marcasDelHoyo: readonly M[],
+  tipoDe: (puntitoId: string) => TipoPuntito | undefined,
+  jugo: (jugadorId: string) => boolean,
+): M | undefined {
+  for (let i = marcasDelHoyo.length - 1; i >= 0; i--) {
+    const m = marcasDelHoyo[i]
+    const t = tipoDe(m.puntitoId)
+    if (t && esUnoPorHoyo(t) && jugo(m.jugadorId)) return m
+  }
+  return undefined
+}
