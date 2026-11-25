@@ -234,7 +234,9 @@ describe('cerrada sin resolver (vuelta 2 Fable)', () => {
   it('dice que no se liquidó, qué hoyos y quién decide; no pide revisar la tarjeta de una ronda cerrada', () => {
     const t = tabla({ scores: { a: { 1: 3 }, b: { 1: 4 }, c: { 1: 4 } }, c: { pozoPorJugador: 1000 } })
     expect(hoyosSinResolver(t)).toEqual([2, 3])
-    expect(textoDelPozoSinLiquidar(t)).toBe('No se liquidó el pozo. Quedaron sin resolver los hoyos 2–3. El organizador decide cómo se reparte.')
+    expect(textoDelPozoSinLiquidar(t)).toBe('No se liquidó el pozo. Quedaron sin resolver los hoyos 2 y 3. El organizador decide cómo se reparte.')
+    const nueve = Array.from({ length: 9 }, (_, i) => ({ ...t.hoyos[2], numero: i + 10 }))
+    expect(textoDelPozoSinLiquidar({ hoyos: nueve })).toBe('No se liquidó el pozo. Quedaron sin resolver los hoyos 10–18. El organizador decide cómo se reparte.')
     expect(textoDelPozoSinLiquidar({ hoyos: t.hoyos.slice(0, 2) })).toBe('No se liquidó el pozo. Quedó sin resolver el hoyo 2. El organizador decide cómo se reparte.')
   })
 })

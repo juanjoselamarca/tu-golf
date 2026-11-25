@@ -79,7 +79,7 @@ describe('SkinsEnVivo', () => {
 
   it('cerrada sin resolver con pozo: «No se liquidó el pozo», qué hoyos y quién decide', () => {
     vista(juego({ a: { 1: 3 }, b: { 1: 4 }, c: {} }, { pozoPorJugador: 1000 }, true), true)
-    expect(screen.getByText('No se liquidó el pozo. Quedaron sin resolver los hoyos 2–3. El organizador decide cómo se reparte.')).toBeTruthy()
+    expect(screen.getByText('No se liquidó el pozo. Quedaron sin resolver los hoyos 2 y 3. El organizador decide cómo se reparte.')).toBeTruthy()
     expect(screen.queryByText(/Revisa la tarjeta/)).toBeNull()
   })
 

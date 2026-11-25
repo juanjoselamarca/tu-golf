@@ -309,7 +309,8 @@ export function textoDelPozoSinLiquidar(tabla: Pick<TablaDelSkins, 'hoyos'>): st
   const hoyos = hoyosSinResolver(tabla)
   const cuales = hoyos.length === 0 ? '' : hoyos.length === 1
     ? ` Quedó sin resolver el hoyo ${hoyos[0]}.`
-    : ` Quedaron sin resolver los hoyos ${rangoDeHoyos(hoyos)}.`
+    // Pocos, uno por uno («17 y 18»: «17–18» se lee como tramo); muchos, en tramos («10–18»).
+    : ` Quedaron sin resolver los hoyos ${hoyos.length <= 3 ? listaDeHoyos(hoyos) : rangoDeHoyos(hoyos)}.`
   return `No se liquidó el pozo.${cuales} El organizador decide cómo se reparte.`
 }
 
