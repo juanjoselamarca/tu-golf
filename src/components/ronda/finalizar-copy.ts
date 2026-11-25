@@ -51,7 +51,8 @@ export const AVISO_YA_NO_ESTAS_EN_LA_RONDA = {
 
 /**
  * Lo mismo desde la ronda terminada («Guardar en mi historial»): ahí la tarjeta viene del servidor, no de este
- * teléfono, y su fila ya se borró. No se puede prometer que los golpes siguen acá.
+ * teléfono, y su fila ya no está en esta tarjeta: se borró (sin golpes; borrar con golpes está bloqueado) o se
+ * movió a otro grupo. No se puede prometer que los golpes siguen acá; quien organiza sabe dónde quedó.
  */
 export const AVISO_YA_NO_ESTAS_EN_LA_RONDA_TERMINADA = {
   title: 'Ya no estás en esta ronda',
