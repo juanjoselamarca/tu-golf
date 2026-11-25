@@ -142,7 +142,7 @@ export async function fetchJoinInfo(
   const t = tournament as unknown as JoinInfoTournament
   if (!isVisibleToUser(t, userId)) return null
 
-  const [{ data: profile }, { data: existing }, capacity] = await Promise.all([
+  const [{ data: profile, error: errorPerfil }, { data: existing, error: errorInscripcion }, capacity] = await Promise.all([
     admin.from('profiles').select('name, indice, genero').eq('id', userId).maybeSingle(),
     admin
       .from('players')
@@ -152,6 +152,11 @@ export async function fetchJoinInfo(
       .maybeSingle(),
     tournamentCapacity(admin, t.id),
   ])
+  // "No pude leer" no es "sin perfil" ni "no inscrito": con `profile: null` la pantalla dejaba «Inscribirme»
+  // deshabilitado sin explicación y el POST respondía «Necesitas tu índice» a quien sí lo tiene. El error sube
+  // (500) y la pantalla ofrece reintentar. El cupo no se exige aquí: lo hace atómico el RPC `enroll_player`.
+  if (errorPerfil) throw errorPerfil
+  if (errorInscripcion) throw errorInscripcion
 
   return {
     tournament: t,
