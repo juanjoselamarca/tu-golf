@@ -10,6 +10,7 @@ import { strokesRecibidosEnHoyo } from '../../core/stableford-score'
 import { esHandicapUsable, golpesALaDiferenciaDelMasBajo } from '../match-play'
 import { TRAMOS_ROTATIVOS, hoyosPorTramo } from './tramos'
 import { estaRetiradoEn } from './retiro'
+import { esUnoPorHoyo, porQueNoCuenta } from './puntos-especiales'
 import {
   COMBINACIONES_DE_4,
   type ConfigJuego,
@@ -198,14 +199,6 @@ function multiplicadorBirdie(gross: number, par: number): number {
   return Math.min(par - gross, 3)
 }
 
-const NOMBRE_TIPO: Record<TipoPuntito, string> = {
-  birdie: 'birdie',
-  sandy: 'sandy',
-  chipingo: 'chipingo',
-  greenie: 'greenie',
-  propio: 'punto',
-}
-
 /**
  * Golpes que recibe cada jugador en toda la ronda para el neto del juego (no tocan el índice), en el orden de
  * `jugadores`. Si el hándicap de alguno no es usable, nadie recibe golpes (regla de `esHandicapUsable`; el
@@ -351,7 +344,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
     // Solo entre quienes jugaron el hoyo: marcar a un retirado no le quita el greenie al que sí lo ganó.
     const ultimoGreenie = [...marcasDelHoyo]
       .reverse()
-      .find(m => puntitoPorId.get(m.puntitoId)?.tipo === 'greenie' && typeof gross[m.jugadorId] === 'number')
+      .find(m => { const t = puntitoPorId.get(m.puntitoId)?.tipo; return !!t && esUnoPorHoyo(t) && typeof gross[m.jugadorId] === 'number' })
     for (const marca of marcasDelHoyo) {
       const p = puntitoPorId.get(marca.puntitoId)!
       if (p.tipo === 'birdie') continue
@@ -367,17 +360,13 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
         cuenta,
         razon,
       })
-      if (typeof g !== 'number') { especiales.push(evaluado(false, 'No jugó el hoyo')); continue }
-      if (p.tipo === 'greenie') {
-        if (hoyo.par !== 3) { especiales.push(evaluado(false, 'El greenie es solo en par 3')); continue }
-        // Uno por hoyo: el greenie reasignado desaparece (no queda como "no cuenta").
-        if (marca.jugadorId !== ultimoGreenie?.jugadorId || marca.puntitoId !== ultimoGreenie?.puntitoId) continue
-      }
-      if ((p.tipo === 'sandy' || p.tipo === 'greenie') && g > hoyo.par) {
-        especiales.push(evaluado(false, `El ${NOMBRE_TIPO[p.tipo]} cuenta solo con par o mejor`))
-        continue
-      }
-      especiales.push(evaluado(true))
+      // La regla de "cuenta o no" es la misma que usa el scorer para ofrecer el botón (`puntos-especiales.ts`).
+      const noCuenta = porQueNoCuenta(p.tipo, g, hoyo.par)
+      if (noCuenta && noCuenta.motivo !== 'sobre_par') { especiales.push(evaluado(false, noCuenta.razon)); continue }
+      // Uno por hoyo: el greenie reasignado desaparece (no queda como "no cuenta").
+      const reasignado = esUnoPorHoyo(p.tipo) && (marca.jugadorId !== ultimoGreenie?.jugadorId || marca.puntitoId !== ultimoGreenie?.puntitoId)
+      if (reasignado) continue
+      especiales.push(noCuenta ? evaluado(false, noCuenta.razon) : evaluado(true))
     }
 
     for (const e of especiales) {

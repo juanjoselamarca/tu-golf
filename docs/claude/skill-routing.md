@@ -44,6 +44,8 @@ Estos defaults se aplican SIEMPRE que el contexto matchee, sin que Juanjo deba m
 
 - "torneo real próximo", "antes del torneo" → `/pre-torneo`
 - "consulta al consejo", decisión grande de producto/marketing/negocio antes de preguntarle a Juanjo → `/consejo`
+- "esta pantalla es enredada", "espanta usuarios", "qué le sacamos a X", simplificar un flujo → `/consejo` en modo pantalla
+  (decide qué sacar; las variantes después van a `design-shotgun`)
 - "ship", "push", "deploy", "PR" → skill `ship` (gstack)
 - "bug", "error", "no funciona", "500" → skill `investigate` (gstack)
 - "QA", "probar la app", "encontrar bugs" → skill `qa` (gstack)

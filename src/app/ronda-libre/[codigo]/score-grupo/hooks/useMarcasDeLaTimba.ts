@@ -16,7 +16,7 @@ import { marcasVigentes, type MarcaEnCola } from '@/golf/ronda-libre/marcas-de-l
 import { retirosQueFaltanEnLaVista } from '@/golf/ronda-libre/retiros-de-la-timba'
 import { escribirRetirosConfirmados, guardarRetiroConfirmado, leerRetirosConfirmados } from '@/lib/ronda/retiros-confirmados'
 import type { VistaDelJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
-import type { MarcaPuntito, PuntitoConfig } from '@/golf/formats/personalizado'
+import { esUnoPorHoyo, type MarcaPuntito, type PuntitoConfig } from '@/golf/formats/personalizado'
 
 /** Una marca que el servidor rechazó para siempre: salió de la cola y no cuenta. Se le avisa al grupo. */
 export interface MarcaRechazada {
@@ -143,7 +143,10 @@ export function useMarcasDeLaTimba(input: {
   }, [activo, codigo])
 
   const esGreenie = useCallback(
-    (puntitoId: string) => vista?.config.puntitos.find(p => p.id === puntitoId)?.tipo === 'greenie',
+    (puntitoId: string) => {
+      const tipo = vista?.config.puntitos.find(p => p.id === puntitoId)?.tipo
+      return !!tipo && esUnoPorHoyo(tipo)
+    },
     [vista],
   )
   const marcas = useMemo(
@@ -153,7 +156,7 @@ export function useMarcasDeLaTimba(input: {
 
   const alternar = useCallback((jugadorId: string, puntito: PuntitoConfig, hoyo: number) => {
     const marcado = marcas.some(m => m.jugadorId === jugadorId && m.hoyo === hoyo && m.puntitoId === puntito.id)
-    const marca = { jugadorId, puntitoId: puntito.id, hoyo, marcar: !marcado, esGreenie: puntito.tipo === 'greenie' }
+    const marca = { jugadorId, puntitoId: puntito.id, hoyo, marcar: !marcado, esGreenie: esUnoPorHoyo(puntito.tipo) }
     // La cola se escribe antes del primer await: el botón cambia al toque, con o sin señal.
     const envio = marcarPuntitoConRespaldo(createClient(), codigo, marca)
     leerCola()
