@@ -6,6 +6,7 @@ const interruptor = vi.hoisted(() => ({ abierto: true }))
 vi.mock('@/lib/auth/skins-libre-abierto', () => ({ get SKINS_LIBRE_ABIERTO() { return interruptor.abierto } }))
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
+import { captureError } from '@/lib/error-tracking'
 const lectura = vi.hoisted(() => ({ impl: vi.fn() }))
 vi.mock('@/lib/data/skins-ronda-nueva', async importOriginal => ({
   ...(await importOriginal<typeof import('@/lib/data/skins-ronda-nueva')>()),
@@ -27,7 +28,7 @@ const contextoCon = (chs: (number | null)[]) => async () => ({
 })
 
 describe('useSkinsDeLaRonda', () => {
-  afterEach(() => { interruptor.abierto = true; lectura.impl.mockReset() })
+  afterEach(() => { interruptor.abierto = true; lectura.impl.mockReset(); vi.mocked(captureError).mockClear() })
 
   it('cerrado (SKINS_LIBRE_ABIERTO = false): no se puede elegir ni con permiso, y no lee la cancha', async () => {
     interruptor.abierto = false
@@ -64,7 +65,23 @@ describe('useSkinsDeLaRonda', () => {
     expect(result.current.paraEnviar?.reglasJuego.modo).toBe('gross')
   })
 
-  it('sin señal: reintenta con tope, avisa, se detiene y vuelve a leer cuando vuelve la red', async () => {
+  it('el aviso sale en el PRIMER fallo, el reintento sigue por detrás y el éxito lo limpia (sin reportar)', async () => {
+    let soltar: (v: unknown) => void = () => {}
+    lectura.impl
+      .mockImplementationOnce(async () => { throw new Error('sin señal') })
+      .mockImplementationOnce(() => new Promise(r => { soltar = r }))
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
+    expect(result.current.enError).toBe(true)
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(2))
+    await act(async () => { soltar(await contextoCon([12, 20])()) })
+    await waitFor(() => expect(result.current.problema).toBeNull())
+    expect(result.current.enError).toBe(false)
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('agotados los intentos: se reporta una vez, se detiene y vuelve a leer cuando vuelve la red', async () => {
     let volvio = false
     lectura.impl.mockImplementation(async () => {
       if (!volvio) throw new Error('sin señal')
@@ -72,15 +89,48 @@ describe('useSkinsDeLaRonda', () => {
     })
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
     act(() => result.current.elegir())
-    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
-    expect(result.current.problema?.esError).toBe(true)
-    // 1 + 2 reintentos, y nada más mientras no vuelva la red.
+    await waitFor(() => expect(captureError).toHaveBeenCalledTimes(1))
     await new Promise(r => setTimeout(r, 30))
     expect(lectura.impl).toHaveBeenCalledTimes(3)
+    expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA)
     volvio = true
     act(() => { window.dispatchEvent(new Event('online')) })
     await waitFor(() => expect(result.current.problema).toBeNull())
     expect(lectura.impl).toHaveBeenCalledTimes(4)
+  })
+
+  it('sin red (navigator.onLine false): avisa sin leer ni programar nada; el evento online lo retoma', async () => {
+    lectura.impl.mockImplementation(contextoCon([12, 20]))
+    const enLinea = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    try {
+      const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+      act(() => result.current.elegir())
+      await waitFor(() => expect(result.current.enError).toBe(true))
+      await new Promise(r => setTimeout(r, 30))
+      expect(lectura.impl).not.toHaveBeenCalled()
+      enLinea.mockReturnValue(true)
+      act(() => { window.dispatchEvent(new Event('online')) })
+      await waitFor(() => expect(result.current.problema).toBeNull())
+      expect(lectura.impl).toHaveBeenCalledTimes(1)
+    } finally {
+      enLinea.mockRestore()
+    }
+  })
+
+  it('«Reintentar» vuelve a leer desde cero tras agotar los intentos', async () => {
+    let ok = false
+    lectura.impl.mockImplementation(async () => {
+      if (!ok) throw new Error('sin señal')
+      return contextoCon([12, 20])()
+    })
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(result.current.enError).toBe(true))
+    ok = true
+    act(() => result.current.reintentar())
+    expect(result.current.problema).toBe(PROBLEMA_SKINS_CARGANDO)
+    await waitFor(() => expect(result.current.problema).toBeNull())
   })
 
   it('con la app en segundo plano no reintenta; al volver, sí', async () => {
@@ -94,10 +144,9 @@ describe('useSkinsDeLaRonda', () => {
     try {
       const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
       act(() => result.current.elegir())
-      await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(1))
+      await waitFor(() => expect(result.current.enError).toBe(true))
       await new Promise(r => setTimeout(r, 30))
       expect(lectura.impl).toHaveBeenCalledTimes(1)
-      expect(result.current.problema).toBe(PROBLEMA_SKINS_CARGANDO)
       oculto.mockReturnValue(false)
       act(() => { document.dispatchEvent(new Event('visibilitychange')) })
       await waitFor(() => expect(result.current.problema).toBeNull())
@@ -106,13 +155,23 @@ describe('useSkinsDeLaRonda', () => {
     }
   })
 
-  it('falta el rating del tee (no es la señal): avisa con ese mensaje y no reintenta solo', async () => {
+  it('el rating no llegó y después sí: se reintenta igual y termina listo', async () => {
+    lectura.impl
+      .mockImplementationOnce(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('Blanco'), false) })
+      .mockImplementation(contextoCon([12, 20]))
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.problema).toBeNull())
+    expect(result.current.enError).toBe(false)
+  })
+
+  it('el rating no llega nunca: el mensaje del tee sale solo al agotar los intentos', async () => {
     lectura.impl.mockImplementation(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('Blanco'), false) })
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
     act(() => result.current.elegir())
     await waitFor(() => expect(result.current.problema?.detalle).toContain('rating y slope del tee Blanco'))
-    await new Promise(r => setTimeout(r, 30))
-    expect(lectura.impl).toHaveBeenCalledTimes(1)
+    expect(lectura.impl).toHaveBeenCalledTimes(3)
   })
 
   it('el orden de los recorridos es dato: cambiarlo vuelve a leer, y viaja tal cual', async () => {

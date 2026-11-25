@@ -8,6 +8,7 @@ import { formatPesos } from '@/lib/format'
 import { colores, tarjeta } from '../estilos'
 import { caption } from '../juego/controles'
 import { PROBLEMA_SKINS_CARGANDO } from '../../hooks/skins-del-formulario'
+import { BotonReintentar } from '../BotonReintentar'
 
 interface Props {
   skins: ConfigSkins
@@ -15,10 +16,12 @@ interface Props {
   jugadores: number
   /** Lo que frena crear (bloqueos del motor incluidos): se dice acá, en grande, además de bajo el botón. */
   problema: ProblemaDeLaRonda | null
+  /** La lectura de la cancha falló: «Reintentar» dentro del aviso. */
+  onReintentar?: () => void
 }
 
 /** Las reglas del skins antes de crear, y por qué no se puede crear si algo lo bloquea. */
-export function ResumenSkins({ skins, modo, jugadores, problema }: Props) {
+export function ResumenSkins({ skins, modo, jugadores, problema, onReintentar }: Props) {
   const filas: [string, string][] = [
     ['Modo', modo === 'neto' ? `Neto al ${skins.hcpPct} %` : 'Gross'],
     ['Pozo por jugador', skins.pozoPorJugador > 0
@@ -48,6 +51,7 @@ export function ResumenSkins({ skins, modo, jugadores, problema }: Props) {
         }}>
           <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--error-fg)' }}>{bloqueo.titulo}</span>
           <span style={{ fontSize: '14px', lineHeight: 1.45, color: colores.texto }}>{bloqueo.detalle}</span>
+          {onReintentar && <div style={{ marginTop: '6px' }}><BotonReintentar onReintentar={onReintentar} /></div>}
         </div>
       )}
     </section>

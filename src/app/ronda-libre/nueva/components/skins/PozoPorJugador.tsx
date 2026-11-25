@@ -36,13 +36,17 @@ export function PozoPorJugador({ skins, onSkins }: { skins: ConfigSkins; onSkins
   const [sobreElTope, setSobreElTope] = useState(false)
   const texto = skins.pozoPorJugador === 0 ? '' : formatPesos(skins.pozoPorJugador).slice(1)
 
+  // Sin dependencias: también corre cuando el texto no cambió (borrar el punto de miles deja el mismo monto, y React
+  // repone el valor con el cursor al final). Solo actúa si quedó un cursor pendiente.
   useLayoutEffect(() => {
     const el = ref.current
-    if (el == null || cursor.current == null || document.activeElement !== el) return
-    const pos = posicionTrasDigitos(texto, cursor.current)
-    el.setSelectionRange(pos, pos)
+    if (el == null || cursor.current == null) return
+    if (document.activeElement === el) {
+      const pos = posicionTrasDigitos(texto, cursor.current)
+      el.setSelectionRange(pos, pos)
+    }
     cursor.current = null
-  }, [texto])
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -62,6 +66,8 @@ export function PozoPorJugador({ skins, onSkins }: { skins: ConfigSkins; onSkins
           aria-describedby={sobreElTope ? 'skins-pozo-tope' : undefined}
           aria-invalid={sobreElTope || undefined}
           value={texto}
+          // El aviso del tope es de la última tecla: al salir del campo (o con un monto válido) se va.
+          onBlur={() => setSobreElTope(false)}
           onChange={e => {
             const r = conPozoEscrito(skins, e.target.value)
             setSobreElTope(r.sobreElTope)

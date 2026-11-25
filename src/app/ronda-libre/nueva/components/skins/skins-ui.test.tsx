@@ -123,6 +123,19 @@ describe('ArmarSkins', () => {
     teclear(campo, '1500.000', 4)
     expect(campo.value).toBe('1.500.000')
     expect(campo.selectionStart).toBe(5)
+    // Retroceso sobre el punto de miles: «1.|500.000» → «1500.000», el mismo monto; el cursor queda tras el 1.
+    teclear(campo, '1500.000', 1)
+    expect(campo.value).toBe('1.500.000')
+    expect(campo.selectionStart).toBe(1)
+  })
+
+  it('el aviso del tope se va al salir del campo y con un monto válido', () => {
+    armar({ skins: { ...skinsPorDefecto(), pozoPorJugador: 20000 } })
+    const campo = screen.getByLabelText('Pozo por jugador') as HTMLInputElement
+    fireEvent.change(campo, { target: { value: '99.999.999' } })
+    expect(screen.getByRole('status').textContent).toBe(MENSAJE_POZO_TOPE)
+    fireEvent.blur(campo)
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('validación: par neto en neto, par en gross; puntos «del pozo» solo si hay pozo', () => {
@@ -159,6 +172,20 @@ describe('ResumenSkins', () => {
     expect(t).toContain('Neto al 100 %')
     expect(t).toContain('$10.000 · $40.000 en total')
     expect(screen.getByRole('alert').textContent).toContain('Ross no tiene hándicap.')
+  })
+
+  it('lectura fallida: «Reintentar» (≥ 44 px) dentro del aviso, y lo llama', () => {
+    const onReintentar = vi.fn()
+    render(
+      <ResumenSkins
+        skins={skinsPorDefecto()} modo="neto" jugadores={2} onReintentar={onReintentar}
+        problema={{ titulo: 'Revisa el skins', detalle: 'Revisa tu señal e intenta de nuevo.', esError: true }}
+      />,
+    )
+    const boton = within(screen.getByRole('alert')).getByRole('button', { name: 'Reintentar' })
+    expect(parseInt(boton.style.minHeight, 10)).toBeGreaterThanOrEqual(44)
+    fireEvent.click(boton)
+    expect(onReintentar).toHaveBeenCalledTimes(1)
   })
 
   it('mientras calcula no muestra un bloqueo', () => {
