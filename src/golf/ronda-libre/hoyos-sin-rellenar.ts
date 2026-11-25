@@ -3,6 +3,7 @@ import { estaRetiradoEn, hoyosNoJugadosPorRetiro } from '@/golf/formats/personal
 import { hoyosSinTerminarDeJugador } from './match-de-la-ronda'
 import { scoreDelHoyo, type ScoresDeTarjeta } from './tarjeta-historica'
 import { estaFueraDelHoyo, hoyosConX, type HoyosFuera } from '@/golf/formats/skins/fuera-del-hoyo'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 
 /**
  * Hoyos de un jugador que NO se rellenan con par al cerrar ni al pasar de hoyo. Fuente única para el scorer de
@@ -69,6 +70,27 @@ export function tarjetaAlDiaEnHoyo(
 
 /** Skins: hoyos con X de cada jugador del grupo. */
 type FueraDelGrupo = Readonly<Record<string, HoyosFuera | undefined>>
+
+/**
+ * «Siguiente»: jugadores a los que se rellena con par el hoyo que se deja. No se rellena quien ya lo anotó (golpes o
+ * X) ni, en un juego con plata (Timba o Skins, `esJuegoConPlata`), quien se retiró en ese hoyo o antes: con par el
+ * motor le contaría un hoyo jugado. Los retiros los decide el formato, no el llamador (vuelta 2 Fable: la página
+ * los pasaba solo en la Timba y «Siguiente» le ponía par al retirado de un Skins).
+ */
+export function jugadoresQueSiguienteRellena(input: {
+  formato: string | null | undefined
+  jugadores: ReadonlyArray<{ id: string }>
+  scores: Readonly<Record<string, ScoresDeTarjeta | undefined>>
+  hoyo: number
+  retiros?: Readonly<Record<string, number>> | null
+  ordenHoyos: readonly number[]
+  fuera?: FueraDelGrupo
+}): string[] {
+  const retiros = esJuegoConPlata(input.formato) ? input.retiros : undefined
+  return input.jugadores
+    .filter(j => !tarjetaAlDiaEnHoyo(input.scores[j.id], j.id, input.hoyo, retiros, input.ordenHoyos, input.fuera?.[j.id]))
+    .map(j => j.id)
+}
 
 interface HoyoEnPantallaDeLaTimba {
   jugadores: ReadonlyArray<{ id: string }>

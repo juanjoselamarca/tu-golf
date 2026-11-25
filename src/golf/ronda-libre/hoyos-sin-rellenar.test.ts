@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hoyosQueNoSeRellenan, hoyosQueQuedanSinJugarEnLaTimba } from './hoyos-sin-rellenar'
+import { hoyosQueNoSeRellenan, hoyosQueQuedanSinJugarEnLaTimba, jugadoresQueSiguienteRellena } from './hoyos-sin-rellenar'
 import { armarTarjetaHistorica, completarHoyosSinMarcarConPar } from './tarjeta-historica'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 
@@ -101,3 +101,21 @@ describe('hoja de Finalizar y cierre: una sola decisión', () => {
   })
 })
 
+
+describe('jugadoresQueSiguienteRellena', () => {
+  const nueve = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  const jugadores = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+  const base = { jugadores, hoyo: 8, ordenHoyos: nueve, scores: { a: { 8: 4 } }, retiros: { c: 7 } }
+  it('Skins: al retirado no se le pone par (vuelta 2 Fable: la página pasaba retiros solo en la Timba)', () => {
+    expect(jugadoresQueSiguienteRellena({ ...base, formato: 'skins' })).toEqual(['b'])
+  })
+  it('Timba: igual que el Skins', () => {
+    expect(jugadoresQueSiguienteRellena({ ...base, formato: 'personalizado' })).toEqual(['b'])
+  })
+  it('stroke play: los retiros no existen; quien no anotó lleva par', () => {
+    expect(jugadoresQueSiguienteRellena({ ...base, formato: 'stroke_play' })).toEqual(['b', 'c'])
+  })
+  it('Skins: la X cuenta como anotado', () => {
+    expect(jugadoresQueSiguienteRellena({ ...base, formato: 'skins', fuera: { b: { 8: true } } })).toEqual([])
+  })
+})

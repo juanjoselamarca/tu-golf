@@ -17,7 +17,7 @@ import { useBeforeUnloadWarning } from '@/hooks/ronda/useBeforeUnloadWarning'
 import { getYardajeForTee, type Jugador } from '@/types/ronda'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
-import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
+import { jugadoresQueSiguienteRellena } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import { cierraLaRonda, equipoLiberadoSinElHoyo, equiposQueNoConfirmanElHoyo, equiposSinParAutomatico, nombreDelCreador } from '@/golf/ronda-libre/anotador-de-equipo'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores, hayPendientes } from '@/lib/ronda/score-storage'
@@ -47,6 +47,7 @@ import { accionesDeLaTarjeta, tarjetaCongelada } from './hooks/tarjeta-congelada
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { esFormatoSkins } from '@/golf/formats/skins/clave'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { FUERA_DEL_HOYO } from '@/golf/formats/skins/motor'
 import { useValorDelHoyoSkins } from './hooks/useValorDelHoyoSkins'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
@@ -144,7 +145,8 @@ function ScorerDeGrupo() {
   // Timba libre: puntos, marcas y retiros (todo de GET /juego). En un skins, solo sus puntos especiales. Fuera de
   // los dos no pide nada.
   const esTimba = esFormatoPersonalizado(ronda?.formato_juego)
-  const conPuntosEspeciales = esTimba || esSkins
+  // Timba y Skins (`esJuegoConPlata`): puntos especiales, retiros y cierre sin pares inventados. Una sola fuente.
+  const conPuntosEspeciales = esJuegoConPlata(ronda?.formato_juego)
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('tarjeta')
   // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
   const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
@@ -159,7 +161,7 @@ function ScorerDeGrupo() {
   // Abrir "Finalizar" a propósito NO cuenta como interacción: si el salto llega con la hoja abierta, la hoja se
   // recalcula con el mismo estado que usará finalizeRound (el hoyo que de verdad falta), que es lo correcto.
   const { marcarInteraccion } = useRetomarConLosRetiros({
-    ronda, listo: !loading, scores, equipos: teamEquipos, retiros: esTimba && timba.juego.estado === 'ok' ? timba.retiros : null,
+    ronda, listo: !loading, scores, equipos: teamEquipos, retiros: conPuntosEspeciales && timba.juego.estado === 'ok' ? timba.retiros : null,
     currentHole, setCurrentHole,
   })
   const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, descarteCerrado, showDiscardConfirm, setShowDiscardConfirm } =
@@ -167,7 +169,7 @@ function ScorerDeGrupo() {
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores, fuera: fueraSkins,
       // Timba y Skins: al cerrar no se inventan pares (solo el hoyo en pantalla, si alguien lo anotó) ni desde un retiro.
-      timba: esTimba || esSkins ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
+      timba: conPuntosEspeciales ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
       unCelularPorEquipo: unCelularPorEquipo ? { recargar } : undefined,
     })
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
@@ -178,7 +180,7 @@ function ScorerDeGrupo() {
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
-    retiros: esTimba || esSkins ? timba.retiros : undefined, sinParAutomatico, fuera: fueraSkins,
+    retiros: conPuntosEspeciales ? timba.retiros : undefined, sinParAutomatico, fuera: fueraSkins,
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
@@ -199,11 +201,10 @@ function ScorerDeGrupo() {
     } else {
       // Auto-fill ALL players who don't have a score for the current hole with par
       const updatedScores = { ...scores }
-      for (const j of jugadores) {
-        // Ya anotado (también con X en el skins), o retirado en la Timba (con par el motor se lo contaría como jugado): no se rellena.
-        if (tarjetaAlDiaEnHoyo(updatedScores[j.id], j.id, currentHole, esTimba ? timba.retiros : undefined, ordenHoyos, fueraSkins?.[j.id])) continue
-        updatedScores[j.id] = { ...(updatedScores[j.id] ?? {}), [currentHole]: par }
-      }
+      const aRellenar = jugadoresQueSiguienteRellena({
+        formato: formatoJuego, jugadores, scores: updatedScores, hoyo: currentHole, retiros: timba.retiros, ordenHoyos, fuera: fueraSkins,
+      })
+      for (const id of aRellenar) updatedScores[id] = { ...(updatedScores[id] ?? {}), [currentHole]: par }
       setScores(updatedScores)
       setHasUnsaved(true)
       saveGroupScores(codigo, updatedScores)
