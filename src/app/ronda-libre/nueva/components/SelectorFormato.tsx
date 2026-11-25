@@ -7,6 +7,7 @@ import { chip, colores, etiqueta, informativo, opcion, tarjeta } from './estilos
 import { ProBadge } from '@/components/billing/ProBadge'
 import { planesUrl } from '@/lib/planes-url'
 import { FilaTimbaLibre } from './timba/FilaTimbaLibre'
+import { FilaSkins } from './skins/FilaSkins'
 
 const FORMATOS = KNOWN_FORMAT_KEYS as ReadonlyArray<FormatoJuego>
 
@@ -30,6 +31,8 @@ interface Props {
   netoBloqueado: boolean
   /** Timba libre: se lista siempre; elegirla depende del permiso. Activa, el modo y la leyenda los pone su panel. */
   timba: { puedeElegir: boolean; activa: boolean; onElegir: () => void }
+  /** Skins: igual que la Timba (mismo candado y permiso); activo, su panel pone el modo y las reglas. */
+  skins: { puedeElegir: boolean; activa: boolean; onElegir: () => void }
 }
 
 /**
@@ -44,10 +47,12 @@ interface Props {
  * bloqueado y Gross queda activo (el hook nunca deja seleccionado un modo
  * bloqueado). El selector se ocultaría sólo si un formato admitiera un modo.
  */
-export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloqueado, timba }: Props) {
+export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloqueado, timba, skins }: Props) {
   const meta = FORMAT_META[formato]
   const leyenda = LEYENDAS[formato]
-  const modosPermitidos = timba.activa ? [] : (meta?.modosPermitidos ?? ['gross', 'neto'])
+  // Con un juego (Timba o Skins) elegido, el modo y la explicación los pone su panel.
+  const conJuego = timba.activa || skins.activa
+  const modosPermitidos = conJuego ? [] : (meta?.modosPermitidos ?? ['gross', 'neto'])
 
   return (
     <div style={tarjeta}>
@@ -56,7 +61,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloquead
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {FORMATOS.map(clave => {
           const info = FORMAT_META[clave]
-          const activo = !timba.activa && formato === clave
+          const activo = !conJuego && formato === clave
           return (
             <button
               key={clave}
@@ -81,6 +86,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloquead
           )
         })}
         <FilaTimbaLibre puedeElegir={timba.puedeElegir} activa={timba.activa} onElegir={timba.onElegir} />
+        <FilaSkins puedeElegir={skins.puedeElegir} activa={skins.activa} onElegir={skins.onElegir} />
       </div>
 
       {modosPermitidos.length > 1 && (
@@ -128,7 +134,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloquead
         </div>
       )}
 
-      {leyenda && !timba.activa && (
+      {leyenda && !conJuego && (
         <div style={informativo}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ color: colores.oroTexto, display: 'flex', flexShrink: 0 }} aria-hidden="true"><leyenda.icono size={18} strokeWidth={1.75} /></span>

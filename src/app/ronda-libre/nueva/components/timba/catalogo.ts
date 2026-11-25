@@ -9,7 +9,6 @@ import {
 
 export const TITULO_TIMBA = NOMBRE_FORMATO_PERSONALIZADO
 export const SUBTITULO_TIMBA = 'Tú anotas el score, la app lleva los puntos.'
-export const MARCA_PROXIMAMENTE = 'Próximamente'
 
 /** Los juegos armados del catálogo: todas las plantillas (`NOMBRE_PLANTILLA`) menos la que se arma a mano. */
 export const PLANTILLAS_DEL_CATALOGO: readonly PlantillaJuego[] =

@@ -158,6 +158,9 @@ describe('formatoQueViaja', () => {
     expect(formatoQueViaja('stroke_play', true)).toBe('personalizado')
     expect(formatoQueViaja('stroke_play', false)).toBe('stroke_play')
     expect(formatoQueViaja('best_ball', false)).toBe('best_ball')
+    // Skins viaja como `skins`; la Timba manda si vinieran las dos (no pasa: elegir una suelta la otra).
+    expect(formatoQueViaja('stroke_play', false, true)).toBe('skins')
+    expect(formatoQueViaja('stroke_play', true, true)).toBe('personalizado')
     // El validador de la ronda no frena una Timba por reglas de otro formato (el juego lo valida su validador).
     const jugadores = ['Juan', 'Pedro', 'Diego', 'Tomás'].map(nombre => ({ nombre, indice: 10, perfilId: null }))
     expect(validarNuevaRonda({

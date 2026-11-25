@@ -19,6 +19,7 @@ import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { DiferenciaDeHandicap } from './DiferenciaDeHandicap'
 import { EquiposDeLaRonda } from './EquiposDeLaRonda'
 import { SelectorQuienAnota } from './SelectorQuienAnota'
+import { BotonReintentar } from './BotonReintentar'
 import { EquiposDeClub, SelectorQuienAnotaEquipos, SelectorSoloEquipos } from './EquiposDeClub'
 import type { EquiposDeClubDelFormulario } from '../hooks/useEquiposDeClub'
 import { TarjetaDelCreador } from './TarjetaDelCreador'
@@ -66,6 +67,8 @@ interface Props {
   club?: EquiposDeClubDelFormulario | null
   onAtras: () => void
   onSiguiente: () => void
+  /** El aviso viene de una lectura que falló: se muestra «Reintentar» bajo él. */
+  onReintentar?: () => void
 }
 
 /** Paso 3: quiénes juegan, con qué índice y desde qué tee. */
@@ -309,6 +312,7 @@ export function PasoJugadores(props: Props) {
           >
             {detalleDelBoton}
           </div>
+          {props.onReintentar && <BotonReintentar onReintentar={props.onReintentar} />}
         </div>
       </div>
     </div>
