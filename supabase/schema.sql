@@ -742,7 +742,8 @@ create table public."ronda_libre_jugadores" (
   "tees" text,
   "perfil_sugerido_id" uuid,
   "handicap_de_inscripcion" boolean default false not null,
-  "updated_at" timestamp with time zone default now()
+  "updated_at" timestamp with time zone default now(),
+  "fuera_del_hoyo" jsonb default '{}'::jsonb not null
 );
 create table public."ronda_libre_puntitos" (
   "id" uuid default gen_random_uuid() not null,
@@ -3171,6 +3172,20 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.ronda_libre_x_sin_golpes(p_scores jsonb, p_fuera jsonb)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+  SELECT CASE
+    WHEN jsonb_typeof(p_fuera) IS DISTINCT FROM 'object' THEN false
+    WHEN p_fuera = '{}'::jsonb THEN true
+    ELSE NOT EXISTS (SELECT 1 FROM jsonb_each(p_fuera) e
+                     WHERE e.value <> 'true'::jsonb OR e.key !~ '^([1-9]|1[0-9]|2[0-7])$')
+     AND NOT (COALESCE(p_scores, '{}'::jsonb) ?| ARRAY(SELECT jsonb_object_keys(p_fuera)))
+  END
+$function$;
 CREATE OR REPLACE FUNCTION public.search_chunks_hybrid(query_embedding public.vector, query_text text, alpha numeric DEFAULT 0.7, top_k integer DEFAULT 20, jurisdictions text[] DEFAULT NULL::text[], block_filter text DEFAULT NULL::text)
  RETURNS TABLE(id uuid, source_id uuid, breadcrumb text, content text, vec_score numeric, bm25_score numeric, final_score numeric)
  LANGUAGE plpgsql
@@ -3280,7 +3295,8 @@ BEGIN
   IF v_estado IS DISTINCT FROM 'en_curso' THEN  -- con estado NULL, <> no cortaría
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
   END IF;
-  IF v_formato <> 'personalizado' OR v_reglas IS NULL THEN
+  -- Timba o Skins (migración 20261125100000): los dos tienen puntos especiales y retiros.
+  IF v_formato NOT IN ('personalizado', 'skins') OR v_reglas IS NULL THEN
     RAISE EXCEPTION 'RONDA_SIN_JUEGO' USING ERRCODE = '22023';
   END IF;
   -- Siempre con sesión (nada para anon). Al invitado sin cuenta (user_id NULL) lo marca solo quien anota la
@@ -3457,8 +3473,19 @@ DECLARE
   v_uid uuid := auth.uid();
   v_is_service boolean := COALESCE(auth.role(), '') = 'service_role';
   v_new_scores jsonb;
+  v_x text[] := ARRAY[]::text[];
+  v_golpes jsonb := p_delta;
 BEGIN
-  PERFORM public.validate_score_delta(p_delta);
+  -- "X" (Fuera del hoyo, solo skins) se separa de los golpes. Las claves de la X pasan por el mismo validador que
+  -- las de golpes (canónicas, 1..27). Un delta que no es objeto lo rechaza validate_score_delta como siempre.
+  IF p_delta IS NOT NULL AND jsonb_typeof(p_delta) = 'object' THEN
+    SELECT COALESCE(array_agg(e.key), ARRAY[]::text[]) INTO v_x
+    FROM jsonb_each(p_delta) e
+    WHERE e.value = '"X"'::jsonb;
+    v_golpes := p_delta - v_x;
+    PERFORM public.validate_score_delta((SELECT jsonb_object_agg(k, 1) FROM unnest(v_x) k));
+  END IF;
+  PERFORM public.validate_score_delta(v_golpes);
 
   -- Primero la ronda (FOR SHARE), después el jugador (FOR UPDATE), en dos sentencias: el mismo orden que el cierre
   -- y los borrados de ronda (descartar_ronda_libre, DELETE con CASCADE), para que no se crucen en un deadlock.
@@ -3491,13 +3518,18 @@ BEGIN
     RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
   END IF;
 
+  -- La X existe solo en skins: en cualquier otro formato el delta se rechaza entero, como antes.
+  IF cardinality(v_x) > 0 AND v_formato IS DISTINCT FROM 'skins' THEN
+    RAISE EXCEPTION 'INVALID_DELTA: "X" solo vale en una ronda de skins' USING ERRCODE = 'P0004';
+  END IF;
+
   IF NOT (
     v_is_service
     OR (v_uid IS NOT NULL AND (v_user_id IS NOT DISTINCT FROM v_uid OR public.puede_anotar_ronda(v_ronda_id)))
-    -- Tarjeta de un invitado sin cuenta: cualquiera con el código la anota, salvo en la Timba (hay plata en juego y
-    -- los ids de los jugadores salen en /juego/publico): ahí solo quien anota la ronda (rama de arriba). Decisión de
-    -- Juanjo 18-nov; migración 20261121120000. IS DISTINCT FROM: formato_juego es NOT NULL, pero no se apuesta a eso.
-    OR (v_user_id IS NULL AND v_formato IS DISTINCT FROM 'personalizado')
+    -- Tarjeta de un invitado sin cuenta: cualquiera con el código la anota, salvo en la Timba y el Skins (hay plata
+    -- en juego y los ids de los jugadores salen en /juego/publico): ahí solo quien anota la ronda (rama de arriba).
+    -- Decisión de Juanjo 18-nov (Timba, 20261121120000); Skins desde 20261125100000.
+    OR (v_user_id IS NULL AND v_formato IS DISTINCT FROM 'personalizado' AND v_formato IS DISTINCT FROM 'skins')
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
   END IF;
@@ -3512,8 +3544,11 @@ BEGIN
     END IF;
   END IF;
 
+  -- Golpes y X en la misma sentencia: la X borra los golpes de su hoyo y los golpes borran la X del suyo.
   UPDATE public.ronda_libre_jugadores
-  SET scores = COALESCE(scores, '{}'::jsonb) || COALESCE(p_delta, '{}'::jsonb)
+  SET scores = (COALESCE(scores, '{}'::jsonb) - v_x) || COALESCE(v_golpes, '{}'::jsonb),
+      fuera_del_hoyo = (fuera_del_hoyo - ARRAY(SELECT jsonb_object_keys(COALESCE(v_golpes, '{}'::jsonb))))
+        || COALESCE((SELECT jsonb_object_agg(k, true) FROM unnest(v_x) k), '{}'::jsonb)
   WHERE id = p_jugador_id
   RETURNING scores INTO v_new_scores;
 
@@ -3738,7 +3773,9 @@ alter table public."ronda_equipos" add constraint "ronda_equipos_handicap_origen
 alter table public."ronda_equipos" add constraint "ronda_equipos_pkey" PRIMARY KEY (id);
 alter table public."ronda_equipos_scores_orden" add constraint "ronda_equipos_scores_orden_pkey" PRIMARY KEY (equipo_id, dispositivo);
 alter table public."ronda_libre_juego_orden" add constraint "ronda_libre_juego_orden_pkey" PRIMARY KEY (ronda_id, clave, dispositivo);
+alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_fuera_del_hoyo_check" CHECK ((jsonb_typeof(fuera_del_hoyo) = 'object'::text));
 alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_pkey" PRIMARY KEY (id);
+alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_x_sin_golpes_check" CHECK (public.ronda_libre_x_sin_golpes(scores, fuera_del_hoyo));
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_hoyo_check" CHECK (((hoyo >= 1) AND (hoyo <= 27)));
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_pkey" PRIMARY KEY (id);
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_puntito_id_check" CHECK (((char_length(puntito_id) >= 1) AND (char_length(puntito_id) <= 40)));
@@ -3748,12 +3785,12 @@ alter table public."ronda_libre_retiros" add constraint "ronda_libre_retiros_pke
 alter table public."ronda_libre_scores_orden" add constraint "ronda_libre_scores_orden_pkey" PRIMARY KEY (jugador_id, dispositivo);
 alter table public."rondas_libres" add constraint "rondas_libres_codigo_key" UNIQUE (codigo);
 alter table public."rondas_libres" add constraint "rondas_libres_estado_check" CHECK ((estado = ANY (ARRAY['en_curso'::text, 'finalizada'::text])));
-alter table public."rondas_libres" add constraint "rondas_libres_formato_juego_check" CHECK ((formato_juego = ANY (ARRAY['stroke_play'::text, 'stableford'::text, 'match_play'::text, 'best_ball'::text, 'scramble'::text, 'foursome'::text, 'personalizado'::text])));
+alter table public."rondas_libres" add constraint "rondas_libres_formato_juego_check" CHECK ((formato_juego = ANY (ARRAY['stroke_play'::text, 'stableford'::text, 'match_play'::text, 'best_ball'::text, 'scramble'::text, 'foursome'::text, 'personalizado'::text, 'skins'::text])));
 alter table public."rondas_libres" add constraint "rondas_libres_hcp_pct_check" CHECK (((hcp_pct >= 50) AND (hcp_pct <= 100)));
 alter table public."rondas_libres" add constraint "rondas_libres_hoyo_inicio_check" CHECK (((hoyo_inicio >= 1) AND (hoyo_inicio <= 18)));
 alter table public."rondas_libres" add constraint "rondas_libres_modo_juego_check" CHECK ((modo_juego = ANY (ARRAY['gross'::text, 'neto'::text])));
 alter table public."rondas_libres" add constraint "rondas_libres_pkey" PRIMARY KEY (id);
-alter table public."rondas_libres" add constraint "rondas_libres_reglas_juego_check" CHECK ((((reglas_juego IS NULL) OR (jsonb_typeof(reglas_juego) = 'object'::text)) AND ((formato_juego <> 'personalizado'::text) OR (reglas_juego IS NOT NULL))));
+alter table public."rondas_libres" add constraint "rondas_libres_reglas_juego_check" CHECK ((((reglas_juego IS NULL) OR (jsonb_typeof(reglas_juego) = 'object'::text)) AND ((formato_juego <> ALL (ARRAY['personalizado'::text, 'skins'::text])) OR (reglas_juego IS NOT NULL))));
 alter table public."round_metrics" add constraint "delta_vs_target_consistency" CHECK ((((target_at_time IS NULL) AND (delta_vs_target_handicap IS NULL)) OR ((target_at_time IS NOT NULL) AND (delta_vs_target_handicap IS NOT NULL))));
 alter table public."round_metrics" add constraint "round_metrics_pkey" PRIMARY KEY (id);
 alter table public."round_metrics" add constraint "round_metrics_round_id_key" UNIQUE (round_id);
@@ -4319,8 +4356,8 @@ create policy "crear_ronda" on "public"."rondas_libres" as permissive for insert
 create policy "eliminar_ronda" on "public"."rondas_libres" as permissive for delete to "authenticated" using ((auth.uid() = creador_id));
 create policy "rondas_libres_demo_readonly_delete" on "public"."rondas_libres" as restrictive for delete to public using ((es_demo = false));
 create policy "rondas_libres_demo_readonly_update" on "public"."rondas_libres" as restrictive for update to public using ((es_demo = false)) with check ((es_demo = false));
-create policy "rondas_libres_personalizado_solo_admin_insert" on "public"."rondas_libres" as restrictive for insert to public with check (((formato_juego <> 'personalizado'::text) OR public.usuario_puede_crear_timba()));
-create policy "rondas_libres_personalizado_solo_admin_update" on "public"."rondas_libres" as restrictive for update to public using (true) with check (((formato_juego <> 'personalizado'::text) OR public.usuario_puede_crear_timba()));
+create policy "rondas_libres_personalizado_solo_admin_insert" on "public"."rondas_libres" as restrictive for insert to public with check (((formato_juego <> ALL (ARRAY['personalizado'::text, 'skins'::text])) OR public.usuario_puede_crear_timba()));
+create policy "rondas_libres_personalizado_solo_admin_update" on "public"."rondas_libres" as restrictive for update to public using (true) with check (((formato_juego <> ALL (ARRAY['personalizado'::text, 'skins'::text])) OR public.usuario_puede_crear_timba()));
 create policy "ver_rondas" on "public"."rondas_libres" as permissive for select to public using (true);
 create policy "round_metrics_owner_read" on "public"."round_metrics" as permissive for select to public using ((auth.uid() = user_id));
 create policy "round_metrics_service_write" on "public"."round_metrics" as permissive for all to "service_role" using (true) with check (true);
@@ -4514,6 +4551,7 @@ revoke all on function public.rls_write_policies_audit() from public, anon, auth
 revoke all on function public.ronda_equipos_anotador_guard() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_anotador_nombre() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_scores_de_su_anotador() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.tarjeta_tiene_anotaciones(jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
@@ -4786,8 +4824,8 @@ grant UPDATE ("analysis_level", "avatar_url", "default_tee_color", "fecha_nacimi
 grant SELECT ("avatar_url", "id", "indice", "indice_golfers", "name", "nivel") on table public."profiles" to anon;
 grant SELECT ("equipo_id", "jugador_id", "orden") on table public."ronda_equipo_jugadores" to anon;
 grant SELECT ("created_at", "handicap_equipo", "handicap_equipo_juego", "handicap_origen", "id", "nombre", "ronda_id", "scores") on table public."ronda_equipos" to anon;
-grant SELECT ("created_at", "handicap", "handicap_de_inscripcion", "id", "is_guest", "nombre", "nombre_invitado", "pending_user_id", "ronda_id", "scores", "tarjeta_aceptada", "tees", "user_id") on table public."ronda_libre_jugadores" to authenticated;
-grant SELECT ("handicap", "handicap_de_inscripcion", "id", "nombre", "ronda_id", "scores", "tees", "user_id") on table public."ronda_libre_jugadores" to anon;
+grant SELECT ("created_at", "fuera_del_hoyo", "handicap", "handicap_de_inscripcion", "id", "is_guest", "nombre", "nombre_invitado", "pending_user_id", "ronda_id", "scores", "tarjeta_aceptada", "tees", "user_id") on table public."ronda_libre_jugadores" to authenticated;
+grant SELECT ("fuera_del_hoyo", "handicap", "handicap_de_inscripcion", "id", "nombre", "ronda_id", "scores", "tees", "user_id") on table public."ronda_libre_jugadores" to anon;
 grant SELECT ("admin_mode", "admin_user_id", "codigo", "course_id", "course_name", "creador_id", "created_at", "es_demo", "estado", "fecha", "formato_juego", "hcp_pct", "holes", "hoyo_inicio", "id", "modo_juego", "recorridos", "tees") on table public."rondas_libres" to anon;
 grant SELECT ("closed_at", "id", "player_id", "round_number", "status", "total_gross", "total_net", "total_points", "tournament_id") on table public."rounds" to anon;
 grant SELECT ("group_id", "id", "jugador_ronda_id", "player_id") on table public."tournament_group_players" to anon;
@@ -4893,6 +4931,10 @@ grant EXECUTE on function public.rls_write_policies_audit() to service_role;
 grant EXECUTE on function public.ronda_equipos_anotador_guard() to postgres;
 grant EXECUTE on function public.ronda_equipos_anotador_nombre() to postgres;
 grant EXECUTE on function public.ronda_equipos_scores_de_su_anotador() to postgres;
+grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to anon;
+grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to authenticated;
+grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to postgres;
+grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to service_role;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to postgres;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to service_role;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to postgres;
