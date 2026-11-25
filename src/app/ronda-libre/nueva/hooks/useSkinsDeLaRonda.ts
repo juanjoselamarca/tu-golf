@@ -7,6 +7,8 @@ import { esCantidadDeHoyosDelSkins } from '@/golf/formats/skins'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 import { captureError } from '@/lib/error-tracking'
+import { clienteConSenal } from '@/lib/red/cliente-con-senal'
+import { conPlazoCancelable } from '@/lib/red/con-timeout'
 import {
   FalloDelContextoSkins, MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, contextoSkinsDeRondaNueva, type JugadorDelSkinsNuevo,
 } from '@/lib/data/skins-ronda-nueva'
@@ -22,6 +24,12 @@ import {
  * a primer plano. Sin red o con la app en segundo plano no se programa nada.
  */
 export const ESPERAS_REINTENTO_CONTEXTO_MS: readonly number[] = [2000, 5000, 10000]
+
+/**
+ * Plazo de cada lectura de cancha: una lectura colgada (señal que no responde) se corta acá y cuenta como fallo de
+ * señal. Cubre los reintentos propios de postgrest-js ante un error de red (1 + 2 + 4 s).
+ */
+export const PLAZO_LECTURA_CONTEXTO_MS = 10_000
 
 export interface RondaDelSkinsEnElFormulario {
   courseId: string | null
@@ -76,6 +84,10 @@ function useContextoDelSkins(
     let detenido = false
     /** Cada lectura lleva su número: la respuesta de una lectura reemplazada (por «Reintentar») no cuenta. */
     let ultima = 0
+    /** Ya se reportó el fallo de esta combinación: volver a la app y fallar otra vez no lo repite. */
+    let reportado = false
+    /** El último fallo fue de un dato de la cancha (no de la señal): volver a la app no lo arregla. */
+    let ultimoEspecifico = false
 
     const avisar = (mensaje: string) => setEstado({ clave, contexto: { estado: 'error', mensaje } })
     const programar = (intento: number) => {
@@ -87,22 +99,27 @@ function useContextoDelSkins(
       const esta = ++ultima
       try {
         const { createClient } = await import('@/lib/supabase')
-        const contexto = await contextoSkinsDeRondaNueva(createClient(), {
+        const supabase = createClient()
+        const contexto = await conPlazoCancelable(senal => contextoSkinsDeRondaNueva(clienteConSenal(supabase, senal), {
           courseId, holes, hoyoInicio, recorridos, tees, modo,
           jugadores: porJugador.map(([indice, tee]) => ({ nombre: '', indice, tees: tee })),
-        })
+        }), PLAZO_LECTURA_CONTEXTO_MS)
         if (vigente && esta === ultima) setEstado({ clave, contexto: { estado: 'listo', contexto } })
       } catch (err) {
         if (!vigente || esta !== ultima) return
-        // Un rating que no llegó puede ser la señal o la cancha: se reintenta igual, y el mensaje propio (el tee sin
-        // rating) se dice solo cuando ya no queda intento.
+        // Un rating que no llegó puede ser la señal o la cancha: se dice lo que pasó (el tee sin rating, con su salida
+        // «juega en gross») desde el primer fallo, y se reintenta igual por detrás.
         const agotado = intento >= esperasRef.current.length
         const especifico = err instanceof FalloDelContextoSkins && !err.deSenal
-        avisar(agotado && especifico ? (err as Error).message : MENSAJE_SKINS_SIN_DATOS_DE_CANCHA)
+        ultimoEspecifico = especifico
+        avisar(especifico ? (err as Error).message : MENSAJE_SKINS_SIN_DATOS_DE_CANCHA)
         if (sinRed()) { detenido = true; return }
         if (!agotado) { programar(intento + 1); return }
         detenido = true
-        void captureError(err, { context: 'ronda-libre.nueva.skins-contexto', level: 'warning', meta: { courseId } })
+        if (!reportado) {
+          reportado = true
+          void captureError(err, { context: 'ronda-libre.nueva.skins-contexto', level: 'warning', meta: { courseId } })
+        }
       }
     }
     const desdeCero = () => {
@@ -111,24 +128,27 @@ function useContextoDelSkins(
       detenido = false
       void leer(0)
     }
-    const alVolver = () => {
+    /** `online`: volvió la red, se relee. Volver a la app relee solo si lo que falló fue la señal. */
+    const alVolver = (conRed: boolean) => {
       if (!vigente || document.hidden) return
       if (enPausa != null) { const i = enPausa; enPausa = null; void leer(i); return }
-      if (detenido) desdeCero()
+      if (detenido && (conRed || !ultimoEspecifico)) desdeCero()
     }
+    const alVolverLaRed = () => alVolver(true)
+    const alVolverALaApp = () => alVolver(false)
     reintentarRef.current = () => {
       if (!vigente) return
       setEstado({ clave, contexto: { estado: 'cargando' } })
       desdeCero()
     }
-    window.addEventListener('online', alVolver)
-    document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('online', alVolverLaRed)
+    document.addEventListener('visibilitychange', alVolverALaApp)
     void leer(0)
     return () => {
       vigente = false
       if (reloj) clearTimeout(reloj)
-      window.removeEventListener('online', alVolver)
-      document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('online', alVolverLaRed)
+      document.removeEventListener('visibilitychange', alVolverALaApp)
     }
   }, [clave])
 
@@ -167,7 +187,8 @@ export function useSkinsDeLaRonda(
     problema,
     problemaEnJugadores,
     /** La lectura de la cancha falló: el aviso lleva «Reintentar», que llama a `reintentar`. */
-    enError: skins != null && contexto.estado === 'error',
+    // Solo cuando el aviso que se ve ES el de la lectura (no «falta un nombre» ni «un solo celular»).
+    enError: contexto.estado === 'error' && problema != null && problema.detalle === contexto.mensaje,
     reintentar,
     /** Lo que viaja a la API (`reglas_juego`) con el modo de la ronda, o null sin skins. */
     paraEnviar: skins ? { reglasJuego: configSkinsParaEnviar(skins, ronda.modo), problema } : null,

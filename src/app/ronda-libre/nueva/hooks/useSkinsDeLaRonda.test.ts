@@ -171,6 +171,117 @@ describe('useSkinsDeLaRonda', () => {
     expect(mensajeSkinsSinRating('azul_norte_sur')).toContain('del tee Azul · norte / sur para')
   })
 
+  it('fallo de un dato de la cancha: su mensaje (con «juega en gross») desde la 1ª lectura, mientras reintenta', async () => {
+    lectura.impl
+      .mockImplementationOnce(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('blanco'), false) })
+      .mockImplementationOnce(() => new Promise(() => {}))
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(result.current.problema?.detalle).toBe(mensajeSkinsSinRating('blanco')))
+    expect(result.current.problema?.detalle).toContain('juega en gross')
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(2))
+    expect(result.current.enError).toBe(true)
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('el rating no llega nunca: mismo mensaje hasta el final y se reporta exactamente 1 vez', async () => {
+    lectura.impl.mockImplementation(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('blanco'), false) })
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(captureError).toHaveBeenCalledTimes(1))
+    expect(lectura.impl).toHaveBeenCalledTimes(3)
+    expect(result.current.problema?.detalle).toBe(mensajeSkinsSinRating('blanco'))
+  })
+
+  it('fallo de la cancha agotado: volver a la app no relee ni reporta de nuevo; la red y «Reintentar» sí releen', async () => {
+    lectura.impl.mockImplementation(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('blanco'), false) })
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(captureError).toHaveBeenCalledTimes(1))
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    await new Promise(r => setTimeout(r, 30))
+    expect(lectura.impl).toHaveBeenCalledTimes(3)
+    act(() => { window.dispatchEvent(new Event('online')) })
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(6))
+    act(() => result.current.reintentar())
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(9))
+    await new Promise(r => setTimeout(r, 30))
+    expect(captureError).toHaveBeenCalledTimes(1)
+  })
+
+  it('fallo de señal agotado: volver a la app relee, pero no se reporta otra vez', async () => {
+    lectura.impl.mockImplementation(async () => { throw new Error('sin señal') })
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(captureError).toHaveBeenCalledTimes(1))
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(6))
+    await new Promise(r => setTimeout(r, 30))
+    expect(captureError).toHaveBeenCalledTimes(1)
+  })
+
+  it('una lectura reemplazada por «Reintentar» que falla tarde no pisa la buena', async () => {
+    let rechazarSegunda: (e: unknown) => void = () => {}
+    lectura.impl
+      .mockImplementationOnce(async () => { throw new Error('sin señal') })
+      .mockImplementationOnce(() => new Promise((_, rej) => { rechazarSegunda = rej }))
+      .mockImplementationOnce(contextoCon([12, 20]))
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(2))
+    act(() => result.current.reintentar())
+    await waitFor(() => expect(result.current.problema).toBeNull())
+    await act(async () => { rechazarSegunda(new Error('tarde')) })
+    await new Promise(r => setTimeout(r, 30))
+    expect(result.current.problema).toBeNull()
+    expect(lectura.impl).toHaveBeenCalledTimes(3)
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('falló y además se cayó la red: no programa nada ni reporta; online lo retoma', async () => {
+    let red = true
+    const enLinea = vi.spyOn(navigator, 'onLine', 'get').mockImplementation(() => red)
+    try {
+      lectura.impl.mockImplementationOnce(async () => { red = false; throw new Error('sin señal') })
+        .mockImplementation(contextoCon([12, 20]))
+      const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+      act(() => result.current.elegir())
+      await waitFor(() => expect(result.current.enError).toBe(true))
+      await new Promise(r => setTimeout(r, 30))
+      expect(lectura.impl).toHaveBeenCalledTimes(1)
+      expect(captureError).not.toHaveBeenCalled()
+      red = true
+      act(() => { window.dispatchEvent(new Event('online')) })
+      await waitFor(() => expect(result.current.problema).toBeNull())
+      expect(lectura.impl).toHaveBeenCalledTimes(2)
+    } finally {
+      enLinea.mockRestore()
+    }
+  })
+
+  it('«Reintentar» solo con el aviso de la lectura: no con una tarjeta sin nombre en Jugadores', async () => {
+    lectura.impl.mockImplementation(async () => { throw new Error('sin señal') })
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, { ...RONDA, filasSinNombre: 1 }, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
+    // Lo que se ve en Jugadores es «falta un nombre»: la pantalla exige que sea el problema del skins.
+    expect(result.current.problemaEnJugadores).not.toBe(result.current.problema)
+  })
+
+  it('«Reintentar» solo con el aviso de la lectura: no con «un solo celular»', async () => {
+    lectura.impl.mockImplementation(async () => { throw new Error('sin señal') })
+    const { result } = renderHook(() => useSkinsDeLaRonda(true, { ...RONDA, adminMode: false }, [0, 0]))
+    act(() => result.current.elegir())
+    await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(3))
+    expect(result.current.problema?.detalle).toContain('un solo celular')
+    expect(result.current.enError).toBe(false)
+  })
+
+  it('el mensaje sin rating nombra el tee como lo muestra la app (catálogo en minúsculas, 27 hoyos)', () => {
+    expect(mensajeSkinsSinRating('blanco')).toContain('del tee Blanco para')
+    expect(mensajeSkinsSinRating('azul_norte_sur')).toContain('del tee Azul · norte / sur para')
+  })
+
   it('el rating no llega nunca: el mensaje del tee sale solo al agotar los intentos', async () => {
     lectura.impl.mockImplementation(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('blanco'), false) })
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
