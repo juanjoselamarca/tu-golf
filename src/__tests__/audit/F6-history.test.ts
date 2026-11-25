@@ -392,8 +392,9 @@ describe('F6 | Finalization (peso 3)', () => {
     gameActionsSource = readSrc(GAME_ACTIONS)
   })
 
-  it('[FN-1] ronda_libre score page inserts into historical_rounds on finish', () => {
-    expect(scorePageSource).toMatch(/historical_rounds.*\.insert|\.insert.*historical_rounds/)
+  it('[FN-1] ronda_libre score page saves into historical_rounds on finish', () => {
+    // Desde el follow-up de #868 el guardado va por el RPC que toma la ronda (no se cruza con «Descartar ronda»).
+    expect(scorePageSource).toMatch(/\.rpc\('guardar_tarjeta_ronda_libre'/)
   })
 
   it('[FN-2] ronda_libre finalization inserts course_name', () => {

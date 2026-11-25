@@ -32,6 +32,7 @@ import {
   guardarTarjetaEnHistorial,
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
+  esTarjetaDeRondaDescartada,
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
@@ -44,7 +45,8 @@ import { saveScores as lsSave, limpiarCopiaLocalDeRonda } from '@/lib/ronda/scor
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre, esRechazoDelCierre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA } from '@/components/ronda/finalizar-copy'
+import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION, AVISO_RONDA_NO_EXISTE, AVISO_YA_NO_ESTAS_EN_LA_RONDA, AVISO_RONDA_YA_FINALIZADA } from '@/components/ronda/finalizar-copy'
 import { MS_ANTES_DE_ARMAR } from '@/components/ronda/HojaDelScorer'
 import type { ResultadoGuardado } from './useScoreSave'
 import type { HoleData, RondaLibre } from '@/types/ronda'
@@ -317,7 +319,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       const guardado = await guardarTarjetaEnHistorial(supabase, {
         ronda, jugador: activePlayer ?? { id: activeJugadorId, tees: null }, userId: historicalUserId,
         scores: playerScores, scoresPorJugador: { ...scoresPorJugador, [activeJugadorId]: playerScores },
-        hoyos, parMap, ratingsPorTee, conId: true,
+        hoyos, parMap, ratingsPorTee,
       })
       // Mi tarjeta quedó en el historial: desde ya la ronda no se descarta (el servidor lo rechaza igual,
       // P0003 'ronda con tarjetas guardadas'), aunque después el cierre no tenga respuesta.
@@ -325,6 +327,27 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       if (guardado.status === 'insertada' || guardado.status === 'duplicada') setDescarteCerrado(true)
       // No guardada (RLS, red…): no se anuncia "Ronda guardada" ni se recalcula el
       // índice sobre un historial que no cambió. Los golpes siguen en la tarjeta.
+      if (guardado.status === 'error' && esTarjetaDeRondaDescartada(guardado)) {
+        // P0001: la ronda o el jugador no están. Sólo con la ronda borrada de verdad (la descartaron
+        // mientras se guardaba) se limpia y se sale; sin señal no se toca nada: se reintenta. Viva o cerrada:
+        // lo sacaron de la ronda (borrado del torneo o retiro); mover de grupo no da P0001 (sigue el mismo id).
+        // Reintentar falla siempre: nada local se borra y no se invita a finalizar.
+        const veredicto = await confirmarRondaBorrada(supabase, codigo)
+        if (veredicto === 'ronda_borrada') {
+          salirPorRondaBorrada()
+          historialFallo = true
+          throw new Error('historial-ronda-descartada')
+        }
+        if (veredicto === 'sin_senal') {
+          addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
+          historialFallo = true
+          throw new Error('historial-sin-senal')
+        }
+        void captureError(guardado.error, { context: 'finalize-ronda.historial', meta: { codigo, jugadorId: activeJugadorId, veredicto } })
+        addToast({ ...AVISO_YA_NO_ESTAS_EN_LA_RONDA, type: 'error', duration: 8000 })
+        historialFallo = true
+        throw new Error('historial-jugador-fuera-de-la-ronda')
+      }
       if (guardado.status === 'error') {
         void captureError(guardado.error, { context: 'finalize-ronda.historial', meta: { codigo, jugadorId: activeJugadorId } })
         addToast({

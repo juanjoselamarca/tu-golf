@@ -35,7 +35,10 @@ import {
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
   avisarAlCoachRondaNueva,
+  esTarjetaDeRondaDescartada,
 } from '@/lib/data/ronda-libre-finalizar'
+import { AVISO_RONDA_NO_EXISTE, AVISO_YA_NO_ESTAS_EN_LA_RONDA_TERMINADA } from '@/components/ronda/finalizar-copy'
+import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '../types'
 
@@ -150,11 +153,27 @@ export function useGuardarEnMiHistorial(input: {
       hoyos,
       parMap,
       ratingsPorTee: new Map(),
-      conId: true,
       retiradoDesde,
     })
+    // P0001: la ronda o el jugador no están. Borrada: «Esta ronda ya no existe». Viva o cerrada: lo sacaron de la
+    // ronda (borrado del torneo o retiro) y reintentar fallaría siempre. En los dos casos el botón se va. Sin señal
+    // no se sabe: error normal, se puede reintentar.
+    const veredicto = esTarjetaDeRondaDescartada(resultado) ? await confirmarRondaBorrada(supabase, ronda.codigo) : null
+    if (veredicto === 'ronda_borrada') {
+      // La ronda ya no existe (descartada o borrada): no hay dónde guardarla, el botón se va.
+      addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
+      setEstado('oculto')
+      return
+    }
+    if (veredicto === 'ronda_viva' || veredicto === 'ronda_cerrada') {
+      if (resultado.status === 'error') void captureError(resultado.error, { context: 'ronda-terminada.guardar-en-mi-historial', meta: { codigo: ronda.codigo, veredicto } })
+      addToast({ ...AVISO_YA_NO_ESTAS_EN_LA_RONDA_TERMINADA, type: 'error', duration: 8000 })
+      setEstado('oculto')
+      return
+    }
     if (resultado.status === 'error') {
-      void captureError(resultado.error, { context: 'ronda-terminada.guardar-en-mi-historial', meta: { codigo: ronda.codigo } })
+      // Sin señal para confirmar el P0001 no hay nada que reportar: es la red, no un error del guardado.
+      if (veredicto !== 'sin_senal') void captureError(resultado.error, { context: 'ronda-terminada.guardar-en-mi-historial', meta: { codigo: ronda.codigo } })
       addToast({ title: 'No pudimos guardar la ronda', message: 'Intenta de nuevo en un momento.', type: 'error' })
       setEstado('disponible')
       return

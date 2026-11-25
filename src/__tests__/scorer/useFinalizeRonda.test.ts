@@ -9,7 +9,10 @@ import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
 import { limpiarCopiaLocalDeRonda } from '@/lib/ronda/score-storage'
 import { PLAZO_GUARDADO_MS } from '@/lib/red/plazos'
 
-const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn((..._a: unknown[]) => Promise.resolve({})) }))
+const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn((...a: unknown[]): Promise<unknown> => Promise.resolve(
+  // El guardado del historial (RPC) devuelve el id de la fila nueva.
+  a[0] === 'guardar_tarjeta_ronda_libre' ? { data: 'h1', error: null } : {},
+)) }))
 
 // Chainable builder that resolves when awaited (then/catch)
 const makeChainable = (resolved: unknown = { error: null }): unknown => {
@@ -242,7 +245,7 @@ describe('useFinalizeRonda', () => {
     const init = planOutcomeCalls[0]?.[1]
     expect(init?.method).toBe('POST')
     const body = JSON.parse(init?.body as string) as { historical_round_id: string }
-    expect(body.historical_round_id).toBe('h1') // mock insert devuelve { id: 'h1' }
+    expect(body.historical_round_id).toBe('h1') // el RPC del guardado devuelve 'h1'
   })
 })
 

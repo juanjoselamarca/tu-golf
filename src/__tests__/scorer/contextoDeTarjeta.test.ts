@@ -16,15 +16,18 @@ const holeDataMap: Record<number, HoleData> = Object.fromEntries(
 )
 const parMap: Record<number, number> = { 1: 4, 2: 4, 3: 4 }
 
-/** Cliente mínimo: nombre de equipo e INSERT en historial; registra la fila insertada. */
+/** Cliente mínimo: nombre de equipo y guardado en historial (RPC); registra la fila guardada. */
 function cliente(nombreEquipo: string | null = null) {
   const insertadas: Array<Record<string, unknown>> = []
   const q: Record<string, unknown> = {
     select: () => q, eq: () => q, limit: () => q, ilike: () => q,
     single: async () => ({ data: nombreEquipo ? { ronda_equipos: { nombre: nombreEquipo } } : null, error: null }),
-    insert: (fila: Record<string, unknown>) => { insertadas.push(fila); return { then: (r: (v: unknown) => unknown) => Promise.resolve({ error: null }).then(r) } },
   }
-  return { cliente: { from: vi.fn(() => q) } as never, insertadas }
+  const rpc = vi.fn(async (fn: string, args: { p_fila: Record<string, unknown> }) => {
+    if (fn === 'guardar_tarjeta_ronda_libre') insertadas.push(args.p_fila)
+    return { data: null, error: null }
+  })
+  return { cliente: { from: vi.fn(() => q), rpc } as never, insertadas }
 }
 
 const ronda = (formato: string, extra: Record<string, unknown> = {}) => ({
@@ -131,7 +134,7 @@ describe('guardarTarjetaEnHistorial — la fila de un match con concedidos', () 
     const s = { p1: { '1': -1, '2': 3, '3': 3 }, p2: { '1': 4, '2': 4, '3': 4 } }
     const r = await guardarTarjetaEnHistorial(sb, {
       ronda: ronda('match_play', { course_id: null }), jugador: { id: 'p1', tees: null }, userId: 'u1',
-      scores: s.p1, scoresPorJugador: s, hoyos, parMap, ratingsPorTee: new Map(), conId: false,
+      scores: s.p1, scoresPorJugador: s, hoyos, parMap, ratingsPorTee: new Map(),
     })
     expect(r.status).toBe('insertada')
     const fila = insertadas[0]
@@ -152,7 +155,7 @@ describe('guardarTarjetaEnHistorial — WHS 2.2 y fallas', () => {
     const s = { p1: { '1': 3, '2': 3 }, p2: { '1': 4, '2': 4 } }
     await guardarTarjetaEnHistorial(sb, {
       ronda: ronda('match_play', { course_id: null }), jugador: { id: 'p1', tees: null }, userId: 'u1',
-      scores: s.p1, scoresPorJugador: s, hoyos, parMap, ratingsPorTee: new Map(), conId: false,
+      scores: s.p1, scoresPorJugador: s, hoyos, parMap, ratingsPorTee: new Map(),
     })
     expect(insertadas[0].metadata).toMatchObject({ estimados: [{ hoyo: 3, motivo: 'no_jugado' }] })
     expect(insertadas[0].diferencial).toBeNull()
@@ -163,7 +166,7 @@ describe('guardarTarjetaEnHistorial — WHS 2.2 y fallas', () => {
     const s = { p1: { '1': 3 }, p2: { '1': 4 } }
     const r = await guardarTarjetaEnHistorial(cliente().cliente, {
       ronda: ronda('match_play'), jugador: { id: 'p1', tees: null }, userId: 'u1',
-      scores: s.p1, scoresPorJugador: s, hoyos, parMap, ratingsPorTee: new Map(), conId: false,
+      scores: s.p1, scoresPorJugador: s, hoyos, parMap, ratingsPorTee: new Map(),
     })
     expect(r.status).toBe('error')
   })

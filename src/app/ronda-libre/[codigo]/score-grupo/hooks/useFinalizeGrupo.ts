@@ -19,17 +19,19 @@ import {
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
   avisarAlCoachRondaNueva,
+  esTarjetaDeRondaDescartada,
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_GRUPO_CAMBIO, AVISO_YA_NO_ESTAS_EN_LA_RONDA, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
+import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { releerConPlazo } from './releer-con-plazo'
 import { isSharedBallFormat } from '@/golf/formats'
-import { equipoAjenoIncompleto, equiposLibres, equiposQueAnota, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
+import { anotaSinSerJugador, equipoAjenoIncompleto, equiposLibres, equiposQueAnota, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
 import { fetchEquiposConAnotador } from '@/lib/data/ronda-libre'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-de-club'
@@ -381,7 +383,7 @@ export function useFinalizeGrupo(input: {
         }
         const guardado = await guardarTarjetaEnHistorial(supabase, {
           ronda, jugador: j, userId: j.user_id, scores: playerScores, scoresPorJugador: filledScores,
-          hoyos, parMap, ratingsPorTee, conId: true, retiradoDesde: timba?.retiros[j.id],
+          hoyos, parMap, ratingsPorTee, retiradoDesde: timba?.retiros[j.id],
         })
         if (guardado.status === 'sin_hoyos') continue // no jugó ningún hoyo
         if (guardado.status === 'duplicada') {
@@ -389,6 +391,26 @@ export function useFinalizeGrupo(input: {
           // queda la primera. Se registra para poder auditar si difieren. El índice se
           // recalcula igual: si el primer intento venció el plazo, nadie lo recalculó.
           void captureError(new Error('historical_rounds duplicada'), { context: 'score_grupo_finalize_historical.duplicada', level: 'info', meta: { codigo, jugadorId: j.id } })
+        }
+        if (guardado.status === 'error' && esTarjetaDeRondaDescartada(guardado)) {
+          // P0001: la ronda o el jugador no están. Sólo con la ronda borrada de verdad (la descartaron
+          // mientras se guardaba) no queda ronda que cerrar ni tarjeta que reintentar. Sin señal: no se limpia
+          // nada, se reintenta. Viva o cerrada: al marcador lo sacaron de la ronda (borrado del torneo o
+          // retiro); mover de grupo no da P0001 (sigue el mismo id). Reintentar falla igual.
+          const veredicto = await confirmarRondaBorrada(supabase, codigo)
+          if (veredicto === 'ronda_borrada') {
+            addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
+            limpiarCopiaLocalDeRonda(codigo)
+            irA('/dashboard')
+            return
+          }
+          if (veredicto === 'sin_senal') { avisarSinServidor(); return }
+          captureError(guardado.error, { context: 'score_grupo_finalize_historical', meta: { codigo, jugadorId: j.id, veredicto } })
+          // Viva y a cargo del scorer (creó o administra la ronda): al recargar entra igual, su fila ya no está y
+          // el cierre sale. Si no (anotaba como jugador, o la ronda ya está cerrada), no hay nada que recargar.
+          const sigueACargo = veredicto === 'ronda_viva' && anotaSinSerJugador(ronda, authUserId)
+          addToast({ ...(sigueACargo ? AVISO_GRUPO_CAMBIO : AVISO_YA_NO_ESTAS_EN_LA_RONDA), type: 'error', duration: 8000 })
+          return
         }
         if (guardado.status === 'error') {
           // Sólo puede fallar la tarjeta PROPIA (las ajenas ya no se insertan). El botón se libera para

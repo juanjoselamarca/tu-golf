@@ -4,7 +4,7 @@
 // `score-grupo/hooks/useFinalizeGrupo`) necesitan leer y escribir al cerrar
 // una ronda, en UN solo lugar. Antes cada uno tenía su copia de: el guard de
 // "¿ya está finalizada?", la búsqueda de ratings del tee (con fallback a la
-// cancha y rating de 9 de la mitad jugada), el INSERT en `historical_rounds`
+// cancha y rating de 9 de la mitad jugada), el guardado en `historical_rounds`
 // (con su idempotencia por 23505) y el recálculo de índice y nivel.
 //
 // Cerrar la ronda en sí (`finalizarRondaLibre`) y descartarla
@@ -32,6 +32,7 @@ import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { conTimeout } from '@/lib/red/con-timeout'
+import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import { RONDA_NO_EXISTE } from '@/lib/data/ronda-libre-estado'
 import {
   fetchIndiceParaTope,
@@ -119,9 +120,10 @@ export type RatingsPorTee = Map<string, RatingsDelTee>
 
 export type ResultadoGuardarTarjeta =
   | { status: 'sin_hoyos'; tarjeta: TarjetaHistorica }
+  /** `id` de la fila nueva (para el coach: plan-outcome, post-round); `null` si el servidor no lo devolvió. */
   | { status: 'insertada'; tarjeta: TarjetaHistorica; id: string | null }
   | { status: 'duplicada'; tarjeta: TarjetaHistorica }
-  /** PostgREST rechazó el INSERT, o falló una lectura previa (red): `Error`. */
+  /** PostgREST rechazó el guardado, o falló una lectura previa (red): `Error`. */
   | { status: 'error'; tarjeta: TarjetaHistorica; error: PostgrestError | Error }
 
 export interface GuardarTarjetaInput {
@@ -144,12 +146,6 @@ export interface GuardarTarjetaInput {
   /** Golpes corregidos por el jugador en hoyos estimados (sólo índice; ver `tarjetaParaHistorial`). */
   correcciones?: Readonly<Record<number, number>>
   ratingsPorTee: RatingsPorTee
-  /**
-   * `true` devuelve el id de la fila (`.select('id')`) para disparar el coach
-   * (plan-outcome, post-round). Desde el 01-oct ambos finalizadores insertan sólo
-   * la tarjeta propia (`esMiTarjeta`), así que pedir el id ya no choca con RLS.
-   */
-  conId: boolean
 }
 
 /**
@@ -157,10 +153,11 @@ export interface GuardarTarjetaInput {
  * (scorer individual, scorer de grupo y "Guardar en mi historial"), así ninguno
  * se salta un paso: resultado del match y equipo (`contextoDeTarjeta`), ajuste
  * WHS de los hoyos que no se terminaron (concedidos, ganados sin terminar, no
- * jugados tras decidirse el match), tarjeta canónica, ratings, diferencial e
- * INSERT. Idempotente: si la fila ya existe (23505: el jugador la cerró desde su
- * teléfono, o es un reintento) devuelve `duplicada` y la primera queda. No lanza
- * por errores de PostgREST.
+ * jugados tras decidirse el match), tarjeta canónica, ratings, diferencial y
+ * guardado (RPC `guardar_tarjeta_ronda_libre`, con la ronda tomada). Idempotente:
+ * si la fila ya existe (23505: el jugador la cerró desde su teléfono, o es un
+ * reintento) devuelve `duplicada` y la primera queda. Devuelve siempre el id de
+ * la fila nueva. No lanza por errores de PostgREST.
  */
 export async function guardarTarjetaEnHistorial(
   // Cliente completo: el match resuelve hoyos y course handicaps con las mismas
@@ -170,7 +167,7 @@ export async function guardarTarjetaEnHistorial(
 ): Promise<ResultadoGuardarTarjeta> {
   // Nunca lanza: una lectura que falla (red) vuelve como `error` y el que llama
   // ofrece reintentar; un throw dejaba el botón "Guardando…" colgado para siempre.
-  // El plazo no cancela el INSERT: si igual llega, el reintento cae en 23505 (`duplicada`).
+  // El plazo no cancela el guardado: si igual llega, el reintento cae en 23505 (`duplicada`).
   // Timba: lo anotado desde el retiro no cuenta (el motor tampoco lo cuenta) y no llega al historial.
   const sinRetiro = { ...input, scores: golpesHastaElRetiro(input.scores, input.retiradoDesde, input.hoyos) }
   try {
@@ -241,16 +238,45 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
     ajusteWHS: ajuste ? { grossAjustado: ajuste.grossAjustado, metadata: ajuste.metadata } : null,
   })
 
-  if (input.conId) {
-    const { data, error } = await supabase.from('historical_rounds').insert(fila).select('id').single()
-    if (error?.code === '23505') return { status: 'duplicada', tarjeta }
-    if (error) return { status: 'error', tarjeta, error }
-    return { status: 'insertada', tarjeta, id: (data?.id as string | undefined) ?? null }
-  }
-  const { error } = await supabase.from('historical_rounds').insert(fila)
+  // Por RPC, no INSERT directo: `guardar_tarjeta_ronda_libre` toma la ronda FOR SHARE y así no se cruza con «Descartar
+  // ronda» (que la toma FOR UPDATE): o el descarte ve esta tarjeta y no borra, o la ronda ya no está y no queda una
+  // fila apuntando a una ronda borrada (P0001). Mismos permisos que la RLS (42501) y misma unicidad (23505).
+  const { data, error } = await supabase.rpc('guardar_tarjeta_ronda_libre', { p_fila: fila })
+  // Respaldo SOLO con PGRST202 (PostgREST no tiene el RPC: la migración aún no está aplicada). Más estricto que
+  // `esFuncionInexistente` a propósito: un 42883 sólo puede venir de DENTRO del RPC ya instalado (una función que
+  // él llama), y tomarlo como "no hay RPC" guardaría por INSERT directo saltándose el lock de la ronda.
+  if (error?.code === 'PGRST202') return guardarSinRpc(supabase, fila, tarjeta, input.userId)
   if (error?.code === '23505') return { status: 'duplicada', tarjeta }
   if (error) return { status: 'error', tarjeta, error }
-  return { status: 'insertada', tarjeta, id: null }
+  return { status: 'insertada', tarjeta, id: typeof data === 'string' ? data : null }
+}
+
+/**
+ * El RPC respondió P0001 = «ronda o jugador no encontrado», sin dejar fila. Puede ser la ronda descartada (o borrada
+ * por un admin) mientras se guardaba, o la ronda en pie sin ese jugador: lo sacaron de la ronda (borrado del torneo
+ * o retiro; mover de grupo no da P0001, la fila conserva su id). Por eso el llamador
+ * confirma con `confirmarRondaBorrada` antes de limpiar nada o decir «Esta ronda ya no existe».
+ */
+export function esTarjetaDeRondaDescartada(r: ResultadoGuardarTarjeta): boolean {
+  return r.status === 'error' && (r.error as { code?: unknown }).code === RONDA_ERRCODE.NOT_FOUND
+}
+
+/**
+ * RESPALDO TEMPORAL: la base todavía no tiene `guardar_tarjeta_ronda_libre` (el código llegó a prod antes de que se
+ * aprobara la migración 20261125120000). Sin esto nadie podría guardar su ronda. Es el INSERT directo de antes, con
+ * los mismos permisos (RLS) y la misma unicidad (23505); solo vuelve la carrera con «Descartar ronda» que el RPC
+ * cierra. Se reporta con `historial.respaldo_sin_rpc`: cuando deje de aparecer, este camino se borra.
+ */
+async function guardarSinRpc(
+  supabase: Client, fila: ReturnType<typeof filaHistorialRondaLibre>, tarjeta: TarjetaHistorica, userId: string,
+): Promise<ResultadoGuardarTarjeta> {
+  void captureError(new Error('guardar_tarjeta_ronda_libre no existe: historial por INSERT directo'), {
+    context: 'historial.respaldo_sin_rpc', level: 'warning', meta: { userId },
+  })
+  const { data, error } = await supabase.from('historical_rounds').insert(fila).select('id').single()
+  if (error?.code === '23505') return { status: 'duplicada', tarjeta }
+  if (error) return { status: 'error', tarjeta, error }
+  return { status: 'insertada', tarjeta, id: (data?.id as string | undefined) ?? null }
 }
 
 /**

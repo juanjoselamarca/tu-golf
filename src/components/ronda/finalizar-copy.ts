@@ -30,6 +30,36 @@ export const AVISO_RONDA_NO_EXISTE = {
 } as const
 
 /**
+ * P0001 al guardar la tarjeta del marcador con la ronda en curso: a él lo sacaron de la ronda (borrado del torneo
+ * o retiro), pero sigue a cargo del scorer de grupo (creó la ronda o la administra). Al recargar su fila ya no
+ * está, su tarjeta no se guarda y el cierre sale.
+ */
+export const AVISO_GRUPO_CAMBIO = {
+  title: 'Este grupo cambió',
+  message: 'Recarga la ronda y vuelve a tocar Finalizar.',
+} as const
+
+/**
+ * P0001 al guardar la tarjeta con la ronda todavía en pie y sin nada que hacer desde este teléfono: lo sacaron
+ * de la ronda (borrado del torneo o retiro). Reintentar falla siempre: no se invita a finalizar ni a reintentar,
+ * y nada local se borra.
+ */
+export const AVISO_YA_NO_ESTAS_EN_LA_RONDA = {
+  title: 'Ya no estás en esta ronda',
+  message: 'Habla con quien organiza. Tus golpes siguen en este teléfono.',
+} as const
+
+/**
+ * Lo mismo desde la ronda terminada («Guardar en mi historial»): ahí la tarjeta viene del servidor, no de este
+ * teléfono, y su fila ya no está en esta tarjeta: se borró (sin golpes; borrar con golpes está bloqueado) o se
+ * movió a otro grupo. No se puede prometer que los golpes siguen acá; quien organiza sabe dónde quedó.
+ */
+export const AVISO_YA_NO_ESTAS_EN_LA_RONDA_TERMINADA = {
+  title: 'Ya no estás en esta ronda',
+  message: 'Habla con quien organiza para recuperar tu tarjeta.',
+} as const
+
+/**
  * Finalizar encontró la ronda ya cerrada (por otro dispositivo, el organizador o el ganador del match): el
  * mismo aviso en los dos scorers, al leerla cerrada o cuando el envío de Finalizar responde que ya cerró.
  */

@@ -5,12 +5,18 @@ vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 const addToast = vi.fn()
 vi.mock('@/hooks/useToast', () => ({ addToast: (...a: unknown[]) => addToast(...a) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
+const confirmarRondaBorrada = vi.fn(async (..._a: unknown[]) => 'ronda_borrada' as string)
+vi.mock('@/lib/data/ronda-libre-estado', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data/ronda-libre-estado')>()),
+  confirmarRondaBorrada: (...a: unknown[]) => confirmarRondaBorrada(...a),
+}))
 const tarjetaYaEnMiHistorial = vi.fn()
 const guardarTarjetaEnHistorial = vi.fn()
 const recalcularIndiceGolfers = vi.fn(async () => true)
 const actualizarNivelDelJugador = vi.fn(async () => {})
 const avisarAlCoachRondaNueva = vi.fn()
-vi.mock('@/lib/data/ronda-libre-finalizar', () => ({
+vi.mock('@/lib/data/ronda-libre-finalizar', async () => ({
+  esTarjetaDeRondaDescartada: (await vi.importActual<typeof import('@/lib/data/ronda-libre-finalizar')>('@/lib/data/ronda-libre-finalizar')).esTarjetaDeRondaDescartada,
   tarjetaYaEnMiHistorial: (...a: unknown[]) => tarjetaYaEnMiHistorial(...a),
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...a),
   recalcularIndiceGolfers: (...a: unknown[]) => recalcularIndiceGolfers(...(a as [])),
@@ -19,6 +25,7 @@ vi.mock('@/lib/data/ronda-libre-finalizar', () => ({
 }))
 
 import { useGuardarEnMiHistorial } from '@/app/ronda-libre/[codigo]/hooks/useGuardarEnMiHistorial'
+import { captureError } from '@/lib/error-tracking'
 
 const ronda = {
   id: 'r1', codigo: 'ABC', course_name: 'X', course_id: 'c1', tees: 'azul', holes: 9, hoyo_inicio: 10,
@@ -87,7 +94,7 @@ describe('useGuardarEnMiHistorial', () => {
     await waitFor(() => expect(result.current.estado).toBe('disponible'))
     await act(async () => { await result.current.guardar() })
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, Record<string, unknown>]
-    expect(input).toMatchObject({ userId: 'u2', conId: true, hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18] })
+    expect(input).toMatchObject({ userId: 'u2', hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18] })
     expect((input.jugador as { id: string }).id).toBe('p2')
     expect(avisarAlCoachRondaNueva).toHaveBeenCalledWith('h1')
     expect(recalcularIndiceGolfers).toHaveBeenCalled()
@@ -101,6 +108,43 @@ describe('useGuardarEnMiHistorial', () => {
     await waitFor(() => expect(result.current.estado).toBe('disponible'))
     await act(async () => { await result.current.guardar() })
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
+    expect(result.current.estado).toBe('disponible')
+  })
+
+  it('la ronda ya no existe (P0001): lo dice y el botón se va (reintentar fallaría igual)', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001' }, tarjeta: {} })
+    const { result } = montar()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    await act(async () => { await result.current.guardar() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
+    expect(result.current.estado).toBe('oculto')
+  })
+
+  it.each([['ronda_viva'], ['ronda_cerrada']])('P0001 con %s: lo sacaron de la ronda; «Ya no estás en esta ronda» y el botón se va (reintentar fallaría siempre)', async (veredicto) => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001' }, tarjeta: {} })
+    confirmarRondaBorrada.mockResolvedValueOnce(veredicto)
+    const { result } = montar()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    await act(async () => { await result.current.guardar() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no estás en esta ronda', message: 'Habla con quien organiza para recuperar tu tarjeta.' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
+    expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ code: 'P0001' }), expect.objectContaining({ context: 'ronda-terminada.guardar-en-mi-historial' }))
+    expect(result.current.estado).toBe('oculto')
+  })
+
+  it('P0001 sin señal para confirmar: error normal, se puede reintentar y no se reporta (es la red)', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: 'P0001' }, tarjeta: {} })
+    confirmarRondaBorrada.mockResolvedValueOnce('sin_senal')
+    const { result } = montar()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    await act(async () => { await result.current.guardar() })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
+    expect(captureError).not.toHaveBeenCalled()
     expect(result.current.estado).toBe('disponible')
   })
 
