@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import { armarReglasGuardadas, calcularJuegoPersonalizado, crearConfigDePlantilla, type ConfigJuego } from '@/golf/formats/personalizado'
 import { armarEntradaDelJuego, vistaDelJuego, type VistaDelJuego } from './juego-de-la-ronda'
-import { armarTablaDelJuego, nombresCortos, nombresDeCelda } from './tabla-del-juego'
+import { armarTablaDelJuego, LARGO_NOMBRE_DE_CELDA, nombresCortos, nombresDeCelda } from './tabla-del-juego'
 
 const J = '00000000-0000-4000-8000-00000000000a'
 const P = '00000000-0000-4000-8000-00000000000b'
@@ -167,11 +167,34 @@ describe('nombresDeCelda (tira del Skins a 360 px)', () => {
   it('acota a 7 con punto: «Maximiliano» → «Maximi.»; los cortos quedan igual', () => {
     expect(nombresDeCelda(['Maximiliano Ruiz', 'Ana Pérez', 'Bartolomé Soto'])).toEqual(['Maximi.', 'Ana', 'Bartol.'])
   })
-  it('si dos quedan iguales al acortar, se alarga el prefijo hasta que difieran (nunca el mismo texto para dos)', () => {
-    expect(nombresDeCelda(['Maximiliano', 'Maximino', 'Ana'])).toEqual(['Maximil.', 'Maximino', 'Ana'])
+  it('si dos quedan iguales al acortar, los dos pasan a la forma siguiente, sin pasarse de 7', () => {
+    expect(nombresDeCelda(['Maximiliano', 'Maximino', 'Ana'])).toEqual(['Maximil', 'Maximin', 'Ana'])
   })
-  it('con inicial de apellido (mismo nombre) se acorta el nombre y la inicial queda', () => {
+  it('con inicial de apellido (mismo nombre) se acorta el nombre y la inicial queda, en 7', () => {
     expect(nombresDeCelda(['Ana Pérez', 'Ana Soto'])).toEqual(['Ana P.', 'Ana S.'])
-    expect(nombresDeCelda(['Bartolomé Fernández', 'Bartolomé Soto'])).toEqual(['Bart. F.', 'Bart. S.'])
+    expect(nombresDeCelda(['Bartolomé Fernández', 'Bartolomé Soto'])).toEqual(['Bar. F.', 'Bar. S.'])
+  })
+  it('vuelta 3 Fable: nunca más de 7 caracteres y nunca dos iguales, aun forzando inicial y desempate', () => {
+    // b9d66df1 devolvía «Bart. F.», «Maximil.» y «Maximino» (8 caracteres).
+    const casos: string[][] = [
+      ['Bartolomé Fernández', 'Bartolomé Soto', 'Maximiliano Ruiz', 'Maximino Díaz'],
+      ['Bartolomé Fernández', 'Bartolomé Fuentes', 'Bárbara Fuentes'],
+      ['Juan Pérez', 'Juan Pérez', 'Juan Soto'],
+      ['Maximiliano', 'Maximilian', 'Maximino', 'Maxi'],
+      ['Francisco Javier', 'Francisca Javiera', 'Fernando'],
+      ['', '  ', 'Jugador'],
+      ['Ñuñoa Ávila', 'Ñuñoa Álvarez'],
+    ]
+    for (const nombres of casos) {
+      const celdas = nombresDeCelda(nombres)
+      expect(celdas).toHaveLength(nombres.length)
+      for (const c of celdas) {
+        expect([...c].length, `«${c}» de ${JSON.stringify(nombres)}`).toBeLessThanOrEqual(LARGO_NOMBRE_DE_CELDA)
+        expect(c.length).toBeGreaterThan(0)
+      }
+      expect(new Set(celdas).size, JSON.stringify(celdas)).toBe(celdas.length)
+    }
+    expect(nombresDeCelda(['Juan Pérez', 'Juan Pérez'])).toEqual(['Juan 1', 'Juan 2'])
+    expect(nombresDeCelda(['Francisco', 'Francisca', 'Fernando'])).toEqual(['Fran…co', 'Fran…ca', 'Fernan.'])
   })
 })
