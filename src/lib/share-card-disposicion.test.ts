@@ -9,13 +9,13 @@ type Caja = { top: number; bottom: number }
 
 /** Canvas que no dibuja: anota cada texto (con su y) y la caja de cada relleno blanco. */
 function canvasQueAnota() {
-  const textos: Array<{ t: string; y: number }> = []
+  const textos: Array<{ t: string; y: number; color: unknown }> = []
   const panelesBlancos: Caja[] = []
   let ys: number[] = []
   const estado: Record<string, unknown> = {}
   const ctx = new Proxy(estado, {
     get: (_t, k) => {
-      if (k === 'fillText') return (t: string, _x: number, y: number) => { textos.push({ t: String(t), y }) }
+      if (k === 'fillText') return (t: string, _x: number, y: number) => { textos.push({ t: String(t), y, color: estado.fillStyle }) }
       if (k === 'beginPath') return () => { ys = [] }
       if (k === 'moveTo' || k === 'lineTo') return (_x: number, y: number) => { ys.push(y) }
       if (k === 'arcTo') return (_x1: number, y1: number, _x2: number, y2: number) => { ys.push(y1, y2) }
@@ -69,14 +69,14 @@ describe('imagen de compartir — el ranking no se monta sobre la tarjeta', () =
     for (const y of filas) expect(y).toBeLessThan(H - 380)
   })
 
-  it('individual de 18 con tarjeta: birdies y cada fila del ranking quedan bajo el panel blanco', () => {
+  it('individual de 18 con tarjeta: los birdies quedan bajo el panel blanco', () => {
     const { ctx, textos, panelesBlancos } = canvasQueAnota()
-    dibujarRondaLibre(ctx, individual18([{ nombre: 'Juanjo', score: 66, diff: -6 }, { nombre: 'Cristián', score: 70, diff: -2 }]), W, H)
+    dibujarRondaLibre(ctx, individual18(), W, H)
     expect(panelesBlancos).toHaveLength(1)
     const panel = panelesBlancos[0]
     expect(panel.bottom).toBeGreaterThan(1200) // 18 hoyos: el panel pasa de la y fija de antes
-    const debajo = [...yDe(textos, 'birdies'), ...yDe(textos, '1. Juanjo'), ...yDe(textos, '2. Cristián')]
-    expect(debajo).toHaveLength(3)
+    const debajo = yDe(textos, 'birdies')
+    expect(debajo).toHaveLength(1)
     // El texto se dibuja sobre su línea base: su parte alta (~30px) también debe quedar fuera del panel.
     for (const y of debajo) expect(y - 30).toBeGreaterThanOrEqual(panel.bottom)
   })
@@ -114,5 +114,59 @@ describe('imagen de compartir de torneo — misma regla', () => {
     expect(panelesBlancos).toHaveLength(1)
     const [y] = yDe(textos, 'birdies')
     expect(y - 30).toBeGreaterThanOrEqual(panelesBlancos[0].bottom)
+  })
+})
+
+/** El bloque inferior (CTA) arranca en H − 380; las líneas base del ranking deben quedar 24px antes. */
+const TECHO_CTA = H - 380 - 24
+
+describe('imagen de compartir — tope de filas del ranking', () => {
+  it('nueve equipos: 7 filas con nombre y cierra con «+2 más», todo antes del CTA', () => {
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, tarjetaDeEquipos(equipos(9))!, W, H)
+    const conNombre = textos.filter(x => /^\d+\. Equipo \d$/.test(x.t))
+    expect(conNombre.map(x => x.t)).toEqual([1, 2, 3, 4, 5, 6, 7].map(i => `${i}. Equipo ${i}`))
+    const [mas] = textos.filter(x => x.t === '+2 más')
+    expect(mas).toBeDefined()
+    for (const { y } of [...conNombre, mas]) expect(y).toBeLessThanOrEqual(TECHO_CTA)
+  })
+  it('ocho equipos caben enteros: sin «más»', () => {
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, tarjetaDeEquipos(equipos(8))!, W, H)
+    expect(textos.filter(x => /^\d+\. Equipo \d$/.test(x.t))).toHaveLength(8)
+    expect(textos.some(x => x.t.endsWith(' más'))).toBe(false)
+  })
+  const ranking4 = ['Juanjo', 'Cristián', 'Max', 'Pedro'].map((nombre, i) => ({ nombre, score: 66 + i, diff: -6 + i }))
+  const delRanking = (textos: Array<{ t: string; y: number }>) => textos.filter(x => /^\d+\. /.test(x.t) || x.t.endsWith(' más'))
+  it('tarjeta de 18 + birdies + ranking de 4: no cabe ni dos filas → sin ranking (nada pisa el panel ni el CTA)', () => {
+    const { ctx, textos, panelesBlancos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, individual18(ranking4), W, H)
+    expect(panelesBlancos).toHaveLength(1)
+    expect(delRanking(textos)).toEqual([])
+  })
+  it('tarjeta de 9 + birdies + ranking de 4: 2 filas y «+2 más», bajo el panel y antes del CTA', () => {
+    const { ctx, textos, panelesBlancos } = canvasQueAnota()
+    const nueve = { ...individual18(ranking4), holesPlayed: 9, scoresByHole: Object.fromEntries(Object.entries(scores18).slice(0, 9)) }
+    dibujarRondaLibre(ctx, nueve, W, H)
+    const filas = delRanking(textos)
+    expect(filas.map(x => x.t)).toEqual(['+2 más', '1. Juanjo', '2. Cristián'])
+    for (const { y } of filas) {
+      expect(y - 30).toBeGreaterThanOrEqual(panelesBlancos[0].bottom)
+      expect(y).toBeLessThanOrEqual(TECHO_CTA)
+    }
+  })
+})
+
+describe('imagen de compartir — colores legibles sobre el fondo oscuro', () => {
+  it('el −7 del ganador ya no va en el azul oscuro #0B6BA6 (2.4:1); doble+ no va en #DC3B2E (3:1)', () => {
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, tarjetaDeEquipos({ ...equipos(2), teams: [...equipos(2).teams!.slice(0, 1), { nombre: 'Equipo 2', jugadores: [], score: 75, diff: 3, holesPlayed: 18 }] })!, W, H)
+    const colores = textos.filter(x => x.t === '-7' || x.t.includes('(+3)')).map(x => x.color)
+    expect(colores).toEqual(['#60A5FA', '#F87171'])
+  })
+  it('ronda neta: cada fila dice que su total es neto', () => {
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, tarjetaDeEquipos(equipos(2))!, W, H)
+    expect(textos.map(x => x.t)).toEqual(expect.arrayContaining(['65 neto (-7)', '66 neto (-6)']))
   })
 })
