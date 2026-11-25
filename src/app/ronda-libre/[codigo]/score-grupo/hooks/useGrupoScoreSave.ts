@@ -138,7 +138,6 @@ export function useGrupoScoreSave(input: {
   ronda: RondaLibre | null
   codigo: string
   currentHole: number
-  scores: Record<string, Record<number, number>>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
   /**
    * `scores` al día con el último `setScores` (`useEstadoConRef`), no con el último render: el toque calcula el valor
@@ -158,7 +157,6 @@ export function useGrupoScoreSave(input: {
   unCelularPorEquipo?: { ajenos: ReadonlyArray<{ id: string }>; alPerderEquipo: () => void }
   /** Skins: hoyos con X de cada tarjeta (aparte de los golpes). Fuera del skins no se pasa: la tecla X no existe. */
   fueraDelHoyo?: {
-    fuera: FueraPorJugador
     setFuera: React.Dispatch<React.SetStateAction<Record<string, Record<number, true>>>>
     /** Al día con el último `setFuera` (`useEstadoConRef`). */
     fueraRef: Readonly<React.MutableRefObject<Record<string, Record<number, true>>>>

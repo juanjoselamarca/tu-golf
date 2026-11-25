@@ -35,7 +35,7 @@ const ronda = {
 function montar(teamEquipos: { id: string; scores: Record<string, number> }[], porCelular?: { ajenos: { id: string }[]; alPerderEquipo: () => void }) {
   return renderHook(() => {
     const [scores, setScores, scoresRef] = useEstadoConRef<Record<string, Record<number, number>>>({ p1: {} })
-    return useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 1, scores, setScores, scoresRef, parMap: {}, teamEquipos, unCelularPorEquipo: porCelular })
+    return useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 1, setScores, scoresRef, parMap: {}, teamEquipos, unCelularPorEquipo: porCelular })
   })
 }
 

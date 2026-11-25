@@ -3,7 +3,7 @@
  * volverse nunca un número. Fuera del skins no hay mapa de la X y una X que llegara no se anota.
  */
 import { renderHook, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, expectTypeOf } from 'vitest'
 import { useEstadoConRef } from '@/hooks/useEstadoConRef'
 import { useGrupoScoreSave } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import { leerPendientes, loadGroupFuera, loadGroupScores } from '@/lib/ronda/score-storage'
@@ -39,8 +39,8 @@ function montar(opts: { inicial?: Record<string, Record<number, number>>; fuera?
     const [scores, setScores, scoresRef] = useEstadoConRef(opts.inicial ?? { p1: {}, p2: {} })
     const [fuera, setFuera, fueraRef] = useEstadoConRef<Record<string, Record<number, true>>>(opts.fuera ?? {})
     const save = useGrupoScoreSave({
-      ronda, codigo: 'SKN', currentHole: 1, scores, setScores, scoresRef, parMap: PAR,
-      fueraDelHoyo: opts.skins === false ? undefined : { fuera, setFuera, fueraRef },
+      ronda, codigo: 'SKN', currentHole: 1, setScores, scoresRef, parMap: PAR,
+      fueraDelHoyo: opts.skins === false ? undefined : { setFuera, fueraRef },
     })
     return { scores, fuera, save, setScores, setFuera }
   })
@@ -162,5 +162,17 @@ describe('useGrupoScoreSave — el toque parte de lo último pedido, no de lo ú
     })
     // Par 3: el primer toque deja 4 y el segundo 5 (sin anti-toque: subir de a uno no pide confirmación).
     expect(result.current.scores.p1[3]).toBe(5)
+  })
+})
+
+// Revisión Fable PR #888, vuelta 3 (P2.3): los golpes y la X se leen de sus refs al día (`useEstadoConRef`). Los
+// valores sueltos (`scores`, `fueraDelHoyo.fuera`) ya no entran: pasarlos invitaría a leer un render viejo.
+describe('useGrupoScoreSave — firma', () => {
+  it('no recibe `scores` ni `fueraDelHoyo.fuera`, solo sus refs', () => {
+    type Entrada = Parameters<typeof useGrupoScoreSave>[0]
+    expectTypeOf<Entrada>().not.toHaveProperty('scores')
+    expectTypeOf<Entrada>().toHaveProperty('scoresRef')
+    expectTypeOf<NonNullable<Entrada['fueraDelHoyo']>>().not.toHaveProperty('fuera')
+    expectTypeOf<NonNullable<Entrada['fueraDelHoyo']>>().toHaveProperty('fueraRef')
   })
 })

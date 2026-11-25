@@ -39,7 +39,7 @@ const E42501 = { error: { code: '42501', message: 'permission denied for functio
 function montar() {
   return renderHook(() => {
     const [scores, setScores, scoresRef] = useEstadoConRef<Record<string, Record<number, number>>>({ p1: {} })
-    return useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 1, scores, setScores, scoresRef, parMap: PAR })
+    return useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 1, setScores, scoresRef, parMap: PAR })
   })
 }
 

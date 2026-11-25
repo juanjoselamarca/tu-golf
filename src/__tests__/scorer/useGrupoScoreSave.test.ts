@@ -51,7 +51,7 @@ function montar(
   return renderHook(() => {
     const [scores, setScores, scoresRef] = useEstadoConRef(inicial)
     const [currentHole, setCurrentHole] = useState(hole)
-    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole, scores, setScores, scoresRef, parMap: PAR, teamEquipos })
+    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole, setScores, scoresRef, parMap: PAR, teamEquipos })
     return { scores, setCurrentHole, save }
   })
 }

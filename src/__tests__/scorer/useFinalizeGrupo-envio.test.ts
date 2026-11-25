@@ -72,7 +72,7 @@ const ronda = rondaCompleta as never
 function montar(r: never = ronda, teamEquipos: never[] = []) {
   return renderHook(({ ronda }: { ronda: never }) => {
     const [scores, setScores, scoresRef] = useEstadoConRef<Record<string, Record<number, number>>>({ p1: { 10: 4 }, p2: { 10: 5 } })
-    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 18, scores, setScores, scoresRef, parMap: PAR, teamEquipos })
+    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 18, setScores, scoresRef, parMap: PAR, teamEquipos })
     const fin = useFinalizeGrupo({
       ronda, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR, teamEquipos,
       completarEquiposConPar: ((e: unknown) => e) as never, matchResult: null, authUserId: 'u1', enviarPendientes: save.saveAllScores,

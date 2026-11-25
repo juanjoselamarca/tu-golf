@@ -36,7 +36,7 @@ const PAR = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5 }
 function montar() {
   return renderHook(() => {
     const [scores, setScores, scoresRef] = useEstadoConRef<Record<string, Record<number, number>>>({ p1: {} })
-    return useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 9, scores, setScores, scoresRef, parMap: PAR })
+    return useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 9, setScores, scoresRef, parMap: PAR })
   })
 }
 
