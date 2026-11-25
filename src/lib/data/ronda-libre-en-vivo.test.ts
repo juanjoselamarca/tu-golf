@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { parYSiDeLaRonda, cargarRondaLibreEnVivo } from './ronda-libre'
+import { parYSiDeLaRonda, cargarRondaLibreEnVivo, COLUMNAS_RONDA_EN_VIVO } from './ronda-libre'
 import { leerIndicesDelCliente } from './indices-de-perfil-lectura'
 import { armarEntradaDelJuego, vistaDelJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
 import { armarReglasGuardadas, calcularJuegoPersonalizado, crearConfigDePlantilla } from '@/golf/formats/personalizado'
@@ -155,6 +155,40 @@ describe('cargarRondaLibreEnVivo', () => {
     const caido = fakeSupabase({ profiles: { data: null, error: { code: '57014', message: 'statement timeout' } } })
     const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', leerIndicesDelCliente(caido as never))
     expect(r.status).toBe('error')
+  })
+})
+
+// Vuelta 2 Fable (P2-4): `fuera_del_hoyo` estaba en COLUMNAS_RONDA_EN_VIVO, que leen TODOS los formatos. Sin la
+// columna o su grant en prod, /live caía en cualquier ronda. Ahora se lee aparte y solo en un Skins.
+describe('cargarRondaLibreEnVivo — la X del Skins no entra en la lectura compartida', () => {
+  it('COLUMNAS_RONDA_EN_VIVO no pide fuera_del_hoyo', () => {
+    expect(COLUMNAS_RONDA_EN_VIVO).not.toContain('fuera_del_hoyo')
+  })
+  it('stroke play: ni consulta la X', async () => {
+    const anon = fakeSupabase({ rondas_libres: { data: RONDA } })
+    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', null)
+    expect(r.status).toBe('ok')
+    expect(anon.consultas).not.toContain('ronda_libre_jugadores')
+  })
+  it('Skins: la X llega a cada jugador por una lectura aparte', async () => {
+    const anon = fakeSupabase({
+      rondas_libres: { data: { ...RONDA, formato_juego: 'skins' } },
+      ronda_libre_jugadores: { data: [{ id: 'j2', fuera_del_hoyo: { 1: true } }] },
+    })
+    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', null)
+    expect(r.status).toBe('ok')
+    if (r.status !== 'ok') return
+    expect(r.ronda.ronda_libre_jugadores.map(j => [j.id, j.fuera_del_hoyo])).toEqual([['j1', null], ['j2', { 1: true }], ['j3', null]])
+  })
+  it('Skins: si la lectura de la X falla, la vista en vivo sigue (sin la X) y se reporta', async () => {
+    captureError.mockClear()
+    const anon = fakeSupabase({
+      rondas_libres: { data: { ...RONDA, formato_juego: 'skins' } },
+      ronda_libre_jugadores: { data: null, error: { code: '42703', message: 'column does not exist' } },
+    })
+    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', null)
+    expect(r.status).toBe('ok')
+    expect(captureError).toHaveBeenCalled()
   })
 })
 

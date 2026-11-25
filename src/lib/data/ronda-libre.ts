@@ -19,6 +19,7 @@ import type { CourseHole, RondaLibre } from '@/types/ronda'
 import { conJugadoresOrdenados } from '@/lib/ronda/orden-jugadores'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
+import { esFormatoSkins } from '@/golf/formats/skins/clave'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { esFilaInexistente } from '@/lib/red/codigos-postgrest'
@@ -254,9 +255,13 @@ export function parYSiDeLaRonda(
   return { parMap, siMap, parTotal }
 }
 
-/** Columnas de la ronda que viajan a la vista en vivo (las mismas que leía el navegador). */
+/**
+ * Columnas de la ronda que viajan a la vista en vivo (las mismas que leía el navegador). Las usan TODOS los formatos:
+ * una columna propia de un juego (la X del Skins, `fuera_del_hoyo`) no entra acá, se lee aparte solo en ese juego
+ * (`conLaXDelSkins`). Si llegara a prod sin la columna o sin su grant, `/live` caería en todas las rondas.
+ */
 export const COLUMNAS_RONDA_EN_VIVO =
-  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees, fuera_del_hoyo)'
+  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
 
 /**
  * Arma TODO lo que muestra la vista en vivo de una ronda libre: la ronda + par/SI
@@ -273,6 +278,22 @@ export const COLUMNAS_RONDA_EN_VIVO =
  * Devuelve un discriminated union que distingue 404 real de error transitorio,
  * para que la UI conserve la data previa ante caídas (CERO FALLOS).
  */
+/**
+ * Skins: la X de cada tarjeta (`fuera_del_hoyo`), leída aparte de `COLUMNAS_RONDA_EN_VIVO` y solo en un Skins. Solo
+ * alimenta la firma de refresco de la tabla (`useTimbaDeLaRonda`): si la lectura falla, la ronda sigue sin la X (la
+ * tabla la trae igual en su próximo refresco) y se reporta; un dato propio del Skins no tumba la vista en vivo.
+ */
+async function conLaXDelSkins(supabase: SupabaseClient, ronda: RondaLibre): Promise<RondaLibre> {
+  if (!esFormatoSkins(ronda.formato_juego)) return ronda
+  const { data, error } = await supabase.from('ronda_libre_jugadores').select('id, fuera_del_hoyo').eq('ronda_id', ronda.id)
+  if (error || !Array.isArray(data)) {
+    void captureError(error ?? new Error('sin filas'), { context: 'data.cargarRondaLibreEnVivo.fueraDelHoyo', level: 'warning', meta: { codigo: ronda.codigo } })
+    return ronda
+  }
+  const fuera = new Map((data as { id: string; fuera_del_hoyo: unknown }[]).map(j => [j.id, j.fuera_del_hoyo]))
+  return { ...ronda, ronda_libre_jugadores: ronda.ronda_libre_jugadores.map(j => ({ ...j, fuera_del_hoyo: fuera.get(j.id) ?? null })) }
+}
+
 export async function cargarRondaLibreEnVivo(
   supabase: SupabaseClient,
   codigo: string,
@@ -295,7 +316,7 @@ export async function cargarRondaLibreEnVivo(
     }
 
     // Orden estable de los jugadores: el embebido llega en orden físico, que cambia con cada guardado.
-    const ronda = conJugadoresOrdenados(data as unknown as RondaLibre)
+    const ronda = await conLaXDelSkins(supabase, conJugadoresOrdenados(data as unknown as RondaLibre))
 
     // Par / stroke-index por hoyo (solo si la ronda está ligada a una cancha).
     // Fuente única de hoyos: ya viene ordenada por la selección de recorridos y
