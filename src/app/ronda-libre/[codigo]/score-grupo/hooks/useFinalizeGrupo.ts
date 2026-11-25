@@ -30,7 +30,7 @@ import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
 import { releerConPlazo } from './releer-con-plazo'
 import { isSharedBallFormat } from '@/golf/formats'
-import { equipoAjenoIncompleto, equiposLibres, equiposQueAnota, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
+import { anotaSinSerJugador, equipoAjenoIncompleto, equiposLibres, equiposQueAnota, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
 import { fetchEquiposConAnotador } from '@/lib/data/ronda-libre'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-de-club'
@@ -406,8 +406,7 @@ export function useFinalizeGrupo(input: {
           captureError(guardado.error, { context: 'score_grupo_finalize_historical', meta: { codigo, jugadorId: j.id, veredicto } })
           // Viva y a cargo del scorer (creó o administra la ronda): al recargar entra igual, su fila ya no está y
           // el cierre sale. Si no (anotaba como jugador, o la ronda ya está cerrada), no hay nada que recargar.
-          const sigueACargo = veredicto === 'ronda_viva' && !!authUserId
-            && (ronda.creador_id === authUserId || ronda.admin_user_id === authUserId)
+          const sigueACargo = veredicto === 'ronda_viva' && anotaSinSerJugador(ronda, authUserId)
           addToast({ ...(sigueACargo ? AVISO_GRUPO_CAMBIO : AVISO_YA_NO_ESTAS_EN_LA_RONDA), type: 'error', duration: 8000 })
           return
         }

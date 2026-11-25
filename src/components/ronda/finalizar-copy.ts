@@ -50,6 +50,15 @@ export const AVISO_YA_NO_ESTAS_EN_LA_RONDA = {
 } as const
 
 /**
+ * Lo mismo desde la ronda terminada («Guardar en mi historial»): ahí la tarjeta viene del servidor, no de este
+ * teléfono, y su fila ya se borró. No se puede prometer que los golpes siguen acá.
+ */
+export const AVISO_YA_NO_ESTAS_EN_LA_RONDA_TERMINADA = {
+  title: 'Ya no estás en esta ronda',
+  message: 'Habla con quien organiza para recuperar tu tarjeta.',
+} as const
+
+/**
  * Finalizar encontró la ronda ya cerrada (por otro dispositivo, el organizador o el ganador del match): el
  * mismo aviso en los dos scorers, al leerla cerrada o cuando el envío de Finalizar responde que ya cerró.
  */

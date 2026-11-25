@@ -158,6 +158,18 @@ export function nombreDelCreador(
   return ronda.ronda_libre_jugadores?.find(j => j.user_id === ronda.creador_id)?.nombre?.trim() || null
 }
 
+/**
+ * ¿Puede anotar (y cerrar) la ronda sin ser jugador de ella? El creador o el marcador designado
+ * (`admin_user_id`): la mitad de `puede_anotar_ronda` que no mira `ronda_libre_jugadores`. Por eso, si a esa
+ * cuenta la sacan de la ronda (borrado del torneo o retiro), sigue a cargo del scorer.
+ */
+export function anotaSinSerJugador(
+  ronda: Pick<RondaDeEquipos, 'creador_id' | 'admin_user_id'>,
+  userId: string | null | undefined,
+): boolean {
+  return !!userId && (ronda.creador_id === userId || ronda.admin_user_id === userId)
+}
+
 /** Qué hace el scorer de equipos con quien lo abre. */
 export type EntradaAlScorerDeEquipos = 'anota' | 'elegir_equipo' | 'en_vivo'
 
@@ -179,8 +191,7 @@ export function entradaAlScorerDeEquipos(
     if (ronda.creador_id === userId) return 'anota'
     return equiposQueAnota(ronda, equipos, userId).length > 0 ? 'anota' : 'elegir_equipo'
   }
-  const anota = ronda.creador_id === userId
-    || ronda.admin_user_id === userId
+  const anota = anotaSinSerJugador(ronda, userId)
     || (ronda.ronda_libre_jugadores ?? []).some(j => j.user_id === userId)
   return anota ? 'anota' : 'en_vivo'
 }

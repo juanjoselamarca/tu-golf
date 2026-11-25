@@ -129,7 +129,7 @@ describe('useGuardarEnMiHistorial', () => {
     const { result } = montar()
     await waitFor(() => expect(result.current.estado).toBe('disponible'))
     await act(async () => { await result.current.guardar() })
-    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no estás en esta ronda' }))
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no estás en esta ronda', message: 'Habla con quien organiza para recuperar tu tarjeta.' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
     expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ code: 'P0001' }), expect.objectContaining({ context: 'ronda-terminada.guardar-en-mi-historial' }))

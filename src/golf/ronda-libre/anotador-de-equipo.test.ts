@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  anotaSinSerJugador,
   anotadoresDeEquipos,
   cierraLaRonda,
   entradaAlScorerDeEquipos,
@@ -80,6 +81,18 @@ describe('equiposQueAnota (matriz)', () => {
       expect(mios.filter(id => ajenos.includes(id))).toEqual([])
     }
     expect(equiposDeOtroCelular(unCelular, equipos, CREADOR)).toEqual([])
+  })
+})
+
+describe('anotaSinSerJugador', () => {
+  it('creador o marcador designado: sí, aunque no tengan fila de jugador', () => {
+    expect(anotaSinSerJugador({ creador_id: 'c', admin_user_id: null }, 'c')).toBe(true)
+    expect(anotaSinSerJugador({ creador_id: 'c', admin_user_id: 'm' }, 'm')).toBe(true)
+  })
+  it('cualquier otra cuenta, o sin sesión: no', () => {
+    expect(anotaSinSerJugador({ creador_id: 'c', admin_user_id: 'm' }, 'x')).toBe(false)
+    expect(anotaSinSerJugador({ creador_id: null, admin_user_id: null }, null)).toBe(false)
+    expect(anotaSinSerJugador({ creador_id: null, admin_user_id: null }, undefined)).toBe(false)
   })
 })
 

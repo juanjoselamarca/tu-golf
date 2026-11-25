@@ -37,7 +37,7 @@ import {
   avisarAlCoachRondaNueva,
   esTarjetaDeRondaDescartada,
 } from '@/lib/data/ronda-libre-finalizar'
-import { AVISO_RONDA_NO_EXISTE, AVISO_YA_NO_ESTAS_EN_LA_RONDA } from '@/components/ronda/finalizar-copy'
+import { AVISO_RONDA_NO_EXISTE, AVISO_YA_NO_ESTAS_EN_LA_RONDA_TERMINADA } from '@/components/ronda/finalizar-copy'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '../types'
@@ -167,7 +167,7 @@ export function useGuardarEnMiHistorial(input: {
     }
     if (veredicto === 'ronda_viva' || veredicto === 'ronda_cerrada') {
       if (resultado.status === 'error') void captureError(resultado.error, { context: 'ronda-terminada.guardar-en-mi-historial', meta: { codigo: ronda.codigo, veredicto } })
-      addToast({ ...AVISO_YA_NO_ESTAS_EN_LA_RONDA, type: 'error', duration: 8000 })
+      addToast({ ...AVISO_YA_NO_ESTAS_EN_LA_RONDA_TERMINADA, type: 'error', duration: 8000 })
       setEstado('oculto')
       return
     }
