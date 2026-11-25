@@ -50,6 +50,7 @@ let page: Page
 /** Lo que el teléfono guardó al inscribirse. */
 let guestId = ''
 let tokenOriginal = ''
+let pruebaOriginal = ''
 let playerId = ''
 let roundId = ''
 
@@ -155,7 +156,8 @@ test.describe('Torneo: el invitado con el token roto recupera su tarjeta desde e
     guestId = (await leerLocal(page, 'gp_guest_id')) ?? ''
     tokenOriginal = (await leerLocal(page, 'gp_guest_token')) ?? ''
     expect(tokenOriginal, 'el teléfono guardó el token firmado').toMatch(/^[0-9a-f]{64}$/)
-    expect(await leerLocal(page, 'gp_guest_proof'), 'y la prueba de identidad de la que sale el guestId').toBeTruthy()
+    pruebaOriginal = (await leerLocal(page, 'gp_guest_proof')) ?? ''
+    expect(pruebaOriginal, 'y la prueba de identidad de la que sale el guestId').toBeTruthy()
 
     const filas = await jugadoresEnBase()
     expect(filas, 'una sola inscripción').toHaveLength(1)
@@ -217,7 +219,7 @@ test.describe('Torneo: el invitado con el token roto recupera su tarjeta desde e
     const cuerpo = pedidos[0].postDataJSON() as { guestId?: string; guestProof?: string; soloRecuperar?: boolean }
     expect(cuerpo.soloRecuperar, 'recuperar nunca inscribe').toBe(true)
     expect(cuerpo.guestId).toBe(guestId)
-    expect(cuerpo.guestProof, 'manda la prueba de identidad').toBeTruthy()
+    expect(cuerpo.guestProof, 'manda la prueba de identidad guardada al inscribirse').toBe(pruebaOriginal)
     expect(await leerLocal(page, 'gp_guest_token'), 'el token no cambió').toBe(tokenRoto(tokenOriginal))
     expect(await golpesEnBase()).toEqual([])
     expect(await jugadoresEnBase(), 'nada se inscribió').toHaveLength(1)
@@ -236,8 +238,8 @@ test.describe('Torneo: el invitado con el token roto recupera su tarjeta desde e
     expect(filas[0].pending_user_id).toBe(guestId)
 
     const tokenNuevo = await leerLocal(page, 'gp_guest_token')
-    expect(tokenNuevo, 'quedó un token firmado nuevo').toMatch(/^[0-9a-f]{64}$/)
-    expect(tokenNuevo).not.toBe(tokenRoto(tokenOriginal))
+    // El token se firma de forma determinista por jugador: recuperar al MISMO jugador devuelve el mismo token.
+    expect(tokenNuevo, 'mismo jugador → mismo token firmado').toBe(tokenOriginal)
 
     // Con el token recuperado, la próxima vez la tarjeta se abre sola y trae lo anotado desde el servidor.
     await page.evaluate(() => {
