@@ -22,32 +22,36 @@ export function useRepetirRonda<R extends { skins: ConfigSkins | null }>(input: 
   soltarSkins: () => void
 }): { repetir: (r: R) => void; esperandoPermiso: boolean; aviso: string | null } {
   const permisoSkins: EstadoDelPermiso = SKINS_LIBRE_ABIERTO ? input.permiso : 'no'
-  const [pendiente, setPendiente] = useState<ConfigSkins | null>(null)
-  const [aviso, setAviso] = useState<string | null>(null)
+  // El Skins de la última ronda repetida (null si no era Skins). Lo demás se deriva: no hay estado que sincronizar.
+  const [repetido, setRepetido] = useState<ConfigSkins | null>(null)
+  // El Skins ya aplicado (identidad): el efecto no lo vuelve a poner en cada render.
+  const aplicado = useRef<ConfigSkins | null>(null)
   // Las acciones cambian en cada render (cierran sobre el formulario): el efecto usa siempre las de ahora.
   const acciones = useRef(input)
   useEffect(() => { acciones.current = input })
 
+  // Llegó el «sí» con un Skins esperando: se aplica una vez.
   useEffect(() => {
-    if (!pendiente || permisoSkins === 'cargando') return
-    if (permisoSkins === 'si') acciones.current.ponerSkins(pendiente)
-    else {
-      acciones.current.soltarSkins()
-      setAviso(AVISO_SKINS_NO_DISPONIBLE)
-    }
-    setPendiente(null)
-  }, [pendiente, permisoSkins])
+    if (!repetido || permisoSkins !== 'si' || aplicado.current === repetido) return
+    aplicado.current = repetido
+    acciones.current.ponerSkins(repetido)
+  }, [repetido, permisoSkins])
 
   const repetir = (r: R) => {
     input.repetirBase(r)
-    setAviso(null)
-    setPendiente(null)
-    if (!r.skins) return input.soltarSkins()
-    if (permisoSkins === 'si') return input.ponerSkins(r.skins)
+    setRepetido(r.skins)
+    if (r.skins && permisoSkins === 'si') {
+      aplicado.current = r.skins
+      input.ponerSkins(r.skins)
+      return
+    }
+    // Sin Skins, o esperando el permiso: por ahora la ronda individual que repitió el formulario.
     input.soltarSkins()
-    if (permisoSkins === 'no') setAviso(AVISO_SKINS_NO_DISPONIBLE)
-    else setPendiente(r.skins)
   }
 
-  return { repetir, esperandoPermiso: pendiente != null, aviso }
+  return {
+    repetir,
+    esperandoPermiso: repetido != null && permisoSkins === 'cargando',
+    aviso: repetido != null && permisoSkins === 'no' ? AVISO_SKINS_NO_DISPONIBLE : null,
+  }
 }
