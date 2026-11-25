@@ -84,14 +84,20 @@ BEGIN
 
   -- Marca un punto especial de las reglas del skins con la misma RPC de la Timba.
   PERFORM public.marcar_puntito_ronda_libre('SKINS1', 'e2000000-0000-4000-8000-000000000001', 3, 'sandy', true);
+  PERFORM public.marcar_retiro_ronda_libre('SKINS1', 'e2000000-0000-4000-8000-000000000002', 10);
+  RAISE NOTICE 'OK retiros: marcar_retiro_ronda_libre acepta un skins';
+END $$;
+-- authenticated no lee ronda_libre_puntitos (a propósito, ver timba-libre.sql): la marca se comprueba como postgres.
+RESET ROLE;
+DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.ronda_libre_puntitos WHERE ronda_id = 'e1000000-0000-4000-8000-000000000001'
                  AND jugador_id = 'e2000000-0000-4000-8000-000000000001' AND hoyo = 3 AND puntito_id = 'sandy') THEN
     RAISE EXCEPTION 'FALLA: la marca del punto especial no quedó guardada';
   END IF;
   RAISE NOTICE 'OK puntos especiales: marcar_puntito_ronda_libre acepta un skins';
-  PERFORM public.marcar_retiro_ronda_libre('SKINS1', 'e2000000-0000-4000-8000-000000000002', 10);
-  RAISE NOTICE 'OK retiros: marcar_retiro_ronda_libre acepta un skins';
 END $$;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"e0000000-0000-4000-8000-000000000001","role":"authenticated"}';
 
 -- Validación de la X: claves inválidas, otros strings, y X fuera de skins.
 DO $$ BEGIN
