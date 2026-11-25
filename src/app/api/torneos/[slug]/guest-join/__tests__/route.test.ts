@@ -35,6 +35,9 @@ let undoError: { message: string } | null
 let lookups: Array<{ id: string } | null>
 // El lookup del guestId en cualquier torneo (sin filtro por tournament_id).
 let torneoStatus = 'open'
+// Error de la base en el lookup del torneo / en el «¿ya inscrito?» de este torneo.
+let torneoError: { message: string } | null = null
+let yaInscritoError: { message: string } | null = null
 let enOtroTorneo: { data: { id: string } | null; error: { message: string } | null }
 
 function builder(table: string) {
@@ -47,9 +50,9 @@ function builder(table: string) {
     update: (values: Record<string, unknown>) => { op = { table, op: 'update', values, filtros }; return b },
     delete: () => { op = { table, op: 'delete', filtros }; return b },
     maybeSingle: async () => {
-      if (table === 'tournaments') return { data: { id: 't1', status: torneoStatus, organizer_id: 'o1' } }
+      if (table === 'tournaments') return torneoError ? { data: null, error: torneoError } : { data: { id: 't1', status: torneoStatus, organizer_id: 'o1' } }
       if (table === 'players' && !filtros.some(([col]) => col === 'tournament_id')) return enOtroTorneo
-      if (table === 'players') return { data: lookups.shift() ?? null }
+      if (table === 'players') return yaInscritoError ? { data: null, error: yaInscritoError } : { data: lookups.shift() ?? null }
       return { data: null }
     },
     then: (resolve: (v: { error: unknown }) => void) => {
@@ -79,6 +82,8 @@ beforeEach(() => {
   undoError = null
   lookups = []
   torneoStatus = 'open'
+  torneoError = null
+  yaInscritoError = null
   vi.mocked(checkFeatureAccess).mockReset().mockResolvedValue({ allowed: true } as never)
   enOtroTorneo = { data: null, error: null }
   captureError.mockReset()
@@ -257,5 +262,31 @@ describe('POST /api/torneos/[slug]/guest-join', () => {
     expect(body.guestToken).toBeUndefined()
     expect(enrollPlayer).not.toHaveBeenCalled()
     expect(captureError).toHaveBeenCalledWith(enOtroTorneo.error, expect.objectContaining({ context: 'guest-join.lookup' }))
+  })
+})
+
+// 25-nov-2026: un error de la base al buscar el torneo o la inscripción se leía como «no existe». «Recuperar mi
+// tarjeta» (soloRecuperar) respondía 404 not_registered y el scorer le decía al invitado que se la mostrara al
+// organizador, cuando bastaba reintentar; y la inscripción normal seguía y creaba OTRO jugador.
+describe('POST guest-join · lecturas que fallan no se leen como «no existe»', () => {
+  it('error al buscar la inscripción en «Recuperar mi tarjeta» → 5xx reintentable, no 404', async () => {
+    yaInscritoError = { message: 'timeout' }
+    const res = await POST(req(`tok-${GUEST}`, { soloRecuperar: true }), params)
+    expect(res.status).toBeGreaterThanOrEqual(500)
+    expect((await res.json()).error).toBe('lookup_failed')
+  })
+
+  it('error al buscar la inscripción al inscribirse → no crea otro jugador', async () => {
+    yaInscritoError = { message: 'timeout' }
+    const res = await POST(req(`tok-${GUEST}`), params)
+    expect(res.status).toBeGreaterThanOrEqual(500)
+    expect(enrollPlayer).not.toHaveBeenCalled()
+  })
+
+  it('error al buscar el torneo → 5xx, no «Torneo no encontrado»', async () => {
+    torneoError = { message: 'timeout' }
+    const res = await POST(req(`tok-${GUEST}`, { soloRecuperar: true }), params)
+    expect(res.status).toBeGreaterThanOrEqual(500)
+    expect((await res.json()).error).toBe('lookup_failed')
   })
 })
