@@ -46,6 +46,8 @@ import { useGrupoScoreboard } from './hooks/useGrupoScoreboard'
 import { accionesDeLaTarjeta, tarjetaCongelada } from './hooks/tarjeta-congelada'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esFormatoSkins } from '@/golf/formats/skins/clave'
+import { FUERA_DEL_HOYO } from '@/golf/formats/skins/motor'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
 import { PanelDelJuego } from '../components/timba/PanelDelJuego'
@@ -77,7 +79,7 @@ function ScorerDeGrupo() {
 
   const {
     ronda, loading, loadError, currentHole, setCurrentHole,
-    scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
+    scores, setScores, fuera, setFuera, parMap, holeDataMap, playerHcp, playerDisplayHcp,
     teamEquipos, setTeamEquipos, anotadorNombre, authUserId, conexion, golpesSinSubir,
     unCelularPorEquipo, equiposDeOtroCelular, eleccion, recargar, recargarTrasDejarEquipo,
   } = useRondaGrupoData(codigo)
@@ -104,8 +106,12 @@ function ScorerDeGrupo() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
+  // Skins: la X («Fuera del hoyo») vive aparte de los golpes. Fuera del skins no hay tecla ni mapa.
+  const esSkins = esFormatoSkins(ronda?.formato_juego)
+  const fueraDelHoyo = useMemo(() => (esSkins ? { fuera, setFuera } : undefined), [esSkins, fuera, setFuera])
+  const fueraSkins = esSkins ? fuera : undefined
   const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
-    useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos, unCelularPorEquipo: porCelular })
+    useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos, unCelularPorEquipo: porCelular, fueraDelHoyo })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
     if (rondaNoExiste) router.push('/dashboard')
@@ -154,7 +160,7 @@ function ScorerDeGrupo() {
   const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, descarteCerrado, showDiscardConfirm, setShowDiscardConfirm } =
     useFinalizeGrupo({
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
-      authUserId, enviarPendientes: saveAllScores,
+      authUserId, enviarPendientes: saveAllScores, fuera: fueraSkins,
       timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
       unCelularPorEquipo: unCelularPorEquipo ? { recargar } : undefined,
     })
@@ -166,7 +172,7 @@ function ScorerDeGrupo() {
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
-    retiros: esTimba ? timba.retiros : undefined, sinParAutomatico,
+    retiros: esTimba ? timba.retiros : undefined, sinParAutomatico, fuera: fueraSkins,
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
@@ -188,8 +194,8 @@ function ScorerDeGrupo() {
       // Auto-fill ALL players who don't have a score for the current hole with par
       const updatedScores = { ...scores }
       for (const j of jugadores) {
-        // Ya anotado, o retirado en la Timba (con par el motor se lo contaría como jugado): no se rellena.
-        if (tarjetaAlDiaEnHoyo(updatedScores[j.id], j.id, currentHole, esTimba ? timba.retiros : undefined, ordenHoyos)) continue
+        // Ya anotado (también con X en el skins), o retirado en la Timba (con par el motor se lo contaría como jugado): no se rellena.
+        if (tarjetaAlDiaEnHoyo(updatedScores[j.id], j.id, currentHole, esTimba ? timba.retiros : undefined, ordenHoyos, fueraSkins?.[j.id])) continue
         updatedScores[j.id] = { ...(updatedScores[j.id] ?? {}), [currentHole]: par }
       }
       setScores(updatedScores)
@@ -451,6 +457,8 @@ function ScorerDeGrupo() {
               showNetStableford={showNetStableford}
               pending={pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole}
               onChange={(delta) => anotar(j.id, delta)}
+              fuera={fueraSkins?.[j.id]}
+              onFueraDelHoyo={esSkins ? () => anotar(j.id, FUERA_DEL_HOYO) : undefined}
               theme={theme}
               accion={esTimba && !finalizing && timba.jugadoresParaRetiro.some(r => r.id === j.id && r.desdeSiSeVa != null) ? (
                 <button

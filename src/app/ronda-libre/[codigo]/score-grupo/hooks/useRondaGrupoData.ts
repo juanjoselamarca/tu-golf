@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
 import {
   entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposQueAnota, unCelularPorEquipo, nombreDelAnotadorDelCelular, NOMBRE_ANOTADOR_GENERICO,
@@ -164,9 +164,9 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
 
   // Team formats MUST use score-grupo (individual scoring doesn't support them).
   // Non-team rounds require admin_mode + matching admin user (`anotaLaRonda`, la misma regla que usa /score).
-  // Timba libre: quien no anota va a la ronda en vivo (el individual nunca se usa en una Timba).
+  // Timba libre y Skins: quien no anota va a la ronda en vivo (el individual nunca se usa en esos juegos).
   if (!isTeamFormat(r.formato_juego) && !anotaLaRonda(r, userId)) {
-    const a = esFormatoPersonalizado(r.formato_juego) ? `/ronda-libre/${codigo}` : `/ronda-libre/${codigo}/score`
+    const a = esJuegoConPlata(r.formato_juego) ? `/ronda-libre/${codigo}` : `/ronda-libre/${codigo}/score`
     return { tipo: 'redirigir', a, reemplazar: true }
   }
   // Demo rondas son spectator-only (misma regla que /score); finalizada → vista de resultados.

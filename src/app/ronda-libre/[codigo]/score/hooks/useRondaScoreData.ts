@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { RondaLibre, HoleData } from '@/types/ronda'
 import { isTeamFormat } from '@/golf/formats'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
 import { hoyoParaRetomar, hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import {
@@ -115,10 +115,10 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       // Demo rondas son spectator-only: cualquier usuario es redirigido al leaderboard.
       // El scoring usa la UI real en /score, no queremos que toquen demo data.
       if (r.es_demo) { router.replace(`/ronda-libre/${codigo}`); return }
-      // Timba libre: se juega con UN celular, el de quien lleva el score del grupo (score-grupo). El individual no
-      // revisa marcas pendientes ni retiros y rellenaría con par al finalizar: nunca se usa en una Timba, aunque la
-      // ronda llegara sin admin_mode.
-      if (esFormatoPersonalizado(r.formato_juego)) {
+      // Timba libre y Skins (`esJuegoConPlata`): se juegan con UN celular, el de quien lleva el score del grupo
+      // (score-grupo). El individual no revisa marcas pendientes, retiros ni la X y rellenaría con par al finalizar:
+      // nunca se usa en esos juegos, aunque la ronda llegara sin admin_mode.
+      if (esJuegoConPlata(r.formato_juego)) {
         router.replace(anotaLaRonda(r, authUser?.id) ? `/ronda-libre/${codigo}/score-grupo` : `/ronda-libre/${codigo}`)
         return
       }

@@ -10,6 +10,8 @@ import { hoyosAnotados, puedeFinalizar, totalesDeTarjeta, type TotalesDeTarjeta 
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
 import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida, type TotalesBolaCompartida } from '@/golf/formats'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
+import { hoyosConX, type FueraPorJugador } from '@/golf/formats/skins/fuera-del-hoyo'
 import type { FormatoJuego, HoleData, Jugador, ModoJuego, RondaLibre } from '@/types/ronda'
 
 export interface GrupoScoreboard {
@@ -98,8 +100,10 @@ export function useGrupoScoreboard(input: {
    * celular o sin reclamar). No cuentan en `hoyosPorMarcar`: con hoyos vacíos bloquean el cierre, no se marcan.
    */
   sinParAutomatico?: ReadonlyArray<{ id: string }>
+  /** Skins: hoyos con X de cada tarjeta. Cuentan como anotados (sin golpes): ni se rellenan con par ni faltan. */
+  fuera?: FueraPorJugador
 }): GrupoScoreboard {
-  const { ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros, sinParAutomatico } = input
+  const { ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros, sinParAutomatico, fuera } = input
   const holes = ronda?.holes
   const modo = ronda?.modo_juego
   const formato = ronda?.formato_juego
@@ -128,7 +132,8 @@ export function useGrupoScoreboard(input: {
       return Math.max(0, absHcp - minHcp)
     }
 
-    const holesWithScores = (jId: string) => hoyosAnotados(scores[jId], ordenHoyos)
+    // Skins: un hoyo con X está anotado (sin golpes). Golpes y X nunca comparten hoyo.
+    const holesWithScores = (jId: string) => hoyosAnotados(scores[jId], ordenHoyos) + hoyosConX(fuera?.[jId], ordenHoyos).length
     const getPlayerTotal = (jId: string) => totalesDeTarjeta(scores[jId], ordenHoyos, parMap)
     const strokesEnHoyo = (jId: string, h: number) => strokesRecibidosEnHoyo(getDotHcp(jId), siAllocByHole[h] ?? h, totalHoles)
     const strokesOnHole = (jId: string) => strokesRecibidosEnHoyo(getDotHcp(jId), siAllocByHole[currentHole] ?? holeData.stroke_index, totalHoles)
@@ -141,17 +146,17 @@ export function useGrupoScoreboard(input: {
       const formatoEquipo = formatoJuego === 'foursome' ? 'foursome' : 'scramble'
       for (const e of equipos) totalesPorEquipo.set(e.id, totalesBolaCompartida(formatoEquipo, e, hoyos))
     }
-    const tarjetas: Array<{ scores: Record<string | number, number> | undefined; golpesEnHoyo: (h: number) => number }> = bolaCompartida
-      ? equipos.map(e => ({ scores: e.scores, golpesEnHoyo: (h: number) => totalesPorEquipo.get(e.id)?.golpesPorHoyo[h] ?? 0 }))
-      : jugadores.map(j => ({ scores: scores[j.id], golpesEnHoyo: (h: number) => strokesEnHoyo(j.id, h) }))
+    const tarjetas: Array<{ scores: Record<string | number, number> | undefined; anotados: number; golpesEnHoyo: (h: number) => number }> = bolaCompartida
+      ? equipos.map(e => ({ scores: e.scores, anotados: hoyosAnotados(e.scores, ordenHoyos), golpesEnHoyo: (h: number) => totalesPorEquipo.get(e.id)?.golpesPorHoyo[h] ?? 0 }))
+      : jugadores.map(j => ({ scores: scores[j.id], anotados: holesWithScores(j.id), golpesEnHoyo: (h: number) => strokesEnHoyo(j.id, h) }))
 
-    const maxThru = Math.max(...tarjetas.map(t => hoyosAnotados(t.scores, ordenHoyos)), 0)
+    const maxThru = Math.max(...tarjetas.map(t => t.anotados), 0)
     const canFinalize = puedeFinalizar(maxThru, isLastHole)
     const esTimba = esFormatoPersonalizado(formatoJuego)
     const tarjetasConRelleno = jugadores.map(j => ({
       jugador: j,
       scores: scores[j.id],
-      noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores }),
+      noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores, fuera: fuera?.[j.id] }),
     }))
     // Bola compartida: solo cuentan los equipos a los que el cierre les pone par (la hoja promete lo que se hará). Un
     // equipo sin par automático no se rellena en ningún hoyo; sin equipos cargados siguen faltando todos.
@@ -171,14 +176,15 @@ export function useGrupoScoreboard(input: {
         .map(t => t.jugador.nombre)
       : []
     const parEnPantallaTimba = nombresConPar.length > 0 ? { hoyo: currentHole, nombres: nombresConPar } : null
-    // Timba libre: el scorer no sabe el hándicap de los otros (`/live` no lo entrega), así que los golpes
-    // recibidos genéricos saldrían de un hándicap inventado. Los de la Timba viajan en GET /juego (spec, "Para el PR C").
-    const maxStrokesOnHole = esTimba ? 0 : Math.max(...tarjetas.map(t => t.golpesEnHoyo(currentHole)), 0)
+    // Timba libre y Skins (`esJuegoConPlata`): su neto es propio (golpes desde el más bajo); los golpes recibidos
+    // genéricos, del hándicap absoluto, serían otros. Los de la Timba viajan en GET /juego (spec, "Para el PR C").
+    const netoPropio = esJuegoConPlata(formatoJuego)
+    const maxStrokesOnHole = netoPropio ? 0 : Math.max(...tarjetas.map(t => t.golpesEnHoyo(currentHole)), 0)
     // Con un retirado (Timba), sus hoyos desde el retiro no esperan golpes: el ✓ no depende de él.
     const hoyoCompleto = (h: number) => tarjetas.length > 0 && (bolaCompartida
       ? tarjetas.every(t => t.scores?.[h] != null)
-      : jugadores.every(j => tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos)))
-    const hoyoConGolpe = (h: number) => !esTimba && showNetStableford && tarjetas.some(t => t.golpesEnHoyo(h) > 0)
+      : jugadores.every(j => tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos, fuera?.[j.id])))
+    const hoyoConGolpe = (h: number) => !netoPropio && showNetStableford && tarjetas.some(t => t.golpesEnHoyo(h) > 0)
     const totalesDeEquipo = (id: string) => totalesPorEquipo.get(id) ?? null
 
     return {
@@ -186,5 +192,5 @@ export function useGrupoScoreboard(input: {
       siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinAnotar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal,
       strokesOnHole, maxStrokesOnHole, hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
     }
-  }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros, sinParAutomatico])
+  }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros, sinParAutomatico, fuera])
 }
