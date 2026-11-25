@@ -21,6 +21,7 @@ import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
+import { esFilaInexistente } from '@/lib/red/codigos-postgrest'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 
@@ -285,8 +286,9 @@ export async function cargarRondaLibreEnVivo(
       .single()
 
     if (!data) {
-      // 404 real → not_found. Errores transitorios (red/statement timeout) → reintentar.
-      if (error?.code === 'PGRST116' || (!error && !data)) {
+      // 404 real → not_found. El resto (transitorio según `esCodigoTransitorio`, red sin `code`, o un código
+      // permanente) → reintentar: la vista en vivo nunca dice «no existe» si PostgREST no lo confirmó.
+      if (esFilaInexistente(error?.code) || (!error && !data)) {
         return { status: 'not_found' }
       }
       return { status: 'transient' }

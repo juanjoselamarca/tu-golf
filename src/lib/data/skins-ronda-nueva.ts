@@ -22,7 +22,7 @@ import {
 } from '@/golf/ronda-libre/skins-de-ronda-nueva'
 import { captureError } from '@/lib/error-tracking'
 import { TiempoAgotadoError } from '@/lib/red/con-timeout'
-import { LecturaFallidaError } from '@/lib/red/lectura-fallida'
+import { LecturaFallidaError, detalleDeLecturaFallida } from '@/lib/red/lectura-fallida'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { teeLabel } from '@/golf/courses/category-tee-options'
 import { resolverHoyosDeLaRonda } from './course-holes'
@@ -49,8 +49,11 @@ export interface RondaDelSkinsNuevo {
 }
 
 /**
- * No se pudo armar el contexto. `deSenal`: falló la lectura (reintentable solo). Si no, falta un dato de la cancha
- * (rating y slope de un tee): reintentar no lo arregla, salvo que la lectura que lo devolvió vacío haya fallado.
+ * No se pudo armar el contexto. `message` es SIEMPRE el mensaje para el jugador, el de la lectura que falló (los hoyos
+ * o el rating del tee, con su salida «juega en gross»): las pantallas lo muestran tal cual, sin mirar `deSenal`. El
+ * detalle técnico va en `cause` (se reporta con `detalleDeLecturaFallida`).
+ * `deSenal`: falló la red o la base no contestó a tiempo (reintentable solo). Si no, falta un dato de la cancha
+ * (rating y slope de un tee) o PostgREST contestó con un código permanente: reintentar no lo arregla.
  */
 export class FalloDelContextoSkins extends Error {
   constructor(message: string, readonly deSenal: boolean, cause?: unknown) {
@@ -67,18 +70,23 @@ export class FalloDelContextoSkins extends Error {
  * Sin rama `TypeError`: `postgrest-js` no lanza cuando el fetch se cae, lo devuelve como `{ error }` sin `code`
  * (ver `LecturaFallidaError`). Un `TypeError` que llegue hasta acá es un bug, y reintentarlo sería para siempre.
  */
+/** Lo que ve el jugador cuando no se pudo armar el contexto: el de la lectura que falló; si no se sabe, el de los hoyos. */
+export function mensajeDelFalloDelContextoSkins(err: unknown): string {
+  return err instanceof FalloDelContextoSkins ? err.message : MENSAJE_SKINS_SIN_DATOS_DE_CANCHA
+}
+
 export function esFalloDeSenalDelContextoSkins(err: unknown): boolean {
   if (err instanceof FalloDelContextoSkins) return err.deSenal
   return err instanceof TiempoAgotadoError
 }
 
 /**
- * Envuelve el fallo de una lectura: de señal solo si PostgREST no trajo `code`. El permanente lleva el mensaje para
- * el jugador; el detalle técnico queda en `cause` (lo ve `captureError`, no la pantalla).
+ * Envuelve el fallo de una lectura con el mensaje para el jugador de ESA lectura. De señal si PostgREST no trajo
+ * `code` o trajo uno transitorio (`LecturaFallidaError.deSenal`). El detalle técnico queda en `cause`.
  */
-function falloDeLectura(err: unknown, mensajePermanente: string): FalloDelContextoSkins {
+function falloDeLectura(err: unknown, mensajeParaElJugador: string): FalloDelContextoSkins {
   const deSenal = err instanceof LecturaFallidaError && err.deSenal
-  return new FalloDelContextoSkins(deSenal ? (err as Error).message : mensajePermanente, deSenal, err)
+  return new FalloDelContextoSkins(mensajeParaElJugador, deSenal, err)
 }
 
 export const MENSAJE_SKINS_SIN_DATOS_DE_CANCHA =
@@ -158,9 +166,11 @@ export async function skinsParaCrearRonda(
   try {
     contexto = await contextoSkinsDeRondaNueva(supabase, { ...pedido, courseId: pedido.courseId, modo: pedido.modoDeLaRonda })
   } catch (err) {
-    void captureError(err, { context: 'ronda-libre.create.skins-contexto', level: 'warning', meta: { courseId: pedido.courseId } })
-    const error = err instanceof FalloDelContextoSkins && !err.deSenal ? err.message : MENSAJE_SKINS_SIN_DATOS_DE_CANCHA
-    return { ok: false, status: 503, error }
+    void captureError(err, {
+      context: 'ronda-libre.create.skins-contexto', level: 'warning',
+      meta: { courseId: pedido.courseId, ...detalleDeLecturaFallida(err) },
+    })
+    return { ok: false, status: 503, error: mensajeDelFalloDelContextoSkins(err) }
   }
   const r = prepararSkinsDeRondaNueva({ ...pedido, contexto })
   return r.ok ? r : { ok: false, status: 400, error: r.errores.join(' ') }

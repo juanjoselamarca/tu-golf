@@ -16,6 +16,9 @@ import { CONFIG_SKINS_POR_DEFECTO } from '@/golf/formats/skins'
 import { FalloDelContextoSkins, mensajeSkinsSinRating } from '@/lib/data/skins-ronda-nueva'
 import { esperaDelReintento, useValorDelHoyoSkins } from './useValorDelHoyoSkins'
 import type { RondaLibre } from '@/types/ronda'
+import {
+  BASE_LENTA, SIN_PERMISO, clienteFalso, ok, type RespuestaFalsa,
+} from '@/__tests__/helpers/postgrest-falso'
 
 const senalDe = (llamada: number) => (lectura.impl.mock.calls[llamada][0] as { signal: AbortSignal }).signal
 const RONDA = {
@@ -171,6 +174,60 @@ describe('useValorDelHoyoSkins — lectura del contexto', () => {
     unmount()
     await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000) })
     expect(lectura.impl).toHaveBeenCalledTimes(1)
+  })
+})
+
+// Revisión Fable PR #888, vuelta 3 (P1): la base lenta del 04-oct contesta con `code` (57014). Con el contexto REAL
+// (no el simulado) leyendo de un cliente falso: el timeout se reintenta y la cifra aparece; un 42501 no se reintenta.
+describe('useValorDelHoyoSkins — base lenta (57014) con el contexto real', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers(); lectura.impl.mockReset(); vi.mocked(captureError).mockClear() })
+
+  const HOYOS_BASE = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
+  const CANCHA = ok({ slope_rating: 113, course_rating: 72, par_total: 72 })
+  const NETO = {
+    ...RONDA, reglas_juego: { config: { ...CONFIG_SKINS_POR_DEFECTO, modo: 'neto' }, jugadorIds: ['a', 'b'] },
+  } as unknown as RondaLibre
+  async function conCliente(tablas: Record<string, RespuestaFalsa[]>) {
+    const real = await vi.importActual<typeof import('@/lib/data/skins-ronda-nueva')>('@/lib/data/skins-ronda-nueva')
+    const supa = clienteFalso(tablas)
+    lectura.impl.mockImplementation((_c: unknown, r: Parameters<typeof real.contextoSkinsDeRondaNueva>[1]) =>
+      real.contextoSkinsDeRondaNueva(supa, r))
+    const hook = renderHook(() => useValorDelHoyoSkins({
+      ronda: NETO, scores: {}, fuera: {}, currentHole: 1, plazoMs: PLAZO, esperasMs: ESPERAS,
+    }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    return { ...hook, supa }
+  }
+
+  it('el rating con statement timeout se reintenta a los 30 s y la cifra aparece', async () => {
+    const { result, supa } = await conCliente({
+      course_holes: [ok(HOYOS_BASE)], courses: [BASE_LENTA, CANCHA], course_tees: [ok(null)],
+    })
+    expect(result.current).toBeNull()
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+    expect(supa.lecturas.courses).toBe(2)
+    expect(result.current?.valor).toBe(1)
+  })
+
+  it('los hoyos con statement timeout se reintentan a los 30 s y la cifra aparece', async () => {
+    const { result, supa } = await conCliente({
+      course_holes: [BASE_LENTA, ok(HOYOS_BASE)], courses: [CANCHA], course_tees: [ok(null)],
+    })
+    expect(result.current).toBeNull()
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+    expect(supa.lecturas.course_holes).toBe(2)
+    expect(result.current?.valor).toBe(1)
+  })
+
+  it('un 42501 no se reintenta, y el reporte lleva el código (captureError no guarda cause)', async () => {
+    const { result } = await conCliente({ course_holes: [ok(HOYOS_BASE)], courses: [SIN_PERMISO], course_tees: [ok(null)] })
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000) })
+    expect(lectura.impl).toHaveBeenCalledTimes(1)
+    expect(result.current).toBeNull()
+    expect(vi.mocked(captureError).mock.calls[0][1]?.meta).toMatchObject({
+      ronda: 'ABC', clase: 'permanente', codigo: '42501', causa: expect.stringContaining('permission denied'),
+    })
   })
 })
 

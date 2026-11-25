@@ -10,6 +10,7 @@ import { contextoSkinsDeRondaNueva, esFalloDeSenalDelContextoSkins } from '@/lib
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import { conPlazoCancelable, LecturaCanceladaError } from '@/lib/red/con-timeout'
 import { clienteConSenal } from '@/lib/red/cliente-con-senal'
+import { detalleDeLecturaFallida } from '@/lib/red/lectura-fallida'
 import type { RondaLibre } from '@/types/ronda'
 
 /**
@@ -80,7 +81,7 @@ export function useValorDelHoyoSkins(input: {
         if (!reportadosRef.current.has(clase)) {
           reportadosRef.current.add(clase)
           void captureError(err, {
-            context: 'score_grupo.skins_contexto', level: 'warning', meta: { codigo: ronda.codigo, clase },
+            context: 'score_grupo.skins_contexto', level: 'warning', meta: { ronda: ronda.codigo, clase, ...detalleDeLecturaFallida(err) },
           })
         }
         if (!deSenal) return

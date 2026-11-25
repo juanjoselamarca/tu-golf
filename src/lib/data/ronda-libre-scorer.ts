@@ -28,6 +28,7 @@ import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { conPlazoCancelable } from '@/lib/red/con-timeout'
+import { esFilaInexistente } from '@/lib/red/codigos-postgrest'
 import { fetchEquiposConAnotador, courseHandicapsDeRonda } from './ronda-libre'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 import { crearHcpAMostrar, type HcpAMostrar } from './ronda-libre-live-api'
@@ -108,7 +109,9 @@ export async function fetchRondaLibreParaScorer(
     // Orden estable de los jugadores: el embebido llega en orden físico, que cambia con cada guardado. En una Timba,
     // el del juego (`reglas_juego`, solo con `conReglasDelJuego`: el scorer de grupo), sin esperar a `GET /juego`.
     if (data) return { estado: 'ok', ronda: conJugadoresOrdenados(data as unknown as RondaLibre) }
-    if (error?.code === 'PGRST116') return { estado: 'no_existe' }
+    if (esFilaInexistente(error?.code)) return { estado: 'no_existe' }
+    // Transitorio (`esCodigoTransitorio`: 57014, PGRST003…) o sin `code` (red): releer lo arregla. Un código
+    // permanente (42501, 42703) también cae acá a propósito: el scorer reintenta y nunca saca al marcador de su ronda.
     return { estado: 'sin_conexion' }
   } catch {
     return { estado: 'sin_conexion' }
