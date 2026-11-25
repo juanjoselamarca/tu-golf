@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { CONFIG_SKINS_POR_DEFECTO } from '@/golf/formats/skins'
 import type { EstadoDelPermiso } from './usePermisoDeJuego'
-import { AVISO_SKINS_NO_DISPONIBLE, useRepetirRonda } from './useRepetirRonda'
+import { AVISO_SKINS_NO_DISPONIBLE, ESPERANDO_EL_SKINS, useRepetirRonda } from './useRepetirRonda'
 
 const SKINS = { ...CONFIG_SKINS_POR_DEFECTO, pozoPorJugador: 5000 }
 
@@ -53,4 +53,31 @@ describe('useRepetirRonda — repetir un Skins espera el permiso', () => {
     rerender({ p: 'si' })
     expect(acciones.ponerSkins).not.toHaveBeenCalled()
   })
+
+  it('esperando el permiso, «Crear» queda bloqueado; al llegar, se libera', () => {
+    const { result, rerender } = montar('cargando')
+    act(() => result.current.repetir({ skins: SKINS }))
+    expect(result.current.bloqueoDeCrear).toEqual(ESPERANDO_EL_SKINS)
+    rerender({ p: 'si' })
+    expect(result.current.bloqueoDeCrear).toBeNull()
+  })
+
+  it('cambiar el formato o los equipos mientras espera (descartar) cancela el Skins pendiente', () => {
+    const { result, acciones, rerender } = montar('cargando')
+    act(() => result.current.repetir({ skins: SKINS }))
+    act(() => result.current.descartar())
+    expect(result.current.esperandoPermiso).toBe(false)
+    expect(result.current.bloqueoDeCrear).toBeNull()
+    rerender({ p: 'si' })
+    expect(acciones.ponerSkins).not.toHaveBeenCalled()
+  })
+
+  it('el aviso «No pudimos activar…» se descarta (X o tocar el formato)', () => {
+    const { result } = montar('no')
+    act(() => result.current.repetir({ skins: SKINS }))
+    expect(result.current.aviso).toBe(AVISO_SKINS_NO_DISPONIBLE)
+    act(() => result.current.descartar())
+    expect(result.current.aviso).toBeNull()
+  })
 })
+

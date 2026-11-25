@@ -26,6 +26,7 @@ import { problemaDeLaTimbaEnJugadores, problemaParaCrearLaTimba, useTimbaDeLaRon
 import { NOMBRE_FORMATO_PERSONALIZADO, NOMBRE_PLANTILLA } from '@/golf/formats/personalizado'
 import { useEstadoDelPermisoDeJuegosDeLaRonda } from './hooks/usePermisoDeJuego'
 import { useRepetirRonda } from './hooks/useRepetirRonda'
+import { AvisoDeRepetir } from './components/AvisoDeRepetir'
 import { useSkinsDeLaRonda } from './hooks/useSkinsDeLaRonda'
 import { ResumenSkins } from './components/skins/ResumenSkins'
 import { TITULO_SKINS } from './components/skins/catalogo'
@@ -222,9 +223,7 @@ export default function NuevaRondaLibrePage() {
         </div>
 
         {(repetir.esperandoPermiso || repetir.aviso) && (
-          <p role="status" style={{ fontSize: '14px', lineHeight: 1.45, color: colores.texto2, margin: '0 0 16px' }}>
-            {repetir.aviso ?? 'Confirmando el Skins…'}
-          </p>
+          <AvisoDeRepetir texto={repetir.aviso ?? 'Confirmando el Skins…'} onDescartar={repetir.descartar} />
         )}
 
         {form.paso === 1 && (
@@ -255,7 +254,7 @@ export default function NuevaRondaLibrePage() {
         {form.paso === 2 && (
           <PasoFormato
             formato={form.formato}
-            onFormato={f => { timba.soltar(); skins.soltar(); form.elegirFormato(f) }}
+            onFormato={f => { repetir.descartar(); timba.soltar(); skins.soltar(); form.elegirFormato(f) }}
             modo={form.modo}
             onModo={club.elegirModo}
             netoBloqueado={form.netoBloqueado}
@@ -264,7 +263,7 @@ export default function NuevaRondaLibrePage() {
               puedeElegir: timba.puedeElegir,
               actual: timba.timba,
               // Timba libre se arma sobre la ronda individual base (cada uno con su tarjeta).
-              onElegir: () => { skins.soltar(); form.elegirFormato('stroke_play'); form.elegirQuienAnota(true); timba.elegir() },
+              onElegir: () => { repetir.descartar(); skins.soltar(); form.elegirFormato('stroke_play'); form.elegirQuienAnota(true); timba.elegir() },
               onTimba: timba.setTimba,
             }}
             skins={{
@@ -273,7 +272,7 @@ export default function NuevaRondaLibrePage() {
               // Como la Timba: sobre la ronda individual base, un solo celular. Abre en neto (default del spec).
               onElegir: () => {
                 if (skins.skins) return
-                timba.soltar(); form.elegirFormato('stroke_play'); form.elegirQuienAnota(true); club.elegirModo('neto'); skins.elegir()
+                repetir.descartar(); timba.soltar(); form.elegirFormato('stroke_play'); form.elegirQuienAnota(true); club.elegirModo('neto'); skins.elegir()
               },
               onSkins: skins.setSkins,
             }}
@@ -301,10 +300,10 @@ export default function NuevaRondaLibrePage() {
             onQuitarRival={form.quitarRival}
             onAgregarRival={form.agregarRival}
             equipos={form.equipos}
-            onAgregarEquipo={form.agregarEquipoRival}
-            onQuitarEquipo={form.quitarEquipo}
+            onAgregarEquipo={() => { repetir.descartar(); form.agregarEquipoRival() }}
+            onQuitarEquipo={id => { repetir.descartar(); form.quitarEquipo(id) }}
             onRenombrarEquipo={form.renombrarEquipo}
-            onMoverAlEquipo={form.moverAlEquipo}
+            onMoverAlEquipo={(...a: Parameters<typeof form.moverAlEquipo>) => { repetir.descartar(); form.moverAlEquipo(...a) }}
             golpesDe={golpesDe}
             hcpVisibleDe={hcpVisibleDe}
             hoyos={forma.holes}
@@ -334,7 +333,7 @@ export default function NuevaRondaLibrePage() {
             llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
             hcpVisibleDe={hcpVisibleDe}
             hayVariosTees={setup.tees.length > 1}
-            problema={problemaDelFormulario ?? problema}
+            problema={repetir.bloqueoDeCrear ?? problemaDelFormulario ?? problema}
             juego={timba.timba ? {
               nombre: `${NOMBRE_FORMATO_PERSONALIZADO} · ${NOMBRE_PLANTILLA[timba.timba.config.plantilla]}`,
               detalle: (
@@ -356,7 +355,7 @@ export default function NuevaRondaLibrePage() {
             } : undefined}
             creando={creando}
             onEditar={() => form.setPaso(3)}
-            onCrear={crear}
+            onCrear={() => { if (!repetir.esperandoPermiso) void crear() }}
           />
         )}
       </div>

@@ -4,9 +4,16 @@ import { useEffect, useRef, useState } from 'react'
 import type { ConfigSkins } from '@/golf/formats/skins'
 import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 import type { EstadoDelPermiso } from './usePermisoDeJuego'
+import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 
 /** Repetir un Skins sin permiso para crearlo (o sin señal para confirmarlo): se repite la ronda sin el Skins y se dice. */
 export const AVISO_SKINS_NO_DISPONIBLE = 'No pudimos activar el Skins: la ronda se repite sin él.'
+
+/** Mientras se confirma el permiso de un Skins repetido, «Crear» espera: crear ahí sería una ronda sin el Skins. */
+export const ESPERANDO_EL_SKINS: ProblemaDeLaRonda = {
+  titulo: 'Confirmando el Skins',
+  detalle: 'Confirmando el Skins… «Crear ronda» se habilita en cuanto llegue.',
+}
 
 /**
  * «Repetir ronda» en el asistente. La ronda (cancha, jugadores, formato) la repite `repetirBase`; un Skins se repite
@@ -20,7 +27,18 @@ export function useRepetirRonda<R extends { skins: ConfigSkins | null }>(input: 
   repetirBase: (r: R) => void
   ponerSkins: (skins: ConfigSkins) => void
   soltarSkins: () => void
-}): { repetir: (r: R) => void; esperandoPermiso: boolean; aviso: string | null } {
+}): {
+  repetir: (r: R) => void
+  /**
+   * El usuario tomó otro camino (cambió el formato o los equipos, o cerró el aviso con la X): se olvida el Skins
+   * repetido. Cancela el que esperaba el permiso (no se pone encima de lo que eligió después) y borra el aviso.
+   */
+  descartar: () => void
+  esperandoPermiso: boolean
+  aviso: string | null
+  /** `ESPERANDO_EL_SKINS` mientras se espera el permiso (bloquea «Crear»); `null` si no. */
+  bloqueoDeCrear: ProblemaDeLaRonda | null
+} {
   const permisoSkins: EstadoDelPermiso = SKINS_LIBRE_ABIERTO ? input.permiso : 'no'
   // El Skins de la última ronda repetida (null si no era Skins). Lo demás se deriva: no hay estado que sincronizar.
   const [repetido, setRepetido] = useState<ConfigSkins | null>(null)
@@ -49,9 +67,12 @@ export function useRepetirRonda<R extends { skins: ConfigSkins | null }>(input: 
     input.soltarSkins()
   }
 
+  const esperandoPermiso = repetido != null && permisoSkins === 'cargando'
   return {
     repetir,
-    esperandoPermiso: repetido != null && permisoSkins === 'cargando',
+    descartar: () => setRepetido(null),
+    esperandoPermiso,
     aviso: repetido != null && permisoSkins === 'no' ? AVISO_SKINS_NO_DISPONIBLE : null,
+    bloqueoDeCrear: esperandoPermiso ? ESPERANDO_EL_SKINS : null,
   }
 }

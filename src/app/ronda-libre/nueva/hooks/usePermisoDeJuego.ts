@@ -8,6 +8,13 @@ import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 export const ESPERAS_REINTENTO_PERMISO_MS: readonly number[] = [500, 1500]
 
 /**
+ * Tope de cada pregunta. Con señal que va y viene, un fetch puede quedar colgado sin error ni respuesta: sin tope,
+ * el permiso quedaba «cargando» para siempre (y «Repetir» de un Skins, esperando sin avisar). Al vencer cuenta como
+ * fallo de red: reintenta y, tras los reintentos, `no`.
+ */
+export const TOPE_PREGUNTA_PERMISO_MS = 6000
+
+/**
  * Si el usuario de la sesión puede crear un juego personalizado (Timba libre o Skins): no copia la regla, la pregunta
  * a `GET /api/ronda-libre/permiso-timba`, que usa `puedeCrearJuegoPersonalizado` (la misma función que valida
  * `POST /create`). `abierto` es el interruptor del juego: con `false` no se pregunta y la respuesta es `false`.
@@ -28,30 +35,39 @@ export type EstadoDelPermiso = 'cargando' | 'si' | 'no'
  * «todavía no sé» de «no». Mismo contrato y misma pregunta que `usePermisoDeJuegoPersonalizado`.
  */
 export function useEstadoDelPermisoDeJuego(
-  abierto: boolean, esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS,
+  abierto: boolean, esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS, topeMs: number = TOPE_PREGUNTA_PERMISO_MS,
 ): EstadoDelPermiso {
   const [puede, setPuede] = useState<EstadoDelPermiso>('cargando')
   useEffect(() => {
     if (!abierto) return
     let vigente = true
     let reloj: ReturnType<typeof setTimeout> | undefined
+    let enCurso: { corte: AbortController; tope: ReturnType<typeof setTimeout> } | undefined
     const preguntar = (intento: number) => {
       const reintentar = () => {
         if (!vigente) return
         if (intento >= esperasMs.length) return setPuede('no') // sin señal: falla cerrado; el servidor igual valida al crear
         reloj = setTimeout(() => preguntar(intento + 1), esperasMs[intento])
       }
-      fetch('/api/ronda-libre/permiso-timba', { cache: 'no-store' })
+      const corte = new AbortController()
+      const tope = setTimeout(() => corte.abort(), topeMs)
+      enCurso = { corte, tope }
+      fetch('/api/ronda-libre/permiso-timba', { cache: 'no-store', signal: corte.signal })
         .then(async r => {
           if (r.status >= 500) return reintentar()
           const d = (r.ok ? await r.json() : null) as { puedeCrear?: unknown } | null
           if (vigente) setPuede(d?.puedeCrear === true ? 'si' : 'no')
         })
         .catch(reintentar)
+        .finally(() => clearTimeout(tope))
     }
     preguntar(0)
-    return () => { vigente = false; if (reloj) clearTimeout(reloj) }
-  }, [abierto, esperasMs])
+    return () => {
+      vigente = false
+      if (reloj) clearTimeout(reloj)
+      if (enCurso) { clearTimeout(enCurso.tope); enCurso.corte.abort() }
+    }
+  }, [abierto, esperasMs, topeMs])
   return abierto ? puede : 'no'
 }
 

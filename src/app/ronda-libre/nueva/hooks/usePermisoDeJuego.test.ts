@@ -8,7 +8,7 @@ vi.mock('@/lib/auth/timba-libre-abierta', () => ({ get TIMBA_LIBRE_ABIERTA() { r
 // Skins cerrado (como hoy): el permiso lo pide solo la Timba.
 vi.mock('@/lib/auth/skins-libre-abierto', () => ({ SKINS_LIBRE_ABIERTO: false }))
 
-import { usePermisoDeJuegosDeLaRonda } from './usePermisoDeJuego'
+import { useEstadoDelPermisoDeJuego, usePermisoDeJuegosDeLaRonda } from './usePermisoDeJuego'
 import { useTimbaDeLaRonda } from './useTimbaDeLaRonda'
 
 /** La composición real de la pantalla: el permiso de juegos y la Timba con su interruptor. */
@@ -75,3 +75,20 @@ describe('permiso de la Timba en el asistente (usePermisoDeJuegosDeLaRonda + use
     }
   })
 })
+
+describe('useEstadoDelPermisoDeJuego — una pregunta colgada no deja el permiso «cargando» para siempre', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('cada pregunta tiene tope: colgadas las 3, queda en «no» (y «Repetir» de un Skins avisa)', async () => {
+    // fetch que nunca responde, salvo que lo corten (vuelta 2 Fable: sin tope quedaba «cargando» para siempre).
+    const f = responder(() => new Promise((_ok, falla) => {
+      const señal = ((f.mock.calls.at(-1) as unknown[] | undefined)?.[1] as RequestInit | undefined)?.signal
+      señal?.addEventListener('abort', () => falla(new DOMException('corte', 'AbortError')))
+    }))
+    const { result } = renderHook(() => useEstadoDelPermisoDeJuego(true, SIN_ESPERA, 20))
+    expect(result.current).toBe('cargando')
+    await waitFor(() => expect(result.current).toBe('no'))
+    expect(f).toHaveBeenCalledTimes(3)
+  })
+})
+
