@@ -14,6 +14,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { localDate } from './night.mjs';
 
 const NOCHE_ID = /^(\d{4}-\d{2}-\d{2})(-\d+)?\.json$/;
@@ -59,6 +60,21 @@ export function construirAviso({ nights, now, pausa }) {
   ].join('\n');
 }
 
+/**
+ * La carpeta del repo principal. Las noches y el PAUSE viven ahí, no en cada worktree (`.claude/` no se versiona):
+ * abrir una sesión dentro de un worktree daba «la noche no abrió» aunque había corrido. Sin git, el repo del script.
+ */
+export function repoPrincipal(repo) {
+  try {
+    const comun = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+      cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000,
+    }).trim();
+    return comun ? dirname(comun) : repo;
+  } catch {
+    return repo;
+  }
+}
+
 export function leerNoches(nightsDir) {
   if (!existsSync(nightsDir)) return [];
   const out = [];
@@ -71,7 +87,7 @@ export function leerNoches(nightsDir) {
 
 function main() {
   try {
-    const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+    const repo = repoPrincipal(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
     const logsDir = process.env.CEO_LOGS_DIR || resolve(repo, '.claude/ceo-logs');
     const aviso = construirAviso({
       nights: leerNoches(resolve(logsDir, 'nights')),

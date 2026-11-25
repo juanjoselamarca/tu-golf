@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { construirAviso, nocheCorrio } from '../aviso-sesion.mjs';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { construirAviso, nocheCorrio, repoPrincipal } from '../aviso-sesion.mjs';
 
 // 17-nov-2026 15:00 hora local (el test no depende de la zona: se arma con el constructor local).
 const AHORA = new Date(2026, 10, 17, 15, 0, 0).getTime();
@@ -46,5 +50,28 @@ describe('aviso de sesión de los agentes nocturnos', () => {
     expect(nocheCorrio(muerta('x'))).toBe(false);
     expect(nocheCorrio(corrio('x'))).toBe(true);
     expect(nocheCorrio({ nightId: 'x' })).toBe(false);
+  });
+});
+
+describe('repoPrincipal: las noches se leen del repo principal, no del worktree', () => {
+  it('desde un worktree devuelve la carpeta del repo principal (antes: «la noche no abrió» falso)', () => {
+    const base = realpathSync(mkdtempSync(join(tmpdir(), 'aviso-wt-')));
+    // Sin GIT_DIR heredado de un hook de git: apuntaría al repo real.
+    const env = { ...process.env }; delete env.GIT_DIR; delete env.GIT_WORK_TREE; delete env.GIT_INDEX_FILE;
+    const git = (cwd, ...args) => execFileSync('git', args, { cwd, env, stdio: 'ignore' });
+    try {
+      const principal = join(base, 'principal');
+      git(base, 'init', '-q', principal);
+      git(principal, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'x');
+      git(principal, 'worktree', 'add', '-q', join(principal, 'wt'));
+      const norm = p => p.replace(/\\/g, '/').toLowerCase();
+      expect(norm(repoPrincipal(join(principal, 'wt')))).toBe(norm(principal));
+      expect(norm(repoPrincipal(principal))).toBe(norm(principal));
+    } finally { rmSync(base, { recursive: true, force: true }); }
+  });
+
+  it('sin repo de git, se queda con la carpeta dada', () => {
+    const base = mkdtempSync(join(tmpdir(), 'aviso-nogit-'));
+    try { expect(repoPrincipal(base)).toBe(base); } finally { rmSync(base, { recursive: true, force: true }); }
   });
 });
