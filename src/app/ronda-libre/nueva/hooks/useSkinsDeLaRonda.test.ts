@@ -65,15 +65,16 @@ describe('useSkinsDeLaRonda', () => {
   })
 
   it('sin señal: avisa tras los reintentos y se arregla solo cuando vuelve', async () => {
-    let n = 0
+    // La señal vuelve recién cuando el aviso ya se vio: el test no depende de los tiempos de la máquina.
+    let volvio = false
     lectura.impl.mockImplementation(async () => {
-      n++
-      if (n <= 3) throw new Error('sin señal')
+      if (!volvio) throw new Error('sin señal')
       return contextoCon([12, 20])()
     })
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 30]))
     act(() => result.current.elegir())
     await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
+    volvio = true
     await waitFor(() => expect(result.current.problema).toBeNull())
   })
 
