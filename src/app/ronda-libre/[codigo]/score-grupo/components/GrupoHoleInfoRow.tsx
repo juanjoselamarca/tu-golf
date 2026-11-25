@@ -44,8 +44,11 @@ const ROTULO = { fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', tex
 
 /** Lo que vale el hoyo, en palabras: lo mismo se ve y se lee en voz alta. */
 export function textoDelValorSkins(skins: { valor: number; provisional: boolean }): string {
-  const unidad = skins.valor === 1 ? 'skin' : 'skins'
-  return `${skins.provisional ? 'desde ' : ''}${skins.valor} ${unidad}`
+  return `${skins.provisional ? 'desde ' : ''}${cifraDelValorSkins(skins.valor)}`
+}
+
+function cifraDelValorSkins(valor: number): string {
+  return `${valor} ${valor === 1 ? 'skin' : 'skins'}`
 }
 
 export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford, maxStrokes, accion, theme, skins }: GrupoHoleInfoRowProps) {
@@ -77,15 +80,17 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
         ))}
         {skins !== undefined && (
           // «Vale 3 skins»: el número en dorado legible (--brand-on-bg) y del tamaño de PAR/SI, para leerlo al sol. Sin
-          // cifra confiable, «—» en gris: la columna sigue ahí y dice que el dato no está.
+          // cifra confiable, «—» en gris: la columna sigue ahí y dice que el dato no está. Es más ancha que PAR y SI
+          // (1 o 2 cifras): «desde 12 skins» cabe en 390 px sin cortarse ni pisar el botón de compartir.
           <div
             role="status"
             aria-label={skins ? `Vale ${textoDelValorSkins(skins)}` : 'Valor no disponible'}
-            style={{ flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px' }}
+            style={{ flex: '1.6 1 0%', minWidth: 0, textAlign: 'center', padding: '6px 2px' }}
           >
             <div aria-hidden style={{ ...ROTULO, color: theme.textFaint }}>VALE</div>
             <div aria-hidden style={{ fontSize: '15px', fontWeight: 700, color: skins ? 'var(--brand-on-bg)' : theme.textFaint, whiteSpace: 'nowrap' }}>
-              {skins ? textoDelValorSkins(skins) : '—'}
+              {skins?.provisional && <span style={{ fontSize: '11px', fontWeight: 600 }}>desde </span>}
+              {skins ? cifraDelValorSkins(skins.valor) : '—'}
             </div>
           </div>
         )}
