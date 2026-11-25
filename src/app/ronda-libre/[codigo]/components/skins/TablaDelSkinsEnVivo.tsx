@@ -27,7 +27,8 @@ export function TablaDelSkinsEnVivo({ tabla, nombres, cortos, desactualizado }: 
   desactualizado: boolean
 }) {
   const nombre = (id: string) => nombres[id] ?? ''
-  const columnas = tabla.hoyos.length <= 9 ? Math.min(tabla.hoyos.length, 5) : 6
+  // 4 columnas (3 en 9 hoyos): a 360 px entra un nombre corto o «No validó» sin cortarse (6 columnas lo cortaban).
+  const columnas = tabla.hoyos.length <= 9 ? 3 : 4
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {desactualizado && (
