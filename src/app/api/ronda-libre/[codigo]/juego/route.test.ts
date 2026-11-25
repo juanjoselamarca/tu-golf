@@ -177,14 +177,18 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
       expect(await publico.json()).toEqual(cuerpo)
     })
 
-    it('si no se puede leer la cancha, la vista igual sirve al scorer (sin tabla)', async () => {
+    it('si no se puede leer la cancha es un error (503 no-store), nunca una vista sin tabla cacheada en el CDN', async () => {
       formato = 'skins'
       cursoId = 'cancha-1'
       reglasJuego = reglasSkins([])
       jugadoresGuardados = IDS.map(id => ({ id, nombre: id, handicap: 10, tees: null, scores: {}, fuera_del_hoyo: null }))
       contextoSkins.mockRejectedValue(new Error('sin señal'))
-      const cuerpo = await (await llamar()).json()
-      expect(cuerpo).toMatchObject({ estado: 'ok', formato: 'skins', tabla: null })
+      const privado = await llamar()
+      expect(privado.status).toBe(503)
+      const publico = await GET_PUBLICO(new Request('http://test/api/ronda-libre/ABC123/juego/publico'), { params: Promise.resolve({ codigo: 'ABC123' }) })
+      expect(publico.status).toBe(503)
+      expect(publico.headers.get('cache-control')).toMatch(/no-store/)
+      expect(publico.headers.get('vercel-cdn-cache-control')).toBeNull()
     })
 
     it('reglas del skins ilegibles: sin_juego, sin leer marcas', async () => {

@@ -27,6 +27,8 @@ export interface Jugador {
    */
   handicap_de_inscripcion: boolean | null
   tees?: string | null
+  /** Skins: la X de la tarjeta (crudo de la base). La vista en vivo la trae para refrescar la tabla al marcar una X. */
+  fuera_del_hoyo?: unknown
 }
 
 /** Hoyo de la cancha (usado en [codigo]/page.tsx). */

@@ -11,7 +11,7 @@ import { useJuegoDeLaTimba, type EstadoDelJuego } from './useJuegoDeLaTimba'
 interface RondaParaLaTimba {
   formato_juego: string | null
   estado: string | null
-  ronda_libre_jugadores: readonly { scores: unknown }[]
+  ronda_libre_jugadores: readonly { scores: unknown; fuera_del_hoyo?: unknown }[]
 }
 
 /** Reintento del juego con la ronda cerrada si el pedido falla: 3 s, 6 s, 12 s… hasta 30 s. */
@@ -81,7 +81,9 @@ export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null
   const esSkins = conJuego && !esTimba
   const cerrada = conJuego && esRondaCerrada(ronda?.estado)
   const firma = ronda && conJuego
-    ? `${currentUserId ?? ''}:${ronda.estado}:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.scores))}`
+    ? `${currentUserId ?? ''}:${ronda.estado}:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.scores))}${
+      // Skins: la X no son golpes (vive en `fuera_del_hoyo`): sin ella en la firma, una X tardaba hasta 20 s en verse.
+      esSkins ? `:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.fuera_del_hoyo ?? null))}` : ''}`
     : ''
   const { juego: crudo, recargar } = useJuegoDeLaTimba<VistaDeLaRonda>(codigo, {
     activo: conJuego,

@@ -188,3 +188,14 @@ describe('juegoDeLaRondaCerrada', () => {
     expect(juegoDeLaRondaCerrada({ estado: 'error' }, CERRADA)).toEqual({ estado: 'error' })
   })
 })
+
+describe('useTimbaDeLaRonda — skins: la X refresca la tabla', () => {
+  it('la firma cambia al marcar una X (no son golpes: vive en fuera_del_hoyo)', () => {
+    const conX = (fuera: unknown) => ({ formato_juego: 'skins', estado: 'en_curso', ronda_libre_jugadores: [{ scores: { '1': 4 }, fuera_del_hoyo: fuera }] })
+    juego.opciones.length = 0
+    renderHook(() => useTimbaDeLaRonda('ABC123', conX(null), 'u1'))
+    renderHook(() => useTimbaDeLaRonda('ABC123', conX({ '2': 'X' }), 'u1'))
+    const [antes, despues] = juego.opciones.slice(-2) as { firma: string }[]
+    expect(antes.firma).not.toBe(despues.firma)
+  })
+})

@@ -256,7 +256,7 @@ export function parYSiDeLaRonda(
 
 /** Columnas de la ronda que viajan a la vista en vivo (las mismas que leía el navegador). */
 export const COLUMNAS_RONDA_EN_VIVO =
-  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
+  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees, fuera_del_hoyo)'
 
 /**
  * Arma TODO lo que muestra la vista en vivo de una ronda libre: la ronda + par/SI

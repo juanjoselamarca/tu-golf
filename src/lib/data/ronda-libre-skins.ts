@@ -48,6 +48,11 @@ export async function cargarSkinsDelScorer(admin: SupabaseClient, codigo: string
     admin.from('ronda_libre_jugadores').select('id, nombre, handicap, tees, scores, fuera_del_hoyo').eq('ronda_id', fila.id),
   ])
   if (marcas.error || retiros.error || jugadores.error) return { status: 'error' }
+  const tarjetas = await tarjetasDelSkins(admin, codigo, fila, reglas.jugadorIds, (jugadores.data ?? []) as FilaJugadorSkins[], reglas.config.modo)
+  // Lectura fallida de la cancha: es un error, no una vista «sin tabla». Como `error`, la ruta pública responde 503
+  // no-store (una vista sin tabla quedaría cacheada en el CDN) y el cliente no la toma como la vista fresca de una
+  // ronda cerrada (`juegoDeLaRondaCerrada`): sigue con la última buena y reintenta.
+  if (tarjetas === 'fallo') return { status: 'error' }
   return {
     status: 'ok',
     vista: vistaDelSkinsEnElScorer({
@@ -55,7 +60,7 @@ export async function cargarSkinsDelScorer(admin: SupabaseClient, codigo: string
       marcas: (marcas.data ?? []) as FilaMarcaPuntito[],
       retiros: (retiros.data ?? []) as FilaRetiro[],
       rondaCerrada,
-      tarjetas: await tarjetasDelSkins(admin, codigo, fila, reglas.jugadorIds, (jugadores.data ?? []) as FilaJugadorSkins[], reglas.config.modo),
+      tarjetas,
     }),
   }
 }
@@ -83,7 +88,8 @@ interface FilaJugadorSkins {
 
 /**
  * El contexto y las tarjetas para la tabla. `null` (la vista va sin tabla, el scorer igual marca) si la ronda no tiene
- * cancha, falta un jugador de las reglas o no se pudo leer la cancha; lo último se reporta.
+ * cancha o falta un jugador de las reglas: eso no cambia reintentando. `'fallo'` si no se pudo leer la cancha (se
+ * reporta): es transitorio y quien llama lo trata como error.
  */
 async function tarjetasDelSkins(
   admin: SupabaseClient,
@@ -107,6 +113,6 @@ async function tarjetasDelSkins(
     return { contexto, scores, fuera }
   } catch (err) {
     void captureError(err, { context: 'ronda_libre.skins_tabla', level: 'warning', meta: { codigo, ...detalleDeLecturaFallida(err) } })
-    return null
+    return 'fallo' as const
   }
 }
