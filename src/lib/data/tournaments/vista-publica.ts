@@ -189,7 +189,10 @@ export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJue
  * sesión. La usan las respuestas cacheadas (`/api/ronda-libre/[codigo]/live`,
  * `/api/en-vivo`) y el scorer cuando no puede leer el neto (`netoNoDisponible`).
  * Una fila sin `modo_juego` es gross (`modoDeJuego`), y sin `formato_juego`, stroke play.
- * Única fuente de cómo se lee la fila: si cambia, cambia en todos a la vez.
+ * Única fuente de cómo se lee la FILA (sin sus equipos). EXCEPCIÓN: una ronda de equipos de club
+ * (`esRondaDeEquiposDeClub`, decisión de Juanjo 25-nov) se publica completa con el HCP del club, y eso solo lo
+ * sabe quien lee los equipos: `datosRondaLibrePublicos` (vista en vivo). El feed `/api/en-vivo` no los lee y
+ * todavía la publica solo bruto (follow-up).
  */
 export function vistaPublicaDeRondaLibre(ronda: { modo_juego?: string | null; formato_juego?: string | null }): VistaPublica {
   return vistaPublica({

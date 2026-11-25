@@ -45,16 +45,16 @@ function formatoLabel(ronda: RondaLibre): string {
 }
 
 /**
- * En una ronda NETO de equipos el número grande es el neto: se rotula, y con un solo ganador va también su gross
- * (ensayo 24-nov: «EMPATE +1» era el gross y la ronda se jugaba en neto).
+ * En una ronda NETO de equipos el número grande es el neto: «Neto» va pegado al número y, con un solo ganador,
+ * su gross en una línea aparte (ensayo 24-nov: «EMPATE +1» era el gross y la ronda se jugaba en neto).
  */
 export function detalleNetoDeEquipos(
   ronda: Pick<RondaLibre, 'modo_juego' | 'formato_juego'>,
   ganador: Pick<TeamShareRow, 'diffGross'>,
   isTie: boolean,
-): string | undefined {
+): { rotulo: 'Neto'; gross: string | null } | undefined {
   if (ronda.modo_juego !== 'neto' || ronda.formato_juego === 'stableford') return undefined
-  return isTie ? 'Neto' : `Neto · Gross ${formatOverUnder(ganador.diffGross)}`
+  return { rotulo: 'Neto', gross: isTie ? null : `Gross ${formatOverUnder(ganador.diffGross)}` }
 }
 
 /**
@@ -70,8 +70,8 @@ function HeroCard({
   nombre: string
   integrantes?: string
   scoreNode: ReactNode
-  /** Qué es el número grande (p. ej. «Neto · Gross +1»): en una ronda neto, gross y neto sin confundirse. */
-  detalleDelScore?: string
+  /** Qué es el número grande en una ronda neto (`detalleNetoDeEquipos`): gross y neto sin confundirse. */
+  detalleDelScore?: { rotulo: string; gross: string | null }
   scoreColor: string
   isTie: boolean
   /** Un solo equipo, sin rival: bandera en vez de trofeo. */
@@ -111,10 +111,15 @@ function HeroCard({
           )}
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: '40px', fontWeight: 500, color: scoreColor, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
             {scoreNode}
+            {detalleDelScore && (
+              <span style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '0.04em', marginLeft: '8px', color: 'var(--text)' }}>
+                {detalleDelScore.rotulo}
+              </span>
+            )}
           </div>
-          {detalleDelScore && (
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-2)', fontFamily: 'DM Mono, monospace', marginTop: '2px' }}>
-              {detalleDelScore}
+          {detalleDelScore?.gross && (
+            <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-2)', fontFamily: 'DM Mono, monospace', marginTop: '2px' }}>
+              {detalleDelScore.gross}
             </div>
           )}
           <div style={{ fontSize: '12.5px', color: 'var(--text-3)', marginTop: '6px' }}>{ronda.course_name} · {fechaDisplay}</div>

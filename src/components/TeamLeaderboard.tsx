@@ -188,7 +188,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
                 {displayScore(team, modoJuego, formatoJuego, hasCourse)}
               </span>
               {grossLinea && (
-                <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', marginTop: '1px', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', marginTop: '1px', whiteSpace: 'nowrap' }}>
                   {grossLinea}
                 </div>
               )}

@@ -109,15 +109,17 @@ describe('WinnerCelebration — individual: el empate es el de la tabla', () => 
 // Ensayo 24-nov (scramble neto de club): el cuadro decía «EMPATE +1», que era el gross; en neto ganaba Ross −7.
 describe('WinnerCelebration — ronda NETO: gross y neto sin confundirse', () => {
   const neto = { ...ronda, modo_juego: 'neto' } as unknown as RondaLibre
-  it('un ganador: el número grande es el neto, rotulado, con su gross al lado', () => {
+  it('un ganador: «Neto» pegado al número grande y su gross en una línea aparte', () => {
     pintar([equipo('Los Ross', -7, [], 18, 1), equipo('Los Lamarca', -5, [], 18, 1)], neto)
     expect(screen.getByText('Los Ross')).toBeTruthy()
-    expect(screen.getByText('-7')).toBeTruthy()
-    expect(screen.getByText('Neto · Gross +1')).toBeTruthy()
+    const rotulo = screen.getByText('Neto')
+    expect(rotulo.parentElement?.textContent).toBe('-7Neto')
+    const gross = screen.getByText('Gross +1')
+    expect(gross.parentElement).not.toBe(rotulo.parentElement)
   })
   it('empate en neto: se rotula Neto (sin un gross de un solo equipo)', () => {
     pintar([equipo('A', -3, [], 18, 0), equipo('B', -3, [], 18, 2)], neto)
-    expect(screen.getByText('Neto')).toBeTruthy()
+    expect(screen.getByText('Neto').parentElement?.textContent).toBe('-3Neto')
     expect(screen.queryByText(/Gross/)).toBeNull()
   })
   it('ronda gross: sin rótulo extra (el número ya es el gross)', () => {
