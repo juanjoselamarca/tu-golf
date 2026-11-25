@@ -79,3 +79,42 @@ describe('PlayerScoreCard · cómo se escribe el neto', () => {
     expect(screen.getAllByText(/\d+ pts$/).length).toBe(2)
   })
 })
+
+describe('PlayerScoreCard · tecla X del skins', () => {
+  function tarjeta(p: { formatoJuego: string; fuera?: Record<number, true>; onFuera?: () => void; golpes?: Record<number, number> }) {
+    const golpes = p.golpes ?? {}
+    const gross = Object.values(golpes).reduce((a, b) => a + b, 0)
+    return render(
+      <PlayerScoreCard
+        jugador={JUGADOR} playerScores={golpes} currentHole={12} par={4} holeData={HOYO}
+        totals={{ gross, vsPar: gross ? gross - 4 : 0, out: 0, inn: gross, holesPlayed: Object.keys(golpes).length, parJugado: gross ? 4 : 0 }}
+        played={Object.keys(golpes).length + Object.keys(p.fuera ?? {}).length}
+        hcp={18} displayHcp={18} dotHcp={18} siAllocByHole={{ 12: 13 }} ordenHoyos={[11, 12]} holeDataMap={{ 12: HOYO }}
+        totalHoles={18} modoJuego="gross" formatoJuego={p.formatoJuego} showNetStableford={false} pending={false}
+        onChange={() => {}} theme={SCORER_THEME} fuera={p.fuera} onFueraDelHoyo={p.onFuera}
+      />,
+    )
+  }
+
+  it('fuera del skins no hay tecla X', () => {
+    tarjeta({ formatoJuego: 'stroke_play' })
+    expect(screen.queryByRole('button', { name: 'Fuera del hoyo' })).toBeNull()
+  })
+
+  it('en el skins la tecla se llama «Fuera del hoyo» y marca el hoyo', () => {
+    let marcada = 0
+    tarjeta({ formatoJuego: 'skins', onFuera: () => { marcada++ } })
+    const x = screen.getByRole('button', { name: 'Fuera del hoyo' })
+    expect(x.getAttribute('aria-pressed')).toBe('false')
+    x.click()
+    expect(marcada).toBe(1)
+  })
+
+  it('con X muestra la X (nunca el par) y los totales cuentan la X sin sumar golpes', () => {
+    tarjeta({ formatoJuego: 'skins', onFuera: () => {}, fuera: { 12: true }, golpes: { 11: 5 } })
+    expect(screen.getByRole('button', { name: 'Fuera del hoyo' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('X', { selector: 'div' })).toBeTruthy()
+    expect(screen.getByLabelText('1 hoyo fuera').textContent).toBe('1X')
+    expect(screen.getByText(/^5=5$/)).toBeTruthy() // solo los golpes del 11; la X no suma
+  })
+})

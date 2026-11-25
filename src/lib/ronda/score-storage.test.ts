@@ -315,3 +315,21 @@ describe('tarjetas rechazadas en firme', () => {
     })
   })
 })
+
+describe('respaldo de la X del skins', () => {
+  it('se guarda, se lee y se borra con la copia del grupo al finalizar', async () => {
+    const { saveGroupFuera, loadGroupFuera } = await import('./score-storage')
+    saveGroupFuera('SKN', { p1: { 4: true } })
+    expect(loadGroupFuera('SKN')).toEqual({ p1: { 4: true } })
+    cerrarCopiaLocalAlFinalizar('SKN')
+    expect(loadGroupFuera('SKN')).toEqual({})
+  })
+  it('la X viaja en la cola de pendientes y se confirma por valor exacto', () => {
+    marcarPendientes('SKN', 'p1', { 4: 'X' })
+    expect(leerPendientes('SKN')).toEqual({ p1: { 4: 'X' } })
+    confirmarPendientes('SKN', 'p1', { 4: 5 })
+    expect(leerPendientes('SKN')).toEqual({ p1: { 4: 'X' } })
+    confirmarPendientes('SKN', 'p1', { 4: 'X' })
+    expect(leerPendientes('SKN')).toEqual({})
+  })
+})

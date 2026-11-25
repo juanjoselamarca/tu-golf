@@ -83,14 +83,14 @@ const completarEquiposConPar = vi.fn((eqs: EquipoT[], hoyos: readonly number[]) 
   const faltan = hoyos.filter(h => e.scores[String(h)] == null)
   return faltan.length === 0 ? e : { ...e, scores: { ...e.scores, ...Object.fromEntries(faltan.map(h => [String(h), PAR[h]])) } }
 }))
-function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record<number, number>>; teamEquipos?: unknown[]; authUserId?: string | null; timba?: { retiros: Record<string, number>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number } } = {}) {
+function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record<number, number>>; teamEquipos?: unknown[]; authUserId?: string | null; timba?: { retiros: Record<string, number>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number }; fuera?: Record<string, Record<number, true>> } = {}) {
   const r = opts.ronda ?? rondaBase
   return renderHook(() => {
     const [scores, setScores] = useState(opts.scores ?? { p1: { 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5 }, p2: { 10: 5 } })
     const fin = useFinalizeGrupo({
       ronda: r as never, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR,
       teamEquipos: (opts.teamEquipos ?? []) as never, completarEquiposConPar: completarEquiposConPar as never, matchResult: null,
-      authUserId: opts.authUserId === undefined ? 'u1' : opts.authUserId, enviarPendientes, timba: opts.timba,
+      authUserId: opts.authUserId === undefined ? 'u1' : opts.authUserId, enviarPendientes, timba: opts.timba, fuera: opts.fuera,
     })
     return { scores, fin }
   })
@@ -173,6 +173,18 @@ describe('useFinalizeGrupo', () => {
     })
     expect(actualizarNivelDelJugador).toHaveBeenCalledWith(cliente, 'u1')
 
+    expect(finalizarRondaLibre).toHaveBeenCalledWith(cliente, 'ABC', { jugadorId: 'p1' })
+    expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+  })
+
+  it('skins: un hoyo con X no se rellena con par, la tarjeta no va al historial y la ronda se cierra', async () => {
+    const { result } = montar({ ronda: { ...rondaBase, formato_juego: 'skins' }, fuera: { p1: { 18: true }, p2: { 11: true } } })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.scores.p1[18]).toBeUndefined() // X: sin golpes, nunca par
+    expect(result.current.scores.p2[11]).toBeUndefined()
+    expect(result.current.scores.p2[12]).toBe(4) // sin X ni score: par, como en stroke play
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).toHaveBeenCalledWith(cliente, 'ABC', { jugadorId: 'p1' })
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
   })
