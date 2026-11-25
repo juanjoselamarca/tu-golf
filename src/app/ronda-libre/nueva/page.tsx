@@ -223,7 +223,12 @@ export default function NuevaRondaLibrePage() {
         </div>
 
         {(repetir.esperandoPermiso || repetir.aviso) && (
-          <AvisoDeRepetir texto={repetir.aviso ?? 'Confirmando el Skins…'} onDescartar={repetir.descartar} />
+          <AvisoDeRepetir
+            texto={repetir.esperandoPermiso ? 'Confirmando el Skins…' : repetir.aviso ?? ''}
+            confirmando={repetir.esperandoPermiso}
+            onCancelarSkins={repetir.cancelarSkins}
+            onDescartar={repetir.descartar}
+          />
         )}
 
         {form.paso === 1 && (

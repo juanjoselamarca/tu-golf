@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { CONFIG_SKINS_POR_DEFECTO } from '@/golf/formats/skins'
 import type { EstadoDelPermiso } from './usePermisoDeJuego'
-import { AVISO_SKINS_NO_DISPONIBLE, ESPERANDO_EL_SKINS, useRepetirRonda } from './useRepetirRonda'
+import { AVISO_SKINS_CANCELADO, AVISO_SKINS_NO_DISPONIBLE, ESPERANDO_EL_SKINS, useRepetirRonda } from './useRepetirRonda'
 
 const SKINS = { ...CONFIG_SKINS_POR_DEFECTO, pozoPorJugador: 5000 }
 
@@ -79,5 +79,24 @@ describe('useRepetirRonda — repetir un Skins espera el permiso', () => {
     act(() => result.current.descartar())
     expect(result.current.aviso).toBeNull()
   })
-})
 
+  it('cancelar el Skins mientras se confirma no libera «Crear» en silencio: queda el aviso de que va sin Skins', () => {
+    // Vuelta 3 Fable: la X «Descartar aviso» cancelaba el Skins y habilitaba «Crear» sin decir nada.
+    const { result, acciones, rerender } = montar('cargando')
+    act(() => result.current.repetir({ skins: SKINS }))
+    act(() => result.current.cancelarSkins())
+    expect(result.current.esperandoPermiso).toBe(false)
+    expect(result.current.bloqueoDeCrear).toBeNull()
+    expect(result.current.aviso).toBe(AVISO_SKINS_CANCELADO)
+    // El «sí» que llega tarde no lo vuelve a poner, y el aviso sigue hasta que el usuario lo cierre.
+    rerender({ p: 'si' })
+    expect(acciones.ponerSkins).not.toHaveBeenCalled()
+    expect(result.current.aviso).toBe(AVISO_SKINS_CANCELADO)
+    act(() => result.current.descartar())
+    expect(result.current.aviso).toBeNull()
+    // Repetir otra ronda borra el aviso de la cancelada.
+    act(() => result.current.cancelarSkins())
+    act(() => result.current.repetir({ skins: null }))
+    expect(result.current.aviso).toBeNull()
+  })
+})

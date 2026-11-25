@@ -9,6 +9,9 @@ import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 /** Repetir un Skins sin permiso para crearlo (o sin señal para confirmarlo): se repite la ronda sin el Skins y se dice. */
 export const AVISO_SKINS_NO_DISPONIBLE = 'No pudimos activar el Skins: la ronda se repite sin él.'
 
+/** El usuario canceló el Skins mientras se confirmaba: «Crear» queda libre, y la pantalla dice que va sin Skins. */
+export const AVISO_SKINS_CANCELADO = 'Cancelaste el Skins: la ronda se repite sin él.'
+
 /** Mientras se confirma el permiso de un Skins repetido, «Crear» espera: crear ahí sería una ronda sin el Skins. */
 export const ESPERANDO_EL_SKINS: ProblemaDeLaRonda = {
   titulo: 'Confirmando el Skins',
@@ -34,6 +37,11 @@ export function useRepetirRonda<R extends { skins: ConfigSkins | null }>(input: 
    * repetido. Cancela el que esperaba el permiso (no se pone encima de lo que eligió después) y borra el aviso.
    */
   descartar: () => void
+  /**
+   * «Cancelar el Skins» mientras se confirma el permiso: lo cancela como `descartar`, pero deja el aviso
+   * `AVISO_SKINS_CANCELADO` a la vista. Nunca se libera «Crear» sin una señal de que la ronda va sin Skins.
+   */
+  cancelarSkins: () => void
   esperandoPermiso: boolean
   aviso: string | null
   /** `ESPERANDO_EL_SKINS` mientras se espera el permiso (bloquea «Crear»); `null` si no. */
@@ -42,6 +50,8 @@ export function useRepetirRonda<R extends { skins: ConfigSkins | null }>(input: 
   const permisoSkins: EstadoDelPermiso = SKINS_LIBRE_ABIERTO ? input.permiso : 'no'
   // El Skins de la última ronda repetida (null si no era Skins). Lo demás se deriva: no hay estado que sincronizar.
   const [repetido, setRepetido] = useState<ConfigSkins | null>(null)
+  // Lo canceló el usuario mientras se confirmaba (se muestra el aviso hasta que lo descarte o repita otra).
+  const [cancelado, setCancelado] = useState(false)
   // El Skins ya aplicado (identidad): el efecto no lo vuelve a poner en cada render.
   const aplicado = useRef<ConfigSkins | null>(null)
   // Las acciones cambian en cada render (cierran sobre el formulario): el efecto usa siempre las de ahora.
@@ -58,6 +68,7 @@ export function useRepetirRonda<R extends { skins: ConfigSkins | null }>(input: 
   const repetir = (r: R) => {
     input.repetirBase(r)
     setRepetido(r.skins)
+    setCancelado(false)
     if (r.skins && permisoSkins === 'si') {
       aplicado.current = r.skins
       input.ponerSkins(r.skins)
@@ -70,9 +81,12 @@ export function useRepetirRonda<R extends { skins: ConfigSkins | null }>(input: 
   const esperandoPermiso = repetido != null && permisoSkins === 'cargando'
   return {
     repetir,
-    descartar: () => setRepetido(null),
+    descartar: () => { setRepetido(null); setCancelado(false) },
+    cancelarSkins: () => { setRepetido(null); setCancelado(true) },
     esperandoPermiso,
-    aviso: repetido != null && permisoSkins === 'no' ? AVISO_SKINS_NO_DISPONIBLE : null,
+    aviso: cancelado
+      ? AVISO_SKINS_CANCELADO
+      : repetido != null && permisoSkins === 'no' ? AVISO_SKINS_NO_DISPONIBLE : null,
     bloqueoDeCrear: esperandoPermiso ? ESPERANDO_EL_SKINS : null,
   }
 }
