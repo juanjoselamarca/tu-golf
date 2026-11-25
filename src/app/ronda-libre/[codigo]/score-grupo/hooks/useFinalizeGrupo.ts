@@ -22,7 +22,7 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_LUGAR_EN_RONDA_CAMBIO, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
@@ -390,10 +390,11 @@ export function useFinalizeGrupo(input: {
           // recalcula igual: si el primer intento venció el plazo, nadie lo recalculó.
           void captureError(new Error('historical_rounds duplicada'), { context: 'score_grupo_finalize_historical.duplicada', level: 'info', meta: { codigo, jugadorId: j.id } })
         }
-        if (esTarjetaDeRondaDescartada(guardado)) {
+        if (guardado.status === 'error' && esTarjetaDeRondaDescartada(guardado)) {
           // P0001: la ronda o el jugador no están. Sólo con la ronda borrada de verdad (la descartaron
-          // mientras se guardaba) no queda ronda que cerrar ni tarjeta que reintentar. Viva (sacaron al
-          // jugador) o cerrada: error normal, más abajo. Sin señal: no se limpia nada, se reintenta.
+          // mientras se guardaba) no queda ronda que cerrar ni tarjeta que reintentar. Sin señal: no se limpia
+          // nada, se reintenta. Viva o cerrada: el jugador ya no está en la ronda (lo movieron de grupo) y
+          // reintentar falla igual hasta recargar: se dice eso, no «Intenta de nuevo».
           const veredicto = await confirmarRondaBorrada(supabase, codigo)
           if (veredicto === 'ronda_borrada') {
             addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
@@ -402,6 +403,9 @@ export function useFinalizeGrupo(input: {
             return
           }
           if (veredicto === 'sin_senal') { avisarSinServidor(); return }
+          captureError(guardado.error, { context: 'score_grupo_finalize_historical', meta: { codigo, jugadorId: j.id, veredicto } })
+          addToast({ ...AVISO_LUGAR_EN_RONDA_CAMBIO, type: 'error', duration: 7000 })
+          return
         }
         if (guardado.status === 'error') {
           // Sólo puede fallar la tarjeta PROPIA (las ajenas ya no se insertan). El botón se libera para

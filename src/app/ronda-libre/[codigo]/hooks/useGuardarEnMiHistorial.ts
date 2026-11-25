@@ -157,14 +157,16 @@ export function useGuardarEnMiHistorial(input: {
     })
     // P0001: la ronda o el jugador no están. Sólo si el servidor confirma la ronda borrada el botón se
     // va; viva, cerrada o sin señal es un error normal y se puede reintentar.
-    if (esTarjetaDeRondaDescartada(resultado) && await confirmarRondaBorrada(supabase, ronda.codigo) === 'ronda_borrada') {
+    const veredicto = esTarjetaDeRondaDescartada(resultado) ? await confirmarRondaBorrada(supabase, ronda.codigo) : null
+    if (veredicto === 'ronda_borrada') {
       // La ronda ya no existe (descartada o borrada): no hay dónde guardarla, el botón se va.
       addToast({ ...AVISO_RONDA_NO_EXISTE, type: 'info' })
       setEstado('oculto')
       return
     }
     if (resultado.status === 'error') {
-      void captureError(resultado.error, { context: 'ronda-terminada.guardar-en-mi-historial', meta: { codigo: ronda.codigo } })
+      // Sin señal para confirmar el P0001 no hay nada que reportar: es la red, no un error del guardado.
+      if (veredicto !== 'sin_senal') void captureError(resultado.error, { context: 'ronda-terminada.guardar-en-mi-historial', meta: { codigo: ronda.codigo } })
       addToast({ title: 'No pudimos guardar la ronda', message: 'Intenta de nuevo en un momento.', type: 'error' })
       setEstado('disponible')
       return

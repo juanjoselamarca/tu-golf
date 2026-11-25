@@ -252,9 +252,9 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
 }
 
 /**
- * La ronda ya no existe: la descartaron (o la borró un admin) mientras se guardaba, y el RPC respondió P0001 sin
- * dejar fila. No es una falla de red ni de permisos: los tres caminos avisan «Esta ronda ya no existe» y no ofrecen
- * reintentar (fallaría igual).
+ * El RPC respondió P0001 = «ronda o jugador no encontrado», sin dejar fila. Puede ser la ronda descartada (o borrada
+ * por un admin) mientras se guardaba, o la ronda viva sin ese jugador (lo movieron de grupo). Por eso el llamador
+ * confirma con `confirmarRondaBorrada` antes de limpiar nada o decir «Esta ronda ya no existe».
  */
 export function esTarjetaDeRondaDescartada(r: ResultadoGuardarTarjeta): boolean {
   return r.status === 'error' && (r.error as { code?: unknown }).code === RONDA_ERRCODE.NOT_FOUND

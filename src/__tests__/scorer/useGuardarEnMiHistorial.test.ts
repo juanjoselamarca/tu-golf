@@ -25,6 +25,7 @@ vi.mock('@/lib/data/ronda-libre-finalizar', async () => ({
 }))
 
 import { useGuardarEnMiHistorial } from '@/app/ronda-libre/[codigo]/hooks/useGuardarEnMiHistorial'
+import { captureError } from '@/lib/error-tracking'
 
 const ronda = {
   id: 'r1', codigo: 'ABC', course_name: 'X', course_id: 'c1', tees: 'azul', holes: 9, hoyo_inicio: 10,
@@ -131,6 +132,9 @@ describe('useGuardarEnMiHistorial', () => {
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No pudimos guardar la ronda' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta ronda ya no existe' }))
     expect(result.current.estado).toBe('disponible')
+    // Sin señal es la red, no un error del guardado: no se reporta. Viva o cerrada sí.
+    if (veredicto === 'sin_senal') expect(captureError).not.toHaveBeenCalled()
+    else expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ code: 'P0001' }), expect.objectContaining({ context: 'ronda-terminada.guardar-en-mi-historial' }))
   })
 
   it('guarda la misma fila que el finalizador: le pasa las tarjetas de TODOS (el match necesita al rival)', async () => {

@@ -30,6 +30,15 @@ export const AVISO_RONDA_NO_EXISTE = {
 } as const
 
 /**
+ * P0001 al guardar la tarjeta con la ronda todavía en pie: el jugador ya no está en ella (p. ej. lo movieron
+ * de grupo). Reintentar falla igual hasta recargar, así que no se invita a reintentar: se dice qué hacer.
+ */
+export const AVISO_LUGAR_EN_RONDA_CAMBIO = {
+  title: 'Tu lugar en esta ronda cambió',
+  message: 'Recarga la ronda para ver tu grupo y finalizar.',
+} as const
+
+/**
  * Finalizar encontró la ronda ya cerrada (por otro dispositivo, el organizador o el ganador del match): el
  * mismo aviso en los dos scorers, al leerla cerrada o cuando el envío de Finalizar responde que ya cerró.
  */
