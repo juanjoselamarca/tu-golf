@@ -9,8 +9,9 @@
  *
  * El CH va SIN redondear: el motor aplica el % con `handicapDeJuego` (WHS 6.2a, un solo redondeo).
  *
- * Falla CERRADO: si la base no contesta los hoyos, lanza; en neto, si no hay rating y slope de un tee (la lectura
- * falló o la cancha no los tiene), también: el CH no se aproxima por índice con plata en juego.
+ * Falla CERRADO: si la base no contesta los hoyos, lanza; en neto, si no se pudo leer el rating y slope de un tee o la
+ * cancha no los tiene, también: el CH no se aproxima por índice con plata en juego. `FalloDelContextoSkins.deSenal`
+ * separa las dos cosas (releer arregla la primera, no la segunda).
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { resolverCourseData, resolverCourseHandicapSinRedondear, type CourseData } from '@/golf/core/course-handicap'
@@ -21,6 +22,7 @@ import {
 } from '@/golf/ronda-libre/skins-de-ronda-nueva'
 import { captureError } from '@/lib/error-tracking'
 import { TiempoAgotadoError } from '@/lib/red/con-timeout'
+import { LecturaFallidaError } from '@/lib/red/lectura-fallida'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { teeLabel } from '@/golf/courses/category-tee-options'
 import { resolverHoyosDeLaRonda } from './course-holes'
@@ -51,20 +53,32 @@ export interface RondaDelSkinsNuevo {
  * (rating y slope de un tee): reintentar no lo arregla, salvo que la lectura que lo devolvió vacío haya fallado.
  */
 export class FalloDelContextoSkins extends Error {
-  constructor(message: string, readonly deSenal: boolean) {
-    super(message)
+  constructor(message: string, readonly deSenal: boolean, cause?: unknown) {
+    super(message, cause === undefined ? undefined : { cause })
     this.name = 'FalloDelContextoSkins'
   }
 }
 
 /**
- * ¿Volver a leer puede arreglarlo? Sí si falló la red: la lectura de hoyos (`deSenal`), el plazo vencido o el
- * `TypeError` con que `fetch` rechaza sin conexión. No si falta un dato de la cancha (un tee sin rating) ni ante
- * cualquier otro error: reintentarlo solo repite la falla.
+ * ¿Volver a leer puede arreglarlo? Sí si falló la red: una lectura que volvió sin `code` de PostgREST (`deSenal`) o
+ * el plazo vencido. No si falta un dato de la cancha (un tee sin rating), si PostgREST contestó con código (permisos,
+ * columna) ni ante cualquier otro error: reintentarlo solo repite la falla.
+ *
+ * Sin rama `TypeError`: `postgrest-js` no lanza cuando el fetch se cae, lo devuelve como `{ error }` sin `code`
+ * (ver `LecturaFallidaError`). Un `TypeError` que llegue hasta acá es un bug, y reintentarlo sería para siempre.
  */
 export function esFalloDeSenalDelContextoSkins(err: unknown): boolean {
   if (err instanceof FalloDelContextoSkins) return err.deSenal
-  return err instanceof TiempoAgotadoError || err instanceof TypeError
+  return err instanceof TiempoAgotadoError
+}
+
+/**
+ * Envuelve el fallo de una lectura: de señal solo si PostgREST no trajo `code`. El permanente lleva el mensaje para
+ * el jugador; el detalle técnico queda en `cause` (lo ve `captureError`, no la pantalla).
+ */
+function falloDeLectura(err: unknown, mensajePermanente: string): FalloDelContextoSkins {
+  const deSenal = err instanceof LecturaFallidaError && err.deSenal
+  return new FalloDelContextoSkins(deSenal ? (err as Error).message : mensajePermanente, deSenal, err)
 }
 
 export const MENSAJE_SKINS_SIN_DATOS_DE_CANCHA =
@@ -86,7 +100,7 @@ export async function contextoSkinsDeRondaNueva(
       lanzarSiFalla: true,
     })).hoyos
   } catch (err) {
-    throw new FalloDelContextoSkins(err instanceof Error ? err.message : String(err), true)
+    throw falloDeLectura(err, MENSAJE_SKINS_SIN_DATOS_DE_CANCHA)
   }
   const { parMap, siMap, parTotal } = parYSiDeLaRonda(
     catalogo as unknown as HoyoDeCatalogoEnVivo[], ronda.holes, ronda.hoyoInicio,
@@ -94,13 +108,15 @@ export async function contextoSkinsDeRondaNueva(
 
   const teeDe = (j: JugadorDelSkinsNuevo) => teeDelJugador(j, ronda)
   const tees = Array.from(new Set(ronda.jugadores.map(teeDe)))
-  const datos = await Promise.all(
-    tees.map(tee => resolverCourseData(supabase, ronda.courseId, tee, ronda.holes, parTotal, recorridos)),
-  )
+  // En neto la lectura del rating falla CERRADO (`lanzarSiFalla`): «no pude leer» (señal, reintentable) no se
+  // confunde con «la cancha no tiene el dato» (`null`, permanente). En gross el CH no reparte nada: degrada.
+  const neto = ronda.modo === 'neto'
+  const datos = await Promise.all(tees.map(tee => resolverCourseData(
+    supabase, ronda.courseId, tee, ronda.holes, parTotal, recorridos, { lanzarSiFalla: neto },
+  ).catch((err: unknown) => { throw falloDeLectura(err, mensajeSkinsSinRating(tee)) })))
   const porTee: Record<string, CourseData | null> = Object.fromEntries(tees.map((t, i) => [t, datos[i]]))
-  // `resolverCourseData` se traga el error de lectura y devuelve null, igual que si la cancha no tuviera el dato: en
-  // neto eso caería a la aproximación por índice. Con plata en juego, no.
-  if (ronda.modo === 'neto') {
+  // Leído bien y sin dato: la cancha no tiene rating y slope del tee. Con plata en juego no se aproxima por índice.
+  if (neto) {
     const sinRating = ronda.jugadores.find(j => j.indice != null && porTee[teeDe(j)] == null)
     if (sinRating) throw new FalloDelContextoSkins(mensajeSkinsSinRating(teeDe(sinRating)), false)
   }

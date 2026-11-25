@@ -13,8 +13,8 @@ import { clienteConSenal } from '@/lib/red/cliente-con-senal'
 import type { RondaLibre } from '@/types/ronda'
 
 /**
- * Esperas entre lecturas tras un fallo de señal: 30 s, 60 s y 120 s; desde ahí, cada 120 s (tope). Sin señal en la
- * cancha la cifra aparece apenas vuelve, sin martillar la red.
+ * Esperas entre lecturas tras un fallo de señal: 30 s, 60 s y 120 s; desde ahí, cada 120 s (tope). Si el celular
+ * avisa que volvió la red (`online`), no se espera: se relee al tiro (salvo que ya haya una lectura en vuelo).
  */
 export const ESPERAS_CONTEXTO_SKINS_MS: readonly number[] = [30_000, 60_000, 120_000]
 
@@ -23,6 +23,8 @@ export function esperaDelReintento(n: number, esperas: readonly number[] = ESPER
   return esperas[Math.min(Math.max(n, 1), esperas.length) - 1]
 }
 
+type ClaseDeFallo = 'senal' | 'permanente'
+
 /**
  * «Vale N skins» del hoyo en pantalla. Fuera del skins no pide nada y devuelve `null`. El contexto (CH de cada jugador
  * y SI de los hoyos) se lee con `contextoSkinsDeRondaNueva`, el mismo que validó al crear: el índice de
@@ -30,9 +32,10 @@ export function esperaDelReintento(n: number, esperas: readonly number[] = ESPER
  * bloquea, no se muestra cifra.
  *
  * Cada lectura tiene plazo y se cancela de verdad (la señal llega al fetch) al vencer o al desmontar. Solo se
- * reintenta un fallo de señal (`esFalloDeSenalDelContextoSkins`), con `ESPERAS_CONTEXTO_SKINS_MS`; un dato que falta
- * en la cancha (un tee sin rating) no se arregla releyendo y no se reintenta. El fallo se reporta una sola vez por
- * montaje.
+ * reintenta un fallo de señal (`esFalloDeSenalDelContextoSkins`: sin red, plazo vencido, PostgREST sin `code`), con
+ * `ESPERAS_CONTEXTO_SKINS_MS` o al volver la red; un dato que falta en la cancha o un error con código no se arregla
+ * releyendo y no se reintenta. Se reporta una vez por clase de fallo (señal / permanente): un corte de señal
+ * reportado no tapa un error permanente que aparezca después.
  */
 export function useValorDelHoyoSkins(input: {
   ronda: RondaLibre | null
@@ -49,7 +52,7 @@ export function useValorDelHoyoSkins(input: {
     [ronda],
   )
   const [contexto, setContexto] = useState<ContextoValidacionSkins | null>(null)
-  const reportadoRef = useRef(false)
+  const reportadosRef = useRef(new Set<ClaseDeFallo>())
 
   useEffect(() => {
     if (!ronda || !reglas || !ronda.course_id) return
@@ -58,7 +61,10 @@ export function useValorDelHoyoSkins(input: {
     const courseId = ronda.course_id
     const vida = new AbortController()
     let reintento: ReturnType<typeof setTimeout> | null = null
-    const cargar = async (fallos: number) => {
+    let enVuelo = false
+    let fallos = 0
+    const cargar = async () => {
+      enVuelo = true
       try {
         const supabase = createClient()
         const ctx = await conPlazoCancelable(senal => contextoSkinsDeRondaNueva(clienteConSenal(supabase, senal), {
@@ -69,16 +75,36 @@ export function useValorDelHoyoSkins(input: {
         if (!vida.signal.aborted) setContexto(ctx)
       } catch (err) {
         if (vida.signal.aborted || err instanceof LecturaCanceladaError) return
-        if (!reportadoRef.current) {
-          reportadoRef.current = true
-          void captureError(err, { context: 'score_grupo.skins_contexto', level: 'warning', meta: { codigo: ronda.codigo } })
+        const deSenal = esFalloDeSenalDelContextoSkins(err)
+        const clase: ClaseDeFallo = deSenal ? 'senal' : 'permanente'
+        if (!reportadosRef.current.has(clase)) {
+          reportadosRef.current.add(clase)
+          void captureError(err, {
+            context: 'score_grupo.skins_contexto', level: 'warning', meta: { codigo: ronda.codigo, clase },
+          })
         }
-        if (!esFalloDeSenalDelContextoSkins(err)) return
-        reintento = setTimeout(() => { void cargar(fallos + 1) }, esperaDelReintento(fallos + 1, esperasMs))
+        if (!deSenal) return
+        fallos += 1
+        reintento = setTimeout(() => { reintento = null; void cargar() }, esperaDelReintento(fallos, esperasMs))
+      } finally {
+        enVuelo = false
       }
     }
-    void cargar(0)
-    return () => { vida.abort(); if (reintento) clearTimeout(reintento) }
+    // Volvió la red: no se espera el resto del plazo. Solo si hay un reintento agendado (un fallo de señal) y nada
+    // en vuelo: un fallo permanente no se arregla con red, y una lectura en curso ya va a contestar.
+    const alVolverLaRed = () => {
+      if (vida.signal.aborted || enVuelo || reintento == null) return
+      clearTimeout(reintento)
+      reintento = null
+      void cargar()
+    }
+    window.addEventListener('online', alVolverLaRed)
+    void cargar()
+    return () => {
+      vida.abort()
+      if (reintento) clearTimeout(reintento)
+      window.removeEventListener('online', alVolverLaRed)
+    }
     // La ronda llega una vez; sus jugadores y reglas no cambian a mitad de un skins.
   }, [ronda?.id, reglas != null]) // eslint-disable-line react-hooks/exhaustive-deps
 

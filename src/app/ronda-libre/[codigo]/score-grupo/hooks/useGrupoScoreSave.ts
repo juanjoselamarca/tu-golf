@@ -140,6 +140,11 @@ export function useGrupoScoreSave(input: {
   currentHole: number
   scores: Record<string, Record<number, number>>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
+  /**
+   * `scores` al día con el último `setScores` (`useEstadoConRef`), no con el último render: el toque calcula el valor
+   * siguiente desde acá. Una ref copiada en un efecto llegaba tarde si el toque venía antes (revisión Fable, PR #888).
+   */
+  scoresRef: Readonly<React.MutableRefObject<Record<string, Record<number, number>>>>
   parMap: Record<number, number>
   /** Scores de equipo en pantalla (scramble/foursome): también se reenvían tras una caída. */
   teamEquipos?: ReadonlyArray<{ id: string; scores: Record<string, number> }>
@@ -152,9 +157,14 @@ export function useGrupoScoreSave(input: {
    */
   unCelularPorEquipo?: { ajenos: ReadonlyArray<{ id: string }>; alPerderEquipo: () => void }
   /** Skins: hoyos con X de cada tarjeta (aparte de los golpes). Fuera del skins no se pasa: la tecla X no existe. */
-  fueraDelHoyo?: { fuera: FueraPorJugador; setFuera: React.Dispatch<React.SetStateAction<Record<string, Record<number, true>>>> }
+  fueraDelHoyo?: {
+    fuera: FueraPorJugador
+    setFuera: React.Dispatch<React.SetStateAction<Record<string, Record<number, true>>>>
+    /** Al día con el último `setFuera` (`useEstadoConRef`). */
+    fueraRef: Readonly<React.MutableRefObject<Record<string, Record<number, true>>>>
+  }
 }): GrupoScoreSave {
-  const { ronda, codigo, currentHole, setScores, parMap } = input
+  const { ronda, codigo, currentHole, setScores, scoresRef, parMap } = input
 
   const [saveStatus, setSaveStatus] = useState<GrupoSaveStatus>('idle')
   const [guardados, setGuardados] = useState(0)
@@ -209,15 +219,16 @@ export function useGrupoScoreSave(input: {
 
   const sincronizarRef = useRef<() => Promise<unknown>>(async () => {})
   const saveAllRef = useRef<(o?: Record<string, Record<number, number>>) => Promise<unknown>>(async () => {})
-  const scoresRef = useRef(input.scores)
-  useEffect(() => { scoresRef.current = input.scores }, [input.scores])
   const equiposRef = useRef(input.teamEquipos ?? [])
   useEffect(() => { equiposRef.current = input.teamEquipos ?? [] }, [input.teamEquipos])
   const porCelularRef = useRef(input.unCelularPorEquipo)
   useEffect(() => { porCelularRef.current = input.unCelularPorEquipo }, [input.unCelularPorEquipo])
-  // La X se lee dentro del updater de `setScores`: el ref se escribe al marcarla (no espera al render).
-  const fueraRef = useRef<FueraPorJugador>(input.fueraDelHoyo?.fuera ?? {})
-  useEffect(() => { fueraRef.current = input.fueraDelHoyo?.fuera ?? {} }, [input.fueraDelHoyo?.fuera])
+  // La X se lee de su ref al día (`useEstadoConRef`); fuera del skins no hay mapa ni tecla. `fuenteFueraRef` solo
+  // cambia una vez (al cargar la ronda y saber que es skins): lo leen los reenvíos programados, que viven más que un render.
+  const sinFueraRef = useRef<FueraPorJugador>({})
+  const fueraRef = input.fueraDelHoyo?.fueraRef ?? sinFueraRef
+  const fuenteFueraRef = useRef(fueraRef)
+  useEffect(() => { fuenteFueraRef.current = fueraRef }, [fueraRef])
   const setFuera = input.fueraDelHoyo?.setFuera
 
   /* ── Envía TODO lo pendiente (jugadores y equipos) ── */
@@ -389,7 +400,7 @@ export function useGrupoScoreSave(input: {
             confirmacionesRef.current.push(setTimeout(() => {
               for (const eq of equiposRef.current) marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(eq.id), eq.scores)
               // Skins: las X también (no van en `scores`).
-              for (const [id, hoyos] of Object.entries(fueraRef.current)) {
+              for (const [id, hoyos] of Object.entries(fuenteFueraRef.current.current)) {
                 const x = Object.fromEntries(Object.keys(hoyos).map(h => [h, FUERA_DEL_HOYO]))
                 if (Object.keys(x).length > 0) marcarPendientes(codigo, id, x)
               }
@@ -547,15 +558,13 @@ export function useGrupoScoreSave(input: {
       tarjeta = { ...(prev[jugadorId] ?? {}), [hole]: valor }
     }
     const next = { ...prev, [jugadorId]: tarjeta }
-    scoresRef.current = next
-    setScores(actual => aplicarTarjeta(actual, jugadorId, tarjeta))
+    setScores(next)
     if (setFuera && marcaX !== teniaX) {
       const hoyos = { ...(fueraRef.current[jugadorId] ?? {}) }
       if (marcaX) hoyos[hole] = true
       else delete hoyos[hole]
       const fuera = { ...fueraRef.current, [jugadorId]: hoyos }
-      fueraRef.current = fuera
-      setFuera(actual => aplicarTarjeta(actual, jugadorId, hoyos))
+      setFuera(fuera)
       saveGroupFuera(codigo, fuera)
     }
     setHasUnsaved(true)
@@ -564,7 +573,7 @@ export function useGrupoScoreSave(input: {
     olvidarRechazado(codigo, jugadorId, hole)
     haptic(10)
     programarEnvio()
-  }, [parMap, codigo, programarEnvio, setScores, puedeCambiar, setFuera])
+  }, [parMap, codigo, programarEnvio, setScores, scoresRef, fueraRef, puedeCambiar, setFuera])
 
   /* ── Sincronización automática: reintento periódico + al recuperar la red ── */
   // Con la ronda cerrada no: cada intento daría P0002. Lo pendiente espera a que se reabra.
@@ -581,9 +590,4 @@ export function useGrupoScoreSave(input: {
     saveStatus, setSaveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm,
     handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida,
   }
-}
-
-/** Updater puro: la tarjeta de un jugador reemplaza la suya (llamarlo dos veces da lo mismo). */
-export function aplicarTarjeta<T>(actual: Record<string, T>, jugadorId: string, tarjeta: T): Record<string, T> {
-  return actual[jugadorId] === tarjeta ? actual : { ...actual, [jugadorId]: tarjeta }
 }

@@ -4,9 +4,9 @@
  */
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useState } from 'react'
+import { useEstadoConRef } from '@/hooks/useEstadoConRef'
 import { useGrupoScoreSave } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
-import { leerPendientes, loadGroupFuera } from '@/lib/ronda/score-storage'
+import { leerPendientes, loadGroupFuera, loadGroupScores } from '@/lib/ronda/score-storage'
 
 const saveRondaLibreScores = vi.fn(async () => ({ error: null as unknown }))
 vi.mock('@/lib/data/ronda-libre-scores', () => ({
@@ -36,13 +36,13 @@ const PAR = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5 }
 
 function montar(opts: { inicial?: Record<string, Record<number, number>>; fuera?: Record<string, Record<number, true>>; skins?: boolean } = {}) {
   return renderHook(() => {
-    const [scores, setScores] = useState(opts.inicial ?? { p1: {}, p2: {} })
-    const [fuera, setFuera] = useState<Record<string, Record<number, true>>>(opts.fuera ?? {})
+    const [scores, setScores, scoresRef] = useEstadoConRef(opts.inicial ?? { p1: {}, p2: {} })
+    const [fuera, setFuera, fueraRef] = useEstadoConRef<Record<string, Record<number, true>>>(opts.fuera ?? {})
     const save = useGrupoScoreSave({
-      ronda, codigo: 'SKN', currentHole: 1, scores, setScores, parMap: PAR,
-      fueraDelHoyo: opts.skins === false ? undefined : { fuera, setFuera },
+      ronda, codigo: 'SKN', currentHole: 1, scores, setScores, scoresRef, parMap: PAR,
+      fueraDelHoyo: opts.skins === false ? undefined : { fuera, setFuera, fueraRef },
     })
-    return { scores, fuera, save }
+    return { scores, fuera, save, setScores, setFuera }
   })
 }
 
@@ -122,31 +122,36 @@ describe('useGrupoScoreSave — X del skins', () => {
   })
 })
 
-describe('useGrupoScoreSave — updaters puros', () => {
-  it('los updaters de golpes y de la X dan lo mismo llamados dos veces, y el toque se anota una sola vez', async () => {
-    const updaters: { scores: ((p: never) => unknown)[]; fuera: ((p: never) => unknown)[] } = { scores: [], fuera: [] }
-    const { result } = renderHook(() => {
-      const [scores, setScoresReal] = useState<Record<string, Record<number, number>>>({ p1: { 1: 5 }, p2: {} })
-      const [fuera, setFueraReal] = useState<Record<string, Record<number, true>>>({})
-      const setScores: typeof setScoresReal = a => { if (typeof a === 'function') updaters.scores.push(a as never); setScoresReal(a) }
-      const setFuera: typeof setFueraReal = a => { if (typeof a === 'function') updaters.fuera.push(a as never); setFueraReal(a) }
-      const save = useGrupoScoreSave({ ronda, codigo: 'SKN', currentHole: 1, scores, setScores, parMap: PAR, fueraDelHoyo: { fuera, setFuera } })
-      return { scores, fuera, save }
-    })
-    // X en un hoyo vacío: un toque basta.
+describe('useGrupoScoreSave — el toque parte de lo último pedido, no de lo último pintado', () => {
+  it('un toque anota una sola vez: un pendiente y el estado calculado', () => {
+    const { result } = montar({ inicial: { p1: { 1: 5 }, p2: {} } })
     act(() => { result.current.save.handleScoreChange('p1', 2, 'X') })
-    expect(updaters.scores).toHaveLength(1)
-    expect(updaters.fuera).toHaveLength(1)
-    const base = { p1: { 1: 5, 2: 4 }, p2: {} }
-    const u = updaters.scores[0] as (p: typeof base) => typeof base
-    expect(u(u(base))).toEqual(u(base))
-    expect(u(base).p1).toEqual({ 1: 5 })
-    const f = updaters.fuera[0] as (p: Record<string, Record<number, true>>) => Record<string, Record<number, true>>
-    expect(f(f({}))).toEqual({ p1: { 2: true } })
-    // Una sola X pendiente (no dos), y el estado final es el calculado.
     expect(leerPendientes('SKN')).toEqual({ p1: { 2: 'X' } })
     expect(result.current.fuera).toEqual({ p1: { 2: true } })
     expect(result.current.scores.p1).toEqual({ 1: 5 })
+  })
+
+  it('un setScores de afuera (relleno de «Siguiente», relectura) seguido de un toque antes del render no pierde nada', () => {
+    // Con la ref copiada en un efecto, el toque partía de la tarjeta vieja: p1 perdía el par del hoyo 2 y el
+    // respaldo local perdía el de p2 (revisión Fable, PR #888, P2.5).
+    const { result } = montar({ inicial: { p1: { 1: 5 }, p2: {} } })
+    act(() => {
+      result.current.setScores({ p1: { 1: 5, 2: 4 }, p2: { 2: 4 } })
+      result.current.save.handleScoreChange('p1', 3, 1)
+    })
+    expect(result.current.scores).toEqual({ p1: { 1: 5, 2: 4, 3: 4 }, p2: { 2: 4 } })
+    expect(loadGroupScores('SKN')).toEqual({ p1: { 1: 5, 2: 4, 3: 4 }, p2: { 2: 4 } })
+  })
+
+  it('un setFuera de afuera seguido de un toque antes del render: la X recién puesta pide el 2º toque', () => {
+    const { result } = montar({ inicial: { p1: {}, p2: {} } })
+    act(() => {
+      result.current.setFuera({ p1: { 4: true } })
+      result.current.save.handleScoreChange('p1', 4, 1)
+    })
+    // Hay una X: cambiarla pide confirmación; la X sigue y no hay golpes.
+    expect(result.current.fuera).toEqual({ p1: { 4: true } })
+    expect(result.current.scores.p1[4]).toBeUndefined()
   })
 
   it('dos toques seguidos antes de re-renderizar se suman (el estado sale de la ref, no de un render viejo)', () => {

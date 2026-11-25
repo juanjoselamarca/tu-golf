@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEstadoConRef } from '@/hooks/useEstadoConRef'
 import { esRondaCerrada } from '@/lib/data/ronda-libre-estado'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
@@ -69,9 +70,12 @@ export interface RondaGrupoData {
   setCurrentHole: React.Dispatch<React.SetStateAction<number>>
   scores: Record<string, Record<number, number>>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
+  /** `scores` al día con el último `setScores` (no con el último render): lo leen los toques (`useEstadoConRef`). */
+  scoresRef: Readonly<React.MutableRefObject<Record<string, Record<number, number>>>>
   /** Skins: hoyos con X de cada tarjeta, aparte de los golpes (`fuera_del_hoyo` + respaldo + pendientes). Vacío fuera del skins. */
   fuera: FueraPorJugador
   setFuera: React.Dispatch<React.SetStateAction<Record<string, Record<number, true>>>>
+  fueraRef: Readonly<React.MutableRefObject<Record<string, Record<number, true>>>>
   parMap: Record<number, number>
   holeDataMap: Record<number, HoleData>
   /** Course handicap que PUNTÚA (en 9h, la mitad). */
@@ -244,8 +248,10 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [currentHole, setCurrentHole] = useState(1)
-  const [scores, setScores] = useState<Record<string, Record<number, number>>>({})
-  const [fuera, setFuera] = useState<Record<string, Record<number, true>>>({})
+  // Con ref al día en el mismo `set`: un toque que llega antes del render ve lo último (relleno de «Siguiente»,
+  // primera pintura, finalizar). Toda escritura de golpes y X pasa por estos setters.
+  const [scores, setScores, scoresRef] = useEstadoConRef<Record<string, Record<number, number>>>({})
+  const [fuera, setFuera, fueraRef] = useEstadoConRef<Record<string, Record<number, true>>>({})
   const [parMap, setParMap] = useState<Record<number, number>>({})
   const [holeDataMap, setHoleDataMap] = useState<Record<number, HoleData>>({})
   const [playerHcp, setPlayerHcp] = useState<Record<string, number>>({})
@@ -506,7 +512,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   return {
     ronda, loading, loadError,
     currentHole, setCurrentHole,
-    scores, setScores, fuera, setFuera,
+    scores, setScores, scoresRef, fuera, setFuera, fueraRef,
     parMap, holeDataMap, playerHcp, playerDisplayHcp,
     teamEquipos, setTeamEquipos,
     anotadorNombre, authUserId,

@@ -80,7 +80,7 @@ function ScorerDeGrupo() {
 
   const {
     ronda, loading, loadError, currentHole, setCurrentHole,
-    scores, setScores, fuera, setFuera, parMap, holeDataMap, playerHcp, playerDisplayHcp,
+    scores, setScores, scoresRef, fuera, setFuera, fueraRef, parMap, holeDataMap, playerHcp, playerDisplayHcp,
     teamEquipos, setTeamEquipos, anotadorNombre, authUserId, conexion, golpesSinSubir,
     unCelularPorEquipo, equiposDeOtroCelular, eleccion, recargar, recargarTrasDejarEquipo,
   } = useRondaGrupoData(codigo)
@@ -109,11 +109,11 @@ function ScorerDeGrupo() {
 
   // Skins: la X («Fuera del hoyo») vive aparte de los golpes. Fuera del skins no hay tecla ni mapa.
   const esSkins = esFormatoSkins(ronda?.formato_juego)
-  const fueraDelHoyo = useMemo(() => (esSkins ? { fuera, setFuera } : undefined), [esSkins, fuera, setFuera])
+  const fueraDelHoyo = useMemo(() => (esSkins ? { fuera, setFuera, fueraRef } : undefined), [esSkins, fuera, setFuera, fueraRef])
   const fueraSkins = esSkins ? fuera : undefined
   const valorSkins = useValorDelHoyoSkins({ ronda: esSkins ? ronda : null, scores, fuera: fueraSkins, currentHole })
   const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
-    useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos, unCelularPorEquipo: porCelular, fueraDelHoyo })
+    useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, scoresRef, parMap, teamEquipos, unCelularPorEquipo: porCelular, fueraDelHoyo })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
     if (rondaNoExiste) router.push('/dashboard')

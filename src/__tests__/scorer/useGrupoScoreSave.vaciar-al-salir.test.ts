@@ -4,7 +4,7 @@
 // veía su equipo 17/18 y no podía cerrar. Ahora lo pendiente se envía YA al ocultarse la página y al desmontar.
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useState } from 'react'
+import { useEstadoConRef } from '@/hooks/useEstadoConRef'
 import { useGrupoScoreSave, SAVE_DEBOUNCE_MS, REENVIO_CONFIRMACION_MS } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import { leerPendientes, marcarPendientes } from '@/lib/ronda/score-storage'
 import { haptic } from '@/lib/ronda/helpers'
@@ -35,8 +35,8 @@ const PAR = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5 }
 
 function montar() {
   return renderHook(() => {
-    const [scores, setScores] = useState<Record<string, Record<number, number>>>({ p1: {} })
-    return useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 9, scores, setScores, parMap: PAR })
+    const [scores, setScores, scoresRef] = useEstadoConRef<Record<string, Record<number, number>>>({ p1: {} })
+    return useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 9, scores, setScores, scoresRef, parMap: PAR })
   })
 }
 

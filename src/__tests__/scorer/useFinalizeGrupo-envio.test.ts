@@ -4,7 +4,7 @@
 // con un jugador que ya no está en la ronda o un golpe inválido, pedía reintentar para siempre.
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useState } from 'react'
+import { useEstadoConRef } from '@/hooks/useEstadoConRef'
 import { useGrupoScoreSave } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import { useFinalizeGrupo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useFinalizeGrupo'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
@@ -71,8 +71,8 @@ const ronda = rondaCompleta as never
 
 function montar(r: never = ronda, teamEquipos: never[] = []) {
   return renderHook(({ ronda }: { ronda: never }) => {
-    const [scores, setScores] = useState<Record<string, Record<number, number>>>({ p1: { 10: 4 }, p2: { 10: 5 } })
-    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 18, scores, setScores, parMap: PAR, teamEquipos })
+    const [scores, setScores, scoresRef] = useEstadoConRef<Record<string, Record<number, number>>>({ p1: { 10: 4 }, p2: { 10: 5 } })
+    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 18, scores, setScores, scoresRef, parMap: PAR, teamEquipos })
     const fin = useFinalizeGrupo({
       ronda, codigo: 'ABC', hoyos: back9, scores, setScores, parMap: PAR, teamEquipos,
       completarEquiposConPar: ((e: unknown) => e) as never, matchResult: null, authUserId: 'u1', enviarPendientes: save.saveAllScores,

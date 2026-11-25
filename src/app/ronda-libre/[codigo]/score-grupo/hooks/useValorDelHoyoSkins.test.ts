@@ -77,12 +77,69 @@ describe('useValorDelHoyoSkins — lectura del contexto', () => {
     expect(captureError).toHaveBeenCalledTimes(1)
   })
 
-  it('el TypeError de fetch sin red también reintenta, y al volver la señal aparece la cifra', async () => {
+  it('un TypeError suelto es un bug: no se reintenta (postgrest-js no lanza sin red, devuelve { error })', async () => {
     lectura.impl.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(CONTEXTO)
     const { result } = montar()
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000) })
+    expect(lectura.impl).toHaveBeenCalledTimes(1)
+    expect(result.current).toBeNull()
+  })
+
+  it('un reporte por clase: un corte de señal reportado no tapa un error permanente posterior', async () => {
+    lectura.impl
+      .mockRejectedValueOnce(sinSenal())
+      .mockRejectedValueOnce(sinSenal())
+      .mockRejectedValueOnce(new FalloDelContextoSkins(mensajeSkinsSinRating('blanco'), false))
+    montar()
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(lectura.impl).toHaveBeenCalledTimes(3)
+    expect(captureError).toHaveBeenCalledTimes(2)
+    const clases = vi.mocked(captureError).mock.calls.map(c => c[1]?.meta?.clase)
+    expect(clases).toEqual(['senal', 'permanente'])
+  })
+
+  it('al volver la red (online) no espera el resto del plazo: relee al tiro y aparece la cifra', async () => {
+    lectura.impl.mockRejectedValueOnce(sinSenal()).mockResolvedValueOnce(CONTEXTO)
+    const { result } = montar()
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+    expect(lectura.impl).toHaveBeenCalledTimes(1)
+    await act(async () => { window.dispatchEvent(new Event('online')); await vi.advanceTimersByTimeAsync(0) })
     expect(lectura.impl).toHaveBeenCalledTimes(2)
     expect(result.current?.valor).toBe(1)
+    // La espera de 30 s quedó cancelada: no hay una tercera lectura.
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000) })
+    expect(lectura.impl).toHaveBeenCalledTimes(2)
+  })
+
+  it('online con una lectura en vuelo no lanza otra; tras un fallo permanente tampoco relee', async () => {
+    let soltar: (v: unknown) => void = () => {}
+    lectura.impl.mockImplementationOnce(() => new Promise(r => { soltar = r }))
+    const { result } = montar()
+    await act(async () => { window.dispatchEvent(new Event('online')); await vi.advanceTimersByTimeAsync(0) })
+    expect(lectura.impl).toHaveBeenCalledTimes(1)
+    await act(async () => { soltar(CONTEXTO); await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current?.valor).toBe(1)
+
+    lectura.impl.mockReset()
+    lectura.impl.mockRejectedValue(new FalloDelContextoSkins(mensajeSkinsSinRating('blanco'), false))
+    const otro = renderHook(() => useValorDelHoyoSkins({
+      ronda: { ...RONDA, id: 'r2' } as RondaLibre, scores: {}, fuera: {}, currentHole: 1, plazoMs: PLAZO, esperasMs: ESPERAS,
+    }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    await act(async () => { window.dispatchEvent(new Event('online')); await vi.advanceTimersByTimeAsync(0) })
+    expect(lectura.impl).toHaveBeenCalledTimes(1)
+    otro.unmount()
+  })
+
+  it('desmontar quita el aviso de online', async () => {
+    lectura.impl.mockRejectedValue(sinSenal())
+    const { unmount } = montar()
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    unmount()
+    await act(async () => { window.dispatchEvent(new Event('online')); await vi.advanceTimersByTimeAsync(0) })
+    expect(lectura.impl).toHaveBeenCalledTimes(1)
   })
 
   it('una lectura colgada vence al plazo: se aborta su señal y se reintenta como fallo de señal', async () => {
