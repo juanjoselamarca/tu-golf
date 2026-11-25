@@ -32,13 +32,13 @@ describe('GrupoNavBar', () => {
 
 // Ensayo del scramble (25-nov), P0-1: quien anota un equipo desde su celular llegaba al último hoyo con solo «← Anterior».
 describe('GrupoNavBar — último hoyo de quien no cierra la ronda', () => {
-  const renderUltimo = (guardado: boolean) => {
+  const renderUltimo = (guardado: boolean, envio?: 'al_dia' | 'enviando' | 'pendiente') => {
     const onGuardar = vi.fn()
     render(
       <GrupoNavBar
         currentHoleIdx={17} isLastHole canFinalize={false} finalizing={false} congelada={false}
         onPrev={() => {}} onNext={() => {}} onFinalize={() => {}} theme={SCORER_THEME}
-        guardarUltimoHoyo={{ hoyo: 18, guardado, onGuardar }}
+        guardarUltimoHoyo={{ hoyo: 18, guardado, envio, onGuardar }}
       />,
     )
     return { onGuardar }
@@ -60,6 +60,28 @@ describe('GrupoNavBar — último hoyo de quien no cierra la ronda', () => {
     expect(boton.disabled).toBe(true)
     fireEvent.click(boton)
     expect(onGuardar).not.toHaveBeenCalled()
+  })
+
+  it('anotado pero sin señal: nunca «anotado ✓»; «Enviar hoyo 18» activo reintenta el envío', () => {
+    const { onGuardar } = renderUltimo(true, 'pendiente')
+    expect(screen.queryByRole('button', { name: /anotado/ })).toBeNull()
+    const boton = screen.getByRole('button', { name: 'Enviar hoyo 18' }) as HTMLButtonElement
+    expect(boton.disabled).toBe(false)
+    fireEvent.click(boton)
+    expect(onGuardar).toHaveBeenCalledTimes(1)
+  })
+
+  it('anotado y en viaje: «Enviando hoyo 18…», sin repetir el toque', () => {
+    const { onGuardar } = renderUltimo(true, 'enviando')
+    const boton = screen.getByRole('button', { name: 'Enviando hoyo 18…' }) as HTMLButtonElement
+    expect(boton.disabled).toBe(true)
+    fireEvent.click(boton)
+    expect(onGuardar).not.toHaveBeenCalled()
+  })
+
+  it('sin anotar y con el envío en viaje (otro hoyo): sigue «Guardar hoyo 18» activo', () => {
+    renderUltimo(false, 'enviando')
+    expect((screen.getByRole('button', { name: 'Guardar hoyo 18' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('sin la acción (quien cierra la ronda): el último hoyo sigue con Finalizar, sin «Guardar hoyo»', () => {

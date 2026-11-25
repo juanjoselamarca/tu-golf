@@ -14,9 +14,11 @@ interface GrupoNavBarProps {
   onFinalize: () => void
   /**
    * Último hoyo de quien NO cierra la ronda (un celular por equipo): en lugar de Siguiente, «Guardar hoyo N» confirma
-   * el valor en pantalla. `guardado`: el hoyo ya tiene golpes en todas las tarjetas de este celular.
+   * el valor en pantalla. `guardado`: el hoyo ya tiene golpes en todas las tarjetas de este celular. `envio`: si esos
+   * golpes ya están en el servidor. Guardado pero sin subir, el botón sigue activo como reintento («Enviar hoyo N»):
+   * nunca dice «anotado ✓» con el golpe solo en el teléfono.
    */
-  guardarUltimoHoyo?: { hoyo: number; guardado: boolean; onGuardar: () => void }
+  guardarUltimoHoyo?: { hoyo: number; guardado: boolean; envio?: 'al_dia' | 'enviando' | 'pendiente'; onGuardar: () => void }
   theme: ScorerTheme
 }
 
@@ -27,7 +29,15 @@ export function GrupoNavBar({
 }: GrupoNavBarProps) {
   const finalizarInactivo = finalizing || congelada
   const guardar = isLastHole ? guardarUltimoHoyo : undefined
-  const guardarInactivo = !!guardar && (guardar.guardado || congelada)
+  const envio = guardar?.envio ?? 'al_dia'
+  const anotado = !!guardar && guardar.guardado && envio === 'al_dia'
+  const enviando = !!guardar && guardar.guardado && envio === 'enviando'
+  const guardarInactivo = !!guardar && (anotado || enviando || congelada)
+  const etiquetaGuardar = !guardar ? ''
+    : anotado ? `Hoyo ${guardar.hoyo} anotado ✓`
+    : enviando ? `Enviando hoyo ${guardar.hoyo}…`
+    : guardar.guardado ? `Enviar hoyo ${guardar.hoyo}`
+    : `Guardar hoyo ${guardar.hoyo}`
   return (
     <div style={{
       flexShrink: 0, background: theme.navBg,
@@ -70,16 +80,16 @@ export function GrupoNavBar({
           disabled={guardarInactivo}
           style={{
             flex: 2, padding: '14px',
-            background: guardar.guardado ? 'transparent' : theme.gold,
-            color: guardar.guardado ? 'var(--brand-on-bg)' : 'var(--brand-dark)',
-            border: guardar.guardado ? `1px solid rgba(196,153,42,0.4)` : 'none',
+            background: anotado || enviando ? 'transparent' : theme.gold,
+            color: anotado || enviando ? 'var(--brand-on-bg)' : 'var(--brand-dark)',
+            border: anotado || enviando ? `1px solid rgba(196,153,42,0.4)` : 'none',
             borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: guardarInactivo ? 'default' : 'pointer', minHeight: '48px',
             touchAction: 'manipulation', letterSpacing: '0.01em',
-            opacity: congelada && !guardar.guardado ? 0.7 : 1,
+            opacity: congelada && !anotado ? 0.7 : 1,
           }}
         >
-          {guardar.guardado ? `Hoyo ${guardar.hoyo} anotado ✓` : `Guardar hoyo ${guardar.hoyo}`}
+          {etiquetaGuardar}
         </button>
       )}
       {/* Finalize: secondary from hole 9, primary on last hole */}

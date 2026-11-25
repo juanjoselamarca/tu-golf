@@ -74,7 +74,7 @@ export interface RondaGrupoData {
   playerDisplayHcp: Record<string, number>
   teamEquipos: EquipoDelScorer[]
   setTeamEquipos: React.Dispatch<React.SetStateAction<EquipoDelScorer[]>>
-  /** Quién anota: su nombre en la ronda, o el prefijo del email. */
+  /** Quién anota (`nombreDelAnotadorDelCelular`): su nombre en la ronda o de perfil; nunca el correo. */
   anotadorNombre: string
   /** Usuario autenticado que abrió el scorer. */
   authUserId: string | null
@@ -183,6 +183,14 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
       if (entrada === 'en_vivo') return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
       if (entrada === 'elegir_equipo') return { tipo: 'elegir_equipo', ronda: r, equipos }
     }
+    // Identidad del anotador (`nombreDelAnotadorDelCelular`): nunca el correo. Su perfil se lee solo si la ronda no
+    // trae su nombre, EN PARALELO con hoyos y hándicaps (no suma un plazo más con señal lenta); una falla de esa
+    // lectura no frena el scorer (queda el genérico) y su cancelación la recoge el `signal.aborted` de abajo.
+    const delCelular = { jugadores: r.ronda_libre_jugadores, equipos, userId, email: sesion.email }
+    const nombreSinPerfil = nombreDelAnotadorDelCelular(delCelular)
+    const nombreDePerfilP: Promise<string | null> = nombreSinPerfil === NOMBRE_ANOTADOR_GENERICO
+      ? paso(c => leerNombresDePerfilCon(c, [userId])).then(m => m.get(userId) ?? null, () => null)
+      : Promise.resolve(null)
     const hoyos = await paso(c => cargarHoyosDelScorer(c, r))
     // El scorer de grupo exige sesión (arriba): `profiles` es legible.
     const { hcpMap, displayMap } = await paso(c => resolverHandicapsDelScorer(c, r, hoyos.finalParTotal, leerIndicesDelCliente(c)))
@@ -191,16 +199,11 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
     // completar al finalizar, pendientes, hoyo inicial, copia local) parte de esta lista: nunca toca un equipo de
     // otro celular. En una ronda de un celular son todos.
     const teamEquipos = equiposQueAnota(r, equipos, userId)
-    // Identidad del anotador (`nombreDelAnotadorDelCelular`): nunca el correo. Su perfil se lee solo si la ronda no
-    // trae su nombre, y una falla de esa lectura no frena el scorer (queda el genérico).
-    const delCelular = { jugadores: r.ronda_libre_jugadores, equipos, userId }
-    let anotadorNombre = nombreDelAnotadorDelCelular(delCelular)
-    if (anotadorNombre === NOMBRE_ANOTADOR_GENERICO) {
-      const nombreDePerfil = await paso(c => leerNombresDePerfilCon(c, [userId]))
-        .then(m => m.get(userId) ?? null, (e: unknown) => { if (e instanceof LecturaCanceladaError) throw e; return null })
-      if (signal.aborted) return { tipo: 'cancelada' }
-      anotadorNombre = nombreDelAnotadorDelCelular({ ...delCelular, nombreDePerfil })
-    }
+    const nombreDePerfil = await nombreDePerfilP
+    if (signal.aborted) return { tipo: 'cancelada' }
+    const anotadorNombre = nombreSinPerfil === NOMBRE_ANOTADOR_GENERICO
+      ? nombreDelAnotadorDelCelular({ ...delCelular, nombreDePerfil })
+      : nombreSinPerfil
     return {
       tipo: 'ok', ronda: r, userId, email: sesion.email,
       snap: {

@@ -71,7 +71,11 @@ describe('textoTarjetaCompleta', () => {
     expect(textoTarjetaCompleta(true, 'Juanjo')).toBe('Tarjeta completa · Finalizar ronda')
   })
   it('quien anota su equipo y no cierra: su equipo terminó y falta que el creador finalice (con nombre o genérico)', () => {
-    expect(textoTarjetaCompleta(false, 'Juanjo')).toBe('Tu equipo terminó. Falta que Juanjo la finalice.')
-    expect(textoTarjetaCompleta(false, null)).toBe('Tu equipo terminó. Falta que quien creó la ronda la finalice.')
+    expect(textoTarjetaCompleta(false, 'Juanjo')).toBe('Tu equipo terminó. Falta que Juanjo finalice la ronda.')
+    expect(textoTarjetaCompleta(false, null)).toBe('Tu equipo terminó. Falta que quien creó la ronda finalice la ronda.')
+  })
+  it('sin señal (golpes solo en el teléfono): no dice que terminó, pide mantener la pantalla abierta', () => {
+    expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: true })).toBe('Falta enviar tus golpes. Mantén esta pantalla abierta hasta que suban.')
+    expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: false })).toBe('Tu equipo terminó. Falta que Juanjo finalice la ronda.')
   })
 })

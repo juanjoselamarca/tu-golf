@@ -5,7 +5,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
-import { useGrupoScoreSave, SAVE_DEBOUNCE_MS } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
+import { useGrupoScoreSave, SAVE_DEBOUNCE_MS, REENVIO_CONFIRMACION_MS } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import { leerPendientes, marcarPendientes } from '@/lib/ronda/score-storage'
 
 const saveRondaLibreScores = vi.fn(async () => ({ error: null as unknown }))
@@ -76,7 +76,7 @@ describe('useGrupoScoreSave — lo pendiente sale al dejar la pantalla', () => {
     expect(saveRondaLibreScores).toHaveBeenCalledTimes(1)
   })
 
-  it('cierra la app (pagehide): se envía YA', async () => {
+  it('pagehide (la página se va): intenta el envío YA', async () => {
     const { result } = montar()
     act(() => { result.current.handleScoreChange('p1', 9, -1) })
     act(() => { window.dispatchEvent(new Event('pagehide')) })
@@ -107,5 +107,23 @@ describe('useGrupoScoreSave — lo pendiente sale al dejar la pantalla', () => {
     expect(saveRondaLibreScores).toHaveBeenCalledTimes(1)
     await act(async () => { await vi.advanceTimersByTimeAsync(SAVE_DEBOUNCE_MS) })
     expect(saveRondaLibreScores).toHaveBeenCalledTimes(1)
+  })
+
+  it('venía sin señal y sale: el envío del desmontaje NO agenda reenvíos con los golpes viejos de esa pantalla', async () => {
+    // Fable PR A: sin esto, a los 30 s / 180 s el timer re-marcaba pendientes los golpes congelados al salir y los
+    // reenviaba con secuencia nueva, pisando en el servidor una corrección hecha al volver al scorer.
+    saveRondaLibreScores.mockResolvedValue({ error: { message: 'Failed to fetch' } })
+    const { result, unmount } = montar()
+    act(() => { result.current.handleScoreChange('p1', 9, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(SAVE_DEBOUNCE_MS + 5_000) })
+    expect(result.current.pendienteDeEnvio).toBe(true)
+    saveRondaLibreScores.mockResolvedValue({ error: null })
+    unmount()
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(leerPendientes('ABC')).toEqual({})
+    const llamadas = saveRondaLibreScores.mock.calls.length
+    await act(async () => { await vi.advanceTimersByTimeAsync(Math.max(...REENVIO_CONFIRMACION_MS) + 1_000) })
+    expect(saveRondaLibreScores.mock.calls.length).toBe(llamadas)
+    expect(leerPendientes('ABC')).toEqual({})
   })
 })

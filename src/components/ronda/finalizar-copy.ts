@@ -150,9 +150,16 @@ export function hojaFinalizarTimba(input: {
  * Aviso al pie de la tarjeta completa. Un celular por equipo, celular que no cierra: su equipo ya terminó y quien
  * cierra es el creador (ensayo 25-nov: tras el último hoyo, quien anota su equipo tiene que saber que ya no le toca nada).
  */
-export function textoTarjetaCompleta(cierraEsteCelular: boolean, nombreDelCreador: string | null): string {
+export function textoTarjetaCompleta(
+  cierraEsteCelular: boolean,
+  nombreDelCreador: string | null,
+  opciones?: { sinSubir?: boolean },
+): string {
   if (cierraEsteCelular) return 'Tarjeta completa · Finalizar ronda'
-  return `Tu equipo terminó. Falta que ${nombreDelCreador ?? 'quien creó la ronda'} la finalice.`
+  // Sin señal el golpe está solo en este teléfono: el creador no lo ve. Decir «terminó» invitaba a guardar el
+  // teléfono con la pantalla cerrada, y el reintento solo corre con la pantalla abierta.
+  if (opciones?.sinSubir) return 'Falta enviar tus golpes. Mantén esta pantalla abierta hasta que suban.'
+  return `Tu equipo terminó. Falta que ${nombreDelCreador ?? 'quien creó la ronda'} finalice la ronda.`
 }
 
 /** Un celular por equipo: al finalizar, los equipos de este celular ya no son los que se ven (liberaron o tomaron uno). */

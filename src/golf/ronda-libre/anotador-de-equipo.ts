@@ -270,17 +270,43 @@ export const NOMBRE_ANOTADOR_GENERICO = 'Anotador'
  * Nombre con que el scorer de equipos muestra a quien anota en ESTE celular (encabezado). Nunca el correo (ensayo
  * 24-nov: salía «ensayo-ross-17955…»): su nombre de jugador en la ronda → el de su perfil (`anotador_nombre` del
  * equipo que reclamó, que la base copia de profiles.name, o el perfil leído) → «Anotador».
+ * El alta sin nombre deja `profiles.name` = la parte local del correo (`handle_new_user`): ese candidato, o uno con
+ * «@», se descarta como si no hubiera nombre.
  */
 export function nombreDelAnotadorDelCelular(input: {
   jugadores: ReadonlyArray<{ user_id?: string | null; nombre?: string | null }>
   equipos: ReadonlyArray<Pick<EquipoConAnotador, 'anotador_user_id' | 'anotador_nombre'>>
   userId: string | null | undefined
   nombreDePerfil?: string | null
+  email?: string | null
 }): string {
   const { jugadores, equipos, userId } = input
   if (!userId) return NOMBRE_ANOTADOR_GENERICO
-  return jugadores.find(j => j.user_id === userId)?.nombre?.trim()
-    || equipos.find(e => e.anotador_user_id === userId)?.anotador_nombre?.trim()
-    || input.nombreDePerfil?.trim()
-    || NOMBRE_ANOTADOR_GENERICO
+  const parteLocal = input.email?.split('@')[0]?.trim().toLowerCase() || null
+  const valido = (n: string | null | undefined): string | null => {
+    const t = n?.trim()
+    if (!t || t.includes('@') || (parteLocal && t.toLowerCase() === parteLocal)) return null
+    return t
+  }
+  return valido(jugadores.find(j => j.user_id === userId)?.nombre)
+    ?? valido(equipos.find(e => e.anotador_user_id === userId)?.anotador_nombre)
+    ?? valido(input.nombreDePerfil)
+    ?? NOMBRE_ANOTADOR_GENERICO
+}
+
+/**
+ * Último hoyo, celular que cierra la ronda: un equipo que este celular anota tras liberarlo su dueño (no recibe par
+ * automático al cerrar) y que todavía no tiene golpes en el hoyo. Finalizar lo frenaría: primero «Guardar hoyo N».
+ */
+export function equipoLiberadoSinElHoyo(input: {
+  equipos: ReadonlyArray<{ id: string; scores: Record<string, number> }>
+  sinParAutomatico: ReadonlyArray<{ id: string }>
+  noConfirmanElHoyo: ReadonlyArray<{ id: string }>
+  hoyo: number
+}): boolean {
+  const { equipos, sinParAutomatico, noConfirmanElHoyo, hoyo } = input
+  return equipos.some(e =>
+    sinParAutomatico.some(s => s.id === e.id)
+    && !noConfirmanElHoyo.some(n => n.id === e.id)
+    && e.scores[String(hoyo)] == null)
 }

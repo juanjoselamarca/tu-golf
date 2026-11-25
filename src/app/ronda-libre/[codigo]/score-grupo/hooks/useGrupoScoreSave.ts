@@ -190,11 +190,19 @@ export function useGrupoScoreSave(input: {
   const [rondaNoExiste, setRondaNoExiste] = useState(false)
   // Con la ronda borrada y su copia local limpia, nada vuelve a escribirla (un toque la recrearía).
   const rondaBorradaRef = useRef(false)
+  /**
+   * La pantalla ya se fue. El último envío (el de `vaciar` al desmontar) termina después del cleanup: no agenda
+   * reenvíos de confirmación, que correrían con los golpes congelados de esta pantalla y pisarían en el servidor una
+   * corrección hecha al volver (Fable, PR A 25-nov).
+   */
+  const desmontadoRef = useRef(false)
 
   /* ── Cleanup de timers al desmontar ── */
   useEffect(() => {
+    desmontadoRef.current = false
     const confirmaciones = confirmacionesRef.current // el array nunca se reasigna
     return () => {
+      desmontadoRef.current = true
       if (envioDebounceRef.current) clearTimeout(envioDebounceRef.current)
       if (pendingConfirmTimeoutRef.current) clearTimeout(pendingConfirmTimeoutRef.current)
       if (editWindowTimeoutRef.current) clearTimeout(editWindowTimeoutRef.current)
@@ -374,7 +382,7 @@ export function useGrupoScoreSave(input: {
         setHasUnsaved(false)
         haptic(20)
         setTimeout(() => setSaveStatus('idle'), 1500)
-        if (veniaDeCaida) {
+        if (veniaDeCaida && !desmontadoRef.current) {
           for (const ms of REENVIO_CONFIRMACION_MS) {
             // Reenvía los valores actuales: deja en el servidor lo último aunque un envío vencido aterrice tarde.
             confirmacionesRef.current.push(setTimeout(() => {
@@ -474,8 +482,9 @@ export function useGrupoScoreSave(input: {
    * Cada golpe queda en la cola del teléfono al tocar, pero el envío espera el debounce. Salir del scorer (volver,
    * bloquear el teléfono, cambiar o cerrar la app) cancelaba ese envío: el golpe llegaba recién al volver a abrir el
    * scorer, y si el anotador no volvía (hoyo 18 del ensayo 25-nov) su equipo quedaba con un hoyo menos. Al ocultarse
-   * la página y al desmontar se envía YA. Si la página muere antes de la respuesta, la cola persistente lo reenvía al
-   * volver. Con la ronda cerrada no (cada intento daría P0002; lo pendiente espera a que se reabra).
+   * la página y al desmontar se envía YA. No es garantía: si el sistema mata la pestaña (cerrar la app en iOS) el envío
+   * puede cortarse, y lo pendiente sigue en la cola del teléfono hasta que se vuelva a abrir el scorer. Por eso el
+   * último hoyo no dice «anotado» ni «terminó» hasta que el servidor confirma (`ultimoHoyoSinSubir` en la página). Con la ronda cerrada no (cada intento daría P0002; lo pendiente espera a que se reabra).
    */
   useEffect(() => {
     const vaciar = () => {

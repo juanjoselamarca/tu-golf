@@ -17,6 +17,7 @@ import {
   nombreDelCreador,
   nombreDeQuienAnota,
   nombreDelAnotadorDelCelular,
+  equipoLiberadoSinElHoyo,
   ofreceAnotarMiEquipo,
   unCelularPorEquipo,
   type EquipoConAnotador,
@@ -274,5 +275,24 @@ describe('nombreDelAnotadorDelCelular (nunca el correo)', () => {
   it('sin nada: genérico (nunca el correo)', () => {
     expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [], userId: JUAN, nombreDePerfil: '  ' })).toBe('Anotador')
     expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [], userId: null })).toBe('Anotador')
+  })
+  it('alta sin nombre (profiles.name = parte local del correo): se descarta en cada fuente, nunca sale el correo', () => {
+    const email = 'Ensayo-Ross-17955@gmail.com'
+    expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e2', PEDRO, 'ensayo-ross-17955')], userId: PEDRO, email })).toBe('Anotador')
+    expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e2', PEDRO, null)], userId: PEDRO, nombreDePerfil: 'ensayo-ross-17955', email })).toBe('Anotador')
+    expect(nombreDelAnotadorDelCelular({ jugadores: [{ user_id: PEDRO, nombre: 'ensayo-ross-17955' }], equipos: [club('e2', PEDRO, 'Cristián Ross')], userId: PEDRO, email })).toBe('Cristián Ross')
+    expect(nombreDelAnotadorDelCelular({ jugadores, equipos: [club('e2', PEDRO, 'ross@golf.cl')], userId: PEDRO })).toBe('Anotador')
+  })
+})
+
+describe('equipoLiberadoSinElHoyo', () => {
+  const base = { sinParAutomatico: [{ id: 'e2' }], noConfirmanElHoyo: [] as { id: string }[], hoyo: 18 }
+  it('equipo liberado que este celular anota, sin golpes en el hoyo: sí', () => {
+    expect(equipoLiberadoSinElHoyo({ ...base, equipos: [{ id: 'e1', scores: {} }, { id: 'e2', scores: { '17': 4 } }] })).toBe(true)
+  })
+  it('ya tiene el hoyo, no es liberado, o este celular no lo confirma: no', () => {
+    expect(equipoLiberadoSinElHoyo({ ...base, equipos: [{ id: 'e2', scores: { '18': 5 } }] })).toBe(false)
+    expect(equipoLiberadoSinElHoyo({ ...base, equipos: [{ id: 'e1', scores: {} }] })).toBe(false)
+    expect(equipoLiberadoSinElHoyo({ ...base, noConfirmanElHoyo: [{ id: 'e2' }], equipos: [{ id: 'e2', scores: {} }] })).toBe(false)
   })
 })
