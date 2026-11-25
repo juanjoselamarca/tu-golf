@@ -43,6 +43,10 @@ export interface ShareCardRondaLibre {
   matchResult?: string
   /** Total Stableford del jugador (para mostrar "N pts" como subtítulo). */
   stablefordPoints?: number
+  /** `scoreGross`/`scoreDiff` son NETOS (equipos en una ronda neta): el número grande es el vs par
+   *  con el rótulo «neto», como el cuadro ganador de la pantalla. Explícito y no por `modo_juego`:
+   *  la tarjeta individual de `FinishedRoundView` manda el bruto aunque la ronda sea neta. */
+  scoreEsNeto?: boolean
   /** Para formatos de equipo: nombre del equipo ganador */
   teamNombre?: string
   /** Para formatos de equipo: miembros del equipo ganador */
@@ -265,7 +269,13 @@ function drawScoreSymbol(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
 }
 
 /** Exportada para tests (texto pintado por hoyo); el resto del módulo la usa vía `generarShareCard`. */
-export function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | number, number>, pars: Record<number, number>, hoyosDeLaTarjeta: readonly number[], startY: number, W: number) {
+/** Línea base de lo que va bajo la tarjeta (birdies, ranking): 60px bajo su borde inferior (texto de 30px con aire); nunca más arriba de 1200. */
+export function yBajoLaTarjeta(fondoDelPanel: number): number {
+  return Math.max(1200, fondoDelPanel + 60)
+}
+
+/** Dibuja el panel blanco de la tarjeta hoyo a hoyo y devuelve su borde inferior (y). */
+export function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | number, number>, pars: Record<number, number>, hoyosDeLaTarjeta: readonly number[], startY: number, W: number): number {
   // Por número (OUT arriba, IN abajo): un 9h desde el 10 pinta los hoyos 10-18, no 1-9 vacíos.
   const hoyos = hoyosPorNumero(hoyosDeLaTarjeta)
   const holes = hoyos.length
@@ -363,6 +373,7 @@ export function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<stri
   ctx.fillStyle = diffColor; ctx.font = 'bold 22px Arial, sans-serif'
   ctx.fillText(diffLabel, panelX + panelW - 32, totalY + totalRowH / 2 + 8)
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+  return panelY + panelH
 }
 
 // ── CTA inferior ─────────────────────────────────────────────────
@@ -435,7 +446,7 @@ export function partirEnDosLineas(texto: string): [string, string] {
   return corte < 0 ? [texto, ''] : [texto.slice(0, corte), texto.slice(corte + 1)]
 }
 
-function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLibre, W: number, H: number) {
+export function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLibre, W: number, H: number) {
   ctx.textAlign = 'center'
   const encabezado = encabezadoDeRondaLibre(data)
   // Share text — emoji OK for external platforms (canvas-rendered share card image)
@@ -497,32 +508,44 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
     // El empate se decide por vs par; los golpes brutos de los empatados pueden
     // diferir (neto, o distinta cantidad de hoyos anotados). Con empate el número
     // grande es el vs par, como en el cuadro ganador de la pantalla.
+    // Neto (equipos en ronda neta): el número grande es el vs par neto y dice «neto», igual que
+    // la pantalla («−7 Neto»); antes salía el total neto (65) con «7 bajo par», sin decir que era neto.
+    const neto = !!data.scoreEsNeto && !isStableford
     const empateVsPar = data.esEmpate && !isStableford
     ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 35
     ctx.font = 'bold 210px Arial, sans-serif'; ctx.fillStyle = clr
-    ctx.fillText(empateVsPar ? formatOverUnder(data.scoreDiff) : String(data.scoreGross), W / 2, 790)
+    ctx.fillText(empateVsPar || neto ? formatOverUnder(data.scoreDiff) : String(data.scoreGross), W / 2, 790)
     ctx.restore()
     if (isStableford) {
       ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('puntos', W / 2, 848)
+    } else if (neto) {
+      ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('neto', W / 2, 848)
     } else {
       const diffTxt = empateVsPar ? relacionConElPar(data.scoreDiff) : vsParEnPalabras(data.scoreDiff)
       ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
     }
   }
   ctx.font = '32px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 900)
+  // Tarjeta hoyo a hoyo solo si hay golpes: la imagen de equipos (y la del leaderboard) no trae
+  // scores y pintaba un panel blanco vacío con 18 guiones y un TOTAL «0 −72» falso.
+  const hayTarjeta = Object.keys(data.scoresByHole).length > 0
+  const hoyosDeLaTarjeta = data.hoyos ?? hoyosDesdeElUno(data.holesPlayed)
+  let fondoDelPanel = 0
   // Badges: holes + formato (si hay formato, los ponemos apilados para no chocar)
   if (data.formato_juego) {
     drawHolesBadge(ctx, data.holesPlayed, W / 2, 935)
     drawFormatBadge(ctx, data.formato_juego, data.modo_juego, W / 2, 982)
     drawDivider(ctx, 1015, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.hoyos ?? hoyosDesdeElUno(data.holesPlayed), 1035, W)
+    if (hayTarjeta) fondoDelPanel = drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDeLaTarjeta, 1035, W)
   } else {
     drawHolesBadge(ctx, data.holesPlayed, W / 2, 940)
     drawDivider(ctx, 975, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.hoyos ?? hoyosDesdeElUno(data.holesPlayed), 1000, W)
+    if (hayTarjeta) fondoDelPanel = drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDeLaTarjeta, 1000, W)
   }
 
-  const statsY = 1200
+  // Birdies y ranking van BAJO el panel: en 18 hoyos el panel baja hasta ~1285 y el ranking
+  // arrancaba fijo en 1200 → la fila del ganador (blanca) quedaba encima del panel blanco.
+  const statsY = hayTarjeta ? yBajoLaTarjeta(fondoDelPanel) : 1050
   const items: string[] = []
   // Stableford y Match Play: eagles/birdies no son relevantes para el resultado.
   // Solo se muestran en Stroke Play donde el total gross manda.
@@ -561,7 +584,7 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
 
 // ── Template: Torneo ─────────────────────────────────────────────
 
-function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: number, H: number) {
+export function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: number, H: number) {
   // Share text — emoji OK for external platforms (canvas-rendered share card image)
   const posEmoji = data.posicion === 1 ? '🥇' : data.posicion === 2 ? '🥈' : data.posicion === 3 ? '🥉' : `#${data.posicion}`
   ctx.textAlign = 'center'; ctx.font = '140px serif'; ctx.fillText(posEmoji, W / 2, 370)
@@ -582,15 +605,16 @@ function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: 
   ctx.font = 'bold 40px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(vsParEnPalabras(data.scoreDiff), W / 2, 815)
   ctx.font = '30px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 862)
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillText(`${data.totalJugadores} jugadores`, W / 2, 898)
+  let fondoDelPanel: number
   if (data.formato_juego) {
     drawHolesBadge(ctx, 18, W / 2, 932)
     drawFormatBadge(ctx, data.formato_juego, data.modo_juego, W / 2, 980)
     drawDivider(ctx, 1013, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 1033, W)
+    fondoDelPanel = drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 1033, W)
   } else {
     drawHolesBadge(ctx, 18, W / 2, 938)
     drawDivider(ctx, 973, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 998, W)
+    fondoDelPanel = drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 998, W)
   }
 
   // Stableford y Match Play: eagles/birdies no son relevantes.
@@ -601,7 +625,7 @@ function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: 
     if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
     if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
   }
-  if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, 1200) }
+  if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, yBajoLaTarjeta(fondoDelPanel)) }
 }
 
 // ── Generador principal ──────────────────────────────────────────
@@ -631,6 +655,7 @@ export async function generarShareCard(data: ShareCardData): Promise<Blob> {
 export function scoreDelTextoParaCompartir(data: ShareCardData): string {
   if (data.tipo !== 'ronda_libre') return String(data.scoreGross)
   if (data.formato_juego === 'stableford') return `${data.scoreGross} pts`
+  if (data.scoreEsNeto) return `${formatOverUnder(data.scoreDiff)} neto`
   if (data.esEmpate) {
     return data.scoreDiff === 0 ? relacionConElPar(0) : `${formatOverUnder(data.scoreDiff)} ${relacionConElPar(data.scoreDiff)}`
   }
@@ -700,6 +725,8 @@ export function tarjetaDeEquipos(data: LeaderboardShareData): ShareCardRondaLibr
     teamNombre: winTeam.nombre,
     teamJugadores: winTeam.jugadores,
     teamFormato: data.formato_juego as 'best_ball' | 'scramble' | 'foursome',
+    // En ronda neta `score`/`diff` de los equipos son netos (rankTeams).
+    scoreEsNeto: data.modo_juego === 'neto',
     contraElPar: juegaContraElPar(data.teams.length),
     ranking: rankingDeEquipos(data.teams),
   }
