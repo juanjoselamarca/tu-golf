@@ -12,6 +12,7 @@ Qué hacer cuando algo falla en producción. **Cada runbook es autocontenido** �
 | [incident-supabase-down.md](incident-supabase-down.md) | Supabase caído o con latencia alta durante un torneo |
 | [incident-sentry-spike.md](incident-sentry-spike.md) | Sentry dispara spike de errores |
 | [incident-bug-en-torneo.md](incident-bug-en-torneo.md) | Jugador reporta bug durante torneo real |
+| [scorecard-papel.md](scorecard-papel.md) | Plan B en cancha: sin señal, teléfono muerto, app caída o «Finalizar» con error |
 | [ops-deploy-rollback.md](ops-deploy-rollback.md) | Cómo revertir un deploy en Vercel en <5 min |
 | [ops-health-check.md](ops-health-check.md) | Cómo correr el health check completo y leer resultados |
 
