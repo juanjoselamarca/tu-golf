@@ -99,20 +99,6 @@ export function getHolesPlayed(scores: Record<string, number>, holes: number, ho
   return count
 }
 
-/**
- * ¿La tarjeta tiene todos los hoyos de la ronda anotados? Cuenta claves
- * numéricas positivas, sin asumir que empiezan en 1: una ronda de 9 que parte
- * en el 10 guarda las claves 10..18.
- *
- * ESPEJO en SQL: `finalizar_ronda_libre` (migración 20260929b) usa la misma
- * regla para decidir si un invitado sin sesión puede cerrar la ronda. Si
- * cambia acá, cambia allá.
- */
-export function tarjetaCompleta(scores: Record<string, number> | null | undefined, holes: number): boolean {
-  const anotados = Object.keys(scores ?? {}).filter(k => /^[0-9]+$/.test(k) && Number(k) >= 1).length
-  return anotados >= holes
-}
-
 export function buildTimelineEvents(
   jugadores: Jugador[],
   holes: number,
