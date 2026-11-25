@@ -9,6 +9,8 @@ vi.mock('@/utils/supabase/server', () => ({
   createClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) } }),
 }))
 vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => ({ admin: true }) }))
+const captureError = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/error-tracking', () => ({ captureError }))
 
 const TORNEO = { id: 't1', name: 'Copa', slug: 'copa', status: 'open', organizer_id: 'o1' }
 const joinFlow = vi.hoisted(() => ({
@@ -63,5 +65,19 @@ describe('GET /api/torneos/[slug]/join-info sin sesión', () => {
       tournament: TORNEO, profile: { id: 'u1' }, alreadyRegistered: true, authenticated: true,
     })
     expect(joinFlow.condicionesInscripcionPublica).not.toHaveBeenCalled()
+  })
+})
+
+// 25-nov-2026: con sesión, un error de la base al leer perfil o inscripción subía sin registrar. Ahora es un 500
+// reintentable que queda en error_logs; nunca un 200 con «sin perfil» (botón Inscribirme muerto) o «no inscrito».
+describe('GET join-info con sesión · la base falla', () => {
+  it('500 lookup_failed y se registra', async () => {
+    user = { id: 'u1' }
+    joinFlow.fetchJoinInfo.mockRejectedValueOnce({ code: '57014' })
+    const res = await GET(req(), params)
+    user = null
+    expect(res.status).toBe(500)
+    expect((await res.json()).error).toBe('lookup_failed')
+    expect(captureError).toHaveBeenCalledWith({ code: '57014' }, expect.objectContaining({ context: 'join-info' }))
   })
 })
