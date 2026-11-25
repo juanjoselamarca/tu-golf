@@ -17,6 +17,7 @@ import {
   marcarRespaldosDeRondaCerrada,
   relojPlausible,
 } from '@/lib/ronda/respaldo-local'
+import type { ScoreSkins } from '@/golf/formats/skins/motor'
 
 const KEY = (codigo: string, jugadorId: string) => `ronda_${codigo}_${jugadorId}`
 
@@ -81,6 +82,28 @@ export function loadGroupScores(codigo: string): Record<string, Record<number, n
 }
 
 export const GROUP_SCORE_STORAGE_KEY = GROUP_KEY
+
+/**
+ * Skins: respaldo de los hoyos con X («Fuera del hoyo») de cada tarjeta, aparte de los golpes (la X nunca va en
+ * `ronda_grupo_<codigo>`, que lee todo lo que suma golpes). jugadorId → { hoyo: true }.
+ */
+const GROUP_FUERA_KEY = (codigo: string) => `ronda_grupo_fuera_${codigo}`
+
+export function saveGroupFuera(codigo: string, fuera: Readonly<Record<string, Readonly<Record<number, true>>>>): void {
+  try {
+    localStorage.setItem(GROUP_FUERA_KEY(codigo), JSON.stringify(fuera))
+  } catch {
+    // quota / storage deshabilitado — silencioso, como los golpes
+  }
+}
+
+export function loadGroupFuera(codigo: string): Record<string, Record<number, true>> {
+  try {
+    return JSON.parse(localStorage.getItem(GROUP_FUERA_KEY(codigo)) ?? '{}')
+  } catch {
+    return {}
+  }
+}
 
 // ─── Copia local del scorer de grupo (abrir sin servidor) ──────────────────
 // Caída del 04-oct-2026: con la API caída el scorer no podía ni abrir (ni
@@ -177,7 +200,10 @@ export function loadGroupTeamScores(codigo: string): Record<string, Record<strin
 // exactamente qué falta enviar. Clave: jugadorId, o `eq:<equipoId>` para equipos.
 
 const PEND_KEY = (codigo: string) => `ronda_grupo_pendientes_${codigo}`
-export type PendientesGrupo = Record<string, Record<string, number>>
+/** Valor de un hoyo en la cola: golpes, o la X del skins («Fuera del hoyo», `FUERA_DEL_HOYO`), que viaja en el mismo delta. */
+export type ValorPendiente = ScoreSkins
+export type PendientesDe<V> = Record<string, Record<string, V>>
+export type PendientesGrupo = PendientesDe<ValorPendiente>
 export const ID_PENDIENTE_EQUIPO = (equipoId: string) => `eq:${equipoId}`
 
 /**
@@ -185,27 +211,27 @@ export const ID_PENDIENTE_EQUIPO = (equipoId: string) => `eq:${equipoId}`
  * un valor EXACTO. La usan los golpes del scorer de grupo y las marcas de puntos especiales de Timba libre
  * (`puntitos-pendientes.ts`), cada una con su propia clave.
  */
-export interface ColaDePendientes {
-  leer(codigo: string): PendientesGrupo
+export interface ColaDePendientes<V extends number | string = number> {
+  leer(codigo: string): PendientesDe<V>
   /** Marca valores como pendientes (último valor gana). */
-  marcar(codigo: string, id: string, valores: Record<string | number, number>): void
+  marcar(codigo: string, id: string, valores: Record<string | number, V>): void
   /** Quita los hoyos cuyo pendiente es EXACTAMENTE el valor enviado; si cambió mientras viajaba, sigue pendiente. */
-  confirmar(codigo: string, id: string, enviados: Record<string | number, number>): void
+  confirmar(codigo: string, id: string, enviados: Record<string | number, V>): void
   /** Reemplaza la cola entera (para descartar pendientes que otro reemplazó). */
-  escribir(codigo: string, p: PendientesGrupo): void
+  escribir(codigo: string, p: PendientesDe<V>): void
   hay(codigo: string): boolean
   clave(codigo: string): string
 }
 
-export function crearColaDePendientes(clave: (codigo: string) => string): ColaDePendientes {
-  const leer = (codigo: string): PendientesGrupo => {
+export function crearColaDePendientes<V extends number | string = number>(clave: (codigo: string) => string): ColaDePendientes<V> {
+  const leer = (codigo: string): PendientesDe<V> => {
     try {
       return JSON.parse(localStorage.getItem(clave(codigo)) ?? '{}')
     } catch {
       return {}
     }
   }
-  const escribir = (codigo: string, p: PendientesGrupo): void => {
+  const escribir = (codigo: string, p: PendientesDe<V>): void => {
     try {
       const limpio = Object.fromEntries(Object.entries(p).filter(([, h]) => Object.keys(h).length > 0))
       if (Object.keys(limpio).length === 0) localStorage.removeItem(clave(codigo))
@@ -238,14 +264,14 @@ export function crearColaDePendientes(clave: (codigo: string) => string): ColaDe
   }
 }
 
-const golpesPendientes = crearColaDePendientes(PEND_KEY)
+const golpesPendientes = crearColaDePendientes<ValorPendiente>(PEND_KEY)
 
 export function leerPendientes(codigo: string): PendientesGrupo {
   return golpesPendientes.leer(codigo)
 }
 
 /** Marca golpes como pendientes (último valor gana). */
-export function marcarPendientes(codigo: string, id: string, golpes: Record<string | number, number>): void {
+export function marcarPendientes(codigo: string, id: string, golpes: Record<string | number, ValorPendiente>): void {
   golpesPendientes.marcar(codigo, id, golpes)
 }
 
@@ -253,7 +279,7 @@ export function marcarPendientes(codigo: string, id: string, golpes: Record<stri
  * El servidor confirmó `enviados`: se quitan los hoyos cuyo pendiente es EXACTAMENTE ese
  * valor. Si el marcador lo cambió mientras viajaba, sigue pendiente.
  */
-export function confirmarPendientes(codigo: string, id: string, enviados: Record<string | number, number>): void {
+export function confirmarPendientes(codigo: string, id: string, enviados: Record<string | number, ValorPendiente>): void {
   golpesPendientes.confirmar(codigo, id, enviados)
 }
 
@@ -266,7 +292,7 @@ const RECH_KEY = (codigo: string) => `${PREFIJO_RECH}${codigo}`
 /** Cuándo se apartó el último rechazo de la ronda (para barrer lo que quedó si nunca se finalizó). */
 const PREFIJO_RECH_EN = 'ronda_grupo_rechazo_en_'
 const RECH_EN_KEY = (codigo: string) => `${PREFIJO_RECH_EN}${codigo}`
-const golpesRechazados = crearColaDePendientes(RECH_KEY)
+const golpesRechazados = crearColaDePendientes<ValorPendiente>(RECH_KEY)
 
 function borrarRechazados(codigo: string): void {
   try {
@@ -316,7 +342,7 @@ export function barrerRechazadosViejos(ahora = Date.now()): void {
  * Sólo se aparta el valor exacto que se envió: si el marcador corrigió el hoyo mientras el envío viajaba, el
  * valor pendiente es más nuevo y no se toca (ni queda el viejo apartado, que lo pisaría al reintentar).
  */
-export function apartarRechazados(codigo: string, id: string, golpes: Record<string | number, number>): void {
+export function apartarRechazados(codigo: string, id: string, golpes: Record<string | number, ValorPendiente>): void {
   const pendiente = golpesPendientes.leer(codigo)[id] ?? {}
   const apartados = Object.fromEntries(
     Object.entries(golpes).filter(([h, v]) => pendiente[String(h)] == null || pendiente[String(h)] === v),
@@ -333,7 +359,7 @@ export function leerRechazados(codigo: string): PendientesGrupo {
 
 /** El servidor aceptó `enviados` para `id`: esos hoyos dejan de estar rechazados, con el valor que sea
  * (lo aceptado es más nuevo que cualquier valor rechazado de ese hoyo). */
-export function confirmarRechazados(codigo: string, id: string, enviados: Record<string | number, number>): void {
+export function confirmarRechazados(codigo: string, id: string, enviados: Record<string | number, ValorPendiente>): void {
   const r = golpesRechazados.leer(codigo)
   if (!r[id]) return
   const resto = { ...r[id] }
@@ -365,6 +391,7 @@ function borrarCopiaDelGrupo(codigo: string, alFinalizar = false): void {
   clearScorerGrupoSnapshot(codigo)
   try {
     localStorage.removeItem(GROUP_KEY(codigo))
+    localStorage.removeItem(GROUP_FUERA_KEY(codigo))
     localStorage.removeItem(TEAM_KEY(codigo))
     localStorage.removeItem(PEND_KEY(codigo))
     // Al finalizar sólo pueden quedar apartados los de quien el servidor confirmó fuera de la ronda

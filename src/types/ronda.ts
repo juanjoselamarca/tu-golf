@@ -84,6 +84,8 @@ export interface RondaLibre {
   formato_juego:         FormatoJuego
   /** Timba libre: `{ config, jugadorIds }` (lo lee `leerReglasGuardadas`). Solo lo trae el scorer de grupo, con sesión (`COLUMNAS_RONDA_SCORER_CON_REGLAS`; anon no la lee). */
   reglas_juego?:         unknown
+  /** Skins: la X de cada tarjeta (`fuera_del_hoyo`). Solo la trae el scorer de grupo (`COLUMNAS_RONDA_SCORER_CON_REGLAS`); se lee con `fueraDesdeLaRonda`. */
+  jugadores_fuera?:      { id: string; fuera_del_hoyo: unknown }[]
   hoyo_inicio?:          number | null
   admin_mode?:           boolean
   admin_user_id?:        string

@@ -16,12 +16,14 @@ import { MENSAJE_YA_NO_ANOTAS } from '@/lib/data/ronda-libre-anotador'
 import { addToast } from '@/hooks/useToast'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import { hoyoParaRetomar, hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { capaDeTarjeta, combinarCapasDeTarjeta, soloGolpes, type FueraPorJugador } from '@/golf/formats/skins/fuera-del-hoyo'
 import {
   fetchRondaLibreParaScorer,
   cargarHoyosDelScorer,
   resolverHandicapsDelScorer,
   fetchEquiposDelScorer,
   tarjetasDesdeLaRonda,
+  fueraDesdeLaRonda,
   MENSAJE_SCORER_SIN_CONEXION,
   PLAZO_CARGA_SCORER_MS,
   REINTENTO_CARGA_MS,
@@ -30,6 +32,7 @@ import {
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import {
   loadGroupScores,
+  loadGroupFuera,
   loadGroupTeamScores,
   leerPendientes,
   leerRechazados,
@@ -66,6 +69,9 @@ export interface RondaGrupoData {
   setCurrentHole: React.Dispatch<React.SetStateAction<number>>
   scores: Record<string, Record<number, number>>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
+  /** Skins: hoyos con X de cada tarjeta, aparte de los golpes (`fuera_del_hoyo` + respaldo + pendientes). Vacío fuera del skins. */
+  fuera: FueraPorJugador
+  setFuera: React.Dispatch<React.SetStateAction<Record<string, Record<number, true>>>>
   parMap: Record<number, number>
   holeDataMap: Record<number, HoleData>
   /** Course handicap que PUNTÚA (en 9h, la mitad). */
@@ -103,22 +109,18 @@ type Carga =
   /** La vuelta se canceló (pantalla desmontada o `codigo` nuevo): lo leído no se aplica. */
   | { tipo: 'cancelada' }
 
-/** Pendientes vienen con claves string (JSON): a hoyo numérico. */
-function numerico(golpes: Record<string, number> | undefined): Record<number, number> {
-  return Object.fromEntries(Object.entries(golpes ?? {}).map(([h, v]) => [Number(h), v]))
-}
-
 /**
  * Hoyo en que se abre el scorer (`hoyoParaRetomar`): el primero que le falte a alguna
  * tarjeta, las de los jugadores o, en bola compartida (scramble/foursome, sin golpes
  * propios), las de los equipos. Con todas llenas, el último, donde está Finalizar.
- * Timba libre: con `retiros`, los hoyos de un retirado no le faltan (`tarjetaAlDiaEnHoyo`).
+ * Timba libre: con `retiros`, los hoyos de un retirado no le faltan (`tarjetaAlDiaEnHoyo`). Skins: tampoco los con X.
  */
 export function hoyoInicial(
   r: RondaLibre,
   scores: Record<string, Record<number, number>>,
   equipos: ReadonlyArray<{ scores: Record<string, number> }> = [],
   retiros?: Readonly<Record<string, number>>,
+  fuera?: FueraPorJugador,
 ): number {
   const orden = hoyosDeLaRonda(r.hoyo_inicio ?? 1, r.holes)
   if (isSharedBallFormat(r.formato_juego)) {
@@ -127,7 +129,7 @@ export function hoyoInicial(
   }
   const jugadores = r.ronda_libre_jugadores
   if (jugadores.length === 0) return orden[0] ?? 1
-  return hoyoParaRetomar(orden, h => jugadores.every(j => tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, orden)))
+  return hoyoParaRetomar(orden, h => jugadores.every(j => tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, orden, fuera?.[j.id])))
 }
 
 /**
@@ -243,6 +245,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [currentHole, setCurrentHole] = useState(1)
   const [scores, setScores] = useState<Record<string, Record<number, number>>>({})
+  const [fuera, setFuera] = useState<Record<string, Record<number, true>>>({})
   const [parMap, setParMap] = useState<Record<number, number>>({})
   const [holeDataMap, setHoleDataMap] = useState<Record<number, HoleData>>({})
   const [playerHcp, setPlayerHcp] = useState<Record<string, number>>({})
@@ -319,14 +322,25 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     // Tarjetas que el servidor rechazó en firme: sus golpes se muestran (para revisarlos) por encima de la BD.
     const rech = leerRechazados(codigo)
     const db = tarjetasDesdeLaRonda(r)
+    // Skins: la X va aparte de los golpes en la base y en el respaldo; se combina con ellos por capas (un hoyo con X
+    // en una capa más nueva le gana a golpes de una más vieja, y al revés). Fuera del skins las dos están vacías.
+    const dbFuera = fueraDesdeLaRonda(r)
+    const cachedFuera = loadGroupFuera(codigo)
     const initialScores: Record<string, Record<number, number>> = {}
+    const initialFuera: Record<string, Record<number, true>> = {}
     for (const j of r.ronda_libre_jugadores) {
-      const base = localGana
-        ? { ...db[j.id], ...(cached[j.id] ?? {}) }
-        : { ...(cached[j.id] ?? {}), ...db[j.id] } // online: BD manda; lo local aporta lo que falta
-      initialScores[j.id] = { ...base, ...numerico(rech[j.id]), ...numerico(pend[j.id]) }
+      const capaDb = capaDeTarjeta(db[j.id], dbFuera[j.id])
+      const capaLocal = capaDeTarjeta(cached[j.id], cachedFuera[j.id])
+      // Online: BD manda y lo local aporta lo que falta. Sin servidor: lo local es lo más nuevo. Siempre encima, los
+      // rechazados (para revisarlos) y lo pendiente de confirmar.
+      const { golpes, fuera: x } = combinarCapasDeTarjeta(localGana
+        ? [capaDb, capaLocal, rech[j.id], pend[j.id]]
+        : [capaLocal, capaDb, rech[j.id], pend[j.id]])
+      initialScores[j.id] = golpes
+      if (Object.keys(x).length > 0) initialFuera[j.id] = x
     }
     setScores(initialScores)
+    setFuera(initialFuera)
     // Equipos (scramble/foursome): respaldo local + pendientes por encima del servidor/copia.
     const cachedEq = loadGroupTeamScores(codigo)
     const equiposIniciales = equipos.map(eq => ({
@@ -334,13 +348,13 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       scores: {
         ...eq.scores,
         ...(localGana ? cachedEq[eq.id] ?? {} : {}),
-        ...(rech[ID_PENDIENTE_EQUIPO(eq.id)] ?? {}),
-        ...(pend[ID_PENDIENTE_EQUIPO(eq.id)] ?? {}),
+        ...soloGolpes(rech[ID_PENDIENTE_EQUIPO(eq.id)]),
+        ...soloGolpes(pend[ID_PENDIENTE_EQUIPO(eq.id)]),
       },
     }))
     setTeamEquipos(equiposIniciales)
     setGolpesSinSubir(Object.keys(pend).length > 0)
-    setCurrentHole(hoyoInicial(r, initialScores, equiposIniciales))
+    setCurrentHole(hoyoInicial(r, initialScores, equiposIniciales, undefined, initialFuera))
     cargadaRef.current = true
     setLoadError(null)
     setLoading(false)
@@ -492,7 +506,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   return {
     ronda, loading, loadError,
     currentHole, setCurrentHole,
-    scores, setScores,
+    scores, setScores, fuera, setFuera,
     parMap, holeDataMap, playerHcp, playerDisplayHcp,
     teamEquipos, setTeamEquipos,
     anotadorNombre, authUserId,
