@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
-import { nombresCortos } from '@/golf/ronda-libre/tabla-del-juego'
+import { nombresDeCelda } from '@/golf/ronda-libre/tabla-del-juego'
 import type { VistaDelSkinsEnElScorer } from '@/golf/ronda-libre/skins-del-scorer'
 import {
-  armarResultadoDelSkins, textoDelNeto, textoParaCompartirElSkins, type ResultadoDelSkins, type TablaDelSkins,
+  armarResultadoDelSkins, textoDelNeto, textoDelPozoSinLiquidar, textoParaCompartirElSkins, type ResultadoDelSkins, type TablaDelSkins,
 } from '@/golf/ronda-libre/tabla-del-skins'
 import { useShare } from '@/components/share/useShare'
 import { ALTO_NAVBAR_PX } from '@/lib/constants'
@@ -66,7 +66,7 @@ export function SkinsEnVivo(props: {
   )
   const nombres = useMemo(() => Object.fromEntries(enOrden.map(j => [j.id, j.nombre])), [enOrden])
   const cortos = useMemo(() => {
-    const c = nombresCortos(enOrden.map(j => j.nombre))
+    const c = nombresDeCelda(enOrden.map(j => j.nombre))
     return Object.fromEntries(enOrden.map((j, i) => [j.id, c[i]]))
   }, [enOrden])
   const hoyos = useMemo(() => hoyosDeLaRonda(hoyoInicio ?? 1, holes), [hoyoInicio, holes])
@@ -145,7 +145,7 @@ export function LiquidacionDelSkins({ resultado, tabla }: { resultado: Resultado
   if (!resultado.liquidacion) {
     return (
       <p role="note" style={{ ...caja, fontSize: '14px' }}>
-        Quedaron hoyos sin resolver: la liquidación no es definitiva. Revisa la tarjeta con el grupo.
+        {textoDelPozoSinLiquidar(tabla)}
       </p>
     )
   }

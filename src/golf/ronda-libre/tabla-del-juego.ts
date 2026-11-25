@@ -156,6 +156,20 @@ export function nombresCortos(nombres: readonly string[]): string[] {
   })
 }
 
+/** Largo máximo del nombre en una celda de la tira del Skins: a 360 px (4 columnas) entran 7 caracteres en negrita. */
+export const LARGO_NOMBRE_DE_CELDA = 7
+
+/**
+ * `nombresCortos` acotados a una celda: «Maximiliano» → «Maximi.» (antes la celda lo cortaba en «Maximilia…»). Si
+ * dos quedan iguales al acortar («Maximiliano» y «Maximino»), esos dos usan el corto entero: nunca dos jugadores con
+ * el mismo texto en la tira.
+ */
+export function nombresDeCelda(nombres: readonly string[], largo: number = LARGO_NOMBRE_DE_CELDA): string[] {
+  const cortos = nombresCortos(nombres)
+  const acotados = cortos.map(c => ([...c].length <= largo ? c : `${[...c].slice(0, largo - 1).join('')}.`))
+  return acotados.map((a, i) => (acotados.filter(x => x === a).length > 1 && cortos.filter(c => c === cortos[i]).length === 1 ? cortos[i] : a))
+}
+
 export function armarTablaDelJuego(
   vista: VistaDelJuego,
   nombres: Readonly<Record<string, string>>,

@@ -54,7 +54,7 @@ export function TablaDelSkinsEnVivo({ tabla, nombres, cortos, desactualizado }: 
           ))}
         </ol>
         <p style={NOTA}>
-          Nombre: lo ganó. Empate: el hoyo pasa al siguiente. En gris, el mejor {tabla.modo === 'neto' ? 'neto' : 'score'} del hoyo en juego y quién lo lleva.
+          Nombre: lo ganó. Empate: el hoyo pasa al siguiente. En gris, el mejor {tabla.modo === 'neto' ? 'neto' : 'score'} del hoyo en juego y quién lo lleva (Igual: van empatados).
         </p>
       </section>
 

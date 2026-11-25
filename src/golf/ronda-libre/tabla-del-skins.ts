@@ -9,7 +9,7 @@
 import type { ModoJuego } from '@/golf/core/rules'
 import { esHoyoResuelto, hoyosConX, type ConfigSkins, type EstadoHoyoSkins, type FueraPorJugador, type ResultadoSkins } from '@/golf/formats/skins'
 import { formatPesos } from '@/lib/format'
-import { unirNombres } from './juego-en-vivo'
+import { rangoDeHoyos, unirNombres } from './juego-en-vivo'
 import { nombresCortos } from './tabla-del-juego'
 
 export interface HoyoDeLaTablaSkins {
@@ -202,12 +202,19 @@ export function textoDeLaCelda(h: HoyoDeLaTablaSkins, corto: (id: string) => str
 }
 
 /**
- * Quién lleva el hoyo en disputa, bajo el mejor score: el nombre corto o «Emp.» si van empatados. `null` si el hoyo
+ * Quién lleva el hoyo en disputa, bajo el mejor score: el nombre corto o «Igual» (`TEXTO_VAN_IGUALES`) si van empatados. `null` si el hoyo
  * no está en disputa o nadie anotó (el grupo pregunta «¿quién lo tiene?», no solo «¿con cuánto?»).
  */
+/**
+ * Hoyo en juego con varios en el mejor score. «Igual» y no «Emp.»: la celda vecina de un hoyo que ya se empató y
+ * pasa dice «Empate», y las dos solo se distinguían por el gris. «Igual» es como se dice en la cancha que van
+ * parejos (match play: «van iguales»), no se confunde con un hoyo cerrado y entra en la celda a 360 px.
+ */
+export const TEXTO_VAN_IGUALES = 'Igual'
+
 export function quienLlevaElHoyo(h: HoyoDeLaTablaSkins, corto: (id: string) => string): string | null {
   if (h.estado !== 'en_disputa' || h.mejor == null || h.lideres.length === 0) return null
-  return h.lideres.length > 1 ? 'Emp.' : corto(h.lideres[0])
+  return h.lideres.length > 1 ? TEXTO_VAN_IGUALES : corto(h.lideres[0])
 }
 
 /** Lectura completa de una celda para lector de pantalla (la tira es visual: esto es lo que se oye). */
@@ -236,7 +243,7 @@ export interface ResultadoDelSkins {
   titular: string
   bajada: string
   /** Mismo contrato que el ranking de la Timba (`ResultadoFinalDeLaTimba` lo pinta igual). */
-  ranking: { jugadorId: string; nombre: string; puesto: number; puntos: number; texto: string; retiradoDesde: number | null }[]
+  ranking: { jugadorId: string; nombre: string; puesto: number; puntos: number; texto: string; retiradoDesde: number | null; detalle: string | null }[]
   /** Con pozo y la plata cerrada: quién cobra, quién paga y el neto, de más a menos. */
   liquidacion: { jugadorId: string; nombre: string; cobra: number; neto: number }[] | null
 }
@@ -247,6 +254,8 @@ export function armarResultadoDelSkins(tabla: TablaDelSkins, nombres: Readonly<R
   const nombre = (id: string) => cortos[ids.indexOf(id)] ?? ''
   const ranking = tabla.filas.map(f => ({
     jugadorId: f.jugadorId, nombre: nombre(f.jugadorId), puesto: f.puesto, puntos: f.skins, texto: textoDeSkins(f.skins), retiradoDesde: f.retiradoDesde,
+    // De dónde salen los skins (hoyos, reparto, especiales, retiro): sin esto «8,5 skins» no se explicaba.
+    detalle: detalleDeLaFila(f),
   }))
   const primeros = ranking.filter(r => r.puesto === 1)
   let titular: string
@@ -287,6 +296,23 @@ export function armarResultadoDelSkins(tabla: TablaDelSkins, nombres: Readonly<R
   }
 }
 
+/** Hoyos que quedaron sin resolver (ni ganados, ni empatados, ni repartidos), en orden de juego. */
+export function hoyosSinResolver(tabla: Pick<TablaDelSkins, 'hoyos'>): number[] {
+  return tabla.hoyos.filter(h => !esHoyoResuelto(h.estado)).map(h => h.numero)
+}
+
+/**
+ * Ronda cerrada con hoyos sin resolver y con pozo: no se liquida sola (spec «Pozo y liquidación»: el organizador ve
+ * el aviso y resuelve). Dice qué hoyos y quién decide; la ronda ya está cerrada, así que no se pide «revisar la tarjeta».
+ */
+export function textoDelPozoSinLiquidar(tabla: Pick<TablaDelSkins, 'hoyos'>): string {
+  const hoyos = hoyosSinResolver(tabla)
+  const cuales = hoyos.length === 0 ? '' : hoyos.length === 1
+    ? ` Quedó sin resolver el hoyo ${hoyos[0]}.`
+    : ` Quedaron sin resolver los hoyos ${rangoDeHoyos(hoyos)}.`
+  return `No se liquidó el pozo.${cuales} El organizador decide cómo se reparte.`
+}
+
 /** Texto para el grupo de WhatsApp: el resultado, los skins y la liquidación. El link viaja aparte (`url`). */
 export function textoParaCompartirElSkins(r: ResultadoDelSkins, tabla: TablaDelSkins, cancha: string): string {
   const lineas = [
@@ -296,7 +322,7 @@ export function textoParaCompartirElSkins(r: ResultadoDelSkins, tabla: TablaDelS
     ...r.ranking.map(f => `${f.puesto}. ${f.nombre} ${f.texto}${f.retiradoDesde != null ? ` (se retiró en el hoyo ${f.retiradoDesde})` : ''}`),
   ]
   if (!tabla.definitivo && tabla.plata !== 'sin_pozo') {
-    lineas.push('', 'Sin liquidación: hay hoyos por resolver.')
+    lineas.push('', textoDelPozoSinLiquidar(tabla))
   }
   if (r.liquidacion) {
     lineas.push('', tabla.valorSkin != null ? `Liquidación (skin a ${formatPesos(tabla.valorSkin)})` : 'Liquidación')

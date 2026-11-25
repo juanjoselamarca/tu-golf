@@ -4,7 +4,7 @@ import type { MarcaPuntito } from '@/golf/formats/personalizado'
 import { especialesQueValenEnElSkins, resultadoDelSkins, valorDelHoyoSkins } from './skins-del-scorer'
 import {
   armarResultadoDelSkins, armarTablaDelSkins, detalleDeLaFila, lecturaDeLaCelda, quienLlevaElHoyo, textoDeLaCelda, textoDeLaPlata, textoDeSkins, textoDelNeto,
-  textoParaCompartirElSkins,
+  textoParaCompartirElSkins, textoDelPozoSinLiquidar, hoyosSinResolver,
 } from './tabla-del-skins'
 
 const IDS = ['a', 'b', 'c']
@@ -140,7 +140,7 @@ describe('liquidación del skins', () => {
     expect(r.liquidacion).toBeNull()
     const texto = textoParaCompartirElSkins(r, t, 'Los Leones')
     expect(texto).toContain('Quedaron hoyos sin resolver. Iba adelante Ana con 1 skin.')
-    expect(texto).toContain('Sin liquidación: hay hoyos por resolver.')
+    expect(texto).toContain('No se liquidó el pozo. Quedaron sin resolver')
     expect(texto).not.toContain('Ganó')
     // Empatados adelante y nadie con skins.
     const empate = tabla({ scores: { a: { 1: 3, 2: 4 }, b: { 1: 4, 2: 3 }, c: { 1: 4, 2: 4 } } })
@@ -149,13 +149,15 @@ describe('liquidación del skins', () => {
     expect(armarResultadoDelSkins(nadie, NOMBRES)).toMatchObject({ titular: 'Quedaron hoyos sin resolver', bajada: 'Nadie había ganado un skin.' })
   })
 
-  it('hoyo en disputa: quién lo lleva o «Emp.», también para el lector de pantalla', () => {
+  it('hoyo en disputa: quién lo lleva o «Igual» (no «Emp.», que se confundía con «Empate» de la celda vecina)', () => {
     const t = tabla({ scores: { a: { 1: 3, 2: 3 }, b: { 1: 4, 2: 3 }, c: { 1: 4, 2: 3, 3: 4 } } })
     const h3 = t.hoyos.find(h => h.numero === 3)!
     expect(quienLlevaElHoyo(h3, id => id.toUpperCase())).toBe('C')
     expect(lecturaDeLaCelda(h3, id => NOMBRES[id as 'a'], 'gross')).toContain('Mejor gross hasta ahora: 4, lo lleva Coni Díaz')
     const empatado = { ...h3, lideres: ['a', 'c'] }
-    expect(quienLlevaElHoyo(empatado, id => id)).toBe('Emp.')
+    expect(quienLlevaElHoyo(empatado, id => id)).toBe('Igual')
+    // El hoyo que ya se empató y pasa dice otra palabra: no se distinguen solo por el gris.
+    expect(textoDeLaCelda({ ...h3, estado: 'arrastre', noValidado: false }, id => id)).toBe('Empate')
     expect(lecturaDeLaCelda(empatado, id => NOMBRES[id as 'a'], 'gross')).toContain('empatado entre Ana Pérez y Coni Díaz')
     expect(quienLlevaElHoyo(t.hoyos[0], id => id)).toBeNull()
   })
@@ -227,3 +229,22 @@ describe('detalleDeLaFila', () => {
     expect(detalleDeLaFila(f([]))).toBeNull()
   })
 })
+
+describe('cerrada sin resolver (vuelta 2 Fable)', () => {
+  it('dice que no se liquidó, qué hoyos y quién decide; no pide revisar la tarjeta de una ronda cerrada', () => {
+    const t = tabla({ scores: { a: { 1: 3 }, b: { 1: 4 }, c: { 1: 4 } }, c: { pozoPorJugador: 1000 } })
+    expect(hoyosSinResolver(t)).toEqual([2, 3])
+    expect(textoDelPozoSinLiquidar(t)).toBe('No se liquidó el pozo. Quedaron sin resolver los hoyos 2–3. El organizador decide cómo se reparte.')
+    expect(textoDelPozoSinLiquidar({ hoyos: t.hoyos.slice(0, 2) })).toBe('No se liquidó el pozo. Quedó sin resolver el hoyo 2. El organizador decide cómo se reparte.')
+  })
+})
+
+describe('resultado final: el reparto explicado (vuelta 2 Fable)', () => {
+  it('cada fila del ranking trae de dónde salen sus skins', () => {
+    const t = tabla({ scores: { a: { 1: 3, 2: 3, 3: 5 }, b: { 1: 4, 2: 2, 3: 5 }, c: { 1: 4, 2: 3, 3: 5 } } })
+    const r = armarResultadoDelSkins(t, NOMBRES)
+    expect(r.ranking.map(f => [f.nombre, f.detalle])).toEqual(t.filas.map(f => [expect.any(String), detalleDeLaFila(f)]))
+    expect(r.ranking.find(f => f.jugadorId === 'a')?.detalle).toBe('Hoyo 1 · reparto del 3')
+  })
+})
+

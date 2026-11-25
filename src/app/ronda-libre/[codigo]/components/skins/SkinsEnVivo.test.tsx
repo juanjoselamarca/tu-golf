@@ -77,6 +77,18 @@ describe('SkinsEnVivo', () => {
     expect(screen.queryByRole('region', { name: 'Liquidación' })).toBeNull()
   })
 
+  it('cerrada sin resolver con pozo: «No se liquidó el pozo», qué hoyos y quién decide', () => {
+    vista(juego({ a: { 1: 3 }, b: { 1: 4 }, c: {} }, { pozoPorJugador: 1000 }, true), true)
+    expect(screen.getByText('No se liquidó el pozo. Quedaron sin resolver los hoyos 2–3. El organizador decide cómo se reparte.')).toBeTruthy()
+    expect(screen.queryByText(/Revisa la tarjeta/)).toBeNull()
+  })
+
+  it('resultado final: cada fila explica sus skins', () => {
+    vista(juego({ a: { 1: 3, 2: 3, 3: 5 }, b: { 1: 4, 2: 3, 3: 5 }, c: { 2: 4, 3: 5 } }, {}, true), true)
+    const ranking = screen.getByRole('list', { name: 'Skins' })
+    expect(within(ranking).getByText(/^Hoyo 1( · reparto del 3)?$/)).toBeTruthy()
+  })
+
   it('sin señal: error con Reintentar', () => {
     const reintentar = vi.fn()
     render(<SkinsEnVivo juego={{ estado: 'error' }} onReintentar={reintentar} jugadores={JUGADORES} hoyoInicio={1} holes={3} finalizada={false} cancha="" url="" />)

@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import { armarReglasGuardadas, calcularJuegoPersonalizado, crearConfigDePlantilla, type ConfigJuego } from '@/golf/formats/personalizado'
 import { armarEntradaDelJuego, vistaDelJuego, type VistaDelJuego } from './juego-de-la-ronda'
-import { armarTablaDelJuego, nombresCortos } from './tabla-del-juego'
+import { armarTablaDelJuego, nombresCortos, nombresDeCelda } from './tabla-del-juego'
 
 const J = '00000000-0000-4000-8000-00000000000a'
 const P = '00000000-0000-4000-8000-00000000000b'
@@ -160,5 +160,17 @@ describe('armarTablaDelJuego — otros juegos', () => {
 describe('nombresCortos', () => {
   it('primer nombre; si dos se llaman igual, agrega la inicial del apellido', () => {
     expect(nombresCortos(['Juan Pérez', 'Juan Soto', 'Diego', '  '])).toEqual(['Juan P.', 'Juan S.', 'Diego', 'Jugador 4'])
+  })
+})
+
+describe('nombresDeCelda (tira del Skins a 360 px)', () => {
+  it('acota a 7 con punto: «Maximiliano» → «Maximi.»; los cortos quedan igual', () => {
+    expect(nombresDeCelda(['Maximiliano Ruiz', 'Ana Pérez', 'Bartolomé Soto'])).toEqual(['Maximi.', 'Ana', 'Bartol.'])
+  })
+  it('si dos quedan iguales al acortar, esos dos van enteros (nunca el mismo texto para dos)', () => {
+    expect(nombresDeCelda(['Maximiliano', 'Maximino', 'Ana'])).toEqual(['Maximiliano', 'Maximino', 'Ana'])
+  })
+  it('respeta la inicial de apellido de nombresCortos', () => {
+    expect(nombresDeCelda(['Ana Pérez', 'Ana Soto'])).toEqual(['Ana P.', 'Ana S.'])
   })
 })

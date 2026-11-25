@@ -56,7 +56,9 @@ export function ResultadoFinalDeLaTimba({ resultado, onHoyoAHoyo, onCompartir, c
             </span>
             <span style={{ ...NOMBRE, flex: 1, display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: '16px', fontWeight: r.puesto === 1 ? 600 : 400, color: 'var(--text)' }}>{r.nombre}</span>
-              {r.retiradoDesde != null && (
+              {r.detalle ? (
+                <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{r.detalle}</span>
+              ) : r.retiradoDesde != null && (
                 <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>Se retiró en el hoyo {r.retiradoDesde}</span>
               )}
             </span>

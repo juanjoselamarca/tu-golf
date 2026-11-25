@@ -25,6 +25,11 @@ export interface FilaDelResultado {
   texto: string
   /** Hoyo desde el que se retiró (`VistaDelJuego.retiros`); `null` si jugó hasta el final. */
   retiradoDesde: number | null
+  /**
+   * Skins: de dónde salen los puntos («Hoyos 3 y 7 · reparto del 18», `detalleDeLaFila`), con el retiro incluido.
+   * Sin él (Timba) se muestra solo el retiro.
+   */
+  detalle?: string | null
 }
 
 export interface TramoDelResultado {
