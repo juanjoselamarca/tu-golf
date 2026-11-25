@@ -86,3 +86,13 @@ export function formatRelativeTime(d: Date | string | number): string {
   if (days < 7) return `hace ${days} d`
   return formatDate(date, 'short')
 }
+
+/**
+ * Pesos chilenos enteros para mostrar: `20000` → «$20.000». Agrupa a mano (punto de miles) para no depender de
+ * los datos de ICU del runtime: el servidor y el navegador tienen que mostrar lo mismo.
+ */
+export function formatPesos(monto: number): string {
+  const entero = Math.trunc(monto)
+  const signo = entero < 0 ? '-' : ''
+  return `${signo}$${String(Math.abs(entero)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`
+}

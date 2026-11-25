@@ -127,9 +127,25 @@ vi.mock('@/lib/auth/juego-personalizado', () => ({
 // Aptitud de la cancha: sin veredicto (la Timba exige course_id y este gate tiene sus propios tests).
 vi.mock('@/lib/data/course-aptitud', () => ({ evaluarRondaLibre: vi.fn(async () => null) }))
 
+// Skins: los hoyos de la cancha y su rating salen de la base. 18 hoyos con SI 1..18; sin rating (null), el CH cae
+// al camino por índice, el mismo de la app. `fallaHoyos` simula la base caída.
+let fallaHoyos = false
+vi.mock('@/lib/data/course-holes', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data/course-holes')>()),
+  resolverHoyosDeLaRonda: vi.fn(async () => {
+    if (fallaHoyos) throw new Error('No se pudo leer course_holes: timeout')
+    return { hoyos: Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 })), loopsResueltos: 0 }
+  }),
+}))
+vi.mock('@/golf/core/course-handicap', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/golf/core/course-handicap')>()),
+  resolverCourseData: vi.fn(async () => null),
+}))
+
 import { POST } from './route'
 import { crearConfigDePlantilla } from '@/golf/formats/personalizado'
 import { MENSAJE_TIMBA_UN_CELULAR } from '@/golf/ronda-libre/juego-de-ronda-nueva'
+import { CONFIG_SKINS_POR_DEFECTO, type ConfigSkins } from '@/golf/formats/skins'
 
 function req(body: unknown) {
   return new Request('http://test/api/ronda-libre/create', {
@@ -173,6 +189,7 @@ beforeEach(() => {
   fallaInsertSinSugerencia = null
   idsDevueltos = null
   esAdminElCreador = false
+  fallaHoyos = false
   handicapsDeEquipo = 'real'
   perfilesEnLaBase = []
   perfilesQueExisten.mockClear()
@@ -701,5 +718,84 @@ describe('POST /api/ronda-libre/create — equipos con hándicap del club (scram
       expect(e).not.toHaveProperty('handicap_origen')
       expect(e).not.toHaveProperty('anotador_user_id')
     }
+  })
+})
+
+describe('POST /api/ronda-libre/create — Skins', () => {
+  const CANCHA = '33333333-3333-4333-8333-333333333333'
+  const reglas = (over: Partial<ConfigSkins> = {}): ConfigSkins => ({ ...CONFIG_SKINS_POR_DEFECTO, modo: 'gross', ...over })
+  const skins = (over: Record<string, unknown> = {}) => payload({
+    course_id: CANCHA, formato_juego: 'skins', equipos: undefined,
+    jugadores: [jugador('Juanjo', CREADOR_ID), jugador('Nico'), jugador('Pedro')],
+    reglas_juego: reglas(), ...over,
+  })
+  const rondaInsertada = () => escrituras('rondas_libres')[0]?.payload as Record<string, unknown> | undefined
+  const filasJugadores = () => escrituras('ronda_libre_jugadores')[0]?.payload as Array<{ id?: string; nombre: string }>
+  const nadaInsertado = () => expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+
+  it('sin permiso recibe 403 y no se crea nada', async () => {
+    const res = await POST(req(skins()))
+    expect(res.status).toBe(403)
+    expect((await res.json()).error).toBe('Skins todavía no está disponible para tu cuenta.')
+    nadaInsertado()
+  })
+
+  it('con permiso: formato skins, reglas_juego = { config, jugadorIds } y cada fila con el id de su posición', async () => {
+    esAdminElCreador = true
+    const res = await POST(req(skins({ reglas_juego: reglas({ pozoPorJugador: 20000, puntitos: [{ id: 'sandy', tipo: 'sandy' }] }) })))
+    expect(res.status).toBe(200)
+    const ronda = rondaInsertada()
+    const guardadas = ronda?.reglas_juego as { config: ConfigSkins; jugadorIds: string[] }
+    expect(ronda?.formato_juego).toBe('skins')
+    expect(guardadas.config).toMatchObject({ version: 1, modo: 'gross', pozoPorJugador: 20000 })
+    expect(guardadas.config.puntitos).toEqual([{ id: 'sandy', tipo: 'sandy' }])
+    expect(guardadas.jugadorIds).toHaveLength(3)
+    expect(filasJugadores().map(f => f.id)).toEqual(guardadas.jugadorIds)
+  })
+
+  it('neto con un jugador sin índice es 400 con su nombre, sin crear nada', async () => {
+    esAdminElCreador = true
+    const res = await POST(req(skins({
+      modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }),
+      jugadores: [jugador('Juanjo', CREADOR_ID), { ...jugador('Nico'), handicap: null }],
+    })))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('Nico')
+    nadaInsertado()
+  })
+
+  it('en 9 hoyos el tope de 3 golpes por hoyo se mide con el CH de 9, no con el de 18', async () => {
+    esAdminElCreador = true
+    // Índices 0 y 54: con el CH de 9 (~27) son 3 golpes por hoyo, justo en el tope → pasa. Con el de 18 (~54)
+    // serían 6 por hoyo y bloquearía de más (spec, final).
+    const nueve = await POST(req(skins({
+      holes: 9, modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }),
+      jugadores: [{ ...jugador('Juanjo', CREADOR_ID), handicap: 0 }, { ...jugador('Nico'), handicap: 54 }],
+    })))
+    expect(nueve.status).toBe(200)
+  })
+
+  it('las reglas con otro modo que la ronda, o inválidas, son 400', async () => {
+    esAdminElCreador = true
+    expect((await POST(req(skins({ modo_juego: 'neto' })))).status).toBe(400)
+    expect((await POST(req(skins({ reglas_juego: { ...reglas(), pozoPorJugador: -1 } })))).status).toBe(400)
+    expect((await POST(req(skins({ reglas_juego: undefined })))).status).toBe(400)
+    nadaInsertado()
+  })
+
+  it('sin admin_mode, sin cancha del catálogo o en 27 hoyos es 400', async () => {
+    esAdminElCreador = true
+    expect((await POST(req(skins({ admin_mode: false })))).status).toBe(400)
+    expect((await POST(req(skins({ course_id: null })))).status).toBe(400)
+    expect((await POST(req(skins({ holes: 27 })))).status).toBe(400)
+    nadaInsertado()
+  })
+
+  it('si la base no contesta los hoyos es 503 reintentable, nunca un skins validado a ciegas', async () => {
+    esAdminElCreador = true
+    fallaHoyos = true
+    const res = await POST(req(skins()))
+    expect(res.status).toBe(503)
+    nadaInsertado()
   })
 })
