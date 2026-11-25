@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
 import { useGrupoScoreSave, SAVE_DEBOUNCE_MS, REENVIO_CONFIRMACION_MS } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import { leerPendientes, marcarPendientes } from '@/lib/ronda/score-storage'
+import { haptic } from '@/lib/ronda/helpers'
 
 const saveRondaLibreScores = vi.fn(async () => ({ error: null as unknown }))
 vi.mock('@/lib/data/ronda-libre-scores', () => ({
@@ -138,6 +139,7 @@ describe('useGrupoScoreSave — lo pendiente sale al dejar la pantalla', () => {
     await act(async () => { await result.current.enviarYa() })
     expect(result.current.pendienteDeEnvio).toBe(false)
     expect(result.current.saveStatus).toBe('idle')
+    expect(result.current.hasUnsaved).toBe(false)
   })
 
   it('algo lanza a mitad del envío: no queda en «saving», queda «sin enviar» con reintento', async () => {
@@ -147,5 +149,16 @@ describe('useGrupoScoreSave — lo pendiente sale al dejar la pantalla', () => {
     await act(async () => { await result.current.enviarYa().catch(() => {}) })
     expect(result.current.saveStatus).toBe('error')
     expect(result.current.pendienteDeEnvio).toBe(true)
+  })
+
+  it('lanza DESPUÉS de que todo entró: sin barra de error fija y el guardado se cuenta', async () => {
+    const { result } = montar()
+    act(() => { result.current.handleScoreChange('p1', 9, 1) })
+    vi.mocked(haptic).mockImplementationOnce(() => { throw new Error('boom') })
+    await act(async () => { await result.current.enviarYa() })
+    expect(leerPendientes('ABC')).toEqual({})
+    expect(result.current.saveStatus).toBe('idle')
+    expect(result.current.pendienteDeEnvio).toBe(false)
+    expect(result.current.guardados).toBe(1)
   })
 })

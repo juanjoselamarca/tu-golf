@@ -109,6 +109,8 @@ export function useCreadorDeRonda(): CreadorDeRonda {
       if (cancelado) return
       setUserId(user.id)
 
+      // TODO(nombre-sin-correo): no usar la parte local del correo como nombre del creador en la ronda (Fable PR A
+      // scramble 25-nov: reaparece en el encabezado del scorer). Cambio de copy/producto: va en su propio PR.
       const fallback = user.user_metadata?.name || user.email?.split('@')[0] || 'Jugador'
       const perfil = await fetchPerfilCreador(user.id, fallback)
       if (cancelado) return

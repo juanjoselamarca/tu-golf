@@ -251,7 +251,9 @@ export function useGrupoScoreSave(input: {
       // La cola ya está vacía (p.ej. la vació tarde el envío del desmontaje de una visita anterior): si la pantalla
       // seguía «sin enviar» por un fallo previo, ya no es cierto; sin esto el reintento de 15 s salía por aquí para
       // siempre y el último hoyo quedaba pegado en «Enviar hoyo N».
+      // Cola vacía = nada sin guardar (todo cambio marca pendiente): baja también `hasUnsaved` (el aviso al salir).
       if (sinEnviarRef.current) { marcarSinEnviar(false); setSaveStatus('idle') }
+      setHasUnsaved(false)
       return
     }
 
@@ -259,6 +261,8 @@ export function useGrupoScoreSave(input: {
     setSaveStatus('saving')
     let terminar: () => void = () => {}
     cicloRef.current = new Promise<void>(res => { terminar = res })
+    // Fuera del try: si algo lanza después de que entraron golpes, el catch igual los cuenta.
+    let entraron = 0
     try {
       const supabase = createClient()
       let ok = false
@@ -267,7 +271,6 @@ export function useGrupoScoreSave(input: {
       let vioRondaCerrada = false
       let noExiste = false
       // Tarjetas que entraron en este envío (en cualquier vuelta): decide si `guardados` sube.
-      let entraron = 0
       let rechazoDeSesion = false
       let equipoPerdido = false
       // La sesión del teléfono se consulta a lo más UNA vez por ciclo (antes, con sesión válida y un rebote en
@@ -413,8 +416,11 @@ export function useGrupoScoreSave(input: {
     } catch (err) {
       // Algo lanzó a mitad del envío (no un error devuelto): sin esto quedaba «Enviando…» deshabilitado y sin reintento.
       void captureError(err, { context: 'useGrupoScoreSave.enviarTodo', level: 'error', meta: { codigo } })
-      marcarSinEnviar(hayPendientes(codigo))
-      setSaveStatus('error')
+      // Si lanzó después de confirmar todo, la cola está vacía: no se deja una barra de error fija sin reintento.
+      const quedan = hayPendientes(codigo)
+      marcarSinEnviar(quedan)
+      setSaveStatus(quedan ? 'error' : 'idle')
+      if (entraron > 0) setGuardados(n => n + 1)
     } finally {
       enVueloRef.current = false
       try {
