@@ -3,6 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { PlayerScoreCard } from './PlayerScoreCard'
 import { SCORER_THEME } from '@/components/ronda/scorer-theme'
 import type { HoleData, Jugador } from '@/types/ronda'
+// `FormatoJuego` no incluye 'skins' (ni 'personalizado'): la ronda los trae igual desde la base.
+import type { FormatoJuego } from '@/types/ronda'
 
 const HOYO: HoleData = { numero: 12, par: 4, stroke_index: 13, yardaje: null }
 
@@ -90,7 +92,7 @@ describe('PlayerScoreCard · tecla X del skins', () => {
         totals={{ gross, vsPar: gross ? gross - 4 : 0, out: 0, inn: gross, holesPlayed: Object.keys(golpes).length, parJugado: gross ? 4 : 0 }}
         played={Object.keys(golpes).length + Object.keys(p.fuera ?? {}).length}
         hcp={18} displayHcp={18} dotHcp={18} siAllocByHole={{ 12: 13 }} ordenHoyos={[11, 12]} holeDataMap={{ 12: HOYO }}
-        totalHoles={18} modoJuego="gross" formatoJuego={p.formatoJuego} showNetStableford={false} pending={false}
+        totalHoles={18} modoJuego="gross" formatoJuego={p.formatoJuego as FormatoJuego} showNetStableford={false} pending={false}
         onChange={() => {}} theme={SCORER_THEME} fuera={p.fuera} onFueraDelHoyo={p.onFuera}
       />,
     )
