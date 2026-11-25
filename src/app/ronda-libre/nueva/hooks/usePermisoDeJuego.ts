@@ -17,28 +17,42 @@ export const ESPERAS_REINTENTO_PERMISO_MS: readonly number[] = [500, 1500]
 export function usePermisoDeJuegoPersonalizado(
   abierto: boolean, esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS,
 ): boolean {
-  const [puede, setPuede] = useState(false)
+  return useEstadoDelPermisoDeJuego(abierto, esperasMs) === 'si'
+}
+
+/** `cargando` mientras la pregunta (o sus reintentos) sigue en curso; `no` también sin señal tras los reintentos. */
+export type EstadoDelPermiso = 'cargando' | 'si' | 'no'
+
+/**
+ * El permiso con su estado: quien necesita esperar la respuesta (repetir un Skins, `useRepetirRonda`) distingue
+ * «todavía no sé» de «no». Mismo contrato y misma pregunta que `usePermisoDeJuegoPersonalizado`.
+ */
+export function useEstadoDelPermisoDeJuego(
+  abierto: boolean, esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS,
+): EstadoDelPermiso {
+  const [puede, setPuede] = useState<EstadoDelPermiso>('cargando')
   useEffect(() => {
     if (!abierto) return
     let vigente = true
     let reloj: ReturnType<typeof setTimeout> | undefined
     const preguntar = (intento: number) => {
       const reintentar = () => {
-        if (!vigente || intento >= esperasMs.length) return // sin señal: queda en false; el servidor igual valida al crear
+        if (!vigente) return
+        if (intento >= esperasMs.length) return setPuede('no') // sin señal: falla cerrado; el servidor igual valida al crear
         reloj = setTimeout(() => preguntar(intento + 1), esperasMs[intento])
       }
       fetch('/api/ronda-libre/permiso-timba', { cache: 'no-store' })
         .then(async r => {
           if (r.status >= 500) return reintentar()
           const d = (r.ok ? await r.json() : null) as { puedeCrear?: unknown } | null
-          if (vigente) setPuede(d?.puedeCrear === true)
+          if (vigente) setPuede(d?.puedeCrear === true ? 'si' : 'no')
         })
         .catch(reintentar)
     }
     preguntar(0)
     return () => { vigente = false; if (reloj) clearTimeout(reloj) }
   }, [abierto, esperasMs])
-  return abierto && puede
+  return abierto ? puede : 'no'
 }
 
 /**
@@ -46,5 +60,10 @@ export function usePermisoDeJuegoPersonalizado(
  * abierto. Cada juego aplica después su interruptor (`useTimbaDeLaRonda`, `useSkinsDeLaRonda`).
  */
 export function usePermisoDeJuegosDeLaRonda(esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS): boolean {
-  return usePermisoDeJuegoPersonalizado(TIMBA_LIBRE_ABIERTA || SKINS_LIBRE_ABIERTO, esperasMs)
+  return useEstadoDelPermisoDeJuegosDeLaRonda(esperasMs) === 'si'
+}
+
+/** `usePermisoDeJuegosDeLaRonda` con su estado (`cargando` / `si` / `no`). */
+export function useEstadoDelPermisoDeJuegosDeLaRonda(esperasMs: readonly number[] = ESPERAS_REINTENTO_PERMISO_MS): EstadoDelPermiso {
+  return useEstadoDelPermisoDeJuego(TIMBA_LIBRE_ABIERTA || SKINS_LIBRE_ABIERTO, esperasMs)
 }

@@ -24,7 +24,8 @@ import { useTeesCoherentes } from './hooks/useTeesCoherentes'
 import { configParaEnviar } from './hooks/timba-del-formulario'
 import { problemaDeLaTimbaEnJugadores, problemaParaCrearLaTimba, useTimbaDeLaRonda } from './hooks/useTimbaDeLaRonda'
 import { NOMBRE_FORMATO_PERSONALIZADO, NOMBRE_PLANTILLA } from '@/golf/formats/personalizado'
-import { usePermisoDeJuegosDeLaRonda } from './hooks/usePermisoDeJuego'
+import { useEstadoDelPermisoDeJuegosDeLaRonda } from './hooks/usePermisoDeJuego'
+import { useRepetirRonda } from './hooks/useRepetirRonda'
 import { useSkinsDeLaRonda } from './hooks/useSkinsDeLaRonda'
 import { ResumenSkins } from './components/skins/ResumenSkins'
 import { TITULO_SKINS } from './components/skins/catalogo'
@@ -46,7 +47,8 @@ export default function NuevaRondaLibrePage() {
   const creador = useCreadorDeRonda()
   const form = useFormularioDeRonda()
   // Timba libre y Skins: una sola pregunta del permiso (`puedeCrearJuegoPersonalizado`); cada juego, su interruptor.
-  const permisoDeJuego = usePermisoDeJuegosDeLaRonda()
+  const estadoDelPermiso = useEstadoDelPermisoDeJuegosDeLaRonda()
+  const permisoDeJuego = estadoDelPermiso === 'si'
   const timba = useTimbaDeLaRonda(permisoDeJuego)
   // Scramble rápido: «Solo equipos», con el hándicap del club y sin jugadores.
   const club = useEquiposDeClub({
@@ -108,6 +110,14 @@ export default function NuevaRondaLibrePage() {
     modo: form.modo,
     adminMode: form.llevaElScoreDelGrupo,
     filasSinNombre: form.filasSinNombre,
+  })
+  // Repetir: un Skins se repite con sus reglas, armado igual que al elegirlo (ronda individual, un solo celular), y
+  // espera el permiso si todavía no llegó; sin permiso queda la ronda individual y se avisa.
+  const repetir = useRepetirRonda({
+    permiso: estadoDelPermiso,
+    repetirBase: (r: Parameters<typeof form.repetirRonda>[0]) => { form.repetirRonda(r); club.restaurar(r.equiposDeClub) },
+    ponerSkins: s => { timba.soltar(); form.elegirQuienAnota(true); club.elegirModo(s.modo); skins.setSkins(s) },
+    soltarSkins: skins.soltar,
   })
   // Las tarjetas de jugador sin nombre no frenan una ronda que no las lleva.
   const problemaDelFormulario = club.soloEquipos ? null : form.problemaDelFormulario
@@ -211,20 +221,16 @@ export default function NuevaRondaLibrePage() {
           />
         </div>
 
+        {(repetir.esperandoPermiso || repetir.aviso) && (
+          <p role="status" style={{ fontSize: '14px', lineHeight: 1.45, color: colores.texto2, margin: '0 0 16px' }}>
+            {repetir.aviso ?? 'Confirmando el Skins…'}
+          </p>
+        )}
+
         {form.paso === 1 && (
           <PasoCancha
             rondasRecientes={creador.rondasRecientes}
-            onRepetir={r => {
-              form.repetirRonda(r)
-              club.restaurar(r.equiposDeClub)
-              // Un Skins se repite con sus reglas, armado igual que al elegirlo (ronda individual, un solo celular). Sin
-              // permiso para el Skins, o si la ronda no lo fue, queda la ronda individual que repitió el formulario.
-              if (r.skins && skins.puedeElegir) {
-                timba.soltar(); form.elegirQuienAnota(true); club.elegirModo(r.skins.modo); skins.setSkins(r.skins)
-              } else {
-                skins.soltar()
-              }
-            }}
+            onRepetir={repetir.repetir}
             cancha={form.cancha}
             onElegirCancha={c => { form.elegirCancha(c); recordarUltimaCancha(c) }}
             onLimpiarCancha={form.limpiarCancha}
