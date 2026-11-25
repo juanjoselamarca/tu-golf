@@ -9,20 +9,22 @@ type Caja = { top: number; bottom: number }
 
 /** Canvas que no dibuja: anota cada texto (con su y) y la caja de cada relleno blanco. */
 function canvasQueAnota() {
-  const textos: Array<{ t: string; y: number; color: unknown }> = []
+  const textos: Array<{ t: string; x: number; y: number; color: unknown; ancho: number; alinea: unknown }> = []
   const panelesBlancos: Caja[] = []
   let ys: number[] = []
   const estado: Record<string, unknown> = {}
+  // Ancho aproximado de Arial: 0.55 × px por carácter, con el px de la fuente vigente.
+  const anchoDe = (t: string) => t.length * 0.55 * Number(/(\d+)px/.exec(String(estado.font ?? ''))?.[1] ?? 10)
   const ctx = new Proxy(estado, {
     get: (_t, k) => {
-      if (k === 'fillText') return (t: string, _x: number, y: number) => { textos.push({ t: String(t), y, color: estado.fillStyle }) }
+      if (k === 'fillText') return (t: string, _x: number, y: number) => { textos.push({ t: String(t), x: _x, y, color: estado.fillStyle, ancho: anchoDe(String(t)), alinea: estado.textAlign }) }
       if (k === 'beginPath') return () => { ys = [] }
       if (k === 'moveTo' || k === 'lineTo') return (_x: number, y: number) => { ys.push(y) }
       if (k === 'arcTo') return (_x1: number, y1: number, _x2: number, y2: number) => { ys.push(y1, y2) }
       if (k === 'fill') return () => {
         if (estado.fillStyle === '#ffffff' && ys.length > 0) panelesBlancos.push({ top: Math.min(...ys), bottom: Math.max(...ys) })
       }
-      if (k === 'measureText') return (t: string) => ({ width: String(t).length * 10 })
+      if (k === 'measureText') return (t: string) => ({ width: anchoDe(String(t)) })
       if (k in estado) return estado[k as string]
       return () => ({ addColorStop: () => {} })
     },
@@ -138,6 +140,17 @@ describe('imagen de compartir — tope de filas del ranking', () => {
   })
   const ranking4 = ['Juanjo', 'Cristián', 'Max', 'Pedro'].map((nombre, i) => ({ nombre, score: 66 + i, diff: -6 + i }))
   const delRanking = (textos: Array<{ t: string; y: number }>) => textos.filter(x => /^\d+\. /.test(x.t) || x.t.endsWith(' más'))
+  it('tarjeta de 18 sin birdies + ranking de 4: caben 2 filas, no 3 → sin ranking (truncar exige 2 nombres)', () => {
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, { ...individual18(ranking4), birdies: 0 }, W, H)
+    expect(delRanking(textos)).toEqual([])
+  })
+  it('tarjeta de 18 sin birdies + ranking de 2: las 2 filas completas, sin «más»', () => {
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, { ...individual18(ranking4.slice(0, 2)), birdies: 0 }, W, H)
+    expect(delRanking(textos).map(x => x.t)).toEqual(['1. Juanjo', '2. Cristián'])
+    for (const { y } of delRanking(textos)) expect(y).toBeLessThanOrEqual(TECHO_CTA)
+  })
   it('tarjeta de 18 + birdies + ranking de 4: no cabe ni dos filas → sin ranking (nada pisa el panel ni el CTA)', () => {
     const { ctx, textos, panelesBlancos } = canvasQueAnota()
     dibujarRondaLibre(ctx, individual18(ranking4), W, H)
@@ -168,5 +181,49 @@ describe('imagen de compartir — colores legibles sobre el fondo oscuro', () =>
     const { ctx, textos } = canvasQueAnota()
     dibujarRondaLibre(ctx, tarjetaDeEquipos(equipos(2))!, W, H)
     expect(textos.map(x => x.t)).toEqual(expect.arrayContaining(['65 neto (-7)', '66 neto (-6)']))
+  })
+})
+
+describe('imagen de compartir — nombres largos en el ranking', () => {
+  const largo = 'Los Cóndores de Chicureo y Las Águilas del Sur Club'.slice(0, 50) // 50 caracteres
+  const lb = (nombre: string) => tarjetaDeEquipos({ ...equipos(2), teams: [{ nombre, jugadores: [], score: 65, diff: -7, holesPlayed: 18 }, { nombre: 'Equipo 2', jugadores: [], score: 66, diff: -6, holesPlayed: 18 }] })!
+  const fila = (textos: Array<{ t: string; x: number; ancho: number; alinea: unknown }>, empieza: string) => textos.find(x => x.t.startsWith(empieza) && x.alinea === 'left')!
+  const score = (textos: Array<{ t: string; x: number; ancho: number; alinea: unknown }>, t: string) => textos.find(x => x.t === t && x.alinea === 'right')!
+  it('un nombre de 50 caracteres no choca con su score (24px de aire)', () => {
+    expect(largo).toHaveLength(50)
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, lb(largo), W, H)
+    const n = fila(textos, '1. ')
+    const s = score(textos, '65 neto (-7)')
+    expect(n.x + n.ancho).toBeLessThanOrEqual(s.x - s.ancho - 24)
+  })
+  it('si ni achicado cabe, se corta con «…»', () => {
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, lb(largo + ' ' + largo), W, H)
+    const n = fila(textos, '1. ')
+    expect(n.t.endsWith('…')).toBe(true)
+    const s = score(textos, '65 neto (-7)')
+    expect(n.x + n.ancho).toBeLessThanOrEqual(s.x - s.ancho - 24)
+  })
+  it('un nombre corto queda igual', () => {
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, lb('Los Ross'), W, H)
+    expect(fila(textos, '1. ').t).toBe('1. Los Ross')
+  })
+})
+
+describe('imagen de compartir — escala de totales (no la de un hoyo)', () => {
+  it('bajo par, par y sobre par; un +1 de total no va en dorado de bogey ni un −1 en celeste de birdie', () => {
+    const { ctx, textos } = canvasQueAnota()
+    const teams = [[-1, 71], [0, 72], [1, 73], [3, 75]].map(([diff, score], i) => ({ nombre: `E${i}`, jugadores: [], score, diff, holesPlayed: 18 }))
+    dibujarRondaLibre(ctx, tarjetaDeEquipos({ ...equipos(2), modo_juego: 'gross', teams })!, W, H)
+    const color = (t: string) => textos.find(x => x.t === t && x.alinea === 'right')?.color
+    expect([color('71 (-1)'), color('72 (E)'), color('73 (+1)'), color('75 (+3)')]).toEqual(['#60A5FA', '#c9a84c', '#F87171', '#F87171'])
+  })
+  it('«+N más» y los nombres que no lideran van a 55 % de blanco (45 % daba 4.0:1 en la caja)', () => {
+    const { ctx, textos } = canvasQueAnota()
+    dibujarRondaLibre(ctx, tarjetaDeEquipos(equipos(9))!, W, H)
+    expect(textos.find(x => x.t === '+2 más')?.color).toBe('rgba(255,255,255,0.55)')
+    expect(textos.find(x => x.t === '2. Equipo 2')?.color).toBe('rgba(255,255,255,0.55)')
   })
 })

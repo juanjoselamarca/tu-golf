@@ -134,18 +134,16 @@ function drawDivider(ctx: CanvasRenderingContext2D, y: number, W: number) {
 }
 
 /**
- * Color del score sobre el fondo oscuro de la imagen. Contraste compositado (fondo #071510…#111827
- * + brillo dorado 7 %, y además la caja del ranking, 4 % blanco), mínimo en todo el lienzo:
- * eagle+ #60A5FA 5.37:1 · birdie #14B3D9 5.51:1 · par/bogey 5.97:1 · doble+ #F87171 4.93:1.
- * Antes eagle+ #0B6BA6 (2.38:1, el «−7» del ganador) y doble+ #DC3B2E (3.06:1).
- * Los símbolos de la tarjeta blanca (drawScoreSymbol / GARMIN) no usan esta paleta.
+ * Color de un TOTAL (número grande y filas del ranking) sobre el fondo oscuro: bajo par / par / sobre
+ * par. No es la escala de un hoyo (eagle/birdie/doble): un −7 no es «eagle» ni un +3 «doble bogey».
+ * Contraste compositado mínimo (fondo #071510…#111827 + brillo dorado 7 %, y la caja del ranking,
+ * 4 % blanco): bajo par #60A5FA 5.37:1 · par #c9a84c 5.97:1 · sobre par #F87171 4.93:1.
+ * Antes: −7 en #0B6BA6 (2.38:1). La tarjeta hoyo a hoyo usa GARMIN (drawScoreSymbol), aparte.
  */
-function scoreColor(diff: number): string {
-  if (diff <= -2) return '#60A5FA' // eagle+ azul, distinto del celeste del birdie
-  if (diff === -1) return '#14B3D9' // birdie celeste Garmin
-  if (diff === 0) return '#c9a84c'  // par dorado Golfers+
-  if (diff === 1) return '#D4A442'  // bogey dorado Garmin
-  return '#F87171'                   // doble+ rojo claro
+export function colorDeTotal(diff: number): string {
+  if (diff < 0) return '#60A5FA'  // bajo par
+  if (diff === 0) return '#c9a84c' // par, dorado Golfers+
+  return '#F87171'                 // sobre par
 }
 
 // Badge "9 HOYOS" / "18 HOYOS" — defensive UX, el usuario siempre sabe qué ronda es
@@ -445,7 +443,6 @@ export function tamanoQueCabe(medir: (px: number) => number, max: number, min: n
   return min
 }
 
-/** Parte un texto en dos líneas por el espacio más cercano al medio (una sola línea si no hay espacios). */
 /** Alto de una fila del ranking de la imagen y su margen superior dentro de la caja. */
 const FILA_RANKING = 56
 const MARGEN_RANKING = 16
@@ -453,17 +450,30 @@ const MARGEN_RANKING = 16
 /**
  * Cuántas filas del ranking caben entre `rkY` y el bloque inferior (CTA en H − 380, con 24px de aire).
  * Si no caben todas, la última fila visible es «+N más»: `visibles` filas con nombre y `resto` contadas.
- * Si no caben ni dos filas (tarjeta de 18 + birdies), no hay ranking: un «+N más» solo no informa
- * nada y el ganador ya está arriba en grande.
+ * Truncado = al menos 2 nombres + «+N más» (3 filas). Si no caben (tarjeta de 18 y ranking de 4),
+ * no hay ranking: un nombre y «+3 más» no informan, y el ganador ya está arriba en grande.
  */
+/**
+ * El nombre de una fila del ranking achicado hasta caber en `anchoMax` (28 → 20 px); si ni a 20 cabe,
+ * se corta con «…». `medir(texto, px)` mide con la fuente de la fila.
+ */
+export function nombreQueCabe(texto: string, medir: (texto: string, px: number) => number, anchoMax: number): { texto: string; px: number } {
+  const px = tamanoQueCabe(p => medir(texto, p), 28, 20, anchoMax)
+  if (medir(texto, px) <= anchoMax) return { texto, px }
+  let corto = texto
+  while (corto.length > 1 && medir(`${corto}…`, px) > anchoMax) corto = corto.slice(0, -1)
+  return { texto: `${corto.trimEnd()}…`, px }
+}
+
 export function filasDelRanking(total: number, rkY: number, H: number): { visibles: number; resto: number } {
   const maxFilas = Math.max(0, Math.floor((H - 380 - 24 - rkY - MARGEN_RANKING) / FILA_RANKING))
   if (total <= maxFilas) return { visibles: total, resto: 0 }
-  if (maxFilas < 2) return { visibles: 0, resto: 0 }
+  if (maxFilas < 3) return { visibles: 0, resto: 0 }
   const visibles = maxFilas - 1
   return { visibles, resto: total - visibles }
 }
 
+/** Parte un texto en dos líneas por el espacio más cercano al medio (una sola línea si no hay espacios). */
 export function partirEnDosLineas(texto: string): [string, string] {
   const medio = texto.length / 2
   let corte = -1
@@ -520,7 +530,7 @@ export function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCard
 
   const isStableford = data.formato_juego === 'stableford'
   const isMatchPlay = data.formato_juego === 'match_play'
-  const clr = isStableford ? '#c9a84c' : isMatchPlay ? '#c9a84c' : scoreColor(data.scoreDiff)
+  const clr = isStableford ? '#c9a84c' : isMatchPlay ? '#c9a84c' : colorDeTotal(data.scoreDiff)
 
   if (isMatchPlay && data.matchResult) {
     // Match Play: el resultado del match es lo que importa, no el stroke total.
@@ -593,28 +603,30 @@ export function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCard
       ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.stroke()
     }
     if (resto > 0) {
-      ctx.textAlign = 'left'; ctx.font = '28px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.45)'
+      ctx.textAlign = 'left'; ctx.font = '28px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.55)'
       ctx.fillText(`+${resto} más`, 110, rkY + MARGEN_RANKING + visibles * FILA_RANKING + 36)
     }
     data.ranking.slice(0, visibles).forEach((j, i) => {
       const ly = rkY + MARGEN_RANKING + i * FILA_RANKING
       const posicion = j.posicion === undefined ? String(i + 1) : j.posicion
       const lider = j.posicion === undefined ? i === 0 : esPrimerLugar(posicion)
-      ctx.textAlign = 'left'; ctx.font = `${lider ? 'bold ' : ''}28px Arial, sans-serif`
-      ctx.fillStyle = lider ? '#ffffff' : 'rgba(255,255,255,0.45)'; ctx.fillText(posicion ? `${posicion}. ${j.nombre}` : j.nombre, 110, ly + 36)
-      ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'
-      if (j.holesPlayed === 0) {
-        // Equipo que no anotó ningún hoyo: va al final y no tiene score que mostrar.
-        ctx.fillStyle = 'rgba(255,255,255,0.3)'
-        ctx.fillText('sin score', W - 110, ly + 36)
-      } else if (isStableford) {
-        ctx.fillStyle = '#c9a84c'
-        ctx.fillText(`${j.score} pts`, W - 110, ly + 36)
-      } else {
-        ctx.fillStyle = scoreColor(j.diff)
-        // Neto: el total de la fila es neto y lo dice («65 neto (−7)»), igual que el número grande.
-        ctx.fillText(`${j.score}${data.scoreEsNeto ? ' neto' : ''} (${j.diff >= 0 ? '+' : ''}${j.diff})`, W - 110, ly + 36)
-      }
+      // Score a la derecha: equipo sin hoyos → «sin score»; stableford → pts; si no, total (neto lo dice:
+      // «65 neto (−7)», igual que el número grande) en la escala de totales.
+      const [textoScore, colorScore] = j.holesPlayed === 0
+        ? ['sin score', 'rgba(255,255,255,0.3)']
+        : isStableford
+          ? [`${j.score} pts`, '#c9a84c']
+          : [`${j.score}${data.scoreEsNeto ? ' neto' : ''} (${formatOverUnder(j.diff)})`, colorDeTotal(j.diff)]
+      ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'; ctx.fillStyle = colorScore
+      ctx.fillText(textoScore, W - 110, ly + 36)
+      const anchoDelScore = ctx.measureText(textoScore).width
+      // Nombre a la izquierda, achicado o cortado hasta no chocar con el score (24px de aire).
+      const pesoDelNombre = lider ? 'bold ' : ''
+      const etiqueta = posicion ? `${posicion}. ${j.nombre}` : j.nombre
+      const medirNombre = (t: string, px: number) => { ctx.font = `${pesoDelNombre}${px}px Arial, sans-serif`; return ctx.measureText(t).width }
+      const nombre = nombreQueCabe(etiqueta, medirNombre, W - 220 - anchoDelScore - 24)
+      ctx.textAlign = 'left'; ctx.font = `${pesoDelNombre}${nombre.px}px Arial, sans-serif`
+      ctx.fillStyle = lider ? '#ffffff' : 'rgba(255,255,255,0.55)'; ctx.fillText(nombre.texto, 110, ly + 36)
     })
   }
 }
@@ -635,7 +647,7 @@ export function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorn
 
   ctx.font = 'bold 64px Georgia, serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(data.jugadorNombre, W / 2, 548)
 
-  const clr = scoreColor(data.scoreDiff)
+  const clr = colorDeTotal(data.scoreDiff)
   ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 30
   ctx.font = 'bold 200px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(String(data.scoreGross), W / 2, 760); ctx.restore()
 
