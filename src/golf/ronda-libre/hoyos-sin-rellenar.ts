@@ -69,6 +69,13 @@ interface HoyoEnPantallaDeLaTimba {
   retiros?: Readonly<Record<string, number>>
   ordenHoyos: readonly number[]
   hoyoEnPantalla: number
+  /** Skins: hoyos con X de cada jugador. La X es un hoyo anotado (sin golpes), no uno sin jugar. */
+  fuera?: Readonly<Record<string, HoyosFuera | undefined>>
+}
+
+/** ¿`jugadorId` anotó el hoyo (golpes o X)? */
+function anotoElHoyo(input: HoyoEnPantallaDeLaTimba, jugadorId: string, hoyo: number): boolean {
+  return scoreDelHoyo(input.scores[jugadorId] ?? {}, hoyo) !== undefined || estaFueraDelHoyo(input.fuera?.[jugadorId], hoyo)
 }
 
 /**
@@ -77,10 +84,10 @@ interface HoyoEnPantallaDeLaTimba {
  * dejó el scorer en el 10): entonces cuenta como no jugado, igual que los demás.
  */
 export function hoyoEnPantallaQueSeRellenaEnLaTimba(input: HoyoEnPantallaDeLaTimba): number | undefined {
-  const { jugadores, scores, retiros, ordenHoyos, hoyoEnPantalla } = input
+  const { jugadores, retiros, ordenHoyos, hoyoEnPantalla } = input
   if (!ordenHoyos.includes(hoyoEnPantalla)) return undefined
   const alguienLoAnoto = jugadores.some(j =>
-    !estaRetiradoEn(retiros?.[j.id], hoyoEnPantalla, ordenHoyos) && scoreDelHoyo(scores[j.id] ?? {}, hoyoEnPantalla) !== undefined,
+    !estaRetiradoEn(retiros?.[j.id], hoyoEnPantalla, ordenHoyos) && anotoElHoyo(input, j.id, hoyoEnPantalla),
   )
   return alguienLoAnoto ? hoyoEnPantalla : undefined
 }
@@ -94,7 +101,7 @@ export function hoyosQueQuedanSinJugarEnLaTimba(input: HoyoEnPantallaDeLaTimba):
   const { jugadores, scores, retiros, ordenHoyos } = input
   const seRellena = hoyoEnPantallaQueSeRellenaEnLaTimba(input)
   return ordenHoyos.filter(h => h !== seRellena && jugadores.some(j =>
-    !tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos),
+    !tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos, input.fuera?.[j.id]),
   ))
 }
 
@@ -104,8 +111,8 @@ export function hoyosQueQuedanSinJugarEnLaTimba(input: HoyoEnPantallaDeLaTimba):
  * de Finalizar los avisa distinto (decisión de Juanjo, 17-nov).
  */
 export function hoyosQueNadieJugoEnLaTimba(input: HoyoEnPantallaDeLaTimba): number[] {
-  const { jugadores, scores, retiros, ordenHoyos } = input
+  const { jugadores, retiros, ordenHoyos } = input
   return hoyosQueQuedanSinJugarEnLaTimba(input).filter(h => !jugadores.some(j =>
-    !estaRetiradoEn(retiros?.[j.id], h, ordenHoyos) && scoreDelHoyo(scores[j.id] ?? {}, h) !== undefined,
+    !estaRetiradoEn(retiros?.[j.id], h, ordenHoyos) && anotoElHoyo(input, j.id, h),
   ))
 }

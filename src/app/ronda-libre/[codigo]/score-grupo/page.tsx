@@ -7,7 +7,7 @@ import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
 import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
 import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
-import { hojaFinalizarTimba, textoConfirmarFinalizar, textoTarjetaCompleta } from '@/components/ronda/finalizar-copy'
+import { hojaFinalizarSkins, hojaFinalizarTimba, textoConfirmarFinalizar, textoTarjetaCompleta } from '@/components/ronda/finalizar-copy'
 import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
 import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
@@ -166,8 +166,8 @@ function ScorerDeGrupo() {
     useFinalizeGrupo({
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores, fuera: fueraSkins,
-      timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
-      enviarMarcas: esSkins ? timba.marcas.enviarPendientes : undefined,
+      // Timba y Skins: al cerrar no se inventan pares (solo el hoyo en pantalla, si alguien lo anotó) ni desde un retiro.
+      timba: esTimba || esSkins ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
       unCelularPorEquipo: unCelularPorEquipo ? { recargar } : undefined,
     })
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
@@ -178,7 +178,7 @@ function ScorerDeGrupo() {
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
-    retiros: esTimba ? timba.retiros : undefined, sinParAutomatico, fuera: fueraSkins,
+    retiros: esTimba || esSkins ? timba.retiros : undefined, sinParAutomatico, fuera: fueraSkins,
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
@@ -537,7 +537,9 @@ function ScorerDeGrupo() {
         <ConfirmarFinalizarHoja
           {...(esTimba
             ? hojaFinalizarTimba({ hoyosSinJugar: hoyosSinJugarTimba, hoyosQueNadieJugo: hoyosNadieJugoTimba, parEnPantalla: parEnPantallaTimba })
-            : { titulo: textoConfirmarFinalizar(hoyosPorMarcar), detalle: undefined })}
+            : esSkins
+              ? hojaFinalizarSkins({ hoyosSinAnotar: hoyosSinJugarTimba, parEnPantalla: parEnPantallaTimba })
+              : { titulo: textoConfirmarFinalizar(hoyosPorMarcar), detalle: undefined })}
           onConfirmar={finalizeRound}
           onCancelar={() => setConfirmFinalize(false)}
         />
