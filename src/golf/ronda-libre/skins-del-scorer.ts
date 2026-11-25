@@ -10,10 +10,13 @@
 import { handicapDeJuego } from '@/golf/core/playing-handicap'
 import { esHandicapUsable } from '@/golf/formats/match-play'
 import {
-  calcularSkins, configSkinsSchema, opcionesDelMotor, tarjetaDelSkins,
+  calcularSkins, configSkinsSchema, opcionesDelMotor, tarjetaDelSkins, SKINS_POR_PUNTO_ESPECIAL,
   type ContextoValidacionSkins, type FueraPorJugador,
 } from '@/golf/formats/skins'
+import type { MarcaPuntito } from '@/golf/formats/personalizado'
 import type { ReglasSkinsGuardadas } from './skins-de-ronda-nueva'
+import { marcasDesdeLaBase, retirosDesdeLaBase, type FilaMarcaPuntito, type FilaRetiro } from './juego-de-la-ronda'
+import type { PuntitoMarcable, VistaConMarcas } from './marcas-de-la-timba'
 
 /** `reglas_juego` de una ronda de skins; `null` si falta o no es válida (no se inventa un skins). */
 export function leerReglasSkins(reglas: unknown): ReglasSkinsGuardadas | null {
@@ -60,4 +63,39 @@ export function valorDelHoyoSkins(input: {
   if (!resultado.liquidable) return null
   const h = resultado.hoyos.find(x => x.numero === hoyo)
   return h ? { valor: h.valor, provisional: h.valorProvisional } : null
+}
+
+/**
+ * Lo que el scorer de un skins lee de `GET /juego`: los puntos especiales para marcar (cada uno vale
+ * `SKINS_POR_PUNTO_ESPECIAL`), las marcas guardadas y los retiros. Sin plata ni resultado: eso es del leaderboard.
+ * `formato` la distingue de la vista de la Timba (`VistaDelJuego`, que no lo trae).
+ */
+export interface VistaDelSkinsEnElScorer extends VistaConMarcas {
+  formato: 'skins'
+  config: { puntitos: PuntitoMarcable[] }
+  jugadorIds: string[]
+  marcas: MarcaPuntito[]
+  retiros: Record<string, number>
+}
+
+export function vistaDelSkinsEnElScorer(input: {
+  reglas: ReglasSkinsGuardadas
+  marcas: readonly FilaMarcaPuntito[]
+  retiros: readonly FilaRetiro[]
+  rondaCerrada: boolean
+}): VistaDelSkinsEnElScorer {
+  const { reglas, rondaCerrada } = input
+  const jugadores = new Set(reglas.jugadorIds)
+  return {
+    formato: 'skins',
+    config: {
+      puntitos: reglas.config.puntitos.map(p => ({
+        id: p.id, tipo: p.tipo, ...(p.nombre !== undefined && { nombre: p.nombre }), valor: SKINS_POR_PUNTO_ESPECIAL,
+      })),
+    },
+    jugadorIds: [...reglas.jugadorIds],
+    marcas: marcasDesdeLaBase(input.marcas, jugadores),
+    retiros: retirosDesdeLaBase(input.retiros, jugadores),
+    rondaCerrada,
+  }
 }

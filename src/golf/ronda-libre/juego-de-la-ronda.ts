@@ -106,22 +106,35 @@ export function armarEntradaDelJuego(datos: DatosDelJuego): EntradaDelJuego {
     scores[id] = limpios
   }
 
-  const marcas: MarcaPuntito[] = [...datos.marcas]
-    .filter(m => porId.has(m.jugador_id) && numeroValido(m.hoyo) != null)
-    .sort((a, b) => (a.created_at === b.created_at ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : Date.parse(a.created_at) - Date.parse(b.created_at)))
-    .map(m => ({ jugadorId: m.jugador_id, hoyo: numeroValido(m.hoyo) as number, puntitoId: m.puntito_id }))
-
-  const retiros: Record<string, number> = {}
-  for (const r of datos.retiros) {
-    const desde = numeroValido(r.desde_hoyo)
-    if (porId.has(r.jugador_id) && desde != null) retiros[r.jugador_id] = desde
-  }
+  const marcas = marcasDesdeLaBase(datos.marcas, porId)
+  const retiros = retirosDesdeLaBase(datos.retiros, porId)
 
   return {
     ok: true,
     jugadorIds: [...jugadorIds],
     entrada: { config, jugadores, hoyos, scores, marcas, retiros, rondaCerrada: esRondaCerrada(datos.ronda.estado) },
   }
+}
+
+/**
+ * Marcas de puntos especiales como las guardó la base, de los jugadores de la ronda y en orden (`created_at`, `id`):
+ * "vale el último greenie" depende del orden (cláusulas 3 y 7). La usan la Timba y el skins.
+ */
+export function marcasDesdeLaBase(filas: readonly FilaMarcaPuntito[], jugadores: { has: (id: string) => boolean }): MarcaPuntito[] {
+  return [...filas]
+    .filter(m => jugadores.has(m.jugador_id) && numeroValido(m.hoyo) != null)
+    .sort((a, b) => (a.created_at === b.created_at ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : Date.parse(a.created_at) - Date.parse(b.created_at)))
+    .map(m => ({ jugadorId: m.jugador_id, hoyo: numeroValido(m.hoyo) as number, puntitoId: m.puntito_id }))
+}
+
+/** Jugador → hoyo desde el que se retiró, de los jugadores de la ronda (cláusula 9). La usan la Timba y el skins. */
+export function retirosDesdeLaBase(filas: readonly FilaRetiro[], jugadores: { has: (id: string) => boolean }): Record<string, number> {
+  const retiros: Record<string, number> = {}
+  for (const r of filas) {
+    const desde = numeroValido(r.desde_hoyo)
+    if (jugadores.has(r.jugador_id) && desde != null) retiros[r.jugador_id] = desde
+  }
+  return retiros
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { armarReglasGuardadas, crearConfigDePlantilla } from '@/golf/formats/personalizado'
+import { CONFIG_SKINS_POR_DEFECTO } from '@/golf/formats/skins'
 
 // GET /api/ronda-libre/[codigo]/juego: ruta + cargador reales (`cargarJuegoDeLaRonda`), base simulada.
 
@@ -12,6 +13,7 @@ const IDS = [JUAN, PEDRO, DIEGO, TOMAS]
 let conSesion = true
 let formato = 'personalizado'
 let reglasJuego: unknown = armarReglasGuardadas({ ...crearConfigDePlantilla('dos_cero_dos'), modo: 'neto' }, IDS)
+let marcasGuardadas: unknown[] = []
 const leerIndices = vi.fn()
 
 vi.mock('@/utils/supabase/server', () => ({
@@ -30,14 +32,15 @@ const tablasLeidas: string[] = []
 function tabla(nombre: string) {
   tablasLeidas.push(nombre)
   const datos: Record<string, unknown> = {
-    rondas_libres: { reglas_juego: reglasJuego },
-    ronda_libre_puntitos: [],
+    rondas_libres: { id: 'ronda-1', formato_juego: formato, estado: 'en_curso', reglas_juego: reglasJuego },
+    ronda_libre_puntitos: marcasGuardadas,
     ronda_libre_retiros: [],
   }
   const resultado = () => ({ data: datos[nombre], error: null })
   const b: Record<string, unknown> = {}
   for (const m of ['select', 'eq', 'order']) b[m] = vi.fn(() => b)
   b.single = vi.fn(async () => resultado())
+  b.maybeSingle = vi.fn(async () => resultado())
   b.then = (res: (v: unknown) => void, rej?: (e: unknown) => void) => Promise.resolve(resultado()).then(res, rej)
   return b
 }
@@ -54,6 +57,7 @@ const llamar = (codigo = 'ABC123') =>
 beforeEach(() => {
   conSesion = true
   formato = 'personalizado'
+  marcasGuardadas = []
   tablasLeidas.length = 0
   reglasJuego = armarReglasGuardadas({ ...crearConfigDePlantilla('dos_cero_dos'), modo: 'neto' }, IDS)
   cargarRondaLibreEnVivo.mockReset()
@@ -102,6 +106,49 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
     formato = 'stroke_play'
     expect((await llamar()).status).toBe(404)
     expect(tablasLeidas).toEqual([])
+  })
+
+  describe('skins: lo que el scorer necesita para marcar puntos especiales', () => {
+    const reglasSkins = (puntitos: unknown[]) => ({ config: { ...CONFIG_SKINS_POR_DEFECTO, puntitos }, jugadorIds: IDS })
+
+    it('trae los puntos (1 skin cada uno), las marcas en orden y nada de hándicaps ni plata', async () => {
+      formato = 'skins'
+      reglasJuego = reglasSkins([{ id: 'sandy', tipo: 'sandy' }, { id: 'p1', tipo: 'propio', nombre: 'Árbol' }])
+      marcasGuardadas = [
+        { id: 'm2', jugador_id: PEDRO, hoyo: 3, puntito_id: 'sandy', created_at: '2026-11-25T12:01:00Z' },
+        { id: 'm1', jugador_id: JUAN, hoyo: '2', puntito_id: 'p1', created_at: '2026-11-25T12:00:00Z' },
+        { id: 'm3', jugador_id: 'ajeno', hoyo: 2, puntito_id: 'sandy', created_at: '2026-11-25T12:02:00Z' },
+      ]
+      const res = await llamar()
+      expect(res.status).toBe(200)
+      expect(res.headers.get('cache-control')).toMatch(/no-store/)
+      const cuerpo = await res.json()
+      expect(cuerpo).toEqual({
+        estado: 'ok',
+        formato: 'skins',
+        config: { puntitos: [{ id: 'sandy', tipo: 'sandy', valor: 1 }, { id: 'p1', tipo: 'propio', nombre: 'Árbol', valor: 1 }] },
+        jugadorIds: IDS,
+        marcas: [{ jugadorId: JUAN, hoyo: 2, puntitoId: 'p1' }, { jugadorId: PEDRO, hoyo: 3, puntitoId: 'sandy' }],
+        retiros: {},
+        rondaCerrada: false,
+      })
+      expect(leerIndices).not.toHaveBeenCalled()
+    })
+
+    it('reglas del skins ilegibles: sin_juego, sin leer marcas', async () => {
+      formato = 'skins'
+      reglasJuego = { config: { version: 99 }, jugadorIds: IDS }
+      const res = await llamar()
+      expect(await res.json()).toEqual({ estado: 'sin_juego', motivo: 'reglas_invalidas', rondaCerrada: false })
+      expect(tablasLeidas).toEqual(['rondas_libres'])
+    })
+
+    it('la ruta pública sigue siendo solo de la Timba: un skins es 404', async () => {
+      formato = 'skins'
+      reglasJuego = reglasSkins([])
+      const res = await GET_PUBLICO(new Request('http://test/api/ronda-libre/ABC123/juego/publico'), { params: Promise.resolve({ codigo: 'ABC123' }) })
+      expect(res.status).toBe(404)
+    })
   })
 
   it('reglas_juego inválido no calcula: estado sin_juego con el motivo', async () => {

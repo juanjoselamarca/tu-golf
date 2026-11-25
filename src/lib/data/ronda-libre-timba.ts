@@ -26,7 +26,8 @@ export type JuegoDeLaRonda =
   | { status: 'ok'; vista: VistaDelJuego }
   /** `rondaCerrada`: como en `VistaDelJuego`, prueba de que el motivo es el del cierre (la pública sale del CDN). */
   | { status: 'sin_juego'; motivo: MotivoSinJuego; rondaCerrada: boolean }
-  | { status: 'no_es_timba' }
+  /** `formato`: el de la ronda, para que `/juego` responda un skins sin volver a leerla. */
+  | { status: 'no_es_timba'; formato: string | null }
   | { status: 'not_found' }
   | { status: 'error' }
 
@@ -39,7 +40,7 @@ export async function cargarJuegoDeLaRonda(
   if (res.status === 'not_found') return { status: 'not_found' }
   if (res.status !== 'ok') return { status: 'error' }
   const { ronda } = res
-  if (!esFormatoPersonalizado(ronda.formato_juego)) return { status: 'no_es_timba' }
+  if (!esFormatoPersonalizado(ronda.formato_juego)) return { status: 'no_es_timba', formato: ronda.formato_juego ?? null }
 
   // Columnas y tablas nuevas: se leen aparte para no tocar COLUMNAS_RONDA_EN_VIVO, que usan todas las rondas.
   const [reglas, marcas, retiros] = await Promise.all([
