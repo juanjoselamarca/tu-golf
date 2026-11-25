@@ -17,6 +17,8 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { formatOverUnder } from '@/constants/golf'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
 import { NOMBRE_FORMATO_PERSONALIZADO, esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { NOMBRE_FORMATO_SKINS, esFormatoSkins } from '@/golf/formats/skins/clave'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 
 export interface BuildShareDataArgs {
   ronda: RondaLibre
@@ -37,10 +39,10 @@ export function buildLeaderboardShareData({
   const isStableford = ronda.formato_juego === 'stableford'
   // El lugar de cada jugador es el de la tabla: una sola cuenta para pantalla e imagen.
   const posiciones = posicionesDelLeaderboard(leaderboard, ronda.formato_juego)
-  // Timba libre: la imagen no ordena jugadores por golpes ni por neto (sus puntos viven en `GET /juego`).
-  const esTimba = esFormatoPersonalizado(ronda.formato_juego)
+  // Timba libre y Skins: la imagen no ordena jugadores por golpes ni por neto (su resultado vive en `GET /juego`).
+  const juegoPropio = esJuegoConPlata(ronda.formato_juego)
   const shareData: LeaderboardShareData = {
-    players: esTimba ? [] : leaderboard.flatMap((j, i) => j.holesPlayed > 0 ? [{
+    players: juegoPropio ? [] : leaderboard.flatMap((j, i) => j.holesPlayed > 0 ? [{
       nombre: j.nombre,
       vsPar: isStableford ? j.stablefordPts : j.vsPar,
       holesPlayed: j.holesPlayed,
@@ -90,8 +92,9 @@ export function buildShareText(
   if (!ronda) return 'Sigue la ronda en vivo en Golfers+'
   const jugadores = ronda.ronda_libre_jugadores
   if (jugadores.length === 0) return `Ronda en ${ronda.course_name} — Golfers+`
-  // Timba libre: sin líder por golpes ni por neto (sin el hándicap de los otros, el neto sería falso).
+  // Timba libre y Skins: sin líder por golpes ni por neto (sin el hándicap de los otros, el neto sería falso).
   if (esFormatoPersonalizado(ronda.formato_juego)) return `${NOMBRE_FORMATO_PERSONALIZADO} en ${ronda.course_name} — Síguela en vivo`
+  if (esFormatoSkins(ronda.formato_juego)) return `${NOMBRE_FORMATO_SKINS} en ${ronda.course_name} — Síguelo en vivo`
 
   // Match Play
   const mr = buildMatchResult(ronda, parMap, siMap, courseHcpMap)

@@ -61,7 +61,7 @@ describe('useValorDelHoyoSkins — neto con el rating cortado una vez', () => {
       course_tees: [{ data: null, error: null }],
     }
     const { result } = renderHook(() => useValorDelHoyoSkins({
-      ronda: RONDA, scores: {}, fuera: {}, currentHole: 1, plazoMs: 10_000, esperasMs: [30_000],
+      ronda: RONDA, scores: {}, fuera: {}, retiros: undefined, currentHole: 1, plazoMs: 10_000, esperasMs: [30_000],
     }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     expect(result.current).toBeNull()
@@ -78,7 +78,7 @@ describe('useValorDelHoyoSkins — neto con el rating cortado una vez', () => {
       course_tees: [{ data: null, error: null }],
     }
     const { result } = renderHook(() => useValorDelHoyoSkins({
-      ronda: RONDA, scores: {}, fuera: {}, currentHole: 1, plazoMs: 10_000, esperasMs: [30_000],
+      ronda: RONDA, scores: {}, fuera: {}, retiros: undefined, currentHole: 1, plazoMs: 10_000, esperasMs: [30_000],
     }))
     await act(async () => { await vi.advanceTimersByTimeAsync(5 * 60_000) })
     expect(cliente.lecturas.courses).toBe(1)

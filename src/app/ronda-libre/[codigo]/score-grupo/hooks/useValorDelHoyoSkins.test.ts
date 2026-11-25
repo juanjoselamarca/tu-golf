@@ -15,6 +15,7 @@ import { captureError } from '@/lib/error-tracking'
 import { CONFIG_SKINS_POR_DEFECTO } from '@/golf/formats/skins'
 import { FalloDelContextoSkins, mensajeSkinsSinRating } from '@/lib/data/skins-ronda-nueva'
 import { esperaDelReintento, useValorDelHoyoSkins } from './useValorDelHoyoSkins'
+import { resultadoDelSkins } from '@/golf/ronda-libre/skins-del-scorer'
 import type { RondaLibre } from '@/types/ronda'
 import {
   BASE_LENTA, SIN_PERMISO, clienteFalso, ok, type RespuestaFalsa,
@@ -35,7 +36,7 @@ const CONTEXTO = { jugadores: [{ nombre: 'Ana', courseHandicap: null }, { nombre
 const ESPERAS = [30_000, 60_000, 120_000]
 const PLAZO = 10_000
 const montar = () => renderHook(() => useValorDelHoyoSkins({
-  ronda: RONDA, scores: {}, fuera: {}, currentHole: 1, plazoMs: PLAZO, esperasMs: ESPERAS,
+  ronda: RONDA, scores: {}, fuera: {}, retiros: undefined, currentHole: 1, plazoMs: PLAZO, esperasMs: ESPERAS,
 }))
 const sinSenal = () => new FalloDelContextoSkins('Failed to fetch', true)
 
@@ -128,7 +129,7 @@ describe('useValorDelHoyoSkins — lectura del contexto', () => {
     lectura.impl.mockReset()
     lectura.impl.mockRejectedValue(new FalloDelContextoSkins(mensajeSkinsSinRating('blanco'), false))
     const otro = renderHook(() => useValorDelHoyoSkins({
-      ronda: { ...RONDA, id: 'r2' } as RondaLibre, scores: {}, fuera: {}, currentHole: 1, plazoMs: PLAZO, esperasMs: ESPERAS,
+      ronda: { ...RONDA, id: 'r2' } as RondaLibre, scores: {}, fuera: {}, retiros: undefined, currentHole: 1, plazoMs: PLAZO, esperasMs: ESPERAS,
     }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     await act(async () => { window.dispatchEvent(new Event('online')); await vi.advanceTimersByTimeAsync(0) })
@@ -194,7 +195,7 @@ describe('useValorDelHoyoSkins — base lenta (57014) con el contexto real', () 
     lectura.impl.mockImplementation((_c: unknown, r: Parameters<typeof real.contextoSkinsDeRondaNueva>[1]) =>
       real.contextoSkinsDeRondaNueva(supa, r))
     const hook = renderHook(() => useValorDelHoyoSkins({
-      ronda: NETO, scores: {}, fuera: {}, currentHole: 1, plazoMs: PLAZO, esperasMs: ESPERAS,
+      ronda: NETO, scores: {}, fuera: {}, retiros: undefined, currentHole: 1, plazoMs: PLAZO, esperasMs: ESPERAS,
     }))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     return { ...hook, supa }
@@ -234,5 +235,28 @@ describe('useValorDelHoyoSkins — base lenta (57014) con el contexto real', () 
 describe('esperaDelReintento', () => {
   it('30, 60, 120 y tope en 120', () => {
     expect([1, 2, 3, 4, 9].map(n => esperaDelReintento(n))).toEqual([30_000, 60_000, 120_000, 120_000, 120_000])
+  })
+})
+
+describe('useValorDelHoyoSkins — el mismo valor que la tabla en vivo', () => {
+  afterEach(() => { lectura.impl.mockReset() })
+
+  // Ana se retira desde el 2: el 2 lo juegan Beto y Carla, que empatan. La tabla (servidor, con retiros) lo cierra
+  // como arrastre y el 3 vale 2. Sin los retiros, el scorer veía el 2 «a medio anotar» y mostraba «Vale 1» provisional.
+  it('con un retirado en un hoyo anterior, el VALE del scorer es el de la tabla', async () => {
+    const reglas = { config: { ...CONFIG_SKINS_POR_DEFECTO, modo: 'gross' as const, validacion: false }, jugadorIds: ['a', 'b', 'c'] }
+    const ronda = {
+      ...RONDA, reglas_juego: reglas,
+      ronda_libre_jugadores: [...RONDA.ronda_libre_jugadores, { id: 'c', nombre: 'Carla', handicap: 15, tees: null }],
+    } as unknown as RondaLibre
+    const contexto = { ...CONTEXTO, jugadores: [...CONTEXTO.jugadores, { nombre: 'Carla', courseHandicap: null }] }
+    lectura.impl.mockResolvedValue(contexto)
+    const scores = { a: { 1: 3 }, b: { 1: 4, 2: 4 }, c: { 1: 4, 2: 4 } }
+    const retiros = { a: 2 }
+    const { result } = renderHook(() => useValorDelHoyoSkins({ ronda, scores, fuera: {}, retiros, currentHole: 3 }))
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    const tabla = resultadoDelSkins({ reglas, contexto, scores, fuera: {}, retiros })!.hoyos.find(h => h.numero === 3)!
+    expect(tabla).toMatchObject({ valor: 2, valorProvisional: false })
+    expect(result.current).toEqual({ valor: tabla.valor, provisional: tabla.valorProvisional })
   })
 })

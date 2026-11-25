@@ -156,6 +156,60 @@ export function nombresCortos(nombres: readonly string[]): string[] {
   })
 }
 
+/** Largo máximo del nombre en una celda de la tira del Skins: a 360 px (4 columnas) entran 7 caracteres en negrita. */
+export const LARGO_NOMBRE_DE_CELDA = 7
+
+/**
+ * Formas de mostrar un nombre corto en `largo` caracteres o menos, de la preferida a la última:
+ * - sin inicial: el nombre si entra; si no, prefijo con punto («Maximi.»), prefijo sin punto («Maximil») y corte al
+ *   medio que deja ver el final («Fran…co»);
+ * - con inicial de apellido: el nombre si entra («Ana P.»); si no, «Bar. F.» y luego «Bart F.».
+ * Todas respetan el tope: el contrato de `LARGO_NOMBRE_DE_CELDA` no tiene excepciones.
+ */
+function formasDeCelda(corto: string, largo: number): string[] {
+  const m = /^(.*\S) (\S)\.$/u.exec(corto)
+  const letras = [...(m ? m[1] : corto)]
+  const sufijo = m ? ` ${m[2]}.` : ''
+  const cupo = largo - sufijo.length
+  const formas = [
+    corto,
+    `${letras.slice(0, cupo - 1).join('')}.${sufijo}`,
+    `${letras.slice(0, cupo).join('')}${sufijo}`,
+    // Distintos solo al final («Francisco» / «Francisca»): se corta al medio y se ve el final («Fran…co»).
+    ...(cupo - 3 >= 3 ? [`${letras.slice(0, cupo - 3).join('')}…${letras.slice(-2).join('')}${sufijo}`] : []),
+  ]
+  return formas.filter((f, k) => [...f].length <= largo && formas.indexOf(f) === k)
+}
+
+/**
+ * `nombresCortos` acotados a una celda de la tira del Skins, con dos garantías: ninguno pasa de `largo` caracteres
+ * y nunca dos jugadores quedan con el mismo texto.
+ * - «Maximiliano» → «Maximi.» (antes la celda lo cortaba en «Maximilia…» y la elipsis podía comerse lo que distingue).
+ * - Con inicial de apellido se acorta el nombre y la inicial queda: «Bartolomé F.» → «Bar. F.».
+ * - Si dos chocan, los dos pasan a la forma siguiente («Maximiliano» y «Maximino» → «Maximil» / «Maximin»;
+ *   «Francisco» y «Francisca» → «Fran…co» / «Fran…ca»).
+ * - Si aun así chocan (dos «Juan Pérez»), se numeran por su lugar en la lista: «Juan 1» / «Juan 2».
+ */
+export function nombresDeCelda(nombres: readonly string[], largo: number = LARGO_NOMBRE_DE_CELDA): string[] {
+  const formas = nombresCortos(nombres).map(c => formasDeCelda(c, largo))
+  const en = (f: string[], nivel: number) => f[Math.min(nivel, f.length - 1)]
+  const elegidos = formas.map((f, i) => {
+    if (f.length === 0) return ''
+    for (let nivel = 0; nivel < f.length; nivel++) {
+      const propio = f[nivel]
+      if (!formas.some((o, j) => j !== i && o.length > 0 && en(o, nivel) === propio)) return propio
+    }
+    return ''
+  })
+  // Lo que sigue chocando (o no tuvo forma) se numera por su lugar: el número lo hace único.
+  return elegidos.map((e, i) => {
+    if (e !== '' && elegidos.filter(x => x === e).length === 1) return e
+    const numero = String(i + 1)
+    const base = [...(nombresCortos(nombres)[i].replace(/ \S\.$/u, ''))]
+    return `${base.slice(0, Math.max(0, largo - numero.length - 1)).join('')} ${numero}`.trim()
+  })
+}
+
 export function armarTablaDelJuego(
   vista: VistaDelJuego,
   nombres: Readonly<Record<string, string>>,

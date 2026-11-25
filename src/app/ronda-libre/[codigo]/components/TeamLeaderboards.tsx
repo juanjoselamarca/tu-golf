@@ -15,7 +15,7 @@ import type { BestBallPlayer, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { integrantesQueSeMuestran } from '@/golf/ronda-libre/equipos-de-club'
 
 export interface TeamLeaderboardsProps {
@@ -35,7 +35,7 @@ export interface TeamLeaderboardsProps {
 export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, hcpAMostrar, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
   // Timba libre: sin ranking genérico (spec, "Para el PR C").
   // Timba libre: la página muestra `TimbaEnVivo` (puntos de GET /juego); esta tabla por golpes daría un ganador falso.
-  if (esFormatoPersonalizado(ronda.formato_juego)) return null
+  if (esJuegoConPlata(ronda.formato_juego)) return null
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return null
 
   // Orden de juego: un 9h que parte en el 10 son los hoyos 10-18 (antes 1-9 → 0 jugados).

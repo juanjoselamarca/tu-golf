@@ -343,6 +343,7 @@ export default function EnVivoPage() {
                           totalHoles: j.totalHoles,
                         }))}
                         totalHoles={ronda.holes}
+                        formato={ronda.formato_juego}
                       />
                     </div>
                   </div>

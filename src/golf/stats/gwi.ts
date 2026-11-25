@@ -6,7 +6,7 @@
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { esMiTarjeta } from '../ronda-libre/permisos'
-import { esFormatoPersonalizado } from '../formats/personalizado/config'
+import { esJuegoConPlata } from '../formats/juegos-con-plata'
 
 // ─── Matemáticas base ───
 function normalCDF(x: number): number {
@@ -448,5 +448,5 @@ export function hayGWIParaMostrar(jugadores: ReadonlyArray<Pick<JugadorGWIPublic
  * Lo usan el servidor (`gwiDeRondaLibre`, no calcula) y la página en vivo (no monta el panel).
  */
 export function formatoTieneGWI(formato: string | null | undefined): boolean {
-  return !esFormatoPersonalizado(formato)
+  return !esJuegoConPlata(formato)
 }

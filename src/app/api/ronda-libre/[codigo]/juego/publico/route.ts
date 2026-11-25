@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { cargarJuegoDeLaRonda } from '@/lib/data/ronda-libre-timba'
-import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 import { CODIGO_RONDA_VALIDO, HEADERS_EN_VIVO_CDN, HEADERS_EN_VIVO_NO_ENCONTRADA, rechazarQueryString } from '@/lib/api-en-vivo'
-import { respuestaDelJuego } from '../respuesta-del-juego'
+import { respuestaDelJuegoDeLaRonda } from '../respuesta-del-juego'
 
 // GET /api/ronda-libre/[codigo]/juego/publico — el juego de una Timba libre para quien abre el link SIN sesión
 // (decisión de Juanjo, 17-nov: el link muestra el juego en vivo y el resultado final, con puntos; desde el 18-nov también el HCP de 18 a mostrar (`hcpAMostrar`, "en la Timba el anónimo ve todo"), solo en neto).
+// Un skins responde lo mismo que `/juego` (vista del scorer + tabla en vivo con la plata): el link del espectador la ve igual.
 //
 // Mismo cuerpo que `/juego` (`VistaDelJuego`: puntos, marcas, retiros, golpes recibidos por hoyo y, en neto, el HCP de
 // 18 a mostrar). No viaja el índice crudo ni nada más del perfil; de los golpes recibidos sí se deduce el hándicap de juego (con hándicap completo, su suma es el
@@ -28,8 +27,7 @@ export async function GET(req: Request, props: { params: Promise<{ codigo: strin
     return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: HEADERS_EN_VIVO_NO_ENCONTRADA })
   }
   try {
-    const juego = await cargarJuegoDeLaRonda(createAdminClient(), codigo, indicesDePerfil)
-    return respuestaDelJuego(juego, { ok: HEADERS_EN_VIVO_CDN, noEncontrada: HEADERS_EN_VIVO_NO_ENCONTRADA })
+    return await respuestaDelJuegoDeLaRonda(createAdminClient(), codigo, { ok: HEADERS_EN_VIVO_CDN, noEncontrada: HEADERS_EN_VIVO_NO_ENCONTRADA })
   } catch (err) {
     void captureError(err, { context: 'api.ronda-libre.juego.publico', meta: { codigo } })
     return NextResponse.json({ error: 'Algo salió mal' }, { status: 500, headers: HEADERS_PRIVADO_NO_STORE })

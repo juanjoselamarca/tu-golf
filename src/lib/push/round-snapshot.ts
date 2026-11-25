@@ -52,6 +52,8 @@ export interface RoundPushSnapshot extends RoundPushAccess {
   courseName: string
   holes: number
   players: SpectatorPlayer[]
+  /** Timba y Skins no se ordenan por golpes en el aviso (`buildSpectatorNotification`). */
+  formato: string | null
 }
 
 interface AccessRow {
@@ -170,6 +172,7 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
     holes,
     estado: ronda.estado ?? 'en_curso',
     players,
+    formato: ronda.formato_juego,
     participants: participantsOf(ronda),
   }
 }

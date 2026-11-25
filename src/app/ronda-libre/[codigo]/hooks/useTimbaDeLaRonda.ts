@@ -2,13 +2,16 @@
 
 import { useEffect, useRef } from 'react'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
+import type { VistaDelJuego } from '@/golf/ronda-libre/juego-de-la-ronda'
+import { esVistaDelSkins, type VistaDelSkinsEnElScorer } from '@/golf/ronda-libre/skins-del-scorer'
 import { useJuegoDeLaTimba, type EstadoDelJuego } from './useJuegoDeLaTimba'
 
 interface RondaParaLaTimba {
   formato_juego: string | null
   estado: string | null
-  ronda_libre_jugadores: readonly { scores: unknown }[]
+  ronda_libre_jugadores: readonly { scores: unknown; fuera_del_hoyo?: unknown }[]
 }
 
 /** Reintento del juego con la ronda cerrada si el pedido falla: 3 s, 6 s, 12 s… hasta 30 s. */
@@ -28,7 +31,7 @@ export const REINTENTO_CERRADA_VIEJA_MS = 5_000
  * de antes del cierre aunque se haya pedido después. Mientras tanto, cargando (y se reintenta); si el último pedido
  * falló, error (con Reintentar).
  */
-export function juegoDeLaRondaCerrada(juego: EstadoDelJuego, firma: string): EstadoDelJuego {
+export function juegoDeLaRondaCerrada<V extends { rondaCerrada: boolean }>(juego: EstadoDelJuego<V>, firma: string): EstadoDelJuego<V> {
   // Un motivo calculado antes del cierre (CDN) puede ya no ser el de ahora. Sin el campo (respuesta anterior), pasa.
   if (juego.estado === 'sin_juego') return juego.rondaCerrada === false ? { estado: 'cargando' } : juego
   if (juego.estado !== 'ok') return juego
@@ -36,8 +39,26 @@ export function juegoDeLaRondaCerrada(juego: EstadoDelJuego, firma: string): Est
   return juego.firma === firma && juego.vista.rondaCerrada ? juego : { estado: 'cargando' }
 }
 
+type VistaDeLaRonda = VistaDelJuego | VistaDelSkinsEnElScorer
+
 /**
- * El juego de la Timba en la ronda en vivo, pedido UNA vez para toda la página: lo muestran la pestaña Juego y el
+ * Separa lo que llegó de `GET /juego` según la vista que trae de verdad (`esVistaDelSkins`), no según el formato que
+ * la página cree: una Timba nunca recibe la vista de un skins ni al revés (queda cargando).
+ */
+export function separarJuego(juego: EstadoDelJuego<VistaDeLaRonda>, esSkins: boolean): {
+  timba: EstadoDelJuego<VistaDelJuego>
+  skins: EstadoDelJuego<VistaDelSkinsEnElScorer>
+} {
+  const cargando = { estado: 'cargando' } as const
+  if (juego.estado !== 'ok') return esSkins ? { timba: cargando, skins: juego } : { timba: juego, skins: cargando }
+  const deSkins = esVistaDelSkins(juego.vista)
+  if (esSkins && deSkins) return { timba: cargando, skins: { ...juego, vista: juego.vista as VistaDelSkinsEnElScorer } }
+  if (!esSkins && !deSkins) return { timba: { ...juego, vista: juego.vista as VistaDelJuego }, skins: cargando }
+  return { timba: cargando, skins: cargando }
+}
+
+/**
+ * El juego de la Timba (o del Skins) en la ronda en vivo, pedido UNA vez para toda la página: lo muestran la pestaña Juego y el
  * resultado final, y "Guardar en mi historial" necesita los retiros (lo anotado desde el retiro no va al historial).
  *
  * - Fuera de una Timba no pide nada y `retiros` es `{}`.
@@ -48,17 +69,24 @@ export function juegoDeLaRondaCerrada(juego: EstadoDelJuego, firma: string): Est
  */
 export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null, currentUserId: string | null | undefined): {
   esTimba: boolean
+  esSkins: boolean
   juego: EstadoDelJuego
+  juegoSkins: EstadoDelJuego<VistaDelSkinsEnElScorer>
   recargar: () => void
   retiros: Readonly<Record<string, number>> | null
 } {
   const esTimba = !!ronda && esFormatoPersonalizado(ronda.formato_juego)
-  const cerrada = esTimba && esRondaCerrada(ronda?.estado)
-  const firma = ronda && esTimba
-    ? `${currentUserId ?? ''}:${ronda.estado}:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.scores))}`
+  // Timba o Skins: los dos traen su resultado de `GET /juego` (`esJuegoConPlata`).
+  const conJuego = !!ronda && esJuegoConPlata(ronda.formato_juego)
+  const esSkins = conJuego && !esTimba
+  const cerrada = conJuego && esRondaCerrada(ronda?.estado)
+  const firma = ronda && conJuego
+    ? `${currentUserId ?? ''}:${ronda.estado}:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.scores))}${
+      // Skins: la X no son golpes (vive en `fuera_del_hoyo`): sin ella en la firma, una X tardaba hasta 20 s en verse.
+      esSkins ? `:${JSON.stringify(ronda.ronda_libre_jugadores.map(j => j.fuera_del_hoyo ?? null))}` : ''}`
     : ''
-  const { juego: crudo, recargar } = useJuegoDeLaTimba(codigo, {
-    activo: esTimba,
+  const { juego: crudo, recargar } = useJuegoDeLaTimba<VistaDeLaRonda>(codigo, {
+    activo: conJuego,
     firma,
     intervaloS: cerrada ? 0 : undefined,
     visorSinCuenta: !currentUserId,
@@ -96,8 +124,9 @@ export function useTimbaDeLaRonda(codigo: string, ronda: RondaParaLaTimba | null
     }
   }, [reintentar, respondioViejo, recargar])
 
-  const retiros = !esTimba
+  const retiros = !conJuego
     ? {}
     : juego.estado === 'ok' ? juego.vista.retiros : juego.estado === 'sin_juego' ? {} : null
-  return { esTimba, juego, recargar: () => { void recargar() }, retiros }
+  const { timba, skins } = separarJuego(juego, esSkins)
+  return { esTimba, esSkins, juego: timba, juegoSkins: skins, recargar: () => { void recargar() }, retiros }
 }

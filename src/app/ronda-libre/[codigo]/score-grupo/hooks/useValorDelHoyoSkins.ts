@@ -42,12 +42,17 @@ export function useValorDelHoyoSkins(input: {
   ronda: RondaLibre | null
   scores: Readonly<Record<string, Readonly<Record<number, number>>>>
   fuera: FueraPorJugador | undefined
+  /**
+   * Retiros vigentes (los de `GET /juego`, con los confirmados en este teléfono). La tabla en vivo los usa: sin ellos,
+   * un hoyo con un retirado sin golpes quedaba «a medio anotar» y el VALE del siguiente salía distinto al de la tabla.
+   */
+  retiros: Readonly<Record<string, number>> | undefined
   currentHole: number
   /** Solo tests: plazo de cada lectura y esperas entre reintentos. */
   plazoMs?: number
   esperasMs?: readonly number[]
 }): ValorDelHoyoSkins | null {
-  const { ronda, scores, fuera, currentHole, plazoMs = PLAZO_CARGA_SCORER_MS, esperasMs = ESPERAS_CONTEXTO_SKINS_MS } = input
+  const { ronda, scores, fuera, retiros, currentHole, plazoMs = PLAZO_CARGA_SCORER_MS, esperasMs = ESPERAS_CONTEXTO_SKINS_MS } = input
   const reglas = useMemo(
     () => (ronda && esFormatoSkins(ronda.formato_juego) ? leerReglasSkins(ronda.reglas_juego) : null),
     [ronda],
@@ -110,7 +115,7 @@ export function useValorDelHoyoSkins(input: {
   }, [ronda?.id, reglas != null]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return useMemo(
-    () => (reglas && contexto ? valorDelHoyoSkins({ reglas, contexto, scores, fuera, hoyo: currentHole }) : null),
-    [reglas, contexto, scores, fuera, currentHole],
+    () => (reglas && contexto ? valorDelHoyoSkins({ reglas, contexto, scores, fuera, retiros, hoyo: currentHole }) : null),
+    [reglas, contexto, scores, fuera, retiros, currentHole],
   )
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hoyosQueNoSeRellenan, hoyosQueQuedanSinJugarEnLaTimba } from './hoyos-sin-rellenar'
+import { hoyosQueNoSeRellenan, hoyosQueQuedanSinJugarEnLaTimba, jugadoresQueSiguienteRellena } from './hoyos-sin-rellenar'
 import { armarTarjetaHistorica, completarHoyosSinMarcarConPar } from './tarjeta-historica'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 
@@ -77,5 +77,45 @@ describe('hoyosQueNoSeRellenan', () => {
         ratings: { slope: 125, cr: 35.5, nineHole: null }, bolaCompartida: false,
       })).toBeNull()
     })
+  })
+})
+
+describe('hoja de Finalizar y cierre: una sola decisión', () => {
+  const nueve = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  const jugadores = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+  const hasta8 = Object.fromEntries(nueve.slice(0, 8).map(h => [h, 4]))
+  // Hoyos que el cierre deja sin golpes ni X para alguien = hoyos que avisa la hoja.
+  const quedanVacios = (input: Parameters<typeof hoyosQueQuedanSinJugarEnLaTimba>[0]) => nueve.filter(h => jugadores.some(j => {
+    const noRellenar = hoyosQueNoSeRellenan({ ...input, matchResult: null, jugadorId: j.id, esTimba: true })
+    const anotado = input.scores[j.id]?.[h] !== undefined || input.fuera?.[j.id]?.[h] === true
+    return !anotado && noRellenar.includes(h)
+  }))
+  const escenarios: Array<[string, Parameters<typeof hoyosQueQuedanSinJugarEnLaTimba>[0]]> = [
+    ['solo una X en el hoyo en pantalla', { jugadores, ordenHoyos: nueve, hoyoEnPantalla: 9, scores: { a: hasta8, b: hasta8, c: hasta8 }, fuera: { a: { 9: true } } }],
+    ['un score en el hoyo en pantalla', { jugadores, ordenHoyos: nueve, hoyoEnPantalla: 9, scores: { a: { ...hasta8, 9: 4 }, b: hasta8, c: hasta8 } }],
+    ['nadie anotó el hoyo en pantalla', { jugadores, ordenHoyos: nueve, hoyoEnPantalla: 9, scores: { a: hasta8, b: hasta8, c: hasta8 } }],
+    ['X en un hoyo anterior y hueco', { jugadores, ordenHoyos: nueve, hoyoEnPantalla: 9, scores: { a: { ...hasta8, 9: 4 }, b: { 1: 4 }, c: hasta8 }, fuera: { b: { 2: true } } }],
+  ]
+  it.each(escenarios)('%s', (_n, input) => {
+    expect(quedanVacios(input)).toEqual(hoyosQueQuedanSinJugarEnLaTimba(input))
+  })
+})
+
+
+describe('jugadoresQueSiguienteRellena', () => {
+  const nueve = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  const jugadores = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+  const base = { jugadores, hoyo: 8, ordenHoyos: nueve, scores: { a: { 8: 4 } }, retiros: { c: 7 } }
+  it('Skins: al retirado no se le pone par (vuelta 2 Fable: la página pasaba retiros solo en la Timba)', () => {
+    expect(jugadoresQueSiguienteRellena({ ...base, formato: 'skins' })).toEqual(['b'])
+  })
+  it('Timba: igual que el Skins', () => {
+    expect(jugadoresQueSiguienteRellena({ ...base, formato: 'personalizado' })).toEqual(['b'])
+  })
+  it('stroke play: los retiros no existen; quien no anotó lleva par', () => {
+    expect(jugadoresQueSiguienteRellena({ ...base, formato: 'stroke_play' })).toEqual(['b', 'c'])
+  })
+  it('Skins: la X cuenta como anotado', () => {
+    expect(jugadoresQueSiguienteRellena({ ...base, formato: 'skins', fuera: { b: { 8: true } } })).toEqual([])
   })
 })

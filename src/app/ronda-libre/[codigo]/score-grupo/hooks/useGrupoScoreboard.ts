@@ -9,7 +9,6 @@ import type { MatchResult } from '@/golf/formats/match-play'
 import { hoyosAnotados, puedeFinalizar, totalesDeTarjeta, type TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
 import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida, type TotalesBolaCompartida } from '@/golf/formats'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { hoyosConX, type FueraPorJugador } from '@/golf/formats/skins/fuera-del-hoyo'
 import type { FormatoJuego, HoleData, Jugador, ModoJuego, RondaLibre } from '@/types/ronda'
@@ -152,11 +151,14 @@ export function useGrupoScoreboard(input: {
 
     const maxThru = Math.max(...tarjetas.map(t => t.anotados), 0)
     const canFinalize = puedeFinalizar(maxThru, isLastHole)
-    const esTimba = esFormatoPersonalizado(formatoJuego)
+    // Timba libre y Skins: al cerrar, un hoyo vacío es «no jugado», no un par inventado (en un juego con plata, un par
+    // inventado decide un hoyo). Solo el hoyo en pantalla se rellena si alguien ya lo anotó. Skins: spec «Pozo y
+    // liquidación», un hoyo sin anotar al cierre no se liquida solo.
+    const esTimba = esJuegoConPlata(formatoJuego)
     const tarjetasConRelleno = jugadores.map(j => ({
       jugador: j,
       scores: scores[j.id],
-      noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores, fuera: fuera?.[j.id] }),
+      noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores, fuera }),
     }))
     // Bola compartida: solo cuentan los equipos a los que el cierre les pone par (la hoja promete lo que se hará). Un
     // equipo sin par automático no se rellena en ningún hoyo; sin equipos cargados siguen faltando todos.
@@ -166,7 +168,7 @@ export function useGrupoScoreboard(input: {
     const hoyosSinAnotar = bolaCompartida
       ? hoyosPorMarcarAlFinalizar(equipos.map(e => ({ scores: e.scores })), ordenHoyos).length
       : hoyosPorMarcar
-    const entradaTimba = { jugadores, scores, retiros, ordenHoyos, hoyoEnPantalla: currentHole }
+    const entradaTimba = { jugadores, scores, retiros, ordenHoyos, hoyoEnPantalla: currentHole, fuera }
     const hoyosSinJugarTimba = esTimba ? hoyosQueQuedanSinJugarEnLaTimba(entradaTimba) : []
     const hoyosNadieJugoTimba = esTimba ? hoyosQueNadieJugoEnLaTimba(entradaTimba) : []
     // Timba: quienes reciben el par gris del hoyo en pantalla al cerrar (las mismas tarjetas que rellena el cierre).

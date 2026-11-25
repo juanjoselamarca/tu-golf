@@ -56,6 +56,7 @@ import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
 import { GuardarEnMiHistorial } from './components/GuardarEnMiHistorial'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import { TimbaEnVivo } from './components/timba/TimbaEnVivo'
+import { SkinsEnVivo } from './components/skins/SkinsEnVivo'
 import { useTimbaDeLaRonda } from './hooks/useTimbaDeLaRonda'
 import { useOfreceAnotarMiEquipo } from './hooks/useOfreceAnotarMiEquipo'
 
@@ -104,7 +105,7 @@ function RondaLibrePageContent() {
 
   /* ── Derivados (null-safe para que los hooks de abajo siempre se llamen) ── */
   const isFinished = finishedParam || esRondaCerrada(ronda?.estado)
-  // Timba libre: el juego se pide una vez (GET /juego) para la pestaña Juego, el resultado y los retiros.
+  // Timba libre y Skins: el juego se pide una vez (GET /juego) para la pestaña Juego, el resultado y los retiros.
   const timba = useTimbaDeLaRonda(codigo, ronda, currentUserId)
   const guardarHistorial = useGuardarEnMiHistorial({
     // Sin el neto (anónimo o falla al traerlo) no se ofrece guardar: la tarjeta iría sin handicaps.
@@ -148,6 +149,7 @@ function RondaLibrePageContent() {
     players: spectatorPlayers,
     totalHoles,
     isFinished: isFinished,
+    formato: ronda?.formato_juego ?? null,
   })
   // «Anotar mi equipo» (un celular por equipo): con sesión, sin anotar la ronda entera, en curso.
   const ofreceAnotarEquipo = useOfreceAnotarMiEquipo({
@@ -233,6 +235,21 @@ function RondaLibrePageContent() {
 
   // El mismo predicado que corta el polling y habilita guardar (`useTimbaDeLaRonda`, `useGuardarEnMiHistorial`).
   const timbaFinalizada = esRondaCerrada(ronda.estado)
+  // Timba o Skins: su resultado es propio (`esJuegoConPlata`); ningún ranking, ganador ni momento de golpes va.
+  const juegoPropio = timba.esTimba || timba.esSkins
+  const skinsEnVivo = timba.esSkins && (
+    <SkinsEnVivo
+      juego={timba.juegoSkins}
+      onReintentar={timba.recargar}
+      jugadores={ronda.ronda_libre_jugadores}
+      hoyoInicio={ronda.hoyo_inicio}
+      holes={ronda.holes}
+      finalizada={timbaFinalizada}
+      cancha={ronda.course_name}
+      url={shareUrl}
+      compartirPrincipal={shareVariant === 'commit'}
+    />
+  )
   const timbaEnVivo = timba.esTimba && (
     <TimbaEnVivo
       juego={timba.juego}
@@ -271,6 +288,7 @@ function RondaLibrePageContent() {
         )}
 
         {timba.esTimba && timbaFinalizada && timbaEnVivo}
+        {timba.esSkins && timbaFinalizada && skinsEnVivo}
 
         {isFinished && ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2 && mr && (
           <MatchPlayWinner ronda={ronda} mr={mr} onShare={handleShare} shareVariant={shareVariant} />
@@ -279,7 +297,8 @@ function RondaLibrePageContent() {
         {/* RoundHighlights — solo para el jugador autenticado */}
         {/* Total y tira con la tarjeta como va al historial (hoyos estimados WHS incluidos y
             rayados); mejor/peor y desglose, sólo con los hoyos realmente jugados. */}
-        {isFinished && myHighlights && (
+        {/* Skins: con X la tarjeta no tiene golpes en todos los hoyos (y no va al historial): un total diría otra cosa. */}
+        {isFinished && myHighlights && !timba.esSkins && (
           <RoundHighlights
             data={myHighlights.data}
             scores={guardarHistorial.vistaPrevia?.scores ?? myHighlights.scores}
@@ -342,6 +361,7 @@ function RondaLibrePageContent() {
               courseName={ronda.course_name}
               players={spectatorPlayers}
               totalHoles={totalHoles}
+              formato={ronda.formato_juego}
               onFollowChange={(f) => { if (f) setJustFollowed(true) }}
             />
           </div>
@@ -349,7 +369,7 @@ function RondaLibrePageContent() {
         {justFollowed && <NotifConfirmationToast type="spectator" />}
 
         {/* La Timba no muestra la tabla bruta: sus puntos, también los de /juego/publico, ya vienen en su modalidad. */}
-        {vistaVisor?.soloBruto && !timba.esTimba && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}`} error={errorNeto} />}
+        {vistaVisor?.soloBruto && !juegoPropio && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}`} error={errorNeto} />}
 
         {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && mr && (
           <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} hcpAMostrar={hcpAMostrar} />
@@ -357,7 +377,7 @@ function RondaLibrePageContent() {
 
         {/* Timba libre: el juego son puntos (GET /juego), no golpes; los rankings de golpes darían un ganador falso.
             Finalizada, el resultado va arriba (es lo que el grupo vino a ver). */}
-        {timba.esTimba ? (!timbaFinalizada && timbaEnVivo) : (<>
+        {juegoPropio ? (!timbaFinalizada && (timba.esTimba ? timbaEnVivo : skinsEnVivo)) : (<>
         {isTeamFormat && (
           <TeamLeaderboards
             ronda={ronda}
@@ -396,8 +416,8 @@ function RondaLibrePageContent() {
           <GwiPanel ronda={ronda} jugadores={gwi.jugadores} results={gwi.results} />
         )}
 
-        {/* Timba libre: los momentos son golpes y el juego son puntos (rediseño C+, 18-nov): no van. */}
-        {!timba.esTimba && timelineEvents.length > 0 && (
+        {/* Timba libre y Skins: los momentos son golpes y el juego son puntos o skins (rediseño C+, 18-nov): no van. */}
+        {!juegoPropio && timelineEvents.length > 0 && (
           <RecentTimeline
             ronda={ronda}
             timelineEvents={timelineEvents}

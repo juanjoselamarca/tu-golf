@@ -147,6 +147,26 @@ export function hojaFinalizarTimba(input: {
 }
 
 /**
+ * Skins: la hoja de Finalizar. Como en la Timba, cerrar no inventa pares (un par decidiría un hoyo con plata): los
+ * hoyos sin anotar quedan sin resolver y el skins no se liquida solo (spec «Pozo y liquidación»). Lo dice antes de
+ * cerrar, con los hoyos, para que el grupo los anote o marque X si quiere cerrarlo completo.
+ */
+export function hojaFinalizarSkins(input: {
+  hoyosSinAnotar: readonly number[]
+  parEnPantalla: { hoyo: number; nombres: readonly string[] } | null
+}): { titulo: string; detalle: string | undefined } {
+  const { hoyosSinAnotar, parEnPantalla } = input
+  const lineas: string[] = []
+  if (hoyosSinAnotar.length === 1) lineas.push(`El hoyo ${hoyosSinAnotar[0]} no está anotado: queda sin resolver y el skins no se liquida.`)
+  if (hoyosSinAnotar.length > 1) lineas.push(`Los hoyos ${rangoDeHoyos(hoyosSinAnotar)} no están anotados: quedan sin resolver y el skins no se liquida.`)
+  if (parEnPantalla && parEnPantalla.nombres.length > 0) {
+    const verbo = parEnPantalla.nombres.length > 1 ? 'quedan' : 'queda'
+    lineas.push(`En el hoyo ${parEnPantalla.hoyo}, ${enumerar(parEnPantalla.nombres)} ${verbo} con par.`)
+  }
+  return { titulo: '¿Finalizar el skins?', detalle: lineas.length > 0 ? lineas.join(' ') : undefined }
+}
+
+/**
  * Aviso al pie de la tarjeta completa. Un celular por equipo, celular que no cierra: su equipo ya terminó y quien
  * cierra es el creador (ensayo 25-nov: tras el último hoyo, quien anota su equipo tiene que saber que ya no le toca nada).
  */

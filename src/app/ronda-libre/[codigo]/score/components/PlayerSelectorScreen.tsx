@@ -3,7 +3,7 @@
 import { generarOrdenHoyos } from '@/lib/ronda/helpers'
 import { HcpCelda } from '../../components/HcpCelda'
 import { hoyoParaRetomar } from '@/golf/core/hoyos-jugados'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import type { FormatoJuego, Jugador } from '@/types/ronda'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
@@ -20,7 +20,7 @@ interface PlayerSelectorScreenProps {
 }
 
 export function PlayerSelectorScreen({ jugadores, hcpAMostrar, formatoJuego, scores, hoyoInicio, holes, onSelect }: PlayerSelectorScreenProps) {
-  const sinHcp = esFormatoPersonalizado(formatoJuego)
+  const sinHcp = esJuegoConPlata(formatoJuego)
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>

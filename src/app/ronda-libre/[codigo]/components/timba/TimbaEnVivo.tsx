@@ -14,11 +14,19 @@ import { ResultadoFinalDeLaTimba } from './ResultadoFinalDeLaTimba'
 
 interface Jugador { id: string; nombre: string; scores: Readonly<Record<string, number | null | undefined>> | null }
 
-/** Tarjeta de golpes (gross) hoyo a hoyo de una Timba: los golpes de cada uno, sin puntos. */
-export function TarjetaDeGolpes({ jugadores, hoyos }: { jugadores: readonly Jugador[]; hoyos: readonly number[] }) {
+/**
+ * Tarjeta de golpes (gross) hoyo a hoyo de una Timba o un Skins: los golpes de cada uno, sin puntos. En un skins, `fuera`
+ * trae los hoyos con X de cada jugador (levantó la bola): se ven como «X», no como hoyo sin anotar.
+ */
+export function TarjetaDeGolpes({ jugadores, hoyos, fuera }: {
+  jugadores: readonly Jugador[]
+  hoyos: readonly number[]
+  fuera?: Readonly<Record<string, readonly number[]>>
+}) {
   const cortos = nombresCortos(jugadores.map(j => j.nombre))
+  const conX = (j: Jugador, h: number) => fuera?.[j.id]?.includes(h) ?? false
   const golpes = (j: Jugador, h: number) => j.scores?.[String(h)] ?? null
-  const ultimo = hoyos.reduce((u, h, i) => (jugadores.some(j => golpes(j, h) != null) ? i : u), -1)
+  const ultimo = hoyos.reduce((u, h, i) => (jugadores.some(j => golpes(j, h) != null || conX(j, h)) ? i : u), -1)
   const filas = hoyos.slice(0, ultimo + 1)
   const columnas = `minmax(44px, 0.8fr) repeat(${jugadores.length}, minmax(0, 1fr))`
   if (filas.length === 0) {
@@ -35,6 +43,9 @@ export function TarjetaDeGolpes({ jugadores, hoyos }: { jugadores: readonly Juga
           <span role="rowheader">{h}</span>
           {jugadores.map(j => {
             const g = golpes(j, h)
+            if (g == null && conX(j, h)) {
+              return <span key={j.id} role="cell" aria-label="fuera del hoyo" style={{ textAlign: 'right', color: 'var(--text-2)', fontWeight: 600 }}>X</span>
+            }
             return <span key={j.id} role="cell" aria-label={g == null ? 'sin golpes' : String(g)} style={{ textAlign: 'right', color: g == null ? 'var(--text-3)' : 'var(--text)' }}>{g ?? '·'}</span>
           })}
         </div>
@@ -43,7 +54,7 @@ export function TarjetaDeGolpes({ jugadores, hoyos }: { jugadores: readonly Juga
   )
 }
 
-const VOLVER = {
+export const VOLVER = {
   alignSelf: 'flex-start', minHeight: '44px', padding: '0 4px', border: 0, background: 'transparent', cursor: 'pointer',
   color: 'var(--brand-on-bg)', fontFamily: 'inherit', fontSize: '16px', fontWeight: 600,
 } as const

@@ -183,10 +183,36 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     expect(result.current.scores.p1[18]).toBeUndefined() // X: sin golpes, nunca par
     expect(result.current.scores.p2[11]).toBeUndefined()
-    expect(result.current.scores.p2[12]).toBe(4) // sin X ni score: par, como en stroke play
+    // Sin X ni score: queda sin anotar (un par inventado decidiría un hoyo con plata; spec «Pozo y liquidación»).
+    expect(result.current.scores.p2[12]).toBeUndefined()
     expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).toHaveBeenCalledWith(cliente, 'ABC', { jugadorId: 'p1' })
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+  })
+
+  it('skins: solo el hoyo en pantalla que alguien anotó lleva par; los demás vacíos quedan sin resolver', async () => {
+    const scores = { p1: { 16: 4, 17: 5, 18: 4 }, p2: { 16: 5 } }
+    const { result } = montar({
+      ronda: { ...rondaBase, formato_juego: 'skins' }, scores,
+      timba: { retiros: {}, enviarMarcas: vi.fn(async () => true), hoyoEnPantalla: 18 },
+    })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.scores.p2).toEqual({ 16: 5, 18: 5 }) // par del 18 en la cancha de prueba: 5
+    expect(finalizarRondaLibre).toHaveBeenCalled()
+  })
+
+  it('skins: con solo una X en el hoyo en pantalla, el hoyo se jugó y quien falta lleva par (lo mismo que avisa la hoja)', async () => {
+    // Vuelta 2 Fable (P1): el cierre veía solo la X propia; la de Ana no contaba y el 18 quedaba vacío para Beto.
+    const scores = { p1: { 16: 4, 17: 5 }, p2: { 16: 5, 17: 5 } }
+    const { result } = montar({
+      ronda: { ...rondaBase, formato_juego: 'skins' }, scores, fuera: { p1: { 18: true } },
+      timba: { retiros: {}, enviarMarcas: vi.fn(async () => true), hoyoEnPantalla: 18 },
+    })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.scores.p1[18]).toBeUndefined() // la X de Ana sigue sin golpes
+    expect(result.current.scores.p2[18]).toBe(5) // par del 18
   })
 
   it('skins: con puntos especiales sin enviar NO cierra y lo avisa; enviados, cierra', async () => {

@@ -10,7 +10,7 @@ import { strokesRecibidosEnHoyo } from '../../core/stableford-score'
 import { esHandicapUsable, golpesALaDiferenciaDelMasBajo } from '../match-play'
 import { TRAMOS_ROTATIVOS, hoyosPorTramo } from './tramos'
 import { estaRetiradoEn } from './retiro'
-import { esUnoPorHoyo, porQueNoCuenta } from './puntos-especiales'
+import { esUnoPorHoyo, marcaUnoPorHoyoQueVale, porQueNoCuenta } from './puntos-especiales'
 import {
   COMBINACIONES_DE_4,
   type ConfigJuego,
@@ -342,9 +342,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
     // si viene más de uno, vale el último.
     const vistos = new Set<string>()
     // Solo entre quienes jugaron el hoyo: marcar a un retirado no le quita el greenie al que sí lo ganó.
-    const ultimoGreenie = [...marcasDelHoyo]
-      .reverse()
-      .find(m => { const t = puntitoPorId.get(m.puntitoId)?.tipo; return !!t && esUnoPorHoyo(t) && typeof gross[m.jugadorId] === 'number' })
+    const ultimoGreenie = marcaUnoPorHoyoQueVale(marcasDelHoyo, id => puntitoPorId.get(id)?.tipo, id => typeof gross[id] === 'number')
     for (const marca of marcasDelHoyo) {
       const p = puntitoPorId.get(marca.puntitoId)!
       if (p.tipo === 'birdie') continue

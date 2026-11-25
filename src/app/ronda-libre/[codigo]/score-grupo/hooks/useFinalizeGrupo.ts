@@ -38,6 +38,7 @@ import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-
 import { completarHoyosSinMarcarConPar, completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import { hoyosQueNoSeRellenan } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import { tarjetaVaAlHistorial } from '@/golf/formats/skins/clave'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import type { FueraPorJugador } from '@/golf/formats/skins/fuera-del-hoyo'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
@@ -342,10 +343,12 @@ export function useFinalizeGrupo(input: {
       for (const j of ronda.ronda_libre_jugadores) {
         // Match play: los hoyos que el rival concedió y los posteriores a decidirse el
         // match no se jugaron: no se inventan con par (el historial los estima con par neto).
-        // Timba: solo el hoyo en pantalla si alguien ya lo anotó (el resto sin score es "no jugó") y nunca desde el retiro.
+        // Timba y Skins (`esJuegoConPlata`): solo el hoyo en pantalla si alguien ya lo anotó (el resto sin score es "no
+        // jugó": un par inventado decidiría un hoyo con plata) y nunca desde el retiro. Lo decide el formato, no el
+        // llamador: sin `timba.hoyoEnPantalla` no se rellena ninguno.
         const noRellenar = hoyosQueNoSeRellenan({
           matchResult, jugadores: ronda.ronda_libre_jugadores, jugadorId: j.id, retiros: timba?.retiros, ordenHoyos: hoyos,
-          esTimba: timba != null, hoyoEnPantalla: timba?.hoyoEnPantalla, scores, fuera: fuera?.[j.id],
+          esTimba: timba != null || esJuegoConPlata(ronda.formato_juego), hoyoEnPantalla: timba?.hoyoEnPantalla, scores, fuera,
         })
         const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap, noRellenar)
         if (rellenados.length > 0) filledScores[j.id] = completos

@@ -38,6 +38,9 @@ const SIN_MARCA: Record<string, { motivo: string; n: number }> = {
   'app/api/en-vivo/route.ts': { motivo: 'gross, no publica handicap', n: 1 },
   // "Jugar como la última vez": rondas del propio creador (con sesión), copia nombre/hándicap a su asistente.
   'lib/data/ronda-libre-nueva.ts': { motivo: 'solo el creador con sesión', n: 1 },
+  // Tabla del Skins (GET /juego y /juego/publico): el índice solo calcula el course handicap en el servidor; la
+  // respuesta no lo trae (api/ronda-libre/[codigo]/juego/route.test.ts lo prueba en la ruta privada y la pública).
+  'lib/data/ronda-libre-skins.ts': { motivo: 'se usa en el servidor, no se publica', n: 1 },
 }
 
 /** Selects que el canario no puede leer, con cuántos hay en el archivo. */

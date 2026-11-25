@@ -14,6 +14,13 @@ let conSesion = true
 let formato = 'personalizado'
 let reglasJuego: unknown = armarReglasGuardadas({ ...crearConfigDePlantilla('dos_cero_dos'), modo: 'neto' }, IDS)
 let marcasGuardadas: unknown[] = []
+let cursoId: string | null = null
+let jugadoresGuardados: unknown[] = []
+const contextoSkins = vi.fn()
+vi.mock('@/lib/data/skins-ronda-nueva', async orig => ({
+  ...(await orig<typeof import('@/lib/data/skins-ronda-nueva')>()),
+  contextoSkinsDeRondaNueva: (...a: unknown[]) => contextoSkins(...a),
+}))
 const leerIndices = vi.fn()
 
 vi.mock('@/utils/supabase/server', () => ({
@@ -32,9 +39,13 @@ const tablasLeidas: string[] = []
 function tabla(nombre: string) {
   tablasLeidas.push(nombre)
   const datos: Record<string, unknown> = {
-    rondas_libres: { id: 'ronda-1', formato_juego: formato, estado: 'en_curso', reglas_juego: reglasJuego },
+    rondas_libres: {
+      id: 'ronda-1', formato_juego: formato, estado: 'en_curso', reglas_juego: reglasJuego,
+      course_id: cursoId, holes: 18, hoyo_inicio: 1, recorridos: null, tees: 'blancas',
+    },
     ronda_libre_puntitos: marcasGuardadas,
     ronda_libre_retiros: [],
+    ronda_libre_jugadores: jugadoresGuardados,
   }
   const resultado = () => ({ data: datos[nombre], error: null })
   const b: Record<string, unknown> = {}
@@ -58,6 +69,9 @@ beforeEach(() => {
   conSesion = true
   formato = 'personalizado'
   marcasGuardadas = []
+  cursoId = null
+  jugadoresGuardados = []
+  contextoSkins.mockReset()
   tablasLeidas.length = 0
   reglasJuego = armarReglasGuardadas({ ...crearConfigDePlantilla('dos_cero_dos'), modo: 'neto' }, IDS)
   cargarRondaLibreEnVivo.mockReset()
@@ -111,7 +125,7 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
   describe('skins: lo que el scorer necesita para marcar puntos especiales', () => {
     const reglasSkins = (puntitos: unknown[]) => ({ config: { ...CONFIG_SKINS_POR_DEFECTO, puntitos }, jugadorIds: IDS })
 
-    it('trae los puntos (1 skin cada uno), las marcas en orden y nada de hándicaps ni plata', async () => {
+    it('trae los puntos (1 skin cada uno), las marcas en orden y nada de hándicaps; sin cancha, sin tabla', async () => {
       formato = 'skins'
       reglasJuego = reglasSkins([{ id: 'sandy', tipo: 'sandy' }, { id: 'p1', tipo: 'propio', nombre: 'Árbol' }])
       marcasGuardadas = [
@@ -131,8 +145,50 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
         marcas: [{ jugadorId: JUAN, hoyo: 2, puntitoId: 'p1' }, { jugadorId: PEDRO, hoyo: 3, puntitoId: 'sandy' }],
         retiros: {},
         rondaCerrada: false,
+        tabla: null,
       })
       expect(leerIndices).not.toHaveBeenCalled()
+      expect(contextoSkins).not.toHaveBeenCalled()
+    })
+
+    it('con la cancha leída trae la tabla en vivo, sin hándicaps; la X sale de fuera_del_hoyo', async () => {
+      formato = 'skins'
+      cursoId = 'cancha-1'
+      reglasJuego = { config: { ...CONFIG_SKINS_POR_DEFECTO, modo: 'gross', pozoPorJugador: 1000 }, jugadorIds: IDS }
+      jugadoresGuardados = IDS.map(id => ({
+        id, nombre: id, handicap: 12.3, tees: null,
+        scores: id === JUAN ? { 1: 3 } : id === TOMAS ? {} : { 1: 4 },
+        fuera_del_hoyo: id === TOMAS ? { 1: true } : null,
+      }))
+      contextoSkins.mockResolvedValue({
+        jugadores: IDS.map(id => ({ nombre: id, courseHandicap: 14 })),
+        hoyos: Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, si: i + 1 })),
+      })
+      const cuerpo = await (await llamar()).json()
+      expect(contextoSkins.mock.calls[0][1]).toMatchObject({ courseId: 'cancha-1', modo: 'gross', holes: 18 })
+      expect(cuerpo.tabla.hoyos[0]).toMatchObject({ numero: 1, estado: 'ganado', ganador: JUAN, mejor: 3 })
+      expect(cuerpo.tabla.hoyos[1]).toMatchObject({ numero: 2, estado: 'por_jugar' })
+      expect(cuerpo.tabla).toMatchObject({ plata: 'estimada', pozoTotal: 4000, enJuego: { hoyo: 2, valor: 1 } })
+      expect(cuerpo.tabla.filas[0]).toMatchObject({ jugadorId: JUAN, skins: 1, cobra: 4000 })
+      expect(JSON.stringify(cuerpo)).not.toMatch(/12\.3|courseHandicap|handicap/i)
+      // El espectador sin sesión ve lo mismo, cacheado en el CDN.
+      const publico = await GET_PUBLICO(new Request('http://test/api/ronda-libre/ABC123/juego/publico'), { params: Promise.resolve({ codigo: 'ABC123' }) })
+      expect(publico.status).toBe(200)
+      expect(await publico.json()).toEqual(cuerpo)
+    })
+
+    it('si no se puede leer la cancha es un error (503 no-store), nunca una vista sin tabla cacheada en el CDN', async () => {
+      formato = 'skins'
+      cursoId = 'cancha-1'
+      reglasJuego = reglasSkins([])
+      jugadoresGuardados = IDS.map(id => ({ id, nombre: id, handicap: 10, tees: null, scores: {}, fuera_del_hoyo: null }))
+      contextoSkins.mockRejectedValue(new Error('sin señal'))
+      const privado = await llamar()
+      expect(privado.status).toBe(503)
+      const publico = await GET_PUBLICO(new Request('http://test/api/ronda-libre/ABC123/juego/publico'), { params: Promise.resolve({ codigo: 'ABC123' }) })
+      expect(publico.status).toBe(503)
+      expect(publico.headers.get('cache-control')).toMatch(/no-store/)
+      expect(publico.headers.get('vercel-cdn-cache-control')).toBeNull()
     })
 
     it('reglas del skins ilegibles: sin_juego, sin leer marcas', async () => {
@@ -143,11 +199,12 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
       expect(tablasLeidas).toEqual(['rondas_libres'])
     })
 
-    it('la ruta pública sigue siendo solo de la Timba: un skins es 404', async () => {
+    it('la ruta pública también responde el skins (el link del espectador)', async () => {
       formato = 'skins'
       reglasJuego = reglasSkins([])
       const res = await GET_PUBLICO(new Request('http://test/api/ronda-libre/ABC123/juego/publico'), { params: Promise.resolve({ codigo: 'ABC123' }) })
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ estado: 'ok', formato: 'skins' })
     })
   })
 

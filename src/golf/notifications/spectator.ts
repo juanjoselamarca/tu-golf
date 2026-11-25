@@ -15,6 +15,7 @@
 
 import { formatVsPar } from '@/golf/share/vs-par'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
+import { nombreDelJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 
 // ── Tags (deben coincidir con public/sw.js) ──
 export const TAG_PLAYER = 'golfers-player-round'
@@ -50,6 +51,11 @@ export interface SpectatorNotificationInput {
   /** Hoyos de la ronda (9/18). Si falta, se toma el máximo declarado por los jugadores. */
   totalHoles?: number
   finished?: boolean
+  /**
+   * Formato de la ronda. Timba libre y Skins (`esJuegoConPlata`) tienen su propio resultado (puntos o skins): el
+   * aviso no los ordena por golpes, que darían un ganador falso. Sin formato, stroke play.
+   */
+  formato?: string | null
 }
 
 export interface SpectatorNotification {
@@ -107,7 +113,11 @@ function lastName(nombre: string): string {
  * historial + patrones de cada jugador) y la notificación tiene que decir lo
  * mismo por los dos caminos. El GWI vive en el marcador.
  */
-export function buildCollapsedBody(players: SpectatorPlayer[]): string {
+export function buildCollapsedBody(players: SpectatorPlayer[], opciones?: { formato?: string | null; finished?: boolean }): string {
+  if (!hasAnyScore(players) && !opciones?.finished) return SPECTATOR_COPY.noScoresYet
+  // Juego con plata: el ranking es de puntos o skins (la tabla del juego), no de golpes. Sin ranking en el aviso.
+  const juego = nombreDelJuegoConPlata(opciones?.formato)
+  if (juego) return opciones?.finished ? `${juego}: toca para ver el resultado.` : `${juego}: toca para ver la tabla.`
   if (!hasAnyScore(players)) return SPECTATOR_COPY.noScoresYet
   return sortSpectatorPlayers(players)
     .slice(0, MAX_PLAYERS_IN_BODY)
@@ -145,7 +155,7 @@ export function buildSpectatorNotification(input: SpectatorNotificationInput): S
     title: finished
       ? `${SPECTATOR_COPY.finalResult} · ${input.courseName}`
       : buildSpectatorTitle(input.courseName, input.players, totalHoles),
-    body: buildCollapsedBody(input.players),
+    body: buildCollapsedBody(input.players, { formato: input.formato, finished }),
     tag: spectatorTag(input.codigo),
     url: `/ronda-libre/${input.codigo}${finished ? '?finished=true' : ''}`,
     finished,

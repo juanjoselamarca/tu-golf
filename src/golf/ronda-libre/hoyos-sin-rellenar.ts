@@ -3,6 +3,7 @@ import { estaRetiradoEn, hoyosNoJugadosPorRetiro } from '@/golf/formats/personal
 import { hoyosSinTerminarDeJugador } from './match-de-la-ronda'
 import { scoreDelHoyo, type ScoresDeTarjeta } from './tarjeta-historica'
 import { estaFueraDelHoyo, hoyosConX, type HoyosFuera } from '@/golf/formats/skins/fuera-del-hoyo'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 
 /**
  * Hoyos de un jugador que NO se rellenan con par al cerrar ni al pasar de hoyo. Fuente única para el scorer de
@@ -29,15 +30,19 @@ export function hoyosQueNoSeRellenan(input: {
   hoyoEnPantalla?: number
   /** Scores de todos los jugadores. En una Timba deciden si el hoyo en pantalla se jugó; sin ellos, no se rellena. */
   scores?: Readonly<Record<string, ScoresDeTarjeta | undefined>>
-  /** Skins: hoyos con X de ESTE jugador. */
-  fuera?: HoyosFuera
+  /**
+   * Skins: hoyos con X de TODO el grupo (jugadorId → hoyos). Del grupo y no solo de este jugador: una X de otro
+   * también hace que el hoyo en pantalla se haya jugado. Es la misma entrada que `hoyosQueQuedanSinJugarEnLaTimba`
+   * (lo que avisa la hoja): si el cierre viera solo la X propia, la hoja callaría y el cierre dejaría el hoyo vacío.
+   */
+  fuera?: FueraDelGrupo
 }): number[] {
   const { matchResult, jugadores, jugadorId, retiros, ordenHoyos, esTimba, hoyoEnPantalla, scores, fuera } = input
   // Hoyos de ESTE jugador que no esperan golpes: desde su retiro (Timba) y los que marcó con X (skins).
-  const propios = [...hoyosNoJugadosPorRetiro(retiros?.[jugadorId], ordenHoyos), ...hoyosConX(fuera, ordenHoyos)]
+  const propios = [...hoyosNoJugadosPorRetiro(retiros?.[jugadorId], ordenHoyos), ...hoyosConX(fuera?.[jugadorId], ordenHoyos)]
   if (esTimba) {
     const seRellena = hoyoEnPantalla == null ? undefined
-      : hoyoEnPantallaQueSeRellenaEnLaTimba({ jugadores, scores: scores ?? {}, retiros, ordenHoyos, hoyoEnPantalla })
+      : hoyoEnPantallaQueSeRellenaEnLaTimba({ jugadores, scores: scores ?? {}, retiros, ordenHoyos, hoyoEnPantalla, fuera })
     return ordenHoyos.filter(h => h !== seRellena || propios.includes(h))
   }
   const match = hoyosSinTerminarDeJugador(matchResult, jugadores, jugadorId)
@@ -63,12 +68,43 @@ export function tarjetaAlDiaEnHoyo(
   return scoreDelHoyo(scores ?? {}, hoyo) !== undefined || estaFueraDelHoyo(fuera, hoyo) || estaRetiradoEn(retiros?.[jugadorId], hoyo, ordenHoyos)
 }
 
+/** Skins: hoyos con X de cada jugador del grupo. */
+type FueraDelGrupo = Readonly<Record<string, HoyosFuera | undefined>>
+
+/**
+ * «Siguiente»: jugadores a los que se rellena con par el hoyo que se deja. No se rellena quien ya lo anotó (golpes o
+ * X) ni, en un juego con plata (Timba o Skins, `esJuegoConPlata`), quien se retiró en ese hoyo o antes: con par el
+ * motor le contaría un hoyo jugado. Los retiros los decide el formato, no el llamador (vuelta 2 Fable: la página
+ * los pasaba solo en la Timba y «Siguiente» le ponía par al retirado de un Skins).
+ */
+export function jugadoresQueSiguienteRellena(input: {
+  formato: string | null | undefined
+  jugadores: ReadonlyArray<{ id: string }>
+  scores: Readonly<Record<string, ScoresDeTarjeta | undefined>>
+  hoyo: number
+  retiros?: Readonly<Record<string, number>> | null
+  ordenHoyos: readonly number[]
+  fuera?: FueraDelGrupo
+}): string[] {
+  const retiros = esJuegoConPlata(input.formato) ? input.retiros : undefined
+  return input.jugadores
+    .filter(j => !tarjetaAlDiaEnHoyo(input.scores[j.id], j.id, input.hoyo, retiros, input.ordenHoyos, input.fuera?.[j.id]))
+    .map(j => j.id)
+}
+
 interface HoyoEnPantallaDeLaTimba {
   jugadores: ReadonlyArray<{ id: string }>
   scores: Readonly<Record<string, ScoresDeTarjeta | undefined>>
   retiros?: Readonly<Record<string, number>>
   ordenHoyos: readonly number[]
   hoyoEnPantalla: number
+  /** Skins: hoyos con X de cada jugador. La X es un hoyo anotado (sin golpes), no uno sin jugar. */
+  fuera?: FueraDelGrupo
+}
+
+/** ¿`jugadorId` anotó el hoyo (golpes o X)? */
+function anotoElHoyo(input: HoyoEnPantallaDeLaTimba, jugadorId: string, hoyo: number): boolean {
+  return scoreDelHoyo(input.scores[jugadorId] ?? {}, hoyo) !== undefined || estaFueraDelHoyo(input.fuera?.[jugadorId], hoyo)
 }
 
 /**
@@ -77,10 +113,10 @@ interface HoyoEnPantallaDeLaTimba {
  * dejó el scorer en el 10): entonces cuenta como no jugado, igual que los demás.
  */
 export function hoyoEnPantallaQueSeRellenaEnLaTimba(input: HoyoEnPantallaDeLaTimba): number | undefined {
-  const { jugadores, scores, retiros, ordenHoyos, hoyoEnPantalla } = input
+  const { jugadores, retiros, ordenHoyos, hoyoEnPantalla } = input
   if (!ordenHoyos.includes(hoyoEnPantalla)) return undefined
   const alguienLoAnoto = jugadores.some(j =>
-    !estaRetiradoEn(retiros?.[j.id], hoyoEnPantalla, ordenHoyos) && scoreDelHoyo(scores[j.id] ?? {}, hoyoEnPantalla) !== undefined,
+    !estaRetiradoEn(retiros?.[j.id], hoyoEnPantalla, ordenHoyos) && anotoElHoyo(input, j.id, hoyoEnPantalla),
   )
   return alguienLoAnoto ? hoyoEnPantalla : undefined
 }
@@ -94,7 +130,7 @@ export function hoyosQueQuedanSinJugarEnLaTimba(input: HoyoEnPantallaDeLaTimba):
   const { jugadores, scores, retiros, ordenHoyos } = input
   const seRellena = hoyoEnPantallaQueSeRellenaEnLaTimba(input)
   return ordenHoyos.filter(h => h !== seRellena && jugadores.some(j =>
-    !tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos),
+    !tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos, input.fuera?.[j.id]),
   ))
 }
 
@@ -104,8 +140,8 @@ export function hoyosQueQuedanSinJugarEnLaTimba(input: HoyoEnPantallaDeLaTimba):
  * de Finalizar los avisa distinto (decisión de Juanjo, 17-nov).
  */
 export function hoyosQueNadieJugoEnLaTimba(input: HoyoEnPantallaDeLaTimba): number[] {
-  const { jugadores, scores, retiros, ordenHoyos } = input
+  const { jugadores, retiros, ordenHoyos } = input
   return hoyosQueQuedanSinJugarEnLaTimba(input).filter(h => !jugadores.some(j =>
-    !estaRetiradoEn(retiros?.[j.id], h, ordenHoyos) && scoreDelHoyo(scores[j.id] ?? {}, h) !== undefined,
+    !estaRetiradoEn(retiros?.[j.id], h, ordenHoyos) && anotoElHoyo(input, j.id, h),
   ))
 }
