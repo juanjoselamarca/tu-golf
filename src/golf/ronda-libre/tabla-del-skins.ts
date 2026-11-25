@@ -39,6 +39,8 @@ export interface FilaDeLaTablaSkins {
   hoyosGanados: number[]
   /** Hoyos repartidos con otros (último hoyo empatado): explican las fracciones («1,5 skins»). */
   hoyosRepartidos: number[]
+  /** Skins que le tocaron por el reparto (valor del hoyo ÷ entre cuántos): «reparto del 18: 7,5 skins». */
+  skinsDelReparto: number
   /** Skins por puntos especiales (1 cada uno). */
   especiales: number
   /** Pesos que cobra: estimado mientras `plata` sea `estimada`. */
@@ -110,6 +112,10 @@ export function armarTablaDelSkins(resultado: ResultadoSkins, input: {
       skins: j.skins,
       hoyosGanados: hoyos.filter(h => h.estado === 'ganado' && h.ganador === j.id).map(h => h.numero),
       hoyosRepartidos: hoyos.filter(h => h.estado === 'repartido' && h.repartidoEntre.includes(j.id)).map(h => h.numero),
+      // Mismo crédito que el motor (`repartoUltimo`: el valor del hoyo dividido en partes iguales entre los empatados).
+      skinsDelReparto: hoyos
+        .filter(h => h.estado === 'repartido' && h.repartidoEntre.includes(j.id))
+        .reduce((s, h) => s + h.valor / h.repartidoEntre.length, 0),
       especiales: j.especiales,
       cobra: j.cobra,
       neto: j.neto,
@@ -153,16 +159,18 @@ export function textoDeSkins(n: number): string {
 /**
  * De dónde salen los skins de una fila, bajo el nombre: «Hoyos 1 y 4 · 1 punto especial». Con el número del hoyo
  * solo («Ganó 4») se leía como cuatro skins al lado de «3 skins». El reparto del último hoyo explica la fracción
- * («1,5 skins» → «Hoyo 4 · reparto del 18»). `null` si no hay nada que contar.
+ * («8,5 skins» → «Hoyo 4 · reparto del 18: 7,5 skins»). `null` si no hay nada que contar.
  */
 export function detalleDeLaFila(
-  f: Pick<FilaDeLaTablaSkins, 'hoyosGanados' | 'hoyosRepartidos' | 'especiales' | 'retiradoDesde'>,
+  f: Pick<FilaDeLaTablaSkins, 'hoyosGanados' | 'hoyosRepartidos' | 'skinsDelReparto' | 'especiales' | 'retiradoDesde'>,
 ): string | null {
   const partes: string[] = []
   const h = f.hoyosGanados
   if (h.length === 1) partes.push(`Hoyo ${h[0]}`)
   else if (h.length > 1) partes.push(`Hoyos ${listaDeHoyos(h)}`)
-  if (f.hoyosRepartidos.length > 0) partes.push(`reparto del ${listaDeHoyos(f.hoyosRepartidos)}`)
+  if (f.hoyosRepartidos.length > 0) {
+    partes.push(`reparto del ${listaDeHoyos(f.hoyosRepartidos)}: ${textoDeSkins(f.skinsDelReparto)}`)
+  }
   if (f.especiales > 0) partes.push(f.especiales === 1 ? '1 punto especial' : `${f.especiales} puntos especiales`)
   if (f.retiradoDesde != null) partes.push(`se retiró en el ${f.retiradoDesde}`)
   if (partes.length === 0) return null

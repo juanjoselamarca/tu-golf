@@ -164,9 +164,18 @@ describe('liquidación del skins', () => {
 
   it('la fila del reparto explica la fracción', () => {
     const t = tabla({ scores: { a: { 1: 3, 2: 3, 3: 4 }, b: { 1: 4, 2: 3, 3: 4 }, c: { 1: 4, 2: 3, 3: 5 } } })
-    expect(t.filas[0]).toMatchObject({ jugadorId: 'a', hoyosGanados: [1], hoyosRepartidos: [3] })
-    expect(detalleDeLaFila(t.filas[0])).toBe('Hoyo 1 · reparto del 3')
-    expect(detalleDeLaFila(t.filas.find(f => f.jugadorId === 'b')!)).toBe('Reparto del 3')
+    // El 2 se empata y arrastra: el 3 vale 2 y se reparte entre a y b (1 cada uno).
+    expect(t.filas[0]).toMatchObject({ jugadorId: 'a', hoyosGanados: [1], hoyosRepartidos: [3], skinsDelReparto: 1 })
+    expect(detalleDeLaFila(t.filas[0])).toBe('Hoyo 1 · reparto del 3: 1 skin')
+    expect(detalleDeLaFila(t.filas.find(f => f.jugadorId === 'b')!)).toBe('Reparto del 3: 1 skin')
+  })
+
+  it('el reparto dice cuánto le tocó, con fracción (lo que explica «8,5 skins»)', () => {
+    const t = tabla({ scores: { a: { 1: 4, 2: 4, 3: 4 }, b: { 1: 4, 2: 4, 3: 4 }, c: { 1: 5, 2: 5, 3: 5 } } })
+    const a = t.filas.find(f => f.jugadorId === 'a')!
+    expect(a.skins).toBe(1.5)
+    expect(a.skinsDelReparto).toBe(1.5)
+    expect(detalleDeLaFila(a)).toBe('Reparto del 3: 1,5 skins')
   })
 
   it('el texto para compartir lleva la liquidación', () => {
@@ -215,7 +224,7 @@ describe('valorDelHoyoSkins sale del mismo resultado', () => {
 })
 
 describe('detalleDeLaFila', () => {
-  const f = (hoyosGanados: number[], especiales = 0, retiradoDesde: number | null = null) => ({ hoyosGanados, hoyosRepartidos: [], especiales, retiradoDesde })
+  const f = (hoyosGanados: number[], especiales = 0, retiradoDesde: number | null = null) => ({ hoyosGanados, hoyosRepartidos: [], skinsDelReparto: 0, especiales, retiradoDesde })
   it('dice hoyo con la palabra (un «Ganó 4» al lado de «3 skins» se leía como cuatro skins)', () => {
     expect(detalleDeLaFila(f([4]))).toBe('Hoyo 4')
     expect(detalleDeLaFila(f([1, 4]))).toBe('Hoyos 1 y 4')
@@ -246,7 +255,7 @@ describe('resultado final: el reparto explicado (vuelta 2 Fable)', () => {
     const t = tabla({ scores: { a: { 1: 3, 2: 3, 3: 5 }, b: { 1: 4, 2: 2, 3: 5 }, c: { 1: 4, 2: 3, 3: 5 } } })
     const r = armarResultadoDelSkins(t, NOMBRES)
     expect(r.ranking.map(f => [f.nombre, f.detalle])).toEqual(t.filas.map(f => [expect.any(String), detalleDeLaFila(f)]))
-    expect(r.ranking.find(f => f.jugadorId === 'a')?.detalle).toBe('Hoyo 1 · reparto del 3')
+    expect(r.ranking.find(f => f.jugadorId === 'a')?.detalle).toBe('Hoyo 1 · reparto del 3: 0,33 skins')
   })
 })
 

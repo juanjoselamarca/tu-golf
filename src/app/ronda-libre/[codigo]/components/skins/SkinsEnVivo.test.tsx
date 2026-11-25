@@ -86,7 +86,7 @@ describe('SkinsEnVivo', () => {
   it('resultado final: cada fila explica sus skins', () => {
     vista(juego({ a: { 1: 3, 2: 3, 3: 5 }, b: { 1: 4, 2: 3, 3: 5 }, c: { 2: 4, 3: 5 } }, {}, true), true)
     const ranking = screen.getByRole('list', { name: 'Skins' })
-    expect(within(ranking).getByText(/^Hoyo 1( · reparto del 3)?$/)).toBeTruthy()
+    expect(within(ranking).getByText(/^Hoyo 1 · reparto del 3: [0-9,]+ skins?$/)).toBeTruthy()
   })
 
   it('sin señal: error con Reintentar', () => {
