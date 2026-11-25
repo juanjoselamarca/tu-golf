@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from 'react'
 import {
-  lecturaDeLaCelda, textoDeLaCelda, textoDeLaPlata, textoDeSkins, type HoyoDeLaTablaSkins, type TablaDelSkins,
+  detalleDeLaFila, lecturaDeLaCelda, textoDeLaCelda, textoDeLaPlata, textoDeSkins, type HoyoDeLaTablaSkins, type TablaDelSkins,
 } from '@/golf/ronda-libre/tabla-del-skins'
 import { formatPesos } from '@/lib/format'
 
@@ -57,9 +57,7 @@ export function TablaDelSkinsEnVivo({ tabla, nombres, cortos, desactualizado }: 
         <ol style={{ ...GRUPO, listStyle: 'none', margin: 0, padding: '0 16px', display: 'flex', flexDirection: 'column' }}>
           {tabla.filas.map((f, i) => {
             const plata = textoDeLaPlata(tabla, f.cobra)
-            const detalle = f.retiradoDesde != null
-              ? `Se retiró en el hoyo ${f.retiradoDesde}`
-              : f.hoyosGanados.length > 0 ? `Ganó ${f.hoyosGanados.join(', ')}` : null
+            const detalle = detalleDeLaFila(f)
             return (
               <li
                 key={f.jugadorId}

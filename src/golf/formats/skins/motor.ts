@@ -109,6 +109,8 @@ export interface ResultadoJugadorSkins {
   id: string
   /** Skins cobrados (hoyos + reparto + especiales). Puede tener fracción por el reparto del último hoyo. */
   skins: number
+  /** Cuántos de esos skins son puntos especiales (1 cada uno); los demás salen de los hoyos. */
+  especiales: number
   /** Pesos que cobra (estimado mientras `definitivo` sea false). */
   cobra: number
   /** `cobra − pozoPorJugador`; 0 mientras no haya liquidación (nadie cobró aún, o bloqueada). */
@@ -304,6 +306,7 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
   // Cada (jugador, hoyo, punto) vale una vez. No cobra quien no está en la ronda ni en un hoyo que no es de la
   // ronda o que no juega (retirado).
   const especialesVistos = new Set<string>()
+  const especialesDe: Record<string, number> = {}
   const numeros = new Set(hoyos.map(h => h.numero))
   const porId = new Map(jugadores.map(j => [j.id, j]))
   for (const e of entrada.especialesValidos ?? []) {
@@ -312,6 +315,7 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
     if (!j || !numeros.has(e.hoyo) || !juegaElHoyo(j, e.hoyo) || especialesVistos.has(clave)) continue
     especialesVistos.add(clave)
     unidadesHoyo[e.jugadorId] += divisor
+    especialesDe[e.jugadorId] = (especialesDe[e.jugadorId] ?? 0) + 1
   }
 
   const unidades = jugadores.map(j => unidadesHoyo[j.id])
@@ -334,6 +338,7 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
     jugadores: jugadores.map((j, i) => ({
       id: j.id,
       skins: unidades[i] / divisor,
+      especiales: especialesDe[j.id] ?? 0,
       cobra: cobros[i],
       neto: hayLiquidacion ? cobros[i] - aporte : 0,
     })),

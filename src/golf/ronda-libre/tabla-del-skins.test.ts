@@ -3,7 +3,7 @@ import { CONFIG_SKINS_POR_DEFECTO, type ConfigSkins } from '@/golf/formats/skins
 import type { MarcaPuntito } from '@/golf/formats/personalizado'
 import { especialesQueValenEnElSkins, resultadoDelSkins, valorDelHoyoSkins } from './skins-del-scorer'
 import {
-  armarResultadoDelSkins, armarTablaDelSkins, textoDeLaCelda, textoDeLaPlata, textoDeSkins, textoDelNeto,
+  armarResultadoDelSkins, armarTablaDelSkins, detalleDeLaFila, textoDeLaCelda, textoDeLaPlata, textoDeSkins, textoDelNeto,
   textoParaCompartirElSkins,
 } from './tabla-del-skins'
 
@@ -171,5 +171,21 @@ describe('valorDelHoyoSkins sale del mismo resultado', () => {
       scores: { a: { 1: 4 }, b: { 1: 4 }, c: { 1: 5 } }, fuera: {}, hoyo: 2,
     })
     expect(v).toEqual({ valor: 2, provisional: false })
+  })
+})
+
+describe('detalleDeLaFila', () => {
+  const f = (hoyosGanados: number[], especiales = 0, retiradoDesde: number | null = null) => ({ hoyosGanados, especiales, retiradoDesde })
+  it('dice hoyo con la palabra (un «Ganó 4» al lado de «3 skins» se leía como cuatro skins)', () => {
+    expect(detalleDeLaFila(f([4]))).toBe('Hoyo 4')
+    expect(detalleDeLaFila(f([1, 4]))).toBe('Hoyos 1 y 4')
+    expect(detalleDeLaFila(f([1, 4, 9]))).toBe('Hoyos 1, 4 y 9')
+  })
+  it('cuenta los puntos especiales y el retiro; sin nada, null', () => {
+    expect(detalleDeLaFila(f([], 1))).toBe('1 punto especial')
+    expect(detalleDeLaFila(f([2], 2))).toBe('Hoyo 2 · 2 puntos especiales')
+    expect(detalleDeLaFila(f([3], 0, 7))).toBe('Hoyo 3 · se retiró en el 7')
+    expect(detalleDeLaFila(f([], 0, 7))).toBe('Se retiró en el 7')
+    expect(detalleDeLaFila(f([]))).toBeNull()
   })
 })

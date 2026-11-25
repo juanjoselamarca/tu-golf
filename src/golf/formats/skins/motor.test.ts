@@ -480,6 +480,8 @@ describe('puntos especiales en el reparto', () => {
       ] },
     ))
     expect(r.jugadores.map(j => j.skins)).toEqual([18, 2])
+    // De los 2 de b, los 2 son especiales (s y c en el 5); el repetido y el de alguien de afuera no cuentan.
+    expect(r.jugadores.map(j => j.especiales)).toEqual([0, 2])
   })
 
   it('reparto del último entre 3 con especiales: fracciones exactas y la plata cuadra con resto', () => {

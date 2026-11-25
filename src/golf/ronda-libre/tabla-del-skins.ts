@@ -37,6 +37,8 @@ export interface FilaDeLaTablaSkins {
   skins: number
   /** Hoyos que ganó solo (estado `ganado`), en orden de juego. */
   hoyosGanados: number[]
+  /** Skins por puntos especiales (1 cada uno). */
+  especiales: number
   /** Pesos que cobra: estimado mientras `plata` sea `estimada`. */
   cobra: number
   /** `cobra − pozo por jugador`. */
@@ -105,6 +107,7 @@ export function armarTablaDelSkins(resultado: ResultadoSkins, input: {
       puesto: anterior && anterior.skins === j.skins ? anterior.puesto : k + 1,
       skins: j.skins,
       hoyosGanados: hoyos.filter(h => h.estado === 'ganado' && h.ganador === j.id).map(h => h.numero),
+      especiales: j.especiales,
       cobra: j.cobra,
       neto: j.neto,
       retiradoDesde: retiros[j.id] ?? null,
@@ -145,6 +148,22 @@ export function textoDeSkins(n: number): string {
 }
 
 /** Plata de una fila: con «~» mientras sea estimada. `null` si no hay plata que mostrar. */
+/**
+ * De dónde salen los skins de una fila, bajo el nombre: «Hoyos 1 y 4 · 1 punto especial». Con el número del hoyo
+ * solo («Ganó 4») se leía como cuatro skins al lado de «3 skins». `null` si no hay nada que contar.
+ */
+export function detalleDeLaFila(f: Pick<FilaDeLaTablaSkins, 'hoyosGanados' | 'especiales' | 'retiradoDesde'>): string | null {
+  const partes: string[] = []
+  const h = f.hoyosGanados
+  if (h.length === 1) partes.push(`Hoyo ${h[0]}`)
+  else if (h.length > 1) partes.push(`Hoyos ${h.slice(0, -1).join(', ')} y ${h[h.length - 1]}`)
+  if (f.especiales > 0) partes.push(f.especiales === 1 ? '1 punto especial' : `${f.especiales} puntos especiales`)
+  if (f.retiradoDesde != null) partes.push(`se retiró en el ${f.retiradoDesde}`)
+  if (partes.length === 0) return null
+  const texto = partes.join(' · ')
+  return texto[0].toUpperCase() + texto.slice(1)
+}
+
 export function textoDeLaPlata(tabla: Pick<TablaDelSkins, 'plata'>, cobra: number): string | null {
   if (tabla.plata === 'estimada') return `~${formatPesos(cobra)}`
   if (tabla.plata === 'definitiva' || tabla.plata === 'devolucion') return formatPesos(cobra)
