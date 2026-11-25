@@ -1,12 +1,11 @@
 // Fallback de Suspense para la sección Competencia. NO incluye la barra de tabs
 // (la renderiza MiGolfTabs). Calca el layout de CompetenciaTab para minimizar el
 // salto cuando llega el contenido real.
-import { Bar, ShimmerKeyframes } from './Shimmer'
+import { Bar } from './Shimmer'
 
 export function CompetenciaSkeleton() {
   return (
     <main style={{ padding: '24px 24px 32px', maxWidth: '640px', margin: '0 auto' }} aria-busy="true" aria-label="Cargando">
-      <ShimmerKeyframes />
 
       {/* Saludo + HCP */}
       <Bar width="55%" height={22} mb={10} />
