@@ -57,6 +57,15 @@ function primaryScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego): 
   return scorePrimarioDeEquipo(team, formato, modo)
 }
 
+/**
+ * En una tabla NETO, el gross del equipo va debajo del neto, rotulado: gross y neto siempre a la vista y sin
+ * confundirse (ensayo 24-nov: el espectador no sabía cuál de los dos era el número). Sin hoyos no hay gross que dar.
+ */
+export function grossBajoElNeto(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string | null {
+  if (modo !== 'neto' || formato === 'stableford' || team.holesPlayed === 0) return null
+  return `Gross ${hasCourse ? formatOverUnder(team.overUnderGross) : team.totalGross}`
+}
+
 function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string {
   if (formato === 'stableford') return formatPuntosStableford(team.totalStableford, { conUnidad: true })
   if (!hasCourse) return String(modo === 'neto' ? team.totalNeto : team.totalGross)
@@ -106,7 +115,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>#</span>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>Equipo</span>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'center' }}>
-          {isStableford ? 'PTS' : hasCourse ? '+/- Par' : 'Score'}
+          {isStableford ? 'PTS' : nombreDelModo(modoJuego)}
         </span>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'right' }}>{THRU_LABEL}</span>
       </div>
@@ -122,6 +131,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
         const score = primaryScore(team, modoJuego, formatoJuego)
         const isEven = score === 0 && !isStableford
         const isGood = isStableford ? score > 0 : score < 0
+        const grossLinea = grossBajoElNeto(team, modoJuego, formatoJuego, hasCourse)
 
         return (
           <div key={team.teamId} style={{ borderBottom: '1px solid var(--border)' }}>
@@ -177,6 +187,11 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
               }}>
                 {displayScore(team, modoJuego, formatoJuego, hasCourse)}
               </span>
+              {grossLinea && (
+                <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', marginTop: '1px', whiteSpace: 'nowrap' }}>
+                  {grossLinea}
+                </div>
+              )}
             </div>
 
             {/* Holes */}

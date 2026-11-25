@@ -71,6 +71,31 @@ export function esEquipoDeClub(equipo: { handicap_origen?: HandicapOrigen | null
 }
 
 /**
+ * La ronda es de equipos de club: scramble y TODOS sus equipos entraron con el hándicap del club. Sin equipos no lo
+ * es. Una ronda mixta (no la crea ningún camino) se trata como una de equipos de siempre.
+ */
+export function esRondaDeEquiposDeClub(
+  formato: string | null | undefined,
+  equipos: ReadonlyArray<{ handicap_origen?: HandicapOrigen | null }> | null | undefined,
+): boolean {
+  return !!formato && admiteEquiposDeClub(formato) && !!equipos && equipos.length > 0 && equipos.every(esEquipoDeClub)
+}
+
+/**
+ * Quiénes juegan la ronda, para contarlos en el encabezado: los jugadores que juegan una tarjeta (no los que van
+ * solo por estructura en un equipo de club) y los equipos. Ensayo 24-nov: una ronda de 2 equipos de club decía
+ * «1 jugador» (el creador, que va por estructura). `null` en lo que no se cuenta.
+ */
+export function participantesDeLaRonda(
+  jugadorIds: readonly string[],
+  equipos: readonly EquipoConMiembros[],
+): { jugadores: number | null; equipos: number | null } {
+  if (equipos.length === 0) return { jugadores: jugadorIds.length, equipos: null }
+  const juegan = jugadorIds.filter(id => !vaSoloPorEstructura(equipos, id)).length
+  return { jugadores: juegan > 0 ? juegan : null, equipos: equipos.length }
+}
+
+/**
  * Los integrantes que se muestran de un equipo (tarjeta del scorer, tabla, cuadro ganador, imagen para
  * compartir). Un equipo de club no muestra ninguno: el creador va como miembro del primero solo para que la ronda
  * tenga su tarjeta (plan §1), no porque juegue en ese equipo.

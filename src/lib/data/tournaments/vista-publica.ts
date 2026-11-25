@@ -23,6 +23,7 @@ import type { HcpConSesion } from '@/lib/data/ronda-libre-live-api'
 import { formatLabel, modoDeJuego, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { handicapOcultoSinSesion, type FilaIndice } from '@/golf/ronda-libre/permisos'
+import { esRondaDeEquiposDeClub, type HandicapOrigen } from '@/golf/ronda-libre/equipos-de-club'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
 import {
   construirRespuestaGWI, hoyosJugadosGWI, narrativaNeutraGWI, SIN_FILAS_DEL_VISOR,
@@ -210,6 +211,10 @@ export function vistaPublicaDeRondaLibre(ronda: { modo_juego?: string | null; fo
  *  - Ronda NETO (`soloBruto`): no viaja el handicap de NADIE (ni de invitados), ni
  *    course handicap, ni el handicap de equipo: con cualquiera de ellos más el bruto
  *    se deduce el neto.
+ *  - Ronda de equipos de club (`esRondaDeEquiposDeClub`; decisión de Juanjo 25-nov, «ambos bien mostrados»): el
+ *    espectador sin sesión ve gross Y neto con el HCP del club, y el ganador según la modalidad. Ese número lo da
+ *    el club al equipo (vive en `ronda_equipos`), no es el índice de nadie: viaja. Los jugadores de la ronda (solo
+ *    el creador, por estructura) no juegan con su índice, y su hándicap personal NO viaja.
  *  - Timba libre (`personalizado`): no viaja el índice ni el hándicap de nadie, ni en gross; el
  *    propio llega por `/hcp` (la regla y su porqué están en `handicapsVisiblesParaElVisor`). El juego lo entrega
  *    ya calculado `/api/ronda-libre/[codigo]/juego` (puntos y golpes recibidos por hoyo).
@@ -222,8 +227,25 @@ export function datosRondaLibrePublicos<B extends {
   courseHcpCompletoMap?: Record<string, number>
   displayHcpMap: Record<string, number>
   sinIndice: string[]
-  equipos: Array<{ handicap_equipo: number | null; handicap_equipo_juego?: number | null }>
+  equipos: Array<{ handicap_equipo: number | null; handicap_equipo_juego?: number | null; handicap_origen?: HandicapOrigen | null }>
 }>(b: B): B & { vista: VistaPublica } {
+  if (esRondaDeEquiposDeClub(b.ronda.formato_juego, b.equipos)) {
+    return {
+      ...b,
+      ronda: { ...b.ronda, ronda_libre_jugadores: b.ronda.ronda_libre_jugadores.map((j) => ({ ...j, handicap: null })) },
+      courseHcpMap: {},
+      courseHcpCompletoMap: {},
+      displayHcpMap: {},
+      sinIndice: [],
+      // Todo a la vista: el neto sale del HCP del club, que viaja.
+      vista: vistaPublica({
+        visorConSesion: true,
+        caminoRondaLibre: true,
+        modoJuego: modoDeJuego(b.ronda.modo_juego),
+        formatoJuego: (b.ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
+      }),
+    }
+  }
   const vista = vistaPublicaDeRondaLibre(b.ronda)
   if (!vista.soloBruto && !esFormatoPersonalizado(b.ronda.formato_juego)) {
     // El hándicap de la fila de quien tiene oculto el suyo (inscrito de torneo con cuenta)

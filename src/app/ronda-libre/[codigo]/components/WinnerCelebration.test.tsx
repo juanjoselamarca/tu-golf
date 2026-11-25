@@ -17,11 +17,11 @@ const ronda = {
   fecha: '2026-11-07', estado: 'finalizada', modo_juego: 'gross', formato_juego: 'scramble', ronda_libre_jugadores: [],
 } as unknown as RondaLibre
 
-const equipo = (nombre: string, diff: number, jugadores: string[], holesPlayed = 18): TeamShareRow =>
-  ({ nombre, jugadores, score: holesPlayed === 0 ? 0 : 72 + diff, diff, holesPlayed })
+const equipo = (nombre: string, diff: number, jugadores: string[], holesPlayed = 18, diffGross = diff): TeamShareRow =>
+  ({ nombre, jugadores, score: holesPlayed === 0 ? 0 : 72 + diff, diff, diffGross, holesPlayed })
 
-function pintar(teams: TeamShareRow[]) {
-  render(<WinnerCelebration ronda={ronda} leaderboard={[]} fechaDisplay="7 nov" onShare={() => {}} teams={teams} />)
+function pintar(teams: TeamShareRow[], r: RondaLibre = ronda) {
+  render(<WinnerCelebration ronda={r} leaderboard={[]} fechaDisplay="7 nov" onShare={() => {}} teams={teams} />)
 }
 
 describe('WinnerCelebration — formatos por equipo', () => {
@@ -103,5 +103,25 @@ describe('WinnerCelebration — individual: el empate es el de la tabla', () => 
     const lb = tabla([jugador('a', 'Juan Pérez', {}), jugador('b', 'Diego Soto', {})])
     const { container } = render(<WinnerCelebration ronda={strokePlay} leaderboard={lb} fechaDisplay="7 nov" onShare={() => {}} />)
     expect(container.textContent).toBe('')
+  })
+})
+
+// Ensayo 24-nov (scramble neto de club): el cuadro decía «EMPATE +1», que era el gross; en neto ganaba Ross −7.
+describe('WinnerCelebration — ronda NETO: gross y neto sin confundirse', () => {
+  const neto = { ...ronda, modo_juego: 'neto' } as unknown as RondaLibre
+  it('un ganador: el número grande es el neto, rotulado, con su gross al lado', () => {
+    pintar([equipo('Los Ross', -7, [], 18, 1), equipo('Los Lamarca', -5, [], 18, 1)], neto)
+    expect(screen.getByText('Los Ross')).toBeTruthy()
+    expect(screen.getByText('-7')).toBeTruthy()
+    expect(screen.getByText('Neto · Gross +1')).toBeTruthy()
+  })
+  it('empate en neto: se rotula Neto (sin un gross de un solo equipo)', () => {
+    pintar([equipo('A', -3, [], 18, 0), equipo('B', -3, [], 18, 2)], neto)
+    expect(screen.getByText('Neto')).toBeTruthy()
+    expect(screen.queryByText(/Gross/)).toBeNull()
+  })
+  it('ronda gross: sin rótulo extra (el número ya es el gross)', () => {
+    pintar([equipo('A', 1, []), equipo('B', 2, [])])
+    expect(screen.queryByText(/^Neto/)).toBeNull()
   })
 })

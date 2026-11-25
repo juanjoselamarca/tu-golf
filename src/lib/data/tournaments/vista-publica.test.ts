@@ -100,6 +100,38 @@ describe('datosRondaLibrePublicos (vista en vivo de ronda libre, respuesta públ
   it('match play neto: se ve el match en bruto (como el board de torneo), no se cambia de juego', () => {
     expect(datosRondaLibrePublicos(datos('neto', 'match_play')).vista).toMatchObject({ modo: 'gross', formato: 'match_play' })
   })
+
+  describe('ronda de equipos de club (decisión de Juanjo 25-nov: «ambos bien mostrados»)', () => {
+    const club = (modo_juego: string, equipos: Array<{ handicap_origen?: 'club' | 'calculado' }> = [{ handicap_origen: 'club' }, { handicap_origen: 'club' }], formato_juego = 'scramble') => ({
+      ...datos(modo_juego, formato_juego),
+      equipos: equipos.map((e, i) => ({ id: `e${i}`, handicap_equipo: 10 + i, handicap_equipo_juego: 10 + i, ...e })),
+    })
+    it('scramble NETO: el espectador sin sesión ve el neto, en su modalidad real, con el HCP del club', () => {
+      const r = datosRondaLibrePublicos(club('neto'))
+      expect(r.vista).toEqual({ sinNeto: false, soloBruto: false, modo: 'neto', formato: 'scramble' })
+      expect(r.equipos.map((e) => [e.handicap_equipo, e.handicap_equipo_juego])).toEqual([[10, 10], [11, 11]])
+    })
+    it('el hándicap personal de los jugadores de la ronda NO viaja (ni índice ni course handicap)', () => {
+      const r = datosRondaLibrePublicos(club('neto'))
+      expect(r.ronda.ronda_libre_jugadores.map((j) => j.handicap)).toEqual([null, null, null, null, null])
+      expect(r.courseHcpMap).toEqual({})
+      expect(r.courseHcpCompletoMap).toEqual({})
+      expect(r.displayHcpMap).toEqual({})
+      expect(r.sinIndice).toEqual([])
+    })
+    it('scramble GROSS de club: misma vista completa, modalidad gross', () => {
+      expect(datosRondaLibrePublicos(club('gross')).vista).toEqual({ sinNeto: false, soloBruto: false, modo: 'gross', formato: 'scramble' })
+    })
+    it('un equipo calculado en la ronda (mixta) o sin equipos: la regla de siempre (solo bruto, sin hándicap)', () => {
+      const mixta = datosRondaLibrePublicos(club('neto', [{ handicap_origen: 'club' }, { handicap_origen: 'calculado' }]))
+      expect(mixta.vista.soloBruto).toBe(true)
+      expect(mixta.equipos.every((e) => e.handicap_equipo == null && e.handicap_equipo_juego == null)).toBe(true)
+      expect(datosRondaLibrePublicos(club('neto', [])).vista.soloBruto).toBe(true)
+    })
+    it('equipos sin la columna (lectura vieja) no cuentan como de club', () => {
+      expect(datosRondaLibrePublicos(club('neto', [{}, {}])).vista.soloBruto).toBe(true)
+    })
+  })
 })
 
 describe('vistaPublicaDeRondaLibre (la fila de la ronda → qué publica un feed cacheado)', () => {

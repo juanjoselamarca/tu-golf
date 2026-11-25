@@ -72,6 +72,10 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
     )
   }
 
+  // El HCP que se MUESTRA es el guardado del equipo; sin HCP (o sin el dato en esta vista) no hay etiqueta.
+  // El motor juega un HCP ausente como 0 (`calcularScramble`), pero ese 0 no es un HCP (ensayo 24-nov: «HCP 0» falso).
+  const hcpGuardadoDe = (teamId: string): number | undefined => equipos.find(e => e.id === teamId)?.handicap_equipo ?? undefined
+
   const nombresDe = (teamId: string): string[] => {
     const equipo = equipos.find(e => e.id === teamId)
     if (!equipo) return []
@@ -150,7 +154,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
           overUnderNeto: r.overUnderNeto,
           holesPlayed: r.holesPlayed,
           jugadores: nombresDe(r.teamId),
-          teamHandicap: r.teamHandicap,
+          teamHandicap: hcpGuardadoDe(r.teamId),
         }))}
         modoJuego={ronda.modo_juego}
         formatoJuego={ronda.formato_juego}
@@ -247,7 +251,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
           overUnderNeto: r.overUnderNeto,
           holesPlayed: r.holesPlayed,
           jugadores: [r.nombreA, r.nombreB],
-          teamHandicap: r.teamHandicap,
+          teamHandicap: hcpGuardadoDe(r.teamId),
         }))}
         modoJuego={ronda.modo_juego}
         formatoJuego={ronda.formato_juego}
