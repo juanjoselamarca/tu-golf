@@ -19,6 +19,7 @@ describe('accionesDeLaTarjeta', () => {
       anotarJugador: vi.fn(),
       anotarEquipo: vi.fn(),
       pasarAlSiguienteHoyo: vi.fn(async () => {}),
+      confirmarHoyo: vi.fn(async () => {}),
     }
     return { espias, acciones: accionesDeLaTarjeta({ congelada, ...espias }) }
   }
@@ -49,5 +50,15 @@ describe('accionesDeLaTarjeta', () => {
     expect(espias.anotarEquipo).toHaveBeenCalledWith('e1', -1)
     expect(espias.marcarInteraccion).toHaveBeenCalledTimes(2)
     expect(espias.pasarAlSiguienteHoyo).toHaveBeenCalledTimes(1)
+  })
+
+  it('«Guardar hoyo N»: congelada no guarda; sin congelar guarda y marca la interacción', async () => {
+    const congelada = montar(true)
+    await congelada.acciones.guardarHoyo()
+    expect(congelada.espias.confirmarHoyo).not.toHaveBeenCalled()
+    const libre = montar(false)
+    await libre.acciones.guardarHoyo()
+    expect(libre.espias.confirmarHoyo).toHaveBeenCalledTimes(1)
+    expect(libre.espias.marcarInteraccion).toHaveBeenCalledTimes(1)
   })
 })

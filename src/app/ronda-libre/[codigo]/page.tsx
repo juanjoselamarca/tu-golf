@@ -19,6 +19,7 @@ import { buildLeaderboard, mostrarCopiarLink, mostrarVerMisEstadisticas, rondaTi
 import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
 import { unCelularPorEquipo } from '@/golf/ronda-libre/anotador-de-equipo'
+import { participantesDeLaRonda } from '@/golf/ronda-libre/equipos-de-club'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
@@ -260,7 +261,7 @@ function RondaLibrePageContent() {
         formatoDisplay={vistaVisor
           ? etiquetaDelFormato(vistaVisor, (rondaLive ?? ronda).formato_juego as FormatoJuego, (rondaLive ?? ronda).modo_juego as ModoJuego)
           : formatLabel((rondaLive ?? ronda).formato_juego, (rondaLive ?? ronda).modo_juego)}
-        jugadoresCount={ronda.ronda_libre_jugadores.length}
+        participantes={participantesDeLaRonda(ronda.ronda_libre_jugadores.map(j => j.id), equipos)}
       />
 
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>

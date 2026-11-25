@@ -9,7 +9,9 @@ import { captureError } from '@/lib/error-tracking'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
-import { entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposQueAnota, unCelularPorEquipo } from '@/golf/ronda-libre/anotador-de-equipo'
+import {
+  entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposQueAnota, unCelularPorEquipo, nombreDelAnotadorDelCelular, NOMBRE_ANOTADOR_GENERICO,
+} from '@/golf/ronda-libre/anotador-de-equipo'
 import { MENSAJE_YA_NO_ANOTAS } from '@/lib/data/ronda-libre-anotador'
 import { addToast } from '@/hooks/useToast'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
@@ -43,6 +45,7 @@ import type { HoleData, RondaLibre } from '@/types/ronda'
 import { conOrdenEnPantalla } from '@/lib/ronda/orden-jugadores'
 import { loginUrl } from '@/lib/auth/login-url'
 import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
+import { leerNombresDePerfilCon } from '@/lib/data/nombres-de-perfil-lectura'
 import { conPlazoCancelable, LecturaCanceladaError } from '@/lib/red/con-timeout'
 import { clienteConSenal } from '@/lib/red/cliente-con-senal'
 
@@ -71,7 +74,7 @@ export interface RondaGrupoData {
   playerDisplayHcp: Record<string, number>
   teamEquipos: EquipoDelScorer[]
   setTeamEquipos: React.Dispatch<React.SetStateAction<EquipoDelScorer[]>>
-  /** Quién anota: su nombre en la ronda, o el prefijo del email. */
+  /** Quién anota (`nombreDelAnotadorDelCelular`): su nombre en la ronda o de perfil; nunca el correo. */
   anotadorNombre: string
   /** Usuario autenticado que abrió el scorer. */
   authUserId: string | null
@@ -180,6 +183,14 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
       if (entrada === 'en_vivo') return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
       if (entrada === 'elegir_equipo') return { tipo: 'elegir_equipo', ronda: r, equipos }
     }
+    // Identidad del anotador (`nombreDelAnotadorDelCelular`): nunca el correo. Su perfil se lee solo si la ronda no
+    // trae su nombre, EN PARALELO con hoyos y hándicaps (no suma un plazo más con señal lenta); una falla de esa
+    // lectura no frena el scorer (queda el genérico) y su cancelación la recoge el `signal.aborted` de abajo.
+    const delCelular = { jugadores: r.ronda_libre_jugadores, equipos, userId, email: sesion.email }
+    const nombreSinPerfil = nombreDelAnotadorDelCelular(delCelular)
+    const nombreDePerfilP: Promise<string | null> = nombreSinPerfil === NOMBRE_ANOTADOR_GENERICO
+      ? paso(c => leerNombresDePerfilCon(c, [userId])).then(m => m.get(userId) ?? null, () => null)
+      : Promise.resolve(null)
     const hoyos = await paso(c => cargarHoyosDelScorer(c, r))
     // El scorer de grupo exige sesión (arriba): `profiles` es legible.
     const { hcpMap, displayMap } = await paso(c => resolverHandicapsDelScorer(c, r, hoyos.finalParTotal, leerIndicesDelCliente(c)))
@@ -188,10 +199,11 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
     // completar al finalizar, pendientes, hoyo inicial, copia local) parte de esta lista: nunca toca un equipo de
     // otro celular. En una ronda de un celular son todos.
     const teamEquipos = equiposQueAnota(r, equipos, userId)
-    // Identidad del anotador: su nombre en la ronda; si no juega, el prefijo del email.
-    const anotadorNombre = r.ronda_libre_jugadores.find(j => j.user_id === userId)?.nombre
-      || (sesion.email ? sesion.email.split('@')[0] : '')
-      || 'Anotador'
+    const nombreDePerfil = await nombreDePerfilP
+    if (signal.aborted) return { tipo: 'cancelada' }
+    const anotadorNombre = nombreSinPerfil === NOMBRE_ANOTADOR_GENERICO
+      ? nombreDelAnotadorDelCelular({ ...delCelular, nombreDePerfil })
+      : nombreSinPerfil
     return {
       tipo: 'ok', ronda: r, userId, email: sesion.email,
       snap: {

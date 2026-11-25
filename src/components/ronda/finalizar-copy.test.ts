@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { textoConfirmarFinalizar, avisoTarjetasNoGuardadas, detalleHoyosSinAnotarTimba, hojaFinalizarTimba } from './finalizar-copy'
+import { textoConfirmarFinalizar, avisoTarjetasNoGuardadas, detalleHoyosSinAnotarTimba, hojaFinalizarTimba, textoTarjetaCompleta } from './finalizar-copy'
 
 describe('textoConfirmarFinalizar', () => {
   it('avisa los hoyos que se marcan como par', () => {
@@ -63,5 +63,20 @@ describe('hojaFinalizarTimba (no habla de "marcar como par": en la Timba casi to
   })
   it('par en pantalla sin nombres: sin línea', () => {
     expect(hojaFinalizarTimba({ hoyosSinJugar: [], hoyosQueNadieJugo: [], parEnPantalla: { hoyo: 18, nombres: [] } }).detalle).toBeUndefined()
+  })
+})
+
+describe('textoTarjetaCompleta', () => {
+  it('quien cierra: la invitación a finalizar', () => {
+    expect(textoTarjetaCompleta(true, 'Juanjo')).toBe('Tarjeta completa · Finalizar ronda')
+  })
+  it('quien anota su equipo y no cierra: su equipo terminó y falta que el creador finalice (con nombre o genérico)', () => {
+    expect(textoTarjetaCompleta(false, 'Juanjo')).toBe('Tu equipo terminó. Falta que Juanjo finalice la ronda.')
+    expect(textoTarjetaCompleta(false, null)).toBe('Tu equipo terminó. Falta que quien creó la ronda finalice la ronda.')
+  })
+  it('sin señal (golpes solo en el teléfono): no dice que terminó, pide mantener la pantalla abierta', () => {
+    expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: true })).toBe('Falta enviar tus golpes. Mantén esta pantalla abierta hasta que suban.')
+    expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: false })).toBe('Tu equipo terminó. Falta que Juanjo finalice la ronda.')
+    expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: true, sesionPerdida: true })).toBe('Falta enviar tus golpes. Inicia sesión para enviarlos.')
   })
 })

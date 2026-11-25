@@ -192,6 +192,8 @@ describe('rankTeams', () => {
       equipos: [{ ...baseEquipos[1], handicap_equipo: 6 }],
     })
     expect(rows[0].score).toBe(45 - 3)
+    // En neto, el gross viaja aparte para rotularlo bajo el neto (cuadro ganador).
+    expect(rows[0].diffGross).toBe(rows[0].diff + 3)
   })
 
   // Un 9h que parte en el 10 juega los hoyos 10-18: antes el ranking miraba 1-9 y daba 0 jugados.

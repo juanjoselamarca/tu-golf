@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
+import { captureError } from '@/lib/error-tracking'
 import { saveRondaLibreScores, saveRondaEquiposScores, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
 import { RONDA_ERRCODE, esNoReintentable, esRechazoDeEquipoAjeno, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
@@ -83,6 +84,8 @@ export interface GrupoScoreSave {
   ) => Promise<ResultadoEnvio>
   /** Agenda un envío de lo pendiente (debounced). Lo usa también el score de equipos. */
   programarEnvio: () => void
+  /** Envía lo pendiente YA, sin debounce (confirmar el último hoyo; también al ocultarse la página y al salir). */
+  enviarYa: () => Promise<unknown>
   /** Hay golpes en el teléfono que el servidor todavía no tiene (se reintenta solo). */
   pendienteDeEnvio: boolean
   /** El servidor rechazó un envío porque la ronda ya se cerró (en otro dispositivo). */
@@ -188,11 +191,19 @@ export function useGrupoScoreSave(input: {
   const [rondaNoExiste, setRondaNoExiste] = useState(false)
   // Con la ronda borrada y su copia local limpia, nada vuelve a escribirla (un toque la recrearía).
   const rondaBorradaRef = useRef(false)
+  /**
+   * La pantalla ya se fue. El último envío (el de `vaciar` al desmontar) termina después del cleanup: no agenda
+   * reenvíos de confirmación, que correrían con los golpes congelados de esta pantalla y pisarían en el servidor una
+   * corrección hecha al volver (Fable, PR A 25-nov).
+   */
+  const desmontadoRef = useRef(false)
 
   /* ── Cleanup de timers al desmontar ── */
   useEffect(() => {
+    desmontadoRef.current = false
     const confirmaciones = confirmacionesRef.current // el array nunca se reasigna
     return () => {
+      desmontadoRef.current = true
       if (envioDebounceRef.current) clearTimeout(envioDebounceRef.current)
       if (pendingConfirmTimeoutRef.current) clearTimeout(pendingConfirmTimeoutRef.current)
       if (editWindowTimeoutRef.current) clearTimeout(editWindowTimeoutRef.current)
@@ -236,12 +247,22 @@ export function useGrupoScoreSave(input: {
       setSaveStatus('error')
       return
     }
-    if (!hayPendientes(codigo)) return
+    if (!hayPendientes(codigo)) {
+      // La cola ya está vacía (p.ej. la vació tarde el envío del desmontaje de una visita anterior): si la pantalla
+      // seguía «sin enviar» por un fallo previo, ya no es cierto; sin esto el reintento de 15 s salía por aquí para
+      // siempre y el último hoyo quedaba pegado en «Enviar hoyo N».
+      // Cola vacía = nada sin guardar (todo cambio marca pendiente): baja también `hasUnsaved` (el aviso al salir).
+      if (sinEnviarRef.current) { marcarSinEnviar(false); setSaveStatus('idle') }
+      setHasUnsaved(false)
+      return
+    }
 
     enVueloRef.current = true
     setSaveStatus('saving')
     let terminar: () => void = () => {}
     cicloRef.current = new Promise<void>(res => { terminar = res })
+    // Fuera del try: si algo lanza después de que entraron golpes, el catch igual los cuenta.
+    let entraron = 0
     try {
       const supabase = createClient()
       let ok = false
@@ -250,7 +271,6 @@ export function useGrupoScoreSave(input: {
       let vioRondaCerrada = false
       let noExiste = false
       // Tarjetas que entraron en este envío (en cualquier vuelta): decide si `guardados` sube.
-      let entraron = 0
       let rechazoDeSesion = false
       let equipoPerdido = false
       // La sesión del teléfono se consulta a lo más UNA vez por ciclo (antes, con sesión válida y un rebote en
@@ -372,7 +392,7 @@ export function useGrupoScoreSave(input: {
         setHasUnsaved(false)
         haptic(20)
         setTimeout(() => setSaveStatus('idle'), 1500)
-        if (veniaDeCaida) {
+        if (veniaDeCaida && !desmontadoRef.current) {
           for (const ms of REENVIO_CONFIRMACION_MS) {
             // Reenvía los valores actuales: deja en el servidor lo último aunque un envío vencido aterrice tarde.
             confirmacionesRef.current.push(setTimeout(() => {
@@ -393,6 +413,14 @@ export function useGrupoScoreSave(input: {
       }
       // Fuera de las ramas: un envío mixto (una tarjeta rechazada en firme, otra adentro) también deja golpes nuevos.
       if (entraron > 0 && !noExiste) setGuardados(n => n + 1)
+    } catch (err) {
+      // Algo lanzó a mitad del envío (no un error devuelto): sin esto quedaba «Enviando…» deshabilitado y sin reintento.
+      void captureError(err, { context: 'useGrupoScoreSave.enviarTodo', level: 'error', meta: { codigo } })
+      // Si lanzó después de confirmar todo, la cola está vacía: no se deja una barra de error fija sin reintento.
+      const quedan = hayPendientes(codigo)
+      marcarSinEnviar(quedan)
+      setSaveStatus(quedan ? 'error' : 'idle')
+      if (entraron > 0) setGuardados(n => n + 1)
     } finally {
       enVueloRef.current = false
       try {
@@ -460,6 +488,36 @@ export function useGrupoScoreSave(input: {
       void sincronizarRef.current()
     }, SAVE_DEBOUNCE_MS)
   }, [])
+
+  /** Envía lo pendiente YA, sin esperar el debounce (el envío programado, si había, ya no hace falta). */
+  const enviarYa = useCallback(() => {
+    if (envioDebounceRef.current) { clearTimeout(envioDebounceRef.current); envioDebounceRef.current = null }
+    return sincronizarRef.current()
+  }, [])
+
+  /*
+   * ── Lo pendiente sale al dejar la pantalla ──
+   * Cada golpe queda en la cola del teléfono al tocar, pero el envío espera el debounce. Salir del scorer (volver,
+   * bloquear el teléfono, cambiar o cerrar la app) cancelaba ese envío: el golpe llegaba recién al volver a abrir el
+   * scorer, y si el anotador no volvía (hoyo 18 del ensayo 25-nov) su equipo quedaba con un hoyo menos. Al ocultarse
+   * la página y al desmontar se envía YA. No es garantía: si el sistema mata la pestaña (cerrar la app en iOS) el envío
+   * puede cortarse, y lo pendiente sigue en la cola del teléfono hasta que se vuelva a abrir el scorer. Por eso el
+   * último hoyo no dice «anotado» ni «terminó» hasta que el servidor confirma (`ultimoHoyoSinSubir` en la página). Con la ronda cerrada no (cada intento daría P0002; lo pendiente espera a que se reabra).
+   */
+  useEffect(() => {
+    const vaciar = () => {
+      if (rondaCerradaRef.current || rondaBorradaRef.current) return
+      if (envioDebounceRef.current || hayPendientes(codigo)) void enviarYa()
+    }
+    const alCambiarVisibilidad = () => { if (document.visibilityState === 'hidden') vaciar() }
+    document.addEventListener('visibilitychange', alCambiarVisibilidad)
+    window.addEventListener('pagehide', vaciar)
+    return () => {
+      document.removeEventListener('visibilitychange', alCambiarVisibilidad)
+      window.removeEventListener('pagehide', vaciar)
+      vaciar()
+    }
+  }, [codigo, enviarYa])
 
   /* ── Score change ── */
   const handleScoreChange = useCallback((jugadorId: string, hole: number, delta: number) => {
@@ -534,6 +592,6 @@ export function useGrupoScoreSave(input: {
 
   return {
     saveStatus, setSaveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm,
-    handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida,
+    handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida,
   }
 }

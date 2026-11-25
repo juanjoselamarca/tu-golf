@@ -13,10 +13,13 @@ const hoyos = [10, 11, 12]
 const eq = (id: string, scores: Record<string, number>): EquipoDelScorer =>
   ({ id, nombre: id, handicap_equipo: null, scores, jugadorIds: [], jugadorNombres: [] }) as unknown as EquipoDelScorer
 
-function montar(inicial: EquipoDelScorer[], ajenos?: { id: string }[]) {
+function montar(
+  inicial: EquipoDelScorer[], ajenos?: { id: string }[], envio = { programarEnvio: vi.fn(), enviarYa: vi.fn(async () => {}) },
+  noConfirmanElHoyo?: { id: string }[],
+) {
   return renderHook(() => {
     const [teamEquipos, setTeamEquipos] = useState(inicial)
-    const save = useTeamScoreSave({ codigo: 'QA602', parMap: PAR, teamEquipos, setTeamEquipos, setHasUnsaved: vi.fn(), programarEnvio: vi.fn(), sinParAutomatico: ajenos })
+    const save = useTeamScoreSave({ codigo: 'QA602', parMap: PAR, teamEquipos, setTeamEquipos, setHasUnsaved: vi.fn(), ...envio, sinParAutomatico: ajenos, noConfirmanElHoyo })
     return { teamEquipos, save }
   })
 }
@@ -63,7 +66,7 @@ describe('useTeamScoreSave — un celular por equipo: el par nunca toca un equip
   const AJENOS = [{ id: 'e2' }]
   it('al pasar de hoyo rellena solo los propios', async () => {
     const { result } = montar([eq('e1', {}), eq('e2', {})], AJENOS)
-    await act(async () => { await result.current.save.autoFillTeamsWithPar(10, 4) })
+    await act(async () => { await result.current.save.confirmarHoyo(10, 4) })
     expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e1')]).toEqual({ '10': 4 })
     expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e2')]).toBeUndefined()
     expect(result.current.teamEquipos.find(e => e.id === 'e2')?.scores).toEqual({})
@@ -81,7 +84,7 @@ describe('useTeamScoreSave — un celular por equipo: el par nunca toca un equip
 describe('useTeamScoreSave — par fantasma (P1-a): el equipo sin reclamar del creador no recibe par', () => {
   it('al pasar de hoyo: e1 (reclamado por el creador) sí, e3 (sin reclamar, en pantalla del creador) no', async () => {
     const { result } = montar([eq('e1', {}), eq('e3', {})], [{ id: 'e3' }])
-    await act(async () => { await result.current.save.autoFillTeamsWithPar(10, 4) })
+    await act(async () => { await result.current.save.confirmarHoyo(10, 4) })
     expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e1')]).toEqual({ '10': 4 })
     expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e3')]).toBeUndefined()
     expect(loadGroupTeamScores('QA602').e3).toEqual({})
@@ -99,5 +102,51 @@ describe('useTeamScoreSave — par fantasma (P1-a): el equipo sin reclamar del c
     expect(out.find(e => e.id === 'e1')?.scores).toEqual({ '10': 4, '11': 3, '12': 5 })
     expect(out.find(e => e.id === 'e3')?.scores).toEqual({})
     expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e3')]).toBeUndefined()
+  })
+})
+
+// Ensayo del scramble (25-nov), P0-1: quien anota un equipo desde su celular (no cierra la ronda) llegaba al último
+// hoyo con el par gris y no tenía cómo guardarlo. «Guardar hoyo N» usa la misma regla que Siguiente, pero envía YA.
+describe('useTeamScoreSave.confirmarHoyo — inmediato (último hoyo)', () => {
+  it('deja el par en la cola ANTES de enviar y envía sin debounce', async () => {
+    let enCola: unknown = null
+    const envio = { programarEnvio: vi.fn(), enviarYa: vi.fn(async () => { enCola = leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e1')] }) }
+    const { result } = montar([eq('e1', { '10': 5, '11': 3 })], [], envio)
+    await act(async () => { await result.current.save.confirmarHoyo(12, 5, { inmediato: true }) })
+    expect(envio.enviarYa).toHaveBeenCalledTimes(1)
+    expect(envio.programarEnvio).not.toHaveBeenCalled()
+    expect(enCola).toEqual({ '12': 5 })
+    expect(result.current.teamEquipos[0].scores).toEqual({ '10': 5, '11': 3, '12': 5 })
+    expect(loadGroupTeamScores('QA602').e1).toEqual({ '10': 5, '11': 3, '12': 5 })
+  })
+  it('un valor ya anotado en el hoyo no se pisa con el par', async () => {
+    const envio = { programarEnvio: vi.fn(), enviarYa: vi.fn(async () => {}) }
+    const { result } = montar([eq('e1', { '12': 7 })], [], envio)
+    await act(async () => { await result.current.save.confirmarHoyo(12, 5, { inmediato: true }) })
+    expect(result.current.teamEquipos[0].scores).toEqual({ '12': 7 })
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e1')]).toBeUndefined()
+  })
+  it('Siguiente (sin inmediato): mismo relleno, envío con debounce', async () => {
+    const envio = { programarEnvio: vi.fn(), enviarYa: vi.fn(async () => {}) }
+    const { result } = montar([eq('e1', {})], [], envio)
+    await act(async () => { await result.current.save.confirmarHoyo(10, 4) })
+    expect(envio.programarEnvio).toHaveBeenCalledTimes(1)
+    expect(envio.enviarYa).not.toHaveBeenCalled()
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e1')]).toEqual({ '10': 4 })
+  })
+})
+
+// Ensayo 24-nov (P1): tras «Liberar», el creador pasaba el hoyo con Siguiente y el par gris del equipo liberado no se
+// guardaba. Ese equipo confirma el hoyo en pantalla (`equiposQueConfirmanElHoyo`), pero el cierre no le rellena hoyos.
+describe('useTeamScoreSave — equipo liberado que anota el creador', () => {
+  it('Siguiente guarda su par gris; completar al cerrar no lo toca', async () => {
+    const envio = { programarEnvio: vi.fn(), enviarYa: vi.fn(async () => {}) }
+    const { result } = montar([eq('e1', {}), eq('e3', { '10': 5 })], [{ id: 'e3' }], envio, [])
+    await act(async () => { await result.current.save.confirmarHoyo(11, 3) })
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e3')]).toEqual({ '11': 3 })
+    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e1')]).toEqual({ '11': 3 })
+    let out: EquipoDelScorer[] = []
+    act(() => { out = result.current.save.completarEquiposConPar(result.current.teamEquipos, hoyos) })
+    expect(out.find(e => e.id === 'e3')?.scores).toEqual({ '10': 5, '11': 3 })
   })
 })

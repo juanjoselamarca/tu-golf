@@ -60,6 +60,8 @@ export interface TeamShareRow {
   score: number
   /** Score primario del equipo (`scorePrimarioDeEquipo`): vs par gross o neto según el modo. */
   diff: number
+  /** Vs par GROSS del equipo (en una ronda neto, el cuadro ganador lo muestra rotulado bajo el neto). */
+  diffGross: number
   /** Hoyos con score del equipo. 0 = no anotó nada: va al final y no compite. */
   holesPlayed: number
 }
@@ -132,6 +134,7 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
     // El mismo score primario con que la tabla de equipos da el lugar (`scorePrimarioDeEquipo`):
     // imagen, cuadro ganador y tabla comparan lo mismo.
     diff: scorePrimarioDeEquipo(r, formato, modo),
+    diffGross: r.overUnderGross,
     holesPlayed: r.holesPlayed,
   }))
 }

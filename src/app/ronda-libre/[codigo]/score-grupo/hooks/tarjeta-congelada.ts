@@ -22,14 +22,18 @@ export function accionesDeLaTarjeta(a: {
   anotarJugador: (jugadorId: string, delta: number) => void
   anotarEquipo: (equipoId: string, delta: number) => void
   pasarAlSiguienteHoyo: () => Promise<void>
+  /** «Guardar hoyo N»: confirma el valor en pantalla del último hoyo (quien no cierra la ronda). */
+  confirmarHoyo: () => Promise<void>
 }): {
   anotar: (jugadorId: string, delta: number) => void
   anotarEquipo: (equipoId: string, delta: number) => void
   siguiente: () => Promise<void>
+  guardarHoyo: () => Promise<void>
 } {
   return {
     anotar: (jugadorId, delta) => { if (!a.congelada) { a.marcarInteraccion(); a.anotarJugador(jugadorId, delta) } },
     anotarEquipo: (equipoId, delta) => { if (!a.congelada) { a.marcarInteraccion(); a.anotarEquipo(equipoId, delta) } },
     siguiente: async () => { if (!a.congelada) await a.pasarAlSiguienteHoyo() },
+    guardarHoyo: async () => { if (!a.congelada) { a.marcarInteraccion(); await a.confirmarHoyo() } },
   }
 }
