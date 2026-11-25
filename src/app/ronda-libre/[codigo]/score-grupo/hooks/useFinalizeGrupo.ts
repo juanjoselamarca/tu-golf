@@ -348,7 +348,7 @@ export function useFinalizeGrupo(input: {
         // llamador: sin `timba.hoyoEnPantalla` no se rellena ninguno.
         const noRellenar = hoyosQueNoSeRellenan({
           matchResult, jugadores: ronda.ronda_libre_jugadores, jugadorId: j.id, retiros: timba?.retiros, ordenHoyos: hoyos,
-          esTimba: timba != null || esJuegoConPlata(ronda.formato_juego), hoyoEnPantalla: timba?.hoyoEnPantalla, scores, fuera: fuera?.[j.id],
+          esTimba: timba != null || esJuegoConPlata(ronda.formato_juego), hoyoEnPantalla: timba?.hoyoEnPantalla, scores, fuera,
         })
         const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap, noRellenar)
         if (rellenados.length > 0) filledScores[j.id] = completos

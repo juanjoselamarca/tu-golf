@@ -79,3 +79,25 @@ describe('hoyosQueNoSeRellenan', () => {
     })
   })
 })
+
+describe('hoja de Finalizar y cierre: una sola decisión', () => {
+  const nueve = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  const jugadores = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+  const hasta8 = Object.fromEntries(nueve.slice(0, 8).map(h => [h, 4]))
+  // Hoyos que el cierre deja sin golpes ni X para alguien = hoyos que avisa la hoja.
+  const quedanVacios = (input: Parameters<typeof hoyosQueQuedanSinJugarEnLaTimba>[0]) => nueve.filter(h => jugadores.some(j => {
+    const noRellenar = hoyosQueNoSeRellenan({ matchResult: null, jugadores, jugadorId: j.id, ordenHoyos: nueve, esTimba: true, ...input })
+    const anotado = input.scores[j.id]?.[h] !== undefined || input.fuera?.[j.id]?.[h] === true
+    return !anotado && noRellenar.includes(h)
+  }))
+  const escenarios: Array<[string, Parameters<typeof hoyosQueQuedanSinJugarEnLaTimba>[0]]> = [
+    ['solo una X en el hoyo en pantalla', { jugadores, ordenHoyos: nueve, hoyoEnPantalla: 9, scores: { a: hasta8, b: hasta8, c: hasta8 }, fuera: { a: { 9: true } } }],
+    ['un score en el hoyo en pantalla', { jugadores, ordenHoyos: nueve, hoyoEnPantalla: 9, scores: { a: { ...hasta8, 9: 4 }, b: hasta8, c: hasta8 } }],
+    ['nadie anotó el hoyo en pantalla', { jugadores, ordenHoyos: nueve, hoyoEnPantalla: 9, scores: { a: hasta8, b: hasta8, c: hasta8 } }],
+    ['X en un hoyo anterior y hueco', { jugadores, ordenHoyos: nueve, hoyoEnPantalla: 9, scores: { a: { ...hasta8, 9: 4 }, b: { 1: 4 }, c: hasta8 }, fuera: { b: { 2: true } } }],
+  ]
+  it.each(escenarios)('%s', (_n, input) => {
+    expect(quedanVacios(input)).toEqual(hoyosQueQuedanSinJugarEnLaTimba(input))
+  })
+})
+

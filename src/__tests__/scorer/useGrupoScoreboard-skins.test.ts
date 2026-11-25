@@ -36,9 +36,23 @@ describe('useGrupoScoreboard — Skins: al cerrar no se inventan pares', () => {
       detalle: 'El hoyo 17 no está anotado: queda sin resolver y el skins no se liquida. En el hoyo 18, Beto queda con par.',
     })
   })
-  it('la X cuenta como anotado: no es un hoyo sin resolver', () => {
-    const b = montar({ p1: { ...dieciseis, 17: 5, 18: 4 }, p2: { ...dieciseis, 18: 5 } }, 18, { p2: { 17: true } })
+  it('la X cuenta como anotado: no es un hoyo sin resolver; sin la X, el 17 aparece', () => {
+    const base = { p1: { ...dieciseis, 17: 5, 18: 4 }, p2: { ...dieciseis, 18: 5 } }
+    const conX = montar(base, 18, { p2: { 17: true } })
+    expect(conX.hoyosSinJugarTimba).toEqual([])
+    expect(conX.hoyosPorMarcar).toBe(0)
+    expect(conX.parEnPantallaTimba).toBeNull()
+    const sinX = montar(base, 18)
+    expect(sinX.hoyosSinJugarTimba).toEqual([17])
+    expect(sinX.hoyosPorMarcar).toBe(0) // el 17 no se rellena: queda sin resolver
+    expect(hojaFinalizarSkins({ hoyosSinAnotar: sinX.hoyosSinJugarTimba, parEnPantalla: sinX.parEnPantallaTimba }).detalle)
+      .toBe('El hoyo 17 no está anotado: queda sin resolver y el skins no se liquida.')
+  })
+  it('con solo una X en el hoyo en pantalla, la hoja y el cierre coinciden: el hoyo se jugó y Beto lleva par', () => {
+    // Vuelta 2 Fable (P1): la hoja veía la X de Ana y el cierre no → la hoja callaba y el 18 quedaba sin resolver.
+    const b = montar({ p1: { ...dieciseis, 17: 5 }, p2: { ...dieciseis, 17: 4 } }, 18, { p1: { 18: true } })
     expect(b.hoyosSinJugarTimba).toEqual([])
-    expect(hojaFinalizarSkins({ hoyosSinAnotar: [], parEnPantalla: null })).toEqual({ titulo: '¿Finalizar el skins?', detalle: undefined })
+    expect(b.parEnPantallaTimba).toEqual({ hoyo: 18, nombres: ['Beto'] })
+    expect(b.hoyosPorMarcar).toBe(1)
   })
 })

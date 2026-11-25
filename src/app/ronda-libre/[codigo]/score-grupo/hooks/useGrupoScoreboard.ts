@@ -158,7 +158,7 @@ export function useGrupoScoreboard(input: {
     const tarjetasConRelleno = jugadores.map(j => ({
       jugador: j,
       scores: scores[j.id],
-      noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores, fuera: fuera?.[j.id] }),
+      noRellenar: hoyosQueNoSeRellenan({ matchResult, jugadores, jugadorId: j.id, retiros, ordenHoyos, esTimba, hoyoEnPantalla: currentHole, scores, fuera }),
     }))
     // Bola compartida: solo cuentan los equipos a los que el cierre les pone par (la hoja promete lo que se hará). Un
     // equipo sin par automático no se rellena en ningún hoyo; sin equipos cargados siguen faltando todos.

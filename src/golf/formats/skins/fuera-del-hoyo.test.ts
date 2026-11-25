@@ -58,7 +58,7 @@ describe('X en Siguiente, tablero y Finalizar', () => {
     expect(tarjetaAlDiaEnHoyo({}, 'p1', 3, undefined, N9)).toBe(false)
   })
   it('Finalizar no rellena con par los hoyos con X', () => {
-    const r = hoyosQueNoSeRellenan({ matchResult: null, jugadores: [{ id: 'p1' }], jugadorId: 'p1', ordenHoyos: N9, fuera: { 5: true, 8: true } })
+    const r = hoyosQueNoSeRellenan({ matchResult: null, jugadores: [{ id: 'p1' }], jugadorId: 'p1', ordenHoyos: N9, fuera: { p1: { 5: true, 8: true } } })
     expect(r).toEqual([5, 8])
   })
   it('sin X, Finalizar se comporta como siempre (nada que excluir)', () => {

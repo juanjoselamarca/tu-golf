@@ -29,15 +29,19 @@ export function hoyosQueNoSeRellenan(input: {
   hoyoEnPantalla?: number
   /** Scores de todos los jugadores. En una Timba deciden si el hoyo en pantalla se jugó; sin ellos, no se rellena. */
   scores?: Readonly<Record<string, ScoresDeTarjeta | undefined>>
-  /** Skins: hoyos con X de ESTE jugador. */
-  fuera?: HoyosFuera
+  /**
+   * Skins: hoyos con X de TODO el grupo (jugadorId → hoyos). Del grupo y no solo de este jugador: una X de otro
+   * también hace que el hoyo en pantalla se haya jugado. Es la misma entrada que `hoyosQueQuedanSinJugarEnLaTimba`
+   * (lo que avisa la hoja): si el cierre viera solo la X propia, la hoja callaría y el cierre dejaría el hoyo vacío.
+   */
+  fuera?: FueraDelGrupo
 }): number[] {
   const { matchResult, jugadores, jugadorId, retiros, ordenHoyos, esTimba, hoyoEnPantalla, scores, fuera } = input
   // Hoyos de ESTE jugador que no esperan golpes: desde su retiro (Timba) y los que marcó con X (skins).
-  const propios = [...hoyosNoJugadosPorRetiro(retiros?.[jugadorId], ordenHoyos), ...hoyosConX(fuera, ordenHoyos)]
+  const propios = [...hoyosNoJugadosPorRetiro(retiros?.[jugadorId], ordenHoyos), ...hoyosConX(fuera?.[jugadorId], ordenHoyos)]
   if (esTimba) {
     const seRellena = hoyoEnPantalla == null ? undefined
-      : hoyoEnPantallaQueSeRellenaEnLaTimba({ jugadores, scores: scores ?? {}, retiros, ordenHoyos, hoyoEnPantalla })
+      : hoyoEnPantallaQueSeRellenaEnLaTimba({ jugadores, scores: scores ?? {}, retiros, ordenHoyos, hoyoEnPantalla, fuera })
     return ordenHoyos.filter(h => h !== seRellena || propios.includes(h))
   }
   const match = hoyosSinTerminarDeJugador(matchResult, jugadores, jugadorId)
@@ -63,6 +67,9 @@ export function tarjetaAlDiaEnHoyo(
   return scoreDelHoyo(scores ?? {}, hoyo) !== undefined || estaFueraDelHoyo(fuera, hoyo) || estaRetiradoEn(retiros?.[jugadorId], hoyo, ordenHoyos)
 }
 
+/** Skins: hoyos con X de cada jugador del grupo. */
+type FueraDelGrupo = Readonly<Record<string, HoyosFuera | undefined>>
+
 interface HoyoEnPantallaDeLaTimba {
   jugadores: ReadonlyArray<{ id: string }>
   scores: Readonly<Record<string, ScoresDeTarjeta | undefined>>
@@ -70,7 +77,7 @@ interface HoyoEnPantallaDeLaTimba {
   ordenHoyos: readonly number[]
   hoyoEnPantalla: number
   /** Skins: hoyos con X de cada jugador. La X es un hoyo anotado (sin golpes), no uno sin jugar. */
-  fuera?: Readonly<Record<string, HoyosFuera | undefined>>
+  fuera?: FueraDelGrupo
 }
 
 /** ¿`jugadorId` anotó el hoyo (golpes o X)? */

@@ -202,6 +202,19 @@ describe('useFinalizeGrupo', () => {
     expect(finalizarRondaLibre).toHaveBeenCalled()
   })
 
+  it('skins: con solo una X en el hoyo en pantalla, el hoyo se jugó y quien falta lleva par (lo mismo que avisa la hoja)', async () => {
+    // Vuelta 2 Fable (P1): el cierre veía solo la X propia; la de Ana no contaba y el 18 quedaba vacío para Beto.
+    const scores = { p1: { 16: 4, 17: 5 }, p2: { 16: 5, 17: 5 } }
+    const { result } = montar({
+      ronda: { ...rondaBase, formato_juego: 'skins' }, scores, fuera: { p1: { 18: true } },
+      timba: { retiros: {}, enviarMarcas: vi.fn(async () => true), hoyoEnPantalla: 18 },
+    })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(result.current.scores.p1[18]).toBeUndefined() // la X de Ana sigue sin golpes
+    expect(result.current.scores.p2[18]).toBe(5) // par del 18
+  })
+
   it('skins: con puntos especiales sin enviar NO cierra y lo avisa; enviados, cierra', async () => {
     const skins = { ...rondaBase, formato_juego: 'skins' }
     const sinEnviar = vi.fn(async () => false)
