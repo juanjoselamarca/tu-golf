@@ -7,7 +7,7 @@
  * el neto de cada jugador por hoyo, solo el mejor score del hoyo (lo que la spec pide mostrar en disputa).
  */
 import type { ModoJuego } from '@/golf/core/rules'
-import type { ConfigSkins, EstadoHoyoSkins, ResultadoSkins } from '@/golf/formats/skins'
+import { hoyosConX, type ConfigSkins, type EstadoHoyoSkins, type FueraPorJugador, type ResultadoSkins } from '@/golf/formats/skins'
 import { formatPesos } from '@/lib/format'
 import { unirNombres } from './juego-en-vivo'
 import { nombresCortos } from './tabla-del-juego'
@@ -70,6 +70,8 @@ export interface TablaDelSkins {
   hoyos: HoyoDeLaTablaSkins[]
   /** Por skins, de más a menos; empate en el orden de los jugadores. */
   filas: FilaDeLaTablaSkins[]
+  /** Hoyos con X («fuera del hoyo») de cada jugador, para la tarjeta (en la base la X no es golpes). */
+  fuera: Record<string, number[]>
   /** El primer hoyo sin resolver en orden de juego y lo que vale; `null` si todos están resueltos. */
   enJuego: { hoyo: number; valor: number; provisional: boolean } | null
 }
@@ -77,8 +79,10 @@ export interface TablaDelSkins {
 export function armarTablaDelSkins(resultado: ResultadoSkins, input: {
   config: Pick<ConfigSkins, 'modo' | 'pozoPorJugador'>
   retiros: Readonly<Record<string, number>>
+  fuera?: FueraPorJugador
 }): TablaDelSkins {
   const { config, retiros } = input
+  const numeros = resultado.hoyos.map(h => h.numero)
   const hoyos: HoyoDeLaTablaSkins[] = resultado.hoyos.map(h => ({
     numero: h.numero,
     estado: h.estado,
@@ -118,6 +122,7 @@ export function armarTablaDelSkins(resultado: ResultadoSkins, input: {
     skinsCobrados: resultado.skinsCobrados,
     hoyos,
     filas,
+    fuera: Object.fromEntries(resultado.jugadores.map(j => [j.id, hoyosConX(input.fuera?.[j.id], numeros)])),
     enJuego: abierto ? { hoyo: abierto.numero, valor: abierto.valor, provisional: abierto.valorProvisional } : null,
   }
 }
@@ -210,7 +215,7 @@ export function armarResultadoDelSkins(tabla: TablaDelSkins, nombres: Readonly<R
     titular = 'Nadie ganó un skin'
     bajada = tabla.plata === 'devolucion'
       ? `Se devuelve el pozo: cada uno recupera ${formatPesos(tabla.pozoPorJugador)}.`
-      : 'Todos los hoyos quedaron empatados.'
+      : tabla.definitivo ? 'Todos los hoyos quedaron empatados.' : 'Quedaron hoyos sin resolver.'
   } else if (primeros.length === 1) {
     titular = `Ganó ${primeros[0].nombre}`
     bajada = `Con ${primeros[0].texto}.`

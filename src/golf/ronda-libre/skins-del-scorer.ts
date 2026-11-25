@@ -166,7 +166,7 @@ export function vistaDelSkinsEnElScorer(input: {
     marcas,
     retiros,
     rondaCerrada,
-    tabla: resultado ? armarTablaDelSkins(resultado, { config: reglas.config, retiros }) : null,
+    tabla: resultado ? armarTablaDelSkins(resultado, { config: reglas.config, retiros, fuera: tarjetas?.fuera }) : null,
   }
 }
 

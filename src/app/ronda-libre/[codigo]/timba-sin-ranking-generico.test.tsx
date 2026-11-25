@@ -151,3 +151,53 @@ describe('Timba libre — sin ranking ni neto genérico', () => {
   })
 
 })
+
+// Skins (formato `skins`): mismo criterio que la Timba (`esJuegoConPlata`). Su resultado son skins (GET /juego): un
+// ranking de golpes, un líder o el GWI darían un ganador falso. Spec docs/specs/formato-skins.md.
+describe('Skins — sin ranking ni neto genérico', () => {
+  const SKINS = 'skins' as unknown as FormatoJuego
+  const rondaSkins = { ...ronda, codigo: 'SKINS1', formato_juego: SKINS } as unknown as RondaLibre
+
+  it('buildLeaderboard y rankTeams: no arman tabla', () => {
+    expect(buildLeaderboard({
+      jugadores: jugadores as never, holes: 18, hoyoInicio: 1, parMap, siMap, courseHcpMap: {}, modoJuego: 'gross', formatoJuego: SKINS,
+    })).toEqual([])
+    expect(rankTeams({
+      equipos: [{ id: 'e1', nombre: 'A', jugadorIds: ['j1', 'j2'], scores: {}, handicap_equipo: null, handicap_equipo_juego: null }] as never,
+      jugadores: jugadores as never, parMap, siMap, courseHcpMap: {}, holes: 18, hoyoInicio: 1, formato: SKINS, modo: 'gross',
+    })).toEqual([])
+  })
+
+  it('compartir: ni líder en el texto ni jugadores ordenados en la imagen', () => {
+    const texto = buildShareText(rondaSkins, parMap, siMap, {})
+    expect(texto).not.toMatch(/Juan|Pedro|Diego/)
+    expect(texto).toContain('Skins en Los Leones')
+    const lbFalso = buildLeaderboard({
+      jugadores: jugadores as never, holes: 18, hoyoInicio: 1, parMap, siMap, courseHcpMap: {}, modoJuego: 'gross', formatoJuego: 'stroke_play',
+    })
+    const data = buildLeaderboardShareData({
+      ronda: rondaSkins, leaderboard: lbFalso, equipos: [], parMap, siMap, courseHcpMap: {}, fechaDisplay: '28 nov', codigo: 'SKINS1', isFinished: true,
+    })
+    expect(data.players).toEqual([])
+  })
+
+  it('IndividualLeaderboard y TeamLeaderboards no dibujan nada; sin GWI', () => {
+    const { container } = render(
+      <IndividualLeaderboard
+        ronda={rondaSkins} leaderboard={[]} isNetoMode={false} hasCourse parMap={parMap} siMap={siMap} courseHcpMap={{}}
+        hcpAMostrar={hcpAMostrar} fechaDisplay="28 nov" expanded={null} onToggleExpand={() => {}}
+      />,
+    )
+    expect(container.innerHTML).toBe('')
+    const equipos = render(
+      <TeamLeaderboards
+        ronda={rondaSkins}
+        equipos={[{ id: 'e1', nombre: 'Equipo 1', jugadorIds: ['j1', 'j2'], scores: { 1: 4 }, handicap_equipo: null, handicap_equipo_juego: null }] as never}
+        parMap={parMap} siMap={siMap} courseHcpMap={{}} hcpAMostrar={hcpAMostrar} fechaDisplay="28 nov"
+        expandedTeam={null} onToggleTeam={() => {}}
+      />,
+    )
+    expect(equipos.container.innerHTML).toBe('')
+    expect(formatoTieneGWI('skins')).toBe(false)
+  })
+})

@@ -1,6 +1,6 @@
 // Leaderboard individual (stroke/stableford) + scorecard expandible. Verbatim del monolito.
 // Se oculta (display:none) en match play, igual que en el original.
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import Scorecard from '@/components/Scorecard'
 import type { ScorecardProps } from '@/components/Scorecard'
 import { formatOverUnder } from '@/constants/golf'
@@ -39,7 +39,7 @@ export function IndividualLeaderboard({
 }: IndividualLeaderboardProps) {
   // Timba libre: no hay tabla por golpes ni neto; los puntos se ven en la pestaña Juego (spec, "Para el PR C").
   // Timba libre: la página muestra `TimbaEnVivo` (puntos de GET /juego); esta tabla por golpes daría un ganador falso.
-  if (esFormatoPersonalizado(ronda.formato_juego)) return null
+  if (esJuegoConPlata(ronda.formato_juego)) return null
   // Colores de resultado theme-aware: la tabla va sobre --bg-surface (navy en oscuro), donde la
   // variante clara de Garmin quedaba bajo AA (bogey #92700e = 3.71:1).
   const resultScoreColor = (vsPar: number, played: number) => {

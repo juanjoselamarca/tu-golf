@@ -21,7 +21,7 @@
 import type { Player } from '@/lib/golf-data'
 import type { HcpConSesion } from '@/lib/data/ronda-libre-live-api'
 import { formatLabel, modoDeJuego, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { handicapOcultoSinSesion, type FilaIndice } from '@/golf/ronda-libre/permisos'
 import { esRondaDeEquiposDeClub, type HandicapOrigen } from '@/golf/ronda-libre/equipos-de-club'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
@@ -180,7 +180,7 @@ export function gwiDelBoardPublico(
 export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJuego, modoJuego: ModoJuego): string {
   // La Timba nunca muestra una clasificación bruta: sus puntos, también los de la vista sin sesión
   // (/juego/publico), ya vienen en su modalidad real (QA 18-nov).
-  if (esFormatoPersonalizado(formatoJuego)) return formatLabel(formatoJuego, modoJuego)
+  if (esJuegoConPlata(formatoJuego)) return formatLabel(formatoJuego, modoJuego)
   return vista.soloBruto ? `${formatLabel(formatoJuego)} · ${COPY_CLASIFICACION_BRUTA}` : formatLabel(formatoJuego, modoJuego)
 }
 
@@ -250,7 +250,7 @@ export function datosRondaLibrePublicos<B extends {
     }
   }
   const vista = vistaPublicaDeRondaLibre(b.ronda)
-  if (!vista.soloBruto && !esFormatoPersonalizado(b.ronda.formato_juego)) {
+  if (!vista.soloBruto && !esJuegoConPlata(b.ronda.formato_juego)) {
     // El hándicap de la fila de quien tiene oculto el suyo (inscrito de torneo con cuenta)
     // no viaja; su course handicap ya salió en `sinIndice` (`courseHandicapsDeRonda` con `null`).
     return {
@@ -287,7 +287,7 @@ export function handicapsVisiblesParaElVisor(
   ronda: { formato_juego?: string | null; ronda_libre_jugadores: ReadonlyArray<{ id: string; user_id?: string | null }> },
   visorId: string,
 ): Required<HcpConSesion> {
-  if (!esFormatoPersonalizado(ronda.formato_juego)) return h
+  if (!esJuegoConPlata(ronda.formato_juego)) return h
   const propios = new Set(ronda.ronda_libre_jugadores.filter(j => !!j.user_id && j.user_id === visorId).map(j => j.id))
   const solo = <T,>(m: Record<string, T>) => Object.fromEntries(Object.entries(m).filter(([id]) => propios.has(id)))
   return {

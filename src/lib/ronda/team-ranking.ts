@@ -5,7 +5,7 @@ import {
   isTeamFormat, hoyosDelMotor,
 } from '@/golf/formats'
 import type { ScrambleTeamResult } from '@/golf/formats'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { scorePrimarioDeEquipo } from '@/golf/leaderboard/team-tiebreak'
 import type { FormatoJuego, ModoJuego, Jugador } from '@/types/ronda'
@@ -75,7 +75,7 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
 
   // Timba libre: no hay ranking de equipos por golpes ni neto genérico (spec formato-personalizado, "Para el PR C").
   // Guarda explícita: no depende de que `personalizado` siga fuera de TEAM_FORMAT_KEYS.
-  if (esFormatoPersonalizado(formato)) return []
+  if (esJuegoConPlata(formato)) return []
   if (!isTeamFormat(formato)) return []
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return []
 

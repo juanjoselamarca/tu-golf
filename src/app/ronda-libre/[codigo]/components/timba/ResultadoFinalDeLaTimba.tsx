@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import type { ResultadoDeLaTimba } from '@/golf/ronda-libre/resultado-de-la-timba'
 
 // DESIGN.md §4/§13 (16-nov): una familia (DM Sans), números con `.num`, escala 28/24/18/16/14/13, etiquetas en
@@ -14,8 +15,12 @@ const NOMBRE = { overflowWrap: 'anywhere', minWidth: 0 } as const
  * cuánto, ranking de puntos, parejas por tramo y puntos especiales. Armado por `armarResultadoDeLaTimba` (lee solo
  * `GET /juego`).
  */
-export function ResultadoFinalDeLaTimba({ resultado, onHoyoAHoyo, onCompartir, compartiendo, compartirPrincipal = true, aviso }: {
+export function ResultadoFinalDeLaTimba({ resultado, onHoyoAHoyo, onCompartir, compartiendo, compartirPrincipal = true, aviso, alPieDelRanking, etiquetaDelRanking = 'Puntos' }: {
   resultado: ResultadoDeLaTimba
+  /** Lo que va después del ranking (el Skins pone ahí la liquidación). */
+  alPieDelRanking?: ReactNode
+  /** Nombre accesible de la lista del ranking («Puntos» en la Timba, «Skins» en el Skins). */
+  etiquetaDelRanking?: string
   onHoyoAHoyo: () => void
   onCompartir: () => void
   compartiendo?: boolean
@@ -33,7 +38,7 @@ export function ResultadoFinalDeLaTimba({ resultado, onHoyoAHoyo, onCompartir, c
         {bajada && <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-2)' }}>{bajada}</p>}
       </header>
 
-      <ol aria-label="Puntos" style={{ ...GRUPO, listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column' }}>
+      <ol aria-label={etiquetaDelRanking} style={{ ...GRUPO, listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column' }}>
         {ranking.map((r, i) => (
           <li
             key={r.jugadorId}
@@ -59,6 +64,8 @@ export function ResultadoFinalDeLaTimba({ resultado, onHoyoAHoyo, onCompartir, c
           </li>
         ))}
       </ol>
+
+      {alPieDelRanking}
 
       {tramos && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
