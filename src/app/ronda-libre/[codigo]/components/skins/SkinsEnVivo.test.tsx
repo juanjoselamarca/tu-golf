@@ -86,7 +86,14 @@ describe('SkinsEnVivo', () => {
   it('resultado final: cada fila explica sus skins', () => {
     vista(juego({ a: { 1: 3, 2: 3, 3: 5 }, b: { 1: 4, 2: 3, 3: 5 }, c: { 2: 4, 3: 5 } }, {}, true), true)
     const ranking = screen.getByRole('list', { name: 'Skins' })
-    expect(within(ranking).getByText(/^Hoyo 1 · reparto del 3: [0-9,]+ skins?$/)).toBeTruthy()
+    const detalle = within(ranking).getByText(/^Hoyo 1 · reparto del 3 \([0-9,]+\)$/)
+    // Con un nombre largo el detalle parte en dos líneas sin pisar la cifra: se puede achicar y quebrar en cualquier
+    // parte; la cifra de la fila no se achica ni se parte.
+    expect(detalle.getAttribute('style')).toMatch(/min-width: 0/)
+    expect(detalle.getAttribute('style')).toMatch(/overflow-wrap: anywhere/)
+    const cifra = within(detalle.closest('li')!).getByText(/ skins?$/)
+    expect(cifra.getAttribute('style')).toMatch(/flex-shrink: 0/)
+    expect(cifra.getAttribute('style')).toMatch(/white-space: nowrap/)
   })
 
   it('sin señal: error con Reintentar', () => {

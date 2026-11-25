@@ -166,8 +166,8 @@ describe('liquidación del skins', () => {
     const t = tabla({ scores: { a: { 1: 3, 2: 3, 3: 4 }, b: { 1: 4, 2: 3, 3: 4 }, c: { 1: 4, 2: 3, 3: 5 } } })
     // El 2 se empata y arrastra: el 3 vale 2 y se reparte entre a y b (1 cada uno).
     expect(t.filas[0]).toMatchObject({ jugadorId: 'a', hoyosGanados: [1], hoyosRepartidos: [3], skinsDelReparto: 1 })
-    expect(detalleDeLaFila(t.filas[0])).toBe('Hoyo 1 · reparto del 3: 1 skin')
-    expect(detalleDeLaFila(t.filas.find(f => f.jugadorId === 'b')!)).toBe('Reparto del 3: 1 skin')
+    expect(detalleDeLaFila(t.filas[0])).toBe('Hoyo 1 · reparto del 3 (1)')
+    expect(detalleDeLaFila(t.filas.find(f => f.jugadorId === 'b')!)).toBe('Reparto del 3 (1)')
   })
 
   it('el reparto dice cuánto le tocó, con fracción (lo que explica «8,5 skins»)', () => {
@@ -175,7 +175,7 @@ describe('liquidación del skins', () => {
     const a = t.filas.find(f => f.jugadorId === 'a')!
     expect(a.skins).toBe(1.5)
     expect(a.skinsDelReparto).toBe(1.5)
-    expect(detalleDeLaFila(a)).toBe('Reparto del 3: 1,5 skins')
+    expect(detalleDeLaFila(a)).toBe('Reparto del 3 (1,5)')
   })
 
   it('el texto para compartir lleva la liquidación', () => {
@@ -255,7 +255,7 @@ describe('resultado final: el reparto explicado (vuelta 2 Fable)', () => {
     const t = tabla({ scores: { a: { 1: 3, 2: 3, 3: 5 }, b: { 1: 4, 2: 2, 3: 5 }, c: { 1: 4, 2: 3, 3: 5 } } })
     const r = armarResultadoDelSkins(t, NOMBRES)
     expect(r.ranking.map(f => [f.nombre, f.detalle])).toEqual(t.filas.map(f => [expect.any(String), detalleDeLaFila(f)]))
-    expect(r.ranking.find(f => f.jugadorId === 'a')?.detalle).toBe('Hoyo 1 · reparto del 3: 0,33 skins')
+    expect(r.ranking.find(f => f.jugadorId === 'a')?.detalle).toBe('Hoyo 1 · reparto del 3 (0,33)')
   })
 })
 

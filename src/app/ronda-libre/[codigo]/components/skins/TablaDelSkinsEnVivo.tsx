@@ -71,9 +71,9 @@ export function TablaDelSkinsEnVivo({ tabla, nombres, cortos, desactualizado }: 
               >
                 <span style={{ ...NOMBRE, flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <span style={{ fontSize: '16px', fontWeight: f.puesto === 1 && f.skins > 0 ? 600 : 400, color: 'var(--text)' }}>{nombre(f.jugadorId)}</span>
-                  {detalle && <span className="num" style={{ fontSize: '13px', color: 'var(--text-2)' }}>{detalle}</span>}
+                  {detalle && <span className="num" style={{ ...NOMBRE, fontSize: '13px', color: 'var(--text-2)' }}>{detalle}</span>}
                 </span>
-                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
                   <span className="num" style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap' }}>{textoDeSkins(f.skins)}</span>
                   {plata && <span className="num" style={{ fontSize: '14px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{plata}</span>}
                 </span>

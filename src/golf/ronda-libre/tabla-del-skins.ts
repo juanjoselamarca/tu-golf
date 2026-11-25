@@ -39,7 +39,7 @@ export interface FilaDeLaTablaSkins {
   hoyosGanados: number[]
   /** Hoyos repartidos con otros (último hoyo empatado): explican las fracciones («1,5 skins»). */
   hoyosRepartidos: number[]
-  /** Skins que le tocaron por el reparto (valor del hoyo ÷ entre cuántos): «reparto del 18: 7,5 skins». */
+  /** Skins que le tocaron por el reparto (valor del hoyo ÷ entre cuántos): «reparto del 18 (7,5)». */
   skinsDelReparto: number
   /** Skins por puntos especiales (1 cada uno). */
   especiales: number
@@ -152,14 +152,19 @@ function estadoDeLaPlata(r: ResultadoSkins): EstadoDeLaPlata {
 /** «1 skin», «3 skins», «1,5 skins» (reparto del último hoyo; hasta 2 decimales). */
 export function textoDeSkins(n: number): string {
   const redondo = Math.round(n * 100) / 100
-  const cifra = String(redondo).replace('.', ',')
-  return `${cifra} ${redondo === 1 ? 'skin' : 'skins'}`
+  return `${cifraDeSkins(n)} ${redondo === 1 ? 'skin' : 'skins'}`
+}
+
+/** La cifra sola, con coma decimal y hasta 2 decimales: «7,5», «0,33». */
+function cifraDeSkins(n: number): string {
+  return String(Math.round(n * 100) / 100).replace('.', ',')
 }
 
 /**
  * De dónde salen los skins de una fila, bajo el nombre: «Hoyos 1 y 4 · 1 punto especial». Con el número del hoyo
  * solo («Ganó 4») se leía como cuatro skins al lado de «3 skins». El reparto del último hoyo explica la fracción
- * («8,5 skins» → «Hoyo 4 · reparto del 18: 7,5 skins»). `null` si no hay nada que contar.
+ * («8,5 skins» → «Hoyo 4 · reparto del 18 (7,5)»): la parte va entre paréntesis y sin «skins», pegada a su origen,
+ * para que no se lea como otro total al lado de la cifra de la fila. `null` si no hay nada que contar.
  */
 export function detalleDeLaFila(
   f: Pick<FilaDeLaTablaSkins, 'hoyosGanados' | 'hoyosRepartidos' | 'skinsDelReparto' | 'especiales' | 'retiradoDesde'>,
@@ -169,7 +174,7 @@ export function detalleDeLaFila(
   if (h.length === 1) partes.push(`Hoyo ${h[0]}`)
   else if (h.length > 1) partes.push(`Hoyos ${listaDeHoyos(h)}`)
   if (f.hoyosRepartidos.length > 0) {
-    partes.push(`reparto del ${listaDeHoyos(f.hoyosRepartidos)}: ${textoDeSkins(f.skinsDelReparto)}`)
+    partes.push(`reparto del ${listaDeHoyos(f.hoyosRepartidos)} (${cifraDeSkins(f.skinsDelReparto)})`)
   }
   if (f.especiales > 0) partes.push(f.especiales === 1 ? '1 punto especial' : `${f.especiales} puntos especiales`)
   if (f.retiradoDesde != null) partes.push(`se retiró en el ${f.retiradoDesde}`)
