@@ -65,7 +65,7 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 | # | Archivo | LOC antes | LOC después | Estado | PR | Fecha |
 |---|---|---|---|---|---|---|
 | 1 | `src/app/api/import/screenshot/route.ts` | 767 | — | ⏳ Pendiente | — | — |
-| 2 | `src/app/api/admin/health-check/route.ts` | 600 | — | ⏳ Pendiente | — | — |
+| 2 | `src/app/api/admin/health-check/route.ts` | 725 | 19 | ✅ Ruta delgada (solo admin) + `src/lib/data/health-check-admin/` (una categoría por archivo, todas <235) + test | nocturno data-quality | 26 nov |
 | 3 | `src/app/api/import/garmin-zip/route.ts` | 540 | — | ⏳ Pendiente | — | — |
 | 4 | `src/app/api/inbox/webhook/route.ts` | 505 | — | ⏳ Pendiente | — | — |
 
