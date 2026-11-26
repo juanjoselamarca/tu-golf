@@ -369,6 +369,7 @@ function RondaLibrePageContent() {
             fechaDisplay={fechaDisplay}
             expandedTeam={expandedTeam}
             onToggleTeam={(id) => setExpandedTeam(prev => prev === id ? null : id)}
+            enVivo={!isFinished}
           />
         )}
 
@@ -392,12 +393,13 @@ function RondaLibrePageContent() {
         )}
         </>)}
 
-        {ronda.formato_juego !== 'match_play' && formatoTieneGWI(ronda.formato_juego) && !isFinished && hayGWIParaMostrar(gwi.jugadores) && (
+        {ronda.formato_juego !== 'match_play' && ronda.formato_juego !== 'scramble' && formatoTieneGWI(ronda.formato_juego) && !isFinished && hayGWIParaMostrar(gwi.jugadores) && (
           <GwiPanel ronda={ronda} jugadores={gwi.jugadores} results={gwi.results} />
         )}
 
-        {/* Timba libre: los momentos son golpes y el juego son puntos (rediseño C+, 18-nov): no van. */}
-        {!timba.esTimba && timelineEvents.length > 0 && (
+        {/* Timba libre: los momentos son golpes y el juego son puntos (rediseño C+, 18-nov): no van. Scramble/foursome:
+            tampoco (los golpes son del equipo; el espectador mira la tabla y el % de ganar — Juanjo, 25-nov). */}
+        {!timba.esTimba && !isSharedBallFormat(ronda.formato_juego) && timelineEvents.length > 0 && (
           <RecentTimeline
             ronda={ronda}
             timelineEvents={timelineEvents}

@@ -58,12 +58,14 @@ function primaryScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego): 
 }
 
 /**
- * En una tabla NETO, el gross del equipo va debajo del neto, rotulado: gross y neto siempre a la vista y sin
- * confundirse (ensayo 24-nov: el espectador no sabía cuál de los dos era el número). Sin hoyos no hay gross que dar.
+ * En una tabla NETO, el gross del equipo va en su propia columna GROSS, al lado del NETO, como un leaderboard del PGA
+ * Tour: los dos a la vista y sin confundirse (ensayo 24-nov: el espectador no sabía cuál de los dos era el número).
+ * `null` = la tabla no lleva columna GROSS (gross o stableford). Sin hoyos no hay gross que dar: «—».
  */
-export function grossBajoElNeto(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string | null {
-  if (modo !== 'neto' || formato === 'stableford' || team.holesPlayed === 0) return null
-  return `Gross ${hasCourse ? formatOverUnder(team.overUnderGross) : team.totalGross}`
+export function grossDeLaColumna(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string | null {
+  if (modo !== 'neto' || formato === 'stableford') return null
+  if (team.holesPlayed === 0) return '—'
+  return hasCourse ? formatOverUnder(team.overUnderGross) : String(team.totalGross)
 }
 
 function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string {
@@ -75,6 +77,10 @@ function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, h
 export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stroke_play', totalHoles, formato, expandedTeamId, onToggleTeam, renderTeamDetail }: Props) {
   const hasCourse = teams.some(t => t.overUnderGross !== t.totalGross)
   const isStableford = formatoJuego === 'stableford'
+  const conGross = modoJuego === 'neto' && !isStableford
+  // POS · EQUIPO · NETO · GROSS · HOYO (neto) o POS · EQUIPO · score · HOYO.
+  const columnas = conGross ? '32px minmax(0, 1fr) 52px 52px 44px' : '36px 1fr 72px 60px'
+  const cabecera = { fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em' } as const
   // El orden lo decide el motor (`ordenarEquipos*` → countback, sin hoyos al final).
   // Re-ordenar acá por score perdía el countback y subía al equipo que no ha salido.
   const sorted = teams
@@ -109,15 +115,16 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
 
       {/* Table header */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '36px 1fr 72px 60px',
+        display: 'grid', gridTemplateColumns: columnas, alignItems: 'center',
         padding: '10px 16px', borderBottom: '1px solid var(--border)',
       }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>#</span>
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>Equipo</span>
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'center' }}>
+        <span style={cabecera}>Pos</span>
+        <span style={cabecera}>Equipo</span>
+        <span style={{ ...cabecera, textAlign: 'center' }}>
           {isStableford ? 'PTS' : nombreDelModo(modoJuego)}
         </span>
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'right' }}>{THRU_LABEL}</span>
+        {conGross && <span style={{ ...cabecera, textAlign: 'center' }}>Gross</span>}
+        <span style={{ ...cabecera, textAlign: 'right' }}>{THRU_LABEL}</span>
       </div>
 
       {/* Team rows */}
@@ -131,16 +138,21 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
         const score = primaryScore(team, modoJuego, formatoJuego)
         const isEven = score === 0 && !isStableford
         const isGood = isStableford ? score > 0 : score < 0
-        const grossLinea = grossBajoElNeto(team, modoJuego, formatoJuego, hasCourse)
+        const gross = grossDeLaColumna(team, modoJuego, formatoJuego, hasCourse)
+        const abierto = expandedTeamId === team.teamId
 
         return (
           <div key={team.teamId} style={{ borderBottom: '1px solid var(--border)' }}>
           <div
             role={onToggleTeam ? 'button' : undefined}
+            tabIndex={onToggleTeam ? 0 : undefined}
+            aria-expanded={onToggleTeam ? abierto : undefined}
+            aria-label={onToggleTeam ? `${team.teamNombre}: ${abierto ? 'ocultar' : 'ver'} tarjeta` : undefined}
             onClick={onToggleTeam ? () => onToggleTeam(team.teamId) : undefined}
+            onKeyDown={onToggleTeam ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleTeam(team.teamId) } } : undefined}
             style={{
-            display: 'grid', gridTemplateColumns: '36px 1fr 72px 60px',
-            padding: '12px 16px',
+            display: 'grid', gridTemplateColumns: columnas, alignItems: 'center',
+            padding: '12px 16px', minHeight: '48px',
             background: lider ? 'rgba(196,153,42,0.03)' : 'transparent',
             cursor: onToggleTeam ? 'pointer' : 'default',
           }}>
@@ -153,12 +165,12 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
             </span>
 
             {/* Team info */}
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflowWrap: 'anywhere' }}>
                 {team.teamNombre}
                 {onToggleTeam && (
-                  <span style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 400, marginLeft: '6px' }}>
-                    {expandedTeamId === team.teamId ? '▲' : '▼'}
+                  <span aria-hidden="true" style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 400, marginLeft: '6px' }}>
+                    {abierto ? '▲' : '▼'}
                   </span>
                 )}
               </div>
@@ -188,12 +200,13 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
               }}>
                 {displayScore(team, modoJuego, formatoJuego, hasCourse)}
               </span>
-              {grossLinea && (
-                <div style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', marginTop: '1px', whiteSpace: 'nowrap' }}>
-                  {grossLinea}
-                </div>
-              )}
             </div>
+
+            {gross != null && (
+              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-2)', textAlign: 'center', fontFamily: '"DM Mono", monospace' }}>
+                {gross}
+              </span>
+            )}
 
             {/* Holes */}
             <span style={{
@@ -203,7 +216,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
               {formatThru(team.holesPlayed, totalHoles)}
             </span>
             </div>
-            {onToggleTeam && expandedTeamId === team.teamId && renderTeamDetail && (
+            {onToggleTeam && abierto && renderTeamDetail && (
               <div>{renderTeamDetail(team.teamId)}</div>
             )}
           </div>
