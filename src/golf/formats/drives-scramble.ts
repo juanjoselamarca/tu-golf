@@ -39,6 +39,21 @@ export function leerDrives(crudo: unknown, cantidadDeJugadores: number): DrivesD
   return out
 }
 
+/**
+ * Los drives guardados con cambios encima (los que esperan envío o acaban de confirmarse en este teléfono):
+ * hoyo → índice del jugador, o un índice negativo = sin drive en ese hoyo. Último en la lista gana.
+ */
+export function drivesConCambios(base: DrivesDelEquipo, ...cambios: ReadonlyArray<Readonly<Record<string, number>>>): DrivesDelEquipo {
+  const out: DrivesDelEquipo = { ...base }
+  for (const c of cambios) {
+    for (const [hoyo, v] of Object.entries(c)) {
+      if (v < 0) delete out[hoyo]
+      else out[hoyo] = v
+    }
+  }
+  return out
+}
+
 /** Los jugadores con que se anotan drives, o `null` si el equipo no los anota. */
 export function jugadoresDeDrive(crudo: unknown): string[] | null {
   if (!Array.isArray(crudo) || crudo.length === 0) return null

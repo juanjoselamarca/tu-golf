@@ -353,12 +353,15 @@ export function olvidarRechazado(codigo: string, id: string, hoyo: number): void
 /** Marcas de puntos especiales de Timba libre pendientes de confirmar (ver `puntitos-pendientes.ts`). */
 export const PUNTITOS_PEND_KEY = (codigo: string) => `ronda_puntitos_pendientes_${codigo}`
 
+/** Drives del scramble pendientes de confirmar (ver `drives-pendientes.ts`). */
+export const DRIVES_PEND_KEY = (codigo: string) => `ronda_drives_pendientes_${codigo}`
+
 /** Retiros de Timba libre confirmados por el servidor que la vista del juego aún no trae (`retiros-confirmados.ts`). */
 export const RETIROS_TIMBA_KEY = (codigo: string) => `ronda_timba_retiros_${codigo}`
 
 /**
  * Snapshot, golpes por jugador, golpes de equipo, pendientes (golpes y puntitos) y apartados del scorer de grupo.
- * Con `alFinalizar`, las marcas de puntos especiales que el servidor no confirmó se quedan
+ * Con `alFinalizar`, las marcas de puntos especiales y los drives que el servidor no confirmó se quedan
  * (una ronda finalizada se puede reabrir; Finalizar sólo espera los golpes, no las marcas).
  */
 function borrarCopiaDelGrupo(codigo: string, alFinalizar = false): void {
@@ -373,6 +376,7 @@ function borrarCopiaDelGrupo(codigo: string, alFinalizar = false): void {
     borrarRechazados(codigo)
     localStorage.removeItem(RETIROS_TIMBA_KEY(codigo))
     if (!(alFinalizar && crearColaDePendientes(PUNTITOS_PEND_KEY).hay(codigo))) localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
+    if (!(alFinalizar && crearColaDePendientes(DRIVES_PEND_KEY).hay(codigo))) localStorage.removeItem(DRIVES_PEND_KEY(codigo))
   } catch {
     // noop
   }

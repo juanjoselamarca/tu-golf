@@ -42,7 +42,7 @@ type Client = Pick<SupabaseClient, 'from'>
  * en "sin conexión" para siempre.
  */
 export const COLUMNAS_RONDA_SCORER =
-  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
+  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, hcp_pct, drives_minimo, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
 
 /**
  * Más el orden del juego de una Timba (`reglas_juego`, fuera del grant de anon). Solo el scorer de grupo, que exige

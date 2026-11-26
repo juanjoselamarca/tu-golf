@@ -35,6 +35,10 @@ export interface Equipo {
   scores: Record<string, number>
   /** 'club' = equipo de scramble rápido, sin jugadores (`esEquipoDeClub`). Ausente en lecturas que no la piden. */
   handicap_origen?: HandicapOrigen
+  /** Drives del scramble (`@/golf/formats/drives-scramble`): los jugadores del equipo. Ausente = no anota drives. */
+  drive_jugadores?: string[]
+  /** Hoyo → índice en `drive_jugadores`, ya limpio (`leerDrives`). Presente solo junto a `drive_jugadores`. */
+  drives?: Record<string, number>
 }
 
 export type JugadorRanking = Pick<Jugador, 'id' | 'nombre' | 'scores'> & { handicap?: number | null }

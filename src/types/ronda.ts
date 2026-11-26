@@ -92,6 +92,8 @@ export interface RondaLibre {
   recorridos?:           string[] | null
   /** Handicap de juego: % del course handicap con que puntúa (`hcpPctDeRonda`). 100 salvo tarjetas de torneo. */
   hcp_pct?:              number | null
+  /** Drives mínimos por jugador del scramble de club (`@/golf/formats/drives-scramble`). `null`/ausente = sin drives. */
+  drives_minimo?:        number | null
   ronda_libre_jugadores: Jugador[]
 }
 
