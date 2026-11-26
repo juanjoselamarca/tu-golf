@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MENSAJE_SKINS_YA_EMPEZO } from '@/lib/data/skins-editar'
 import { MAX_JUGADORES_POR_RONDA } from '@/golf/ronda-libre/plantilla-de-jugadores'
-import { EditarSkins, TEXTO_EDITAR, textoDelPie } from './EditarSkins'
+import { EditarSkins, TEXTO_DESCARTAR, TEXTO_EDITAR, textoDelPie } from './EditarSkins'
 import { MENSAJE_EDITAR_SIN_SENAL, MENSAJE_EDITAR_TOPE, pedidoDeEdicion, puedeEditarElSkins, filasIniciales } from '../../hooks/useEditarSkins'
 
 vi.mock('@/lib/data/ronda-libre-nueva', () => ({
@@ -160,13 +160,58 @@ describe('la hoja', () => {
     expect(within(hoja()).getByRole('button', { name: 'Guardar' })).toBeTruthy()
   })
 
-  it('sin señal: no reintenta solo (sumaría de nuevo a los nuevos); pide cerrar y mirar', async () => {
+  it('sin señal: no reintenta solo (los nuevos volverían a crearse con otro id); pide cerrar y mirar', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
     montar()
     abrir()
     fireEvent.click(within(hoja()).getByRole('button', { name: 'Guardar' }))
     expect(await within(hoja()).findByText(MENSAJE_EDITAR_SIN_SENAL)).toBeTruthy()
     expect(within(hoja()).getByRole('button', { name: 'Entendido' })).toBeTruthy()
+  })
+})
+
+describe('revisión Fable #898', () => {
+  it('P2-1: a un jugador con cuenta no se le ofrece «Quitar» (la API no lo saca: no hay 409 en bucle)', () => {
+    montar({ jugadores: [...JUGADORES, { id: 'j3', nombre: 'Coni Ruiz', user_id: 'u-coni', handicap: 5, tees: null }], orden: ['j1', 'j2', 'j3'] })
+    abrir()
+    expect(within(hoja()).queryByRole('button', { name: 'Quitar a Coni Ruiz' })).toBeNull()
+    expect(within(hoja()).getByRole('button', { name: 'Quitar a Beto Soto' })).toBeTruthy()
+  })
+
+  it('P2-5: con «ya empezó» en pantalla, cerrar por el fondo también recarga (como «Entendido»)', async () => {
+    responder(409, { error: MENSAJE_SKINS_YA_EMPEZO })
+    const { onGuardado } = montar()
+    abrir()
+    fireEvent.click(within(hoja()).getByRole('button', { name: 'Guardar' }))
+    expect(await within(hoja()).findByText(MENSAJE_SKINS_YA_EMPEZO)).toBeTruthy()
+    fireEvent.click(screen.getByTestId('bottom-sheet-fondo'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(onGuardado).toHaveBeenCalledTimes(1)
+  })
+
+  it('P2-6: cerrar con cambios pregunta; «Seguir editando» los conserva y «Descartar» cierra sin guardar', () => {
+    const { onGuardado } = montar()
+    abrir()
+    fireEvent.change(within(hoja()).getAllByLabelText('Índice')[1], { target: { value: '20' } })
+    fireEvent.click(screen.getByTestId('bottom-sheet-fondo'))
+    expect(within(hoja()).getByText(TEXTO_DESCARTAR)).toBeTruthy()
+    fireEvent.click(within(hoja()).getByRole('button', { name: 'Seguir editando' }))
+    expect((within(hoja()).getAllByLabelText('Índice')[1] as HTMLInputElement).value).toBe('20')
+    fireEvent.click(within(hoja()).getByRole('button', { name: 'Cerrar' }))
+    fireEvent.click(within(hoja()).getByRole('button', { name: 'Descartar' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(onGuardado).not.toHaveBeenCalled()
+    // Al volver a abrir, la hoja parte de lo guardado.
+    abrir()
+    expect((within(hoja()).getAllByLabelText('Índice')[1] as HTMLInputElement).value).toBe('18.4')
+  })
+
+  it('P2-6: sin cambios, cerrar no pregunta', () => {
+    montar()
+    abrir()
+    fireEvent.click(within(hoja()).getByRole('button', { name: 'Cerrar' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 

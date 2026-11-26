@@ -12,7 +12,7 @@ import { input, inputNumerico, inputQueBloquea } from '../../../nueva/components
 import { SelectorDeTeeDelJugador } from '../../../nueva/components/SelectorDeTeeDelJugador'
 import { TarjetaDeRival } from '../../../nueva/components/TarjetaDeRival'
 import {
-  MENSAJE_EDITAR_INDICE, MENSAJE_EDITAR_TOPE, useEditarSkins, type EditorDelSkins, type FilaDelEditor, type JugadorDelSkinsAEditar,
+  MENSAJE_EDITAR_INDICE, MENSAJE_EDITAR_TOPE, sePuedeQuitar, useEditarSkins, type EditorDelSkins, type FilaDelEditor, type JugadorDelSkinsAEditar,
 } from '../../hooks/useEditarSkins'
 
 // «Editar» del Skins (spec docs/specs/formato-skins.md, «Editar antes del primer golpe»): el botón y la hoja. La misma
@@ -20,6 +20,7 @@ import {
 // se ve (`puedeEditarElSkins`); el estado vive en `useEditarSkins`.
 
 export const TEXTO_EDITAR = 'Editar'
+export const TEXTO_DESCARTAR = '¿Descartar los cambios?'
 const ID_AYUDA = 'editar-skins-ayuda'
 
 const textoChico = { margin: 0, fontSize: '13px', lineHeight: 1.4, color: 'var(--text-2)' } as const
@@ -90,7 +91,15 @@ export function HojaEditarSkins({ editor, teeGlobal }: { editor: EditorDelSkins;
 
   return (
     <BottomSheet abierto={editor.abierto} onCerrar={editor.cerrar} etiqueta="Editar jugadores del Skins">
-      {estado.fase === 'cerrar' ? (
+      {editor.confirmandoDescartar && estado.fase !== 'cerrar' ? (
+        <div role="alertdialog" aria-labelledby="editar-skins-descartar" style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '8px' }}>
+          <p id="editar-skins-descartar" style={{ margin: 0, fontSize: '17px', lineHeight: 1.4, color: 'var(--text)' }}>{TEXTO_DESCARTAR}</p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button type="button" onClick={editor.seguirEditando} style={{ ...botonTexto, flex: 1, minHeight: '48px' }}>Seguir editando</button>
+            <Button type="button" variant="destructive" size="lg" onClick={editor.descartar} style={{ flex: 1 }}>Descartar</Button>
+          </div>
+        </div>
+      ) : estado.fase === 'cerrar' ? (
         <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '8px' }}>
           <p style={{ margin: 0, fontSize: '17px', lineHeight: 1.4, color: 'var(--text)' }}>{estado.mensaje}</p>
           <Button type="button" variant="commit" size="lg" fullWidth onClick={editor.entendido}>Entendido</Button>
@@ -110,17 +119,19 @@ export function HojaEditarSkins({ editor, teeGlobal }: { editor: EditorDelSkins;
                   {f.tipo === 'existente' ? (
                     <FilaExistente fila={f} editor={editor} tees={tees} teeGlobal={teeGlobal} />
                   ) : (
-                    <TarjetaDeRival
-                      rival={f.rival}
-                      indiceEnLista={i}
-                      numeroEnPantalla={i + 1}
-                      tees={tees}
-                      teeGlobal={teeGlobal}
-                      hcp={null}
-                      onCampo={(campo, valor) => editor.cambiarRival(f.clave, campo, valor)}
-                      onQuitar={() => editor.quitar(f.clave)}
-                      onBloqueo={b => editor.marcarBloqueo(f.clave, b)}
-                    />
+                    <div style={{ marginTop: '12px' }}>
+                      <TarjetaDeRival
+                        rival={f.rival}
+                        indiceEnLista={i}
+                        numeroEnPantalla={i + 1}
+                        tees={tees}
+                        teeGlobal={teeGlobal}
+                        hcp={null}
+                        onCampo={(campo, valor) => editor.cambiarRival(f.clave, campo, valor)}
+                        onQuitar={() => editor.quitar(f.clave)}
+                        onBloqueo={b => editor.marcarBloqueo(f.clave, b)}
+                      />
+                    </div>
                   )}
                 </li>
               ))}
@@ -204,7 +215,7 @@ function FilaExistente({ fila, editor, tees, teeGlobal }: {
         <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>
           {fila.nombre}{fila.esCreador && <span style={{ fontWeight: 400, color: 'var(--text-2)' }}> (tú)</span>}
         </span>
-        {!fila.esCreador && !confirmando && (
+        {sePuedeQuitar(fila) && !confirmando && (
           <button type="button" onClick={() => editor.pedirQuitar(fila.clave)} aria-label={`Quitar a ${nombre}`} style={botonTexto}>
             Quitar
           </button>

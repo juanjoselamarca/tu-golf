@@ -26,7 +26,12 @@ export interface JugadorDelSkinsAEditar {
 
 /** Una fila de la hoja: un jugador que ya estaba (nombre fijo) o uno nuevo (la tarjeta del asistente). */
 export type FilaDelEditor =
-  | { clave: string; tipo: 'existente'; id: string; nombre: string; esCreador: boolean; handicap: number | null; tees: string | null }
+  | {
+    clave: string; tipo: 'existente'; id: string; nombre: string; esCreador: boolean
+    /** Juega con su cuenta (user_id): no se puede quitar (la API responde 400). El creador también la tiene. */
+    conCuenta: boolean
+    handicap: number | null; tees: string | null
+  }
   | { clave: string; tipo: 'nuevo'; rival: RivalDelCreador }
 
 export type EstadoDelEditor =
@@ -69,9 +74,14 @@ export function filasIniciales(todos: readonly JugadorDelSkinsAEditar[], creador
   const creador = jugadores.filter(j => j.user_id === creadorId)
   const resto = jugadores.filter(j => j.user_id !== creadorId)
   return [...creador, ...resto].map(j => ({
-    clave: j.id, tipo: 'existente', id: j.id, nombre: j.nombre, esCreador: j.user_id === creadorId,
+    clave: j.id, tipo: 'existente', id: j.id, nombre: j.nombre, esCreador: j.user_id === creadorId, conCuenta: j.user_id != null,
     handicap: j.handicap ?? null, tees: j.tees ?? null,
   }))
+}
+
+/** ¿Se le ofrece «Quitar»? Ni al creador ni a uno con cuenta (la API no los saca). Los nuevos se quitan siempre. */
+export function sePuedeQuitar(f: FilaDelEditor): boolean {
+  return f.tipo === 'nuevo' || (!f.esCreador && !f.conCuenta)
 }
 
 /** ¿La fila cuenta como jugador? Un rival nuevo sin nombre no se manda (igual que en el asistente). */
@@ -123,7 +133,10 @@ export function useEditarSkins(input: {
   const [pidiendoQuitar, setPidiendoQuitar] = useState<string | null>(null)
   const [bloqueos, setBloqueos] = useState<ReadonlySet<string>>(new Set())
   const [tees, setTees] = useState<EstadoDeLosTees>({ fase: 'cargando' })
+  const [confirmandoDescartar, setConfirmandoDescartar] = useState(false)
   const ultimoNuevo = useRef(0)
+  /** Las filas tal como se abrieron: con otras, cerrar pide confirmar (revisión Fable #898, P2-6). */
+  const filasAlAbrir = useRef('')
 
   const cargarTees = useCallback(() => {
     if (!courseId) { setTees({ fase: 'ok', tees: [] }); return }
@@ -140,16 +153,38 @@ export function useEditarSkins(input: {
   useEffect(() => { if (abierto) cargarTees() }, [abierto, cargarTees])
 
   const abrir = () => {
-    setFilas(filasIniciales(jugadores, creadorId, orden))
+    const iniciales = filasIniciales(jugadores, creadorId, orden)
+    filasAlAbrir.current = JSON.stringify(iniciales)
+    setFilas(iniciales)
     setEstado({ fase: 'editando' })
     setPidiendoQuitar(null)
     setBloqueos(new Set())
+    setConfirmandoDescartar(false)
     setAbierto(true)
   }
+  const hayCambios = JSON.stringify(filas) !== filasAlAbrir.current
+  const entendido = () => {
+    setAbierto(false)
+    setEstado({ fase: 'editando' })
+    setConfirmandoDescartar(false)
+    onGuardado()
+  }
+  /**
+   * Cerrar (botón, fondo, deslizar o Escape). Guardando: no. Sin vuelta («cerrar»): es «Entendido», que recarga
+   * (revisión Fable #898, P2-5). Con cambios sin guardar: primero pregunta si se descartan (P2-6).
+   */
   const cerrar = () => {
     if (estado.fase === 'guardando') return
+    if (estado.fase === 'cerrar') { entendido(); return }
+    if (hayCambios && !confirmandoDescartar) { setConfirmandoDescartar(true); return }
+    setConfirmandoDescartar(false)
     setAbierto(false)
   }
+  const descartar = () => {
+    setConfirmandoDescartar(false)
+    setAbierto(false)
+  }
+  const seguirEditando = () => setConfirmandoDescartar(false)
 
   const cambiarExistente = (clave: string, cambio: { handicap?: number | null; tees?: string | null }) => {
     setFilas(prev => prev.map(f => (f.clave === clave && f.tipo === 'existente' ? { ...f, ...cambio } : f)))
@@ -184,7 +219,7 @@ export function useEditarSkins(input: {
   const pedirQuitar = (clave: string) => setPidiendoQuitar(clave)
   const cancelarQuitar = () => setPidiendoQuitar(null)
   const quitar = (clave: string) => {
-    setFilas(prev => prev.filter(f => f.clave !== clave || (f.tipo === 'existente' && f.esCreador)))
+    setFilas(prev => prev.filter(f => f.clave !== clave || !sePuedeQuitar(f)))
     marcarBloqueo(clave, false)
     setPidiendoQuitar(null)
   }
@@ -219,21 +254,16 @@ export function useEditarSkins(input: {
       }
       setEstado({ fase: 'error', mensaje: texto })
     } catch (err) {
-      // Corte o plazo: el PUT pudo haberse guardado. Reintentar con la misma lista sumaría de nuevo a los jugadores
-      // nuevos (aún sin id): se cierra y se recarga para ver cómo quedó.
+      // Corte o plazo: el PUT pudo haberse guardado. El PUT reemplaza la lista completa, así que reintentar no duplica,
+      // pero los nuevos van sin id: si ya entraron, reintentar los sacaría y volvería a crearlos con otro id (un
+      // scorer que ya los cargó quedaría con un id que no existe). Se cierra y se recarga para ver cómo quedó.
       void captureError(err, { context: 'ronda-libre.skins-editar.guardar', level: 'warning', meta: { codigo } })
       setEstado({ fase: 'cerrar', mensaje: MENSAJE_EDITAR_SIN_SENAL })
     }
   }
 
-  const entendido = () => {
-    setAbierto(false)
-    setEstado({ fase: 'editando' })
-    onGuardado()
-  }
-
   return {
-    abierto, abrir, cerrar,
+    abierto, abrir, cerrar, hayCambios, confirmandoDescartar, descartar, seguirEditando,
     filas, tees, reintentarTees: cargarTees,
     cambiarExistente, cambiarRival, marcarBloqueo,
     sumar, enTope,
