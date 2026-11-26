@@ -60,8 +60,11 @@ export function EditarSkins(props: {
 
 export const TEXTO_AYUDA_EDITAR = 'Jugadores, índice y tee: se corrigen antes de anotar.'
 export const TEXTO_JUGADORES_FIJOS = 'Con el primer golpe, los jugadores quedaron fijos.'
-/** La franja mide lo mismo con botón o sin él: en el scorer, cambiar de una a otra no mueve las tarjetas. */
-const franja = { display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0', minHeight: '52px', boxSizing: 'border-box' } as const
+/**
+ * La franja mide lo mismo con botón o sin él: en el scorer, cambiar de una a otra no mueve las tarjetas. Alto = el del
+ * botón `size="md"` (h-12, 48 px) + 4 px arriba y abajo; la ayuda en dos líneas (36 px) cabe dentro.
+ */
+const franja = { display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0', minHeight: '56px', boxSizing: 'border-box' } as const
 
 /** El botón «Editar» con su línea de ayuda. */
 export function BotonEditarSkins({ onAbrir }: { onAbrir: () => void }) {

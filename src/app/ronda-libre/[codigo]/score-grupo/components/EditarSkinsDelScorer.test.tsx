@@ -42,7 +42,7 @@ describe('«Editar» en el scorer', () => {
     const altoDe = () => (container.firstElementChild as HTMLElement | null)?.style.minHeight
     expect(screen.getByRole('button', { name: 'Editar' })).toBeTruthy()
     const alto = altoDe()
-    expect(alto).toBe('52px')
+    expect(alto).toBe('56px')
 
     rerender(<EditarSkinsDelScorer {...props} enElHoyoDeSalida scores={{ a: { 1: 4 } }} />)
     expect(screen.queryByRole('button', { name: 'Editar' })).toBeNull()

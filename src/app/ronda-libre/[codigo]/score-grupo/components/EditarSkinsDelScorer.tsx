@@ -31,7 +31,7 @@ export function EditarSkinsDelScorer(props: {
   const jugadores = ronda.ronda_libre_jugadores
   const visible = !!vista && !!ronda.creador_id && enElHoyoDeSalida && !hayAlgoAnotadoEnElTelefono(scores, fuera)
     && puedeEditarElSkins({ userId, creadorId: ronda.creador_id, vista, jugadores })
-  // Revisión Fable #898 (P1-2): el primer «+» esconde el botón. Si la franja se fuera, las tarjetas subirían ~52 px y el
+  // Revisión Fable #898 (P1-2): el primer «+» esconde el botón. Si la franja se fuera, las tarjetas subirían ~56 px y el
   // segundo toque caería en otra tecla. Mientras se siga en el hoyo de salida, su lugar lo ocupa una franja del mismo
   // alto; al cambiar de hoyo (toda la pantalla cambia) se va. Estado derivado del render anterior, sin efecto.
   const [reservado, setReservado] = useState(false)
