@@ -15,6 +15,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { MENSAJE_HANDICAP_UN_DECIMAL, tieneUnDecimalComoMaximo } from '@/golf/handicap-index-range'
 import { leerReglasSkins } from '@/golf/ronda-libre/skins-del-scorer'
+import { esFormatoSkins } from '@/golf/formats/skins/clave'
+import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import type { ReglasSkinsGuardadas } from '@/golf/ronda-libre/skins-de-ronda-nueva'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { filasDeJugadores, perfilSugerido, verificarPerfilesSugeridos, type FilaDeJugadorDeRonda, type JugadorDeRonda } from './ronda-libre-jugadores-filas'
@@ -50,6 +52,8 @@ export type EdicionDelSkins =
 export const MENSAJE_EDITAR_SIN_CREADOR = 'Tu tarjeta va primera y no se puede sacar del Skins.'
 export const MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA =
   'Un jugador ya no está en la ronda. Cierra Editar y vuelve a abrirlo.'
+/** 409 de PUT .../skins/jugadores cuando ya hubo un golpe (la función SQL responde P0003). */
+export const MENSAJE_SKINS_YA_EMPEZO = 'El Skins ya empezó. Desde el primer golpe no se edita.'
 export const MENSAJE_EDITAR_REGLAS_ILEGIBLES = 'No pudimos leer las reglas del Skins. Vuelve a cargar la ronda.'
 
 export async function prepararEdicionDelSkins(
@@ -124,4 +128,47 @@ export async function prepararEdicionDelSkins(
     teesDeLaRonda: ronda.tees,
   })
   return { ok: true, filas, reglas: skins.reglas }
+}
+
+/** La ronda y sus tarjetas, leídas con el cliente de la sesión (el RLS de siempre). */
+export type SkinsAEditar =
+  | { status: 'ok'; ronda: RondaDelSkinsAEditar; jugadores: JugadorActualDelSkins[] }
+  | { status: 'not_found' }
+  | { status: 'error'; error: unknown }
+
+export async function leerSkinsAEditar(supabase: SupabaseClient, codigo: string): Promise<SkinsAEditar> {
+  const ronda = await supabase
+    .from('rondas_libres')
+    .select('id, creador_id, formato_juego, estado, course_id, course_name, holes, hoyo_inicio, recorridos, tees, modo_juego, admin_mode, reglas_juego')
+    .eq('codigo', codigo)
+    .maybeSingle()
+  if (ronda.error) return { status: 'error', error: ronda.error }
+  const fila = ronda.data as (RondaDelSkinsAEditar & { formato_juego: string | null; estado: string | null }) | null
+  if (!fila || !esFormatoSkins(fila.formato_juego) || esRondaCerrada(fila.estado)) return { status: 'not_found' }
+  const jugadores = await supabase.from('ronda_libre_jugadores').select('id, user_id').eq('ronda_id', fila.id)
+  if (jugadores.error) return { status: 'error', error: jugadores.error }
+  return { status: 'ok', ronda: fila, jugadores: (jugadores.data ?? []) as JugadorActualDelSkins[] }
+}
+
+/** Resultado de grabar: el código de la función SQL decide la respuesta (P0003 = ya empezó). */
+export type EdicionGuardada =
+  | { ok: true }
+  | { ok: false; motivo: 'empezado' | 'no_existe' | 'no_calza' | 'error'; error?: unknown }
+
+/** Llama a `editar_jugadores_skins` con service_role: todo o nada, con la ronda tomada. */
+export async function guardarEdicionDelSkins(
+  admin: SupabaseClient,
+  rondaId: string,
+  edicion: { filas: readonly FilaDeJugadorDeRonda[]; reglas: ReglasSkinsGuardadas },
+): Promise<EdicionGuardada> {
+  const { error } = await admin.rpc('editar_jugadores_skins', {
+    p_ronda_id: rondaId,
+    p_jugadores: edicion.filas,
+    p_reglas_juego: edicion.reglas,
+  })
+  if (!error) return { ok: true }
+  if (error.code === 'P0003') return { ok: false, motivo: 'empezado' }
+  if (error.code === 'P0002') return { ok: false, motivo: 'no_existe' }
+  if (error.code === 'P0001') return { ok: false, motivo: 'no_calza', error }
+  return { ok: false, motivo: 'error', error }
 }
