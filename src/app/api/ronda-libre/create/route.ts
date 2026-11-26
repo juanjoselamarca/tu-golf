@@ -24,9 +24,9 @@ import { evaluarRondaLibre } from '@/lib/data/course-aptitud'
 import { bloqueaRondaLibre, seArreglaJugandoGross } from '@/golf/courses/aptitud-torneo'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
-import { HANDICAP_INDEX_MIN, HANDICAP_INDEX_MAX, MENSAJE_HANDICAP_UN_DECIMAL, MENSAJE_INDICE_FUERA_DE_RANGO, tieneUnDecimalComoMaximo } from '@/golf/handicap-index-range'
+import { MENSAJE_HANDICAP_UN_DECIMAL, tieneUnDecimalComoMaximo } from '@/golf/handicap-index-range'
 import { checkModoAccess } from '@/golf/billing/require-feature'
-import { perfilesQueExisten } from '@/lib/data/perfiles-existentes'
+import { filasDeJugadores, jugadorDeRondaSchema, perfilSugerido, verificarPerfilesSugeridos } from '@/lib/data/ronda-libre-jugadores-filas'
 import { skinsParaCrearRonda } from '@/lib/data/skins-ronda-nueva'
 
 export const dynamic = 'force-dynamic'
@@ -42,20 +42,6 @@ const MODOS = ['gross', 'neto'] as const
  * error en `insert-jugadores`, con `reintentoSinSugerencia` para cruzarlos.
  */
 const CODIGOS_SUGERENCIA_DESCARTABLE = new Set(['PGRST204', '42703', '23503', '42501'])
-
-const playerSchema = z.object({
-  nombre: z.string().min(1).max(100),
-  // Lo ignora el servidor: el creador entra con su sesión y los rivales con null (#581).
-  user_id: z.string().uuid().nullable(),
-  // Cuenta que el creador eligió para un rival. Se graba en `perfil_sugerido_id`,
-  // que no da ningún poder sobre la ronda (ver más abajo).
-  perfil_sugerido_id: z.string().uuid().nullable().optional(),
-  handicap: z.number().min(HANDICAP_INDEX_MIN, MENSAJE_INDICE_FUERA_DE_RANGO).max(HANDICAP_INDEX_MAX, MENSAJE_INDICE_FUERA_DE_RANGO).nullable(),
-  tees: z.string().max(50).nullable(),
-  is_guest: z.boolean().optional(),
-  telefono_invitado: z.string().max(30).optional(),
-  nombre_invitado: z.string().max(100).optional(),
-})
 
 const equipoSchema = z.object({
   // Sin espacios a los lados: un nombre de solo espacios ya no se graba en blanco.
@@ -90,25 +76,13 @@ const createSchema = z.object({
   modo_juego: z.enum(MODOS),
   admin_mode: z.boolean(),
   recorridos: z.array(z.string()).optional(),
-  jugadores: z.array(playerSchema).min(1).max(4),
+  jugadores: z.array(jugadorDeRondaSchema).min(1).max(4),
   equipos: z.array(equipoSchema).optional(),
   /** Excluyente con `equipos`. `admin_mode` lo decide el servidor (`adminModeDeEquiposDeClub`). */
   equipos_de_club: equiposDeClubSchema.optional(),
   /** Timba libre y Skins: config del juego (`validarJuegoPersonalizado` / `validarConfigSkins`). Solo en esos formatos. */
   reglas_juego: z.unknown().optional(),
 })
-
-/**
- * Cuenta elegida para un rival, o null. El creador (posición 0) entra con su
- * sesión y un invitado no tiene cuenta: en esos casos se ignora lo que mande el
- * cliente. Una fila con datos de invitado (teléfono o nombre de invitado, que se
- * graban si son no vacíos) tampoco la lleva aunque `is_guest` venga en false: la
- * sugerencia nunca convive con datos de contacto de un invitado.
- */
-function perfilSugerido(j: z.infer<typeof playerSchema>, i: number): string | null {
-  if (i === 0 || j.is_guest || j.telefono_invitado || j.nombre_invitado) return null
-  return j.perfil_sugerido_id ?? null
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -224,26 +198,11 @@ export async function POST(req: NextRequest) {
     /** Timba o Skins: reglas e ids de jugador ya asignados (un solo camino al insertar). */
     const juego = timba?.ok ? timba : skins?.ok ? skins : null
 
-    // La cuenta elegida para un rival tiene que existir: un id inventado rompería
-    // la FK en el INSERT (500 con la ronda a medio crear). Si la base no responde
-    // se graba sin la sugerencia — es una referencia para aprender del uso, no
-    // puede ser el motivo de que el grupo no pueda empezar a jugar.
-    const pedidos = body.jugadores.map(perfilSugerido).filter((id): id is string => !!id)
-    const perfilesValidos = pedidos.length === 0
-      ? new Set<string>()
-      : await perfilesQueExisten(pedidos).catch((err) => {
-          void captureError(err, { context: 'ronda-libre.create.perfil-sugerido', userId: user.id, level: 'warning' })
-          return null
-        })
-    const inexistente = perfilesValidos && body.jugadores.find((j, i) => {
-      const id = perfilSugerido(j, i)
-      return !!id && !perfilesValidos.has(id)
-    })
-    if (inexistente) {
-      return NextResponse.json({
-        error: `No encontramos la cuenta de ${inexistente.nombre.trim()}. Vuelve a buscar su cuenta o elige «Invitado».`,
-      }, { status: 400 })
+    const perfiles = await verificarPerfilesSugeridos(body.jugadores, { userId: user.id, context: 'ronda-libre.create.perfil-sugerido' })
+    if (!perfiles.ok) {
+      return NextResponse.json({ error: perfiles.error }, { status: 400 })
     }
+    const perfilesValidos = perfiles.validos
 
     // Gate de plan: neto de Match Play / Best Ball / Stableford es Pro. El
     // asistente ya no deja elegirlo sin plan, pero el servidor es la autoridad
@@ -381,30 +340,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Batch insert all players at once (atomic per Supabase)
-    const playerRows = body.jugadores.map((j, i) => {
-      const perfil = perfilSugerido(j, i)
-      return {
-        // Timba libre y Skins: el id que `reglas_juego.jugadorIds` ya le asignó a esta posición.
-        ...(juego ? { id: juego.jugadorIds[i] } : {}),
-        ronda_id: ronda.id,
-        nombre: j.nombre.trim(),
-        // Sólo el creador entra con cuenta. El creador NO puede escribir el
-        // user_id de un rival: eso le metía la ronda (y sus avisos push, el
-        // permiso de anotar, su historial y su índice) a cualquier usuario sin su
-        // permiso (#581).
-        user_id: i === 0 ? user.id : null,
-        // La cuenta que el creador eligió para el rival va aparte y sin poderes:
-        // ninguna policy, función, push ni historial lee esta columna
-        // (perfil-sugerido-sin-poderes / -lectores en src/__tests__). Sólo se manda
-        // cuando hay una, así una ronda sin rivales con cuenta no la nombra.
-        ...(perfil && perfilesValidos?.has(perfil) ? { perfil_sugerido_id: perfil } : {}),
-        scores: {},
-        handicap: j.handicap,
-        tees: j.tees || body.tees,
-        is_guest: j.is_guest || false,
-        telefono_invitado: j.telefono_invitado || null,
-        nombre_invitado: j.nombre_invitado || null,
-      }
+    const playerRows = filasDeJugadores({
+      jugadores: body.jugadores,
+      rondaId: ronda.id,
+      creadorId: user.id,
+      // Timba libre y Skins: el id que `reglas_juego.jugadorIds` ya le asignó a cada posición.
+      jugadorIds: juego?.jugadorIds,
+      perfilesValidos,
+      teesDeLaRonda: body.tees,
     })
 
     const insertarJugadores = (filas: typeof playerRows) => supabase

@@ -1,0 +1,154 @@
+-- Skins: el creador corrige los jugadores ANTES del primer golpe (decisiones de Juanjo 26-nov; spec
+-- docs/specs/formato-skins.md, «Editar antes del primer golpe»). Va después de 20261125140000 (#892).
+--
+-- PUT /api/ronda-libre/[codigo]/skins/jugadores valida igual que al crear y recalcula lo congelado; después llama a
+-- esta función con service_role. Todo en UNA transacción: o quedan las filas y las reglas nuevas, o nada.
+--
+-- Orden de locks: la ronda FOR UPDATE primero y después las tarjetas, el mismo orden que el primer golpe
+-- (upsert_ronda_libre_scores toma la ronda FOR SHARE y después la tarjeta): sin ciclo. Los dos se serializan y el que
+-- llega segundo pierde limpio: si el golpe llegó antes, esta función ve la marca y responde P0003; si llegó después,
+-- el golpe espera a que termine la edición y se anota sobre los jugadores nuevos.
+--
+-- p_jugadores: arreglo, en el orden final, de filas completas {id, nombre, user_id, perfil_sugerido_id, handicap, tees,
+-- is_guest, telefono_invitado, nombre_invitado}. La posición 0 es la tarjeta del creador. user_id nunca se escribe:
+-- el de la tarjeta del creador queda como estaba y un jugador nuevo entra sin cuenta (#581). perfil_sugerido_id es la
+-- misma referencia sin poderes que graba la creación; en un jugador que ya estaba: sin la clave se conserva, con la
+-- clave en null se quita (el rival pasó de «con cuenta» a un nombre a mano), con un uuid se cambia.
+--
+-- p_congelado: lo congelado que recalculó el servidor para los jugadores nuevos. reglas_juego queda como estaba, con
+-- jugadorIds (los ids de p_jugadores, en orden) y congelado reemplazados: la config (pozo, variantes, modo, %) no
+-- viaja, así que no se edita ni depende de cómo la reparsee una versión nueva de la app.
+--
+-- «Empezó» (skins_ronda_empezada): un golpe o una X (la marca permanente de #892 o una tarjeta con golpes), un punto
+-- especial o un retiro. Es la misma pregunta que se hará la pantalla para mostrar «Editar».
+--
+-- Errores (la ruta los traduce): P0002 la ronda no existe, no es Skins, no está en curso o es demo · P0003 el Skins
+-- ya empezó · P0001 el pedido no calza (ids, creador, cuentas).
+CREATE OR REPLACE FUNCTION public.skins_ronda_empezada(p_ronda_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT public.ronda_libre_tiene_golpes(p_ronda_id)
+    OR EXISTS (SELECT 1 FROM public.ronda_libre_puntitos p WHERE p.ronda_id = p_ronda_id)
+    OR EXISTS (SELECT 1 FROM public.ronda_libre_retiros r WHERE r.ronda_id = p_ronda_id);
+$function$;
+
+REVOKE ALL ON FUNCTION public.skins_ronda_empezada(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.skins_ronda_empezada(uuid) TO service_role;
+
+COMMENT ON FUNCTION public.skins_ronda_empezada(uuid) IS
+  'Skins: ¿ya empezó? Primer golpe o X (ronda_libre_tiene_golpes), punto especial o retiro. Desde ahí no se editan los jugadores. Solo service_role.';
+
+-- DROP antes de crear: una versión anterior de esta migración tenía otro nombre en el 3er parámetro (mismos tipos) y
+-- CREATE OR REPLACE no puede renombrar parámetros (42P13).
+DROP FUNCTION IF EXISTS public.editar_jugadores_skins(uuid, jsonb, jsonb);
+
+CREATE OR REPLACE FUNCTION public.editar_jugadores_skins(p_ronda_id uuid, p_jugadores jsonb, p_congelado jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_ronda rondas_libres%ROWTYPE;
+  v_ids uuid[];
+  v_creador_fila uuid;
+  v_j jsonb;
+  v_id uuid;
+BEGIN
+  SELECT * INTO v_ronda FROM rondas_libres WHERE id = p_ronda_id FOR UPDATE;
+  -- Una ronda demo es de solo lectura (rlj_demo_readonly_*): esta función es definer y no pasa por esas políticas.
+  IF NOT FOUND OR v_ronda.formato_juego IS DISTINCT FROM 'skins' OR v_ronda.estado IS DISTINCT FROM 'en_curso'
+     OR v_ronda.es_demo THEN
+    RAISE EXCEPTION 'SKINS_NO_EXISTE: la ronda no existe, no es Skins, ya terminó o es demo.' USING ERRCODE = 'P0002';
+  END IF;
+
+  -- Con la ronda tomada, un primer golpe en vuelo ya terminó (o espera a que esto termine). La marca es permanente:
+  -- borrar el único golpe no reabre la edición. Un punto especial o un retiro también cuentan como empezado.
+  IF public.skins_ronda_empezada(p_ronda_id) THEN
+    RAISE EXCEPTION 'SKINS_CONGELADO: el Skins ya empezó (golpe, X, punto especial o retiro). Ya no se editan los jugadores.' USING ERRCODE = 'P0003';
+  END IF;
+
+  IF jsonb_typeof(p_jugadores) IS DISTINCT FROM 'array' OR jsonb_array_length(p_jugadores) = 0
+     OR jsonb_typeof(p_congelado) IS DISTINCT FROM 'object' OR jsonb_typeof(v_ronda.reglas_juego) IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: faltan los jugadores o lo congelado.' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT array_agg((e ->> 'id')::uuid ORDER BY o) INTO v_ids FROM jsonb_array_elements(p_jugadores) WITH ORDINALITY AS x(e, o);
+  IF array_position(v_ids, NULL) IS NOT NULL OR (SELECT count(DISTINCT u) FROM unnest(v_ids) u) <> cardinality(v_ids) THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: los jugadores no calzan (ids vacíos o repetidos).' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Un id de otra ronda no se roba.
+  IF EXISTS (SELECT 1 FROM ronda_libre_jugadores WHERE id = ANY (v_ids) AND ronda_id <> p_ronda_id) THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: un jugador es de otra ronda.' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- La tarjeta del creador sigue y sigue primera (es la que anota y la del historial).
+  SELECT id INTO v_creador_fila FROM ronda_libre_jugadores
+  WHERE ronda_id = p_ronda_id AND user_id = v_ronda.creador_id
+  ORDER BY created_at LIMIT 1;
+  IF v_creador_fila IS NULL OR v_ids[1] IS DISTINCT FROM v_creador_fila THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: el creador no se saca ni cambia de lugar.' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Una tarjeta con cuenta (la del creador o una ya tomada) no se borra.
+  IF EXISTS (SELECT 1 FROM ronda_libre_jugadores
+             WHERE ronda_id = p_ronda_id AND NOT (id = ANY (v_ids))
+               AND (user_id IS NOT NULL OR pending_user_id IS NOT NULL)) THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: no se saca a un jugador con cuenta.' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Un jugador nuevo entra sin cuenta (#581).
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_jugadores) e
+             WHERE NOT EXISTS (SELECT 1 FROM ronda_libre_jugadores j WHERE j.id = (e ->> 'id')::uuid)
+               AND NULLIF(e ->> 'user_id', '') IS NOT NULL) THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: un jugador nuevo no entra con cuenta.' USING ERRCODE = 'P0001';
+  END IF;
+
+  DELETE FROM ronda_libre_jugadores WHERE ronda_id = p_ronda_id AND NOT (id = ANY (v_ids));
+
+  FOR v_j IN SELECT e FROM jsonb_array_elements(p_jugadores) e LOOP
+    v_id := (v_j ->> 'id')::uuid;
+    UPDATE ronda_libre_jugadores SET
+      nombre = v_j ->> 'nombre',
+      handicap = (v_j ->> 'handicap')::numeric,
+      tees = v_j ->> 'tees',
+      -- La pantalla no lee la cuenta sugerida (no tiene poderes y nadie la muestra): sin la clave se conserva la que
+      -- había; un invitado nunca la lleva (la misma regla que perfilSugerido al crear).
+      perfil_sugerido_id = CASE
+        WHEN COALESCE((v_j ->> 'is_guest')::boolean, false) OR NULLIF(v_j ->> 'telefono_invitado', '') IS NOT NULL
+             OR NULLIF(v_j ->> 'nombre_invitado', '') IS NOT NULL THEN NULL
+        WHEN v_j ? 'perfil_sugerido_id' THEN NULLIF(v_j ->> 'perfil_sugerido_id', '')::uuid
+        ELSE perfil_sugerido_id
+      END,
+      is_guest = COALESCE((v_j ->> 'is_guest')::boolean, false),
+      telefono_invitado = v_j ->> 'telefono_invitado',
+      nombre_invitado = v_j ->> 'nombre_invitado'
+    WHERE id = v_id AND ronda_id = p_ronda_id;
+    IF NOT FOUND THEN
+      INSERT INTO ronda_libre_jugadores (
+        id, ronda_id, nombre, user_id, perfil_sugerido_id, scores, handicap, tees, is_guest, telefono_invitado, nombre_invitado
+      ) VALUES (
+        v_id, p_ronda_id, v_j ->> 'nombre', NULL, NULLIF(v_j ->> 'perfil_sugerido_id', '')::uuid, '{}'::jsonb,
+        (v_j ->> 'handicap')::numeric, v_j ->> 'tees', COALESCE((v_j ->> 'is_guest')::boolean, false),
+        v_j ->> 'telefono_invitado', v_j ->> 'nombre_invitado'
+      );
+    END IF;
+  END LOOP;
+
+  -- La config queda la guardada: solo cambian jugadorIds y lo congelado.
+  UPDATE rondas_libres
+  SET reglas_juego = v_ronda.reglas_juego || jsonb_build_object('jugadorIds', to_jsonb(v_ids), 'congelado', p_congelado)
+  WHERE id = p_ronda_id;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.editar_jugadores_skins(uuid, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.editar_jugadores_skins(uuid, jsonb, jsonb) TO service_role;
+
+COMMENT ON FUNCTION public.editar_jugadores_skins(uuid, jsonb, jsonb) IS
+  'Skins: altas, bajas, índices y tees de los jugadores más jugadorIds y congelado en reglas_juego (la config no se toca), en una transacción, solo antes de que empiece (skins_ronda_empezada). Solo service_role (PUT /api/ronda-libre/[codigo]/skins/jugadores).';

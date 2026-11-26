@@ -2085,6 +2085,106 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'tarjetas', v_tarjetas, 'equipos', jsonb_array_length(v_equipos));
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.editar_jugadores_skins(p_ronda_id uuid, p_jugadores jsonb, p_congelado jsonb)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_ronda rondas_libres%ROWTYPE;
+  v_ids uuid[];
+  v_creador_fila uuid;
+  v_j jsonb;
+  v_id uuid;
+BEGIN
+  SELECT * INTO v_ronda FROM rondas_libres WHERE id = p_ronda_id FOR UPDATE;
+  -- Una ronda demo es de solo lectura (rlj_demo_readonly_*): esta función es definer y no pasa por esas políticas.
+  IF NOT FOUND OR v_ronda.formato_juego IS DISTINCT FROM 'skins' OR v_ronda.estado IS DISTINCT FROM 'en_curso'
+     OR v_ronda.es_demo THEN
+    RAISE EXCEPTION 'SKINS_NO_EXISTE: la ronda no existe, no es Skins, ya terminó o es demo.' USING ERRCODE = 'P0002';
+  END IF;
+
+  -- Con la ronda tomada, un primer golpe en vuelo ya terminó (o espera a que esto termine). La marca es permanente:
+  -- borrar el único golpe no reabre la edición. Un punto especial o un retiro también cuentan como empezado.
+  IF public.skins_ronda_empezada(p_ronda_id) THEN
+    RAISE EXCEPTION 'SKINS_CONGELADO: el Skins ya empezó (golpe, X, punto especial o retiro). Ya no se editan los jugadores.' USING ERRCODE = 'P0003';
+  END IF;
+
+  IF jsonb_typeof(p_jugadores) IS DISTINCT FROM 'array' OR jsonb_array_length(p_jugadores) = 0
+     OR jsonb_typeof(p_congelado) IS DISTINCT FROM 'object' OR jsonb_typeof(v_ronda.reglas_juego) IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: faltan los jugadores o lo congelado.' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT array_agg((e ->> 'id')::uuid ORDER BY o) INTO v_ids FROM jsonb_array_elements(p_jugadores) WITH ORDINALITY AS x(e, o);
+  IF array_position(v_ids, NULL) IS NOT NULL OR (SELECT count(DISTINCT u) FROM unnest(v_ids) u) <> cardinality(v_ids) THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: los jugadores no calzan (ids vacíos o repetidos).' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Un id de otra ronda no se roba.
+  IF EXISTS (SELECT 1 FROM ronda_libre_jugadores WHERE id = ANY (v_ids) AND ronda_id <> p_ronda_id) THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: un jugador es de otra ronda.' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- La tarjeta del creador sigue y sigue primera (es la que anota y la del historial).
+  SELECT id INTO v_creador_fila FROM ronda_libre_jugadores
+  WHERE ronda_id = p_ronda_id AND user_id = v_ronda.creador_id
+  ORDER BY created_at LIMIT 1;
+  IF v_creador_fila IS NULL OR v_ids[1] IS DISTINCT FROM v_creador_fila THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: el creador no se saca ni cambia de lugar.' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Una tarjeta con cuenta (la del creador o una ya tomada) no se borra.
+  IF EXISTS (SELECT 1 FROM ronda_libre_jugadores
+             WHERE ronda_id = p_ronda_id AND NOT (id = ANY (v_ids))
+               AND (user_id IS NOT NULL OR pending_user_id IS NOT NULL)) THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: no se saca a un jugador con cuenta.' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Un jugador nuevo entra sin cuenta (#581).
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_jugadores) e
+             WHERE NOT EXISTS (SELECT 1 FROM ronda_libre_jugadores j WHERE j.id = (e ->> 'id')::uuid)
+               AND NULLIF(e ->> 'user_id', '') IS NOT NULL) THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: un jugador nuevo no entra con cuenta.' USING ERRCODE = 'P0001';
+  END IF;
+
+  DELETE FROM ronda_libre_jugadores WHERE ronda_id = p_ronda_id AND NOT (id = ANY (v_ids));
+
+  FOR v_j IN SELECT e FROM jsonb_array_elements(p_jugadores) e LOOP
+    v_id := (v_j ->> 'id')::uuid;
+    UPDATE ronda_libre_jugadores SET
+      nombre = v_j ->> 'nombre',
+      handicap = (v_j ->> 'handicap')::numeric,
+      tees = v_j ->> 'tees',
+      -- La pantalla no lee la cuenta sugerida (no tiene poderes y nadie la muestra): sin la clave se conserva la que
+      -- había; un invitado nunca la lleva (la misma regla que perfilSugerido al crear).
+      perfil_sugerido_id = CASE
+        WHEN COALESCE((v_j ->> 'is_guest')::boolean, false) OR NULLIF(v_j ->> 'telefono_invitado', '') IS NOT NULL
+             OR NULLIF(v_j ->> 'nombre_invitado', '') IS NOT NULL THEN NULL
+        WHEN v_j ? 'perfil_sugerido_id' THEN NULLIF(v_j ->> 'perfil_sugerido_id', '')::uuid
+        ELSE perfil_sugerido_id
+      END,
+      is_guest = COALESCE((v_j ->> 'is_guest')::boolean, false),
+      telefono_invitado = v_j ->> 'telefono_invitado',
+      nombre_invitado = v_j ->> 'nombre_invitado'
+    WHERE id = v_id AND ronda_id = p_ronda_id;
+    IF NOT FOUND THEN
+      INSERT INTO ronda_libre_jugadores (
+        id, ronda_id, nombre, user_id, perfil_sugerido_id, scores, handicap, tees, is_guest, telefono_invitado, nombre_invitado
+      ) VALUES (
+        v_id, p_ronda_id, v_j ->> 'nombre', NULL, NULLIF(v_j ->> 'perfil_sugerido_id', '')::uuid, '{}'::jsonb,
+        (v_j ->> 'handicap')::numeric, v_j ->> 'tees', COALESCE((v_j ->> 'is_guest')::boolean, false),
+        v_j ->> 'telefono_invitado', v_j ->> 'nombre_invitado'
+      );
+    END IF;
+  END LOOP;
+
+  -- La config queda la guardada: solo cambian jugadorIds y lo congelado.
+  UPDATE rondas_libres
+  SET reglas_juego = v_ronda.reglas_juego || jsonb_build_object('jugadorIds', to_jsonb(v_ids), 'congelado', p_congelado)
+  WHERE id = p_ronda_id;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.eliminar_cuenta(p_user_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -3374,6 +3474,16 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
+$function$;
+CREATE OR REPLACE FUNCTION public.skins_ronda_empezada(p_ronda_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT public.ronda_libre_tiene_golpes(p_ronda_id)
+    OR EXISTS (SELECT 1 FROM public.ronda_libre_puntitos p WHERE p.ronda_id = p_ronda_id)
+    OR EXISTS (SELECT 1 FROM public.ronda_libre_retiros r WHERE r.ronda_id = p_ronda_id);
 $function$;
 CREATE OR REPLACE FUNCTION public.tarjeta_tiene_anotaciones(p_scores jsonb)
  RETURNS boolean
@@ -4668,6 +4778,7 @@ revoke all on function public.course_name_canonical(text) from public, anon, aut
 revoke all on function public.course_name_tokens(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.descartar_ronda_libre(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.editar_handicap_inscrito(uuid,numeric,numeric,boolean,numeric,jsonb,jsonb) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.editar_jugadores_skins(uuid,jsonb,jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.eliminar_cuenta(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.enroll_player(uuid,text,uuid,text,numeric,uuid,text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.exec_sql(text) from public, anon, authenticated, service_role, postgres;
@@ -4702,6 +4813,7 @@ revoke all on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) from public,
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.skins_congelado_jugador() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.skins_congelado_ronda() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.skins_ronda_empezada(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.tarjeta_tiene_anotaciones(jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_ronda_para_escribir(text,uuid) from public, anon, authenticated, service_role, postgres;
@@ -5014,6 +5126,8 @@ grant EXECUTE on function public.descartar_ronda_libre(text) to postgres;
 grant EXECUTE on function public.descartar_ronda_libre(text) to service_role;
 grant EXECUTE on function public.editar_handicap_inscrito(uuid,numeric,numeric,boolean,numeric,jsonb,jsonb) to postgres;
 grant EXECUTE on function public.editar_handicap_inscrito(uuid,numeric,numeric,boolean,numeric,jsonb,jsonb) to service_role;
+grant EXECUTE on function public.editar_jugadores_skins(uuid,jsonb,jsonb) to postgres;
+grant EXECUTE on function public.editar_jugadores_skins(uuid,jsonb,jsonb) to service_role;
 grant EXECUTE on function public.eliminar_cuenta(uuid) to postgres;
 grant EXECUTE on function public.eliminar_cuenta(uuid) to service_role;
 grant EXECUTE on function public.enroll_player(uuid,text,uuid,text,numeric,uuid,text) to postgres;
@@ -5098,6 +5212,8 @@ grant EXECUTE on function public.skins_congelado_jugador() to postgres;
 grant EXECUTE on function public.skins_congelado_jugador() to service_role;
 grant EXECUTE on function public.skins_congelado_ronda() to postgres;
 grant EXECUTE on function public.skins_congelado_ronda() to service_role;
+grant EXECUTE on function public.skins_ronda_empezada(uuid) to postgres;
+grant EXECUTE on function public.skins_ronda_empezada(uuid) to service_role;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to postgres;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to service_role;
 grant EXECUTE on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) to postgres;
