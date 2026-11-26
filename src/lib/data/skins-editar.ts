@@ -176,9 +176,11 @@ export async function guardarEdicionDelSkins(
   edicion: { filas: readonly FilaEditada[]; reglas: ReglasSkinsGuardadas },
 ): Promise<EdicionGuardada> {
   if (!edicion.reglas.congelado) throw new Error('guardarEdicionDelSkins: falta lo congelado')
+  const conInvitados = await conservarDatosDeInvitado(admin, rondaId, edicion.filas)
+  if (!conInvitados.ok) return { ok: false, motivo: 'error', error: conInvitados.error }
   const { error } = await admin.rpc('editar_jugadores_skins', {
     p_ronda_id: rondaId,
-    p_jugadores: edicion.filas,
+    p_jugadores: conInvitados.filas,
     p_congelado: edicion.reglas.congelado,
   })
   if (!error) return { ok: true }
@@ -186,4 +188,38 @@ export async function guardarEdicionDelSkins(
   if (error.code === 'P0002') return { ok: false, motivo: 'no_existe' }
   if (error.code === 'P0001') return { ok: false, motivo: 'no_calza', error }
   return { ok: false, motivo: 'error', error }
+}
+
+/**
+ * Un jugador que ya estaba conserva sus datos de invitado tal como se guardaron. La hoja de Editar no los cambia y no
+ * los puede leer (`telefono_invitado` es privada), pero la función SQL reescribe la fila completa: sin esto, editar el
+ * índice de un invitado le borraba el teléfono y la marca de invitado. Se leen con service_role. Un jugador nuevo
+ * llega con lo que puso el creador.
+ */
+async function conservarDatosDeInvitado(
+  admin: SupabaseClient,
+  rondaId: string,
+  filas: readonly FilaEditada[],
+): Promise<{ ok: true; filas: FilaEditada[] } | { ok: false; error: unknown }> {
+  const { data, error } = await admin
+    .from('ronda_libre_jugadores')
+    .select('id, is_guest, telefono_invitado, nombre_invitado')
+    .eq('ronda_id', rondaId)
+  if (error) return { ok: false, error }
+  const guardados = new Map(((data ?? []) as DatosDeInvitado[]).map(d => [d.id, d]))
+  return {
+    ok: true,
+    filas: filas.map(f => {
+      const g = f.id ? guardados.get(f.id) : undefined
+      if (!g) return f
+      return { ...f, is_guest: g.is_guest === true, telefono_invitado: g.telefono_invitado ?? null, nombre_invitado: g.nombre_invitado ?? null }
+    }),
+  }
+}
+
+interface DatosDeInvitado {
+  id: string
+  is_guest: boolean | null
+  telefono_invitado: string | null
+  nombre_invitado: string | null
 }
