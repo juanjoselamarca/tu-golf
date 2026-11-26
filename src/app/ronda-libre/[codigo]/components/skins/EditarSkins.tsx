@@ -4,6 +4,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, MENSAJE_HANDICAP_UN_DECIMAL, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
+import { teeLabel } from '@/golf/courses/category-tee-options'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
 import { formatPesos } from '@/lib/format'
 import { nombreOJugadorN } from '@/lib/nombre-de-jugador'
@@ -208,6 +209,7 @@ function FilaExistente({ fila, editor, tees, teeGlobal }: {
   const idIndice = `editar-skins-${fila.id}-indice`
   const nombre = nombreOJugadorN(fila.nombre, 1)
   const confirmando = editor.pidiendoQuitar === fila.clave
+  const tee = (fila.tees ?? teeGlobal).toLowerCase()
 
   return (
     <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
@@ -235,12 +237,17 @@ function FilaExistente({ fila, editor, tees, teeGlobal }: {
           aria-describedby={campo.invalido || campo.dosDecimales ? `${idIndice}-error` : undefined}
           style={{ ...input, ...inputNumerico, ...(campo.bloquea ? inputQueBloquea : null) }}
         />
-        <SelectorDeTeeDelJugador
-          tees={tees}
-          valor={(fila.tees ?? teeGlobal).toLowerCase()}
-          onElegir={t => editor.cambiarExistente(fila.clave, { tees: t })}
-          etiquetaAccesible={`Tee de ${nombre}`}
-        />
+        {tees.length > 1 ? (
+          <SelectorDeTeeDelJugador
+            tees={tees}
+            valor={tee}
+            onElegir={t => editor.cambiarExistente(fila.clave, { tees: t })}
+            etiquetaAccesible={`Tee de ${nombre}`}
+          />
+        ) : (
+          // Sin lista (cargando, carga fallida o un solo tee) el selector no se dibuja: se muestra el tee que tiene.
+          <span style={{ fontSize: '15px', color: 'var(--text)' }}>Tee {teeLabel(tee)}</span>
+        )}
       </div>
       {campo.invalido && <AvisoCampo id={`${idIndice}-error`}>{MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO}</AvisoCampo>}
       {campo.dosDecimales && <AvisoCampo id={`${idIndice}-error`}>{MENSAJE_HANDICAP_UN_DECIMAL}</AvisoCampo>}

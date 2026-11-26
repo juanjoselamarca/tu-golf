@@ -6,10 +6,10 @@ import { EditarSkins, TEXTO_DESCARTAR, TEXTO_EDITAR, textoDelPie } from './Edita
 import { MENSAJE_EDITAR_SIN_SENAL, MENSAJE_EDITAR_TOPE, pedidoDeEdicion, puedeEditarElSkins, filasIniciales } from '../../hooks/useEditarSkins'
 
 vi.mock('@/lib/data/ronda-libre-nueva', () => ({
-  fetchTeesDeCancha: async () => [
+  fetchTeesDeCancha: vi.fn(async () => [
     { nombre: 'Azul', yardaje_total: 6400, rating: 72, slope: 130 },
     { nombre: 'Blanco', yardaje_total: 6000, rating: 70, slope: 125 },
-  ],
+  ]),
 }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 // La búsqueda de cuentas de TarjetaDeRival no corre en estas pruebas (los nuevos entran como invitados).
@@ -205,6 +205,16 @@ describe('revisión Fable #898', () => {
     // Al volver a abrir, la hoja parte de lo guardado.
     abrir()
     expect((within(hoja()).getAllByLabelText('Índice')[1] as HTMLInputElement).value).toBe('18.4')
+  })
+
+  it('tees que no cargan: cada jugador muestra el tee que tiene (no queda vacío)', async () => {
+    const { fetchTeesDeCancha } = await import('@/lib/data/ronda-libre-nueva')
+    vi.mocked(fetchTeesDeCancha).mockRejectedValueOnce(new Error('sin señal'))
+    montar()
+    abrir()
+    expect(await within(hoja()).findByText('No pudimos cargar los tees. El índice sí se puede cambiar.')).toBeTruthy()
+    expect(within(hoja()).getByText('Tee Azul')).toBeTruthy()
+    expect(within(hoja()).getByText('Tee Blanco')).toBeTruthy()
   })
 
   it('P2-6: sin cambios, cerrar no pregunta', () => {
