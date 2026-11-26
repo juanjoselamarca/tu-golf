@@ -23,6 +23,7 @@ import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
 import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 import { formatearHandicap } from '@/golf/handicap-index-range'
+import { isSharedBallFormat } from '@/golf/formats'
 
 const MONO = '"DM Mono", ui-monospace, SFMono-Regular, monospace'
 const SANS = '"DM Sans", system-ui, -apple-system, sans-serif'
@@ -532,7 +533,8 @@ export default function Scorecard({
           {/* Player + score */}
           {(playerName || played > 0) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {playerName && !avatarUrl && (
+              {/* Tarjeta de equipo (scramble/foursome): sin inicial, «Los Lamarca» y «Los Ross» darían «L» los dos. */}
+              {playerName && !avatarUrl && !isSharedBallFormat(formato) && (
                 <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: K.bgH, border: `1px solid ${K.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: K.ts }}>
                   {playerName.charAt(0).toUpperCase()}
                 </div>

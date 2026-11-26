@@ -34,13 +34,15 @@ describe('TeamLeaderboard — gross y neto rotulados', () => {
     let abierto: string | null = null
     const { rerender } = render(<TeamLeaderboard modoJuego="neto" totalHoles={18} formato="scramble" teams={[equipo('Los Ross', -7, 1)]}
       expandedTeamId={abierto} onToggleTeam={(id) => { abierto = id }} renderTeamDetail={() => <p>tarjeta</p>} />)
-    const fila = screen.getByRole('button', { name: /Los Ross: ver tarjeta/ })
+    const fila = screen.getByRole('button', { name: /Los Ross/ })
+    // Sin aria-label: el lector lee la fila entera (nombre, neto, gross, hoyo), no solo «ver tarjeta» (Fable #894).
+    expect(fila.textContent).toContain('-7')
     expect(fila.getAttribute('aria-expanded')).toBe('false')
     fila.click()
     rerender(<TeamLeaderboard modoJuego="neto" totalHoles={18} formato="scramble" teams={[equipo('Los Ross', -7, 1)]}
       expandedTeamId={abierto} onToggleTeam={(id) => { abierto = id }} renderTeamDetail={() => <p>tarjeta</p>} />)
     expect(screen.getByText('tarjeta')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Los Ross: ocultar tarjeta/ }).getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('button', { name: /Los Ross/ }).getAttribute('aria-expanded')).toBe('true')
   })
   it('el score usa los tokens con tema (no un hex fijo que en oscuro queda a ~3:1)', () => {
     render(<TeamLeaderboard modoJuego="neto" totalHoles={18} formato="scramble" teams={[equipo('Los Ross', -7, 2), equipo('Los Lamarca', 1, 3)]} />)

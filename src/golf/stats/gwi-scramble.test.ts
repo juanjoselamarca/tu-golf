@@ -94,6 +94,11 @@ describe('golpes de HCP por recibir (neto)', () => {
 describe('porcentajesDeGanarScramble', () => {
   it('nadie con 3 hoyos: no se muestra', () => {
     expect(porcentajesDeGanarScramble(E(-1, 2), E(0, 0), 18)).toBeNull()
+    // Los dos terminados: ya no es probabilidad (el ganador, con countback, lo dice la tabla). Ni 50/50 ni 100/0.
+    expect(porcentajesDeGanarScramble(E(-2, 18), E(-2, 18), 18)).toBeNull()
+    expect(porcentajesDeGanarScramble(E(-3, 18), E(-2, 18), 18)).toBeNull()
+    // Uno terminado y el otro no: sigue en juego.
+    expect(porcentajesDeGanarScramble(E(-3, 18), E(-2, 16), 18)).not.toBeNull()
   })
   it('suman 100 y no llegan a 0/100 mientras quede ronda', () => {
     const [a, b] = porcentajesDeGanarScramble(E(-8, 17), E(2, 17), 18)!

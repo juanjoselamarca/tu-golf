@@ -147,7 +147,6 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
             role={onToggleTeam ? 'button' : undefined}
             tabIndex={onToggleTeam ? 0 : undefined}
             aria-expanded={onToggleTeam ? abierto : undefined}
-            aria-label={onToggleTeam ? `${team.teamNombre}: ${abierto ? 'ocultar' : 'ver'} tarjeta` : undefined}
             onClick={onToggleTeam ? () => onToggleTeam(team.teamId) : undefined}
             onKeyDown={onToggleTeam ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleTeam(team.teamId) } } : undefined}
             style={{

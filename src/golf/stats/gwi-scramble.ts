@@ -21,12 +21,17 @@
  * Validado contra una simulación hoyo a hoyo con scores enteros (`gwi-scramble.test.ts`).
  */
 
+import { HOYOS_MINIMOS_GWI } from './gwi'
+
 /**
  * Desvío por hoyo del score de un equipo de scramble de 4. Calibración (25-nov-2026):
  * - un profesional del PGA Tour varía ~2,8 golpes por ronda (Data Golf, "Model Talk: variance") → ~0,66 por hoyo;
  * - el único scramble real en la base (2 equipos de club, 18 hoyos, HCP 6-8) dio 0,55 por hoyo.
  * Un 4-scramble amateur juega como un profesional (8 a 16 bajo par gross en un buen día): 0,6 queda entre los dos.
- * El resultado es poco sensible a este número: con 1 golpe de ventaja y 9+9 hoyos por jugar da 64-66 % entre 0,55 y 0,66.
+ * Evidencia empírica: UN scramble (36 hoyos-equipo). La simulación de los tests usa este mismo σ: prueba la
+ * aproximación normal, no la calibración. Sensibilidad: con 1 golpe de ventaja y 9+9 por jugar da 64-66 % entre 0,55 y
+ * 0,66, pero con 5 golpes de ventaja pasa de 97 % (σ 0,6) a 93 % (σ 0,8): las colas quedan algo sobreconfiadas, porque
+ * el modelo supone que el HCP iguala perfecto a los equipos. Con parejas en vez de equipos de 4, σ ronda 0,7-0,8.
  */
 export const SIGMA_HOYO_SCRAMBLE = 0.6
 
@@ -77,17 +82,16 @@ export function probabilidadDeGanarScramble(a: EquipoGWIScramble, b: EquipoGWISc
   return normalCDF(ventajaDeA / desvio)
 }
 
-/** Desde cuántos hoyos del que más lleva se muestra (mismo umbral que el GWI individual, `HOYOS_MINIMOS_GWI`). */
-export const HOYOS_MINIMOS_GWI_SCRAMBLE = 3
 
 /**
- * Los dos porcentajes enteros que se muestran (suman 100). Mientras quede ronda por jugar ninguno llega a 0 ni a 100
- * (1-99): todavía no está decidido. `null` = no se muestra (nadie llegó a 3 hoyos).
+ * Los dos porcentajes enteros que se muestran (suman 100), entre 1 y 99: todavía no está decidido. `null` = no se
+ * muestra: nadie llegó a `HOYOS_MINIMOS_GWI` hoyos, o los dos terminaron (ya no es una probabilidad: el ganador
+ * lo dice la tabla, con countback si empatan — un «50 / 50» o «100 / 0» la contradiría; revisión Fable #894).
  */
 export function porcentajesDeGanarScramble(a: EquipoGWIScramble, b: EquipoGWIScramble, totalHoyos: number): [number, number] | null {
-  if (Math.max(a.holesPlayed, b.holesPlayed) < HOYOS_MINIMOS_GWI_SCRAMBLE) return null
+  if (Math.max(a.holesPlayed, b.holesPlayed) < HOYOS_MINIMOS_GWI) return null
+  if (a.holesPlayed >= totalHoyos && b.holesPlayed >= totalHoyos) return null
   const p = probabilidadDeGanarScramble(a, b, totalHoyos)
-  const terminado = a.holesPlayed >= totalHoyos && b.holesPlayed >= totalHoyos
-  const pa = terminado ? Math.round(p * 100) : Math.min(99, Math.max(1, Math.round(p * 100)))
+  const pa = Math.min(99, Math.max(1, Math.round(p * 100)))
   return [pa, 100 - pa]
 }
