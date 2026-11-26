@@ -322,8 +322,8 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
   const totalUnidades = unidades.reduce((a, b) => a + b, 0)
   // Sin hoyos no hay ronda que cerrar (`[].every` daría true y saldría «se devuelve el pozo»).
   const definitivo = liquidable && resultado.length > 0 && resultado.every(r => esHoyoResuelto(r.estado))
-  const aporte = Number.isFinite(opciones.pozoPorJugador) ? Math.max(0, Math.trunc(opciones.pozoPorJugador)) : 0
-  const pozoTotal = aporte * jugadores.length
+  const aporte = aporteDelSkins(opciones.pozoPorJugador)
+  const pozoTotal = pozoTotalDelSkins(opciones.pozoPorJugador, jugadores.length)
   const devolucion = definitivo && totalUnidades === 0 && pozoTotal > 0
   const hayLiquidacion = liquidable && pozoTotal > 0 && (totalUnidades > 0 || devolucion)
   const cobros = !hayLiquidacion
@@ -351,4 +351,17 @@ export function calcularSkins(entrada: EntradaSkins): ResultadoSkins {
     bloqueos,
     liquidable,
   }
+}
+
+/** Lo que pone cada jugador: un entero ≥ 0 (un valor raro cuenta como sin plata). */
+export function aporteDelSkins(pozoPorJugador: number): number {
+  return Number.isFinite(pozoPorJugador) ? Math.max(0, Math.trunc(pozoPorJugador)) : 0
+}
+
+/**
+ * El pozo del Skins: lo que pone cada uno por la cantidad de jugadores. Fuente única para el motor, el resumen del
+ * asistente y el pie de «Editar» (p. ej. $10.000 × 4 = $40.000).
+ */
+export function pozoTotalDelSkins(pozoPorJugador: number, jugadores: number): number {
+  return aporteDelSkins(pozoPorJugador) * Math.max(0, Math.trunc(jugadores))
 }

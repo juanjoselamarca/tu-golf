@@ -3,6 +3,7 @@ import {
   calcularSkins,
   golpesDelSkins,
   repartirPorRestoMayor,
+  pozoTotalDelSkins,
   FUERA_DEL_HOYO as X,
   type EntradaSkins,
   type OpcionesSkins,
@@ -515,5 +516,18 @@ describe('bordes de la entrada (revisión Fable, 2ª vuelta)', () => {
       },
     ))
     expect(r.jugadores.find(j => j.id === 'b')!.skins).toBe(1)
+  })
+})
+
+describe('pozoTotalDelSkins (fuente única del pozo)', () => {
+  it('aporte por jugadores: $10.000 × 4 = $40.000', () => {
+    expect(pozoTotalDelSkins(10_000, 4)).toBe(40_000)
+    expect(pozoTotalDelSkins(10_000, 3)).toBe(30_000)
+  })
+  it('sin plata o valor raro: 0', () => {
+    expect(pozoTotalDelSkins(0, 4)).toBe(0)
+    expect(pozoTotalDelSkins(Number.NaN, 4)).toBe(0)
+    expect(pozoTotalDelSkins(-5, 4)).toBe(0)
+    expect(pozoTotalDelSkins(1500.9, 2)).toBe(3000)
   })
 })
