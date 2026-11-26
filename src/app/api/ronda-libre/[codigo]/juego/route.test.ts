@@ -55,7 +55,10 @@ function tabla(nombre: string) {
   b.then = (res: (v: unknown) => void, rej?: (e: unknown) => void) => Promise.resolve(resultado()).then(res, rej)
   return b
 }
-vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => ({ from: tabla }) }))
+// `skins_ronda_empezada` (rpc con service_role): lo que responde la base en cada prueba.
+let empezadoRpc: { data: unknown; error: unknown } = { data: false, error: null }
+const rpc = vi.fn(async () => empezadoRpc)
+vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => ({ from: tabla, rpc }) }))
 
 import { GET } from './route'
 import { GET as GET_PUBLICO } from './publico/route'
@@ -67,6 +70,7 @@ const llamar = (codigo = 'ABC123') =>
 
 beforeEach(() => {
   conSesion = true
+  empezadoRpc = { data: false, error: null }
   formato = 'personalizado'
   marcasGuardadas = []
   cursoId = null
@@ -146,7 +150,10 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
         retiros: {},
         rondaCerrada: false,
         tabla: null,
+        empezado: false,
+        pozoPorJugador: CONFIG_SKINS_POR_DEFECTO.pozoPorJugador,
       })
+      expect(rpc).toHaveBeenCalledWith('skins_ronda_empezada', expect.objectContaining({ p_ronda_id: expect.any(String) }))
       expect(leerIndices).not.toHaveBeenCalled()
       expect(contextoSkins).not.toHaveBeenCalled()
     })
@@ -189,6 +196,17 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
       expect(publico.status).toBe(503)
       expect(publico.headers.get('cache-control')).toMatch(/no-store/)
       expect(publico.headers.get('vercel-cdn-cache-control')).toBeNull()
+    })
+
+    it('empezado sale de skins_ronda_empezada; si la lectura falla, cuenta como empezado (el botón Editar se esconde)', async () => {
+      formato = 'skins'
+      reglasJuego = reglasSkins([])
+      empezadoRpc = { data: true, error: null }
+      expect(await (await llamar()).json()).toMatchObject({ estado: 'ok', empezado: true })
+      empezadoRpc = { data: null, error: { message: 'sin señal', code: '' } }
+      expect(await (await llamar()).json()).toMatchObject({ estado: 'ok', empezado: true })
+      empezadoRpc = { data: false, error: null }
+      expect(await (await llamar()).json()).toMatchObject({ estado: 'ok', empezado: false })
     })
 
     it('reglas del skins ilegibles: sin_juego, sin leer marcas', async () => {

@@ -140,6 +140,14 @@ export interface VistaDelSkinsEnElScorer extends VistaConMarcas {
    * armar el contexto: las marcas y los retiros igual sirven al scorer, y el leaderboard ofrece reintentar.
    */
   tabla: TablaDelSkins | null
+  /**
+   * ¿Ya empezó? (golpe, X, punto especial o retiro: la función SQL `skins_ronda_empezada`, la misma que frena la
+   * edición). Solo `false` muestra «Editar»: si no se pudo leer, o la respuesta es de una versión sin el campo, se
+   * esconde.
+   */
+  empezado?: boolean
+  /** Lo que pone cada jugador (la config guardada): el pie de «Editar» calcula el pozo con `pozoTotalDelSkins`. */
+  pozoPorJugador?: number
 }
 
 export function vistaDelSkinsEnElScorer(input: {
@@ -147,6 +155,8 @@ export function vistaDelSkinsEnElScorer(input: {
   marcas: readonly FilaMarcaPuntito[]
   retiros: readonly FilaRetiro[]
   rondaCerrada: boolean
+  /** `skins_ronda_empezada`; si la lectura falló, `true`. */
+  empezado: boolean
   /** Contexto y tarjetas de la ronda; sin ellos (`null`), la vista va sin tabla. */
   tarjetas: { contexto: ContextoValidacionSkins; scores: EntradaDelSkinsDeLaRonda['scores']; fuera: FueraPorJugador } | null
 }): VistaDelSkinsEnElScorer {
@@ -167,6 +177,8 @@ export function vistaDelSkinsEnElScorer(input: {
     retiros,
     rondaCerrada,
     tabla: resultado ? armarTablaDelSkins(resultado, { config: reglas.config, retiros, fuera: tarjetas?.fuera }) : null,
+    empezado: rondaCerrada || input.empezado,
+    pozoPorJugador: reglas.config.pozoPorJugador,
   }
 }
 

@@ -180,6 +180,18 @@ export async function fetchRondasRecientes(
  * salvo que haya AL MENOS DOS recorridos jugables: con uno solo no hay nada que
  * elegir, y la UI de combinaciones no debe aparecer.
  */
+/** Los tees de una cancha, del más largo al más corto (la misma lista que ofrece el asistente). */
+function consultaDeTees(supabase: ReturnType<typeof createClient>, courseId: string) {
+  return supabase.from('course_tees').select('nombre, yardaje_total, rating, slope').eq('course_id', courseId).order('yardaje_total', { ascending: false })
+}
+
+/** Solo los tees (Editar un Skins: cada jugador elige el suyo). Lanza si la lectura falla: quien llama ofrece reintentar. */
+export async function fetchTeesDeCancha(courseId: string): Promise<CourseTee[]> {
+  const { data, error } = await consultaDeTees(createClient(), courseId)
+  if (error) throw error
+  return (data as CourseTee[] | null) ?? []
+}
+
 export async function fetchSetupDeCancha(courseId: string): Promise<SetupDeCancha> {
   const supabase = createClient()
 
@@ -191,7 +203,7 @@ export async function fetchSetupDeCancha(courseId: string): Promise<SetupDeCanch
   ] = await Promise.all([
     supabase.from('courses').select('par_total, course_rating, slope_rating').eq('id', courseId).single(),
     supabase.from('course_holes').select('*', { count: 'exact', head: true }).eq('course_id', courseId),
-    supabase.from('course_tees').select('nombre, yardaje_total, rating, slope').eq('course_id', courseId).order('yardaje_total', { ascending: false }),
+    consultaDeTees(supabase, courseId),
     supabase.from('courses').select('id, loop_nombre, par_total').eq('parent_id', courseId).order('loop_nombre'),
   ])
 
