@@ -22,10 +22,13 @@ import { parTotalEstandar } from '@/golf/core/round-score'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { isTeamFormat } from '@/golf/formats'
+import { esFormatoSkins } from '@/golf/formats/skins/clave'
+import { hoyosFueraDesdeLaBase, type HoyosFuera } from '@/golf/formats/skins/fuera-del-hoyo'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { conPlazoCancelable } from '@/lib/red/con-timeout'
+import { esFilaInexistente } from '@/lib/red/codigos-postgrest'
 import { fetchEquiposConAnotador, courseHandicapsDeRonda } from './ronda-libre'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 import { crearHcpAMostrar, type HcpAMostrar } from './ronda-libre-live-api'
@@ -47,8 +50,12 @@ export const COLUMNAS_RONDA_SCORER =
 /**
  * Más el orden del juego de una Timba (`reglas_juego`, fuera del grant de anon). Solo el scorer de grupo, que exige
  * sesión antes de leer la ronda (`sesionDelScorer`).
+ * Y la X del skins (`fuera_del_hoyo`, migración 20261125100000) en un embebido aparte con alias (`jugadores_fuera`):
+ * así el SELECT de jugadores que comparten los dos scorers no cambia, y fuera del skins nadie la lee
+ * (`fueraDesdeLaRonda`).
  */
-export const COLUMNAS_RONDA_SCORER_CON_REGLAS = `${COLUMNAS_RONDA_SCORER}, reglas_juego`
+export const COLUMNAS_RONDA_SCORER_CON_REGLAS =
+  `${COLUMNAS_RONDA_SCORER}, reglas_juego, jugadores_fuera:ronda_libre_jugadores(id, fuera_del_hoyo)`
 
 /** Plazo para leer la ronda: con la base saturada PostgREST tardaba 20-80 s (caída 04-oct-2026). */
 export const PLAZO_CARGA_SCORER_MS = 10_000
@@ -102,7 +109,9 @@ export async function fetchRondaLibreParaScorer(
     // Orden estable de los jugadores: el embebido llega en orden físico, que cambia con cada guardado. En una Timba,
     // el del juego (`reglas_juego`, solo con `conReglasDelJuego`: el scorer de grupo), sin esperar a `GET /juego`.
     if (data) return { estado: 'ok', ronda: conJugadoresOrdenados(data as unknown as RondaLibre) }
-    if (error?.code === 'PGRST116') return { estado: 'no_existe' }
+    if (esFilaInexistente(error?.code)) return { estado: 'no_existe' }
+    // Transitorio (`esCodigoTransitorio`: 57014, PGRST003…) o sin `code` (red): releer lo arregla. Un código
+    // permanente (42501, 42703) también cae acá a propósito: el scorer reintenta y nunca saca al marcador de su ronda.
     return { estado: 'sin_conexion' }
   } catch {
     return { estado: 'sin_conexion' }
@@ -262,6 +271,18 @@ export async function fetchEquiposDelScorer(
     ...e,
     jugadorNombres: e.jugadorIds.map(id => ronda.ronda_libre_jugadores.find(j => j.id === id)?.nombre || '?'),
   }))
+}
+
+/**
+ * Skins: los hoyos con X de cada tarjeta, solo los de la ronda (`hoyosFueraDesdeLaBase`). Fuera de un skins, vacío: un
+ * hoyo con X ahí es «sin golpes» (solo un UPDATE directo podría dejarla; la RPC la rechaza).
+ */
+export function fueraDesdeLaRonda(
+  ronda: Pick<RondaLibre, 'formato_juego' | 'holes' | 'hoyo_inicio' | 'jugadores_fuera'>,
+): Record<string, HoyosFuera> {
+  if (!esFormatoSkins(ronda.formato_juego)) return {}
+  const orden = hoyosDeLaRonda(ronda.hoyo_inicio ?? 1, ronda.holes)
+  return Object.fromEntries((ronda.jugadores_fuera ?? []).map(j => [j.id, hoyosFueraDesdeLaBase(j.fuera_del_hoyo, orden)]))
 }
 
 /** Las tarjetas de la BD como estado del scorer (claves numéricas), por jugador. */

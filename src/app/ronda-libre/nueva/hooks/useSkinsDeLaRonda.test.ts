@@ -18,7 +18,8 @@ vi.mock('@/lib/data/skins-ronda-nueva', async importOriginal => ({
 
 import { useSkinsDeLaRonda, type RondaDelSkinsEnElFormulario } from './useSkinsDeLaRonda'
 import { PROBLEMA_SKINS_CARGANDO } from './skins-del-formulario'
-import { FalloDelContextoSkins, MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, mensajeSkinsSinRating } from '@/lib/data/skins-ronda-nueva'
+import { FalloDelContextoSkins, MENSAJE_SKINS_SIN_LEER_LA_CANCHA, mensajeSkinsSinRating } from '@/lib/data/skins-ronda-nueva'
+import { BASE_LENTA, SIN_RED, clienteFalso, ok, type RespuestaFalsa } from '@/__tests__/helpers/postgrest-falso'
 
 const SIN_ESPERA = [0, 0]
 const hoyos = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, si: i + 1 }))
@@ -75,7 +76,7 @@ describe('useSkinsDeLaRonda', () => {
       .mockImplementationOnce(() => new Promise(r => { soltar = r }))
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
     act(() => result.current.elegir())
-    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
+    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_LEER_LA_CANCHA))
     expect(result.current.enError).toBe(true)
     await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(2))
     await act(async () => { soltar(await contextoCon([12, 20])()) })
@@ -95,7 +96,7 @@ describe('useSkinsDeLaRonda', () => {
     await waitFor(() => expect(captureError).toHaveBeenCalledTimes(1))
     await new Promise(r => setTimeout(r, 30))
     expect(lectura.impl).toHaveBeenCalledTimes(3)
-    expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA)
+    expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_LEER_LA_CANCHA)
     volvio = true
     act(() => { window.dispatchEvent(new Event('online')) })
     await waitFor(() => expect(result.current.problema).toBeNull())
@@ -187,6 +188,27 @@ describe('useSkinsDeLaRonda', () => {
     expect(captureError).not.toHaveBeenCalled()
   })
 
+  // Revisión Fable PR #888, vuelta 3 (P2.2): con el contexto REAL, un rating que falla por SEÑAL (sin code o 57014)
+  // dice el mensaje del tee con su salida «juega en gross», no el de los hoyos (regresión de 2faa93fc).
+  it.each([['sin red', SIN_RED], ['base lenta 57014', BASE_LENTA]] as [string, RespuestaFalsa][])(
+    'rating que falla por señal (%s): el aviso es el del tee con «juega en gross», y se reintenta',
+    async (_n, respuesta) => {
+      const real = await vi.importActual<typeof import('@/lib/data/skins-ronda-nueva')>('@/lib/data/skins-ronda-nueva')
+      const supa = clienteFalso({
+        course_holes: [ok(Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 })))],
+        courses: [respuesta], course_tees: [ok(null)],
+      })
+      lectura.impl.mockImplementation((_c: unknown, r: Parameters<typeof real.contextoSkinsDeRondaNueva>[1]) =>
+        real.contextoSkinsDeRondaNueva(supa, r))
+      const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
+      act(() => result.current.elegir())
+      await waitFor(() => expect(result.current.problema?.detalle).toBe(mensajeSkinsSinRating('blanco')))
+      expect(result.current.problema?.detalle).toContain('juega en gross')
+      await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(3))
+      expect(result.current.problema?.detalle).toBe(mensajeSkinsSinRating('blanco'))
+    },
+  )
+
   it('el rating no llega nunca: mismo mensaje hasta el final y se reporta exactamente 1 vez', async () => {
     lectura.impl.mockImplementation(async () => { throw new FalloDelContextoSkins(mensajeSkinsSinRating('blanco'), false) })
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
@@ -269,7 +291,7 @@ describe('useSkinsDeLaRonda', () => {
     lectura.impl.mockImplementation(async () => { throw new Error('sin señal') })
     const { result } = renderHook(() => useSkinsDeLaRonda(true, { ...RONDA, filasSinNombre: 1 }, [0, 0]))
     act(() => result.current.elegir())
-    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
+    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_LEER_LA_CANCHA))
     expect(result.current.enError).toBe(true)
     // Lo que se ve en Jugadores es «falta un nombre»: sin «Reintentar» ahí.
     expect(result.current.problemaEnJugadores).not.toBe(result.current.problema)
@@ -282,7 +304,7 @@ describe('useSkinsDeLaRonda', () => {
     lectura.impl.mockImplementation(async () => { throw new Error('sin señal') })
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [0, 0]))
     act(() => result.current.elegir())
-    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
+    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_LEER_LA_CANCHA))
     expect(result.current.reintentarSiMuestra(result.current.problemaEnJugadores)).toBeDefined()
     // Otro aviso (uno de la pantalla) con el mismo texto no lo lleva: se compara el problema, no el texto.
     expect(result.current.reintentarSiMuestra({ ...result.current.problema! })).toBeUndefined()
@@ -302,7 +324,7 @@ describe('useSkinsDeLaRonda', () => {
     lectura.impl.mockImplementationOnce(() => new Promise(() => {})).mockImplementation(() => new Promise(() => {}))
     const { result } = renderHook(() => useSkinsDeLaRonda(true, RONDA, [30, 10_000], 20))
     act(() => result.current.elegir())
-    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA))
+    await waitFor(() => expect(result.current.problema?.detalle).toBe(MENSAJE_SKINS_SIN_LEER_LA_CANCHA))
     expect(result.current.enError).toBe(true)
     expect(senalDe(0).aborted).toBe(true)
     await waitFor(() => expect(lectura.impl).toHaveBeenCalledTimes(2))

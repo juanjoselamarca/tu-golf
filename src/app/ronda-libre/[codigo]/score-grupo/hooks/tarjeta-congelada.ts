@@ -1,3 +1,5 @@
+import type { FUERA_DEL_HOYO } from '@/golf/formats/skins/motor'
+
 /**
  * ¿El scorer de grupo deja de aceptar golpes? Mientras se finaliza (un toque tardío llegaría después del cierre, P0002)
  * y mientras va en vuelo un cambio de quién anota un equipo (`useAnotadorDeEquipo.enCurso`: reclamar, liberar o
@@ -19,13 +21,14 @@ export function tarjetaCongelada(estado: { finalizing: boolean; discarding: bool
 export function accionesDeLaTarjeta(a: {
   congelada: boolean
   marcarInteraccion: () => void
-  anotarJugador: (jugadorId: string, delta: number) => void
+  /** `delta` ±1, o `'X'` («Fuera del hoyo», solo skins). */
+  anotarJugador: (jugadorId: string, delta: number | typeof FUERA_DEL_HOYO) => void
   anotarEquipo: (equipoId: string, delta: number) => void
   pasarAlSiguienteHoyo: () => Promise<void>
   /** «Guardar hoyo N»: confirma el valor en pantalla del último hoyo (quien no cierra la ronda). */
   confirmarHoyo: () => Promise<void>
 }): {
-  anotar: (jugadorId: string, delta: number) => void
+  anotar: (jugadorId: string, delta: number | typeof FUERA_DEL_HOYO) => void
   anotarEquipo: (equipoId: string, delta: number) => void
   siguiente: () => Promise<void>
   guardarHoyo: () => Promise<void>

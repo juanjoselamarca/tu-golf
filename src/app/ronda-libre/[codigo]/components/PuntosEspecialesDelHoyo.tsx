@@ -1,8 +1,7 @@
 'use client'
 
 import { Fragment, useId, useState } from 'react'
-import type { PuntitoConfig } from '@/golf/formats/personalizado'
-import type { MarcasDeUnPuntito } from '@/golf/ronda-libre/marcas-de-la-timba'
+import type { MarcasDeUnPuntito, PuntitoMarcable } from '@/golf/ronda-libre/marcas-de-la-timba'
 
 export interface LineaDelResumen {
   texto: string
@@ -41,9 +40,11 @@ export function PuntosEspecialesDelHoyo(props: {
   grupos: readonly MarcasDeUnPuntito[]
   nombres: Readonly<Record<string, string>>
   birdieAutomatico: boolean
-  onAlternar: (jugadorId: string, puntito: PuntitoConfig) => void
+  /** Qué suma cada punto, junto a su valor: nada en la Timba («+3»), « skin» en un skins («+1 skin»). */
+  unidad?: string
+  onAlternar: (jugadorId: string, puntito: PuntitoMarcable) => void
 }) {
-  const { hoyo, grupos, nombres, birdieAutomatico, onAlternar } = props
+  const { hoyo, grupos, nombres, birdieAutomatico, unidad = '', onAlternar } = props
   const idPanel = useId()
   // Lo que eligió el scorer en ESTE hoyo; en otro hoyo vale el estado inicial (derivado, sin efectos).
   const [eleccion, setEleccion] = useState<{ hoyo: number; abierto: boolean } | null>(null)
@@ -99,7 +100,7 @@ export function PuntosEspecialesDelHoyo(props: {
           {conBotones.map(g => (
             <div key={g.puntito.id} role="group" aria-label={g.nombre} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-2)' }}>
-                {g.nombre} <span style={{ fontWeight: 500 }}>+{g.puntito.valor}</span>
+                {g.nombre} <span style={{ fontWeight: 500 }}>+{g.puntito.valor}{unidad}</span>
                 {g.nota && <span style={{ fontWeight: 500 }}> · {g.nota}</span>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>

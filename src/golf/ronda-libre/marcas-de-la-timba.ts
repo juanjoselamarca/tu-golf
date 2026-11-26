@@ -15,7 +15,6 @@ import {
   porQueNoCuenta,
   seJuegaEnElHoyo,
   sePuedeOfrecer,
-  type ConfigJuego,
   type MarcaPuntito,
   type PuntitoConfig,
   type ResultadoHoyoDelJuego,
@@ -27,11 +26,34 @@ export interface MarcaEnCola extends MarcaPuntito {
 }
 
 /**
- * Los puntos especiales que se marcan en un hoyo: manuales y activos; el greenie solo en un par 3 conocido (sin
- * par, no se ofrece: no se finge un par 3).
+ * Lo que el scorer necesita de un punto especial para marcarlo, de la Timba (`PuntitoConfig`) o del skins
+ * (`PuntitoSkins` con `valor` 1: cada uno vale 1 skin, spec formato-skins «Puntos especiales»).
+ * `activo`: solo la Timba lo trae; sin él, el punto está en juego (el skins guarda solo los elegidos).
  */
-export function puntitosMarcables(config: Pick<ConfigJuego, 'puntitos'>, par: number | null | undefined): PuntitoConfig[] {
-  return config.puntitos.filter(p => p.activo && PUNTITOS_MANUALES.includes(p.tipo) && seJuegaEnElHoyo(p.tipo, par))
+export interface PuntitoMarcable extends Pick<PuntitoConfig, 'id' | 'tipo' | 'nombre' | 'valor'> {
+  activo?: boolean
+}
+
+/**
+ * Los puntos especiales que se marcan en un hoyo: manuales y activos; el greenie solo en un par 3 conocido (sin
+ * par, no se ofrece: no se finge un par 3). Sirve a la Timba y al skins (mismo filtro, misma regla).
+ */
+export function puntitosMarcables<P extends PuntitoMarcable>(config: { puntitos: readonly P[] }, par: number | null | undefined): P[] {
+  return config.puntitos.filter(p => p.activo !== false && PUNTITOS_MANUALES.includes(p.tipo) && seJuegaEnElHoyo(p.tipo, par))
+}
+
+/**
+ * Lo que el scorer lee de `GET /juego` para marcar puntos especiales. Lo cumplen la vista de la Timba
+ * (`VistaDelJuego`) y la del skins (`VistaDelSkinsEnElScorer`): la cola de marcas y los botones no saben del juego.
+ */
+export interface VistaConMarcas {
+  config: { puntitos: readonly PuntitoMarcable[] }
+  jugadorIds: readonly string[]
+  /** Guardadas, en orden (`created_at`, `id`). */
+  marcas: readonly MarcaPuntito[]
+  /** Jugador → hoyo desde el que se retiró. */
+  retiros: Readonly<Record<string, number>>
+  rondaCerrada: boolean
 }
 
 const misma = (a: MarcaPuntito, b: MarcaPuntito) => a.jugadorId === b.jugadorId && a.hoyo === b.hoyo && a.puntitoId === b.puntitoId
@@ -73,7 +95,7 @@ export interface BotonDeMarca {
 }
 
 export interface MarcasDeUnPuntito {
-  puntito: PuntitoConfig
+  puntito: PuntitoMarcable
   nombre: string
   /** Aclaración junto al nombre ("uno por hoyo"); `null` si no hay. */
   nota: string | null
@@ -90,19 +112,20 @@ export interface MarcasDeUnPuntito {
  * pueda quitar: nunca se esconde una marca.
  */
 export function marcasDelHoyo(input: {
-  puntitos: readonly PuntitoConfig[]
+  puntitos: readonly PuntitoMarcable[]
   jugadorIds: readonly string[]
   hoyo: number
   /** `marcasVigentes`. */
   marcas: readonly MarcaPuntito[]
   /** Las que esperan envío (de este hoyo o de otros). */
   enEspera: readonly MarcaPuntito[]
+  /** Lo que el motor de la Timba juzgó del hoyo; `null` si no hay (hoyo pendiente, o un skins: juzga el teléfono). */
   resultadoDelHoyo: ResultadoHoyoDelJuego | null
   /** Golpes de cada jugador en este hoyo, como están en el teléfono (sin anotar = ausente). */
   golpes: Readonly<Record<string, number | null | undefined>>
   /** Par del hoyo; `null`/`undefined` si no se conoce. */
   par: number | null | undefined
-  /** Retirados en este hoyo: no se les ofrece nada. */
+  /** No juegan este hoyo (retirados; en un skins, también con X): no se les ofrece nada. */
   retirados: ReadonlySet<string>
 }): MarcasDeUnPuntito[] {
   const { puntitos, jugadorIds, hoyo, marcas, enEspera, resultadoDelHoyo, golpes, par, retirados } = input
@@ -125,7 +148,7 @@ export function marcasDelHoyo(input: {
     }
   })
 
-  function razonNoCuenta(puntito: PuntitoConfig, jugadorId: string): string | null {
+  function razonNoCuenta(puntito: PuntitoMarcable, jugadorId: string): string | null {
     // Con un dato local seguro (score anotado con par conocido, o un retiro) el juicio del teléfono es el definitivo,
     // en los dos sentidos: el del motor puede venir atrasado (corregir un 5 a 4 tiene que sacar el "no cuenta" al
     // tiro). Sin score anotado manda el motor: un chipingo marcado antes de anotar es legítimo.

@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { resolverHoyosDeLaRonda } from './course-holes'
+import { lanzarSiLecturaFallo, type ErrorDePostgrest } from '@/lib/red/lectura-fallida'
 import {
   evaluarAptitudTorneo,
   evaluarAptitudRecorridos,
@@ -125,10 +126,10 @@ export function aptitudDeCatalogo(
  * justamente el caso que se deja pasar. Los caminos de gate usan esto.
  */
 function exigirFilas<T>(
-  { data, error }: { data: unknown; error: { message?: string } | null },
+  { data, error }: { data: unknown; error: ErrorDePostgrest | null },
   que: string,
 ): T[] {
-  if (error) throw new Error(`No se pudo leer ${que}: ${error.message ?? 'error desconocido'}`)
+  lanzarSiLecturaFallo(error, que)
   return (data ?? []) as T[]
 }
 

@@ -9,8 +9,9 @@ import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 import { captureError } from '@/lib/error-tracking'
 import { clienteConSenal } from '@/lib/red/cliente-con-senal'
 import { conPlazoCancelable, LecturaCanceladaError } from '@/lib/red/con-timeout'
+import { detalleDeLecturaFallida } from '@/lib/red/lectura-fallida'
 import {
-  FalloDelContextoSkins, MENSAJE_SKINS_SIN_DATOS_DE_CANCHA, contextoSkinsDeRondaNueva, type JugadorDelSkinsNuevo,
+  MENSAJE_SKINS_SIN_LEER_LA_CANCHA, contextoSkinsDeRondaNueva, mensajeDelFalloDelContextoSkins, type JugadorDelSkinsNuevo,
 } from '@/lib/data/skins-ronda-nueva'
 import { problemaPorNombresQueFaltan } from './useFormularioDeRonda'
 import {
@@ -100,7 +101,7 @@ function useContextoDelSkins(
       reloj = setTimeout(() => void leer(intento), esperasRef.current[intento - 1] ?? 0)
     }
     async function leer(intento: number) {
-      if (sinRed()) { detenido = true; avisar(MENSAJE_SKINS_SIN_DATOS_DE_CANCHA); return }
+      if (sinRed()) { detenido = true; avisar(MENSAJE_SKINS_SIN_LEER_LA_CANCHA); return }
       const esta = ++ultima
       cancelarLaLectura()
       const propio = new AbortController()
@@ -116,16 +117,16 @@ function useContextoDelSkins(
       } catch (err) {
         if (!vigente || esta !== ultima || err instanceof LecturaCanceladaError) return
         // Un rating que no llegó puede ser la señal o la cancha: se dice lo que pasó (el tee sin rating, con su salida
-        // «juega en gross») desde el primer fallo, y se reintenta igual por detrás.
+        // «juega en gross»; o los hoyos) desde el primer fallo, y se reintenta igual por detrás. El mensaje es el del
+        // fallo, sea de señal o no (`mensajeDelFalloDelContextoSkins`).
         const agotado = intento >= esperasRef.current.length
-        const especifico = err instanceof FalloDelContextoSkins && !err.deSenal
-        avisar(especifico ? (err as Error).message : MENSAJE_SKINS_SIN_DATOS_DE_CANCHA)
+        avisar(mensajeDelFalloDelContextoSkins(err))
         if (sinRed()) { detenido = true; return }
         if (!agotado) { programar(intento + 1); return }
         detenido = true
         if (!reportado) {
           reportado = true
-          void captureError(err, { context: 'ronda-libre.nueva.skins-contexto', level: 'warning', meta: { courseId } })
+          void captureError(err, { context: 'ronda-libre.nueva.skins-contexto', level: 'warning', meta: { courseId, ...detalleDeLecturaFallida(err) } })
         }
       }
     }

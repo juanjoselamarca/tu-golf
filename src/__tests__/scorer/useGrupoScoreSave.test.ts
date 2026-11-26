@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
+import { useEstadoConRef } from '@/hooks/useEstadoConRef'
 import { useGrupoScoreSave } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import { leerPendientes } from '@/lib/ronda/score-storage'
 
@@ -48,9 +49,9 @@ function montar(
   teamEquipos?: { id: string; scores: Record<string, number> }[],
 ) {
   return renderHook(() => {
-    const [scores, setScores] = useState(inicial)
+    const [scores, setScores, scoresRef] = useEstadoConRef(inicial)
     const [currentHole, setCurrentHole] = useState(hole)
-    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole, scores, setScores, parMap: PAR, teamEquipos })
+    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole, setScores, scoresRef, parMap: PAR, teamEquipos })
     return { scores, setCurrentHole, save }
   })
 }

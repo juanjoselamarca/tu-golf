@@ -3,6 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { PlayerScoreCard } from './PlayerScoreCard'
 import { SCORER_THEME } from '@/components/ronda/scorer-theme'
 import type { HoleData, Jugador } from '@/types/ronda'
+// `FormatoJuego` no incluye 'skins' (ni 'personalizado'): la ronda los trae igual desde la base.
+import type { FormatoJuego } from '@/types/ronda'
 
 const HOYO: HoleData = { numero: 12, par: 4, stroke_index: 13, yardaje: null }
 
@@ -77,5 +79,59 @@ describe('PlayerScoreCard · cómo se escribe el neto', () => {
     expect(screen.queryByText(/Net: /)).toBeNull()
     expect(screen.queryByText('E')).toBeNull()
     expect(screen.getAllByText(/\d+ pts$/).length).toBe(2)
+  })
+})
+
+describe('PlayerScoreCard · tecla X del skins', () => {
+  function tarjeta(p: { formatoJuego: string; fuera?: Record<number, true>; onFuera?: () => void; golpes?: Record<number, number> }) {
+    const golpes = p.golpes ?? {}
+    const gross = Object.values(golpes).reduce((a, b) => a + b, 0)
+    return render(
+      <PlayerScoreCard
+        jugador={JUGADOR} playerScores={golpes} currentHole={12} par={4} holeData={HOYO}
+        totals={{ gross, vsPar: gross ? gross - 4 : 0, out: 0, inn: gross, holesPlayed: Object.keys(golpes).length, parJugado: gross ? 4 : 0 }}
+        played={Object.keys(golpes).length + Object.keys(p.fuera ?? {}).length}
+        hcp={18} displayHcp={18} dotHcp={18} siAllocByHole={{ 12: 13 }} ordenHoyos={[11, 12]} holeDataMap={{ 12: HOYO }}
+        totalHoles={18} modoJuego="gross" formatoJuego={p.formatoJuego as FormatoJuego} showNetStableford={false} pending={false}
+        onChange={() => {}} theme={SCORER_THEME} fuera={p.fuera} onFueraDelHoyo={p.onFuera}
+      />,
+    )
+  }
+
+  it('fuera del skins no hay tecla X', () => {
+    tarjeta({ formatoJuego: 'stroke_play' })
+    expect(screen.queryByRole('button', { name: 'Fuera del hoyo' })).toBeNull()
+  })
+
+  it('en el skins la tecla se llama «Fuera del hoyo» y marca el hoyo', () => {
+    let marcada = 0
+    tarjeta({ formatoJuego: 'skins', onFuera: () => { marcada++ } })
+    const x = screen.getByRole('button', { name: 'Fuera del hoyo' })
+    expect(x.getAttribute('aria-pressed')).toBe('false')
+    x.click()
+    expect(marcada).toBe(1)
+  })
+
+  it('con X muestra la X (nunca el par) y los totales cuentan la X sin sumar golpes', () => {
+    tarjeta({ formatoJuego: 'skins', onFuera: () => {}, fuera: { 12: true }, golpes: { 11: 5 } })
+    expect(screen.getByRole('button', { name: 'Fuera del hoyo' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('X', { selector: 'div' })).toBeTruthy()
+    expect(screen.getByText('1 fuera')).toBeTruthy()
+    expect(screen.queryByText(/1X/)).toBeNull()
+    expect(screen.getByText(/^5=5$/)).toBeTruthy() // solo los golpes del 11; la X no suma
+  })
+
+  it('solo con X (sin golpes) muestra el contador de X, sin «=0» ni «E»', () => {
+    tarjeta({ formatoJuego: 'skins', onFuera: () => {}, fuera: { 11: true }, golpes: {} })
+    expect(screen.getByText('1 fuera')).toBeTruthy()
+    expect(screen.queryByText(/1X/)).toBeNull()
+    expect(screen.queryByText(/=0/)).toBeNull()
+    expect(screen.queryByText('E')).toBeNull()
+  })
+
+  it('el contador «N fuera» va separado del total por una línea; la tecla X, 8 px más lejos del +', () => {
+    tarjeta({ formatoJuego: 'skins', onFuera: () => {}, fuera: { 11: true, 12: true }, golpes: { 13: 4 } })
+    expect(screen.getByText('2 fuera').style.borderLeft).toContain('1px solid')
+    expect(screen.getByRole('button', { name: 'Fuera del hoyo' }).style.marginLeft).toBe('8px')
   })
 })

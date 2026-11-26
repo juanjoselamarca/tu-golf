@@ -9,6 +9,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { lanzarSiLecturaFallo, type ErrorDePostgrest } from '@/lib/red/lectura-fallida'
 import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 import type { MitadDeLaCancha } from '@/golf/core/hoyos-jugados'
 import { courseHandicap9hSinRedondear, courseHandicap18hSinRedondear, redondearHandicapWHS } from '@/golf/core/stroke-index'
@@ -280,15 +281,17 @@ async function resolveNineHolePar(
   supabase: SupabaseClient,
   courseId: string,
   parTotal: number | undefined,
+  siFalla: SiFallaLaLectura = () => {},
 ): Promise<number> {
   // Si el caller ya pasó un par de 9 hoyos, es correcto: respetarlo.
   if (parTotal != null && !esEscalaDe18Hoyos(parTotal)) return parTotal
   // El caller pasó el par de 18 (o nada): derivar el par del front-9 real.
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('course_holes')
     .select('numero, par')
     .eq('course_id', courseId)
     .order('numero')
+  siFalla(error, 'los hoyos de la cancha')
   if (data && data.length > 0) {
     const par9 = parDeLosHoyosJugados(data as Array<{ numero: number; par: number | null }>, 9)
     if (par9 > 0) return par9
@@ -461,6 +464,20 @@ export async function cargarCourseData(
   return resolverCourseData(createClient(), courseId, tees, holes, parTotal, recorridos)
 }
 
+/** Qué hacer con el `error` de una lectura: nada (por defecto) o lanzar. */
+type SiFallaLaLectura = (error: ErrorDePostgrest | null | undefined, que: string) => void
+
+export interface OpcionesCourseData {
+  /**
+   * Por defecto `false`: un error de lectura se trata como «la cancha no tiene el dato» y la función devuelve `null`
+   * (o el eslabón siguiente). Así lo necesitan el scorer, los leaderboards y el ajuste WHS: degradan, no tumban.
+   *
+   * `true`: un error de lectura LANZA `LecturaFallidaError` (con el `code` de PostgREST). Para quien no puede
+   * confundir «no pude leer» con «no existe»: el skins neto, que con plata en juego no aproxima el CH.
+   */
+  lanzarSiFalla?: boolean
+}
+
 /**
  * Núcleo de `cargarCourseData` parametrizado por cliente Supabase, para reusar la
  * MISMA lógica de lookup (tee-specific → courses → multi-recorrido) tanto en el
@@ -473,19 +490,22 @@ export async function resolverCourseData(
   tees: string,
   holes: number,
   parTotal?: number,
-  recorridos?: string[] | null
+  recorridos?: string[] | null,
+  opciones: OpcionesCourseData = {},
 ): Promise<CourseData | null> {
   if (!courseId) return null
+  const siFalla: SiFallaLaLectura = opciones.lanzarSiFalla ? lanzarSiLecturaFallo : () => {}
 
   // 0. Multi-recorrido: si hay loops seleccionados, combinar ratings de los
   //    child courses correspondientes (ej: Brisas 27h = parent + 3 children).
   //    Cada child (9h) aporta su CR (aditivo) y slope (promediado).
   if (recorridos && recorridos.length >= 1) {
-    const { data: children } = await supabase
+    const { data: children, error: errorHijos } = await supabase
       .from('courses')
       .select('id, loop_nombre, course_rating, slope_rating, par_total')
       .eq('parent_id', courseId)
       .in('loop_nombre', recorridos)
+    siFalla(errorHijos, 'los recorridos de la cancha')
 
     if (children && children.length === recorridos.length) {
       // Sumar CR/par across loops; promediar slope ponderado por hoyos.
@@ -562,11 +582,12 @@ export async function resolverCourseData(
       // Fallback a tee-specific lookup sobre children individualmente.
       const teeNorm2 = tees.toLowerCase()
       const childIds = children.map(c => c.id)
-      const { data: teeRows } = await supabase
+      const { data: teeRows, error: errorTeesHijos } = await supabase
         .from('course_tees')
         .select('course_id, rating, slope, front_course_rating, front_slope_rating')
         .in('course_id', childIds)
         .ilike('nombre', `${teeNorm2}%`)
+      siFalla(errorTeesHijos, 'los tees de los recorridos')
       if (teeRows && teeRows.length === children.length) {
         // Mismo criterio que `crSum`: `front_course_rating` ya es un CR de 9
         // hoyos MEDIDO y se usa tal cual; el `rating` genérico del tee hay que
@@ -596,7 +617,7 @@ export async function resolverCourseData(
   // nunca, así que no podía enterarse de que la cancha era de 9. Va en paralelo
   // con la del tee para no agregar un viaje de ida y vuelta al board.
   const teeNorm = tees.toLowerCase()
-  const [{ data: course }, { data: teeData }] = await Promise.all([
+  const [{ data: course, error: errorCancha }, { data: teeData, error: errorTee }] = await Promise.all([
     supabase
       .from('courses')
       .select('slope_rating, course_rating, par_total')
@@ -610,6 +631,8 @@ export async function resolverCourseData(
       .limit(1)
       .maybeSingle(),
   ])
+  siFalla(errorCancha, 'el rating de la cancha')
+  siFalla(errorTee, 'el rating del tee')
 
   const parDeLaCancha: number | null = course?.par_total ?? null
   // Una cancha de 9 hoyos jugada a 18 se recorre DOS VECES: su Course Rating y
@@ -628,7 +651,7 @@ export async function resolverCourseData(
       // La escala del `rating` de 18h sale del par propio de la cancha; sin la
       // fila de courses se asume 18h — comportamiento previo.
       const { slope, courseRating } = ratingsDe9DelTee(teeData as TeeRatings, parDeLaCancha ?? 72)
-      const par = await resolveNineHolePar(supabase, courseId, parTotal)
+      const par = await resolveNineHolePar(supabase, courseId, parTotal, siFalla)
       if (ratingEsCreible({ courseRating, par, holes: 9 })) {
         return { slope, courseRating, par, is9Hole: true }
       }
@@ -672,7 +695,7 @@ export async function resolverCourseData(
         // Acá sí tenemos el par PROPIO de la cancha en la mano: esa es la señal
         // de escala, y tiene prioridad sobre el `parTotal` de la ronda.
         courseRating: courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha ?? parTotal ?? 72),
-        par: await resolveNineHolePar(supabase, courseId, parTotal ?? parDeLaCancha ?? undefined),
+        par: await resolveNineHolePar(supabase, courseId, parTotal ?? parDeLaCancha ?? undefined, siFalla),
         is9Hole: true,
       }
     }

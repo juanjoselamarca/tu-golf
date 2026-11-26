@@ -14,6 +14,7 @@
 
 import type { PostgrestError } from '@supabase/supabase-js'
 import { triggerRoundUpdatePush } from '@/lib/round-notifications'
+import type { ScoreSkins } from '@/golf/formats/skins/motor'
 import { esRechazoDelCierre } from '@/lib/data/ronda-libre-cierre'
 import { conTimeout } from '@/lib/red/con-timeout'
 
@@ -66,8 +67,8 @@ export interface RondaLibreWriteClient {
   ) => RpcResult
 }
 
-function toJsonbDelta(delta: Record<string | number, number>): Record<string, number> {
-  const out: Record<string, number> = {}
+function toJsonbDelta<V extends number | string>(delta: Record<string | number, V>): Record<string, V> {
+  const out: Record<string, V> = {}
   for (const [k, v] of Object.entries(delta)) out[String(k)] = v  // claves string para JSONB
   return out
 }
@@ -75,8 +76,11 @@ function toJsonbDelta(delta: Record<string | number, number>): Record<string, nu
 export interface SaveScoresInput {
   codigo: string
   jugadorId: string
-  /** hoyo → golpes. Se mergea server-side (`scores || delta`), nunca reemplaza. */
-  delta: Record<string | number, number>
+  /**
+   * hoyo → golpes. Se mergea server-side (`scores || delta`), nunca reemplaza. En un skins, un hoyo puede llevar `'X'`
+   * («Fuera del hoyo»): la RPC la guarda en `fuera_del_hoyo` y borra los golpes de ese hoyo (y al revés).
+   */
+  delta: Record<string | number, ScoreSkins>
   /** De `nuevaSecuencia()`, para reintentar el mismo contenido. Sin ella, cada llamada es un guardado nuevo. */
   seq?: number
 }

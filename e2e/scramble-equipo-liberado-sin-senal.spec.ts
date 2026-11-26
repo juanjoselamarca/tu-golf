@@ -21,7 +21,7 @@ import {
 } from './helpers/scramble-club-fixture'
 import { REINTENTO_CARGA_MS } from '../src/lib/data/ronda-libre-scorer'
 import { MENSAJE_YA_NO_ANOTAS } from '../src/lib/data/ronda-libre-anotador'
-import { ID_PENDIENTE_EQUIPO, leerPendientes } from '../src/lib/ronda/score-storage'
+import { ID_PENDIENTE_EQUIPO, leerPendientes, type ValorPendiente } from '../src/lib/ronda/score-storage'
 import { SAVE_DEBOUNCE_MS } from '../src/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 
 /**
@@ -72,7 +72,7 @@ async function abrirScorerDePedro(browser: Browser, testInfo: TestInfo, codigo: 
  * Los golpes de un equipo que el teléfono de Pedro tiene pendientes de subir, o null si no hay. Se copia su
  * localStorage y se lee con `leerPendientes` (la cola canónica del scorer), sin repetir acá su clave ni su forma.
  */
-async function pendientesDeEquipo(page: Page, codigo: string, equipoId: string): Promise<Record<string, number> | null> {
+async function pendientesDeEquipo(page: Page, codigo: string, equipoId: string): Promise<Record<string, ValorPendiente> | null> {
   const almacen: Record<string, string> = await page.evaluate(() => Object.fromEntries(Object.entries(localStorage)))
   const previo = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (k: string) => almacen[k] ?? null } })

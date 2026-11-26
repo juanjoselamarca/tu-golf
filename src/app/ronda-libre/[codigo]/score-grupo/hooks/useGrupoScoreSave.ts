@@ -21,7 +21,12 @@ import {
   leerRechazados,
   confirmarRechazados,
   olvidarRechazado,
+  saveGroupFuera,
+  type ValorPendiente,
 } from '@/lib/ronda/score-storage'
+import { esFueraDelHoyo, estaFueraDelHoyo, soloGolpes, type FueraPorJugador } from '@/golf/formats/skins/fuera-del-hoyo'
+import { FUERA_DEL_HOYO } from '@/golf/formats/skins/motor'
+import { useAntiToque, type PendingScoreConfirm } from './useAntiToque'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
 import type { RondaLibre } from '@/types/ronda'
@@ -29,10 +34,7 @@ import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 export type GrupoSaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
-/** A1 anti-toque: cuánto dura el pedido de "toca otra vez". */
-export const PENDING_CONFIRM_MS = 2000
-/** A3: ventana de ediciones libres sobre el mismo jugador/hoyo tras confirmar. */
-export const EDIT_WINDOW_MS = 3000
+export { PENDING_CONFIRM_MS, EDIT_WINDOW_MS, type PendingScoreConfirm } from './useAntiToque'
 /** A2: se envía lo pendiente tantos ms después del último tap (cualquier jugador). */
 export const SAVE_DEBOUNCE_MS = 500
 /** Reintentos de un envío ante un error puntual (backoff 400ms × intento). */
@@ -51,11 +53,6 @@ export const REINTENTO_SYNC_MS = 15_000
  */
 export const REENVIO_CONFIRMACION_MS = [30_000, 180_000] as const
 
-export interface PendingScoreConfirm {
-  jugadorId: string
-  hole: number
-}
-
 export interface GrupoScoreSave {
   saveStatus: GrupoSaveStatus
   setSaveStatus: React.Dispatch<React.SetStateAction<GrupoSaveStatus>>
@@ -70,8 +67,11 @@ export interface GrupoScoreSave {
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
   /** A1: jugador/hoyo esperando el segundo tap. */
   pendingScoreConfirm: PendingScoreConfirm | null
-  /** +/- sobre un jugador en un hoyo (con anti-toque, edit window y envío debounced). */
-  handleScoreChange: (jugadorId: string, hole: number, delta: number) => void
+  /**
+   * +/- sobre un jugador en un hoyo (con anti-toque, edit window y envío debounced). Skins: `'X'` marca «Fuera del
+   * hoyo» (sin golpes); un +/- sobre una X la cambia por el par del hoyo.
+   */
+  handleScoreChange: (jugadorId: string, hole: number, cambio: number | typeof FUERA_DEL_HOYO) => void
   /**
    * Envía al servidor todo lo pendiente. Con `overrideScores` (p.ej. pares autocompletados
    * al avanzar) primero los respalda y los marca como pendientes. Dice si el servidor contestó que la
@@ -138,8 +138,12 @@ export function useGrupoScoreSave(input: {
   ronda: RondaLibre | null
   codigo: string
   currentHole: number
-  scores: Record<string, Record<number, number>>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
+  /**
+   * `scores` al día con el último `setScores` (`useEstadoConRef`), no con el último render: el toque calcula el valor
+   * siguiente desde acá. Una ref copiada en un efecto llegaba tarde si el toque venía antes (revisión Fable, PR #888).
+   */
+  scoresRef: Readonly<React.MutableRefObject<Record<string, Record<number, number>>>>
   parMap: Record<number, number>
   /** Scores de equipo en pantalla (scramble/foursome): también se reenvían tras una caída. */
   teamEquipos?: ReadonlyArray<{ id: string; scores: Record<string, number> }>
@@ -151,14 +155,19 @@ export function useGrupoScoreSave(input: {
    *    liberaron). No hay reintento posible: salen de pendientes y la pantalla relee quién anota qué.
    */
   unCelularPorEquipo?: { ajenos: ReadonlyArray<{ id: string }>; alPerderEquipo: () => void }
+  /** Skins: hoyos con X de cada tarjeta (aparte de los golpes). Fuera del skins no se pasa: la tecla X no existe. */
+  fueraDelHoyo?: {
+    setFuera: React.Dispatch<React.SetStateAction<Record<string, Record<number, true>>>>
+    /** Al día con el último `setFuera` (`useEstadoConRef`). */
+    fueraRef: Readonly<React.MutableRefObject<Record<string, Record<number, true>>>>
+  }
 }): GrupoScoreSave {
-  const { ronda, codigo, currentHole, setScores, parMap } = input
+  const { ronda, codigo, currentHole, setScores, scoresRef, parMap } = input
 
   const [saveStatus, setSaveStatus] = useState<GrupoSaveStatus>('idle')
   const [guardados, setGuardados] = useState(0)
   const [hasUnsaved, setHasUnsaved] = useState(false)
-  const [pendingScoreConfirm, setPendingScoreConfirm] = useState<PendingScoreConfirm | null>(null)
-  const pendingScoreConfirmRef = useRef<PendingScoreConfirm | null>(null)
+  const { pendingScoreConfirm, puedeCambiar } = useAntiToque(currentHole)
   /** Un envío falló y quedan golpes pendientes: aviso visible + sincronización automática. */
   const [sinEnviar, setSinEnviar] = useState(false)
   const sinEnviarRef = useRef(false)
@@ -166,9 +175,6 @@ export function useGrupoScoreSave(input: {
   const [sesionPerdida, setSesionPerdidaState] = useState(false)
   const sesionPerdidaRef = useRef(false)
   const setSesionPerdida = useCallback((v: boolean) => { sesionPerdidaRef.current = v; setSesionPerdidaState(v) }, [])
-  const pendingConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const editWindowRef = useRef<PendingScoreConfirm | null>(null)
-  const editWindowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const envioDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const enVueloRef = useRef(false)
   const otraVueltaRef = useRef(false)
@@ -205,29 +211,23 @@ export function useGrupoScoreSave(input: {
     return () => {
       desmontadoRef.current = true
       if (envioDebounceRef.current) clearTimeout(envioDebounceRef.current)
-      if (pendingConfirmTimeoutRef.current) clearTimeout(pendingConfirmTimeoutRef.current)
-      if (editWindowTimeoutRef.current) clearTimeout(editWindowTimeoutRef.current)
       for (const t of confirmaciones) clearTimeout(t)
     }
   }, [])
 
-  /* ── Al cambiar de hoyo: limpiar pending score confirm + edit window ── */
-  useEffect(() => {
-    setPendingScoreConfirm(null)
-    pendingScoreConfirmRef.current = null
-    if (pendingConfirmTimeoutRef.current) { clearTimeout(pendingConfirmTimeoutRef.current); pendingConfirmTimeoutRef.current = null }
-    editWindowRef.current = null
-    if (editWindowTimeoutRef.current) { clearTimeout(editWindowTimeoutRef.current); editWindowTimeoutRef.current = null }
-  }, [currentHole])
-
   const sincronizarRef = useRef<() => Promise<unknown>>(async () => {})
   const saveAllRef = useRef<(o?: Record<string, Record<number, number>>) => Promise<unknown>>(async () => {})
-  const scoresRef = useRef(input.scores)
-  useEffect(() => { scoresRef.current = input.scores }, [input.scores])
   const equiposRef = useRef(input.teamEquipos ?? [])
   useEffect(() => { equiposRef.current = input.teamEquipos ?? [] }, [input.teamEquipos])
   const porCelularRef = useRef(input.unCelularPorEquipo)
   useEffect(() => { porCelularRef.current = input.unCelularPorEquipo }, [input.unCelularPorEquipo])
+  // La X se lee de su ref al día (`useEstadoConRef`); fuera del skins no hay mapa ni tecla. `fuenteFueraRef` solo
+  // cambia una vez (al cargar la ronda y saber que es skins): lo leen los reenvíos programados, que viven más que un render.
+  const sinFueraRef = useRef<FueraPorJugador>({})
+  const fueraRef = input.fueraDelHoyo?.fueraRef ?? sinFueraRef
+  const fuenteFueraRef = useRef(fueraRef)
+  useEffect(() => { fuenteFueraRef.current = fueraRef }, [fueraRef])
+  const setFuera = input.fueraDelHoyo?.setFuera
 
   /* ── Envía TODO lo pendiente (jugadores y equipos) ── */
   const enviarTodo = useCallback(async (overrideScores?: Record<string, Record<number, number>>) => {
@@ -281,7 +281,7 @@ export function useGrupoScoreSave(input: {
       // se informa como guardado. Sólo lo que el servidor no va a aceptar nunca sale de pendientes: con
       // la ronda cerrada (P0002) los golpes se quedan en el teléfono, porque se puede reabrir (reabrir un
       // torneo devuelve sus rondas a 'en_curso') y al volver al scorer se reenvían.
-      const rechazar = (id: string, golpes: Record<number, number>, code: string) => {
+      const rechazar = (id: string, golpes: Record<string, ValorPendiente>, code: string) => {
         // Rechazo firme: sale de pendientes (no se reintenta solo) pero los golpes quedan apartados en el
         // teléfono; Finalizar no cierra con esta tarjeta y la nombra.
         if (esRechazoQueDescarta({ code })) {
@@ -308,14 +308,14 @@ export function useGrupoScoreSave(input: {
         })
       }
       while (!ok && attempts < SAVE_RETRIES) {
-        const noEncontrados: [string, Record<number, number>][] = []
+        const noEncontrados: [string, Record<string, ValorPendiente>][] = []
         const porCelular = porCelularRef.current
         const ajenos = new Set((porCelular?.ajenos ?? []).map(e => ID_PENDIENTE_EQUIPO(e.id)))
         const envios = Object.entries(leerPendientes(codigo)).map(async ([id, golpes]) => {
           // Equipo de otro celular: lo suyo no se pisa desde acá.
           if (ajenos.has(id)) { confirmarPendientes(codigo, id, golpes); return { error: null } }
           const r = id.startsWith('eq:')
-            ? await saveRondaEquiposScores(supabase, { codigo, equipoId: id.slice(3), delta: golpes })
+            ? await saveRondaEquiposScores(supabase, { codigo, equipoId: id.slice(3), delta: soloGolpes(golpes) })
             : await saveRondaLibreScores(supabase, { codigo, jugadorId: id, delta: golpes })
           if (!r.error) {
             entraron++
@@ -397,6 +397,11 @@ export function useGrupoScoreSave(input: {
             // Reenvía los valores actuales: deja en el servidor lo último aunque un envío vencido aterrice tarde.
             confirmacionesRef.current.push(setTimeout(() => {
               for (const eq of equiposRef.current) marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(eq.id), eq.scores)
+              // Skins: las X también (no van en `scores`).
+              for (const [id, hoyos] of Object.entries(fuenteFueraRef.current.current)) {
+                const x = Object.fromEntries(Object.keys(hoyos).map(h => [h, FUERA_DEL_HOYO]))
+                if (Object.keys(x).length > 0) marcarPendientes(codigo, id, x)
+              }
               void saveAllRef.current(scoresRef.current)
             }, ms))
           }
@@ -520,64 +525,53 @@ export function useGrupoScoreSave(input: {
   }, [codigo, enviarYa])
 
   /* ── Score change ── */
-  const handleScoreChange = useCallback((jugadorId: string, hole: number, delta: number) => {
+  const handleScoreChange = useCallback((jugadorId: string, hole: number, cambio: number | typeof FUERA_DEL_HOYO) => {
     if (rondaBorradaRef.current) return
-    setScores(prev => {
-      const existingScore = prev[jugadorId]?.[hole]
-      const hasExisting = existingScore != null && existingScore > 0
+    // Sin el mapa de la X (fuera de un skins) la tecla no existe: una X que llegara igual no se anota.
+    const marcaX = esFueraDelHoyo(cambio)
+    if (marcaX && !setFuera) return
+    // El estado siguiente se calcula aquí, desde las refs (al día aunque dos toques lleguen antes de re-renderizar), y
+    // los efectos (respaldo, cola, anti-toque, vibración) corren una vez por toque. Los updaters de abajo son puros:
+    // React puede llamarlos dos veces (StrictMode) sin anotar ni respaldar dos veces.
+    const prev = scoresRef.current
+    const existingScore = prev[jugadorId]?.[hole]
+    const teniaX = estaFueraDelHoyo(fueraRef.current[jugadorId], hole)
+    if (marcaX && teniaX) return // ya está marcado
 
-      // A3 edit window: si acabamos de confirmar un cambio en este mismo
-      // jugador/hoyo y estamos dentro de los 3s, saltamos la confirmación.
-      const editWin = editWindowRef.current
-      const inEditWindow = editWin?.jugadorId === jugadorId && editWin?.hole === hole
+    // A1 anti-toque / A3 edit window: cambiar un valor ya anotado (golpes o X) pide el 2º toque.
+    const hayValor = (existingScore != null && existingScore > 0) || teniaX
+    if (!puedeCambiar(jugadorId, hole, hayValor)) return
 
-      // A1 anti-toque: si ya hay un score y NO estamos en edit window, exigir 2º tap.
-      if (hasExisting && !inEditWindow) {
-        const ref = pendingScoreConfirmRef.current
-        const isConfirmed = ref?.jugadorId === jugadorId && ref?.hole === hole
-        if (!isConfirmed) {
-          // 1er tap → mostrar confirmación, NO cambiar nada
-          const pending = { jugadorId, hole }
-          setPendingScoreConfirm(pending)
-          pendingScoreConfirmRef.current = pending
-          haptic([15, 40, 15])
-          if (pendingConfirmTimeoutRef.current) clearTimeout(pendingConfirmTimeoutRef.current)
-          pendingConfirmTimeoutRef.current = setTimeout(() => {
-            setPendingScoreConfirm(null)
-            pendingScoreConfirmRef.current = null
-          }, PENDING_CONFIRM_MS)
-          return prev
-        }
-        // 2º tap → limpiar pending y proceder
-        setPendingScoreConfirm(null)
-        pendingScoreConfirmRef.current = null
-        if (pendingConfirmTimeoutRef.current) {
-          clearTimeout(pendingConfirmTimeoutRef.current)
-          pendingConfirmTimeoutRef.current = null
-        }
-      }
-
-      // A3: abrir/renovar edit window de 3s tras cada cambio commiteado.
-      editWindowRef.current = { jugadorId, hole }
-      if (editWindowTimeoutRef.current) clearTimeout(editWindowTimeoutRef.current)
-      editWindowTimeoutRef.current = setTimeout(() => {
-        editWindowRef.current = null
-      }, EDIT_WINDOW_MS)
-
-      // Aplicar el cambio: respaldo local + pendiente hasta que el servidor lo confirme.
-      const par = parMap[hole] ?? 4
-      const base = existingScore ?? par
-      const newScore = limitarGolpes(base + delta)
-      const next = { ...prev, [jugadorId]: { ...(prev[jugadorId] ?? {}), [hole]: newScore } }
-      setHasUnsaved(true)
-      saveGroupScores(codigo, next)
-      marcarPendientes(codigo, jugadorId, { [hole]: newScore })
-      olvidarRechazado(codigo, jugadorId, hole)
-      haptic(10)
-      programarEnvio()
-      return next
-    })
-  }, [parMap, codigo, programarEnvio, setScores])
+    // Aplicar el cambio: respaldo local + pendiente hasta que el servidor lo confirme.
+    const par = parMap[hole] ?? 4
+    let valor: ValorPendiente
+    let tarjeta: Record<number, number>
+    if (marcaX) {
+      // La X no es un número: el hoyo queda sin golpes (nunca se inventa uno).
+      valor = FUERA_DEL_HOYO
+      tarjeta = Object.fromEntries(Object.entries(prev[jugadorId] ?? {}).filter(([h]) => Number(h) !== hole))
+    } else {
+      // Sobre una X, el primer cambio deja el par (lo que se ve en gris en un hoyo sin anotar) y de ahí se ajusta.
+      valor = teniaX ? limitarGolpes(par) : limitarGolpes((existingScore ?? par) + (cambio as number))
+      tarjeta = { ...(prev[jugadorId] ?? {}), [hole]: valor }
+    }
+    const next = { ...prev, [jugadorId]: tarjeta }
+    setScores(next)
+    if (setFuera && marcaX !== teniaX) {
+      const hoyos = { ...(fueraRef.current[jugadorId] ?? {}) }
+      if (marcaX) hoyos[hole] = true
+      else delete hoyos[hole]
+      const fuera = { ...fueraRef.current, [jugadorId]: hoyos }
+      setFuera(fuera)
+      saveGroupFuera(codigo, fuera)
+    }
+    setHasUnsaved(true)
+    saveGroupScores(codigo, next)
+    marcarPendientes(codigo, jugadorId, { [hole]: valor })
+    olvidarRechazado(codigo, jugadorId, hole)
+    haptic(10)
+    programarEnvio()
+  }, [parMap, codigo, programarEnvio, setScores, scoresRef, fueraRef, puedeCambiar, setFuera])
 
   /* ── Sincronización automática: reintento periódico + al recuperar la red ── */
   // Con la ronda cerrada no: cada intento daría P0002. Lo pendiente espera a que se reabra.

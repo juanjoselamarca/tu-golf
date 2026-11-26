@@ -94,4 +94,53 @@ describe('useTimbaDelScorer', () => {
     expect(h.opcionesJuego).toEqual({ activo: true, firma: '3', intervaloS: INTERVALO_JUEGO_SCORER_S })
     expect(INTERVALO_JUEGO_SCORER_S).toBeGreaterThanOrEqual(60)
   })
+
+  describe('skins: los mismos botones con la vista del skins', () => {
+    const vistaSkins = {
+      formato: 'skins',
+      config: { puntitos: [{ id: 'sandy', tipo: 'sandy', valor: 1 }, { id: 'greenie', tipo: 'greenie', valor: 1 }, { id: 'p', tipo: 'propio', nombre: 'Árbol', valor: 1 }] },
+      jugadorIds: ['a', 'b'], marcas: [], retiros: {}, rondaCerrada: false,
+    }
+
+    it('sin `activo` en la config, todos los puntos están en juego; greenie solo en par 3; sin birdie automático', () => {
+      h.vista = vistaSkins
+      h.marcas = { marcas: [], enCola: [], rechazadas: [], retirosConfirmados: {} }
+      expect(montar(3, 4).puntosDelHoyo.map(g => g.puntito.id)).toEqual(['sandy', 'p'])
+      const par3 = montar(3, 3)
+      expect(par3.puntosDelHoyo.map(g => g.puntito.id)).toEqual(['sandy', 'greenie', 'p'])
+      expect(par3.puntosDelHoyo[2].nombre).toBe('Árbol')
+      expect(par3.birdieAutomatico).toBe(false)
+    })
+
+    it('el «no cuenta» lo juzga el teléfono con la misma regla (sin resultado del motor)', () => {
+      h.vista = vistaSkins
+      h.marcas = { marcas: [{ jugadorId: 'a', hoyo: 3, puntitoId: 'sandy' }], enCola: [], rechazadas: [], retirosConfirmados: {} }
+      const t = montar(3, 4)
+      expect(t.puntosDelHoyo[0].jugadores[0]).toMatchObject({ marcado: true, noCuenta: 'El sandy cuenta solo con par o mejor' })
+      expect(t.puntosDelHoyo[0].puntito.valor).toBe(1)
+    })
+
+    it('con X en el hoyo no se le ofrece nada; una marca suya ya puesta se ve con «no cuenta»', () => {
+      h.vista = vistaSkins
+      h.marcas = { marcas: [{ jugadorId: 'b', hoyo: 3, puntitoId: 'p' }], enCola: [], rechazadas: [], retirosConfirmados: {} }
+      const t = renderHook(() => useTimbaDelScorer({
+        codigo: 'X', activo: true, conexion: 'ok', jugadores, scores: { a: {}, b: {} }, firma: '', currentHole: 3, ordenHoyos: orden, par: 4,
+        fuera: { b: { 3: true } },
+      })).result.current
+      expect(t.puntosDelHoyo[0].jugadores.map(j => j.visible)).toEqual([true, false])
+      expect(t.puntosDelHoyo[1].jugadores[1]).toMatchObject({ visible: true, marcado: true, noCuenta: 'No jugó el hoyo' })
+      expect([...t.retiradosDelHoyo]).toEqual([]) // la X no es un retiro
+    })
+
+    it('el panel «Juego» de la Timba no recibe la vista del skins', () => {
+      h.vista = vistaSkins
+      expect(montar(3, 4).juego.estado).toBe('error')
+    })
+
+    it('una marca rechazada se nombra con el punto del skins', () => {
+      h.vista = vistaSkins
+      h.marcas = { marcas: [], enCola: [], rechazadas: [{ jugadorId: 'b', puntitoId: 'p', hoyo: 2, marcar: true }], retirosConfirmados: {} }
+      expect(montar(3, 4).lineasRechazadas).toEqual(['Árbol de Diego en el hoyo 2'])
+    })
+  })
 })

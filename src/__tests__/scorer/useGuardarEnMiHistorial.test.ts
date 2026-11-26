@@ -87,6 +87,19 @@ describe('useGuardarEnMiHistorial', () => {
     expect(avisarAlCoachRondaNueva).not.toHaveBeenCalled()
   })
 
+  it('skins terminado: su tarjeta no va al historial → no se ofrece, no consulta ni guarda', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    const { result } = renderHook(() => useGuardarEnMiHistorial({
+      ronda: { ...(ronda as object), formato_juego: 'skins' } as never, isFinished: true, currentUserId: 'u2',
+      parMap: { 10: 4 }, siMap: { 10: 1 }, courseHcpMap: {}, courseHcpCompletoMap: {}, sinIndice: [], equipos: [],
+    }))
+    await new Promise(r => setTimeout(r, 0))
+    expect(result.current.estado).toBe('oculto')
+    expect(tarjetaYaEnMiHistorial).not.toHaveBeenCalled()
+    await act(async () => { await result.current.guardar() })
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+  })
+
   it('guardar: SU tarjeta con su userId, recalcula índice, avisa al coach y se oculta', async () => {
     tarjetaYaEnMiHistorial.mockResolvedValue(false)
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: {} })

@@ -46,6 +46,9 @@ import { useGrupoScoreboard } from './hooks/useGrupoScoreboard'
 import { accionesDeLaTarjeta, tarjetaCongelada } from './hooks/tarjeta-congelada'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esFormatoSkins } from '@/golf/formats/skins/clave'
+import { FUERA_DEL_HOYO } from '@/golf/formats/skins/motor'
+import { useValorDelHoyoSkins } from './hooks/useValorDelHoyoSkins'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
 import { PanelDelJuego } from '../components/timba/PanelDelJuego'
@@ -77,7 +80,7 @@ function ScorerDeGrupo() {
 
   const {
     ronda, loading, loadError, currentHole, setCurrentHole,
-    scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
+    scores, setScores, scoresRef, fuera, setFuera, fueraRef, parMap, holeDataMap, playerHcp, playerDisplayHcp,
     teamEquipos, setTeamEquipos, anotadorNombre, authUserId, conexion, golpesSinSubir,
     unCelularPorEquipo, equiposDeOtroCelular, eleccion, recargar, recargarTrasDejarEquipo,
   } = useRondaGrupoData(codigo)
@@ -104,8 +107,13 @@ function ScorerDeGrupo() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
+  // Skins: la X («Fuera del hoyo») vive aparte de los golpes. Fuera del skins no hay tecla ni mapa.
+  const esSkins = esFormatoSkins(ronda?.formato_juego)
+  const fueraDelHoyo = useMemo(() => (esSkins ? { setFuera, fueraRef } : undefined), [esSkins, setFuera, fueraRef])
+  const fueraSkins = esSkins ? fuera : undefined
+  const valorSkins = useValorDelHoyoSkins({ ronda: esSkins ? ronda : null, scores, fuera: fueraSkins, currentHole })
   const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
-    useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos, unCelularPorEquipo: porCelular })
+    useGrupoScoreSave({ ronda, codigo, currentHole, setScores, scoresRef, parMap, teamEquipos, unCelularPorEquipo: porCelular, fueraDelHoyo })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
     if (rondaNoExiste) router.push('/dashboard')
@@ -134,15 +142,17 @@ function ScorerDeGrupo() {
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
-  // Timba libre: puntos, marcas y retiros (todo de GET /juego). Fuera de una Timba no pide nada.
+  // Timba libre: puntos, marcas y retiros (todo de GET /juego). En un skins, solo sus puntos especiales. Fuera de
+  // los dos no pide nada.
   const esTimba = esFormatoPersonalizado(ronda?.formato_juego)
+  const conPuntosEspeciales = esTimba || esSkins
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('tarjeta')
   // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
   const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
   const timba = useTimbaDelScorer({
-    codigo, activo: esTimba, conexion, jugadores, scores, firma: String(guardados),
+    codigo, activo: conPuntosEspeciales, conexion, jugadores, scores, firma: String(guardados),
     // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
-    currentHole, ordenHoyos, par: parMap[currentHole],
+    currentHole, ordenHoyos, par: parMap[currentHole], fuera: fueraSkins,
   })
   // Con un retirado, el hoyo de la carga no sabe del retiro: al llegar los retiros, el scorer va al hoyo que falta.
   // Abrir "Finalizar" a propósito NO cuenta como interacción: si el salto llega con la hoja abierta, la hoja se
@@ -154,8 +164,9 @@ function ScorerDeGrupo() {
   const { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, descarteCerrado, showDiscardConfirm, setShowDiscardConfirm } =
     useFinalizeGrupo({
       ronda, codigo, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
-      authUserId, enviarPendientes: saveAllScores,
+      authUserId, enviarPendientes: saveAllScores, fuera: fueraSkins,
       timba: esTimba ? { retiros: timba.retiros, enviarMarcas: timba.marcas.enviarPendientes, hoyoEnPantalla: currentHole } : undefined,
+      enviarMarcas: esSkins ? timba.marcas.enviarPendientes : undefined,
       unCelularPorEquipo: unCelularPorEquipo ? { recargar } : undefined,
     })
   useIrAlResultadoSiCerrada({ rondaCerrada, finalizing, codigo })
@@ -166,7 +177,7 @@ function ScorerDeGrupo() {
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
-    retiros: esTimba ? timba.retiros : undefined, sinParAutomatico,
+    retiros: esTimba ? timba.retiros : undefined, sinParAutomatico, fuera: fueraSkins,
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
@@ -188,8 +199,8 @@ function ScorerDeGrupo() {
       // Auto-fill ALL players who don't have a score for the current hole with par
       const updatedScores = { ...scores }
       for (const j of jugadores) {
-        // Ya anotado, o retirado en la Timba (con par el motor se lo contaría como jugado): no se rellena.
-        if (tarjetaAlDiaEnHoyo(updatedScores[j.id], j.id, currentHole, esTimba ? timba.retiros : undefined, ordenHoyos)) continue
+        // Ya anotado (también con X en el skins), o retirado en la Timba (con par el motor se lo contaría como jugado): no se rellena.
+        if (tarjetaAlDiaEnHoyo(updatedScores[j.id], j.id, currentHole, esTimba ? timba.retiros : undefined, ordenHoyos, fueraSkins?.[j.id])) continue
         updatedScores[j.id] = { ...(updatedScores[j.id] ?? {}), [currentHole]: par }
       }
       setScores(updatedScores)
@@ -279,13 +290,11 @@ function ScorerDeGrupo() {
         theme={theme}
       />
 
+      {conPuntosEspeciales && <AvisoMarcasRechazadas lineas={timba.lineasRechazadas} onEntendido={timba.marcas.descartarRechazadas} />}
       {esTimba && (
-        <>
-          <AvisoMarcasRechazadas lineas={timba.lineasRechazadas} onEntendido={timba.marcas.descartarRechazadas} />
-          <div style={{ padding: '8px 8px 0' }}>
-            <PestanasDeLaTimba activa={pestana} onCambiar={setPestana} />
-          </div>
-        </>
+        <div style={{ padding: '8px 8px 0' }}>
+          <PestanasDeLaTimba activa={pestana} onCambiar={setPestana} />
+        </div>
       )}
 
       {esTimba && pestana === 'juego' ? (
@@ -327,6 +336,7 @@ function ScorerDeGrupo() {
         // Un celular: anota por todo el grupo, solo se invita a seguir. Un celular por equipo: también a anotar el suyo.
         accion={<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre(codigo, { conJugar: false, unCelularPorEquipo })} color={theme.textFaint} />}
         theme={theme}
+        skins={esSkins ? valorSkins : undefined}
       />
 
       {/* Player columns — scrollable main area */}
@@ -451,6 +461,8 @@ function ScorerDeGrupo() {
               showNetStableford={showNetStableford}
               pending={pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole}
               onChange={(delta) => anotar(j.id, delta)}
+              fuera={fueraSkins?.[j.id]}
+              onFueraDelHoyo={esSkins ? () => anotar(j.id, FUERA_DEL_HOYO) : undefined}
               theme={theme}
               accion={esTimba && !finalizing && timba.jugadoresParaRetiro.some(r => r.id === j.id && r.desdeSiSeVa != null) ? (
                 <button
@@ -466,12 +478,13 @@ function ScorerDeGrupo() {
             />
           ))}
 
-          {esTimba && (
+          {conPuntosEspeciales && (
             <PuntosEspecialesDelHoyo
               hoyo={currentHole}
               grupos={timba.puntosDelHoyo}
               nombres={timba.nombres}
               birdieAutomatico={timba.birdieAutomatico}
+              unidad={esSkins ? ' skin' : undefined}
               onAlternar={(jugadorId, puntito) => { if (!finalizing) { marcarInteraccion(); timba.marcas.alternar(jugadorId, puntito, currentHole) } }}
             />
           )}

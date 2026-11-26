@@ -1,7 +1,8 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
+import { estaFueraDelHoyo, hoyosConX, type HoyosFuera } from '@/golf/formats/skins/fuera-del-hoyo'
 import { scoreChipStyle, scoreFgVar } from '@/lib/score-tokens'
 import { formatearHandicap } from '@/golf/handicap-index-range'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
@@ -38,22 +39,30 @@ interface PlayerScoreCardProps {
   theme: ScorerTheme
   /** Acción junto al nombre (Timba libre: "Retirar"). */
   accion?: ReactNode
+  /** Skins: hoyos con X de este jugador. */
+  fuera?: HoyosFuera
+  /** Skins: la tecla X («Fuera del hoyo»). Sin ella (cualquier otro formato) la tecla no aparece. */
+  onFueraDelHoyo?: () => void
 }
 
 /** Tarjeta de UN jugador en el scorer de grupo (stroke play / stableford / match play). */
 export function PlayerScoreCard({
   jugador: j, playerScores, currentHole, par, holeData, totals, played, hcp, displayHcp, dotHcp,
   siAllocByHole, ordenHoyos, holeDataMap, totalHoles, modoJuego, formatoJuego, showNetStableford, pending, onChange, theme, accion,
+  fuera, onFueraDelHoyo,
 }: PlayerScoreCardProps) {
   const playerScore = playerScores?.[currentHole]
-  const displayScore = playerScore ?? par
+  // Skins: X en este hoyo. No es un número: se muestra la X y no hay chip, neto ni puntos.
+  const conX = estaFueraDelHoyo(fuera, currentHole)
+  const cuantasX = hoyosConX(fuera, ordenHoyos).length
+  const displayScore = conX ? 'X' : playerScore ?? par
   const diff = playerScore != null ? playerScore - par : 0
   const { gross, vsPar, out, inn } = totals
   const chipStyle = playerScore != null ? scoreChipStyle(playerScore, par) : null
   const siAllocThisHole = siAllocByHole[currentHole] ?? holeData.stroke_index
-  // Timba libre: ni HCP, ni neto, ni golpes recibidos genéricos. Su neto es otro (diferencia del más bajo) y lo
-  // calcula `GET /juego`; acá solo se anotan golpes (spec, "Para el PR C").
-  const esTimba = esFormatoPersonalizado(formatoJuego)
+  // Timba libre y Skins (`esJuegoConPlata`): ni HCP, ni neto, ni golpes recibidos genéricos. Su neto es otro
+  // (diferencia del más bajo) y lo calcula el motor de cada juego; acá solo se anotan golpes (spec, "Para el PR C").
+  const esTimba = esJuegoConPlata(formatoJuego)
   const muestraNeto = showNetStableford && !esTimba
   const strokesThisHole = esTimba ? 0 : strokesRecibidosEnHoyo(dotHcp, siAllocThisHole, totalHoles)
   const netScoreThisHole = playerScore != null ? playerScore - strokesThisHole : null
@@ -105,12 +114,27 @@ export function PlayerScoreCard({
           {played > 0 && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
-                  {out > 0 ? `${out}` : ''}{out > 0 && inn > 0 ? '+' : ''}{inn > 0 ? `${inn}` : ''}={gross}
-                </span>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(vsPar) }}>
-                  {formatVsPar(vsPar)}
-                </span>
+                {/* Solo X hasta ahora (skins): sin golpes no hay «=0 E» que mostrar, solo el contador de X. */}
+                {gross > 0 && (
+                  <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
+                    {out > 0 ? `${out}` : ''}{out > 0 && inn > 0 ? '+' : ''}{inn > 0 ? `${inn}` : ''}={gross}
+                  </span>
+                )}
+                {gross > 0 && (
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(vsPar) }}>
+                    {formatVsPar(vsPar)}
+                  </span>
+                )}
+                {cuantasX > 0 && (
+                  // Hoyos con X: no suman golpes (ni par al vs par); se cuentan aparte, en palabras («1 fuera», no «1X»,
+                  // que se lee como multiplicador) y separados del total por una línea.
+                  <span style={{
+                    fontSize: '11px', fontWeight: 600, color: theme.textMuted, whiteSpace: 'nowrap',
+                    ...(gross > 0 && { paddingLeft: '6px', borderLeft: `1px solid ${theme.border}` }),
+                  }}>
+                    {cuantasX} fuera
+                  </span>
+                )}
               </div>
               {muestraTotales && (
                 <span style={{ fontSize: '10px', color: formatoJuego === 'stableford' ? 'var(--brand-on-bg)' : '#60A5FA' }}>
@@ -170,7 +194,7 @@ export function PlayerScoreCard({
             <div style={{
               fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
               fontSize: '42px', fontWeight: 700, lineHeight: 1,
-              color: playerScore != null ? theme.scoreText : theme.scoreDimmed,
+              color: playerScore != null || conX ? theme.scoreText : theme.scoreDimmed,
               fontVariantNumeric: 'tabular-nums',
             }}>
               {displayScore}
@@ -188,6 +212,9 @@ export function PlayerScoreCard({
           </div>
           {/* Chip */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+            {conX && (
+              <div style={{ fontSize: '11px', fontWeight: 600, color: theme.text }}>Fuera del hoyo</div>
+            )}
             {playerScore != null && chipStyle && (
               <div style={{
                 padding: '2px 10px', borderRadius: '12px',
@@ -233,6 +260,31 @@ export function PlayerScoreCard({
         >
           +
         </button>
+
+        {/* Skins: tecla X («Fuera del hoyo»). Marca el hoyo sin golpes; con valor anotado pide el 2º toque (A1). */}
+        {onFueraDelHoyo && (
+          <button
+            type="button"
+            onClick={onFueraDelHoyo}
+            aria-label="Fuera del hoyo"
+            aria-pressed={conX}
+            style={{
+              // 8 px más de aire que entre − y +: la X no es un golpe más, y un dedo apurado no la toca por el +.
+              marginLeft: '8px',
+              width: '48px', height: '52px', borderRadius: '14px',
+              fontSize: '20px', fontWeight: 700,
+              fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
+              background: conX ? theme.text : 'var(--bg)',
+              color: conX ? 'var(--bg)' : theme.text,
+              border: pending ? '1px solid rgba(196,153,42,0.55)' : `1px solid ${conX ? theme.text : theme.buttonBorder}`,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              touchAction: 'manipulation', userSelect: 'none',
+              transition: 'background 0.2s, border 0.2s',
+            }}
+          >
+            X
+          </button>
+        )}
       </div>
     </div>
   )

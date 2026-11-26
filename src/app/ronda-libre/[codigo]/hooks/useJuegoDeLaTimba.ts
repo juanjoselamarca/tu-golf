@@ -17,14 +17,18 @@ import type { MotivoSinJuego, VistaDelJuego } from '@/golf/ronda-libre/juego-de-
  * - Si un pedido falla, se queda con lo último que llegó y lo marca `desactualizado`: los puntos de hace un
  *   momento, avisados, valen más que una pantalla vacía en la cancha.
  */
-export type EstadoDelJuego =
+/**
+ * `V`: la vista que entrega `GET /juego`. La de la Timba por defecto; el scorer de grupo la lee también de un skins
+ * (`VistaDelScorer`, solo para marcar puntos especiales).
+ */
+export type EstadoDelJuego<V = VistaDelJuego> =
   | { estado: 'cargando' }
   /**
    * `pedidaEn`: cuándo se PIDIÓ la vista (ms): con sesión, lo enviado antes de ese momento ya viene en ella. `firma`:
    * la `firma` vigente al pedirla. `publica`: vino de `/juego/publico`, que sale del CDN y puede ser de hasta ~40 s
    * antes de pedirla: ni `pedidaEn` ni `firma` prueban que traiga lo último (ver `vistaPedidaEn`, `vista.rondaCerrada`).
    */
-  | { estado: 'ok'; vista: VistaDelJuego; desactualizado: boolean; pedidaEn: number; firma: string; publica: boolean }
+  | { estado: 'ok'; vista: V; desactualizado: boolean; pedidaEn: number; firma: string; publica: boolean }
   /** `rondaCerrada`: la ronda ya estaba cerrada al calcularlo (falta en respuestas de antes de este campo). */
   | { estado: 'sin_juego'; motivo: MotivoSinJuego; rondaCerrada?: boolean }
   | { estado: 'error' }
@@ -34,10 +38,10 @@ export const RESPIRO_JUEGO_MS = 600
 /** Visor sin cuenta: cada cuántos pedidos públicos se vuelve a probar la privada (~2 min con el poll de 20 s del espectador; el scorer usa 60 s, pero cada guardado de golpes también pide). */
 export const REPROBAR_PRIVADA_CADA = 6
 
-export interface JuegoDeLaTimba {
-  juego: EstadoDelJuego
+export interface JuegoDeLaTimba<V = VistaDelJuego> {
+  juego: EstadoDelJuego<V>
   /** Lo último que llegó bien (también si el último pedido falló: va con `desactualizado`). */
-  vista: VistaDelJuego | null
+  vista: V | null
   /**
    * Cuándo se pidió `vista` (ms): lo enviado antes ya viene en ella. `null` sin vista o si vino de la ruta pública
    * (cacheada en el CDN, no prueba qué trae): el scorer no da por recibida una marca con ella.
@@ -46,7 +50,7 @@ export interface JuegoDeLaTimba {
   recargar: () => Promise<void>
 }
 
-export function useJuegoDeLaTimba(
+export function useJuegoDeLaTimba<V = VistaDelJuego>(
   codigo: string,
   opciones: {
     activo: boolean; firma?: string; intervaloS?: number
@@ -58,10 +62,10 @@ export function useJuegoDeLaTimba(
      */
     visorSinCuenta?: boolean
   },
-): JuegoDeLaTimba {
+): JuegoDeLaTimba<V> {
   const { activo, firma = '', intervaloS = 20, visorSinCuenta = false } = opciones
-  const [juego, setJuego] = useState<EstadoDelJuego>({ estado: 'cargando' })
-  const ultimaVista = useRef<{ vista: VistaDelJuego; pedidaEn: number; firma: string; publica: boolean } | null>(null)
+  const [juego, setJuego] = useState<EstadoDelJuego<V>>({ estado: 'cargando' })
+  const ultimaVista = useRef<{ vista: V; pedidaEn: number; firma: string; publica: boolean } | null>(null)
   const pedido = useRef(0)
   // Ya respondió 401: los pedidos siguientes van directo a la pública (uno por poll, no dos). Se olvida cuando cambia
   // la `firma` (la de la página incluye al usuario: al ingresar se vuelve a probar la privada), salvo para un visor
@@ -78,7 +82,7 @@ export function useJuegoDeLaTimba(
     const firmaPedida = firma
     const control = new AbortController()
     const plazo = setTimeout(() => control.abort(), PLAZO_JUEGO_MS)
-    let siguiente: EstadoDelJuego
+    let siguiente: EstadoDelJuego<V>
     try {
       const base = `/api/ronda-libre/${encodeURIComponent(codigo)}/juego`
       const publica = () => fetch(`${base}/publico`, { credentials: 'omit', signal: control.signal })
@@ -99,12 +103,14 @@ export function useJuegoDeLaTimba(
         }
         siguiente = ultimaVista.current ? { estado: 'ok', ...ultimaVista.current, desactualizado: true } : { estado: 'error' }
       } else {
-        const cuerpo = await res.json() as ({ estado: 'ok' } & VistaDelJuego) | { estado: 'sin_juego'; motivo: MotivoSinJuego; rondaCerrada?: boolean }
+        const cuerpo = await res.json() as ({ estado: 'ok' } & V) | { estado: 'sin_juego'; motivo: MotivoSinJuego; rondaCerrada?: boolean }
         if (cuerpo.estado === 'sin_juego') {
           siguiente = { estado: 'sin_juego', motivo: cuerpo.motivo, ...(cuerpo.rondaCerrada !== undefined && { rondaCerrada: cuerpo.rondaCerrada }) }
         }
         else {
-          const { estado: _estado, ...vista } = cuerpo
+          const { estado: _estado, ...resto } = cuerpo
+          // El cuerpo es la vista más `estado` (`respuestaDelJuego`): sin `estado`, es la vista.
+          const vista = resto as unknown as V
           ultimaVista.current = { vista, pedidaEn, firma: firmaPedida, publica: esPublica }
           siguiente = { estado: 'ok', vista, desactualizado: false, pedidaEn, firma: firmaPedida, publica: esPublica }
         }

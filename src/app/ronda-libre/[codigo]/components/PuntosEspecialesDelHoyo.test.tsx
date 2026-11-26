@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { PuntitoConfig } from '@/golf/formats/personalizado'
-import type { BotonDeMarca, MarcasDeUnPuntito } from '@/golf/ronda-libre/marcas-de-la-timba'
+import type { BotonDeMarca, MarcasDeUnPuntito, PuntitoMarcable } from '@/golf/ronda-libre/marcas-de-la-timba'
 import { PuntosEspecialesDelHoyo, resumenDeMarcas } from './PuntosEspecialesDelHoyo'
 
 const sandy = { id: 's', tipo: 'sandy', valor: 1, activo: true } as PuntitoConfig
@@ -9,11 +9,11 @@ const chipingo = { id: 'c', tipo: 'chipingo', valor: 1, activo: true } as Puntit
 const nombres = { a: 'Juan', b: 'Pedro', c: 'Tomás' }
 const boton = (jugadorId: string, o: Partial<BotonDeMarca> = {}): BotonDeMarca =>
   ({ jugadorId, visible: true, marcado: false, enEspera: false, noCuenta: null, ...o })
-const grupo = (puntito: PuntitoConfig, nombre: string, jugadores: BotonDeMarca[], extra: Partial<MarcasDeUnPuntito> = {}): MarcasDeUnPuntito =>
+const grupo = (puntito: PuntitoMarcable, nombre: string, jugadores: BotonDeMarca[], extra: Partial<MarcasDeUnPuntito> = {}): MarcasDeUnPuntito =>
   ({ puntito, nombre, nota: null, pista: null, jugadores, ...extra })
 
-function Bloque(p: { hoyo?: number; grupos: MarcasDeUnPuntito[]; onAlternar?: (id: string, puntito: PuntitoConfig) => void }) {
-  return <PuntosEspecialesDelHoyo hoyo={p.hoyo ?? 4} birdieAutomatico nombres={nombres} grupos={p.grupos} onAlternar={p.onAlternar ?? vi.fn()} />
+function Bloque(p: { hoyo?: number; grupos: MarcasDeUnPuntito[]; unidad?: string; onAlternar?: (id: string, puntito: PuntitoMarcable) => void }) {
+  return <PuntosEspecialesDelHoyo hoyo={p.hoyo ?? 4} birdieAutomatico nombres={nombres} grupos={p.grupos} unidad={p.unidad} onAlternar={p.onAlternar ?? vi.fn()} />
 }
 const fila = () => screen.getAllByRole('button').find(b => b.hasAttribute('aria-expanded'))!
 const resumen = (container: HTMLElement) => container.querySelector('[data-resumen]')?.textContent
@@ -23,6 +23,21 @@ describe('PuntosEspecialesDelHoyo', () => {
     grupo(sandy, 'Sandy', [boton('a', { visible: false }), boton('b'), boton('c')]),
     grupo(chipingo, 'Chipingo', [boton('a'), boton('b'), boton('c')]),
   ]
+
+  it('el valor va con su unidad: «+1» en la Timba, «+1 skin» en un skins (mismo componente)', () => {
+    const { unmount } = render(<Bloque grupos={sinMarcas} />)
+    fireEvent.click(fila())
+    expect(screen.getByRole('group', { name: 'Chipingo' }).textContent).toContain('Chipingo +1')
+    expect(screen.getByRole('group', { name: 'Chipingo' }).textContent).not.toContain('skin')
+    unmount()
+    const skins: PuntitoMarcable = { id: 'sandy', tipo: 'sandy', valor: 1 }
+    const onAlternar = vi.fn()
+    render(<Bloque grupos={[grupo(skins, 'Sandy', [boton('a'), boton('b')])]} unidad=" skin" onAlternar={onAlternar} />)
+    fireEvent.click(fila())
+    expect(screen.getByRole('group', { name: 'Sandy' }).textContent).toContain('Sandy +1 skin')
+    fireEvent.click(screen.getByRole('button', { name: 'Sandy de Juan' }))
+    expect(onAlternar).toHaveBeenCalledWith('a', skins)
+  })
 
   it('cerrado por defecto: una sola fila "+ Punto especial", sin botones por jugador', () => {
     render(<Bloque grupos={sinMarcas} />)

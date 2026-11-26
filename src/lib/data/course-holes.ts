@@ -14,6 +14,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { MAX_FILAS_POSTGREST } from './postgrest-limites'
+import { lanzarSiLecturaFallo, type ErrorDePostgrest } from '@/lib/red/lectura-fallida'
 import {
   ordenarHoyosDeLosRecorridos,
   type HoyoDelCatalogo,
@@ -92,12 +93,12 @@ export async function resolverHoyosDeLaRonda(
 
   /** Aplica el contrato de error elegido por el caller. */
   const filas = <T>(
-    { data, error }: { data: unknown; error: { message?: string } | null },
+    { data, error }: { data: unknown; error: ErrorDePostgrest | null },
     que: string,
   ): T[] => {
-    if (error && opciones.lanzarSiFalla) {
-      throw new Error(`No se pudo leer ${que}: ${error.message ?? 'error desconocido'}`)
-    }
+    // `LecturaFallidaError` conserva el `code` de PostgREST: el que reintenta distingue la red caída de un error
+    // permanente (permisos, columna inexistente).
+    if (opciones.lanzarSiFalla) lanzarSiLecturaFallo(error, que)
     return (data ?? []) as T[]
   }
 

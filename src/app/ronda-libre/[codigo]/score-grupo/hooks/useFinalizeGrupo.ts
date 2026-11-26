@@ -37,6 +37,8 @@ import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-de-club'
 import { completarHoyosSinMarcarConPar, completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import { hoyosQueNoSeRellenan } from '@/golf/ronda-libre/hoyos-sin-rellenar'
+import { tarjetaVaAlHistorial } from '@/golf/formats/skins/clave'
+import type { FueraPorJugador } from '@/golf/formats/skins/fuera-del-hoyo'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { RondaLibre } from '@/types/ronda'
@@ -87,6 +89,8 @@ export function useFinalizeGrupo(input: {
    * servidor: con Auth caído volvía null y la ronda se cerraba SIN la tarjeta del marcador.
    */
   authUserId: string | null
+  /** Skins: hoyos con X de cada tarjeta. Nunca se rellenan con par (la X es un valor anotado, sin golpes). */
+  fuera?: FueraPorJugador
   /**
    * Respalda y envía todo lo pendiente (jugadores y equipos) — `useGrupoScoreSave.saveAllScores`.
    * Finalizar no clasifica errores por su cuenta: usa los de este envío (P0001 confirmado con la
@@ -103,6 +107,11 @@ export function useFinalizeGrupo(input: {
   /** Timba libre (solo entonces): retiros, envío de marcas y el hoyo en pantalla (el único que se rellena con par). */
   timba?: { retiros: Readonly<Record<string, number>>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number }
   /**
+   * Skins: el reenvío de sus puntos especiales (sin retiros ni relleno de la Timba). Igual que en la Timba, con
+   * marcas sin enviar NO se cierra.
+   */
+  enviarMarcas?: () => Promise<boolean>
+  /**
    * Un celular por equipo (`@/golf/ronda-libre/anotador-de-equipo`), solo entonces. Antes de cerrar se relee quién
    * anota qué: con un equipo de otro celular sin terminar no se cierra (quedaría con hoyos de menos), y si los equipos
    * de este celular cambiaron desde la última lectura se recargan (`recargar`) en vez de cerrar con la lista vieja.
@@ -111,7 +120,7 @@ export function useFinalizeGrupo(input: {
    */
   unCelularPorEquipo?: { recargar: () => Promise<void> }
 }): FinalizeGrupo {
-  const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes, timba } = input
+  const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes, timba, fuera } = input
   const router = useRouter()
 
   const [finalizing, setFinalizing] = useState(false)
@@ -336,7 +345,7 @@ export function useFinalizeGrupo(input: {
         // Timba: solo el hoyo en pantalla si alguien ya lo anotó (el resto sin score es "no jugó") y nunca desde el retiro.
         const noRellenar = hoyosQueNoSeRellenan({
           matchResult, jugadores: ronda.ronda_libre_jugadores, jugadorId: j.id, retiros: timba?.retiros, ordenHoyos: hoyos,
-          esTimba: timba != null, hoyoEnPantalla: timba?.hoyoEnPantalla, scores,
+          esTimba: timba != null, hoyoEnPantalla: timba?.hoyoEnPantalla, scores, fuera: fuera?.[j.id],
         })
         const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap, noRellenar)
         if (rellenados.length > 0) filledScores[j.id] = completos
@@ -356,7 +365,8 @@ export function useFinalizeGrupo(input: {
       const envio = resolverEnvio(await enviarPendientes(bolaCompartida ? undefined : filledScores, { reintentarRechazados: true }))
       if (envio === 'corta') return
       rondaYaCerrada = envio === 'cerrada'
-      if (timba && !(await timba.enviarMarcas())) {
+      const enviarMarcas = timba?.enviarMarcas ?? input.enviarMarcas
+      if (enviarMarcas && !(await enviarMarcas())) {
         addToast({ ...AVISO_MARCAS_SIN_ENVIAR, type: 'error', duration: 8000 })
         haptic([30, 60, 30])
         return
@@ -369,7 +379,10 @@ export function useFinalizeGrupo(input: {
     // cuenta la guardan con "Guardar en mi historial" en la ronda terminada.
     const anotador = { id: authUserId }
     const ratingsPorTee: RatingsPorTee = new Map()
-    for (const j of ronda.ronda_libre_jugadores) {
+    // Skins: la tarjeta no va al historial (spec «Cierre de una ronda de skins»: el CHECK de historical_rounds la
+    // rechaza y quedaría en «reintentar» para siempre; un hoyo con X no tiene golpes y su ajuste WHS no está resuelto).
+    const vaAlHistorial = tarjetaVaAlHistorial(ronda.formato_juego)
+    for (const j of vaAlHistorial ? ronda.ronda_libre_jugadores : []) {
       if (!esMiTarjeta(j, anotador?.id)) continue
       // Ronda de equipos de club: el anotador va en el primer equipo solo por estructura, no jugó esa tarjeta.
       // No va a su historial, no mueve su índice ni se le avisa al coach.

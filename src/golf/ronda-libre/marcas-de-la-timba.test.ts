@@ -192,3 +192,18 @@ describe('marcasDelHoyo — solo se ofrece lo que puede contar', () => {
     expect(r[1].jugadores[0].noCuenta).toBe('No jugó el hoyo')
   })
 })
+
+describe('puntitosMarcables con la forma del skins (sin `activo`)', () => {
+  const skins = [
+    { id: 'sandy', tipo: 'sandy' as const, valor: 1 },
+    { id: 'greenie', tipo: 'greenie' as const, valor: 1 },
+    { id: 'p', tipo: 'propio' as const, nombre: 'Árbol', valor: 1 },
+  ]
+  it('sin `activo`, el punto está en juego; el greenie sigue solo en par 3', () => {
+    expect(puntitosMarcables({ puntitos: skins }, 4).map(p => p.id)).toEqual(['sandy', 'p'])
+    expect(puntitosMarcables({ puntitos: skins }, 3).map(p => p.id)).toEqual(['sandy', 'greenie', 'p'])
+  })
+  it('en la Timba, `activo: false` sigue fuera (sin cambio)', () => {
+    expect(puntitosMarcables({ puntitos: [{ ...skins[0], activo: false }, { ...skins[2], activo: true }] }, 4).map(p => p.id)).toEqual(['p'])
+  })
+})

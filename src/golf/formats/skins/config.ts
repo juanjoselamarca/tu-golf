@@ -30,6 +30,9 @@ export const LIMITES_SKINS = {
  * NO es la forma completa de la Timba: no hay `activo`, `valor` ni `destino`, así que `puntitosMarcables` de
  * `ronda-libre/marcas-de-la-timba.ts` (filtra por `activo`) no sirve para un skins sin adaptarla.
  */
+/** Lo que vale un punto especial válido en un skins (spec «Puntos especiales»): el motor suma uno por marca. */
+export const SKINS_POR_PUNTO_ESPECIAL = 1
+
 const puntitoSkinsSchema = z.object({
   /** Identificador estable dentro de la config: las marcas del scorer lo referencian. */
   id: z.string().min(1).max(40),

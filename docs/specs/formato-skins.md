@@ -161,8 +161,10 @@ Un hoyo por validar cuyo ganador se retira en el hoyo siguiente: no valida → a
   - Solo lee `fuera_del_hoyo` en rondas de skins (la RPC solo escribe X ahí; la base no lo impide en un UPDATE
     directo del creador, y fuera de skins un hoyo con X es «sin golpes»).
 - **Cierre de una ronda de skins:** `guardarTarjetaEnHistorial` no se llama en skins (el CHECK de
-  `historical_rounds` la rechaza y quedaría en «reintentar» para siempre); `tarjetaCompleta` y la rama de
-  `finalizar_ronda_libre` para quien no anota cuentan un hoyo con X como anotado.
+  `historical_rounds` la rechaza y quedaría en «reintentar» para siempre): ni al finalizar desde el scorer ni con
+  «Guardar en mi historial» en la ronda terminada (predicado único `tarjetaVaAlHistorial`). Al finalizar no se
+  rellena con par un hoyo con X. La rama de `finalizar_ronda_libre` para quien NO anota la ronda exige golpes en todos
+  los hoyos y no cuenta la X; en skins no aplica: cierra quien anota (creador o marcador, `puede_anotar_ronda`).
 - **Promover:** la migración `20261125100000` se aprueba en prod ANTES de promover código que seleccione
   `fuera_del_hoyo` (si no, 42703 en todas las rondas libres, no solo en skins). Nunca dentro de una ventana de
   evento en vivo.

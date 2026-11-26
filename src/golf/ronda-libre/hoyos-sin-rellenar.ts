@@ -2,6 +2,7 @@ import type { MatchResult } from '@/golf/formats/match-play'
 import { estaRetiradoEn, hoyosNoJugadosPorRetiro } from '@/golf/formats/personalizado/retiro'
 import { hoyosSinTerminarDeJugador } from './match-de-la-ronda'
 import { scoreDelHoyo, type ScoresDeTarjeta } from './tarjeta-historica'
+import { estaFueraDelHoyo, hoyosConX, type HoyosFuera } from '@/golf/formats/skins/fuera-del-hoyo'
 
 /**
  * Hoyos de un jugador que NO se rellenan con par al cerrar ni al pasar de hoyo. Fuente única para el scorer de
@@ -13,6 +14,7 @@ import { scoreDelHoyo, type ScoresDeTarjeta } from './tarjeta-historica'
  *   es "no jugó" y quien no anotó lo pierde; un par inventado le regalaría el hoyo. El hoyo en pantalla se
  *   rellena (es el par gris que el anotador está viendo, igual que "Siguiente": bug del 30-abr) SOLO si alguien
  *   que sigue jugando ya lo anotó (`hoyoEnPantallaQueSeRellenaEnLaTimba`); si nadie lo tocó, no se jugó.
+ * - Skins: los hoyos con X («Fuera del hoyo»). La X es un valor anotado, no un hueco: un par ahí inventaría golpes.
  */
 export function hoyosQueNoSeRellenan(input: {
   matchResult: MatchResult | null
@@ -27,17 +29,20 @@ export function hoyosQueNoSeRellenan(input: {
   hoyoEnPantalla?: number
   /** Scores de todos los jugadores. En una Timba deciden si el hoyo en pantalla se jugó; sin ellos, no se rellena. */
   scores?: Readonly<Record<string, ScoresDeTarjeta | undefined>>
+  /** Skins: hoyos con X de ESTE jugador. */
+  fuera?: HoyosFuera
 }): number[] {
-  const { matchResult, jugadores, jugadorId, retiros, ordenHoyos, esTimba, hoyoEnPantalla, scores } = input
-  const retiro = hoyosNoJugadosPorRetiro(retiros?.[jugadorId], ordenHoyos)
+  const { matchResult, jugadores, jugadorId, retiros, ordenHoyos, esTimba, hoyoEnPantalla, scores, fuera } = input
+  // Hoyos de ESTE jugador que no esperan golpes: desde su retiro (Timba) y los que marcó con X (skins).
+  const propios = [...hoyosNoJugadosPorRetiro(retiros?.[jugadorId], ordenHoyos), ...hoyosConX(fuera, ordenHoyos)]
   if (esTimba) {
     const seRellena = hoyoEnPantalla == null ? undefined
       : hoyoEnPantallaQueSeRellenaEnLaTimba({ jugadores, scores: scores ?? {}, retiros, ordenHoyos, hoyoEnPantalla })
-    return ordenHoyos.filter(h => h !== seRellena || retiro.includes(h))
+    return ordenHoyos.filter(h => h !== seRellena || propios.includes(h))
   }
   const match = hoyosSinTerminarDeJugador(matchResult, jugadores, jugadorId)
-  if (retiro.length === 0) return match
-  return ordenHoyos.filter(h => match.includes(h) || retiro.includes(h))
+  if (propios.length === 0) return match
+  return ordenHoyos.filter(h => match.includes(h) || propios.includes(h))
 }
 
 /**
@@ -45,6 +50,7 @@ export function hoyosQueNoSeRellenan(input: {
  * libre). Fuente única del ✓ de la fila de hoyos, del hoyo en que se retoma el scorer, de a quién rellena con par
  * "Siguiente" y de los hoyos que la hoja de Finalizar avisa como no jugados: sin el retiro, los hoyos del
  * retirado quedaban "por anotar" para siempre y el scorer reabría en el hoyo del retiro (QA 17-nov, ronda 8722R3).
+ * Skins: un hoyo con X está anotado (`fuera`, los hoyos con X de este jugador).
  */
 export function tarjetaAlDiaEnHoyo(
   scores: ScoresDeTarjeta | undefined,
@@ -52,8 +58,9 @@ export function tarjetaAlDiaEnHoyo(
   hoyo: number,
   retiros: Readonly<Record<string, number>> | null | undefined,
   ordenHoyos: readonly number[],
+  fuera?: HoyosFuera,
 ): boolean {
-  return scoreDelHoyo(scores ?? {}, hoyo) !== undefined || estaRetiradoEn(retiros?.[jugadorId], hoyo, ordenHoyos)
+  return scoreDelHoyo(scores ?? {}, hoyo) !== undefined || estaFueraDelHoyo(fuera, hoyo) || estaRetiradoEn(retiros?.[jugadorId], hoyo, ordenHoyos)
 }
 
 interface HoyoEnPantallaDeLaTimba {
