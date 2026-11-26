@@ -9,7 +9,7 @@ DO $prueba$
 DECLARE
   r jsonb := '{}'::jsonb;
   uid uuid; s uuid; s2 uuid; t uuid; p uuid; n int;
-  j1 uuid := gen_random_uuid(); j2 uuid := gen_random_uuid(); tj uuid := gen_random_uuid(); pj uuid := gen_random_uuid();
+  n_j uuid; j1 uuid := gen_random_uuid(); j2 uuid := gen_random_uuid(); tj uuid := gen_random_uuid(); pj uuid := gen_random_uuid();
   cod text := 'ZZ' || upper(substr(md5(random()::text), 1, 6));
   reglas jsonb := '{"config":{"version":1},"jugadorIds":[]}'::jsonb;
 BEGIN
@@ -98,7 +98,27 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('26_servidor_skins_otra_columna', SQLSTATE || ' ' || SQLERRM); END;
   BEGIN UPDATE rondas_libres SET reglas_juego = jsonb_set(reglas_juego, '{config,x}', '1'), hcp_pct = 80, modo_juego = 'neto' WHERE id = t; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('27_servidor_timba_reglas_con_golpes', n);
   EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('27_servidor_timba_reglas_con_golpes', SQLSTATE || ' ' || SQLERRM); END;
+  -- Sacar a un jugador después del primer golpe cambia el pozo y el reparto: rechazado.
+  BEGIN DELETE FROM ronda_libre_jugadores WHERE id = j2; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('28_servidor_saca_jugador', n);
+  EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('28_servidor_saca_jugador', SQLSTATE || ' ' || SQLERRM); END;
+  -- Borrar todos los golpes no reabre el Skins: la marca del primer golpe es permanente. La RPC nunca borra un golpe
+  -- (solo números o «X», que se reemplazan entre sí); el único camino es un UPDATE directo de scores, como éste.
+  BEGIN UPDATE ronda_libre_jugadores SET scores = '{}'::jsonb WHERE ronda_id = s;
+    r := r || jsonb_build_object('29_golpes_borrados_quedan', (SELECT count(*) FROM ronda_libre_jugadores j WHERE j.ronda_id = s AND ronda_libre_tarjeta_tiene_golpes(j.scores, j.fuera_del_hoyo)));
+  EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('29_golpes_borrados_quedan', SQLSTATE || ' ' || SQLERRM); END;
+  BEGIN UPDATE ronda_libre_jugadores SET handicap = 31 WHERE id = j2; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('30_sin_golpes_sigue_congelado', n);
+  EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('30_sin_golpes_sigue_congelado', SQLSTATE || ' ' || SQLERRM); END;
   RESET ROLE;
+  -- Antes del primer golpe sí se saca a un jugador; la Timba no cambia; la Timba no queda marcada.
+  BEGIN INSERT INTO ronda_libre_jugadores (ronda_id, nombre) VALUES (s2, 'Sale') RETURNING id INTO n_j;
+    DELETE FROM ronda_libre_jugadores WHERE id = n_j; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('31_antes_saca_jugador', n);
+  EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('31_antes_saca_jugador', SQLSTATE || ' ' || SQLERRM); END;
+  BEGIN DELETE FROM ronda_libre_jugadores WHERE id = tj; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('32_timba_saca_jugador', n);
+  EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('32_timba_saca_jugador', SQLSTATE || ' ' || SQLERRM); END;
+  r := r || jsonb_build_object('33_marcas', (SELECT jsonb_build_object('skins', count(*) FILTER (WHERE ronda_id = s), 'otras', count(*) FILTER (WHERE ronda_id IN (s2, t, p))) FROM ronda_libre_primer_golpe));
+  -- Borrar el Skins entero (cascada) sigue andando aunque tenga golpes.
+  BEGIN DELETE FROM rondas_libres WHERE id = s; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('34_borra_skins_entero', n);
+  EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('34_borra_skins_entero', SQLSTATE || ' ' || SQLERRM); END;
   RAISE EXCEPTION 'RESULTADO %', r;
 END
 $prueba$;

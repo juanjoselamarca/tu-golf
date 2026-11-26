@@ -36,7 +36,7 @@ const MIGRACION_ORDEN_PLAYERS = '20261120100000_eliminar_cuenta_orden_y_estado_o
  * Skins congelado (25-nov): quita a authenticated el INSERT/UPDATE de `fuera_del_hoyo` (la X solo por su RPC) con un
  * REVOKE de tabla y devuelve las DEMÁS columnas, perfil_sugerido_id incluida, como ya las tenía por el grant de tabla.
  * La columna aparece únicamente en esos dos GRANT (no gana ningún poder: el mismo INSERT/UPDATE de siempre). Su
- * trigger sobre la tabla solo lee handicap, tees y ronda_id (test de abajo).
+ * trigger sobre la tabla solo lee handicap, tees, ronda_id, scores y la X (test de abajo).
  */
 const MIGRACION_SKINS_CONGELADO = '20261125140000_skins_congelado_tras_el_primer_golpe.sql'
 const GRANT_DE_COLUMNAS = /^GRANT (INSERT|UPDATE) \(([^)]*)\) ON public\.ronda_libre_jugadores TO authenticated;$/gm
@@ -269,7 +269,7 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
     }
   })
 
-  it('el trigger del Skins congelado solo lee handicap, tees y ronda_id de NEW/OLD, en todas sus definiciones', () => {
+  it('el trigger del Skins congelado solo lee handicap, tees, ronda_id, scores y la X de NEW/OLD, en todas sus definiciones', () => {
     const definiciones = migrationFiles().flatMap(f => {
       const def = functionDefinition(stripSqlComments(readMigration(f)), 'public.skins_congelado_jugador')
       return def ? [{ f, def }] : []
@@ -279,9 +279,15 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
       const cuerpo = /\$(\w*)\$([\s\S]*?)\$\1\$/.exec(def)?.[2] ?? ''
       expect(cuerpo, f).not.toContain(COLUMNA)
       const usos = [...cuerpo.matchAll(/\b(NEW|OLD)\b(\.\w+)?/gi)].map(m => `${m[1].toUpperCase()}${m[2] ?? ''}`)
-      expect(new Set(usos), f).toEqual(new Set(['NEW.handicap', 'OLD.handicap', 'NEW.tees', 'OLD.tees', 'NEW.ronda_id', 'OLD.ronda_id', 'NEW']))
-      // NEW sin columna solo como valor de retorno: nunca pasado a una función ni serializado.
-      expect(cuerpo.match(/\bNEW\b(?!\.)/gi)?.length, f).toBe((cuerpo.match(/\bRETURN NEW\b/gi) ?? []).length)
+      expect(new Set(usos), f).toEqual(new Set([
+        'NEW.handicap', 'OLD.handicap', 'NEW.tees', 'OLD.tees', 'NEW.ronda_id', 'OLD.ronda_id', 'NEW.scores', 'NEW.fuera_del_hoyo',
+        'NEW', 'OLD',
+      ]))
+      // NEW y OLD sin columna solo como valor de retorno: nunca pasados a una función ni serializados.
+      for (const fila of ['NEW', 'OLD']) {
+        const sueltas = cuerpo.match(new RegExp(String.raw`\b${fila}\b(?!\.)`, 'gi'))?.length
+        expect(sueltas, f).toBe((cuerpo.match(new RegExp(String.raw`\bRETURN ${fila}\b`, 'gi')) ?? []).length)
+      }
     }
   })
 

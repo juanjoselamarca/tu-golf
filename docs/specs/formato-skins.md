@@ -67,7 +67,11 @@ Decisiones de Juanjo, 25-nov-2026. Migración `20261125140000_skins_congelado_tr
    como está (cancha, hoyos, salida, recorridos, índice y tee de cada uno); si no calza, se recalcula.
 4. **Desde el primer golpe** la base rechaza, para todos (también service_role), cambiar `reglas_juego`, `hcp_pct`,
    `modo_juego`, `tees`, `course_id`, `recorridos`, `holes`, `hoyo_inicio` y `formato_juego` de la ronda, el índice,
-   el tee o la ronda de un jugador, y sumar jugadores.
+   el tee o la ronda de un jugador, sumar jugadores y sacar a uno (si alguien se va, es un retiro). Borrar el Skins
+   entero sigue andando.
+   «Primer golpe» es permanente (`ronda_libre_primer_golpe`, la escribe el trigger en la misma transacción del golpe
+   y no se borra): aunque después quedaran todas las tarjetas sin golpes, el Skins sigue congelado. La RPC de scores
+   nunca borra un golpe; solo un UPDATE directo de `scores` podría.
 5. La X solo se escribe por `upsert_ronda_libre_scores` (authenticated no tiene INSERT/UPDATE de `fuera_del_hoyo`).
 6. Solo el Skins: la Timba (`personalizado`) y los demás formatos no cambian.
 
