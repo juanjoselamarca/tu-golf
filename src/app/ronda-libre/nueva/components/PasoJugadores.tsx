@@ -157,6 +157,9 @@ export function PasoJugadores(props: Props) {
             onQuitar={props.club.quitar}
             onRenombrar={props.club.renombrar}
             onHandicap={props.club.escribirHandicap}
+            anotarDrives={props.club.anotarDrives}
+            onAnotarDrives={props.club.elegirAnotarDrives}
+            onJugador={props.club.escribirJugador}
           />
           {props.club.seEligeQuienAnota && (
             <SelectorQuienAnotaEquipos quienAnota={props.club.quienAnota} onElegir={props.club.elegirQuienAnota} />

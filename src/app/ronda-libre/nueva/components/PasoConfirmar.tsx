@@ -2,6 +2,7 @@
 
 import { FORMAT_META, formatLabel, nombreDelModo, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import type { EquipoDeClubAValidar } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { drivesMinimoPorJugador } from '@/golf/formats/drives-scramble'
 import type { FormaDeLaRonda, MitadDeCancha } from '@/golf/ronda-libre/forma-de-la-ronda'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
@@ -170,6 +171,15 @@ export function PasoConfirmar(props: Props) {
             : props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'}
         </Fila>
 
+        {club?.some(e => e.driveJugadores) && (
+          <Fila etiqueta="Drives">
+            {(() => {
+              const minimo = drivesMinimoPorJugador(forma.holes)
+              return minimo != null ? `Se anotan · mínimo ${minimo} por jugador` : 'Se anotan'
+            })()}
+          </Fila>
+        )}
+
         {club ? (
           <div style={{ padding: '10px 0' }}>
             <span style={{ fontSize: '13px', color: colores.texto2, display: 'block', marginBottom: '8px' }}>
@@ -179,6 +189,8 @@ export function PasoConfirmar(props: Props) {
               {club.map((e, i) => (
                 <div key={`${i}-${e.nombre}`} style={{
                   display: 'flex', alignItems: 'baseline', gap: '4px',
+                  // Solo con drives: los jugadores bajan a su propia línea. Sin ellos, la fila de siempre.
+                  ...(e.driveJugadores ? { flexWrap: 'wrap' as const } : {}),
                   padding: '8px 12px', borderRadius: '8px', background: 'rgba(196,153,42,0.05)',
                   fontSize: '14px', fontWeight: 500, color: colores.texto, whiteSpace: 'nowrap',
                 }}>
@@ -187,6 +199,14 @@ export function PasoConfirmar(props: Props) {
                   {/* Solo en neto: en gross el hándicap no juega. «(club)»: no lo calculó Golfers+. */}
                   {props.modo === 'neto' && e.handicap != null && (
                     <span style={{ flexShrink: 0 }}>· HCP {formatearHandicap(e.handicap)} (club)</span>
+                  )}
+                  {e.driveJugadores && (
+                    <span style={{
+                      display: 'block', flexBasis: '100%', marginTop: '2px', fontSize: '13px', fontWeight: 400,
+                      color: colores.texto2, whiteSpace: 'normal',
+                    }}>
+                      {e.driveJugadores.join(' · ')}
+                    </span>
                   )}
                 </div>
               ))}

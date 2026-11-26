@@ -5,6 +5,11 @@ import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { MAX_EQUIPOS_DE_CLUB, adminModeDeEquiposDeClub, admiteEquiposDeClub, type QuienAnota } from '@/golf/ronda-libre/equipos-de-club'
 import { NOMBRE_EQUIPO_MAX, nombreDeEquipo, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import type { EquipoDeClubAValidar } from '@/golf/ronda-libre/validar-nueva-ronda'
+import {
+  JUGADORES_POR_EQUIPO_CON_DRIVES,
+  NOMBRE_JUGADOR_DE_DRIVE_MAX,
+  nombreDeJugadorDeDrive,
+} from '@/golf/formats/drives-scramble'
 
 /**
  * Scramble rápido (plan docs/superpowers/plans/2026-11-23-scramble-rapido.md §3): el paso Jugadores de un
@@ -19,6 +24,12 @@ export interface EquipoDeClubDelFormulario {
   id: string
   nombre: string
   handicap: string
+  /** Los jugadores del equipo para anotar drives (siempre 4 casillas; solo viajan con «Anotar drives» en Sí). */
+  jugadores: string[]
+}
+
+function jugadoresVacios(): string[] {
+  return Array.from({ length: JUGADORES_POR_EQUIPO_CON_DRIVES }, () => '')
 }
 
 /**
@@ -43,10 +54,16 @@ export function handicapDeClubDesdeTexto(texto: string): number | null {
  * UNA resolución para validar y para enviar. El nombre va como se ve (vacío → «Equipo N»), el mismo que grabaría
  * la API. En gross el hándicap no se pide ni viaja.
  */
-export function equiposDeClubParaEnviar(equipos: readonly EquipoDeClubDelFormulario[], modo: ModoJuego): EquipoDeClubAValidar[] {
+export function equiposDeClubParaEnviar(
+  equipos: readonly EquipoDeClubDelFormulario[],
+  modo: ModoJuego,
+  anotarDrives = false,
+): EquipoDeClubAValidar[] {
   return equipos.map((e, i) => ({
     nombre: nombreVisibleDeEquipo(e.nombre, i),
     handicap: modo === 'neto' ? handicapDeClubDesdeTexto(e.handicap) : null,
+    // Sin drives la clave no existe: el body queda igual al de siempre.
+    ...(anotarDrives ? { driveJugadores: e.jugadores.map(nombreDeJugadorDeDrive) } : {}),
   }))
 }
 
@@ -64,7 +81,7 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
   const ultimoId = useRef(0)
   const equipoVacio = (nombre = ''): EquipoDeClubDelFormulario => {
     ultimoId.current += 1
-    return { id: `equipo-club-${ultimoId.current}`, nombre, handicap: '' }
+    return { id: `equipo-club-${ultimoId.current}`, nombre, handicap: '', jugadores: jugadoresVacios() }
   }
 
   const [soloEquiposElegido, setSoloEquiposElegido] = useState(false)
@@ -74,6 +91,8 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
    * pide elegir. Con 1 equipo no se pregunta y no viaja (anota el creador).
    */
   const [quienAnota, setQuienAnota] = useState<QuienAnota | null>(null)
+  /** «¿Anotar drives?» No por defecto: sin tocarlo, la ronda es la de siempre. */
+  const [anotarDrives, setAnotarDrives] = useState(false)
   const seElige = equipos.length >= 2
 
   /** Lo elegido solo cuenta en un formato que lo admite: volver a Best Ball no arrastra equipos sin jugadores. */
@@ -130,6 +149,12 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     setEquipos(prev => prev.map((e, i) => (i === idx ? { ...e, nombre: nombre.slice(0, NOMBRE_EQUIPO_MAX) } : e)))
   }
 
+  const escribirJugador = (idx: number, jugador: number, nombre: string) => {
+    setEquipos(prev => prev.map((e, i) => (i === idx
+      ? { ...e, jugadores: e.jugadores.map((n, j) => (j === jugador ? nombre.slice(0, NOMBRE_JUGADOR_DE_DRIVE_MAX) : n)) }
+      : e)))
+  }
+
   const escribirHandicap = (idx: number, texto: string) => {
     setEquipos(prev => prev.map((e, i) => (i === idx ? { ...e, handicap: textoDeHandicapDeClub(texto) } : e)))
   }
@@ -145,12 +170,15 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     if (!nombres || nombres.length === 0) {
       setSoloEquiposElegido(false)
       setQuienAnota(null)
+      setAnotarDrives(false)
       setEquipos([equipoVacio()])
       return
     }
     setSoloEquiposElegido(true)
     // Repetir no arrastra la elección: con 2 o más equipos se vuelve a preguntar.
     setQuienAnota(null)
+    // Tampoco los drives: los jugadores de un equipo cambian de un torneo a otro.
+    setAnotarDrives(false)
     setEquipos(nombres.slice(0, MAX_EQUIPOS_DE_CLUB).map((n, i) =>
       equipoVacio(n === nombreDeEquipo(i) ? '' : n.slice(0, NOMBRE_EQUIPO_MAX))))
   }
@@ -165,6 +193,9 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     quitar,
     renombrar,
     escribirHandicap,
+    escribirJugador,
+    anotarDrives,
+    elegirAnotarDrives: setAnotarDrives,
     restaurar,
     /** Con 2 o más equipos se elige quién anota; con 1 no se pregunta. */
     seEligeQuienAnota: seElige,
@@ -175,7 +206,9 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     /** La ronda queda de un celular por equipo (`admin_mode` false): la misma regla que aplica el servidor. */
     unCelularPorEquipo: soloEquipos && !adminModeDeEquiposDeClub(seElige ? quienAnota : null, equipos.length),
     /** `null` fuera de «Solo equipos»: la ronda va con jugadores, como siempre. */
-    paraEnviar: soloEquipos ? equiposDeClubParaEnviar(equipos, modo) : null,
+    paraEnviar: soloEquipos ? equiposDeClubParaEnviar(equipos, modo, anotarDrives) : null,
+    /** Lo que viaja en `equipos_de_club.anotar_drives` (y valida): solo `true` si se eligió. */
+    anotarDrivesParaEnviar: soloEquipos && anotarDrives,
   }
 }
 

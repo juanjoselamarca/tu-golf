@@ -153,6 +153,7 @@ export default function NuevaRondaLibrePage() {
     skins: skins.paraEnviar,
     equiposDeClub: club.paraEnviar,
     quienAnotaEquiposDeClub: club.quienAnotaParaEnviar,
+    anotarDrivesEquiposDeClub: club.anotarDrivesParaEnviar,
   })
   const problemaEnJugadores = problemaDelFormulario ?? problemaTimbaJugadores ?? skins.problemaEnJugadores ?? problemaDeLaRonda
 

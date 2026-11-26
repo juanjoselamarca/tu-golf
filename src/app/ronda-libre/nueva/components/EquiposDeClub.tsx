@@ -5,6 +5,7 @@ import type { ModoJuego } from '@/golf/core/rules'
 import { esHandicapDeClubValido, handicapDeClubMaximo, type QuienAnota } from '@/golf/ronda-libre/equipos-de-club'
 import { NOMBRE_EQUIPO_MAX, nombreDeEquipo, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import { DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { NOMBRE_JUGADOR_DE_DRIVE_MAX, drivesMinimoPorJugador } from '@/golf/formats/drives-scramble'
 import { handicapDeClubDesdeTexto, type EquipoDeClubDelFormulario } from '../hooks/useEquiposDeClub'
 import { colores, etiqueta, input, inputQueBloquea, opcion } from './estilos'
 
@@ -79,6 +80,49 @@ export function SelectorQuienAnotaEquipos({ quienAnota, onElegir }: { quienAnota
   )
 }
 
+const OPCIONES_DRIVES = [
+  { valor: false, titulo: 'No' },
+  { valor: true, titulo: 'Sí' },
+] as const
+
+/**
+ * «¿Anotar drives?» (registro opcional, src/golf/formats/drives-scramble.ts). No viene elegido: sin tocarlo la
+ * ronda es la de siempre. Con Sí, cada tarjeta pide los jugadores del equipo.
+ */
+function SelectorAnotarDrives({ anotarDrives, holes, onElegir }: { anotarDrives: boolean; holes: number; onElegir: (si: boolean) => void }) {
+  const minimo = drivesMinimoPorJugador(holes)
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <div id="equipos-club-drives" style={{ ...etiqueta, fontSize: '14px', color: colores.texto }}>¿Anotar drives?</div>
+      <div role="group" aria-labelledby="equipos-club-drives" style={{ display: 'flex', gap: '8px' }}>
+        {OPCIONES_DRIVES.map(op => {
+          const activo = anotarDrives === op.valor
+          return (
+            <button
+              key={op.titulo}
+              type="button"
+              aria-pressed={activo}
+              onClick={() => onElegir(op.valor)}
+              style={{
+                ...opcion(activo), flex: 1, minHeight: '48px', padding: '12px', textAlign: 'center',
+                fontSize: '14px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto,
+              }}
+            >
+              {op.titulo}
+            </button>
+          )
+        })}
+      </div>
+      {anotarDrives && (
+        <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4 }}>
+          En cada hoyo se anota de quién fue el drive.
+          {minimo != null && <> Cada jugador necesita al menos {minimo}.</>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   equipos: EquipoDeClubDelFormulario[]
   /** Modo efectivo de la ronda: el hándicap del club solo se pide en neto. */
@@ -90,6 +134,9 @@ interface Props {
   onQuitar: (idx: number) => void
   onRenombrar: (idx: number, nombre: string) => void
   onHandicap: (idx: number, texto: string) => void
+  anotarDrives: boolean
+  onAnotarDrives: (si: boolean) => void
+  onJugador: (idx: number, jugador: number, nombre: string) => void
 }
 
 /** «Solo equipos»: de 1 a 4 equipos, cada uno con su nombre y, en neto, el hándicap que le dio el club. */
@@ -112,6 +159,8 @@ export function EquiposDeClub(props: Props) {
         {props.equipos.length < 2 && <>Anotas el equipo desde tu celular.{' '}</>}
         {esNeto ? `El hándicap es el que les dio el club, de 0 a ${maximo}.` : 'Juegan gross, sin hándicap.'}
       </div>
+
+      <SelectorAnotarDrives anotarDrives={props.anotarDrives} holes={props.holes} onElegir={props.onAnotarDrives} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {props.equipos.map((equipo, i) => {
@@ -186,6 +235,29 @@ export function EquiposDeClub(props: Props) {
                     }}
                   />
                 </div>
+              )}
+
+              {props.anotarDrives && (
+                <fieldset style={{ border: 'none', padding: 0, margin: '12px 0 0' }}>
+                  <legend style={{ ...etiqueta, padding: 0, fontSize: '14px', color: colores.texto }}>Jugadores</legend>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    {equipo.jugadores.map((nombre, j) => (
+                      <input
+                        key={j}
+                        type="text"
+                        value={nombre}
+                        placeholder={`Jugador ${j + 1}`}
+                        aria-label={`Jugador ${j + 1} de ${visible}`}
+                        maxLength={NOMBRE_JUGADOR_DE_DRIVE_MAX}
+                        autoComplete="off"
+                        autoCapitalize="words"
+                        enterKeyHint={j < equipo.jugadores.length - 1 ? 'next' : 'done'}
+                        onChange={e => props.onJugador(i, j, e.target.value)}
+                        style={{ ...input, width: '100%', minWidth: 0, minHeight: '48px', fontSize: '16px' }}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
               )}
             </div>
           )
