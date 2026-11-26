@@ -230,6 +230,14 @@ function ScorerDeGrupo() {
     anotarJugador: (jugadorId, delta) => handleScoreChange(jugadorId, currentHole, delta),
     anotarEquipo: (equipoId, delta) => handleTeamScoreChange(equipoId, currentHole, delta),
   })
+  // Un celular por equipo, último hoyo: Finalizar confirma primero el valor en pantalla de los equipos de este celular
+  // (lo mismo que «Siguiente» y «Guardar hoyo N»). Si otro equipo no terminó, el cierre se frena, y sin esto el hoyo
+  // propio con el par sin tocar no subía: el espectador veía al equipo en 17/18 mientras el otro seguía jugando
+  // (autoensayo 26-nov). No espera el envío: la hoja abre al toque y Finalizar sube lo pendiente antes de chequear.
+  const alFinalizar = () => {
+    if (unCelularPorEquipo && isLastHole && isSharedBallFormat(formatoJuego) && !congelada && !finalizing) void confirmarHoyo(currentHole, par)
+    void finalizeRound()
+  }
 
   /* ── Render ── */
   if (loading) return <BrandedLoading message="Preparando scorer" variant="dark" />
@@ -501,7 +509,7 @@ function ScorerDeGrupo() {
         congelada={congelada}
         onPrev={nav.goToPrevHole}
         onNext={goToNextHole}
-        onFinalize={finalizeRound}
+        onFinalize={alFinalizar}
         guardarUltimoHoyo={guardaElUltimoHoyo
           ? {
               hoyo: currentHole,
