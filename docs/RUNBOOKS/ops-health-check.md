@@ -37,7 +37,7 @@ El endpoint verifica:
 5. **Integraciones**: Anthropic, Sentry, PostHog accesibles
 6. **Datos**: torneos activos, rondas en curso, scores de la última hora
 
-Ver código completo: `src/app/api/admin/health-check/route.ts`
+Ver código completo: `src/lib/data/health-check-admin/` (una categoría por archivo; la ruta `src/app/api/admin/health-check/route.ts` solo verifica admin)
 
 ## Cómo leer el resultado
 

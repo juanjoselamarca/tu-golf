@@ -65,11 +65,13 @@ export function construirAviso({ nights, now, pausa }) {
  * abrir una sesión dentro de un worktree daba «la noche no abrió» aunque había corrido. Sin git, el repo del script.
  */
 export function repoPrincipal(repo) {
+  // Dentro de un hook de git (pre-push) llegan GIT_DIR y compañía: git los usaría en vez de `cwd`
+  // y respondería por el repo del hook, no por `repo`. Se quitan para que mande la carpeta dada.
+  const env = { ...process.env };
+  delete env.GIT_DIR; delete env.GIT_WORK_TREE; delete env.GIT_INDEX_FILE;
   try {
     const comun = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
-      cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000,
-      // Sin las GIT_* de un hook de git (pre-push): con GIT_DIR heredado, git responde por el repo del hook y no por `repo`.
-      env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^git_/i.test(k))),
+      cwd: repo, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000,
     }).trim();
     return comun ? dirname(comun) : repo;
   } catch {
