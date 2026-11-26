@@ -40,8 +40,11 @@ export function useCampoHandicap(
   const [texto, setTexto] = useState(() => textoCampoHandicap(valor))
   const [valorPrevio, setValorPrevio] = useState(valor)
   const [identidadPrevia, setIdentidadPrevia] = useState(identidad)
-  if (identidad !== identidadPrevia) {
-    setIdentidadPrevia(identidad)
+  const cambioIdentidad = identidad !== identidadPrevia
+  if (cambioIdentidad) setIdentidadPrevia(identidad)
+  // Solo un perfil NUEVO reemplaza el texto. Desvincular (identidad → null) no trae índice: si borrara "14.25" o "+",
+  // el aviso y el bloqueo desaparecerían en silencio y el rival quedaría sin índice (en un Skins neto, sin golpes).
+  if (cambioIdentidad && identidad != null) {
     setValorPrevio(valor)
     setTexto(textoCampoHandicap(valor))
   }

@@ -42,6 +42,17 @@ describe('TarjetaDeRival — índice (#773)', () => {
     }
   })
 
+  it('perfil vinculado, "12.35" a medio corregir y se desvincula: el texto y el bloqueo se mantienen', () => {
+    const onHandicap = vi.fn()
+    render(<Tarjeta inicial={14.2} onHandicap={onHandicap} base={{ ...BASE, tipo: 'cuenta', profileId: 'p-pedro' }} />)
+    expect(campo().value).toBe('14.2')
+    fireEvent.change(campo(), { target: { value: '12.35' } })
+    fireEvent.click(screen.getByLabelText('Desvincular perfil'))
+    expect(campo().value).toBe('12.35')
+    expect(screen.getByText(/como máximo un decimal/i)).toBeTruthy()
+    expect(campo().getAttribute('aria-invalid')).toBe('true')
+  })
+
   it('un plus (−2) se precarga "+2"', () => {
     render(<Tarjeta inicial={-2} onHandicap={vi.fn()} />)
     expect(campo().value).toBe('+2')
