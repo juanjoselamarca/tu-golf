@@ -135,6 +135,15 @@ DO $$ BEGIN
   RAISE EXCEPTION 'FALLA: un UPDATE directo dejó golpes y X en el mismo hoyo';
 EXCEPTION WHEN check_violation THEN RAISE NOTICE 'OK CHECK: golpes directos sobre una X -> 23514';
 END $$;
+-- Desde 20261125140000 authenticated no escribe la X directo (solo por la RPC): 42501. El CHECK sigue cuidando a quien
+-- sí puede (funciones definer, service_role): sus casos corren como postgres.
+DO $$ BEGIN
+  UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"7":true}'
+  WHERE id = 'e2000000-0000-4000-8000-000000000001';
+  RAISE EXCEPTION 'FALLA: authenticated escribió la X directo';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK authenticated: X directa -> 42501';
+END $$;
+RESET ROLE;
 DO $$ BEGIN
   -- El organizador tiene golpes en el 1: una X directa en el 1 no entra.
   UPDATE public.ronda_libre_jugadores SET fuera_del_hoyo = '{"1":true}'
@@ -154,6 +163,8 @@ DO $$ BEGIN
   RAISE EXCEPTION 'FALLA: fuera_del_hoyo aceptó el hoyo 28';
 EXCEPTION WHEN check_violation THEN RAISE NOTICE 'OK CHECK: hoyo fuera de rango -> 23514';
 END $$;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub":"e0000000-0000-4000-8000-000000000001","role":"authenticated"}';
 
 -- Secuencia por dispositivo: una X vieja que llega tarde no pisa golpes más nuevos.
 DO $$

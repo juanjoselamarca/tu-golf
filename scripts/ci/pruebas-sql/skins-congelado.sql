@@ -1,19 +1,37 @@
--- Prueba de la migración 20261125140000_skins_congelado_tras_el_primer_golpe con el RLS real (SET ROLE + claims).
--- Se corre SOLO contra la base de pruebas (golfersplus-test), en una transacción, y SIEMPRE termina en RAISE: rollback
--- total, no deja nada. Va precedida de las migraciones que la base de pruebas todavía no tenga (hoy: 20261125100000,
--- 20261125120000 y 20261125140000), en el mismo envío. El 25-nov se corrió con conexión directa a Postgres
--- (TEST_DB_PASSWORD de .env.local); con el token de la Management API sirve `sqlEn` de scripts/lib/management-sql.mjs.
--- El resultado sale en el mensaje «RESULTADO {...}»: un número = filas tocadas (permitido), «P0003 SKINS_CONGELADO…» =
--- rechazado por el trigger, «42501» = sin permiso (o la policy previa de la Timba/Skins, que exige poder crear timba).
+-- Pruebas SQL del Skins congelado desde el primer golpe (migración 20261125140000) con roles reales (SET ROLE +
+-- claims). Ver skins-ronda-libre.sql. Cada caso guarda lo que pasó (filas tocadas o «SQLSTATE mensaje») y al final se
+-- compara contra lo esperado: OK por caso o una sola FALLA con todos los que no calzan.
+-- Fuera del CI se puede correr contra la base de pruebas (nunca prod) con las migraciones que le falten delante, en la
+-- misma transacción: termina en ROLLBACK y no deja nada.
+BEGIN;
+
 DO $prueba$
 DECLARE
   r jsonb := '{}'::jsonb;
+  k text; v jsonb; obtenido jsonb; calza boolean; fallas text := '';
+  -- Esperado: filas tocadas (permitido) o el SQLSTATE con que la base lo rechaza (P0003 = el congelado; 42501 = sin
+  -- permiso, o la policy previa que exige poder crear timba para tocar una ronda skins/personalizado).
+  esperado jsonb := '{
+    "01_antes_corrige_indice": 1, "02_antes_corrige_tee": 1, "03_antes_suma_jugador": 1,
+    "04_antes_creador_toca_congelado": "P0003", "05_creador_inserta_congelado": "P0003",
+    "06_x_directa_update": "42501", "07_x_directa_insert": "42501", "08_otra_columna_sigue": 1,
+    "09_primer_golpe": 1,
+    "10_despues_indice": "P0003", "11_despues_tee": "P0003", "12_despues_suma_jugador": "P0003",
+    "13_despues_hcp_pct": "P0003", "14_despues_reglas": "P0003", "15_despues_sale_del_skins": "P0003",
+    "16_despues_otra_columna_ronda": "42501", "17_despues_sigue_anotando": 1,
+    "18_timba_indice_y_tee": 1, "19_timba_reglas": "42501", "20_timba_suma": 1, "21_stroke_indice": 1, "22_stroke_suma": 1,
+    "23_servidor_despues_indice": "P0003", "24_servidor_despues_congelado": "P0003", "25_servidor_congela_sin_golpes": 1,
+    "26_servidor_skins_otra_columna": 1, "27_servidor_timba_reglas_con_golpes": 1,
+    "28_servidor_saca_jugador": "P0003", "29_golpes_borrados_quedan": 0, "30_sin_golpes_sigue_congelado": "P0003",
+    "31_antes_saca_jugador": 1, "32_timba_saca_jugador": 1, "33_marcas": {"skins": 1, "otras": 0},
+    "34_borra_skins_entero": 1
+  }';
   uid uuid; s uuid; s2 uuid; t uuid; p uuid; n int;
   n_j uuid; j1 uuid := gen_random_uuid(); j2 uuid := gen_random_uuid(); tj uuid := gen_random_uuid(); pj uuid := gen_random_uuid();
   cod text := 'ZZ' || upper(substr(md5(random()::text), 1, 6));
   reglas jsonb := '{"config":{"version":1},"jugadorIds":[]}'::jsonb;
 BEGIN
-  SELECT id INTO uid FROM auth.users ORDER BY created_at LIMIT 1;
+  INSERT INTO auth.users (id, email) VALUES (gen_random_uuid(), 'congelado@prueba.test') RETURNING id INTO uid;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'service_role')::text, true);
   INSERT INTO rondas_libres (codigo, course_name, fecha, creador_id, formato_juego, modo_juego, reglas_juego)
     VALUES (cod, 'Prueba', current_date, uid, 'skins', 'neto', reglas || '{"congelado":{"version":1}}'::jsonb) RETURNING id INTO s;
@@ -119,6 +137,19 @@ BEGIN
   -- Borrar el Skins entero (cascada) sigue andando aunque tenga golpes.
   BEGIN DELETE FROM rondas_libres WHERE id = s; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('34_borra_skins_entero', n);
   EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('34_borra_skins_entero', SQLSTATE || ' ' || SQLERRM); END;
-  RAISE EXCEPTION 'RESULTADO %', r;
+  FOR k, v IN SELECT * FROM jsonb_each(esperado) LOOP
+    obtenido := r -> k;
+    calza := CASE WHEN jsonb_typeof(v) = 'string'
+                  THEN jsonb_typeof(obtenido) = 'string' AND left(obtenido #>> '{}', 5) = v #>> '{}'
+                  ELSE obtenido IS NOT DISTINCT FROM v END;
+    IF calza THEN
+      RAISE NOTICE 'OK congelado: % -> %', k, v;
+    ELSE
+      fallas := fallas || k || ' = ' || COALESCE(obtenido::text, '(no corrió)') || '; ';
+    END IF;
+  END LOOP;
+  IF fallas <> '' THEN RAISE EXCEPTION 'FALLA: congelado: %', fallas; END IF;
 END
 $prueba$;
+
+ROLLBACK;
