@@ -43,11 +43,12 @@ const MIGRACION_ORDEN_PLAYERS = '20261120100000_eliminar_cuenta_orden_y_estado_o
 const MIGRACION_SKINS_CONGELADO = '20261125140000_skins_congelado_tras_el_primer_golpe.sql'
 /**
  * editar_jugadores_skins (solo service_role, la llama PUT /api/ronda-libre/[codigo]/skins/jugadores) ESCRIBE la columna
- * igual que la creación: en el UPDATE y el INSERT de la tarjeta, copiada del pedido. Nunca la lee para decidir nada.
+ * igual que la creación: en el UPDATE (o conserva la que había si el pedido no la trae) y el INSERT de la tarjeta.
+ * Nunca la lee para decidir nada.
  */
 const MIGRACION_SKINS_EDITAR = '20261126100000_skins_editar_jugadores.sql'
 const ESCRITURAS_EN_EDITAR = [
-  /perfil_sugerido_id = NULLIF\(v_j ->> 'perfil_sugerido_id', ''\)::uuid,/g,
+  /perfil_sugerido_id = CASE\s+WHEN [^;]*?WHEN v_j \? 'perfil_sugerido_id' THEN NULLIF\(v_j ->> 'perfil_sugerido_id', ''\)::uuid\s+ELSE perfil_sugerido_id\s+END,/g,
   /\(\s*id, ronda_id, nombre, user_id, perfil_sugerido_id, scores,/g,
   /NULLIF\(v_j ->> 'perfil_sugerido_id', ''\)::uuid, '\{\}'::jsonb,/g,
 ]

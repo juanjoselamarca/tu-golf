@@ -20,6 +20,7 @@ DECLARE
     "16_primer_golpe": 1,
     "17_despues_cambia_indice": "P0003", "18_despues_solo_nombre": "P0003", "19_despues_mismo_pedido": "P0003",
     "20_despues_suma": "P0003", "21_nada_cambio_tras_golpe": true,
+    "25_conserva_cuenta_sugerida": true, "26_invitado_la_pierde": true,
     "22_marca_golpe_borrado": 1, "23_marca_solo_nombre": "P0003", "24_marca_cambia_indice": "P0003"
   }';
   uid uuid; uid2 uuid; s uuid; s2 uuid; t uuid; f uuid;
@@ -73,6 +74,15 @@ BEGIN
     AND EXISTS (SELECT 1 FROM ronda_libre_jugadores WHERE id = j3 AND ronda_id = s AND handicap = 5 AND tees = 'blanco'
                 AND user_id IS NULL AND perfil_sugerido_id = uid2 AND scores = '{}'::jsonb)
     AND (SELECT reglas_juego FROM rondas_libres WHERE id = s) = reglas));
+
+  -- La cuenta sugerida de Tres: un pedido sin la clave la conserva; si pasa a invitado, la pierde.
+  BEGIN
+    PERFORM editar_jugadores_skins(s, jsonb_set(pedido, '{1}', (pedido -> 1) - 'perfil_sugerido_id'), reglas);
+    r := r || jsonb_build_object('25_conserva_cuenta_sugerida', (SELECT perfil_sugerido_id = uid2 FROM ronda_libre_jugadores WHERE id = j3));
+    PERFORM editar_jugadores_skins(s, jsonb_set(pedido, '{1,is_guest}', 'true'), reglas);
+    r := r || jsonb_build_object('26_invitado_la_pierde', (SELECT perfil_sugerido_id IS NULL AND is_guest FROM ronda_libre_jugadores WHERE id = j3));
+    PERFORM editar_jugadores_skins(s, pedido, reglas);
+  EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('25_conserva_cuenta_sugerida', SQLSTATE || ' ' || SQLERRM); END;
 
   -- Nadie más la llama.
   PERFORM set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);

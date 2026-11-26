@@ -12,7 +12,7 @@
 -- p_jugadores: arreglo, en el orden final, de filas completas {id, nombre, user_id, perfil_sugerido_id, handicap, tees,
 -- is_guest, telefono_invitado, nombre_invitado}. La posición 0 es la tarjeta del creador. user_id nunca se escribe:
 -- el de la tarjeta del creador queda como estaba y un jugador nuevo entra sin cuenta (#581); perfil_sugerido_id es
--- la misma referencia sin poderes que graba la creación.
+-- la misma referencia sin poderes que graba la creación (sin la clave, la de un jugador que ya estaba se conserva).
 --
 -- Errores (la ruta los traduce): P0002 la ronda no existe, no es Skins o no está en curso · P0003 el Skins ya empezó
 -- · P0001 el pedido no calza (ids, creador, reglas).
@@ -94,7 +94,14 @@ BEGIN
       nombre = v_j ->> 'nombre',
       handicap = (v_j ->> 'handicap')::numeric,
       tees = v_j ->> 'tees',
-      perfil_sugerido_id = NULLIF(v_j ->> 'perfil_sugerido_id', '')::uuid,
+      -- La pantalla no lee la cuenta sugerida (no tiene poderes y nadie la muestra): sin la clave se conserva la que
+      -- había; un invitado nunca la lleva (la misma regla que perfilSugerido al crear).
+      perfil_sugerido_id = CASE
+        WHEN COALESCE((v_j ->> 'is_guest')::boolean, false) OR NULLIF(v_j ->> 'telefono_invitado', '') IS NOT NULL
+             OR NULLIF(v_j ->> 'nombre_invitado', '') IS NOT NULL THEN NULL
+        WHEN v_j ? 'perfil_sugerido_id' THEN NULLIF(v_j ->> 'perfil_sugerido_id', '')::uuid
+        ELSE perfil_sugerido_id
+      END,
       is_guest = COALESCE((v_j ->> 'is_guest')::boolean, false),
       telefono_invitado = v_j ->> 'telefono_invitado',
       nombre_invitado = v_j ->> 'nombre_invitado'
