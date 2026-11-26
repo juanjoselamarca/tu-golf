@@ -69,9 +69,9 @@ describe('avisoDeDrives', () => {
     expect(aviso).toEqual({
       hoyosRestantes: 12,
       faltan: [
-        { indice: 1, nombre: 'Juan', faltan: 4 },
-        { indice: 2, nombre: 'Diego', faltan: 4 },
-        { indice: 3, nombre: 'Tomás', faltan: 4 },
+        { posicion: 1, nombre: 'Juan', faltan: 4 },
+        { posicion: 2, nombre: 'Diego', faltan: 4 },
+        { posicion: 3, nombre: 'Tomás', faltan: 4 },
       ],
     })
     // Con un hoyo menos de Pedro sobra uno: no avisa.
@@ -98,20 +98,20 @@ describe('avisoDeDrives', () => {
 
 describe('textoAvisoDeDrives', () => {
   it('uno, con plural y singular', () => {
-    expect(textoAvisoDeDrives({ faltan: [{ indice: 0, nombre: 'Pedro', faltan: 2 }], hoyosRestantes: 3 }))
+    expect(textoAvisoDeDrives({ faltan: [{ posicion: 0, nombre: 'Pedro', faltan: 2 }], hoyosRestantes: 3 }))
       .toBe('A Pedro le faltan 2 drives · quedan 3 hoyos')
-    expect(textoAvisoDeDrives({ faltan: [{ indice: 0, nombre: 'Pedro', faltan: 1 }], hoyosRestantes: 1 }))
+    expect(textoAvisoDeDrives({ faltan: [{ posicion: 0, nombre: 'Pedro', faltan: 1 }], hoyosRestantes: 1 }))
       .toBe('A Pedro le falta 1 drive · queda 1 hoyo')
-    expect(textoAvisoDeDrives({ faltan: [{ indice: 0, nombre: 'Pedro', faltan: 1 }], hoyosRestantes: 0 }))
+    expect(textoAvisoDeDrives({ faltan: [{ posicion: 0, nombre: 'Pedro', faltan: 1 }], hoyosRestantes: 0 }))
       .toBe('A Pedro le falta 1 drive · no quedan hoyos')
   })
   it('varios', () => {
     expect(textoAvisoDeDrives({
-      faltan: [{ indice: 0, nombre: 'Pedro', faltan: 2 }, { indice: 1, nombre: 'Juan', faltan: 1 }], hoyosRestantes: 3,
+      faltan: [{ posicion: 0, nombre: 'Pedro', faltan: 2 }, { posicion: 1, nombre: 'Juan', faltan: 1 }], hoyosRestantes: 3,
     })).toBe('A Pedro le faltan 2 drives y a Juan 1 · quedan 3 hoyos')
     expect(textoAvisoDeDrives({
       faltan: [
-        { indice: 0, nombre: 'Pedro', faltan: 2 }, { indice: 1, nombre: 'Juan', faltan: 1 }, { indice: 2, nombre: 'Diego', faltan: 3 },
+        { posicion: 0, nombre: 'Pedro', faltan: 2 }, { posicion: 1, nombre: 'Juan', faltan: 1 }, { posicion: 2, nombre: 'Diego', faltan: 3 },
       ],
       hoyosRestantes: 6,
     })).toBe('A Pedro le faltan 2 drives, a Juan 1 y a Diego 3 · quedan 6 hoyos')
@@ -132,10 +132,10 @@ describe('conteoDeDrives', () => {
   it('conteo por jugador, lo que falta y ✓ al cumplir', () => {
     const drives = con([1, 0], [2, 0], [3, 0], [4, 2], [5, 2], [6, 2], [7, 2], [8, 3])
     expect(conteoDeDrives({ jugadores: EQUIPO, drives, minimo: 4, hoyos: H18 })).toEqual([
-      { indice: 0, nombre: 'Pedro', drives: 3, faltan: 1, cumple: false },
-      { indice: 1, nombre: 'Juan', drives: 0, faltan: 4, cumple: false },
-      { indice: 2, nombre: 'Diego', drives: 4, faltan: 0, cumple: true },
-      { indice: 3, nombre: 'Tomás', drives: 1, faltan: 3, cumple: false },
+      { posicion: 0, nombre: 'Pedro', drives: 3, faltan: 1, cumple: false },
+      { posicion: 1, nombre: 'Juan', drives: 0, faltan: 4, cumple: false },
+      { posicion: 2, nombre: 'Diego', drives: 4, faltan: 0, cumple: true },
+      { posicion: 3, nombre: 'Tomás', drives: 1, faltan: 3, cumple: false },
     ])
   })
   it('pasarse del mínimo sigue cumpliendo; sin mínimo no cumple ni falta', () => {

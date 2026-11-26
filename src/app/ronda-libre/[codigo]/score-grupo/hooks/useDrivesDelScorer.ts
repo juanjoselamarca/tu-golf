@@ -31,7 +31,7 @@ export interface DrivesDeUnEquipo {
   minimo: number | null
   aviso: string | null
   /** Marca el drive del hoyo en pantalla; tocar el que ya está marcado lo quita. */
-  elegir: (indice: number) => void
+  elegir: (posicion: number) => void
 }
 
 function cambiosDeLaCola(codigo: string): CambiosPorEquipo {
@@ -106,8 +106,8 @@ export function useDrivesDelScorer(input: {
     if (conexion === 'ok') reenviar()
   }, [algunoAnota, conexion, teamEquipos, leerCola, reenviar])
 
-  const elegirEn = useCallback((equipoId: string, hoyo: number, indice: number, actual: number | null) => {
-    const jugador = actual === indice ? null : indice
+  const elegirEn = useCallback((equipoId: string, hoyo: number, posicion: number, actual: number | null) => {
+    const jugador = actual === posicion ? null : posicion
     const envio = marcarDriveConRespaldo(createClient(), codigo, { equipoId, hoyo, jugador })
     leerCola()
     void envio
@@ -131,7 +131,7 @@ export function useDrivesDelScorer(input: {
         conteo: conteoDeDrives(datos),
         minimo: drivesMinimo,
         aviso: aviso ? textoAvisoDeDrives(aviso) : null,
-        elegir: (indice: number) => { if (!deshabilitado) elegirEn(e.id, currentHole, indice, driveDelHoyo) },
+        elegir: (posicion: number) => { if (!deshabilitado) elegirEn(e.id, currentHole, posicion, driveDelHoyo) },
       })
     }
     return out

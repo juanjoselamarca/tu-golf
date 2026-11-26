@@ -4,7 +4,7 @@
  *
  * FUENTE ÚNICA del concepto: cuántos jugadores, el mínimo por jugador según los hoyos, cómo se leen los drives
  * guardados, el conteo y el aviso de «a Pedro le faltan 2 drives». Los drives NO afectan score, hándicap ni
- * historial: son un registro aparte (`ronda_equipos.drives`, hoyo → índice del jugador en `drive_jugadores`).
+ * historial: son un registro aparte (`ronda_equipos.drives`, hoyo → posición del jugador en `drive_jugadores`).
  */
 
 /** Jugadores por equipo cuando se anotan drives (scramble de 4). */
@@ -21,11 +21,11 @@ export function drivesMinimoPorJugador(holes: number): number | null {
   return DRIVES_MINIMOS_POR_JUGADOR[holes] ?? null
 }
 
-/** Drives de un equipo: hoyo (como texto, igual que `scores`) → índice del jugador en `drive_jugadores`. */
+/** Drives de un equipo: hoyo (como texto, igual que `scores`) → posición del jugador en `drive_jugadores`. */
 export type DrivesDelEquipo = Record<string, number>
 
 /**
- * Los drives guardados, limpios: solo hoyos enteros positivos con un índice entero dentro de los jugadores. Lo
+ * Los drives guardados, limpios: solo hoyos enteros positivos con una posición entera dentro de los jugadores. Lo
  * demás (una fila vieja, un valor corrupto) se ignora en vez de romper la tarjeta.
  */
 export function leerDrives(crudo: unknown, cantidadDeJugadores: number): DrivesDelEquipo {
@@ -41,7 +41,7 @@ export function leerDrives(crudo: unknown, cantidadDeJugadores: number): DrivesD
 
 /**
  * Los drives guardados con cambios encima (los que esperan envío o acaban de confirmarse en este teléfono):
- * hoyo → índice del jugador, o un índice negativo = sin drive en ese hoyo. Último en la lista gana.
+ * hoyo → posición del jugador, o una posición negativa = sin drive en ese hoyo. Último en la lista gana.
  */
 export function drivesConCambios(base: DrivesDelEquipo, ...cambios: ReadonlyArray<Readonly<Record<string, number>>>): DrivesDelEquipo {
   const out: DrivesDelEquipo = { ...base }
@@ -61,7 +61,7 @@ export function jugadoresDeDrive(crudo: unknown): string[] | null {
   return crudo as string[]
 }
 
-/** Drives de cada jugador (por índice) en los hoyos de la ronda. Un drive en un hoyo ajeno a la ronda no cuenta. */
+/** Drives de cada jugador (por posición) en los hoyos de la ronda. Un drive en un hoyo ajeno a la ronda no cuenta. */
 export function contarDrives(drives: DrivesDelEquipo, cantidadDeJugadores: number, hoyos: readonly number[]): number[] {
   const cuenta = Array.from({ length: cantidadDeJugadores }, () => 0)
   for (const h of hoyos) {
@@ -72,7 +72,7 @@ export function contarDrives(drives: DrivesDelEquipo, cantidadDeJugadores: numbe
 }
 
 export interface ConteoDeDrivesDeJugador {
-  indice: number
+  posicion: number
   nombre: string
   /** Drives anotados en los hoyos de la ronda. */
   drives: number
@@ -95,15 +95,15 @@ export function conteoDeDrives(input: {
   const { jugadores, drives, minimo, hoyos } = input
   if (!jugadores || jugadores.length === 0) return []
   const cuenta = contarDrives(drives, jugadores.length, hoyos)
-  return jugadores.map((nombre, indice) => {
-    const n = cuenta[indice]
+  return jugadores.map((nombre, posicion) => {
+    const n = cuenta[posicion]
     const conMinimo = minimo != null && minimo > 0
-    return { indice, nombre, drives: n, faltan: conMinimo ? Math.max(0, minimo - n) : 0, cumple: conMinimo && n >= minimo }
+    return { posicion, nombre, drives: n, faltan: conMinimo ? Math.max(0, minimo - n) : 0, cumple: conMinimo && n >= minimo }
   })
 }
 
 export interface FaltaDeDrives {
-  indice: number
+  posicion: number
   nombre: string
   faltan: number
 }
@@ -130,7 +130,7 @@ export function avisoDeDrives(input: {
   if (!jugadores || jugadores.length === 0 || minimo == null || minimo <= 0) return null
   const cuenta = contarDrives(drives, jugadores.length, hoyos)
   const faltan = jugadores
-    .map((nombre, indice) => ({ indice, nombre, faltan: Math.max(0, minimo - cuenta[indice]) }))
+    .map((nombre, posicion) => ({ posicion, nombre, faltan: Math.max(0, minimo - cuenta[posicion]) }))
     .filter(f => f.faltan > 0)
   if (faltan.length === 0) return null
   const hoyosRestantes = hoyos.filter(h => drives[String(h)] == null).length

@@ -14,7 +14,7 @@ interface DrivesDelEquipoProps {
   minimo: number | null
   /** `textoAvisoDeDrives`, o `null` sin riesgo. */
   aviso: string | null
-  onElegir: (indice: number) => void
+  onElegir: (posicion: number) => void
   deshabilitado?: boolean
   theme: ScorerTheme
 }
@@ -60,7 +60,7 @@ export function DrivesDelEquipo({ jugadores, driveDelHoyo, conteo, minimo, aviso
         {minimo != null && <span style={{ fontSize: '11px', color: theme.textFaint }}>Mín. {minimo}:</span>}
         {/* Los espacios entre ítems no se ven (flex con columnGap) pero el lector de pantalla y el texto los tienen. */}
         {conteo.map((c, i) => (
-          <Fragment key={`conteo-${c.indice}`}>
+          <Fragment key={`conteo-${c.posicion}`}>
           {' '}
           <span style={{ whiteSpace: 'nowrap' }}>
             <span
