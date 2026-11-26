@@ -10,6 +10,7 @@ import { clienteFalso, ok } from '@/__tests__/helpers/postgrest-falso'
 import { CONFIG_SKINS_POR_DEFECTO } from '@/golf/formats/skins'
 import { skinsParaCrearRonda, type RondaDelSkinsNuevo } from './skins-ronda-nueva'
 import { contextoDelSkinsDeLaRonda } from './skins-contexto-guardado'
+import { captureError } from '@/lib/error-tracking'
 
 const HOYOS = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: i % 6 === 0 ? 3 : 4, stroke_index: ((i * 7) % 18) + 1 }))
 const tee = (slope: number, rating: number) => ok({ rating, slope, front_course_rating: null, front_slope_rating: null })
@@ -76,6 +77,19 @@ describe('Skins: golpes congelados al crear', () => {
     const supa2 = clienteFalso(AL_CREAR())
     await contextoDelSkinsDeLaRonda(supa2, conOtroTee, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
     expect(supa2.lecturas.course_holes).toBe(1)
+  })
+
+  it('hay congelado pero no calza: recalcula Y lo avisa como warning (nunca en silencio); sin congelado no avisa', async () => {
+    const r = await crear()
+    vi.mocked(captureError).mockClear()
+    const conOtroIndice = { ...RONDA, jugadores: RONDA.jugadores.map((j, i) => (i === 1 ? { ...j, indice: 18 } : j)) }
+    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), conOtroIndice, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
+    expect(captureError).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(captureError).mock.calls[0][1]).toMatchObject({ context: 'skins.congelado-no-calza', level: 'warning' })
+    vi.mocked(captureError).mockClear()
+    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: { config: r.reglas.config, jugadorIds: r.jugadorIds }, jugadorIds: r.jugadorIds })
+    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
+    expect(captureError).not.toHaveBeenCalled()
   })
 
   it('la ronda leída de la base (índice a un decimal, tee en minúscula, recorridos vacíos) calza con lo congelado', async () => {

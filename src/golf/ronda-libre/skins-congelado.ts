@@ -9,8 +9,11 @@
  * Fuente única de «¿congelado o recalculado?»: `contextoDelSkinsGuardado`. Usa lo congelado solo si calza con la ronda
  * tal como está (la huella: cancha, hoyos, salida, recorridos, índice y tee de cada jugador). Si no calza o no existe
  * (rondas creadas antes de este cambio, o corregidas antes del primer golpe), recalcula como siempre. Después del
- * primer golpe la base no deja cambiar nada de la huella en un Skins (trigger `skins_congelado_tras_el_primer_golpe`),
- * así que lo congelado de una ronda en juego siempre calza.
+ * primer golpe la base no deja cambiar nada de la huella en un Skins (trigger `skins_congelado_tras_el_primer_golpe`):
+ * si calzaba al primer golpe, calza hasta el final. Pero NO siempre calza: si el creador corrigió un índice o un tee (o
+ * sumó a alguien) antes del primer golpe, nadie vuelve a congelar y la ronda queda recalculando en vivo todo el juego
+ * (sin protección ante un cambio del rating de la cancha). El lector lo avisa (`skins-contexto-guardado.ts`); recongelar
+ * es tarea de la API de corrección, que todavía no existe.
  */
 import { z } from 'zod'
 import type { ContextoValidacionSkins, HoyoSkins } from '@/golf/formats/skins'

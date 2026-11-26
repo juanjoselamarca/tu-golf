@@ -64,7 +64,9 @@ Decisiones de Juanjo, 25-nov-2026. Migración `20261125140000_skins_congelado_tr
    mandarlo ni cambiarlo (no se ve en la tarjeta, el índice sí).
 3. **Antes del primer golpe** (nadie anotó un score ni una X) se puede corregir el índice o el tee de un jugador y
    sumar jugadores (el pozo crece: jugadores × pozo por jugador). Lo congelado solo vale si calza con la ronda tal
-   como está (cancha, hoyos, salida, recorridos, índice y tee de cada uno); si no calza, se recalcula.
+   como está (cancha, hoyos, salida, recorridos, índice y tee de cada uno); si no calza, se recalcula en vivo y se
+   avisa (warning). Hoy nadie vuelve a congelar tras una corrección: esa ronda juega recalculando (sin protección ante
+   un cambio del rating de la cancha) hasta que exista la API de corrección que regrabe lo congelado.
 4. **Desde el primer golpe** la base rechaza, para todos (también service_role), cambiar `reglas_juego`, `hcp_pct`,
    `modo_juego`, `tees`, `course_id`, `recorridos`, `holes`, `hoyo_inicio` y `formato_juego` de la ronda, el índice,
    el tee o la ronda de un jugador, sumar jugadores y sacar a uno (si alguien se va, es un retiro). Borrar el Skins
