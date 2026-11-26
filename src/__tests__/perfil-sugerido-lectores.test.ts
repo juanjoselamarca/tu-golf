@@ -20,6 +20,7 @@ const PERMITIDOS = [
   'golf/ronda-libre/validar-nueva-ronda.ts', // valida que no se repita ni sea el creador
   'lib/data/perfiles-existentes.ts', // valida que la cuenta exista
   'lib/data/ronda-libre-jugadores-filas.ts', // arma las filas que se graban (crear la ronda y editar el Skins)
+  'lib/data/skins-editar.ts', // editar el Skins: null explícito quita la cuenta sugerida de un jugador que ya estaba (no la lee)
 ]
 
 /** Lectores que dan poderes sobre la ronda: tienen que seguir mirando `user_id`. */

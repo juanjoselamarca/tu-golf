@@ -8,7 +8,7 @@
  * La config del Skins (pozo, variantes, modo, % de hándicap) NO viene del cliente: se toma de lo guardado. La cancha,
  * los hoyos, la salida y los tees de la ronda tampoco se editan.
  *
- * El primer golpe no se mira acá: lo decide la función SQL con la ronda tomada (si se mirara acá, un golpe que llega
+ * Si ya empezó (primer golpe, X, punto especial o retiro: `skins_ronda_empezada`) no se mira acá: lo decide la función SQL con la ronda tomada (si se mirara acá, un golpe que llega
  * entre la lectura y la escritura pasaría). La ruta traduce su P0003 a 409.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -45,8 +45,14 @@ export interface JugadorActualDelSkins {
 /** Un jugador del pedido: la forma de crear más el id si ya estaba en la ronda. */
 export type JugadorEditado = JugadorDeRonda & { id?: string }
 
+/**
+ * La fila que graba la edición. `perfil_sugerido_id` de un jugador que ya estaba: sin la clave se conserva (la pantalla
+ * no la lee), `null` la quita (el rival pasó de «con cuenta» a un nombre a mano), un uuid la cambia.
+ */
+export type FilaEditada = Omit<FilaDeJugadorDeRonda, 'perfil_sugerido_id'> & { perfil_sugerido_id?: string | null }
+
 export type EdicionDelSkins =
-  | { ok: true; filas: FilaDeJugadorDeRonda[]; reglas: ReglasSkinsGuardadas }
+  | { ok: true; filas: FilaEditada[]; reglas: ReglasSkinsGuardadas }
   | { ok: false; status: 400 | 503; error: string }
 
 export const MENSAJE_EDITAR_SIN_CREADOR = 'Tu tarjeta va primera y no se puede sacar del Skins.'
@@ -127,7 +133,11 @@ export async function prepararEdicionDelSkins(
     perfilesValidos: perfiles.validos,
     teesDeLaRonda: ronda.tees,
   })
-  return { ok: true, filas, reglas: skins.reglas }
+  // Un null explícito en un jugador que ya estaba quita la cuenta sugerida; filasDeJugadores solo escribe las válidas.
+  const editadas: FilaEditada[] = filas.map((f, i) =>
+    pedido[i].id && pedido[i].perfil_sugerido_id === null && f.perfil_sugerido_id === undefined ? { ...f, perfil_sugerido_id: null } : f,
+  )
+  return { ok: true, filas: editadas, reglas: skins.reglas }
 }
 
 /** La ronda y sus tarjetas, leídas con el cliente de la sesión (el RLS de siempre). */
@@ -155,16 +165,21 @@ export type EdicionGuardada =
   | { ok: true }
   | { ok: false; motivo: 'empezado' | 'no_existe' | 'no_calza' | 'error'; error?: unknown }
 
-/** Llama a `editar_jugadores_skins` con service_role: todo o nada, con la ronda tomada. */
+/**
+ * Llama a `editar_jugadores_skins` con service_role: todo o nada, con la ronda tomada. Viajan las filas y lo
+ * congelado; la config NO (la función deja la guardada tal cual y arma jugadorIds con los ids de las filas): así una
+ * versión nueva de la app que reparsee la config distinto no puede chocar con la guardada.
+ */
 export async function guardarEdicionDelSkins(
   admin: SupabaseClient,
   rondaId: string,
-  edicion: { filas: readonly FilaDeJugadorDeRonda[]; reglas: ReglasSkinsGuardadas },
+  edicion: { filas: readonly FilaEditada[]; reglas: ReglasSkinsGuardadas },
 ): Promise<EdicionGuardada> {
+  if (!edicion.reglas.congelado) throw new Error('guardarEdicionDelSkins: falta lo congelado')
   const { error } = await admin.rpc('editar_jugadores_skins', {
     p_ronda_id: rondaId,
     p_jugadores: edicion.filas,
-    p_reglas_juego: edicion.reglas,
+    p_congelado: edicion.reglas.congelado,
   })
   if (!error) return { ok: true }
   if (error.code === 'P0003') return { ok: false, motivo: 'empezado' }

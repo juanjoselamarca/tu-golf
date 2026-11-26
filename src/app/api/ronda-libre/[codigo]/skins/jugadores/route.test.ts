@@ -105,22 +105,22 @@ describe('PUT /api/ronda-libre/[codigo]/skins/jugadores', () => {
     expect(captureError).toHaveBeenCalled()
   })
 
-  it('ok: llama a la función con las filas y las reglas (config guardada, jugadorIds y congelado nuevos)', async () => {
+  it('ok: llama a la función con las filas y lo congelado nuevo; la config no viaja', async () => {
     const res = await pedir([...jugadores({ handicap: 18 }), { nombre: 'Coni', user_id: CREADOR, handicap: 3, tees: 'azul', config: { pozoPorJugador: 1 } }])
     expect(res.status).toBe(200)
     expect(res.headers.get('Cache-Control')).toBe('private, no-store')
     expect(rpc).toHaveBeenCalledTimes(1)
-    const [nombre, args] = rpc.mock.calls[0] as [string, { p_ronda_id: string; p_jugadores: Record<string, unknown>[]; p_reglas_juego: Record<string, unknown> }]
+    const [nombre, args] = rpc.mock.calls[0] as [string, { p_ronda_id: string; p_jugadores: Record<string, unknown>[]; p_congelado: Record<string, unknown> }]
     expect(nombre).toBe('editar_jugadores_skins')
+    // La config no viaja: la función deja la guardada (una versión nueva que la reparsee distinto no choca).
+    expect(Object.keys(args).sort()).toEqual(['p_congelado', 'p_jugadores', 'p_ronda_id'])
     expect(args.p_ronda_id).toBe('R1')
-    const ids = args.p_reglas_juego.jugadorIds as string[]
+    const ids = args.p_jugadores.map(f => f.id as string)
     expect(ids.slice(0, 2)).toEqual(IDS)
     expect(ids).toHaveLength(3)
-    expect(args.p_jugadores.map(f => f.id)).toEqual(ids)
     // Un jugador nuevo nunca entra con cuenta, aunque el cliente la mande (#581).
     expect(args.p_jugadores[2].user_id).toBeNull()
-    expect(args.p_reglas_juego.config).toEqual(reglas.config)
-    const golpes = (args.p_reglas_juego.congelado as { golpes: Record<string, number> }).golpes
+    const golpes = (args.p_congelado as { golpes: Record<string, number> }).golpes
     expect(Object.keys(golpes)).toEqual(ids)
     expect(golpes[IDS[1]]).not.toBe((reglas.congelado as { golpes: Record<string, number> }).golpes[IDS[1]])
   })

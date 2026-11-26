@@ -109,6 +109,23 @@ describe('prepararEdicionDelSkins', () => {
     expect(r.reglas.congelado!.golpes[ids[1]]).not.toBe(99)
   })
 
+  it('cuenta sugerida de un jugador que ya estaba: sin la clave se conserva, null la quita, un uuid la cambia', async () => {
+    const { ronda, ids } = await rondaCreada()
+    const p = pedidoBase(ids)
+    const r = await editar(ronda, ids, [p[0], { ...p[1], perfil_sugerido_id: null }, { ...p[2], perfil_sugerido_id: PERFIL }])
+    if (!r.ok) throw new Error(r.error)
+    expect('perfil_sugerido_id' in r.filas[0]).toBe(false)
+    expect(r.filas[1].perfil_sugerido_id).toBeNull()
+    expect(r.filas[2].perfil_sugerido_id).toBe(PERFIL)
+    const sinClave = await editar(ronda, ids, p)
+    if (!sinClave.ok) throw new Error(sinClave.error)
+    expect(sinClave.filas.some(f => 'perfil_sugerido_id' in f)).toBe(false)
+    // Un jugador nuevo con null entra sin cuenta sugerida (no hay nada que quitar).
+    const nuevo = await editar(ronda, ids, [p[0], { nombre: 'Dani', user_id: null, perfil_sugerido_id: null, handicap: 7, tees: null }])
+    if (!nuevo.ok) throw new Error(nuevo.error)
+    expect('perfil_sugerido_id' in nuevo.filas[1]).toBe(false)
+  })
+
   it('el creador no se saca ni cambia de lugar', async () => {
     const { ronda, ids } = await rondaCreada()
     const [a, b, c] = pedidoBase(ids)
