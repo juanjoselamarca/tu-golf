@@ -57,6 +57,8 @@ import { GuardarEnMiHistorial } from './components/GuardarEnMiHistorial'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import { TimbaEnVivo } from './components/timba/TimbaEnVivo'
 import { SkinsEnVivo } from './components/skins/SkinsEnVivo'
+import { EditarSkins } from './components/skins/EditarSkins'
+import { puedeEditarElSkins } from './hooks/useEditarSkins'
 import { useTimbaDeLaRonda } from './hooks/useTimbaDeLaRonda'
 import { useOfreceAnotarMiEquipo } from './hooks/useOfreceAnotarMiEquipo'
 
@@ -237,6 +239,7 @@ function RondaLibrePageContent() {
   const timbaFinalizada = esRondaCerrada(ronda.estado)
   // Timba o Skins: su resultado es propio (`esJuegoConPlata`); ningún ranking, ganador ni momento de golpes va.
   const juegoPropio = timba.esTimba || timba.esSkins
+  const vistaSkins = timba.juegoSkins.estado === 'ok' ? timba.juegoSkins.vista : null
   const skinsEnVivo = timba.esSkins && (
     <SkinsEnVivo
       juego={timba.juegoSkins}
@@ -248,6 +251,20 @@ function RondaLibrePageContent() {
       cancha={ronda.course_name}
       url={shareUrl}
       compartirPrincipal={shareVariant === 'commit'}
+      editar={vistaSkins && ronda.creador_id && (
+        <EditarSkins
+          visible={puedeEditarElSkins({ userId: currentUserId, creadorId: ronda.creador_id, vista: vistaSkins, jugadores: ronda.ronda_libre_jugadores })}
+          codigo={codigo}
+          creadorId={ronda.creador_id}
+          jugadores={ronda.ronda_libre_jugadores}
+          orden={vistaSkins.jugadorIds}
+          courseId={ronda.course_id}
+          recorridos={ronda.recorridos}
+          teeGlobal={ronda.tees}
+          pozoPorJugador={vistaSkins.pozoPorJugador ?? 0}
+          onGuardado={() => { retry(); timba.recargar() }}
+        />
+      )}
     />
   )
   const timbaEnVivo = timba.esTimba && (

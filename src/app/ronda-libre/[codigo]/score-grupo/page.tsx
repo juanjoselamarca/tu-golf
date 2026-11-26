@@ -51,6 +51,7 @@ import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { FUERA_DEL_HOYO } from '@/golf/formats/skins/motor'
 import { useValorDelHoyoSkins } from './hooks/useValorDelHoyoSkins'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
+import { EditarSkinsDelScorer } from './components/EditarSkinsDelScorer'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
 import { PanelDelJuego } from '../components/timba/PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from '../components/PuntosEspecialesDelHoyo'
@@ -349,6 +350,12 @@ function ScorerDeGrupo() {
         {...nav.swipeHandlers}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {esSkins && (
+            <EditarSkinsDelScorer
+              ronda={ronda} vista={timba.vistaSkins} userId={authUserId} enElHoyoDeSalida={currentHole === ordenHoyos[0]}
+              scores={scores} fuera={fueraSkins} onGuardado={() => { void recargar(); void timba.recargar() }}
+            />
+          )}
           {/* Label contextual formato equipo */}
           {isSharedBallFormat(formatoJuego) ? (
             <p style={{ fontSize: '13px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '8px', fontStyle: 'italic' }}>

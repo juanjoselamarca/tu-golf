@@ -40,6 +40,8 @@ export interface JugadorParaRetiro {
 export interface TimbaDelScorer {
   /** El juego de la Timba (panel «Juego»). En un skins no hay juego que mostrar acá: queda en `error`. */
   juego: EstadoDelJuego
+  /** Un skins: la última vista buena (para «Editar» antes del primer golpe). `null` fuera de un skins o sin vista. */
+  vistaSkins: VistaDelSkinsEnElScorer | null
   recargar: () => Promise<void>
   marcas: MarcasDeLaTimba
   nombres: Record<string, string>
@@ -144,5 +146,6 @@ export function useTimbaDelScorer(input: {
     [juego],
   )
 
-  return { juego: juegoDeLaTimba, recargar, marcas, nombres, retiros, ...derivados }
+  const vistaSkins = vista && esVistaDelSkins(vista) ? vista : null
+  return { juego: juegoDeLaTimba, vistaSkins, recargar, marcas, nombres, retiros, ...derivados }
 }
