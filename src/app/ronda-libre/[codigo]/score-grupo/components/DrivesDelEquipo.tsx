@@ -39,16 +39,17 @@ export function DrivesDelEquipo({ jugadores, driveDelHoyo, conteo, minimo, aviso
               onClick={() => onElegir(i)}
               style={{
                 minHeight: '48px', padding: '4px 6px', borderRadius: '12px',
-                fontSize: '14px', fontWeight: elegido ? 700 : 600, lineHeight: 1.15,
+                fontSize: '13px', fontWeight: elegido ? 700 : 600, lineHeight: 1.15,
                 background: elegido ? theme.gold : 'var(--bg)',
                 color: elegido ? 'var(--brand-dark)' : theme.text,
                 border: elegido ? `2px solid ${theme.gold}` : `1px solid ${theme.buttonBorder}`,
                 cursor: deshabilitado ? 'default' : 'pointer', opacity: deshabilitado ? 0.5 : 1,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                whiteSpace: 'normal',
                 touchAction: 'manipulation', userSelect: 'none',
               }}
             >
-              {nombre}
+              {/* Nombres largos: hasta 2 líneas («Juan Pablo» y «Juan Pedro» no quedan iguales por un corte). */}
+              <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>{nombre}</span>
             </button>
           )
         })}
@@ -57,7 +58,7 @@ export function DrivesDelEquipo({ jugadores, driveDelHoyo, conteo, minimo, aviso
         data-testid="conteo-drives"
         style={{ marginTop: '8px', fontSize: '13px', lineHeight: 1.4, color: theme.textMuted, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: '6px' }}
       >
-        {minimo != null && <span style={{ fontSize: '11px', color: theme.textFaint }}>Mín. {minimo}:</span>}
+        {minimo != null && <span style={{ fontSize: '12px', color: theme.textMuted }}>Mín. {minimo}:</span>}
         {/* Los espacios entre ítems no se ven (flex con columnGap) pero el lector de pantalla y el texto los tienen. */}
         {conteo.map((c, i) => (
           <Fragment key={`conteo-${c.posicion}`}>

@@ -10,6 +10,7 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { ResultadoEnvio } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import { MENSAJE_EQUIPOS_TARDAN } from '@/lib/data/ronda-libre-anotador'
+import { PLAZO_DRIVES_AL_FINALIZAR_MS } from '@/lib/ronda/drives-pendientes'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }))
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
@@ -35,6 +36,18 @@ vi.mock('@/lib/data/ronda-libre-finalizar', async () => ({
   recalcularIndiceGolfers: async () => true,
   actualizarNivelDelJugador: async () => {},
   avisarAlCoachRondaNueva: vi.fn(),
+}))
+const drives = { pendientes: false, orden: [] as string[], cuelga: false }
+const reenviarDrivesPendientes = vi.fn(async () => {
+  drives.orden.push('drives')
+  if (drives.cuelga) await new Promise(() => {})
+  drives.pendientes = false
+  return { confirmados: [], rechazados: [], pendientes: 0 }
+})
+vi.mock('@/lib/ronda/drives-pendientes', () => ({
+  PLAZO_DRIVES_AL_FINALIZAR_MS: 6_000,
+  hayDrivesPendientes: () => drives.pendientes,
+  reenviarDrivesPendientes: (...a: unknown[]) => reenviarDrivesPendientes(...(a as [])),
 }))
 const lectura = { equipos: [] as unknown[], falla: false }
 const fetchEquiposConAnotador = vi.fn()
@@ -85,10 +98,47 @@ beforeEach(() => {
   vi.clearAllMocks()
   lectura.falla = false
   pendiente.hay = false
+  drives.pendientes = false; drives.orden = []; drives.cuelga = false
   enviarPendientes.mockImplementation(async () => ({ estado: 'ronda_abierta', rechazadas: [] }))
 })
 
 describe('useFinalizeGrupo — un celular por equipo', () => {
+
+  it('drives en cola: suben ANTES de cerrar la ronda (con la ronda cerrada la RPC los rechaza) — Fable #895', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    lectura.equipos = [mio, eq('e2', 'Los Pumas', 'u-pedro', lleno)]
+    drives.pendientes = true
+    finalizarRondaLibre.mockImplementationOnce(async () => { drives.orden.push('cierre'); return { finalizada: true, error: null } })
+    const { result } = montar([mio])
+    await finalizar(result)
+    expect(reenviarDrivesPendientes).toHaveBeenCalledTimes(1)
+    expect(drives.orden).toEqual(['drives', 'cierre'])
+  })
+
+  it('drives que no suben (sin señal) no frenan el cierre: se cierra al vencer el plazo', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+      lectura.equipos = [mio, eq('e2', 'Los Pumas', 'u-pedro', lleno)]
+      drives.pendientes = true
+      drives.cuelga = true
+      const { result } = montar([mio])
+      await act(async () => { await result.current.finalizeRound() })
+      let fin: Promise<unknown> | undefined
+      await act(async () => { fin = Promise.resolve(result.current.finalizeRound()) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(PLAZO_DRIVES_AL_FINALIZAR_MS + 100); await fin })
+      expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('sin drives en cola no se intenta subir nada', async () => {
+    const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
+    lectura.equipos = [mio, eq('e2', 'Los Pumas', 'u-pedro', lleno)]
+    const { result } = montar([mio])
+    await finalizar(result)
+    expect(reenviarDrivesPendientes).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
   it('un equipo de otro celular sin terminar frena el cierre, con su nombre y el hoyo en que va', async () => {
     const mio = eq('e1', 'Los Tigres', CREADOR, lleno)
     lectura.equipos = [mio, eq('e2', 'Los Pumas', 'u-pedro', { 1: 4, 2: 3, 3: 4, 4: 4 })]

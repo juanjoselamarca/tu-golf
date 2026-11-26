@@ -99,22 +99,22 @@ describe('avisoDeDrives', () => {
 describe('textoAvisoDeDrives', () => {
   it('uno, con plural y singular', () => {
     expect(textoAvisoDeDrives({ faltan: [{ posicion: 0, nombre: 'Pedro', faltan: 2 }], hoyosRestantes: 3 }))
-      .toBe('A Pedro le faltan 2 drives · quedan 3 hoyos')
+      .toBe('A Pedro le faltan 2 drives · quedan 3 hoyos sin drive')
     expect(textoAvisoDeDrives({ faltan: [{ posicion: 0, nombre: 'Pedro', faltan: 1 }], hoyosRestantes: 1 }))
-      .toBe('A Pedro le falta 1 drive · queda 1 hoyo')
+      .toBe('A Pedro le falta 1 drive · queda 1 hoyo sin drive')
     expect(textoAvisoDeDrives({ faltan: [{ posicion: 0, nombre: 'Pedro', faltan: 1 }], hoyosRestantes: 0 }))
-      .toBe('A Pedro le falta 1 drive · no quedan hoyos')
+      .toBe('A Pedro le falta 1 drive · no quedan hoyos sin drive')
   })
   it('varios', () => {
     expect(textoAvisoDeDrives({
       faltan: [{ posicion: 0, nombre: 'Pedro', faltan: 2 }, { posicion: 1, nombre: 'Juan', faltan: 1 }], hoyosRestantes: 3,
-    })).toBe('A Pedro le faltan 2 drives y a Juan 1 · quedan 3 hoyos')
+    })).toBe('A Pedro le faltan 2 drives y a Juan 1 · quedan 3 hoyos sin drive')
     expect(textoAvisoDeDrives({
       faltan: [
         { posicion: 0, nombre: 'Pedro', faltan: 2 }, { posicion: 1, nombre: 'Juan', faltan: 1 }, { posicion: 2, nombre: 'Diego', faltan: 3 },
       ],
       hoyosRestantes: 6,
-    })).toBe('A Pedro le faltan 2 drives, a Juan 1 y a Diego 3 · quedan 6 hoyos')
+    })).toBe('A Pedro le faltan 2 drives, a Juan 1 y a Diego 3 · quedan 6 hoyos sin drive')
   })
 })
 

@@ -140,7 +140,7 @@ export function avisoDeDrives(input: {
 
 const drivesTexto = (n: number) => (n === 1 ? '1 drive' : `${n} drives`)
 
-/** «A Pedro le faltan 2 drives · quedan 3 hoyos». Con varios: «A Pedro le faltan 2 drives y a Juan 1 · …». */
+/** «A Pedro le faltan 2 drives · quedan 3 hoyos sin drive». Con varios: «A Pedro le faltan 2 drives y a Juan 1 · …». */
 export function textoAvisoDeDrives(aviso: AvisoDeDrives): string {
   const [primero, ...resto] = aviso.faltan
   const verbo = primero.faltan === 1 ? 'le falta' : 'le faltan'
@@ -150,7 +150,7 @@ export function textoAvisoDeDrives(aviso: AvisoDeDrives): string {
     texto += otros.length === 1 ? ` y ${otros[0]}` : `, ${otros.slice(0, -1).join(', ')} y ${otros[otros.length - 1]}`
   }
   const h = aviso.hoyosRestantes
-  return `${texto} · ${h === 0 ? 'no quedan hoyos' : h === 1 ? 'queda 1 hoyo' : `quedan ${h} hoyos`}`
+  return `${texto} · ${h === 0 ? 'no quedan hoyos sin drive' : h === 1 ? 'queda 1 hoyo sin drive' : `quedan ${h} hoyos sin drive`}`
 }
 
 /** Nombre del jugador tal como se escribe: sin espacios a los lados. */

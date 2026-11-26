@@ -23,6 +23,7 @@ const pendientes = { hay: false }
 const limpiarCopiaLocalDeRonda = vi.fn()
 const cerrarCopiaLocalAlFinalizar = vi.fn()
 // Las dos limpiezas son las reales (sobre el localStorage de jsdom), espiadas.
+vi.mock('@/lib/ronda/drives-pendientes', () => ({ PLAZO_DRIVES_AL_FINALIZAR_MS: 6_000, hayDrivesPendientes: () => false, reenviarDrivesPendientes: vi.fn() }))
 vi.mock('@/lib/ronda/score-storage', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/ronda/score-storage')>()
   return {

@@ -19,6 +19,9 @@ const cola = crearColaDePendientes(DRIVES_PEND_KEY)
 /** Valor en la cola para «sin drive en este hoyo» (desmarcar). */
 export const SIN_DRIVE = -1
 
+/** Cuánto espera Finalizar a que suban los drives en cola antes de cerrar igual (no afectan el score). */
+export const PLAZO_DRIVES_AL_FINALIZAR_MS = 6_000
+
 export interface DrivePendiente {
   equipoId: string
   hoyo: number

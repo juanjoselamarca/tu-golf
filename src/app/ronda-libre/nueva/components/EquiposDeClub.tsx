@@ -86,8 +86,8 @@ const OPCIONES_DRIVES = [
 ] as const
 
 /**
- * «¿Anotar drives?» (registro opcional, src/golf/formats/drives-scramble.ts). No viene elegido: sin tocarlo la
- * ronda es la de siempre. Con Sí, cada tarjeta pide los jugadores del equipo.
+ * «¿Anotar drives?» (registro opcional, src/golf/formats/drives-scramble.ts). Viene en «No» (default seguro: sin tocarlo la
+ * ronda es la de siempre; después de crear no se activa). Con Sí, cada tarjeta pide los jugadores del equipo.
  */
 function SelectorAnotarDrives({ anotarDrives, holes, onElegir }: { anotarDrives: boolean; holes: number; onElegir: (si: boolean) => void }) {
   const minimo = drivesMinimoPorJugador(holes)
