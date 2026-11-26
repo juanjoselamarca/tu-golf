@@ -3285,6 +3285,7 @@ BEGIN
   END IF;
 
   IF TG_OP = 'UPDATE'
+     AND NEW.id IS NOT DISTINCT FROM OLD.id
      AND NEW.handicap IS NOT DISTINCT FROM OLD.handicap
      AND NEW.tees IS NOT DISTINCT FROM OLD.tees
      AND NEW.ronda_id IS NOT DISTINCT FROM OLD.ronda_id THEN
@@ -3333,15 +3334,24 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF OLD.formato_juego IS DISTINCT FROM 'skins' AND NEW.formato_juego IS DISTINCT FROM 'skins' THEN
-    RETURN NEW;
-  END IF;
-
-  -- Lo congelado solo lo cambia el servidor (corrección antes del primer golpe, que lo recalcula con la cancha).
+  -- Lo congelado solo lo cambia el servidor, en CUALQUIER formato: si no, se forjaba pasando la ronda a otro formato,
+  -- cambiando lo congelado y volviendo al Skins (con la huella intacta, lo congelado forjado calzaba).
   IF (OLD.reglas_juego -> 'congelado') IS DISTINCT FROM (NEW.reglas_juego -> 'congelado')
      AND COALESCE(auth.role(), '') <> 'service_role' THEN
     RAISE EXCEPTION 'SKINS_CONGELADO: los golpes del Skins los fija el servidor al crear la ronda.'
       USING ERRCODE = 'P0003';
+  END IF;
+
+  -- Una ronda no entra ni sale del Skins después de creada (ningún camino de la app lo hace: el formato solo se
+  -- escribe al crear, y colocar_inscrito_en_grupo solo pone formatos de torneo, que no incluyen 'skins').
+  IF (COALESCE(OLD.formato_juego, '') = 'skins') <> (COALESCE(NEW.formato_juego, '') = 'skins')
+     AND COALESCE(auth.role(), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'SKINS_CONGELADO: una ronda no se convierte en Skins ni deja de serlo después de creada.'
+      USING ERRCODE = 'P0003';
+  END IF;
+
+  IF OLD.formato_juego IS DISTINCT FROM 'skins' AND NEW.formato_juego IS DISTINCT FROM 'skins' THEN
+    RETURN NEW;
   END IF;
 
   IF NEW.reglas_juego IS NOT DISTINCT FROM OLD.reglas_juego
@@ -4234,7 +4244,7 @@ CREATE TRIGGER ronda_equipos_anotador_guard BEFORE INSERT OR UPDATE OF anotador_
 CREATE TRIGGER ronda_equipos_anotador_nombre BEFORE INSERT OR UPDATE OF anotador_user_id, anotador_nombre ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_nombre();
 CREATE TRIGGER ronda_equipos_scores_de_su_anotador BEFORE UPDATE OF scores ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_scores_de_su_anotador();
 CREATE TRIGGER update_ronda_equipos_updated_at BEFORE UPDATE ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
-CREATE TRIGGER skins_congelado_tras_el_primer_golpe BEFORE INSERT OR DELETE OR UPDATE OF handicap, tees, ronda_id, scores, fuera_del_hoyo ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.skins_congelado_jugador();
+CREATE TRIGGER skins_congelado_tras_el_primer_golpe BEFORE INSERT OR DELETE OR UPDATE OF id, handicap, tees, ronda_id, scores, fuera_del_hoyo ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.skins_congelado_jugador();
 CREATE TRIGGER update_ronda_libre_jugadores_updated_at BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER skins_congelado_tras_el_primer_golpe BEFORE INSERT OR UPDATE OF reglas_juego, hcp_pct, modo_juego, tees, course_id, recorridos, holes, hoyo_inicio, formato_juego ON public.rondas_libres FOR EACH ROW EXECUTE FUNCTION public.skins_congelado_ronda();
 CREATE TRIGGER update_taiger_sessions_updated_at BEFORE UPDATE ON public.taiger_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
