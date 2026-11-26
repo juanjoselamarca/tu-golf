@@ -25,6 +25,25 @@ describe('useCampoHandicap', () => {
     expect(result.current.invalido).toBe(true)
   })
 
+  it('dos decimales (12.35, -2.45) bloquean con su aviso, al padre le llega null y lo escrito no se borra', () => {
+    let valor: number | null = 10
+    const { result, rerender } = renderHook(() => useCampoHandicap(valor, v => { valor = v }))
+    for (const texto of ['12.35', '+2.45', '12,37']) {
+      act(() => result.current.onTexto(texto))
+      rerender()
+      expect(valor).toBeNull()
+      expect(result.current.texto).toBe(texto)
+      expect(result.current.dosDecimales).toBe(true)
+      expect(result.current.bloquea).toBe(true)
+      expect(result.current.invalido).toBe(false)
+    }
+    act(() => result.current.onTexto('12.4'))
+    rerender()
+    expect(valor).toBe(12.4)
+    expect(result.current.dosDecimales).toBe(false)
+    expect(result.current.bloquea).toBe(false)
+  })
+
   it('si el padre cambia el valor desde afuera, el texto lo sigue', () => {
     const { result, rerender } = renderHook(({ v }) => useCampoHandicap(v, vi.fn()), { initialProps: { v: null as number | null } })
     rerender({ v: -3 })
