@@ -31,11 +31,22 @@ export function useCampoHandicap(
   valor: number | null,
   onValor: (v: number | null) => void,
   onBloquea?: (bloquea: boolean) => void,
+  /**
+   * Quién es el dueño del valor (el perfil elegido en el buscador). Si cambia, el texto se reemplaza SIEMPRE por el
+   * valor nuevo: "12.35" o "abc" le mandan null al padre, y un perfil sin índice (null) no los habría borrado.
+   */
+  identidad?: string | null,
 ) {
   const [texto, setTexto] = useState(() => textoCampoHandicap(valor))
   const [valorPrevio, setValorPrevio] = useState(valor)
+  const [identidadPrevia, setIdentidadPrevia] = useState(identidad)
+  if (identidad !== identidadPrevia) {
+    setIdentidadPrevia(identidad)
+    setValorPrevio(valor)
+    setTexto(textoCampoHandicap(valor))
+  }
   // Object.is y no !==: con NaN, `NaN !== NaN` es siempre true y el setState en render no terminaba nunca.
-  if (!Object.is(valor, valorPrevio)) {
+  else if (!Object.is(valor, valorPrevio)) {
     setValorPrevio(valor)
     // Contra lo que el campo le manda al padre (no contra lo leído): "12.35" manda null y no se borra lo escrito.
     if (!Object.is(valorParaElPadre(texto), valor)) setTexto(textoCampoHandicap(valor))

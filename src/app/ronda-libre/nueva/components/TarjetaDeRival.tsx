@@ -32,7 +32,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, t
   const idIndice = `rival-${indiceEnLista}-indice`
   // Texto local (#773): con type=number, "+1.5" quedaba en '' → 0 y un plus se veía "-2". El índice que llega
   // de un perfil elegido (handleSelect) reemplaza el texto.
-  const campoIndice = useCampoHandicap(rival.handicap, v => onCampo('handicap', v), onBloqueo)
+  const campoIndice = useCampoHandicap(rival.handicap, v => onCampo('handicap', v), onBloqueo, rival.profileId)
 
   // Search only active when tipo === 'cuenta' and no profile selected yet.
   const searchActive = rival.tipo === 'cuenta' && !rival.profileId
