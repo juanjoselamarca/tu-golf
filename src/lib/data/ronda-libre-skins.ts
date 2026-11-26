@@ -3,14 +3,14 @@
 // Las marcas de puntos especiales y los retiros viven en tablas privadas (sin permisos para anon ni authenticated,
 // migración 20261027180000): se leen con el cliente de servicio, igual que en la Timba (`ronda-libre-timba.ts`).
 // Entrega `VistaDelSkinsEnElScorer`: puntos para marcar, marcas, retiros y la tabla en vivo con la plata (`tabla`),
-// calculada acá con el motor. Los hándicaps no salen: el contexto (CH de cada uno con el índice fijado al crear y el
-// tee de cada uno) se arma con `contextoSkinsDeRondaNueva`, el mismo que validó al crear y que usa el scorer.
+// calculada acá con el motor. Los hándicaps no salen: el contexto (CH de cada uno y los hoyos) es el congelado al crear
+// (`contextoDelSkinsDeLaRonda`, el mismo que usa el scorer); una ronda vieja sin congelado lo recalcula.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { esFormatoSkins, hoyosFueraDesdeLaBase, type FueraPorJugador } from '@/golf/formats/skins'
 import { captureError } from '@/lib/error-tracking'
 import { detalleDeLecturaFallida } from '@/lib/red/lectura-fallida'
-import { contextoSkinsDeRondaNueva } from './skins-ronda-nueva'
+import { contextoDelSkinsDeLaRonda } from './skins-contexto-guardado'
 import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import type { FilaMarcaPuntito, FilaRetiro } from '@/golf/ronda-libre/juego-de-la-ronda'
 import { leerReglasSkins, vistaDelSkinsEnElScorer, type VistaDelSkinsEnElScorer } from '@/golf/ronda-libre/skins-del-scorer'
@@ -102,11 +102,11 @@ async function tarjetasDelSkins(
   const jugadores = jugadorIds.map(id => filas.find(f => f.id === id))
   if (!ronda.course_id || jugadores.some(j => !j)) return null
   try {
-    const contexto = await contextoSkinsDeRondaNueva(admin, {
+    const contexto = await contextoDelSkinsDeLaRonda(admin, {
       courseId: ronda.course_id, holes: ronda.holes, hoyoInicio: ronda.hoyo_inicio, recorridos: ronda.recorridos,
       tees: ronda.tees, modo,
       jugadores: jugadores.map(j => ({ nombre: j!.nombre, indice: j!.handicap ?? null, tees: j!.tees ?? null })),
-    })
+    }, { reglasJuego: ronda.reglas_juego, jugadorIds })
     const orden = contexto.hoyos.map(h => h.numero)
     const fuera: FueraPorJugador = Object.fromEntries(jugadores.map(j => [j!.id, hoyosFueraDesdeLaBase(j!.fuera_del_hoyo, orden)]))
     const scores = Object.fromEntries(jugadores.map(j => [j!.id, j!.scores ?? {}]))

@@ -4,9 +4,9 @@
  *
  * Lo congelado al crear es el ÍNDICE: el que quedó en `ronda_libre_jugadores.handicap` (la API de creación exige índice
  * de todos en neto: `validarConfigSkins` bloquea `sinHandicap`), nunca el índice vivo del perfil, que cambiaría el más
- * bajo del campo a mitad de ronda. El course handicap NO se guarda: se recalcula con ese índice, el tee fijo de cada
- * jugador y el rating/slope que la cancha tenga al leerlo, en la escala de los hoyos de la ronda. Lo arma
- * `contextoSkinsDeRondaNueva`, el mismo que validó al crear.
+ * bajo del campo a mitad de ronda. El course handicap y los hoyos (par, SI) también quedan congelados al crear
+ * (`reglas_juego.congelado`, ver `skins-congelado.ts`): el rating que la cancha tenga después no mueve la plata. Las
+ * rondas viejas sin congelado lo recalculan con `contextoSkinsDeRondaNueva`, el mismo que validó al crear.
  */
 import { handicapDeJuego } from '@/golf/core/playing-handicap'
 import { esHandicapUsable } from '@/golf/formats/match-play'
