@@ -63,13 +63,19 @@ export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   rondas_libres: [
     'id', 'codigo', 'creador_id', 'course_id', 'course_name', 'tees', 'holes', 'fecha', 'estado', 'created_at', 'modo_juego',
     'hoyo_inicio', 'admin_mode', 'admin_user_id', 'recorridos', 'formato_juego', 'es_demo', 'hcp_pct',
+    // drives_minimo: 20261125200000_drives_scramble_de_club (la vista en vivo muestra los drives).
+    'drives_minimo',
   ],
   // handicap_de_inscripcion: 20261116120000_handicap_de_inscripcion (la vista pública separa fuente y privacidad).
   // fuera_del_hoyo: 20261125100000_skins_ronda_libre (la X del skins; la vista en vivo la muestra).
   ronda_libre_jugadores: ['id', 'ronda_id', 'nombre', 'user_id', 'scores', 'handicap', 'tees', 'handicap_de_inscripcion', 'fuera_del_hoyo'],
   // handicap_origen: 20261123100000_scramble_equipos_de_club. anotador_user_id y anotador_nombre NO: quién anota cada
   // equipo es dato del scorer (authenticated), no del espectador.
-  ronda_equipos: ['id', 'ronda_id', 'nombre', 'handicap_equipo', 'scores', 'created_at', 'handicap_equipo_juego', 'handicap_origen'],
+  // drive_jugadores y drives: 20261125200000_drives_scramble_de_club (el espectador ve quién tiró el drive).
+  ronda_equipos: [
+    'id', 'ronda_id', 'nombre', 'handicap_equipo', 'scores', 'created_at', 'handicap_equipo_juego', 'handicap_origen',
+    'drive_jugadores', 'drives',
+  ],
   ronda_equipo_jugadores: ['equipo_id', 'jugador_id', 'orden'],
 }
 
