@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { FueraPorJugador } from '@/golf/formats/skins/fuera-del-hoyo'
 import type { VistaDelSkinsEnElScorer } from '@/golf/ronda-libre/skins-del-scorer'
 import type { RondaLibre } from '@/types/ronda'
-import { EditarSkins } from '../../components/skins/EditarSkins'
+import { EditarSkins, FranjaJugadoresFijos } from '../../components/skins/EditarSkins'
 import { puedeEditarElSkins } from '../../hooks/useEditarSkins'
 
 /** ¿Este teléfono ya anotó algo (un golpe o una X), aunque todavía no haya llegado al servidor? */
@@ -29,19 +29,31 @@ export function EditarSkinsDelScorer(props: {
 }) {
   const { ronda, vista, userId, enElHoyoDeSalida, scores, fuera, onGuardado } = props
   const jugadores = ronda.ronda_libre_jugadores
-  const visible = !!vista && !!ronda.creador_id && enElHoyoDeSalida && !hayAlgoAnotadoEnElTelefono(scores, fuera)
+  const anotado = hayAlgoAnotadoEnElTelefono(scores, fuera)
+  const esCreador = !!userId && userId === ronda.creador_id
+  const visible = !!vista && !!ronda.creador_id && enElHoyoDeSalida && !anotado
     && puedeEditarElSkins({ userId, creadorId: ronda.creador_id, vista, jugadores })
   // Revisión Fable #898 (P1-2): el primer «+» esconde el botón. Si la franja se fuera, las tarjetas subirían ~56 px y el
   // segundo toque caería en otra tecla. Mientras se siga en el hoyo de salida, su lugar lo ocupa una franja del mismo
   // alto; al cambiar de hoyo (toda la pantalla cambia) se va. Estado derivado del render anterior, sin efecto.
+  // Vuelta 2 (P2-C): antes de saber (la vista todavía no llega, o se está releyendo tras una edición hecha en otro lado)
+  // el lugar ya se guarda para el creador en el hoyo de salida: cuando aparece el botón, las tarjetas no bajan; y si
+  // la vista dice que ya empezó, la franja se queda (con texto) en vez de irse y subirlas.
+  const antesDeSaber = esCreador && enElHoyoDeSalida && !anotado && vista?.empezado !== true && vista?.rondaCerrada !== true
   const [reservado, setReservado] = useState(false)
-  if (visible && enElHoyoDeSalida && !reservado) setReservado(true)
+  if ((visible || antesDeSaber) && enElHoyoDeSalida && !reservado) setReservado(true)
   if (!enElHoyoDeSalida && reservado) setReservado(false)
-  if (!vista || !ronda.creador_id) return null
+  const reservarLugar = reservado || antesDeSaber
+  // Vuelta 2 (P2-B): el texto «ya empezó» solo cuando es verdad (este teléfono anotó o el servidor lo dice); si no, la
+  // franja va vacía, del mismo alto.
+  const conTexto = anotado || vista?.empezado === true
+  if (!ronda.creador_id) return null
+  if (!vista) return reservarLugar ? <FranjaJugadoresFijos conTexto={false} /> : null
   return (
     <EditarSkins
       visible={visible}
-      reservarLugar={reservado}
+      reservarLugar={reservarLugar}
+      franjaConTexto={conTexto}
       codigo={ronda.codigo}
       creadorId={ronda.creador_id}
       jugadores={jugadores}

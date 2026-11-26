@@ -59,6 +59,35 @@ describe('«Editar» en el scorer', () => {
     render(<EditarSkinsDelScorer ronda={ronda} vista={vista} userId="otro" enElHoyoDeSalida scores={{ a: { 1: 4 } }} fuera={{}} onGuardado={() => {}} />)
     expect(screen.queryByText(TEXTO_JUGADORES_FIJOS)).toBeNull()
   })
+  // Revisión #898 v2 (P2-C): la vista llega después que las tarjetas; el lugar ya estaba guardado, no bajan.
+  it('creador en el hoyo de salida, sin vista todavía: franja vacía del mismo alto; al llegar la vista, botón sin salto', () => {
+    const props = { ronda, userId: CREADOR, enElHoyoDeSalida: true, scores: {}, fuera: {}, onGuardado: () => {} }
+    const { container, rerender } = render(<EditarSkinsDelScorer {...props} vista={null} />)
+    const franja = () => container.firstElementChild as HTMLElement | null
+    expect(franja()?.style.minHeight).toBe('56px')
+    expect(screen.queryByText(TEXTO_JUGADORES_FIJOS)).toBeNull()
+    rerender(<EditarSkinsDelScorer {...props} vista={vista} />)
+    expect(screen.getByRole('button', { name: 'Editar' })).toBeTruthy()
+    expect(franja()?.style.minHeight).toBe('56px')
+  })
+  it('otro jugador sin vista: no reserva nada', () => {
+    const { container } = render(<EditarSkinsDelScorer ronda={ronda} vista={null} userId="otro" enElHoyoDeSalida scores={{}} fuera={{}} onGuardado={() => {}} />)
+    expect(container.firstElementChild).toBeNull()
+  })
+  // Revisión #898 v2 (P2-B): mientras se relee tras una edición hecha en otro lado, el Skins NO empezó: la franja no lo afirma.
+  it('jugadores desalineados (relectura en curso), sin nada anotado: franja vacía, sin «ya empezó»', () => {
+    const { container } = render(<EditarSkinsDelScorer ronda={ronda} vista={{ ...vista, jugadorIds: ['a', 'z'] }} userId={CREADOR} enElHoyoDeSalida scores={{}} fuera={{}} onGuardado={() => {}} />)
+    expect(screen.queryByRole('button', { name: 'Editar' })).toBeNull()
+    expect(screen.queryByText(TEXTO_JUGADORES_FIJOS)).toBeNull()
+    expect((container.firstElementChild as HTMLElement | null)?.style.minHeight).toBe('56px')
+  })
+  it('sin vista todavía y llega «empezó» (una X o un punto especial en otro teléfono): la franja se queda y lo dice', () => {
+    const props = { ronda, userId: CREADOR, enElHoyoDeSalida: true, scores: {}, fuera: {}, onGuardado: () => {} }
+    const { container, rerender } = render(<EditarSkinsDelScorer {...props} vista={null} />)
+    rerender(<EditarSkinsDelScorer {...props} vista={{ ...vista, empezado: true }} />)
+    expect(screen.getByText(TEXTO_JUGADORES_FIJOS)).toBeTruthy()
+    expect((container.firstElementChild as HTMLElement | null)?.style.minHeight).toBe('56px')
+  })
   it('hayAlgoAnotadoEnElTelefono', () => {
     expect(hayAlgoAnotadoEnElTelefono({ a: {}, b: {} }, { a: {} })).toBe(false)
     expect(hayAlgoAnotadoEnElTelefono({ a: {} }, { b: { 3: true } })).toBe(true)
