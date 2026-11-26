@@ -26,6 +26,7 @@ import { haptic } from '@/lib/ronda/helpers'
 import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_GRUPO_CAMBIO, AVISO_YA_NO_ESTAS_EN_LA_RONDA, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
 import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
+import { hayDrivesPendientes, reenviarDrivesPendientes, PLAZO_DRIVES_AL_FINALIZAR_MS } from '@/lib/ronda/drives-pendientes'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
@@ -360,6 +361,17 @@ export function useFinalizeGrupo(input: {
         addToast({ ...AVISO_MARCAS_SIN_ENVIAR, type: 'error', duration: 8000 })
         haptic([30, 60, 30])
         return
+      }
+      // Drives del scramble de club: no cuentan para el score y no frenan el cierre, pero los que esperan en la cola
+      // suben ANTES de cerrar. Con la ronda cerrada la RPC los rechaza (P0002) y el jugador quedaría con un drive
+      // menos sin aviso (revisión Fable #895). Mejor esfuerzo con plazo: sin señal, se cierra igual.
+      if (hayDrivesPendientes(codigo)) {
+        try {
+          await conPlazoCancelable(s => reenviarDrivesPendientes(clienteConSenal(supabase, s), codigo), PLAZO_DRIVES_AL_FINALIZAR_MS)
+        } catch { /* sin señal: el cierre no espera a los drives */ }
+        if (hayDrivesPendientes(codigo)) {
+          void captureError(new Error('drives sin subir al finalizar'), { context: 'score_grupo_finalize_drives', level: 'warning', meta: { codigo } })
+        }
       }
     }
 

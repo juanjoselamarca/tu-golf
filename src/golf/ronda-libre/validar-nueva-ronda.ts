@@ -13,6 +13,11 @@
 
 import { FORMAT_META, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isMatchPlayFormat, isTeamFormat } from '@/golf/formats'
+import {
+  JUGADORES_POR_EQUIPO_CON_DRIVES,
+  NOMBRE_JUGADOR_DE_DRIVE_MAX,
+  problemaDeJugadoresDeDrive,
+} from '@/golf/formats/drives-scramble'
 import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 import {
   EQUIPOS_MINIMOS,
@@ -53,6 +58,11 @@ export interface EquipoAValidar {
 export interface EquipoDeClubAValidar {
   nombre: string
   handicap: number | null
+  /**
+   * Solo con «Anotar drives»: los jugadores del equipo, en orden (src/golf/formats/drives-scramble.ts). Sin drives
+   * la clave no está: el equipo viaja igual que antes.
+   */
+  driveJugadores?: string[]
 }
 
 /** Scramble rápido: equipos con el hándicap del club, sin jugadores (src/golf/ronda-libre/equipos-de-club.ts). */
@@ -61,6 +71,8 @@ export interface EquiposDeClubAValidar {
   holes: number
   /** Con un solo equipo no se pregunta: llega null. */
   quienAnota: QuienAnota | null
+  /** «¿Anotar drives?» Sí: cada equipo lleva sus jugadores (`driveJugadores`). */
+  anotarDrives?: boolean
 }
 
 export interface RondaAValidar {
@@ -127,7 +139,7 @@ export const DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB = `Este modo admite hasta ${MAX_
  */
 function problemaDeRondaConEquiposDeClub(
   { formato, modo, jugadores }: RondaAValidar,
-  { equipos, holes, quienAnota }: EquiposDeClubAValidar,
+  { equipos, holes, quienAnota, anotarDrives }: EquiposDeClubAValidar,
 ): ProblemaDeLaRonda | null {
   if (!admiteEquiposDeClub(formato)) {
     return { titulo: 'Solo en Scramble', esError: true, detalle: 'Los equipos con hándicap del club se juegan solo en Scramble.' }
@@ -169,6 +181,25 @@ function problemaDeRondaConEquiposDeClub(
   const nombres = equipos.map((e, i) => nombreVisibleDeEquipo(e.nombre, i).toLocaleLowerCase('es-CL'))
   if (new Set(nombres).size !== nombres.length) {
     return { titulo: 'Nombres repetidos', esError: true, detalle: 'Dos equipos se llaman igual. Cambia uno.' }
+  }
+
+  if (anotarDrives) {
+    for (const [i, equipo] of equipos.entries()) {
+      const nombre = nombreVisibleDeEquipo(equipo.nombre, i)
+      const problema = problemaDeJugadoresDeDrive(equipo.driveJugadores ?? [])
+      if (problema === 'faltan') {
+        return { titulo: 'Faltan jugadores', detalle: `Escribe los ${JUGADORES_POR_EQUIPO_CON_DRIVES} jugadores de ${nombre}.` }
+      }
+      if (problema === 'largo') {
+        return {
+          titulo: 'Nombre muy largo', esError: true,
+          detalle: `Un jugador de ${nombre} pasa de ${NOMBRE_JUGADOR_DE_DRIVE_MAX} letras. Usa el nombre corto.`,
+        }
+      }
+      if (problema === 'repetidos') {
+        return { titulo: 'Jugadores repetidos', esError: true, detalle: `Dos jugadores de ${nombre} se llaman igual. Cambia uno.` }
+      }
+    }
   }
 
   if (equipos.length >= 2 && quienAnota == null) {

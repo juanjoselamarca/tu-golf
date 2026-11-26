@@ -726,6 +726,53 @@ describe('POST /api/ronda-libre/create — equipos con hándicap del club (scram
       expect(e).not.toHaveProperty('anotador_user_id')
     }
   })
+
+  describe('drives (registro opcional)', () => {
+    const CUATRO = ['Pedro', 'Juan', 'Diego', 'Tomás']
+    const conDrives = (equipos: unknown[], over: Record<string, unknown> = {}) =>
+      club(over, { equipos, quien_anota: 'cada_equipo', anotar_drives: true })
+
+    it('sin drives: ni drives_minimo en la ronda ni drive_jugadores en los equipos (la fila de siempre)', async () => {
+      const res = await POST(req(club()))
+      expect(res.status).toBe(200)
+      expect(escrituras('rondas_libres')[0].payload).not.toHaveProperty('drives_minimo')
+      for (const e of equiposGrabados()) expect(e).not.toHaveProperty('drive_jugadores')
+    })
+
+    it('unos driveJugadores sueltos sin anotar_drives no se graban', async () => {
+      const res = await POST(req(club({}, { equipos: [{ nombre: 'Los Tigres', handicap: 8, driveJugadores: CUATRO }], quien_anota: null })))
+      expect(res.status).toBe(200)
+      expect(equiposGrabados()[0]).not.toHaveProperty('drive_jugadores')
+      expect(escrituras('rondas_libres')[0].payload).not.toHaveProperty('drives_minimo')
+    })
+
+    it('con drives a 18: mínimo 4 y los jugadores de cada equipo, sin espacios', async () => {
+      const res = await POST(req(conDrives([
+        { nombre: 'Los Tigres', handicap: 8, driveJugadores: [' Pedro ', 'Juan', 'Diego', 'Tomás'] },
+        { nombre: 'Halcones', handicap: 10, driveJugadores: ['Ana', 'Bea', 'Caro', 'Dani'] },
+      ])))
+      expect(res.status).toBe(200)
+      expect(escrituras('rondas_libres')[0].payload).toMatchObject({ drives_minimo: 4 })
+      expect(equiposGrabados().map(e => e.drive_jugadores)).toEqual([CUATRO, ['Ana', 'Bea', 'Caro', 'Dani']])
+    })
+
+    it('con drives a 9: mínimo 2', async () => {
+      const res = await POST(req(club({ holes: 9 }, {
+        equipos: [{ nombre: 'Los Tigres', handicap: 8, driveJugadores: CUATRO }], quien_anota: null, anotar_drives: true,
+      })))
+      expect(res.status).toBe(200)
+      expect(escrituras('rondas_libres')[0].payload).toMatchObject({ drives_minimo: 2 })
+    })
+
+    it('un equipo sin sus 4 jugadores o con dos iguales no crea nada', async () => {
+      const faltan = await POST(req(conDrives([{ nombre: 'Los Tigres', handicap: 8, driveJugadores: ['Pedro', 'Juan', '', 'Tomás'] }])))
+      expect(faltan.status).toBe(400)
+      expect((await faltan.json()).error).toContain('4 jugadores de Los Tigres')
+      const repetidos = await POST(req(conDrives([{ nombre: 'Los Tigres', handicap: 8, driveJugadores: ['Pedro', 'pedro', 'Diego', 'Tomás'] }])))
+      expect(repetidos.status).toBe(400)
+      nadaEscrito()
+    })
+  })
 })
 
 describe('POST /api/ronda-libre/create — Skins', () => {

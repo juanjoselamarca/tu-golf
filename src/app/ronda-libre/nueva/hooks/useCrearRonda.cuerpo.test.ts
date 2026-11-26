@@ -28,6 +28,14 @@ describe('cuerpoParaCrearRonda — equipos de club', () => {
     expect(JSON.parse(JSON.stringify(body))).not.toHaveProperty('equipos')
   })
 
+  it('sin drives el body es el de siempre (sin anotar_drives); con drives viaja anotar_drives: true', () => {
+    const sin = cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'uno', anotarDrivesEquiposDeClub: false }))
+    expect(JSON.stringify(sin)).toBe(JSON.stringify(cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'uno' }))))
+    expect(sin.equipos_de_club).not.toHaveProperty('anotar_drives')
+    const con = cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'uno', anotarDrivesEquiposDeClub: true }))
+    expect(con.equipos_de_club).toEqual({ equipos: club, quien_anota: 'uno', anotar_drives: true })
+  })
+
   it('«Cada equipo en su celular» viaja tal cual (el servidor deriva admin_mode)', () => {
     expect(cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'cada_equipo' })).equipos_de_club?.quien_anota).toBe('cada_equipo')
   })

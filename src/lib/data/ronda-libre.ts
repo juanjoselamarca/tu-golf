@@ -19,6 +19,7 @@ import type { CourseHole, RondaLibre } from '@/types/ronda'
 import { conJugadoresOrdenados } from '@/lib/ronda/orden-jugadores'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
+import { jugadoresDeDrive, leerDrives } from '@/golf/formats/drives-scramble'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
@@ -73,7 +74,7 @@ export async function fetchEquiposConAnotador(
   return ((await leerEquiposDeRondas(supabase, [rondaId], true)).get(rondaId) ?? []) as EquipoConAnotadorLeido[]
 }
 
-const COLUMNAS_EQUIPO = 'id, nombre, handicap_equipo, handicap_equipo_juego, handicap_origen, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)'
+const COLUMNAS_EQUIPO = 'id, nombre, handicap_equipo, handicap_equipo_juego, handicap_origen, scores, drive_jugadores, drives, ronda_id, ronda_equipo_jugadores(jugador_id, orden)'
 
 async function leerEquiposDeRondas(
   supabase: Pick<SupabaseClient, 'from'>,
@@ -96,6 +97,9 @@ async function leerEquiposDeRondas(
   for (const e of (eqData ?? []) as unknown as Array<Record<string, unknown>>) {
     const rondaId = e.ronda_id as string
     const lista = porRonda.get(rondaId) ?? []
+    // Drives del scramble (src/golf/formats/drives-scramble.ts): solo en el equipo que los anota. Sin ellos el
+    // equipo queda igual que antes, sin las claves.
+    const driveJugadores = jugadoresDeDrive(e.drive_jugadores)
     lista.push({
       id: e.id as string,
       nombre: e.nombre as string,
@@ -106,6 +110,7 @@ async function leerEquiposDeRondas(
       jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         .map(m => m.jugador_id),
+      ...(driveJugadores ? { drive_jugadores: driveJugadores, drives: leerDrives(e.drives, driveJugadores.length) } : {}),
       ...(conAnotador ? {
         anotador_user_id: (e.anotador_user_id as string | null | undefined) ?? null,
         anotador_nombre: (e.anotador_nombre as string | null | undefined) ?? null,
@@ -255,7 +260,7 @@ export function parYSiDeLaRonda(
 
 /** Columnas de la ronda que viajan a la vista en vivo (las mismas que leía el navegador). */
 export const COLUMNAS_RONDA_EN_VIVO =
-  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
+  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, hcp_pct, drives_minimo, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, handicap_de_inscripcion, tees)'
 
 /**
  * Arma TODO lo que muestra la vista en vivo de una ronda libre: la ronda + par/SI

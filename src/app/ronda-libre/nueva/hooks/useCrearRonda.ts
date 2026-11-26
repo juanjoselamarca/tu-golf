@@ -154,6 +154,8 @@ export interface Args {
   equiposDeClub?: EquipoDeClubAValidar[] | null
   /** Con equipos de club: quién anota (`useEquiposDeClub.quienAnotaParaEnviar`; `null` con 1 equipo o sin elegir). */
   quienAnotaEquiposDeClub?: QuienAnota | null
+  /** Con equipos de club: «¿Anotar drives?» Sí (`useEquiposDeClub.anotarDrivesParaEnviar`). */
+  anotarDrivesEquiposDeClub?: boolean
 }
 
 export interface RondaCreada {
@@ -192,7 +194,14 @@ export function cuerpoParaCrearRonda(args: Args, equipos: ReturnType<typeof equi
     recorridos: args.recorridos.length > 0 ? args.recorridos : undefined,
     jugadores: jugadoresParaLaApi(args.jugadores, args.userId),
     equipos: isTeamFormat(formatoAEnviar) && !club ? equipos : undefined,
-    equipos_de_club: club ? { equipos: club, quien_anota: args.quienAnotaEquiposDeClub ?? null } : undefined,
+    equipos_de_club: club
+      ? {
+        equipos: club,
+        quien_anota: args.quienAnotaEquiposDeClub ?? null,
+        // Solo con drives: sin ellos el body es byte a byte el de antes.
+        ...(args.anotarDrivesEquiposDeClub ? { anotar_drives: true } : {}),
+      }
+      : undefined,
     reglas_juego: args.timba?.reglasJuego ?? args.skins?.reglasJuego,
   }
 }
@@ -222,7 +231,16 @@ export function useCrearRonda(args: Args) {
     })),
     equipos: club ? [] : equipos,
     creadorId: args.userId,
-    ...(club ? { equiposDeClub: { equipos: club, holes: args.forma.holes, quienAnota: args.quienAnotaEquiposDeClub ?? null } } : {}),
+    ...(club
+      ? {
+        equiposDeClub: {
+          equipos: club,
+          holes: args.forma.holes,
+          quienAnota: args.quienAnotaEquiposDeClub ?? null,
+          anotarDrives: !!args.anotarDrivesEquiposDeClub,
+        },
+      }
+      : {}),
   })
   const problema = problemaDeLaRonda ?? args.timba?.problema ?? args.skins?.problema ?? null
 

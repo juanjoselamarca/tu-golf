@@ -107,6 +107,8 @@ export interface EquipoAInsertar {
    * el trigger `ronda_equipos_anotador_guard` rechaza cualquier otra.
    */
   anotadorUserId?: string | null
+  /** Drives del scramble (src/golf/formats/drives-scramble.ts): los jugadores del equipo. Ausente = sin drives. */
+  driveJugadores?: readonly string[]
 }
 
 export type ResultadoInsertarEquipos = { ok: true } | { ok: false; error: unknown }
@@ -136,6 +138,7 @@ export async function insertarEquiposDeRonda(
         // Las columnas nuevas solo se nombran cuando hacen falta: una ronda con jugadores no depende de ellas.
         ...(equipo.handicapOrigen ? { handicap_origen: equipo.handicapOrigen } : {}),
         ...(equipo.anotadorUserId ? { anotador_user_id: equipo.anotadorUserId } : {}),
+        ...(equipo.driveJugadores ? { drive_jugadores: [...equipo.driveJugadores] } : {}),
       })
       .select('id')
       .single()

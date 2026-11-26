@@ -1,10 +1,12 @@
 // #602 — Tarjeta del equipo (scramble / foursome) en el scorer de grupo.
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { SharedBallTeamCard } from './SharedBallTeamCard'
 import { SCORER_THEME } from '@/components/ronda/scorer-theme'
 import { hoyosDeBolaCompartida, totalesBolaCompartida } from '@/golf/formats'
 import type { HoleData } from '@/types/ronda'
+import { conteoDeDrives } from '@/golf/formats/drives-scramble'
+import type { DrivesDeUnEquipo } from '../hooks/useDrivesDelScorer'
 
 const ordenHoyos = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 const holeDataMap: Record<number, HoleData> = Object.fromEntries(
@@ -66,5 +68,59 @@ describe('SharedBallTeamCard — equipo de club (scramble rápido)', () => {
     expect(screen.queryByText('Juanjo')).toBeNull()
     expect(screen.queryByText(/^HCP/)).toBeNull()
     expect(screen.getByText('Los Tigres').nextElementSibling).toBeNull()
+  })
+})
+
+describe('SharedBallTeamCard — drives del scramble', () => {
+  const jugadores = ['Juanjo', 'Pedro', 'Diego', 'Tomás']
+  const H18 = Array.from({ length: 18 }, (_, i) => i + 1)
+  // Juanjo 3, Pedro 1, Diego 4, Tomás 2 (10 hoyos con drive).
+  const marcados = { '1': 0, '2': 0, '3': 0, '4': 1, '5': 2, '6': 2, '7': 2, '8': 2, '9': 3, '10': 3 }
+  const drives = (elegir = vi.fn(), driveDelHoyo: number | null = 2): DrivesDeUnEquipo => ({
+    jugadores, driveDelHoyo, minimo: 4, aviso: null, elegir,
+    conteo: conteoDeDrives({ jugadores, drives: marcados, minimo: 4, hoyos: H18 }),
+  })
+  const pintarConDrives = (d: DrivesDeUnEquipo | null, deshabilitados = false) => render(
+    <SharedBallTeamCard
+      equipo={equipo} formatoJuego="scramble" modoJuego="gross" currentHole={9} par={4}
+      totales={null} foursomeInvertido={false} onToggleInvertido={() => {}} onChange={() => {}}
+      drives={d} drivesDeshabilitados={deshabilitados} theme={SCORER_THEME}
+    />,
+  )
+
+  it('sin drives la tarjeta queda igual: ni «Drive de:» ni conteo', () => {
+    pintarConDrives(null)
+    expect(screen.queryByText('Drive de:')).toBeNull()
+    expect(screen.queryByTestId('conteo-drives')).toBeNull()
+  })
+
+  it('un botón por jugador de al menos 44 px, con el del hoyo marcado; tocar llama con su índice', () => {
+    const elegir = vi.fn()
+    pintarConDrives(drives(elegir))
+    const botones = jugadores.map(n => screen.getByRole('button', { name: n }))
+    for (const b of botones) expect(parseInt(b.style.minHeight)).toBeGreaterThanOrEqual(44)
+    expect(botones.map(b => b.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'true', 'false'])
+    fireEvent.click(botones[1])
+    expect(elegir).toHaveBeenCalledWith(1)
+  })
+
+  it('conteo siempre a la vista: bajo el mínimo destacado y ✓ al que cumplió', () => {
+    pintarConDrives(drives())
+    const fila = screen.getByTestId('conteo-drives')
+    expect(fila.textContent).toBe('Mín. 4: Juanjo 3 · Pedro 1 · Diego 4 ✓ · Tomás 2')
+    const bajos = [...fila.querySelectorAll('[data-bajo-minimo="true"]')].map(e => e.textContent)
+    expect(bajos).toEqual(['Juanjo 3', 'Pedro 1', 'Tomás 2'])
+  })
+
+  it('el aviso de riesgo se muestra cuando lo hay', () => {
+    pintarConDrives({ ...drives(), aviso: 'A Pedro le faltan 3 drives · quedan 3 hoyos' })
+    expect(screen.getByRole('status').textContent).toBe('A Pedro le faltan 3 drives · quedan 3 hoyos')
+  })
+
+  it('tarjeta congelada: los botones no responden', () => {
+    const elegir = vi.fn()
+    pintarConDrives(drives(elegir), true)
+    const b = screen.getByRole('button', { name: 'Pedro' }) as HTMLButtonElement
+    expect(b.disabled).toBe(true)
   })
 })

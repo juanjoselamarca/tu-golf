@@ -9,6 +9,7 @@ import { prepararJuegoDeRondaNueva } from '@/golf/ronda-libre/juego-de-ronda-nue
 import { puedeCrearJuegoPersonalizado } from '@/lib/auth/juego-personalizado'
 import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 import { handicapsDeEquipoDeRondaNueva, insertarEquiposDeRonda } from '@/lib/data/ronda-libre-equipos'
+import { JUGADORES_POR_EQUIPO_CON_DRIVES, drivesMinimoPorJugador, nombreDeJugadorDeDrive } from '@/golf/formats/drives-scramble'
 import { generarCodigoDeRonda, nombreDeCanchaDeRonda } from '@/lib/data/ronda-libre-crear'
 import { DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB, validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { NOMBRE_EQUIPO_MAX, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
@@ -71,8 +72,12 @@ const equiposDeClubSchema = z.object({
     // Vacío vale: se graba el nombre por defecto, el mismo que muestra el formulario (`nombreVisibleDeEquipo`).
     nombre: z.string().trim().max(NOMBRE_EQUIPO_MAX, `El nombre del equipo puede tener hasta ${NOMBRE_EQUIPO_MAX} caracteres.`),
     handicap: z.number().nullable(),
+    // Con `anotar_drives`: los jugadores del equipo. Cuántos, el largo y los repetidos los responde el validador.
+    driveJugadores: z.array(z.string().max(100)).max(JUGADORES_POR_EQUIPO_CON_DRIVES).optional(),
   })).max(MAX_EQUIPOS_DE_CLUB, DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB),
   quien_anota: z.enum(OPCIONES_QUIEN_ANOTA).nullable(),
+  /** «¿Anotar drives?» Sí. Ausente = la ronda de siempre (y unos `driveJugadores` sueltos no se graban). */
+  anotar_drives: z.boolean().optional(),
 })
 
 const createSchema = z.object({
@@ -173,7 +178,9 @@ export async function POST(req: NextRequest) {
       jugadores: body.jugadores.map((j, i) => ({ nombre: j.nombre, indice: j.handicap, perfilId: perfilSugerido(j, i) })),
       equipos: isTeamFormat && !club ? body.equipos ?? [] : [],
       creadorId: user.id,
-      ...(club ? { equiposDeClub: { equipos: club.equipos, holes: body.holes, quienAnota: club.quien_anota } } : {}),
+      ...(club
+        ? { equiposDeClub: { equipos: club.equipos, holes: body.holes, quienAnota: club.quien_anota, anotarDrives: club.anotar_drives === true } }
+        : {}),
     })
     if (problema) {
       return NextResponse.json({ error: problema.detalle }, { status: 400 })
@@ -351,6 +358,12 @@ export async function POST(req: NextRequest) {
       rondaData.reglas_juego = juego.reglas
     }
 
+    // Drives del scramble: solo si se pidieron (sin ellos la fila es la de siempre).
+    const conDrives = !!club && club.anotar_drives === true
+    if (conDrives) {
+      rondaData.drives_minimo = drivesMinimoPorJugador(body.holes)
+    }
+
     const { data: ronda, error: rondaErr } = await supabase
       .from('rondas_libres')
       .insert(rondaData)
@@ -450,6 +463,7 @@ export async function POST(req: NextRequest) {
           handicapOrigen: 'club' as const,
           // Un celular por equipo: el equipo 1 lo anota el creador desde ya. Los demás los reclama cada celular.
           anotadorUserId: i === 0 && !adminMode ? user.id : null,
+          ...(conDrives ? { driveJugadores: (equipo.driveJugadores ?? []).map(nombreDeJugadorDeDrive) } : {}),
         }))
       : isTeamFormat && body.equipos && body.equipos.length > 0
       ? body.equipos.map((equipo, i) => ({

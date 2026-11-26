@@ -54,8 +54,8 @@ describe('textoDeHandicapDeClub / handicapDeClubDesdeTexto', () => {
 
 describe('equiposDeClubParaEnviar', () => {
   const equipos = [
-    { id: 'a', nombre: ' Los Tigres ', handicap: '8' },
-    { id: 'b', nombre: '', handicap: '' },
+    { id: 'a', nombre: ' Los Tigres ', handicap: '8', jugadores: ['', '', '', ''] },
+    { id: 'b', nombre: '', handicap: '', jugadores: ['', '', '', ''] },
   ]
 
   it('neto: nombre como se ve (vacío → «Equipo N») y el número escrito; vacío viaja null', () => {
@@ -76,9 +76,27 @@ describe('equiposDeClubParaEnviar', () => {
       equiposDeClub: { equipos: paraEnviar, holes: 18, quienAnota: 'uno' },
     })
     expect(problema(equiposDeClubParaEnviar(equipos, 'neto'))?.detalle).toBe('Escribe el hándicap de Equipo 2.')
-    expect(problema(equiposDeClubParaEnviar([{ id: 'a', nombre: '', handicap: '8,5' }], 'neto'))?.detalle)
+    expect(problema(equiposDeClubParaEnviar([{ id: 'a', nombre: '', handicap: '8,5', jugadores: ['', '', '', ''] }], 'neto'))?.detalle)
       .toBe('El hándicap de Equipo 1 va de 0 a 36, sin decimales.')
-    expect(problema(equiposDeClubParaEnviar([{ id: 'a', nombre: '', handicap: '8' }], 'neto'))).toBeNull()
+    expect(problema(equiposDeClubParaEnviar([{ id: 'a', nombre: '', handicap: '8', jugadores: ['', '', '', ''] }], 'neto'))).toBeNull()
+  })
+})
+
+describe('equiposDeClubParaEnviar — drives', () => {
+  const equipo = { id: 'a', nombre: 'Los Tigres', handicap: '8', jugadores: [' Pedro ', 'Juan', 'Diego', 'Tomás'] }
+
+  it('sin drives el equipo viaja byte a byte como antes (sin la clave driveJugadores)', () => {
+    expect(JSON.stringify(equiposDeClubParaEnviar([equipo], 'neto'))).toBe('[{"nombre":"Los Tigres","handicap":8}]')
+    expect(JSON.stringify(equiposDeClubParaEnviar([equipo], 'neto', false))).toBe('[{"nombre":"Los Tigres","handicap":8}]')
+  })
+
+  it('con drives viajan los 4 jugadores sin espacios, y el validador pide los que faltan', () => {
+    expect(equiposDeClubParaEnviar([equipo], 'neto', true)[0].driveJugadores).toEqual(['Pedro', 'Juan', 'Diego', 'Tomás'])
+    const incompleto = equiposDeClubParaEnviar([{ ...equipo, jugadores: ['Pedro', '', '', ''] }], 'neto', true)
+    expect(validarNuevaRonda({
+      cancha: 'Club', formato: 'scramble', modo: 'neto', jugadores: [{ nombre: 'Juanjo', indice: null }], equipos: [],
+      equiposDeClub: { equipos: incompleto, holes: 18, quienAnota: null, anotarDrives: true },
+    })?.detalle).toBe('Escribe los 4 jugadores de Los Tigres.')
   })
 })
 
@@ -198,6 +216,20 @@ describe('useEquiposDeClub', () => {
       ['Los Tigres', ''], ['Los Pumas', ''], ['Los Cóndores', ''],
     ])
     expect(onModo).not.toHaveBeenCalled()
+  })
+
+  it('drives: No por defecto; con Sí viajan los jugadores; repetir vuelve a No', () => {
+    const { result } = montar()
+    act(() => result.current.elegirSoloEquipos(true))
+    expect(result.current.anotarDrives).toBe(false)
+    expect(result.current.anotarDrivesParaEnviar).toBe(false)
+    expect(result.current.paraEnviar?.[0]).not.toHaveProperty('driveJugadores')
+    act(() => result.current.elegirAnotarDrives(true))
+    act(() => result.current.escribirJugador(0, 1, 'x'.repeat(40)))
+    expect(result.current.anotarDrivesParaEnviar).toBe(true)
+    expect(result.current.paraEnviar?.[0].driveJugadores?.[1]).toHaveLength(20)
+    act(() => result.current.restaurar(['Los Tigres']))
+    expect(result.current.anotarDrives).toBe(false)
   })
 
   it('repetir: el nombre que se puso solo («Equipo 2» en la posición 2) vuelve vacío; uno escrito se respeta', () => {

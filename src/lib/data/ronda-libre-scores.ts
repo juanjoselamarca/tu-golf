@@ -61,7 +61,8 @@ export interface RondaLibreWriteClient {
       | 'upsert_ronda_equipos_scores'
       | 'finalizar_ronda_libre'
       | 'marcar_puntito_ronda_libre'
-      | 'marcar_retiro_ronda_libre',
+      | 'marcar_retiro_ronda_libre'
+      | 'marcar_drive_equipo',
     args: Record<string, unknown>,
   ) => RpcResult
 }
@@ -195,4 +196,22 @@ export async function marcarRetiroTimba(
     p_dispositivo: DISPOSITIVO,
   }))
   return { error: error ?? null }
+}
+
+/**
+ * Drive del scramble (`@/golf/formats/drives-scramble`): quién tiró el drive del equipo en un hoyo (`jugador` =
+ * índice en `drive_jugadores`), o `jugador: null` para desmarcarlo. Último valor gana; sin `seq`: el envío de un
+ * equipo va en serie (`drives-pendientes.ts`). `drives` = los drives del equipo como quedaron en el servidor.
+ */
+export async function marcarDriveEquipo(
+  supabase: RondaLibreWriteClient,
+  input: { codigo: string; equipoId: string; hoyo: number; jugador: number | null },
+): Promise<{ drives: unknown; error: PostgrestError | null }> {
+  const { data, error } = await rpcConPlazo(() => supabase.rpc('marcar_drive_equipo', {
+    p_equipo_id: input.equipoId,
+    p_codigo: input.codigo,
+    p_hoyo: input.hoyo,
+    p_jugador: input.jugador,
+  }))
+  return { drives: error ? null : data ?? null, error: error ?? null }
 }
