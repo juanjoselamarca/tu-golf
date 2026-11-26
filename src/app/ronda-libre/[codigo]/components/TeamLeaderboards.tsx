@@ -2,6 +2,7 @@
 // casi-duplicados del monolito en un componente con switch por formato. Verbatim
 // en la construcción de cada formato.
 import TeamLeaderboard from '@/components/TeamLeaderboard'
+import { GwiScramble } from './GwiScramble'
 import Scorecard from '@/components/Scorecard'
 import {
   calcularBestBall, ordenarEquiposBestBall,
@@ -27,12 +28,14 @@ export interface TeamLeaderboardsProps {
   /** HCP a mostrar en el scorecard expandido (`crearHcpAMostrar`): `null` = sin etiqueta (#511). */
   hcpAMostrar: HcpAMostrar
   fechaDisplay: string
-  /** Expand de tarjeta de equipo (fix 126) — solo best_ball. */
+  /** Expand de tarjeta de equipo (fix 126): best ball, scramble y foursome. */
   expandedTeam: string | null
   onToggleTeam: (teamId: string) => void
+  /** Ronda en juego: muestra el % de ganar del scramble (al terminar, el ganador lo dice el cuadro de arriba). */
+  enVivo?: boolean
 }
 
-export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, hcpAMostrar, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
+export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, hcpAMostrar, fechaDisplay, expandedTeam, onToggleTeam, enVivo = false }: TeamLeaderboardsProps) {
   // Timba libre: sin ranking genérico (spec, "Para el PR C").
   // Timba libre: la página muestra `TimbaEnVivo` (puntos de GET /juego); esta tabla por golpes daría un ganador falso.
   if (esFormatoPersonalizado(ronda.formato_juego)) return null
@@ -142,7 +145,37 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
     }))
     const results = teams.map(t => calcularScramble(t, holeData, parTotal))
     const sorted = ordenarEquiposScramble(results, ronda.formato_juego, ronda.modo_juego)
+
+    // Tarjeta del equipo al tocar su fila: hoyo a hoyo con el par, en GROSS (los golpes que anotó el equipo). El neto
+    // del equipo lo da la tabla; la tarjeta no reparte golpes de HCP por hoyo para no mostrar un segundo neto.
+    const renderScrambleDetail = (teamId: string) => {
+      const eq = equipos.find(e => e.id === teamId)
+      if (!eq) return null
+      return (
+        <div style={{ background: 'var(--bg)', padding: '4px 0 8px' }}>
+          <Scorecard
+            holes={holeData}
+            scores={eq.scores}
+            courseHandicap={0}
+            displayHandicap={null}
+            modo="gross"
+            formato="scramble"
+            playerName={eq.nombre}
+            sinInicial
+            courseName={ronda.course_name}
+            date={fechaDisplay}
+            formatLabel="Scramble · golpes del equipo"
+          />
+        </div>
+      )
+    }
+    // % de ganar, debajo de la tabla (2 equipos, en juego, con par de cancha; gross o neto). En neto lleva los golpes de HCP que a cada
+    // equipo le quedan por recibir en los hoyos que no juega: el motor los reparte por índice de dificultad.
+    const neto = ronda.modo_juego === 'neto'
+    const conGwi = enVivo && sorted.length === 2 && Object.keys(parMap).length > 0
+      && (ronda.modo_juego === 'gross' || neto)
     return (
+      <>
       <TeamLeaderboard
         teams={sorted.map(r => ({
           teamId: r.teamId,
@@ -160,7 +193,25 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
         formatoJuego={ronda.formato_juego}
         totalHoles={ronda.holes}
         formato="scramble"
+        expandedTeamId={expandedTeam}
+        onToggleTeam={onToggleTeam}
+        renderTeamDetail={renderScrambleDetail}
       />
+      {conGwi && (
+        <GwiScramble
+          totalHoyos={holeData.length}
+          equipos={sorted.map(r => ({
+            nombre: r.teamNombre,
+            diff: neto ? r.overUnderNeto : r.overUnderGross,
+            holesPlayed: r.holesPlayed,
+            ...(neto ? {
+              golpesHcpTotal: r.holes.reduce((s, h) => s + h.strokesRecibidos, 0),
+              golpesHcpRestantes: r.holes.reduce((s, h) => s + (h.gross == null ? h.strokesRecibidos : 0), 0),
+            } : {}),
+          }))}
+        />
+      )}
+      </>
     )
   }
 

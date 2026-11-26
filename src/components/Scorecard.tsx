@@ -51,6 +51,8 @@ export interface ScorecardProps {
   formato: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
   playerName?: string
   avatarUrl?: string
+  /** Tarjeta de un equipo (no de una persona): sin círculo de inicial («Los Lamarca» y «Los Ross» darían «L» los dos). */
+  sinInicial?: boolean
   showExtendedInfo?: boolean
   /** Contexto de ronda — mejora #1 */
   courseName?: string
@@ -488,7 +490,7 @@ function Stats({ st, wide }: { st: HS[]; wide: boolean }) {
 
 export default function Scorecard({
   holes, scores, courseHandicap, displayHandicap, modo, formato,
-  playerName, avatarUrl, showExtendedInfo = false,
+  playerName, avatarUrl, sinInicial = false, showExtendedInfo = false,
   courseName, date, formatLabel,
 }: ScorecardProps) {
   const wide = useIsWide(768)
@@ -532,7 +534,7 @@ export default function Scorecard({
           {/* Player + score */}
           {(playerName || played > 0) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {playerName && !avatarUrl && (
+              {playerName && !avatarUrl && !sinInicial && (
                 <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: K.bgH, border: `1px solid ${K.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: K.ts }}>
                   {playerName.charAt(0).toUpperCase()}
                 </div>
