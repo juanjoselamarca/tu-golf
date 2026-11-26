@@ -2085,7 +2085,7 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'tarjetas', v_tarjetas, 'equipos', jsonb_array_length(v_equipos));
 END;
 $function$;
-CREATE OR REPLACE FUNCTION public.editar_jugadores_skins(p_ronda_id uuid, p_jugadores jsonb, p_reglas_juego jsonb)
+CREATE OR REPLACE FUNCTION public.editar_jugadores_skins(p_ronda_id uuid, p_jugadores jsonb, p_congelado jsonb)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -2094,38 +2094,31 @@ AS $function$
 DECLARE
   v_ronda rondas_libres%ROWTYPE;
   v_ids uuid[];
-  v_reglas_ids uuid[];
   v_creador_fila uuid;
   v_j jsonb;
   v_id uuid;
 BEGIN
   SELECT * INTO v_ronda FROM rondas_libres WHERE id = p_ronda_id FOR UPDATE;
-  IF NOT FOUND OR v_ronda.formato_juego IS DISTINCT FROM 'skins' OR v_ronda.estado IS DISTINCT FROM 'en_curso' THEN
-    RAISE EXCEPTION 'SKINS_NO_EXISTE: la ronda no existe, no es Skins o ya terminó.' USING ERRCODE = 'P0002';
+  -- Una ronda demo es de solo lectura (rlj_demo_readonly_*): esta función es definer y no pasa por esas políticas.
+  IF NOT FOUND OR v_ronda.formato_juego IS DISTINCT FROM 'skins' OR v_ronda.estado IS DISTINCT FROM 'en_curso'
+     OR v_ronda.es_demo THEN
+    RAISE EXCEPTION 'SKINS_NO_EXISTE: la ronda no existe, no es Skins, ya terminó o es demo.' USING ERRCODE = 'P0002';
   END IF;
 
   -- Con la ronda tomada, un primer golpe en vuelo ya terminó (o espera a que esto termine). La marca es permanente:
-  -- borrar el único golpe no reabre la edición.
-  IF public.ronda_libre_tiene_golpes(p_ronda_id) THEN
+  -- borrar el único golpe no reabre la edición. Un punto especial o un retiro también cuentan como empezado.
+  IF public.skins_ronda_empezada(p_ronda_id) THEN
     RAISE EXCEPTION 'SKINS_CONGELADO: el Skins ya empezó. Desde el primer golpe no se edita.' USING ERRCODE = 'P0003';
   END IF;
 
   IF jsonb_typeof(p_jugadores) IS DISTINCT FROM 'array' OR jsonb_array_length(p_jugadores) = 0
-     OR jsonb_typeof(p_reglas_juego) IS DISTINCT FROM 'object'
-     OR jsonb_typeof(p_reglas_juego -> 'jugadorIds') IS DISTINCT FROM 'array' THEN
-    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: faltan los jugadores o las reglas.' USING ERRCODE = 'P0001';
-  END IF;
-
-  -- La config (pozo, variantes, modo, %) no se edita: solo cambian los jugadores y lo congelado.
-  IF (p_reglas_juego -> 'config') IS DISTINCT FROM (v_ronda.reglas_juego -> 'config') THEN
-    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: las reglas del Skins no se editan.' USING ERRCODE = 'P0001';
+     OR jsonb_typeof(p_congelado) IS DISTINCT FROM 'object' OR jsonb_typeof(v_ronda.reglas_juego) IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: faltan los jugadores o lo congelado.' USING ERRCODE = 'P0001';
   END IF;
 
   SELECT array_agg((e ->> 'id')::uuid ORDER BY o) INTO v_ids FROM jsonb_array_elements(p_jugadores) WITH ORDINALITY AS x(e, o);
-  SELECT array_agg(e::uuid ORDER BY o) INTO v_reglas_ids FROM jsonb_array_elements_text(p_reglas_juego -> 'jugadorIds') WITH ORDINALITY AS x(e, o);
-  IF v_ids IS DISTINCT FROM v_reglas_ids OR array_position(v_ids, NULL) IS NOT NULL
-     OR (SELECT count(DISTINCT u) FROM unnest(v_ids) u) <> cardinality(v_ids) THEN
-    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: los jugadores no calzan con las reglas.' USING ERRCODE = 'P0001';
+  IF array_position(v_ids, NULL) IS NOT NULL OR (SELECT count(DISTINCT u) FROM unnest(v_ids) u) <> cardinality(v_ids) THEN
+    RAISE EXCEPTION 'SKINS_EDICION_INVALIDA: los jugadores no calzan (ids vacíos o repetidos).' USING ERRCODE = 'P0001';
   END IF;
 
   -- Un id de otra ronda no se roba.
@@ -2186,7 +2179,10 @@ BEGIN
     END IF;
   END LOOP;
 
-  UPDATE rondas_libres SET reglas_juego = p_reglas_juego WHERE id = p_ronda_id;
+  -- La config queda la guardada: solo cambian jugadorIds y lo congelado.
+  UPDATE rondas_libres
+  SET reglas_juego = v_ronda.reglas_juego || jsonb_build_object('jugadorIds', to_jsonb(v_ids), 'congelado', p_congelado)
+  WHERE id = p_ronda_id;
 END;
 $function$;
 CREATE OR REPLACE FUNCTION public.eliminar_cuenta(p_user_id uuid)
@@ -3478,6 +3474,16 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
+$function$;
+CREATE OR REPLACE FUNCTION public.skins_ronda_empezada(p_ronda_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT public.ronda_libre_tiene_golpes(p_ronda_id)
+    OR EXISTS (SELECT 1 FROM public.ronda_libre_puntitos p WHERE p.ronda_id = p_ronda_id)
+    OR EXISTS (SELECT 1 FROM public.ronda_libre_retiros r WHERE r.ronda_id = p_ronda_id);
 $function$;
 CREATE OR REPLACE FUNCTION public.tarjeta_tiene_anotaciones(p_scores jsonb)
  RETURNS boolean
@@ -4807,6 +4813,7 @@ revoke all on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) from public,
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.skins_congelado_jugador() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.skins_congelado_ronda() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.skins_ronda_empezada(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.tarjeta_tiene_anotaciones(jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_ronda_para_escribir(text,uuid) from public, anon, authenticated, service_role, postgres;
@@ -5205,6 +5212,8 @@ grant EXECUTE on function public.skins_congelado_jugador() to postgres;
 grant EXECUTE on function public.skins_congelado_jugador() to service_role;
 grant EXECUTE on function public.skins_congelado_ronda() to postgres;
 grant EXECUTE on function public.skins_congelado_ronda() to service_role;
+grant EXECUTE on function public.skins_ronda_empezada(uuid) to postgres;
+grant EXECUTE on function public.skins_ronda_empezada(uuid) to service_role;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to postgres;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to service_role;
 grant EXECUTE on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) to postgres;
