@@ -91,9 +91,10 @@ export async function prepararEdicionDelSkins(
     vistos.add(j.id)
   }
   // Una tarjeta con cuenta no se borra (la función SQL también lo frena, con pending_user_id incluido, como P0001 → 409).
-  // Acá con mensaje propio y 400: volver a abrir Editar no lo arregla, así que no es un «cambió por otro lado».
+  // La hoja no ofrece «Quitar» a una tarjeta con cuenta: si llega acá, la hoja tenía la lista vieja (la tarjeta tomó
+  // cuenta después de abrirla). 409 → «Entendido» recarga y la hoja vuelve a abrir sin «Quitar» (revisión #898 v2).
   if (jugadoresActuales.some(j => j.user_id != null && !vistos.has(j.id))) {
-    return { ok: false, status: 400, error: MENSAJE_EDITAR_QUITAR_CON_CUENTA }
+    return { ok: false, status: 409, error: MENSAJE_EDITAR_QUITAR_CON_CUENTA }
   }
 
   // Desde acá, igual que POST /api/ronda-libre/create.

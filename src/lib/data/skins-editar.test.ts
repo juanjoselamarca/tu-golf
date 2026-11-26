@@ -149,7 +149,7 @@ describe('prepararEdicionDelSkins', () => {
       ronda, creadorId: CREADOR, pedido,
       jugadoresActuales: ids.map((id, i) => ({ id, user_id: i === 0 ? CREADOR : i === 1 ? 'u-beto' : null })),
     })
-    expect(await conCuenta([a, c])).toEqual({ ok: false, status: 400, error: MENSAJE_EDITAR_QUITAR_CON_CUENTA })
+    expect(await conCuenta([a, c])).toEqual({ ok: false, status: 409, error: MENSAJE_EDITAR_QUITAR_CON_CUENTA })
     expect(await conCuenta([a, b])).toMatchObject({ ok: true })
   })
 
