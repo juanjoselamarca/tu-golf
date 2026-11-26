@@ -52,6 +52,25 @@ Fijo (no se elige): el arrastre por empate y el reparto del pozo por skins ganad
 Esto NO equivale al neto de stroke play con hándicap completo: cambian los hoyos donde cae el golpe de ventaja
 (ej.: PH 20 y PH 5 — con hándicap completo la diferencia cae en SI 1-2 y 6-18; desde el más bajo, en SI 1-15).
 
+## Golpes congelados (desde el primer golpe)
+
+Decisiones de Juanjo, 25-nov-2026. Migración `20261125140000_skins_congelado_tras_el_primer_golpe.sql`.
+
+1. Al crear, la API guarda en `reglas_juego.congelado` los hoyos (número, par, SI) y el course handicap de cada
+   jugador (en la escala de la ronda), del MISMO contexto con que validó. La tabla, el scorer y la liquidación leen
+   eso (`contextoDelSkinsGuardado`, `src/golf/ronda-libre/skins-congelado.ts`): si después alguien corrige el rating
+   o el SI de la cancha, la plata no se mueve. Una ronda sin `congelado` (creada antes) recalcula como antes.
+2. Lo congelado lo escribe solo el servidor (service_role), después de insertar la ronda: el creador no puede
+   mandarlo ni cambiarlo (no se ve en la tarjeta, el índice sí).
+3. **Antes del primer golpe** (nadie anotó un score ni una X) se puede corregir el índice o el tee de un jugador y
+   sumar jugadores (el pozo crece: jugadores × pozo por jugador). Lo congelado solo vale si calza con la ronda tal
+   como está (cancha, hoyos, salida, recorridos, índice y tee de cada uno); si no calza, se recalcula.
+4. **Desde el primer golpe** la base rechaza, para todos (también service_role), cambiar `reglas_juego`, `hcp_pct`,
+   `modo_juego`, `tees`, `course_id`, `recorridos`, `holes`, `hoyo_inicio` y `formato_juego` de la ronda, el índice,
+   el tee o la ronda de un jugador, y sumar jugadores.
+5. La X solo se escribe por `upsert_ronda_libre_scores` (authenticated no tiene INSERT/UPDATE de `fuera_del_hoyo`).
+6. Solo el Skins: la Timba (`personalizado`) y los demás formatos no cambian.
+
 ## Scores de un hoyo
 
 Cada jugador, en cada hoyo, tiene uno de:

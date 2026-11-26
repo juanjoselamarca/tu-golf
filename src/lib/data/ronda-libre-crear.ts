@@ -51,3 +51,30 @@ export async function nombreDeCanchaDeRonda(
   }
   return maxName
 }
+
+/**
+ * Skins: el `congelado` (golpes y hoyos, `src/golf/ronda-libre/skins-congelado.ts`) no viaja en el INSERT del creador:
+ * lo escribe el servidor con service_role una vez que la ronda y sus jugadores existen. La base rechaza un
+ * `congelado` que no venga de service_role (migración 20261125140000): así nadie se da golpes a escondidas.
+ * `false` si no quedó grabado (la creación se deshace: con plata en juego no hay skins sin golpes fijos).
+ */
+export async function guardarCongeladoDelSkins(
+  admin: SupabaseClient,
+  rondaId: string,
+  reglasConCongelado: Readonly<Record<string, unknown>>,
+): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  const { data, error } = await admin
+    .from('rondas_libres')
+    .update({ reglas_juego: reglasConCongelado })
+    .eq('id', rondaId)
+    .eq('formato_juego', 'skins')
+    .select('id')
+  if (error || data?.length !== 1) return { ok: false, error: error ?? new Error(`congelado del skins: ${data?.length ?? 0} filas`) }
+  return { ok: true }
+}
+
+/** Las reglas que inserta el creador: sin `congelado` (ver `guardarCongeladoDelSkins`). */
+export function reglasSinCongelado<T extends object>(reglas: T): Omit<T, 'congelado'> {
+  const { congelado: _congelado, ...resto } = reglas as T & { congelado?: unknown }
+  return resto
+}

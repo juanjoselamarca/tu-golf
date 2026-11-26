@@ -9,7 +9,8 @@ import { prepararJuegoDeRondaNueva } from '@/golf/ronda-libre/juego-de-ronda-nue
 import { puedeCrearJuegoPersonalizado } from '@/lib/auth/juego-personalizado'
 import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 import { handicapsDeEquipoDeRondaNueva, insertarEquiposDeRonda } from '@/lib/data/ronda-libre-equipos'
-import { generarCodigoDeRonda, nombreDeCanchaDeRonda } from '@/lib/data/ronda-libre-crear'
+import { generarCodigoDeRonda, guardarCongeladoDelSkins, nombreDeCanchaDeRonda, reglasSinCongelado } from '@/lib/data/ronda-libre-crear'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 import { DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB, validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { NOMBRE_EQUIPO_MAX, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import {
@@ -348,7 +349,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (juego) {
-      rondaData.reglas_juego = juego.reglas
+      rondaData.reglas_juego = reglasSinCongelado(juego.reglas)
     }
 
     const { data: ronda, error: rondaErr } = await supabase
@@ -464,6 +465,16 @@ export async function POST(req: NextRequest) {
         void captureError(grabados.error, { context: 'ronda-libre.create.insert-equipos', userId: user.id })
         await deshacerRonda()
         return NextResponse.json({ error: 'Error al armar los equipos. La ronda no fue creada.' }, { status: 500 })
+      }
+    }
+
+    // Skins: los golpes congelados los graba el servidor, no el INSERT del creador (la base lo exige).
+    if (skins?.ok) {
+      const congelado = await guardarCongeladoDelSkins(createAdminClient(), ronda.id, skins.reglas as unknown as Record<string, unknown>)
+      if (!congelado.ok) {
+        void captureError(congelado.error, { context: 'ronda-libre.create.skins-congelado', userId: user.id, meta: { rondaId: ronda.id } })
+        await deshacerRonda()
+        return NextResponse.json({ error: 'No pudimos guardar el Skins. Revisa tu señal e intenta de nuevo.' }, { status: 503 })
       }
     }
 
