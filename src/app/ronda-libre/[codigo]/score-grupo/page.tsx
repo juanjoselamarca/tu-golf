@@ -230,6 +230,15 @@ function ScorerDeGrupo() {
     anotarJugador: (jugadorId, delta) => handleScoreChange(jugadorId, currentHole, delta),
     anotarEquipo: (equipoId, delta) => handleTeamScoreChange(equipoId, currentHole, delta),
   })
+  // Un celular por equipo, último hoyo: el «Finalizar» de la hoja confirma primero el valor en pantalla de los equipos de
+  // este celular (lo mismo que «Siguiente» y «Guardar hoyo N»). Si otro equipo no terminó, el cierre se frena, y sin esto
+  // el hoyo propio con el par sin tocar no subía: el espectador veía al equipo en 17/18 mientras el otro seguía jugando
+  // (autoensayo 26-nov). Va en la hoja y no en el botón que la abre: con Cancelar no se guarda nada (Fable). El envío no
+  // se espera: queda pendiente y `finalizarUnaVez` lo sube antes de leer los demás equipos.
+  const confirmarFinalizar = () => {
+    if (unCelularPorEquipo && isLastHole && isSharedBallFormat(formatoJuego) && !congelada && !rondaCerrada) void confirmarHoyo(currentHole, par)
+    void finalizeRound()
+  }
 
   /* ── Render ── */
   if (loading) return <BrandedLoading message="Preparando scorer" variant="dark" />
@@ -531,7 +540,7 @@ function ScorerDeGrupo() {
           {...(esTimba
             ? hojaFinalizarTimba({ hoyosSinJugar: hoyosSinJugarTimba, hoyosQueNadieJugo: hoyosNadieJugoTimba, parEnPantalla: parEnPantallaTimba })
             : { titulo: textoConfirmarFinalizar(hoyosPorMarcar), detalle: undefined })}
-          onConfirmar={finalizeRound}
+          onConfirmar={confirmarFinalizar}
           onCancelar={() => setConfirmFinalize(false)}
         />
       )}

@@ -242,4 +242,40 @@ test.describe('Scramble rápido — un celular por equipo', () => {
       await ctx.close()
     }
   })
+
+  test('creador termina antes: Finalizar sube su último hoyo (par sin tocar) aunque el otro equipo siga jugando', async ({ page }) => {
+    // Autoensayo 26-nov: el creador en el último hoyo con el par sugerido sin tocar toca Finalizar; el otro celular va
+    // atrás y el cierre se frena (bien), pero el último hoyo propio no subía y el espectador veía «8/9» todo ese rato.
+    const pageErrors: string[] = []
+    page.on('pageerror', err => pageErrors.push(err.message))
+    const { id, codigo } = await crearScrambleDeClub(page.request, ['Los Halcones', 'Los Zorros'])
+    const equipos = await equiposDe(id)
+    const reclamo = await pedroDb!.rpc('reclamar_equipo_de_ronda', { p_codigo: codigo, p_equipo_id: equipos['Los Zorros'].id })
+    expect(reclamo.data).toEqual({ estado: 'ok' })
+    const hasta = (n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), 4]))
+    await sinError('golpes del creador', adminClient().from('ronda_equipos').update({ scores: hasta(8) }).eq('id', equipos['Los Halcones'].id).select('id'))
+    await sinError('golpes de Pedro', adminClient().from('ronda_equipos').update({ scores: hasta(6) }).eq('id', equipos['Los Zorros'].id).select('id'))
+
+    await marcarAvisoNoMolestarVisto(page, codigo)
+    await page.goto(`/ronda-libre/${codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('button', { name: /Finalizar ronda/ })).toBeVisible({ timeout: 20_000 })
+    expect(await golpeDelEquipo(id, 'Los Halcones', 9), 'el par gris no está guardado antes de tocar').toBeNull()
+
+    await page.getByRole('button', { name: /Finalizar ronda/ }).click()
+    const hoja = page.getByRole('dialog')
+    await expect(hoja).toContainText('¿Marcar 1 hoyo como par y finalizar?')
+    // Abrir la hoja y cancelar no guarda nada: el par se confirma recién con «Finalizar».
+    await hoja.getByRole('button', { name: 'Cancelar' }).click()
+    await page.waitForTimeout(1500)
+    expect(await golpeDelEquipo(id, 'Los Halcones', 9), 'Cancelar no sube el par').toBeNull()
+    await page.getByRole('button', { name: /Finalizar ronda/ }).click()
+    await hoja.getByRole('button', { name: /^Finalizar/ }).click()
+    await expect(page.getByText(/Los Zorros va en el hoyo 7/)).toBeVisible({ timeout: 15_000 })
+
+    await expect.poll(() => golpeDelEquipo(id, 'Los Halcones', 9), { timeout: 15_000, message: 'el último hoyo del creador sube' }).not.toBeNull()
+    expect(await golpeDelEquipo(id, 'Los Zorros', 9), 'no se rellena el equipo de otro celular').toBeNull()
+    const ronda = await sinError('ronda', adminClient().from('rondas_libres').select('estado').eq('id', id).single())
+    expect(ronda?.estado, 'con Los Zorros jugando no se cierra').toBe('en_curso')
+    expect(pageErrors).toEqual([])
+  })
 })
