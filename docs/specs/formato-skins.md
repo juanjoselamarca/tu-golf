@@ -65,8 +65,7 @@ Decisiones de Juanjo, 25-nov-2026. Migración `20261125140000_skins_congelado_tr
 3. **Antes del primer golpe** (nadie anotó un score ni una X) se puede corregir el índice o el tee de un jugador y
    sumar jugadores (el pozo crece: jugadores × pozo por jugador). Lo congelado solo vale si calza con la ronda tal
    como está (cancha, hoyos, salida, recorridos, índice y tee de cada uno); si no calza, se recalcula en vivo y se
-   avisa (warning). Hoy nadie vuelve a congelar tras una corrección: esa ronda juega recalculando (sin protección ante
-   un cambio del rating de la cancha) hasta que exista la API de corrección que regrabe lo congelado.
+   avisa (warning). La corrección va por «Editar» (sección siguiente), que regraba lo congelado en el mismo paso.
 4. **Desde el primer golpe** la base rechaza, para todos (también service_role), cambiar `reglas_juego`, `hcp_pct`,
    `modo_juego`, `tees`, `course_id`, `recorridos`, `holes`, `hoyo_inicio` y `formato_juego` de la ronda, el índice,
    el tee o la ronda de un jugador, sumar jugadores y sacar a uno (si alguien se va, es un retiro). Borrar el Skins
@@ -76,6 +75,27 @@ Decisiones de Juanjo, 25-nov-2026. Migración `20261125140000_skins_congelado_tr
    nunca borra un golpe; solo un UPDATE directo de `scores` podría.
 5. La X solo se escribe por `upsert_ronda_libre_scores` (authenticated no tiene INSERT/UPDATE de `fuera_del_hoyo`).
 6. Solo el Skins: la Timba (`personalizado`) y los demás formatos no cambian.
+
+## Editar antes del primer golpe
+
+Decisiones de Juanjo, 26-nov-2026.
+
+- **Quién y cuándo:** solo el creador de la ronda, mientras no exista el primer golpe (`ronda_libre_primer_golpe`).
+  Con el primer golpe el botón desaparece; si la hoja estaba abierta, al guardar responde «El Skins ya empezó».
+- **Dónde:** botón **«Editar»** (ese texto, no «Corregir jugadores») en la página de la ronda, sobre la tabla del
+  Skins, y en el scorer del grupo, sobre el hoyo de salida. Los dos abren la misma hoja.
+- **Qué:** la hoja muestra las tarjetas de cada jugador (las mismas del asistente de crear, `TarjetaDeRival`):
+  cambiar índice o tee, sumar jugador (con cuenta o invitado) y sacar jugador (con confirmación). Abajo se ve el pozo
+  resultante («Pozo: $135.000 · 9 jugadores»). No se editan cancha, hoyos, salida, modo, % de hándicap ni reglas.
+- **Retiro durante la ronda:** no hay botón «Retirar». El que se va se anota con X hoyo a hoyo (26-nov).
+- **Guardado:** `PUT /api/ronda-libre/[codigo]/skins/jugadores` con la lista completa. La ruta verifica sesión y
+  que sea el creador, valida igual que al crear (índice a un decimal, tees de la cancha, mínimo y máximo de
+  jugadores, bloqueos del motor) y recalcula lo congelado con el mismo código que la creación. Después llama, con
+  service_role, a una función SQL que en UNA transacción toma la ronda `FOR UPDATE`, rechaza si hay primer golpe
+  (P0003, «El Skins ya empezó»), aplica altas, bajas, índices y tees, y graba `reglas_juego` (`jugadorIds` y
+  `congelado`). El primer golpe toma la ronda `FOR SHARE`: los dos se serializan; el que llega segundo pierde limpio.
+- **Errores:** sin sesión 401; no creador 403; ya empezó 409 con el mensaje; validación 400 con el mensaje del
+  campo; falla del servidor 503 sin cambios a medias.
 
 ## Scores de un hoyo
 
