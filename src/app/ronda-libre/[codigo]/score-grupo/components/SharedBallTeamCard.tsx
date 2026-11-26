@@ -10,6 +10,8 @@ import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 import { chipLabelCorto } from './chip-label'
 import { puedeSumarGolpe, puedeRestarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
 import { integrantesQueSeMuestran } from '@/golf/ronda-libre/equipos-de-club'
+import type { DrivesDeUnEquipo } from '../hooks/useDrivesDelScorer'
+import { DrivesDelEquipo } from './DrivesDelEquipo'
 
 interface SharedBallTeamCardProps {
   equipo: EquipoDelScorer
@@ -23,13 +25,17 @@ interface SharedBallTeamCardProps {
   foursomeInvertido: boolean
   onToggleInvertido: () => void
   onChange: (delta: number) => void
+  /** Drives del scramble (`useDrivesDelScorer`), solo si el equipo los anota. Sin esto la tarjeta es la de siempre. */
+  drives?: DrivesDeUnEquipo | null
+  /** Tarjeta congelada (finalizando, descartando): no se marcan drives. */
+  drivesDeshabilitados?: boolean
   theme: ScorerTheme
 }
 
 /** Scramble / Foursome: UN score por equipo por hoyo (vive en ronda_equipos). */
 export function SharedBallTeamCard({
   equipo, formatoJuego, modoJuego, currentHole, par, totales: tot,
-  foursomeInvertido, onToggleInvertido, onChange, theme,
+  foursomeInvertido, onToggleInvertido, onChange, drives, drivesDeshabilitados, theme,
 }: SharedBallTeamCardProps) {
   const teamScore = equipo.scores[String(currentHole)]
   const displayTeamScore = teamScore ?? par
@@ -150,6 +156,18 @@ export function SharedBallTeamCard({
           }}
         >+</button>
       </div>
+      {drives && (
+        <DrivesDelEquipo
+          jugadores={drives.jugadores}
+          driveDelHoyo={drives.driveDelHoyo}
+          conteo={drives.conteo}
+          minimo={drives.minimo}
+          aviso={drives.aviso}
+          onElegir={drives.elegir}
+          deshabilitado={drivesDeshabilitados}
+          theme={theme}
+        />
+      )}
     </div>
   )
 }

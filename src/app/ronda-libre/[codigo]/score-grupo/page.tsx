@@ -39,6 +39,7 @@ import { useRondaGrupoData } from './hooks/useRondaGrupoData'
 import { useAnotadorDeEquipo } from './hooks/useAnotadorDeEquipo'
 import { useGrupoScoreSave } from './hooks/useGrupoScoreSave'
 import { useTeamScoreSave } from './hooks/useTeamScoreSave'
+import { useDrivesDelScorer } from './hooks/useDrivesDelScorer'
 import { useFinalizeGrupo } from './hooks/useFinalizeGrupo'
 import { useIrAlResultadoSiCerrada } from './hooks/useIrAlResultadoSiCerrada'
 import { useMatchPlayState } from '../hooks/useMatchPlayState'
@@ -163,6 +164,10 @@ function ScorerDeGrupo() {
   useBeforeUnloadWarning(hasUnsaved && !sesionPerdida)
   // Mientras se finaliza o se descarta, o mientras cambia quién anota un equipo: ni golpes, ni finalizar, ni descartar (`tarjetaCongelada`).
   const congelada = tarjetaCongelada({ finalizing, discarding, anotadorEnCurso: anotador.enCurso })
+  // Drives del scramble (solo los equipos que los anotan; en el resto, nada cambia).
+  const drivesDe = useDrivesDelScorer({
+    codigo, drivesMinimo: ronda?.drives_minimo ?? null, teamEquipos, setTeamEquipos, ordenHoyos, currentHole, conexion, deshabilitado: congelada,
+  })
 
   const board = useGrupoScoreboard({
     ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole, matchResult,
@@ -392,6 +397,8 @@ function ScorerDeGrupo() {
               foursomeInvertido={foursomeInvertido[equipo.id] ?? false}
               onToggleInvertido={() => toggleFoursomeInvertido(equipo.id)}
               onChange={(delta) => anotarEquipo(equipo.id, delta)}
+              drives={drivesDe(equipo)}
+              drivesDeshabilitados={congelada}
               theme={theme}
             />
           ))}

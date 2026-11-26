@@ -3,6 +3,7 @@ import {
   avisoDeDrives,
   contarDrives,
   conteoDeDrives,
+  drivesConCambios,
   drivesMinimoPorJugador,
   jugadoresDeDrive,
   leerDrives,
@@ -144,5 +145,16 @@ describe('conteoDeDrives', () => {
   })
   it('equipo sin drives → []', () => {
     expect(conteoDeDrives({ jugadores: null, drives: {}, minimo: 4, hoyos: H18 })).toEqual([])
+  })
+})
+
+describe('drivesConCambios', () => {
+  it('pisa por hoyo en orden, un negativo quita el drive y no muta la base', () => {
+    const base = con([1, 0], [2, 1], [3, 2])
+    expect(drivesConCambios(base, { '2': 3, '4': 0 }, { '1': -1, '4': 2 })).toEqual(con([2, 3], [3, 2], [4, 2]))
+    expect(base).toEqual(con([1, 0], [2, 1], [3, 2]))
+  })
+  it('sin cambios = copia de la base', () => {
+    expect(drivesConCambios(con([5, 1]))).toEqual(con([5, 1]))
   })
 })
