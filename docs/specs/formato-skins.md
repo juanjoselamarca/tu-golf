@@ -80,20 +80,25 @@ Decisiones de Juanjo, 25-nov-2026. Migración `20261125140000_skins_congelado_tr
 
 Decisiones de Juanjo, 26-nov-2026.
 
-- **Quién y cuándo:** solo el creador de la ronda, mientras no exista el primer golpe (`ronda_libre_primer_golpe`).
-  Con el primer golpe el botón desaparece; si la hoja estaba abierta, al guardar responde «El Skins ya empezó».
+- **Quién y cuándo:** solo el creador de la ronda, mientras el Skins no haya empezado. **«Empezó»** = primer golpe
+  (la marca permanente `ronda_libre_primer_golpe` o una tarjeta con golpes), una X, un punto especial o un retiro
+  (decisión CTO 26-nov, revisión de #896). Una sola fuente: la función SQL `skins_ronda_empezada(uuid)`, que usan la
+  edición y, cuando exista, la pantalla para mostrar el botón. Desde ahí el botón desaparece; si la hoja estaba
+  abierta, al guardar responde «El Skins ya empezó». Una ronda demo no se edita.
 - **Dónde:** botón **«Editar»** (ese texto, no «Corregir jugadores») en la página de la ronda, sobre la tabla del
   Skins, y en el scorer del grupo, sobre el hoyo de salida. Los dos abren la misma hoja.
 - **Qué:** la hoja muestra las tarjetas de cada jugador (las mismas del asistente de crear, `TarjetaDeRival`):
   cambiar índice o tee, sumar jugador (con cuenta o invitado) y sacar jugador (con confirmación). Abajo se ve el pozo
-  resultante («Pozo: $135.000 · 9 jugadores»). No se editan cancha, hoyos, salida, modo, % de hándicap ni reglas.
+  resultante (p. ej. «Pozo: $40.000 · 4 jugadores», con $10.000 por jugador y el máximo de 4). No se editan cancha, hoyos, salida, modo, % de hándicap ni reglas.
 - **Retiro durante la ronda:** no hay botón «Retirar». El que se va se anota con X hoyo a hoyo (26-nov).
 - **Guardado:** `PUT /api/ronda-libre/[codigo]/skins/jugadores` con la lista completa. La ruta verifica sesión y
   que sea el creador, valida igual que al crear (índice a un decimal, tees de la cancha, mínimo y máximo de
   jugadores, bloqueos del motor) y recalcula lo congelado con el mismo código que la creación. Después llama, con
-  service_role, a una función SQL que en UNA transacción toma la ronda `FOR UPDATE`, rechaza si hay primer golpe
-  (P0003, «El Skins ya empezó»), aplica altas, bajas, índices y tees, y graba `reglas_juego` (`jugadorIds` y
-  `congelado`). El primer golpe toma la ronda `FOR SHARE`: los dos se serializan; el que llega segundo pierde limpio.
+  service_role, a una función SQL que en UNA transacción toma la ronda `FOR UPDATE`, rechaza si ya empezó
+  (P0003, «El Skins ya empezó»), aplica altas, bajas, índices y tees, y en `reglas_juego` reemplaza solo `jugadorIds`
+  y `congelado`: la config guardada no viaja ni se compara (una versión nueva de la app no puede chocar con ella).
+  La cuenta sugerida de un jugador que ya estaba: sin la clave se conserva, `null` la quita. El primer golpe toma la
+  ronda `FOR SHARE`: los dos se serializan; el que llega segundo pierde limpio.
 - **Errores:** sin sesión 401; no creador 403; ya empezó 409 con el mensaje; validación 400 con el mensaje del
   campo; falla del servidor 503 sin cambios a medias.
 
