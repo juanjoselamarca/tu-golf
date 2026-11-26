@@ -37,7 +37,7 @@ export async function cargarSkinsDelScorer(admin: SupabaseClient, codigo: string
   const reglas = leerReglasSkins(fila.reglas_juego)
   if (!reglas) return { status: 'sin_juego', rondaCerrada }
 
-  const [marcas, retiros, jugadores] = await Promise.all([
+  const [marcas, retiros, jugadores, empezado] = await Promise.all([
     admin
       .from('ronda_libre_puntitos')
       .select('id, jugador_id, hoyo, puntito_id, created_at')
@@ -46,6 +46,7 @@ export async function cargarSkinsDelScorer(admin: SupabaseClient, codigo: string
       .order('id', { ascending: true }),
     admin.from('ronda_libre_retiros').select('jugador_id, desde_hoyo').eq('ronda_id', fila.id),
     admin.from('ronda_libre_jugadores').select('id, nombre, handicap, tees, scores, fuera_del_hoyo').eq('ronda_id', fila.id),
+    rondaCerrada ? true : skinsEmpezado(admin, fila.id, codigo),
   ])
   if (marcas.error || retiros.error || jugadores.error) return { status: 'error' }
   const tarjetas = await tarjetasDelSkins(admin, codigo, fila, reglas.jugadorIds, (jugadores.data ?? []) as FilaJugadorSkins[], reglas.config.modo)
@@ -60,6 +61,7 @@ export async function cargarSkinsDelScorer(admin: SupabaseClient, codigo: string
       marcas: (marcas.data ?? []) as FilaMarcaPuntito[],
       retiros: (retiros.data ?? []) as FilaRetiro[],
       rondaCerrada,
+      empezado,
       tarjetas,
     }),
   }
@@ -114,5 +116,23 @@ async function tarjetasDelSkins(
   } catch (err) {
     void captureError(err, { context: 'ronda_libre.skins_tabla', level: 'warning', meta: { codigo, ...detalleDeLecturaFallida(err) } })
     return 'fallo' as const
+  }
+}
+
+/**
+ * ¿Ya empezó el Skins? La misma función SQL que frena la edición (`skins_ronda_empezada`, solo service_role). Si la
+ * lectura falla se toma como empezado: el botón «Editar» se esconde y la vista igual sale (no es motivo de error).
+ */
+async function skinsEmpezado(admin: SupabaseClient, rondaId: string, codigo: string): Promise<boolean> {
+  try {
+    const { data, error } = await admin.rpc('skins_ronda_empezada', { p_ronda_id: rondaId })
+    if (error || typeof data !== 'boolean') {
+      if (error) void captureError(error, { context: 'ronda_libre.skins_empezado', level: 'warning', meta: { codigo } })
+      return true
+    }
+    return data
+  } catch (err) {
+    void captureError(err, { context: 'ronda_libre.skins_empezado', level: 'warning', meta: { codigo } })
+    return true
   }
 }

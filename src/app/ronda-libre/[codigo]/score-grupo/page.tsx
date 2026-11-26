@@ -51,12 +51,14 @@ import { esJuegoConPlata } from '@/golf/formats/juegos-con-plata'
 import { FUERA_DEL_HOYO } from '@/golf/formats/skins/motor'
 import { useValorDelHoyoSkins } from './hooks/useValorDelHoyoSkins'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
+import { EditarSkinsDelScorer } from './components/EditarSkinsDelScorer'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
 import { PanelDelJuego } from '../components/timba/PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from '../components/PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from '../components/timba/RetiroDeJugadores'
 import { HojaDeRetiro } from '../components/timba/HojaDeRetiro'
 import { useRetomarConLosRetiros } from './hooks/useRetomarConLosRetiros'
+import { useReleerSiCambianLosJugadoresDelSkins } from './hooks/useReleerSiCambianLosJugadoresDelSkins'
 import { AvisoMarcasRechazadas } from '../components/timba/AvisoMarcasRechazadas'
 
 const SIN_JUGADORES: Jugador[] = []
@@ -113,7 +115,7 @@ function ScorerDeGrupo() {
   const fueraDelHoyo = useMemo(() => (esSkins ? { setFuera, fueraRef } : undefined), [esSkins, setFuera, fueraRef])
   const fueraSkins = esSkins ? fuera : undefined
   const { saveStatus, guardados, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, enviarYa, pendienteDeEnvio, rondaCerrada, rondaNoExiste, sesionPerdida } =
-    useGrupoScoreSave({ ronda, codigo, currentHole, setScores, scoresRef, parMap, teamEquipos, unCelularPorEquipo: porCelular, fueraDelHoyo })
+    useGrupoScoreSave({ ronda, codigo, currentHole, setScores, scoresRef, parMap, teamEquipos, unCelularPorEquipo: porCelular, fueraDelHoyo, alFaltarUnJugador: recargar })
   // La ronda se borró mientras se anotaba: el guardado ya avisó y limpió la copia local.
   useEffect(() => {
     if (rondaNoExiste) router.push('/dashboard')
@@ -155,6 +157,8 @@ function ScorerDeGrupo() {
     // Sin par conocido no se inventa: el greenie (solo par 3) no se ofrece.
     currentHole, ordenHoyos, par: parMap[currentHole], fuera: fueraSkins,
   })
+  // Skins editado en otro lado: la vista trae los jugadores nuevos y la ronda en pantalla, los viejos → se relee.
+  useReleerSiCambianLosJugadoresDelSkins({ vista: esSkins ? timba.vistaSkins : null, jugadores: ronda?.ronda_libre_jugadores, recargar })
   // «Vale N skins»: el mismo cálculo que la tabla en vivo, con los mismos retiros.
   const valorSkins = useValorDelHoyoSkins({ ronda: esSkins ? ronda : null, scores, fuera: fueraSkins, retiros: esSkins ? timba.retiros : undefined, currentHole })
   // Con un retirado, el hoyo de la carga no sabe del retiro: al llegar los retiros, el scorer va al hoyo que falta.
@@ -349,6 +353,12 @@ function ScorerDeGrupo() {
         {...nav.swipeHandlers}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {esSkins && (
+            <EditarSkinsDelScorer
+              ronda={ronda} vista={timba.vistaSkins} userId={authUserId} enElHoyoDeSalida={currentHole === ordenHoyos[0]}
+              scores={scores} fuera={fueraSkins} onGuardado={() => { void recargar(); void timba.recargar() }}
+            />
+          )}
           {/* Label contextual formato equipo */}
           {isSharedBallFormat(formatoJuego) ? (
             <p style={{ fontSize: '13px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '8px', fontStyle: 'italic' }}>

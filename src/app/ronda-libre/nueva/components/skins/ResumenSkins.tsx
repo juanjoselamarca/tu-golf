@@ -1,7 +1,7 @@
 'use client'
 
 import type { ModoJuego } from '@/golf/core/rules'
-import type { ConfigSkins } from '@/golf/formats/skins'
+import { pozoTotalDelSkins, type ConfigSkins } from '@/golf/formats/skins'
 import { nombreDelPuntito } from '@/golf/formats/personalizado'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { formatPesos } from '@/lib/format'
@@ -25,7 +25,7 @@ export function ResumenSkins({ skins, modo, jugadores, problema, onReintentar }:
   const filas: [string, string][] = [
     ['Modo', modo === 'neto' ? `Neto al ${skins.hcpPct} %` : 'Gross'],
     ['Pozo por jugador', skins.pozoPorJugador > 0
-      ? `${formatPesos(skins.pozoPorJugador)} · ${formatPesos(skins.pozoPorJugador * jugadores)} en total`
+      ? `${formatPesos(skins.pozoPorJugador)} · ${formatPesos(pozoTotalDelSkins(skins.pozoPorJugador, jugadores))} en total`
       : 'Sin plata'],
     ['Si empatan el último hoyo', skins.empateUltimoHoyo === 'repartir' ? 'Repartir' : 'Se pierde'],
     ['Validación', skins.validacion ? 'Sí' : 'No'],

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { nombresDeCelda } from '@/golf/ronda-libre/tabla-del-juego'
 import type { VistaDelSkinsEnElScorer } from '@/golf/ronda-libre/skins-del-scorer'
@@ -47,8 +47,10 @@ export function SkinsEnVivo(props: {
   cancha: string
   url: string
   compartirPrincipal?: boolean
+  /** «Editar» del creador antes del primer golpe (`EditarSkins`): va sobre la tabla. */
+  editar?: ReactNode
 }) {
-  const { juego, onReintentar, jugadores, hoyoInicio, holes, finalizada, cancha, url, compartirPrincipal = true } = props
+  const { juego, onReintentar, jugadores, hoyoInicio, holes, finalizada, cancha, url, compartirPrincipal = true, editar } = props
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('juego')
   const [hoyoAHoyo, setHoyoAHoyo] = useState(false)
   const inicio = useRef<HTMLDivElement>(null)
@@ -115,7 +117,10 @@ export function SkinsEnVivo(props: {
       <div id={PANEL_DE_PESTANA(pestana)} role="tabpanel">
         {pestana === 'juego' ? (
           juego.estado === 'ok' && tabla ? (
-            <TablaDelSkinsEnVivo tabla={tabla} nombres={nombres} cortos={cortos} desactualizado={juego.desactualizado} />
+            <>
+              {editar}
+              <TablaDelSkinsEnVivo tabla={tabla} nombres={nombres} cortos={cortos} desactualizado={juego.desactualizado} />
+            </>
           ) : juego.estado === 'cargando' ? (
             <p role="status" style={caja}>Cargando el skins…</p>
           ) : juego.estado === 'sin_juego' ? (

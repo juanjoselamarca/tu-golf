@@ -53,11 +53,14 @@ export type FilaEditada = Omit<FilaDeJugadorDeRonda, 'perfil_sugerido_id'> & { p
 
 export type EdicionDelSkins =
   | { ok: true; filas: FilaEditada[]; reglas: ReglasSkinsGuardadas }
-  | { ok: false; status: 400 | 503; error: string }
+  | { ok: false; status: 400 | 409 | 503; error: string }
 
 export const MENSAJE_EDITAR_SIN_CREADOR = 'Tu tarjeta va primera y no se puede sacar del Skins.'
+/** 409: la hoja tiene una lista vieja; la hoja cierra y la pantalla recarga. */
 export const MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA =
   'Un jugador ya no está en la ronda. Cierra Editar y vuelve a abrirlo.'
+/** 400: la hoja no ofrece «Quitar» a un jugador con cuenta; si llega igual, no se reintenta en bucle (no es un 409). */
+export const MENSAJE_EDITAR_QUITAR_CON_CUENTA = 'No se puede quitar a un jugador que juega con su cuenta.'
 /** 409 de PUT .../skins/jugadores cuando el Skins ya empezó: golpe, X, punto especial o retiro (la función SQL responde P0003). */
 export const MENSAJE_SKINS_YA_EMPEZO = 'El Skins ya empezó. Ya no se puede editar.'
 export const MENSAJE_EDITAR_REGLAS_ILEGIBLES = 'No pudimos leer las reglas del Skins. Vuelve a cargar la ronda.'
@@ -84,8 +87,14 @@ export async function prepararEdicionDelSkins(
   const vistos = new Set<string>()
   for (const j of pedido) {
     if (!j.id) continue
-    if (!actuales.has(j.id) || vistos.has(j.id)) return { ok: false, status: 400, error: MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA }
+    if (!actuales.has(j.id) || vistos.has(j.id)) return { ok: false, status: 409, error: MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA }
     vistos.add(j.id)
+  }
+  // Una tarjeta con cuenta no se borra (la función SQL también lo frena, con pending_user_id incluido, como P0001 → 409).
+  // La hoja no ofrece «Quitar» a una tarjeta con cuenta: si llega acá, la hoja tenía la lista vieja (la tarjeta tomó
+  // cuenta después de abrirla). 409 → «Entendido» recarga y la hoja vuelve a abrir sin «Quitar» (revisión #898 v2).
+  if (jugadoresActuales.some(j => j.user_id != null && !vistos.has(j.id))) {
+    return { ok: false, status: 409, error: MENSAJE_EDITAR_QUITAR_CON_CUENTA }
   }
 
   // Desde acá, igual que POST /api/ronda-libre/create.
@@ -176,9 +185,11 @@ export async function guardarEdicionDelSkins(
   edicion: { filas: readonly FilaEditada[]; reglas: ReglasSkinsGuardadas },
 ): Promise<EdicionGuardada> {
   if (!edicion.reglas.congelado) throw new Error('guardarEdicionDelSkins: falta lo congelado')
+  const conInvitados = await conservarDatosDeInvitado(admin, rondaId, edicion.filas)
+  if (!conInvitados.ok) return { ok: false, motivo: 'error', error: conInvitados.error }
   const { error } = await admin.rpc('editar_jugadores_skins', {
     p_ronda_id: rondaId,
-    p_jugadores: edicion.filas,
+    p_jugadores: conInvitados.filas,
     p_congelado: edicion.reglas.congelado,
   })
   if (!error) return { ok: true }
@@ -186,4 +197,38 @@ export async function guardarEdicionDelSkins(
   if (error.code === 'P0002') return { ok: false, motivo: 'no_existe' }
   if (error.code === 'P0001') return { ok: false, motivo: 'no_calza', error }
   return { ok: false, motivo: 'error', error }
+}
+
+/**
+ * Un jugador que ya estaba conserva sus datos de invitado tal como se guardaron. La hoja de Editar no los cambia y no
+ * los puede leer (`telefono_invitado` es privada), pero la función SQL reescribe la fila completa: sin esto, editar el
+ * índice de un invitado le borraba el teléfono y la marca de invitado. Se leen con service_role. Un jugador nuevo
+ * llega con lo que puso el creador.
+ */
+async function conservarDatosDeInvitado(
+  admin: SupabaseClient,
+  rondaId: string,
+  filas: readonly FilaEditada[],
+): Promise<{ ok: true; filas: FilaEditada[] } | { ok: false; error: unknown }> {
+  const { data, error } = await admin
+    .from('ronda_libre_jugadores')
+    .select('id, is_guest, telefono_invitado, nombre_invitado')
+    .eq('ronda_id', rondaId)
+  if (error) return { ok: false, error }
+  const guardados = new Map(((data ?? []) as DatosDeInvitado[]).map(d => [d.id, d]))
+  return {
+    ok: true,
+    filas: filas.map(f => {
+      const g = f.id ? guardados.get(f.id) : undefined
+      if (!g) return f
+      return { ...f, is_guest: g.is_guest === true, telefono_invitado: g.telefono_invitado ?? null, nombre_invitado: g.nombre_invitado ?? null }
+    }),
+  }
+}
+
+interface DatosDeInvitado {
+  id: string
+  is_guest: boolean | null
+  telefono_invitado: string | null
+  nombre_invitado: string | null
 }

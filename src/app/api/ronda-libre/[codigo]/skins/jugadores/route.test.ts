@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { clienteFalso, ok, type ClienteFalso } from '@/__tests__/helpers/postgrest-falso'
+import { clienteFalso, ok, SIN_RED, type ClienteFalso } from '@/__tests__/helpers/postgrest-falso'
 import { CONFIG_SKINS_POR_DEFECTO } from '@/golf/formats/skins'
 import { MENSAJE_HANDICAP_UN_DECIMAL } from '@/golf/handicap-index-range'
 import { skinsParaCrearRonda } from '@/lib/data/skins-ronda-nueva'
@@ -28,7 +28,11 @@ const captureError = vi.fn()
 vi.mock('@/utils/supabase/server', () => ({
   createClient: async () => Object.assign(sesion, { auth: { getClaims: async () => ({ data: userId ? { claims: { sub: userId } } : null }) } }),
 }))
-vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => ({ rpc: (...a: unknown[]) => rpc(...a) }) }))
+// Datos de invitado guardados (columnas privadas: los lee service_role al grabar).
+let invitados: ReturnType<typeof ok> = ok([])
+vi.mock('@/lib/supabaseAdmin', () => ({
+  createAdminClient: () => Object.assign(clienteFalso({ ronda_libre_jugadores: [invitados] }), { rpc: (...a: unknown[]) => rpc(...a) }),
+}))
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 vi.mock('@/lib/data/perfiles-existentes', () => ({ perfilesQueExisten: async (ids: readonly string[]) => new Set(ids) }))
 
@@ -60,6 +64,7 @@ beforeEach(async () => {
   creadorDeLaRonda = CREADOR
   rpc.mockReset().mockResolvedValue({ error: null })
   captureError.mockReset()
+  invitados = ok([])
   let n = 0
   const r = await skinsParaCrearRonda(clienteFalso(cancha()), {
     reglasJuego: { ...CONFIG_SKINS_POR_DEFECTO, modo: 'neto' }, modoDeLaRonda: 'neto', courseId: 'c1', holes: 18, hoyoInicio: 1,
@@ -123,6 +128,26 @@ describe('PUT /api/ronda-libre/[codigo]/skins/jugadores', () => {
     const golpes = (args.p_congelado as { golpes: Record<string, number> }).golpes
     expect(Object.keys(golpes)).toEqual(ids)
     expect(golpes[IDS[1]]).not.toBe((reglas.congelado as { golpes: Record<string, number> }).golpes[IDS[1]])
+  })
+
+  it('un invitado que ya estaba conserva su teléfono y su marca de invitado (la hoja no los manda)', async () => {
+    invitados = ok([
+      { id: IDS[0], is_guest: false, telefono_invitado: null, nombre_invitado: null },
+      { id: IDS[1], is_guest: true, telefono_invitado: '+56911111111', nombre_invitado: 'Beto' },
+    ])
+    const res = await pedir(jugadores({ handicap: 20 }))
+    expect(res.status).toBe(200)
+    const [, args] = rpc.mock.calls[0] as [string, { p_jugadores: Record<string, unknown>[] }]
+    expect(args.p_jugadores[1]).toMatchObject({ id: IDS[1], handicap: 20, is_guest: true, telefono_invitado: '+56911111111', nombre_invitado: 'Beto' })
+    expect(args.p_jugadores[0]).toMatchObject({ is_guest: false, telefono_invitado: null })
+  })
+
+  it('si no se pueden leer los datos de invitado no graba nada: 503', async () => {
+    invitados = SIN_RED
+    const res = await pedir(jugadores({ handicap: 20 }))
+    expect(res.status).toBe(503)
+    expect(rpc).not.toHaveBeenCalled()
+    expect(captureError).toHaveBeenCalled()
   })
 
   it('un Skins que no es de este código o ya cerró: 404', async () => {
