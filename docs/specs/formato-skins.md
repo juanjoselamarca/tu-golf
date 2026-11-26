@@ -82,12 +82,16 @@ Decisiones de Juanjo, 26-nov-2026.
 
 - **Quién y cuándo:** solo el creador de la ronda, mientras el Skins no haya empezado. **«Empezó»** = primer golpe
   (la marca permanente `ronda_libre_primer_golpe` o una tarjeta con golpes), una X, un punto especial o un retiro
-  (decisión CTO 26-nov, revisión de #896). Una sola fuente: la función SQL `skins_ronda_empezada(uuid)`, que usan la
-  edición y, cuando exista, la pantalla para mostrar el botón. Desde ahí el botón desaparece; si la hoja estaba
-  abierta, al guardar responde «El Skins ya empezó». Una ronda demo no se edita.
+  (decisión CTO 26-nov, revisión de #896). Una sola fuente para «se puede editar»: la función SQL
+  `skins_ronda_empezada(uuid)` (solo service_role), que usan la edición y, por el servidor, la pantalla para mostrar
+  el botón. Es distinta a propósito de lo que congela los triggers de #892 (`ronda_libre_tiene_golpes`: desde el
+  primer golpe o X): un punto especial sin golpes no congela índices, pero sí cierra Editar (sacar a ese jugador
+  borraría su punto). Desde ahí el botón desaparece; si la hoja estaba abierta, al guardar responde «El Skins ya
+  empezó. Ya no se puede editar.». Una ronda demo no se edita.
 - **Dónde:** botón **«Editar»** (ese texto, no «Corregir jugadores») en la página de la ronda, sobre la tabla del
   Skins, y en el scorer del grupo, sobre el hoyo de salida. Los dos abren la misma hoja.
-- **Qué:** la hoja muestra las tarjetas de cada jugador (las mismas del asistente de crear, `TarjetaDeRival`):
+- **Qué:** los jugadores que ya están van en una fila compacta (nombre fijo, índice y tee editables, «Quitar» con
+  confirmación; el creador no se quita). Para sumar se usa la tarjeta del asistente de crear (`TarjetaDeRival`). Se puede:
   cambiar índice o tee, sumar jugador (con cuenta o invitado) y sacar jugador (con confirmación). Abajo se ve el pozo
   resultante (p. ej. «Pozo: $40.000 · 4 jugadores», con $10.000 por jugador y el máximo de 4). No se editan cancha, hoyos, salida, modo, % de hándicap ni reglas.
 - **Retiro durante la ronda:** no hay botón «Retirar». El que se va se anota con X hoyo a hoyo (26-nov).

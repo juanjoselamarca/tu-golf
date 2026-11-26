@@ -42,6 +42,10 @@ GRANT EXECUTE ON FUNCTION public.skins_ronda_empezada(uuid) TO service_role;
 COMMENT ON FUNCTION public.skins_ronda_empezada(uuid) IS
   'Skins: ¿ya empezó? Primer golpe o X (ronda_libre_tiene_golpes), punto especial o retiro. Desde ahí no se editan los jugadores. Solo service_role.';
 
+-- DROP antes de crear: una versión anterior de esta migración tenía otro nombre en el 3er parámetro (mismos tipos) y
+-- CREATE OR REPLACE no puede renombrar parámetros (42P13).
+DROP FUNCTION IF EXISTS public.editar_jugadores_skins(uuid, jsonb, jsonb);
+
 CREATE OR REPLACE FUNCTION public.editar_jugadores_skins(p_ronda_id uuid, p_jugadores jsonb, p_congelado jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -65,7 +69,7 @@ BEGIN
   -- Con la ronda tomada, un primer golpe en vuelo ya terminó (o espera a que esto termine). La marca es permanente:
   -- borrar el único golpe no reabre la edición. Un punto especial o un retiro también cuentan como empezado.
   IF public.skins_ronda_empezada(p_ronda_id) THEN
-    RAISE EXCEPTION 'SKINS_CONGELADO: el Skins ya empezó. Desde el primer golpe no se edita.' USING ERRCODE = 'P0003';
+    RAISE EXCEPTION 'SKINS_CONGELADO: el Skins ya empezó (golpe, X, punto especial o retiro). Ya no se editan los jugadores.' USING ERRCODE = 'P0003';
   END IF;
 
   IF jsonb_typeof(p_jugadores) IS DISTINCT FROM 'array' OR jsonb_array_length(p_jugadores) = 0

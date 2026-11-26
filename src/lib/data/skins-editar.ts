@@ -58,8 +58,8 @@ export type EdicionDelSkins =
 export const MENSAJE_EDITAR_SIN_CREADOR = 'Tu tarjeta va primera y no se puede sacar del Skins.'
 export const MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA =
   'Un jugador ya no está en la ronda. Cierra Editar y vuelve a abrirlo.'
-/** 409 de PUT .../skins/jugadores cuando ya hubo un golpe (la función SQL responde P0003). */
-export const MENSAJE_SKINS_YA_EMPEZO = 'El Skins ya empezó. Desde el primer golpe no se edita.'
+/** 409 de PUT .../skins/jugadores cuando el Skins ya empezó: golpe, X, punto especial o retiro (la función SQL responde P0003). */
+export const MENSAJE_SKINS_YA_EMPEZO = 'El Skins ya empezó. Ya no se puede editar.'
 export const MENSAJE_EDITAR_REGLAS_ILEGIBLES = 'No pudimos leer las reglas del Skins. Vuelve a cargar la ronda.'
 
 export async function prepararEdicionDelSkins(
