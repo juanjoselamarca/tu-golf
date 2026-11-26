@@ -6,7 +6,8 @@ import { captureError } from '@/lib/error-tracking'
 import { esFormatoSkins } from '@/golf/formats/skins/clave'
 import type { ContextoValidacionSkins, FueraPorJugador } from '@/golf/formats/skins'
 import { leerReglasSkins, valorDelHoyoSkins, type ValorDelHoyoSkins } from '@/golf/ronda-libre/skins-del-scorer'
-import { contextoSkinsDeRondaNueva, esFalloDeSenalDelContextoSkins } from '@/lib/data/skins-ronda-nueva'
+import { esFalloDeSenalDelContextoSkins } from '@/lib/data/skins-ronda-nueva'
+import { contextoDelSkinsDeLaRonda } from '@/lib/data/skins-contexto-guardado'
 import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
 import { conPlazoCancelable, LecturaCanceladaError } from '@/lib/red/con-timeout'
 import { clienteConSenal } from '@/lib/red/cliente-con-senal'
@@ -28,9 +29,9 @@ type ClaseDeFallo = 'senal' | 'permanente'
 
 /**
  * «Vale N skins» del hoyo en pantalla. Fuera del skins no pide nada y devuelve `null`. El contexto (CH de cada jugador
- * y SI de los hoyos) se lee con `contextoSkinsDeRondaNueva`, el mismo que validó al crear: el índice de
- * `ronda_libre_jugadores.handicap` (fijado al crear) con el tee de cada uno. Mientras no se pueda leer, o si el motor
- * bloquea, no se muestra cifra.
+ * y SI de los hoyos) es el congelado al crear (`contextoDelSkinsDeLaRonda`, el mismo que lee la tabla); una ronda vieja
+ * sin congelado lo recalcula con el índice de `ronda_libre_jugadores.handicap` y el tee de cada uno. Mientras no se
+ * pueda leer, o si el motor bloquea, no se muestra cifra.
  *
  * Cada lectura tiene plazo y se cancela de verdad (la señal llega al fetch) al vencer o al desmontar. Solo se
  * reintenta un fallo de señal (`esFalloDeSenalDelContextoSkins`: sin red, plazo vencido, PostgREST sin `code`), con
@@ -73,11 +74,11 @@ export function useValorDelHoyoSkins(input: {
       enVuelo = true
       try {
         const supabase = createClient()
-        const ctx = await conPlazoCancelable(senal => contextoSkinsDeRondaNueva(clienteConSenal(supabase, senal), {
+        const ctx = await conPlazoCancelable(senal => contextoDelSkinsDeLaRonda(clienteConSenal(supabase, senal), {
           courseId, holes: ronda.holes, hoyoInicio: ronda.hoyo_inicio ?? null, recorridos: ronda.recorridos ?? null,
           tees: ronda.tees, modo: reglas.config.modo,
           jugadores: jugadores.map(j => ({ nombre: j!.nombre, indice: j!.handicap ?? null, tees: j!.tees ?? null })),
-        }), plazoMs, { signal: vida.signal })
+        }, { reglasJuego: ronda.reglas_juego, jugadorIds: reglas.jugadorIds, codigo: ronda.codigo }), plazoMs, { signal: vida.signal })
         if (!vida.signal.aborted) setContexto(ctx)
       } catch (err) {
         if (vida.signal.aborted || err instanceof LecturaCanceladaError) return

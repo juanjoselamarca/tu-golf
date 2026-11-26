@@ -745,6 +745,10 @@ create table public."ronda_libre_jugadores" (
   "updated_at" timestamp with time zone default now(),
   "fuera_del_hoyo" jsonb default '{}'::jsonb not null
 );
+create table public."ronda_libre_primer_golpe" (
+  "ronda_id" uuid not null,
+  "en" timestamp with time zone default now() not null
+);
 create table public."ronda_libre_puntitos" (
   "id" uuid default gen_random_uuid() not null,
   "ronda_id" uuid not null,
@@ -3172,6 +3176,33 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.ronda_libre_tarjeta_tiene_golpes(p_scores jsonb, p_fuera_del_hoyo jsonb)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE(p_fuera_del_hoyo, '{}'::jsonb) <> '{}'::jsonb
+    OR EXISTS (
+      SELECT 1
+      FROM jsonb_each(CASE WHEN jsonb_typeof(p_scores) = 'object' THEN p_scores ELSE '{}'::jsonb END) e
+      WHERE jsonb_typeof(e.value) = 'number'
+    );
+$function$;
+CREATE OR REPLACE FUNCTION public.ronda_libre_tiene_golpes(p_ronda_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (SELECT 1 FROM public.ronda_libre_primer_golpe m WHERE m.ronda_id = p_ronda_id)
+    OR EXISTS (
+      SELECT 1
+      FROM public.ronda_libre_jugadores j
+      WHERE j.ronda_id = p_ronda_id
+        AND public.ronda_libre_tarjeta_tiene_golpes(j.scores, j.fuera_del_hoyo)
+    );
+$function$;
 CREATE OR REPLACE FUNCTION public.ronda_libre_x_sin_golpes(p_scores jsonb, p_fuera jsonb)
  RETURNS boolean
  LANGUAGE sql
@@ -3234,6 +3265,114 @@ BEGIN
   CROSS JOIN max_bm mb
   ORDER BY final_score DESC
   LIMIT top_k;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.skins_congelado_jugador()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_ronda uuid;
+BEGIN
+  -- Marca permanente del primer golpe de un Skins.
+  IF TG_OP <> 'DELETE'
+     AND public.ronda_libre_tarjeta_tiene_golpes(NEW.scores, NEW.fuera_del_hoyo)
+     AND NOT EXISTS (SELECT 1 FROM public.ronda_libre_primer_golpe m WHERE m.ronda_id = NEW.ronda_id)
+     AND EXISTS (SELECT 1 FROM public.rondas_libres rl WHERE rl.id = NEW.ronda_id AND rl.formato_juego = 'skins') THEN
+    INSERT INTO public.ronda_libre_primer_golpe (ronda_id) VALUES (NEW.ronda_id) ON CONFLICT (ronda_id) DO NOTHING;
+  END IF;
+
+  IF TG_OP = 'UPDATE'
+     AND NEW.id IS NOT DISTINCT FROM OLD.id
+     AND NEW.handicap IS NOT DISTINCT FROM OLD.handicap
+     AND NEW.tees IS NOT DISTINCT FROM OLD.tees
+     AND NEW.ronda_id IS NOT DISTINCT FROM OLD.ronda_id THEN
+    RETURN NEW;
+  END IF;
+
+  FOREACH v_ronda IN ARRAY ARRAY[
+    CASE WHEN TG_OP <> 'DELETE' THEN NEW.ronda_id END,
+    CASE WHEN TG_OP <> 'INSERT' THEN OLD.ronda_id END
+  ] LOOP
+    CONTINUE WHEN v_ronda IS NULL;
+    -- Solo el skins. Si la ronda se está borrando entera (DELETE en cascada), esta transacción ya no la ve y pasa.
+    CONTINUE WHEN NOT EXISTS (SELECT 1 FROM public.rondas_libres rl WHERE rl.id = v_ronda AND rl.formato_juego = 'skins');
+    IF public.ronda_libre_tiene_golpes(v_ronda) THEN
+      IF TG_OP = 'INSERT' THEN
+        RAISE EXCEPTION 'SKINS_CONGELADO: el Skins ya empezó. Solo se suman jugadores antes del primer golpe.'
+          USING ERRCODE = 'P0003';
+      END IF;
+      IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'SKINS_CONGELADO: el Skins ya empezó. Desde el primer golpe no se saca a un jugador (si se retira, va como retiro).'
+          USING ERRCODE = 'P0003';
+      END IF;
+      RAISE EXCEPTION 'SKINS_CONGELADO: el Skins ya empezó. Desde el primer golpe no se cambian índices ni tees.'
+        USING ERRCODE = 'P0003';
+    END IF;
+  END LOOP;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.skins_congelado_ronda()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.reglas_juego ? 'congelado' AND COALESCE(auth.role(), '') <> 'service_role' THEN
+      RAISE EXCEPTION 'SKINS_CONGELADO: los golpes del Skins los fija el servidor al crear la ronda.'
+        USING ERRCODE = 'P0003';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- Lo congelado solo lo cambia el servidor, en CUALQUIER formato: si no, se forjaba pasando la ronda a otro formato,
+  -- cambiando lo congelado y volviendo al Skins (con la huella intacta, lo congelado forjado calzaba).
+  IF (OLD.reglas_juego -> 'congelado') IS DISTINCT FROM (NEW.reglas_juego -> 'congelado')
+     AND COALESCE(auth.role(), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'SKINS_CONGELADO: los golpes del Skins los fija el servidor al crear la ronda.'
+      USING ERRCODE = 'P0003';
+  END IF;
+
+  -- Una ronda no entra ni sale del Skins después de creada (ningún camino de la app lo hace: el formato solo se
+  -- escribe al crear, y colocar_inscrito_en_grupo solo pone formatos de torneo, que no incluyen 'skins').
+  IF (COALESCE(OLD.formato_juego, '') = 'skins') <> (COALESCE(NEW.formato_juego, '') = 'skins')
+     AND COALESCE(auth.role(), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'SKINS_CONGELADO: una ronda no se convierte en Skins ni deja de serlo después de creada.'
+      USING ERRCODE = 'P0003';
+  END IF;
+
+  IF OLD.formato_juego IS DISTINCT FROM 'skins' AND NEW.formato_juego IS DISTINCT FROM 'skins' THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.reglas_juego IS NOT DISTINCT FROM OLD.reglas_juego
+     AND NEW.hcp_pct IS NOT DISTINCT FROM OLD.hcp_pct
+     AND NEW.modo_juego IS NOT DISTINCT FROM OLD.modo_juego
+     AND NEW.tees IS NOT DISTINCT FROM OLD.tees
+     AND NEW.course_id IS NOT DISTINCT FROM OLD.course_id
+     AND NEW.recorridos IS NOT DISTINCT FROM OLD.recorridos
+     AND NEW.holes IS NOT DISTINCT FROM OLD.holes
+     AND NEW.hoyo_inicio IS NOT DISTINCT FROM OLD.hoyo_inicio
+     AND NEW.formato_juego IS NOT DISTINCT FROM OLD.formato_juego THEN
+    RETURN NEW;
+  END IF;
+
+  -- La fila ya está bloqueada (BEFORE UPDATE): un golpe en vuelo (upsert_ronda_libre_scores toma la ronda FOR SHARE)
+  -- terminó antes de llegar acá, y esta consulta lo ve.
+  IF public.ronda_libre_tiene_golpes(OLD.id) THEN
+    RAISE EXCEPTION 'SKINS_CONGELADO: el Skins ya empezó. Desde el primer golpe no se cambian las reglas, la cancha ni los hoyos.'
+      USING ERRCODE = 'P0003';
+  END IF;
+  RETURN NEW;
 END;
 $function$;
 CREATE OR REPLACE FUNCTION public.tarjeta_tiene_anotaciones(p_scores jsonb)
@@ -3776,6 +3915,7 @@ alter table public."ronda_libre_juego_orden" add constraint "ronda_libre_juego_o
 alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_fuera_del_hoyo_check" CHECK ((jsonb_typeof(fuera_del_hoyo) = 'object'::text));
 alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_pkey" PRIMARY KEY (id);
 alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_x_sin_golpes_check" CHECK (public.ronda_libre_x_sin_golpes(scores, fuera_del_hoyo));
+alter table public."ronda_libre_primer_golpe" add constraint "ronda_libre_primer_golpe_pkey" PRIMARY KEY (ronda_id);
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_hoyo_check" CHECK (((hoyo >= 1) AND (hoyo <= 27)));
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_pkey" PRIMARY KEY (id);
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_puntito_id_check" CHECK (((char_length(puntito_id) >= 1) AND (char_length(puntito_id) <= 40)));
@@ -3907,6 +4047,7 @@ alter table public."ronda_libre_juego_orden" add constraint "ronda_libre_juego_o
 alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_perfil_sugerido_id_fkey" FOREIGN KEY (perfil_sugerido_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
 alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_ronda_id_fkey" FOREIGN KEY (ronda_id) REFERENCES public.rondas_libres(id) ON DELETE CASCADE;
 alter table public."ronda_libre_jugadores" add constraint "ronda_libre_jugadores_user_id_fkey" FOREIGN KEY (user_id) REFERENCES public.profiles(id);
+alter table public."ronda_libre_primer_golpe" add constraint "ronda_libre_primer_golpe_ronda_id_fkey" FOREIGN KEY (ronda_id) REFERENCES public.rondas_libres(id) ON DELETE CASCADE;
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_jugador_id_fkey" FOREIGN KEY (jugador_id) REFERENCES public.ronda_libre_jugadores(id) ON DELETE CASCADE;
 alter table public."ronda_libre_puntitos" add constraint "ronda_libre_puntitos_ronda_id_fkey" FOREIGN KEY (ronda_id) REFERENCES public.rondas_libres(id) ON DELETE CASCADE;
 alter table public."ronda_libre_retiros" add constraint "ronda_libre_retiros_jugador_id_fkey" FOREIGN KEY (jugador_id) REFERENCES public.ronda_libre_jugadores(id) ON DELETE CASCADE;
@@ -4103,7 +4244,9 @@ CREATE TRIGGER ronda_equipos_anotador_guard BEFORE INSERT OR UPDATE OF anotador_
 CREATE TRIGGER ronda_equipos_anotador_nombre BEFORE INSERT OR UPDATE OF anotador_user_id, anotador_nombre ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_nombre();
 CREATE TRIGGER ronda_equipos_scores_de_su_anotador BEFORE UPDATE OF scores ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_scores_de_su_anotador();
 CREATE TRIGGER update_ronda_equipos_updated_at BEFORE UPDATE ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER skins_congelado_tras_el_primer_golpe BEFORE INSERT OR DELETE OR UPDATE OF id, handicap, tees, ronda_id, scores, fuera_del_hoyo ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.skins_congelado_jugador();
 CREATE TRIGGER update_ronda_libre_jugadores_updated_at BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER skins_congelado_tras_el_primer_golpe BEFORE INSERT OR UPDATE OF reglas_juego, hcp_pct, modo_juego, tees, course_id, recorridos, holes, hoyo_inicio, formato_juego ON public.rondas_libres FOR EACH ROW EXECUTE FUNCTION public.skins_congelado_ronda();
 CREATE TRIGGER update_taiger_sessions_updated_at BEFORE UPDATE ON public.taiger_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER trg_tournament_drafts_dueno_colaborador AFTER INSERT ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador();
 CREATE TRIGGER trg_tournament_drafts_owner_change BEFORE UPDATE OF owner_id ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.guard_tournament_drafts_owner_change();
@@ -4165,6 +4308,7 @@ alter table public."ronda_equipos" enable row level security;
 alter table public."ronda_equipos_scores_orden" enable row level security;
 alter table public."ronda_libre_juego_orden" enable row level security;
 alter table public."ronda_libre_jugadores" enable row level security;
+alter table public."ronda_libre_primer_golpe" enable row level security;
 alter table public."ronda_libre_puntitos" enable row level security;
 alter table public."ronda_libre_retiros" enable row level security;
 alter table public."ronda_libre_scores_orden" enable row level security;
@@ -4482,6 +4626,7 @@ revoke all on table public."ronda_equipos" from public, anon, authenticated, ser
 revoke all on table public."ronda_equipos_scores_orden" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."ronda_libre_juego_orden" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."ronda_libre_jugadores" from public, anon, authenticated, service_role, postgres;
+revoke all on table public."ronda_libre_primer_golpe" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."ronda_libre_puntitos" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."ronda_libre_retiros" from public, anon, authenticated, service_role, postgres;
 revoke all on table public."ronda_libre_scores_orden" from public, anon, authenticated, service_role, postgres;
@@ -4551,8 +4696,12 @@ revoke all on function public.rls_write_policies_audit() from public, anon, auth
 revoke all on function public.ronda_equipos_anotador_guard() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_anotador_nombre() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_scores_de_su_anotador() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.ronda_libre_tarjeta_tiene_golpes(jsonb,jsonb) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.ronda_libre_tiene_golpes(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.skins_congelado_jugador() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.skins_congelado_ronda() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.tarjeta_tiene_anotaciones(jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_ronda_para_escribir(text,uuid) from public, anon, authenticated, service_role, postgres;
@@ -4745,9 +4894,11 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_equipos_scores_orden" to service_role;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_juego_orden" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_juego_orden" to service_role;
-grant DELETE, INSERT, UPDATE on table public."ronda_libre_jugadores" to authenticated;
+grant DELETE on table public."ronda_libre_jugadores" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_jugadores" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_jugadores" to service_role;
+grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_primer_golpe" to postgres;
+grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_primer_golpe" to service_role;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_puntitos" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_puntitos" to service_role;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_retiros" to postgres;
@@ -4824,7 +4975,9 @@ grant UPDATE ("analysis_level", "avatar_url", "default_tee_color", "fecha_nacimi
 grant SELECT ("avatar_url", "id", "indice", "indice_golfers", "name", "nivel") on table public."profiles" to anon;
 grant SELECT ("equipo_id", "jugador_id", "orden") on table public."ronda_equipo_jugadores" to anon;
 grant SELECT ("created_at", "handicap_equipo", "handicap_equipo_juego", "handicap_origen", "id", "nombre", "ronda_id", "scores") on table public."ronda_equipos" to anon;
+grant INSERT ("created_at", "handicap", "handicap_de_inscripcion", "id", "is_guest", "nombre", "nombre_invitado", "pending_user_id", "perfil_sugerido_id", "ronda_id", "scores", "tarjeta_aceptada", "tees", "telefono_invitado", "updated_at", "user_id") on table public."ronda_libre_jugadores" to authenticated;
 grant SELECT ("created_at", "fuera_del_hoyo", "handicap", "handicap_de_inscripcion", "id", "is_guest", "nombre", "nombre_invitado", "pending_user_id", "ronda_id", "scores", "tarjeta_aceptada", "tees", "user_id") on table public."ronda_libre_jugadores" to authenticated;
+grant UPDATE ("created_at", "handicap", "handicap_de_inscripcion", "id", "is_guest", "nombre", "nombre_invitado", "pending_user_id", "perfil_sugerido_id", "ronda_id", "scores", "tarjeta_aceptada", "tees", "telefono_invitado", "updated_at", "user_id") on table public."ronda_libre_jugadores" to authenticated;
 grant SELECT ("fuera_del_hoyo", "handicap", "handicap_de_inscripcion", "id", "nombre", "ronda_id", "scores", "tees", "user_id") on table public."ronda_libre_jugadores" to anon;
 grant SELECT ("admin_mode", "admin_user_id", "codigo", "course_id", "course_name", "creador_id", "created_at", "es_demo", "estado", "fecha", "formato_juego", "hcp_pct", "holes", "hoyo_inicio", "id", "modo_juego", "recorridos", "tees") on table public."rondas_libres" to anon;
 grant SELECT ("closed_at", "id", "player_id", "round_number", "status", "total_gross", "total_net", "total_points", "tournament_id") on table public."rounds" to anon;
@@ -4931,12 +5084,20 @@ grant EXECUTE on function public.rls_write_policies_audit() to service_role;
 grant EXECUTE on function public.ronda_equipos_anotador_guard() to postgres;
 grant EXECUTE on function public.ronda_equipos_anotador_nombre() to postgres;
 grant EXECUTE on function public.ronda_equipos_scores_de_su_anotador() to postgres;
+grant EXECUTE on function public.ronda_libre_tarjeta_tiene_golpes(jsonb,jsonb) to postgres;
+grant EXECUTE on function public.ronda_libre_tarjeta_tiene_golpes(jsonb,jsonb) to service_role;
+grant EXECUTE on function public.ronda_libre_tiene_golpes(uuid) to postgres;
+grant EXECUTE on function public.ronda_libre_tiene_golpes(uuid) to service_role;
 grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to anon;
 grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to authenticated;
 grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to postgres;
 grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to service_role;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to postgres;
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to service_role;
+grant EXECUTE on function public.skins_congelado_jugador() to postgres;
+grant EXECUTE on function public.skins_congelado_jugador() to service_role;
+grant EXECUTE on function public.skins_congelado_ronda() to postgres;
+grant EXECUTE on function public.skins_congelado_ronda() to service_role;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to postgres;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to service_role;
 grant EXECUTE on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) to postgres;

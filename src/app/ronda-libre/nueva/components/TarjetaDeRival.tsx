@@ -6,7 +6,7 @@ import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { usePlayerSearch, type SearchResult } from '../hooks/usePlayerSearch'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico, inputQueBloquea } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
-import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
+import { formatearHandicap, formatearIndice, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, MENSAJE_HANDICAP_UN_DECIMAL, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { ROTULO_INDICE } from '@/golf/core/indice-visible'
@@ -32,7 +32,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, t
   const idIndice = `rival-${indiceEnLista}-indice`
   // Texto local (#773): con type=number, "+1.5" quedaba en '' → 0 y un plus se veía "-2". El índice que llega
   // de un perfil elegido (handleSelect) reemplaza el texto.
-  const campoIndice = useCampoHandicap(rival.handicap, v => onCampo('handicap', v), onBloqueo)
+  const campoIndice = useCampoHandicap(rival.handicap, v => onCampo('handicap', v), onBloqueo, rival.profileId)
 
   // Search only active when tipo === 'cuenta' and no profile selected yet.
   const searchActive = rival.tipo === 'cuenta' && !rival.profileId
@@ -215,7 +215,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, t
           // Inválido o a medio escribir: el paso no avanza por este campo. "abc" tiene aviso propio; "+" a medio
           // escribir se explica en el aviso bajo el botón del paso, que nombra al jugador.
           aria-invalid={campoIndice.bloquea}
-          aria-describedby={campoIndice.invalido
+          aria-describedby={campoIndice.invalido || campoIndice.dosDecimales
             ? `${idIndice}-error`
             : campoIndice.bloquea ? 'paso-jugadores-aviso' : undefined}
           style={{ ...input, ...inputNumerico, ...(campoIndice.bloquea ? inputQueBloquea : null) }}
@@ -233,6 +233,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, numeroEnPantalla, tees, t
         )}
       </div>
       {campoIndice.invalido && <AvisoCampo id={`${idIndice}-error`}>{MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO}</AvisoCampo>}
+      {campoIndice.dosDecimales && <AvisoCampo id={`${idIndice}-error`}>{MENSAJE_HANDICAP_UN_DECIMAL}</AvisoCampo>}
 
       {rival.tipo === 'invitado' && (
         <input

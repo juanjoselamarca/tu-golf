@@ -1,7 +1,7 @@
 'use client'
 
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
-import { formatearHandicap, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
+import { formatearHandicap, MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO, MENSAJE_HANDICAP_UN_DECIMAL, PLACEHOLDER_CAMPO_HANDICAP_ANGOSTO } from '@/golf/handicap-index-range'
 import { useCampoHandicap } from '@/hooks/useCampoHandicap'
 import { AvisoCampo } from '@/components/ui/AvisoCampo'
 import { colores, etiqueta, hcpDeJugador, input, inputNumerico, inputQueBloquea } from './estilos'
@@ -56,7 +56,7 @@ export function TarjetaDelCreador(props: Props) {
           // Inválido o a medio escribir: el paso no avanza por este campo. "abc" tiene aviso propio; "+" a medio
           // escribir se explica en el aviso bajo el botón del paso, que nombra al jugador.
           aria-invalid={campo.bloquea}
-          aria-describedby={campo.invalido ? 'indice-creador-error' : campo.bloquea ? 'paso-jugadores-aviso' : undefined}
+          aria-describedby={campo.invalido || campo.dosDecimales ? 'indice-creador-error' : campo.bloquea ? 'paso-jugadores-aviso' : undefined}
           style={{ ...input, ...inputNumerico, ...(campo.bloquea ? inputQueBloquea : null) }}
         />
         <SelectorDeTeeDelJugador
@@ -72,6 +72,7 @@ export function TarjetaDelCreador(props: Props) {
         )}
       </div>
       {campo.invalido && <AvisoCampo id="indice-creador-error">{MENSAJE_HANDICAP_OPCIONAL_NO_ES_NUMERO}</AvisoCampo>}
+      {campo.dosDecimales && <AvisoCampo id="indice-creador-error">{MENSAJE_HANDICAP_UN_DECIMAL}</AvisoCampo>}
     </div>
   )
 }

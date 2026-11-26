@@ -24,6 +24,7 @@ import { captureError } from '@/lib/error-tracking'
 import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { LecturaFallidaError, detalleDeLecturaFallida } from '@/lib/red/lectura-fallida'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
+import { congelarContextoSkins } from '@/golf/ronda-libre/skins-congelado'
 import { teeLabel } from '@/golf/courses/category-tee-options'
 import { resolverHoyosDeLaRonda } from './course-holes'
 import { parYSiDeLaRonda, type HoyoDeCatalogoEnVivo } from './ronda-libre'
@@ -181,5 +182,9 @@ export async function skinsParaCrearRonda(
     return { ok: false, status: 503, error: mensajeDelFalloDelContextoSkins(err) }
   }
   const r = prepararSkinsDeRondaNueva({ ...pedido, contexto })
-  return r.ok ? r : { ok: false, status: 400, error: r.errores.join(' ') }
+  if (!r.ok) return { ok: false, status: 400, error: r.errores.join(' ') }
+  // Los golpes y los hoyos quedan congelados con el MISMO contexto que validó: la tabla ya no depende del rating que
+  // la cancha tenga cuando se lea (spec «Golpes congelados»).
+  const congelado = congelarContextoSkins(contexto, { ...pedido, courseId: pedido.courseId }, r.jugadorIds)
+  return { ...r, reglas: { ...r.reglas, congelado } }
 }

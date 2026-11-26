@@ -10,6 +10,7 @@
  * la ronda (en 9 hoyos, el CH de 9): `contextoSkinsDeRondaNueva` en `src/lib/data/skins-ronda-nueva.ts`, la misma
  * para la pantalla y la API.
  */
+import type { CongeladoSkins } from './skins-congelado'
 import { esCantidadDeHoyosDelSkins } from '../formats/skins/armado'
 import { validarConfigSkins, type ConfigSkins, type ContextoValidacionSkins, type HoyoSkins } from '../formats/skins'
 
@@ -25,6 +26,8 @@ export const MENSAJE_SKINS_HOYOS = 'Skins se juega en 18 o 9 hoyos. Cambia los h
 export interface ReglasSkinsGuardadas {
   config: ConfigSkins
   jugadorIds: string[]
+  /** Golpes y hoyos congelados al crear (`skins-congelado.ts`). Lo agrega la API; las rondas viejas no lo traen. */
+  congelado?: CongeladoSkins
 }
 
 export type SkinsDeRondaNueva =

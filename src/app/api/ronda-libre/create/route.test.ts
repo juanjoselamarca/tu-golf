@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server'
 const CREADOR_ID = '11111111-1111-4111-8111-111111111111'
 const OTRO_USUARIO_ID = '22222222-2222-4222-8222-222222222222'
 
-type Llamada = { tabla: string; op: string; payload?: unknown }
+type Llamada = { tabla: string; op: string; payload?: unknown; admin?: boolean }
 let llamadas: Llamada[] = []
 let fallaEquipos = false
 let borradoVacio = false
@@ -16,9 +16,12 @@ let fallaInsertConSugerencia: string | null = null
 let fallaInsertSinSugerencia: string | null = null
 /** Ids que "devuelve la base" en el INSERT de jugadores (null = los de cada fila). */
 let idsDevueltos: string[] | null = null
+/** Skins: el UPDATE del congelado (service_role) falla. */
+let fallaCongelado = false
+let adminRevienta = false
 
 /** Builder encadenable y "thenable" como el de PostgREST que registra cada escritura. */
-function builder(tabla: string) {
+function builder(tabla: string, admin = false) {
   let op = 'select'
   let payload: unknown
   const resultado = () => {
@@ -38,6 +41,9 @@ function builder(tabla: string) {
         ? { data: null, error: { message: 'boom', code: '500' } }
         : { data: { id: `eq-${llamadas.filter(l => l.tabla === 'ronda_equipos').length}` }, error: null }
     }
+    if (tabla === 'rondas_libres' && op === 'update' && admin) {
+      return fallaCongelado ? { data: null, error: { message: 'boom', code: '500' } } : { data: [{ id: 'ronda-1' }], error: null }
+    }
     if (tabla === 'rondas_libres' && op === 'delete') {
       return { data: borradoVacio ? [] : [{ id: 'ronda-1' }], error: null }
     }
@@ -49,7 +55,7 @@ function builder(tabla: string) {
     b[m] = vi.fn((p?: unknown) => {
       op = m
       payload = p
-      llamadas.push({ tabla, op: m, payload: p })
+      llamadas.push({ tabla, op: m, payload: p, ...(admin && { admin: true }) })
       return b
     })
   }
@@ -59,6 +65,12 @@ function builder(tabla: string) {
   return b
 }
 
+vi.mock('@/lib/supabaseAdmin', () => ({
+  createAdminClient: () => {
+    if (adminRevienta) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
+    return { from: (tabla: string) => builder(tabla, true) }
+  },
+}))
 vi.mock('@/utils/supabase/server', () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: CREADOR_ID } } }) },
@@ -153,6 +165,7 @@ import { POST } from './route'
 import { crearConfigDePlantilla } from '@/golf/formats/personalizado'
 import { MENSAJE_TIMBA_UN_CELULAR } from '@/golf/ronda-libre/juego-de-ronda-nueva'
 import { CONFIG_SKINS_POR_DEFECTO, type ConfigSkins } from '@/golf/formats/skins'
+import { contextoDelSkinsGuardado } from '@/golf/ronda-libre/skins-congelado'
 
 function req(body: unknown) {
   return new Request('http://test/api/ronda-libre/create', {
@@ -190,6 +203,8 @@ const escrituras = (tabla: string, op = 'insert') => llamadas.filter(l => l.tabl
 
 beforeEach(() => {
   llamadas = []
+  fallaCongelado = false
+  adminRevienta = false
   fallaEquipos = false
   borradoVacio = false
   fallaInsertConSugerencia = null
@@ -788,6 +803,98 @@ describe('POST /api/ronda-libre/create — Skins', () => {
     expect(guardadas.config.puntitos).toEqual([{ id: 'sandy', tipo: 'sandy' }])
     expect(guardadas.jugadorIds).toHaveLength(3)
     expect(filasJugadores().map(f => f.id)).toEqual(guardadas.jugadorIds)
+  })
+
+  it('golpes congelados: el creador inserta SIN congelado y el servidor (service_role) lo graba con los golpes de cada uno', async () => {
+    esAdminElCreador = true
+    const res = await POST(req(skins({ modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }) })))
+    expect(res.status).toBe(200)
+    const insertada = rondaInsertada()?.reglas_juego as Record<string, unknown>
+    expect(insertada).not.toHaveProperty('congelado')
+    const congelar = llamadas.filter(l => l.tabla === 'rondas_libres' && l.op === 'update')
+    expect(congelar).toHaveLength(1)
+    expect(congelar[0].admin).toBe(true)
+    const { congelado, jugadorIds } = (congelar[0].payload as { reglas_juego: { congelado: { golpes: Record<string, unknown>; hoyos: unknown[] }; jugadorIds: string[] } }).reglas_juego
+    expect(Object.keys(congelado.golpes)).toEqual(jugadorIds)
+    expect(congelado.hoyos).toHaveLength(18)
+  })
+
+  it('repetir un Skins: lo que el cliente mande como congelado/jugadorIds se ignora; la ronda se crea y el servidor congela lo suyo', async () => {
+    esAdminElCreador = true
+    const forjado = { version: 1, golpes: { x: { courseHandicap: 99 } }, hoyos: [] }
+    const res = await POST(req(skins({ reglas_juego: { ...reglas(), congelado: forjado, jugadorIds: ['viejo-1', 'viejo-2'] } })))
+    expect(res.status).toBe(200)
+    expect(rondaInsertada()?.reglas_juego as Record<string, unknown>).not.toHaveProperty('congelado')
+    const update = llamadas.find(l => l.tabla === 'rondas_libres' && l.op === 'update')
+    const guardadas = (update?.payload as { reglas_juego: { congelado: { golpes: Record<string, unknown> }; jugadorIds: string[] } }).reglas_juego
+    expect(guardadas.jugadorIds).not.toContain('viejo-1')
+    expect(Object.keys(guardadas.congelado.golpes)).toEqual(guardadas.jugadorIds)
+    expect(guardadas.congelado).not.toEqual(forjado)
+  })
+
+  it('si no se pudo grabar lo congelado: 503 y la ronda se deshace (nunca un skins con golpes que se mueven)', async () => {
+    esAdminElCreador = true
+    fallaCongelado = true
+    const res = await POST(req(skins()))
+    expect(res.status).toBe(503)
+    expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
+  })
+
+  it('si el cliente admin no se puede crear (falta la service key): 503 y la ronda se deshace, no un 500 a medias', async () => {
+    esAdminElCreador = true
+    adminRevienta = true
+    const res = await POST(req(skins()))
+    expect(res.status).toBe(503)
+    expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
+  })
+
+  // Si alguna de estas no calzara al crear, TODOS los Skins de esa forma quedarían recalculando (P1): recorridos []
+  // (la ruta no los guarda: la base los lee null), un jugador sin tee propio (usa el de la ronda), salida por el 10.
+  // hoyo_inicio nulo no llega de la ruta: zod lo exige entero 1-18 y la ruta siempre lo inserta.
+  it.each([
+    ['base', {}, {}],
+    ['recorridos [] y un jugador sin tee propio', { recorridos: [] }, { tees: null }],
+    ['salida por el 10 y todos sin tee propio', { hoyo_inicio: 10 }, { tees: null, todos: true }],
+  ] as const)('lo congelado calza con lo que la ruta REALMENTE inserta (%s), leído como lo leen la tabla y el scorer', async (_n, extra, sinTee) => {
+    esAdminElCreador = true
+    const conTee = (j: ReturnType<typeof jugador>, i: number) => ('tees' in sinTee && (i === 1 || 'todos' in sinTee) ? { ...j, tees: null } : j)
+    const res = await POST(req(skins({
+      modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }), ...extra,
+      jugadores: [{ ...jugador('Juanjo', CREADOR_ID), handicap: 12.4 }, { ...jugador('Nico'), handicap: -2.5 }, { ...jugador('Ross'), handicap: 0 }].map(conTee),
+    })))
+    expect(res.status).toBe(200)
+    const ronda = rondaInsertada() as Record<string, unknown>
+    const filas = filasJugadores() as unknown as Array<{ id: string; nombre: string; handicap: number | null; tees: string | null }>
+    const update = llamadas.find(l => l.tabla === 'rondas_libres' && l.op === 'update')
+    const reglasJuego = (update?.payload as { reglas_juego: { jugadorIds: string[] } }).reglas_juego
+    const jugadores = reglasJuego.jugadorIds.map(id => filas.find(f => f.id === id)!)
+    const recalcular = vi.fn(async () => { throw new Error('no debió recalcular: lo congelado no calzó') })
+    const { origen } = await contextoDelSkinsGuardado({
+      reglasJuego,
+      ronda: {
+        courseId: ronda.course_id as string, holes: ronda.holes as number, hoyoInicio: (ronda.hoyo_inicio as number | null) ?? null,
+        recorridos: (ronda.recorridos as string[] | null) ?? null, tees: ronda.tees as string,
+        jugadores: jugadores.map(j => ({ indice: j.handicap ?? null, tees: j.tees ?? null })),
+        nombres: jugadores.map(j => j.nombre),
+      },
+      jugadorIds: reglasJuego.jugadorIds,
+      recalcular,
+    })
+    expect(origen).toBe('congelado')
+    expect(recalcular).not.toHaveBeenCalled()
+  })
+
+  it.each([12.35, -2.45, 12.37])('índice %s (dos decimales: la base lo redondea y lo congelado no calzaría) es 400 sin crear nada', async (indice) => {
+    esAdminElCreador = true
+    const res = await POST(req(skins({
+      modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }),
+      jugadores: [jugador('Juanjo', CREADOR_ID), { ...jugador('Nico'), handicap: indice }],
+    })))
+    expect(res.status).toBe(400)
+    const { error } = await res.json()
+    expect(error).toContain('Nico')
+    expect(error).toContain('un decimal')
+    nadaInsertado()
   })
 
   it('neto con un jugador sin índice es 400 con su nombre, sin crear nada', async () => {

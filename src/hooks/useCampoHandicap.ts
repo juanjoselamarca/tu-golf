@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useEffectEvent, useState } from 'react'
-import { campoHandicapEnviable, leerCampoHandicap, textoCampoHandicap } from '@/golf/handicap-index-range'
+import { campoHandicapEnviable, leerCampoHandicap, textoCampoHandicap, tieneUnDecimalComoMaximo } from '@/golf/handicap-index-range'
 
 /**
  * Campo de hándicap tipeado cuyo valor vive en el padre como número (`number | null`).
@@ -17,21 +17,47 @@ import { campoHandicapEnviable, leerCampoHandicap, textoCampoHandicap } from '@/
  *
  * Si el padre cambia el valor desde afuera (llega el índice del perfil), el texto se reemplaza, salvo que ya
  * diga ese mismo número (no se le pisa "12." a quien está escribiendo 12.5).
+ *
+ * Dos decimales (12.35) también bloquean (`dosDecimales`, con su aviso) y al padre le llega `null`: la base guarda
+ * el índice a un decimal (12.4) y los golpes que se calcularon (y que el Skins congela) serían los de otro número.
  */
+/** Lo que le llega al padre por un texto: el número, o `null` si está vacío, incompleto, inválido o con dos decimales. */
+function valorParaElPadre(texto: string): number | null {
+  const { valor } = leerCampoHandicap(texto)
+  return valor != null && !tieneUnDecimalComoMaximo(valor) ? null : valor
+}
+
 export function useCampoHandicap(
   valor: number | null,
   onValor: (v: number | null) => void,
   onBloquea?: (bloquea: boolean) => void,
+  /**
+   * Quién es el dueño del valor (el perfil elegido en el buscador). Si cambia, el texto se reemplaza SIEMPRE por el
+   * valor nuevo: "12.35" o "abc" le mandan null al padre, y un perfil sin índice (null) no los habría borrado.
+   */
+  identidad?: string | null,
 ) {
   const [texto, setTexto] = useState(() => textoCampoHandicap(valor))
   const [valorPrevio, setValorPrevio] = useState(valor)
-  // Object.is y no !==: con NaN, `NaN !== NaN` es siempre true y el setState en render no terminaba nunca.
-  if (!Object.is(valor, valorPrevio)) {
+  const [identidadPrevia, setIdentidadPrevia] = useState(identidad)
+  const cambioIdentidad = identidad !== identidadPrevia
+  if (cambioIdentidad) setIdentidadPrevia(identidad)
+  // Solo un perfil NUEVO reemplaza el texto. Desvincular (identidad → null) no trae índice: si borrara "14.25" o "+",
+  // el aviso y el bloqueo desaparecerían en silencio y el rival quedaría sin índice (en un Skins neto, sin golpes).
+  if (cambioIdentidad && identidad != null) {
     setValorPrevio(valor)
-    if (!Object.is(leerCampoHandicap(texto).valor, valor)) setTexto(textoCampoHandicap(valor))
+    setTexto(textoCampoHandicap(valor))
+  }
+  // Object.is y no !==: con NaN, `NaN !== NaN` es siempre true y el setState en render no terminaba nunca.
+  else if (!Object.is(valor, valorPrevio)) {
+    setValorPrevio(valor)
+    // Contra lo que el campo le manda al padre (no contra lo leído): "12.35" manda null y no se borra lo escrito.
+    if (!Object.is(valorParaElPadre(texto), valor)) setTexto(textoCampoHandicap(valor))
   }
 
-  const bloquea = !campoHandicapEnviable(texto)
+  const leido = leerCampoHandicap(texto)
+  const dosDecimales = leido.valor != null && !tieneUnDecimalComoMaximo(leido.valor)
+  const bloquea = !campoHandicapEnviable(texto) || dosDecimales
   const avisarBloqueo = useEffectEvent((b: boolean) => onBloquea?.(b))
   useEffect(() => {
     if (!bloquea) return
@@ -41,8 +67,8 @@ export function useCampoHandicap(
 
   const onTexto = (nuevo: string) => {
     setTexto(nuevo)
-    onValor(leerCampoHandicap(nuevo).valor)
+    onValor(valorParaElPadre(nuevo))
   }
 
-  return { texto, onTexto, invalido: leerCampoHandicap(texto).estado === 'invalido', bloquea }
+  return { texto, onTexto, invalido: leido.estado === 'invalido', dosDecimales, bloquea }
 }

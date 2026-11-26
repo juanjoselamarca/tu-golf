@@ -260,3 +260,25 @@ describe('useValorDelHoyoSkins — el mismo valor que la tabla en vivo', () => {
     expect(result.current).toEqual({ valor: tabla.valor, provisional: tabla.valorProvisional })
   })
 })
+
+describe('useValorDelHoyoSkins — golpes congelados al crear', () => {
+  afterEach(() => { lectura.impl.mockReset() })
+
+  it('con `congelado` que calza no lee la cancha: el VALE sale de lo congelado aunque la cancha haya cambiado', async () => {
+    const congelado = {
+      version: 1,
+      huella: {
+        courseId: 'c1', holes: 18, hoyoInicio: 1, recorridos: null,
+        jugadores: { a: { indice: 10, tee: 'blanco' }, b: { indice: 20, tee: 'blanco' } },
+      },
+      hoyos, golpes: { a: null, b: null },
+    }
+    const ronda = { ...RONDA, reglas_juego: { ...(RONDA.reglas_juego as object), congelado } } as unknown as RondaLibre
+    const { result } = renderHook(() => useValorDelHoyoSkins({
+      ronda, scores: {}, fuera: {}, retiros: undefined, currentHole: 1, plazoMs: PLAZO, esperasMs: ESPERAS,
+    }))
+    await act(async () => { await Promise.resolve(); await Promise.resolve() })
+    expect(lectura.impl).not.toHaveBeenCalled()
+    expect(result.current).toEqual({ valor: 1, provisional: false })
+  })
+})

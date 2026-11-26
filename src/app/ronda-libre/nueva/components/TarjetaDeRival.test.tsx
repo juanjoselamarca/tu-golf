@@ -6,14 +6,15 @@ import { useState } from 'react'
 import { TarjetaDeRival } from './TarjetaDeRival'
 import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 
+const busqueda = vi.hoisted(() => ({ results: [] as Array<{ id: string; name: string; indice: number | null }> }))
 vi.mock('../hooks/usePlayerSearch', () => ({
-  usePlayerSearch: () => ({ results: [], searching: false, open: false, dismiss: vi.fn(), containerRef: { current: null } }),
+  usePlayerSearch: () => ({ results: busqueda.results, searching: false, open: busqueda.results.length > 0, dismiss: vi.fn(), containerRef: { current: null } }),
 }))
 
 const BASE: RivalDelCreador = { id: 'r1', tipo: 'invitado', nombre: 'Pedro', telefono: '', handicap: null, tees: null, profileId: null }
 
-function Tarjeta({ inicial, onHandicap }: { inicial: number | null; onHandicap: (v: number | null) => void }) {
-  const [rival, setRival] = useState<RivalDelCreador>({ ...BASE, handicap: inicial })
+function Tarjeta({ inicial, onHandicap, base = BASE }: { inicial: number | null; onHandicap: (v: number | null) => void; base?: RivalDelCreador }) {
+  const [rival, setRival] = useState<RivalDelCreador>({ ...base, handicap: inicial })
   return (
     <TarjetaDeRival rival={rival} indiceEnLista={0} numeroEnPantalla={2} tees={[]} teeGlobal="" hcp={rival.handicap}
       onCampo={(campo, valor) => {
@@ -26,6 +27,32 @@ function Tarjeta({ inicial, onHandicap }: { inicial: number | null; onHandicap: 
 const campo = () => screen.getByLabelText('Índice') as HTMLInputElement
 
 describe('TarjetaDeRival — índice (#773)', () => {
+  it('"12.35" (bloquea) y después se elige en el buscador un perfil SIN índice: el campo queda vacío, no pegado', () => {
+    busqueda.results = [{ id: 'p-sin-indice', name: 'Pedro Pérez', indice: null }]
+    try {
+      const onHandicap = vi.fn()
+      render(<Tarjeta inicial={null} onHandicap={onHandicap} base={{ ...BASE, tipo: 'cuenta', nombre: 'Ped' }} />)
+      fireEvent.change(campo(), { target: { value: '12.35' } })
+      expect(campo().value).toBe('12.35')
+      fireEvent.click(screen.getByText('Pedro Pérez'))
+      expect(campo().value).toBe('')
+      expect(campo().getAttribute('aria-invalid')).toBe('false')
+    } finally {
+      busqueda.results = []
+    }
+  })
+
+  it('perfil vinculado, "12.35" a medio corregir y se desvincula: el texto y el bloqueo se mantienen', () => {
+    const onHandicap = vi.fn()
+    render(<Tarjeta inicial={14.2} onHandicap={onHandicap} base={{ ...BASE, tipo: 'cuenta', profileId: 'p-pedro' }} />)
+    expect(campo().value).toBe('14.2')
+    fireEvent.change(campo(), { target: { value: '12.35' } })
+    fireEvent.click(screen.getByLabelText('Desvincular perfil'))
+    expect(campo().value).toBe('12.35')
+    expect(screen.getByText(/como máximo un decimal/i)).toBeTruthy()
+    expect(campo().getAttribute('aria-invalid')).toBe('true')
+  })
+
   it('un plus (−2) se precarga "+2"', () => {
     render(<Tarjeta inicial={-2} onHandicap={vi.fn()} />)
     expect(campo().value).toBe('+2')
