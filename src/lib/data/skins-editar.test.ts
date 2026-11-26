@@ -12,7 +12,7 @@ import { contextoDelSkinsGuardado } from '@/golf/ronda-libre/skins-congelado'
 import { MENSAJE_HANDICAP_UN_DECIMAL } from '@/golf/handicap-index-range'
 import { skinsParaCrearRonda } from './skins-ronda-nueva'
 import {
-  MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA, MENSAJE_EDITAR_SIN_CREADOR, prepararEdicionDelSkins,
+  MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA, MENSAJE_EDITAR_QUITAR_CON_CUENTA, MENSAJE_EDITAR_SIN_CREADOR, prepararEdicionDelSkins,
   type JugadorEditado, type RondaDelSkinsAEditar,
 } from './skins-editar'
 
@@ -133,11 +133,24 @@ describe('prepararEdicionDelSkins', () => {
     expect(await editar(ronda, ids, [b, a, c])).toEqual({ ok: false, status: 400, error: MENSAJE_EDITAR_SIN_CREADOR })
   })
 
-  it('un id que no es de la ronda o repetido: 400', async () => {
+  // Revisión Fable #898 (P2-4): 409 para que la hoja caiga en «cerrar» y la pantalla recargue la lista.
+  it('un id que no es de la ronda o repetido: 409 (lista vieja: cerrar y recargar)', async () => {
     const { ronda, ids } = await rondaCreada()
     const [a, b] = pedidoBase(ids)
-    expect(await editar(ronda, ids, [a, { ...b, id: FANTASMA }])).toMatchObject({ status: 400, error: MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA })
-    expect(await editar(ronda, ids, [a, b, b])).toMatchObject({ status: 400, error: MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA })
+    expect(await editar(ronda, ids, [a, { ...b, id: FANTASMA }])).toMatchObject({ status: 409, error: MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA })
+    expect(await editar(ronda, ids, [a, b, b])).toMatchObject({ status: 409, error: MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA })
+  })
+
+  // Revisión Fable #898 (P2-1): antes llegaba a la función SQL (P0001 → 409 «cambiaron») y Editar quedaba en bucle.
+  it('sacar a un jugador con cuenta (user_id): 400 con mensaje propio; dejarlo, ok', async () => {
+    const { ronda, ids } = await rondaCreada()
+    const [a, b, c] = pedidoBase(ids)
+    const conCuenta = (pedido: JugadorEditado[]) => prepararEdicionDelSkins(clienteFalso(cancha()), {
+      ronda, creadorId: CREADOR, pedido,
+      jugadoresActuales: ids.map((id, i) => ({ id, user_id: i === 0 ? CREADOR : i === 1 ? 'u-beto' : null })),
+    })
+    expect(await conCuenta([a, c])).toEqual({ ok: false, status: 400, error: MENSAJE_EDITAR_QUITAR_CON_CUENTA })
+    expect(await conCuenta([a, b])).toMatchObject({ ok: true })
   })
 
   it('valida igual que al crear: dos decimales, cuenta inexistente, índice faltante en neto', async () => {

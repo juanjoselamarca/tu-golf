@@ -53,11 +53,14 @@ export type FilaEditada = Omit<FilaDeJugadorDeRonda, 'perfil_sugerido_id'> & { p
 
 export type EdicionDelSkins =
   | { ok: true; filas: FilaEditada[]; reglas: ReglasSkinsGuardadas }
-  | { ok: false; status: 400 | 503; error: string }
+  | { ok: false; status: 400 | 409 | 503; error: string }
 
 export const MENSAJE_EDITAR_SIN_CREADOR = 'Tu tarjeta va primera y no se puede sacar del Skins.'
+/** 409: la hoja tiene una lista vieja; la hoja cierra y la pantalla recarga. */
 export const MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA =
   'Un jugador ya no está en la ronda. Cierra Editar y vuelve a abrirlo.'
+/** 400: la hoja no ofrece «Quitar» a un jugador con cuenta; si llega igual, no se reintenta en bucle (no es un 409). */
+export const MENSAJE_EDITAR_QUITAR_CON_CUENTA = 'No se puede quitar a un jugador que juega con su cuenta.'
 /** 409 de PUT .../skins/jugadores cuando el Skins ya empezó: golpe, X, punto especial o retiro (la función SQL responde P0003). */
 export const MENSAJE_SKINS_YA_EMPEZO = 'El Skins ya empezó. Ya no se puede editar.'
 export const MENSAJE_EDITAR_REGLAS_ILEGIBLES = 'No pudimos leer las reglas del Skins. Vuelve a cargar la ronda.'
@@ -84,8 +87,13 @@ export async function prepararEdicionDelSkins(
   const vistos = new Set<string>()
   for (const j of pedido) {
     if (!j.id) continue
-    if (!actuales.has(j.id) || vistos.has(j.id)) return { ok: false, status: 400, error: MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA }
+    if (!actuales.has(j.id) || vistos.has(j.id)) return { ok: false, status: 409, error: MENSAJE_EDITAR_JUGADOR_QUE_NO_ESTA }
     vistos.add(j.id)
+  }
+  // Una tarjeta con cuenta no se borra (la función SQL también lo frena, con pending_user_id incluido, como P0001 → 409).
+  // Acá con mensaje propio y 400: volver a abrir Editar no lo arregla, así que no es un «cambió por otro lado».
+  if (jugadoresActuales.some(j => j.user_id != null && !vistos.has(j.id))) {
+    return { ok: false, status: 400, error: MENSAJE_EDITAR_QUITAR_CON_CUENTA }
   }
 
   // Desde acá, igual que POST /api/ronda-libre/create.
