@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { FueraPorJugador } from '@/golf/formats/skins/fuera-del-hoyo'
 import type { VistaDelSkinsEnElScorer } from '@/golf/ronda-libre/skins-del-scorer'
 import type { RondaLibre } from '@/types/ronda'
@@ -27,13 +28,20 @@ export function EditarSkinsDelScorer(props: {
   onGuardado: () => void
 }) {
   const { ronda, vista, userId, enElHoyoDeSalida, scores, fuera, onGuardado } = props
-  if (!vista || !ronda.creador_id) return null
   const jugadores = ronda.ronda_libre_jugadores
-  const visible = enElHoyoDeSalida && !hayAlgoAnotadoEnElTelefono(scores, fuera)
+  const visible = !!vista && !!ronda.creador_id && enElHoyoDeSalida && !hayAlgoAnotadoEnElTelefono(scores, fuera)
     && puedeEditarElSkins({ userId, creadorId: ronda.creador_id, vista, jugadores })
+  // Revisión Fable #898 (P1-2): el primer «+» esconde el botón. Si la franja se fuera, las tarjetas subirían ~52 px y el
+  // segundo toque caería en otra tecla. Mientras se siga en el hoyo de salida, su lugar lo ocupa una franja del mismo
+  // alto; al cambiar de hoyo (toda la pantalla cambia) se va. Estado derivado del render anterior, sin efecto.
+  const [reservado, setReservado] = useState(false)
+  if (visible && enElHoyoDeSalida && !reservado) setReservado(true)
+  if (!enElHoyoDeSalida && reservado) setReservado(false)
+  if (!vista || !ronda.creador_id) return null
   return (
     <EditarSkins
       visible={visible}
+      reservarLugar={reservado}
       codigo={ronda.codigo}
       creadorId={ronda.creador_id}
       jugadores={jugadores}

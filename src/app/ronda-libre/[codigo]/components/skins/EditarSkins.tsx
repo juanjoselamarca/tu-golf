@@ -34,6 +34,8 @@ const botonTexto = {
  */
 export function EditarSkins(props: {
   visible: boolean
+  /** Sin botón, deja en su lugar la franja «quedaron fijos» del mismo alto (el scorer, en el hoyo de salida). */
+  reservarLugar?: boolean
   codigo: string
   creadorId: string
   jugadores: readonly JugadorDelSkinsAEditar[]
@@ -44,24 +46,38 @@ export function EditarSkins(props: {
   pozoPorJugador: number
   onGuardado: () => void
 }) {
-  const { visible, teeGlobal, ...datos } = props
+  const { visible, reservarLugar, teeGlobal, ...datos } = props
   const editor = useEditarSkins(datos)
   return (
     <>
-      {visible && <BotonEditarSkins onAbrir={editor.abrir} />}
+      {visible ? <BotonEditarSkins onAbrir={editor.abrir} /> : reservarLugar ? <FranjaJugadoresFijos /> : null}
       <HojaEditarSkins editor={editor} teeGlobal={teeGlobal} />
     </>
   )
 }
 
+export const TEXTO_AYUDA_EDITAR = 'Jugadores, índice y tee: se corrigen antes de anotar.'
+export const TEXTO_JUGADORES_FIJOS = 'Con el primer golpe, los jugadores quedaron fijos.'
+/** La franja mide lo mismo con botón o sin él: en el scorer, cambiar de una a otra no mueve las tarjetas. */
+const franja = { display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0', minHeight: '52px', boxSizing: 'border-box' } as const
+
 /** El botón «Editar» con su línea de ayuda. */
 export function BotonEditarSkins({ onAbrir }: { onAbrir: () => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
-      <p id={ID_AYUDA} style={{ ...textoChico, flex: 1 }}>Jugadores, índice y tee: se corrigen hasta el primer golpe.</p>
+    <div style={franja}>
+      <p id={ID_AYUDA} style={{ ...textoChico, flex: 1 }}>{TEXTO_AYUDA_EDITAR}</p>
       <Button type="button" variant="nav" size="md" onClick={onAbrir} aria-describedby={ID_AYUDA}>
         {TEXTO_EDITAR}
       </Button>
+    </div>
+  )
+}
+
+/** Lo que ocupa el lugar del botón en el scorer cuando ya no se edita (mismo alto: las tarjetas no saltan). */
+export function FranjaJugadoresFijos() {
+  return (
+    <div style={franja} data-franja-editar-skins="fija">
+      <p style={{ ...textoChico, flex: 1 }}>{TEXTO_JUGADORES_FIJOS}</p>
     </div>
   )
 }
