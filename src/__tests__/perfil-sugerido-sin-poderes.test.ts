@@ -41,6 +41,16 @@ const MIGRACION_ORDEN_PLAYERS = '20261120100000_eliminar_cuenta_orden_y_estado_o
  * trigger sobre la tabla solo lee handicap, tees, ronda_id, scores y la X (test de abajo).
  */
 const MIGRACION_SKINS_CONGELADO = '20261125140000_skins_congelado_tras_el_primer_golpe.sql'
+/**
+ * editar_jugadores_skins (solo service_role, la llama PUT /api/ronda-libre/[codigo]/skins/jugadores) ESCRIBE la columna
+ * igual que la creación: en el UPDATE y el INSERT de la tarjeta, copiada del pedido. Nunca la lee para decidir nada.
+ */
+const MIGRACION_SKINS_EDITAR = '20261126100000_skins_editar_jugadores.sql'
+const ESCRITURAS_EN_EDITAR = [
+  /perfil_sugerido_id = NULLIF\(v_j ->> 'perfil_sugerido_id', ''\)::uuid,/g,
+  /\(\s*id, ronda_id, nombre, user_id, perfil_sugerido_id, scores,/g,
+  /NULLIF\(v_j ->> 'perfil_sugerido_id', ''\)::uuid, '\{\}'::jsonb,/g,
+]
 /** Columnas de `create table public."<tabla>"` en schema.sql (el esquema que dejan todas las migraciones). */
 function columnasDe(schema: string, tabla: string): string[] {
   const cuerpo = new RegExp(String.raw`create table public\."${tabla}" \(([\s\S]*?)
@@ -110,7 +120,10 @@ const ANONIMIZACION = /\n\n  -- Tarjetas en que un creador lo eligió como rival
 describe('perfil_sugerido_id no da poderes', () => {
   it('solo su propia migración la menciona (ninguna otra policy, función ni grant la lee)', () => {
     const mencionan = migrationFiles().filter(f => stripSqlComments(readMigration(f)).includes(COLUMNA))
-    expect(mencionan).toEqual([MIGRACION, MIGRACION_ORDEN_LOCKS, MIGRACION_ORDEN_PLAYERS, MIGRACION_SKINS_CONGELADO])
+    expect(mencionan).toEqual([MIGRACION, MIGRACION_ORDEN_LOCKS, MIGRACION_ORDEN_PLAYERS, MIGRACION_SKINS_CONGELADO, MIGRACION_SKINS_EDITAR])
+    const editar = stripSqlComments(readMigration(MIGRACION_SKINS_EDITAR))
+    for (const re of ESCRITURAS_EN_EDITAR) expect(editar.match(re), String(re)).toHaveLength(1)
+    expect(ESCRITURAS_EN_EDITAR.reduce((sql, re) => sql.replace(re, ''), editar)).not.toContain(COLUMNA)
     const skins = stripSqlComments(readMigration(MIGRACION_SKINS_CONGELADO))
     const grants = [...skins.matchAll(GRANT_DE_COLUMNAS)]
     expect(grants.map(g => g[1])).toEqual(['INSERT', 'UPDATE'])
