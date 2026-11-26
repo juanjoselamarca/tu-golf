@@ -78,7 +78,7 @@ export function useValorDelHoyoSkins(input: {
           courseId, holes: ronda.holes, hoyoInicio: ronda.hoyo_inicio ?? null, recorridos: ronda.recorridos ?? null,
           tees: ronda.tees, modo: reglas.config.modo,
           jugadores: jugadores.map(j => ({ nombre: j!.nombre, indice: j!.handicap ?? null, tees: j!.tees ?? null })),
-        }, { reglasJuego: ronda.reglas_juego, jugadorIds: reglas.jugadorIds }), plazoMs, { signal: vida.signal })
+        }, { reglasJuego: ronda.reglas_juego, jugadorIds: reglas.jugadorIds, codigo: ronda.codigo }), plazoMs, { signal: vida.signal })
         if (!vida.signal.aborted) setContexto(ctx)
       } catch (err) {
         if (vida.signal.aborted || err instanceof LecturaCanceladaError) return

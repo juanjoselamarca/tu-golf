@@ -106,7 +106,7 @@ async function tarjetasDelSkins(
       courseId: ronda.course_id, holes: ronda.holes, hoyoInicio: ronda.hoyo_inicio, recorridos: ronda.recorridos,
       tees: ronda.tees, modo,
       jugadores: jugadores.map(j => ({ nombre: j!.nombre, indice: j!.handicap ?? null, tees: j!.tees ?? null })),
-    }, { reglasJuego: ronda.reglas_juego, jugadorIds })
+    }, { reglasJuego: ronda.reglas_juego, jugadorIds, codigo })
     const orden = contexto.hoyos.map(h => h.numero)
     const fuera: FueraPorJugador = Object.fromEntries(jugadores.map(j => [j!.id, hoyosFueraDesdeLaBase(j!.fuera_del_hoyo, orden)]))
     const scores = Object.fromEntries(jugadores.map(j => [j!.id, j!.scores ?? {}]))

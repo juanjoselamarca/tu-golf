@@ -40,7 +40,7 @@ describe('Skins: golpes congelados al crear', () => {
     expect(r.reglas.congelado!.hoyos).toHaveLength(18)
     expect(Object.keys(r.reglas.congelado!.golpes)).toEqual(['j1', 'j2', 'j3'])
     // Lo congelado es exactamente lo que la ronda hubiera recalculado ese mismo momento.
-    const recalculado = await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: {}, jugadorIds: r.jugadorIds })
+    const recalculado = await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: {}, jugadorIds: r.jugadorIds, codigo: 'R1' })
     expect(r.reglas.congelado!.golpes).toEqual({
       j1: recalculado.jugadores[0].courseHandicap, j2: recalculado.jugadores[1].courseHandicap, j3: recalculado.jugadores[2].courseHandicap,
     })
@@ -48,13 +48,13 @@ describe('Skins: golpes congelados al crear', () => {
 
   it('corregir el rating y el SI de la cancha después de crear NO mueve la tabla (ni la lee)', async () => {
     const r = await crear()
-    const antes = await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
+    const antes = await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds, codigo: 'R2' })
     const supa = clienteFalso(CORREGIDA())
-    const despues = await contextoDelSkinsDeLaRonda(supa, RONDA, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
+    const despues = await contextoDelSkinsDeLaRonda(supa, RONDA, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds, codigo: 'R3' })
     expect(despues).toEqual(antes)
     expect(supa.lecturas).toEqual({})
     // Control: recalculando, la corrección SÍ cambiaba los golpes (si no, el test no discriminaría nada).
-    const vivo = await contextoDelSkinsDeLaRonda(clienteFalso(CORREGIDA()), RONDA, { reglasJuego: {}, jugadorIds: r.jugadorIds })
+    const vivo = await contextoDelSkinsDeLaRonda(clienteFalso(CORREGIDA()), RONDA, { reglasJuego: {}, jugadorIds: r.jugadorIds, codigo: 'R4' })
     expect(vivo.jugadores.map(j => j.courseHandicap)).not.toEqual(antes.jugadores.map(j => j.courseHandicap))
     expect(vivo.hoyos).not.toEqual(antes.hoyos)
   })
@@ -62,7 +62,7 @@ describe('Skins: golpes congelados al crear', () => {
   it('una ronda sin congelado (creada antes de este cambio) sigue recalculando con la cancha vigente', async () => {
     const r = await crear()
     const supa = clienteFalso(CORREGIDA())
-    const vivo = await contextoDelSkinsDeLaRonda(supa, RONDA, { reglasJuego: { config: r.reglas.config, jugadorIds: r.jugadorIds }, jugadorIds: r.jugadorIds })
+    const vivo = await contextoDelSkinsDeLaRonda(supa, RONDA, { reglasJuego: { config: r.reglas.config, jugadorIds: r.jugadorIds }, jugadorIds: r.jugadorIds, codigo: 'R6' })
     expect(supa.lecturas.course_holes).toBe(1)
     expect(vivo.hoyos[0].si).toBe(19 - HOYOS[0].stroke_index)
   })
@@ -71,11 +71,11 @@ describe('Skins: golpes congelados al crear', () => {
     const r = await crear()
     const conOtroIndice = { ...RONDA, jugadores: RONDA.jugadores.map((j, i) => (i === 1 ? { ...j, indice: 18 } : j)) }
     const supa = clienteFalso(AL_CREAR())
-    await contextoDelSkinsDeLaRonda(supa, conOtroIndice, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
+    await contextoDelSkinsDeLaRonda(supa, conOtroIndice, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds, codigo: 'R7' })
     expect(supa.lecturas.course_holes).toBe(1)
     const conOtroTee = { ...RONDA, jugadores: RONDA.jugadores.map((j, i) => (i === 0 ? { ...j, tees: 'rojo' } : j)) }
     const supa2 = clienteFalso(AL_CREAR())
-    await contextoDelSkinsDeLaRonda(supa2, conOtroTee, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
+    await contextoDelSkinsDeLaRonda(supa2, conOtroTee, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds, codigo: 'R8' })
     expect(supa2.lecturas.course_holes).toBe(1)
   })
 
@@ -83,13 +83,26 @@ describe('Skins: golpes congelados al crear', () => {
     const r = await crear()
     vi.mocked(captureError).mockClear()
     const conOtroIndice = { ...RONDA, jugadores: RONDA.jugadores.map((j, i) => (i === 1 ? { ...j, indice: 18 } : j)) }
-    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), conOtroIndice, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
+    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), conOtroIndice, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds, codigo: 'R9' })
     expect(captureError).toHaveBeenCalledTimes(1)
     expect(vi.mocked(captureError).mock.calls[0][1]).toMatchObject({ context: 'skins.congelado-no-calza', level: 'warning' })
     vi.mocked(captureError).mockClear()
-    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: { config: r.reglas.config, jugadorIds: r.jugadorIds }, jugadorIds: r.jugadorIds })
-    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
+    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: { config: r.reglas.config, jugadorIds: r.jugadorIds }, jugadorIds: r.jugadorIds, codigo: 'R11' })
+    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), RONDA, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds, codigo: 'R12' })
     expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('el aviso dice de qué ronda es y sale UNA vez por ronda aunque la tabla relea cada 20-60 s', async () => {
+    const r = await crear()
+    vi.mocked(captureError).mockClear()
+    const conOtroIndice = { ...RONDA, jugadores: RONDA.jugadores.map((j, i) => (i === 1 ? { ...j, indice: 18 } : j)) }
+    for (let i = 0; i < 4; i++) {
+      await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), conOtroIndice, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds, codigo: 'POLL1' })
+    }
+    expect(captureError).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(captureError).mock.calls[0][1].meta).toMatchObject({ codigo: 'POLL1' })
+    await contextoDelSkinsDeLaRonda(clienteFalso(AL_CREAR()), conOtroIndice, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds, codigo: 'POLL2' })
+    expect(captureError).toHaveBeenCalledTimes(2)
   })
 
   it('la ronda leída de la base (índice a un decimal, tee en minúscula, recorridos vacíos) calza con lo congelado', async () => {
@@ -99,7 +112,7 @@ describe('Skins: golpes congelados al crear', () => {
       jugadores: [{ nombre: 'Ana', indice: 10.2, tees: null }, { nombre: 'Beto ', indice: 24.0, tees: 'blanco' }, { nombre: 'Coni', indice: 3.1, tees: 'azul' }],
     }
     const supa = clienteFalso(CORREGIDA())
-    const ctx = await contextoDelSkinsDeLaRonda(supa, comoLaBase, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds })
+    const ctx = await contextoDelSkinsDeLaRonda(supa, comoLaBase, { reglasJuego: r.reglas, jugadorIds: r.jugadorIds, codigo: 'R13' })
     expect(supa.lecturas).toEqual({})
     expect(ctx.jugadores[1].nombre).toBe('Beto')
   })
@@ -108,7 +121,7 @@ describe('Skins: golpes congelados al crear', () => {
     const r = await crear()
     const con4 = { ...RONDA, jugadores: [...RONDA.jugadores, { nombre: 'Dani', indice: 15 }] }
     const supa = clienteFalso(AL_CREAR())
-    const ctx = await contextoDelSkinsDeLaRonda(supa, con4, { reglasJuego: r.reglas, jugadorIds: [...r.jugadorIds, 'j4'] })
+    const ctx = await contextoDelSkinsDeLaRonda(supa, con4, { reglasJuego: r.reglas, jugadorIds: [...r.jugadorIds, 'j4'], codigo: 'R13' })
     expect(supa.lecturas.course_holes).toBe(1)
     expect(ctx.jugadores).toHaveLength(4)
   })
