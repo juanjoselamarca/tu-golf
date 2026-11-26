@@ -1,12 +1,10 @@
 -- Prueba de la migración 20261125140000_skins_congelado_tras_el_primer_golpe con el RLS real (SET ROLE + claims).
--- Se corre SOLO contra la base de pruebas y SIEMPRE termina en RAISE: rollback total, no deja nada.
---   node --env-file=.env.local scripts/test-db/prueba-sql-con-rollback.mjs \
---     supabase/migrations/20261125100000_skins_ronda_libre.sql \
---     supabase/migrations/20261125120000_guardar_tarjeta_ronda_libre_con_lock.sql \
---     supabase/migrations/20261125140000_skins_congelado_tras_el_primer_golpe.sql \
---     scripts/test-db/prueba-skins-congelado.sql
--- (las dos primeras solo mientras la base de pruebas no las tenga). El resultado sale en el mensaje «RESULTADO {...}»:
--- un número = filas tocadas (permitido), «P0003 SKINS_CONGELADO…» = rechazado por el trigger, «42501» = sin permiso.
+-- Se corre SOLO contra la base de pruebas (golfersplus-test), en una transacción, y SIEMPRE termina en RAISE: rollback
+-- total, no deja nada. Va precedida de las migraciones que la base de pruebas todavía no tenga (hoy: 20261125100000,
+-- 20261125120000 y 20261125140000), en el mismo envío. El 25-nov se corrió con conexión directa a Postgres
+-- (TEST_DB_PASSWORD de .env.local); con el token de la Management API sirve `sqlEn` de scripts/lib/management-sql.mjs.
+-- El resultado sale en el mensaje «RESULTADO {...}»: un número = filas tocadas (permitido), «P0003 SKINS_CONGELADO…» =
+-- rechazado por el trigger, «42501» = sin permiso (o la policy previa de la Timba/Skins, que exige poder crear timba).
 DO $prueba$
 DECLARE
   r jsonb := '{}'::jsonb;
