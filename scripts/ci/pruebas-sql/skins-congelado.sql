@@ -32,7 +32,7 @@ DECLARE
     "51_mueve_hacia_congelado": "P0003", "52_mueve_desde_congelado": "P0003", "53_cambia_id_congelado": "P0003",
     "54_anon_indice": "42501", "55_anon_x": "42501", "56_anon_lee_marca": "42501"
   }';
-  uid uuid; s uuid; s2 uuid; t uuid; p uuid; n int;
+  uid uuid; s uuid; s2 uuid; t uuid; t2 uuid; p uuid; n int;
   n_j uuid; s3 uuid; j3 uuid := gen_random_uuid(); jm uuid := gen_random_uuid(); j1 uuid := gen_random_uuid(); j2 uuid := gen_random_uuid(); tj uuid := gen_random_uuid(); pj uuid := gen_random_uuid();
   cod text := 'ZZ' || upper(substr(md5(random()::text), 1, 6));
   reglas jsonb := '{"config":{"version":1},"jugadorIds":[]}'::jsonb;
@@ -46,6 +46,9 @@ BEGIN
     VALUES (cod || 'S', 'Prueba', current_date, uid, 'skins', 'neto', reglas) RETURNING id INTO s2;
   INSERT INTO rondas_libres (codigo, course_name, fecha, creador_id, formato_juego, reglas_juego)
     VALUES (cod || 'T', 'Prueba', current_date, uid, 'personalizado', reglas) RETURNING id INTO t;
+  -- Timba SIN golpes del probador: el caso 48 prueba que no entra al Skins aunque nada esté congelado.
+  INSERT INTO rondas_libres (codigo, course_name, fecha, creador_id, formato_juego, reglas_juego)
+    VALUES (cod || 'V', 'Prueba', current_date, uid, 'personalizado', reglas) RETURNING id INTO t2;
   INSERT INTO rondas_libres (codigo, course_name, fecha, creador_id, formato_juego)
     VALUES (cod || 'P', 'Prueba', current_date, uid, 'stroke_play') RETURNING id INTO p;
   INSERT INTO rondas_libres (codigo, course_name, fecha, creador_id, formato_juego, modo_juego, reglas_juego)
@@ -115,7 +118,7 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('46_ida_skins_a_stroke', SQLSTATE || ' ' || SQLERRM); END;
   BEGIN UPDATE rondas_libres SET reglas_juego = reglas_juego || '{"congelado":{"version":1}}' WHERE id = t; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('47_congelado_en_otro_formato', n);
   EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('47_congelado_en_otro_formato', SQLSTATE || ' ' || SQLERRM); END;
-  BEGIN UPDATE rondas_libres SET formato_juego = 'skins' WHERE id = t; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('48_vuelta_timba_a_skins', n);
+  BEGIN UPDATE rondas_libres SET formato_juego = 'skins' WHERE id = t2; GET DIAGNOSTICS n = ROW_COUNT; r := r || jsonb_build_object('48_vuelta_timba_a_skins', n);
   EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('48_vuelta_timba_a_skins', SQLSTATE || ' ' || SQLERRM); END;
   -- Primer golpe hecho solo con una X: congela igual.
   BEGIN PERFORM upsert_ronda_libre_scores(j3, cod || 'Q', '{"1":"X"}'::jsonb); r := r || jsonb_build_object('49_primer_golpe_solo_x', 1);

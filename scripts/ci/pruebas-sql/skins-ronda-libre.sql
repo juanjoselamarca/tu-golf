@@ -205,7 +205,9 @@ DO $$ BEGIN
   PERFORM 1 FROM public.ronda_libre_jugadores WHERE fuera_del_hoyo ? '1';
   RAISE NOTICE 'OK authenticated: lee fuera_del_hoyo';
 END $$;
--- Un no probador no convierte su ronda normal en un skins (la guarda RESTRICTIVE de UPDATE cubre 'skins').
+-- Un no probador no convierte su ronda normal en un skins: lo corta el trigger del congelado (P0003; ninguna ronda
+-- entra al Skins después de creada). La rama 'skins' de la policy RESTRICTIVE de UPDATE se prueba más abajo, con un
+-- ex probador que edita su propio Skins.
 DO $$ BEGIN
   INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, formato_juego)
   VALUES ('e1000000-0000-4000-8000-000000000003', 'AJENA1', 'Cancha', current_date, 'e0000000-0000-4000-8000-000000000002', 'stroke_play');
@@ -214,7 +216,7 @@ END $$;
 DO $$
 DECLARE n int;
 BEGIN
-  -- Control positivo: el mismo UPDATE a otro formato sí pasa (el 42501 de abajo es la guarda del skins, no otra).
+  -- Control positivo: el mismo UPDATE a otro formato sí pasa (el P0003 de abajo es por entrar al Skins, no otra guarda).
   UPDATE public.rondas_libres SET formato_juego = 'stableford' WHERE id = 'e1000000-0000-4000-8000-000000000003';
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 1 THEN RAISE EXCEPTION 'FALLA: el ajeno no pudo cambiar el formato de su propia ronda (n=%)', n; END IF;
@@ -233,6 +235,29 @@ BEGIN
 -- el INSERT de arriba (42501).
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK ajeno: UPDATE a skins -> P0003 (no se entra al Skins después de creada)';
 END $$;
+
+-- ── Rama 'skins' de rondas_libres_personalizado_solo_admin_update (espejo de timba-probadores.sql) ───────────
+-- course_name no está en las columnas del trigger del congelado: lo único que corta es la policy.
+SET LOCAL request.jwt.claims = '{"sub":"e0000000-0000-4000-8000-000000000001","role":"authenticated"}';
+DO $$
+DECLARE n int;
+BEGIN
+  UPDATE public.rondas_libres SET course_name = 'Cancha 2' WHERE codigo = 'SKINS1';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 1 THEN RAISE EXCEPTION 'FALLA: el probador no pudo editar su Skins (n=%): la prueba de abajo no discriminaría', n; END IF;
+  RAISE NOTICE 'OK probador: edita el nombre de cancha de su Skins';
+END $$;
+RESET ROLE;
+DELETE FROM public.timba_probadores WHERE user_id = 'e0000000-0000-4000-8000-000000000001';
+SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  UPDATE public.rondas_libres SET course_name = 'Cancha 3' WHERE codigo = 'SKINS1';
+  RAISE EXCEPTION 'FALLA: un ex probador siguió editando su Skins';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK ex probador: UPDATE de su Skins -> 42501';
+END $$;
+RESET ROLE;
+INSERT INTO public.timba_probadores (user_id) VALUES ('e0000000-0000-4000-8000-000000000001');
+SET LOCAL ROLE authenticated;
 
 -- ── service_role: el CHECK de la X corre en toda escritura de jugadores y exige EXECUTE de su función ────────
 RESET ROLE;
