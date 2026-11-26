@@ -31,6 +31,9 @@ export const MENSAJE_NO_INSCRIBIBLE: Record<MotivoNoInscribible, string> = {
   cerrado: 'Este torneo ya no admite nuevas inscripciones.',
 }
 
+/** Aviso genérico cuando la inscripción no se pudo completar por una falla (no por una regla del torneo). */
+export const MENSAJE_INSCRIPCION_FALLIDA = 'No se pudo completar la inscripción. Intenta nuevamente.'
+
 export type EnrollResult =
   | { ok: true; playerId: string }
   | {
@@ -97,25 +100,30 @@ export interface CapacityInfo {
  * REAL y ATÓMICO del cupo vive en el RPC `enroll_player`
  * (migrations/20260713_enroll_player_rpc.sql), que cuenta bajo `FOR UPDATE`.
  * Si cambia la regla de "qué status ocupa cupo", hay que tocar AMBOS lados.
+ *
+ * Lanza si la base no contesta: «no pude contar» no es «0 inscritos» (con 0, la guardia de
+ * `updateMaxPlayers` dejaba el cupo bajo los ya inscritos).
  */
 export async function tournamentCapacity(
   admin: SupabaseClient,
   tournamentId: string
 ): Promise<CapacityInfo> {
-  const { data: tRow } = await admin
+  const { data: tRow, error: errorTorneo } = await admin
     .from('tournaments')
     .select('max_players')
     .eq('id', tournamentId)
     .single()
+  if (errorTorneo) throw errorTorneo
   const maxPlayers = (tRow as { max_players: number | null } | null)?.max_players ?? null
   // Contamos SIEMPRE los inscritos activos, aunque no haya tope: `updateMaxPlayers`
   // usa `approved` para impedir fijar el cupo por debajo de los ya inscritos, y ese
   // caso ocurre justamente cuando el torneo hoy no tiene tope (max_players null).
-  const { count } = await admin
+  const { count, error: errorCuenta } = await admin
     .from('players')
     .select('id', { count: 'exact', head: true })
     .eq('tournament_id', tournamentId)
     .eq('status', INSCRITO_APROBADO_STATUS)
+  if (errorCuenta) throw errorCuenta
   const approved = count ?? 0
   const full = maxPlayers != null && maxPlayers > 0 && approved >= maxPlayers
   return { full, maxPlayers, approved }
@@ -163,7 +171,8 @@ export async function enrollPlayer(admin: SupabaseClient, args: EnrollArgs): Pro
     return {
       ok: false,
       reason: 'unknown',
-      message: `No se pudo completar la inscripción: ${error.message}. Intenta nuevamente.`,
+      // El texto de Postgres va a captureError; el jugador lee el aviso de siempre (antes: «…: deadlock detected»).
+      message: MENSAJE_INSCRIPCION_FALLIDA,
     }
   }
 
@@ -174,6 +183,6 @@ export async function enrollPlayer(admin: SupabaseClient, args: EnrollArgs): Pro
   return {
     ok: false,
     reason: res?.reason ?? 'unknown',
-    message: res?.message ?? 'No se pudo completar la inscripción. Intenta nuevamente.',
+    message: res?.message ?? MENSAJE_INSCRIPCION_FALLIDA,
   }
 }

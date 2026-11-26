@@ -87,7 +87,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ slug: s
   const result = await updateMaxPlayers(admin, (t as { id: string }).id, parsed.data.maxPlayers)
   if (!result.ok) {
     if (result.reason === 'unknown') {
-      void captureError(new Error(result.message), {
+      void captureError(new Error(result.detalle ?? result.message), {
         context: 'api.organizador.cupo.update',
         meta: { slug: params.slug },
       })
