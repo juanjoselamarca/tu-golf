@@ -713,7 +713,9 @@ create table public."ronda_equipos" (
   "updated_at" timestamp with time zone default now(),
   "handicap_origen" text default 'calculado'::text not null,
   "anotador_user_id" uuid,
-  "anotador_nombre" text
+  "anotador_nombre" text,
+  "drive_jugadores" text[],
+  "drives" jsonb default '{}'::jsonb not null
 );
 create table public."ronda_equipos_scores_orden" (
   "equipo_id" uuid not null,
@@ -785,7 +787,8 @@ create table public."rondas_libres" (
   "formato_juego" text default 'stroke_play'::text not null,
   "es_demo" boolean default false not null,
   "hcp_pct" smallint default 100 not null,
-  "reglas_juego" jsonb
+  "reglas_juego" jsonb,
+  "drives_minimo" smallint
 );
 create table public."round_metrics" (
   "id" uuid default gen_random_uuid() not null,
@@ -2664,6 +2667,84 @@ AS $function$
       RETURN NEW;
     END;
     $function$;
+CREATE OR REPLACE FUNCTION public.marcar_drive_equipo(p_equipo_id uuid, p_codigo text, p_hoyo integer, p_jugador smallint)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_ronda_id uuid;
+  v_estado text;
+  v_es_demo boolean;
+  v_holes integer;
+  v_drive_jugadores text[];
+  v_anotador uuid;
+  v_origen text;
+  v_admin_mode boolean;
+  v_is_service boolean := COALESCE(auth.role(), '') = 'service_role';
+  v_new_drives jsonb;
+BEGIN
+  -- Lock, existencia y estados: los de upsert_ronda_equipos_scores.
+  SELECT rl.id, rl.estado, rl.es_demo, rl.admin_mode, rl.holes, re.drive_jugadores, re.anotador_user_id, re.handicap_origen
+    INTO v_ronda_id, v_estado, v_es_demo, v_admin_mode, v_holes, v_drive_jugadores, v_anotador, v_origen
+  FROM public.rondas_libres rl
+  INNER JOIN public.ronda_equipos re ON re.ronda_id = rl.id
+  WHERE re.id = p_equipo_id AND rl.codigo = p_codigo
+  FOR UPDATE OF re;
+
+  IF v_ronda_id IS NULL THEN
+    RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+  IF v_es_demo THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
+  END IF;
+  IF v_estado <> 'en_curso' THEN
+    RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
+  END IF;
+
+  -- Autorización: el mismo predicado de upsert_ronda_equipos_scores (20261123200000), copiado tal cual.
+  IF NOT (
+    v_is_service
+    OR (auth.uid() IS NOT NULL AND (
+      public.puede_anotar_ronda(v_ronda_id)
+      OR (v_origen = 'club' AND v_admin_mode IS NOT TRUE AND v_anotador IS NOT DISTINCT FROM auth.uid())
+    ))
+  ) THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
+  END IF;
+
+  IF NOT v_is_service AND v_origen = 'club' AND v_admin_mode IS NOT TRUE
+     AND v_anotador IS NOT NULL AND v_anotador IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'equipo_de_otro_anotador';
+  END IF;
+
+  -- El valor (después del permiso: a quien no puede escribir no se le cuenta cómo es el equipo).
+  IF v_drive_jugadores IS NULL THEN
+    RAISE EXCEPTION 'INVALID_DELTA: el equipo no anota drives' USING ERRCODE = 'P0004';
+  END IF;
+  IF p_hoyo IS NULL OR p_hoyo < 1 OR p_hoyo > GREATEST(v_holes, 18) THEN
+    RAISE EXCEPTION 'INVALID_DELTA: hoyo % fuera de la ronda', p_hoyo USING ERRCODE = 'P0004';
+  END IF;
+  IF p_jugador IS NOT NULL AND (p_jugador < 0 OR p_jugador >= cardinality(v_drive_jugadores)) THEN
+    RAISE EXCEPTION 'INVALID_DELTA: jugador % fuera del equipo', p_jugador USING ERRCODE = 'P0004';
+  END IF;
+
+  UPDATE public.ronda_equipos
+  SET drives = CASE
+    WHEN p_jugador IS NULL THEN drives - p_hoyo::text
+    ELSE drives || jsonb_build_object(p_hoyo::text, p_jugador)
+  END
+  WHERE id = p_equipo_id
+  RETURNING drives INTO v_new_drives;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
+  END IF;
+
+  RETURN v_new_drives;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.marcar_puntito_ronda_libre(p_codigo text, p_jugador_id uuid, p_hoyo integer, p_puntito_id text, p_marcar boolean, p_seq bigint DEFAULT NULL::bigint, p_dispositivo uuid DEFAULT NULL::uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -3149,6 +3230,19 @@ BEGIN
     NEW.anotador_nombre := NULL;
   ELSE
     NEW.anotador_nombre := (SELECT p.name FROM public.profiles p WHERE p.id = NEW.anotador_user_id);
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.ronda_equipos_drives_solo_por_rpc()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF current_user IN ('anon', 'authenticated') AND NEW.drives IS DISTINCT FROM OLD.drives THEN
+    RAISE EXCEPTION 'DRIVES_SOLO_POR_RPC' USING ERRCODE = '42501',
+      DETAIL = 'los drives se marcan con marcar_drive_equipo';
   END IF;
   RETURN NEW;
 END;
@@ -3769,6 +3863,8 @@ alter table public."rate_limit_hits" add constraint "rate_limit_hits_pkey" PRIMA
 alter table public."ronda_equipo_jugadores" add constraint "ronda_equipo_jugadores_equipo_id_jugador_id_key" UNIQUE (equipo_id, jugador_id);
 alter table public."ronda_equipo_jugadores" add constraint "ronda_equipo_jugadores_pkey" PRIMARY KEY (id);
 alter table public."ronda_equipos" add constraint "ronda_equipos_anotador_nombre_check" CHECK (((anotador_user_id IS NOT NULL) OR (anotador_nombre IS NULL)));
+alter table public."ronda_equipos" add constraint "ronda_equipos_drive_jugadores_check" CHECK (((drive_jugadores IS NULL) OR (((cardinality(drive_jugadores) >= 1) AND (cardinality(drive_jugadores) <= 4)) AND (array_position(drive_jugadores, NULL::text) IS NULL))));
+alter table public."ronda_equipos" add constraint "ronda_equipos_drives_check" CHECK ((jsonb_typeof(drives) = 'object'::text));
 alter table public."ronda_equipos" add constraint "ronda_equipos_handicap_origen_check" CHECK ((handicap_origen = ANY (ARRAY['calculado'::text, 'club'::text])));
 alter table public."ronda_equipos" add constraint "ronda_equipos_pkey" PRIMARY KEY (id);
 alter table public."ronda_equipos_scores_orden" add constraint "ronda_equipos_scores_orden_pkey" PRIMARY KEY (equipo_id, dispositivo);
@@ -3784,6 +3880,7 @@ alter table public."ronda_libre_retiros" add constraint "ronda_libre_retiros_des
 alter table public."ronda_libre_retiros" add constraint "ronda_libre_retiros_pkey" PRIMARY KEY (jugador_id);
 alter table public."ronda_libre_scores_orden" add constraint "ronda_libre_scores_orden_pkey" PRIMARY KEY (jugador_id, dispositivo);
 alter table public."rondas_libres" add constraint "rondas_libres_codigo_key" UNIQUE (codigo);
+alter table public."rondas_libres" add constraint "rondas_libres_drives_minimo_check" CHECK (((drives_minimo IS NULL) OR ((drives_minimo >= 1) AND (drives_minimo <= 18))));
 alter table public."rondas_libres" add constraint "rondas_libres_estado_check" CHECK ((estado = ANY (ARRAY['en_curso'::text, 'finalizada'::text])));
 alter table public."rondas_libres" add constraint "rondas_libres_formato_juego_check" CHECK ((formato_juego = ANY (ARRAY['stroke_play'::text, 'stableford'::text, 'match_play'::text, 'best_ball'::text, 'scramble'::text, 'foursome'::text, 'personalizado'::text, 'skins'::text])));
 alter table public."rondas_libres" add constraint "rondas_libres_hcp_pct_check" CHECK (((hcp_pct >= 50) AND (hcp_pct <= 100)));
@@ -4101,6 +4198,7 @@ CREATE TRIGGER trigger_protect_last_admin BEFORE UPDATE ON public.profiles FOR E
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER ronda_equipos_anotador_guard BEFORE INSERT OR UPDATE OF anotador_user_id ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_guard();
 CREATE TRIGGER ronda_equipos_anotador_nombre BEFORE INSERT OR UPDATE OF anotador_user_id, anotador_nombre ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_nombre();
+CREATE TRIGGER ronda_equipos_drives_solo_por_rpc BEFORE UPDATE OF drives ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_drives_solo_por_rpc();
 CREATE TRIGGER ronda_equipos_scores_de_su_anotador BEFORE UPDATE OF scores ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_scores_de_su_anotador();
 CREATE TRIGGER update_ronda_equipos_updated_at BEFORE UPDATE ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_ronda_libre_jugadores_updated_at BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
@@ -4537,6 +4635,7 @@ revoke all on function public.handle_new_user() from public, anon, authenticated
 revoke all on function public.is_draft_collaborator(uuid,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.liberar_equipo_de_ronda(text,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.log_role_change() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.marcar_drive_equipo(uuid,text,integer,smallint) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.marcar_puntito_ronda_libre(text,uuid,integer,text,boolean,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.marcar_retiro_ronda_libre(text,uuid,integer,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.merge_ronda_player_scores(uuid,jsonb) from public, anon, authenticated, service_role, postgres;
@@ -4550,6 +4649,7 @@ revoke all on function public.restamp_round_metrics_target(uuid,numeric) from pu
 revoke all on function public.rls_write_policies_audit() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_anotador_guard() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_anotador_nombre() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.ronda_equipos_drives_solo_por_rpc() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_scores_de_su_anotador() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
@@ -4823,10 +4923,10 @@ grant SELECT ("analysis_level", "avatar_url", "cerebro_v3_enabled", "coach_acces
 grant UPDATE ("analysis_level", "avatar_url", "default_tee_color", "fecha_nacimiento", "genero", "golf_goals", "indice", "name", "nivel", "nivel_expires_at", "nivel_updated_at", "patterns_need_recalc", "target_deadline", "target_handicap", "target_set_at", "updated_at") on table public."profiles" to authenticated;
 grant SELECT ("avatar_url", "id", "indice", "indice_golfers", "name", "nivel") on table public."profiles" to anon;
 grant SELECT ("equipo_id", "jugador_id", "orden") on table public."ronda_equipo_jugadores" to anon;
-grant SELECT ("created_at", "handicap_equipo", "handicap_equipo_juego", "handicap_origen", "id", "nombre", "ronda_id", "scores") on table public."ronda_equipos" to anon;
+grant SELECT ("created_at", "drive_jugadores", "drives", "handicap_equipo", "handicap_equipo_juego", "handicap_origen", "id", "nombre", "ronda_id", "scores") on table public."ronda_equipos" to anon;
 grant SELECT ("created_at", "fuera_del_hoyo", "handicap", "handicap_de_inscripcion", "id", "is_guest", "nombre", "nombre_invitado", "pending_user_id", "ronda_id", "scores", "tarjeta_aceptada", "tees", "user_id") on table public."ronda_libre_jugadores" to authenticated;
 grant SELECT ("fuera_del_hoyo", "handicap", "handicap_de_inscripcion", "id", "nombre", "ronda_id", "scores", "tees", "user_id") on table public."ronda_libre_jugadores" to anon;
-grant SELECT ("admin_mode", "admin_user_id", "codigo", "course_id", "course_name", "creador_id", "created_at", "es_demo", "estado", "fecha", "formato_juego", "hcp_pct", "holes", "hoyo_inicio", "id", "modo_juego", "recorridos", "tees") on table public."rondas_libres" to anon;
+grant SELECT ("admin_mode", "admin_user_id", "codigo", "course_id", "course_name", "creador_id", "created_at", "drives_minimo", "es_demo", "estado", "fecha", "formato_juego", "hcp_pct", "holes", "hoyo_inicio", "id", "modo_juego", "recorridos", "tees") on table public."rondas_libres" to anon;
 grant SELECT ("closed_at", "id", "player_id", "round_number", "status", "total_gross", "total_net", "total_points", "tournament_id") on table public."rounds" to anon;
 grant SELECT ("group_id", "id", "jugador_ronda_id", "player_id") on table public."tournament_group_players" to anon;
 grant SELECT ("id", "name", "ronda_libre_id", "sort_order", "tee_time", "tournament_id") on table public."tournament_groups" to anon;
@@ -4895,6 +4995,9 @@ grant EXECUTE on function public.liberar_equipo_de_ronda(text,uuid) to postgres;
 grant EXECUTE on function public.liberar_equipo_de_ronda(text,uuid) to service_role;
 grant EXECUTE on function public.log_role_change() to postgres;
 grant EXECUTE on function public.log_role_change() to service_role;
+grant EXECUTE on function public.marcar_drive_equipo(uuid,text,integer,smallint) to authenticated;
+grant EXECUTE on function public.marcar_drive_equipo(uuid,text,integer,smallint) to postgres;
+grant EXECUTE on function public.marcar_drive_equipo(uuid,text,integer,smallint) to service_role;
 grant EXECUTE on function public.marcar_puntito_ronda_libre(text,uuid,integer,text,boolean,bigint,uuid) to authenticated;
 grant EXECUTE on function public.marcar_puntito_ronda_libre(text,uuid,integer,text,boolean,bigint,uuid) to postgres;
 grant EXECUTE on function public.marcar_puntito_ronda_libre(text,uuid,integer,text,boolean,bigint,uuid) to service_role;
@@ -4930,6 +5033,7 @@ grant EXECUTE on function public.rls_write_policies_audit() to postgres;
 grant EXECUTE on function public.rls_write_policies_audit() to service_role;
 grant EXECUTE on function public.ronda_equipos_anotador_guard() to postgres;
 grant EXECUTE on function public.ronda_equipos_anotador_nombre() to postgres;
+grant EXECUTE on function public.ronda_equipos_drives_solo_por_rpc() to postgres;
 grant EXECUTE on function public.ronda_equipos_scores_de_su_anotador() to postgres;
 grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to anon;
 grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to authenticated;
