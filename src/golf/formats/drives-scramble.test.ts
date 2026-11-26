@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   avisoDeDrives,
   contarDrives,
+  conteoDeDrives,
   drivesMinimoPorJugador,
   jugadoresDeDrive,
   leerDrives,
@@ -123,5 +124,25 @@ describe('problemaDeJugadoresDeDrive', () => {
     expect(problemaDeJugadoresDeDrive(['Pedro', 'Juan', '  ', 'Tomás'])).toBe('faltan')
     expect(problemaDeJugadoresDeDrive(['Pedro', 'juan', 'Diego', 'Juan '])).toBe('repetidos')
     expect(problemaDeJugadoresDeDrive(['Pedro', 'Juan', 'Diego', 'x'.repeat(21)])).toBe('largo')
+  })
+})
+
+describe('conteoDeDrives', () => {
+  it('conteo por jugador, lo que falta y ✓ al cumplir', () => {
+    const drives = con([1, 0], [2, 0], [3, 0], [4, 2], [5, 2], [6, 2], [7, 2], [8, 3])
+    expect(conteoDeDrives({ jugadores: EQUIPO, drives, minimo: 4, hoyos: H18 })).toEqual([
+      { indice: 0, nombre: 'Pedro', drives: 3, faltan: 1, cumple: false },
+      { indice: 1, nombre: 'Juan', drives: 0, faltan: 4, cumple: false },
+      { indice: 2, nombre: 'Diego', drives: 4, faltan: 0, cumple: true },
+      { indice: 3, nombre: 'Tomás', drives: 1, faltan: 3, cumple: false },
+    ])
+  })
+  it('pasarse del mínimo sigue cumpliendo; sin mínimo no cumple ni falta', () => {
+    const drives = con([1, 1], [2, 1], [3, 1], [4, 1], [5, 1])
+    expect(conteoDeDrives({ jugadores: EQUIPO, drives, minimo: 4, hoyos: H18 })[1]).toMatchObject({ drives: 5, faltan: 0, cumple: true })
+    expect(conteoDeDrives({ jugadores: EQUIPO, drives, minimo: null, hoyos: H18 })[1]).toMatchObject({ drives: 5, faltan: 0, cumple: false })
+  })
+  it('equipo sin drives → []', () => {
+    expect(conteoDeDrives({ jugadores: null, drives: {}, minimo: 4, hoyos: H18 })).toEqual([])
   })
 })

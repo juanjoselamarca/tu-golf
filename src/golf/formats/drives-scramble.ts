@@ -56,6 +56,37 @@ export function contarDrives(drives: DrivesDelEquipo, cantidadDeJugadores: numbe
   return cuenta
 }
 
+export interface ConteoDeDrivesDeJugador {
+  indice: number
+  nombre: string
+  /** Drives anotados en los hoyos de la ronda. */
+  drives: number
+  /** Lo que le falta para el mínimo (0 si lo cumplió o la ronda no tiene mínimo). */
+  faltan: number
+  /** Llegó al mínimo. Sin mínimo (`null`) no hay nada que cumplir: false. */
+  cumple: boolean
+}
+
+/**
+ * Conteo de drives por jugador y si cumplió el mínimo, en el orden del equipo. La fuente de la fila «Pedro 3 ·
+ * Juan 4 ✓» del scorer y de la vista del espectador. `[]` si el equipo no anota drives.
+ */
+export function conteoDeDrives(input: {
+  jugadores: readonly string[] | null
+  drives: DrivesDelEquipo
+  minimo: number | null
+  hoyos: readonly number[]
+}): ConteoDeDrivesDeJugador[] {
+  const { jugadores, drives, minimo, hoyos } = input
+  if (!jugadores || jugadores.length === 0) return []
+  const cuenta = contarDrives(drives, jugadores.length, hoyos)
+  return jugadores.map((nombre, indice) => {
+    const n = cuenta[indice]
+    const conMinimo = minimo != null && minimo > 0
+    return { indice, nombre, drives: n, faltan: conMinimo ? Math.max(0, minimo - n) : 0, cumple: conMinimo && n >= minimo }
+  })
+}
+
 export interface FaltaDeDrives {
   indice: number
   nombre: string
