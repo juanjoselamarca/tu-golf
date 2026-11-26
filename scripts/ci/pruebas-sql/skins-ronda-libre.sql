@@ -228,7 +228,10 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n = 0 THEN RAISE EXCEPTION 'FALLA: la prueba no discrimina: el UPDATE no tocó la ronda propia'; END IF;
   RAISE EXCEPTION 'FALLA: un no probador pasó su ronda a skins';
-EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK ajeno: UPDATE a skins -> 42501';
+-- Desde el congelado (20261125140000) el trigger skins_congelado_ronda corta antes que la policy: ninguna ronda entra
+-- al Skins después de creada, sea o no probador (lo cubre skins-congelado.sql, caso 48). La policy sigue cubriendo
+-- el INSERT de arriba (42501).
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK ajeno: UPDATE a skins -> P0003 (no se entra al Skins después de creada)';
 END $$;
 
 -- ── service_role: el CHECK de la X corre en toda escritura de jugadores y exige EXECUTE de su función ────────
