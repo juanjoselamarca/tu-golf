@@ -819,6 +819,19 @@ describe('POST /api/ronda-libre/create — Skins', () => {
     expect(congelado.hoyos).toHaveLength(18)
   })
 
+  it('repetir un Skins: lo que el cliente mande como congelado/jugadorIds se ignora; la ronda se crea y el servidor congela lo suyo', async () => {
+    esAdminElCreador = true
+    const forjado = { version: 1, golpes: { x: { courseHandicap: 99 } }, hoyos: [] }
+    const res = await POST(req(skins({ reglas_juego: { ...reglas(), congelado: forjado, jugadorIds: ['viejo-1', 'viejo-2'] } })))
+    expect(res.status).toBe(200)
+    expect(rondaInsertada()?.reglas_juego as Record<string, unknown>).not.toHaveProperty('congelado')
+    const update = llamadas.find(l => l.tabla === 'rondas_libres' && l.op === 'update')
+    const guardadas = (update?.payload as { reglas_juego: { congelado: { golpes: Record<string, unknown> }; jugadorIds: string[] } }).reglas_juego
+    expect(guardadas.jugadorIds).not.toContain('viejo-1')
+    expect(Object.keys(guardadas.congelado.golpes)).toEqual(guardadas.jugadorIds)
+    expect(guardadas.congelado).not.toEqual(forjado)
+  })
+
   it('si no se pudo grabar lo congelado: 503 y la ronda se deshace (nunca un skins con golpes que se mueven)', async () => {
     esAdminElCreador = true
     fallaCongelado = true
@@ -835,11 +848,19 @@ describe('POST /api/ronda-libre/create — Skins', () => {
     expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
   })
 
-  it('lo congelado calza con lo que la ruta REALMENTE inserta (ronda y filas leídas como las leen la tabla y el scorer)', async () => {
+  // Si alguna de estas no calzara al crear, TODOS los Skins de esa forma quedarían recalculando (P1): recorridos []
+  // (la ruta no los guarda: la base los lee null), un jugador sin tee propio (usa el de la ronda), salida por el 10.
+  // hoyo_inicio nulo no llega de la ruta: zod lo exige entero 1-18 y la ruta siempre lo inserta.
+  it.each([
+    ['base', {}, {}],
+    ['recorridos [] y un jugador sin tee propio', { recorridos: [] }, { tees: null }],
+    ['salida por el 10 y todos sin tee propio', { hoyo_inicio: 10 }, { tees: null, todos: true }],
+  ] as const)('lo congelado calza con lo que la ruta REALMENTE inserta (%s), leído como lo leen la tabla y el scorer', async (_n, extra, sinTee) => {
     esAdminElCreador = true
+    const conTee = (j: ReturnType<typeof jugador>, i: number) => ('tees' in sinTee && (i === 1 || 'todos' in sinTee) ? { ...j, tees: null } : j)
     const res = await POST(req(skins({
-      modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }),
-      jugadores: [{ ...jugador('Juanjo', CREADOR_ID), handicap: 12.4 }, { ...jugador('Nico'), handicap: -2.5 }, { ...jugador('Ross'), handicap: 0 }],
+      modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }), ...extra,
+      jugadores: [{ ...jugador('Juanjo', CREADOR_ID), handicap: 12.4 }, { ...jugador('Nico'), handicap: -2.5 }, { ...jugador('Ross'), handicap: 0 }].map(conTee),
     })))
     expect(res.status).toBe(200)
     const ronda = rondaInsertada() as Record<string, unknown>
