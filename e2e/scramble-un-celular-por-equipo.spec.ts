@@ -263,7 +263,12 @@ test.describe('Scramble rápido — un celular por equipo', () => {
 
     await page.getByRole('button', { name: /Finalizar ronda/ }).click()
     const hoja = page.getByRole('dialog')
-    await expect(hoja).toContainText('¿Finalizar ronda?')
+    await expect(hoja).toContainText('¿Marcar 1 hoyo como par y finalizar?')
+    // Abrir la hoja y cancelar no guarda nada: el par se confirma recién con «Finalizar».
+    await hoja.getByRole('button', { name: 'Cancelar' }).click()
+    await page.waitForTimeout(1500)
+    expect(await golpeDelEquipo(id, 'Los Halcones', 9), 'Cancelar no sube el par').toBeNull()
+    await page.getByRole('button', { name: /Finalizar ronda/ }).click()
     await hoja.getByRole('button', { name: /^Finalizar/ }).click()
     await expect(page.getByText(/Los Zorros va en el hoyo 7/)).toBeVisible({ timeout: 15_000 })
 
