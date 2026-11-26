@@ -18,6 +18,7 @@ let fallaInsertSinSugerencia: string | null = null
 let idsDevueltos: string[] | null = null
 /** Skins: el UPDATE del congelado (service_role) falla. */
 let fallaCongelado = false
+let adminRevienta = false
 
 /** Builder encadenable y "thenable" como el de PostgREST que registra cada escritura. */
 function builder(tabla: string, admin = false) {
@@ -64,7 +65,12 @@ function builder(tabla: string, admin = false) {
   return b
 }
 
-vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => ({ from: (tabla: string) => builder(tabla, true) }) }))
+vi.mock('@/lib/supabaseAdmin', () => ({
+  createAdminClient: () => {
+    if (adminRevienta) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
+    return { from: (tabla: string) => builder(tabla, true) }
+  },
+}))
 vi.mock('@/utils/supabase/server', () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: CREADOR_ID } } }) },
@@ -159,6 +165,7 @@ import { POST } from './route'
 import { crearConfigDePlantilla } from '@/golf/formats/personalizado'
 import { MENSAJE_TIMBA_UN_CELULAR } from '@/golf/ronda-libre/juego-de-ronda-nueva'
 import { CONFIG_SKINS_POR_DEFECTO, type ConfigSkins } from '@/golf/formats/skins'
+import { contextoDelSkinsGuardado } from '@/golf/ronda-libre/skins-congelado'
 
 function req(body: unknown) {
   return new Request('http://test/api/ronda-libre/create', {
@@ -197,6 +204,7 @@ const escrituras = (tabla: string, op = 'insert') => llamadas.filter(l => l.tabl
 beforeEach(() => {
   llamadas = []
   fallaCongelado = false
+  adminRevienta = false
   fallaEquipos = false
   borradoVacio = false
   fallaInsertConSugerencia = null
@@ -817,6 +825,55 @@ describe('POST /api/ronda-libre/create — Skins', () => {
     const res = await POST(req(skins()))
     expect(res.status).toBe(503)
     expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
+  })
+
+  it('si el cliente admin no se puede crear (falta la service key): 503 y la ronda se deshace, no un 500 a medias', async () => {
+    esAdminElCreador = true
+    adminRevienta = true
+    const res = await POST(req(skins()))
+    expect(res.status).toBe(503)
+    expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
+  })
+
+  it('lo congelado calza con lo que la ruta REALMENTE inserta (ronda y filas leídas como las leen la tabla y el scorer)', async () => {
+    esAdminElCreador = true
+    const res = await POST(req(skins({
+      modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }),
+      jugadores: [{ ...jugador('Juanjo', CREADOR_ID), handicap: 12.4 }, { ...jugador('Nico'), handicap: -2.5 }, { ...jugador('Ross'), handicap: 0 }],
+    })))
+    expect(res.status).toBe(200)
+    const ronda = rondaInsertada() as Record<string, unknown>
+    const filas = filasJugadores() as unknown as Array<{ id: string; nombre: string; handicap: number | null; tees: string | null }>
+    const update = llamadas.find(l => l.tabla === 'rondas_libres' && l.op === 'update')
+    const reglasJuego = (update?.payload as { reglas_juego: { jugadorIds: string[] } }).reglas_juego
+    const jugadores = reglasJuego.jugadorIds.map(id => filas.find(f => f.id === id)!)
+    const recalcular = vi.fn(async () => { throw new Error('no debió recalcular: lo congelado no calzó') })
+    const { origen } = await contextoDelSkinsGuardado({
+      reglasJuego,
+      ronda: {
+        courseId: ronda.course_id as string, holes: ronda.holes as number, hoyoInicio: (ronda.hoyo_inicio as number | null) ?? null,
+        recorridos: (ronda.recorridos as string[] | null) ?? null, tees: ronda.tees as string,
+        jugadores: jugadores.map(j => ({ indice: j.handicap ?? null, tees: j.tees ?? null })),
+        nombres: jugadores.map(j => j.nombre),
+      },
+      jugadorIds: reglasJuego.jugadorIds,
+      recalcular,
+    })
+    expect(origen).toBe('congelado')
+    expect(recalcular).not.toHaveBeenCalled()
+  })
+
+  it.each([12.35, -2.45, 12.37])('índice %s (dos decimales: la base lo redondea y lo congelado no calzaría) es 400 sin crear nada', async (indice) => {
+    esAdminElCreador = true
+    const res = await POST(req(skins({
+      modo_juego: 'neto', reglas_juego: reglas({ modo: 'neto' }),
+      jugadores: [jugador('Juanjo', CREADOR_ID), { ...jugador('Nico'), handicap: indice }],
+    })))
+    expect(res.status).toBe(400)
+    const { error } = await res.json()
+    expect(error).toContain('Nico')
+    expect(error).toContain('un decimal')
+    nadaInsertado()
   })
 
   it('neto con un jugador sin índice es 400 con su nombre, sin crear nada', async () => {

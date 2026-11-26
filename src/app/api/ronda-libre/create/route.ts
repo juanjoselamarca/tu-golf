@@ -24,7 +24,7 @@ import { evaluarRondaLibre } from '@/lib/data/course-aptitud'
 import { bloqueaRondaLibre, seArreglaJugandoGross } from '@/golf/courses/aptitud-torneo'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
-import { HANDICAP_INDEX_MIN, HANDICAP_INDEX_MAX, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
+import { HANDICAP_INDEX_MIN, HANDICAP_INDEX_MAX, MENSAJE_HANDICAP_UN_DECIMAL, MENSAJE_INDICE_FUERA_DE_RANGO, tieneUnDecimalComoMaximo } from '@/golf/handicap-index-range'
 import { checkModoAccess } from '@/golf/billing/require-feature'
 import { perfilesQueExisten } from '@/lib/data/perfiles-existentes'
 import { skinsParaCrearRonda } from '@/lib/data/skins-ronda-nueva'
@@ -194,6 +194,13 @@ export async function POST(req: NextRequest) {
       : null
     if (timba && !timba.ok) {
       return NextResponse.json({ error: timba.error }, { status: 400 })
+    }
+
+    // Skins: el índice se guarda numeric(4,1). Con dos decimales la base guardaría otro número que el que fijó los
+    // golpes congelados (12.35 → 12.4 en la tarjeta, CH de 12.35): se rechaza antes de armar el contexto.
+    const conDosDecimales = esSkins ? body.jugadores.find(j => j.handicap != null && !tieneUnDecimalComoMaximo(j.handicap)) : undefined
+    if (conDosDecimales) {
+      return NextResponse.json({ error: `Índice de ${conDosDecimales.nombre}: ${MENSAJE_HANDICAP_UN_DECIMAL}` }, { status: 400 })
     }
 
     // Skins: el mismo validador y el mismo contexto (CH en la escala de la ronda, SI de sus hoyos) que la pantalla.
@@ -470,7 +477,10 @@ export async function POST(req: NextRequest) {
 
     // Skins: los golpes congelados los graba el servidor, no el INSERT del creador (la base lo exige).
     if (skins?.ok) {
-      const congelado = await guardarCongeladoDelSkins(createAdminClient(), ronda.id, skins.reglas as unknown as Record<string, unknown>)
+      // createAdminClient() lanza si falta la service key: también deshace la ronda (nunca un Skins sin congelado).
+      const congelado = await Promise.resolve()
+        .then(() => guardarCongeladoDelSkins(createAdminClient(), ronda.id, skins.reglas as unknown as Record<string, unknown>))
+        .catch((error: unknown) => ({ ok: false as const, error }))
       if (!congelado.ok) {
         void captureError(congelado.error, { context: 'ronda-libre.create.skins-congelado', userId: user.id, meta: { rondaId: ronda.id } })
         await deshacerRonda()
