@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { safeCheck, type Category, type Check } from './base'
+import { safeCheck, sinErrorDeBase, type Category } from './base'
 
 // ─── 3. Route & Role Integrity ────────────────────────────────────────────
 
@@ -7,9 +7,9 @@ export async function checkRouteAndRoleIntegrity(admin: SupabaseClient): Promise
   const checks = await Promise.all([
     // Admin exists
     safeCheck('Admin existe', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) as cnt FROM profiles WHERE role = 'admin'`,
-      })
+      }))
       const count = Number(data?.[0]?.cnt ?? 0)
       return {
         name: 'Admin existe',

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { timed, safeCheck, type Category, type Check } from './base'
+import { timed, safeCheck, sinErrorDeBase, type Category } from './base'
 
 // ─── 1. Services ────────────────────────────────────────────────────────────
 
@@ -7,7 +7,8 @@ export async function checkServices(admin: SupabaseClient): Promise<Category> {
   const checks = await Promise.all([
     // Supabase ping
     safeCheck('Supabase ping', async () => {
-      const { ms } = await timed(async () => admin.from('profiles').select('id').limit(1))
+      const { result, ms } = await timed(async () => admin.from('profiles').select('id').limit(1))
+      sinErrorDeBase(result)
       return {
         name: 'Supabase ping',
         status: ms < 2000 ? 'pass' : 'warn',

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { safeCheck, type Category, type Check } from './base'
+import { safeCheck, type Category } from './base'
 
 // ─── 4. RLS Policies ──────────────────────────────────────────────────────
 

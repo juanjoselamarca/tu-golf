@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { safeCheck, type Category, type Check } from './base'
+import { safeCheck, sinErrorDeBase, type Category } from './base'
 
 // ─── 2. Data Integrity ─────────────────────────────────────────────────────
 
@@ -11,7 +11,7 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
     // Si una ronda no tiene par, el coach ve golpes pero NO puede calcular vs-par ni
     // detectar patrones. Si esta cobertura BAJA, algo rompió el import/linkeo → alarma.
     safeCheck('Coach: cobertura de pares por hoyo', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT
                   COUNT(*) FILTER (WHERE scores IS NOT NULL AND total_gross IS NOT NULL) AS total,
                   COUNT(*) FILTER (
@@ -20,7 +20,7 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
                     AND (course_id IS NULL OR course_id NOT IN (SELECT DISTINCT course_id FROM course_holes))
                   ) AS sin_par
                 FROM historical_rounds`,
-      })
+      }))
       const total = Number(data?.[0]?.total ?? 0)
       const sinPar = Number(data?.[0]?.sin_par ?? 0)
       const cobertura = total > 0 ? Math.round(((total - sinPar) / total) * 100) : 100
@@ -46,7 +46,7 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
     // invariante suena la alarma ante cualquier corrupción nueva del catálogo.
     // Complementa el medidor de cobertura (canchas SIN hoyos) de arriba.
     safeCheck('Catálogo: consistencia de pares', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `WITH agg AS (
                   SELECT c.id, c.tipo_recorrido AS tipo, c.par_total,
                     regexp_replace(c.nombre,'\\s*\\((DAMAS|VARONES)\\)\\s*$','','i') AS base,
@@ -78,7 +78,7 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
                   count(*) FILTER (WHERE f_genero) genero_ne,
                   count(*) FILTER (WHERE f_dup OR f_parsum OR f_rango OR f_conteo OR f_genero) total
                 FROM flags`,
-      })
+      }))
       const r = (data?.[0] ?? {}) as Record<string, number>
       const total = Number(r.total ?? 0)
       // Backlog limpio al 2-jul-2026 → cualquier violación es una regresión real
@@ -103,7 +103,7 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
     // una regresión de import. Solo canchas con 1 fila por hoyo (las duplicadas las
     // cubre el guard de pares de arriba, no se cuentan dos veces).
     safeCheck('Catálogo: stroke index válido', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `WITH per AS (
                   SELECT ch.course_id,
                     count(*) n, count(DISTINCT ch.numero) ndist,
@@ -118,7 +118,7 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
                 FROM per
                 WHERE n = ndist
                   AND (nulls > 0 OR si_distinct <> n OR mn <> 1 OR mx <> n)`,
-      })
+      }))
       const total = Number((data?.[0] as { total?: number } | undefined)?.total ?? 0)
       return {
         name: 'Catálogo: stroke index válido',
@@ -132,11 +132,11 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
 
     // Orphaned ronda_libre_jugadores
     safeCheck('Jugadores huérfanos (rondas libres)', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) as cnt FROM ronda_libre_jugadores j
                 LEFT JOIN rondas_libres r ON r.id = j.ronda_id
                 WHERE r.id IS NULL`,
-      })
+      }))
       const count = data?.[0]?.cnt ?? 0
       return {
         name: 'Jugadores huérfanos (rondas libres)',
@@ -148,11 +148,11 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
 
     // Orphaned rounds
     safeCheck('Rounds huérfanos', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) as cnt FROM rounds rd
                 LEFT JOIN tournaments t ON t.id = rd.tournament_id
                 WHERE t.id IS NULL`,
-      })
+      }))
       const count = data?.[0]?.cnt ?? 0
       return {
         name: 'Rounds huérfanos',
@@ -164,11 +164,11 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
 
     // Orphaned hole_scores
     safeCheck('Hole scores huérfanos', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) as cnt FROM hole_scores hs
                 LEFT JOIN rounds rd ON rd.id = hs.round_id
                 WHERE rd.id IS NULL`,
-      })
+      }))
       const count = data?.[0]?.cnt ?? 0
       return {
         name: 'Hole scores huérfanos',
@@ -180,11 +180,11 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
 
     // Rondas stuck en_curso > 48h
     safeCheck('Rondas abandonadas (>48h en_curso)', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) as cnt FROM rondas_libres
                 WHERE estado = 'en_curso'
                 AND created_at < NOW() - INTERVAL '48 hours'`,
-      })
+      }))
       const count = data?.[0]?.cnt ?? 0
       return {
         name: 'Rondas abandonadas (>48h en_curso)',
@@ -196,10 +196,10 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
 
     // Profiles sin email
     safeCheck('Perfiles sin email', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) as cnt FROM profiles
                 WHERE email IS NULL OR email = ''`,
-      })
+      }))
       const count = data?.[0]?.cnt ?? 0
       return {
         name: 'Perfiles sin email',
@@ -211,7 +211,7 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
 
     // Duplicate push subscriptions
     safeCheck('Push subscriptions duplicadas', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) as cnt FROM (
                   SELECT user_id, endpoint, COUNT(*) as c
                   FROM push_subscriptions
@@ -219,7 +219,7 @@ export async function checkDataIntegrity(admin: SupabaseClient): Promise<Categor
                   GROUP BY user_id, endpoint
                   HAVING COUNT(*) > 1
                 ) dupes`,
-      })
+      }))
       const count = data?.[0]?.cnt ?? 0
       return {
         name: 'Push subscriptions duplicadas',

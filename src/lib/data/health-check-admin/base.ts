@@ -56,3 +56,13 @@ export function resumirChecks(categories: Category[]): HealthCheckResult['summar
     failed: allChecks.filter((c) => c.status === 'fail').length,
   }
 }
+
+/**
+ * supabase-js no lanza cuando la base falla: devuelve `{ data: null, error }`. Un check que lee
+ * `data?.[0]?.cnt ?? 0` sin mirar `error` daba PASS («Sin huérfanos») con la base rota. Esto
+ * convierte el error en excepción para que `safeCheck` lo marque FAIL con su mensaje.
+ */
+export function sinErrorDeBase<T extends { error: { message: string } | null }>(respuesta: T): T {
+  if (respuesta.error) throw new Error(respuesta.error.message)
+  return respuesta
+}

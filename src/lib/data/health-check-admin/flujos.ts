@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { safeCheck, type Category, type Check } from './base'
+import { safeCheck, sinErrorDeBase, type Category } from './base'
 
 // ─── 4. Flow Validation ────────────────────────────────────────────────────
 
@@ -43,10 +43,10 @@ export async function checkFlows(admin: SupabaseClient): Promise<Category> {
 
     // Valid estado values in rondas_libres
     safeCheck('Estados válidos (rondas_libres)', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) as cnt FROM rondas_libres
                 WHERE estado NOT IN ('en_curso', 'finalizada')`,
-      })
+      }))
       const count = data?.[0]?.cnt ?? 0
       return {
         name: 'Estados válidos (rondas_libres)',
@@ -61,10 +61,10 @@ export async function checkFlows(admin: SupabaseClient): Promise<Category> {
 
     // Valid status values in tournaments
     safeCheck('Status válidos (tournaments)', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT DISTINCT status, COUNT(*) as cnt
                 FROM tournaments GROUP BY status ORDER BY status`,
-      })
+      }))
       const rows = (data ?? []) as Array<{ status: string; cnt: number }>
       const validStatuses = ['draft', 'open', 'in_progress', 'closed', 'archived']
       const invalid = rows.filter((r) => !validStatuses.includes(r.status))
@@ -81,14 +81,14 @@ export async function checkFlows(admin: SupabaseClient): Promise<Category> {
 
     // Scores referencing non-existent holes
     safeCheck('Scores con hoyos inválidos', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) as cnt FROM ronda_libre_jugadores j
                 JOIN rondas_libres r ON r.id = j.ronda_id
                 WHERE EXISTS (
                   SELECT 1 FROM jsonb_object_keys(j.scores::jsonb) k
                   WHERE k::int > r.holes
                 )`,
-      })
+      }))
       const count = data?.[0]?.cnt ?? 0
       return {
         name: 'Scores con hoyos inválidos',

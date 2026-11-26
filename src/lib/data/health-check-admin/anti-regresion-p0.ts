@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { safeCheck, type Category, type Check } from './base'
+import { safeCheck, sinErrorDeBase, type Category } from './base'
 
 // ─── Performance — REMOVIDO en audit 2026-05-08 ────────────────────────────
 // Los 3 checks (Tiempo query profiles/rondas_libres/analytics_events) usaban
@@ -22,7 +22,7 @@ export async function checkAntiRegresionP0(admin: SupabaseClient): Promise<Categ
     //   - array con todos null/0 (ronda manual con total_gross sin desglose)
     //   - array longer than holes_played con padding null al final
     safeCheck('Rondas finalizadas con hoyos faltantes', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) AS cnt
                 FROM historical_rounds hr,
                 LATERAL (
@@ -44,7 +44,7 @@ export async function checkAntiRegresionP0(admin: SupabaseClient): Promise<Categ
                 WHERE hr.scores IS NOT NULL
                   AND c.non_null_count > 0
                   AND c.non_null_count < hr.holes_played`,
-      })
+      }))
       const count = Number(data?.[0]?.cnt ?? 0)
       return {
         name: 'Rondas finalizadas con hoyos faltantes',
@@ -61,7 +61,7 @@ export async function checkAntiRegresionP0(admin: SupabaseClient): Promise<Categ
     // El RPC calcular_indice_golfers las excluye por WHERE diferencial IS NOT NULL,
     // pero el diferencial debió haberse calculado al importar.
     safeCheck('Índice golfers excluye rondas legítimas', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) AS cnt
                 FROM (
                   SELECT id
@@ -79,7 +79,7 @@ export async function checkAntiRegresionP0(admin: SupabaseClient): Promise<Categ
                     AND course_rating IS NOT NULL
                     AND diferencial IS NULL
                 ) eligible_no_diff`,
-      })
+      }))
       const count = Number(data?.[0]?.cnt ?? 0)
       return {
         name: 'Índice golfers excluye rondas legítimas',
@@ -94,7 +94,7 @@ export async function checkAntiRegresionP0(admin: SupabaseClient): Promise<Categ
     // Anomalía estructural: ronda libre marcada finalizada pero algún jugador
     // tiene scoring JSON con menos hoyos completos que ronda.holes.
     safeCheck('Scoring state consistency (rondas finalizadas)', async () => {
-      const { data } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT COUNT(*) AS cnt FROM (
                   SELECT DISTINCT r.id
                   FROM rondas_libres r
@@ -105,7 +105,7 @@ export async function checkAntiRegresionP0(admin: SupabaseClient): Promise<Categ
                     AND jsonb_typeof(j.scores) = 'object'
                     AND (SELECT COUNT(*) FROM jsonb_object_keys(j.scores)) < r.holes
                 ) inconsistent`,
-      })
+      }))
       const count = Number(data?.[0]?.cnt ?? 0)
       return {
         name: 'Scoring state consistency (rondas finalizadas)',
