@@ -305,6 +305,62 @@ end $$;`)
 }
 
 // ─── Huella: lo que se compara entre prod y pruebas ────────────────────────────────────────────────────────────
+/**
+ * Postgres aplana las cadenas AND/OR al parsear: `(A AND B) AND C` queda guardado como `A AND B AND C`. Una expresión
+ * que en prod nació anidada (p. ej. de un BETWEEN: `x BETWEEN 1 AND 4 AND y` → `((x >= 1) AND (x <= 4)) AND y`) se
+ * imprime con paréntesis de más, y al recrearla en pruebas con ESE texto queda plana: misma regla, otro texto (falsa
+ * diferencia del 26-nov, `ronda_equipos_drive_jugadores_check`). Esto quita SOLO esos paréntesis: un grupo que es
+ * operando entero de una cadena del MISMO conector y cuyo nivel superior es esa misma cadena. No toca paréntesis de
+ * funciones, ni mezclas AND/OR, ni nada dentro de comillas, así que una diferencia real de lógica sigue saltando.
+ */
+export function aplanarConectores(def) {
+  if (typeof def !== 'string' || !/ (AND|OR) /.test(def)) return def
+  const raiz = { fn: false, items: [] }
+  const pila = [raiz]
+  let txt = ''
+  const cerrarTxt = () => { if (txt) { pila[pila.length - 1].items.push(txt); txt = '' } }
+  for (let i = 0; i < def.length; i++) {
+    const c = def[i]
+    if (c === "'" || c === '"') {
+      let j = i + 1
+      while (j < def.length && !(def[j] === c && def[j + 1] !== c)) j += def[j] === c ? 2 : 1
+      txt += def.slice(i, j + 1); i = j; continue
+    }
+    if (c === '(') {
+      const fn = /[\w\]"]$/.test(txt) // `f(`, `arr[1](`, `"Fn"(`: paréntesis de función, nunca se aplanan
+      cerrarTxt()
+      const g = { fn, items: [] }
+      pila[pila.length - 1].items.push(g); pila.push(g); continue
+    }
+    if (c === ')' && pila.length > 1) { cerrarTxt(); pila.pop(); continue }
+    txt += c
+  }
+  if (pila.length !== 1) return def // paréntesis desbalanceados: se compara tal cual
+  cerrarTxt()
+  const conector = (g) => {
+    const nivel = g.items.filter(x => typeof x === 'string').join('|').replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"/g, '') // lo que va entre comillas no es conector
+    const and = nivel.includes(' AND '), or = nivel.includes(' OR ')
+    return and && !or ? ' AND ' : or && !and ? ' OR ' : null
+  }
+  const aplanar = (g) => {
+    for (const x of g.items) if (typeof x !== 'string') aplanar(x)
+    const op = conector(g)
+    if (!op) return
+    const out = []
+    g.items.forEach((x, k) => {
+      const antes = g.items[k - 1], despues = g.items[k + 1]
+      const operandoEntero = typeof x !== 'string' && !x.fn && conector(x) === op &&
+        (antes === undefined || (typeof antes === 'string' && antes.endsWith(op))) &&
+        (despues === undefined || (typeof despues === 'string' && despues.startsWith(op)))
+      if (operandoEntero) out.push(...x.items); else out.push(x)
+    })
+    g.items = out
+  }
+  aplanar(raiz)
+  const imprimir = (g) => g.items.map(x => typeof x === 'string' ? x : `(${imprimir(x)})`).join('')
+  return imprimir(raiz)
+}
+
 /** Mapa clave → valor que describe el esquema. Los grantor se ignoran (en pruebas todo lo concede postgres). */
 export function huella(cat) {
   const h = new Map()
@@ -320,11 +376,11 @@ export function huella(cat) {
     ordinal.set(c.relname, n)
     put(`columna ${c.relname}.${c.attname}`, [n, c.tipo, c.attnotnull, c.attidentity, c.attgenerated, c.expr, c.colacion])
   }
-  for (const k of cat.constraints) put(`constraint ${k.relname}.${k.conname}`, k.def)
-  for (const i of cat.indices) put(`indice ${i.indice}`, i.def)
+  for (const k of cat.constraints) put(`constraint ${k.relname}.${k.conname}`, aplanarConectores(k.def))
+  for (const i of cat.indices) put(`indice ${i.indice}`, aplanarConectores(i.def))
   for (const f of cat.funciones) put(`funcion ${f.firma}`, [f.dueno, f.def])
   for (const t of cat.triggers) put(`trigger ${t.tabla}.${t.tgname}`, [t.def, t.tgenabled])
-  for (const p of cat.policies) put(`policy ${p.schemaname}.${p.tablename}.${p.policyname}`, [p.permissive, [...p.roles].sort(), p.cmd, p.qual, p.with_check])
+  for (const p of cat.policies) put(`policy ${p.schemaname}.${p.tablename}.${p.policyname}`, [p.permissive, [...p.roles].sort(), p.cmd, aplanarConectores(p.qual), aplanarConectores(p.with_check)])
   const acl = (k, f) => put(`${k} ${f.grantee} ${f.privilege_type}`, String(f.is_grantable))
   for (const f of cat.aclTablas) acl(`privilegio ${f.relname}`, f)
   for (const f of cat.aclColumnas) acl(`privilegio ${f.relname}.${f.attname}`, f)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generarDDL, huella, diferencias, EXTENSIONES_EXCLUIDAS } from './sync-schema.mjs'
+import { generarDDL, huella, diferencias, EXTENSIONES_EXCLUIDAS, aplanarConectores } from './sync-schema.mjs'
 import { cuerpoConsulta, esProd, sqlEn } from '../lib/management-sql.mjs'
 import { PROD_REF, projectRefDe } from '../lib/supabase-ref.mjs'
 import { columnasPorTabla } from '../lib/esquema-sql.mjs'
@@ -201,5 +201,32 @@ describe('huella: diferencias de dueño, esquema y default ACL ajenos son ruidos
     // Regresión 08-oct: un String.replace convirtió el dólar doble en uno solo y el DO block rompía el DDL entero.
     expect(ddl.split('do ' + '$'.repeat(2) + ' declare').length - 1).toBe(2)
     expect(ddl.includes('do ' + '$' + ' declare')).toBe(false)
+  })
+})
+
+describe('aplanarConectores: Postgres aplana AND/OR al recrear (falsa diferencia del 26-nov)', () => {
+  const prod = 'CHECK (((drive_jugadores IS NULL) OR (((cardinality(drive_jugadores) >= 1) AND (cardinality(drive_jugadores) <= 4)) AND (array_position(drive_jugadores, NULL::text) IS NULL))))'
+  const pruebas = 'CHECK (((drive_jugadores IS NULL) OR ((cardinality(drive_jugadores) >= 1) AND (cardinality(drive_jugadores) <= 4) AND (array_position(drive_jugadores, NULL::text) IS NULL))))'
+  it('la constraint de prod (nacida de un BETWEEN) y su copia en pruebas dan la misma huella', () => {
+    expect(aplanarConectores(prod)).toBe(aplanarConectores(pruebas))
+    expect(aplanarConectores(pruebas)).toBe(pruebas)
+    const cat = (def) => ({ constraints: [{ relname: 'ronda_equipos', conname: 'c', contype: 'c', def }] })
+    const vacio = { extensiones: [], enums: [], secuencias: [], tablas: [], columnas: [], indices: [], funciones: [], triggers: [], policies: [], aclTablas: [], aclColumnas: [], aclFunciones: [], aclDefault: [], aclEsquema: [], buckets: [], tiposRaros: [], relacionesRaras: [] }
+    expect(diferencias(huella({ ...vacio, ...cat(prod) }), huella({ ...vacio, ...cat(pruebas) }))).toEqual([])
+  })
+  it('una diferencia real de lógica sigue saltando', () => {
+    expect(aplanarConectores('CHECK (((a OR b) AND c))')).not.toBe(aplanarConectores('CHECK ((a OR (b AND c)))'))
+    expect(aplanarConectores('CHECK (((a AND b) OR c))')).toBe('CHECK (((a AND b) OR c))')
+    expect(aplanarConectores('CHECK (((a >= 1) AND (a <= 4)))')).not.toBe(aplanarConectores('CHECK (((a >= 1) AND (a <= 5)))'))
+  })
+  it('no toca paréntesis de funciones ni lo que va entre comillas', () => {
+    expect(aplanarConectores('CHECK ((f((a AND b)) AND c))')).toBe('CHECK ((f((a AND b)) AND c))')
+    expect(aplanarConectores("CHECK (((x = '(a AND b)'::text) AND y))")).toBe("CHECK (((x = '(a AND b)'::text) AND y))")
+    expect(aplanarConectores("CHECK ((((x = 'it''s (') AND y) AND z))")).toBe("CHECK (((x = 'it''s (') AND y AND z))")
+  })
+  it('sin conectores o con paréntesis desbalanceados devuelve el texto tal cual', () => {
+    expect(aplanarConectores('PRIMARY KEY (id)')).toBe('PRIMARY KEY (id)')
+    expect(aplanarConectores('CHECK ((a AND b)')).toBe('CHECK ((a AND b)')
+    expect(aplanarConectores(null)).toBe(null)
   })
 })
