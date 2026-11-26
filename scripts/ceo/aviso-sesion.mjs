@@ -68,6 +68,8 @@ export function repoPrincipal(repo) {
   try {
     const comun = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
       cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000,
+      // Sin las GIT_* de un hook de git (pre-push): con GIT_DIR heredado, git responde por el repo del hook y no por `repo`.
+      env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^git_/i.test(k))),
     }).trim();
     return comun ? dirname(comun) : repo;
   } catch {
