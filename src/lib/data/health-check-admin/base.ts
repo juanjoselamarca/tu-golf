@@ -58,11 +58,18 @@ export function resumirChecks(categories: Category[]): HealthCheckResult['summar
 }
 
 /**
- * supabase-js no lanza cuando la base falla: devuelve `{ data: null, error }`. Un check que lee
- * `data?.[0]?.cnt ?? 0` sin mirar `error` daba PASS («Sin huérfanos») con la base rota. Esto
- * convierte el error en excepción para que `safeCheck` lo marque FAIL con su mensaje.
+ * Un check que no mira el error da PASS con la base rota. Hay dos formas de error y ninguna lanza:
+ * - supabase-js devuelve `{ data: null, error }` (sin red, función inexistente, sin permiso);
+ * - `exec_sql` atrapa la excepción SQL y devuelve `{ data: { error: SQLERRM }, error: null }`
+ *   (columna o tabla renombrada, cast que revienta).
+ * Leer `data?.[0]?.cnt ?? 0` daba 0 → PASS («Sin huérfanos»). Las dos se convierten en excepción
+ * para que `safeCheck` marque FAIL con el mensaje.
  */
-export function sinErrorDeBase<T extends { error: { message: string } | null }>(respuesta: T): T {
+export function sinErrorDeBase<T extends { data: unknown; error: { message: string } | null }>(respuesta: T): T {
   if (respuesta.error) throw new Error(respuesta.error.message)
+  const data = respuesta.data
+  if (data && typeof data === 'object' && !Array.isArray(data) && 'error' in data) {
+    throw new Error(`exec_sql: ${String((data as { error: unknown }).error)}`)
+  }
   return respuesta
 }

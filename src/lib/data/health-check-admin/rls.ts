@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { safeCheck, type Category } from './base'
+import { safeCheck, sinErrorDeBase, type Category } from './base'
 
 // ─── 4. RLS Policies ──────────────────────────────────────────────────────
 
@@ -16,19 +16,11 @@ export async function checkRLSPolicies(admin: SupabaseClient): Promise<Category>
 
   const checks = await Promise.all([
     safeCheck('Políticas RLS existentes', async () => {
-      const { data, error } = await admin.rpc('exec_sql', {
+      const { data } = sinErrorDeBase(await admin.rpc('exec_sql', {
         query: `SELECT tablename, policyname FROM pg_policies
                 WHERE tablename IN ('rondas_libres','ronda_libre_jugadores','hole_scores','players','profiles','tournaments','rounds')
                 ORDER BY tablename, policyname`,
-      })
-
-      if (error) {
-        return {
-          name: 'Políticas RLS existentes',
-          status: 'fail' as const,
-          message: `Error consultando políticas: ${error.message}`,
-        }
-      }
+      }))
 
       const rows = (data ?? []) as Array<{ tablename: string; policyname: string }>
       const tablesWithPolicies = new Set(rows.map((r) => r.tablename))

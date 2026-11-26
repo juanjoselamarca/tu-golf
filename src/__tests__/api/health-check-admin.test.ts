@@ -112,6 +112,17 @@ describe('correrHealthCheckAdmin — la base devuelve error sin lanzar (regresi�
     expect(deLaBase.filter(k => k.status !== 'fail').map(k => k.name)).toEqual([])
     expect(r.categories[0].checks.find(k => k.name === 'Supabase ping')?.message).toContain('exec_sql no responde')
   })
+
+  it('exec_sql atrapa la excepción SQL y la devuelve en data: los 17 checks que la usan salen FAIL', async () => {
+    // Así contesta exec_sql cuando la consulta revienta (EXCEPTION WHEN OTHERS → json_build_object('error', SQLERRM)).
+    const sqlRoto = clienteQueResponde({ data: { error: 'relation "x" does not exist' }, error: null })
+    const sano = clienteVacio()
+    const cliente = { from: (t: string) => sano.from(t), rpc: (f: string, a: object) => sqlRoto.rpc(f, a) } as unknown as SupabaseClient
+    const r = await correrHealthCheckAdmin(cliente)
+    const conExecSql = r.categories.flatMap(c => c.checks).filter(k => k.message.startsWith('exec_sql: relation "x"'))
+    expect(conExecSql).toHaveLength(17)
+    expect(conExecSql.every(k => k.status === 'fail')).toBe(true)
+  })
 })
 
 describe('resumirChecks', () => {
