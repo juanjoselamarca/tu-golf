@@ -32,6 +32,14 @@ const MIGRACION_ORDEN_LOCKS = '20261118120000_timba_lock_cierre_e_invitados.sql'
  * editar_handicap_inscrito). Tampoco menciona la columna fuera de esa función.
  */
 const MIGRACION_ORDEN_PLAYERS = '20261120100000_eliminar_cuenta_orden_y_estado_obligatorio.sql'
+/**
+ * Skins congelado (25-nov): quita a authenticated el INSERT/UPDATE de `fuera_del_hoyo` (la X solo por su RPC) con un
+ * REVOKE de tabla y devuelve las DEMÁS columnas, perfil_sugerido_id incluida, como ya las tenía por el grant de tabla.
+ * La columna aparece únicamente en esos dos GRANT (no gana ningún poder: el mismo INSERT/UPDATE de siempre). Su
+ * trigger sobre la tabla solo lee handicap, tees y ronda_id (test de abajo).
+ */
+const MIGRACION_SKINS_CONGELADO = '20261125140000_skins_congelado_tras_el_primer_golpe.sql'
+const GRANT_DE_COLUMNAS = /^GRANT (INSERT|UPDATE) \(([^)]*)\) ON public\.ronda_libre_jugadores TO authenticated;$/gm
 const UPDATE_PLAYERS =
   /UPDATE players\s+SET\s+user_id = NULL, pending_user_id = gen_random_uuid\(\), player_name = c_anonimo\s+WHERE\s+user_id = p_user_id OR pending_user_id = p_user_id;/
 
@@ -94,7 +102,13 @@ const ANONIMIZACION = /\n\n  -- Tarjetas en que un creador lo eligió como rival
 describe('perfil_sugerido_id no da poderes', () => {
   it('solo su propia migración la menciona (ninguna otra policy, función ni grant la lee)', () => {
     const mencionan = migrationFiles().filter(f => stripSqlComments(readMigration(f)).includes(COLUMNA))
-    expect(mencionan).toEqual([MIGRACION, MIGRACION_ORDEN_LOCKS, MIGRACION_ORDEN_PLAYERS])
+    expect(mencionan).toEqual([MIGRACION, MIGRACION_ORDEN_LOCKS, MIGRACION_ORDEN_PLAYERS, MIGRACION_SKINS_CONGELADO])
+    const skins = stripSqlComments(readMigration(MIGRACION_SKINS_CONGELADO))
+    const grants = [...skins.matchAll(GRANT_DE_COLUMNAS)]
+    expect(grants.map(g => g[1])).toEqual(['INSERT', 'UPDATE'])
+    expect(skins.replace(GRANT_DE_COLUMNAS, '')).not.toContain(COLUMNA)
+    // Devuelve lo que el grant de tabla ya daba, menos fuera_del_hoyo.
+    for (const g of grants) expect(g[2].split(',').map(c => c.trim())).not.toContain('fuera_del_hoyo')
     for (const f of [MIGRACION_ORDEN_LOCKS, MIGRACION_ORDEN_PLAYERS]) {
       const orden = readMigration(f)
       expect(stripSqlComments(orden.replace(eliminarCuenta(orden), ''))).not.toContain(COLUMNA)
@@ -221,8 +235,9 @@ function exposicionesSinNombrarla(sql: string): string[] {
       ['variable %rowtype', new RegExp(String.raw`${TABLA}%rowtype`, 'i')],
       ['vista sobre la tabla', /\bcreate\s+(?:or\s+replace\s+)?(?:materialized\s+)?view\b/i],
       // El trigger recibe NEW/OLD: la fila entera, perfil_sugerido_id incluido. Única excepción: el que solo
-      // ejecuta public.update_updated_at() (cierre automático); su cuerpo lo fija el test de abajo.
-      ['trigger sobre la tabla', /\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\b(?![\s\S]*\bexecute\s+(?:function|procedure)\s+"?public"?\."?update_updated_at"?\s*\(\s*\)\s*;?\s*$)/i],
+      // ejecuta public.update_updated_at() (cierre automático) o public.skins_congelado_jugador() (Skins congelado);
+      // sus cuerpos los fijan los tests de abajo.
+      ['trigger sobre la tabla', /\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\b(?![\s\S]*\bexecute\s+(?:function|procedure)\s+"?public"?\."?(?:update_updated_at|skins_congelado_jugador)"?\s*\(\s*\)\s*;?\s*$)/i],
       ['SELECT *', /\bselect\s+(?:distinct\s+)?\*/i],
       ['RETURNING *', /\breturning\s+\*/i],
       ['alias.*', new RegExp(String.raw`(?:^|[^\w"])(?:${nombres})\.\*`, 'i')],
@@ -251,6 +266,22 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
     for (const { f, def } of definiciones) {
       const cuerpo = /\$(\w*)\$([\s\S]*?)\$\1\$/.exec(def)?.[2] ?? ''
       expect(cuerpo.replace(/\s+/g, ' ').trim(), f).toMatch(/^BEGIN NEW\.updated_at = NOW\(\); RETURN NEW; END;?$/i)
+    }
+  })
+
+  it('el trigger del Skins congelado solo lee handicap, tees y ronda_id de NEW/OLD, en todas sus definiciones', () => {
+    const definiciones = migrationFiles().flatMap(f => {
+      const def = functionDefinition(stripSqlComments(readMigration(f)), 'public.skins_congelado_jugador')
+      return def ? [{ f, def }] : []
+    })
+    expect(definiciones.length).toBeGreaterThan(0)
+    for (const { f, def } of definiciones) {
+      const cuerpo = /\$(\w*)\$([\s\S]*?)\$\1\$/.exec(def)?.[2] ?? ''
+      expect(cuerpo, f).not.toContain(COLUMNA)
+      const usos = [...cuerpo.matchAll(/\b(NEW|OLD)\b(\.\w+)?/gi)].map(m => `${m[1].toUpperCase()}${m[2] ?? ''}`)
+      expect(new Set(usos), f).toEqual(new Set(['NEW.handicap', 'OLD.handicap', 'NEW.tees', 'OLD.tees', 'NEW.ronda_id', 'OLD.ronda_id', 'NEW']))
+      // NEW sin columna solo como valor de retorno: nunca pasado a una función ni serializado.
+      expect(cuerpo.match(/\bNEW\b(?!\.)/gi)?.length, f).toBe((cuerpo.match(/\bRETURN NEW\b/gi) ?? []).length)
     }
   })
 
