@@ -483,6 +483,38 @@ describe('useGrupoScoreSave — ronda borrada por su creador (P0001, PR #763)', 
     expect(saveRondaLibreScores.mock.calls.length).toBeGreaterThan(llamadas)
   })
 
+  // Revisión Fable #898 (P1-1): el Skins se editó desde otra pestaña y quitaron a ese jugador. Además de rechazar el
+  // golpe, la pantalla tiene que releer la ronda para dejar de mostrar la tarjeta vieja (y mostrar la nueva).
+  it('P0001 con la ronda VIVA avisa alFaltarUnJugador (una vez); con la ronda cerrada o con éxito, no', async () => {
+    const alFaltarUnJugador = vi.fn()
+    const montarCon = () => renderHook(() => {
+      const [, setScores, scoresRef] = useEstadoConRef<Record<string, Record<number, number>>>({ p1: {}, p2: {} })
+      return useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole: 1, setScores, scoresRef, parMap: PAR, alFaltarUnJugador })
+    })
+    const ok = montarCon()
+    act(() => { ok.result.current.handleScoreChange('p2', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    expect(alFaltarUnJugador).not.toHaveBeenCalled()
+    ok.unmount()
+    localStorage.clear()
+
+    saveRondaLibreScores.mockImplementation((async (_c: unknown, a: { jugadorId: string }) =>
+      (a.jugadorId === 'p1' ? { error: { code: 'P0001' } } : { error: null })) as never)
+    const viva = montarCon()
+    act(() => { viva.result.current.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    expect(alFaltarUnJugador).toHaveBeenCalledTimes(1)
+    viva.unmount()
+    localStorage.clear()
+
+    alFaltarUnJugador.mockClear()
+    estadoRonda.valor = { data: { estado: 'finalizada' }, error: null }
+    const cerrada = montarCon()
+    act(() => { cerrada.result.current.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    expect(alFaltarUnJugador).not.toHaveBeenCalled()
+  })
+
   // PR #763 vuelta 4: el RPC busca ronda+jugador ANTES de mirar el estado, así que una ronda cerrada
   // sin ese jugador responde P0001. Confirmada como cerrada, cuenta como P0002: los golpes se guardan.
   it('P0001 con la ronda CERRADA: como P0002, guarda los golpes, marca la ronda cerrada y no limpia', async () => {

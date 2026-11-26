@@ -161,6 +161,8 @@ export function useGrupoScoreSave(input: {
     /** Al día con el último `setFuera` (`useEstadoConRef`). */
     fueraRef: Readonly<React.MutableRefObject<Record<string, Record<number, true>>>>
   }
+  /** La ronda sigue viva pero un jugador ya no está (Skins editado en otro lado): la pantalla relee la ronda. */
+  alFaltarUnJugador?: () => void
 }): GrupoScoreSave {
   const { ronda, codigo, currentHole, setScores, scoresRef, parMap } = input
 
@@ -221,6 +223,8 @@ export function useGrupoScoreSave(input: {
   useEffect(() => { equiposRef.current = input.teamEquipos ?? [] }, [input.teamEquipos])
   const porCelularRef = useRef(input.unCelularPorEquipo)
   useEffect(() => { porCelularRef.current = input.unCelularPorEquipo }, [input.unCelularPorEquipo])
+  const alFaltarUnJugadorRef = useRef(input.alFaltarUnJugador)
+  useEffect(() => { alFaltarUnJugadorRef.current = input.alFaltarUnJugador }, [input.alFaltarUnJugador])
   // La X se lee de su ref al día (`useEstadoConRef`); fuera del skins no hay mapa ni tecla. `fuenteFueraRef` solo
   // cambia una vez (al cargar la ronda y saber que es skins): lo leen los reenvíos programados, que viven más que un render.
   const sinFueraRef = useRef<FueraPorJugador>({})
@@ -273,6 +277,7 @@ export function useGrupoScoreSave(input: {
       // Tarjetas que entraron en este envío (en cualquier vuelta): decide si `guardados` sube.
       let rechazoDeSesion = false
       let equipoPerdido = false
+      let faltaUnJugador = false
       // La sesión del teléfono se consulta a lo más UNA vez por ciclo (antes, con sesión válida y un rebote en
       // cada intento, eran hasta 3 getSession seguidos).
       let sesionDelCiclo: ReturnType<typeof sesionDelScorer> | null = null
@@ -347,7 +352,10 @@ export function useGrupoScoreSave(input: {
           if (veredicto === 'ronda_borrada') { noExiste = true; break }
           // Cerrada (el RPC busca la fila antes de mirar el estado): como P0002, lo pendiente se guarda.
           if (veredicto === 'ronda_cerrada') for (const [id, golpes] of noEncontrados) rechazar(id, golpes, RONDA_ERRCODE.FINALIZED)
-          else if (veredicto === 'ronda_viva') for (const [id, golpes] of noEncontrados) rechazar(id, golpes, RONDA_ERRCODE.NOT_FOUND)
+          else if (veredicto === 'ronda_viva') {
+            for (const [id, golpes] of noEncontrados) rechazar(id, golpes, RONDA_ERRCODE.NOT_FOUND)
+            faltaUnJugador = true
+          }
           else results.push({ error: { code: ERRCODE_SIN_RESPUESTA } })
         }
         ok = !results.some(r => r.error)
@@ -359,6 +367,7 @@ export function useGrupoScoreSave(input: {
       }
 
       if (equipoPerdido) porCelularRef.current?.alPerderEquipo()
+      if (faltaUnJugador) alFaltarUnJugadorRef.current?.()
       if (noExiste) {
         // Igual que el scorer individual: se borra toda la copia local de la ronda, se avisa y se sale.
         rondaBorradaRef.current = true
