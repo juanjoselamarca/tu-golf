@@ -41,6 +41,9 @@ AS $$
     );
 $$;
 
+REVOKE ALL ON FUNCTION public.ronda_libre_tarjeta_tiene_golpes(jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ronda_libre_tarjeta_tiene_golpes(jsonb, jsonb) TO service_role;
+
 -- La marca del primer golpe de un Skins: la escribe el trigger de las tarjetas en la misma transacción que el golpe y
 -- no la borra nadie (solo cae con la ronda, en cascada). Sin policies: nadie la lee ni la escribe por PostgREST.
 CREATE TABLE IF NOT EXISTS public.ronda_libre_primer_golpe (
