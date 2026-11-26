@@ -1,5 +1,6 @@
-// GWI del scramble: barra dividida con el % de ganar de cada equipo (2 equipos, en vivo). Gratis: es lo que ve el
-// espectador que entra con el link (decisión de Juanjo, 26-nov). El modelo vive en `@/golf/stats/gwi-scramble`.
+// GWI del scramble: barra dividida con el % de ganar de cada equipo (2 equipos, en vivo). Gratis (decisión de Juanjo,
+// 26-nov). Lo ve el espectador con sesión y, en un scramble de equipos de club, también el que entra con el link sin
+// sesión; en otra ronda neto el anónimo no (`vistaVisor.soloBruto`: sería el % del gross). El modelo vive en `@/golf/stats/gwi-scramble`.
 import { porcentajesDeGanarScramble, type EquipoGWIScramble } from '@/golf/stats/gwi-scramble'
 
 export interface EquipoDelGwi extends EquipoGWIScramble {

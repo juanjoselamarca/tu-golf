@@ -161,6 +161,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
             modo="gross"
             formato="scramble"
             playerName={eq.nombre}
+            sinInicial
             courseName={ronda.course_name}
             date={fechaDisplay}
             formatLabel="Scramble · golpes del equipo"

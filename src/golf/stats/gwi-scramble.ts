@@ -82,7 +82,6 @@ export function probabilidadDeGanarScramble(a: EquipoGWIScramble, b: EquipoGWISc
   return normalCDF(ventajaDeA / desvio)
 }
 
-
 /**
  * Los dos porcentajes enteros que se muestran (suman 100), entre 1 y 99: todavía no está decidido. `null` = no se
  * muestra: nadie llegó a `HOYOS_MINIMOS_GWI` hoyos, o los dos terminaron (ya no es una probabilidad: el ganador
