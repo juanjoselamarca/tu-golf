@@ -20,6 +20,9 @@ let estadoLookupError: unknown = null
 let estadoJugador = 'active'
 let tokenValido = true
 let pendienteDe = GUEST
+// Lectura del torneo: falla de la base o torneo que no existe.
+let torneoLookupError: unknown = null
+let torneoNoExiste = false
 
 function chain(result: (sel: string) => { data: unknown; error: unknown }) {
   const obj: Record<string, unknown> = {}
@@ -33,7 +36,12 @@ function chain(result: (sel: string) => { data: unknown; error: unknown }) {
 }
 
 const tablas: Record<string, (sel: string) => { data: unknown; error: unknown }> = {
-  tournaments: () => ({ data: { organizer_id: ORG_A, status: 'in_progress' }, error: null }),
+  tournaments: () =>
+    torneoLookupError
+      ? { data: null, error: torneoLookupError }
+      : torneoNoExiste
+      ? { data: null, error: null }
+      : { data: { organizer_id: ORG_A, status: 'in_progress' }, error: null },
   rounds: (sel) =>
     estadoLookupError && sel.includes('players(status)')
       ? { data: null, error: estadoLookupError }
@@ -107,6 +115,8 @@ beforeEach(() => {
   estadoJugador = 'active'
   tokenValido = true
   pendienteDe = GUEST
+  torneoLookupError = null
+  torneoNoExiste = false
   upsertScore.mockClear()
   finalizeRound.mockClear()
   mockGetUser.mockResolvedValue({ data: { user: { id: ORG_A } } })
@@ -306,5 +316,33 @@ describe('/api/game — códigos de los 403 y round_id malformado (PR #754 vuelt
     expect((await POST(req(malo))).status).toBe(400)
     expect((await POST(req(malo, invitado))).status).toBe(400)
     expect(upsertScore).not.toHaveBeenCalled()
+  })
+})
+
+// «No pude leer el torneo» no es «el torneo no existe». Con un 404 el scorer del organizador marca el hoyo
+// como rechazo de datos (esRechazoDeDatos) y ofrece descartar el golpe; con un 503 lo reintenta.
+describe('/api/game — lectura del torneo fallida', () => {
+  const caida = { code: '57014', message: 'canceling statement due to statement timeout' }
+
+  it('organizador: base caída al leer el torneo → 503 reintentable, no 404', async () => {
+    torneoLookupError = caida
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
+    expect(res.status).toBe(503)
+    expect(upsertScore).not.toHaveBeenCalled()
+  })
+
+  it('invitado: base caída al leer el torneo → 503 reintentable, no 404', async () => {
+    torneoLookupError = caida
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }, { 'x-guest-id': GUEST, 'x-guest-token': 'tok' }))
+    expect(res.status).toBe(503)
+    expect(upsertScore).not.toHaveBeenCalled()
+  })
+
+  it('torneo que de verdad no existe → sigue siendo 404', async () => {
+    torneoNoExiste = true
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
+    expect(res.status).toBe(404)
+    const resInv = await POST(req({ ...score, tournament_id: TORNEO_A }, { 'x-guest-id': GUEST, 'x-guest-token': 'tok' }))
+    expect(resInv.status).toBe(404)
   })
 })
