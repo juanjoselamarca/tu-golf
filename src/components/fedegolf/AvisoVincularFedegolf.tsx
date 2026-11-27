@@ -51,7 +51,7 @@ export function AvisoVincularFedegolf() {
   return (
     <BottomSheet abierto onCerrar={cerrar} etiqueta="Vincula tu cuenta FedeGolf">
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 4px 0' }}>
-        <FedegolfLogo alto={32} alt="FedeGolf" />
+        <FedegolfLogo alto={56} alt="FedeGolf" />
         <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', margin: '20px 0 8px', lineHeight: 1.3 }}>
           Trae tu índice oficial
         </h2>

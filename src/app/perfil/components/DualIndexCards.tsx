@@ -16,7 +16,7 @@ import { GolfersWordmark } from '@/components/brand/GolfersWordmark'
  */
 function MarcaDelIndice({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 12px' }}>
+    <div style={{ height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 12px' }}>
       {children}
     </div>
   )
@@ -42,7 +42,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
       {/* Índice Federación */}
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px 16px 12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <MarcaDelIndice>
-          <FedegolfLogo alto={20} alt="Índice FedeGolf" />
+          <FedegolfLogo alto={32} alt="Índice FedeGolf" />
         </MarcaDelIndice>
         <p style={{ fontSize: '36px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: '0 0 6px' }}>
           {profile.indice != null ? formatearIndice(profile.indice) : '—'}

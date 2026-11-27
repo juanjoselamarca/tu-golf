@@ -116,7 +116,7 @@ export function FedegolfVincularModal({
         >
           {/* Cabecera: logo + título + cerrar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <FedegolfLogo alto={22} alt="FedeGolf" />
+            <FedegolfLogo alto={30} alt="FedeGolf" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', margin: '0 0 3px' }}>
                 Federación

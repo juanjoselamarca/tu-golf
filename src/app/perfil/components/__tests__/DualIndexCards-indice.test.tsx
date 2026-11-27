@@ -37,7 +37,7 @@ describe('DualIndexCards', () => {
 
   it('cada tarjeta se rotula con el logo, sin texto, y conserva el nombre accesible', () => {
     const { container } = renderCards({ indice: 14 })
-    expect(screen.getByRole('img', { name: 'Índice FedeGolf' }).getAttribute('src')).toBe('/brand/fedegolf-chile-golf.png')
+    expect(screen.getByRole('img', { name: 'Índice FedeGolf' }).getAttribute('src')).toBe('/images/fedegolf-logo.png')
     expect(screen.getByRole('img', { name: 'Índice Golfers+' })).toBeTruthy()
     // Sin rótulo de texto: ni "Federación" ni "Índice ..." visibles.
     expect(container.textContent).not.toMatch(/Federación|Índice FedeGolf|Índice Golfers\+/)
