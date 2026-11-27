@@ -158,3 +158,12 @@ describe('drivesConCambios', () => {
     expect(drivesConCambios(con([5, 1]))).toEqual(con([5, 1]))
   })
 })
+
+describe('hoyosSinDrive (sin el drive no se avanza, Juanjo 26-nov)', () => {
+  it('los hoyos sin marcar, en el orden de la ronda (salida por el 10)', async () => {
+    const { hoyosSinDrive } = await import('./drives-scramble')
+    expect(hoyosSinDrive({ '10': 0, '12': 3, '1': 2 }, [10, 11, 12, 1, 2])).toEqual([11, 2])
+    expect(hoyosSinDrive({}, [1, 2])).toEqual([1, 2])
+    expect(hoyosSinDrive({ '1': 0, '2': 1 }, [1, 2])).toEqual([])
+  })
+})

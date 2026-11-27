@@ -29,13 +29,15 @@ interface SharedBallTeamCardProps {
   drives?: DrivesDeUnEquipo | null
   /** Tarjeta congelada (finalizando, descartando): no se marcan drives. */
   drivesDeshabilitados?: boolean
+  /** Se intentó avanzar sin el drive de este equipo en el hoyo (`DrivesDelEquipo.falta`). */
+  faltaDrive?: boolean
   theme: ScorerTheme
 }
 
 /** Scramble / Foursome: UN score por equipo por hoyo (vive en ronda_equipos). */
 export function SharedBallTeamCard({
   equipo, formatoJuego, modoJuego, currentHole, par, totales: tot,
-  foursomeInvertido, onToggleInvertido, onChange, drives, drivesDeshabilitados, theme,
+  foursomeInvertido, onToggleInvertido, onChange, drives, drivesDeshabilitados, faltaDrive, theme,
 }: SharedBallTeamCardProps) {
   const teamScore = equipo.scores[String(currentHole)]
   const displayTeamScore = teamScore ?? par
@@ -157,6 +159,7 @@ export function SharedBallTeamCard({
         >+</button>
       </div>
       {drives && (
+        <div id={anclaDeDrives(equipo.id)} style={{ scrollMarginTop: '96px' }}>
         <DrivesDelEquipo
           jugadores={drives.jugadores}
           driveDelHoyo={drives.driveDelHoyo}
@@ -164,10 +167,17 @@ export function SharedBallTeamCard({
           minimo={drives.minimo}
           aviso={drives.aviso}
           onElegir={drives.elegir}
+          falta={faltaDrive}
           deshabilitado={drivesDeshabilitados}
           theme={theme}
         />
+        </div>
       )}
     </div>
   )
+}
+
+/** Ancla del bloque de drives del equipo: el scorer lleva la vista ahí cuando falta el drive. */
+export function anclaDeDrives(equipoId: string): string {
+  return `drives-${equipoId}`
 }

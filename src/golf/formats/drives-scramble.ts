@@ -171,3 +171,11 @@ export function problemaDeJugadoresDeDrive(nombres: readonly string[]): 'faltan'
   if (new Set(claves).size !== claves.length) return 'repetidos'
   return null
 }
+
+/**
+ * Hoyos (en el orden de la ronda) sin drive marcado. Con drives, cada hoyo lleva uno: el scorer no pasa de hoyo ni
+ * finaliza sin él (Juanjo, 26-nov: «No deja avanzar»).
+ */
+export function hoyosSinDrive(drives: DrivesDelEquipo, hoyos: readonly number[]): number[] {
+  return hoyos.filter(h => drives[String(h)] == null)
+}

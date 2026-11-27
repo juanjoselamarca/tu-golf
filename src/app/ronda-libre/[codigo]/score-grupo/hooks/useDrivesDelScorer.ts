@@ -8,6 +8,7 @@ import {
   avisoDeDrives,
   conteoDeDrives,
   drivesConCambios,
+  hoyosSinDrive,
   leerDrives,
   textoAvisoDeDrives,
   type ConteoDeDrivesDeJugador,
@@ -30,6 +31,8 @@ export interface DrivesDeUnEquipo {
   conteo: ConteoDeDrivesDeJugador[]
   minimo: number | null
   aviso: string | null
+  /** `hoyosSinDrive`: sin el del hoyo en pantalla no se avanza; sin todos, no se finaliza. */
+  hoyosSinDrive: number[]
   /** Marca el drive del hoyo en pantalla; tocar el que ya está marcado lo quita. */
   elegir: (posicion: number) => void
 }
@@ -131,6 +134,7 @@ export function useDrivesDelScorer(input: {
         conteo: conteoDeDrives(datos),
         minimo: drivesMinimo,
         aviso: aviso ? textoAvisoDeDrives(aviso) : null,
+        hoyosSinDrive: hoyosSinDrive(drives, ordenHoyos),
         elegir: (posicion: number) => { if (!deshabilitado) elegirEn(e.id, currentHole, posicion, driveDelHoyo) },
       })
     }

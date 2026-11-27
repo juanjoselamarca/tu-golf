@@ -77,14 +77,14 @@ describe('SharedBallTeamCard — drives del scramble', () => {
   // Juanjo 3, Pedro 1, Diego 4, Tomás 2 (10 hoyos con drive).
   const marcados = { '1': 0, '2': 0, '3': 0, '4': 1, '5': 2, '6': 2, '7': 2, '8': 2, '9': 3, '10': 3 }
   const drives = (elegir = vi.fn(), driveDelHoyo: number | null = 2): DrivesDeUnEquipo => ({
-    jugadores, driveDelHoyo, minimo: 4, aviso: null, elegir,
+    jugadores, driveDelHoyo, minimo: 4, aviso: null, elegir, hoyosSinDrive: [],
     conteo: conteoDeDrives({ jugadores, drives: marcados, minimo: 4, hoyos: H18 }),
   })
-  const pintarConDrives = (d: DrivesDeUnEquipo | null, deshabilitados = false) => render(
+  const pintarConDrives = (d: DrivesDeUnEquipo | null, deshabilitados = false, faltaDrive = false) => render(
     <SharedBallTeamCard
       equipo={equipo} formatoJuego="scramble" modoJuego="gross" currentHole={9} par={4}
       totales={null} foursomeInvertido={false} onToggleInvertido={() => {}} onChange={() => {}}
-      drives={d} drivesDeshabilitados={deshabilitados} theme={SCORER_THEME}
+      drives={d} drivesDeshabilitados={deshabilitados} faltaDrive={faltaDrive} theme={SCORER_THEME}
     />,
   )
 
@@ -104,12 +104,18 @@ describe('SharedBallTeamCard — drives del scramble', () => {
     expect(elegir).toHaveBeenCalledWith(1)
   })
 
-  it('conteo siempre a la vista: bajo el mínimo destacado y ✓ al que cumplió', () => {
+  it('conteo dentro de cada botón (Juanjo 26-nov): el número de cada uno, ✓ al que cumplió, y en texto para el lector', () => {
     pintarConDrives(drives())
-    const fila = screen.getByTestId('conteo-drives')
-    expect(fila.textContent).toBe('Mín. 4: Juanjo 3 · Pedro 1 · Diego 4 ✓ · Tomás 2')
-    const bajos = [...fila.querySelectorAll('[data-bajo-minimo="true"]')].map(e => e.textContent)
-    expect(bajos).toEqual(['Juanjo 3', 'Pedro 1', 'Tomás 2'])
+    expect(screen.getByTestId('conteo-drives').textContent).toBe('Mín. 4: Juanjo 3 · Pedro 1 · Diego 4 ✓ · Tomás 2')
+    const botones = jugadores.map(n => screen.getByRole('button', { name: n }))
+    expect(botones.map(b => b.lastElementChild?.textContent)).toEqual(['3', '1', '4 ✓', '2'])
+    expect(botones.map(b => b.querySelector('[data-cumple="true"]') != null)).toEqual([false, false, true, false])
+  })
+
+  it('sin el drive del hoyo e intentando avanzar: «Drive de» destacado y lo pide', () => {
+    pintarConDrives(drives(vi.fn(), null), false, true)
+    expect(screen.getByRole('alert').textContent).toBe('Marca de quién fue el drive para seguir')
+    expect(document.querySelector('[data-falta-drive="true"]')).not.toBeNull()
   })
 
   it('el aviso de riesgo se muestra cuando lo hay', () => {

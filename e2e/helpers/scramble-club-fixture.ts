@@ -55,6 +55,8 @@ export async function crearScrambleDeClub(
   request: APIRequestContext,
   creador: { id: string; nombre: string },
   equipos: string[],
+  /** Con drives: los 4 jugadores de cada equipo, por nombre de equipo (sin la clave, el equipo no se lista). */
+  drives?: Record<string, string[]>,
 ): Promise<{ id: string; codigo: string }> {
   const res = await request.post('/api/ronda-libre/create', {
     data: {
@@ -68,7 +70,11 @@ export async function crearScrambleDeClub(
       modo_juego: 'gross',
       admin_mode: true, // lo decide el servidor con equipos de club: debe quedar en false con 'cada_equipo'
       jugadores: [{ nombre: creador.nombre, user_id: creador.id, handicap: null, tees: 'blanco' }],
-      equipos_de_club: { equipos: equipos.map(nombre => ({ nombre, handicap: null })), quien_anota: 'cada_equipo' },
+      equipos_de_club: {
+        equipos: equipos.map(nombre => ({ nombre, handicap: null, ...(drives ? { driveJugadores: drives[nombre] } : {}) })),
+        quien_anota: 'cada_equipo',
+        ...(drives ? { anotar_drives: true } : {}),
+      },
     },
   })
   const body = await res.json()

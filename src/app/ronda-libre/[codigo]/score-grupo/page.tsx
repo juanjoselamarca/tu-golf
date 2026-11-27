@@ -1,5 +1,6 @@
 'use client'
 
+import { addToast } from '@/hooks/useToast'
 import { leerEquiposTomados, marcarEquipoTomado } from '@/lib/ronda/equipos-tomados'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -28,7 +29,7 @@ import { HoleProgressRow } from './components/HoleProgressRow'
 import { GrupoHoleInfoRow } from './components/GrupoHoleInfoRow'
 import { CompartirEnJuego } from '@/components/ronda/CompartirEnJuego'
 import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
-import { SharedBallTeamCard } from './components/SharedBallTeamCard'
+import { SharedBallTeamCard, anclaDeDrives } from './components/SharedBallTeamCard'
 import { PlayerScoreCard } from './components/PlayerScoreCard'
 import { GrupoNavBar, envioDelHoyo } from './components/GrupoNavBar'
 import { DiscardRoundModal } from './components/DiscardRoundModal'
@@ -231,6 +232,32 @@ function ScorerDeGrupo() {
     anotarJugador: (jugadorId, delta) => handleScoreChange(jugadorId, currentHole, delta),
     anotarEquipo: (equipoId, delta) => handleTeamScoreChange(equipoId, currentHole, delta),
   })
+  // Drives del scramble: sin el del hoyo no se pasa de hoyo, ni se guarda el último, ni se finaliza (Juanjo, 26-nov:
+  // «No deja avanzar»). Solo los equipos de este celular (`teamEquipos`) que anotan drives. El intento frenado
+  // destaca «Drive de» en ese hoyo y lleva la vista ahí. Tarjeta congelada o ronda cerrada: no frena (no hay cambios).
+  const [faltaDriveEnHoyo, setFaltaDriveEnHoyo] = useState<number | null>(null)
+  const equiposSinDriveEn = (hoyo: number) => teamEquipos.filter(e => drivesDe(e)?.hoyosSinDrive.includes(hoyo))
+  const frenaPorDrive = (hoyo: number): boolean => {
+    if (congelada || rondaCerrada) return false
+    const faltan = equiposSinDriveEn(hoyo)
+    if (faltan.length === 0) return false
+    setFaltaDriveEnHoyo(hoyo)
+    haptic([30, 60, 30])
+    if (hoyo !== currentHole) {
+      setCurrentHole(hoyo)
+      addToast({ type: 'error', title: `Falta el drive del hoyo ${hoyo}`, duration: 6000 })
+    }
+    requestAnimationFrame(() => document.getElementById(anclaDeDrives(faltan[0].id))?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+    return true
+  }
+  const siguienteConDrive = () => { if (!frenaPorDrive(currentHole)) void goToNextHole() }
+  const guardarHoyoConDrive = () => { if (!frenaPorDrive(currentHole)) void guardarHoyo() }
+  const finalizarConDrives = () => {
+    const hoyo = ordenHoyos.find(h => equiposSinDriveEn(h).length > 0)
+    if (hoyo != null && frenaPorDrive(hoyo)) return
+    void finalizeRound()
+  }
+
   // Un celular por equipo, último hoyo: el «Finalizar» de la hoja confirma primero el valor en pantalla de los equipos de
   // este celular (lo mismo que «Siguiente» y «Guardar hoyo N»). Si otro equipo no terminó, el cierre se frena, y sin esto
   // el hoyo propio con el par sin tocar no subía: el espectador veía al equipo en 17/18 mientras el otro seguía jugando
@@ -398,6 +425,7 @@ function ScorerDeGrupo() {
               onChange={(delta) => anotarEquipo(equipo.id, delta)}
               drives={drivesDe(equipo)}
               drivesDeshabilitados={congelada}
+              faltaDrive={faltaDriveEnHoyo === currentHole && drivesDe(equipo)?.driveDelHoyo == null}
               theme={theme}
             />
           ))}
@@ -503,14 +531,14 @@ function ScorerDeGrupo() {
         finalizing={finalizing}
         congelada={congelada}
         onPrev={nav.goToPrevHole}
-        onNext={goToNextHole}
-        onFinalize={finalizeRound}
+        onNext={siguienteConDrive}
+        onFinalize={finalizarConDrives}
         guardarUltimoHoyo={guardaElUltimoHoyo
           ? {
               hoyo: currentHole,
               guardado: !cierraEsteCelular && hoyoCompleto(currentHole),
               envio: envioDelUltimoHoyo,
-              onGuardar: () => { void guardarHoyo() },
+              onGuardar: guardarHoyoConDrive,
             }
           : undefined}
         theme={theme}
