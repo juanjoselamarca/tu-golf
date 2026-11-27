@@ -35,7 +35,7 @@ export const RONDA_DEMO_DETAIL = 'ronda demo'
 export const EQUIPO_DE_OTRO_ANOTADOR_DETAIL = 'equipo_de_otro_anotador'
 
 /**
- * DETAIL del P0003 del trigger `ronda_equipos_terminado_bloquea_scores` (migración 20261127150000_terminar_equipo_de_ronda):
+ * DETAIL del P0003 del trigger `ronda_equipos_terminado_guard` (migración 20261127150000_terminar_equipo_de_ronda):
  * golpes distintos para un equipo que ya terminó su tarjeta. Definitivo como el de equipo ajeno: no es sesión vencida
  * y reintentar da lo mismo (corregir pasa por reabrir el equipo).
  */
