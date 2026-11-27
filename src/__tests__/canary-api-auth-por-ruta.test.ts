@@ -81,6 +81,7 @@ const SESION_OPCIONAL: Record<string, string> = {
     'el GWI de la ronda ya calculado; el anónimo recibe las filas enmascaradas por visor (publicarResultadoGWI)',
   'GET gwi/torneo/[slug]':
     'el GWI del torneo ya calculado; el anónimo recibe las filas enmascaradas por visor (publicarResultadoGWI)',
+  'GET fedegolf/aviso-vincular': 'sin sesión responde { mostrar: false } fijo, sin leer la base',
   'GET perfil/tee-prompt-status': 'sin sesión responde { show: false } fijo, sin leer la base',
   'GET ronda-libre/permiso-timba':
     'sin sesión responde { puedeCrear: false } fijo, sin leer la base (falla cerrado; POST /create valida igual)',
