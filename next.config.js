@@ -1,5 +1,6 @@
+const { PHASE_DEVELOPMENT_SERVER } = require('next/constants')
 const { withWorkflow } = require('workflow/next')
-const { esLoopback } = require('./scripts/lib/supabase-ref.mjs')
+const { esLoopback, prodSupabaseVars } = require('./scripts/lib/supabase-ref.mjs')
 
 // Un Supabase local (`supabase start`, base de pruebas de los E2E) sirve por http en loopback; en prod queda vacío.
 const supabaseLocal = (() => {
@@ -91,4 +92,10 @@ const nextConfig = {
   },
 }
 
-module.exports = withWorkflow(nextConfig)
+module.exports = withWorkflow(phase => {
+  if (phase === PHASE_DEVELOPMENT_SERVER) {
+    const prod = prodSupabaseVars(process.env)
+    if (prod.length) throw new Error(`next dev no se conecta a la base de prod (${prod.join(', ')}). Levanta la local: npm run db:local`)
+  }
+  return nextConfig
+})

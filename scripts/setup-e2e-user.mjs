@@ -27,6 +27,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { randomBytes } from 'node:crypto'
+import { TEST_E2E_EMAIL as E2E_EMAIL } from './test-db/seed.mjs'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -35,8 +36,6 @@ if (!SUPABASE_URL || !SERVICE_ROLE) {
   console.error('ERROR: Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env.local')
   process.exit(1)
 }
-
-const E2E_EMAIL = 'e2e-test@golfersplus-test.local'
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { autoRefreshToken: false, persistSession: false },

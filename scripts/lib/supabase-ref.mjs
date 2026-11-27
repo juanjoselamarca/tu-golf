@@ -23,6 +23,11 @@ export function projectRefDe(url) {
   return m ? m[1].toLowerCase() : null
 }
 
+/** Supabase URL vars that point to prod. `next dev` refuses to start with any of them (next.config.js). */
+export function prodSupabaseVars(env) {
+  return SUPABASE_CREDENTIAL_VARS.filter(name => name.endsWith('_URL') && projectRefDe(env[name]) === PROD_REF)
+}
+
 /** ¿La URL es de un servicio local? (`supabase start`, la app de e2e-local). La usan next.config.js y los E2E. */
 export function esLoopback(url) {
   try {
