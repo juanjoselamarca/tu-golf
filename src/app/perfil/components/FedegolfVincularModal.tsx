@@ -6,6 +6,7 @@ import { ShieldCheck, Lock, Check, X } from '@/components/icons'
 import { formatRelativeTime } from '@/lib/format'
 import type { FedegolfStatus } from '@/lib/data/perfil'
 import { formatearIndice } from '@/golf/handicap-index-range'
+import { FedegolfLogo } from '@/components/brand/FedegolfLogo'
 
 const inputStyle: React.CSSProperties = {
   background: 'var(--bg-surface)',
@@ -29,23 +30,6 @@ interface Props {
   unlinking: boolean
   error: string | null
   clearError: () => void
-}
-
-/** Marca "CHILE GOLF" de la Federación sobre un chip blanco (legible en dark y light). */
-function FedegolfBadge() {
-  return (
-    <span
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: '48px', height: '48px', borderRadius: '12px',
-        background: '#ffffff', border: '1px solid var(--border)',
-        boxShadow: '0 2px 8px rgba(7,13,24,0.08)', flexShrink: 0,
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/images/fedegolf-logo.png" alt="FedeGolf" width={30} height={30} style={{ objectFit: 'contain' }} />
-    </span>
-  )
 }
 
 /** Línea de confianza: el mensaje central que pidió Juanjo — solo lee, nunca modifica. */
@@ -132,7 +116,7 @@ export function FedegolfVincularModal({
         >
           {/* Cabecera: logo + título + cerrar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <FedegolfBadge />
+            <FedegolfLogo alto={22} alt="FedeGolf" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', margin: '0 0 3px' }}>
                 Federación

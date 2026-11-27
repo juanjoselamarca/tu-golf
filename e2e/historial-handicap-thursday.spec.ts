@@ -104,12 +104,9 @@ test.describe('Thursday — Historial + Handicap', () => {
     expect(perfil?.name, 'el perfil E2E tiene nombre').toBeTruthy()
     await expect(page.getByRole('heading', { level: 1, name: perfil!.name })).toBeVisible({ timeout: 15_000 })
 
-    // At least one index card visible (Federación or Golfers+)
-    const federacionCard = page.getByText('Federación', { exact: true })
-    const golfersCard = page.getByText('Golfers+', { exact: true }).first()
-    const eitherVisible = await federacionCard.isVisible().catch(() => false) ||
-                          await golfersCard.isVisible().catch(() => false)
-    expect(eitherVisible, 'ni Federación ni Golfers+ card visible en /perfil').toBe(true)
+    // Las dos tarjetas de índice se rotulan con logos (sin texto): se buscan por su nombre accesible.
+    await expect(page.getByRole('img', { name: 'Índice FedeGolf' }), 'tarjeta FedeGolf en /perfil').toBeVisible()
+    await expect(page.getByLabel(/^Índice Golfers\+/).first(), 'tarjeta Golfers+ en /perfil').toBeVisible()
 
     // No client errors
     expect(pageErrors, `errores de cliente en /perfil: ${pageErrors.join(' | ')}`).toEqual([])

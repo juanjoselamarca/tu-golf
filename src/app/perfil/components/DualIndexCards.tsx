@@ -5,6 +5,22 @@ import { formatearIndice } from '@/golf/handicap-index-range'
 import { MIN_DIFERENCIALES_INDICE } from '@/golf/core/whs-index'
 import Link from 'next/link'
 import { LinkIcon, Check } from '@/components/icons'
+import { FedegolfLogo } from '@/components/brand/FedegolfLogo'
+import { GolfersWordmark } from '@/components/brand/GolfersWordmark'
+
+/**
+ * Encabezado de cada tarjeta: el logo de quien calcula el índice, sin texto (decisión de
+ * Juanjo 27-nov-2026). Alto fijo para que los dos números queden a la misma altura aunque
+ * los logos midan distinto. El nombre ("Índice FedeGolf" / "Índice Golfers+") va en el
+ * nombre accesible del logo.
+ */
+function MarcaDelIndice({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 12px' }}>
+      {children}
+    </div>
+  )
+}
 
 interface Props {
   profile: Profile
@@ -25,9 +41,9 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
       {/* Índice Federación */}
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px 16px 12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', margin: '0 0 12px' }}>
-          Federación
-        </p>
+        <MarcaDelIndice>
+          <FedegolfLogo alto={20} alt="Índice FedeGolf" />
+        </MarcaDelIndice>
         <p style={{ fontSize: '36px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: '0 0 6px' }}>
           {profile.indice != null ? formatearIndice(profile.indice) : '—'}
         </p>
@@ -173,7 +189,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
         <button
           type="button"
           onClick={onOpenBreakdown}
-          aria-label="Ver qué rondas cuentan para el cálculo"
+          aria-label="Índice Golfers+: ver qué rondas cuentan para el cálculo"
           style={{
             background: 'var(--bg)',
             border: '1px solid rgba(196,153,42,0.35)',
@@ -191,9 +207,9 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)' }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)' }}
         >
-          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 12px' }}>
-            Golfers+
-          </p>
+          <MarcaDelIndice>
+            <GolfersWordmark tamano={22} label="Índice Golfers+" />
+          </MarcaDelIndice>
           <p style={{ fontSize: '36px', fontWeight: 700, color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: '0 0 6px' }}>
             {formatearIndice(profile.indice_golfers)}
           </p>
@@ -211,9 +227,9 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
         </button>
       ) : (
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 10px' }}>
-            Golfers+
-          </p>
+          <MarcaDelIndice>
+            <GolfersWordmark tamano={22} label="Índice Golfers+" />
+          </MarcaDelIndice>
           <p style={{ fontSize: '11px', color: 'var(--text-2)', margin: '0 0 8px', lineHeight: 1.4 }}>
             Juega {MIN_DIFERENCIALES_INDICE} rondas válidas (canchas con slope y rating) para activar tu índice
           </p>
