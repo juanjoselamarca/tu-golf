@@ -364,7 +364,7 @@ export const RETIROS_TIMBA_KEY = (codigo: string) => `ronda_timba_retiros_${codi
  * Con `alFinalizar`, las marcas de puntos especiales y los drives que el servidor no confirmó se quedan
  * (una ronda finalizada se puede reabrir; Finalizar sólo espera los golpes, no las marcas).
  */
-function borrarCopiaDelGrupo(codigo: string, alFinalizar = false): void {
+function borrarCopiaDelGrupo(codigo: string, alFinalizar = false, conservarApartadosDeEquipos = false): void {
   clearScorerGrupoSnapshot(codigo)
   try {
     localStorage.removeItem(GROUP_KEY(codigo))
@@ -372,8 +372,13 @@ function borrarCopiaDelGrupo(codigo: string, alFinalizar = false): void {
     localStorage.removeItem(PEND_KEY(codigo))
     // Al finalizar sólo pueden quedar apartados los de quien el servidor confirmó fuera de la ronda
     // (Finalizar no cierra con una tarjeta rechazada de alguien que sigue): nadie los reenvía (ya no está
-    // en la ronda), así que también se van.
-    borrarRechazados(codigo)
+    // en la ronda), así que también se van. «Terminar mi equipo» es otra cosa: un golpe de equipo que rebotó porque el
+    // equipo ya estaba terminado es legítimo y sólo se reenvía tras «Corregir mi tarjeta»; ésos se quedan.
+    if (conservarApartadosDeEquipos) {
+      const deEquipos = Object.entries(golpesRechazados.leer(codigo)).filter(([id]) => id.startsWith('eq:'))
+      if (deEquipos.length === 0) borrarRechazados(codigo)
+      else golpesRechazados.escribir(codigo, Object.fromEntries(deEquipos))
+    } else borrarRechazados(codigo)
     localStorage.removeItem(RETIROS_TIMBA_KEY(codigo))
     if (!(alFinalizar && crearColaDePendientes(PUNTITOS_PEND_KEY).hay(codigo))) localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
     if (!(alFinalizar && crearColaDePendientes(DRIVES_PEND_KEY).hay(codigo))) localStorage.removeItem(DRIVES_PEND_KEY(codigo))
@@ -399,9 +404,10 @@ export function limpiarCopiaLocalDeRonda(codigo: string): void {
  * El scorer de grupo finalizó la ronda con todo lo suyo enviado: se borra SU copia, pero los respaldos
  * del scorer individual que no subieron (el creador anotó sin señal en el individual y finalizó desde
  * el de grupo) no se borran: se marcan de ronda cerrada. Salen del banner, y si la ronda se reabre
- * (reabrir un torneo devuelve sus rondas a 'en_curso') son lo único que hay.
+ * (reabrir un torneo devuelve sus rondas a 'en_curso') son lo único que hay. Con `conservarApartadosDeEquipos`
+ * («Terminar mi equipo»), los golpes apartados de equipos (`eq:<id>`) se quedan: se pintan y se reenvían al «Corregir».
  */
-export function cerrarCopiaLocalAlFinalizar(codigo: string): void {
-  borrarCopiaDelGrupo(codigo, true)
+export function cerrarCopiaLocalAlFinalizar(codigo: string, opciones?: { conservarApartadosDeEquipos?: boolean }): void {
+  borrarCopiaDelGrupo(codigo, true, Boolean(opciones?.conservarApartadosDeEquipos))
   marcarRespaldosDeRondaCerrada(codigo)
 }

@@ -221,6 +221,20 @@ describe('tarjetas rechazadas en firme', () => {
     expect(Object.keys(localStorage).filter(k => k.includes('R1'))).toEqual([])
   })
 
+  it('«Terminar mi equipo» cierra la copia pero conserva los apartados de equipos (eq:), de todos los equipos', () => {
+    apartarRechazados('R1', 'p2', { 10: 5 })
+    apartarRechazados('R1', 'eq:A', { 7: 4 })
+    apartarRechazados('R1', 'eq:B', { 3: 2 })
+    marcarPendientes('R1', 'eq:B', { 4: 5 })
+    cerrarCopiaLocalAlFinalizar('R1', { conservarApartadosDeEquipos: true })
+    expect(leerRechazados('R1')).toEqual({ 'eq:A': { 7: 4 }, 'eq:B': { 3: 2 } })
+    expect(hayPendientes('R1')).toBe(false)
+    // Sin apartados de equipos no queda nada de la ronda.
+    apartarRechazados('R2', 'p2', { 10: 5 })
+    cerrarCopiaLocalAlFinalizar('R2', { conservarApartadosDeEquipos: true })
+    expect(Object.keys(localStorage).filter(k => k.includes('R2'))).toEqual([])
+  })
+
   describe('barrido de los apartados que quedaron (nunca se finalizó)', () => {
     const DIA = 24 * 60 * 60 * 1000
     const T0 = Date.UTC(2026, 10, 1)
