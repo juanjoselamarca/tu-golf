@@ -88,10 +88,10 @@ describe('AvisoMarcasRechazadas y pestañas', () => {
     expect(onCambiar).toHaveBeenCalledWith('juego')
   })
 
-  it('en un formato por equipos las mismas pestañas dicen «Anotar» y «Tabla en vivo»', () => {
+  it('en un formato por equipos las mismas pestañas dicen «Scorecard» y «Leaderboard»', () => {
     render(<PestanasDeLaTimba activa="juego" onCambiar={vi.fn()} etiquetas={ETIQUETAS_DE_EQUIPOS} />)
-    expect(screen.getByRole('tab', { name: 'Anotar' }).getAttribute('aria-selected')).toBe('false')
-    expect(screen.getByRole('tab', { name: 'Tabla en vivo' }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: 'Scorecard' }).getAttribute('aria-selected')).toBe('false')
+    expect(screen.getByRole('tab', { name: 'Leaderboard' }).getAttribute('aria-selected')).toBe('true')
   })
 
   it('tarjeta de golpes en vivo: hasta el último hoyo con golpes, el que falta con "·"', () => {

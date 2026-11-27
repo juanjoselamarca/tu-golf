@@ -21,13 +21,13 @@ interface TablaEnVivoDelScorerProps {
 }
 
 /**
- * Pestaña «Tabla en vivo» del scorer de bola compartida (scramble, foursome; Juanjo, 26-nov): la misma tabla que ve el espectador
+ * Pestaña «Leaderboard» del scorer de bola compartida (scramble, foursome; Juanjo, 26-nov): la misma tabla que ve el espectador
  * (`TeamLeaderboards`, con el % de ganar del scramble), armada con lo que el scorer ya tiene. No abre otra conexión:
  * los equipos propios van con lo anotado en este celular y los ajenos con la última relectura del scorer. Solo bola
  * compartida: ahí los golpes viven en el equipo (`EquipoDelScorer.scores`); en best ball viven por jugador y la tabla
  * los leería de la ronda cargada al abrir, no de lo recién anotado (revisión Fable).
  */
-/** ¿El scorer va con «Anotar» / «Tabla en vivo» arriba? Timba y bola compartida; best ball no (ver arriba). */
+/** ¿El scorer va con «Scorecard» / «Leaderboard» arriba? Timba y bola compartida; best ball no (ver arriba). */
 export function scorerConPestanas(formato: string | null | undefined, esTimba: boolean): boolean {
   return esTimba || isSharedBallFormat(formato)
 }

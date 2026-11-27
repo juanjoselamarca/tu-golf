@@ -84,7 +84,7 @@ export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLibe
           Enviar link para anotar
         </Button>
       )}
-      {/* La tabla de todos los equipos vive en la pestaña «Tabla en vivo» de arriba (antes era un link a otra página). */}
+      {/* La tabla de todos los equipos vive en la pestaña «Leaderboard» de arriba (antes era un link a otra página). */}
 
       <ConfirmModal
         isOpen={porLiberar != null}

@@ -144,7 +144,7 @@ function ScorerDeGrupo() {
   // Timba libre: puntos, marcas y retiros (todo de GET /juego). Fuera de una Timba no pide nada.
   const esTimba = esFormatoPersonalizado(ronda?.formato_juego)
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('tarjeta')
-  // Timba y bola compartida (scramble, foursome): «Anotar» / «Tabla en vivo» arriba (Juanjo, 26-nov). Best ball no:
+  // Timba y bola compartida (scramble, foursome): «Scorecard» / «Leaderboard» arriba (Juanjo, 26-nov). Best ball no:
   // sus golpes viven por jugador en `scores` y la tabla del espectador los lee de la ronda cargada (revisión Fable).
   const conPestanas = scorerConPestanas(ronda?.formato_juego, esTimba)
   const enTablaEnVivo = conPestanas && !esTimba && pestana === 'juego'
@@ -547,7 +547,7 @@ function ScorerDeGrupo() {
       )}
 
       {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. Tampoco
-          cuando el servidor ya dijo que esta ronda no se descarta (`descarteCerrado`). En «Tabla en vivo» no va: quedaba
+          cuando el servidor ya dijo que esta ronda no se descarta (`descarteCerrado`). En «Leaderboard» no va: quedaba
           solo bajo la tabla y se leía como el botón principal (usuario sintético 27-nov). */}
       {puedeDescartarRonda(ronda, authUserId) && !descarteCerrado && !enTablaEnVivo && (
         <DiscardRoundModal
