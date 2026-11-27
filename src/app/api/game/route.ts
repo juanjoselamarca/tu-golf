@@ -120,6 +120,15 @@ async function verifyGuestOwnership(
   return { playerId: round.player_id }
 }
 
+/**
+ * «No pude leer el torneo» no es «no existe». Con un 404 el scorer del organizador marca el hoyo como rechazo de
+ * datos (`esRechazoDeDatos`) y ofrece descartar el golpe; un 503 lo deja reintentar.
+ */
+function torneoIlegible(error: unknown, context: string, tournamentId: string): NextResponse {
+  void captureError(error, { context, level: 'error', meta: { tournamentId } })
+  return NextResponse.json({ error: NO_PUDIMOS_VERIFICAR }, { status: 503 })
+}
+
 export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let body: any
@@ -164,11 +173,12 @@ export async function POST(request: NextRequest) {
     const svc = serviceClient()
 
     // Verificar torneo
-    const { data: tournament } = await svc
+    const { data: tournament, error: torneoError } = await svc
       .from('tournaments')
       .select('organizer_id, status')
       .eq('id', tournament_id)
-      .single()
+      .maybeSingle()
+    if (torneoError) return torneoIlegible(torneoError, 'game-engine.guest-torneo', tournament_id)
     if (!tournament) return NextResponse.json({ error: 'Torneo no encontrado' }, { status: 404 })
 
     if (!torneoAceptaScores(tournament.status)) {
@@ -234,11 +244,12 @@ export async function POST(request: NextRequest) {
   }
 
   // Verify tournament exists
-  const { data: tournament } = await supabase
+  const { data: tournament, error: torneoError } = await supabase
     .from('tournaments')
     .select('organizer_id, status')
     .eq('id', tournament_id)
-    .single()
+    .maybeSingle()
+  if (torneoError) return torneoIlegible(torneoError, 'game-engine.torneo', tournament_id)
 
   if (!tournament) {
     return NextResponse.json({ error: 'Torneo no encontrado' }, { status: 404 })
