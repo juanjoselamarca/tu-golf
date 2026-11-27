@@ -5,6 +5,7 @@ import {
   getTestUserId,
 } from './helpers/ronda-fixture'
 import { registerUrl } from '../src/lib/auth/login-url'
+import { marcarAvisoNoMolestarVisto } from './helpers/aviso-no-molestar'
 
 /**
  * E2E del flujo INVITADO (Wednesday QA).
@@ -185,6 +186,10 @@ test('invitado: scorer carga y permite scorear sin auth', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', err => errors.push(err.message))
 
+  // La hoja «Activa No molestar» (#654) tapa el «+» 400 ms después de abrir el scorer; se prueba aparte en
+  // ronda-scoring.spec.ts. Acá se marca vista para probar el flujo del invitado.
+  await marcarAvisoNoMolestarVisto(page, fixture!.codigo)
+
   // Navegar al score page SIN auth
   await page.goto(`/ronda-libre/${fixture!.codigo}/score`, { waitUntil: 'networkidle' })
 
@@ -250,9 +255,14 @@ test('invitado: banner se puede cerrar con ×', async ({ page }) => {
   await page.waitForTimeout(10_000)
   await expect(page.getByText('Registra tu propio score')).toBeVisible({ timeout: 5_000 })
 
-  // Click the dismiss button (×) — hay dos en la página, usar el del banner (último)
-  const dismissBtn = page.getByRole('button', { name: '×' }).last()
-  await dismissBtn.click()
+  // El × del banner se anuncia como «Cerrar» (aria-label). Se busca DENTRO del banner (el bloque que tiene el texto y
+  // el link «Unirme gratis»), no el último «Cerrar» de la página: así no cierra otra hoja por error.
+  const banner = page
+    .locator('div')
+    .filter({ hasText: 'Registra tu propio score' })
+    .filter({ has: page.getByRole('link', { name: 'Unirme gratis' }) })
+    .last()
+  await banner.getByRole('button', { name: 'Cerrar' }).click()
 
   // Banner should disappear
   await expect(page.getByText('Registra tu propio score')).not.toBeVisible({ timeout: 3_000 })

@@ -112,7 +112,15 @@ test.describe('Feed en vivo — público (sin auth)', () => {
 
     const cardText = await first.innerText()
     expect(cardText).toMatch(/\d+ HOYOS/i)
-    expect(cardText).toMatch(/\d+\.\s+\w+/)
+
+    // La tarjeta del fixture (1 jugador, 9 hoyos jugados) lo muestra en el 1.er lugar con su nombre. La posición
+    // va en su propia celda desde el 10-nov (empates «T2», sin «1.»), así que se lee esa celda, no el texto corrido.
+    const tarjetaFixture = page.locator(`a[href="/ronda-libre/${CODIGO}"]`)
+    await expect(tarjetaFixture).toContainText(/18 HOYOS/i)
+    const posicion = tarjetaFixture.getByTestId('posicion')
+    await expect(posicion).toHaveText(['1'])
+    // El nombre va en la MISMA fila que la posición (su contenedor), no en cualquier parte de la tarjeta.
+    await expect(posicion.locator('xpath=..')).toContainText('E2E En Vivo')
   })
 
   test('badge Thru muestra progreso real', async ({ page }) => {
