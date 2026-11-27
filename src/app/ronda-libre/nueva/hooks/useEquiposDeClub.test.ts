@@ -128,6 +128,15 @@ describe('useEquiposDeClub', () => {
     expect(result.current.modo).toBe('gross')
   })
 
+  it('repetir una ronda Gross y pasar a «Solo equipos» también respeta Gross', () => {
+    const { result, onModo } = montar({ modo: 'gross' })
+    act(() => result.current.restaurar(null))
+    onModo.mockClear()
+    act(() => result.current.elegirSoloEquipos(true))
+    expect(onModo).not.toHaveBeenCalled()
+    expect(result.current.modo).toBe('gross')
+  })
+
   it('ida y vuelta: Gross → «Solo equipos» (Neto) → «Con jugadores» devuelve Gross', () => {
     const { result, onModo } = montar({ modo: 'gross' })
     act(() => result.current.elegirSoloEquipos(true))

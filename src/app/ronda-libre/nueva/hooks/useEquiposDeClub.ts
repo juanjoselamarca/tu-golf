@@ -192,6 +192,8 @@ export function useEquiposDeClub({ formato, modo, holes, netoBloqueado, onModo }
    */
   const restaurar = (nombres: readonly string[] | null) => {
     modoAntesDeSoloEquipos.current = null
+    // El modo lo trae la ronda repetida: es una elección, y «Solo equipos» no lo cambia sin avisar (A3).
+    modoTocado.current = true
     if (!nombres || nombres.length === 0) {
       setSoloEquiposElegido(false)
       setQuienAnota(null)
