@@ -29,6 +29,7 @@ import { HoyosEstimados } from '@/components/ronda/HoyosEstimados'
 // NotifBanner replaced by FollowRoundButton (Sep 2026)
 import { AuthModal } from '@/components/ronda/AuthModal'
 
+import { fechaDeLaRonda } from '@/lib/ronda/fecha-de-la-ronda'
 import { useRondaLibreLive, INTERVALO_EN_VIVO_S } from './hooks/useRondaLibreLive'
 import { AvisoSoloBruto } from '@/app/torneo/[slug]/components/AvisoSoloBruto'
 import { etiquetaDelFormato } from '@/lib/data/tournaments/vista-publica'
@@ -164,9 +165,7 @@ function RondaLibrePageContent() {
   if (notFound || !ronda) return <NotFoundView codigo={codigo} />
 
   /* ── Derivados (ronda garantizado no-null) ── */
-  const fechaDisplay = ronda.fecha
-    ? new Date(ronda.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
-    : ''
+  const fechaDisplay = fechaDeLaRonda(ronda.fecha)
   const isEnCurso = !esRondaCerrada(ronda.estado)
   const hasCourse = Object.keys(parMap).length > 0
   const isNetoMode = ronda.modo_juego === 'neto'

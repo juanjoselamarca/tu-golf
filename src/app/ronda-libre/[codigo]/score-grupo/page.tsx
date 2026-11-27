@@ -29,8 +29,8 @@ import { HoleProgressRow } from './components/HoleProgressRow'
 import { GrupoHoleInfoRow } from './components/GrupoHoleInfoRow'
 import { CompartirEnJuego } from '@/components/ronda/CompartirEnJuego'
 import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
-import { SharedBallTeamCard, anclaDeDrives } from './components/SharedBallTeamCard'
-import { hoyoSinDriveQueFrenaElCierre } from '@/golf/formats/drives-scramble'
+import { SharedBallTeamCard } from './components/SharedBallTeamCard'
+import { useFrenoPorDrive } from './hooks/useFrenoPorDrive'
 import { PlayerScoreCard } from './components/PlayerScoreCard'
 import { GrupoNavBar, envioDelHoyo } from './components/GrupoNavBar'
 import { DiscardRoundModal } from './components/DiscardRoundModal'
@@ -51,7 +51,8 @@ import { accionesDeLaTarjeta, tarjetaCongelada } from './hooks/tarjeta-congelada
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
-import { PestanasDeLaTimba, PANEL_DE_PESTANA, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
+import { PestanasDeLaTimba, PANEL_DE_PESTANA, ETIQUETAS_DE_EQUIPOS, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
+import { TablaEnVivoDelScorer } from './components/TablaEnVivoDelScorer'
 import { PanelDelJuego } from '../components/timba/PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from '../components/PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from '../components/timba/RetiroDeJugadores'
@@ -141,6 +142,8 @@ function ScorerDeGrupo() {
   // Timba libre: puntos, marcas y retiros (todo de GET /juego). Fuera de una Timba no pide nada.
   const esTimba = esFormatoPersonalizado(ronda?.formato_juego)
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('tarjeta')
+  // Timba y equipos (scramble, best ball, foursome): «Anotar» / «Tabla en vivo» arriba (Juanjo, 26-nov).
+  const conPestanas = esTimba || isTeamFormat(ronda?.formato_juego)
   // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
   const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
   const timba = useTimbaDelScorer({
@@ -233,36 +236,12 @@ function ScorerDeGrupo() {
     anotarJugador: (jugadorId, delta) => handleScoreChange(jugadorId, currentHole, delta),
     anotarEquipo: (equipoId, delta) => handleTeamScoreChange(equipoId, currentHole, delta),
   })
-  // Drives del scramble: sin el del hoyo no se pasa de hoyo, ni se guarda el último, ni se finaliza (Juanjo, 26-nov:
-  // «No deja avanzar»). Solo los equipos que ESTE celular confirma (los de `teamEquipos` fuera de `noConfirmanElHoyo`):
-  // el de otro celular lo frena su propio scorer. El intento frenado destaca «Drive de» en ese hoyo y lleva la vista
-  // ahí. Tarjeta congelada o ronda cerrada: no frena (no hay cambios). Lo que frena es CONFIRMAR (Siguiente, «Guardar
-  // hoyo N», Finalizar); moverse entre hoyos (swipe, fila de hoyos) es libre, para poder corregir uno anterior.
-  const [faltaDriveEnHoyo, setFaltaDriveEnHoyo] = useState<number | null>(null)
-  const confirmanEsteCelular = teamEquipos.filter(e => !(noConfirmanElHoyo ?? []).some(n => n.id === e.id))
-  const equiposSinDriveEn = (hoyo: number) => confirmanEsteCelular.filter(e => drivesDe(e)?.hoyosSinDrive.includes(hoyo))
-  const frenaPorDrive = (hoyo: number): boolean => {
-    if (congelada || rondaCerrada) return false
-    const faltan = equiposSinDriveEn(hoyo)
-    if (faltan.length === 0) return false
-    setFaltaDriveEnHoyo(hoyo)
-    haptic([30, 60, 30])
-    if (hoyo !== currentHole) {
-      setCurrentHole(hoyo)
-      addToast({ type: 'error', title: `Falta el drive del hoyo ${hoyo}`, duration: 6000 })
-    }
-    requestAnimationFrame(() => document.getElementById(anclaDeDrives(faltan[0].id))?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
-    return true
-  }
-  const siguienteConDrive = () => { if (!frenaPorDrive(currentHole)) void goToNextHole() }
-  const guardarHoyoConDrive = () => { if (!frenaPorDrive(currentHole)) void guardarHoyo() }
-  // Al cerrar: solo los hoyos jugados y el último si está en pantalla (`hoyoSinDriveQueFrenaElCierre`); los no jugados van con par y sin drive.
-  const finalizarConDrives = () => {
-    const conDrives = confirmanEsteCelular.flatMap(e => { const d = drivesDe(e); return d ? [{ hoyosSinDrive: d.hoyosSinDrive, scores: e.scores }] : [] })
-    const hoyo = hoyoSinDriveQueFrenaElCierre(ordenHoyos, conDrives, currentHole)
-    if (hoyo != null && frenaPorDrive(hoyo)) return
-    void finalizeRound()
-  }
+  const freno = useFrenoPorDrive({
+    equipos: teamEquipos, noConfirmanElHoyo, drivesDe, activo: !congelada && !rondaCerrada, currentHole, setCurrentHole, ordenHoyos,
+  })
+  const siguienteConDrive = () => { if (!freno.frenaEnPantalla()) void goToNextHole() }
+  const guardarHoyoConDrive = () => { if (!freno.frenaEnPantalla()) void guardarHoyo() }
+  const finalizarConDrives = () => { if (!freno.frenaAlCerrar()) void finalizeRound() }
 
   // Un celular por equipo, último hoyo: el «Finalizar» de la hoja confirma primero el valor en pantalla de los equipos de
   // este celular (lo mismo que «Siguiente» y «Guardar hoyo N»). Si otro equipo no terminó, el cierre se frena, y sin esto
@@ -327,16 +306,21 @@ function ScorerDeGrupo() {
         theme={theme}
       />
 
-      {esTimba && (
-        <>
-          <AvisoMarcasRechazadas lineas={timba.lineasRechazadas} onEntendido={timba.marcas.descartarRechazadas} />
-          <div style={{ padding: '8px 8px 0' }}>
-            <PestanasDeLaTimba activa={pestana} onCambiar={setPestana} />
-          </div>
-        </>
+      {esTimba && <AvisoMarcasRechazadas lineas={timba.lineasRechazadas} onEntendido={timba.marcas.descartarRechazadas} />}
+      {conPestanas && (
+        <div style={{ padding: '8px 8px 0' }}>
+          <PestanasDeLaTimba activa={pestana} onCambiar={setPestana} etiquetas={esTimba ? undefined : ETIQUETAS_DE_EQUIPOS} />
+        </div>
       )}
 
-      {esTimba && pestana === 'juego' ? (
+      {conPestanas && !esTimba && pestana === 'juego' && ronda ? (
+        <div id={PANEL_DE_PESTANA('juego')} role="tabpanel" style={{ flex: 1, overflowY: 'auto', padding: '12px 8px', minHeight: 0 }}>
+          <TablaEnVivoDelScorer
+            ronda={ronda} propios={teamEquipos} ajenos={equiposDeOtroCelular}
+            parMap={parMap} holeDataMap={holeDataMap} playerHcp={playerHcp} playerDisplayHcp={playerDisplayHcp}
+          />
+        </div>
+      ) : esTimba && pestana === 'juego' ? (
         <div id={PANEL_DE_PESTANA('juego')} role="tabpanel" style={{ flex: 1, overflowY: 'auto', padding: `${PADDING_PANEL_JUEGO_PX}px 12px`, minHeight: 0, userSelect: 'text' }}>
           <PanelDelJuego
             juego={timba.juego}
@@ -379,8 +363,8 @@ function ScorerDeGrupo() {
 
       {/* Player columns — scrollable main area */}
       <div
-        id={esTimba ? PANEL_DE_PESTANA('tarjeta') : undefined}
-        role={esTimba ? 'tabpanel' : undefined}
+        id={conPestanas ? PANEL_DE_PESTANA('tarjeta') : undefined}
+        role={conPestanas ? 'tabpanel' : undefined}
         style={{ flex: 1, overflowY: 'auto', padding: '12px 8px', minHeight: 0 }}
         {...nav.swipeHandlers}
       >
@@ -431,7 +415,7 @@ function ScorerDeGrupo() {
               onChange={(delta) => anotarEquipo(equipo.id, delta)}
               drives={drivesDe(equipo)}
               drivesDeshabilitados={congelada}
-              faltaDrive={faltaDriveEnHoyo === currentHole && drivesDe(equipo)?.driveDelHoyo == null}
+              faltaDrive={freno.faltaDriveEnHoyo === currentHole && drivesDe(equipo)?.driveDelHoyo == null}
               theme={theme}
             />
           ))}

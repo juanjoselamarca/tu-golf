@@ -5,14 +5,21 @@ import type { KeyboardEvent } from 'react'
 export type PestanaDeLaTimba = 'tarjeta' | 'juego'
 
 const ETIQUETA: Record<PestanaDeLaTimba, string> = { tarjeta: 'Tarjeta', juego: 'Juego' }
+/** Las mismas pestañas en el scorer de un formato por equipos (Juanjo, 26-nov: «como en la Timba»). */
+export const ETIQUETAS_DE_EQUIPOS: Record<PestanaDeLaTimba, string> = { tarjeta: 'Anotar', juego: 'Tabla en vivo' }
 export const PANEL_DE_PESTANA = (p: PestanaDeLaTimba) => `panel-timba-${p}`
 const ID_DE_PESTANA = (p: PestanaDeLaTimba) => `pestana-timba-${p}`
 
 /**
  * Pestañas Tarjeta | Juego de una Timba libre (maqueta ScorerC). Blancos de 44 px, segmentado sobre la superficie
- * suave; la activa en la superficie principal y en negrita (no depende solo del color).
+ * suave; la activa en la superficie principal y en negrita (no depende solo del color). El scorer de equipos las usa
+ * con `ETIQUETAS_DE_EQUIPOS` (Anotar | Tabla en vivo).
  */
-export function PestanasDeLaTimba({ activa, onCambiar }: { activa: PestanaDeLaTimba; onCambiar: (p: PestanaDeLaTimba) => void }) {
+export function PestanasDeLaTimba({ activa, onCambiar, etiquetas = ETIQUETA }: {
+  activa: PestanaDeLaTimba
+  onCambiar: (p: PestanaDeLaTimba) => void
+  etiquetas?: Record<PestanaDeLaTimba, string>
+}) {
   const pestanas: PestanaDeLaTimba[] = ['tarjeta', 'juego']
   const alTeclear = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
@@ -51,7 +58,7 @@ export function PestanasDeLaTimba({ activa, onCambiar }: { activa: PestanaDeLaTi
               fontFamily: 'inherit', fontSize: '15px', fontWeight: seleccionada ? 700 : 600,
             }}
           >
-            {ETIQUETA[p]}
+            {etiquetas[p]}
           </button>
         )
       })}

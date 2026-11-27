@@ -1,0 +1,57 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import { TeamLeaderboards } from '../../components/TeamLeaderboards'
+import { crearHcpAMostrar } from '@/lib/data/ronda-libre-live-api'
+import { fechaDeLaRonda } from '@/lib/ronda/fecha-de-la-ronda'
+import type { HoleData, RondaLibre } from '@/types/ronda'
+import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
+
+interface TablaEnVivoDelScorerProps {
+  ronda: RondaLibre
+  /** Los equipos que anota este celular (con los golpes recién tocados). */
+  propios: readonly EquipoDelScorer[]
+  /** Los de otro celular (un celular por equipo): el scorer los relee solo, cada pocos segundos. */
+  ajenos: readonly EquipoDelScorer[]
+  parMap: Record<number, number>
+  holeDataMap: Record<number, HoleData>
+  playerHcp: Record<string, number>
+  playerDisplayHcp: Record<string, number>
+}
+
+/**
+ * Pestaña «Tabla en vivo» del scorer de equipos (Juanjo, 26-nov): la misma tabla que ve el espectador
+ * (`TeamLeaderboards`, con el % de ganar del scramble), armada con lo que el scorer ya tiene. No abre otra conexión:
+ * los equipos propios van con lo anotado en este celular y los ajenos con la última relectura del scorer.
+ */
+export function TablaEnVivoDelScorer({ ronda, propios, ajenos, parMap, holeDataMap, playerHcp, playerDisplayHcp }: TablaEnVivoDelScorerProps) {
+  const [expandido, setExpandido] = useState<string | null>(null)
+  const equipos = useMemo(() => {
+    const propiosIds = new Set(propios.map(e => e.id))
+    return [...propios, ...ajenos.filter(e => !propiosIds.has(e.id))]
+  }, [propios, ajenos])
+  const siMap = useMemo(() => {
+    const m: Record<number, number> = {}
+    for (const [h, d] of Object.entries(holeDataMap)) if (d?.stroke_index != null) m[Number(h)] = d.stroke_index
+    return m
+  }, [holeDataMap])
+  // El scorer leyó los perfiles con sesión: el HCP que muestra la tarjeta es el mismo que va acá.
+  const hcpAMostrar = useMemo(
+    () => crearHcpAMostrar(ronda.ronda_libre_jugadores, playerDisplayHcp, [], 'todos'),
+    [ronda.ronda_libre_jugadores, playerDisplayHcp],
+  )
+  return (
+    <TeamLeaderboards
+      ronda={ronda}
+      equipos={equipos}
+      parMap={parMap}
+      siMap={siMap}
+      courseHcpMap={playerHcp}
+      hcpAMostrar={hcpAMostrar}
+      fechaDisplay={fechaDeLaRonda(ronda.fecha)}
+      expandedTeam={expandido}
+      onToggleTeam={(id) => setExpandido(prev => prev === id ? null : id)}
+      enVivo
+    />
+  )
+}
