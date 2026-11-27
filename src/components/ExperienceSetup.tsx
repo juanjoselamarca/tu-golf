@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { isPushSupported, getPermissionState, requestPermission, getNotifPrefs, setNotifPrefs } from '@/lib/push-notifications'
 import { Flag, Eye } from '@/components/icons'
 import { Toggle } from '@/components/ui/Toggle'
+import { aperturaLibrePara, experienciaPendiente, marcarExperienciaVista, tomarApertura } from '@/lib/avisos/aviso-de-apertura'
 
 /**
  * Pop-up de primera vez: invita al usuario a personalizar su experiencia.
@@ -13,10 +14,10 @@ export function ExperiencePopup({ onSetup }: { onSetup: () => void }) {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
-    const seen = localStorage.getItem('golfers-experience-seen')
-    if (!seen) {
-      setTimeout(() => setShow(true), 2000) // Show after 2s
-    }
+    // Un solo aviso modal por apertura (aviso-de-apertura): si otro ya se mostró, espera a la próxima.
+    if (!experienciaPendiente() || !aperturaLibrePara('experiencia')) return
+    const t = setTimeout(() => { if (tomarApertura('experiencia')) setShow(true) }, 2000) // Show after 2s
+    return () => clearTimeout(t)
   }, [])
 
   const handleSetup = () => {
@@ -26,7 +27,7 @@ export function ExperiencePopup({ onSetup }: { onSetup: () => void }) {
 
   const handleDismiss = () => {
     setShow(false)
-    localStorage.setItem('golfers-experience-seen', '1')
+    marcarExperienciaVista()
   }
 
   if (!show) return null
@@ -107,7 +108,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
     const updated = { ...prefs, [key]: newVal }
     setPrefs(updated)
     setNotifPrefs(updated)
-    localStorage.setItem('golfers-experience-seen', '1')
+    marcarExperienciaVista()
   }
 
   return (

@@ -15,6 +15,7 @@ import {
   setupPushNotifications,
   getPermissionState,
 } from '@/lib/push-notifications'
+import { tomarApertura } from '@/lib/avisos/aviso-de-apertura'
 
 const DISMISSED_KEY = 'golfers-push-prompt-dismissed'
 
@@ -43,7 +44,8 @@ export function PushPermissionPrompt() {
     const intentar = (ms: number) => {
       t = setTimeout(() => {
         if (document.querySelector('[role="dialog"][aria-modal="true"]')) intentar(500)
-        else setVisible(true)
+        // Un solo aviso por apertura (aviso-de-apertura): si ya salió otro, se ofrece en la próxima.
+        else if (tomarApertura('permiso-push')) setVisible(true)
       }, ms)
     }
     intentar(1200)
