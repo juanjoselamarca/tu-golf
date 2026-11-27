@@ -175,7 +175,6 @@ export function CoachGatePage() {
             lineHeight: 1.7,
             color: 'var(--text-3)',
             margin: '0 0 40px',
-            letterSpacing: '0.02em',
           }}>
             Acceso por invitación.
           </p>

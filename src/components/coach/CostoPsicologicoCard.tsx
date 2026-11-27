@@ -49,10 +49,10 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
       <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--coach-recovery-low)', fontWeight: 700, marginBottom: '14px' }}>
         Costo psicológico
       </div>
-      <div className="num" style={{ fontSize: FONT_SIZE.statHero, fontWeight: 700, lineHeight: 0.92, color: 'var(--coach-recovery-low)', letterSpacing: '-0.03em', marginBottom: '4px' }}>
+      <div className="num" style={{ fontSize: FONT_SIZE.stat, fontWeight: 700, lineHeight: 0.92, color: 'var(--coach-recovery-low)', letterSpacing: '-0.03em', marginBottom: '4px' }}>
         {evitables}
       </div>
-      <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '16px', fontWeight: 500, letterSpacing: '0.02em' }}>
+      <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '16px', fontWeight: 500 }}>
         {concordar(evitables, 'golpe evitable', 'golpes evitables')}
       </div>
       <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', lineHeight: 1.55, paddingBottom: '18px', borderBottom: '1px solid var(--line)', marginBottom: '18px' }}>
@@ -64,9 +64,9 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
         <span className="num" style={{ fontSize: FONT_SIZE.stat, fontWeight: 500, color: 'var(--text-3)', textDecoration: 'line-through', textDecorationColor: 'var(--line)', letterSpacing: '-0.02em', lineHeight: 1 }}>{realScore}</span>
-        <span style={{ fontSize: FONT_SIZE.h2, color: 'var(--text-3)' }}>→</span>
+        <span style={{ fontSize: FONT_SIZE.stat, color: 'var(--text-3)' }}>→</span>
         <span className="num" style={{ fontSize: FONT_SIZE.stat, fontWeight: 500, color: 'var(--coach-brass)', letterSpacing: '-0.02em', lineHeight: 1 }}>{ghostScore}</span>
-        <span className="num" style={{ marginLeft: 'auto', fontSize: FONT_SIZE.small, color: 'var(--coach-brass)', fontWeight: 600, padding: '4px 9px', background: 'var(--coach-brass-soft)', borderRadius: '2px' }}>−{delta}</span>
+        <span className="num" style={{ marginLeft: 'auto', fontSize: FONT_SIZE.caption, color: 'var(--coach-brass)', fontWeight: 600, padding: '4px 9px', background: 'var(--coach-brass-soft)', borderRadius: '2px' }}>−{delta}</span>
       </div>
       <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', lineHeight: 1.55 }}>
         Conteniendo {holesAffected.length === 1 ? (

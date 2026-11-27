@@ -84,7 +84,7 @@ export function MentalRecoveryCard(props: Props) {
       <div style={rotulo(color)}>Mental Index</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
         <span className="num" style={{ fontSize: FONT_SIZE.statHero, fontWeight: 500, lineHeight: 0.95, color, letterSpacing: '-0.02em' }}>{score}</span>
-        <span className="num" style={{ fontSize: FONT_SIZE.body, color: 'var(--text-3)' }}>/ 100</span>
+        <span className="num" style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)' }}>/ 100</span>
         {deltaText && (
           <span className="num" style={{ marginLeft: 'auto', fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
             {deltaText}
