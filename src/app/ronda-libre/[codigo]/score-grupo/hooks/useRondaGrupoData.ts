@@ -11,7 +11,7 @@ import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
 import {
-  entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposPorTerminar, unCelularPorEquipo, nombreDelAnotadorDelCelular, NOMBRE_ANOTADOR_GENERICO,
+  entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposPorTerminar, equipoTerminado, unCelularPorEquipo, nombreDelAnotadorDelCelular, NOMBRE_ANOTADOR_GENERICO,
 } from '@/golf/ronda-libre/anotador-de-equipo'
 import { MENSAJE_YA_NO_ANOTAS } from '@/lib/data/ronda-libre-anotador'
 import { addToast } from '@/hooks/useToast'
@@ -96,7 +96,8 @@ export interface RondaGrupoData {
 }
 
 type Carga =
-  | { tipo: 'ok'; ronda: RondaLibre; userId: string; email: string | null; snap: Omit<ScorerGrupoSnapshot, 'v'> }
+  /** `terminados`: ids de los equipos que ya terminaron su tarjeta (salen de la pantalla sin el aviso «Ya no anotas»). */
+  | { tipo: 'ok'; ronda: RondaLibre; userId: string; email: string | null; snap: Omit<ScorerGrupoSnapshot, 'v'>; terminados: ReadonlySet<string> }
   | { tipo: 'redirigir'; a: string; reemplazar: boolean }
   | { tipo: 'elegir_equipo'; ronda: RondaLibre; equipos: EquipoDelScorer[] }
   | { tipo: 'sin_conexion'; userId: string | null }
@@ -210,6 +211,7 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
       : nombreSinPerfil
     return {
       tipo: 'ok', ronda: r, userId, email: sesion.email,
+      terminados: new Set(equipos.filter(equipoTerminado).map(e => e.id)),
       snap: {
         at: Date.now(), authUserId: userId, anotadorNombre, ronda: r,
         parMap: hoyos.parMap, holeDataMap: hoyos.holeDataMap,
@@ -377,10 +379,12 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       }
       if (c.tipo === 'ok') {
         // Un celular por equipo: otro celular tomó (o le liberaron) un equipo que este tenía en pantalla. Sus golpes
-        // pendientes los descarta el envío (`useGrupoScoreSave`); acá solo se avisa.
+        // pendientes los descarta el envío (`useGrupoScoreSave`); acá solo se avisa. Uno que salió porque terminó su
+        // tarjeta (dos equipos en este celular: el primero terminó y el segundo dio incompleto) no es «ya no anotas».
         if (cargadaRef.current && c.snap.unCelularPorEquipo) {
           const ahora = new Set((c.snap.teamEquipos as EquipoDelScorer[]).map(e => e.id))
-          if (idsEnPantallaRef.current.some(id => !ahora.has(id))) addToast({ type: 'info', title: MENSAJE_YA_NO_ANOTAS, duration: 6000 })
+          const perdido = idsEnPantallaRef.current.some(id => !ahora.has(id) && !c.terminados.has(id))
+          if (perdido) addToast({ type: 'info', title: MENSAJE_YA_NO_ANOTAS, duration: 6000 })
         }
         eligiendoRef.current = false
         setEleccion(null)
