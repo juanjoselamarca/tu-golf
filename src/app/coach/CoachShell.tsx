@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { FONT_SIZE } from '@/lib/font-size'
+import { TaigerWordmark } from '@/components/coach/TaigerWordmark'
 
 // Chrome del coach (header + fondo). SIN auth: el middleware ya protege
 // /coach (protectedRoutes en src/proxy.ts) y redirige a /login server-side
@@ -15,8 +16,8 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         position: 'sticky', top: 0, zIndex: 40,
       }}>
-        <span style={{ fontSize: FONT_SIZE.h2, color: 'var(--brand-on-bg)', fontWeight: 700 }}>
-          tAIger+
+        <span style={{ fontSize: FONT_SIZE.h2, color: 'var(--text)' }}>
+          <TaigerWordmark />
         </span>
         {/* inline-flex + center: con el min-height global de 44px el texto quedaba arriba de la caja,
             desalineado del logo. */}

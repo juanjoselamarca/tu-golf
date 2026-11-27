@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import { FONT_SIZE } from '@/lib/font-size'
+import { TaigerWordmark } from '@/components/coach/TaigerWordmark'
 
 const SLIDES = [
   { src: '/images/taiger/taiger-domingo.png', pos: '50% 10%', label: 'Coach' },
@@ -108,11 +109,11 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
           zIndex: 2,
         }}>
           <h2 style={{
-            fontSize: FONT_SIZE.h1, fontWeight: 700, letterSpacing: '1px',
+            fontSize: FONT_SIZE.h1,
             color: 'var(--text)', margin: 0,
             animation: mounted ? 'textUp 0.6s ease-out 0.4s both' : 'none',
           }}>
-            tAIger+
+            <TaigerWordmark />
           </h2>
           {subtitle && (
             <p style={{

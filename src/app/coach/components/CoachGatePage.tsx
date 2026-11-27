@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { FONT_SIZE } from '@/lib/font-size'
+import { TaigerWordmark } from '@/components/coach/TaigerWordmark'
 export function CoachGatePage() {
   const [open, setOpen] = useState(false)
   const [code, setCode] = useState('')
@@ -149,13 +150,11 @@ export function CoachGatePage() {
           {/* Brand mark */}
           <h2 style={{
             fontSize: FONT_SIZE.statHero,
-            fontWeight: 700,
             color: 'var(--text)',
             lineHeight: 1.1,
             margin: '0 0 16px',
-            letterSpacing: '-0.02em',
           }}>
-            tAIger<span style={{ color: 'var(--brand-on-bg)' }}>+</span>
+            <TaigerWordmark />
           </h2>
 
           <div className="gate-divider" />
