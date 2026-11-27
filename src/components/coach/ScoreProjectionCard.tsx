@@ -1,4 +1,5 @@
 'use client'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /**
  * ScoreProjectionCard — render del objetivo/proyección de score que produjo la
@@ -60,10 +61,8 @@ export function ScoreProjectionCard({ projection }: Props) {
     >
       <div
         style={{
-          fontSize: 12,
+          fontSize: FONT_SIZE.caption,
           fontWeight: 700,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
           color: 'var(--brand-on-bg)',
           marginBottom: 10,
         }}
@@ -73,9 +72,9 @@ export function ScoreProjectionCard({ projection }: Props) {
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: parts.length ? 14 : 0 }}>
         <span
+          className="num"
           style={{
-            fontFamily: '"Playfair Display", serif',
-            fontSize: 34,
+            fontSize: FONT_SIZE.statHero,
             fontWeight: 600,
             color: 'var(--text)',
             letterSpacing: '-0.01em',
@@ -85,7 +84,7 @@ export function ScoreProjectionCard({ projection }: Props) {
           {big}
         </span>
         {absolute != null && (
-          <span style={{ fontSize: 14, color: 'var(--text-2)' }}>
+          <span style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)' }}>
             {relText}
           </span>
         )}
@@ -106,7 +105,7 @@ export function ScoreProjectionCard({ projection }: Props) {
             <li
               key={k}
               style={{
-                fontSize: 12.5,
+                fontSize: FONT_SIZE.caption,
                 color: 'var(--text-2)',
                 background: 'rgba(196,153,42,0.08)',
                 border: '1px solid rgba(196,153,42,0.18)',

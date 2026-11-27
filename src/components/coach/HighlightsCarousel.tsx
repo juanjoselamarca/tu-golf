@@ -1,6 +1,7 @@
 'use client'
 
 import { Children, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   label: string
@@ -40,12 +41,9 @@ export function HighlightsCarousel({ label, children }: Props) {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    fontSize: '12px',
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
+    fontSize: FONT_SIZE.caption,
     color: 'var(--text-3)',
     fontWeight: 600,
-    fontFamily: '"DM Mono", monospace',
   }
   const trackStyle: CSSProperties = {
     display: 'flex',
@@ -61,7 +59,7 @@ export function HighlightsCarousel({ label, children }: Props) {
       <div style={labelStyle}>
         <span>{label}</span>
         {total > 1 && (
-          <span style={{ fontFamily: '"DM Mono", monospace', letterSpacing: 0, textTransform: 'none', fontWeight: 500, color: 'var(--text-3)' }}>
+          <span className="num" style={{ fontWeight: 500, color: 'var(--text-3)' }}>
             {current}/{total}
           </span>
         )}

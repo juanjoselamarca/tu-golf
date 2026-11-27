@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /** Estado de carga de la sesión (idéntico al original page.tsx:360-372). */
 export function LoadingState() {
@@ -31,7 +32,7 @@ export function NotFoundState() {
       gap: 16,
       padding: 20,
     }}>
-      <p style={{ color: 'var(--text)', fontSize: 16 }}>Sesión no encontrada</p>
+      <p style={{ color: 'var(--text)', fontSize: FONT_SIZE.body }}>Sesión no encontrada</p>
       {/* ui/Button nav (§5, acción reversible): 48px de alto y texto --brand-on-bg
           sobre el fondo. El botón propio medía 36px y daba 4.26:1 sobre el tinte dorado. */}
       <Button type="button" variant="nav" onClick={() => router.push('/coach')}>

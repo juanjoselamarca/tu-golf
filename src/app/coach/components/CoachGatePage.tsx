@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { FONT_SIZE } from '@/lib/font-size'
+import { TaigerWordmark } from '@/components/coach/TaigerWordmark'
 export function CoachGatePage() {
   const [open, setOpen] = useState(false)
   const [code, setCode] = useState('')
@@ -58,11 +60,16 @@ export function CoachGatePage() {
         .gate-mesh-bg {
           position: absolute;
           inset: 0;
-          background: radial-gradient(ellipse at 30% 20%, rgba(196,153,42,0.06) 0%, transparent 60%),
-                      radial-gradient(ellipse at 70% 80%, rgba(14,28,47,0.8) 0%, transparent 50%),
-                      radial-gradient(ellipse at 50% 50%, rgba(196,153,42,0.03) 0%, transparent 70%);
+          background-image: radial-gradient(ellipse at 30% 20%, rgba(196,153,42,0.06) 0%, transparent 60%),
+                            radial-gradient(ellipse at 50% 50%, rgba(196,153,42,0.03) 0%, transparent 70%);
           background-size: 200% 200%;
           animation: gate-mesh 12s ease-in-out infinite;
+        }
+        /* The navy layer only belongs to the dark theme: in light it turned the page gray under the gold text. */
+        [data-theme="dark"] .gate-mesh-bg {
+          background-image: radial-gradient(ellipse at 30% 20%, rgba(196,153,42,0.06) 0%, transparent 60%),
+                            radial-gradient(ellipse at 70% 80%, rgba(14,28,47,0.8) 0%, transparent 50%),
+                            radial-gradient(ellipse at 50% 50%, rgba(196,153,42,0.03) 0%, transparent 70%);
         }
         .gate-content {
           position: relative;
@@ -147,21 +154,18 @@ export function CoachGatePage() {
 
           {/* Brand mark */}
           <h2 style={{
-            fontFamily: 'var(--font-playfair)',
-            fontSize: 38,
-            fontWeight: 700,
+            fontSize: FONT_SIZE.statHero,
             color: 'var(--text)',
             lineHeight: 1.1,
             margin: '0 0 16px',
-            letterSpacing: '-0.02em',
           }}>
-            tAIger<span style={{ color: 'var(--brand-on-bg)' }}>+</span>
+            <TaigerWordmark />
           </h2>
 
           <div className="gate-divider" />
 
           <p style={{
-            fontSize: 16,
+            fontSize: FONT_SIZE.body,
             lineHeight: 1.7,
             color: 'var(--text)',
             margin: '0 0 6px',
@@ -171,11 +175,10 @@ export function CoachGatePage() {
           </p>
 
           <p style={{
-            fontSize: 13,
+            fontSize: FONT_SIZE.caption,
             lineHeight: 1.7,
             color: 'var(--text-3)',
             margin: '0 0 40px',
-            letterSpacing: '0.02em',
           }}>
             Acceso por invitación.
           </p>
@@ -191,10 +194,9 @@ export function CoachGatePage() {
                 borderRadius: 10,
                 padding: '13px 28px',
                 cursor: 'pointer',
-                fontSize: 13,
+                fontSize: FONT_SIZE.caption,
                 fontWeight: 600,
                 color: 'var(--brand-on-bg)',
-                letterSpacing: '0.06em',
                 transition: 'border-color 0.3s, background 0.3s',
                 minHeight: 44,
               }}
@@ -225,7 +227,7 @@ export function CoachGatePage() {
                   background: 'transparent',
                   border: 'none',
                   padding: '14px 16px',
-                  fontSize: 15,
+                  fontSize: FONT_SIZE.body,
                   color: 'var(--text)',
                   fontFamily: 'var(--font-dm-mono), monospace',
                   letterSpacing: '0.12em',
@@ -243,11 +245,8 @@ export function CoachGatePage() {
                   border: 'none',
                   borderLeft: '1px solid rgba(196,153,42,0.2)',
                   padding: '14px 20px',
-                  fontSize: 13,
+                  fontSize: FONT_SIZE.caption,
                   fontWeight: 600,
-                  fontFamily: 'var(--font-dm-mono), monospace',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase' as const,
                   cursor: loading ? 'wait' : 'pointer',
                   opacity: loading || !code.trim() ? 0.35 : 1,
                   transition: 'all 0.2s',
@@ -261,7 +260,7 @@ export function CoachGatePage() {
           )}
 
           {error && (
-            <p style={{ fontSize: 13, color: 'var(--error-fg)', marginTop: 12, textAlign: 'center' }}>
+            <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--error-fg)', marginTop: 12, textAlign: 'center' }}>
               {error}
             </p>
           )}

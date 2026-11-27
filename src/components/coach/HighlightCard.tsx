@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export type SparkBar = { height: number; tone?: 'ink' | 'brass' | 'pos' | 'neg' | 'faded' }
 export type Tone = 'pos' | 'neg' | 'warn' | 'neutral'
@@ -41,7 +42,7 @@ export function HighlightCard({ narrative, spark, pill }: Props) {
 
   return (
     <div style={cardStyle}>
-      <div style={{ fontSize: '13.5px', color: 'var(--text)', lineHeight: 1.5, marginBottom: '14px' }}>
+      <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', lineHeight: 1.5, marginBottom: '14px' }}>
         {narrative}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid var(--line)' }}>
@@ -50,17 +51,14 @@ export function HighlightCard({ narrative, spark, pill }: Props) {
             <span key={i} style={{ width: '7px', height: `${b.height}%`, background: SPARK_COLOR[b.tone ?? 'ink'] }} />
           ))}
         </div>
-        <span style={{
-          fontSize: '12px',
+        <span className="num" style={{
+          fontSize: FONT_SIZE.caption,
           fontWeight: 600,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase' as const,
           padding: '3px 8px',
           borderRadius: '2px',
           border: `1px solid ${pillC.border}`,
           background: pillC.bg,
           color: pillC.fg,
-          fontFamily: '"DM Mono", monospace',
         }}>
           {pill.text}
         </span>
