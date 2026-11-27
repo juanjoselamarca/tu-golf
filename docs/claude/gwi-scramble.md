@@ -6,7 +6,7 @@ Código: `src/golf/stats/gwi-scramble.ts`, con los tests en `gwi-scramble.test.t
 
 1. **Cálculo exacto sobre enteros.** Cada hoyo que falta es una normal discretizada con media y desvío exactos. El total sale de la convolución, así que se calculan las colas y la probabilidad de empate de verdad. El empate cuenta como medio triunfo, porque el countback no se modela. La v1 aproximaba con una normal, y eso fallaba al final: con el rival a un hoyo (un par 5), la v1 daba 95 % y la v2 da 81 %, porque el birdie para empatar es muy posible.
 2. **Mezcla de pares.** El ajuste por par es par 3 +0,02, par 4 0 y par 5 −0,37 golpes. Con salidas separadas, al que le quedan los par 5 le queda más ronda buena: con el mismo −1 en 9 hoyos y los 4 par 5 por jugar, pasa de 50 % a 74 %. El ritmo común se estima descontando la mezcla de pares de lo ya jugado.
-3. **Nivel propio del equipo (τ = 0,1 golpe por hoyo).** El HCP de equipo iguala en promedio, no equipo a equipo. Se integra con Gauss-Hermite (7 nodos) y con partial pooling: con el peso h/(h + σ²/τ²), un equipo aprende la mitad de su ritmo propio recién a los 36 hoyos. Mueve 2 puntos o menos, porque suma incertidumbre pero el que va adelante probablemente es algo mejor.
+3. **Nivel propio del equipo (τ = 0,1 golpe por hoyo).** El HCP de equipo iguala en promedio, no equipo a equipo. Se integra con Gauss-Hermite (7 nodos) y con partial pooling: con el peso h/(h + σ²/τ²), un equipo aprende la mitad de su ritmo propio recién a los 36 hoyos. Mueve 2 puntos o menos con media ronda (hasta ~4 en los primeros hoyos), porque suma incertidumbre pero el que va adelante probablemente es algo mejor. En neto, el ritmo y el nivel propio se miden devolviendo los golpes de HCP ya recibidos por sobre su parte pareja: no son buen juego (revisión Fable P1).
 4. Se mantienen de la v1 σ = 0,6, el ritmo común encogido a 0 con un previo de 18 hoyos, y los golpes de HCP por recibir.
 
 ## Fuentes
@@ -17,7 +17,7 @@ Código: `src/golf/stats/gwi-scramble.ts`, con los tests en `gwi-scramble.test.t
 
 ## Límites conocidos
 
-Hay solo 2 scrambles reales en la base, así que la calibración no se puede backtestear con datos propios. Los parámetros son estimaciones con fuente y se revisan cuando haya más rondas. El modelo no conoce el countback.
+Hay solo 2 scrambles reales en la base, así que la calibración no se puede backtestear con datos propios. Los parámetros son estimaciones con fuente y se revisan cuando haya más rondas. El modelo no conoce el countback. La incertidumbre del ritmo común c no se integra: algo de sobreconfianza (< 1 punto) cuando los hoyos restantes difieren mucho.
 
 ## v1 contra v2 (18 hoyos, cancha par 72 típica)
 

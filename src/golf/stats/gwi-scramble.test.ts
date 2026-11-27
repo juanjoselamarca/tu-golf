@@ -47,7 +47,8 @@ function simular(a: EquipoGWIScramble, b: EquipoGWIScramble, total: number, n = 
     const resto = total - e.holesPlayed
     const ajJug = (e.paresJugados ?? []).reduce((s, p) => s + ajuste(p), 0)
     const g = e.golpesHcpTotal != null ? e.golpesHcpTotal / total : 0
-    const propio = e.holesPlayed > 0 ? (e.diff - ajJug) / e.holesPlayed - c : 0
+    const exceso = e.golpesHcpTotal != null ? (e.golpesHcpTotal - (e.golpesHcpRestantes ?? 0)) - e.golpesHcpTotal * e.holesPlayed / total : 0
+    const propio = e.holesPlayed > 0 ? (e.diff + exceso - ajJug) / e.holesPlayed - c : 0
     const peso = tau * tau * e.holesPlayed / (tau * tau * e.holesPlayed + sigma * sigma)
     const v = tau * tau * sigma * sigma / (sigma * sigma + tau * tau * e.holesPlayed)
     return () => {
@@ -88,6 +89,7 @@ describe('probabilidadDeGanarScramble — el cálculo exacto contra la simulaci�
     ['último hoyo, 1 golpe arriba', E(-1, 17), E(0, 17)],
     ['con pares: a uno le quedan los par 5', conPares(-1, primeros(9)), conPares(-1, ultimos(9))],
     ['neto con golpes por recibir', E(0, 9, { golpesHcpTotal: 8, golpesHcpRestantes: 2 }), E(0, 9, { golpesHcpTotal: 8, golpesHcpRestantes: 6 })],
+    ['neto, salidas separadas', E(-5, 12, { golpesHcpTotal: 10, golpesHcpRestantes: 2 }), E(-1, 6, { golpesHcpTotal: 7, golpesHcpRestantes: 5 })],
   ]
   for (const [nombre, a, b] of casos) {
     it(nombre, () => {
@@ -126,12 +128,15 @@ describe('golf — lo que la v2 corrige de la v1', () => {
     expect(p).toBeGreaterThan(0.75)
     expect(p).toBeLessThan(0.95)
   })
-  it('el nivel propio del equipo mueve poco: el HCP manda (≤ 2 puntos en casos típicos)', () => {
+  it('el nivel propio del equipo mueve poco: el HCP manda (≤ 2 puntos con media ronda, ≤ 5 al inicio)', () => {
     // Suma incertidumbre, pero el que va adelante probablemente es algo mejor: casi se compensan.
     for (const [a, b] of [[E(-5, 9), E(0, 9)], [E(-1, 9), E(0, 9)], [E(-3, 11), E(-2, 9)], [E(-2, 14), E(1, 14)]]) {
       const sinNivel = probabilidadDeGanarScramble(a, b, 18, { tau: 0 })
       expect(Math.abs(probabilidadDeGanarScramble(a, b, 18) - sinNivel)).toBeLessThan(0.02)
     }
+    const inicio = probabilidadDeGanarScramble(E(-2, 3), E(0, 3), 18) - probabilidadDeGanarScramble(E(-2, 3), E(0, 3), 18, { tau: 0 })
+    expect(inicio).toBeGreaterThan(0)
+    expect(inicio).toBeLessThan(0.05)
   })
   it('salidas separadas: al que le quedan los par 5 tiene más chances con el mismo score', () => {
     // Los dos −1. A jugó la ida (con 2 par 5), B la vuelta (con 2 par 5): igual mezcla → 50 %.
@@ -153,6 +158,14 @@ describe('golf — lo que la v2 corrige de la v1', () => {
     expect(probabilidadDeGanarScramble(a, b, 18)).toBeLessThan(0.15)
     const parejo = E(0, 9, { golpesHcpTotal: 8, golpesHcpRestantes: 4 })
     expect(probabilidadDeGanarScramble(parejo, parejo, 18)).toBeCloseTo(0.5, 6)
+  })
+  it('neto: los golpes de HCP ya recibidos no cuentan como buen juego (mismo gross → 50 %)', () => {
+    // Los dos con gross igual al par en 9 hoyos y HCP 8. A ya recibió 6 (neto −6, le quedan 2); B recibió 2 (neto −2,
+    // le quedan 6). Terminan iguales en promedio: 50 %, también con el nivel propio (revisión Fable, P1).
+    const a = E(-6, 9, { golpesHcpTotal: 8, golpesHcpRestantes: 2 })
+    const b = E(-2, 9, { golpesHcpTotal: 8, golpesHcpRestantes: 6 })
+    expect(probabilidadDeGanarScramble(a, b, 18)).toBeCloseTo(0.5, 6)
+    expect(ritmoComun(a, b, 18)).toBeCloseTo(0, 10)
   })
   it('el cálculo es rápido: una tabla en vivo lo pide en cada render', () => {
     const t = performance.now()

@@ -1,6 +1,7 @@
 // GWI del scramble: barra dividida con el % de ganar de cada equipo (2 equipos, en vivo). Gratis (decisión de Juanjo,
 // 26-nov). Lo ve el espectador con sesión y, en un scramble de equipos de club, también el que entra con el link sin
 // sesión; en otra ronda neto el anónimo no (`vistaVisor.soloBruto`: sería el % del gross). El modelo vive en `@/golf/stats/gwi-scramble`.
+import { useMemo } from 'react'
 import { porcentajesDeGanarScramble, type EquipoGWIScramble } from '@/golf/stats/gwi-scramble'
 
 export interface EquipoDelGwi extends EquipoGWIScramble {
@@ -9,9 +10,13 @@ export interface EquipoDelGwi extends EquipoGWIScramble {
 
 /** `equipos` en el orden de la tabla (el que va primero, a la izquierda). */
 export function GwiScramble({ equipos, totalHoyos }: { equipos: readonly EquipoDelGwi[]; totalHoyos: number }) {
+  // El cálculo (convoluciones) se rehace solo si cambian los datos, no en cada render de la tabla en vivo: la clave son
+  // los valores, no la identidad de los objetos (la tabla arma objetos nuevos en cada render).
+  const clave = JSON.stringify([totalHoyos, equipos.map(e => [e.diff, e.holesPlayed, e.golpesHcpTotal, e.golpesHcpRestantes, e.paresJugados, e.paresRestantes])])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pct = useMemo(() => (equipos.length === 2 ? porcentajesDeGanarScramble(equipos[0], equipos[1], totalHoyos) : null), [clave])
   if (equipos.length !== 2) return null
   const [a, b] = equipos
-  const pct = porcentajesDeGanarScramble(a, b, totalHoyos)
   if (!pct) return null
   const [pa, pb] = pct
   const lado = (nombre: string, p: number, alinear: 'left' | 'right', lidera: boolean) => (

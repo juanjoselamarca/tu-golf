@@ -9,15 +9,16 @@
  *   gross del hoyo h que falta = entero con media  c + δ_i + o(par_h) + G_i/N  y desvío σ   (normal discretizada)
  *   final_i = diff_i + Σ gross de lo que falta − golpes de HCP que le quedan            (neto; en gross G = 0)
  *   P(A gana) = P(final_A < final_B) + ½ · P(empate)
- * - c = ritmo común por hoyo vs par, sin la mezcla de pares (lo que dan los dos equipos juntos, encogido hacia 0 con
+ * - c = ritmo común por hoyo vs par, sin la mezcla de pares ni los golpes de HCP ya recibidos por sobre su parte
+ *   pareja (lo que dan los dos equipos juntos, encogido hacia 0 con
  *   un previo de `HOYOS_DEL_PREVIO` hoyos para que 3 hoyos buenos no lo disparen). El HCP de equipo existe para
  *   igualarlos: por defecto los dos juegan al mismo ritmo.
  * - o(par) = cuánto más fácil o difícil es un par 3/4/5 respecto del par (`AJUSTE_POR_PAR`). Pesa cuando a un equipo le
  *   quedan los par 5 y al otro los par 3: con salidas separadas los dos no tienen la misma ronda por delante.
  * - δ_i = el nivel propio del equipo que el HCP no alcanzó a igualar: desconocido, con desvío `TAU_NIVEL_EQUIPO` por hoyo.
  *   Lo que lleva jugado lo aprende un poco (partial pooling: peso h / (h + σ²/τ²)). Se integra con cuadratura de
- *   Gauss-Hermite. Mueve poco (≤ 2 puntos): suma incertidumbre, pero el que va adelante probablemente también es algo
- *   mejor, y las dos cosas casi se compensan. Lo honesto es contar las dos.
+ *   Gauss-Hermite. Mueve poco (≤ 2 puntos con media ronda, hasta ~4 en los primeros hoyos): suma incertidumbre, pero
+ *   el que va adelante probablemente también es algo mejor, y las dos cosas casi se compensan.
  * - G_i / N y golpes que le quedan = en neto, los golpes de HCP se reparten por índice de dificultad: el que ya jugó
  *   los hoyos donde recibe golpe tiene menos neto por delante. Como el gross y los golpes son enteros, el neto final
  *   también lo es y el empate se calcula exacto.
@@ -80,6 +81,11 @@ interface Lectura {
   /** Golpes de HCP por hoyo en promedio (G/N) y los que le quedan (enteros). 0 en gross. */
   golpesPorHoyo: number
   golpesQueQuedan: number
+  /**
+   * Golpes de HCP que ya recibió por sobre su parte pareja de lo jugado: (G − los que quedan) − G·h/N. El diff neto
+   * los descontó, pero no son buen juego: para medir el ritmo y el nivel propio se devuelven (revisión Fable, P1).
+   */
+  excesoHcp: number
 }
 
 function leer(e: EquipoGWIScramble, totalHoyos: number): Lectura {
@@ -93,6 +99,7 @@ function leer(e: EquipoGWIScramble, totalHoyos: number): Lectura {
     ajusteRestante: suma(e.paresRestantes),
     golpesPorHoyo: neto ? e.golpesHcpTotal! / totalHoyos : 0,
     golpesQueQuedan: neto ? Math.round(e.golpesHcpRestantes!) : 0,
+    excesoHcp: neto ? (e.golpesHcpTotal! - e.golpesHcpRestantes!) - e.golpesHcpTotal! * e.holesPlayed / totalHoyos : 0,
   }
 }
 
@@ -102,7 +109,8 @@ function leer(e: EquipoGWIScramble, totalHoyos: number): Lectura {
  */
 export function ritmoComun(a: EquipoGWIScramble, b: EquipoGWIScramble, totalHoyos = 18): number {
   const la = leer(a, totalHoyos), lb = leer(b, totalHoyos)
-  return (a.diff - la.ajusteJugado + b.diff - lb.ajusteJugado) / (a.holesPlayed + b.holesPlayed + HOYOS_DEL_PREVIO)
+  return (a.diff + la.excesoHcp - la.ajusteJugado + b.diff + lb.excesoHcp - lb.ajusteJugado)
+    / (a.holesPlayed + b.holesPlayed + HOYOS_DEL_PREVIO)
 }
 
 /** Distribución de enteros: `p[i]` = probabilidad de `desde + i`. */
@@ -194,7 +202,7 @@ function distIntegrada(e: EquipoGWIScramble, l: Lectura, c: number, sigma: numbe
   const h = e.holesPlayed
   let mu = 0, v = 0
   if (tau > 0) {
-    const propio = h > 0 ? (e.diff - l.ajusteJugado) / h - c : 0
+    const propio = h > 0 ? (e.diff + l.excesoHcp - l.ajusteJugado) / h - c : 0
     const peso = (tau * tau * h) / (tau * tau * h + sigma * sigma)
     mu = peso * propio
     v = (tau * tau * sigma * sigma) / (sigma * sigma + tau * tau * h)
