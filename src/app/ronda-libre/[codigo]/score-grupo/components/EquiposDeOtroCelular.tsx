@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { useShare } from '@/components/share/useShare'
 import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
@@ -82,12 +81,7 @@ export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLibe
           Enviar link para que anoten su equipo
         </button>
       )}
-      <Link
-        href={`/ronda-libre/${codigo}`}
-        style={{ alignSelf: 'flex-start', minHeight: '44px', display: 'inline-flex', alignItems: 'center', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '3px' }}
-      >
-        Ver tabla en vivo
-      </Link>
+      {/* La tabla de todos los equipos vive en la pestaña «Tabla en vivo» de arriba (antes era un link a otra página). */}
 
       <ConfirmModal
         isOpen={porLiberar != null}
