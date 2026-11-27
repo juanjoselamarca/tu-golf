@@ -40,12 +40,12 @@ describe('DualIndexCards', () => {
     expect(screen.getByRole('img', { name: 'Índice FedeGolf' }).getAttribute('src')).toBe('/brand/fedegolf-chile-golf.png')
     expect(screen.getByRole('img', { name: 'Índice Golfers+' })).toBeTruthy()
     // Sin rótulo de texto: ni "Federación" ni "Índice ..." visibles.
-    expect(container.textContent).not.toMatch(/Federación|Índice FedeGolf|Índice Golfers+/)
+    expect(container.textContent).not.toMatch(/Federación|Índice FedeGolf|Índice Golfers\+/)
   })
 
   it('con Índice Golfers+, la tarjeta clickeable dice de qué índice es', () => {
     renderCards({ indice: 14, indice_golfers: 12.3 })
-    const boton = screen.getByRole('button', { name: /^Índice Golfers+: ver qué rondas cuentan/ })
+    const boton = screen.getByRole('button', { name: /^Índice Golfers\+: ver qué rondas cuentan/ })
     expect(within(boton).getByRole('img', { hidden: true, name: 'Índice Golfers+' })).toBeTruthy()
   })
 })
