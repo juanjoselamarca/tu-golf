@@ -9,7 +9,7 @@ import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
 import { hojaFinalizarTimba, textoConfirmarFinalizar, textoTarjetaCompleta } from '@/components/ronda/finalizar-copy'
 import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
-import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
+import { claveAvisoAntesDeEmpezar, claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import { useHoleNavigation } from '@/hooks/ronda/useHoleNavigation'
@@ -266,8 +266,8 @@ function ScorerDeGrupo() {
   return (
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
 
-      {/* Aviso "No molestar": una vez por ronda (misma clave que el scorer individual). */}
-      <AvisoNoMolestar claveRonda={claveAvisoRondaLibre(codigo)} />
+      {/* Aviso "No molestar": una vez por ronda (misma clave que el scorer individual) y solo antes del primer hoyo. */}
+      <AvisoNoMolestar claveRonda={claveAvisoAntesDeEmpezar(claveAvisoRondaLibre(codigo), maxThru)} />
 
       {/* Save indicator */}
       {saveStatus !== 'idle' && (

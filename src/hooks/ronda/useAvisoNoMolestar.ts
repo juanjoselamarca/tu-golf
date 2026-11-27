@@ -14,6 +14,8 @@ import { useCallback, useEffect, useState } from 'react'
  *  - Se registra como visto ANTES de mostrarlo. Si el almacenamiento falla
  *    (Safari privado, cuota llena, bloqueado) no se muestra: más vale no
  *    recomendar que repetir el aviso en cada recarga en plena cancha.
+ *  - Solo ANTES de empezar (`claveAvisoAntesDeEmpezar`): con algún hoyo anotado ya no se ofrece. Juanjo, 26-nov: al
+ *    salir y volver a entrar le salió en el hoyo 5; el aviso sirve antes del primer golpe, no en mitad de la vuelta.
  *  - Nunca lanza: cualquier error = no se muestra, el scorer sigue igual.
  */
 
@@ -28,6 +30,14 @@ type Almacen = Pick<Storage, 'getItem' | 'setItem'>
 /** Clave por ronda. `null` mientras el scorer no está listo para anotar. */
 export function claveAvisoRondaLibre(codigo: string | null | undefined): string | null {
   return codigo ? `ronda-libre:${codigo}` : null
+}
+
+/**
+ * La clave solo mientras la ronda no empezó en este scorer: con `hoyosAnotados` > 0 el aviso no se ofrece (`null`).
+ * Si ya estaba abierto, sigue abierto hasta que lo cierren (el hook no lo baja al cambiar la clave).
+ */
+export function claveAvisoAntesDeEmpezar(clave: string | null, hoyosAnotados: number): string | null {
+  return hoyosAnotados > 0 ? null : clave
 }
 
 export function claveAvisoTorneo(roundId: string | null | undefined): string | null {
