@@ -9,7 +9,8 @@ import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
 import { useGrupoScoreSave } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
-import { hayPendientes, leerPendientes, marcarPendientes } from '@/lib/ronda/score-storage'
+import { hayPendientes, leerPendientes, leerRechazados, marcarPendientes } from '@/lib/ronda/score-storage'
+import { AVISO_EQUIPO_YA_TERMINADO } from '@/components/ronda/finalizar-copy'
 
 const saveRondaEquiposScores = vi.fn()
 vi.mock('@/lib/data/ronda-libre-scores', () => ({
@@ -85,6 +86,84 @@ describe('useGrupoScoreSave — un celular por equipo', () => {
     expect(leerPendientes('ABC')['eq:e3']).toBeUndefined()
     expect(alPerderEquipo).toHaveBeenCalledTimes(1)
     expect(addToast).not.toHaveBeenCalled()
+  })
+
+  it('P0003 «equipo_terminado» (Terminar se aplicó sin respuesta y cambió un golpe): el golpe queda apartado, avisa y relee', async () => {
+    saveRondaEquiposScores.mockResolvedValue({ error: { code: 'P0003', message: 'EQUIPO_TERMINADO', details: 'equipo_terminado' } })
+    const alPerderEquipo = vi.fn()
+    marcarPendientes('ABC', 'eq:e1', { 18: 3 })
+    const { result } = montar([{ id: 'e1', scores: { '18': 3 } }], { ajenos: [], alPerderEquipo })
+    let envio: Awaited<ReturnType<typeof result.current.saveAllScores>> | undefined
+    await act(async () => { envio = await result.current.saveAllScores() })
+    // Sin reintento: el servidor no lo acepta hasta reabrir el equipo.
+    expect(saveRondaEquiposScores).toHaveBeenCalledTimes(1)
+    expect(leerPendientes('ABC')['eq:e1']).toBeUndefined()
+    // No se pierde: «Corregir mi tarjeta» lo pinta encima y «Terminar mi equipo» lo reenvía.
+    expect(leerRechazados('ABC')['eq:e1']).toEqual({ '18': 3 })
+    expect(addToast).toHaveBeenCalledTimes(1)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: AVISO_EQUIPO_YA_TERMINADO.title, message: AVISO_EQUIPO_YA_TERMINADO.message }))
+    expect(alPerderEquipo).toHaveBeenCalledTimes(1)
+    // No es sesión perdida ni un rechazo que bloquee con nombre: el cierre corta por `equipoTerminado`.
+    expect(result.current.sesionPerdida).toBe(false)
+    expect(envio).toMatchObject({ estado: 'ronda_abierta', rechazadas: [], sesionPerdida: false, equipoTerminado: true })
+    expect(result.current.pendienteDeEnvio).toBe(false)
+  })
+
+  it('P0003 «equipo_terminado» con «Terminar» reintentando (silencio de cierre): igual avisa y aparta', async () => {
+    saveRondaEquiposScores.mockResolvedValue({ error: { code: 'P0003', details: 'equipo_terminado' } })
+    marcarPendientes('ABC', 'eq:e1', { 18: 3 })
+    const { result } = montar([{ id: 'e1', scores: { '18': 3 } }], { ajenos: [], alPerderEquipo: vi.fn() })
+    let envio: Awaited<ReturnType<typeof result.current.saveAllScores>> | undefined
+    await act(async () => { envio = await result.current.saveAllScores(undefined, { reintentarRechazados: true }) })
+    expect(envio?.equipoTerminado).toBe(true)
+    expect(leerRechazados('ABC')['eq:e1']).toEqual({ '18': 3 })
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: AVISO_EQUIPO_YA_TERMINADO.title }))
+  })
+
+  it('el rebote «equipo_terminado» no se muestra como guardado: sin «saved» y `hasUnsaved` sigue arriba', async () => {
+    saveRondaEquiposScores.mockResolvedValue({ error: { code: 'P0003', details: 'equipo_terminado' } })
+    marcarPendientes('ABC', 'eq:e1', { 18: 3 })
+    const { result } = montar([{ id: 'e1', scores: { '18': 3 } }], { ajenos: [], alPerderEquipo: vi.fn() })
+    act(() => result.current.setHasUnsaved(true))
+    await act(async () => { await result.current.saveAllScores() })
+    expect(result.current.saveStatus).toBe('idle')
+    expect(result.current.hasUnsaved).toBe(true)
+  })
+
+  it('carrera (Fable 2ª vuelta): el rebote llega en el envío programado que estaba en vuelo y la vuelta extra no borra la señal', async () => {
+    // El envío de 500 ms sale con el golpe nuevo y el servidor tarda 800 ms en rebotarlo. Mientras viaja, «Terminar»
+    // pide su envío: espera el ciclo, y la vuelta extra (sin pendientes) corre otro `saveAllScores` antes de volver.
+    saveRondaEquiposScores.mockImplementation(() => new Promise(res => setTimeout(() => res({ error: { code: 'P0003', details: 'equipo_terminado' } }), 800)))
+    marcarPendientes('ABC', 'eq:e1', { 18: 3 })
+    const { result } = montar([{ id: 'e1', scores: { '18': 3 } }], { ajenos: [], alPerderEquipo: vi.fn() })
+    act(() => result.current.programarEnvio())
+    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+    expect(saveRondaEquiposScores).toHaveBeenCalledTimes(1)
+    let envio: Awaited<ReturnType<typeof result.current.saveAllScores>> | undefined
+    await act(async () => {
+      const p = result.current.saveAllScores(undefined, { reintentarRechazados: true })
+      await vi.advanceTimersByTimeAsync(1000)
+      envio = await p
+    })
+    expect(saveRondaEquiposScores).toHaveBeenCalledTimes(1)
+    expect(leerRechazados('ABC')['eq:e1']).toEqual({ '18': 3 })
+    expect(envio?.equipoTerminado).toBe(true)
+  })
+
+  it('la señal es por equipo y se apaga cuando el servidor vuelve a aceptarlo («Corregir» y «Terminar» de nuevo)', async () => {
+    saveRondaEquiposScores.mockResolvedValueOnce({ error: { code: 'P0003', details: 'equipo_terminado' } })
+    marcarPendientes('ABC', 'eq:e1', { 18: 3 })
+    const { result } = montar([{ id: 'e1', scores: { '18': 3 } }], { ajenos: [], alPerderEquipo: vi.fn() })
+    await act(async () => { await result.current.saveAllScores() })
+    // Una llamada sin nada que enviar no apaga la señal (antes se reseteaba en cada `saveAllScores`).
+    let envio: Awaited<ReturnType<typeof result.current.saveAllScores>> | undefined
+    await act(async () => { envio = await result.current.saveAllScores() })
+    expect(envio?.equipoTerminado).toBe(true)
+    // Reabierto: el reenvío de lo apartado entra y la señal se apaga.
+    await act(async () => { envio = await result.current.saveAllScores(undefined, { reintentarRechazados: true }) })
+    expect(saveRondaEquiposScores).toHaveBeenCalledTimes(2)
+    expect(leerRechazados('ABC')['eq:e1']).toBeUndefined()
+    expect(envio?.equipoTerminado).toBe(false)
   })
 
   it('P0003 «equipo_de_otro_anotador» sin datos de un celular por equipo (copia vieja): igual definitivo, no queda en cola', async () => {

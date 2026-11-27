@@ -654,6 +654,20 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     // Era suyo en pantalla: se avisa.
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
   })
+  it('dos equipos en este celular: el que terminó sale de teamEquipos SIN el aviso «Ya no anotas» (P2-1 Fable 27-nov)', async () => {
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    marcarEquipoTomado('B4F5Y2', 'e3')
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e3', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1', 'e3'])
+    addToast.mockClear()
+    // «Terminar mi equipo»: e1 terminó, e3 dio incompleto y se relee.
+    lecturaDeEquipos.equipos = [{ ...eq('e1', 'u1'), terminado_at: '2026-11-28T15:00:00Z' }, eq('e3', null)]
+    await act(async () => { await result.current.recargar() })
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e3'])
+    expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Ya no anotas este equipo.' }))
+  })
   it('lo liberaron mientras anotaba (P0003 → recargar): «Ya no anotas este equipo.» y vuelve a elegir equipo', async () => {
     sesion.valor = { session: { user: { id: 'u-pedro' } }, error: null }
     carga.valor = { estado: 'ok', ronda: SCRAMBLE }

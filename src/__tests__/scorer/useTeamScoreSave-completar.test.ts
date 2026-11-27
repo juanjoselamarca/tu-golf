@@ -94,19 +94,10 @@ describe('useTeamScoreSave — par fantasma (P1-a): el equipo sin reclamar del c
     act(() => { result.current.save.handleTeamScoreChange('e3', 10, 1) })
     expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e3')]).toEqual({ '10': 5 })
   })
-  it('al finalizar, la lista recién leída (`sinPar`) manda sobre la de pantalla', () => {
-    // En pantalla nadie está excluido (lista vieja); el servidor dice que e3 está sin reclamar.
-    const { result } = montar([eq('e1', {}), eq('e3', {})], [])
-    let out: EquipoDelScorer[] = []
-    act(() => { out = result.current.save.completarEquiposConPar(result.current.teamEquipos, hoyos, [{ id: 'e3' }]) })
-    expect(out.find(e => e.id === 'e1')?.scores).toEqual({ '10': 4, '11': 3, '12': 5 })
-    expect(out.find(e => e.id === 'e3')?.scores).toEqual({})
-    expect(leerPendientes('QA602')[ID_PENDIENTE_EQUIPO('e3')]).toBeUndefined()
-  })
 })
 
 // Ensayo del scramble (25-nov), P0-1: quien anota un equipo desde su celular (no cierra la ronda) llegaba al último
-// hoyo con el par gris y no tenía cómo guardarlo. «Guardar hoyo N» usa la misma regla que Siguiente, pero envía YA.
+// hoyo con el par gris y no tenía cómo guardarlo. «Terminar mi equipo» usa la misma regla que Siguiente.
 describe('useTeamScoreSave.confirmarHoyo — inmediato (último hoyo)', () => {
   it('deja el par en la cola ANTES de enviar y envía sin debounce', async () => {
     let enCola: unknown = null

@@ -2,7 +2,7 @@
 // barra admin "volver a scorear", banner de registro. Verbatim del monolito.
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ClipboardList } from '@/components/icons'
 import { registerUrl } from '@/lib/auth/login-url'
@@ -93,22 +93,23 @@ export function PieFijo({ children }: { children: ReactNode }) {
   return <div ref={ref} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: Z_PIE_FIJO }}>{children}</div>
 }
 
+const CONTENEDOR_DE_LA_BARRA: CSSProperties = {
+  background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
+  padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+  display: 'flex', justifyContent: 'center',
+}
+const BOTON_DE_LA_BARRA: CSSProperties = {
+  background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
+  fontSize: '15px', padding: '14px 32px', borderRadius: '12px',
+  textDecoration: 'none', textAlign: 'center', width: '100%', maxWidth: '400px',
+  display: 'block', minHeight: '48px',
+}
+
 /** Barra con el botón para ir a anotar (va dentro de `PieFijo`). */
 function BarraParaAnotar({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <div style={{
-      background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
-      padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
-      display: 'flex', justifyContent: 'center',
-    }}>
-      <Link href={href} style={{
-        background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
-        fontSize: '15px', padding: '14px 32px', borderRadius: '12px',
-        textDecoration: 'none', textAlign: 'center', width: '100%', maxWidth: '400px',
-        display: 'block',
-      }}>
-        {children}
-      </Link>
+    <div style={CONTENEDOR_DE_LA_BARRA}>
+      <Link href={href} style={BOTON_DE_LA_BARRA}>{children}</Link>
     </div>
   )
 }
@@ -129,6 +130,41 @@ export function PlayerScoringBar({ codigo }: { codigo: string }) {
  */
 export function TeamScoringBar({ codigo }: { codigo: string }) {
   return <BarraParaAnotar href={`/ronda-libre/${codigo}/score-grupo`}>Anotar mi equipo</BarraParaAnotar>
+}
+
+/**
+ * Un celular por equipo, con su equipo ya terminado y la ronda en curso: «Corregir mi tarjeta» reabre el equipo y entra
+ * al scorer (`useOfreceAnotarMiEquipo`). Mismo lugar y tamaño que «Anotar mi equipo».
+ */
+export function CorregirTarjetaBar({ onCorregir, corrigiendo, faltan, ayuda }: {
+  onCorregir: () => void
+  corrigiendo: boolean
+  /** «Falta que termine: «X»» (`textoFaltaQueTerminen`): la ronda se cierra sola cuando termina el último. */
+  faltan?: string | null
+  /** Solo al creador, debajo de `faltan`: cómo destrabar un equipo que no termina. */
+  ayuda?: string | null
+}) {
+  return (
+    <div style={{ ...CONTENEDOR_DE_LA_BARRA, flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+      {/* Región viva: cuando otro equipo termina, la línea cambia sola y se anuncia sin robar el foco. */}
+      <div role="status" aria-live="polite" style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+        {faltan && (
+          <p style={{ margin: 0, fontSize: '15px', fontWeight: 600, lineHeight: 1.35, color: 'var(--text)', overflowWrap: 'anywhere' }}>
+            {faltan}
+          </p>
+        )}
+        {faltan && ayuda && (
+          <p style={{ margin: '2px 0 0', fontSize: '14px', lineHeight: 1.35, color: 'var(--text-2)' }}>{ayuda}</p>
+        )}
+      </div>
+      <button
+        type="button" onClick={onCorregir} disabled={corrigiendo}
+        style={{ ...BOTON_DE_LA_BARRA, border: 'none', cursor: corrigiendo ? 'default' : 'pointer', opacity: corrigiendo ? 0.7 : 1 }}
+      >
+        {corrigiendo ? 'Abriendo tu tarjeta…' : 'Corregir mi tarjeta'}
+      </button>
+    </div>
+  )
 }
 
 /** Banner de registro para espectadores anónimos (tras 8s o scroll; va dentro de `PieFijo`). */

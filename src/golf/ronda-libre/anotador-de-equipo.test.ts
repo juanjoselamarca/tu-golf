@@ -2,12 +2,16 @@ import { describe, it, expect } from 'vitest'
 import {
   anotaSinSerJugador,
   anotadoresDeEquipos,
-  cierraLaRonda,
+  liberaEquipos,
   entradaAlScorerDeEquipos,
   equipoAjenoIncompleto,
+  equipoTerminado,
+  equiposPorTerminar,
+  equiposTerminadosDelCelular,
   equiposConParAutomatico,
   equiposDeOtroCelular,
   equiposLibres,
+  equiposSinTerminar,
   equiposQueAnota,
   equiposQueConfirmanElHoyo,
   equiposQueNoConfirmanElHoyo,
@@ -17,7 +21,6 @@ import {
   nombreDelCreador,
   nombreDeQuienAnota,
   nombreDelAnotadorDelCelular,
-  equipoLiberadoSinElHoyo,
   ofreceAnotarMiEquipo,
   unCelularPorEquipo,
   type EquipoConAnotador,
@@ -164,15 +167,15 @@ describe('equipoAjenoIncompleto', () => {
   })
 })
 
-describe('cierraLaRonda', () => {
+describe('liberaEquipos', () => {
   it('un celular por equipo: solo el creador', () => {
-    expect(cierraLaRonda(multi, equipos, CREADOR)).toBe(true)
-    expect(cierraLaRonda(multi, equipos, PEDRO)).toBe(false)
-    expect(cierraLaRonda(multi, equipos, null)).toBe(false)
+    expect(liberaEquipos(multi, equipos, CREADOR)).toBe(true)
+    expect(liberaEquipos(multi, equipos, PEDRO)).toBe(false)
+    expect(liberaEquipos(multi, equipos, null)).toBe(false)
   })
-  it('ronda de un celular: sin cambio (cierra quien anota)', () => {
-    expect(cierraLaRonda(unCelular, equipos, PEDRO)).toBe(true)
-    expect(cierraLaRonda({ ...multi, formato_juego: 'best_ball' }, equipos, JUAN)).toBe(true)
+  it('ronda de un celular: true (no hay equipos de otro celular)', () => {
+    expect(liberaEquipos(unCelular, equipos, PEDRO)).toBe(true)
+    expect(liberaEquipos({ ...multi, formato_juego: 'best_ball' }, equipos, JUAN)).toBe(true)
   })
 })
 
@@ -217,6 +220,25 @@ describe('equiposLibres / equiposTomados («Elige tu equipo»)', () => {
     expect(ids(equiposLibres([viejo]))).toEqual(['e9'])
     expect(equiposTomados([viejo])).toEqual([])
   })
+  it('uno sin anotador ya terminado (lo terminó el creador) no se ofrece para reclamar', () => {
+    const terminado = { ...club('e3', null), terminado_at: '2026-11-28T15:00:00Z' }
+    expect(equiposLibres([equipos[0], equipos[1], terminado])).toEqual([])
+    expect(ids(equiposTomados([equipos[0], equipos[1], terminado]))).toEqual(['e1', 'e2'])
+  })
+})
+
+describe('equiposSinTerminar («Falta que termine» de la vista en vivo)', () => {
+  const T = '2026-11-28T15:00:00Z'
+  it('un celular por equipo: los que no terminaron, de cualquier celular', () => {
+    const es = [{ ...club('e1', CREADOR), terminado_at: T }, club('e2', PEDRO), { ...club('e3', null), terminado_at: null }]
+    expect(ids(equiposSinTerminar(multi, es))).toEqual(['e2', 'e3'])
+  })
+  it('todos terminados: ninguno', () => {
+    expect(equiposSinTerminar(multi, [{ ...club('e1', CREADOR), terminado_at: T }, { ...club('e2', PEDRO), terminado_at: T }])).toEqual([])
+  })
+  it('ronda de un celular: ninguno (ahí nadie termina un equipo)', () => {
+    expect(equiposSinTerminar(unCelular, equipos)).toEqual([])
+  })
 })
 
 describe('ofreceAnotarMiEquipo (CTA de la ronda en vivo)', () => {
@@ -227,6 +249,11 @@ describe('ofreceAnotarMiEquipo (CTA de la ronda en vivo)', () => {
     const tomados = [club('e1', CREADOR), club('e2', PEDRO)]
     expect(ofreceAnotarMiEquipo(tomados, EXTRANO)).toBe(false)
     expect(ofreceAnotarMiEquipo(tomados, PEDRO)).toBe(true)
+  })
+  it('el único libre ya terminó: no se ofrece a quien no anota ninguno', () => {
+    const conTerminado = [equipos[0], equipos[1], { ...club('e3', null), terminado_at: '2026-11-28T15:00:00Z' }]
+    expect(ofreceAnotarMiEquipo(conTerminado, EXTRANO)).toBe(false)
+    expect(ofreceAnotarMiEquipo(conTerminado, PEDRO)).toBe(true)
   })
   it('sin sesión: nunca', () => {
     expect(ofreceAnotarMiEquipo(equipos, null)).toBe(false)
@@ -299,14 +326,39 @@ describe('nombreDelAnotadorDelCelular (nunca el correo)', () => {
   })
 })
 
-describe('equipoLiberadoSinElHoyo', () => {
-  const base = { sinParAutomatico: [{ id: 'e2' }], noConfirmanElHoyo: [] as { id: string }[], hoyo: 18 }
-  it('equipo liberado que este celular anota, sin golpes en el hoyo: sí', () => {
-    expect(equipoLiberadoSinElHoyo({ ...base, equipos: [{ id: 'e1', scores: {} }, { id: 'e2', scores: { '17': 4 } }] })).toBe(true)
+describe('«Terminar mi equipo»: equipoTerminado, equiposPorTerminar, equiposTerminadosDelCelular', () => {
+  const T = '2026-11-28T14:00:00Z'
+  const term = (e: EquipoConAnotador): EquipoConAnotador => ({ ...e, terminado_at: T })
+  it('equipoTerminado: solo con terminado_at', () => {
+    expect(equipoTerminado(club('e1', CREADOR))).toBe(false)
+    expect(equipoTerminado({ ...club('e1', CREADOR), terminado_at: null })).toBe(false)
+    expect(equipoTerminado(term(club('e1', CREADOR)))).toBe(true)
   })
-  it('ya tiene el hoyo, no es liberado, o este celular no lo confirma: no', () => {
-    expect(equipoLiberadoSinElHoyo({ ...base, equipos: [{ id: 'e2', scores: { '18': 5 } }] })).toBe(false)
-    expect(equipoLiberadoSinElHoyo({ ...base, equipos: [{ id: 'e1', scores: {} }] })).toBe(false)
-    expect(equipoLiberadoSinElHoyo({ ...base, noConfirmanElHoyo: [{ id: 'e2' }], equipos: [{ id: 'e2', scores: {} }] })).toBe(false)
+  it('equiposPorTerminar: los que anota este celular sin los terminados', () => {
+    const es = [term(club('e1', CREADOR)), club('e2', PEDRO), club('e3', null)]
+    expect(ids(equiposPorTerminar(multi, es, CREADOR))).toEqual([])
+    expect(ids(equiposPorTerminar(multi, es, PEDRO))).toEqual(['e2'])
+    // El creador con un equipo sin reclamar tomado a mano: termina ese también.
+    expect(ids(equiposPorTerminar(multi, [club('e1', CREADOR), club('e2', PEDRO), club('e3', null)], CREADOR, new Set(['e3'])))).toEqual(['e1', 'e3'])
+  })
+  it('equiposPorTerminar en una ronda de un celular: todos, como siempre', () => {
+    expect(ids(equiposPorTerminar(unCelular, [term(club('e1', null)), club('e2', null)], CREADOR))).toEqual(['e1', 'e2'])
+  })
+  it('equiposTerminadosDelCelular: solo si TODOS los suyos terminaron', () => {
+    const es = [term(club('e1', CREADOR)), club('e2', PEDRO), club('e3', null)]
+    expect(ids(equiposTerminadosDelCelular(multi, es, CREADOR))).toEqual(['e1'])
+    expect(ids(equiposTerminadosDelCelular(multi, es, PEDRO))).toEqual([])
+    expect(ids(equiposTerminadosDelCelular(multi, es, JUAN))).toEqual([]) // no anota ninguno
+    // Creador que terminó el suyo pero anota otro sin terminar (lo tomó a mano): sigue anotando.
+    expect(ids(equiposTerminadosDelCelular(multi, es, CREADOR, new Set(['e3'])))).toEqual([])
+    expect(ids(equiposTerminadosDelCelular(unCelular, [term(club('e1', null))], CREADOR))).toEqual([])
+  })
+  it('entrada al scorer: con todo lo suyo terminado va a la vista en vivo (creador incluido)', () => {
+    const es = [term(club('e1', CREADOR)), term(club('e2', PEDRO)), club('e3', null)]
+    expect(entradaAlScorerDeEquipos(multi, es, CREADOR)).toBe('en_vivo')
+    expect(entradaAlScorerDeEquipos(multi, es, PEDRO)).toBe('en_vivo')
+    expect(entradaAlScorerDeEquipos(multi, es, JUAN)).toBe('elegir_equipo')
+    expect(entradaAlScorerDeEquipos(multi, es, CREADOR, new Set(['e3']))).toBe('anota')
+    expect(entradaAlScorerDeEquipos(multi, [club('e1', CREADOR), term(club('e2', PEDRO))], CREADOR)).toBe('anota')
   })
 })

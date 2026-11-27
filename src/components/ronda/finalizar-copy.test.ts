@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { textoConfirmarFinalizar, avisoTarjetasNoGuardadas, detalleHoyosSinAnotarTimba, hojaFinalizarTimba, textoTarjetaCompleta } from './finalizar-copy'
+import { textoConfirmarFinalizar, avisoTarjetasNoGuardadas, detalleHoyosSinAnotarTimba, hojaFinalizarTimba, TEXTO_TARJETA_COMPLETA, TEXTO_TARJETA_COMPLETA_EQUIPO, hojaTerminarEquipo, avisoEquipoIncompletoAlTerminar, textoFaltaQueTerminen } from './finalizar-copy'
 
 describe('textoConfirmarFinalizar', () => {
   it('avisa los hoyos que se marcan como par', () => {
@@ -66,17 +66,36 @@ describe('hojaFinalizarTimba (no habla de "marcar como par": en la Timba casi to
   })
 })
 
-describe('textoTarjetaCompleta', () => {
-  it('quien cierra: la invitación a finalizar', () => {
-    expect(textoTarjetaCompleta(true, 'Juanjo')).toBe('Tarjeta completa · Finalizar ronda')
+describe('tarjeta completa y «Terminar mi equipo»', () => {
+  it('quien cierra: la invitación a finalizar; un celular por equipo: a terminar el equipo', () => {
+    expect(TEXTO_TARJETA_COMPLETA).toBe('Tarjeta completa · Finalizar ronda')
+    expect(TEXTO_TARJETA_COMPLETA_EQUIPO).toBe('Tarjeta completa · Terminar mi equipo')
   })
-  it('quien anota su equipo y no cierra: su equipo terminó y falta que el creador finalice (con nombre o genérico)', () => {
-    expect(textoTarjetaCompleta(false, 'Juanjo')).toBe('Tu equipo terminó. Falta que Juanjo finalice la ronda.')
-    expect(textoTarjetaCompleta(false, null)).toBe('Tu equipo terminó. Falta que quien creó la ronda finalice la ronda.')
+  it('la hoja de terminar (copy de Juanjo 27-nov)', () => {
+    expect(hojaTerminarEquipo(0)).toEqual({
+      titulo: '¿Terminar tu equipo?',
+      detalle: 'Tu tarjeta queda cerrada y pasas al leaderboard. La ronda se cierra sola cuando termine el último equipo.',
+      textoConfirmar: 'Terminar mi equipo',
+    })
   })
-  it('sin señal (golpes solo en el teléfono): no dice que terminó, pide mantener la pantalla abierta', () => {
-    expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: true })).toBe('Falta enviar tus golpes. Mantén esta pantalla abierta hasta que suban.')
-    expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: false })).toBe('Tu equipo terminó. Falta que Juanjo finalice la ronda.')
-    expect(textoTarjetaCompleta(false, 'Juanjo', { sinSubir: true, sesionPerdida: true })).toBe('Falta enviar tus golpes. Inicia sesión para enviarlos.')
+  it('con hoyos sin anotar, la hoja dice que quedan con par (singular y plural)', () => {
+    expect(hojaTerminarEquipo(1).detalle).toMatch(/^El hoyo sin anotar queda con par\. Tu tarjeta/)
+    expect(hojaTerminarEquipo(3).detalle).toMatch(/^Los 3 hoyos sin anotar quedan con par\. Tu tarjeta/)
+  })
+  it('equipo incompleto: nombra el equipo y el hoyo, y dice qué hacer', () => {
+    expect(avisoEquipoIncompletoAlTerminar('Los Pumas', 7)).toBe('Los Pumas no tiene golpes en el hoyo 7. Anótalo y vuelve a tocar Terminar mi equipo.')
+    expect(avisoEquipoIncompletoAlTerminar('Los Pumas', null)).toBe('A Los Pumas le faltan hoyos. Anótalos y vuelve a tocar Terminar mi equipo.')
+  })
+})
+
+describe('textoFaltaQueTerminen (vista en vivo, un celular por equipo)', () => {
+  it('uno: singular, con el nombre entre comillas', () => {
+    expect(textoFaltaQueTerminen(['Los Tigres'])).toBe('Falta que termine: «Los Tigres»')
+  })
+  it('varios: plural, separados por coma', () => {
+    expect(textoFaltaQueTerminen(['Los Tigres', 'Equipo 3'])).toBe('Falta que terminen: «Los Tigres», «Equipo 3»')
+  })
+  it('ninguno: nada', () => {
+    expect(textoFaltaQueTerminen([])).toBeNull()
   })
 })

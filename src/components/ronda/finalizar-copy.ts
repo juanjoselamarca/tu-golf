@@ -146,39 +146,63 @@ export function hojaFinalizarTimba(input: {
   return { titulo: '¿Finalizar la Timba?', detalle: lineas.length > 0 ? lineas.join(' ') : undefined }
 }
 
-/**
- * Aviso al pie de la tarjeta completa. Un celular por equipo, celular que no cierra: su equipo ya terminó y quien
- * cierra es el creador (ensayo 25-nov: tras el último hoyo, quien anota su equipo tiene que saber que ya no le toca nada).
- */
-export function textoTarjetaCompleta(
-  cierraEsteCelular: boolean,
-  nombreDelCreador: string | null,
-  opciones?: { sinSubir?: boolean; sesionPerdida?: boolean },
-): string {
-  if (cierraEsteCelular) return 'Tarjeta completa · Finalizar ronda'
-  // Sin señal el golpe está solo en este teléfono: el creador no lo ve. Decir «terminó» invitaba a guardar el
-  // teléfono con la pantalla cerrada, y el reintento solo corre con la pantalla abierta.
-  // Con la sesión perdida no suben solos: el aviso coincide con el banner de iniciar sesión.
-  if (opciones?.sinSubir && opciones.sesionPerdida) return 'Falta enviar tus golpes. Inicia sesión para enviarlos.'
-  if (opciones?.sinSubir) return 'Falta enviar tus golpes. Mantén esta pantalla abierta hasta que suban.'
-  return `Tu equipo terminó. Falta que ${nombreDelCreador ?? 'quien creó la ronda'} finalice la ronda.`
-}
+/** Aviso al pie de la tarjeta completa de quien cierra la ronda. */
+export const TEXTO_TARJETA_COMPLETA = 'Tarjeta completa · Finalizar ronda'
 
-/** Un celular por equipo: al finalizar, los equipos de este celular ya no son los que se ven (liberaron o tomaron uno). */
-export const AVISO_EQUIPOS_CAMBIARON = {
-  title: 'Cambió quién anota los equipos',
-  message: 'Revisa la tarjeta y vuelve a tocar Finalizar.',
-}
-
-/** Un celular por equipo: Finalizar se frena mientras a un equipo de otro celular le faltan hoyos. */
-export function avisoEquipoAjenoIncompleto(nombreEquipo: string, hoyo: number): string {
-  return `${nombreEquipo} va en el hoyo ${hoyo}. Espera a que termine o libéralo para cerrarlo tú.`
-}
+/** Un celular por equipo: el aviso al pie de la tarjeta completa invita a terminar el equipo (nadie «finaliza»). */
+export const TEXTO_TARJETA_COMPLETA_EQUIPO = 'Tarjeta completa · Terminar mi equipo'
 
 /**
- * Un celular por equipo: Finalizar se frena mientras a un equipo que nadie reclamó le faltan hoyos. No se rellena con
- * par (sería un par inventado para un equipo que nunca anotó): lo anota a mano quien cierra.
+ * Hoja de «Terminar mi equipo» (un celular por equipo; decisión de Juanjo 27-nov): cada celular cierra su tarjeta y la
+ * ronda se cierra sola cuando termina el último equipo.
  */
-export function avisoEquipoSinReclamarIncompleto(nombreEquipo: string, hoyo: number): string {
-  return `${nombreEquipo} no tiene golpes en el hoyo ${hoyo}. Anótalo para cerrar la ronda.`
+export function hojaTerminarEquipo(hoyosPorMarcar: number): { titulo: string; detalle: string; textoConfirmar: string } {
+  // Los hoyos vacíos del equipo reclamado se completan con par al terminar (como al finalizar): la hoja lo dice.
+  const par = hoyosPorMarcar === 0 ? ''
+    : hoyosPorMarcar === 1 ? 'El hoyo sin anotar queda con par. '
+    : `Los ${hoyosPorMarcar} hoyos sin anotar quedan con par. `
+  return {
+    titulo: '¿Terminar tu equipo?',
+    detalle: `${par}Tu tarjeta queda cerrada y pasas al leaderboard. La ronda se cierra sola cuando termine el último equipo.`,
+    textoConfirmar: 'Terminar mi equipo',
+  }
+}
+
+/** «Terminar mi equipo» no llegó al servidor: los golpes siguen en el teléfono y reintentar es seguro. */
+export const AVISO_TERMINAR_SIN_SERVIDOR = {
+  title: 'No se pudo terminar todavía',
+  message: 'Sin conexión con el servidor. Tus golpes están guardados en este teléfono; vuelve a tocar Terminar mi equipo en un momento.',
+} as const
+
+/**
+ * El servidor rechazó un golpe porque el equipo ya terminó su tarjeta (pasa si «Terminar mi equipo» se aplicó pero la
+ * respuesta no llegó y la tarjeta se siguió editando). El golpe queda guardado en el teléfono y «Corregir mi tarjeta»
+ * (vista en vivo) reabre el equipo y lo devuelve.
+ */
+export const AVISO_EQUIPO_YA_TERMINADO = {
+  title: 'Tu equipo ya está terminado.',
+  message: 'Toca «Corregir mi tarjeta» para cambiar un golpe.',
+} as const
+
+/**
+ * Vista en vivo de un celular por equipo, cuando esta cuenta ya terminó lo suyo (ve «Corregir mi tarjeta»): qué equipos
+ * faltan para que la ronda se cierre sola (`equiposSinTerminar`). Vacío: nada que decir.
+ */
+export function textoFaltaQueTerminen(nombres: readonly string[]): string | null {
+  if (nombres.length === 0) return null
+  const lista = nombres.map(n => `«${n}»`).join(', ')
+  return nombres.length === 1 ? `Falta que termine: ${lista}` : `Falta que terminen: ${lista}`
+}
+
+/** Debajo de «Falta que termine», solo al creador: él puede liberar el equipo de un celular que no termina. */
+export const AYUDA_CREADOR_FALTA_QUE_TERMINEN = '¿No puede terminar? Corrige tu tarjeta y libera su equipo.'
+
+/**
+ * Un equipo que anota este celular tiene un hoyo sin golpes: «Terminar» no lo rellena con par (solo el equipo que este
+ * celular reclamó recibe par automático). Lo anota a mano y vuelve a terminar. También cubre al creador que tomó el
+ * equipo de un celular que se apagó (Liberar o «Anotarlo yo»): el aviso dice qué hoyo falta.
+ */
+export function avisoEquipoIncompletoAlTerminar(nombreEquipo: string, hoyo: number | null): string {
+  if (hoyo == null) return `A ${nombreEquipo} le faltan hoyos. Anótalos y vuelve a tocar Terminar mi equipo.`
+  return `${nombreEquipo} no tiene golpes en el hoyo ${hoyo}. Anótalo y vuelve a tocar Terminar mi equipo.`
 }

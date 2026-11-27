@@ -6,14 +6,14 @@ export type PestanaDeLaTimba = 'tarjeta' | 'juego'
 
 const ETIQUETA: Record<PestanaDeLaTimba, string> = { tarjeta: 'Tarjeta', juego: 'Juego' }
 /** Las mismas pestañas en el scorer de un formato por equipos (Juanjo, 26-nov: «como en la Timba»). */
-export const ETIQUETAS_DE_EQUIPOS: Record<PestanaDeLaTimba, string> = { tarjeta: 'Anotar', juego: 'Tabla en vivo' }
+export const ETIQUETAS_DE_EQUIPOS: Record<PestanaDeLaTimba, string> = { tarjeta: 'Scorecard', juego: 'Leaderboard' }
 export const PANEL_DE_PESTANA = (p: PestanaDeLaTimba) => `panel-timba-${p}`
 const ID_DE_PESTANA = (p: PestanaDeLaTimba) => `pestana-timba-${p}`
 
 /**
  * Pestañas Tarjeta | Juego de una Timba libre (maqueta ScorerC). Blancos de 44 px, segmentado sobre la superficie
  * suave; la activa en la superficie principal y en negrita (no depende solo del color). El scorer de equipos las usa
- * con `ETIQUETAS_DE_EQUIPOS` (Anotar | Tabla en vivo).
+ * con `ETIQUETAS_DE_EQUIPOS` (Scorecard | Leaderboard).
  */
 export function PestanasDeLaTimba({ activa, onCambiar, etiquetas = ETIQUETA }: {
   activa: PestanaDeLaTimba

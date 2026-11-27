@@ -133,7 +133,7 @@ export function SelectorQuienAnotaEquipos({ quienAnota, equipoDelCreador, onEleg
       </div>
       {quienAnota === 'cada_equipo' && (
         <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
-          Tú anotas «{equipoDelCreador}» y les mandas el link a los demás. Al final, tú cierras la ronda.
+          Tú anotas «{equipoDelCreador}» y les mandas el link a los demás. La ronda se cierra sola cuando termina el último equipo.
         </div>
       )}
     </div>
