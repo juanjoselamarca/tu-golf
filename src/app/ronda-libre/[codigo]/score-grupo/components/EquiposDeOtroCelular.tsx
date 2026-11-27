@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ConfirmModal } from '@/components/ConfirmModal'
+import { Button } from '@/components/ui/Button'
 import { useShare } from '@/components/share/useShare'
 import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
 import { nombreDeQuienAnota } from '@/golf/ronda-libre/anotador-de-equipo'
@@ -47,7 +48,7 @@ export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLibe
             <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
               <span style={{ fontWeight: 600 }}>{e.nombre}</span>
               <span style={{ color: 'var(--text-2)' }}>
-                {sinCelular(e) ? ' · sin celular todavía' : ` · lo anota ${nombreDeQuienAnota(e, nombreCreador)}`}
+                {sinCelular(e) ? ' · nadie lo anota todavía' : ` · lo anota ${nombreDeQuienAnota(e, nombreCreador)}`}
               </span>
             </span>
             {puedeLiberar && sinCelular(e) ? (
@@ -73,13 +74,15 @@ export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLibe
         ))}
       </ul>}
       {hayEquipoSinCelular && (
-        <button
-          type="button"
+        // Contorno dorado (`nav`), no sólido: el único dorado sólido de la pantalla es «Siguiente» (revisión Fable 27-nov).
+        <Button
+          variant="nav"
+          fullWidth
+          className="mt-1"
           onClick={() => { const enlace = enlacesDeRondaLibre(codigo, { conJugar: false, unCelularPorEquipo: true }).anotar; if (enlace) void share(enlace) }}
-          style={{ marginTop: '4px', minHeight: '44px', padding: '0 14px', borderRadius: '12px', border: 'none', background: 'var(--brand)', color: 'var(--brand-dark)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
         >
-          Enviar link para que anoten su equipo
-        </button>
+          Enviar link para anotar
+        </Button>
       )}
       {/* La tabla de todos los equipos vive en la pestaña «Tabla en vivo» de arriba (antes era un link a otra página). */}
 
@@ -100,7 +103,7 @@ export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLibe
       <ConfirmModal
         isOpen={porTomar != null}
         variant="warning"
-        title={porTomar ? `¿Anotar ${porTomar.nombre} desde tu celular?` : ''}
+        title={porTomar ? `¿Anotar ${porTomar.nombre} desde este celular?` : ''}
         description="Úsalo solo si ese equipo no puede anotar. Si después abre su link, puede tomarlo igual."
         confirmText="Anotarlo yo"
         onCancel={() => setPorTomar(null)}

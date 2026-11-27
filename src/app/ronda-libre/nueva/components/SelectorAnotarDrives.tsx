@@ -48,9 +48,6 @@ export function SelectorAnotarDrives({ anotarDrives, holes, minimo, maximo, onEl
       </div>
       {anotarDrives && (
         <>
-          <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4 }}>
-            En cada hoyo se anota de quién fue el drive.
-          </div>
           {minimo != null && maximo != null && (
             <MinimoDeDrives minimo={minimo} maximo={maximo} holes={holes} onMinimo={onMinimo} />
           )}

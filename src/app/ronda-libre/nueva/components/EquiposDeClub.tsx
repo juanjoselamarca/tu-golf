@@ -19,13 +19,13 @@ const OPCIONES: ReadonlyArray<{ solo: boolean; titulo: string; neto: string; gro
   {
     solo: false,
     titulo: 'Jugadores con su índice',
-    neto: 'Ingresa a cada jugador. Golfers+ calcula el hándicap del equipo.',
+    neto: 'Golfers+ calcula el hándicap del equipo.',
     gross: 'Ingresa a cada jugador y arma los equipos.',
   },
   {
     solo: true,
     titulo: 'Equipos con hándicap del club',
-    neto: 'Ingresa cada equipo con el hándicap que le dio el club. No se piden índices.',
+    neto: 'No se piden índices.',
     gross: 'Ingresa solo el nombre de cada equipo. En Gross no se usa hándicap.',
   },
 ]

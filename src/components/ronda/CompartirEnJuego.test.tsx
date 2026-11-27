@@ -97,7 +97,7 @@ describe('CompartirEnJuego', () => {
     await abrirOpciones()
 
     expect(screen.getByText('Link para anotar')).toBeTruthy()
-    expect(screen.getByText('Mándaselo a quien anota cada uno de los otros equipos. Al abrirlo elige su equipo.')).toBeTruthy()
+    expect(screen.getByText('Para los otros equipos. Cada uno lo abre y elige el suyo.')).toBeTruthy()
     expect(screen.queryByText('Cada jugador lo abre y anota su tarjeta en su celular.')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Compartir link para anotar' }))
     await flush()

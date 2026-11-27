@@ -54,7 +54,7 @@ type Destino = 'anotar' | 'jugar' | 'seguir'
 const DESTINO: Record<Destino, { titulo: string; detalle: string; para: string }> = {
   anotar: {
     titulo: 'Link para anotar',
-    detalle: 'Mándaselo a quien anota cada uno de los otros equipos. Al abrirlo elige su equipo.',
+    detalle: 'Para los otros equipos. Cada uno lo abre y elige el suyo.',
     para: 'para anotar',
   },
   jugar: {
@@ -64,7 +64,7 @@ const DESTINO: Record<Destino, { titulo: string; detalle: string; para: string }
   },
   seguir: {
     titulo: 'Link para mirar',
-    detalle: 'Para familia y amigos: ven el marcador en vivo, sin crear cuenta.',
+    detalle: 'Familia y amigos ven la tabla en vivo, sin crear cuenta.',
     para: 'para mirar',
   },
 }

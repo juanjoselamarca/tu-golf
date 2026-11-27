@@ -561,8 +561,9 @@ function ScorerDeGrupo() {
       )}
 
       {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. Tampoco
-          cuando el servidor ya dijo que esta ronda no se descarta (`descarteCerrado`). */}
-      {puedeDescartarRonda(ronda, authUserId) && !descarteCerrado && (
+          cuando el servidor ya dijo que esta ronda no se descarta (`descarteCerrado`). En «Tabla en vivo» no va: quedaba
+          solo bajo la tabla y se leía como el botón principal (usuario sintético 27-nov). */}
+      {puedeDescartarRonda(ronda, authUserId) && !descarteCerrado && !(conPestanas && !esTimba && pestana === 'juego') && (
         <DiscardRoundModal
           showConfirm={showDiscardConfirm}
           setShowConfirm={setShowDiscardConfirm}
