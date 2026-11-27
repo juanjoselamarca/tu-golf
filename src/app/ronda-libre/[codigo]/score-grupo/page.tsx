@@ -256,7 +256,7 @@ function ScorerDeGrupo() {
   }
   const siguienteConDrive = () => { if (!frenaPorDrive(currentHole)) void goToNextHole() }
   const guardarHoyoConDrive = () => { if (!frenaPorDrive(currentHole)) void guardarHoyo() }
-  // Al cerrar: solo los hoyos jugados y el de pantalla (`hoyoSinDriveQueFrenaElCierre`); los no jugados van con par y sin drive.
+  // Al cerrar: solo los hoyos jugados y el último si está en pantalla (`hoyoSinDriveQueFrenaElCierre`); los no jugados van con par y sin drive.
   const finalizarConDrives = () => {
     const conDrives = confirmanEsteCelular.flatMap(e => { const d = drivesDe(e); return d ? [{ hoyosSinDrive: d.hoyosSinDrive, scores: e.scores }] : [] })
     const hoyo = hoyoSinDriveQueFrenaElCierre(ordenHoyos, conDrives, currentHole)

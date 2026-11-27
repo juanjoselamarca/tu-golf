@@ -182,17 +182,20 @@ export function hoyosSinDrive(drives: DrivesDelEquipo, hoyos: readonly number[])
 
 /**
  * Al finalizar: el primer hoyo (en el orden de la ronda) que frena el cierre por falta de drive, o `null`. Cuentan solo
- * los hoyos JUGADOS de cada equipo (con golpe) y el hoyo en pantalla; los que nunca se jugaron (cierre anticipado por
- * lluvia o luz) los rellena el cierre con par y quedan sin drive: pedirlos obligaría a inventarlos y falsearía el
- * conteo del mínimo (revisión Fable 27-nov).
+ * los hoyos JUGADOS de cada equipo (con golpe) y, si la pantalla está en el ÚLTIMO hoyo, ese (su par gris se confirma
+ * al cerrar). Los que nunca se jugaron (cierre anticipado por lluvia o luz, también el intermedio en pantalla) los
+ * rellena el cierre con par y quedan sin drive: pedirlos obligaría a inventarlos y falsearía el conteo del mínimo
+ * (revisión Fable 27-nov).
  */
 export function hoyoSinDriveQueFrenaElCierre(
   hoyos: readonly number[],
   equipos: ReadonlyArray<{ hoyosSinDrive: readonly number[]; scores: Readonly<Record<string, number | null | undefined>> }>,
   hoyoEnPantalla: number,
 ): number | null {
+  const ultimo = hoyos[hoyos.length - 1]
   for (const h of hoyos) {
-    const frena = equipos.some(e => e.hoyosSinDrive.includes(h) && (h === hoyoEnPantalla || e.scores[String(h)] != null))
+    const seConfirma = h === hoyoEnPantalla && h === ultimo
+    const frena = equipos.some(e => e.hoyosSinDrive.includes(h) && (seConfirma || e.scores[String(h)] != null))
     if (frena) return h
   }
   return null

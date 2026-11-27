@@ -31,7 +31,7 @@ export interface DrivesDeUnEquipo {
   conteo: ConteoDeDrivesDeJugador[]
   minimo: number | null
   aviso: string | null
-  /** `hoyosSinDrive`: sin el del hoyo en pantalla no se avanza; sin todos, no se finaliza. */
+  /** `hoyosSinDrive`: sin el del hoyo en pantalla no se avanza; al finalizar cuentan solo los jugados (`hoyoSinDriveQueFrenaElCierre`). */
   hoyosSinDrive: number[]
   /** Marca el drive del hoyo en pantalla; tocar el que ya está marcado lo quita. */
   elegir: (posicion: number) => void
