@@ -11,6 +11,7 @@
  * analiza una ronda específica.
  */
 import { fechaDeCalendario } from '@/lib/format'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface RoundSummary {
   course_name: string | null
@@ -42,7 +43,7 @@ export function RoundMiniChart({ summary }: Props) {
   const barsBottom = 88
   const innerH = barsBottom - padTop
   const barW = (width - padX * 2) / validHoles
-  // 18 two-digit numbers at 12 px don't fit under bars ~14 px wide (360 px screen): label the odd
+  // 18 two-digit numbers at 13 px don't fit under bars ~14 px wide (360 px screen): label the odd
   // front-nine holes and the even back-nine ones, so 1, 9, 10 and 18 always show.
   const showHoleNumber = (hole: number) => validHoles <= 9 || (hole <= 9 ? hole % 2 === 1 : hole % 2 === 0)
   const yScale = (v: number) => padTop + innerH - ((v - Math.max(0, minScore - 1)) / (maxScore - Math.max(0, minScore - 1))) * innerH
@@ -67,7 +68,7 @@ export function RoundMiniChart({ summary }: Props) {
         justifyContent: 'space-between',
         alignItems: 'baseline',
         marginBottom: 10,
-        fontSize: 12,
+        fontSize: FONT_SIZE.caption,
       }}>
         <div>
           <span style={{ color: 'var(--text)', fontWeight: 600 }}>
@@ -86,7 +87,7 @@ export function RoundMiniChart({ summary }: Props) {
         )}
       </div>
 
-      {/* Stretches to the real width instead of clipping the last holes; the hole numbers are HTML so they stay at 12 px. */}
+      {/* Stretches to the real width instead of clipping the last holes; the hole numbers are HTML so they stay at 13 px. */}
       <svg
         viewBox={`0 0 ${width} ${barsBottom}`}
         width="100%"
@@ -132,7 +133,7 @@ export function RoundMiniChart({ summary }: Props) {
         padding: `0 ${(padX / width) * 100}%`,
         marginTop: 4,
         fontFamily: 'ui-monospace, monospace',
-        fontSize: 12,
+        fontSize: FONT_SIZE.caption,
         lineHeight: 1,
         color: 'var(--text-2)',
       }}>
@@ -145,7 +146,7 @@ export function RoundMiniChart({ summary }: Props) {
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
-          fontSize: 12,
+          fontSize: FONT_SIZE.caption,
           color: 'var(--text-2)',
           marginTop: 6,
           paddingTop: 6,
@@ -162,7 +163,7 @@ export function RoundMiniChart({ summary }: Props) {
       <div style={{
         display: 'flex',
         gap: 10,
-        fontSize: 12,
+        fontSize: FONT_SIZE.caption,
         color: 'var(--text-2)',
         marginTop: 8,
         flexWrap: 'wrap',

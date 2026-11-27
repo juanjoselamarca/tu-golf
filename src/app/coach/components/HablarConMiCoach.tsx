@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { FONT_SIZE } from '@/lib/font-size'
 
 /**
  * CTA principal hacia el coach: la conversación principal si existe; si no, una nueva. Lo usan la bienvenida
@@ -9,7 +10,7 @@ export function HablarConMiCoach({ href = '/coach/sesion/nueva' }: { href?: stri
   return (
     <Link
       href={href}
-      style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', background: 'var(--coach-brass)', color: 'var(--bg)', fontWeight: 700, fontSize: '14px', padding: '12px 28px', borderRadius: '10px', textDecoration: 'none' }}
+      style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px', background: 'var(--coach-brass)', color: 'var(--bg)', fontWeight: 700, fontSize: FONT_SIZE.small, padding: '12px 28px', borderRadius: '10px', textDecoration: 'none' }}
     >
       Hablar con mi coach
     </Link>

@@ -10,6 +10,7 @@
  */
 
 import { useState } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export interface AssignedPlan {
   plan_id: string
@@ -77,20 +78,20 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
         display: 'flex',
         alignItems: 'center',
         gap: 8,
-        fontSize: 12,
+        fontSize: FONT_SIZE.caption,
         fontWeight: 700,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
         color: 'var(--brand-on-bg)',
         marginBottom: 10,
       }}>
-        <span style={{ fontSize: 14 }}>🎯</span>
+        <span style={{ fontSize: FONT_SIZE.small }}>🎯</span>
         Plan asignado
       </div>
 
       <h3 style={{
         fontFamily: '"Playfair Display", serif',
-        fontSize: 18,
+        fontSize: FONT_SIZE.h2,
         color: 'var(--text)',
         margin: '0 0 6px',
         fontWeight: 600,
@@ -101,7 +102,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
 
       {plan.hypothesis && (
         <p style={{
-          fontSize: 13,
+          fontSize: FONT_SIZE.caption,
           color: 'var(--text-2)',
           fontStyle: 'italic',
           margin: '0 0 14px',
@@ -129,7 +130,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
           <div style={{
             flex: 1,
             padding: '10px 14px',
-            fontSize: 13,
+            fontSize: FONT_SIZE.caption,
             fontWeight: 600,
             color: 'var(--status-live-fg)',
             background: 'rgba(34,197,94,0.10)',
@@ -148,7 +149,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
               style={{
                 flex: 1,
                 padding: '10px 14px',
-                fontSize: 13,
+                fontSize: FONT_SIZE.caption,
                 fontWeight: 700,
                 color: 'var(--brand-dark)',
                 background: 'var(--brand)',
@@ -169,7 +170,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
               disabled={accepting || !onChangeFocus}
               style={{
                 padding: '10px 14px',
-                fontSize: 13,
+                fontSize: FONT_SIZE.caption,
                 fontWeight: 600,
                 color: 'var(--brand-on-bg)',
                 background: 'transparent',
@@ -185,7 +186,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
       </div>
       {acceptError && (
         <div style={{
-          marginTop: 10, padding: '6px 10px', fontSize: 12,
+          marginTop: 10, padding: '6px 10px', fontSize: FONT_SIZE.caption,
           color: 'var(--status-closed-fg)', background: 'var(--status-closed-bg)',
           border: '1px solid var(--status-closed-bg)', borderRadius: 8,
         }}>
@@ -200,7 +201,7 @@ function Field({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{
-        fontSize: 12,
+        fontSize: FONT_SIZE.caption,
         fontWeight: 600,
         textTransform: 'uppercase',
         letterSpacing: '0.06em',
@@ -210,7 +211,7 @@ function Field({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div style={{
-        fontSize: 14,
+        fontSize: FONT_SIZE.small,
         color: 'var(--text)',
         lineHeight: 1.5,
       }}>

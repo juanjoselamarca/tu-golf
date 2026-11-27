@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   href: string
@@ -27,7 +28,7 @@ export function ConversarStickyCTA({ href, label }: Props) {
     color: 'var(--bg)',
     border: 'none',
     borderRadius: '8px',
-    fontSize: '15px',
+    fontSize: FONT_SIZE.body,
     fontWeight: 600,
     letterSpacing: '-0.01em',
     textDecoration: 'none',

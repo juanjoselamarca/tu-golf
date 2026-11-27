@@ -24,6 +24,7 @@ import { SesionesAnteriores } from './components/SesionesAnteriores'
 import { canUseCoach } from './lib/checkCoachAccess'
 import { loginUrl } from '@/lib/auth/login-url'
 import { fechaDeCalendario } from '@/lib/format'
+import { FONT_SIZE } from '@/lib/font-size'
 
 export const dynamic = 'force-dynamic'
 
@@ -108,16 +109,16 @@ export default async function CoachDashboard() {
         <CoachBetaBanner />
         <TaigerHero subtitle="Tu coach de juego mental. Cuéntame sobre tu golf y empezamos." />
         <div style={{ background: 'var(--coach-brass-soft)', border: '1px solid var(--coach-brass)', borderRadius: '14px', padding: '24px', textAlign: 'center' }}>
-          <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
+          <div style={{ fontSize: FONT_SIZE.body, fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
             Bienvenido a tAIger+
           </div>
-          <div style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6, marginBottom: '18px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
+          <div style={{ fontSize: FONT_SIZE.small, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: '18px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
             Soy tu coach de rendimiento con inteligencia artificial. Conozco cada golpe, cada patrón, cada tendencia de tu juego. Háblame y empezamos a trabajar juntos.
           </div>
           <HablarConMiCoach href={ctaHref} />
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '14px' }}>
-            <Link href="/ronda-libre/nueva" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: '13px', padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Nueva ronda</Link>
-            <Link href="/importar" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: '13px', padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Importar historial</Link>
+            <Link href="/ronda-libre/nueva" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: FONT_SIZE.caption, padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Nueva ronda</Link>
+            <Link href="/importar" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: FONT_SIZE.caption, padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Importar historial</Link>
           </div>
         </div>
       </div>
@@ -161,14 +162,14 @@ export default async function CoachDashboard() {
           }}
         >
           <span>
-            <span style={{ display: 'block', fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700 }}>
+            <span style={{ display: 'block', fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700 }}>
               Tu progreso
             </span>
-            <span style={{ display: 'block', fontSize: '14px', color: 'var(--text)', fontWeight: 600, marginTop: '2px' }}>
+            <span style={{ display: 'block', fontSize: FONT_SIZE.small, color: 'var(--text)', fontWeight: 600, marginTop: '2px' }}>
               La bajada hacia tu meta
             </span>
           </span>
-          <span style={{ color: 'var(--coach-brass)', fontSize: '18px' }} aria-hidden>→</span>
+          <span style={{ color: 'var(--coach-brass)', fontSize: FONT_SIZE.h2 }} aria-hidden>→</span>
         </Link>
       </div>
 
@@ -235,7 +236,7 @@ export default async function CoachDashboard() {
 
       {patterns.length > 0 && (
         <div style={{ padding: '0 20px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '14px' }}>Patrones detectados</div>
+          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '14px' }}>Patrones detectados</div>
           {patterns.map(p => {
             const isActive = p.status === 'active'
             // La espiral ya tiene su número: el Mental Index. Un segundo "47/100" con

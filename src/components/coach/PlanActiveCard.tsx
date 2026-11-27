@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react'
 import type { PlanStatus, PlanDot } from '@/golf/coach/intro'
+import { FONT_SIZE } from '@/lib/font-size'
 
 interface Props {
   title: string
@@ -51,11 +52,11 @@ export function PlanActiveCard({ title, description, status, dots, correlationLi
       <div style={accent} aria-hidden />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
         <div>
-          <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '17px', fontWeight: 600, lineHeight: 1.25, marginBottom: '3px' }}>{title}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>{description}</div>
+          <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: FONT_SIZE.body, fontWeight: 600, lineHeight: 1.25, marginBottom: '3px' }}>{title}</div>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', lineHeight: 1.5 }}>{description}</div>
         </div>
         <span style={{
-          fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const,
+          fontSize: FONT_SIZE.caption, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const,
           padding: '3px 8px', borderRadius: '2px',
           border: `1px solid ${tone.border}`, background: tone.bg, color: tone.fg,
           fontFamily: '"DM Mono", monospace', whiteSpace: 'nowrap' as const,
@@ -64,13 +65,13 @@ export function PlanActiveCard({ title, description, status, dots, correlationLi
 
       {dots.length > 0 ? (
         <>
-          <div style={{ fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px', fontFamily: '"DM Mono", monospace' }}>
+          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px', fontFamily: '"DM Mono", monospace' }}>
             Últimas {dots.length} rondas
           </div>
           <div style={{ display: 'flex', justifyContent: dots.length >= 5 ? 'space-between' : 'flex-start', gap: dots.length >= 5 ? 0 : '14px', padding: '0 0 14px' }} role="list" aria-label="Adherencia por ronda">
             {dots.map((d, i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }} role="listitem">
-                <span style={{ fontSize: '12px', color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', fontFamily: '"DM Mono", monospace' }}>
+                <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', fontFamily: '"DM Mono", monospace' }}>
                   {d.label}
                 </span>
                 {d.state === 'on' ? (
@@ -83,12 +84,12 @@ export function PlanActiveCard({ title, description, status, dots, correlationLi
           </div>
         </>
       ) : (
-        <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 0 14px', fontStyle: 'italic' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', padding: '8px 0 14px', fontStyle: 'italic' }}>
           Sin rondas registradas con plan activo aún.
         </div>
       )}
 
-      <div style={{ fontSize: '12px', color: 'var(--text-2)', padding: '12px 14px', background: 'var(--bg)', borderRadius: '4px', lineHeight: 1.55 }}>
+      <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', padding: '12px 14px', background: 'var(--bg)', borderRadius: '4px', lineHeight: 1.55 }}>
         {correlationLine}
       </div>
     </div>
