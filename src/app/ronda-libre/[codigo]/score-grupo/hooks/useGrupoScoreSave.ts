@@ -26,6 +26,7 @@ import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
 import { AVISO_EQUIPO_YA_TERMINADO, AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
 import type { RondaLibre } from '@/types/ronda'
 import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
+import { golpesAReintentar, hayEquipoTerminadoConApartados } from './apartados-del-envio'
 
 export type GrupoSaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -185,8 +186,9 @@ export function useGrupoScoreSave(input: {
    * todo el ciclo de Finalizar, incluida la vuelta extra que corre al terminar un envío que estaba en vuelo.
    */
   const silenciarAvisoRef = useRef(false)
-  /** El envío de esta llamada a `saveAllScores` rebotó porque el equipo ya terminó (el golpe quedó apartado). */
-  const reboteEquipoTerminadoRef = useRef(false)
+  /** Equipos (`eq:<id>`) cuyo golpe rebotó por equipo terminado y que el servidor no volvió a aceptar. Por equipo y sin
+   * reset por llamada: la vuelta extra de un envío en vuelo no borra la señal (Fable, 2ª vuelta del PR 2/2). */
+  const equiposTerminadosRef = useRef(new Set<string>())
   /** Ciclo de envío en curso (incluye la vuelta extra que pidió quien llegó mientras viajaba). */
   const cicloRef = useRef<Promise<void> | null>(null)
   const [rondaCerrada, setRondaCerrada] = useState(false)
@@ -326,6 +328,7 @@ export function useGrupoScoreSave(input: {
             entraron++
             confirmarPendientes(codigo, id, golpes)
             confirmarRechazados(codigo, id, golpes)
+            equiposTerminadosRef.current.delete(id)
             if (!leerRechazados(codigo)[id]) rechazadasRef.current.delete(id)
           }
           // No encontró ronda+jugador (o equipo): se decide abajo, con UNA lectura de la ronda.
@@ -336,6 +339,7 @@ export function useGrupoScoreSave(input: {
             confirmarPendientes(codigo, id, golpes)
             apartarRechazados(codigo, id, golpes)
             equipoYaTerminado = true
+            equiposTerminadosRef.current.add(id)
             return { error: null }
           }
           // Un celular por equipo: el equipo lo anota otro celular (P0003 'equipo_de_otro_anotador', también para el
@@ -371,8 +375,9 @@ export function useGrupoScoreSave(input: {
         if (!ok && attempts < SAVE_RETRIES) await new Promise(r => setTimeout(r, 400 * attempts))
       }
 
+      // Rebote de equipo terminado: no es «guardado» (ni vibración ni `hasUnsaved` abajo); lo de abajo puede pisarlo.
       if (equipoYaTerminado) {
-        reboteEquipoTerminadoRef.current = true
+        setSaveStatus('idle'); marcarSinEnviar(hayPendientes(codigo))
         addToast({ ...AVISO_EQUIPO_YA_TERMINADO, type: 'info', duration: 8000 })
       }
       // Terminado también se relee: si era el único de este celular, la carga lleva a la vista en vivo («Corregir»).
@@ -398,7 +403,7 @@ export function useGrupoScoreSave(input: {
         // aviso; si no, quedaba pegado con la ronda cerrada, que ya no reintenta (Fable #833).
         if (rechazoDeSesion) setSesionPerdida(true)
         else if (sesionPerdidaRef.current && (await sesion()).estado === 'ok') setSesionPerdida(false)
-      } else if (ok && !hayPendientes(codigo)) {
+      } else if (ok && !hayPendientes(codigo) && !equipoYaTerminado) {
         // Entró todo: la ronda está abierta (se reabrió, si un envío anterior la vio cerrada).
         rondaCerradaRef.current = false
         setSesionPerdida(false)
@@ -465,21 +470,14 @@ export function useGrupoScoreSave(input: {
     const antes = vigentes()
     for (const id of [...rechazadasRef.current.keys()]) if (!antes.has(id)) rechazadasRef.current.delete(id)
     if (opciones?.reintentarRechazados && ronda && !rondaBorradaRef.current) {
-      // Antes que `overrideScores` (lo más nuevo en pantalla gana). Un hoyo con un valor pendiente de subir
-      // no se toca: ese valor es más nuevo que el rechazado (una corrección del marcador).
-      const pendientes = leerPendientes(codigo)
-      for (const [id, golpes] of Object.entries(leerRechazados(codigo))) {
-        if (!antes.has(id)) continue
-        const libres = Object.fromEntries(Object.entries(golpes).filter(([h]) => pendientes[id]?.[h] == null))
-        if (Object.keys(libres).length > 0) marcarPendientes(codigo, id, libres)
-      }
+      // Antes que `overrideScores` (lo más nuevo en pantalla gana).
+      for (const [id, libres] of golpesAReintentar(leerRechazados(codigo), leerPendientes(codigo), antes)) marcarPendientes(codigo, id, libres)
     }
     // Sólo Finalizar silencia, y deja el silencio como estaba: la vuelta extra (`sincronizarRef`, sin opciones)
     // corre dentro de su ciclo y no debe des-silenciarlo (salía el genérico encima del aviso con nombre).
     const silenciar = Boolean(opciones?.reintentarRechazados)
     const silencioPrevio = silenciarAvisoRef.current
     if (silenciar) silenciarAvisoRef.current = true
-    reboteEquipoTerminadoRef.current = false
     try {
       await enviarTodo(overrideScores)
     } finally {
@@ -492,7 +490,7 @@ export function useGrupoScoreSave(input: {
       .filter(([id]) => despues.has(id) && Object.keys(pendientes[id] ?? {}).length === 0)
       .map(([id, code]) => ({ id, code }))
     const estado = rondaCerradaRef.current ? 'ronda_cerrada' : 'ronda_abierta'
-    return { estado, rechazadas, sesionPerdida: sesionPerdidaRef.current, equipoTerminado: reboteEquipoTerminadoRef.current }
+    return { estado, rechazadas, sesionPerdida: sesionPerdidaRef.current, equipoTerminado: hayEquipoTerminadoConApartados(equiposTerminadosRef.current, antes, leerRechazados(codigo)) }
   }, [enviarTodo, ronda, codigo])
 
   useEffect(() => {

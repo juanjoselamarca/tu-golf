@@ -120,6 +120,52 @@ describe('useGrupoScoreSave — un celular por equipo', () => {
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: AVISO_EQUIPO_YA_TERMINADO.title }))
   })
 
+  it('el rebote «equipo_terminado» no se muestra como guardado: sin «saved» y `hasUnsaved` sigue arriba', async () => {
+    saveRondaEquiposScores.mockResolvedValue({ error: { code: 'P0003', details: 'equipo_terminado' } })
+    marcarPendientes('ABC', 'eq:e1', { 18: 3 })
+    const { result } = montar([{ id: 'e1', scores: { '18': 3 } }], { ajenos: [], alPerderEquipo: vi.fn() })
+    act(() => result.current.setHasUnsaved(true))
+    await act(async () => { await result.current.saveAllScores() })
+    expect(result.current.saveStatus).toBe('idle')
+    expect(result.current.hasUnsaved).toBe(true)
+  })
+
+  it('carrera (Fable 2ª vuelta): el rebote llega en el envío programado que estaba en vuelo y la vuelta extra no borra la señal', async () => {
+    // El envío de 500 ms sale con el golpe nuevo y el servidor tarda 800 ms en rebotarlo. Mientras viaja, «Terminar»
+    // pide su envío: espera el ciclo, y la vuelta extra (sin pendientes) corre otro `saveAllScores` antes de volver.
+    saveRondaEquiposScores.mockImplementation(() => new Promise(res => setTimeout(() => res({ error: { code: 'P0003', details: 'equipo_terminado' } }), 800)))
+    marcarPendientes('ABC', 'eq:e1', { 18: 3 })
+    const { result } = montar([{ id: 'e1', scores: { '18': 3 } }], { ajenos: [], alPerderEquipo: vi.fn() })
+    act(() => result.current.programarEnvio())
+    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+    expect(saveRondaEquiposScores).toHaveBeenCalledTimes(1)
+    let envio: Awaited<ReturnType<typeof result.current.saveAllScores>> | undefined
+    await act(async () => {
+      const p = result.current.saveAllScores(undefined, { reintentarRechazados: true })
+      await vi.advanceTimersByTimeAsync(1000)
+      envio = await p
+    })
+    expect(saveRondaEquiposScores).toHaveBeenCalledTimes(1)
+    expect(leerRechazados('ABC')['eq:e1']).toEqual({ '18': 3 })
+    expect(envio?.equipoTerminado).toBe(true)
+  })
+
+  it('la señal es por equipo y se apaga cuando el servidor vuelve a aceptarlo («Corregir» y «Terminar» de nuevo)', async () => {
+    saveRondaEquiposScores.mockResolvedValueOnce({ error: { code: 'P0003', details: 'equipo_terminado' } })
+    marcarPendientes('ABC', 'eq:e1', { 18: 3 })
+    const { result } = montar([{ id: 'e1', scores: { '18': 3 } }], { ajenos: [], alPerderEquipo: vi.fn() })
+    await act(async () => { await result.current.saveAllScores() })
+    // Una llamada sin nada que enviar no apaga la señal (antes se reseteaba en cada `saveAllScores`).
+    let envio: Awaited<ReturnType<typeof result.current.saveAllScores>> | undefined
+    await act(async () => { envio = await result.current.saveAllScores() })
+    expect(envio?.equipoTerminado).toBe(true)
+    // Reabierto: el reenvío de lo apartado entra y la señal se apaga.
+    await act(async () => { envio = await result.current.saveAllScores(undefined, { reintentarRechazados: true }) })
+    expect(saveRondaEquiposScores).toHaveBeenCalledTimes(2)
+    expect(leerRechazados('ABC')['eq:e1']).toBeUndefined()
+    expect(envio?.equipoTerminado).toBe(false)
+  })
+
   it('P0003 «equipo_de_otro_anotador» sin datos de un celular por equipo (copia vieja): igual definitivo, no queda en cola', async () => {
     saveRondaEquiposScores.mockResolvedValue({ error: { code: 'P0003', message: 'RONDA_FORBIDDEN', details: 'equipo_de_otro_anotador' } })
     marcarPendientes('ABC', 'eq:e3', { 2: 5 })
