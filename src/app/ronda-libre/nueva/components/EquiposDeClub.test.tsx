@@ -119,7 +119,7 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
     render(<Paso netoBloqueado />)
     fireEvent.click(soloEquipos())
     expect(handicaps()).toHaveLength(0)
-    expect(screen.getByText(/Juegan gross, sin hándicap\./)).toBeTruthy()
+    expect(screen.getByText(/En Gross no se usa hándicap\./)).toBeTruthy() // lo dice la opción elegida, una vez
     expect(revisar().disabled).toBe(false)
   })
 
