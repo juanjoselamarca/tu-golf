@@ -63,8 +63,6 @@ export function ScoreProjectionCard({ projection }: Props) {
         style={{
           fontSize: FONT_SIZE.caption,
           fontWeight: 700,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
           color: 'var(--brand-on-bg)',
           marginBottom: 10,
         }}
@@ -74,8 +72,8 @@ export function ScoreProjectionCard({ projection }: Props) {
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: parts.length ? 14 : 0 }}>
         <span
+          className="num"
           style={{
-            fontFamily: '"Playfair Display", serif',
             fontSize: FONT_SIZE.statHero,
             fontWeight: 600,
             color: 'var(--text)',

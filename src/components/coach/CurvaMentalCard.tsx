@@ -32,9 +32,9 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
   const gridCols: CSSProperties = { display: 'grid', gridTemplateColumns: `repeat(${n}, 1fr)`, gap: '2px' }
   return (
     <div style={{ marginBottom: '14px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FONT_SIZE.caption, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '6px', padding: '0 1px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, marginBottom: '6px', padding: '0 1px' }}>
         <span>{label}</span>
-        <span style={{ color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', letterSpacing: 0 }}>{overParHalf >= 0 ? '+' : ''}{overParHalf}</span>
+        <span className="num" style={{ color: 'var(--text-2)', letterSpacing: 0 }}>{overParHalf >= 0 ? '+' : ''}{overParHalf}</span>
       </div>
       <div style={{ ...gridCols, height: '18px', alignItems: 'flex-end', marginBottom: '4px' }} aria-hidden>
         {scores.map((s, i) => {
@@ -51,7 +51,7 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
       </div>
       <div style={{ ...gridCols, marginTop: '4px' }}>
         {Array.from({ length: n }, (_, i) => (
-          <div key={`a-${startIdx + i}`} style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.caption, color: 'var(--text-3)', textAlign: 'center' }}>{startIdx + i + 1}</div>
+          <div className="num" key={`a-${startIdx + i}`} style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', textAlign: 'center' }}>{startIdx + i + 1}</div>
         ))}
       </div>
     </div>
@@ -90,12 +90,12 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
         <span style={{ fontFamily: '"DM Sans", sans-serif', fontSize: FONT_SIZE.body, fontWeight: 600 }}>Curva mental</span>
         <span style={{
-          fontSize: FONT_SIZE.caption, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, padding: '3px 8px',
-          borderRadius: '2px', ...chipTone, fontFamily: '"DM Mono", monospace',
+          fontSize: FONT_SIZE.caption, fontWeight: 600, padding: '3px 8px',
+          borderRadius: '2px', ...chipTone,
         }}>{contar(espirales, 'espiral', 'espirales')}</span>
       </div>
       <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', marginBottom: '18px' }}>
-        {fecha} · {curso} · <span style={{ color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>{totalScore} ({overPar >= 0 ? '+' : ''}{overPar})</span>
+        {fecha} · {curso} · <span className="num" style={{ color: 'var(--text)' }}>{totalScore} ({overPar >= 0 ? '+' : ''}{overPar})</span>
       </div>
 
       {renderHalf('Front 9', f9Over, f9States, f9Scores, f9Pars, 0)}

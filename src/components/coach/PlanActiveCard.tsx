@@ -13,11 +13,11 @@ interface Props {
 }
 
 const STATUS_LABEL: Record<PlanStatus, string> = {
-  active: 'en curso',
-  resolved: 'logrado',
-  expired: 'expirado',
-  superseded: 'reemplazado',
-  cancelled: 'cancelado',
+  active: 'En curso',
+  resolved: 'Logrado',
+  expired: 'Expirado',
+  superseded: 'Reemplazado',
+  cancelled: 'Cancelado',
 }
 
 const STATUS_TONE: Record<PlanStatus, { fg: string; bg: string; border: string }> = {
@@ -56,22 +56,22 @@ export function PlanActiveCard({ title, description, status, dots, correlationLi
           <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', lineHeight: 1.5 }}>{description}</div>
         </div>
         <span style={{
-          fontSize: FONT_SIZE.caption, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const,
+          fontSize: FONT_SIZE.caption, fontWeight: 600,
           padding: '3px 8px', borderRadius: '2px',
           border: `1px solid ${tone.border}`, background: tone.bg, color: tone.fg,
-          fontFamily: '"DM Mono", monospace', whiteSpace: 'nowrap' as const,
+          whiteSpace: 'nowrap' as const,
         }}>{STATUS_LABEL[status]}</span>
       </div>
 
       {dots.length > 0 ? (
         <>
-          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px', fontFamily: '"DM Mono", monospace' }}>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px' }}>
             Últimas {dots.length} rondas
           </div>
           <div style={{ display: 'flex', justifyContent: dots.length >= 5 ? 'space-between' : 'flex-start', gap: dots.length >= 5 ? 0 : '14px', padding: '0 0 14px' }} role="list" aria-label="Adherencia por ronda">
             {dots.map((d, i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }} role="listitem">
-                <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', fontFamily: '"DM Mono", monospace' }}>
+                <span className="num" style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600 }}>
                   {d.label}
                 </span>
                 {d.state === 'on' ? (

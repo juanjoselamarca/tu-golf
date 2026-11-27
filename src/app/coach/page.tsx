@@ -162,7 +162,7 @@ export default async function CoachDashboard() {
           }}
         >
           <span>
-            <span style={{ display: 'block', fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700 }}>
+            <span style={{ display: 'block', fontSize: FONT_SIZE.caption, color: 'var(--coach-brass)', fontWeight: 700 }}>
               Tu progreso
             </span>
             <span style={{ display: 'block', fontSize: FONT_SIZE.small, color: 'var(--text)', fontWeight: 600, marginTop: '2px' }}>
@@ -236,7 +236,7 @@ export default async function CoachDashboard() {
 
       {patterns.length > 0 && (
         <div style={{ padding: '0 20px', marginBottom: '24px' }}>
-          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '14px' }}>Patrones detectados</div>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, marginBottom: '14px' }}>Patrones detectados</div>
           {patterns.map(p => {
             const isActive = p.status === 'active'
             // La espiral ya tiene su número: el Mental Index. Un segundo "47/100" con

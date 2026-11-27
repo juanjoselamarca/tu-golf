@@ -54,7 +54,6 @@ const TH: React.CSSProperties = {
   borderBottom: '1px solid var(--line)',
   background: 'var(--bg-elevated)',
   color: 'var(--text-3, var(--text-2))',
-  fontFamily: '"DM Mono", monospace',
   fontSize: FONT_SIZE.caption,
   fontWeight: 600,
   letterSpacing: '0.04em',

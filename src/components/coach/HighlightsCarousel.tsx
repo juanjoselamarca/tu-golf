@@ -42,11 +42,8 @@ export function HighlightsCarousel({ label, children }: Props) {
     alignItems: 'center',
     justifyContent: 'space-between',
     fontSize: FONT_SIZE.caption,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
     color: 'var(--text-3)',
     fontWeight: 600,
-    fontFamily: '"DM Mono", monospace',
   }
   const trackStyle: CSSProperties = {
     display: 'flex',
@@ -62,7 +59,7 @@ export function HighlightsCarousel({ label, children }: Props) {
       <div style={labelStyle}>
         <span>{label}</span>
         {total > 1 && (
-          <span style={{ fontFamily: '"DM Mono", monospace', letterSpacing: 0, textTransform: 'none', fontWeight: 500, color: 'var(--text-3)' }}>
+          <span className="num" style={{ fontWeight: 500, color: 'var(--text-3)' }}>
             {current}/{total}
           </span>
         )}

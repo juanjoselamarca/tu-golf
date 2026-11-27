@@ -80,8 +80,6 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
         gap: 8,
         fontSize: FONT_SIZE.caption,
         fontWeight: 700,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
         color: 'var(--brand-on-bg)',
         marginBottom: 10,
       }}>
@@ -203,8 +201,6 @@ function Field({ label, value }: { label: string; value: string }) {
       <div style={{
         fontSize: FONT_SIZE.caption,
         fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
         color: 'var(--text-2)',
         marginBottom: 2,
       }}>

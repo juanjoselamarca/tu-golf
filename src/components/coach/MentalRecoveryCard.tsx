@@ -46,7 +46,7 @@ function accentStrip(background: string): CSSProperties {
 }
 
 function rotulo(color: string): CSSProperties {
-  return { fontSize: FONT_SIZE.caption, letterSpacing: '0.18em', textTransform: 'uppercase', color, fontWeight: 700, marginBottom: '12px', fontFamily: '"DM Mono", monospace' }
+  return { fontSize: FONT_SIZE.caption, color, fontWeight: 700, marginBottom: '12px' }
 }
 
 export function MentalRecoveryCard(props: Props) {
@@ -83,10 +83,10 @@ export function MentalRecoveryCard(props: Props) {
       <div style={accentStrip(color)} aria-hidden />
       <div style={rotulo(color)}>Mental Index</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.statHero, fontWeight: 500, lineHeight: 0.95, color, letterSpacing: '-0.02em' }}>{score}</span>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.body, color: 'var(--text-3)' }}>/ 100</span>
+        <span className="num" style={{ fontSize: FONT_SIZE.statHero, fontWeight: 500, lineHeight: 0.95, color, letterSpacing: '-0.02em' }}>{score}</span>
+        <span className="num" style={{ fontSize: FONT_SIZE.body, color: 'var(--text-3)' }}>/ 100</span>
         {deltaText && (
-          <span style={{ marginLeft: 'auto', fontFamily: '"DM Mono", monospace', fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
+          <span className="num" style={{ marginLeft: 'auto', fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
             {deltaText}
           </span>
         )}

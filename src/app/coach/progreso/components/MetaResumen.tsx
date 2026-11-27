@@ -17,8 +17,6 @@ function fmtDeadline(d: string | null): string | null {
   return date.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const mono = { fontFamily: 'var(--font-dm-mono)' } as const
-
 export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }: Props) {
   // Se muestra con formatearIndice (un plus es "+1.0") y se cuenta con el número que se muestra,
   // leído de vuelta con parsearHandicap ("+1.0" → −1): Number("+1.0") daría 1 y la distancia cambiaría de signo.
@@ -28,10 +26,10 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
     return (
       <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '8px', padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px' }}>
         <div>
-          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>
             Hándicap actual
           </div>
-          <div style={{ ...mono, fontSize: FONT_SIZE.stat, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{indiceTexto}</div>
+          <div className="num" style={{ fontSize: FONT_SIZE.stat, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{indiceTexto}</div>
         </div>
         <Link href="/coach" style={{ fontSize: FONT_SIZE.caption, fontWeight: 600, color: 'var(--brand-on-bg)', textDecoration: 'none', textAlign: 'right', lineHeight: 1.4, maxWidth: '150px' }}>
           Fija tu meta con el coach para medir el avance →
@@ -49,13 +47,13 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '8px', padding: '18px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '8px' }}>
         <div>
-          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>Hoy</div>
-          <div style={{ ...mono, fontSize: FONT_SIZE.stat, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{indiceTexto}</div>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, marginBottom: '4px' }}>Hoy</div>
+          <div className="num" style={{ fontSize: FONT_SIZE.stat, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{indiceTexto}</div>
         </div>
         <div style={{ color: 'var(--text-3)', fontSize: FONT_SIZE.h2, paddingBottom: '2px' }}>→</div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-recovery-high)', fontWeight: 700, marginBottom: '4px' }}>Meta</div>
-          <div style={{ ...mono, fontSize: FONT_SIZE.stat, fontWeight: 600, color: 'var(--coach-recovery-high)', lineHeight: 1 }}>{meta}</div>
+          <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--coach-recovery-high)', fontWeight: 700, marginBottom: '4px' }}>Meta</div>
+          <div className="num" style={{ fontSize: FONT_SIZE.stat, fontWeight: 600, color: 'var(--coach-recovery-high)', lineHeight: 1 }}>{meta}</div>
         </div>
       </div>
       {(delta != null || deadline) && (
@@ -63,7 +61,7 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
           {/* Sin hándicap actual no hay distancia a la meta: no se afirma nada. */}
           <span>
             {delta != null && delta > 0 && (
-              <><strong style={{ ...mono, color: 'var(--text)' }}>{delta.toFixed(1)}</strong> puntos para tu objetivo</>
+              <><strong className="num" style={{ color: 'var(--text)' }}>{delta.toFixed(1)}</strong> puntos para tu objetivo</>
             )}
             {delta != null && delta <= 0 && (
               <strong style={{ color: 'var(--coach-recovery-high)' }}>Estás en tu meta.</strong>

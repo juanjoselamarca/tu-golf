@@ -54,7 +54,7 @@ export function FocusHero({ foco }: { foco: FocoData }) {
   if (foco.kind === 'fallback') {
     return (
       <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px' }}>
-        <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px' }}>
+        <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px' }}>
           Tu foco
         </div>
         <p style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.stat, lineHeight: 1.3, color: 'var(--text)', margin: '0 0 8px' }}>
@@ -72,7 +72,7 @@ export function FocusHero({ foco }: { foco: FocoData }) {
   const frase = frasesEvidencia(foco.evidencia)
   return (
     <div style={card}>
-      <div style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '10px' }}>
+      <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '10px' }}>
         Tu foco ahora
       </div>
       <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h1, lineHeight: 1.15, color: 'var(--text)', margin: '0 0 12px', fontWeight: 600 }}>
@@ -83,7 +83,7 @@ export function FocusHero({ foco }: { foco: FocoData }) {
       )}
       {foco.accion && (
         <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', paddingTop: '14px', borderTop: '1px solid var(--line)' }}>
-          <span style={{ fontSize: FONT_SIZE.caption, fontWeight: 700, color: 'var(--brand-on-bg)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, marginTop: '2px' }}>
+          <span style={{ fontSize: FONT_SIZE.caption, fontWeight: 700, color: 'var(--brand-on-bg)', flexShrink: 0, marginTop: '2px' }}>
             Esta semana
           </span>
           <p style={{ fontSize: FONT_SIZE.small, color: 'var(--text)', lineHeight: 1.55, margin: 0, fontWeight: 500 }}>{foco.accion}</p>

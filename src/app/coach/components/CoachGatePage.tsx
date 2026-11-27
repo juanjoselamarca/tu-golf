@@ -195,7 +195,6 @@ export function CoachGatePage() {
                 fontSize: FONT_SIZE.caption,
                 fontWeight: 600,
                 color: 'var(--brand-on-bg)',
-                letterSpacing: '0.06em',
                 transition: 'border-color 0.3s, background 0.3s',
                 minHeight: 44,
               }}
@@ -246,9 +245,6 @@ export function CoachGatePage() {
                   padding: '14px 20px',
                   fontSize: FONT_SIZE.caption,
                   fontWeight: 600,
-                  fontFamily: 'var(--font-dm-mono), monospace',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase' as const,
                   cursor: loading ? 'wait' : 'pointer',
                   opacity: loading || !code.trim() ? 0.35 : 1,
                   transition: 'all 0.2s',

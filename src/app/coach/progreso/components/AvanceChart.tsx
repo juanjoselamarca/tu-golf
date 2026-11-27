@@ -35,7 +35,6 @@ const label = (baselineY: number, side: 'left' | 'right', color: string): CSSPro
   position: 'absolute',
   [side]: `${((side === 'left' ? PAD.left : PAD.right) / W) * 100}%`,
   bottom: `${((H - baselineY) / H) * 100}%`,
-  fontFamily: 'var(--font-dm-mono)',
   fontSize: FONT_SIZE.caption,
   lineHeight: 1,
   color,
@@ -122,7 +121,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-        <span style={{ fontSize: FONT_SIZE.caption, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600 }}>
+        <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600 }}>
           Diferencial por ronda · equiv. 18h
         </span>
         {mejorando != null && (
@@ -167,19 +166,19 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
           <circle cx={lastTx} cy={y(ma[ma.length - 1])} r="4.5" fill="var(--brand)" stroke="var(--bg-surface)" strokeWidth="1.5" />
         </svg>
         {targetHandicap != null && (
-          <span style={label(y(targetHandicap) - 5, 'left', 'var(--coach-recovery-high)')}>meta {formatearIndice(targetHandicap)}</span>
+          <span className="num" style={label(y(targetHandicap) - 5, 'left', 'var(--coach-recovery-high)')}>meta {formatearIndice(targetHandicap)}</span>
         )}
-        <span style={label(y(currentHandicap) - 5, 'right', 'var(--text-3)')}>hcp {formatearIndice(currentHandicap)}</span>
+        <span className="num" style={label(y(currentHandicap) - 5, 'right', 'var(--text-3)')}>hcp {formatearIndice(currentHandicap)}</span>
         {/* Orientación temporal */}
-        <span style={label(H - 6, 'left', 'var(--text-3)')}>{fmtMes(puntos[0].played_at)}</span>
-        <span style={label(H - 6, 'right', 'var(--text-3)')}>{fmtMes(puntos[puntos.length - 1].played_at)}</span>
+        <span className="num" style={label(H - 6, 'left', 'var(--text-3)')}>{fmtMes(puntos[0].played_at)}</span>
+        <span className="num" style={label(H - 6, 'right', 'var(--text-3)')}>{fmtMes(puntos[puntos.length - 1].played_at)}</span>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
         <span style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)' }}>
           Última ronda{last.is9 ? ' · 9 hoyos' : ''}
         </span>
-        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)' }}>
+        <span className="num" style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text)' }}>
           dif {last.dif.toFixed(1)}
         </span>
       </div>

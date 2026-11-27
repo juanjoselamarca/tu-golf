@@ -51,17 +51,14 @@ export function HighlightCard({ narrative, spark, pill }: Props) {
             <span key={i} style={{ width: '7px', height: `${b.height}%`, background: SPARK_COLOR[b.tone ?? 'ink'] }} />
           ))}
         </div>
-        <span style={{
+        <span className="num" style={{
           fontSize: FONT_SIZE.caption,
           fontWeight: 600,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase' as const,
           padding: '3px 8px',
           borderRadius: '2px',
           border: `1px solid ${pillC.border}`,
           background: pillC.bg,
           color: pillC.fg,
-          fontFamily: '"DM Mono", monospace',
         }}>
           {pill.text}
         </span>

@@ -128,11 +128,10 @@ export function RoundMiniChart({ summary }: Props) {
           )
         })}
       </svg>
-      <div style={{
+      <div className="num" style={{
         display: 'flex',
         padding: `0 ${(padX / width) * 100}%`,
         marginTop: 4,
-        fontFamily: 'ui-monospace, monospace',
         fontSize: FONT_SIZE.caption,
         lineHeight: 1,
         color: 'var(--text-2)',
