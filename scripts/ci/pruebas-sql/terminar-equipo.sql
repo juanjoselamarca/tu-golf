@@ -5,7 +5,7 @@
 -- Qué exige:
 --   · un equipo de hoy queda con terminado_at NULL; anon no ejecuta terminar ni reabrir;
 --   · permisos: el anotador termina SU equipo; el creador termina un equipo SIN anotador y no uno de otro celular;
---     un extraño no termina nada; demo, admin_mode y equipo que no es de club → P0003; ronda inexistente → P0001;
+--     un extraño no termina ni reabre nada; el creador no reabre el de otro celular; un equipo no nace terminado; demo, admin_mode y equipo que no es de club → P0003; ronda inexistente → P0001;
 --   · tarjeta incompleta → {estado:'incompleto'} sin marcar; completa → ok y ronda sigue en curso si falta otro;
 --   · el último en terminar cierra la ronda (estado 'finalizada') y devuelve ronda_cerrada TRUE;
 --   · reintento con la ronda ya cerrada → ok con ronda_cerrada TRUE (no error);
@@ -31,6 +31,9 @@ INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, fo
   -- Un celular para todos (admin_mode).
   ('b7e00000-0000-4000-8000-000000000002', 'TRM002', 'Cancha', current_date,
    'a7e00000-0000-4000-8000-000000000001', 'scramble', 'neto', 9, 'en_curso', true, false),
+  -- Un celular por equipo con un equipo que no es de club.
+  ('b7e00000-0000-4000-8000-000000000003', 'TRM003', 'Cancha', current_date,
+   'a7e00000-0000-4000-8000-000000000001', 'scramble', 'neto', 18, 'en_curso', false, false),
   -- Demo.
   ('b7e00000-0000-4000-8000-000000000004', 'TRM004', 'Cancha', current_date,
    'a7e00000-0000-4000-8000-000000000001', 'scramble', 'neto', 18, 'en_curso', false, true);
@@ -49,6 +52,12 @@ INSERT INTO public.ronda_equipos (id, ronda_id, nombre, handicap_equipo, handica
   -- El de Pedro (otro celular).
   ('f7e00000-0000-4000-8000-000000000012', 'b7e00000-0000-4000-8000-000000000001', 'Pedro', 12, 12, 'club',
    'a7e00000-0000-4000-8000-000000000002', (SELECT completa FROM t_tarjetas)),
+  -- Uno sin anotador («Anotarlo yo» / liberado): lo termina el creador.
+  ('f7e00000-0000-4000-8000-000000000013', 'b7e00000-0000-4000-8000-000000000001', 'Libre', 10, 10, 'club',
+   NULL, (SELECT completa FROM t_tarjetas)),
+  -- Un equipo calculado (no de club).
+  ('f7e00000-0000-4000-8000-000000000031', 'b7e00000-0000-4000-8000-000000000003', 'Calculado', 8, 8, 'calculado',
+   NULL, (SELECT completa FROM t_tarjetas)),
   -- Admin mode.
   ('f7e00000-0000-4000-8000-000000000021', 'b7e00000-0000-4000-8000-000000000002', 'Admin', 8, 8, 'club',
    NULL, (SELECT completa FROM t_tarjetas)),
@@ -99,13 +108,40 @@ DO $$ BEGIN
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK extraño no termina -> P0003';
 END $$;
 
+DO $$ BEGIN
+  -- La segunda rama del permiso (equipo sin anotador) es solo del creador.
+  PERFORM public.terminar_equipo_de_ronda('TRM001', 'f7e00000-0000-4000-8000-000000000013');
+  RAISE EXCEPTION 'FALLA: un extraño terminó un equipo sin anotador';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK extraño no termina un equipo sin anotador -> P0003';
+END $$;
+
+DO $$ BEGIN
+  PERFORM public.reabrir_equipo_de_ronda('TRM001', 'f7e00000-0000-4000-8000-000000000013');
+  RAISE EXCEPTION 'FALLA: un extraño reabrió un equipo';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK extraño no reabre -> P0003';
+END $$;
+
 -- ── Creador: no termina el equipo de otro celular; los modos que no aplican; incompleto ──────────────────────
 SET LOCAL request.jwt.claims = '{"sub":"a7e00000-0000-4000-8000-000000000001","role":"authenticated"}';
 
-DO $$ BEGIN
+DO $$
+DECLARE v_detail text;
+BEGIN
   PERFORM public.terminar_equipo_de_ronda('TRM001', 'f7e00000-0000-4000-8000-000000000012');
   RAISE EXCEPTION 'FALLA: el creador terminó el equipo que anota otro celular';
-EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK creador no termina el equipo de otro celular -> P0003';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN
+  GET STACKED DIAGNOSTICS v_detail = PG_EXCEPTION_DETAIL;
+  IF v_detail IS DISTINCT FROM 'equipo_de_otro_anotador' THEN RAISE EXCEPTION 'FALLA: P0003 por otra razón: %', v_detail; END IF;
+  RAISE NOTICE 'OK creador no termina el equipo de otro celular -> P0003';
+END $$;
+
+DO $$
+DECLARE r jsonb;
+BEGIN
+  -- El equipo sin anotador lo termina el creador; quedan otros, la ronda sigue.
+  r := public.terminar_equipo_de_ronda('TRM001', 'f7e00000-0000-4000-8000-000000000013');
+  IF r IS DISTINCT FROM '{"estado":"ok","ronda_cerrada":false}'::jsonb THEN RAISE EXCEPTION 'FALLA: el creador no terminó el equipo libre: %', r; END IF;
+  RAISE NOTICE 'OK el creador termina un equipo sin anotador';
 END $$;
 
 DO $$ BEGIN
@@ -114,23 +150,44 @@ DO $$ BEGIN
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK admin_mode -> P0003';
 END $$;
 
+DO $$
+DECLARE v_detail text;
+BEGIN
+  PERFORM public.terminar_equipo_de_ronda('TRM003', 'f7e00000-0000-4000-8000-000000000031');
+  RAISE EXCEPTION 'FALLA: se terminó un equipo que no es de club';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN
+  GET STACKED DIAGNOSTICS v_detail = PG_EXCEPTION_DETAIL;
+  IF v_detail IS DISTINCT FROM 'equipo no es de club' THEN RAISE EXCEPTION 'FALLA: equipo calculado dio P0003 por otra razón: %', v_detail; END IF;
+  RAISE NOTICE 'OK equipo que no es de club -> P0003';
+END $$;
+
 DO $$ BEGIN
   PERFORM public.terminar_equipo_de_ronda('TRM004', 'f7e00000-0000-4000-8000-000000000041');
   RAISE EXCEPTION 'FALLA: se terminó un equipo de una ronda demo';
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK demo -> P0003';
 END $$;
 
-DO $$ BEGIN
+DO $$
+DECLARE v_msg text;
+BEGIN
   PERFORM public.terminar_equipo_de_ronda('NOEXISTE', 'f7e00000-0000-4000-8000-000000000011');
-  RAISE EXCEPTION 'FALLA: terminar en una ronda inexistente no dio P0001';
-EXCEPTION WHEN SQLSTATE 'P0001' THEN RAISE NOTICE 'OK ronda inexistente -> P0001';
+  RAISE EXCEPTION 'FALLA: terminar en una ronda inexistente no dio P0001' USING ERRCODE = 'P0009';
+EXCEPTION WHEN SQLSTATE 'P0001' THEN
+  GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+  IF v_msg IS DISTINCT FROM 'RONDA_NOT_FOUND' THEN RAISE EXCEPTION 'FALLA: ronda inexistente: P0001 con otro mensaje: %', v_msg USING ERRCODE = 'P0009'; END IF;
+  RAISE NOTICE 'OK ronda inexistente -> P0001';
 END $$;
 
-DO $$ BEGIN
+DO $$
+DECLARE v_msg text;
+BEGIN
   -- El equipo existe pero en otra ronda.
   PERFORM public.terminar_equipo_de_ronda('TRM001', 'f7e00000-0000-4000-8000-000000000021');
-  RAISE EXCEPTION 'FALLA: terminar un equipo de otra ronda no dio P0001';
-EXCEPTION WHEN SQLSTATE 'P0001' THEN RAISE NOTICE 'OK equipo de otra ronda -> P0001';
+  RAISE EXCEPTION 'FALLA: terminar un equipo de otra ronda no dio P0001' USING ERRCODE = 'P0009';
+EXCEPTION WHEN SQLSTATE 'P0001' THEN
+  GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+  IF v_msg IS DISTINCT FROM 'RONDA_NOT_FOUND' THEN RAISE EXCEPTION 'FALLA: equipo de otra ronda: P0001 con otro mensaje: %', v_msg USING ERRCODE = 'P0009'; END IF;
+  RAISE NOTICE 'OK equipo de otra ronda -> P0001';
 END $$;
 
 DO $$
@@ -167,10 +224,15 @@ BEGIN
   RAISE NOTICE 'OK equipo terminado: un delta repetido pasa';
 END $$;
 
-DO $$ BEGIN
+DO $$
+DECLARE v_detail text;
+BEGIN
   PERFORM public.upsert_ronda_equipos_scores('f7e00000-0000-4000-8000-000000000012', 'TRM001', '{"18": 5}'::jsonb);
   RAISE EXCEPTION 'FALLA: se cambió un hoyo de un equipo terminado';
-EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK equipo terminado: un delta distinto -> P0003';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN
+  GET STACKED DIAGNOSTICS v_detail = PG_EXCEPTION_DETAIL;
+  IF v_detail IS DISTINCT FROM 'equipo_terminado' THEN RAISE EXCEPTION 'FALLA: P0003 por otra razón: %', v_detail; END IF;
+  RAISE NOTICE 'OK equipo terminado: un delta distinto -> P0003 equipo_terminado';
 END $$;
 
 -- Por la tabla: el creador (la policy le deja escribir las filas de su ronda) no cambia terminado_at ni los scores
@@ -184,13 +246,43 @@ DO $$ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK terminado_at no se cambia por la tabla -> 42501';
 END $$;
 
+DO $$
+DECLARE v_detail text;
+BEGIN
+  PERFORM public.reabrir_equipo_de_ronda('TRM001', 'f7e00000-0000-4000-8000-000000000012');
+  RAISE EXCEPTION 'FALLA: el creador reabrió el equipo que anota otro celular';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN
+  GET STACKED DIAGNOSTICS v_detail = PG_EXCEPTION_DETAIL;
+  IF v_detail IS DISTINCT FROM 'equipo_de_otro_anotador' THEN RAISE EXCEPTION 'FALLA: P0003 por otra razón: %', v_detail; END IF;
+  RAISE NOTICE 'OK creador no reabre el equipo de otro celular -> P0003';
+END $$;
+
+DO $$
+DECLARE v_msg text;
+BEGIN
+  INSERT INTO public.ronda_equipos (ronda_id, nombre, handicap_equipo, handicap_equipo_juego, handicap_origen, terminado_at)
+  VALUES ('b7e00000-0000-4000-8000-000000000001', 'Nace terminado', 0, 0, 'club', now());
+  RAISE EXCEPTION 'FALLA: el creador insertó un equipo ya terminado';
+EXCEPTION WHEN insufficient_privilege THEN
+  GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+  IF v_msg IS DISTINCT FROM 'TERMINADO_SOLO_POR_RPC' THEN RAISE EXCEPTION 'FALLA: el INSERT se rechazó por otra razón: %', v_msg; END IF;
+  RAISE NOTICE 'OK un equipo no se inserta terminado -> 42501';
+END $$;
+
 -- Liberar el equipo de Pedro (el creador puede) y escribir sus scores por la tabla: el equipo sigue terminado.
-DO $$ BEGIN
-  PERFORM public.liberar_equipo_de_ronda('TRM001', 'f7e00000-0000-4000-8000-000000000012');
+DO $$
+DECLARE v_detail text;
+BEGIN
+  IF (public.liberar_equipo_de_ronda('TRM001', 'f7e00000-0000-4000-8000-000000000012'))->>'estado' IS DISTINCT FROM 'ok' THEN
+    RAISE EXCEPTION 'FALLA: no se pudo liberar el equipo (la prueba del trigger no correría)';
+  END IF;
   UPDATE public.ronda_equipos SET scores = scores || '{"18": 7}'::jsonb WHERE id = 'f7e00000-0000-4000-8000-000000000012';
   IF NOT FOUND THEN RAISE EXCEPTION 'FALLA: la prueba no alcanzó la fila (RLS): no prueba el trigger'; END IF;
   RAISE EXCEPTION 'FALLA: se cambió por la tabla la tarjeta de un equipo terminado';
-EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK scores de un equipo terminado no cambian por la tabla -> P0003';
+EXCEPTION WHEN SQLSTATE 'P0003' THEN
+  GET STACKED DIAGNOSTICS v_detail = PG_EXCEPTION_DETAIL;
+  IF v_detail IS DISTINCT FROM 'equipo_terminado' THEN RAISE EXCEPTION 'FALLA: P0003 por otra razón: %', v_detail; END IF;
+  RAISE NOTICE 'OK scores de un equipo terminado no cambian por la tabla -> P0003 equipo_terminado';
 END $$;
 
 -- Como el DO de arriba terminó en excepción, la liberación también se deshizo: Pedro sigue siendo el anotador.
