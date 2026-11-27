@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Wordmark } from '@/components/Wordmark'
 
 // Oculta el footer en rutas full-screen donde estorba la UX
 // (chat del coach: input fijo en bottom + scroll de mensajes).
@@ -15,9 +16,8 @@ export default function GlobalFooter() {
     <footer style={{ background: 'var(--bg-surface)', paddingTop: '1px' }}>
       <div style={{ height: '1px', background: 'var(--border)' }} />
       <div className="py-10 text-center">
-        <p className="font-display text-xl mb-2">
-          <span style={{ color: 'var(--text)' }}>Golfers</span>
-          <span style={{ color: 'var(--brand-on-bg)' }}>+</span>
+        <p className="mb-2">
+          <Wordmark size={20} />
         </p>
         <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
           © {new Date().getFullYear()} Golfers+ · Diseñado para el golf amateur en Latinoamérica

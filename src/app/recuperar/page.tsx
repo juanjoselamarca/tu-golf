@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { Wordmark } from '@/components/Wordmark'
 
 const inputStyle: React.CSSProperties = {
   background:   'var(--input-bg)',
@@ -69,9 +70,7 @@ export default function RecuperarPage() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: 'var(--text)', fontWeight: 700 }}>
-            Golfers<span style={{ color: 'var(--brand-on-bg)' }}>+</span>
-          </span>
+          <Wordmark size={26} />
         </div>
 
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>
