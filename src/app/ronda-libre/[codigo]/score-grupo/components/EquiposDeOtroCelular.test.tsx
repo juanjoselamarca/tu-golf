@@ -31,7 +31,7 @@ describe('EquiposDeOtroCelular', () => {
     expect(screen.getByRole('button', { name: 'Liberar' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Anotarlo yo' }))
     expect(onTomar).not.toHaveBeenCalled()
-    expect(screen.getByText('¿Anotar Los Pumas desde tu celular?')).toBeTruthy()
+    expect(screen.getByText('¿Anotar Los Pumas desde este celular?')).toBeTruthy()
     const botones = screen.getAllByRole('button', { name: 'Anotarlo yo' })
     fireEvent.click(botones[botones.length - 1])
     expect(onTomar).toHaveBeenCalledWith('e2')
