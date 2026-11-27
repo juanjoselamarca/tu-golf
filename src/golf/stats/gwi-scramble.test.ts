@@ -165,7 +165,9 @@ describe('golf — lo que la v2 corrige de la v1', () => {
     const a = E(-6, 9, { golpesHcpTotal: 8, golpesHcpRestantes: 2 })
     const b = E(-2, 9, { golpesHcpTotal: 8, golpesHcpRestantes: 6 })
     expect(probabilidadDeGanarScramble(a, b, 18)).toBeCloseTo(0.5, 6)
-    expect(ritmoComun(a, b, 18)).toBeCloseTo(0, 10)
+    // Ritmo neto común: gross = par con 8/18 de golpe por hoyo recibido.
+    // Los dos aportan lo mismo (−4 cada uno, ya devueltos los golpes recibidos de más): −8 / (9 + 9 + 18).
+    expect(ritmoComun(a, b, 18)).toBeCloseTo(-8 / 36, 10)
   })
   it('el cálculo es rápido: una tabla en vivo lo pide en cada render', () => {
     const t = performance.now()
