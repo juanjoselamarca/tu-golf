@@ -98,7 +98,7 @@ export function HojaNoMolestar({ onClose }: { onClose: () => void }) {
           className="m-0 mt-2 text-base leading-snug"
           style={{ color: 'var(--text-2)' }}
         >
-          Mejora el potencial de tu score.
+          Sin avisos entre golpe y golpe.
         </p>
 
         {mostrandoPasos ? (

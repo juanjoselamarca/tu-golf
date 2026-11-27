@@ -21,7 +21,7 @@ describe('HojaNoMolestar', () => {
     const dialogo = screen.getByRole('dialog', { name: 'Activa “No molestar” durante tu ronda' })
     expect(dialogo.getAttribute('aria-modal')).toBe('true')
     expect(screen.getByText('Muy recomendable')).toBeTruthy()
-    expect(screen.getByText('Mejora el potencial de tu score.')).toBeTruthy()
+    expect(screen.getByText('Sin avisos entre golpe y golpe.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Activar' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Ahora no' })).toBeTruthy()
   })

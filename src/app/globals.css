@@ -746,6 +746,13 @@ main {
   }
 }
 
+/* Scorer de grupo: el toast va arriba, bajo el header. Abajo tapaba «Siguiente» / «Finalizar ronda» justo cuando
+   el aviso pedía volver a tocarlos (matriz de pruebas 27-nov). */
+body:has(.scorer-pantalla) .toast-container {
+  top: calc(env(safe-area-inset-top, 0px) + 104px) !important;
+  bottom: auto !important;
+}
+
 /* â”€â”€ QA: Prevent horizontal overflow â”€â”€ */
 html, body { overflow-x: hidden; max-width: 100vw; }
 

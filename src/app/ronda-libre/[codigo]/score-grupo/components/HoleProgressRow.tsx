@@ -31,7 +31,7 @@ export function HoleProgressRow({
             <div key={h} data-hoyo={h} onClick={() => setCurrentHole(h)} style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative',
             }}>
-              <div style={{ fontSize: '8px', color: isActive ? theme.gold : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
+              <div style={{ fontSize: '10px', color: isActive ? theme.gold : theme.textMuted, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
               <div style={{
                 width: '22px', height: '22px', borderRadius: '3px',
                 background: allHaveScore ? 'rgba(196,153,42,0.12)' : isActive ? 'rgba(196,153,42,0.08)' : 'var(--bg)',

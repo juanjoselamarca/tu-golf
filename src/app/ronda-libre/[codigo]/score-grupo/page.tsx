@@ -278,7 +278,7 @@ function ScorerDeGrupo() {
   const yardaje = getYardajeForTee(holeData, teeDelJugador(adminPlayer, ronda))
 
   return (
-    <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
+    <div className="scorer-pantalla" style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
 
       {/* Aviso "No molestar": una vez por ronda (misma clave que el scorer individual) y solo antes del primer hoyo. */}
       <AvisoNoMolestar claveRonda={claveAvisoAntesDeEmpezar(claveAvisoRondaLibre(codigo), maxThru)} />
