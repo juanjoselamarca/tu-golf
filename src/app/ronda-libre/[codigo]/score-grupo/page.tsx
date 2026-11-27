@@ -130,7 +130,7 @@ function ScorerDeGrupo() {
     () => unCelularPorEquipo && ronda ? equiposSinParAutomatico(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId) : undefined,
     [unCelularPorEquipo, ronda, teamEquipos, equiposDeOtroCelular, authUserId],
   )
-  // El par gris del hoyo en pantalla (Siguiente / «Guardar hoyo N»): `equiposQueConfirmanElHoyo`, que además del suyo
+  // El par gris del hoyo en pantalla (Siguiente): `equiposQueConfirmanElHoyo`, que además del suyo
   // incluye el equipo sin reclamar que el creador ya anota (uno que liberó).
   const noConfirmanElHoyo = useMemo(
     () => unCelularPorEquipo && ronda ? equiposQueNoConfirmanElHoyo(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId, leerEquiposTomados(codigo)) : undefined,

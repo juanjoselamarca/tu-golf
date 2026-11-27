@@ -141,7 +141,7 @@ function tieneGolpes(equipo: Pick<EquipoConAnotador, 'scores'>): boolean {
 
 /**
  * FUENTE ÚNICA de «confirmar el valor que muestra el hoyo»: los equipos cuyo par gris (el hoyo sin golpes, en pantalla)
- * ESTE celular guarda al tocar «Siguiente» o «Guardar hoyo N». Ronda de un celular: todos. Un celular por equipo:
+ * ESTE celular guarda al tocar «Siguiente» o «Terminar mi equipo». Ronda de un celular: todos. Un celular por equipo:
  *  - los de `equiposConParAutomatico` (el que reclamó);
  *  - el creador, además, uno sin reclamar que YA tiene golpes: lo está anotando él (lo liberó cuando se apagó el
  *    otro celular, o empezó a anotarlo a mano). Ensayo 24-nov: tras «Liberar», Siguiente no guardaba el par gris de

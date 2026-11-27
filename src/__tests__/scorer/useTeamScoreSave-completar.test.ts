@@ -106,7 +106,7 @@ describe('useTeamScoreSave — par fantasma (P1-a): el equipo sin reclamar del c
 })
 
 // Ensayo del scramble (25-nov), P0-1: quien anota un equipo desde su celular (no cierra la ronda) llegaba al último
-// hoyo con el par gris y no tenía cómo guardarlo. «Guardar hoyo N» usa la misma regla que Siguiente, pero envía YA.
+// hoyo con el par gris y no tenía cómo guardarlo. «Terminar mi equipo» usa la misma regla que Siguiente.
 describe('useTeamScoreSave.confirmarHoyo — inmediato (último hoyo)', () => {
   it('deja el par en la cola ANTES de enviar y envía sin debounce', async () => {
     let enCola: unknown = null

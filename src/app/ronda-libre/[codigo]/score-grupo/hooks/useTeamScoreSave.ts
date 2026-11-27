@@ -15,7 +15,7 @@ export interface TeamScoreSave {
   /**
    * Confirma el valor que la pantalla muestra en el hoyo: los equipos que este celular confirma
    * (`equiposQueConfirmanElHoyo`) y no tienen score en el hoyo quedan con el par gris. Una sola regla para
-   * «Siguiente» y «Guardar hoyo N». Nunca toca `noConfirmanElHoyo` (un celular por equipo: los de otro celular y
+   * «Siguiente» y «Terminar mi equipo». Nunca toca `noConfirmanElHoyo` (un celular por equipo: los de otro celular y
    * los sin reclamar que nadie anota todavía).
    * `inmediato`: lo envía YA y la promesa espera ese envío (último hoyo); si no, con el debounce y sin esperar.
    */

@@ -13,7 +13,7 @@ import { anclaDeDrives } from '../components/SharedBallTeamCard'
  * «No deja avanzar»). Solo los equipos que ESTE celular confirma (`equipos` fuera de `noConfirmanElHoyo`): el de otro
  * celular lo frena su propio scorer. El intento frenado destaca «Drive de» en ese hoyo (`faltaDriveEnHoyo`) y lleva la
  * vista ahí. `activo` en falso (tarjeta congelada, ronda cerrada) no frena. Lo que frena es CONFIRMAR (Siguiente,
- * «Guardar hoyo N», Finalizar); moverse entre hoyos (swipe, fila de hoyos) es libre, para poder corregir uno anterior.
+ * Finalizar o «Terminar mi equipo»); moverse entre hoyos (swipe, fila de hoyos) es libre, para poder corregir uno anterior.
  * Al cerrar cuentan solo los hoyos jugados y el último si está en pantalla (`hoyoSinDriveQueFrenaElCierre`).
  */
 export function useFrenoPorDrive({ equipos, noConfirmanElHoyo, drivesDe, activo, currentHole, setCurrentHole, ordenHoyos }: {
@@ -42,7 +42,7 @@ export function useFrenoPorDrive({ equipos, noConfirmanElHoyo, drivesDe, activo,
   }
   return {
     faltaDriveEnHoyo,
-    /** Siguiente / «Guardar hoyo N»: frena si falta el drive del hoyo en pantalla. */
+    /** Siguiente: frena si falta el drive del hoyo en pantalla. */
     frenaEnPantalla: () => frena(currentHole),
     /** Finalizar: frena en el primer hoyo jugado (o el último en pantalla) sin drive. */
     frenaAlCerrar: () => {

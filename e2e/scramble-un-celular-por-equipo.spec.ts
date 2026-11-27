@@ -283,9 +283,9 @@ test.describe('Scramble rápido — un celular por equipo', () => {
     }
   })
 
-  test('creador termina antes: Finalizar sube su último hoyo (par sin tocar) aunque el otro equipo siga jugando', async ({ page }) => {
-    // Autoensayo 26-nov: el creador en el último hoyo con el par sugerido sin tocar toca Finalizar; el otro celular va
-    // atrás y el cierre se frena (bien), pero el último hoyo propio no subía y el espectador veía «8/9» todo ese rato.
+  test('creador termina antes: «Terminar mi equipo» sube su último hoyo (par sin tocar) y la ronda sigue para el otro equipo', async ({ page }) => {
+    // Autoensayo 26-nov: el último hoyo con el par sugerido sin tocar no subía y el espectador veía «8/9». Desde el 27-nov
+    // nadie finaliza: cada celular termina su equipo y la ronda se cierra sola con el último.
     const pageErrors: string[] = []
     page.on('pageerror', err => pageErrors.push(err.message))
     const { id, codigo } = await crearScrambleDeClub(page.request, ['Los Halcones', 'Los Zorros'])
@@ -298,24 +298,37 @@ test.describe('Scramble rápido — un celular por equipo', () => {
 
     await marcarAvisoNoMolestarVisto(page, codigo)
     await page.goto(`/ronda-libre/${codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('button', { name: /Finalizar ronda/ })).toBeVisible({ timeout: 20_000 })
+    const terminar = page.getByRole('button', { name: 'Terminar mi equipo' })
+    await expect(terminar).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: /Finalizar ronda/ })).toHaveCount(0)
     expect(await golpeDelEquipo(id, 'Los Halcones', 9), 'el par gris no está guardado antes de tocar').toBeNull()
 
-    await page.getByRole('button', { name: /Finalizar ronda/ }).click()
+    await terminar.click()
     const hoja = page.getByRole('dialog')
-    await expect(hoja).toContainText('¿Marcar 1 hoyo como par y finalizar?')
-    // Abrir la hoja y cancelar no guarda nada: el par se confirma recién con «Finalizar».
+    await expect(hoja).toContainText('¿Terminar tu equipo?')
+    // Abrir la hoja y cancelar no guarda nada: el par se confirma recién al terminar.
     await hoja.getByRole('button', { name: 'Cancelar' }).click()
     await page.waitForTimeout(1500)
     expect(await golpeDelEquipo(id, 'Los Halcones', 9), 'Cancelar no sube el par').toBeNull()
-    await page.getByRole('button', { name: /Finalizar ronda/ }).click()
-    await hoja.getByRole('button', { name: /^Finalizar/ }).click()
-    await expect(page.getByText(/Los Zorros va en el hoyo 7/)).toBeVisible({ timeout: 15_000 })
+    await terminar.click()
+    await hoja.getByRole('button', { name: 'Terminar mi equipo' }).click()
 
-    await expect.poll(() => golpeDelEquipo(id, 'Los Halcones', 9), { timeout: 15_000, message: 'el último hoyo del creador sube' }).not.toBeNull()
+    // Pasa a la ronda en vivo, con «Corregir mi tarjeta».
+    await expect(page).toHaveURL(new RegExp(`/ronda-libre/${codigo}$`), { timeout: 20_000 })
+    await expect(page.getByRole('button', { name: 'Corregir mi tarjeta' })).toBeVisible({ timeout: 15_000 })
+    expect(await golpeDelEquipo(id, 'Los Halcones', 9), 'el último hoyo del creador sube').not.toBeNull()
     expect(await golpeDelEquipo(id, 'Los Zorros', 9), 'no se rellena el equipo de otro celular').toBeNull()
+    const halcones = await sinError('Halcones', adminClient().from('ronda_equipos').select('terminado_at').eq('id', equipos['Los Halcones'].id).single())
+    expect(halcones?.terminado_at, 'Los Halcones quedó terminado').not.toBeNull()
     const ronda = await sinError('ronda', adminClient().from('rondas_libres').select('estado').eq('id', id).single())
     expect(ronda?.estado, 'con Los Zorros jugando no se cierra').toBe('en_curso')
+
+    // «Corregir mi tarjeta» reabre y vuelve al scorer.
+    await page.getByRole('button', { name: 'Corregir mi tarjeta' }).click()
+    await expect(page).toHaveURL(new RegExp(`/ronda-libre/${codigo}/score-grupo`), { timeout: 20_000 })
+    await expect(terminar).toBeVisible({ timeout: 20_000 })
+    await expect.poll(async () => (await sinError('Halcones', adminClient().from('ronda_equipos').select('terminado_at').eq('id', equipos['Los Halcones'].id).single()))?.terminado_at ?? null,
+      { timeout: 10_000, message: 'Corregir reabre el equipo' }).toBeNull()
     expect(pageErrors).toEqual([])
   })
 })
