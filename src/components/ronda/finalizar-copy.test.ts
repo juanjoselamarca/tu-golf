@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { textoConfirmarFinalizar, avisoTarjetasNoGuardadas, detalleHoyosSinAnotarTimba, hojaFinalizarTimba, TEXTO_TARJETA_COMPLETA, TEXTO_TARJETA_COMPLETA_EQUIPO, hojaTerminarEquipo, avisoEquipoIncompletoAlTerminar } from './finalizar-copy'
+import { textoConfirmarFinalizar, avisoTarjetasNoGuardadas, detalleHoyosSinAnotarTimba, hojaFinalizarTimba, TEXTO_TARJETA_COMPLETA, TEXTO_TARJETA_COMPLETA_EQUIPO, hojaTerminarEquipo, avisoEquipoIncompletoAlTerminar, textoFaltaQueTerminen } from './finalizar-copy'
 
 describe('textoConfirmarFinalizar', () => {
   it('avisa los hoyos que se marcan como par', () => {
@@ -85,5 +85,17 @@ describe('tarjeta completa y «Terminar mi equipo»', () => {
   it('equipo incompleto: nombra el equipo y el hoyo, y dice qué hacer', () => {
     expect(avisoEquipoIncompletoAlTerminar('Los Pumas', 7)).toBe('Los Pumas no tiene golpes en el hoyo 7. Anótalo y vuelve a tocar Terminar mi equipo.')
     expect(avisoEquipoIncompletoAlTerminar('Los Pumas', null)).toBe('A Los Pumas le faltan hoyos. Anótalos y vuelve a tocar Terminar mi equipo.')
+  })
+})
+
+describe('textoFaltaQueTerminen (vista en vivo, un celular por equipo)', () => {
+  it('uno: singular, con el nombre entre comillas', () => {
+    expect(textoFaltaQueTerminen(['Los Tigres'])).toBe('Falta que termine: «Los Tigres»')
+  })
+  it('varios: plural, separados por coma', () => {
+    expect(textoFaltaQueTerminen(['Los Tigres', 'Equipo 3'])).toBe('Falta que terminen: «Los Tigres», «Equipo 3»')
+  })
+  it('ninguno: nada', () => {
+    expect(textoFaltaQueTerminen([])).toBeNull()
   })
 })

@@ -23,7 +23,7 @@ vi.mock('@/lib/data/ronda-libre', () => ({
   },
 }))
 
-const eq = (id: string, anotador: string | null) => ({ id, handicap_origen: 'club', anotador_user_id: anotador, anotador_nombre: null })
+const eq = (id: string, anotador: string | null) => ({ id, nombre: `Equipo ${id}`, handicap_origen: 'club', anotador_user_id: anotador, anotador_nombre: null })
 
 beforeEach(() => {
   lectura.equipos = []
@@ -125,6 +125,32 @@ describe('useOfreceAnotarMiEquipo — Corregir mi tarjeta', () => {
     await waitFor(() => expect(b.result.current.corrige).toBe(true))
     await act(async () => { await b.result.current.corregir() })
     expect(reabrir.llamadas).toEqual(['e1', 'e2'])
+  })
+
+  it('ya terminó lo suyo: nombra los equipos que faltan; no es el creador, sin la ayuda de liberar', async () => {
+    lectura.equipos = [term('e1', 'u-juan', '2026-11-28T12:00:00Z'), term('e2', 'u-pedro', null)]
+    const { result } = montarConRonda('u-juan')
+    await waitFor(() => expect(result.current.corrige).toBe(true))
+    expect(result.current.faltanPorTerminar).toEqual(['Equipo e2'])
+    expect(result.current.puedeLiberarlos).toBe(false)
+  })
+
+  it('el creador ya terminó: nombra los que faltan y puede liberarlos', async () => {
+    lectura.equipos = [term('e1', 'u-crea', '2026-11-28T12:00:00Z'), term('e2', 'u-pedro', null), term('e3', 'u-ana', null)]
+    const { result } = montarConRonda('u-crea')
+    await waitFor(() => expect(result.current.corrige).toBe(true))
+    expect(result.current.faltanPorTerminar).toEqual(['Equipo e2', 'Equipo e3'])
+    expect(result.current.puedeLiberarlos).toBe(true)
+  })
+
+  it('todavía anota (no ve «Corregir»): no nombra a nadie', async () => {
+    lectura.equipos = [term('e1', 'u-crea', null), term('e2', 'u-pedro', null)]
+    const { result } = montarConRonda('u-crea')
+    await waitFor(() => expect(lectura.llamadas).toBe(1))
+    await act(async () => {})
+    expect(result.current.corrige).toBe(false)
+    expect(result.current.faltanPorTerminar).toEqual([])
+    expect(result.current.puedeLiberarlos).toBe(false)
   })
 
   it('si reabrir falla: avisa, no navega y el botón vuelve a responder', async () => {

@@ -185,6 +185,19 @@ export const AVISO_EQUIPO_YA_TERMINADO = {
 } as const
 
 /**
+ * Vista en vivo de un celular por equipo, cuando esta cuenta ya terminó lo suyo (ve «Corregir mi tarjeta»): qué equipos
+ * faltan para que la ronda se cierre sola (`equiposSinTerminar`). Vacío: nada que decir.
+ */
+export function textoFaltaQueTerminen(nombres: readonly string[]): string | null {
+  if (nombres.length === 0) return null
+  const lista = nombres.map(n => `«${n}»`).join(', ')
+  return nombres.length === 1 ? `Falta que termine: ${lista}` : `Falta que terminen: ${lista}`
+}
+
+/** Debajo de «Falta que termine», solo al creador: él puede liberar el equipo de un celular que no termina. */
+export const AYUDA_CREADOR_FALTA_QUE_TERMINEN = '¿No puede terminar? Corrige tu tarjeta y libera su equipo.'
+
+/**
  * Un equipo que anota este celular tiene un hoyo sin golpes: «Terminar» no lo rellena con par (solo el equipo que este
  * celular reclamó recibe par automático). Lo anota a mano y vuelve a terminar. También cubre al creador que tomó el
  * equipo de un celular que se apagó (Liberar o «Anotarlo yo»): el aviso dice qué hoyo falta.

@@ -8,7 +8,7 @@ import { addToast } from '@/hooks/useToast'
 import { fetchEquiposConAnotador, type EquipoConAnotadorLeido } from '@/lib/data/ronda-libre'
 import { reabrirEquipoDeRonda } from '@/lib/data/ronda-libre-anotador'
 import { leerEquiposTomados } from '@/lib/ronda/equipos-tomados'
-import { equiposTerminadosDelCelular, ofreceAnotarMiEquipo, type RondaDeEquipos } from '@/golf/ronda-libre/anotador-de-equipo'
+import { equiposSinTerminar, equiposTerminadosDelCelular, liberaEquipos, ofreceAnotarMiEquipo, type RondaDeEquipos } from '@/golf/ronda-libre/anotador-de-equipo'
 
 export interface BotonDeMiEquipo {
   /** Se muestra el botón del pie («Anotar mi equipo» o «Corregir mi tarjeta»). */
@@ -20,6 +20,10 @@ export interface BotonDeMiEquipo {
   corrige: boolean
   corregir: () => Promise<void>
   corrigiendo: boolean
+  /** Con `corrige`: nombres de los equipos de la ronda que todavía no terminan (`equiposSinTerminar`). Si no, vacío. */
+  faltanPorTerminar: string[]
+  /** Con equipos por terminar, esta cuenta es la que puede liberarlos (`liberaEquipos`: el creador). */
+  puedeLiberarlos: boolean
 }
 
 /**
@@ -81,10 +85,14 @@ export function useOfreceAnotarMiEquipo(input: {
     }
   }, [corrigiendo, codigo, aCorregir, router])
 
-  if (!activo) return { ofrece: false, corrige: false, corregir, corrigiendo }
-  if (leidos == null) return { ofrece: true, corrige: false, corregir, corrigiendo }
+  const nada = { faltanPorTerminar: [], puedeLiberarlos: false }
+  if (!activo) return { ofrece: false, corrige: false, corregir, corrigiendo, ...nada }
+  if (leidos == null) return { ofrece: true, corrige: false, corregir, corrigiendo, ...nada }
   // «Corregir» se ofrece aunque no quede nada que anotar (el creador que terminó los equipos sin reclamar: esos ya no
   // cuentan como libres).
   const corrige = aCorregir.length > 0
-  return { ofrece: corrige || ofreceAnotarMiEquipo(leidos, userId), corrige, corregir, corrigiendo }
+  // Ya terminó lo suyo: qué falta para que la ronda se cierre sola (la vista en vivo lo dice sobre el botón).
+  const faltanPorTerminar = corrige && ronda ? equiposSinTerminar(ronda, leidos).map(e => e.nombre) : []
+  const puedeLiberarlos = faltanPorTerminar.length > 0 && !!ronda && liberaEquipos(ronda, leidos, userId)
+  return { ofrece: corrige || ofreceAnotarMiEquipo(leidos, userId), corrige, corregir, corrigiendo, faltanPorTerminar, puedeLiberarlos }
 }

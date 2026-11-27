@@ -213,6 +213,19 @@ export function equiposTerminadosDelCelular<E extends EquipoConAnotador>(
 }
 
 /**
+ * Un celular por equipo: los equipos de la ronda que todavía no terminaron su tarjeta (la base cierra la ronda sola con
+ * el último). A diferencia de `equiposPorTerminar` (los de ESTE celular), mira la ronda entera: es lo que la vista en
+ * vivo nombra como «Falta que termine». Ronda de un celular: ninguno (ahí nadie termina un equipo).
+ */
+export function equiposSinTerminar<E extends EquipoConAnotador>(
+  ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode'>,
+  equipos: readonly E[],
+): E[] {
+  if (!unCelularPorEquipo(ronda, equipos)) return []
+  return equipos.filter(e => !equipoTerminado(e))
+}
+
+/**
  * Equipos que nadie anota desde su celular y siguen jugando: los que se pueden reclamar en «Elige tu equipo». Uno sin
  * anotador ya terminado (lo terminó el creador) no se ofrece: reclamarlo dejaría a otra cuenta reabrir esa tarjeta.
  */

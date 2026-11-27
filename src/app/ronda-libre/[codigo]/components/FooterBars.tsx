@@ -136,9 +136,27 @@ export function TeamScoringBar({ codigo }: { codigo: string }) {
  * Un celular por equipo, con su equipo ya terminado y la ronda en curso: «Corregir mi tarjeta» reabre el equipo y entra
  * al scorer (`useOfreceAnotarMiEquipo`). Mismo lugar y tamaño que «Anotar mi equipo».
  */
-export function CorregirTarjetaBar({ onCorregir, corrigiendo }: { onCorregir: () => void; corrigiendo: boolean }) {
+export function CorregirTarjetaBar({ onCorregir, corrigiendo, faltan, ayuda }: {
+  onCorregir: () => void
+  corrigiendo: boolean
+  /** «Falta que termine: «X»» (`textoFaltaQueTerminen`): la ronda se cierra sola cuando termina el último. */
+  faltan?: string | null
+  /** Solo al creador, debajo de `faltan`: cómo destrabar un equipo que no termina. */
+  ayuda?: string | null
+}) {
   return (
-    <div style={CONTENEDOR_DE_LA_BARRA}>
+    <div style={{ ...CONTENEDOR_DE_LA_BARRA, flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+      {/* Región viva: cuando otro equipo termina, la línea cambia sola y se anuncia sin robar el foco. */}
+      <div role="status" aria-live="polite" style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+        {faltan && (
+          <p style={{ margin: 0, fontSize: '15px', fontWeight: 600, lineHeight: 1.35, color: 'var(--text)', overflowWrap: 'anywhere' }}>
+            {faltan}
+          </p>
+        )}
+        {faltan && ayuda && (
+          <p style={{ margin: '2px 0 0', fontSize: '14px', lineHeight: 1.35, color: 'var(--text-2)' }}>{ayuda}</p>
+        )}
+      </div>
       <button
         type="button" onClick={onCorregir} disabled={corrigiendo}
         style={{ ...BOTON_DE_LA_BARRA, border: 'none', cursor: corrigiendo ? 'default' : 'pointer', opacity: corrigiendo ? 0.7 : 1 }}

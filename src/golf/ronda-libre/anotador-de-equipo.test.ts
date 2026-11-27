@@ -11,6 +11,7 @@ import {
   equiposConParAutomatico,
   equiposDeOtroCelular,
   equiposLibres,
+  equiposSinTerminar,
   equiposQueAnota,
   equiposQueConfirmanElHoyo,
   equiposQueNoConfirmanElHoyo,
@@ -223,6 +224,20 @@ describe('equiposLibres / equiposTomados («Elige tu equipo»)', () => {
     const terminado = { ...club('e3', null), terminado_at: '2026-11-28T15:00:00Z' }
     expect(equiposLibres([equipos[0], equipos[1], terminado])).toEqual([])
     expect(ids(equiposTomados([equipos[0], equipos[1], terminado]))).toEqual(['e1', 'e2'])
+  })
+})
+
+describe('equiposSinTerminar («Falta que termine» de la vista en vivo)', () => {
+  const T = '2026-11-28T15:00:00Z'
+  it('un celular por equipo: los que no terminaron, de cualquier celular', () => {
+    const es = [{ ...club('e1', CREADOR), terminado_at: T }, club('e2', PEDRO), { ...club('e3', null), terminado_at: null }]
+    expect(ids(equiposSinTerminar(multi, es))).toEqual(['e2', 'e3'])
+  })
+  it('todos terminados: ninguno', () => {
+    expect(equiposSinTerminar(multi, [{ ...club('e1', CREADOR), terminado_at: T }, { ...club('e2', PEDRO), terminado_at: T }])).toEqual([])
+  })
+  it('ronda de un celular: ninguno (ahí nadie termina un equipo)', () => {
+    expect(equiposSinTerminar(unCelular, equipos)).toEqual([])
   })
 })
 

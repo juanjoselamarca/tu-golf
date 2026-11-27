@@ -59,6 +59,7 @@ import { esRondaCerrada } from '@/golf/ronda-libre/estado-ronda'
 import { TimbaEnVivo } from './components/timba/TimbaEnVivo'
 import { useTimbaDeLaRonda } from './hooks/useTimbaDeLaRonda'
 import { useOfreceAnotarMiEquipo } from './hooks/useOfreceAnotarMiEquipo'
+import { AYUDA_CREADOR_FALTA_QUE_TERMINEN, textoFaltaQueTerminen } from '@/components/ronda/finalizar-copy'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
 
@@ -454,7 +455,11 @@ function RondaLibrePageContent() {
         )}
 
         {miEquipo.ofrece && (miEquipo.corrige
-          ? <CorregirTarjetaBar onCorregir={() => { void miEquipo.corregir() }} corrigiendo={miEquipo.corrigiendo} />
+          ? <CorregirTarjetaBar
+              onCorregir={() => { void miEquipo.corregir() }} corrigiendo={miEquipo.corrigiendo}
+              faltan={textoFaltaQueTerminen(miEquipo.faltanPorTerminar)}
+              ayuda={miEquipo.puedeLiberarlos ? AYUDA_CREADOR_FALTA_QUE_TERMINEN : null}
+            />
           : <TeamScoringBar codigo={codigo} />)}
 
         {showBanner && isAnonymous && (
