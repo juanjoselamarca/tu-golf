@@ -10,7 +10,8 @@ vi.mock('@/lib/admin', () => ({ isAdmin: (...a: unknown[]) => isAdmin(...a) }))
 
 const single = vi.fn()
 const adminRpc = vi.fn()
-const adminFrom = vi.fn(() => ({ select: () => ({ eq: () => ({ single }) }) }))
+const adminFrom = vi.fn(() => ({ select: () => ({ eq: () => ({ single, maybeSingle: single }) }) }))
+vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/supabaseAdmin', () => ({
   createAdminClient: () => ({ from: adminFrom, rpc: adminRpc }),
 }))
@@ -93,5 +94,27 @@ describe('POST /api/admin/recompute-indice', () => {
     expect(res.status).toBe(500)
     const json = await res.json()
     expect(json.detalle).toBe('boom')
+  })
+
+  it('userId que no es UUID → 400 sin recalcular', async () => {
+    const res = await POST(jsonReq({ userId: 'no-es-uuid', genero: 'M' }))
+    expect(res.status).toBe(400)
+    expect(recompute).not.toHaveBeenCalled()
+  })
+
+  // Con la base fallando, el género no es «null»: recalcular sin él aplicaría el rating de la tee equivocada.
+  it('si la lectura del perfil falla → 503 y NO recalcula ni aplica', async () => {
+    single.mockResolvedValue({ data: null, error: { code: '57014', message: 'statement timeout' } })
+    const res = await POST(jsonReq({ userId: UID, dryRun: false }))
+    expect(res.status).toBe(503)
+    expect(recompute).not.toHaveBeenCalled()
+    expect(adminRpc).not.toHaveBeenCalled()
+  })
+
+  it('si el perfil no existe → 404 sin recalcular', async () => {
+    single.mockResolvedValue({ data: null, error: null })
+    const res = await POST(jsonReq({ userId: UID, dryRun: true }))
+    expect(res.status).toBe(404)
+    expect(recompute).not.toHaveBeenCalled()
   })
 })

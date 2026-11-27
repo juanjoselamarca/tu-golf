@@ -3,6 +3,8 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
 import { recomputeRoundsFromCatalog } from '@/lib/data/recompute-tee-rounds'
+import { isUuid } from '@/lib/uuid'
+import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +37,9 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: 'Falta userId' }, { status: 400 })
   }
+  if (!isUuid(userId)) {
+    return NextResponse.json({ error: 'userId debe ser un UUID' }, { status: 400 })
+  }
   // Validar género explícito: un typo ('hombre', 'male') resolvería a un char que
   // no matchea y dejaría rondas sin tocar en silencio. Mejor fallar fuerte.
   if (body.genero != null && body.genero !== 'M' && body.genero !== 'F') {
@@ -49,8 +54,15 @@ export async function POST(request: Request) {
   // para desambiguar tees mismo-color M/F con ratings distintos).
   let genero = body.genero ?? null
   if (genero == null) {
-    const { data: prof } = await admin.from('profiles').select('genero').eq('id', userId).single()
-    genero = prof?.genero ?? null
+    // «No pude leer el perfil» no es «no tiene género»: con género null el resolver no desambigua tees
+    // mismo-color M/F y, con dryRun:false, aplicaría diferenciales con el rating equivocado al índice.
+    const { data: prof, error: profError } = await admin.from('profiles').select('genero').eq('id', userId).maybeSingle()
+    if (profError) {
+      void captureError(profError, { context: 'admin.recompute-indice.genero', level: 'error', meta: { userId } })
+      return NextResponse.json({ error: 'No pudimos leer el perfil. Intenta de nuevo; no se recalculó nada.' }, { status: 503 })
+    }
+    if (!prof) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
+    genero = prof.genero ?? null
   }
 
   const result = await recomputeRoundsFromCatalog(admin, userId, { dryRun, genero })
