@@ -212,19 +212,26 @@ export function equiposTerminadosDelCelular<E extends EquipoConAnotador>(
   return mios.length > 0 && mios.every(equipoTerminado) ? mios : []
 }
 
-/** Equipos que nadie anota desde su celular: los que se pueden reclamar en «Elige tu equipo». */
+/**
+ * Equipos que nadie anota desde su celular y siguen jugando: los que se pueden reclamar en «Elige tu equipo». Uno sin
+ * anotador ya terminado (lo terminó el creador) no se ofrece: reclamarlo dejaría a otra cuenta reabrir esa tarjeta.
+ */
 export function equiposLibres<E extends EquipoConAnotador>(equipos: readonly E[]): E[] {
-  return equipos.filter(e => e.anotador_user_id == null)
+  return equipos.filter(e => e.anotador_user_id == null && !equipoTerminado(e))
 }
 
-/** Equipos que ya anota alguien desde su celular. Complemento exacto de `equiposLibres`. */
+/**
+ * Equipos que ya anota alguien desde su celular. Junto con `equiposLibres` son todos, salvo los sin anotador ya
+ * terminados (no se reclaman ni los anota otro celular).
+ */
 export function equiposTomados<E extends EquipoConAnotador>(equipos: readonly E[]): E[] {
   return equipos.filter(e => e.anotador_user_id != null)
 }
 
 /**
  * ¿La ronda en vivo ofrece «Anotar mi equipo» a esta cuenta? A quien ya anota uno (vuelve a su scorer) o si queda
- * alguno libre para reclamar. Con todos tomados por otros, el botón solo llevaría a «Ya tienen quién los anote».
+ * alguno libre para reclamar (`equiposLibres`: no los terminados). Con todos tomados por otros, el botón solo llevaría
+ * a «Ya tienen quién los anote». «Corregir mi tarjeta» lo decide `equiposTerminadosDelCelular`, no esta función.
  */
 export function ofreceAnotarMiEquipo(
   equipos: readonly EquipoConAnotador[],

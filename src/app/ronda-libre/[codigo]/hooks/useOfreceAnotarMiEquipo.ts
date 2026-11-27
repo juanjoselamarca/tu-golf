@@ -83,5 +83,8 @@ export function useOfreceAnotarMiEquipo(input: {
 
   if (!activo) return { ofrece: false, corrige: false, corregir, corrigiendo }
   if (leidos == null) return { ofrece: true, corrige: false, corregir, corrigiendo }
-  return { ofrece: ofreceAnotarMiEquipo(leidos, userId), corrige: aCorregir.length > 0, corregir, corrigiendo }
+  // «Corregir» se ofrece aunque no quede nada que anotar (el creador que terminó los equipos sin reclamar: esos ya no
+  // cuentan como libres).
+  const corrige = aCorregir.length > 0
+  return { ofrece: corrige || ofreceAnotarMiEquipo(leidos, userId), corrige, corregir, corrigiendo }
 }

@@ -219,6 +219,11 @@ describe('equiposLibres / equiposTomados («Elige tu equipo»)', () => {
     expect(ids(equiposLibres([viejo]))).toEqual(['e9'])
     expect(equiposTomados([viejo])).toEqual([])
   })
+  it('uno sin anotador ya terminado (lo terminó el creador) no se ofrece para reclamar', () => {
+    const terminado = { ...club('e3', null), terminado_at: '2026-11-28T15:00:00Z' }
+    expect(equiposLibres([equipos[0], equipos[1], terminado])).toEqual([])
+    expect(ids(equiposTomados([equipos[0], equipos[1], terminado]))).toEqual(['e1', 'e2'])
+  })
 })
 
 describe('ofreceAnotarMiEquipo (CTA de la ronda en vivo)', () => {
@@ -229,6 +234,11 @@ describe('ofreceAnotarMiEquipo (CTA de la ronda en vivo)', () => {
     const tomados = [club('e1', CREADOR), club('e2', PEDRO)]
     expect(ofreceAnotarMiEquipo(tomados, EXTRANO)).toBe(false)
     expect(ofreceAnotarMiEquipo(tomados, PEDRO)).toBe(true)
+  })
+  it('el único libre ya terminó: no se ofrece a quien no anota ninguno', () => {
+    const conTerminado = [equipos[0], equipos[1], { ...club('e3', null), terminado_at: '2026-11-28T15:00:00Z' }]
+    expect(ofreceAnotarMiEquipo(conTerminado, EXTRANO)).toBe(false)
+    expect(ofreceAnotarMiEquipo(conTerminado, PEDRO)).toBe(true)
   })
   it('sin sesión: nunca', () => {
     expect(ofreceAnotarMiEquipo(equipos, null)).toBe(false)
