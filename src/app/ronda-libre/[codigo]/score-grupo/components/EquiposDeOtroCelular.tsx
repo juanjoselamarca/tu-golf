@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ConfirmModal } from '@/components/ConfirmModal'
+import { useShare } from '@/components/share/useShare'
+import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
 import { nombreDeQuienAnota } from '@/golf/ronda-libre/anotador-de-equipo'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 
@@ -29,7 +31,11 @@ interface EquiposDeOtroCelularProps {
 export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLiberar, enCurso, onLiberar, onTomar }: EquiposDeOtroCelularProps) {
   const [porLiberar, setPorLiberar] = useState<EquipoDelScorer | null>(null)
   const [porTomar, setPorTomar] = useState<EquipoDelScorer | null>(null)
+  const { share } = useShare()
   if (equipos.length === 0) return null
+  // Juanjo, 26-nov: el link para el otro equipo quedaba escondido en el ícono de compartir. Mientras haya un equipo
+  // sin celular, el link para anotar va a la vista acá, donde se ve que falta.
+  const hayEquipoSinCelular = equipos.some(e => sinCelular(e, puedeLiberar))
 
   return (
     <section aria-label="Equipos que anota otro celular" style={{ marginTop: '4px', padding: '10px 12px', borderRadius: '12px', border: '1px dashed var(--border-md)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -64,6 +70,15 @@ export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLibe
           </li>
         ))}
       </ul>
+      {hayEquipoSinCelular && (
+        <button
+          type="button"
+          onClick={() => { const enlace = enlacesDeRondaLibre(codigo, { conJugar: false, unCelularPorEquipo: true }).anotar; if (enlace) void share(enlace) }}
+          style={{ marginTop: '4px', minHeight: '44px', padding: '0 14px', borderRadius: '12px', border: 'none', background: 'var(--brand)', color: 'var(--brand-dark)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' }}
+        >
+          Enviar link para que anoten su equipo
+        </button>
+      )}
       <Link
         href={`/ronda-libre/${codigo}`}
         style={{ alignSelf: 'flex-start', minHeight: '44px', display: 'inline-flex', alignItems: 'center', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '3px' }}
