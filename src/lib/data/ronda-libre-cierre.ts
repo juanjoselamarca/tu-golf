@@ -48,17 +48,16 @@ export const EQUIPO_DE_OTRO_ANOTADOR_DETAIL = 'equipo_de_otro_anotador'
 export const EQUIPO_TERMINADO_DETAIL = 'equipo_terminado'
 
 /**
- * El servidor rechazó los golpes de un equipo que este celular no puede escribir: lo anota otro celular
- * (`EQUIPO_DE_OTRO_ANOTADOR_DETAIL`) o ya terminó su tarjeta (`EQUIPO_TERMINADO_DETAIL`).
+ * El servidor rechazó los golpes de un equipo que lo anota otro celular (`EQUIPO_DE_OTRO_ANOTADOR_DETAIL`). Sólo eso:
+ * el equipo terminado es `esRechazoDeEquipoTerminado` (el golpe es propio y se aparta, no se descarta).
  */
 export function esRechazoDeEquipoAjeno(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
-  return error?.code === RONDA_ERRCODE.FORBIDDEN
-    && (error.details === EQUIPO_DE_OTRO_ANOTADOR_DETAIL || error.details === EQUIPO_TERMINADO_DETAIL)
+  return error?.code === RONDA_ERRCODE.FORBIDDEN && error.details === EQUIPO_DE_OTRO_ANOTADOR_DETAIL
 }
 
 /**
- * El servidor rechazó los golpes de un equipo que ya terminó su tarjeta (`EQUIPO_TERMINADO_DETAIL`). Es un caso de
- * `esRechazoDeEquipoAjeno` (definitivo, no es sesión), pero el golpe es legítimo: quien lo trata lo aparta en el
+ * El servidor rechazó los golpes de un equipo que ya terminó su tarjeta (`EQUIPO_TERMINADO_DETAIL`). Definitivo y no es
+ * sesión, como el de equipo ajeno, pero el golpe es legítimo: quien lo trata lo aparta en el
  * teléfono (`apartarRechazados`) en vez de descartarlo, y «Corregir mi tarjeta» lo devuelve.
  */
 export function esRechazoDeEquipoTerminado(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
@@ -77,7 +76,7 @@ export const ERRCODE_SIN_RESPUESTA = 'SIN_RESPUESTA'
  */
 export function rechazoQuePuedeSerSesion(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
   if (!error?.code || error.code === ERRCODE_SIN_RESPUESTA) return false
-  return !(error.code === RONDA_ERRCODE.FORBIDDEN && (error.details === RONDA_DEMO_DETAIL || esRechazoDeEquipoAjeno(error)))
+  return !(error.code === RONDA_ERRCODE.FORBIDDEN && (error.details === RONDA_DEMO_DETAIL || esRechazoDeEquipoAjeno(error) || esRechazoDeEquipoTerminado(error)))
 }
 
 /**
@@ -111,8 +110,8 @@ const RECHAZOS_DEFINITIVOS: readonly string[] = [
 ]
 
 export function esNoReintentable(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
-  // P0003 de equipo ajeno: definitivo (no es sesión vencida; el equipo lo anota otro celular).
-  return !!error?.code && (RECHAZOS_DEFINITIVOS.includes(error.code) || esRechazoDeEquipoAjeno(error))
+  // P0003 de equipo ajeno o terminado: definitivo (no es sesión vencida; reintentar da lo mismo).
+  return !!error?.code && (RECHAZOS_DEFINITIVOS.includes(error.code) || esRechazoDeEquipoAjeno(error) || esRechazoDeEquipoTerminado(error))
 }
 
 /**

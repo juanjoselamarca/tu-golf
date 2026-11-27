@@ -7,7 +7,8 @@ describe('P0003 equipo_terminado', () => {
   it('definitivo y no se toma por sesión perdida (el scorer lo aparta antes de mirar esRechazoQueDescarta)', () => {
     expect(EQUIPO_TERMINADO_DETAIL).toBe('equipo_terminado')
     expect(esRechazoDeEquipoTerminado(error)).toBe(true)
-    expect(esRechazoDeEquipoAjeno(error)).toBe(true)
+    // No es «ajeno»: el golpe es propio y se aparta (Fable 2ª vuelta, predicado sin solapes).
+    expect(esRechazoDeEquipoAjeno(error)).toBe(false)
     expect(esNoReintentable(error)).toBe(true)
     expect(esRechazoQueDescarta(error)).toBe(true)
     expect(rechazoQuePuedeSerSesion(error)).toBe(false)
@@ -17,5 +18,6 @@ describe('P0003 equipo_terminado', () => {
     expect(esRechazoDeEquipoAjeno({ code: 'P0003', details: 'sin sesión' })).toBe(false)
     expect(esRechazoDeEquipoTerminado({ code: 'P0003', details: 'sin sesión' })).toBe(false)
     expect(esRechazoDeEquipoTerminado({ code: 'P0003', details: 'equipo_de_otro_anotador' })).toBe(false)
+    expect(esRechazoDeEquipoAjeno({ code: 'P0003', details: 'equipo_de_otro_anotador' })).toBe(true)
   })
 })
