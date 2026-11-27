@@ -9,7 +9,12 @@ import { prepararJuegoDeRondaNueva } from '@/golf/ronda-libre/juego-de-ronda-nue
 import { puedeCrearJuegoPersonalizado } from '@/lib/auth/juego-personalizado'
 import { SKINS_LIBRE_ABIERTO } from '@/lib/auth/skins-libre-abierto'
 import { handicapsDeEquipoDeRondaNueva, insertarEquiposDeRonda } from '@/lib/data/ronda-libre-equipos'
-import { JUGADORES_POR_EQUIPO_CON_DRIVES, drivesMinimoPorJugador, nombreDeJugadorDeDrive } from '@/golf/formats/drives-scramble'
+import {
+  JUGADORES_POR_EQUIPO_CON_DRIVES,
+  drivesMinimoParaGuardar,
+  drivesMinimoPorJugador,
+  nombreDeJugadorDeDrive,
+} from '@/golf/formats/drives-scramble'
 import { generarCodigoDeRonda, nombreDeCanchaDeRonda } from '@/lib/data/ronda-libre-crear'
 import { DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB, validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { NOMBRE_EQUIPO_MAX, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
@@ -78,6 +83,11 @@ const equiposDeClubSchema = z.object({
   quien_anota: z.enum(OPCIONES_QUIEN_ANOTA).nullable(),
   /** «¿Anotar drives?» Sí. Ausente = la ronda de siempre (y unos `driveJugadores` sueltos no se graban). */
   anotar_drives: z.boolean().optional(),
+  /**
+   * Con `anotar_drives`: el mínimo por jugador que eligió el creador (0 = sin mínimo). Zod solo mira que sea número;
+   * entero y rango (dependen de los hoyos) los responde el validador. Ausente = el de siempre según los hoyos.
+   */
+  drives_minimo: z.number().optional(),
 })
 
 const createSchema = z.object({
@@ -179,7 +189,7 @@ export async function POST(req: NextRequest) {
       equipos: isTeamFormat && !club ? body.equipos ?? [] : [],
       creadorId: user.id,
       ...(club
-        ? { equiposDeClub: { equipos: club.equipos, holes: body.holes, quienAnota: club.quien_anota, anotarDrives: club.anotar_drives === true } }
+        ? { equiposDeClub: { equipos: club.equipos, holes: body.holes, quienAnota: club.quien_anota, anotarDrives: club.anotar_drives === true, drivesMinimo: club.drives_minimo } }
         : {}),
     })
     if (problema) {
@@ -361,7 +371,8 @@ export async function POST(req: NextRequest) {
     // Drives del scramble: solo si se pidieron (sin ellos la fila es la de siempre).
     const conDrives = !!club && club.anotar_drives === true
     if (conDrives) {
-      rondaData.drives_minimo = drivesMinimoPorJugador(body.holes)
+      // Validado arriba (`validarNuevaRonda`): entero de 0 al tope de los hoyos. 0 = sin mínimo → null.
+      rondaData.drives_minimo = drivesMinimoParaGuardar(club.drives_minimo ?? drivesMinimoPorJugador(body.holes) ?? 0)
     }
 
     const { data: ronda, error: rondaErr } = await supabase

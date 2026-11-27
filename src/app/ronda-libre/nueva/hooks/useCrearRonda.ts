@@ -156,6 +156,8 @@ export interface Args {
   quienAnotaEquiposDeClub?: QuienAnota | null
   /** Con equipos de club: «¿Anotar drives?» Sí (`useEquiposDeClub.anotarDrivesParaEnviar`). */
   anotarDrivesEquiposDeClub?: boolean
+  /** Con drives: el mínimo por jugador elegido (0 = sin mínimo; `useEquiposDeClub.drivesMinimoParaEnviar`). */
+  drivesMinimoEquiposDeClub?: number
 }
 
 export interface RondaCreada {
@@ -200,6 +202,7 @@ export function cuerpoParaCrearRonda(args: Args, equipos: ReturnType<typeof equi
         quien_anota: args.quienAnotaEquiposDeClub ?? null,
         // Solo con drives: sin ellos el body es byte a byte el de antes.
         ...(args.anotarDrivesEquiposDeClub ? { anotar_drives: true } : {}),
+        ...(args.anotarDrivesEquiposDeClub && args.drivesMinimoEquiposDeClub != null ? { drives_minimo: args.drivesMinimoEquiposDeClub } : {}),
       }
       : undefined,
     reglas_juego: args.timba?.reglasJuego ?? args.skins?.reglasJuego,
@@ -238,6 +241,7 @@ export function useCrearRonda(args: Args) {
           holes: args.forma.holes,
           quienAnota: args.quienAnotaEquiposDeClub ?? null,
           anotarDrives: !!args.anotarDrivesEquiposDeClub,
+          drivesMinimo: args.anotarDrivesEquiposDeClub ? args.drivesMinimoEquiposDeClub : undefined,
         },
       }
       : {}),

@@ -8,6 +8,9 @@ import type { EquipoDeClubAValidar } from '@/golf/ronda-libre/validar-nueva-rond
 import {
   JUGADORES_POR_EQUIPO_CON_DRIVES,
   NOMBRE_JUGADOR_DE_DRIVE_MAX,
+  drivesMinimoMaximo,
+  drivesMinimoPorJugador,
+  esDrivesMinimoValido,
   nombreDeJugadorDeDrive,
 } from '@/golf/formats/drives-scramble'
 
@@ -70,13 +73,25 @@ export function equiposDeClubParaEnviar(
 interface Args {
   formato: FormatoJuego
   modo: ModoJuego
+  /** Hoyos de la ronda: deciden el mínimo de drives por defecto y su tope. */
+  holes: number
   /** El Neto del formato actual pide un plan que el usuario no tiene (`netoBloqueadoPorPlan`). */
   netoBloqueado: boolean
   /** Cambia el modo de la ronda (el hándicap del club solo juega en neto). */
   onModo: (modo: ModoJuego) => void
 }
 
-export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args) {
+/**
+ * El mínimo de drives que vale para esos hoyos: el que eligió el creador si cabe, si no el de siempre. Cambiar de
+ * 18 a 9 hoyos con un 3 elegido vuelve al 2 por defecto (3 no cabe en 9) en vez de dejar un número que no se puede
+ * cumplir; volver a 18 recupera el 3. `null` si a esos hoyos no hay mínimo (el modo no se juega).
+ */
+export function drivesMinimoEfectivo(elegido: number | null, holes: number): number | null {
+  if (elegido != null && esDrivesMinimoValido(elegido, holes)) return elegido
+  return drivesMinimoPorJugador(holes)
+}
+
+export function useEquiposDeClub({ formato, modo, holes, netoBloqueado, onModo }: Args) {
   // Contador y no `crypto.randomUUID()`: igual que los rivales, da el mismo id en el servidor y al hidratar.
   const ultimoId = useRef(0)
   const equipoVacio = (nombre = ''): EquipoDeClubDelFormulario => {
@@ -93,6 +108,9 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
   const [quienAnota, setQuienAnota] = useState<QuienAnota | null>(null)
   /** «¿Anotar drives?» No por defecto: sin tocarlo, la ronda es la de siempre. */
   const [anotarDrives, setAnotarDrives] = useState(false)
+  /** El mínimo de drives por jugador que eligió el creador. `null` = no lo tocó: vale el de siempre. */
+  const [drivesMinimoElegido, setDrivesMinimoElegido] = useState<number | null>(null)
+  const drivesMinimo = drivesMinimoEfectivo(drivesMinimoElegido, holes)
   const seElige = equipos.length >= 2
 
   /** Lo elegido solo cuenta en un formato que lo admite: volver a Best Ball no arrastra equipos sin jugadores. */
@@ -171,6 +189,7 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
       setSoloEquiposElegido(false)
       setQuienAnota(null)
       setAnotarDrives(false)
+      setDrivesMinimoElegido(null)
       setEquipos([equipoVacio()])
       return
     }
@@ -179,6 +198,7 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     setQuienAnota(null)
     // Tampoco los drives: los jugadores de un equipo cambian de un torneo a otro.
     setAnotarDrives(false)
+    setDrivesMinimoElegido(null)
     setEquipos(nombres.slice(0, MAX_EQUIPOS_DE_CLUB).map((n, i) =>
       equipoVacio(n === nombreDeEquipo(i) ? '' : n.slice(0, NOMBRE_EQUIPO_MAX))))
   }
@@ -196,6 +216,11 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     escribirJugador,
     anotarDrives,
     elegirAnotarDrives: setAnotarDrives,
+    /** Mínimo de drives por jugador que vale ahora (0 = sin mínimo). `null` a hoyos donde el modo no se juega. */
+    drivesMinimo,
+    /** Tope del mínimo para estos hoyos (`drivesMinimoMaximo`): que los 4 lo cumplan sin pasarse de los hoyos. */
+    drivesMinimoMaximo: drivesMinimoMaximo(holes),
+    elegirDrivesMinimo: (n: number) => { if (esDrivesMinimoValido(n, holes)) setDrivesMinimoElegido(n) },
     restaurar,
     /** Con 2 o más equipos se elige quién anota; con 1 no se pregunta. */
     seEligeQuienAnota: seElige,
@@ -209,6 +234,8 @@ export function useEquiposDeClub({ formato, modo, netoBloqueado, onModo }: Args)
     paraEnviar: soloEquipos ? equiposDeClubParaEnviar(equipos, modo, anotarDrives) : null,
     /** Lo que viaja en `equipos_de_club.anotar_drives` (y valida): solo `true` si se eligió. */
     anotarDrivesParaEnviar: soloEquipos && anotarDrives,
+    /** Lo que viaja en `equipos_de_club.drives_minimo`: solo con drives. */
+    drivesMinimoParaEnviar: soloEquipos && anotarDrives && drivesMinimo != null ? drivesMinimo : undefined,
   }
 }
 

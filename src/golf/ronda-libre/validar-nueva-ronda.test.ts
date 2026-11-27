@@ -437,4 +437,31 @@ describe('equipos de club (scramble rápido)', () => {
   it('la cancha se pide igual que siempre', () => {
     expect(validarNuevaRonda(club({ cancha: '' }))?.titulo).toBe('Selecciona una cancha')
   })
+
+  describe('mínimo de drives por jugador (lo elige el creador)', () => {
+    const JUG = (p: string) => [`${p}1`, `${p}2`, `${p}3`, `${p}4`]
+    const conDrives = (drivesMinimo: number | undefined, holes = 18) => club({}, {
+      holes,
+      anotarDrives: true,
+      drivesMinimo,
+      equipos: [{ nombre: 'Los Tigres', handicap: 8, driveJugadores: JUG('a') }, { nombre: 'Los Leones', handicap: 6, driveJugadores: JUG('b') }],
+    })
+
+    it('de 0 (sin mínimo) al tope de los hoyos: se crea; sin el campo, el de siempre (cliente viejo)', () => {
+      for (const m of [0, 1, 4]) expect(validarNuevaRonda(conDrives(m))).toBeNull()
+      expect(validarNuevaRonda(conDrives(2, 9))).toBeNull()
+      expect(validarNuevaRonda(conDrives(undefined))).toBeNull()
+    })
+
+    it('sobre el tope, negativo o con decimales: error con el rango de esos hoyos', () => {
+      expect(detalle(conDrives(5))).toBe('El mínimo de drives por jugador va de 0 a 4 en 18 hoyos.')
+      expect(detalle(conDrives(3, 9))).toBe('El mínimo de drives por jugador va de 0 a 2 en 9 hoyos.')
+      expect(validarNuevaRonda(conDrives(-1))?.esError).toBe(true)
+      expect(validarNuevaRonda(conDrives(1.5))?.titulo).toBe('Mínimo de drives fuera de rango')
+    })
+
+    it('sin «Anotar drives» el mínimo no se mira', () => {
+      expect(validarNuevaRonda(club({}, { drivesMinimo: 99 }))).toBeNull()
+    })
+  })
 })

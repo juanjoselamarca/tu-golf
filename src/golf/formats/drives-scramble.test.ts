@@ -4,7 +4,10 @@ import {
   contarDrives,
   conteoDeDrives,
   drivesConCambios,
+  drivesMinimoMaximo,
+  drivesMinimoParaGuardar,
   drivesMinimoPorJugador,
+  esDrivesMinimoValido,
   jugadoresDeDrive,
   leerDrives,
   problemaDeJugadoresDeDrive,
@@ -25,6 +28,29 @@ describe('drivesMinimoPorJugador', () => {
     expect(drivesMinimoPorJugador(18)).toBe(4)
     expect(drivesMinimoPorJugador(9)).toBe(2)
     expect(drivesMinimoPorJugador(27)).toBeNull()
+  })
+})
+
+describe('mínimo de drives elegido al crear', () => {
+  it('tope: que los 4 lo cumplan sin pasarse de los hoyos (18 → 4, 9 → 2; otra cantidad, null)', () => {
+    expect(drivesMinimoMaximo(18)).toBe(4)
+    expect(drivesMinimoMaximo(9)).toBe(2)
+    expect(drivesMinimoMaximo(27)).toBeNull()
+    // El default nunca pasa el tope.
+    for (const h of [9, 18]) expect(drivesMinimoPorJugador(h)!).toBeLessThanOrEqual(drivesMinimoMaximo(h)!)
+  })
+  it('válido: entero de 0 al tope', () => {
+    expect([0, 1, 2, 3, 4].every(m => esDrivesMinimoValido(m, 18))).toBe(true)
+    expect(esDrivesMinimoValido(5, 18)).toBe(false)
+    expect(esDrivesMinimoValido(3, 9)).toBe(false)
+    expect(esDrivesMinimoValido(-1, 18)).toBe(false)
+    expect(esDrivesMinimoValido(2.5, 18)).toBe(false)
+    expect(esDrivesMinimoValido(Number.NaN, 18)).toBe(false)
+    expect(esDrivesMinimoValido(1, 27)).toBe(false)
+  })
+  it('se guarda null con 0 (sin mínimo) y el número si no', () => {
+    expect(drivesMinimoParaGuardar(0)).toBeNull()
+    expect(drivesMinimoParaGuardar(3)).toBe(3)
   })
 })
 

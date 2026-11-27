@@ -5,37 +5,92 @@ import type { ModoJuego } from '@/golf/core/rules'
 import { esHandicapDeClubValido, handicapDeClubMaximo, type QuienAnota } from '@/golf/ronda-libre/equipos-de-club'
 import { NOMBRE_EQUIPO_MAX, nombreDeEquipo, nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import { DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB } from '@/golf/ronda-libre/validar-nueva-ronda'
-import { NOMBRE_JUGADOR_DE_DRIVE_MAX, drivesMinimoPorJugador } from '@/golf/formats/drives-scramble'
+import { NOMBRE_JUGADOR_DE_DRIVE_MAX } from '@/golf/formats/drives-scramble'
 import { handicapDeClubDesdeTexto, type EquipoDeClubDelFormulario } from '../hooks/useEquiposDeClub'
 import { colores, etiqueta, input, inputQueBloquea, opcion } from './estilos'
+import { SelectorAnotarDrives } from './SelectorAnotarDrives'
 
-const OPCIONES = [
-  { solo: false, titulo: 'Con jugadores' },
-  { solo: true, titulo: 'Solo equipos' },
-] as const
+/**
+ * Las dos maneras de armar un scramble, dichas como las entiende un golfista: cada jugador con su índice (Golfers+
+ * calcula el hándicap del equipo) o los equipos con el hándicap que ya les dio el club. El título es el nombre del
+ * botón; la frase de abajo es su descripción (`aria-describedby`), no parte del nombre.
+ */
+const OPCIONES: ReadonlyArray<{ solo: boolean; titulo: string; neto: string; gross: string }> = [
+  {
+    solo: false,
+    titulo: 'Jugadores con su índice',
+    neto: 'Ingresa a cada jugador. Golfers+ calcula el hándicap del equipo.',
+    gross: 'Ingresa a cada jugador y arma los equipos.',
+  },
+  {
+    solo: true,
+    titulo: 'Equipos con hándicap del club',
+    neto: 'Ingresa cada equipo con el hándicap que le dio el club. No se piden índices.',
+    gross: 'Ingresa solo el nombre de cada equipo. En Gross no se usa hándicap.',
+  },
+]
 
-/** Scramble: «Con jugadores» (el flujo de siempre) o «Solo equipos» (nombre y hándicap del club). */
-export function SelectorSoloEquipos({ soloEquipos, onElegir }: { soloEquipos: boolean; onElegir: (solo: boolean) => void }) {
+/** Scramble: jugadores con su índice (el flujo de siempre) o equipos con el hándicap del club. */
+export function SelectorSoloEquipos({ soloEquipos, modo, onElegir }: {
+  soloEquipos: boolean
+  /** Modo efectivo: en Gross la descripción no habla de hándicap. */
+  modo: ModoJuego
+  onElegir: (solo: boolean) => void
+}) {
   return (
-    <div role="group" aria-label="Cómo se arman los equipos" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-      {OPCIONES.map(op => {
-        const activo = soloEquipos === op.solo
-        return (
-          <button
-            key={op.titulo}
-            type="button"
-            aria-pressed={activo}
-            onClick={() => onElegir(op.solo)}
-            style={{
-              ...opcion(activo), flex: 1, minHeight: '48px', padding: '12px', textAlign: 'center',
-              fontSize: '14px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto,
-            }}
-          >
-            {op.titulo}
-          </button>
-        )
-      })}
+    <div style={{ marginBottom: '20px' }}>
+      <div id="como-se-arman-los-equipos" style={{ ...etiqueta, fontSize: '14px', fontWeight: 600, color: colores.texto }}>
+        ¿Cómo ingresas los equipos?
+      </div>
+      <div role="group" aria-labelledby="como-se-arman-los-equipos" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {OPCIONES.map(op => {
+          const activo = soloEquipos === op.solo
+          const idDetalle = `como-se-arman-${op.solo ? 'club' : 'jugadores'}`
+          return (
+            <button
+              key={op.titulo}
+              type="button"
+              aria-pressed={activo}
+              aria-label={op.titulo}
+              aria-describedby={idDetalle}
+              onClick={() => onElegir(op.solo)}
+              style={{
+                ...opcion(activo), minHeight: '64px', padding: '12px 14px',
+                display: 'flex', alignItems: 'center', gap: '12px',
+              }}
+            >
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: '16px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto }}>
+                  {op.titulo}
+                </span>
+                <span id={idDetalle} style={{ display: 'block', marginTop: '2px', fontSize: '13px', lineHeight: 1.35, color: colores.texto2 }}>
+                  {modo === 'neto' ? op.neto : op.gross}
+                </span>
+              </span>
+              <Marca activa={activo} />
+            </button>
+          )
+        })}
+      </div>
     </div>
+  )
+}
+
+/** Círculo de la opción elegida: el estado no depende solo del color (al sol, el pip del borde se pierde). */
+function Marca({ activa }: { activa: boolean }) {
+  return (
+    <span aria-hidden="true" style={{
+      flexShrink: 0, width: '24px', height: '24px', borderRadius: '50%', boxSizing: 'border-box',
+      border: activa ? 'none' : `2px solid ${colores.inputBorde}`,
+      background: activa ? colores.oro : 'transparent',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      {activa && (
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ display: 'block' }}>
+          <path d="M2.5 6.2 5 8.5 9.5 3.5" stroke="var(--brand-dark)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </span>
   )
 }
 
@@ -80,49 +135,6 @@ export function SelectorQuienAnotaEquipos({ quienAnota, onElegir }: { quienAnota
   )
 }
 
-const OPCIONES_DRIVES = [
-  { valor: false, titulo: 'No' },
-  { valor: true, titulo: 'Sí' },
-] as const
-
-/**
- * «¿Anotar drives?» (registro opcional, src/golf/formats/drives-scramble.ts). Viene en «No» (default seguro: sin tocarlo la
- * ronda es la de siempre; después de crear no se activa). Con Sí, cada tarjeta pide los jugadores del equipo.
- */
-function SelectorAnotarDrives({ anotarDrives, holes, onElegir }: { anotarDrives: boolean; holes: number; onElegir: (si: boolean) => void }) {
-  const minimo = drivesMinimoPorJugador(holes)
-  return (
-    <div style={{ marginBottom: '16px' }}>
-      <div id="equipos-club-drives" style={{ ...etiqueta, fontSize: '14px', color: colores.texto }}>¿Anotar drives?</div>
-      <div role="group" aria-labelledby="equipos-club-drives" style={{ display: 'flex', gap: '8px' }}>
-        {OPCIONES_DRIVES.map(op => {
-          const activo = anotarDrives === op.valor
-          return (
-            <button
-              key={op.titulo}
-              type="button"
-              aria-pressed={activo}
-              onClick={() => onElegir(op.valor)}
-              style={{
-                ...opcion(activo), flex: 1, minHeight: '48px', padding: '12px', textAlign: 'center',
-                fontSize: '14px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto,
-              }}
-            >
-              {op.titulo}
-            </button>
-          )
-        })}
-      </div>
-      {anotarDrives && (
-        <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4 }}>
-          En cada hoyo se anota de quién fue el drive.
-          {minimo != null && <> Cada jugador necesita al menos {minimo}.</>}
-        </div>
-      )}
-    </div>
-  )
-}
-
 interface Props {
   equipos: EquipoDeClubDelFormulario[]
   /** Modo efectivo de la ronda: el hándicap del club solo se pide en neto. */
@@ -136,6 +148,10 @@ interface Props {
   onHandicap: (idx: number, texto: string) => void
   anotarDrives: boolean
   onAnotarDrives: (si: boolean) => void
+  /** Mínimo de drives por jugador que vale ahora y su tope (`useEquiposDeClub`). */
+  drivesMinimo: number | null
+  drivesMinimoMaximo: number | null
+  onDrivesMinimo: (n: number) => void
   onJugador: (idx: number, jugador: number, nombre: string) => void
 }
 
@@ -160,7 +176,14 @@ export function EquiposDeClub(props: Props) {
         {esNeto ? `El hándicap es el que les dio el club, de 0 a ${maximo}.` : 'Juegan gross, sin hándicap.'}
       </div>
 
-      <SelectorAnotarDrives anotarDrives={props.anotarDrives} holes={props.holes} onElegir={props.onAnotarDrives} />
+      <SelectorAnotarDrives
+        anotarDrives={props.anotarDrives}
+        holes={props.holes}
+        minimo={props.drivesMinimo}
+        maximo={props.drivesMinimoMaximo}
+        onElegir={props.onAnotarDrives}
+        onMinimo={props.onDrivesMinimo}
+      />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {props.equipos.map((equipo, i) => {
