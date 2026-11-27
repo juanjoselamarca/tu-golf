@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { FONT_SIZE } from '@/lib/font-size'
-import { TaigerWordmark } from '@/components/coach/TaigerWordmark'
+import { Wordmark } from '@/components/Wordmark'
 
 // Chrome del coach (header + fondo). SIN auth: el middleware ya protege
 // /coach (protectedRoutes en src/proxy.ts) y redirige a /login server-side
@@ -16,9 +16,7 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         position: 'sticky', top: 0, zIndex: 40,
       }}>
-        <span style={{ fontSize: FONT_SIZE.h2, color: 'var(--text)' }}>
-          <TaigerWordmark />
-        </span>
+        <Wordmark brand="taiger" size={FONT_SIZE.h2} />
         {/* inline-flex + center: con el min-height global de 44px el texto quedaba arriba de la caja,
             desalineado del logo. */}
         <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: FONT_SIZE.caption, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>

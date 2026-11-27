@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { sanitizeNext, DEFAULT_NEXT, registerUrl } from '@/lib/auth/login-url'
 import { Eye, EyeOff, Loader2 } from '@/components/icons'
+import { Wordmark } from '@/components/Wordmark'
 
 function GoogleIcon() {
   return (
@@ -117,9 +118,7 @@ function LoginContent() {
       >
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: 'var(--text)', fontWeight: 700 }}>
-            Golfers<span style={{ color: 'var(--brand-on-bg)' }}>+</span>
-          </span>
+          <Wordmark size={26} />
         </div>
 
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>

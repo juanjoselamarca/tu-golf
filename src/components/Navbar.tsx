@@ -10,6 +10,7 @@ import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getNavTheme } from './nav/nav-theme'
 import { loginUrl } from '@/lib/auth/login-url'
+import { Wordmark } from '@/components/Wordmark'
 
 // Auth state comes from AuthContext (initialized once in layout.tsx). Previously
 // this component ran getUser() + profiles.select() on every mount (~240ms of
@@ -116,9 +117,9 @@ export default function Navbar() {
           </button>
 
           {/* Logo — always goes to landing */}
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '1px', textDecoration: 'none', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
-            <span style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif', fontWeight: 700, fontSize: '20px', letterSpacing: '-0.02em', color: t.logoText }}>Golfers</span>
-            <span style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif', fontWeight: 700, fontSize: '20px', letterSpacing: '-0.02em', color: '#C4992A' }}>+</span>
+          {/* data-theme from React state, like the navbar background: before hydration <html> may already be dark. */}
+          <Link href="/" data-theme={theme} style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+            <Wordmark size={20} />
           </Link>
 
           {/* Right: notification bell + avatar or login */}
@@ -232,10 +233,7 @@ export default function Navbar() {
           borderBottom: `1px solid ${t.sidebarBorder}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: user ? '16px' : '0' }}>
-            <span style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif', fontWeight: 700, fontSize: '20px', letterSpacing: '-0.02em' }}>
-              <span style={{ color: t.logoText }}>Golfers</span>
-              <span style={{ color: '#C4992A' }}>+</span>
-            </span>
+            <Wordmark size={20} />
             <button onClick={() => setSidebarOpen(false)} aria-label="Cerrar menú" style={{
               background: 'none', border: 'none', color: t.menuMuted,
               fontSize: '24px', cursor: 'pointer', padding: '4px 8px', lineHeight: 1,

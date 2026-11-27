@@ -4,6 +4,8 @@
 // Funciona como Server Component (loading.tsx) y en client components.
 // Diseño tier-1: solo marca + monograma + mensaje corto + barra.
 
+import { Wordmark } from '@/components/Wordmark'
+
 interface Props {
   message?: string
   variant?: 'light' | 'dark'
@@ -15,14 +17,13 @@ export function BrandedLoading({
 }: Props) {
   const isDark = variant === 'dark'
   const bg = isDark ? '#1a1a2e' : 'var(--bg-surface, #fafaf7)'
-  const brandColor = isDark ? '#c4992a' : 'var(--brand-on-bg, #a07c1c)'
-  const brandFaint = isDark ? 'rgba(196,153,42,0.7)' : undefined
   const textColor = isDark ? 'rgba(255,255,255,0.5)' : 'var(--text-2, #6b7280)'
   const barTrack = isDark ? 'rgba(255,255,255,0.06)' : 'var(--border, #e5e5e0)'
   const barFill = isDark ? '#c4992a' : 'var(--brand, #c4992a)'
 
   return (
     <div
+      data-theme={isDark ? 'dark' : undefined}
       style={{
         background: bg,
         minHeight: '100dvh',
@@ -56,17 +57,7 @@ export function BrandedLoading({
         animation: 'bl-fade 0.3s ease both',
         textAlign: 'center',
       }}>
-        <div style={{
-          fontSize: '22px', fontWeight: 700,
-          fontFamily: 'var(--font-playfair, Georgia), "Playfair Display", serif',
-          color: brandColor, letterSpacing: '0.02em',
-        }}>
-          Golfers<span style={{
-            fontWeight: 300,
-            fontSize: '28px',
-            ...(brandFaint ? { color: brandFaint } : { opacity: 0.6 }),
-          }}>+</span>
-        </div>
+        <Wordmark size={22} />
       </div>
 
       {/* Mensaje — una línea, sin explicaciones */}

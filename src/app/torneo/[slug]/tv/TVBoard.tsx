@@ -22,6 +22,7 @@ import {
   secondaryScoreText,
 } from './score-display'
 import { formatearHandicap } from '@/golf/handicap-index-range'
+import { Wordmark } from '@/components/Wordmark'
 
 /* ── Types ─────────────────────────────────────────────── */
 interface TVPlayer {
@@ -208,8 +209,7 @@ export default function TVBoard() {
       {/* ── Header ──────────────────────────────────────── */}
       <div style={{ textAlign: 'center', marginBottom: '48px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0', marginBottom: '16px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: 'var(--text)', fontWeight: 700 }}>Golfers</span>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: 'var(--brand-gold)', fontWeight: 700 }}>+</span>
+          <Wordmark size={36} />
         </div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(28px, 4vw, 52px)', color: 'var(--text)', margin: '0 0 12px', lineHeight: 1.1 }}>
           {tournament?.name || 'Torneo'}

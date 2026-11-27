@@ -90,7 +90,7 @@ Definida en `src/app/globals.css` como CSS custom properties. NO inventar colore
 
 **Por qué (16-nov-2026):** el trío serif + sans + mono en la misma tarjeta y el cero tachado del mono en un "15.0" o un "$0"
 eran la firma visual más clara de "plantilla generada". Un score son dígitos: no hay ambigüedad `I/1` que justifique mono.
-Un solo wordmark en toda la app.
+Un solo wordmark en toda la app: el componente `Wordmark` (`src/components/Wordmark.tsx`), con `brand="taiger"` para tAIger+.
 
 **Escala** (px / peso, mobile-first). Solo estos siete tamaños existen (nada de 15, 12 o 11 px); **un número
 héroe por viewport**; y dentro de un mismo bloque (tarjeta, fila, sección) **máximo tres tamaños de texto**:

@@ -4,13 +4,14 @@
 // la vista pública del torneo. Tokens CSS para theme-awareness.
 
 import Link from 'next/link'
+import { Wordmark } from '@/components/Wordmark'
 
 export function TournamentFooter() {
   return (
     <footer style={{ borderTop: '1px solid rgba(196,153,42,0.08)', marginTop: '32px' }}>
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '32px 20px', textAlign: 'center' }}>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: 'var(--text)', fontWeight: 700, marginBottom: '4px' }}>
-          <span>Golfers</span><span style={{ color: 'var(--brand-on-bg)' }}>+</span>
+        <div style={{ marginBottom: '4px' }}>
+          <Wordmark size={16} />
         </div>
         <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '20px' }}>
           Scoring en vivo &middot; &Iacute;ndices &middot; Coach IA

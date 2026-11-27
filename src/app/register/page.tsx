@@ -13,6 +13,7 @@ import { useFormErrors } from '@/hooks/useFormErrors'
 import { Zap, Check, Mail, ArrowLeft, Loader2 } from '@/components/icons'
 import { sanitizeNext, DEFAULT_NEXT, loginUrl } from '@/lib/auth/login-url'
 import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT, translateRegisterError } from '@/lib/auth/register-errors'
+import { Wordmark } from '@/components/Wordmark'
 
 function GoogleIcon() {
   return (
@@ -301,7 +302,7 @@ function RegisterContent() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: theme.text, fontWeight: 700, letterSpacing: '-0.01em' }}>Golfers<span style={{ color: theme.goldText }}>+</span></span>
+          <Wordmark size={28} />
         </div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '30px', color: theme.text, textAlign: 'center', margin: '14px 0 6px', letterSpacing: '-0.015em', lineHeight: 1.15, fontWeight: 600 }}>Crea tu cuenta</h1>
         <p style={{ fontSize: '15px', color: theme.textMuted, textAlign: 'center', marginBottom: '32px', lineHeight: 1.5 }}>Únete a la comunidad de golfistas</p>
