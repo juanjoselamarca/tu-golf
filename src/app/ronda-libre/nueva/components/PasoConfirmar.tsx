@@ -2,7 +2,6 @@
 
 import { FORMAT_META, formatLabel, nombreDelModo, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import type { EquipoDeClubAValidar } from '@/golf/ronda-libre/validar-nueva-ronda'
-import { drivesMinimoPorJugador } from '@/golf/formats/drives-scramble'
 import type { FormaDeLaRonda, MitadDeCancha } from '@/golf/ronda-libre/forma-de-la-ronda'
 import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
@@ -35,6 +34,11 @@ interface Props {
   equiposDeClub?: EquipoDeClubAValidar[] | null
   /** Equipos de club con «Cada equipo en su celular» (`useEquiposDeClub.unCelularPorEquipo`). */
   unCelularPorEquipo?: boolean
+  /**
+   * Con drives: el mínimo por jugador que va a la ronda (0 = sin mínimo; `useEquiposDeClub.drivesMinimoParaEnviar`).
+   * `undefined` = la ronda no anota drives.
+   */
+  drivesMinimo?: number
   /** Timba libre o Skins: su nombre reemplaza al del formato, y `detalle` (las parejas, las reglas) va antes de crear. */
   juego?: { nombre: string; detalle: React.ReactNode }
   creando: boolean
@@ -42,24 +46,77 @@ interface Props {
   onCrear: () => void
 }
 
-function cantidadDeEquipos(n: number): string {
-  return n === 1 ? '1 equipo' : `${n} equipos`
+/** «Sábado 28 de noviembre»: el día de la semana ayuda a no equivocarse de fecha. El año solo si no es el actual. */
+export function fechaDelResumen(fecha: string, hoy = new Date()): string {
+  const d = new Date(`${fecha}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return fecha
+  const texto = d.toLocaleDateString('es-CL', {
+    weekday: 'long', day: 'numeric', month: 'long',
+    ...(d.getFullYear() !== hoy.getFullYear() ? { year: 'numeric' as const } : {}),
+  }).replace(',', '')
+  return texto.charAt(0).toLocaleUpperCase('es-CL') + texto.slice(1)
 }
 
-function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+/** Lo que dice la fila «Drives». */
+export function textoDeDrives(minimo: number): string {
+  if (minimo === 0) return 'Se anotan, sin mínimo'
+  return `Mínimo ${minimo} por jugador`
+}
+
+/** Un dato del resumen: etiqueta arriba, valor abajo (se lee entero, sin puntos suspensivos). */
+function Dato({ etiqueta, children, ancho = false }: { etiqueta: string; children: React.ReactNode; ancho?: boolean }) {
+  return (
+    <div style={{ minWidth: 0, ...(ancho ? { gridColumn: '1 / -1' } : {}) }}>
+      <div style={{ fontSize: '13px', fontWeight: 500, color: colores.texto2, marginBottom: '2px' }}>{etiqueta}</div>
+      <div style={{ fontSize: '16px', fontWeight: 600, color: colores.texto, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** Título de una sección del resumen: «Equipos (2)». */
+function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginTop: '24px' }}>
+      <div style={{ fontSize: '13px', fontWeight: 500, color: colores.texto2, marginBottom: '4px' }}>{titulo}</div>
+      <div>{children}</div>
+    </div>
+  )
+}
+
+/** Fila con divisor (DESIGN §13: una tarjeta por dato sobra): principal a la izquierda, dato a la derecha. */
+function Fila({ principal, detalle, derecha, primera }: {
+  principal: React.ReactNode
+  detalle?: React.ReactNode
+  derecha?: React.ReactNode
+  primera: boolean
+}) {
   return (
     <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      gap: '12px', padding: '10px 0', borderBottom: `1px solid ${colores.borde}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+      padding: '12px 0', borderTop: primera ? 'none' : `1px solid ${colores.borde}`,
     }}>
-      <span style={{ fontSize: '13px', color: colores.texto2, flexShrink: 0 }}>{etiqueta}</span>
-      <span style={{
-        fontSize: '14px', fontWeight: 600, color: colores.texto, textAlign: 'right',
-        overflow: 'hidden', textOverflow: 'ellipsis',
-      }}>
-        {children}
-      </span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: '16px', fontWeight: 600, color: colores.texto, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {principal}
+        </div>
+        {detalle && (
+          <div style={{ fontSize: '14px', color: colores.texto2, marginTop: '2px', lineHeight: 1.35 }}>{detalle}</div>
+        )}
+      </div>
+      {derecha && <div style={{ flexShrink: 0, textAlign: 'right' }}>{derecha}</div>}
     </div>
+  )
+}
+
+/** «HCP 8» y abajo de dónde sale («del club»: no lo calculó Golfers+). */
+function HcpDeEquipo({ handicap }: { handicap: number }) {
+  return (
+    <>
+      <div className="num" style={{ fontSize: '16px', fontWeight: 600, color: colores.texto }}>HCP {formatearHandicap(handicap)}</div>
+      <div style={{ fontSize: '13px', color: colores.texto2 }}>del club</div>
+    </>
   )
 }
 
@@ -73,7 +130,7 @@ export function PasoConfirmar(props: Props) {
   const detalleDeHoyos = forma.esMultiRecorrido
     ? props.recorridosElegidos.join(' + ')
     : forma.holes === 9
-      ? `(${props.mitad === 'front' ? 'Front' : 'Back'})`
+      ? (props.mitad === 'front' ? 'Front' : 'Back')
       : null
 
   // Los jugadores agrupados como van a competir. Un jugador que no esté en
@@ -92,158 +149,103 @@ export function PasoConfirmar(props: Props) {
     : [{ titulo: null, jugadores: props.jugadores }]
 
   const club = props.equiposDeClub ?? null
+  const dosRecorridos = props.recorridosElegidos.length === 2
 
-  const filaDeJugador = (j: JugadorDeLaRonda) => {
+  const formato = props.juego
+    ? `${props.juego.nombre} · ${nombreDelModo(props.modo)}`
+    : club
+      ? `${FORMAT_META[props.formato].label} · ${nombreDelModo(props.modo)}`
+      : formatLabel(props.formato, props.modo)
+
+  const anota = club
+    ? (props.unCelularPorEquipo ? 'Cada equipo en su celular' : 'Tú, todos los equipos')
+    : props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'
+
+  const filaDeJugador = (j: JugadorDeLaRonda, i: number) => {
     const hcp = props.hcpVisibleDe(j.indice, j.tees)
+    const detalle = [
+      j.indice != null ? `Índice ${formatearIndice(j.indice)}` : 'Sin índice',
+      props.hayVariosTees && j.tees ? `Tee ${nombreVisibleDeTee(j.tees, dosRecorridos)}` : null,
+    ].filter(Boolean).join(' · ')
     return (
-      <div key={j.id} style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
-        padding: '8px 12px', borderRadius: '10px',
-        background: j.esCreador ? 'rgba(196,153,42,0.12)' : 'rgba(196,153,42,0.05)',
-        border: `1px solid ${j.esCreador ? colores.oroBorde : 'transparent'}`,
-      }}>
-        <span style={{
-          fontSize: '13px', fontWeight: 500,
-          color: j.esCreador ? colores.oroTexto : colores.texto,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {j.nombre}
-          {j.indice != null ? ` · idx ${formatearIndice(j.indice)}` : ''}
-          {/* El HCP de 18 hoyos aunque la ronda sea de 9 (regla de Juanjo,
-              12-nov-2026): el mismo número que verá en el marcador. "HCP 12",
-              "HCP +2": "+2 golpes" se leía como recibir dos. */}
-          {hcp != null ? ` · HCP ${formatearHandicap(hcp)}` : ''}
-        </span>
-        {props.hayVariosTees && j.tees && (
-          <span style={{
-            fontSize: '11px', color: colores.texto2, flexShrink: 0,
-            padding: '2px 8px', borderRadius: '8px',
-            background: colores.tarjeta, border: `1px solid ${colores.borde}`,
-            fontFamily: '"DM Mono", monospace',
-          }}>
-            Tee {nombreVisibleDeTee(j.tees, props.recorridosElegidos.length === 2)}
-          </span>
-        )}
-      </div>
+      <Fila
+        key={j.id}
+        primera={i === 0}
+        principal={<>{j.nombre}{j.esCreador && <span style={{ fontWeight: 500, color: colores.texto2 }}> (tú)</span>}</>}
+        detalle={detalle}
+        // El HCP de 18 hoyos aunque la ronda sea de 9 (regla de Juanjo, 12-nov-2026): el mismo número que verá en
+        // el marcador. "HCP +2", no "+2 golpes" (se leía como recibir dos).
+        derecha={hcp != null
+          ? <span className="num" style={{ fontSize: '16px', fontWeight: 600, color: colores.texto }}>HCP {formatearHandicap(hcp)}</span>
+          : undefined}
+      />
     )
   }
 
   return (
     <div>
-      <div style={{ ...tarjeta, padding: '20px' }}>
-        <div style={{ fontSize: '16px', fontWeight: 700, color: colores.texto, marginBottom: '16px' }}>
-          Confirmar ronda
+      <div style={{ ...tarjeta, padding: '16px' }}>
+        <div style={{ fontSize: '18px', fontWeight: 600, color: colores.texto, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
+          {props.cancha}
+        </div>
+        <div style={{ fontSize: '14px', color: colores.texto2, marginTop: '2px' }}>{fechaDelResumen(props.fecha)}</div>
+
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 12px',
+          marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${colores.borde}`,
+        }}>
+          <Dato etiqueta="Formato" ancho={formato.length > 22}>{formato}</Dato>
+          <Dato etiqueta="Hoyos">
+            {forma.holes}
+            {detalleDeHoyos && <span style={{ fontWeight: 500, color: colores.texto2 }}> · {detalleDeHoyos}</span>}
+          </Dato>
+          {forma.hoyoInicio !== 1 && <Dato etiqueta="Empieza en">Hoyo {forma.hoyoInicio}</Dato>}
+          {/* Equipos de club: nadie juega con su índice, el tee no cambia ningún número. */}
+          {!club && <Dato etiqueta="Tees">{nombreVisibleDeTee(props.teeGlobal, dosRecorridos)}</Dato>}
+          <Dato etiqueta="Anota" ancho>{anota}</Dato>
+          {/* La fila sale si la ronda anota drives; a 27 hoyos no hay mínimo (revisión Fable #901). */}
+          {club?.some(e => e.driveJugadores) && (
+            <Dato etiqueta="Drives" ancho>{props.drivesMinimo !== undefined ? textoDeDrives(props.drivesMinimo) : 'Se anotan'}</Dato>
+          )}
         </div>
 
-        <Fila etiqueta="Cancha">{props.cancha}</Fila>
-
-        <Fila etiqueta="Hoyos">
-          {forma.holes}
-          {detalleDeHoyos ? ` ${detalleDeHoyos}` : ''}
-        </Fila>
-
-        {forma.hoyoInicio !== 1 && (
-          <Fila etiqueta="Empieza en">Hoyo {forma.hoyoInicio}</Fila>
-        )}
-
-        <Fila etiqueta="Formato">
-          {props.juego
-            ? `${props.juego.nombre} · ${nombreDelModo(props.modo)}`
-            : club
-              ? [FORMAT_META[props.formato].label, nombreDelModo(props.modo), cantidadDeEquipos(club.length)].join(' · ')
-              : formatLabel(props.formato, props.modo)}
-        </Fila>
-
-        {/* Equipos de club: nadie juega con su índice, el tee no cambia ningún número. */}
-        {!club && (
-          <Fila etiqueta="Tees">{nombreVisibleDeTee(props.teeGlobal, props.recorridosElegidos.length === 2)}</Fila>
-        )}
-
-        <Fila etiqueta="Fecha">
-          {new Date(`${props.fecha}T12:00:00`).toLocaleDateString('es-CL', {
-            day: 'numeric', month: 'long', year: 'numeric',
-          })}
-        </Fila>
-
-        <Fila etiqueta="Anota">
-          {club
-            ? (props.unCelularPorEquipo ? 'Cada equipo en su celular' : 'Tú, todos los equipos')
-            : props.llevaElScoreDelGrupo ? 'Tú, por todos' : 'Cada uno en su celular'}
-        </Fila>
-
-        {club?.some(e => e.driveJugadores) && (
-          <Fila etiqueta="Drives">
-            {(() => {
-              const minimo = drivesMinimoPorJugador(forma.holes)
-              return minimo != null ? `Se anotan · mínimo ${minimo} por jugador` : 'Se anotan'
-            })()}
-          </Fila>
-        )}
-
         {club ? (
-          <div style={{ padding: '10px 0' }}>
-            <span style={{ fontSize: '13px', color: colores.texto2, display: 'block', marginBottom: '8px' }}>
-              Equipos ({club.length})
-            </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {club.map((e, i) => (
-                <div key={`${i}-${e.nombre}`} style={{
-                  display: 'flex', alignItems: 'baseline', gap: '4px',
-                  // Solo con drives: los jugadores bajan a su propia línea. Sin ellos, la fila de siempre.
-                  ...(e.driveJugadores ? { flexWrap: 'wrap' as const } : {}),
-                  padding: '8px 12px', borderRadius: '8px', background: 'rgba(196,153,42,0.05)',
-                  fontSize: '14px', fontWeight: 500, color: colores.texto, whiteSpace: 'nowrap',
-                }}>
-                  {/* El nombre cede (puntos suspensivos); el hándicap se ve siempre entero. */}
-                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.nombre}</span>
-                  {/* Solo en neto: en gross el hándicap no juega. «(club)»: no lo calculó Golfers+. */}
-                  {props.modo === 'neto' && e.handicap != null && (
-                    <span style={{ flexShrink: 0 }}>· HCP {formatearHandicap(e.handicap)} (club)</span>
-                  )}
-                  {e.driveJugadores && (
-                    <span style={{
-                      display: 'block', flexBasis: '100%', marginTop: '2px', fontSize: '13px', fontWeight: 400,
-                      color: colores.texto2, whiteSpace: 'normal',
-                    }}>
-                      {e.driveJugadores.join(' · ')}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <Seccion titulo={`Equipos (${club.length})`}>
+            {club.map((e, i) => (
+              <Fila
+                key={`${i}-${e.nombre}`}
+                primera={i === 0}
+                principal={e.nombre}
+                detalle={e.driveJugadores ? e.driveJugadores.join(' · ') : undefined}
+                // Solo en neto: en gross el hándicap no juega.
+                derecha={props.modo === 'neto' && e.handicap != null ? <HcpDeEquipo handicap={e.handicap} /> : undefined}
+              />
+            ))}
+          </Seccion>
         ) : (
-          <div style={{ padding: '10px 0' }}>
-            <span style={{ fontSize: '13px', color: colores.texto2, display: 'block', marginBottom: '8px' }}>
-              Jugadores ({props.jugadores.length})
-            </span>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {grupos.map((grupo, i) => (
-                <div key={grupo.titulo ?? `sin-equipo-${i}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {grupo.titulo && (
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: colores.texto, padding: '0 2px' }}>
-                      {grupo.titulo}
-                    </span>
-                  )}
-                  {grupo.jugadores.map(filaDeJugador)}
-                </div>
-              ))}
-            </div>
-          </div>
+          <Seccion titulo={`Jugadores (${props.jugadores.length})`}>
+            {grupos.map((grupo, g) => (
+              <div key={grupo.titulo ?? `sin-equipo-${g}`} style={{ marginTop: g === 0 ? 0 : '12px' }}>
+                {grupo.titulo && (
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: colores.oroTexto, paddingTop: '4px' }}>{grupo.titulo}</div>
+                )}
+                {grupo.jugadores.map(filaDeJugador)}
+              </div>
+            ))}
+          </Seccion>
         )}
       </div>
 
       {props.juego?.detalle}
 
-      <div style={{ display: 'flex', gap: '10px' }}>
+      <div style={{ display: 'flex', gap: '8px' }}>
         {/* Bloqueado mientras se crea: volver a editar con el POST en vuelo deja la pantalla de compartir
             mostrando datos que no son los de la ronda creada. */}
         <button
           type="button"
           disabled={props.creando}
           onClick={props.onEditar}
-          style={{ ...secundario, ...(props.creando ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+          style={{ ...secundario, minHeight: '52px', ...(props.creando ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
         >
           ← Editar
         </button>
@@ -251,9 +253,9 @@ export function PasoConfirmar(props: Props) {
           type="button"
           disabled={props.creando || props.problema != null}
           onClick={props.onCrear}
-          style={{ ...primario(props.creando || props.problema != null), flex: 2 }}
+          style={{ ...primario(props.creando || props.problema != null), flex: 2, minHeight: '52px' }}
         >
-          {props.creando ? 'Creando ronda...' : 'Crear ronda ✓'}
+          {props.creando ? 'Creando ronda...' : 'Crear ronda'}
         </button>
       </div>
 

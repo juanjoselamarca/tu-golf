@@ -24,7 +24,7 @@ function Paso({ formato = 'scramble', modoInicial = 'gross', netoBloqueado = fal
   formato?: FormatoJuego; modoInicial?: ModoJuego; netoBloqueado?: boolean; holes?: number; onSiguiente?: () => void
 }) {
   const [modo, setModo] = useState<ModoJuego>(modoInicial)
-  const club = useEquiposDeClub({ formato, modo, netoBloqueado, onModo: setModo })
+  const club = useEquiposDeClub({ formato, modo, holes, netoBloqueado, onModo: setModo })
   const problema = club.paraEnviar
     ? validarNuevaRonda({
         cancha: 'Los Leones', formato, modo, jugadores: [{ nombre: 'Ana', indice: 12 }], equipos: [],
@@ -48,8 +48,8 @@ function Paso({ formato = 'scramble', modoInicial = 'gross', netoBloqueado = fal
   )
 }
 
-const soloEquipos = () => screen.getByRole('button', { name: 'Solo equipos' })
-const conJugadores = () => screen.getByRole('button', { name: 'Con jugadores' })
+const soloEquipos = () => screen.getByRole('button', { name: 'Equipos con hándicap del club' })
+const conJugadores = () => screen.getByRole('button', { name: 'Jugadores con su índice' })
 const revisar = () => screen.getByRole('button', { name: /Revisar/ }) as HTMLButtonElement
 const aviso = () => document.getElementById('paso-jugadores-aviso') as HTMLElement
 const handicaps = () => screen.queryAllByLabelText(/^Hándicap del equipo/) as HTMLInputElement[]
@@ -73,7 +73,7 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
         rondasRecientes={[]} problema={null} onAtras={vi.fn()} onSiguiente={vi.fn()}
       />,
     )
-    expect(screen.queryByRole('button', { name: 'Solo equipos' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Equipos con hándicap del club' })).toBeNull()
   })
 
   it('«Solo equipos» pasa a Neto, esconde a los jugadores y pide el hándicap de cada equipo', () => {
@@ -172,35 +172,41 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
 })
 
 describe('PasoConfirmar — equipos de club', () => {
-  const pintar = (modo: ModoJuego, equiposDeClub: Array<{ nombre: string; handicap: number | null }>, unCelularPorEquipo = false) => render(
+  const pintar = (
+    modo: ModoJuego,
+    equiposDeClub: Array<{ nombre: string; handicap: number | null; driveJugadores?: string[] }>,
+    unCelularPorEquipo = false,
+    drivesMinimo?: number,
+  ) => render(
     <PasoConfirmar
       cancha="Los Leones" forma={{ holes: 18, hoyoInicio: 1, esMultiRecorrido: false }} mitad="front"
-      recorridosElegidos={[]} formato="scramble" modo={modo} teeGlobal="Azul" fecha="2026-11-23"
-      jugadores={[]} equipos={[]} equiposDeClub={equiposDeClub} unCelularPorEquipo={unCelularPorEquipo} llevaElScoreDelGrupo hcpVisibleDe={() => null}
+      recorridosElegidos={[]} formato="scramble" modo={modo} teeGlobal="Azul" fecha="2026-11-28"
+      jugadores={[]} equipos={[]} equiposDeClub={equiposDeClub} unCelularPorEquipo={unCelularPorEquipo} drivesMinimo={drivesMinimo}
+      llevaElScoreDelGrupo hcpVisibleDe={() => null}
       hayVariosTees={false} problema={null} creando={false} onEditar={vi.fn()} onCrear={vi.fn()}
     />,
   )
 
-  it('neto: «Scramble · Neto · 3 equipos» y una línea por equipo con su HCP del club', () => {
+  it('neto: «Scramble · Neto», «Equipos (3)» y cada equipo con su HCP del club', () => {
     pintar('neto', [{ nombre: 'Los Tigres', handicap: 8 }, { nombre: 'Los Pumas', handicap: 0 }, { nombre: 'Equipo 3', handicap: 12 }])
-    expect(screen.getByText('Scramble · Neto · 3 equipos')).toBeTruthy()
-    // Nombre y HCP en elementos hermanos: la fila se lee entera, el HCP no se encoge.
-    expect(screen.getByText('Los Tigres').parentElement?.textContent).toBe('Los Tigres· HCP 8 (club)')
-    expect(screen.getByText('· HCP 0 (club)').style.flexShrink).toBe('0')
+    expect(screen.getByText('Scramble · Neto')).toBeTruthy()
+    expect(screen.getByText('Equipos (3)')).toBeTruthy()
+    expect(screen.getByText('HCP 8')).toBeTruthy()
+    expect(screen.getByText('HCP 0')).toBeTruthy()
+    expect(screen.getAllByText('del club')).toHaveLength(3)
     // Un celular anota todos los equipos; sin fila de Tees (nadie juega con su índice).
     expect(screen.getByText('Tú, todos los equipos')).toBeTruthy()
     expect(screen.queryByText('Tees')).toBeNull()
-    expect(screen.getByText('Equipos (3)')).toBeTruthy()
     expect(screen.queryByText(/^Jugadores \(/)).toBeNull()
+    expect(screen.queryByText('Drives')).toBeNull()
   })
 
   it('un nombre de 50 caracteres cede con puntos suspensivos; el HCP se ve entero', () => {
     const largo = 'Los Tigres del Club de Golf Los Leones de Santiago'
     pintar('neto', [{ nombre: largo, handicap: 8 }])
     const nombre = screen.getByText(largo)
-    expect(nombre.style.minWidth).toBe('0px')
     expect(nombre.style.textOverflow).toBe('ellipsis')
-    expect(screen.getByText('· HCP 8 (club)').style.flexShrink).toBe('0')
+    expect((screen.getByText('HCP 8').parentElement as HTMLElement).style.flexShrink).toBe('0')
   })
 
   it('anota: «Cada equipo en su celular» o «Tú, todos los equipos»', () => {
@@ -211,10 +217,66 @@ describe('PasoConfirmar — equipos de club', () => {
     expect(screen.getByText('Tú, todos los equipos')).toBeTruthy()
   })
 
-  it('gross: sin HCP y en singular con un equipo', () => {
+  it('con drives: el mínimo elegido y los jugadores de cada equipo; 0 se lee «sin mínimo»', () => {
+    const J = ['Juanjo', 'Pedro', 'Tomás', 'Felipe']
+    pintar('neto', [{ nombre: 'Los Lamarca', handicap: 6, driveJugadores: J }], false, 3)
+    expect(screen.getByText('Mínimo 3 por jugador')).toBeTruthy()
+    expect(screen.getByText('Juanjo · Pedro · Tomás · Felipe')).toBeTruthy()
+    cleanup()
+    pintar('neto', [{ nombre: 'Los Lamarca', handicap: 6, driveJugadores: J }], false, 0)
+    expect(screen.getByText('Se anotan, sin mínimo')).toBeTruthy()
+  })
+
+  it('con drives y sin mínimo calculable (27 hoyos): la fila igual dice que se anotan', () => {
+    pintar('neto', [{ nombre: 'Los Lamarca', handicap: 6, driveJugadores: ['Juanjo', 'Pedro'] }])
+    expect(screen.getByText('Drives')).toBeTruthy()
+    expect(screen.getByText('Se anotan')).toBeTruthy()
+  })
+
+  it('gross: sin HCP', () => {
     pintar('gross', [{ nombre: 'Los Tigres', handicap: null }])
-    expect(screen.getByText('Scramble · Gross · 1 equipo')).toBeTruthy()
-    expect(screen.getByText('Los Tigres')).toBeTruthy()
+    expect(screen.getByText('Scramble · Gross')).toBeTruthy()
+    expect(screen.getByText('Equipos (1)')).toBeTruthy()
     expect(screen.queryByText(/HCP/)).toBeNull()
+  })
+
+  it('la fecha con el día de la semana', () => {
+    pintar('neto', [{ nombre: 'Los Tigres', handicap: 8 }])
+    expect(screen.getByText(/^Sábado 28 de noviembre/)).toBeTruthy()
+  })
+})
+
+describe('PasoJugadores — mínimo de drives por jugador', () => {
+  const abrirDrives = (holes = 18) => {
+    render(<Paso holes={holes} />)
+    fireEvent.click(soloEquipos())
+    fireEvent.click(screen.getByRole('group', { name: '¿Anotar drives?' }).querySelectorAll('button')[1])
+  }
+  const minimo = () => screen.getByTestId('drives-minimo').textContent
+  const bajar = () => screen.getByRole('button', { name: 'Bajar el mínimo de drives' }) as HTMLButtonElement
+  const subir = () => screen.getByRole('button', { name: 'Subir el mínimo de drives' }) as HTMLButtonElement
+
+  it('con drives en No no se muestra; con Sí arranca en el de siempre y el tope frena el +', () => {
+    render(<Paso />)
+    fireEvent.click(soloEquipos())
+    expect(screen.queryByTestId('drives-minimo')).toBeNull()
+    cleanup()
+    abrirDrives()
+    expect(minimo()).toBe('4')
+    expect(subir().disabled).toBe(true)
+    expect(screen.getByText('Cada jugador aporta al menos 4 drives. En 18 hoyos, el máximo es 4.')).toBeTruthy()
+  })
+
+  it('el − baja hasta 0 (sin mínimo) y ahí se frena', () => {
+    abrirDrives(9)
+    expect(minimo()).toBe('2')
+    fireEvent.click(bajar())
+    expect(screen.getByText('Cada jugador aporta al menos 1 drive. En 9 hoyos, el máximo es 2.')).toBeTruthy()
+    fireEvent.click(bajar())
+    expect(minimo()).toBe('0')
+    expect(bajar().disabled).toBe(true)
+    expect(screen.getByText('Sin mínimo: solo se cuentan los drives de cada uno.')).toBeTruthy()
+    fireEvent.click(subir())
+    expect(minimo()).toBe('1')
   })
 })

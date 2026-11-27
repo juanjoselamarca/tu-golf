@@ -36,6 +36,15 @@ describe('cuerpoParaCrearRonda — equipos de club', () => {
     expect(con.equipos_de_club).toEqual({ equipos: club, quien_anota: 'uno', anotar_drives: true })
   })
 
+  it('el mínimo de drives viaja solo con drives (0 = sin mínimo también viaja)', () => {
+    const con = cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'uno', anotarDrivesEquiposDeClub: true, drivesMinimoEquiposDeClub: 3 }))
+    expect(con.equipos_de_club).toEqual({ equipos: club, quien_anota: 'uno', anotar_drives: true, drives_minimo: 3 })
+    const cero = cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'uno', anotarDrivesEquiposDeClub: true, drivesMinimoEquiposDeClub: 0 }))
+    expect(cero.equipos_de_club).toMatchObject({ drives_minimo: 0 })
+    const sin = cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'uno', drivesMinimoEquiposDeClub: 3 }))
+    expect(sin.equipos_de_club).not.toHaveProperty('drives_minimo')
+  })
+
   it('«Cada equipo en su celular» viaja tal cual (el servidor deriva admin_mode)', () => {
     expect(cuerpo(base({ equiposDeClub: club, quienAnotaEquiposDeClub: 'cada_equipo' })).equipos_de_club?.quien_anota).toBe('cada_equipo')
   })

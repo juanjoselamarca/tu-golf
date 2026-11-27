@@ -764,6 +764,32 @@ describe('POST /api/ronda-libre/create — equipos con hándicap del club (scram
       expect(escrituras('rondas_libres')[0].payload).toMatchObject({ drives_minimo: 2 })
     })
 
+    it('el mínimo elegido al crear se graba; 0 = sin mínimo → null', async () => {
+      const dos = [{ nombre: 'Los Tigres', handicap: 8, driveJugadores: CUATRO }, { nombre: 'Halcones', handicap: 10, driveJugadores: ['Ana', 'Bea', 'Caro', 'Dani'] }]
+      const tres = await POST(req(club({}, { equipos: dos, quien_anota: 'cada_equipo', anotar_drives: true, drives_minimo: 3 })))
+      expect(tres.status).toBe(200)
+      expect(escrituras('rondas_libres')[0].payload).toMatchObject({ drives_minimo: 3 })
+    })
+
+    it('mínimo 0: se anotan drives sin mínimo (drives_minimo null, los jugadores igual)', async () => {
+      const res = await POST(req(club({}, { equipos: [{ nombre: 'Los Tigres', handicap: 8, driveJugadores: CUATRO }], quien_anota: null, anotar_drives: true, drives_minimo: 0 })))
+      expect(res.status).toBe(200)
+      expect(escrituras('rondas_libres')[0].payload).toMatchObject({ drives_minimo: null })
+      expect(equiposGrabados()[0].drive_jugadores).toEqual(CUATRO)
+    })
+
+    it('un mínimo sobre el tope de los hoyos, con decimales o que no es número no crea nada', async () => {
+      const uno = [{ nombre: 'Los Tigres', handicap: 8, driveJugadores: CUATRO }]
+      const sobre = await POST(req(club({ holes: 9 }, { equipos: uno, quien_anota: null, anotar_drives: true, drives_minimo: 3 })))
+      expect(sobre.status).toBe(400)
+      expect((await sobre.json()).error).toBe('El mínimo de drives por jugador va de 0 a 2 en 9 hoyos.')
+      const decimal = await POST(req(club({}, { equipos: uno, quien_anota: null, anotar_drives: true, drives_minimo: 2.5 })))
+      expect(decimal.status).toBe(400)
+      const texto = await POST(req(club({}, { equipos: uno, quien_anota: null, anotar_drives: true, drives_minimo: '3' })))
+      expect(texto.status).toBe(400)
+      nadaEscrito()
+    })
+
     it('un equipo sin sus 4 jugadores o con dos iguales no crea nada', async () => {
       const faltan = await POST(req(conDrives([{ nombre: 'Los Tigres', handicap: 8, driveJugadores: ['Pedro', 'Juan', '', 'Tomás'] }])))
       expect(faltan.status).toBe(400)

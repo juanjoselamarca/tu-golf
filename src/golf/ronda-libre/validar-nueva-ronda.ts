@@ -16,6 +16,8 @@ import { isMatchPlayFormat, isTeamFormat } from '@/golf/formats'
 import {
   JUGADORES_POR_EQUIPO_CON_DRIVES,
   NOMBRE_JUGADOR_DE_DRIVE_MAX,
+  drivesMinimoMaximo,
+  esDrivesMinimoValido,
   problemaDeJugadoresDeDrive,
 } from '@/golf/formats/drives-scramble'
 import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
@@ -73,6 +75,11 @@ export interface EquiposDeClubAValidar {
   quienAnota: QuienAnota | null
   /** «¿Anotar drives?» Sí: cada equipo lleva sus jugadores (`driveJugadores`). */
   anotarDrives?: boolean
+  /**
+   * Con drives: el mínimo por jugador que eligió el creador (0 = sin mínimo). Ausente = el de siempre según los
+   * hoyos (`drivesMinimoPorJugador`): un cliente viejo en caché sigue creando la ronda.
+   */
+  drivesMinimo?: number
 }
 
 export interface RondaAValidar {
@@ -139,7 +146,7 @@ export const DETALLE_DEMASIADOS_EQUIPOS_DE_CLUB = `Este modo admite hasta ${MAX_
  */
 function problemaDeRondaConEquiposDeClub(
   { formato, modo, jugadores }: RondaAValidar,
-  { equipos, holes, quienAnota, anotarDrives }: EquiposDeClubAValidar,
+  { equipos, holes, quienAnota, anotarDrives, drivesMinimo }: EquiposDeClubAValidar,
 ): ProblemaDeLaRonda | null {
   if (!admiteEquiposDeClub(formato)) {
     return { titulo: 'Solo en Scramble', esError: true, detalle: 'Los equipos con hándicap del club se juegan solo en Scramble.' }
@@ -184,6 +191,13 @@ function problemaDeRondaConEquiposDeClub(
   }
 
   if (anotarDrives) {
+    // Arriba de las tarjetas, igual que en pantalla: el mínimo va junto a «¿Anotar drives?».
+    if (drivesMinimo !== undefined && !esDrivesMinimoValido(drivesMinimo, holes)) {
+      return {
+        titulo: 'Mínimo de drives fuera de rango', esError: true,
+        detalle: `El mínimo de drives por jugador va de 0 a ${drivesMinimoMaximo(holes) ?? 0} en ${holes} hoyos.`,
+      }
+    }
     for (const [i, equipo] of equipos.entries()) {
       const nombre = nombreVisibleDeEquipo(equipo.nombre, i)
       const problema = problemaDeJugadoresDeDrive(equipo.driveJugadores ?? [])

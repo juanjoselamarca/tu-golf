@@ -48,14 +48,6 @@ export default function NuevaRondaLibrePage() {
   // Timba libre y Skins: una sola pregunta del permiso (`puedeCrearJuegoPersonalizado`); cada juego, su interruptor.
   const permisoDeJuego = usePermisoDeJuegosDeLaRonda()
   const timba = useTimbaDeLaRonda(permisoDeJuego)
-  // Scramble rápido: «Solo equipos», con el hándicap del club y sin jugadores.
-  const club = useEquiposDeClub({
-    formato: form.formato,
-    modo: form.modo,
-    netoBloqueado: form.netoBloqueado,
-    onModo: form.setModo,
-  })
-
   const setup = useSetupDeCancha({ courseId: form.courseId })
 
   // Sólo los rivales que van a la ronda: en "cada uno en su celular" los que el
@@ -89,6 +81,16 @@ export default function NuevaRondaLibrePage() {
     mitad: form.mitad,
     shotgun: form.shotgun,
     hoyoShotgun: form.hoyoShotgun,
+  })
+
+  // Scramble rápido: «Solo equipos», con el hándicap del club y sin jugadores.
+  const club = useEquiposDeClub({
+    formato: form.formato,
+    modo: form.modo,
+    // De la forma de la ronda: el mínimo de drives por defecto y su tope dependen de los hoyos.
+    holes: forma.holes,
+    netoBloqueado: form.netoBloqueado,
+    onModo: form.setModo,
   })
 
   const jugadores = jugadoresDeLaRonda({
@@ -154,6 +156,7 @@ export default function NuevaRondaLibrePage() {
     equiposDeClub: club.paraEnviar,
     quienAnotaEquiposDeClub: club.quienAnotaParaEnviar,
     anotarDrivesEquiposDeClub: club.anotarDrivesParaEnviar,
+    drivesMinimoEquiposDeClub: club.drivesMinimoParaEnviar,
   })
   const problemaEnJugadores = problemaDelFormulario ?? problemaTimbaJugadores ?? skins.problemaEnJugadores ?? problemaDeLaRonda
 
@@ -316,6 +319,7 @@ export default function NuevaRondaLibrePage() {
             equipos={form.esFormatoDeEquipo && !club.soloEquipos ? form.equipos : []}
             equiposDeClub={club.paraEnviar}
             unCelularPorEquipo={club.unCelularPorEquipo}
+            drivesMinimo={club.drivesMinimoParaEnviar}
             llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
             hcpVisibleDe={hcpVisibleDe}
             hayVariosTees={setup.tees.length > 1}

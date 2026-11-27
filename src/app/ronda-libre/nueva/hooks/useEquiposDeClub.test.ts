@@ -9,16 +9,17 @@ import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import {
   equiposDeClubParaEnviar,
   handicapDeClubDesdeTexto,
+  drivesMinimoEfectivo,
   textoDeHandicapDeClub,
   useEquiposDeClub,
 } from './useEquiposDeClub'
 
-interface Props { formato: FormatoJuego; modo: ModoJuego; netoBloqueado: boolean }
+interface Props { formato: FormatoJuego; modo: ModoJuego; netoBloqueado: boolean; holes: number }
 
 /** El modo vive en un estado de verdad (como en el formulario): lo que el hook pide con `onModo` se ve en `modo`. */
 const montar = (over: Partial<Props> = {}) => {
   const onModo = vi.fn()
-  const props: Props = { formato: 'scramble', modo: 'neto', netoBloqueado: false, ...over }
+  const props: Props = { formato: 'scramble', modo: 'neto', netoBloqueado: false, holes: 18, ...over }
   const hook = renderHook((p: Props) => {
     const [modo, setModo] = useState<ModoJuego>(p.modo)
     const club = useEquiposDeClub({
@@ -230,6 +231,41 @@ describe('useEquiposDeClub', () => {
     expect(result.current.paraEnviar?.[0].driveJugadores?.[1]).toHaveLength(20)
     act(() => result.current.restaurar(['Los Tigres']))
     expect(result.current.anotarDrives).toBe(false)
+  })
+
+  it('mínimo de drives: arranca en el de siempre, se elige de 0 al tope y solo viaja con drives', () => {
+    const { result, rerender, props } = montar()
+    act(() => result.current.elegirSoloEquipos(true))
+    expect(result.current.drivesMinimo).toBe(4)
+    expect(result.current.drivesMinimoMaximo).toBe(4)
+    expect(result.current.drivesMinimoParaEnviar).toBeUndefined()
+    act(() => result.current.elegirAnotarDrives(true))
+    expect(result.current.drivesMinimoParaEnviar).toBe(4)
+    act(() => result.current.elegirDrivesMinimo(3))
+    expect(result.current.drivesMinimoParaEnviar).toBe(3)
+    // Fuera del rango no se acepta: queda el último válido.
+    act(() => result.current.elegirDrivesMinimo(5))
+    act(() => result.current.elegirDrivesMinimo(-1))
+    expect(result.current.drivesMinimo).toBe(3)
+    act(() => result.current.elegirDrivesMinimo(0))
+    expect(result.current.drivesMinimoParaEnviar).toBe(0)
+    // A 9 hoyos el tope baja a 2 y un 3 elegido no cabe: vale el de siempre.
+    act(() => result.current.elegirDrivesMinimo(3))
+    rerender({ ...props, holes: 9 })
+    expect(result.current.drivesMinimoMaximo).toBe(2)
+    expect(result.current.drivesMinimo).toBe(2)
+    rerender({ ...props, holes: 18 })
+    expect(result.current.drivesMinimo).toBe(3)
+    // Repetir no arrastra el mínimo.
+    act(() => result.current.restaurar(['Los Tigres']))
+    expect(result.current.drivesMinimo).toBe(4)
+  })
+
+  it('drivesMinimoEfectivo: el elegido si cabe en los hoyos; si no, el de siempre', () => {
+    expect(drivesMinimoEfectivo(null, 18)).toBe(4)
+    expect(drivesMinimoEfectivo(0, 18)).toBe(0)
+    expect(drivesMinimoEfectivo(3, 9)).toBe(2)
+    expect(drivesMinimoEfectivo(1, 9)).toBe(1)
   })
 
   it('repetir: el nombre que se puso solo («Equipo 2» en la posición 2) vuelve vacío; uno escrito se respeta', () => {

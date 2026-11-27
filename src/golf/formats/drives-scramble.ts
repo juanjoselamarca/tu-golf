@@ -21,6 +21,30 @@ export function drivesMinimoPorJugador(holes: number): number | null {
   return DRIVES_MINIMOS_POR_JUGADOR[holes] ?? null
 }
 
+/**
+ * El mínimo más alto que se puede pedir: que los cuatro jugadores lo cumplan sin pasarse de los hoyos (cada hoyo
+ * tiene un solo drive). 18 hoyos → 4 (16 de 18 hoyos comprometidos; 5 serían 20), 9 → 2. `null` si el modo no se
+ * juega a esa cantidad de hoyos. El mínimo de cada campeonato se elige al crear, entre 0 y este tope.
+ */
+export function drivesMinimoMaximo(holes: number): number | null {
+  if (drivesMinimoPorJugador(holes) == null) return null
+  return Math.floor(holes / JUGADORES_POR_EQUIPO_CON_DRIVES)
+}
+
+/** El mínimo elegido es un entero entre 0 (sin mínimo) y `drivesMinimoMaximo(holes)`. La usan el asistente y la API. */
+export function esDrivesMinimoValido(minimo: number, holes: number): boolean {
+  const maximo = drivesMinimoMaximo(holes)
+  return maximo != null && Number.isInteger(minimo) && minimo >= 0 && minimo <= maximo
+}
+
+/**
+ * Cómo se guarda en `rondas_libres.drives_minimo`: 0 = se anotan drives pero sin mínimo, y va `null` (la columna
+ * acepta 1..18; el scorer y la vista en vivo ya leen `null` como «sin mínimo» y solo muestran el conteo).
+ */
+export function drivesMinimoParaGuardar(minimo: number): number | null {
+  return minimo > 0 ? minimo : null
+}
+
 /** Drives de un equipo: hoyo (como texto, igual que `scores`) → posición del jugador en `drive_jugadores`. */
 export type DrivesDelEquipo = Record<string, number>
 

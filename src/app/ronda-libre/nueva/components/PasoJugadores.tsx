@@ -144,7 +144,7 @@ export function PasoJugadores(props: Props) {
   return (
     <div>
       <div style={tarjeta}>
-        {props.club && <SelectorSoloEquipos soloEquipos={soloEquipos} onElegir={props.club.elegirSoloEquipos} />}
+        {props.club && <SelectorSoloEquipos soloEquipos={soloEquipos} modo={props.modo} onElegir={props.club.elegirSoloEquipos} />}
 
         {props.club && soloEquipos ? (
           <>
@@ -159,6 +159,9 @@ export function PasoJugadores(props: Props) {
             onHandicap={props.club.escribirHandicap}
             anotarDrives={props.club.anotarDrives}
             onAnotarDrives={props.club.elegirAnotarDrives}
+            drivesMinimo={props.club.drivesMinimo}
+            drivesMinimoMaximo={props.club.drivesMinimoMaximo}
+            onDrivesMinimo={props.club.elegirDrivesMinimo}
             onJugador={props.club.escribirJugador}
           />
           {props.club.seEligeQuienAnota && (
