@@ -11,12 +11,16 @@ const SESSION_LABELS: Record<string, string> = {
   onboarding: 'Onboarding',
 }
 
-/** Lista de sesiones del coach. No pinta nada si la lista está vacía. */
+/**
+ * Lista de sesiones del coach. No pinta nada si la lista está vacía.
+ * DESIGN.md §4: título h2 18/600 en DM Sans y en oración (sin mono ni mayúsculas espaciadas);
+ * nada bajo el piso de 13 px; la fecha en cifras tabulares (.num).
+ */
 export function SesionesAnteriores({ sesiones }: { sesiones: CoachSession[] }) {
   if (sesiones.length === 0) return null
   return (
     <div style={{ padding: '0 20px', marginBottom: '24px' }}>
-      <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', fontFamily: 'var(--font-dm-mono), monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>
+      <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', margin: '0 0 12px' }}>
         Sesiones anteriores
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -24,9 +28,9 @@ export function SesionesAnteriores({ sesiones }: { sesiones: CoachSession[] }) {
           <Link key={s.id} href={`/coach/sesion/${s.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '12px', padding: '14px 16px', textDecoration: 'none' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{SESSION_LABELS[s.session_type] ?? s.session_type}</div>
-              {s.next_focus && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Foco: {textoPlano(s.next_focus, 90)}</div>}
+              {s.next_focus && <div style={{ fontSize: '14px', color: 'var(--text-2)', marginTop: '2px' }}>Foco: {textoPlano(s.next_focus, 90)}</div>}
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{new Date(s.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', timeZone: 'America/Santiago' })}</div>
+            <div className="num" style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{new Date(s.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', timeZone: 'America/Santiago' })}</div>
           </Link>
         ))}
       </div>
