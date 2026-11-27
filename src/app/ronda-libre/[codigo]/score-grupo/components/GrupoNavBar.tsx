@@ -50,6 +50,10 @@ export function GrupoNavBar({
     : enviando ? `Enviando hoyo ${guardar.hoyo}…`
     : guardar.guardado ? `Enviar hoyo ${guardar.hoyo}`
     : `Guardar hoyo ${guardar.hoyo}`
+  // Desde el hoyo 9 caben tres botones (Anterior · Siguiente · Finalizar): en 390 px los textos largos partían en dos
+  // líneas (Juanjo, 26-nov). Con tres, Anterior queda solo con la flecha y Finalizar sin «ronda ✓» a la vista (el
+  // nombre accesible sigue completo). Ningún botón parte su texto.
+  const tresBotones = currentHoleIdx > 0 && !isLastHole && canFinalize
   return (
     <div style={{
       flexShrink: 0, background: theme.navBg,
@@ -60,14 +64,15 @@ export function GrupoNavBar({
       {currentHoleIdx > 0 && (
         <button
           onClick={onPrev}
+          aria-label={tresBotones ? 'Anterior' : undefined}
           style={{
-            flex: 1, padding: '14px', background: 'transparent',
+            flex: tresBotones ? '0 0 52px' : 1, padding: tresBotones ? '0' : '14px', background: 'transparent',
             color: theme.textMuted, border: '1px solid #e2e8f0',
-            borderRadius: '12px', fontSize: '14px', fontWeight: 400,
-            cursor: 'pointer', minHeight: '48px',
+            borderRadius: '12px', fontSize: tresBotones ? '18px' : '14px', fontWeight: 400,
+            cursor: 'pointer', minHeight: '48px', whiteSpace: 'nowrap',
           }}
         >
-          {'←'} Anterior
+          {tresBotones ? '←' : '← Anterior'}
         </button>
       )}
       {/* Primary: Siguiente (hidden on last hole) */}
@@ -78,7 +83,7 @@ export function GrupoNavBar({
             flex: 2, padding: '14px',
             background: theme.gold, color: 'var(--brand-dark)',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
-            cursor: 'pointer', minHeight: '48px',
+            cursor: 'pointer', minHeight: '48px', whiteSpace: 'nowrap',
             touchAction: 'manipulation', letterSpacing: '0.01em',
           }}
         >
@@ -109,6 +114,7 @@ export function GrupoNavBar({
         <button
           onClick={onFinalize}
           disabled={finalizarInactivo}
+          aria-label={finalizing ? undefined : 'Finalizar ronda'}
           style={{
             flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
             background: finalizing ? '#9ca3af' : isLastHole ? theme.gold : 'transparent',
@@ -117,13 +123,13 @@ export function GrupoNavBar({
             borderRadius: '12px',
             fontSize: isLastHole ? '16px' : '13px',
             fontWeight: isLastHole ? 600 : 500,
-            cursor: finalizarInactivo ? 'not-allowed' : 'pointer', minHeight: '48px',
+            cursor: finalizarInactivo ? 'not-allowed' : 'pointer', minHeight: '48px', whiteSpace: 'nowrap',
             touchAction: 'manipulation', letterSpacing: '0.01em',
             transition: 'background 0.2s ease',
             opacity: finalizarInactivo ? 0.7 : 1,
           }}
         >
-          {finalizing ? 'Finalizando...' : 'Finalizar ronda ✓'}
+          {finalizing ? 'Finalizando…' : tresBotones ? 'Finalizar' : 'Finalizar ronda ✓'}
         </button>
       )}
     </div>

@@ -102,3 +102,32 @@ describe('GrupoNavBar — último hoyo de quien no cierra la ronda', () => {
     expect(screen.getByRole('button', { name: /Finalizar ronda/ })).toBeTruthy()
   })
 })
+
+// Juanjo (26-nov): desde el hoyo 9 la barra partía en dos líneas (Anterior · Siguiente · Finalizar ronda ✓).
+describe('GrupoNavBar — tres botones en una línea', () => {
+  const pintar = (idx: number, isLastHole: boolean, canFinalize: boolean) => render(
+    <GrupoNavBar
+      currentHoleIdx={idx} isLastHole={isLastHole} canFinalize={canFinalize} finalizing={false} congelada={false}
+      onPrev={() => {}} onNext={() => {}} onFinalize={() => {}} theme={SCORER_THEME}
+    />,
+  )
+  it('con tres: Anterior solo flecha y Finalizar corto, con sus nombres completos; nada parte el texto', () => {
+    pintar(9, false, true)
+    const anterior = screen.getByRole('button', { name: 'Anterior' })
+    const finalizar = screen.getByRole('button', { name: 'Finalizar ronda' })
+    expect(anterior.textContent).toBe('←')
+    expect(finalizar.textContent).toBe('Finalizar')
+    for (const b of screen.getAllByRole('button')) {
+      expect(b.style.whiteSpace).toBe('nowrap')
+      expect(parseInt(b.style.minHeight)).toBeGreaterThanOrEqual(44)
+    }
+  })
+  it('con dos (antes del 9, o en el último hoyo): los textos de siempre', () => {
+    pintar(4, false, false)
+    expect(screen.getByRole('button', { name: /Anterior/ }).textContent).toBe('← Anterior')
+  })
+  it('último hoyo: «Finalizar ronda ✓» completo', () => {
+    pintar(17, true, true)
+    expect(screen.getByRole('button', { name: 'Finalizar ronda' }).textContent).toBe('Finalizar ronda ✓')
+  })
+})
