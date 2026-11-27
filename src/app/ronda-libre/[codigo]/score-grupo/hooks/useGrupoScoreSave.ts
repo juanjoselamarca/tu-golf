@@ -13,6 +13,8 @@ import {
   saveGroupScores,
   marcarPendientes,
   ID_PENDIENTE_EQUIPO,
+  esIdDeEquipo,
+  equipoIdDeClave,
   confirmarPendientes,
   leerPendientes,
   hayPendientes,
@@ -321,8 +323,8 @@ export function useGrupoScoreSave(input: {
         const envios = Object.entries(leerPendientes(codigo)).map(async ([id, golpes]) => {
           // Equipo de otro celular: lo suyo no se pisa desde acá.
           if (ajenos.has(id)) { confirmarPendientes(codigo, id, golpes); return { error: null } }
-          const r = id.startsWith('eq:')
-            ? await saveRondaEquiposScores(supabase, { codigo, equipoId: id.slice(3), delta: golpes })
+          const r = esIdDeEquipo(id)
+            ? await saveRondaEquiposScores(supabase, { codigo, equipoId: equipoIdDeClave(id), delta: golpes })
             : await saveRondaLibreScores(supabase, { codigo, jugadorId: id, delta: golpes })
           if (!r.error) {
             entraron++
@@ -335,7 +337,7 @@ export function useGrupoScoreSave(input: {
           else if (r.error.code === RONDA_ERRCODE.NOT_FOUND) { noEncontrados.push([id, golpes]); return { error: null } }
           // Equipo ya terminado (el «Terminar» se aplicó sin respuesta): el golpe es legítimo y queda apartado; «Corregir
           // mi tarjeta» lo pinta encima y «Terminar mi equipo» lo reenvía (`reintentarRechazados`). No es sesión.
-          else if (id.startsWith('eq:') && esRechazoDeEquipoTerminado(r.error)) {
+          else if (esIdDeEquipo(id) && esRechazoDeEquipoTerminado(r.error)) {
             confirmarPendientes(codigo, id, golpes)
             apartarRechazados(codigo, id, golpes)
             equipoYaTerminado = true
@@ -344,7 +346,7 @@ export function useGrupoScoreSave(input: {
           }
           // Un celular por equipo: el equipo lo anota otro celular (P0003 'equipo_de_otro_anotador', también para el
           // creador) o lo liberaron (con sesión P0003; anon recibe 42501). Definitivo: el pendiente se descarta.
-          else if (id.startsWith('eq:') && (esRechazoDeEquipoAjeno(r.error) || (porCelular && r.error.code === RONDA_ERRCODE.FORBIDDEN))) {
+          else if (esIdDeEquipo(id) && (esRechazoDeEquipoAjeno(r.error) || (porCelular && r.error.code === RONDA_ERRCODE.FORBIDDEN))) {
             confirmarPendientes(codigo, id, golpes)
             equipoPerdido = true
             return { error: null }
@@ -376,8 +378,11 @@ export function useGrupoScoreSave(input: {
       }
 
       // Rebote de equipo terminado: no es «guardado» (ni vibración ni `hasUnsaved` abajo); lo de abajo puede pisarlo.
+      // `hasUnsaved` lo baja el próximo envío aceptado: el golpe apartado de verdad no está en el servidor. El rebote sí
+      // es una respuesta con sesión válida: apaga el aviso de sesión (si no, «Terminar» el otro equipo cortaría por él).
       if (equipoYaTerminado) {
         setSaveStatus('idle'); marcarSinEnviar(hayPendientes(codigo))
+        if (!rechazoDeSesion) setSesionPerdida(false)
         addToast({ ...AVISO_EQUIPO_YA_TERMINADO, type: 'info', duration: 8000 })
       }
       // Terminado también se relee: si era el único de este celular, la carga lleva a la vista en vivo («Corregir»).

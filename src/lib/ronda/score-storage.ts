@@ -179,6 +179,10 @@ export function loadGroupTeamScores(codigo: string): Record<string, Record<strin
 const PEND_KEY = (codigo: string) => `ronda_grupo_pendientes_${codigo}`
 export type PendientesGrupo = Record<string, Record<string, number>>
 export const ID_PENDIENTE_EQUIPO = (equipoId: string) => `eq:${equipoId}`
+/** ¿La clave de pendientes/apartados es de un equipo (`ID_PENDIENTE_EQUIPO`) y no de un jugador? */
+export const esIdDeEquipo = (id: string): boolean => id.startsWith('eq:')
+/** El id del equipo de una clave `ID_PENDIENTE_EQUIPO`. */
+export const equipoIdDeClave = (id: string): string => id.slice(3)
 
 /**
  * Cola de pendientes en localStorage: `{ [id]: { [hoyo]: valor } }`, último valor gana, y el servidor confirma
@@ -375,7 +379,7 @@ function borrarCopiaDelGrupo(codigo: string, alFinalizar = false, conservarApart
     // en la ronda), así que también se van. «Terminar mi equipo» es otra cosa: un golpe de equipo que rebotó porque el
     // equipo ya estaba terminado es legítimo y sólo se reenvía tras «Corregir mi tarjeta»; ésos se quedan.
     if (conservarApartadosDeEquipos) {
-      const deEquipos = Object.entries(golpesRechazados.leer(codigo)).filter(([id]) => id.startsWith('eq:'))
+      const deEquipos = Object.entries(golpesRechazados.leer(codigo)).filter(([id]) => esIdDeEquipo(id))
       if (deEquipos.length === 0) borrarRechazados(codigo)
       else golpesRechazados.escribir(codigo, Object.fromEntries(deEquipos))
     } else borrarRechazados(codigo)

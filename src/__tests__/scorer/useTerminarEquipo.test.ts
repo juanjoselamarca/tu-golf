@@ -23,6 +23,7 @@ vi.mock('@/lib/ronda/helpers', async (importOriginal) => ({ ...(await importOrig
 const cerrarCopiaLocalAlFinalizar = vi.fn()
 const apartados = { golpes: {} as Record<string, Record<string, number>> }
 vi.mock('@/lib/ronda/score-storage', () => ({
+  esIdDeEquipo: (id: string) => id.startsWith('eq:'), equipoIdDeClave: (id: string) => id.slice(3),
   hayPendientes: () => false, cerrarCopiaLocalAlFinalizar: (...a: unknown[]) => cerrarCopiaLocalAlFinalizar(...a),
   leerRechazados: () => apartados.golpes, ID_PENDIENTE_EQUIPO: (id: string) => `eq:${id}`,
 }))

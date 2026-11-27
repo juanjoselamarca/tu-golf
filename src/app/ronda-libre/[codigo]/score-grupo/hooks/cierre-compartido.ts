@@ -7,7 +7,7 @@ import { captureError } from '@/lib/error-tracking'
 import { conPlazoCancelable } from '@/lib/red/con-timeout'
 import { clienteConSenal } from '@/lib/red/cliente-con-senal'
 import { haptic } from '@/lib/ronda/helpers'
-import { hayPendientes } from '@/lib/ronda/score-storage'
+import { hayPendientes, esIdDeEquipo, equipoIdDeClave } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
 import { hayDrivesPendientes, reenviarDrivesPendientes, PLAZO_DRIVES_AL_FINALIZAR_MS } from '@/lib/ronda/drives-pendientes'
 import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
@@ -18,7 +18,7 @@ import type { ResultadoEnvio } from './useGrupoScoreSave'
 
 /** Nombre de una tarjeta del envío: el jugador, o el equipo (`eq:<id>`) en scramble / foursome. */
 function nombreDeTarjeta(ronda: RondaLibre, equipos: readonly EquipoDelScorer[], id: string): string {
-  if (id.startsWith('eq:')) return equipos.find(eq => eq.id === id.slice(3))?.nombre || 'un equipo'
+  if (esIdDeEquipo(id)) return equipos.find(eq => eq.id === equipoIdDeClave(id))?.nombre || 'un equipo'
   return ronda.ronda_libre_jugadores.find(j => j.id === id)?.nombre || 'un jugador'
 }
 
