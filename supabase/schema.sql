@@ -715,7 +715,8 @@ create table public."ronda_equipos" (
   "anotador_user_id" uuid,
   "anotador_nombre" text,
   "drive_jugadores" text[],
-  "drives" jsonb default '{}'::jsonb not null
+  "drives" jsonb default '{}'::jsonb not null,
+  "terminado_at" timestamp with time zone
 );
 create table public."ronda_equipos_scores_orden" (
   "equipo_id" uuid not null,
@@ -2943,6 +2944,69 @@ BEGIN
   RETURN QUERY SELECT v_count <= p_max, greatest(0, p_max - v_count), v_reset;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.reabrir_equipo_de_ronda(p_codigo text, p_equipo_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_ronda_id uuid;
+  v_estado text;
+  v_es_demo boolean;
+  v_admin_mode boolean;
+  v_creador uuid;
+  v_equipo_id uuid;
+  v_origen text;
+  v_anotador uuid;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'sin sesión';
+  END IF;
+
+  -- FOR UPDATE como terminar: un reabrir y el «terminar» del último equipo no se cruzan.
+  SELECT rl.id, rl.estado, rl.es_demo, rl.admin_mode, rl.creador_id
+    INTO v_ronda_id, v_estado, v_es_demo, v_admin_mode, v_creador
+  FROM public.rondas_libres rl
+  WHERE rl.codigo = p_codigo
+  FOR UPDATE;
+
+  IF v_ronda_id IS NOT NULL THEN
+    SELECT re.id, re.handicap_origen, re.anotador_user_id
+      INTO v_equipo_id, v_origen, v_anotador
+    FROM public.ronda_equipos re
+    WHERE re.id = p_equipo_id AND re.ronda_id = v_ronda_id
+    FOR UPDATE;
+  END IF;
+
+  IF v_ronda_id IS NULL OR v_equipo_id IS NULL THEN
+    RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+  IF v_es_demo THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
+  END IF;
+  IF v_admin_mode IS TRUE THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda de un celular';
+  END IF;
+  IF v_origen IS DISTINCT FROM 'club' THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'equipo no es de club';
+  END IF;
+  IF NOT (
+    v_anotador IS NOT DISTINCT FROM v_uid
+    OR (v_anotador IS NULL AND v_creador IS NOT DISTINCT FROM v_uid)
+  ) THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'equipo_de_otro_anotador';
+  END IF;
+  IF v_estado IS DISTINCT FROM 'en_curso' THEN
+    RAISE EXCEPTION 'RONDA_FINALIZED' USING ERRCODE = 'P0002';
+  END IF;
+
+  UPDATE public.ronda_equipos SET terminado_at = NULL WHERE id = v_equipo_id AND terminado_at IS NOT NULL;
+
+  RETURN jsonb_build_object('estado', 'ok');
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.reclamar_equipo_de_ronda(p_codigo text, p_equipo_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -3266,6 +3330,43 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.ronda_equipos_terminado_guard()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    -- Un equipo nace jugando: la policy manage_ronda_equipos deja insertar al creador, pero no ya terminado.
+    IF current_user IN ('anon', 'authenticated') AND NEW.terminado_at IS NOT NULL THEN
+      RAISE EXCEPTION 'TERMINADO_SOLO_POR_RPC' USING ERRCODE = '42501',
+        DETAIL = 'un equipo se termina con terminar_equipo_de_ronda';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF current_user IN ('anon', 'authenticated') AND NEW.terminado_at IS DISTINCT FROM OLD.terminado_at THEN
+    RAISE EXCEPTION 'TERMINADO_SOLO_POR_RPC' USING ERRCODE = '42501',
+      DETAIL = 'un equipo se termina con terminar_equipo_de_ronda y se reabre con reabrir_equipo_de_ronda';
+  END IF;
+  IF OLD.terminado_at IS NOT NULL AND NEW.terminado_at IS NOT NULL AND NEW.scores IS DISTINCT FROM OLD.scores THEN
+    RAISE EXCEPTION 'EQUIPO_TERMINADO' USING ERRCODE = 'P0003', DETAIL = 'equipo_terminado';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.ronda_libre_tarjeta_completa(p_scores jsonb, p_holes integer)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+  SELECT (
+    SELECT count(*) FROM jsonb_object_keys(
+      CASE WHEN jsonb_typeof(p_scores) = 'object' THEN p_scores ELSE '{}'::jsonb END
+    ) k
+    WHERE k ~ '^[0-9]+$' AND k::int >= 1
+  ) >= COALESCE(p_holes, 18);
+$function$;
 CREATE OR REPLACE FUNCTION public.ronda_libre_x_sin_golpes(p_scores jsonb, p_fuera jsonb)
  RETURNS boolean
  LANGUAGE sql
@@ -3338,6 +3439,93 @@ CREATE OR REPLACE FUNCTION public.tarjeta_tiene_anotaciones(p_scores jsonb)
 AS $function$
   SELECT jsonb_typeof(p_scores) = 'object'
      AND EXISTS (SELECT 1 FROM jsonb_each(p_scores) e WHERE jsonb_typeof(e.value) = 'number');
+$function$;
+CREATE OR REPLACE FUNCTION public.terminar_equipo_de_ronda(p_codigo text, p_equipo_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_ronda_id uuid;
+  v_estado text;
+  v_es_demo boolean;
+  v_admin_mode boolean;
+  v_creador uuid;
+  v_holes integer;
+  v_equipo_id uuid;
+  v_origen text;
+  v_anotador uuid;
+  v_scores jsonb;
+  v_pendientes integer;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'sin sesión';
+  END IF;
+
+  -- La ronda FOR UPDATE (no FOR SHARE): dos «terminar» a la vez se ordenan aquí y el segundo ve la marca del primero.
+  SELECT rl.id, rl.estado, rl.es_demo, rl.admin_mode, rl.creador_id, COALESCE(rl.holes, 18)
+    INTO v_ronda_id, v_estado, v_es_demo, v_admin_mode, v_creador, v_holes
+  FROM public.rondas_libres rl
+  WHERE rl.codigo = p_codigo
+  FOR UPDATE;
+
+  IF v_ronda_id IS NOT NULL THEN
+    SELECT re.id, re.handicap_origen, re.anotador_user_id, re.scores
+      INTO v_equipo_id, v_origen, v_anotador, v_scores
+    FROM public.ronda_equipos re
+    WHERE re.id = p_equipo_id AND re.ronda_id = v_ronda_id
+    FOR UPDATE;
+  END IF;
+
+  IF v_ronda_id IS NULL OR v_equipo_id IS NULL THEN
+    RAISE EXCEPTION 'RONDA_NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+  IF v_es_demo THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
+  END IF;
+  -- Mismos predicados de modo que reclamar_equipo_de_ronda: solo equipos de club de una ronda de un celular por equipo.
+  IF v_admin_mode IS TRUE THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda de un celular';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.tournament_groups tg WHERE tg.ronda_libre_id = v_ronda_id) THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda de torneo';
+  END IF;
+  IF v_origen IS DISTINCT FROM 'club' THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'equipo no es de club';
+  END IF;
+  -- IS NOT DISTINCT FROM: con anotador NULL, `=` daría NULL y el IF no cortaría.
+  IF NOT (
+    v_anotador IS NOT DISTINCT FROM v_uid
+    OR (v_anotador IS NULL AND v_creador IS NOT DISTINCT FROM v_uid)
+  ) THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'equipo_de_otro_anotador';
+  END IF;
+
+  IF v_estado IS DISTINCT FROM 'en_curso' THEN
+    RETURN jsonb_build_object('estado', 'ok', 'ronda_cerrada', true);
+  END IF;
+
+  IF NOT public.ronda_libre_tarjeta_completa(v_scores, v_holes) THEN
+    RETURN jsonb_build_object('estado', 'incompleto');
+  END IF;
+
+  UPDATE public.ronda_equipos
+  SET terminado_at = COALESCE(terminado_at, now())
+  WHERE id = v_equipo_id;
+
+  SELECT count(*) INTO v_pendientes
+  FROM public.ronda_equipos re
+  WHERE re.ronda_id = v_ronda_id AND re.terminado_at IS NULL;
+
+  IF v_pendientes = 0 THEN
+    UPDATE public.rondas_libres SET estado = 'finalizada' WHERE id = v_ronda_id AND estado = 'en_curso';
+    RETURN jsonb_build_object('estado', 'ok', 'ronda_cerrada', true);
+  END IF;
+
+  RETURN jsonb_build_object('estado', 'ok', 'ronda_cerrada', false);
+END;
 $function$;
 CREATE OR REPLACE FUNCTION public.timba_registrar_secuencia(p_ronda_id uuid, p_clave text, p_seq bigint, p_dispositivo uuid)
  RETURNS boolean
@@ -4200,6 +4388,7 @@ CREATE TRIGGER ronda_equipos_anotador_guard BEFORE INSERT OR UPDATE OF anotador_
 CREATE TRIGGER ronda_equipos_anotador_nombre BEFORE INSERT OR UPDATE OF anotador_user_id, anotador_nombre ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_anotador_nombre();
 CREATE TRIGGER ronda_equipos_drives_solo_por_rpc BEFORE UPDATE OF drives ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_drives_solo_por_rpc();
 CREATE TRIGGER ronda_equipos_scores_de_su_anotador BEFORE UPDATE OF scores ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_scores_de_su_anotador();
+CREATE TRIGGER ronda_equipos_terminado_guard BEFORE INSERT OR UPDATE OF terminado_at, scores ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_terminado_guard();
 CREATE TRIGGER update_ronda_equipos_updated_at BEFORE UPDATE ON public.ronda_equipos FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_ronda_libre_jugadores_updated_at BEFORE UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_taiger_sessions_updated_at BEFORE UPDATE ON public.taiger_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
@@ -4643,6 +4832,7 @@ revoke all on function public.notify_cerebro_weights_change() from public, anon,
 revoke all on function public.protect_last_admin() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.puede_anotar_ronda(uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.rate_limit_hit(text,integer,integer) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.reabrir_equipo_de_ronda(text,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.reclamar_equipo_de_ronda(text,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.resolve_and_link_course(text,jsonb,real,text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.restamp_round_metrics_target(uuid,numeric) from public, anon, authenticated, service_role, postgres;
@@ -4651,9 +4841,12 @@ revoke all on function public.ronda_equipos_anotador_guard() from public, anon, 
 revoke all on function public.ronda_equipos_anotador_nombre() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_drives_solo_por_rpc() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_equipos_scores_de_su_anotador() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.ronda_equipos_terminado_guard() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.ronda_libre_tarjeta_completa(jsonb,integer) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.tarjeta_tiene_anotaciones(jsonb) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.terminar_equipo_de_ronda(text,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_ronda_para_escribir(text,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.torneo_con_grupos_fijos(uuid) from public, anon, authenticated, service_role, postgres;
@@ -5021,6 +5214,9 @@ grant EXECUTE on function public.puede_anotar_ronda(uuid) to postgres;
 grant EXECUTE on function public.puede_anotar_ronda(uuid) to service_role;
 grant EXECUTE on function public.rate_limit_hit(text,integer,integer) to postgres;
 grant EXECUTE on function public.rate_limit_hit(text,integer,integer) to service_role;
+grant EXECUTE on function public.reabrir_equipo_de_ronda(text,uuid) to authenticated;
+grant EXECUTE on function public.reabrir_equipo_de_ronda(text,uuid) to postgres;
+grant EXECUTE on function public.reabrir_equipo_de_ronda(text,uuid) to service_role;
 grant EXECUTE on function public.reclamar_equipo_de_ronda(text,uuid) to authenticated;
 grant EXECUTE on function public.reclamar_equipo_de_ronda(text,uuid) to postgres;
 grant EXECUTE on function public.reclamar_equipo_de_ronda(text,uuid) to service_role;
@@ -5035,6 +5231,9 @@ grant EXECUTE on function public.ronda_equipos_anotador_guard() to postgres;
 grant EXECUTE on function public.ronda_equipos_anotador_nombre() to postgres;
 grant EXECUTE on function public.ronda_equipos_drives_solo_por_rpc() to postgres;
 grant EXECUTE on function public.ronda_equipos_scores_de_su_anotador() to postgres;
+grant EXECUTE on function public.ronda_equipos_terminado_guard() to postgres;
+grant EXECUTE on function public.ronda_libre_tarjeta_completa(jsonb,integer) to postgres;
+grant EXECUTE on function public.ronda_libre_tarjeta_completa(jsonb,integer) to service_role;
 grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to anon;
 grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to authenticated;
 grant EXECUTE on function public.ronda_libre_x_sin_golpes(jsonb,jsonb) to postgres;
@@ -5043,6 +5242,9 @@ grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric
 grant EXECUTE on function public.search_chunks_hybrid(public.vector,text,numeric,integer,text[],text) to service_role;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to postgres;
 grant EXECUTE on function public.tarjeta_tiene_anotaciones(jsonb) to service_role;
+grant EXECUTE on function public.terminar_equipo_de_ronda(text,uuid) to authenticated;
+grant EXECUTE on function public.terminar_equipo_de_ronda(text,uuid) to postgres;
+grant EXECUTE on function public.terminar_equipo_de_ronda(text,uuid) to service_role;
 grant EXECUTE on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) to postgres;
 grant EXECUTE on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) to service_role;
 grant EXECUTE on function public.timba_ronda_para_escribir(text,uuid) to postgres;
