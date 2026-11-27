@@ -203,7 +203,10 @@ export function PasoConfirmar(props: Props) {
           {/* Equipos de club: nadie juega con su índice, el tee no cambia ningún número. */}
           {!club && <Dato etiqueta="Tees">{nombreVisibleDeTee(props.teeGlobal, dosRecorridos)}</Dato>}
           <Dato etiqueta="Anota" ancho>{anota}</Dato>
-          {club && props.drivesMinimo !== undefined && <Dato etiqueta="Drives" ancho>{textoDeDrives(props.drivesMinimo)}</Dato>}
+          {/* La fila sale si la ronda anota drives; a 27 hoyos no hay mínimo (revisión Fable #901). */}
+          {club?.some(e => e.driveJugadores) && (
+            <Dato etiqueta="Drives" ancho>{props.drivesMinimo !== undefined ? textoDeDrives(props.drivesMinimo) : 'Se anotan'}</Dato>
+          )}
         </div>
 
         {club ? (

@@ -227,6 +227,12 @@ describe('PasoConfirmar — equipos de club', () => {
     expect(screen.getByText('Se anotan, sin mínimo')).toBeTruthy()
   })
 
+  it('con drives y sin mínimo calculable (27 hoyos): la fila igual dice que se anotan', () => {
+    pintar('neto', [{ nombre: 'Los Lamarca', handicap: 6, driveJugadores: ['Juanjo', 'Pedro'] }])
+    expect(screen.getByText('Drives')).toBeTruthy()
+    expect(screen.getByText('Se anotan')).toBeTruthy()
+  })
+
   it('gross: sin HCP', () => {
     pintar('gross', [{ nombre: 'Los Tigres', handicap: null }])
     expect(screen.getByText('Scramble · Gross')).toBeTruthy()
