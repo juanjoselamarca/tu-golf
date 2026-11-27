@@ -122,6 +122,12 @@ export function useEquiposDeClub({ formato, modo, holes, netoBloqueado, onModo }
    * `null` = «Solo equipos» no cambió el modo y no hay nada que devolver.
    */
   const modoAntesDeSoloEquipos = useRef<ModoJuego | null>(null)
+  /**
+   * El usuario tocó un modo (segmento Neto/Gross del paso Formato). Si eligió Gross a mano, «Solo equipos» lo respeta:
+   * antes lo pasaba a Neto sin avisar (matriz de pruebas 27-nov, A3). El paso a Neto queda solo para el Gross de
+   * entrada, el que nadie eligió: con el hándicap del club lo esperable es jugar neto.
+   */
+  const modoTocado = useRef(false)
 
   /**
    * «Con jugadores» | «Solo equipos». Solo la transición cuenta: tocar el segmento que ya está activo no hace
@@ -132,7 +138,7 @@ export function useEquiposDeClub({ formato, modo, holes, netoBloqueado, onModo }
     if (solo === soloEquiposElegido) return
     setSoloEquiposElegido(solo)
     if (solo) {
-      if (modo !== 'neto' && !netoBloqueado) {
+      if (modo !== 'neto' && !netoBloqueado && !modoTocado.current) {
         modoAntesDeSoloEquipos.current = modo
         onModo('neto')
       }
@@ -148,6 +154,7 @@ export function useEquiposDeClub({ formato, modo, holes, netoBloqueado, onModo }
    * suya, aunque vuelva a Neto, reemplaza lo que «Solo equipos» guardó para devolver.
    */
   const elegirModo = (m: ModoJuego) => {
+    modoTocado.current = true
     modoAntesDeSoloEquipos.current = null
     onModo(m)
   }

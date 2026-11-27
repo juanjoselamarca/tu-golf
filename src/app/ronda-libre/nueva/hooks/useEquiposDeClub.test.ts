@@ -118,6 +118,16 @@ describe('useEquiposDeClub', () => {
     expect(result.current.paraEnviar).toEqual([{ nombre: 'Equipo 1', handicap: null }])
   })
 
+  it('Gross elegido a mano en Formato: «Solo equipos» lo respeta (no pasa a Neto sin avisar)', () => {
+    const { result, onModo } = montar({ modo: 'gross' })
+    act(() => result.current.elegirModo('gross'))
+    onModo.mockClear()
+    act(() => result.current.elegirSoloEquipos(true))
+    expect(result.current.soloEquipos).toBe(true)
+    expect(onModo).not.toHaveBeenCalled()
+    expect(result.current.modo).toBe('gross')
+  })
+
   it('ida y vuelta: Gross → «Solo equipos» (Neto) → «Con jugadores» devuelve Gross', () => {
     const { result, onModo } = montar({ modo: 'gross' })
     act(() => result.current.elegirSoloEquipos(true))
