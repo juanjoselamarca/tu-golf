@@ -1,5 +1,6 @@
 'use client'
 
+import { leerEquiposTomados, marcarEquipoTomado } from '@/lib/ronda/equipos-tomados'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
@@ -127,8 +128,8 @@ function ScorerDeGrupo() {
   // El par gris del hoyo en pantalla (Siguiente / «Guardar hoyo N»): `equiposQueConfirmanElHoyo`, que además del suyo
   // incluye el equipo sin reclamar que el creador ya anota (uno que liberó).
   const noConfirmanElHoyo = useMemo(
-    () => unCelularPorEquipo && ronda ? equiposQueNoConfirmanElHoyo(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId) : undefined,
-    [unCelularPorEquipo, ronda, teamEquipos, equiposDeOtroCelular, authUserId],
+    () => unCelularPorEquipo && ronda ? equiposQueNoConfirmanElHoyo(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId, leerEquiposTomados(codigo)) : undefined,
+    [unCelularPorEquipo, ronda, teamEquipos, equiposDeOtroCelular, authUserId, codigo],
   )
   const { handleTeamScoreChange, confirmarHoyo, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido } =
     useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio, enviarYa, sinParAutomatico, noConfirmanElHoyo })
@@ -425,7 +426,10 @@ function ScorerDeGrupo() {
               nombreCreador={nombreDelCreador(ronda)}
               puedeLiberar={cierraEsteCelular}
               enCurso={anotador.enCurso}
-              onLiberar={(id, nombre) => { void anotador.liberar(id, nombre) }}
+              // Liberar lo pasa a este celular aunque todavía no tenga golpes (si la RPC falla, sigue siendo del otro).
+              onLiberar={(id, nombre) => { marcarEquipoTomado(codigo, id); void anotador.liberar(id, nombre) }}
+              // «Anotarlo yo» (discreto): un equipo que nadie tomó pasa a este celular.
+              onTomar={(id) => { marcarEquipoTomado(codigo, id); void recargar() }}
             />
           )}
 

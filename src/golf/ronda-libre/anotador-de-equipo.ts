@@ -47,27 +47,55 @@ export function unCelularPorEquipo(
 }
 
 /**
+ * Equipos sin reclamar que el creador tomó a mano en ESTE celular («Anotarlo yo» o «Liberar» en la franja). Los
+ * guarda el teléfono (`@/lib/ronda/equipos-tomados`): la base admite un solo equipo reclamado por cuenta.
+ */
+export type EquiposTomadosAMano = ReadonlySet<string>
+
+const NINGUNO_TOMADO: EquiposTomadosAMano = new Set()
+
+/**
+ * ¿El creador anota este equipo sin reclamar? Solo si ya tiene golpes (lo está anotando: lo liberó cuando se apagó
+ * el otro celular, o lo dejó su anotador) o si lo tomó a mano. Uno sin reclamar y sin golpes es de un equipo que
+ * todavía no abre su link: queda en la franja con «Anotarlo yo», no como tarjeta (salvo que el creador no tenga
+ * ningún equipo reclamado: entonces anota los libres, como antes). Juanjo, 26-nov: «está mal que yo
+ * pueda anotar el score del otro equipo si puse que cada uno lleva su team»; que exista la forma, pero discreta.
+ */
+function loAnotaElCreador(e: EquipoConAnotador, tomados: EquiposTomadosAMano): boolean {
+  return e.anotador_user_id == null && (tieneGolpes(e) || tomados.has(e.id))
+}
+
+/** El creador sin ningún equipo reclamado (liberó el suyo): nunca queda con la pantalla vacía; ve los libres. */
+function creadorSinEquipo(equipos: readonly EquipoConAnotador[], creadorId: string): boolean {
+  return !equipos.some(o => o.anotador_user_id === creadorId)
+}
+
+/**
  * Los equipos que anota ESTE celular. Ronda de un celular: todos (como siempre). Un celular por equipo: el que
- * reclamó y, si es el creador, además los que nadie reclamó (al liberar un equipo vuelve a él). Sin sesión: ninguno.
+ * reclamó y, si es el creador, los sin reclamar que ya anota (`loAnotaElCreador`). Sin sesión: ninguno.
  */
 export function equiposQueAnota<E extends EquipoConAnotador>(
   ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
   equipos: readonly E[],
   userId: string | null | undefined,
+  tomados: EquiposTomadosAMano = NINGUNO_TOMADO,
 ): E[] {
   if (!unCelularPorEquipo(ronda, equipos)) return [...equipos]
   if (!userId) return []
   const esCreador = ronda.creador_id === userId
-  return equipos.filter(e => e.anotador_user_id === userId || (e.anotador_user_id == null && esCreador))
+  const libresTodos = esCreador && creadorSinEquipo(equipos, userId)
+  return equipos.filter(e => e.anotador_user_id === userId
+    || (esCreador && (loAnotaElCreador(e, tomados) || (libresTodos && e.anotador_user_id == null))))
 }
 
-/** Los equipos que anota OTRO celular (la franja «lo anota Pedro»). Complemento exacto de `equiposQueAnota`. */
+/** Los equipos que anota OTRO celular o nadie todavía (la franja). Complemento exacto de `equiposQueAnota`. */
 export function equiposDeOtroCelular<E extends EquipoConAnotador>(
   ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
   equipos: readonly E[],
   userId: string | null | undefined,
+  tomados: EquiposTomadosAMano = NINGUNO_TOMADO,
 ): E[] {
-  const mios = new Set(equiposQueAnota(ronda, equipos, userId).map(e => e.id))
+  const mios = new Set(equiposQueAnota(ronda, equipos, userId, tomados).map(e => e.id))
   return equipos.filter(e => !mios.has(e.id))
 }
 
@@ -113,18 +141,21 @@ function tieneGolpes(equipo: Pick<EquipoConAnotador, 'scores'>): boolean {
  *  - el creador, además, uno sin reclamar que YA tiene golpes: lo está anotando él (lo liberó cuando se apagó el
  *    otro celular, o empezó a anotarlo a mano). Ensayo 24-nov: tras «Liberar», Siguiente no guardaba el par gris de
  *    ese equipo, que se veía anotado en pantalla y frenaba el cierre.
- * Uno sin reclamar y sin ningún golpe no (P1-a: todavía no abre el link). Solo el hoyo en pantalla: los hoyos vacíos
- * de un equipo sin reclamar siguen frenando el cierre (`equiposSinParAutomatico`).
+ *  - el creador, además, uno sin reclamar que tomó a mano («Anotarlo yo»): lo eligió anotar desde su celular.
+ * Uno sin reclamar, sin ningún golpe y sin tomar no (P1-a: todavía no abre el link). Es `loAnotaElCreador`, la misma
+ * regla que pone la tarjeta en pantalla (`equiposQueAnota`). Solo el hoyo en pantalla: los hoyos vacíos de un equipo
+ * sin reclamar siguen frenando el cierre (`equiposSinParAutomatico`).
  */
 export function equiposQueConfirmanElHoyo<E extends EquipoConAnotador>(
   ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
   equipos: readonly E[],
   userId: string | null | undefined,
+  tomados: EquiposTomadosAMano = NINGUNO_TOMADO,
 ): E[] {
   if (!unCelularPorEquipo(ronda, equipos)) return [...equipos]
   if (!userId) return []
   const esCreador = ronda.creador_id === userId
-  return equipos.filter(e => e.anotador_user_id === userId || (esCreador && e.anotador_user_id == null && tieneGolpes(e)))
+  return equipos.filter(e => e.anotador_user_id === userId || (esCreador && loAnotaElCreador(e, tomados)))
 }
 
 /** Complemento exacto de `equiposQueConfirmanElHoyo`: su par gris no se guarda solo (se anotan a mano). */
@@ -132,8 +163,9 @@ export function equiposQueNoConfirmanElHoyo<E extends EquipoConAnotador>(
   ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
   equipos: readonly E[],
   userId: string | null | undefined,
+  tomados: EquiposTomadosAMano = NINGUNO_TOMADO,
 ): E[] {
-  const confirman = new Set(equiposQueConfirmanElHoyo(ronda, equipos, userId).map(e => e.id))
+  const confirman = new Set(equiposQueConfirmanElHoyo(ronda, equipos, userId, tomados).map(e => e.id))
   return equipos.filter(e => !confirman.has(e.id))
 }
 

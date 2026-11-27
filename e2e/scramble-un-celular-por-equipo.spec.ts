@@ -153,6 +153,42 @@ test.describe('Scramble rápido — un celular por equipo', () => {
     expect(pageErrors).toEqual([])
   })
 
+  test('creador: un equipo que nadie tomó queda en la franja «sin celular todavía»; «Anotarlo yo» lo pasa a su celular', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', err => pageErrors.push(err.message))
+    const { id, codigo } = await crearScrambleDeClub(page.request, ['Los Cóndores', 'Las Águilas'])
+    expect((await equiposDe(id))['Las Águilas'].anotador_user_id).toBeNull()
+
+    await marcarAvisoNoMolestarVisto(page, codigo)
+    await page.goto(`/ronda-libre/${codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
+
+    // Juanjo 26-nov: si cada equipo lleva su celular, el creador no anota al otro… salvo que lo pida, discreto.
+    const franja = page.getByRole('region', { name: 'Equipos que anota otro celular' })
+    await expect(franja).toBeVisible({ timeout: 20_000 })
+    await expect(franja).toContainText('Las Águilas · sin celular todavía')
+    await expect(tarjetaDeEquipo(page, 'Las Águilas')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '+', exact: true })).toHaveCount(1)
+
+    // El «+» escribe solo el equipo propio: el que está sin celular no recibe nada (P1-a).
+    await tarjetaDeEquipo(page, 'Los Cóndores').getByRole('button', { name: '+', exact: true }).click()
+    await expect.poll(() => golpeDelEquipo(id, 'Los Cóndores', 1), { timeout: 15_000 }).not.toBeNull()
+    expect(await golpeDelEquipo(id, 'Las Águilas', 1)).toBeNull()
+
+    await franja.getByRole('button', { name: 'Anotarlo yo' }).click()
+    const modal = page.getByRole('dialog').filter({ hasText: '¿Anotar Las Águilas desde tu celular?' })
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Anotarlo yo' }).click()
+    await expect(tarjetaDeEquipo(page, 'Las Águilas')).toBeVisible({ timeout: 15_000 })
+    await expect(franja).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '+', exact: true })).toHaveCount(2)
+    expect((await equiposDe(id))['Las Águilas'].anotador_user_id, 'no reclama en la base: Pedro todavía puede tomarlo').toBeNull()
+
+    // Recargar no lo devuelve a la franja (queda recordado en este teléfono).
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(tarjetaDeEquipo(page, 'Las Águilas')).toBeVisible({ timeout: 20_000 })
+    expect(pageErrors).toEqual([])
+  })
+
   test('jugador que no creó la ronda: elige equipo, pierde una carrera con aviso, anota solo el suyo y lo deja', async ({ browser }, testInfo) => {
     const ctx = await browser.newContext({
       ...devices['Pixel 5'],

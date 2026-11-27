@@ -1,5 +1,6 @@
 'use client'
 
+import { leerEquiposTomados } from '@/lib/ronda/equipos-tomados'
 import { useCallback, useRef, useState } from 'react'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
@@ -297,7 +298,7 @@ export function useFinalizeGrupo(input: {
       // Un equipo liberado (o tomado) desde la última lectura: se cierra solo con la tarjeta que se ve en pantalla.
       // Va ANTES del bloqueo por equipo incompleto: si Pedro dejó Los Pumas y la pantalla no se refrescó, el aviso
       // «Anótalo» hablaría de un equipo que esta pantalla todavía muestra en la franja de otro celular.
-      const mios = new Set(equiposQueAnota(ronda, todos, authUserId).map(e => e.id))
+      const mios = new Set(equiposQueAnota(ronda, todos, authUserId, leerEquiposTomados(codigo)).map(e => e.id))
       if (mios.size !== teamEquipos.length || teamEquipos.some(e => !mios.has(e.id))) {
         addToast({ ...AVISO_EQUIPOS_CAMBIARON, type: 'info', duration: 7000 })
         // Con plazo (`releerConPlazo`): con señal lenta Finalizar no queda tomado (tarjeta congelada, Descartar
