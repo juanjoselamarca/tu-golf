@@ -2,7 +2,7 @@ import { render } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { TeamLeaderboardsProps } from '../../components/TeamLeaderboards'
 import type { RondaLibre } from '@/types/ronda'
-import { TablaEnVivoDelScorer } from './TablaEnVivoDelScorer'
+import { TablaEnVivoDelScorer, scorerConPestanas } from './TablaEnVivoDelScorer'
 
 let recibido: TeamLeaderboardsProps | null = null
 vi.mock('../../components/TeamLeaderboards', () => ({
@@ -33,5 +33,16 @@ describe('TablaEnVivoDelScorer', () => {
       parMap={{ 1: 4 }} holeDataMap={{}} playerHcp={{}} playerDisplayHcp={{}} />)
     expect(getByText('La tabla aparece cuando haya equipos en la ronda.')).toBeTruthy()
     expect(recibido).toBeNull()
+  })
+})
+
+describe('scorerConPestanas', () => {
+  it('bola compartida y Timba sí; best ball y stroke no (revisión Fable: best ball lee golpes de la ronda cargada)', () => {
+    expect(scorerConPestanas('scramble', false)).toBe(true)
+    expect(scorerConPestanas('foursome', false)).toBe(true)
+    expect(scorerConPestanas('best_ball', false)).toBe(false)
+    expect(scorerConPestanas('stroke_play', false)).toBe(false)
+    expect(scorerConPestanas('stroke_play', true)).toBe(true)
+    expect(scorerConPestanas(null, false)).toBe(false)
   })
 })

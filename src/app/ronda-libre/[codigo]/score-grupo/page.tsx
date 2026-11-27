@@ -52,7 +52,7 @@ import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { useTimbaDelScorer } from './hooks/useTimbaDelScorer'
 import { PestanasDeLaTimba, PANEL_DE_PESTANA, ETIQUETAS_DE_EQUIPOS, type PestanaDeLaTimba } from '../components/timba/PestanasDeLaTimba'
-import { TablaEnVivoDelScorer } from './components/TablaEnVivoDelScorer'
+import { TablaEnVivoDelScorer, scorerConPestanas } from './components/TablaEnVivoDelScorer'
 import { PanelDelJuego } from '../components/timba/PanelDelJuego'
 import { PuntosEspecialesDelHoyo } from '../components/PuntosEspecialesDelHoyo'
 import { RetiroDeJugadores } from '../components/timba/RetiroDeJugadores'
@@ -144,7 +144,7 @@ function ScorerDeGrupo() {
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('tarjeta')
   // Timba y bola compartida (scramble, foursome): «Anotar» / «Tabla en vivo» arriba (Juanjo, 26-nov). Best ball no:
   // sus golpes viven por jugador en `scores` y la tabla del espectador los lee de la ronda cargada (revisión Fable).
-  const conPestanas = esTimba || isSharedBallFormat(ronda?.formato_juego)
+  const conPestanas = scorerConPestanas(ronda?.formato_juego, esTimba)
   // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
   const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
   const timba = useTimbaDelScorer({
