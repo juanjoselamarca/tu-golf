@@ -10,7 +10,7 @@
 --     ronda FOR UPDATE: dos celulares que terminan a la vez se ordenan y exactamente uno cierra.
 --   · reabrir_equipo_de_ronda(p_codigo, p_equipo_id): con la ronda en curso, vuelve el equipo a «jugando» (corregir un
 --     hoyo mientras el otro equipo sigue en la cancha).
---   · Trigger ronda_equipos_terminado_bloquea_scores: los scores de un equipo terminado no cambian por ningún camino
+--   · Trigger ronda_equipos_terminado_guard: los scores de un equipo terminado no cambian por ningún camino
 --     (upsert_ronda_equipos_scores incluido, que por eso NO se reescribe). Un delta repetido (reintento de la cola)
 --     deja los scores iguales y pasa; uno distinto da P0003 / DETAIL 'equipo_terminado'. Además el cliente no cambia
 --     terminado_at por la tabla (solo las dos RPC).
@@ -20,6 +20,8 @@
 -- Seguimiento (revisión Fable 27-nov, P2): que finalizar_ronda_libre use ronda_libre_tarjeta_completa (hoy la regla
 -- está también inline allá), y decidir si reclamar_equipo_de_ronda rechaza un equipo terminado sin anotador (hoy
 -- cualquiera con el código puede reclamar un equipo libre, terminado o no: mismo modelo de confianza de siempre).
+-- También: reabrir no repite el chequeo «ronda de torneo» de terminar (inocuo: un equipo de torneo nace 'calculado' y
+-- nunca queda terminado); unificar ambos predicados cuando se toque finalizar_ronda_libre.
 --
 -- Permiso de terminar/reabrir (mismo modelo que upsert_ronda_equipos_scores en un equipo de club):
 --   · el anotador del equipo; o

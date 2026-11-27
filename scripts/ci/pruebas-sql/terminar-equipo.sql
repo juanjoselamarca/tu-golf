@@ -167,17 +167,27 @@ DO $$ BEGIN
 EXCEPTION WHEN SQLSTATE 'P0003' THEN RAISE NOTICE 'OK demo -> P0003';
 END $$;
 
-DO $$ BEGIN
+DO $$
+DECLARE v_msg text;
+BEGIN
   PERFORM public.terminar_equipo_de_ronda('NOEXISTE', 'f7e00000-0000-4000-8000-000000000011');
-  RAISE EXCEPTION 'FALLA: terminar en una ronda inexistente no dio P0001';
-EXCEPTION WHEN SQLSTATE 'P0001' THEN RAISE NOTICE 'OK ronda inexistente -> P0001';
+  RAISE EXCEPTION 'FALLA: terminar en una ronda inexistente no dio P0001' USING ERRCODE = 'P0009';
+EXCEPTION WHEN SQLSTATE 'P0001' THEN
+  GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+  IF v_msg IS DISTINCT FROM 'RONDA_NOT_FOUND' THEN RAISE EXCEPTION 'FALLA: ronda inexistente: P0001 con otro mensaje: %', v_msg USING ERRCODE = 'P0009'; END IF;
+  RAISE NOTICE 'OK ronda inexistente -> P0001';
 END $$;
 
-DO $$ BEGIN
+DO $$
+DECLARE v_msg text;
+BEGIN
   -- El equipo existe pero en otra ronda.
   PERFORM public.terminar_equipo_de_ronda('TRM001', 'f7e00000-0000-4000-8000-000000000021');
-  RAISE EXCEPTION 'FALLA: terminar un equipo de otra ronda no dio P0001';
-EXCEPTION WHEN SQLSTATE 'P0001' THEN RAISE NOTICE 'OK equipo de otra ronda -> P0001';
+  RAISE EXCEPTION 'FALLA: terminar un equipo de otra ronda no dio P0001' USING ERRCODE = 'P0009';
+EXCEPTION WHEN SQLSTATE 'P0001' THEN
+  GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+  IF v_msg IS DISTINCT FROM 'RONDA_NOT_FOUND' THEN RAISE EXCEPTION 'FALLA: equipo de otra ronda: P0001 con otro mensaje: %', v_msg USING ERRCODE = 'P0009'; END IF;
+  RAISE NOTICE 'OK equipo de otra ronda -> P0001';
 END $$;
 
 DO $$
