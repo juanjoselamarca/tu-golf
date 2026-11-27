@@ -51,3 +51,22 @@ describe('useAnotadorDeEquipo.dejar', () => {
     expect(recargarTrasDejarEquipo).not.toHaveBeenCalled()
   })
 })
+
+describe('useAnotadorDeEquipo.liberar (revisión Fable 2ª vuelta)', () => {
+  it('RPC ok: corre alLiberar (marca el equipo tomado) ANTES de releer', async () => {
+    liberar.mockResolvedValue({ estado: 'ok' })
+    const orden: string[] = []
+    recargar.mockImplementationOnce(async () => { orden.push('recargar') })
+    const { result } = montar()
+    await act(async () => { await result.current.liberar('e2', 'Los Pumas', () => { orden.push('alLiberar') }) })
+    expect(orden).toEqual(['alLiberar', 'recargar'])
+  })
+
+  it('RPC con error: NO corre alLiberar (el equipo no queda marcado como tomado)', async () => {
+    liberar.mockResolvedValue({ estado: 'error', mensaje: 'Sin conexión. Prueba de nuevo.' })
+    const alLiberar = vi.fn()
+    const { result } = montar()
+    await act(async () => { await result.current.liberar('e2', 'Los Pumas', alLiberar) })
+    expect(alLiberar).not.toHaveBeenCalled()
+  })
+})

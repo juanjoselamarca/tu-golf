@@ -78,8 +78,11 @@ describe('useGrupoScoreboard — bola compartida (#602)', () => {
   it('GOLPES con el handicap del EQUIPO en 9h (mitad de 10 = 5 → SI 1-5), no el del jugador', () => {
     expect(montar('scramble', 'neto', 6).maxStrokesOnHole).toBe(0)
     expect(montar('scramble', 'neto', 5).maxStrokesOnHole).toBe(1)
+  })
+
+  it('scramble neto: el neto va al total, así que ningún hoyo lleva el punto de golpe (Juanjo, 26-nov)', () => {
     const b = montar('scramble', 'neto', 1)
-    expect(b.hoyoConGolpe(5)).toBe(true)
+    expect(b.hoyoConGolpe(5)).toBe(false)
     expect(b.hoyoConGolpe(6)).toBe(false)
   })
 

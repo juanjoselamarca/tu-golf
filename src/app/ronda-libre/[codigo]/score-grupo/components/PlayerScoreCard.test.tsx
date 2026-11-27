@@ -39,6 +39,7 @@ function renderTarjeta(golpes: number, formatoJuego: 'stroke_play' | 'stableford
       modoJuego="neto"
       formatoJuego={formatoJuego}
       showNetStableford
+      muestraGolpes
       pending={false}
       onChange={() => {}}
       theme={SCORER_THEME}

@@ -171,3 +171,32 @@ export function problemaDeJugadoresDeDrive(nombres: readonly string[]): 'faltan'
   if (new Set(claves).size !== claves.length) return 'repetidos'
   return null
 }
+
+/**
+ * Hoyos (en el orden de la ronda) sin drive marcado. Con drives, cada hoyo lleva uno: el scorer no pasa de hoyo ni
+ * finaliza sin él (Juanjo, 26-nov: «No deja avanzar»).
+ */
+export function hoyosSinDrive(drives: DrivesDelEquipo, hoyos: readonly number[]): number[] {
+  return hoyos.filter(h => drives[String(h)] == null)
+}
+
+/**
+ * Al finalizar: el primer hoyo (en el orden de la ronda) que frena el cierre por falta de drive, o `null`. Cuentan solo
+ * los hoyos JUGADOS de cada equipo (con golpe) y, si la pantalla está en el ÚLTIMO hoyo, ese (su par gris se confirma
+ * al cerrar). Los que nunca se jugaron (cierre anticipado por lluvia o luz, también el intermedio en pantalla) los
+ * rellena el cierre con par y quedan sin drive: pedirlos obligaría a inventarlos y falsearía el conteo del mínimo
+ * (revisión Fable 27-nov).
+ */
+export function hoyoSinDriveQueFrenaElCierre(
+  hoyos: readonly number[],
+  equipos: ReadonlyArray<{ hoyosSinDrive: readonly number[]; scores: Readonly<Record<string, number | null | undefined>> }>,
+  hoyoEnPantalla: number,
+): number | null {
+  const ultimo = hoyos[hoyos.length - 1]
+  for (const h of hoyos) {
+    const seConfirma = h === hoyoEnPantalla && h === ultimo
+    const frena = equipos.some(e => e.hoyosSinDrive.includes(h) && (seConfirma || e.scores[String(h)] != null))
+    if (frena) return h
+  }
+  return null
+}

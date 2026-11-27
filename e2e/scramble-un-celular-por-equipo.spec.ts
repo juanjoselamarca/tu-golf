@@ -145,11 +145,51 @@ test.describe('Scramble rápido — un celular por equipo', () => {
     await expect(page.getByText('Las Águilas queda en tu celular')).toBeVisible({ timeout: 15_000 })
     await expect.poll(async () => (await equiposDe(id))['Las Águilas'].anotador_user_id, { timeout: 10_000 }).toBeNull()
     expect((await equiposDe(id))['Las Águilas'].anotador_nombre, 'sin anotador no queda nombre').toBeNull()
-    await expect(franja).toHaveCount(0)
+    // La franja ya no lista equipos; queda solo el link para que lo anoten (Las Águilas sigue sin celular).
+    await expect(franja).not.toContainText('Las Águilas')
+    await expect(franja.getByRole('button', { name: 'Enviar link para que anoten su equipo' })).toBeVisible()
     await expect(tarjetaDeEquipo(page, 'Las Águilas')).toBeVisible()
     await expect(page.getByRole('button', { name: '+', exact: true })).toHaveCount(2)
 
     expect(await golpeDelEquipo(id, 'Los Cóndores', 1), 'liberar no toca lo anotado').toBe(golpe)
+    expect(pageErrors).toEqual([])
+  })
+
+  test('creador: un equipo que nadie tomó queda en la franja «sin celular todavía»; «Anotarlo yo» lo pasa a su celular', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', err => pageErrors.push(err.message))
+    const { id, codigo } = await crearScrambleDeClub(page.request, ['Los Cóndores', 'Las Águilas'])
+    expect((await equiposDe(id))['Las Águilas'].anotador_user_id).toBeNull()
+
+    await marcarAvisoNoMolestarVisto(page, codigo)
+    await page.goto(`/ronda-libre/${codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
+
+    // Juanjo 26-nov: si cada equipo lleva su celular, el creador no anota al otro… salvo que lo pida, discreto.
+    const franja = page.getByRole('region', { name: 'Equipos que anota otro celular' })
+    await expect(franja).toBeVisible({ timeout: 20_000 })
+    await expect(franja).toContainText('Las Águilas · sin celular todavía')
+    await expect(tarjetaDeEquipo(page, 'Las Águilas')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '+', exact: true })).toHaveCount(1)
+
+    // El «+» escribe solo el equipo propio: el que está sin celular no recibe nada (P1-a).
+    await tarjetaDeEquipo(page, 'Los Cóndores').getByRole('button', { name: '+', exact: true }).click()
+    await expect.poll(() => golpeDelEquipo(id, 'Los Cóndores', 1), { timeout: 15_000 }).not.toBeNull()
+    expect(await golpeDelEquipo(id, 'Las Águilas', 1)).toBeNull()
+
+    await franja.getByRole('button', { name: 'Anotarlo yo' }).click()
+    const modal = page.getByRole('dialog').filter({ hasText: '¿Anotar Las Águilas desde tu celular?' })
+    await expect(modal).toBeVisible()
+    await modal.getByRole('button', { name: 'Anotarlo yo' }).click()
+    await expect(tarjetaDeEquipo(page, 'Las Águilas')).toBeVisible({ timeout: 15_000 })
+    // Sale de la lista; el link queda a la vista: es la vuelta atrás (su equipo lo abre y lo toma).
+    await expect(franja).not.toContainText('Las Águilas')
+    await expect(franja.getByRole('button', { name: 'Enviar link para que anoten su equipo' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '+', exact: true })).toHaveCount(2)
+    expect((await equiposDe(id))['Las Águilas'].anotador_user_id, 'no reclama en la base: Pedro todavía puede tomarlo').toBeNull()
+
+    // Recargar no lo devuelve a la franja (queda recordado en este teléfono).
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(tarjetaDeEquipo(page, 'Las Águilas')).toBeVisible({ timeout: 20_000 })
     expect(pageErrors).toEqual([])
   })
 

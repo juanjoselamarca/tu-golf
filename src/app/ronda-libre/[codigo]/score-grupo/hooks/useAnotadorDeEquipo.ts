@@ -46,13 +46,14 @@ export function useAnotadorDeEquipo({ codigo, recargar, recargarTrasDejarEquipo 
     }
   }, [codigo, enCurso, recargar, router])
 
-  const liberar = useCallback(async (equipoId: string, nombreEquipo: string) => {
+  /** `alLiberar`: corre solo si el servidor liberó el equipo, antes de releer (con un error, el equipo sigue del otro). */
+  const liberar = useCallback(async (equipoId: string, nombreEquipo: string, alLiberar?: () => void) => {
     if (enCurso) return
     haptic(30)
     setEnCurso(equipoId)
     try {
       const r = await liberarEquipoDeRonda(createClient(), codigo, equipoId)
-      if (r.estado === 'ok') addToast({ type: 'success', title: `${nombreEquipo} queda en tu celular`, duration: 4000 })
+      if (r.estado === 'ok') { alLiberar?.(); addToast({ type: 'success', title: `${nombreEquipo} queda en tu celular`, duration: 4000 }) }
       else addToast({ type: 'error', title: r.mensaje, duration: 6000 })
       await releerConPlazo(recargar, { avisarDemora: r.estado === 'ok' })
     } finally {

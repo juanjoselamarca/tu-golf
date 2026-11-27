@@ -88,6 +88,7 @@ export default defineConfig({
         'ronda-libre-foursome-neto.spec.ts',
         'scramble-un-celular-por-equipo.spec.ts',
         'scramble-equipo-liberado-sin-senal.spec.ts',
+        'scramble-drive-obligatorio.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],

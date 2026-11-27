@@ -5,6 +5,7 @@ import {
   useAvisoNoMolestar,
   claveAvisoRondaLibre,
   claveAvisoTorneo,
+  claveAvisoAntesDeEmpezar,
   CLAVE_STORAGE_AVISO_NO_MOLESTAR,
   MAX_RONDAS_RECORDADAS,
   RETRASO_AVISO_MS,
@@ -133,5 +134,30 @@ describe('useAvisoNoMolestar', () => {
     const { result } = renderHook(() => useAvisoNoMolestar('ronda-libre:A'))
     act(() => { vi.advanceTimersByTime(RETRASO_AVISO_MS) })
     expect(result.current.abierto).toBe(false)
+  })
+})
+
+describe('claveAvisoAntesDeEmpezar (Juanjo 26-nov: salía en el hoyo 5 al volver a entrar)', () => {
+  it('sin hoyos anotados: la clave de la ronda', () => {
+    expect(claveAvisoAntesDeEmpezar('ronda-libre:ABC123', 0)).toBe('ronda-libre:ABC123')
+  })
+  it('con algún hoyo anotado: null (no se ofrece en mitad de la vuelta)', () => {
+    expect(claveAvisoAntesDeEmpezar('ronda-libre:ABC123', 1)).toBeNull()
+    expect(claveAvisoAntesDeEmpezar('ronda-libre:ABC123', 4)).toBeNull()
+  })
+  it('sin clave sigue sin clave', () => {
+    expect(claveAvisoAntesDeEmpezar(null, 0)).toBeNull()
+  })
+  it('con la ronda empezada, el hook no abre el aviso aunque nunca se haya visto', () => {
+    vi.useFakeTimers()
+    try {
+      window.localStorage.removeItem(CLAVE_STORAGE_AVISO_NO_MOLESTAR)
+      const { result } = renderHook(() => useAvisoNoMolestar(claveAvisoAntesDeEmpezar(claveAvisoRondaLibre('XYZ999'), 4)))
+      act(() => { vi.advanceTimersByTime(RETRASO_AVISO_MS + 50) })
+      expect(result.current.abierto).toBe(false)
+      expect(window.localStorage.getItem(CLAVE_STORAGE_AVISO_NO_MOLESTAR)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

@@ -158,3 +158,41 @@ describe('drivesConCambios', () => {
     expect(drivesConCambios(con([5, 1]))).toEqual(con([5, 1]))
   })
 })
+
+describe('hoyosSinDrive (sin el drive no se avanza, Juanjo 26-nov)', () => {
+  it('los hoyos sin marcar, en el orden de la ronda (salida por el 10)', async () => {
+    const { hoyosSinDrive } = await import('./drives-scramble')
+    expect(hoyosSinDrive({ '10': 0, '12': 3, '1': 2 }, [10, 11, 12, 1, 2])).toEqual([11, 2])
+    expect(hoyosSinDrive({}, [1, 2])).toEqual([1, 2])
+    expect(hoyosSinDrive({ '1': 0, '2': 1 }, [1, 2])).toEqual([])
+  })
+})
+
+describe('hoyoSinDriveQueFrenaElCierre (revisión Fable 27-nov)', () => {
+  const orden = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+  it('cierre anticipado en el 12: los hoyos 13-18 sin jugar no piden drive', async () => {
+    const { hoyoSinDriveQueFrenaElCierre } = await import('./drives-scramble')
+    const scores = Object.fromEntries(orden.filter(h => h <= 12).map(h => [String(h), 4]))
+    const sinDrive = orden.filter(h => h > 12)
+    expect(hoyoSinDriveQueFrenaElCierre(orden, [{ hoyosSinDrive: sinDrive, scores }], 12)).toBeNull()
+  })
+  it('un hoyo jugado sin drive frena, el primero en el orden de la ronda', async () => {
+    const { hoyoSinDriveQueFrenaElCierre } = await import('./drives-scramble')
+    const scores = { '10': 4, '11': 5, '1': 4 }
+    expect(hoyoSinDriveQueFrenaElCierre([10, 11, 12, 1, 2], [{ hoyosSinDrive: [11, 1, 2], scores }], 2)).toBe(11)
+  })
+  it('el último hoyo en pantalla frena aunque su par siga sin tocar (no está en scores)', async () => {
+    const { hoyoSinDriveQueFrenaElCierre } = await import('./drives-scramble')
+    expect(hoyoSinDriveQueFrenaElCierre(orden, [{ hoyosSinDrive: [18], scores: {} }], 18)).toBe(18)
+    expect(hoyoSinDriveQueFrenaElCierre(orden, [{ hoyosSinDrive: [18], scores: {} }], 9)).toBeNull()
+  })
+  it('un hoyo intermedio en pantalla sin golpe no frena: se cerró antes de jugarlo (Siguiente dejó el 12 y llovió)', async () => {
+    const { hoyoSinDriveQueFrenaElCierre } = await import('./drives-scramble')
+    const scores = Object.fromEntries(orden.filter(h => h <= 11).map(h => [String(h), 4]))
+    expect(hoyoSinDriveQueFrenaElCierre(orden, [{ hoyosSinDrive: orden.filter(h => h >= 12), scores }], 12)).toBeNull()
+  })
+  it('basta con un equipo: el otro con todo marcado no tapa al que falta', async () => {
+    const { hoyoSinDriveQueFrenaElCierre } = await import('./drives-scramble')
+    expect(hoyoSinDriveQueFrenaElCierre(orden, [{ hoyosSinDrive: [], scores: { '3': 4 } }, { hoyosSinDrive: [3], scores: { '3': 5 } }], 9)).toBe(3)
+  })
+})

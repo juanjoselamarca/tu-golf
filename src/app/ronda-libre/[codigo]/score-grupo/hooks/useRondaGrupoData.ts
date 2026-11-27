@@ -1,5 +1,6 @@
 'use client'
 
+import { leerEquiposTomados } from '@/lib/ronda/equipos-tomados'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { esRondaCerrada } from '@/lib/data/ronda-libre-estado'
 import type React from 'react'
@@ -198,7 +199,9 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
     // UN solo filtro: este celular carga solo los equipos que anota. Todo lo que manda golpes (par al pasar de hoyo,
     // completar al finalizar, pendientes, hoyo inicial, copia local) parte de esta lista: nunca toca un equipo de
     // otro celular. En una ronda de un celular son todos.
-    const teamEquipos = equiposQueAnota(r, equipos, userId)
+    // Un celular por equipo: los sin reclamar que el creador tomó a mano en este teléfono («Anotarlo yo»).
+    const tomados = leerEquiposTomados(codigo)
+    const teamEquipos = equiposQueAnota(r, equipos, userId, tomados)
     const nombreDePerfil = await nombreDePerfilP
     if (signal.aborted) return { tipo: 'cancelada' }
     const anotadorNombre = nombreSinPerfil === NOMBRE_ANOTADOR_GENERICO
@@ -210,7 +213,7 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
         at: Date.now(), authUserId: userId, anotadorNombre, ronda: r,
         parMap: hoyos.parMap, holeDataMap: hoyos.holeDataMap,
         playerHcp: hcpMap, playerDisplayHcp: displayMap, teamEquipos,
-        equiposDeOtroCelular: equiposDeOtroCelular(r, equipos, userId),
+        equiposDeOtroCelular: equiposDeOtroCelular(r, equipos, userId, tomados),
         unCelularPorEquipo: unCelularPorEquipo(r, equipos),
       },
     }

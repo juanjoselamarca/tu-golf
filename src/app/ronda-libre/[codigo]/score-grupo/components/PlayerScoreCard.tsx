@@ -32,6 +32,8 @@ interface PlayerScoreCardProps {
   modoJuego: ModoJuego
   formatoJuego: FormatoJuego
   showNetStableford: boolean
+  /** Puntos de golpes recibidos en el hoyo: no con el neto al total (`netoSeAplicaAlTotal`). */
+  muestraGolpes: boolean
   /** A1 anti-toque: hay un cambio esperando el segundo tap en este jugador/hoyo. */
   pending: boolean
   onChange: (delta: number) => void
@@ -43,7 +45,7 @@ interface PlayerScoreCardProps {
 /** Tarjeta de UN jugador en el scorer de grupo (stroke play / stableford / match play). */
 export function PlayerScoreCard({
   jugador: j, playerScores, currentHole, par, holeData, totals, played, hcp, displayHcp, dotHcp,
-  siAllocByHole, ordenHoyos, holeDataMap, totalHoles, modoJuego, formatoJuego, showNetStableford, pending, onChange, theme, accion,
+  siAllocByHole, ordenHoyos, holeDataMap, totalHoles, modoJuego, formatoJuego, showNetStableford, muestraGolpes, pending, onChange, theme, accion,
 }: PlayerScoreCardProps) {
   const playerScore = playerScores?.[currentHole]
   const displayScore = playerScore ?? par
@@ -175,7 +177,7 @@ export function PlayerScoreCard({
             }}>
               {displayScore}
             </div>
-            {modoJuego !== 'gross' && strokesThisHole > 0 && (
+            {modoJuego !== 'gross' && muestraGolpes && strokesThisHole > 0 && (
               <span data-testid="golpes-recibidos-genericos" style={{
                 display: 'inline-flex', alignItems: 'center', gap: '3px',
                 alignSelf: 'flex-start', marginTop: '6px',

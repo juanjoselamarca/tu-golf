@@ -1,5 +1,7 @@
 'use client'
 
+import { addToast } from '@/hooks/useToast'
+import { leerEquiposTomados, marcarEquipoTomado } from '@/lib/ronda/equipos-tomados'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
@@ -9,7 +11,7 @@ import { AvisoTarjetaCompleta } from '@/components/ronda/AvisoTarjetaCompleta'
 import { ConfirmarFinalizarHoja } from '@/components/ronda/ConfirmarFinalizarHoja'
 import { hojaFinalizarTimba, textoConfirmarFinalizar, textoTarjetaCompleta } from '@/components/ronda/finalizar-copy'
 import { useScorerPageView } from '@/hooks/ronda/useScorerPageView'
-import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
+import { claveAvisoAntesDeEmpezar, claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import { useHoleNavigation } from '@/hooks/ronda/useHoleNavigation'
@@ -27,7 +29,8 @@ import { HoleProgressRow } from './components/HoleProgressRow'
 import { GrupoHoleInfoRow } from './components/GrupoHoleInfoRow'
 import { CompartirEnJuego } from '@/components/ronda/CompartirEnJuego'
 import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
-import { SharedBallTeamCard } from './components/SharedBallTeamCard'
+import { SharedBallTeamCard, anclaDeDrives } from './components/SharedBallTeamCard'
+import { hoyoSinDriveQueFrenaElCierre } from '@/golf/formats/drives-scramble'
 import { PlayerScoreCard } from './components/PlayerScoreCard'
 import { GrupoNavBar, envioDelHoyo } from './components/GrupoNavBar'
 import { DiscardRoundModal } from './components/DiscardRoundModal'
@@ -127,8 +130,8 @@ function ScorerDeGrupo() {
   // El par gris del hoyo en pantalla (Siguiente / «Guardar hoyo N»): `equiposQueConfirmanElHoyo`, que además del suyo
   // incluye el equipo sin reclamar que el creador ya anota (uno que liberó).
   const noConfirmanElHoyo = useMemo(
-    () => unCelularPorEquipo && ronda ? equiposQueNoConfirmanElHoyo(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId) : undefined,
-    [unCelularPorEquipo, ronda, teamEquipos, equiposDeOtroCelular, authUserId],
+    () => unCelularPorEquipo && ronda ? equiposQueNoConfirmanElHoyo(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId, leerEquiposTomados(codigo)) : undefined,
+    [unCelularPorEquipo, ronda, teamEquipos, equiposDeOtroCelular, authUserId, codigo],
   )
   const { handleTeamScoreChange, confirmarHoyo, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido } =
     useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio, enviarYa, sinParAutomatico, noConfirmanElHoyo })
@@ -176,7 +179,7 @@ function ScorerDeGrupo() {
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
     siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinAnotar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal, maxStrokesOnHole,
-    hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
+    hoyoCompleto, hoyoConGolpe, muestraGolpesPorHoyo, totalesDeEquipo,
   } = board
 
 
@@ -230,6 +233,37 @@ function ScorerDeGrupo() {
     anotarJugador: (jugadorId, delta) => handleScoreChange(jugadorId, currentHole, delta),
     anotarEquipo: (equipoId, delta) => handleTeamScoreChange(equipoId, currentHole, delta),
   })
+  // Drives del scramble: sin el del hoyo no se pasa de hoyo, ni se guarda el último, ni se finaliza (Juanjo, 26-nov:
+  // «No deja avanzar»). Solo los equipos que ESTE celular confirma (los de `teamEquipos` fuera de `noConfirmanElHoyo`):
+  // el de otro celular lo frena su propio scorer. El intento frenado destaca «Drive de» en ese hoyo y lleva la vista
+  // ahí. Tarjeta congelada o ronda cerrada: no frena (no hay cambios). Lo que frena es CONFIRMAR (Siguiente, «Guardar
+  // hoyo N», Finalizar); moverse entre hoyos (swipe, fila de hoyos) es libre, para poder corregir uno anterior.
+  const [faltaDriveEnHoyo, setFaltaDriveEnHoyo] = useState<number | null>(null)
+  const confirmanEsteCelular = teamEquipos.filter(e => !(noConfirmanElHoyo ?? []).some(n => n.id === e.id))
+  const equiposSinDriveEn = (hoyo: number) => confirmanEsteCelular.filter(e => drivesDe(e)?.hoyosSinDrive.includes(hoyo))
+  const frenaPorDrive = (hoyo: number): boolean => {
+    if (congelada || rondaCerrada) return false
+    const faltan = equiposSinDriveEn(hoyo)
+    if (faltan.length === 0) return false
+    setFaltaDriveEnHoyo(hoyo)
+    haptic([30, 60, 30])
+    if (hoyo !== currentHole) {
+      setCurrentHole(hoyo)
+      addToast({ type: 'error', title: `Falta el drive del hoyo ${hoyo}`, duration: 6000 })
+    }
+    requestAnimationFrame(() => document.getElementById(anclaDeDrives(faltan[0].id))?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+    return true
+  }
+  const siguienteConDrive = () => { if (!frenaPorDrive(currentHole)) void goToNextHole() }
+  const guardarHoyoConDrive = () => { if (!frenaPorDrive(currentHole)) void guardarHoyo() }
+  // Al cerrar: solo los hoyos jugados y el último si está en pantalla (`hoyoSinDriveQueFrenaElCierre`); los no jugados van con par y sin drive.
+  const finalizarConDrives = () => {
+    const conDrives = confirmanEsteCelular.flatMap(e => { const d = drivesDe(e); return d ? [{ hoyosSinDrive: d.hoyosSinDrive, scores: e.scores }] : [] })
+    const hoyo = hoyoSinDriveQueFrenaElCierre(ordenHoyos, conDrives, currentHole)
+    if (hoyo != null && frenaPorDrive(hoyo)) return
+    void finalizeRound()
+  }
+
   // Un celular por equipo, último hoyo: el «Finalizar» de la hoja confirma primero el valor en pantalla de los equipos de
   // este celular (lo mismo que «Siguiente» y «Guardar hoyo N»). Si otro equipo no terminó, el cierre se frena, y sin esto
   // el hoyo propio con el par sin tocar no subía: el espectador veía al equipo en 17/18 mientras el otro seguía jugando
@@ -266,8 +300,8 @@ function ScorerDeGrupo() {
   return (
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
 
-      {/* Aviso "No molestar": una vez por ronda (misma clave que el scorer individual). */}
-      <AvisoNoMolestar claveRonda={claveAvisoRondaLibre(codigo)} />
+      {/* Aviso "No molestar": una vez por ronda (misma clave que el scorer individual) y solo antes del primer hoyo. */}
+      <AvisoNoMolestar claveRonda={claveAvisoAntesDeEmpezar(claveAvisoRondaLibre(codigo), maxThru)} />
 
       {/* Save indicator */}
       {saveStatus !== 'idle' && (
@@ -336,7 +370,7 @@ function ScorerDeGrupo() {
         par={par}
         strokeIndex={holeData.stroke_index}
         yardaje={yardaje}
-        showNetStableford={showNetStableford}
+        showNetStableford={muestraGolpesPorHoyo}
         maxStrokes={maxStrokesOnHole}
         // Un celular: anota por todo el grupo, solo se invita a seguir. Un celular por equipo: también a anotar el suyo.
         accion={<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre(codigo, { conJugar: false, unCelularPorEquipo })} color={theme.textFaint} />}
@@ -351,17 +385,6 @@ function ScorerDeGrupo() {
         {...nav.swipeHandlers}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {/* Label contextual formato equipo */}
-          {isSharedBallFormat(formatoJuego) ? (
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '8px', fontStyle: 'italic' }}>
-              Ingresa el score del equipo por hoyo
-            </p>
-          ) : isTeamFormat(formatoJuego) ? (
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '8px', fontStyle: 'italic' }}>
-              Ingresa el score de cada jugador
-            </p>
-          ) : null}
-
           {/* Best Ball — 1 score por jugador, agrupados por equipo */}
           {formatoJuego === 'best_ball' && teamEquipos.length > 0 && (() => {
             // Pre-compute dot HCPs y SI por hoyo (consumidos por el componente y sus helpers)
@@ -408,6 +431,7 @@ function ScorerDeGrupo() {
               onChange={(delta) => anotarEquipo(equipo.id, delta)}
               drives={drivesDe(equipo)}
               drivesDeshabilitados={congelada}
+              faltaDrive={faltaDriveEnHoyo === currentHole && drivesDe(equipo)?.driveDelHoyo == null}
               theme={theme}
             />
           ))}
@@ -435,8 +459,13 @@ function ScorerDeGrupo() {
               equipos={equiposDeOtroCelular}
               nombreCreador={nombreDelCreador(ronda)}
               puedeLiberar={cierraEsteCelular}
+              // Link a la vista mientras un equipo no tenga celular (también uno tomado con «Anotarlo yo»: es la vuelta atrás).
+              hayEquipoSinCelular={cierraEsteCelular && [...teamEquipos, ...equiposDeOtroCelular].some(e => e.anotador_user_id == null)}
               enCurso={anotador.enCurso}
-              onLiberar={(id, nombre) => { void anotador.liberar(id, nombre) }}
+              // Liberar lo pasa a este celular aunque no tenga golpes; se marca solo si la RPC respondió bien (Fable).
+              onLiberar={(id, nombre) => { void anotador.liberar(id, nombre, () => marcarEquipoTomado(codigo, id)) }}
+              // «Anotarlo yo» (discreto): un equipo que nadie tomó pasa a este celular.
+              onTomar={(id) => { marcarEquipoTomado(codigo, id); void recargar() }}
             />
           )}
 
@@ -465,6 +494,7 @@ function ScorerDeGrupo() {
               modoJuego={modoJuego}
               formatoJuego={formatoJuego}
               showNetStableford={showNetStableford}
+              muestraGolpes={muestraGolpesPorHoyo}
               pending={pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole}
               onChange={(delta) => anotar(j.id, delta)}
               theme={theme}
@@ -509,14 +539,14 @@ function ScorerDeGrupo() {
         finalizing={finalizing}
         congelada={congelada}
         onPrev={nav.goToPrevHole}
-        onNext={goToNextHole}
-        onFinalize={finalizeRound}
+        onNext={siguienteConDrive}
+        onFinalize={finalizarConDrives}
         guardarUltimoHoyo={guardaElUltimoHoyo
           ? {
               hoyo: currentHole,
               guardado: !cierraEsteCelular && hoyoCompleto(currentHole),
               envio: envioDelUltimoHoyo,
-              onGuardar: () => { void guardarHoyo() },
+              onGuardar: guardarHoyoConDrive,
             }
           : undefined}
         theme={theme}

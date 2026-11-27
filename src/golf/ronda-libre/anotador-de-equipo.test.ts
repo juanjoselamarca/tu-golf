@@ -57,8 +57,17 @@ describe('equiposQueAnota (matriz)', () => {
   it('ronda de un celular: todos los equipos, para cualquiera (como siempre)', () => {
     for (const u of [CREADOR, PEDRO, EXTRANO, null]) expect(ids(equiposQueAnota(unCelular, equipos, u))).toEqual(['e1', 'e2', 'e3'])
   })
-  it('creador: el suyo y los que nadie reclamó, nunca el de Pedro', () => {
-    expect(ids(equiposQueAnota(multi, equipos, CREADOR))).toEqual(['e1', 'e3'])
+  it('creador: el suyo; uno sin reclamar y sin golpes queda en la franja (Juanjo 26-nov); nunca el de Pedro', () => {
+    expect(ids(equiposQueAnota(multi, equipos, CREADOR))).toEqual(['e1'])
+    expect(ids(equiposDeOtroCelular(multi, equipos, CREADOR))).toEqual(['e2', 'e3'])
+  })
+  it('creador: uno sin reclamar pasa a su celular con «Anotarlo yo» (tomado) o si ya tiene golpes', () => {
+    expect(ids(equiposQueAnota(multi, equipos, CREADOR, new Set(['e3'])))).toEqual(['e1', 'e3'])
+    const conGolpes = [equipos[0], equipos[1], { ...club('e3', null), scores: { 1: 4 } }]
+    expect(ids(equiposQueAnota(multi, conGolpes, CREADOR))).toEqual(['e1', 'e3'])
+    // Tomado a mano no le quita nada a otro celular: e2 sigue siendo de Pedro.
+    expect(ids(equiposQueAnota(multi, equipos, CREADOR, new Set(['e2'])))).toEqual(['e1'])
+    expect(ids(equiposQueAnota(multi, equipos, PEDRO, new Set(['e3'])))).toEqual(['e2'])
   })
   it('Pedro: solo el que reclamó', () => {
     expect(ids(equiposQueAnota(multi, equipos, PEDRO))).toEqual(['e2'])
@@ -68,9 +77,9 @@ describe('equiposQueAnota (matriz)', () => {
     expect(equiposQueAnota(multi, equipos, null)).toEqual([])
     expect(equiposQueAnota(multi, equipos, undefined)).toEqual([])
   })
-  it('liberado: el equipo vuelve al creador y deja de ser de Pedro', () => {
+  it('liberado: el equipo vuelve al creador (la franja lo marca tomado) y deja de ser de Pedro', () => {
     const liberado = [equipos[0], club('e2', null), equipos[2]]
-    expect(ids(equiposQueAnota(multi, liberado, CREADOR))).toEqual(['e1', 'e2', 'e3'])
+    expect(ids(equiposQueAnota(multi, liberado, CREADOR, new Set(['e2'])))).toEqual(['e1', 'e2'])
     expect(equiposQueAnota(multi, liberado, PEDRO)).toEqual([])
   })
   it('el creador que liberó su propio equipo lo sigue anotando (queda libre)', () => {
@@ -78,9 +87,9 @@ describe('equiposQueAnota (matriz)', () => {
     expect(ids(equiposQueAnota(multi, todosAjenos, CREADOR))).toEqual(['e1'])
   })
   it('equiposDeOtroCelular es el complemento exacto', () => {
-    for (const u of [CREADOR, PEDRO, JUAN, null]) {
-      const mios = ids(equiposQueAnota(multi, equipos, u))
-      const ajenos = ids(equiposDeOtroCelular(multi, equipos, u))
+    for (const [u, t] of [[CREADOR, new Set<string>()], [CREADOR, new Set(['e3'])], [PEDRO, new Set<string>()], [JUAN, new Set<string>()], [null, new Set<string>()]] as const) {
+      const mios = ids(equiposQueAnota(multi, equipos, u, t))
+      const ajenos = ids(equiposDeOtroCelular(multi, equipos, u, t))
       expect([...mios, ...ajenos].sort()).toEqual(['e1', 'e2', 'e3'])
       expect(mios.filter(id => ajenos.includes(id))).toEqual([])
     }
@@ -180,7 +189,7 @@ describe('nombreDelCreador', () => {
 
 describe('equiposConParAutomatico / equiposSinParAutomatico (par fantasma, P1-a)', () => {
   it('un celular por equipo, creador: solo su equipo reclamado; el sin reclamar NO recibe par aunque lo anote', () => {
-    expect(ids(equiposQueAnota(multi, equipos, CREADOR))).toEqual(['e1', 'e3'])
+    expect(ids(equiposQueAnota(multi, equipos, CREADOR, new Set(['e3'])))).toEqual(['e1', 'e3'])
     expect(ids(equiposConParAutomatico(multi, equipos, CREADOR))).toEqual(['e1'])
     expect(ids(equiposSinParAutomatico(multi, equipos, CREADOR))).toEqual(['e2', 'e3'])
   })
@@ -243,9 +252,11 @@ describe('equiposQueConfirmanElHoyo: el par gris que este celular guarda (ensayo
     expect(ids(equiposQueNoConfirmanElHoyo(multi, lista, CREADOR))).toEqual(['e2'])
     expect(ids(equiposConParAutomatico(multi, lista, CREADOR))).toEqual(['e1'])
   })
-  it('sin reclamar y sin golpes: no se confirma (P1-a)', () => {
+  it('sin reclamar y sin golpes: no se confirma (P1-a)… salvo que el creador lo haya tomado («Anotarlo yo»)', () => {
     const lista = [club('e1', CREADOR), conGolpes(club('e3', null), {})]
     expect(ids(equiposQueConfirmanElHoyo(multi, lista, CREADOR))).toEqual(['e1'])
+    expect(ids(equiposQueConfirmanElHoyo(multi, lista, CREADOR, new Set(['e3'])))).toEqual(['e1', 'e3'])
+    expect(ids(equiposQueNoConfirmanElHoyo(multi, lista, CREADOR, new Set(['e3'])))).toEqual([])
   })
   it('solo el creador: otra cuenta nunca confirma un equipo sin reclamar, aunque tenga golpes', () => {
     const lista = [club('e1', CREADOR), club('e2', PEDRO), conGolpes(club('e3', null), { 1: 4 })]

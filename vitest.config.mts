@@ -25,7 +25,8 @@ export default defineConfig({
     pool: process.env.CI ? 'forks' : 'vmThreads',
     testTimeout: 30000,
     hookTimeout: 60000,
-    exclude: ['**/node_modules/**', '**/e2e/**', '**/.claude/worktrees/**'],
+    // .claude guarda copias del repo (worktrees, builds de agentes): sus tests no son los de este árbol.
+    exclude: ['**/node_modules/**', '**/e2e/**', '**/.claude/**'],
     projects: [
       {
         extends: true,
