@@ -4,7 +4,7 @@
  */
 
 export interface NavTheme {
-  navBg: string; navBorder: string; iconColor: string; logoText: string
+  navBg: string; navBorder: string; iconColor: string
   avatarOpenBg: string; dropdownBg: string; dropdownBorder: string; dropdownShadow: string
   menuText: string; menuMuted: string; menuDivider: string
   sidebarBg: string; sidebarBorder: string
@@ -20,7 +20,6 @@ export const NAV_THEME_DARK: NavTheme = {
   navBg: 'rgba(10,22,40,0.97)',
   navBorder: 'rgba(196,153,42,0.12)',
   iconColor: '#94a8c0',
-  logoText: '#edeae4',
   avatarOpenBg: 'rgba(255,255,255,0.1)',
   dropdownBg: '#0e1c2f',
   dropdownBorder: 'rgba(196,153,42,0.12)',
@@ -51,7 +50,6 @@ export const NAV_THEME_LIGHT: NavTheme = {
   navBg: 'rgba(255,255,255,0.97)',
   navBorder: '#e2e8f0',
   iconColor: '#4a5568',
-  logoText: '#1a1a2e',
   avatarOpenBg: '#e2e8f0',
   dropdownBg: '#ffffff',
   dropdownBorder: '#e2e8f0',
