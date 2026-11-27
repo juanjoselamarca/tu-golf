@@ -60,11 +60,16 @@ export function CoachGatePage() {
         .gate-mesh-bg {
           position: absolute;
           inset: 0;
-          background: radial-gradient(ellipse at 30% 20%, rgba(196,153,42,0.06) 0%, transparent 60%),
-                      radial-gradient(ellipse at 70% 80%, rgba(14,28,47,0.8) 0%, transparent 50%),
-                      radial-gradient(ellipse at 50% 50%, rgba(196,153,42,0.03) 0%, transparent 70%);
+          background-image: radial-gradient(ellipse at 30% 20%, rgba(196,153,42,0.06) 0%, transparent 60%),
+                            radial-gradient(ellipse at 50% 50%, rgba(196,153,42,0.03) 0%, transparent 70%);
           background-size: 200% 200%;
           animation: gate-mesh 12s ease-in-out infinite;
+        }
+        /* The navy layer only belongs to the dark theme: in light it turned the page gray under the gold text. */
+        [data-theme="dark"] .gate-mesh-bg {
+          background-image: radial-gradient(ellipse at 30% 20%, rgba(196,153,42,0.06) 0%, transparent 60%),
+                            radial-gradient(ellipse at 70% 80%, rgba(14,28,47,0.8) 0%, transparent 50%),
+                            radial-gradient(ellipse at 50% 50%, rgba(196,153,42,0.03) 0%, transparent 70%);
         }
         .gate-content {
           position: relative;
