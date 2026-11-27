@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { CLAVE_STORAGE_AVISO_NO_MOLESTAR, claveAvisoRondaLibre } from '../../src/hooks/ronda/useAvisoNoMolestar'
+import { CLAVE_STORAGE_AVISO_NO_MOLESTAR, claveAvisoRondaLibre, claveAvisoTorneo } from '../../src/hooks/ronda/useAvisoNoMolestar'
 
 /**
  * Deja el aviso de cancha "Activa No molestar" como YA VISTO para una ronda libre, antes de abrir su scorer.
@@ -20,6 +20,17 @@ import { CLAVE_STORAGE_AVISO_NO_MOLESTAR, claveAvisoRondaLibre } from '../../src
 export async function marcarAvisoNoMolestarVisto(page: Page, codigo: string): Promise<void> {
   const clave = claveAvisoRondaLibre(codigo)
   if (!clave) throw new Error('marcarAvisoNoMolestarVisto: la ronda no tiene código')
+  await marcarClaveVista(page, clave)
+}
+
+/** Lo mismo para el scorer de un torneo legacy (`/torneo/[slug]/score`): el aviso se recuerda por tarjeta (`rounds.id`). */
+export async function marcarAvisoNoMolestarVistoTorneo(page: Page, roundId: string): Promise<void> {
+  const clave = claveAvisoTorneo(roundId)
+  if (!clave) throw new Error('marcarAvisoNoMolestarVistoTorneo: la tarjeta no tiene id')
+  await marcarClaveVista(page, clave)
+}
+
+async function marcarClaveVista(page: Page, clave: string): Promise<void> {
   await page.addInitScript(
     ({ claveStorage, clave }) => {
       try {

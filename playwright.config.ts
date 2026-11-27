@@ -89,6 +89,7 @@ export default defineConfig({
         'scramble-un-celular-por-equipo.spec.ts',
         'scramble-equipo-liberado-sin-senal.spec.ts',
         'scramble-drive-obligatorio.spec.ts',
+        'torneo-invitado-recuperar-tarjeta.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
