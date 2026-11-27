@@ -190,6 +190,26 @@ describe('useTerminarEquipo', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
+  it('sesión cerrada: avisa de la sesión, no relee ni sale del scorer', async () => {
+    servidor.respuestas = { e1: { estado: 'error', ronda: 'sin_sesion', mensaje: 'Tu sesión se cerró. Inicia sesión y vuelve a intentar.' } }
+    const { result } = montar([eq('e1', 'Los Tigres', 'u-pedro', lleno)], { userId: 'u-pedro' })
+    await terminar(result)
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', title: 'Tu sesión se cerró. Inicia sesión y vuelve a intentar.' }))
+    expect(recargar).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+    expect(cerrarCopiaLocalAlFinalizar).not.toHaveBeenCalled()
+  })
+
+  it('el envío rebotó porque el equipo ya estaba terminado: corta (lo apartado no se borra) sin otro aviso', async () => {
+    enviarPendientes.mockImplementation(async () => ({ estado: 'ronda_abierta', rechazadas: [], equipoTerminado: true }))
+    const { result } = montar([eq('e1', 'Los Tigres', 'u-pedro', lleno)], { userId: 'u-pedro' })
+    await terminar(result)
+    expect(servidor.llamadas).toEqual([])
+    expect(cerrarCopiaLocalAlFinalizar).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+    expect(addToast).not.toHaveBeenCalled()
+  })
+
   it('una tarjeta rechazada al enviar (golpe inválido): no termina y queda en el teléfono', async () => {
     enviarPendientes.mockImplementation(async () => ({ estado: 'ronda_abierta', rechazadas: [{ id: 'eq:e1' }] as never }))
     const { result } = montar([eq('e1', 'Los Tigres', 'u-pedro', lleno)], { userId: 'u-pedro' })

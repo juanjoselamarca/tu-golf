@@ -10,7 +10,7 @@
 
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import { conTimeout } from '@/lib/red/con-timeout'
-import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, RONDA_SIN_SESION_DETAIL } from '@/lib/data/ronda-libre-cierre'
 import { captureError } from '@/lib/error-tracking'
 import { nombreDelAnotador } from '@/golf/ronda-libre/anotador-de-equipo'
 import { triggerRoundUpdatePush } from '@/lib/round-notifications'
@@ -47,7 +47,7 @@ export type ResultadoLiberar =
 
 type Rpc = Pick<SupabaseClient, 'rpc'>
 
-async function llamar(supabase: Rpc, fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: PostgrestError | { code: '' } | null }> {
+async function llamar(supabase: Rpc, fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: PostgrestError | { code: ''; details?: undefined } | null }> {
   try {
     const { data, error } = await conTimeout(supabase.rpc(fn, args), PLAZO_ANOTADOR_MS)
     return { data, error }
@@ -93,7 +93,7 @@ export async function liberarEquipoDeRonda(supabase: Rpc, codigo: string, equipo
 }
 
 /** Error de terminar o reabrir un equipo, con el copy para el usuario. */
-export type ErrorDeEquipoTerminado = { estado: 'error'; ronda: 'cerrada' | 'sin_permiso' | 'sin_respuesta'; mensaje: string }
+export type ErrorDeEquipoTerminado = { estado: 'error'; ronda: 'cerrada' | 'sin_permiso' | 'sin_respuesta' | 'sin_sesion'; mensaje: string }
 
 export type ResultadoTerminarEquipo =
   | { estado: 'ok'; rondaCerrada: boolean }
@@ -105,14 +105,22 @@ export type ResultadoReabrirEquipo = { estado: 'ok' } | ErrorDeEquipoTerminado
 /** Copy cuando no se puede terminar/reabrir porque el equipo ya no es de este celular (lo liberaron, o no existe). */
 export const MENSAJE_EQUIPO_YA_NO_ES_TUYO = 'Cambió quién anota este equipo. Revisa la tarjeta.'
 
-function errorDeEquipo(fn: string, codigo: string, code: string | undefined): ErrorDeEquipoTerminado {
+/** Copy cuando terminar/reabrir rebota porque la sesión del teléfono se cerró: no es un cambio de anotador. */
+export const MENSAJE_EQUIPO_SIN_SESION = 'Tu sesión se cerró. Inicia sesión y vuelve a intentar.'
+
+function errorDeEquipo(fn: string, codigo: string, error: { code?: string; details?: string | null }): ErrorDeEquipoTerminado {
+  const { code } = error
+  // Sin sesión: P0003 'sin sesión' (auth.uid() NULL) o 42501 (anon no tiene EXECUTE sobre las dos RPC).
+  if ((code === RONDA_ERRCODE.FORBIDDEN && error.details === RONDA_SIN_SESION_DETAIL) || code === '42501') {
+    return { estado: 'error', ronda: 'sin_sesion', mensaje: MENSAJE_EQUIPO_SIN_SESION }
+  }
   const r = mensajeDeError(code)
   if (r.ronda === 'sin_respuesta' && code) {
     void captureError(new Error(`${fn}: ${code}`), { context: `ronda_libre.${fn}`, level: 'warning', meta: { codigo } })
   }
   if (r.ronda === 'cerrada') return { estado: 'error', ronda: 'cerrada', mensaje: r.mensaje }
   if (r.ronda === 'sin_respuesta') return { estado: 'error', ronda: 'sin_respuesta', mensaje: r.mensaje }
-  // P0001 (el equipo ya no está) y P0003 (ya no lo anota este celular): lo mismo para quien toca el botón.
+  // P0001 (el equipo ya no está) y el resto de P0003 (ya no lo anota este celular): lo mismo para quien toca el botón.
   return { estado: 'error', ronda: 'sin_permiso', mensaje: MENSAJE_EQUIPO_YA_NO_ES_TUYO }
 }
 
@@ -126,7 +134,7 @@ function errorDeEquipo(fn: string, codigo: string, code: string | undefined): Er
 export async function terminarEquipoDeRonda(supabase: Rpc, codigo: string, equipoId: string): Promise<ResultadoTerminarEquipo> {
   const { data, error } = await llamar(supabase, 'terminar_equipo_de_ronda', { p_codigo: codigo, p_equipo_id: equipoId })
   if (error) {
-    const r = errorDeEquipo('terminar_equipo_de_ronda', codigo, error.code)
+    const r = errorDeEquipo('terminar_equipo_de_ronda', codigo, error)
     if (r.ronda === 'sin_respuesta') triggerRoundUpdatePush(codigo, { force: true })
     return r
   }
@@ -148,5 +156,5 @@ export async function reabrirEquipoDeRonda(supabase: Rpc, codigo: string, equipo
     triggerRoundUpdatePush(codigo)
     return { estado: 'ok' }
   }
-  return errorDeEquipo('reabrir_equipo_de_ronda', codigo, error.code)
+  return errorDeEquipo('reabrir_equipo_de_ronda', codigo, error)
 }

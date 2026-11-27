@@ -142,6 +142,8 @@ export function useTerminarEquipo(input: {
       }
       if (r.ronda === 'sin_respuesta') { avisarSinServidor(); return }
       if (r.ronda === 'cerrada') { irA(`/ronda-libre/${codigo}?finished=true`); return }
+      // Sesión cerrada: no cambió quién anota; releer no sirve (la carga no expulsa a quien ya anota). Se avisa y se queda.
+      if (r.ronda === 'sin_sesion') { addToast({ type: 'error', title: r.mensaje, duration: 7000 }); return }
       // Ya no lo anota este celular (lo liberaron o lo sacaron): se relee quién anota qué.
       addToast({ type: 'info', title: r.mensaje, duration: 7000 })
       void input.recargar()

@@ -68,8 +68,9 @@ export function useOfreceAnotarMiEquipo(input: {
       for (const e of aCorregir) {
         const r = await reabrirEquipoDeRonda(supabase, codigo, e.id)
         if (r.estado === 'error') {
-          // Cerrada mientras tanto: la vista en vivo pasa sola al resultado final. El resto: el aviso y se reintenta.
-          addToast({ type: r.ronda === 'sin_respuesta' ? 'error' : 'info', title: r.mensaje, duration: 6000 })
+          // Cerrada mientras tanto: la vista en vivo pasa sola al resultado final. El resto (sin red, sesión cerrada,
+          // cambió quién anota): el aviso y se reintenta.
+          addToast({ type: r.ronda === 'sin_respuesta' || r.ronda === 'sin_sesion' ? 'error' : 'info', title: r.mensaje, duration: 6000 })
           return
         }
       }

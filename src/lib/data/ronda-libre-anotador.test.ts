@@ -4,7 +4,7 @@ vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 const triggerRoundUpdatePush = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/round-notifications', () => ({ triggerRoundUpdatePush }))
 
-import { reclamarEquipoDeRonda, liberarEquipoDeRonda, terminarEquipoDeRonda, reabrirEquipoDeRonda, mensajeEquipoTomado, MENSAJE_YA_NO_ANOTAS, MENSAJE_EQUIPO_YA_NO_ES_TUYO } from './ronda-libre-anotador'
+import { reclamarEquipoDeRonda, liberarEquipoDeRonda, terminarEquipoDeRonda, reabrirEquipoDeRonda, mensajeEquipoTomado, MENSAJE_YA_NO_ANOTAS, MENSAJE_EQUIPO_YA_NO_ES_TUYO, MENSAJE_EQUIPO_SIN_SESION } from './ronda-libre-anotador'
 
 const cliente = (r: { data?: unknown; error?: { code: string } | null } | Error) => ({
   rpc: vi.fn(() => (r instanceof Error ? Promise.reject(r) : Promise.resolve({ data: r.data ?? null, error: r.error ?? null }))),
@@ -72,6 +72,16 @@ describe('terminarEquipoDeRonda (contrato de pruebas-sql/terminar-equipo.sql)', 
     for (const code of ['P0003', 'P0001']) {
       expect(await terminarEquipoDeRonda(cliente({ error: { code } }), 'X', 'e1')).toEqual({ estado: 'error', ronda: 'sin_permiso', mensaje: MENSAJE_EQUIPO_YA_NO_ES_TUYO })
     }
+    expect(triggerRoundUpdatePush).not.toHaveBeenCalled()
+  })
+  it('sesión cerrada (P0003 «sin sesión» con uid NULL, o 42501 de anon): aviso de sesión, no de cambio de anotador', async () => {
+    const sinSesion = { estado: 'error', ronda: 'sin_sesion', mensaje: MENSAJE_EQUIPO_SIN_SESION }
+    expect(await terminarEquipoDeRonda(cliente({ error: { code: 'P0003', details: 'sin sesión' } }), 'X', 'e1')).toEqual(sinSesion)
+    expect(await terminarEquipoDeRonda(cliente({ error: { code: '42501', details: null } }), 'X', 'e1')).toEqual(sinSesion)
+    expect(await reabrirEquipoDeRonda(cliente({ error: { code: 'P0003', details: 'sin sesión' } }), 'X', 'e1')).toEqual(sinSesion)
+    expect(await reabrirEquipoDeRonda(cliente({ error: { code: '42501' } }), 'X', 'e1')).toEqual(sinSesion)
+    // Otro P0003 (lo anota otro celular) sigue siendo cambio de anotador.
+    expect(await reabrirEquipoDeRonda(cliente({ error: { code: 'P0003', details: 'equipo_de_otro_anotador' } }), 'X', 'e1')).toMatchObject({ ronda: 'sin_permiso', mensaje: MENSAJE_EQUIPO_YA_NO_ES_TUYO })
     expect(triggerRoundUpdatePush).not.toHaveBeenCalled()
   })
   it('sin red: nunca lanza; se empuja forzado por si cerró y la respuesta se perdió', async () => {
