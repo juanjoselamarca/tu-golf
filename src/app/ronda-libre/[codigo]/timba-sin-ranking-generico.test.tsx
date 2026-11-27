@@ -112,7 +112,7 @@ describe('Timba libre — sin ranking ni neto genérico', () => {
         playerScores={{ 1: 5 }} currentHole={1} par={4} holeData={HOYO}
         totals={{ gross: 5, vsPar: 1, out: 5, inn: 0, holesPlayed: 1, parJugado: 4 }} played={1}
         hcp={18} displayHcp={18} dotHcp={18} siAllocByHole={{ 1: 1 }} ordenHoyos={[1]} holeDataMap={{ 1: HOYO }}
-        totalHoles={18} modoJuego="neto" formatoJuego={TIMBA} showNetStableford pending={false}
+        totalHoles={18} modoJuego="neto" formatoJuego={TIMBA} showNetStableford muestraGolpes pending={false}
         onChange={() => {}} theme={SCORER_THEME}
       />,
     )

@@ -191,3 +191,22 @@ describe('resolveFormatoJuego — una sola respuesta a "qué formato juega"', ()
     expect(isStablefordFormat(resolveFormatoJuego(t))).toBe(false)
   })
 })
+
+describe('netoSeAplicaAlTotal (sin marcas de golpes por hoyo)', () => {
+  it('stroke play neto y bola compartida neta: el hándicap va al total', async () => {
+    const { netoSeAplicaAlTotal } = await import('./index')
+    expect(netoSeAplicaAlTotal('stroke_play', 'neto')).toBe(true)
+    expect(netoSeAplicaAlTotal(null, 'neto')).toBe(true)
+    expect(netoSeAplicaAlTotal('scramble', 'neto')).toBe(true)
+    expect(netoSeAplicaAlTotal('foursome', 'neto')).toBe(true)
+  })
+  it('hoyo a hoyo (match play, best ball, stableford, skins) o gross: no', async () => {
+    const { netoSeAplicaAlTotal } = await import('./index')
+    expect(netoSeAplicaAlTotal('match_play', 'neto')).toBe(false)
+    expect(netoSeAplicaAlTotal('best_ball', 'neto')).toBe(false)
+    expect(netoSeAplicaAlTotal('stableford', 'neto')).toBe(false)
+    expect(netoSeAplicaAlTotal('skins', 'neto')).toBe(false)
+    expect(netoSeAplicaAlTotal('scramble', 'gross')).toBe(false)
+    expect(netoSeAplicaAlTotal('stroke_play', null)).toBe(false)
+  })
+})

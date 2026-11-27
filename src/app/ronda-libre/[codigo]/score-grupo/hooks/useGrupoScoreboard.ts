@@ -8,7 +8,7 @@ import { hoyosQueNadieJugoEnLaTimba, hoyosQueNoSeRellenan, hoyosQueQuedanSinJuga
 import type { MatchResult } from '@/golf/formats/match-play'
 import { hoyosAnotados, puedeFinalizar, totalesDeTarjeta, type TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
-import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida, type TotalesBolaCompartida } from '@/golf/formats'
+import { hoyosDeBolaCompartida, isSharedBallFormat, netoSeAplicaAlTotal, totalesBolaCompartida, type TotalesBolaCompartida } from '@/golf/formats'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import type { FormatoJuego, HoleData, Jugador, ModoJuego, RondaLibre } from '@/types/ronda'
 
@@ -59,8 +59,10 @@ export interface GrupoScoreboard {
   maxStrokesOnHole: number
   /** Fila de progreso: el hoyo tiene score en todas las tarjetas que se anotan. */
   hoyoCompleto: (hoyo: number) => boolean
-  /** Fila de progreso (punto dorado): alguna tarjeta recibe golpe en el hoyo (sólo neto). */
+  /** Fila de progreso (punto dorado): alguna tarjeta recibe golpe en el hoyo (sólo donde se juega hoyo a hoyo). */
   hoyoConGolpe: (hoyo: number) => boolean
+  /** ¿Se marcan golpes por hoyo (columna GOLPES GRUPO, puntos)? No con el neto al total (`netoSeAplicaAlTotal`). */
+  muestraGolpesPorHoyo: boolean
   /** Scramble / foursome: totales del equipo con el motor del board (#602). */
   totalesDeEquipo: (equipoId: string) => TotalesBolaCompartida | null
 }
@@ -118,6 +120,7 @@ export function useGrupoScoreboard(input: {
     const formatoJuego = (formato || 'stroke_play') as FormatoJuego
     const modoLabel = etiquetaDeModalidad(modoJuego, formatoJuego, hcpPct)
     const showNetStableford = modoJuego !== 'gross'
+    const muestraGolpesPorHoyo = showNetStableford && !netoSeAplicaAlTotal(formatoJuego, modoJuego)
     const isMatchPlay = formatoJuego === 'match_play'
 
     const getDotHcp = (playerId: string): number => {
@@ -178,13 +181,13 @@ export function useGrupoScoreboard(input: {
     const hoyoCompleto = (h: number) => tarjetas.length > 0 && (bolaCompartida
       ? tarjetas.every(t => t.scores?.[h] != null)
       : jugadores.every(j => tarjetaAlDiaEnHoyo(scores[j.id], j.id, h, retiros, ordenHoyos)))
-    const hoyoConGolpe = (h: number) => !esTimba && showNetStableford && tarjetas.some(t => t.golpesEnHoyo(h) > 0)
+    const hoyoConGolpe = (h: number) => !esTimba && muestraGolpesPorHoyo && tarjetas.some(t => t.golpesEnHoyo(h) > 0)
     const totalesDeEquipo = (id: string) => totalesPorEquipo.get(id) ?? null
 
     return {
       totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford, isMatchPlay,
       siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinAnotar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal,
-      strokesOnHole, maxStrokesOnHole, hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
+      strokesOnHole, maxStrokesOnHole, hoyoCompleto, hoyoConGolpe, muestraGolpesPorHoyo, totalesDeEquipo,
     }
   }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole, matchResult, retiros, sinParAutomatico])
 }

@@ -122,6 +122,19 @@ export const KNOWN_FORMAT_KEYS = Object.keys(FORMATS) as ReadonlyArray<string>
  */
 export const TEAM_FORMAT_KEYS = KNOWN_FORMAT_KEYS.filter(k => FORMATS[k].category === 'team')
 
+/**
+ * ¿El hándicap se descuenta del TOTAL de la vuelta y no hoyo a hoyo? Stroke play neto y bola compartida neta
+ * (scramble, foursome): neto = gross − hándicap, y los golpes por hoyo no deciden nada. Ahí la pantalla no marca
+ * golpes por hoyo (punto dorado, «GOLPES»): Juanjo, 26-nov, en el scramble neto los puntos de la fila de hoyos eran
+ * un error de lógica, y con dos equipos de distinto hándicap ni siquiera se sabía de quién eran. Stableford, match
+ * play, best ball y skins se juegan hoyo a hoyo: ahí sí se marcan. Sin formato = stroke play (default de la ronda).
+ */
+export function netoSeAplicaAlTotal(formato: string | null | undefined, modo: string | null | undefined): boolean {
+  if (modo !== 'neto') return false
+  const f = formato || 'stroke_play'
+  return f === 'stroke_play' || isSharedBallFormat(f)
+}
+
 /** True si el formato es por equipos (best_ball / scramble / foursome). */
 export function isTeamFormat(key: string | null | undefined): boolean {
   return !!key && FORMATS[key]?.category === 'team'

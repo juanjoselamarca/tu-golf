@@ -176,7 +176,7 @@ function ScorerDeGrupo() {
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
     siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, hoyosPorMarcar, hoyosSinAnotar, hoyosSinJugarTimba, hoyosNadieJugoTimba, parEnPantallaTimba, getPlayerTotal, maxStrokesOnHole,
-    hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
+    hoyoCompleto, hoyoConGolpe, muestraGolpesPorHoyo, totalesDeEquipo,
   } = board
 
 
@@ -336,7 +336,7 @@ function ScorerDeGrupo() {
         par={par}
         strokeIndex={holeData.stroke_index}
         yardaje={yardaje}
-        showNetStableford={showNetStableford}
+        showNetStableford={muestraGolpesPorHoyo}
         maxStrokes={maxStrokesOnHole}
         // Un celular: anota por todo el grupo, solo se invita a seguir. Un celular por equipo: también a anotar el suyo.
         accion={<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre(codigo, { conJugar: false, unCelularPorEquipo })} color={theme.textFaint} />}
@@ -351,17 +351,6 @@ function ScorerDeGrupo() {
         {...nav.swipeHandlers}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {/* Label contextual formato equipo */}
-          {isSharedBallFormat(formatoJuego) ? (
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '8px', fontStyle: 'italic' }}>
-              Ingresa el score del equipo por hoyo
-            </p>
-          ) : isTeamFormat(formatoJuego) ? (
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '8px', fontStyle: 'italic' }}>
-              Ingresa el score de cada jugador
-            </p>
-          ) : null}
-
           {/* Best Ball — 1 score por jugador, agrupados por equipo */}
           {formatoJuego === 'best_ball' && teamEquipos.length > 0 && (() => {
             // Pre-compute dot HCPs y SI por hoyo (consumidos por el componente y sus helpers)
@@ -465,6 +454,7 @@ function ScorerDeGrupo() {
               modoJuego={modoJuego}
               formatoJuego={formatoJuego}
               showNetStableford={showNetStableford}
+              muestraGolpes={muestraGolpesPorHoyo}
               pending={pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole}
               onChange={(delta) => anotar(j.id, delta)}
               theme={theme}

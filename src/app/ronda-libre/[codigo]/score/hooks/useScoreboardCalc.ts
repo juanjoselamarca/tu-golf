@@ -17,6 +17,7 @@
  *  - `modoJuego` / `formatoJuego` consistentes (eliminado uso de `ronda.modo_juego` post-resolución)
  */
 
+import { netoSeAplicaAlTotal } from '@/golf/formats'
 import { useMemo } from 'react'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
@@ -215,9 +216,8 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     const modoLabel = etiquetaDeModalidad(modoJuego, formatoJuego, ronda.hcp_pct)
     const showNet = modoJuego === 'neto' && formatoJuego !== 'stableford'
     const showStableford = formatoJuego === 'stableford'
-    // Stroke play neto: el hándicap se aplica al total, no por hoyo → sin marcas
-    // de golpes por hoyo. Match play neto mantiene showNet pero NO es esto.
-    const isStrokePlayNeto = formatoJuego === 'stroke_play' && modoJuego === 'neto'
+    // Neto al total (`netoSeAplicaAlTotal`): sin marcas de golpes por hoyo. Match play neto mantiene showNet pero NO es esto.
+    const isStrokePlayNeto = netoSeAplicaAlTotal(formatoJuego, modoJuego)
     const displayOverUnder = showNet ? totalNetOverUnder : totalOverUnder
     const displayTotal = showStableford ? totalStableford : totalGross
 
