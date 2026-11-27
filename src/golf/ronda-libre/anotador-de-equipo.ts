@@ -373,20 +373,3 @@ export function nombreDelAnotadorDelCelular(input: {
     ?? valido(input.nombreDePerfil, true)
     ?? NOMBRE_ANOTADOR_GENERICO
 }
-
-/**
- * Último hoyo, celular que cierra la ronda: un equipo que este celular anota tras liberarlo su dueño (no recibe par
- * automático al cerrar) y que todavía no tiene golpes en el hoyo. Finalizar lo frenaría: primero «Guardar hoyo N».
- */
-export function equipoLiberadoSinElHoyo(input: {
-  equipos: ReadonlyArray<{ id: string; scores: Record<string, number> }>
-  sinParAutomatico: ReadonlyArray<{ id: string }>
-  noConfirmanElHoyo: ReadonlyArray<{ id: string }>
-  hoyo: number
-}): boolean {
-  const { equipos, sinParAutomatico, noConfirmanElHoyo, hoyo } = input
-  return equipos.some(e =>
-    sinParAutomatico.some(s => s.id === e.id)
-    && !noConfirmanElHoyo.some(n => n.id === e.id)
-    && e.scores[String(hoyo)] == null)
-}

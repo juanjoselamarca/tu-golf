@@ -50,7 +50,7 @@ import { GwiPanel } from './components/GwiPanel'
 import { RecentTimeline } from './components/RecentTimeline'
 import { RefreshStatus } from '@/components/RefreshStatus'
 import { ShareLeaderboardButton } from './components/ShareLeaderboardButton'
-import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, TeamScoringBar, RegistrationBanner, PieFijo } from './components/FooterBars'
+import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, TeamScoringBar, CorregirTarjetaBar, RegistrationBanner, PieFijo } from './components/FooterBars'
 import { LiveStyles } from './components/LiveStyles'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
@@ -150,9 +150,12 @@ function RondaLibrePageContent() {
     totalHoles,
     isFinished: isFinished,
   })
-  // «Anotar mi equipo» (un celular por equipo): con sesión, sin anotar la ronda entera, en curso.
-  const ofreceAnotarEquipo = useOfreceAnotarMiEquipo({
+  // «Anotar mi equipo» o, con su equipo terminado, «Corregir mi tarjeta» (un celular por equipo): con sesión, sin anotar
+  // la ronda entera, en curso.
+  const miEquipo = useOfreceAnotarMiEquipo({
     rondaId: ronda?.id ?? null,
+    ronda,
+    codigo,
     userId: currentUserId,
     activo: !!ronda && !esRondaCerrada(ronda.estado) && !isAnonymous && !!currentUserId
       && !anotaLaRonda(ronda, currentUserId) && unCelularPorEquipo(ronda, equipos),
@@ -450,7 +453,9 @@ function RondaLibrePageContent() {
           <PlayerScoringBar codigo={codigo} />
         )}
 
-        {ofreceAnotarEquipo && <TeamScoringBar codigo={codigo} />}
+        {miEquipo.ofrece && (miEquipo.corrige
+          ? <CorregirTarjetaBar onCorregir={() => { void miEquipo.corregir() }} corrigiendo={miEquipo.corrigiendo} />
+          : <TeamScoringBar codigo={codigo} />)}
 
         {showBanner && isAnonymous && (
           <RegistrationBanner codigo={codigo} onDismiss={dismissBanner} />

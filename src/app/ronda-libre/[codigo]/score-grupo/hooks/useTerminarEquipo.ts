@@ -45,10 +45,10 @@ export function useTerminarEquipo(input: {
   hoyos: readonly number[]
   teamEquipos: EquipoDelScorer[]
   authUserId: string | null
-  /** Hoyo en pantalla y su par: se confirman como con «Siguiente» (`confirmarHoyo`). */
+  /** Hoyo en pantalla: no frena el aviso previo (se confirma al terminar). */
   hoyoEnPantalla: number
-  parEnPantalla: number
-  confirmarHoyo: (hole: number, par: number) => Promise<void>
+  /** Confirma el valor del hoyo en pantalla, como «Siguiente» (`confirmarHoyo` de `useTeamScoreSave`). */
+  confirmarHoyoEnPantalla: () => Promise<void>
   /** Completa con par los hoyos vacíos del equipo que este celular reclamó (`useTeamScoreSave`). */
   completarEquiposConPar: (equipos: EquipoDelScorer[], hoyos: readonly number[]) => EquipoDelScorer[]
   enviarPendientes: (
@@ -59,7 +59,7 @@ export function useTerminarEquipo(input: {
   cierreEnCurso: React.MutableRefObject<CierreEnCurso>
   recargar: () => Promise<void>
 }): TerminarEquipo {
-  const { ronda, codigo, hoyos, teamEquipos, authUserId, hoyoEnPantalla, parEnPantalla, cierreEnCurso } = input
+  const { ronda, codigo, hoyos, teamEquipos, authUserId, hoyoEnPantalla, cierreEnCurso } = input
   const router = useRouter()
   const [terminando, setTerminando] = useState(false)
   const [confirmarTerminar, setConfirmarTerminar] = useState(false)
@@ -113,7 +113,7 @@ export function useTerminarEquipo(input: {
     // 1. Primero el par del equipo reclamado (encola su `setTeamEquipos`) y después el hoyo en pantalla: `confirmarHoyo`
     //    actualiza sobre el estado anterior con flushSync, así que no pisa lo que se acaba de completar.
     const completos = input.completarEquiposConPar(teamEquipos, hoyos)
-    await input.confirmarHoyo(hoyoEnPantalla, parEnPantalla)
+    await input.confirmarHoyoEnPantalla()
 
     // 2. Pendientes, esperando el resultado.
     const envio = resolverEnvioDelCierre(await input.enviarPendientes(undefined, { reintentarRechazados: true }), {
