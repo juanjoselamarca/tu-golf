@@ -526,7 +526,7 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
 
     // Un celular («Yo anoto todos»): sin lista de excluidos, se rellenan todos los equipos (sin cambio).
-    expect(completarEquiposConPar).toHaveBeenCalledWith([equipo], back9, undefined)
+    expect(completarEquiposConPar).toHaveBeenCalledWith([equipo], back9)
     // Las tarjetas individuales siguen vacías: ni se rellenan ni se envían.
     expect(result.current.scores).toEqual({})
     // Lo del equipo (incluido el 18 = par) sale por los pendientes antes de cerrar; ninguna tarjeta individual.

@@ -24,9 +24,9 @@ export interface TeamScoreSave {
    * Al finalizar (bola compartida): los hoyos DE LA RONDA sin score del equipo → par.
    * Deja los pendientes marcados ANTES de volver (los envía `enviarPendientes`) y
    * devuelve los equipos completos (lo que se guarda en el historial).
-   * `sinPar`: los equipos que no se rellenan, leídos recién del servidor al cerrar; sin él, `sinParAutomatico`.
+   * No rellena los de `sinParAutomatico` (un celular por equipo: los que este celular no reclamó).
    */
-  completarEquiposConPar: (equipos: EquipoDelScorer[], hoyos: readonly number[], sinPar?: ReadonlyArray<{ id: string }>) => EquipoDelScorer[]
+  completarEquiposConPar: (equipos: EquipoDelScorer[], hoyos: readonly number[]) => EquipoDelScorer[]
   /** Foursome: invertir orden de salida por equipo (A→pares, B→impares). */
   foursomeInvertido: Record<string, boolean>
   toggleFoursomeInvertido: (equipoId: string) => void
@@ -114,8 +114,8 @@ export function useTeamScoreSave(input: {
     else programarEnvio()
   }, [codigo, setTeamEquipos, setHasUnsaved, programarEnvio, enviarYa])
 
-  const completarEquiposConPar = useCallback((equipos: EquipoDelScorer[], hoyos: readonly number[], sinPar?: ReadonlyArray<{ id: string }>) => {
-    const excluidos = sinPar ? new Set(sinPar.map(e => e.id)) : sinParRef.current
+  const completarEquiposConPar = useCallback((equipos: EquipoDelScorer[], hoyos: readonly number[]) => {
+    const excluidos = sinParRef.current
     const { equipos: propios, rellenados } = completarEquiposSinMarcarConPar(equipos.filter(e => !excluidos.has(e.id)), hoyos, parMap)
     const completados = new Map(propios.map(e => [e.id, e]))
     const next = rellenados.length > 0 ? equipos.map(e => completados.get(e.id) ?? e) : equipos
