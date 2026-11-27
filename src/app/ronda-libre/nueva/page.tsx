@@ -160,6 +160,13 @@ export default function NuevaRondaLibrePage() {
   })
   const problemaEnJugadores = problemaDelFormulario ?? problemaTimbaJugadores ?? skins.problemaEnJugadores ?? problemaDeLaRonda
 
+  // Cada paso (y «Ronda creada») abre desde arriba: sin esto heredaba el scroll del paso anterior y el título
+  // quedaba fuera de la vista (capturas 27-nov: Confirmar y «Ronda creada» abrían en «Compartir»).
+  const pantalla = creada ? 'creada' : form.paso
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [pantalla])
+
   if (creada) {
     return (
       <PantallaCompartir
