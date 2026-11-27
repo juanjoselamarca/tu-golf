@@ -44,7 +44,8 @@ export function resolverEnvioDelCierre(envio: ResultadoEnvio, ctx: {
     return 'cerrada'
   }
   // Un celular por equipo: el equipo ya estaba terminado y rebotó un golpe distinto. El envío ya avisó, lo apartó y
-  // relee la pantalla; seguir cerraría la copia local y lo apartado se perdería.
+  // relee la pantalla; seguir terminaría de nuevo (ok, es idempotente) con ese golpe fuera de la tarjeta. Lo apartado
+  // no se pierde (el cierre de «Terminar» conserva los apartados de equipos): «Corregir mi tarjeta» lo pinta y reenvía.
   if (envio.equipoTerminado) return 'corta'
   if (envio.rechazadas.length > 0) {
     // Rechazo firme de una tarjeta (P0004/22023 = INVALID_DELTA: golpe u hoyo inválido). NO se cierra:

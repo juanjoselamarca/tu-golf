@@ -7,9 +7,9 @@ import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import { haptic } from '@/lib/ronda/helpers'
-import { cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
+import { cerrarCopiaLocalAlFinalizar, leerRechazados, ID_PENDIENTE_EQUIPO } from '@/lib/ronda/score-storage'
 import { terminarEquipoDeRonda } from '@/lib/data/ronda-libre-anotador'
-import { AVISO_TERMINAR_SIN_SERVIDOR, avisoEquipoIncompletoAlTerminar } from '@/components/ronda/finalizar-copy'
+import { AVISO_EQUIPO_YA_TERMINADO, AVISO_TERMINAR_SIN_SERVIDOR, avisoEquipoIncompletoAlTerminar } from '@/components/ronda/finalizar-copy'
 import { equipoAjenoIncompleto, equipoTerminado, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { RondaLibre } from '@/types/ronda'
@@ -121,6 +121,15 @@ export function useTerminarEquipo(input: {
     })
     if (envio === 'corta') return
     if (envio === 'cerrada') { irA(`/ronda-libre/${codigo}?finished=true`); return }
+    // Segunda barrera: tras reenviar lo apartado, un equipo por terminar que conserva golpes apartados es uno que el
+    // servidor ya terminó (rebotaron) aunque la señal del envío no llegara. Terminarlo de nuevo responde ok (idempotente)
+    // y el golpe quedaría fuera de la tarjeta: se avisa y se relee («Corregir mi tarjeta» lo pinta y lo reenvía).
+    const apartados = leerRechazados(codigo)
+    if (porTerminar.some(e => Object.keys(apartados[ID_PENDIENTE_EQUIPO(e.id)] ?? {}).length > 0)) {
+      addToast({ ...AVISO_EQUIPO_YA_TERMINADO, type: 'info', duration: 8000 })
+      void input.recargar()
+      return
+    }
 
     // 3. Drives en cola.
     const supabase = createClient()
@@ -150,9 +159,10 @@ export function useTerminarEquipo(input: {
       return
     }
 
-    // Todo lo de este celular subió (sin pendientes, arriba) y sus equipos quedaron cerrados: su copia se borra.
-    // «Corregir mi tarjeta» reabre el equipo y el scorer lo carga del servidor.
-    cerrarCopiaLocalAlFinalizar(codigo)
+    // Todo lo de este celular subió (sin pendientes, arriba) y sus equipos quedaron cerrados: su copia se borra, salvo
+    // los golpes apartados de equipos (de este u otro equipo del celular que ya terminó): «Corregir mi tarjeta» reabre
+    // el equipo, el scorer lo carga del servidor, pinta lo apartado encima y «Terminar» lo reenvía.
+    cerrarCopiaLocalAlFinalizar(codigo, { conservarApartadosDeEquipos: true })
     irA(rondaCerrada ? `/ronda-libre/${codigo}?finished=true` : `/ronda-libre/${codigo}`)
   }
 

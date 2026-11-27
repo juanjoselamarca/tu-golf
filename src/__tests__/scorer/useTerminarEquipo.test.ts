@@ -11,6 +11,7 @@ import type { CierreEnCurso } from '@/app/ronda-libre/[codigo]/score-grupo/hooks
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { ResultadoEnvio } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave'
 import type { ResultadoTerminarEquipo } from '@/lib/data/ronda-libre-anotador'
+import { AVISO_EQUIPO_YA_TERMINADO } from '@/components/ronda/finalizar-copy'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }))
@@ -20,8 +21,10 @@ vi.mock('@/hooks/useToast', () => ({ addToast: (...a: unknown[]) => addToast(...
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 vi.mock('@/lib/ronda/helpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/ronda/helpers')>()), haptic: vi.fn() }))
 const cerrarCopiaLocalAlFinalizar = vi.fn()
+const apartados = { golpes: {} as Record<string, Record<string, number>> }
 vi.mock('@/lib/ronda/score-storage', () => ({
   hayPendientes: () => false, cerrarCopiaLocalAlFinalizar: (...a: unknown[]) => cerrarCopiaLocalAlFinalizar(...a),
+  leerRechazados: () => apartados.golpes, ID_PENDIENTE_EQUIPO: (id: string) => `eq:${id}`,
 }))
 const drives = { pendientes: false, orden: [] as string[], cuelga: false }
 vi.mock('@/lib/ronda/drives-pendientes', () => ({
@@ -79,7 +82,7 @@ async function terminar(result: { current: ReturnType<typeof useTerminarEquipo> 
 
 beforeEach(() => {
   vi.clearAllMocks()
-  servidor.respuestas = {}; servidor.llamadas = []
+  servidor.respuestas = {}; servidor.llamadas = []; apartados.golpes = {}
   drives.pendientes = false; drives.orden = []; drives.cuelga = false
   enviarPendientes.mockImplementation(async () => ({ estado: 'ronda_abierta', rechazadas: [] }))
   confirmarHoyoEnPantalla.mockImplementation(async () => {})
@@ -101,7 +104,8 @@ describe('useTerminarEquipo', () => {
     expect(confirmarHoyoEnPantalla).toHaveBeenCalledTimes(1)
     expect(enviarPendientes).toHaveBeenCalledWith(undefined, { reintentarRechazados: true })
     expect(servidor.llamadas).toEqual(['e1'])
-    expect(cerrarCopiaLocalAlFinalizar).toHaveBeenCalledWith('ABC')
+    // Los apartados de equipos se conservan (Fable 2ª vuelta): «Corregir» los pinta y «Terminar» los reenvía.
+    expect(cerrarCopiaLocalAlFinalizar).toHaveBeenCalledWith('ABC', { conservarApartadosDeEquipos: true })
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC')
     expect(result.current.terminando).toBe(true) // sigue en «Terminando…» mientras navega
   })
@@ -208,6 +212,28 @@ describe('useTerminarEquipo', () => {
     expect(cerrarCopiaLocalAlFinalizar).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
     expect(addToast).not.toHaveBeenCalled()
+  })
+
+  it('segunda barrera: sin la señal del envío, un equipo por terminar con golpes apartados no se termina ni se borra', async () => {
+    // El rebote quedó apartado pero la señal no llegó: terminarlo de nuevo daría ok (idempotente) con el golpe fuera.
+    apartados.golpes = { 'eq:e1': { '18': 3 } }
+    const { result } = montar([eq('e1', 'Los Tigres', 'u-pedro', lleno)], { userId: 'u-pedro' })
+    await terminar(result)
+    expect(servidor.llamadas).toEqual([])
+    expect(cerrarCopiaLocalAlFinalizar).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: AVISO_EQUIPO_YA_TERMINADO.title }))
+    expect(recargar).toHaveBeenCalled()
+    expect(result.current.terminando).toBe(false)
+  })
+
+  it('dos equipos en un celular: los apartados de uno ya terminado no frenan al otro ni se borran al terminarlo', async () => {
+    // e1 ya terminó (no está en la lista por terminar) y tiene un golpe apartado; se termina e2.
+    apartados.golpes = { 'eq:e1': { '18': 3 } }
+    const { result } = montar([eq('e2', 'Los Pumas', 'u-pedro', lleno)], { userId: 'u-pedro' })
+    await terminar(result)
+    expect(servidor.llamadas).toEqual(['e2'])
+    expect(cerrarCopiaLocalAlFinalizar).toHaveBeenCalledWith('ABC', { conservarApartadosDeEquipos: true })
   })
 
   it('una tarjeta rechazada al enviar (golpe inválido): no termina y queda en el teléfono', async () => {
