@@ -142,8 +142,9 @@ function ScorerDeGrupo() {
   // Timba libre: puntos, marcas y retiros (todo de GET /juego). Fuera de una Timba no pide nada.
   const esTimba = esFormatoPersonalizado(ronda?.formato_juego)
   const [pestana, setPestana] = useState<PestanaDeLaTimba>('tarjeta')
-  // Timba y equipos (scramble, best ball, foursome): «Anotar» / «Tabla en vivo» arriba (Juanjo, 26-nov).
-  const conPestanas = esTimba || isTeamFormat(ronda?.formato_juego)
+  // Timba y bola compartida (scramble, foursome): «Anotar» / «Tabla en vivo» arriba (Juanjo, 26-nov). Best ball no:
+  // sus golpes viven por jugador en `scores` y la tabla del espectador los lee de la ronda cargada (revisión Fable).
+  const conPestanas = esTimba || isSharedBallFormat(ronda?.formato_juego)
   // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
   const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
   const timba = useTimbaDelScorer({

@@ -27,4 +27,11 @@ describe('TablaEnVivoDelScorer', () => {
     expect(recibido!.siMap).toEqual({ 1: 7 })
     expect(recibido!.enVivo).toBe(true)
   })
+
+  it('sin equipos: una línea, no un panel en blanco', () => {
+    const { getByText } = render(<TablaEnVivoDelScorer ronda={ronda} propios={[]} ajenos={[]}
+      parMap={{ 1: 4 }} holeDataMap={{}} playerHcp={{}} playerDisplayHcp={{}} />)
+    expect(getByText('La tabla aparece cuando haya equipos en la ronda.')).toBeTruthy()
+    expect(recibido).toBeNull()
+  })
 })

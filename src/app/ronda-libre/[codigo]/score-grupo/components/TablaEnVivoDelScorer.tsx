@@ -20,9 +20,11 @@ interface TablaEnVivoDelScorerProps {
 }
 
 /**
- * Pestaña «Tabla en vivo» del scorer de equipos (Juanjo, 26-nov): la misma tabla que ve el espectador
+ * Pestaña «Tabla en vivo» del scorer de bola compartida (scramble, foursome; Juanjo, 26-nov): la misma tabla que ve el espectador
  * (`TeamLeaderboards`, con el % de ganar del scramble), armada con lo que el scorer ya tiene. No abre otra conexión:
- * los equipos propios van con lo anotado en este celular y los ajenos con la última relectura del scorer.
+ * los equipos propios van con lo anotado en este celular y los ajenos con la última relectura del scorer. Solo bola
+ * compartida: ahí los golpes viven en el equipo (`EquipoDelScorer.scores`); en best ball viven por jugador y la tabla
+ * los leería de la ronda cargada al abrir, no de lo recién anotado (revisión Fable).
  */
 export function TablaEnVivoDelScorer({ ronda, propios, ajenos, parMap, holeDataMap, playerHcp, playerDisplayHcp }: TablaEnVivoDelScorerProps) {
   const [expandido, setExpandido] = useState<string | null>(null)
@@ -40,6 +42,9 @@ export function TablaEnVivoDelScorer({ ronda, propios, ajenos, parMap, holeDataM
     () => crearHcpAMostrar(ronda.ronda_libre_jugadores, playerDisplayHcp, [], 'todos'),
     [ronda.ronda_libre_jugadores, playerDisplayHcp],
   )
+  if (equipos.length === 0) {
+    return <p style={{ padding: '24px 12px', textAlign: 'center', fontSize: '14px', color: 'var(--text-2)' }}>La tabla aparece cuando haya equipos en la ronda.</p>
+  }
   return (
     <TeamLeaderboards
       ronda={ronda}
