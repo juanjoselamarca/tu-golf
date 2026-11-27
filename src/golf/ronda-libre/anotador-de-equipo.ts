@@ -259,11 +259,11 @@ export function nombreDeQuienAnota(
 }
 
 /**
- * ¿Este celular libera equipos? Un celular por equipo: solo el creador (la base rechaza liberar a quien no lo anota).
- * Ahí nadie «finaliza»: cada celular termina su equipo y la ronda se cierra sola con el último (`terminaPorEquipo`).
- * Ronda de un celular: sin cambio, cierra quien anota.
+ * ¿Este celular libera equipos de otro celular? Un celular por equipo: solo el creador (la base rechaza liberar a quien
+ * no lo anota). Ahí nadie «finaliza»: cada celular termina su equipo y la base cierra la ronda sola con el último
+ * (`terminar_equipo_de_ronda`). Ronda de un celular: `true` (no hay equipos de otro celular; nada que liberar).
  */
-export function cierraLaRonda(
+export function liberaEquipos(
   ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
   equipos: ReadonlyArray<Pick<EquipoConAnotador, 'handicap_origen'>>,
   userId: string | null | undefined,

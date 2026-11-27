@@ -13,7 +13,7 @@ interface EquiposDeOtroCelularProps {
   equipos: readonly EquipoDelScorer[]
   /** `nombreDelCreador`: quien anota los equipos sin reclamar (para quien no es el creador). */
   nombreCreador: string | null
-  /** Quien cierra la ronda (`cierraLaRonda`) puede liberar un equipo: vuelve a su celular. */
+  /** Quien libera equipos (`liberaEquipos`: el creador) puede liberar uno: vuelve a su celular. */
   puedeLiberar: boolean
   /** Equipo cuyo pedido está en vuelo (`useAnotadorDeEquipo.enCurso`). */
   enCurso: string | null

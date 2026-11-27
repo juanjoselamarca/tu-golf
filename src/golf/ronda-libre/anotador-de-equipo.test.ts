@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   anotaSinSerJugador,
   anotadoresDeEquipos,
-  cierraLaRonda,
+  liberaEquipos,
   entradaAlScorerDeEquipos,
   equipoAjenoIncompleto,
   equipoTerminado,
@@ -166,15 +166,15 @@ describe('equipoAjenoIncompleto', () => {
   })
 })
 
-describe('cierraLaRonda', () => {
+describe('liberaEquipos', () => {
   it('un celular por equipo: solo el creador', () => {
-    expect(cierraLaRonda(multi, equipos, CREADOR)).toBe(true)
-    expect(cierraLaRonda(multi, equipos, PEDRO)).toBe(false)
-    expect(cierraLaRonda(multi, equipos, null)).toBe(false)
+    expect(liberaEquipos(multi, equipos, CREADOR)).toBe(true)
+    expect(liberaEquipos(multi, equipos, PEDRO)).toBe(false)
+    expect(liberaEquipos(multi, equipos, null)).toBe(false)
   })
-  it('ronda de un celular: sin cambio (cierra quien anota)', () => {
-    expect(cierraLaRonda(unCelular, equipos, PEDRO)).toBe(true)
-    expect(cierraLaRonda({ ...multi, formato_juego: 'best_ball' }, equipos, JUAN)).toBe(true)
+  it('ronda de un celular: true (no hay equipos de otro celular)', () => {
+    expect(liberaEquipos(unCelular, equipos, PEDRO)).toBe(true)
+    expect(liberaEquipos({ ...multi, formato_juego: 'best_ball' }, equipos, JUAN)).toBe(true)
   })
 })
 

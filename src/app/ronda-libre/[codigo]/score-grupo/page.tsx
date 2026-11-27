@@ -20,7 +20,7 @@ import { getYardajeForTee, type Jugador } from '@/types/ronda'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
 import { tarjetaAlDiaEnHoyo } from '@/golf/ronda-libre/hoyos-sin-rellenar'
-import { cierraLaRonda, equiposQueNoConfirmanElHoyo, equiposSinParAutomatico, nombreDelCreador } from '@/golf/ronda-libre/anotador-de-equipo'
+import { liberaEquipos, equiposQueNoConfirmanElHoyo, equiposSinParAutomatico, nombreDelCreador } from '@/golf/ronda-libre/anotador-de-equipo'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores, hayPendientes } from '@/lib/ronda/score-storage'
 import { BestBallTeamCard } from './components/BestBallTeamCard'
@@ -95,7 +95,7 @@ function ScorerDeGrupo() {
   )
   // Un celular por equipo: solo el creador libera equipos (y nadie finaliza: cada uno termina su equipo). En cualquier
   // otra ronda, sin cambio.
-  const cierraEsteCelular = !ronda || cierraLaRonda(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId)
+  const liberaEsteCelular = !ronda || liberaEquipos(ronda, [...teamEquipos, ...equiposDeOtroCelular], authUserId)
 
   // Al volver de background (WhatsApp, etc.), forzar re-render para que la UI
   // no se quede frozen por WebSockets muertos (post-mortem 30-ago-2026).
@@ -407,7 +407,7 @@ function ScorerDeGrupo() {
           ))}
 
           {/* Quien anota un equipo sin ser el creador puede soltarlo (antes sube lo anotado). */}
-          {unCelularPorEquipo && !cierraEsteCelular && teamEquipos.map(equipo => (
+          {unCelularPorEquipo && !liberaEsteCelular && teamEquipos.map(equipo => (
             <DejarEsteEquipo
               key={`dejar-${equipo.id}`}
               equipo={equipo}
@@ -428,9 +428,9 @@ function ScorerDeGrupo() {
               codigo={codigo}
               equipos={equiposDeOtroCelular}
               nombreCreador={nombreDelCreador(ronda)}
-              puedeLiberar={cierraEsteCelular}
+              puedeLiberar={liberaEsteCelular}
               // Link a la vista mientras un equipo no tenga celular (también uno tomado con «Anotarlo yo»: es la vuelta atrás).
-              hayEquipoSinCelular={cierraEsteCelular && [...teamEquipos, ...equiposDeOtroCelular].some(e => e.anotador_user_id == null)}
+              hayEquipoSinCelular={liberaEsteCelular && [...teamEquipos, ...equiposDeOtroCelular].some(e => e.anotador_user_id == null)}
               enCurso={anotador.enCurso}
               // Liberar lo pasa a este celular aunque no tenga golpes; se marca solo si la RPC respondió bien (Fable).
               onLiberar={(id, nombre) => { void anotador.liberar(id, nombre, () => marcarEquipoTomado(codigo, id)) }}
