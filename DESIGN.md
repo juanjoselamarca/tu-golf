@@ -95,15 +95,18 @@ Un solo wordmark en toda la app.
 **Escala** (px / peso, mobile-first). Solo estos siete tamaños existen (nada de 15, 12 o 11 px); **un número
 héroe por viewport**; y dentro de un mismo bloque (tarjeta, fila, sección) **máximo tres tamaños de texto**:
 
-| Rol | Tamaño / peso |
-|-----|---------------|
-| Número héroe (uno por viewport) | 40 / 700 |
-| h1 de página (Playfair permitido) | 28 / 600 |
-| Número secundario | 24 / 600 |
-| h2 de sección | 18 / 600 |
-| Cuerpo | 16 / 400 |
-| Secundario | 14 / 400 |
-| Etiqueta, nav, caption | 13 / 500 |
+| Rol | Tamaño / peso | Token |
+|-----|---------------|-------|
+| Número héroe (uno por viewport) | 40 / 700 | `statHero` |
+| h1 de página (Playfair permitido) | 28 / 600 | `h1` |
+| Número secundario | 24 / 600 | `stat` |
+| h2 de sección | 18 / 600 | `h2` |
+| Cuerpo | 16 / 400 | `body` |
+| Secundario | 14 / 400 | `small` |
+| Etiqueta, nav, caption | 13 / 500 | `caption` |
+
+Los tamaños se definen una sola vez, en `FONT_SIZE` (`src/lib/font-size.ts`): en estilos inline `fontSize: FONT_SIZE.body`,
+en Tailwind `text-body` (el config los lee de ahí). En el coach el lint rechaza un tamaño escrito a mano.
 
 - **Piso absoluto: 13 px.** Nada operativo por debajo (la app se lee al sol).
 - **Datos de cancha ≥ 16 px y en `--text`**, nunca `--text-3`.
