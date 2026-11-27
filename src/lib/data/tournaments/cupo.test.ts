@@ -6,6 +6,8 @@ function makeMock(opts: {
   approvedCount?: number
   currentMax?: number | null
   updateError?: { message: string } | null
+  /** La cuenta de inscritos falla (la base no contestó). */
+  countError?: { message: string } | null
 }): { client: SupabaseClient; updated: (number | null)[] } {
   const updated: (number | null)[] = []
   const client = {
@@ -30,8 +32,9 @@ function makeMock(opts: {
           select: () => ({
             eq: () => ({
               eq: () => {
-                const obj: Record<string, unknown> = { count: cnt, error: null }
-                obj.then = (resolve: (v: unknown) => unknown) => resolve({ count: cnt, error: null })
+                const cuenta = opts.countError ? { count: null, error: opts.countError } : { count: cnt, error: null }
+                const obj: Record<string, unknown> = { ...cuenta }
+                obj.then = (resolve: (v: unknown) => unknown) => resolve(cuenta)
                 return obj
               },
             }),
@@ -100,6 +103,23 @@ describe('updateMaxPlayers — ampliar cupo', () => {
     const { client } = makeMock({ approvedCount: 0, updateError: { message: 'rls denied' } })
     const res = await updateMaxPlayers(client, 't1', 40)
     expect(res.ok).toBe(false)
-    if (!res.ok) expect(res.reason).toBe('unknown')
+    if (!res.ok) {
+      expect(res.reason).toBe('unknown')
+      // El texto interno de la base no llega al organizador.
+      expect(res.message).not.toContain('rls denied')
+    }
+  })
+
+  // «No pude contar» no es «0 inscritos»: con la cuenta fallida, la guardia de below_current se apagaba y el
+  // organizador podía dejar el cupo bajo los ya inscritos (torneo sobre-cupo).
+  it('si no puede contar los inscritos, no toca el cupo → unknown', async () => {
+    const { client, updated } = makeMock({ approvedCount: 24, countError: { message: 'statement timeout' } })
+    const res = await updateMaxPlayers(client, 't1', 10)
+    expect(res.ok).toBe(false)
+    if (!res.ok) {
+      expect(res.reason).toBe('unknown')
+      expect(res.message).not.toContain('statement timeout')
+    }
+    expect(updated).toEqual([])
   })
 })

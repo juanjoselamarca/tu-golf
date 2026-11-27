@@ -33,7 +33,15 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ slug: st
   // para que la pantalla no ofrezca un formulario que el backend va a rechazar.
   const tournament = await fetchJoinInfoPublica(admin, params.slug)
   if (!tournament) return NextResponse.json({ error: 'not_found' }, { status: 404 })
-  const { capacity, invitados } = await condicionesInscripcionPublica(admin, tournament)
+  let condiciones: Awaited<ReturnType<typeof condicionesInscripcionPublica>>
+  try {
+    condiciones = await condicionesInscripcionPublica(admin, tournament)
+  } catch (e) {
+    // El cupo no se pudo leer: 500 reintentable, igual que la rama con sesión (nunca «cupo libre» inventado).
+    void captureError(e, { context: 'join-info.publica', level: 'error' })
+    return NextResponse.json({ error: 'lookup_failed' }, { status: 500 })
+  }
+  const { capacity, invitados } = condiciones
 
   return NextResponse.json({
     tournament,

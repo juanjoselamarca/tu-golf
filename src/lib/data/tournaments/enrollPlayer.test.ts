@@ -174,7 +174,12 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
       handicapAtRegistration: 12,
     })
     expect(res.ok).toBe(false)
-    if (!res.ok) expect(res.reason).toBe('unknown')
+    if (!res.ok) {
+      expect(res.reason).toBe('unknown')
+      // El jugador lee un aviso suyo, nunca el texto interno de Postgres (ese va a captureError).
+      expect(res.message).toBe('No se pudo completar la inscripción. Intenta nuevamente.')
+      expect(res.message).not.toContain('deadlock')
+    }
   })
 })
 

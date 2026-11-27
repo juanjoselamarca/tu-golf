@@ -81,3 +81,16 @@ describe('GET join-info con sesión · la base falla', () => {
     expect(captureError).toHaveBeenCalledWith({ code: '57014' }, expect.objectContaining({ context: 'join-info' }))
   })
 })
+
+// 26-nov-2026: `tournamentCapacity` ya no cuenta 0 inscritos cuando la base falla (lanza). Sin sesión, ese error
+// sale como 500 reintentable registrado; la pantalla /unirse muestra «Reintentar» en vez de un cupo inventado.
+describe('GET join-info sin sesión · no se pudo leer el cupo', () => {
+  it('500 lookup_failed y se registra', async () => {
+    joinFlow.fetchJoinInfoPublica.mockResolvedValueOnce(TORNEO)
+    joinFlow.condicionesInscripcionPublica.mockRejectedValueOnce({ code: '57014' })
+    const res = await GET(req(), params)
+    expect(res.status).toBe(500)
+    expect((await res.json()).error).toBe('lookup_failed')
+    expect(captureError).toHaveBeenCalledWith({ code: '57014' }, expect.objectContaining({ context: 'join-info.publica' }))
+  })
+})

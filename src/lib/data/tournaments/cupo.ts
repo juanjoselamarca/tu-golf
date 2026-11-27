@@ -8,7 +8,10 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { tournamentCapacity } from './enrollPlayer'
+import { tournamentCapacity, type CapacityInfo } from './enrollPlayer'
+
+/** Aviso al organizador cuando la base falla; el detalle técnico va a captureError en la ruta. */
+const MENSAJE_CUPO_FALLIDO = 'No se pudo actualizar el cupo. Intenta nuevamente.'
 
 export type UpdateMaxPlayersResult =
   | { ok: true; maxPlayers: number | null; approved: number }
@@ -17,6 +20,8 @@ export type UpdateMaxPlayersResult =
       reason: 'invalid_value' | 'below_current' | 'not_found' | 'unknown'
       message: string
       approved?: number
+      /** Solo para captureError (reason 'unknown'); nunca se muestra. */
+      detalle?: string
     }
 
 /**
@@ -40,7 +45,13 @@ export async function updateMaxPlayers(
   }
 
   // Cuántos inscritos activos hay hoy — no se puede bajar por debajo de esto.
-  const cap = await tournamentCapacity(admin, tournamentId)
+  // Si no se pudo contar, NO se toca el cupo (antes contaba 0 y la guardia de abajo se apagaba).
+  let cap: CapacityInfo
+  try {
+    cap = await tournamentCapacity(admin, tournamentId)
+  } catch (e) {
+    return { ok: false, reason: 'unknown', message: MENSAJE_CUPO_FALLIDO, detalle: textoDeError(e) }
+  }
   if (newMax !== null && newMax < cap.approved) {
     return {
       ok: false,
@@ -59,9 +70,15 @@ export async function updateMaxPlayers(
     return {
       ok: false,
       reason: 'unknown',
-      message: `No se pudo actualizar el cupo: ${error.message}`,
+      message: MENSAJE_CUPO_FALLIDO,
+      detalle: error.message,
     }
   }
 
   return { ok: true, maxPlayers: newMax, approved: cap.approved }
+}
+
+function textoDeError(e: unknown): string {
+  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
+  return String(e)
 }
