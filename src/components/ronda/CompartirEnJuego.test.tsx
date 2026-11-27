@@ -63,11 +63,11 @@ describe('CompartirEnJuego', () => {
     render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
     await abrirOpciones()
 
-    expect(screen.getByText('Invitar a jugar')).toBeTruthy()
-    expect(screen.getByText('Invitar a seguir')).toBeTruthy()
+    expect(screen.getByText('Link para anotar')).toBeTruthy()
+    expect(screen.getByText('Link para mirar')).toBeTruthy()
 
     // Los "Compartir" van en el orden de los títulos: jugar, seguir.
-    fireEvent.click(screen.getAllByRole('button', { name: 'Compartir' })[1])
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir link para mirar' }))
     await flush()
 
     expect(share).toHaveBeenCalledWith(
@@ -82,7 +82,7 @@ describe('CompartirEnJuego', () => {
     render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
     await abrirOpciones()
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Compartir' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir link para anotar' }))
     await flush()
 
     expect(share).toHaveBeenCalledWith(
@@ -96,10 +96,10 @@ describe('CompartirEnJuego', () => {
     render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: false, unCelularPorEquipo: true })} color="red" />)
     await abrirOpciones()
 
-    expect(screen.getByText('Un celular por equipo')).toBeTruthy()
-    expect(screen.getByText('Envía este link a un jugador de cada equipo. Al abrirlo elige su equipo.')).toBeTruthy()
-    expect(screen.queryByText('Invitar a jugar')).toBeNull()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Compartir' })[0])
+    expect(screen.getByText('Link para anotar')).toBeTruthy()
+    expect(screen.getByText('Mándaselo a quien anota cada uno de los otros equipos. Al abrirlo elige su equipo.')).toBeTruthy()
+    expect(screen.queryByText('Cada jugador lo abre y anota su tarjeta en su celular.')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir link para anotar' }))
     await flush()
     expect(share).toHaveBeenCalledWith(
       expect.objectContaining({ text: 'Anota el score de tu equipo en Golfers+', url: `${SITE}/ronda-libre/ABC/score-grupo` }),
@@ -112,7 +112,7 @@ describe('CompartirEnJuego', () => {
     render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: true })} color="red" />)
     await abrirOpciones()
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Compartir' })[1])
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir link para mirar' }))
     await flush()
 
     expect(screen.getByRole('dialog', { name: 'Compartir la ronda' })).toBeTruthy()
@@ -125,7 +125,7 @@ describe('CompartirEnJuego', () => {
     render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('XYZ', { conJugar: false })} color="red" />)
     await abrirOpciones()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Compartir' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir link para mirar' }))
     await flush()
 
     expect(open).toHaveBeenCalledTimes(1)
@@ -138,8 +138,8 @@ describe('CompartirEnJuego', () => {
     render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: false })} color="red" />)
     await abrirOpciones()
 
-    expect(screen.queryByText('Invitar a jugar')).toBeNull()
-    expect(screen.getByText('Invitar a seguir')).toBeTruthy()
+    expect(screen.queryByText('Link para anotar')).toBeNull()
+    expect(screen.getByText('Link para mirar')).toBeTruthy()
   })
 
   it('"Volver al scorer" y tocar fuera cierran las opciones', async () => {
@@ -160,11 +160,11 @@ describe('CompartirEnJuego', () => {
     render(<CompartirEnJuego de="ronda" enlaces={enlacesDeRondaLibre('ABC', { conJugar: false })} color="red" />)
     await abrirOpciones()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copiar link' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar link para mirar' }))
     await flush()
 
     expect(writeText).toHaveBeenCalledWith(`${SITE}/ronda-libre/ABC`)
-    expect(screen.getByRole('button', { name: 'Copiado' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Link para mirar copiado' })).toBeTruthy()
   })
 
   // La hoja de opciones aparece donde estaba "Sí": el segundo toque de un doble toque caía en "Compartir".
@@ -175,7 +175,7 @@ describe('CompartirEnJuego', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Compartir la ronda' }))
     act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
     fireEvent.click(screen.getByRole('button', { name: 'Sí' }))
-    const capa = screen.getByRole('button', { name: 'Compartir' }).closest('[style*="pointer-events"]') as HTMLElement
+    const capa = screen.getByRole('button', { name: 'Compartir link para mirar' }).closest('[style*="pointer-events"]') as HTMLElement
     expect(capa.style.pointerEvents).toBe('none')
     act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
     expect(capa.style.pointerEvents).toBe('auto')
@@ -205,8 +205,8 @@ describe('CompartirEnJuego', () => {
     act(() => { vi.advanceTimersByTime(MS_ANTES_DE_ARMAR) })
     vi.useRealTimers()
 
-    expect(screen.queryByText('Invitar a jugar')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Compartir' }))
+    expect(screen.queryByText('Link para anotar')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir link para mirar' }))
     await flush()
 
     expect(share).toHaveBeenCalledWith(expect.objectContaining({

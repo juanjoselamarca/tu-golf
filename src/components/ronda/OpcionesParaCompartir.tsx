@@ -46,10 +46,27 @@ export function enlacesDeTorneo(slug: string, nombre: string): EnlacesDeLaRonda 
 
 type Destino = 'anotar' | 'jugar' | 'seguir'
 
-const TITULO: Record<Destino, string> = { anotar: 'Un celular por equipo', jugar: 'Invitar a jugar', seguir: 'Invitar a seguir' }
-/** Lo que hace quien recibe el link, cuando no es obvio. */
-const DETALLE: Partial<Record<Destino, string>> = {
-  anotar: 'Envía este link a un jugador de cada equipo. Al abrirlo elige su equipo.',
+/**
+ * Cada link dice para qué es («para anotar» / «para mirar») y quién lo recibe. Antes eran «Un celular por equipo»
+ * e «Invitar a seguir» con los mismos dos botones: no se distinguía cuál mandarle al otro equipo (feedback de
+ * Juanjo, 26-nov). El botón del de anotar va dorado (`nav`); el de mirar, neutro.
+ */
+const DESTINO: Record<Destino, { titulo: string; detalle: string; para: string }> = {
+  anotar: {
+    titulo: 'Link para anotar',
+    detalle: 'Mándaselo a quien anota cada uno de los otros equipos. Al abrirlo elige su equipo.',
+    para: 'para anotar',
+  },
+  jugar: {
+    titulo: 'Link para anotar',
+    detalle: 'Cada jugador lo abre y anota su tarjeta en su celular.',
+    para: 'para anotar',
+  },
+  seguir: {
+    titulo: 'Link para mirar',
+    detalle: 'Para familia y amigos: ven el marcador en vivo, sin crear cuenta.',
+    para: 'para mirar',
+  },
 }
 
 interface OpcionesParaCompartirProps {
@@ -85,30 +102,53 @@ export function OpcionesParaCompartir({ enlaces, onCompartido }: OpcionesParaCom
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {destinos.map(destino => (
-        <div key={destino}>
-          <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '8px', fontWeight: 500 }}>
-            {TITULO[destino]}
-          </div>
-          {DETALLE[destino] && (
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.4, margin: '0 0 10px' }}>{DETALLE[destino]}</p>
-          )}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Button variant="nav" className="flex-1" onClick={() => { void compartir(destino) }}>
-              Compartir
-            </Button>
-            <Button
-              variant="ghost"
-              className="min-w-[128px]"
-              onClick={() => copiar(destino)}
-              leftIcon={copiado?.destino === destino ? <Check size={16} strokeWidth={2} /> : undefined}
-            >
-              {copiado?.destino === destino ? 'Copiado' : 'Copiar link'}
-            </Button>
-          </div>
-        </div>
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+      {destinos.map(destino => {
+        const { titulo, detalle, para } = DESTINO[destino]
+        const esParaAnotar = destino !== 'seguir'
+        return (
+          <section
+            key={destino}
+            aria-labelledby={`compartir-${destino}`}
+            style={{
+              padding: '16px', borderRadius: '12px',
+              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            }}
+          >
+            <h3 id={`compartir-${destino}`} style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
+              {titulo}
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.4, margin: '4px 0 12px' }}>{detalle}</p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {esParaAnotar ? (
+                <Button variant="nav" className="flex-1" aria-label={`Compartir link ${para}`} onClick={() => { void compartir(destino) }}>
+                  Compartir
+                </Button>
+              ) : (
+                // Neutro a propósito: el dorado queda para lo que hace jugar (DESIGN §5, dieta del dorado).
+                <button
+                  type="button"
+                  aria-label={`Compartir link ${para}`}
+                  onClick={() => { void compartir(destino) }}
+                  className="flex-1 inline-flex items-center justify-center h-12 px-5 rounded-xl font-semibold select-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-on-bg)] focus-visible:ring-offset-2"
+                  style={{ background: 'transparent', color: 'var(--text)', border: '1px solid var(--input-border)', fontSize: '16px' }}
+                >
+                  Compartir
+                </button>
+              )}
+              <Button
+                variant="ghost"
+                className="min-w-[128px]"
+                aria-label={copiado?.destino === destino ? `Link ${para} copiado` : `Copiar link ${para}`}
+                onClick={() => copiar(destino)}
+                leftIcon={copiado?.destino === destino ? <Check size={16} strokeWidth={2} /> : undefined}
+              >
+                {copiado?.destino === destino ? 'Copiado' : 'Copiar link'}
+              </Button>
+            </div>
+          </section>
+        )
+      })}
       {/* El lector de pantalla no siempre anuncia un cambio de texto dentro del botón enfocado. */}
       <span role="status" className="sr-only">{copiado ? 'Link copiado' : ''}</span>
     </div>
