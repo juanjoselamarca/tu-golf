@@ -103,7 +103,12 @@ const OPCIONES_QUIEN_ANOTA: ReadonlyArray<{ valor: QuienAnota; titulo: string }>
  * Con 2 o más equipos: quién anota, obligatorio y sin nada elegido de antemano (`useEquiposDeClub.quienAnota`).
  * «Cada equipo en su celular»: al crear la ronda se comparte un link y cada equipo elige el suyo.
  */
-export function SelectorQuienAnotaEquipos({ quienAnota, onElegir }: { quienAnota: QuienAnota | null; onElegir: (q: QuienAnota) => void }) {
+export function SelectorQuienAnotaEquipos({ quienAnota, equipoDelCreador, onElegir }: {
+  quienAnota: QuienAnota | null
+  /** Nombre visible del primer equipo: el creador queda como su anotador (`api/ronda-libre/create`). */
+  equipoDelCreador: string
+  onElegir: (q: QuienAnota) => void
+}) {
   return (
     <div style={{ marginTop: '16px' }}>
       <div id="equipos-club-quien-anota" style={{ ...etiqueta, fontSize: '14px', color: colores.texto }}>¿Quién anota?</div>
@@ -128,7 +133,7 @@ export function SelectorQuienAnotaEquipos({ quienAnota, onElegir }: { quienAnota
       </div>
       {quienAnota === 'cada_equipo' && (
         <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4 }}>
-          Tú anotas tu equipo y le mandas el link a los demás. Al final, tú cierras la ronda.
+          Tú anotas «{equipoDelCreador}» y les mandas el link a los demás. Al final, tú cierras la ronda.
         </div>
       )}
     </div>
@@ -180,7 +185,6 @@ export function EquiposDeClub(props: Props) {
 
       <SelectorAnotarDrives
         anotarDrives={props.anotarDrives}
-        holes={props.holes}
         minimo={props.drivesMinimo}
         maximo={props.drivesMinimoMaximo}
         onElegir={props.onAnotarDrives}
@@ -237,7 +241,7 @@ export function EquiposDeClub(props: Props) {
               {esNeto && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '12px' }}>
                   <label htmlFor={idHandicap} style={{ ...etiqueta, marginBottom: 0, fontSize: '14px', color: colores.texto }}>
-                    Hándicap del equipo
+                    Hándicap del equipo <span style={{ fontWeight: 400, color: colores.texto2 }}>(0–{maximo})</span>
                   </label>
                   <input
                     id={idHandicap}

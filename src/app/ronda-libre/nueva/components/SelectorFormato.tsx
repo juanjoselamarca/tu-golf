@@ -91,8 +91,8 @@ export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloquead
 
       {modosPermitidos.length > 1 && (
         <div style={{ marginTop: '20px' }}>
-          <div style={{ ...etiqueta, marginBottom: '10px' }}>Hándicap</div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div id="formato-hándicap" style={{ ...etiqueta, marginBottom: '10px' }}>Hándicap</div>
+          <div role="group" aria-labelledby="formato-hándicap" style={{ display: 'flex', gap: '10px' }}>
             {([
               { valor: 'neto' as const, label: 'Neto', desc: 'Con hándicap' },
               { valor: 'gross' as const, label: 'Gross', desc: 'Sin hándicap' },

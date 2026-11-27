@@ -9,7 +9,6 @@ const OPCIONES_DRIVES = [
 
 interface Props {
   anotarDrives: boolean
-  holes: number
   /** Mínimo por jugador que vale ahora (0 = sin mínimo; `useEquiposDeClub.drivesMinimo`). `null` = el modo no se juega a esos hoyos. */
   minimo: number | null
   /** Tope del mínimo para estos hoyos (`drivesMinimoMaximo`). */

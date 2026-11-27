@@ -157,6 +157,8 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
     fireEvent.click(cada)
     expect(cada.getAttribute('aria-pressed')).toBe('true')
     expect(aviso().textContent).toBe('')
+    // El creador anota el primer equipo (api/ronda-libre/create): la frase lo nombra.
+    expect(screen.getByText('Tú anotas «Equipo 1» y les mandas el link a los demás. Al final, tú cierras la ronda.')).toBeTruthy()
     // Vuelve a 1 equipo: la pregunta se va.
     fireEvent.click(screen.getAllByRole('button', { name: /^Quitar/ })[1])
     expect(screen.queryByRole('button', { name: 'Cada equipo en su celular' })).toBeNull()
