@@ -132,7 +132,7 @@ export function SelectorQuienAnotaEquipos({ quienAnota, equipoDelCreador, onEleg
         })}
       </div>
       {quienAnota === 'cada_equipo' && (
-        <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4 }}>
+        <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
           Tú anotas «{equipoDelCreador}» y les mandas el link a los demás. Al final, tú cierras la ronda.
         </div>
       )}
@@ -175,8 +175,8 @@ export function EquiposDeClub(props: Props) {
 
   return (
     <div>
-      {/* De dónde sale el hándicap ya lo dice la opción elegida arriba; el rango (0 a N) lo avisa la validación si
-          se escribe uno fuera. Con 2 o más equipos, quién anota lo dice esa elección (abajo). */}
+      {/* De dónde sale el hándicap ya lo dice la opción elegida arriba; el rango (0–N) va en el label del
+          hándicap y la validación avisa si se escribe uno fuera. Con 2 o más equipos, quién anota lo dice esa elección (abajo). */}
       {props.equipos.length < 2 && (
         <div style={{ fontSize: '13px', color: colores.texto2, marginBottom: '12px', lineHeight: 1.4 }}>
           Anotas el equipo desde tu celular.

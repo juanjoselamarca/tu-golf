@@ -111,6 +111,7 @@ describe('PasoJugadores — «Con jugadores» | «Solo equipos»', () => {
     expect(aviso().style.color).toBe('var(--error-fg)')
     expect(aviso().style.fontSize).toBe('12px')
     expect(handicaps()[0].placeholder).toBe('0–18')
+    expect(screen.getByText('(0–18)')).toBeTruthy() // el rango también en el label
     fireEvent.change(handicaps()[0], { target: { value: '18' } })
     expect(handicaps()[0].getAttribute('aria-invalid')).toBeNull()
   })
