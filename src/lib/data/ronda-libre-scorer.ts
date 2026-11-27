@@ -243,6 +243,8 @@ export interface EquipoDelScorer extends Equipo {
   jugadorNombres: string[]
   anotador_user_id?: string | null
   anotador_nombre?: string | null
+  /** «Terminar mi equipo»: cuándo cerró su tarjeta (NULL = sigue jugando). */
+  terminado_at?: string | null
 }
 
 /**
