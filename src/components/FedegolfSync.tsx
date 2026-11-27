@@ -7,6 +7,7 @@ import { recordarNoVinculado, sabemosQueNoEstaVinculado } from '@/lib/fedegolf/v
 import { avisoYaMostrado, marcarAvisoMostrado } from '@/lib/fedegolf/aviso-local'
 import type { CambioIndice } from '@/lib/fedegolf/persistencia-indice'
 import { addToast } from '@/hooks/useToast'
+import { AvisoVincularFedegolf } from '@/components/fedegolf/AvisoVincularFedegolf'
 
 /**
  * Sync de índice FedeGolf cuando el usuario tiene cuenta vinculada (respaldo del
@@ -73,5 +74,7 @@ export default function FedegolfSync() {
       })
   }, [user])
 
-  return null
+  // Aviso «Vincula tu FedeGolf» al abrir la app: se monta acá porque FedegolfSync ya vive en el
+  // layout raíz (protegido) para todas las pantallas. Decide solo, sin bloquear el render.
+  return <AvisoVincularFedegolf />
 }

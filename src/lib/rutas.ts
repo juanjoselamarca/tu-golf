@@ -19,3 +19,14 @@ export function esRutaDeScoring(pathname: string | null | undefined): boolean {
  */
 export const PARAM_EDITAR_INDICE = { clave: 'editar', valor: 'indice' } as const
 export const RUTA_EDITAR_INDICE = `/perfil?${PARAM_EDITAR_INDICE.clave}=${PARAM_EDITAR_INDICE.valor}`
+
+/**
+ * Pantallas donde puede aparecer un aviso de apertura de la app (p. ej. «Vincula tu FedeGolf»).
+ * Lista CERRADA a propósito: una pantalla nueva no hereda avisos, y nunca se ofrecen en rondas,
+ * torneos, scorers ni en /perfil (que ya tiene su propio flujo de vinculación).
+ */
+export const RUTAS_AVISO_DE_APERTURA: readonly string[] = ['/', '/dashboard', '/ranking', '/indices']
+
+export function esRutaDeAvisoDeApertura(pathname: string | null | undefined): boolean {
+  return !!pathname && RUTAS_AVISO_DE_APERTURA.includes(pathname.replace(/\/+$/, '') || '/')
+}
