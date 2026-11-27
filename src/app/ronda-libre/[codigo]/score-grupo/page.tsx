@@ -30,6 +30,7 @@ import { GrupoHoleInfoRow } from './components/GrupoHoleInfoRow'
 import { CompartirEnJuego } from '@/components/ronda/CompartirEnJuego'
 import { enlacesDeRondaLibre } from '@/components/ronda/OpcionesParaCompartir'
 import { SharedBallTeamCard, anclaDeDrives } from './components/SharedBallTeamCard'
+import { hoyoSinDriveQueFrenaElCierre } from '@/golf/formats/drives-scramble'
 import { PlayerScoreCard } from './components/PlayerScoreCard'
 import { GrupoNavBar, envioDelHoyo } from './components/GrupoNavBar'
 import { DiscardRoundModal } from './components/DiscardRoundModal'
@@ -233,10 +234,13 @@ function ScorerDeGrupo() {
     anotarEquipo: (equipoId, delta) => handleTeamScoreChange(equipoId, currentHole, delta),
   })
   // Drives del scramble: sin el del hoyo no se pasa de hoyo, ni se guarda el último, ni se finaliza (Juanjo, 26-nov:
-  // «No deja avanzar»). Solo los equipos de este celular (`teamEquipos`) que anotan drives. El intento frenado
-  // destaca «Drive de» en ese hoyo y lleva la vista ahí. Tarjeta congelada o ronda cerrada: no frena (no hay cambios).
+  // «No deja avanzar»). Solo los equipos que ESTE celular confirma (los de `teamEquipos` fuera de `noConfirmanElHoyo`):
+  // el de otro celular lo frena su propio scorer. El intento frenado destaca «Drive de» en ese hoyo y lleva la vista
+  // ahí. Tarjeta congelada o ronda cerrada: no frena (no hay cambios). Lo que frena es CONFIRMAR (Siguiente, «Guardar
+  // hoyo N», Finalizar); moverse entre hoyos (swipe, fila de hoyos) es libre, para poder corregir uno anterior.
   const [faltaDriveEnHoyo, setFaltaDriveEnHoyo] = useState<number | null>(null)
-  const equiposSinDriveEn = (hoyo: number) => teamEquipos.filter(e => drivesDe(e)?.hoyosSinDrive.includes(hoyo))
+  const confirmanEsteCelular = teamEquipos.filter(e => !(noConfirmanElHoyo ?? []).some(n => n.id === e.id))
+  const equiposSinDriveEn = (hoyo: number) => confirmanEsteCelular.filter(e => drivesDe(e)?.hoyosSinDrive.includes(hoyo))
   const frenaPorDrive = (hoyo: number): boolean => {
     if (congelada || rondaCerrada) return false
     const faltan = equiposSinDriveEn(hoyo)
@@ -252,8 +256,10 @@ function ScorerDeGrupo() {
   }
   const siguienteConDrive = () => { if (!frenaPorDrive(currentHole)) void goToNextHole() }
   const guardarHoyoConDrive = () => { if (!frenaPorDrive(currentHole)) void guardarHoyo() }
+  // Al cerrar: solo los hoyos jugados y el de pantalla (`hoyoSinDriveQueFrenaElCierre`); los no jugados van con par y sin drive.
   const finalizarConDrives = () => {
-    const hoyo = ordenHoyos.find(h => equiposSinDriveEn(h).length > 0)
+    const conDrives = confirmanEsteCelular.flatMap(e => { const d = drivesDe(e); return d ? [{ hoyosSinDrive: d.hoyosSinDrive, scores: e.scores }] : [] })
+    const hoyo = hoyoSinDriveQueFrenaElCierre(ordenHoyos, conDrives, currentHole)
     if (hoyo != null && frenaPorDrive(hoyo)) return
     void finalizeRound()
   }
@@ -453,9 +459,11 @@ function ScorerDeGrupo() {
               equipos={equiposDeOtroCelular}
               nombreCreador={nombreDelCreador(ronda)}
               puedeLiberar={cierraEsteCelular}
+              // Link a la vista mientras un equipo no tenga celular (también uno tomado con «Anotarlo yo»: es la vuelta atrás).
+              hayEquipoSinCelular={cierraEsteCelular && [...teamEquipos, ...equiposDeOtroCelular].some(e => e.anotador_user_id == null)}
               enCurso={anotador.enCurso}
-              // Liberar lo pasa a este celular aunque todavía no tenga golpes (si la RPC falla, sigue siendo del otro).
-              onLiberar={(id, nombre) => { marcarEquipoTomado(codigo, id); void anotador.liberar(id, nombre) }}
+              // Liberar lo pasa a este celular aunque no tenga golpes; se marca solo si la RPC respondió bien (Fable).
+              onLiberar={(id, nombre) => { void anotador.liberar(id, nombre, () => marcarEquipoTomado(codigo, id)) }}
               // «Anotarlo yo» (discreto): un equipo que nadie tomó pasa a este celular.
               onTomar={(id) => { marcarEquipoTomado(codigo, id); void recargar() }}
             />

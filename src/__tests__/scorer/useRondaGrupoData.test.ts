@@ -13,6 +13,7 @@ import { saveScorerGrupoSnapshot, saveGroupScores, loadScorerGrupoSnapshot, marc
 import { MENSAJE_SCORER_SIN_CONEXION, PLAZO_CARGA_SCORER_MS, REINTENTO_CARGA_MS } from '@/lib/data/ronda-libre-scorer'
 import { useAnotadorDeEquipo } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useAnotadorDeEquipo'
 import { MENSAJE_EQUIPOS_TARDAN } from '@/lib/data/ronda-libre-anotador'
+import { marcarEquipoTomado } from '@/lib/ronda/equipos-tomados'
 
 const push = vi.fn()
 const replace = vi.fn()
@@ -453,17 +454,27 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
     id, nombre: id, handicap_equipo: 10, handicap_equipo_juego: 3, handicap_origen: 'club', scores: {}, jugadorIds: [], jugadorNombres: [],
     anotador_user_id: anotador, anotador_nombre: nombre,
   })
-  it('el creador carga solo su equipo y los libres; el de Pedro queda aparte y nunca en teamEquipos', async () => {
+  it('el creador carga solo su equipo; el de Pedro y el libre (sin golpes ni tomado) quedan aparte, nunca en teamEquipos', async () => {
     carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro'), eq('e3', null)]
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    // Juanjo, 26-nov: el creador no anota al otro equipo por defecto (queda «Anotarlo yo» en la franja).
+    expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1'])
+    expect(result.current.equiposDeOtroCelular.map(e => e.id)).toEqual(['e2', 'e3'])
+    expect(result.current.unCelularPorEquipo).toBe(true)
+    expect(result.current.eleccion).toBeNull()
+    // La copia local también guarda solo los suyos: al abrir sin red no aparece el equipo de Pedro.
+    expect((loadScorerGrupoSnapshot('B4F5Y2', 'u1')?.teamEquipos as { id: string }[] | undefined)?.map(e => e.id)).toEqual(['e1'])
+  })
+  it('el libre que el creador tomó a mano («Anotarlo yo») sí lo carga', async () => {
+    carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    marcarEquipoTomado('B4F5Y2', 'e3')
     lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e2', 'u-pedro', 'Pedro'), eq('e3', null)]
     const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.teamEquipos.map(e => e.id)).toEqual(['e1', 'e3'])
     expect(result.current.equiposDeOtroCelular.map(e => e.id)).toEqual(['e2'])
-    expect(result.current.unCelularPorEquipo).toBe(true)
-    expect(result.current.eleccion).toBeNull()
-    // La copia local también guarda solo los suyos: al abrir sin red no aparece el equipo de Pedro.
-    expect((loadScorerGrupoSnapshot('B4F5Y2', 'u1')?.teamEquipos as { id: string }[] | undefined)?.map(e => e.id)).toEqual(['e1', 'e3'])
   })
   it('anotador que no juega la ronda: el encabezado muestra su nombre, nunca el correo (ensayo 24-nov)', async () => {
     carga.valor = { estado: 'ok', ronda: SCRAMBLE }
@@ -629,6 +640,7 @@ describe('useRondaGrupoData — un celular por equipo (scramble rápido)', () =>
   })
   it('par al pasar de hoyo: otro celular reclama un equipo del creador y sale de teamEquipos (lo que se rellena con par)', async () => {
     carga.valor = { estado: 'ok', ronda: SCRAMBLE }
+    marcarEquipoTomado('B4F5Y2', 'e3') // el creador lo tomó a mano: es suyo en pantalla
     lecturaDeEquipos.equipos = [eq('e1', 'u1'), eq('e3', null)]
     const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
     await waitFor(() => expect(result.current.loading).toBe(false))

@@ -145,7 +145,9 @@ test.describe('Scramble rápido — un celular por equipo', () => {
     await expect(page.getByText('Las Águilas queda en tu celular')).toBeVisible({ timeout: 15_000 })
     await expect.poll(async () => (await equiposDe(id))['Las Águilas'].anotador_user_id, { timeout: 10_000 }).toBeNull()
     expect((await equiposDe(id))['Las Águilas'].anotador_nombre, 'sin anotador no queda nombre').toBeNull()
-    await expect(franja).toHaveCount(0)
+    // La franja ya no lista equipos; queda solo el link para que lo anoten (Las Águilas sigue sin celular).
+    await expect(franja).not.toContainText('Las Águilas')
+    await expect(franja.getByRole('button', { name: 'Enviar link para que anoten su equipo' })).toBeVisible()
     await expect(tarjetaDeEquipo(page, 'Las Águilas')).toBeVisible()
     await expect(page.getByRole('button', { name: '+', exact: true })).toHaveCount(2)
 
@@ -179,7 +181,9 @@ test.describe('Scramble rápido — un celular por equipo', () => {
     await expect(modal).toBeVisible()
     await modal.getByRole('button', { name: 'Anotarlo yo' }).click()
     await expect(tarjetaDeEquipo(page, 'Las Águilas')).toBeVisible({ timeout: 15_000 })
-    await expect(franja).toHaveCount(0)
+    // Sale de la lista; el link queda a la vista: es la vuelta atrás (su equipo lo abre y lo toma).
+    await expect(franja).not.toContainText('Las Águilas')
+    await expect(franja.getByRole('button', { name: 'Enviar link para que anoten su equipo' })).toBeVisible()
     await expect(page.getByRole('button', { name: '+', exact: true })).toHaveCount(2)
     expect((await equiposDe(id))['Las Águilas'].anotador_user_id, 'no reclama en la base: Pedro todavía puede tomarlo').toBeNull()
 

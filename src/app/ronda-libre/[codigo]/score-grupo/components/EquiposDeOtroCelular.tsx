@@ -20,6 +20,11 @@ interface EquiposDeOtroCelularProps {
   onLiberar: (equipoId: string, nombreEquipo: string) => void
   /** «Anotarlo yo»: quien cierra la ronda toma en este celular un equipo que nadie reclamó todavía. */
   onTomar: (equipoId: string) => void
+  /**
+   * Quien cierra la ronda y algún equipo sin celular (también uno que tomó con «Anotarlo yo»): el link para anotar va
+   * a la vista. Es además la vuelta atrás de «Anotarlo yo»: su equipo abre el link, lo toma y sale de este celular.
+   */
+  hayEquipoSinCelular: boolean
 }
 
 /**
@@ -28,27 +33,25 @@ interface EquiposDeOtroCelularProps {
  * Uno que nadie reclamó todavía también va acá: para el creador dice «sin celular todavía» y ofrece «Anotarlo yo»
  * (discreto y con confirmación). Juanjo, 26-nov: que exista la forma, pero no tan a la vista; nunca bloquea.
  */
-export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLiberar, enCurso, onLiberar, onTomar }: EquiposDeOtroCelularProps) {
+export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLiberar, enCurso, onLiberar, onTomar, hayEquipoSinCelular }: EquiposDeOtroCelularProps) {
   const [porLiberar, setPorLiberar] = useState<EquipoDelScorer | null>(null)
   const [porTomar, setPorTomar] = useState<EquipoDelScorer | null>(null)
   const { share } = useShare()
-  if (equipos.length === 0) return null
-  // Juanjo, 26-nov: el link para el otro equipo quedaba escondido en el ícono de compartir. Mientras haya un equipo
-  // sin celular, el link para anotar va a la vista acá, donde se ve que falta.
-  const hayEquipoSinCelular = equipos.some(e => sinCelular(e, puedeLiberar))
+  // Juanjo, 26-nov: el link para el otro equipo quedaba escondido en el ícono de compartir.
+  if (equipos.length === 0 && !hayEquipoSinCelular) return null
 
   return (
     <section aria-label="Equipos que anota otro celular" style={{ marginTop: '4px', padding: '10px 12px', borderRadius: '12px', border: '1px dashed var(--border-md)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
+      {equipos.length > 0 && <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
         {equipos.map(e => (
           <li key={e.id} style={{ minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '15px', color: 'var(--text)' }}>
             <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
               <span style={{ fontWeight: 600 }}>{e.nombre}</span>
               <span style={{ color: 'var(--text-2)' }}>
-                {sinCelular(e, puedeLiberar) ? ' · sin celular todavía' : ` · lo anota ${nombreDeQuienAnota(e, nombreCreador)}`}
+                {sinCelular(e) ? ' · sin celular todavía' : ` · lo anota ${nombreDeQuienAnota(e, nombreCreador)}`}
               </span>
             </span>
-            {sinCelular(e, puedeLiberar) ? (
+            {puedeLiberar && sinCelular(e) ? (
               <button
                 type="button"
                 onClick={() => setPorTomar(e)}
@@ -69,7 +72,7 @@ export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLibe
             )}
           </li>
         ))}
-      </ul>
+      </ul>}
       {hayEquipoSinCelular && (
         <button
           type="button"
@@ -117,7 +120,10 @@ export function EquiposDeOtroCelular({ codigo, equipos, nombreCreador, puedeLibe
   )
 }
 
-/** Equipo que nadie reclamó, visto por quien cierra la ronda: no lo anota nadie todavía (`equiposQueAnota`). */
-function sinCelular(e: EquipoDelScorer, esQuienCierra: boolean): boolean {
-  return esQuienCierra && e.anotador_user_id == null
+/**
+ * Equipo de la franja que nadie reclamó y sin golpes: no lo anota nadie todavía. Con golpes lo anota el creador (uno que
+ * liberó). Antes, para quien no es el creador, uno así decía «lo anota {creador}» (revisión Fable 27-nov).
+ */
+function sinCelular(e: EquipoDelScorer): boolean {
+  return e.anotador_user_id == null && !Object.values(e.scores ?? {}).some(v => v != null)
 }

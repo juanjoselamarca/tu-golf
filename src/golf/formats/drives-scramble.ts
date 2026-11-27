@@ -179,3 +179,21 @@ export function problemaDeJugadoresDeDrive(nombres: readonly string[]): 'faltan'
 export function hoyosSinDrive(drives: DrivesDelEquipo, hoyos: readonly number[]): number[] {
   return hoyos.filter(h => drives[String(h)] == null)
 }
+
+/**
+ * Al finalizar: el primer hoyo (en el orden de la ronda) que frena el cierre por falta de drive, o `null`. Cuentan solo
+ * los hoyos JUGADOS de cada equipo (con golpe) y el hoyo en pantalla; los que nunca se jugaron (cierre anticipado por
+ * lluvia o luz) los rellena el cierre con par y quedan sin drive: pedirlos obligaría a inventarlos y falsearía el
+ * conteo del mínimo (revisión Fable 27-nov).
+ */
+export function hoyoSinDriveQueFrenaElCierre(
+  hoyos: readonly number[],
+  equipos: ReadonlyArray<{ hoyosSinDrive: readonly number[]; scores: Readonly<Record<string, number | null | undefined>> }>,
+  hoyoEnPantalla: number,
+): number | null {
+  for (const h of hoyos) {
+    const frena = equipos.some(e => e.hoyosSinDrive.includes(h) && (h === hoyoEnPantalla || e.scores[String(h)] != null))
+    if (frena) return h
+  }
+  return null
+}
