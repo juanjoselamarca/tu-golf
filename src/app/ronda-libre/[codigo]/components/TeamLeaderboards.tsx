@@ -204,6 +204,9 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
             nombre: r.teamNombre,
             diff: neto ? r.overUnderNeto : r.overUnderGross,
             holesPlayed: r.holesPlayed,
+            // La mezcla de pares de lo jugado y de lo que falta: con salidas separadas, a uno le pueden quedar los par 5.
+            paresJugados: r.holes.filter(h => h.gross != null).map(h => h.par),
+            paresRestantes: r.holes.filter(h => h.gross == null).map(h => h.par),
             ...(neto ? {
               golpesHcpTotal: r.holes.reduce((s, h) => s + h.strokesRecibidos, 0),
               golpesHcpRestantes: r.holes.reduce((s, h) => s + (h.gross == null ? h.strokesRecibidos : 0), 0),
