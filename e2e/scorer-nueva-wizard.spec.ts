@@ -136,7 +136,7 @@ test.describe('Scorer — Asistente /ronda-libre/nueva', () => {
     expect(jugadores).not.toMatch(/quién anota/i)
 
     // Un solo compañero en blanco: Revisar espera a que tenga nombre.
-    const revisar = page.getByRole('button', { name: /revisar/i })
+    const revisar = page.getByRole('button', { name: /siguiente/i })
     await expect(revisar).toBeDisabled()
     await expect(page.getByLabel(/nombre del jugador 2/i)).toHaveCount(1)
     await page.getByLabel(/nombre del jugador 2/i).fill('Compañero E2E')
@@ -166,11 +166,11 @@ test.describe('Scorer — Asistente /ronda-libre/nueva', () => {
     await expect(page.getByRole('button', { name: /yo anoto por todos/i })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByLabel(/nombre del jugador 2/i)).toHaveValue('Compañero E2E')
     await expect(page.getByLabel(/nombre del equipo/i), 'Stroke Play no arma equipos').toHaveCount(0)
-    await expect(page.getByRole('button', { name: /revisar/i })).toBeEnabled()
+    await expect(page.getByRole('button', { name: /siguiente/i })).toBeEnabled()
 
     await page.getByRole('button', { name: /cada uno en su celular/i }).click()
     await expect(page.getByText(/unirse compartiendo el enlace/i)).toBeVisible()
-    await expect(page.getByRole('button', { name: /revisar/i })).toBeEnabled()
+    await expect(page.getByRole('button', { name: /siguiente/i })).toBeEnabled()
   })
 
   test('Scramble: "+ Agregar equipo rival" abre un segundo equipo con dos tarjetas', async ({ page }) => {

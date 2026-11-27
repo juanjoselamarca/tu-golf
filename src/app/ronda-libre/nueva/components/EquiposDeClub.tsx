@@ -25,7 +25,7 @@ const OPCIONES: ReadonlyArray<{ solo: boolean; titulo: string; neto: string; gro
   {
     solo: true,
     titulo: 'Equipos con hándicap del club',
-    neto: 'No se piden índices.',
+    neto: 'Ingresas el hándicap que les dio el club.',
     gross: 'Ingresa solo el nombre de cada equipo. En Gross no se usa hándicap.',
   },
 ]
@@ -103,7 +103,12 @@ const OPCIONES_QUIEN_ANOTA: ReadonlyArray<{ valor: QuienAnota; titulo: string }>
  * Con 2 o más equipos: quién anota, obligatorio y sin nada elegido de antemano (`useEquiposDeClub.quienAnota`).
  * «Cada equipo en su celular»: al crear la ronda se comparte un link y cada equipo elige el suyo.
  */
-export function SelectorQuienAnotaEquipos({ quienAnota, onElegir }: { quienAnota: QuienAnota | null; onElegir: (q: QuienAnota) => void }) {
+export function SelectorQuienAnotaEquipos({ quienAnota, equipoDelCreador, onElegir }: {
+  quienAnota: QuienAnota | null
+  /** Nombre visible del primer equipo: el creador queda como su anotador (`api/ronda-libre/create`). */
+  equipoDelCreador: string
+  onElegir: (q: QuienAnota) => void
+}) {
   return (
     <div style={{ marginTop: '16px' }}>
       <div id="equipos-club-quien-anota" style={{ ...etiqueta, fontSize: '14px', color: colores.texto }}>¿Quién anota?</div>
@@ -127,8 +132,8 @@ export function SelectorQuienAnotaEquipos({ quienAnota, onElegir }: { quienAnota
         })}
       </div>
       {quienAnota === 'cada_equipo' && (
-        <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4 }}>
-          Al crear la ronda envías un link y cada equipo elige el suyo. Tú anotas el primero y cierras la ronda.
+        <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
+          Tú anotas «{equipoDelCreador}» y les mandas el link a los demás. Al final, tú cierras la ronda.
         </div>
       )}
     </div>
@@ -170,15 +175,16 @@ export function EquiposDeClub(props: Props) {
 
   return (
     <div>
-      <div style={{ fontSize: '13px', color: colores.texto2, marginBottom: '12px', lineHeight: 1.4 }}>
-        {/* Con 2 o más equipos lo dice la elección de quién anota (abajo). */}
-        {props.equipos.length < 2 && <>Anotas el equipo desde tu celular.{' '}</>}
-        {esNeto ? `El hándicap es el que les dio el club, de 0 a ${maximo}.` : 'Juegan gross, sin hándicap.'}
-      </div>
+      {/* De dónde sale el hándicap ya lo dice la opción elegida arriba; el rango (0–N) va en el label del
+          hándicap y la validación avisa si se escribe uno fuera. Con 2 o más equipos, quién anota lo dice esa elección (abajo). */}
+      {props.equipos.length < 2 && (
+        <div style={{ fontSize: '13px', color: colores.texto2, marginBottom: '12px', lineHeight: 1.4 }}>
+          Anotas el equipo desde tu celular.
+        </div>
+      )}
 
       <SelectorAnotarDrives
         anotarDrives={props.anotarDrives}
-        holes={props.holes}
         minimo={props.drivesMinimo}
         maximo={props.drivesMinimoMaximo}
         onElegir={props.onAnotarDrives}
@@ -235,7 +241,7 @@ export function EquiposDeClub(props: Props) {
               {esNeto && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '12px' }}>
                   <label htmlFor={idHandicap} style={{ ...etiqueta, marginBottom: 0, fontSize: '14px', color: colores.texto }}>
-                    Hándicap del equipo
+                    Hándicap del equipo <span style={{ fontWeight: 400, color: colores.texto2 }}>(0–{maximo})</span>
                   </label>
                   <input
                     id={idHandicap}

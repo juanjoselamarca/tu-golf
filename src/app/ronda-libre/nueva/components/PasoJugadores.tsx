@@ -19,6 +19,7 @@ import type { ProblemaDeLaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { DiferenciaDeHandicap } from './DiferenciaDeHandicap'
 import { EquiposDeLaRonda } from './EquiposDeLaRonda'
 import { SelectorQuienAnota } from './SelectorQuienAnota'
+import { nombreVisibleDeEquipo } from '@/golf/ronda-libre/nombre-de-equipo'
 import { BotonReintentar } from './BotonReintentar'
 import { EquiposDeClub, SelectorQuienAnotaEquipos, SelectorSoloEquipos } from './EquiposDeClub'
 import type { EquiposDeClubDelFormulario } from '../hooks/useEquiposDeClub'
@@ -165,7 +166,7 @@ export function PasoJugadores(props: Props) {
             onJugador={props.club.escribirJugador}
           />
           {props.club.seEligeQuienAnota && (
-            <SelectorQuienAnotaEquipos quienAnota={props.club.quienAnota} onElegir={props.club.elegirQuienAnota} />
+            <SelectorQuienAnotaEquipos quienAnota={props.club.quienAnota} equipoDelCreador={nombreVisibleDeEquipo(props.club.equipos[0]?.nombre ?? '', 0)} onElegir={props.club.elegirQuienAnota} />
           )}
           </>
         ) : (
@@ -308,7 +309,7 @@ export function PasoJugadores(props: Props) {
             onClick={props.onSiguiente}
             style={{ ...primario(noAvanza), width: '100%' }}
           >
-            Revisar →
+            Siguiente →
           </button>
           {/* Siempre montado: un role="status" que aparece junto con su texto no siempre se anuncia. */}
           <div
