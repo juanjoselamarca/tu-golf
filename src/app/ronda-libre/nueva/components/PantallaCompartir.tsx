@@ -48,8 +48,11 @@ export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo,
           marginTop: '24px', padding: '12px 16px', borderRadius: '12px',
           background: colores.tarjeta, border: `1px solid ${colores.borde}`,
         }}>
-          <div style={{ fontSize: '14px', color: colores.texto2 }}>Código de la ronda</div>
-          <RoundCode code={codigo} size="md" />
+          <div style={{ fontSize: '14px', color: colores.texto2 }}>Código</div>
+          {/* Sin encogerse: el código partido en dos líneas se lee como dos códigos. */}
+          <div style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+            <RoundCode code={codigo} size="md" />
+          </div>
         </div>
 
         {/* Con un solo celular anotando por todos no hay link para anotar: solo se invita a mirar. Las mismas

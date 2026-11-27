@@ -78,8 +78,9 @@ function MinimoDeDrives({ minimo, maximo, holes, onMinimo }: { minimo: number; m
   return (
     <div style={{ marginTop: '12px', padding: '12px', borderRadius: '12px', border: `1px solid ${colores.borde}` }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-        <div id="equipos-club-drives-minimo" style={{ fontSize: '14px', fontWeight: 600, color: colores.texto }}>
-          Mínimo por jugador
+        <div id="equipos-club-drives-minimo">
+          <div style={{ fontSize: '16px', fontWeight: 600, color: colores.texto }}>Mínimo</div>
+          <div style={{ fontSize: '13px', color: colores.texto2 }}>drives por jugador</div>
         </div>
         <div role="group" aria-labelledby="equipos-club-drives-minimo" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
