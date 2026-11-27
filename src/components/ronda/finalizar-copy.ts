@@ -175,6 +175,16 @@ export const AVISO_TERMINAR_SIN_SERVIDOR = {
 } as const
 
 /**
+ * El servidor rechazó un golpe porque el equipo ya terminó su tarjeta (pasa si «Terminar mi equipo» se aplicó pero la
+ * respuesta no llegó y la tarjeta se siguió editando). El golpe queda guardado en el teléfono y «Corregir mi tarjeta»
+ * (vista en vivo) reabre el equipo y lo devuelve.
+ */
+export const AVISO_EQUIPO_YA_TERMINADO = {
+  title: 'Tu equipo ya está terminado.',
+  message: 'Toca «Corregir mi tarjeta» para cambiar un golpe.',
+} as const
+
+/**
  * Un equipo que anota este celular tiene un hoyo sin golpes: «Terminar» no lo rellena con par (solo el equipo que este
  * celular reclamó recibe par automático). Lo anota a mano y vuelve a terminar. También cubre al creador que tomó el
  * equipo de un celular que se apagó (Liberar o «Anotarlo yo»): el aviso dice qué hoyo falta.

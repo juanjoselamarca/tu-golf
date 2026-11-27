@@ -43,6 +43,9 @@ export function resolverEnvioDelCierre(envio: ResultadoEnvio, ctx: {
     marcarRespaldosDeRondaCerrada(codigo)
     return 'cerrada'
   }
+  // Un celular por equipo: el equipo ya estaba terminado y rebotó un golpe distinto. El envío ya avisó, lo apartó y
+  // relee la pantalla; seguir cerraría la copia local y lo apartado se perdería.
+  if (envio.equipoTerminado) return 'corta'
   if (envio.rechazadas.length > 0) {
     // Rechazo firme de una tarjeta (P0004/22023 = INVALID_DELTA: golpe u hoyo inválido). NO se cierra:
     // cerrar borraría la copia del grupo, el único lugar con esos golpes. Quedan en el teléfono, el

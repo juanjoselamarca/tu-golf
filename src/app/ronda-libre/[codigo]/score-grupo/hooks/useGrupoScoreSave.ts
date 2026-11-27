@@ -5,7 +5,7 @@ import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
 import { saveRondaLibreScores, saveRondaEquiposScores, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
-import { RONDA_ERRCODE, esNoReintentable, esRechazoDeEquipoAjeno, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, esNoReintentable, esRechazoDeEquipoAjeno, esRechazoDeEquipoTerminado, esRechazoQueDescarta, rechazoQuePuedeSerSesion } from '@/lib/data/ronda-libre-cierre'
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { addToast } from '@/hooks/useToast'
 import { haptic } from '@/lib/ronda/helpers'
@@ -23,7 +23,7 @@ import {
   olvidarRechazado,
 } from '@/lib/ronda/score-storage'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
-import { AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
+import { AVISO_EQUIPO_YA_TERMINADO, AVISO_RONDA_NO_EXISTE } from '@/components/ronda/finalizar-copy'
 import type { RondaLibre } from '@/types/ronda'
 import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
 
@@ -118,6 +118,8 @@ export interface ResultadoEnvio {
   rechazadas: { id: string; code: string }[]
   /** El envío rebotó y el teléfono ya no tiene sesión (ver `sesionPerdida`): Finalizar pide iniciar sesión. */
   sesionPerdida?: boolean
+  /** Rebotó un golpe de un equipo ya terminado (apartado y avisado): «Terminar mi equipo» no sigue. */
+  equipoTerminado?: boolean
 }
 
 /**
@@ -183,6 +185,8 @@ export function useGrupoScoreSave(input: {
    * todo el ciclo de Finalizar, incluida la vuelta extra que corre al terminar un envío que estaba en vuelo.
    */
   const silenciarAvisoRef = useRef(false)
+  /** El envío de esta llamada a `saveAllScores` rebotó porque el equipo ya terminó (el golpe quedó apartado). */
+  const reboteEquipoTerminadoRef = useRef(false)
   /** Ciclo de envío en curso (incluye la vuelta extra que pidió quien llegó mientras viajaba). */
   const cicloRef = useRef<Promise<void> | null>(null)
   const [rondaCerrada, setRondaCerrada] = useState(false)
@@ -273,6 +277,7 @@ export function useGrupoScoreSave(input: {
       // Tarjetas que entraron en este envío (en cualquier vuelta): decide si `guardados` sube.
       let rechazoDeSesion = false
       let equipoPerdido = false
+      let equipoYaTerminado = false
       // La sesión del teléfono se consulta a lo más UNA vez por ciclo (antes, con sesión válida y un rebote en
       // cada intento, eran hasta 3 getSession seguidos).
       let sesionDelCiclo: ReturnType<typeof sesionDelScorer> | null = null
@@ -325,6 +330,14 @@ export function useGrupoScoreSave(input: {
           }
           // No encontró ronda+jugador (o equipo): se decide abajo, con UNA lectura de la ronda.
           else if (r.error.code === RONDA_ERRCODE.NOT_FOUND) { noEncontrados.push([id, golpes]); return { error: null } }
+          // Equipo ya terminado (el «Terminar» se aplicó sin respuesta): el golpe es legítimo y queda apartado; «Corregir
+          // mi tarjeta» lo pinta encima y «Terminar mi equipo» lo reenvía (`reintentarRechazados`). No es sesión.
+          else if (id.startsWith('eq:') && esRechazoDeEquipoTerminado(r.error)) {
+            confirmarPendientes(codigo, id, golpes)
+            apartarRechazados(codigo, id, golpes)
+            equipoYaTerminado = true
+            return { error: null }
+          }
           // Un celular por equipo: el equipo lo anota otro celular (P0003 'equipo_de_otro_anotador', también para el
           // creador) o lo liberaron (con sesión P0003; anon recibe 42501). Definitivo: el pendiente se descarta.
           else if (id.startsWith('eq:') && (esRechazoDeEquipoAjeno(r.error) || (porCelular && r.error.code === RONDA_ERRCODE.FORBIDDEN))) {
@@ -358,7 +371,12 @@ export function useGrupoScoreSave(input: {
         if (!ok && attempts < SAVE_RETRIES) await new Promise(r => setTimeout(r, 400 * attempts))
       }
 
-      if (equipoPerdido) porCelularRef.current?.alPerderEquipo()
+      if (equipoYaTerminado) {
+        reboteEquipoTerminadoRef.current = true
+        addToast({ ...AVISO_EQUIPO_YA_TERMINADO, type: 'info', duration: 8000 })
+      }
+      // Terminado también se relee: si era el único de este celular, la carga lleva a la vista en vivo («Corregir»).
+      if (equipoPerdido || equipoYaTerminado) porCelularRef.current?.alPerderEquipo()
       if (noExiste) {
         // Igual que el scorer individual: se borra toda la copia local de la ronda, se avisa y se sale.
         rondaBorradaRef.current = true
@@ -461,6 +479,7 @@ export function useGrupoScoreSave(input: {
     const silenciar = Boolean(opciones?.reintentarRechazados)
     const silencioPrevio = silenciarAvisoRef.current
     if (silenciar) silenciarAvisoRef.current = true
+    reboteEquipoTerminadoRef.current = false
     try {
       await enviarTodo(overrideScores)
     } finally {
@@ -472,7 +491,8 @@ export function useGrupoScoreSave(input: {
     const rechazadas = [...rechazadasRef.current]
       .filter(([id]) => despues.has(id) && Object.keys(pendientes[id] ?? {}).length === 0)
       .map(([id, code]) => ({ id, code }))
-    return { estado: rondaCerradaRef.current ? 'ronda_cerrada' : 'ronda_abierta', rechazadas, sesionPerdida: sesionPerdidaRef.current }
+    const estado = rondaCerradaRef.current ? 'ronda_cerrada' : 'ronda_abierta'
+    return { estado, rechazadas, sesionPerdida: sesionPerdidaRef.current, equipoTerminado: reboteEquipoTerminadoRef.current }
   }, [enviarTodo, ronda, codigo])
 
   useEffect(() => {

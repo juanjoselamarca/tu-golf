@@ -28,6 +28,12 @@ export const RONDA_ERRCODE = {
 export const RONDA_DEMO_DETAIL = 'ronda demo'
 
 /**
+ * DETAIL del P0003 de `terminar_equipo_de_ronda` y `reabrir_equipo_de_ronda` cuando `auth.uid()` es NULL (migración
+ * 20261127150000_terminar_equipo_de_ronda): la sesión se cerró, no es un cambio de anotador. Anon (sin EXECUTE) da 42501.
+ */
+export const RONDA_SIN_SESION_DETAIL = 'sin sesión'
+
+/**
  * DETAIL del P0003 de `upsert_ronda_equipos_scores` cuando el equipo (de club, ronda sin `admin_mode`) tiene anotador
  * y quien escribe no es él, aunque sea el creador (migración 20261123200000_equipo_tomado_lo_escribe_su_anotador).
  * Es definitivo: ese celular no anota ese equipo; reintentar no sirve y el pendiente se descarta.
@@ -48,6 +54,15 @@ export const EQUIPO_TERMINADO_DETAIL = 'equipo_terminado'
 export function esRechazoDeEquipoAjeno(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
   return error?.code === RONDA_ERRCODE.FORBIDDEN
     && (error.details === EQUIPO_DE_OTRO_ANOTADOR_DETAIL || error.details === EQUIPO_TERMINADO_DETAIL)
+}
+
+/**
+ * El servidor rechazó los golpes de un equipo que ya terminó su tarjeta (`EQUIPO_TERMINADO_DETAIL`). Es un caso de
+ * `esRechazoDeEquipoAjeno` (definitivo, no es sesión), pero el golpe es legítimo: quien lo trata lo aparta en el
+ * teléfono (`apartarRechazados`) en vez de descartarlo, y «Corregir mi tarjeta» lo devuelve.
+ */
+export function esRechazoDeEquipoTerminado(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
+  return error?.code === RONDA_ERRCODE.FORBIDDEN && error.details === EQUIPO_TERMINADO_DETAIL
 }
 
 /** Código del error sintético de "venció el plazo". Sin red postgrest-js no lanza: devuelve `code: ''`. */
