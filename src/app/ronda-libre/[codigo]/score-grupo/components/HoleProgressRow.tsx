@@ -31,11 +31,11 @@ export function HoleProgressRow({
             <div key={h} data-hoyo={h} onClick={() => setCurrentHole(h)} style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative',
             }}>
-              <div style={{ fontSize: '8px', color: isActive ? theme.gold : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
+              <div style={{ fontSize: '10px', color: isActive ? theme.gold : theme.textMuted, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
               <div style={{
                 width: '22px', height: '22px', borderRadius: '3px',
                 background: allHaveScore ? 'rgba(196,153,42,0.12)' : isActive ? 'rgba(196,153,42,0.08)' : 'var(--bg)',
-                border: isActive ? '1.5px solid #C4992A' : allHaveScore ? '1px solid rgba(196,153,42,0.3)' : '1px solid #e2e8f0',
+                border: isActive ? `1.5px solid ${theme.gold}` : allHaveScore ? '1px solid rgba(196,153,42,0.3)' : `1px solid ${theme.border}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '9px', color: allHaveScore ? theme.gold : 'transparent', fontWeight: 600,
               }}>

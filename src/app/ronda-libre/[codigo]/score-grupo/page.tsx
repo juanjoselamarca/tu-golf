@@ -145,6 +145,7 @@ function ScorerDeGrupo() {
   // Timba y bola compartida (scramble, foursome): «Anotar» / «Tabla en vivo» arriba (Juanjo, 26-nov). Best ball no:
   // sus golpes viven por jugador en `scores` y la tabla del espectador los lee de la ronda cargada (revisión Fable).
   const conPestanas = scorerConPestanas(ronda?.formato_juego, esTimba)
+  const enTablaEnVivo = conPestanas && !esTimba && pestana === 'juego'
   // Retiro pedido (desde Juego o desde la tarjeta del jugador): la misma hoja para los dos.
   const [retiroPedido, setRetiroPedido] = useState<string | null>(null)
   const timba = useTimbaDelScorer({
@@ -278,7 +279,7 @@ function ScorerDeGrupo() {
   const yardaje = getYardajeForTee(holeData, teeDelJugador(adminPlayer, ronda))
 
   return (
-    <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
+    <div className="scorer-pantalla" style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
 
       {/* Aviso "No molestar": una vez por ronda (misma clave que el scorer individual) y solo antes del primer hoyo. */}
       <AvisoNoMolestar claveRonda={claveAvisoAntesDeEmpezar(claveAvisoRondaLibre(codigo), maxThru)} />
@@ -314,7 +315,7 @@ function ScorerDeGrupo() {
         </div>
       )}
 
-      {conPestanas && !esTimba && pestana === 'juego' && ronda ? (
+      {enTablaEnVivo && ronda ? (
         <div id={PANEL_DE_PESTANA('juego')} role="tabpanel" style={{ flex: 1, overflowY: 'auto', padding: '12px 8px', minHeight: 0 }}>
           <TablaEnVivoDelScorer
             ronda={ronda} propios={teamEquipos} ajenos={equiposDeOtroCelular}
@@ -561,8 +562,9 @@ function ScorerDeGrupo() {
       )}
 
       {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. Tampoco
-          cuando el servidor ya dijo que esta ronda no se descarta (`descarteCerrado`). */}
-      {puedeDescartarRonda(ronda, authUserId) && !descarteCerrado && (
+          cuando el servidor ya dijo que esta ronda no se descarta (`descarteCerrado`). En «Tabla en vivo» no va: quedaba
+          solo bajo la tabla y se leía como el botón principal (usuario sintético 27-nov). */}
+      {puedeDescartarRonda(ronda, authUserId) && !descarteCerrado && !enTablaEnVivo && (
         <DiscardRoundModal
           showConfirm={showDiscardConfirm}
           setShowConfirm={setShowDiscardConfirm}

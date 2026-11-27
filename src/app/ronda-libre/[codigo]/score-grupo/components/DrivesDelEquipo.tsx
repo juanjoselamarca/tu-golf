@@ -38,7 +38,6 @@ export function DrivesDelEquipo({ jugadores, driveDelHoyo, conteo, minimo, aviso
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
         <span style={{ fontSize: '12px', fontWeight: 600, color: falta ? 'var(--error-fg)' : theme.textMuted }}>Drive de:</span>
-        {minimo != null && <span aria-hidden="true" style={{ fontSize: '12px', color: theme.textMuted }}>Mín. {minimo} c/u</span>}
       </div>
       <div role="group" aria-label="Drive de" style={{ display: 'grid', gridTemplateColumns: `repeat(${jugadores.length}, minmax(0, 1fr))`, gap: '6px' }}>
         {jugadores.map((nombre, i) => {
@@ -71,11 +70,12 @@ export function DrivesDelEquipo({ jugadores, driveDelHoyo, conteo, minimo, aviso
                   aria-hidden="true"
                   data-cumple={c.cumple ? 'true' : undefined}
                   style={{
-                    fontSize: '12px', fontWeight: 600, fontVariantNumeric: 'tabular-nums',
+                    fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums',
                     color: elegido ? 'var(--brand-dark)' : c.cumple ? 'var(--status-live-fg)' : theme.textMuted,
                   }}
                 >
-                  {c.drives}{c.cumple ? ' ✓' : ''}
+                  {/* «3/4»: lleva 3 de los 4 que pide. Antes era un «3» suelto y un «Mín. 4 c/u» arriba (usuario sintético 27-nov). */}
+                  {minimo != null ? `${c.drives}/${minimo}` : c.drives}{c.cumple ? ' ✓' : ''}
                 </span>
               )}
             </button>

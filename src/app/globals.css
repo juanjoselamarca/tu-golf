@@ -746,6 +746,14 @@ main {
   }
 }
 
+/* Scorer de grupo: el toast va arriba, sobre el header (informativo). Abajo tapaba «Siguiente» / «Finalizar ronda»
+   justo cuando el aviso pedía volver a tocarlos (matriz de pruebas 27-nov); bajo el header tapaba la fila de hoyos y
+   dependía del alto de header + pestañas (revisión Fable). iOS < 15.4 ignora :has() y lo deja abajo, como antes. */
+body:has(.scorer-pantalla) .toast-container {
+  top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+  bottom: auto !important;
+}
+
 /* â”€â”€ QA: Prevent horizontal overflow â”€â”€ */
 html, body { overflow-x: hidden; max-width: 100vw; }
 

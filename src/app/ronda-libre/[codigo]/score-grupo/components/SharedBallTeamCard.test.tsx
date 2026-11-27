@@ -104,12 +104,18 @@ describe('SharedBallTeamCard — drives del scramble', () => {
     expect(elegir).toHaveBeenCalledWith(1)
   })
 
-  it('conteo dentro de cada botón (Juanjo 26-nov): el número de cada uno, ✓ al que cumplió, y en texto para el lector', () => {
+  it('conteo dentro de cada botón (Juanjo 26-nov): «lleva/mínimo» de cada uno, ✓ al que cumplió, y en texto para el lector', () => {
     pintarConDrives(drives())
     expect(screen.getByTestId('conteo-drives').textContent).toBe('Mín. 4: Juanjo 3 · Pedro 1 · Diego 4 ✓ · Tomás 2')
     const botones = jugadores.map(n => screen.getByRole('button', { name: n }))
-    expect(botones.map(b => b.lastElementChild?.textContent)).toEqual(['3', '1', '4 ✓', '2'])
+    expect(botones.map(b => b.lastElementChild?.textContent)).toEqual(['3/4', '1/4', '4/4 ✓', '2/4'])
     expect(botones.map(b => b.querySelector('[data-cumple="true"]') != null)).toEqual([false, false, true, false])
+  })
+
+  it('sin mínimo (0): solo cuántos lleva cada uno, sin «/» ni ✓', () => {
+    pintarConDrives({ ...drives(), minimo: null, conteo: conteoDeDrives({ jugadores, drives: marcados, minimo: null, hoyos: H18 }) })
+    const botones = jugadores.map(n => screen.getByRole('button', { name: n }))
+    expect(botones.map(b => b.lastElementChild?.textContent)).toEqual(['3', '1', '4', '2'])
   })
 
   it('sin el drive del hoyo e intentando avanzar: «Drive de» destacado y lo pide', () => {

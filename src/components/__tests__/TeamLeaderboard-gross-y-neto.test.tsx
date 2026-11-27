@@ -25,10 +25,16 @@ describe('TeamLeaderboard — gross y neto rotulados', () => {
     expect(screen.getByText('+1')).toBeTruthy()
     expect(screen.getAllByText('Gross')).toHaveLength(2) // pill del modo + columna de score
   })
-  it('un equipo sin hoyos no muestra un gross inventado', () => {
+  it('un equipo sin hoyos no muestra un score inventado: ni gross ni un neto «E»', () => {
     render(<TeamLeaderboard modoJuego="neto" totalHoles={18} formato="scramble" teams={[equipo('A', -2, 0), equipo('B', 0, 0, 0)]} />)
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2) // posición y gross del que no salió
-    expect(screen.getAllByText('E')).toHaveLength(2) // gross de A y el neto en blanco de B (sin cambios)
+    const filaB = screen.getByText('B').closest('[style*="grid"]') as HTMLElement
+    expect(filaB.textContent).not.toContain('E')
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3) // posición, neto y gross del que no salió
+    expect(screen.getAllByText('E')).toHaveLength(1) // solo el gross de A
+  })
+  it('stableford sin hoyos tampoco muestra «0 pts»', () => {
+    render(<TeamLeaderboard modoJuego="neto" formatoJuego="stableford" totalHoles={18} formato="scramble" teams={[equipo('B', 0, 0, 0)]} />)
+    expect(screen.queryByText(/pts/)).toBeNull()
   })
   it('con tarjeta: la fila se toca, anuncia si está abierta y despliega el detalle', () => {
     let abierto: string | null = null

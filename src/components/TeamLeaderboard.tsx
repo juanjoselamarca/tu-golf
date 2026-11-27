@@ -68,7 +68,9 @@ export function grossDeLaColumna(team: TeamEntry, modo: ModoJuego, formato: Form
   return hasCourse ? formatOverUnder(team.overUnderGross) : String(team.totalGross)
 }
 
+/** Sin hoyos no hay score que dar: «—», igual que la posición, el gross y el hoyo (un «E» decía «va par»). */
 function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string {
+  if (team.holesPlayed === 0) return '—'
   if (formato === 'stableford') return formatPuntosStableford(team.totalStableford, { conUnidad: true })
   if (!hasCourse) return String(modo === 'neto' ? team.totalNeto : team.totalGross)
   return formatOverUnder(modo === 'neto' ? team.overUnderNeto : team.overUnderGross)

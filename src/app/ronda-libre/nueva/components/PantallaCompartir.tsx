@@ -29,7 +29,6 @@ export function textoDeEmpezar(unCelularPorEquipo: boolean, llevaElScoreDelGrupo
  */
 export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo, unCelularPorEquipo = false, onEmpezar }: Props) {
   const enlaces = enlacesDeRondaLibre(codigo, { conJugar: !llevaElScoreDelGrupo, unCelularPorEquipo })
-  const variosLinks = (enlaces.anotar ?? enlaces.jugar) != null
   return (
     <div style={{ background: colores.fondo, minHeight: '100vh', padding: '24px 16px 32px' }}>
       <div style={{ maxWidth: '480px', margin: '0 auto' }}>
@@ -43,6 +42,14 @@ export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo,
           {cancha} · {holes} hoyos
         </div>
 
+        {/* Con un solo celular anotando por todos no hay link para anotar: solo se invita a mirar. Las mismas
+            opciones que el botón de compartir del scorer. */}
+        <div style={{ marginTop: '24px' }}>
+          {/* Sin título «Comparte los links»: cada tarjeta ya dice para qué es su link (revisión Fable 27-nov). */}
+          <OpcionesParaCompartir enlaces={enlaces} />
+        </div>
+
+        {/* El código va después de los links: es lo menos usado en este paso (revisión Fable 27-nov). */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
           marginTop: '24px', padding: '12px 16px', borderRadius: '12px',
@@ -53,15 +60,6 @@ export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo,
           <div style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
             <RoundCode code={codigo} size="md" />
           </div>
-        </div>
-
-        {/* Con un solo celular anotando por todos no hay link para anotar: solo se invita a mirar. Las mismas
-            opciones que el botón de compartir del scorer. */}
-        <div style={{ marginTop: '24px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, color: colores.texto, margin: '0 0 12px' }}>
-            {variosLinks ? 'Comparte los links' : 'Comparte el link'}
-          </h2>
-          <OpcionesParaCompartir enlaces={enlaces} />
         </div>
 
         <div style={{ marginTop: '24px' }}>
