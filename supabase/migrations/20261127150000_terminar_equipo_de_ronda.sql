@@ -17,6 +17,9 @@
 --
 -- No cambia: finalizar_ronda_libre, liberar_equipo_de_ronda, reclamar_equipo_de_ronda, marcar_drive_equipo,
 -- upsert_ronda_equipos_scores. Un celular con el código anterior sigue cerrando la ronda como hoy.
+-- Seguimiento (revisión Fable 27-nov, P2): que finalizar_ronda_libre use ronda_libre_tarjeta_completa (hoy la regla
+-- está también inline allá), y decidir si reclamar_equipo_de_ronda rechaza un equipo terminado sin anotador (hoy
+-- cualquiera con el código puede reclamar un equipo libre, terminado o no: mismo modelo de confianza de siempre).
 --
 -- Permiso de terminar/reabrir (mismo modelo que upsert_ronda_equipos_scores en un equipo de club):
 --   · el anotador del equipo; o
@@ -188,8 +191,11 @@ BEGIN
   IF v_es_demo THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda demo';
   END IF;
-  IF v_admin_mode IS TRUE OR v_origen IS DISTINCT FROM 'club' THEN
+  IF v_admin_mode IS TRUE THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda de un celular';
+  END IF;
+  IF v_origen IS DISTINCT FROM 'club' THEN
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'equipo no es de club';
   END IF;
   IF NOT (
     v_anotador IS NOT DISTINCT FROM v_uid
@@ -220,6 +226,14 @@ LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
+  IF TG_OP = 'INSERT' THEN
+    -- Un equipo nace jugando: la policy manage_ronda_equipos deja insertar al creador, pero no ya terminado.
+    IF current_user IN ('anon', 'authenticated') AND NEW.terminado_at IS NOT NULL THEN
+      RAISE EXCEPTION 'TERMINADO_SOLO_POR_RPC' USING ERRCODE = '42501',
+        DETAIL = 'un equipo se termina con terminar_equipo_de_ronda';
+    END IF;
+    RETURN NEW;
+  END IF;
   IF current_user IN ('anon', 'authenticated') AND NEW.terminado_at IS DISTINCT FROM OLD.terminado_at THEN
     RAISE EXCEPTION 'TERMINADO_SOLO_POR_RPC' USING ERRCODE = '42501',
       DETAIL = 'un equipo se termina con terminar_equipo_de_ronda y se reabre con reabrir_equipo_de_ronda';
@@ -235,5 +249,5 @@ REVOKE ALL ON FUNCTION public.ronda_equipos_terminado_guard() FROM PUBLIC, anon,
 
 DROP TRIGGER IF EXISTS ronda_equipos_terminado_guard ON public.ronda_equipos;
 CREATE TRIGGER ronda_equipos_terminado_guard
-  BEFORE UPDATE OF terminado_at, scores ON public.ronda_equipos
+  BEFORE INSERT OR UPDATE OF terminado_at, scores ON public.ronda_equipos
   FOR EACH ROW EXECUTE FUNCTION public.ronda_equipos_terminado_guard();
