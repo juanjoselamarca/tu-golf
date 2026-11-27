@@ -6,7 +6,7 @@ vi.mock('@/lib/round-notifications', () => ({ triggerRoundUpdatePush }))
 
 import { reclamarEquipoDeRonda, liberarEquipoDeRonda, terminarEquipoDeRonda, reabrirEquipoDeRonda, mensajeEquipoTomado, MENSAJE_YA_NO_ANOTAS, MENSAJE_EQUIPO_YA_NO_ES_TUYO, MENSAJE_EQUIPO_SIN_SESION } from './ronda-libre-anotador'
 
-const cliente = (r: { data?: unknown; error?: { code: string } | null } | Error) => ({
+const cliente = (r: { data?: unknown; error?: { code: string; details?: string | null } | null } | Error) => ({
   rpc: vi.fn(() => (r instanceof Error ? Promise.reject(r) : Promise.resolve({ data: r.data ?? null, error: r.error ?? null }))),
 }) as unknown as Parameters<typeof reclamarEquipoDeRonda>[0]
 
