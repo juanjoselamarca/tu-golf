@@ -57,7 +57,7 @@ export function FocusHero({ foco }: { foco: FocoData }) {
         <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px' }}>
           Tu foco
         </div>
-        <p style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.stat, lineHeight: 1.3, color: 'var(--text)', margin: '0 0 8px' }}>
+        <p style={{ fontSize: FONT_SIZE.stat, lineHeight: 1.3, color: 'var(--text)', margin: '0 0 8px' }}>
           Todavía no tengo un foco claro para darte.
         </p>
         <p style={{ fontSize: FONT_SIZE.caption, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>
@@ -75,7 +75,7 @@ export function FocusHero({ foco }: { foco: FocoData }) {
       <div style={{ fontSize: FONT_SIZE.caption, color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '10px' }}>
         Tu foco ahora
       </div>
-      <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h1, lineHeight: 1.15, color: 'var(--text)', margin: '0 0 12px', fontWeight: 600 }}>
+      <h2 style={{ fontSize: FONT_SIZE.h1, lineHeight: 1.15, color: 'var(--text)', margin: '0 0 12px', fontWeight: 600 }}>
         {foco.label}
       </h2>
       {frase && (

@@ -108,7 +108,6 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
           zIndex: 2,
         }}>
           <h2 style={{
-            fontFamily: 'var(--font-playfair)',
             fontSize: FONT_SIZE.h1, fontWeight: 700, letterSpacing: '1px',
             color: 'var(--text)', margin: 0,
             animation: mounted ? 'textUp 0.6s ease-out 0.4s both' : 'none',

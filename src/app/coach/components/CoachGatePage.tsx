@@ -148,7 +148,6 @@ export function CoachGatePage() {
 
           {/* Brand mark */}
           <h2 style={{
-            fontFamily: 'var(--font-playfair)',
             fontSize: FONT_SIZE.statHero,
             fontWeight: 700,
             color: 'var(--text)',

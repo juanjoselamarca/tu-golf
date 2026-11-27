@@ -88,7 +88,6 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
       </div>
 
       <h3 style={{
-        fontFamily: '"Playfair Display", serif',
         fontSize: FONT_SIZE.h2,
         color: 'var(--text)',
         margin: '0 0 6px',

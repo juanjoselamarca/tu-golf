@@ -15,7 +15,7 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         position: 'sticky', top: 0, zIndex: 40,
       }}>
-        <span style={{ fontFamily: 'var(--font-playfair)', fontSize: FONT_SIZE.h2, color: 'var(--brand-on-bg)', fontWeight: 700 }}>
+        <span style={{ fontSize: FONT_SIZE.h2, color: 'var(--brand-on-bg)', fontWeight: 700 }}>
           tAIger+
         </span>
         {/* inline-flex + center: con el min-height global de 44px el texto quedaba arriba de la caja,
