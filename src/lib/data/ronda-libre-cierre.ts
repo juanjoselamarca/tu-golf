@@ -34,9 +34,20 @@ export const RONDA_DEMO_DETAIL = 'ronda demo'
  */
 export const EQUIPO_DE_OTRO_ANOTADOR_DETAIL = 'equipo_de_otro_anotador'
 
-/** El servidor rechazó los golpes de un equipo porque lo anota otro celular (`EQUIPO_DE_OTRO_ANOTADOR_DETAIL`). */
+/**
+ * DETAIL del P0003 del trigger `ronda_equipos_terminado_bloquea_scores` (migración 20261127150000_terminar_equipo_de_ronda):
+ * golpes distintos para un equipo que ya terminó su tarjeta. Definitivo como el de equipo ajeno: no es sesión vencida
+ * y reintentar da lo mismo (corregir pasa por reabrir el equipo).
+ */
+export const EQUIPO_TERMINADO_DETAIL = 'equipo_terminado'
+
+/**
+ * El servidor rechazó los golpes de un equipo que este celular no puede escribir: lo anota otro celular
+ * (`EQUIPO_DE_OTRO_ANOTADOR_DETAIL`) o ya terminó su tarjeta (`EQUIPO_TERMINADO_DETAIL`).
+ */
 export function esRechazoDeEquipoAjeno(error: { code?: string | null; details?: string | null } | null | undefined): boolean {
-  return error?.code === RONDA_ERRCODE.FORBIDDEN && error.details === EQUIPO_DE_OTRO_ANOTADOR_DETAIL
+  return error?.code === RONDA_ERRCODE.FORBIDDEN
+    && (error.details === EQUIPO_DE_OTRO_ANOTADOR_DETAIL || error.details === EQUIPO_TERMINADO_DETAIL)
 }
 
 /** Código del error sintético de "venció el plazo". Sin red postgrest-js no lanza: devuelve `code: ''`. */

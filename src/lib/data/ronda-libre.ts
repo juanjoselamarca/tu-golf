@@ -60,7 +60,7 @@ export async function fetchEquiposDeRondas(
 }
 
 /** Equipo leído con quién lo anota (null = nadie lo reclamó). */
-export type EquipoConAnotadorLeido = Equipo & { anotador_user_id: string | null; anotador_nombre: string | null }
+export type EquipoConAnotadorLeido = Equipo & { anotador_user_id: string | null; anotador_nombre: string | null; terminado_at: string | null }
 
 /**
  * Los equipos de UNA ronda con quién anota cada uno (`anotador_user_id`, `anotador_nombre`): el scorer de grupo
@@ -86,7 +86,7 @@ async function leerEquiposDeRondas(
   // `id` desempata equipos insertados en el mismo instante (un solo INSERT comparte
   // now()): sin eso el "1." de dos equipos en cero podía alternar entre requests.
   // `string` y no el literal: con la plantilla, supabase-js no logra tipar la fila; la forma la fija el mapeo de abajo.
-  const columnas: string = conAnotador ? `${COLUMNAS_EQUIPO}, anotador_user_id, anotador_nombre` : COLUMNAS_EQUIPO
+  const columnas: string = conAnotador ? `${COLUMNAS_EQUIPO}, anotador_user_id, anotador_nombre, terminado_at` : COLUMNAS_EQUIPO
   const { data: eqData, error } = await supabase
     .from('ronda_equipos')
     .select(columnas)
@@ -114,6 +114,7 @@ async function leerEquiposDeRondas(
       ...(conAnotador ? {
         anotador_user_id: (e.anotador_user_id as string | null | undefined) ?? null,
         anotador_nombre: (e.anotador_nombre as string | null | undefined) ?? null,
+        terminado_at: (e.terminado_at as string | null | undefined) ?? null,
       } : {}),
     })
     porRonda.set(rondaId, lista)

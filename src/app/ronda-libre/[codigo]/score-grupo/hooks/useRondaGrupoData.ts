@@ -11,7 +11,7 @@ import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { anotaLaRonda } from '@/golf/ronda-libre/permisos'
 import {
-  entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposQueAnota, unCelularPorEquipo, nombreDelAnotadorDelCelular, NOMBRE_ANOTADOR_GENERICO,
+  entradaAlScorerDeEquipos, equiposDeOtroCelular, equiposPorTerminar, unCelularPorEquipo, nombreDelAnotadorDelCelular, NOMBRE_ANOTADOR_GENERICO,
 } from '@/golf/ronda-libre/anotador-de-equipo'
 import { MENSAJE_YA_NO_ANOTAS } from '@/lib/data/ronda-libre-anotador'
 import { addToast } from '@/hooks/useToast'
@@ -180,7 +180,7 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
     // Formatos por equipo: quién entra lo decide `entradaAlScorerDeEquipos` (un celular por equipo: elegir equipo;
     // un celular: solo quien puede anotar la ronda; el resto, a la ronda en vivo).
     if (isTeamFormat(r.formato_juego)) {
-      const entrada = entradaAlScorerDeEquipos(r, equipos, userId)
+      const entrada = entradaAlScorerDeEquipos(r, equipos, userId, leerEquiposTomados(codigo))
       if (entrada === 'en_vivo') return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
       if (entrada === 'elegir_equipo') return { tipo: 'elegir_equipo', ronda: r, equipos }
     }
@@ -199,9 +199,10 @@ async function cargarDelServidor(codigo: string, signal: AbortSignal): Promise<C
     // UN solo filtro: este celular carga solo los equipos que anota. Todo lo que manda golpes (par al pasar de hoyo,
     // completar al finalizar, pendientes, hoyo inicial, copia local) parte de esta lista: nunca toca un equipo de
     // otro celular. En una ronda de un celular son todos.
-    // Un celular por equipo: los sin reclamar que el creador tomó a mano en este teléfono («Anotarlo yo»).
+    // Un celular por equipo: los sin reclamar que el creador tomó a mano en este teléfono («Anotarlo yo»), y nunca uno
+    // ya terminado (`equiposPorTerminar`: el servidor no acepta sus golpes; se corrige reabriéndolo).
     const tomados = leerEquiposTomados(codigo)
-    const teamEquipos = equiposQueAnota(r, equipos, userId, tomados)
+    const teamEquipos = equiposPorTerminar(r, equipos, userId, tomados)
     const nombreDePerfil = await nombreDePerfilP
     if (signal.aborted) return { tipo: 'cancelada' }
     const anotadorNombre = nombreSinPerfil === NOMBRE_ANOTADOR_GENERICO

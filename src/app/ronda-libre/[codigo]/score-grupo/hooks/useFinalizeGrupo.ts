@@ -1,6 +1,5 @@
 'use client'
 
-import { leerEquiposTomados } from '@/lib/ronda/equipos-tomados'
 import { useCallback, useRef, useState } from 'react'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
@@ -24,17 +23,14 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_GRUPO_CAMBIO, AVISO_YA_NO_ESTAS_EN_LA_RONDA, AVISO_RONDA_YA_FINALIZADA, AVISO_EQUIPOS_CAMBIARON, avisoEquipoAjenoIncompleto, avisoEquipoSinReclamarIncompleto, avisoTarjetasNoGuardadas } from '@/components/ronda/finalizar-copy'
-import { hayPendientes, limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_MARCAS_SIN_ENVIAR, AVISO_RONDA_NO_EXISTE, AVISO_GRUPO_CAMBIO, AVISO_YA_NO_ESTAS_EN_LA_RONDA, AVISO_RONDA_YA_FINALIZADA } from '@/components/ronda/finalizar-copy'
+import { limpiarCopiaLocalDeRonda, cerrarCopiaLocalAlFinalizar } from '@/lib/ronda/score-storage'
 import { marcarRespaldosDeRondaCerrada } from '@/lib/ronda/respaldo-local'
-import { hayDrivesPendientes, reenviarDrivesPendientes, PLAZO_DRIVES_AL_FINALIZAR_MS } from '@/lib/ronda/drives-pendientes'
 import { confirmarRondaBorrada } from '@/lib/data/ronda-libre-estado'
-import { avisoFinalizarSinSesion } from '@/lib/auth/aviso-sesion-cerrada'
 import type { ResultadoEnvio } from './useGrupoScoreSave'
-import { releerConPlazo } from './releer-con-plazo'
+import { resolverEnvioDelCierre, subirDrivesAntesDeCerrar } from './cierre-compartido'
 import { isSharedBallFormat } from '@/golf/formats'
-import { anotaSinSerJugador, equipoAjenoIncompleto, equiposLibres, equiposQueAnota, equiposSinParAutomatico } from '@/golf/ronda-libre/anotador-de-equipo'
-import { fetchEquiposConAnotador } from '@/lib/data/ronda-libre'
+import { anotaSinSerJugador } from '@/golf/ronda-libre/anotador-de-equipo'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { equipoQueJuega, vaSoloPorEstructura } from '@/golf/ronda-libre/equipos-de-club'
 import { completarHoyosSinMarcarConPar, completarEquiposSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
@@ -42,6 +38,14 @@ import { hoyosQueNoSeRellenan } from '@/golf/ronda-libre/hoyos-sin-rellenar'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { RondaLibre } from '@/types/ronda'
+
+/**
+ * Qué cierre está en curso. Finalizar, descartar y «Terminar mi equipo» se excluyen (P0 24-nov): descartar con
+ * «Finalizando…» borraba la ronda en pleno cierre, que caía en RONDA_NOT_FOUND. Es un ref y no el state: dos toques del
+ * mismo tick ven el state viejo y correrían los dos. Queda tomado mientras navega (la pantalla se va); cualquier otra
+ * salida lo suelta.
+ */
+export type CierreEnCurso = 'finalizar' | 'descartar' | 'terminar' | null
 
 export interface FinalizeGrupo {
   finalizeRound: () => Promise<void>
@@ -55,6 +59,8 @@ export interface FinalizeGrupo {
   descarteCerrado: boolean
   showDiscardConfirm: boolean
   setShowDiscardConfirm: React.Dispatch<React.SetStateAction<boolean>>
+  /** El ref de exclusión (`CierreEnCurso`), para que «Terminar mi equipo» lo comparta. */
+  cierreEnCurso: React.MutableRefObject<CierreEnCurso>
 }
 
 /**
@@ -65,12 +71,6 @@ export interface FinalizeGrupo {
  * datos. El acceso a datos es el MISMO que usa el scorer individual
  * (`@/lib/data/ronda-libre-finalizar`).
  */
-/** Nombre de una tarjeta del envío: el jugador, o el equipo (`eq:<id>`) en scramble / foursome. */
-function nombreDeTarjeta(ronda: RondaLibre, equipos: readonly EquipoDelScorer[], id: string): string {
-  if (id.startsWith('eq:')) return equipos.find(eq => eq.id === id.slice(3))?.nombre || 'un equipo'
-  return ronda.ronda_libre_jugadores.find(j => j.id === id)?.nombre || 'un jugador'
-}
-
 export function useFinalizeGrupo(input: {
   ronda: RondaLibre | null
   codigo: string
@@ -104,14 +104,6 @@ export function useFinalizeGrupo(input: {
    */
   /** Timba libre (solo entonces): retiros, envío de marcas y el hoyo en pantalla (el único que se rellena con par). */
   timba?: { retiros: Readonly<Record<string, number>>; enviarMarcas: () => Promise<boolean>; hoyoEnPantalla: number }
-  /**
-   * Un celular por equipo (`@/golf/ronda-libre/anotador-de-equipo`), solo entonces. Antes de cerrar se relee quién
-   * anota qué: con un equipo de otro celular sin terminar no se cierra (quedaría con hoyos de menos), y si los equipos
-   * de este celular cambiaron desde la última lectura se recargan (`recargar`) en vez de cerrar con la lista vieja.
-   * Un equipo sin reclamar (`equiposLibres`) incompleto frena ANTES de abrir la hoja de confirmación: la hoja no ofrece
-   * un cierre que el paso siguiente rechaza.
-   */
-  unCelularPorEquipo?: { recargar: () => Promise<void> }
 }): FinalizeGrupo {
   const { ronda, codigo, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes, timba } = input
   const router = useRouter()
@@ -120,12 +112,8 @@ export function useFinalizeGrupo(input: {
   const [confirmFinalize, setConfirmFinalize] = useState(false)
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discarding, setDiscarding] = useState(false)
-  /**
-   * Finalizar y descartar se excluyen (P0 24-nov): descartar con «Finalizando…» borraba la ronda en pleno cierre, que
-   * caía en RONDA_NOT_FOUND. Es un ref y no el state: dos toques del mismo tick ven el state viejo y correrían los dos.
-   * Queda tomado mientras navega (la pantalla se va); cualquier otra salida lo suelta.
-   */
-  const cierreEnCurso = useRef<'finalizar' | 'descartar' | null>(null)
+  // Finalizar, descartar y «Terminar mi equipo» se excluyen (`CierreEnCurso`).
+  const cierreEnCurso = useRef<CierreEnCurso>(null)
 
   // El servidor dijo que esta ronda ya no se descarta (cerrada o con una tarjeta en un historial): no se ofrece más.
   const [descarteCerrado, setDescarteCerrado] = useState(false)
@@ -159,19 +147,6 @@ export function useFinalizeGrupo(input: {
   const finalizeRound = async () => {
     if (!ronda || finalizing || cierreEnCurso.current) return
     if (!confirmFinalize) {
-      // Un celular por equipo: un equipo sin reclamar sin golpes en un hoyo frena ya, sin abrir la hoja (el cierre
-      // lo rechazaría igual). Solo los sin reclamar: los anota este celular, así que su tarjeta local es la vigente.
-      // Los de otro celular NO: su lista local puede estar vieja y frenaría de más; esos quedan al chequeo con la
-      // relectura del servidor (`finalizarUnaVez`), que sigue siendo la garantía para todos.
-      const sinReclamar = input.unCelularPorEquipo ? equipoAjenoIncompleto(equiposLibres(teamEquipos), hoyos) : null
-      if (sinReclamar) {
-        addToast({ type: 'error', title: avisoEquipoSinReclamarIncompleto(sinReclamar.equipo.nombre, sinReclamar.hoyo), duration: 8000 })
-        haptic([30, 60, 30])
-        // La lista local puede estar vieja (otro celular lo reclamó desde la última lectura): se relee ya, para que
-        // el segundo toque vea la lista al día y no se anote un equipo ajeno por este aviso.
-        void input.unCelularPorEquipo?.recargar()
-        return
-      }
       setConfirmFinalize(true)
       haptic([20, 50, 20])
       return
@@ -238,87 +213,8 @@ export function useFinalizeGrupo(input: {
       marcarRespaldosDeRondaCerrada(codigo)
     }
 
-    /**
-     * Lo que dice un envío de Finalizar: `corta` (ya se avisó, no se cierra), `cerrada` (P0002: la tarjeta sigue
-     * al historial) o `sigue`. Lo usan el envío previo al chequeo de equipos y el envío con el relleno de par.
-     */
-    const resolverEnvio = (envio: ResultadoEnvio): 'sigue' | 'cerrada' | 'corta' => {
-      // Borrada: el envío ya avisó, limpió la copia local y saca al marcador.
-      if (envio.estado === 'ronda_borrada') return 'corta'
-      // Cerrada mientras tanto (P0002): lo pendiente se queda en el teléfono a propósito (se puede
-      // reabrir); no es falta de señal, y la tarjeta sigue al historial.
-      if (envio.estado === 'ronda_cerrada') {
-        // El envío de Finalizar va en silencio (el aviso con nombre es de Finalizar): el P0002 se avisa acá.
-        addToast({ ...AVISO_RONDA_YA_FINALIZADA, type: 'info' })
-        marcarRespaldosDeRondaCerrada(codigo)
-        return 'cerrada'
-      }
-      if (envio.rechazadas.length > 0) {
-        // Rechazo firme de una tarjeta (P0004/22023 = INVALID_DELTA: golpe u hoyo inválido). NO se cierra:
-        // cerrar borraría la copia del grupo, el único lugar con esos golpes. Quedan en el teléfono, el
-        // marcador sigue en la pantalla para revisarlos y el aviso nombra a cada uno (el genérico del envío
-        // no sale encima). Una cuyo reenvío no tuvo respuesta no viene acá: eso es señal (abajo).
-        // (P0001 con la ronda viva = el jugador ya no está: el envío lo deja fuera y no bloquea.)
-        const nombres = envio.rechazadas.map(({ id }) => nombreDeTarjeta(ronda, teamEquipos, id))
-        addToast({ ...avisoTarjetasNoGuardadas(nombres), type: 'error', duration: 10000 })
-        haptic([30, 60, 30])
-        return 'corta'
-      }
-      if (envio.sesionPerdida) {
-        // Sin sesión el cierre no sale: lo mismo que dice el aviso fijo, no "sin conexión".
-        addToast({ ...avisoFinalizarSinSesion({ habiaSesion: true }), type: 'error', duration: 7000 })
-        return 'corta'
-      }
-      if (hayPendientes(codigo)) {
-        avisarSinServidor()
-        return 'corta'
-      }
-      return 'sigue'
-    }
-
-    // Un celular por equipo: los equipos al día, antes de rellenar nada con par. Los que este celular no rellena
-    // (de otro celular o sin reclamar) se leen acá y son los mismos que después no se completan.
-    let sinPar: ReadonlyArray<{ id: string }> | undefined
-    if (!rondaYaCerrada && input.unCelularPorEquipo) {
-      // Primero sube lo de este celular: el creador anota los equipos sin reclamar, y un golpe que todavía no sube
-      // (debounce de 500 ms o un reintento) haría que el servidor diga «sin golpes en el hoyo 18» con el golpe en
-      // pantalla. Todavía no se rellenó ningún par: lo que sube es solo lo que se anotó.
-      const previo = resolverEnvio(await enviarPendientes(undefined, { reintentarRechazados: true }))
-      if (previo === 'corta') return
-      rondaYaCerrada = previo === 'cerrada'
-    }
-    if (!rondaYaCerrada && input.unCelularPorEquipo) {
-      let todos: Awaited<ReturnType<typeof fetchEquiposConAnotador>>
-      try {
-        todos = await conPlazoCancelable(s => fetchEquiposConAnotador(clienteConSenal(supabase, s), ronda.id), PLAZO_CARGA_SCORER_MS)
-      } catch {
-        avisarSinServidor()
-        return
-      }
-      // Un equipo liberado (o tomado) desde la última lectura: se cierra solo con la tarjeta que se ve en pantalla.
-      // Va ANTES del bloqueo por equipo incompleto: si Pedro dejó Los Pumas y la pantalla no se refrescó, el aviso
-      // «Anótalo» hablaría de un equipo que esta pantalla todavía muestra en la franja de otro celular.
-      const mios = new Set(equiposQueAnota(ronda, todos, authUserId, leerEquiposTomados(codigo)).map(e => e.id))
-      if (mios.size !== teamEquipos.length || teamEquipos.some(e => !mios.has(e.id))) {
-        addToast({ ...AVISO_EQUIPOS_CAMBIARON, type: 'info', duration: 7000 })
-        // Con plazo (`releerConPlazo`): con señal lenta Finalizar no queda tomado (tarjeta congelada, Descartar
-        // bloqueado) esperándola; vencida, avisa que la lista tarda y se pone al día en segundo plano.
-        await releerConPlazo(input.unCelularPorEquipo.recargar)
-        return
-      }
-      const sinParLeidos = equiposSinParAutomatico(ronda, todos, authUserId)
-      sinPar = sinParLeidos
-      // Incompleto de otro celular o sin reclamar: frena. El sin reclamar no se rellena con par (P1-a).
-      const ajeno = equipoAjenoIncompleto(sinParLeidos, hoyos)
-      if (ajeno) {
-        const aviso = ajeno.equipo.anotador_user_id
-          ? avisoEquipoAjenoIncompleto(ajeno.equipo.nombre, ajeno.hoyo)
-          : avisoEquipoSinReclamarIncompleto(ajeno.equipo.nombre, ajeno.hoyo)
-        addToast({ type: 'error', title: aviso, duration: 8000 })
-        haptic([30, 60, 30])
-        return
-      }
-    }
+    // Lo que dice el envío de Finalizar (`resolverEnvioDelCierre`): con `cerrada` (P0002) la tarjeta sigue al historial.
+    const resolverEnvio = (envio: ResultadoEnvio) => resolverEnvioDelCierre(envio, { ronda, teamEquipos, codigo, avisarSinServidor })
 
     // Bug fix 30-abr-2026: si el último hoyo se jugó en par y el usuario no
     // tap +/-, el state queda undefined (la UI mostraba par como placeholder
@@ -350,7 +246,7 @@ export function useFinalizeGrupo(input: {
       // (quedaría como pendiente y subiría con par si la ronda se reabre).
       if (bolaCompartida) equiposFinales = completarEquiposSinMarcarConPar(teamEquipos, hoyos, parMap).equipos
     } else {
-      if (bolaCompartida) equiposFinales = completarEquiposConPar(teamEquipos, hoyos, sinPar)
+      if (bolaCompartida) equiposFinales = completarEquiposConPar(teamEquipos, hoyos)
       else setScores(filledScores)
       // UN envío con la clasificación del scorer: respalda y marca pendiente todo (también las tarjetas
       // que el servidor rechazó antes), y P0001 se confirma con la ronda. Sin servidor (o sesión vencida)
@@ -363,17 +259,7 @@ export function useFinalizeGrupo(input: {
         haptic([30, 60, 30])
         return
       }
-      // Drives del scramble de club: no cuentan para el score y no frenan el cierre, pero los que esperan en la cola
-      // suben ANTES de cerrar. Con la ronda cerrada la RPC los rechaza (P0002) y el jugador quedaría con un drive
-      // menos sin aviso (revisión Fable #895). Mejor esfuerzo con plazo: sin señal, se cierra igual.
-      if (hayDrivesPendientes(codigo)) {
-        try {
-          await conPlazoCancelable(s => reenviarDrivesPendientes(clienteConSenal(supabase, s), codigo), PLAZO_DRIVES_AL_FINALIZAR_MS)
-        } catch { /* sin señal: el cierre no espera a los drives */ }
-        if (hayDrivesPendientes(codigo)) {
-          void captureError(new Error('drives sin subir al finalizar'), { context: 'score_grupo_finalize_drives', level: 'warning', meta: { codigo } })
-        }
-      }
+      await subirDrivesAntesDeCerrar(supabase, codigo, 'score_grupo_finalize_drives')
     }
 
     // Historial: SÓLO la tarjeta de quien anota (`esMiTarjeta`, P0 01-oct-2026).
@@ -474,5 +360,5 @@ export function useFinalizeGrupo(input: {
     irA(`/ronda-libre/${codigo}?finished=true`)
   }
 
-  return { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, descarteCerrado, showDiscardConfirm, setShowDiscardConfirm }
+  return { finalizeRound, finalizing, confirmFinalize, setConfirmFinalize, discardRound, discarding, descarteCerrado, showDiscardConfirm, setShowDiscardConfirm, cierreEnCurso }
 }

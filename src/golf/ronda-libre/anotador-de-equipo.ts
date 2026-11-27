@@ -33,6 +33,11 @@ export interface EquipoConAnotador {
   anotador_nombre?: string | null
   /** Golpes del equipo por hoyo: dicen si el creador ya anota uno sin reclamar (`equiposQueConfirmanElHoyo`). */
   scores?: Readonly<Record<string, number | null | undefined>> | null
+  /**
+   * Cuándo el equipo terminó su tarjeta («Terminar mi equipo», RPC `terminar_equipo_de_ronda`). NULL = sigue jugando.
+   * Solo lo leen cuentas con sesión (anon no tiene el grant).
+   */
+  terminado_at?: string | null
 }
 
 /**
@@ -169,6 +174,44 @@ export function equiposQueNoConfirmanElHoyo<E extends EquipoConAnotador>(
   return equipos.filter(e => !confirman.has(e.id))
 }
 
+/** ¿El equipo ya terminó su tarjeta? Sus golpes no cambian (trigger) hasta que se reabre. */
+export function equipoTerminado(equipo: Pick<EquipoConAnotador, 'terminado_at'>): boolean {
+  return equipo.terminado_at != null
+}
+
+/**
+ * FUENTE ÚNICA de las tarjetas que carga el scorer y que «Terminar mi equipo» cierra: los equipos que anota ESTE celular
+ * (`equiposQueAnota`: el que reclamó y, si es el creador, los sin reclamar que anota él) que todavía no terminaron. Uno
+ * terminado no se carga: el servidor ya no acepta sus golpes, y corregirlo pasa por «Corregir mi tarjeta» (lo reabre).
+ * Ronda de un celular: todos (ahí nadie termina un equipo).
+ */
+export function equiposPorTerminar<E extends EquipoConAnotador>(
+  ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
+  equipos: readonly E[],
+  userId: string | null | undefined,
+  tomados: EquiposTomadosAMano = NINGUNO_TOMADO,
+): E[] {
+  const mios = equiposQueAnota(ronda, equipos, userId, tomados)
+  if (!unCelularPorEquipo(ronda, equipos)) return mios
+  return mios.filter(e => !equipoTerminado(e))
+}
+
+/**
+ * Un celular por equipo: los equipos que esta cuenta anota y ya terminó, si TODOS los suyos terminaron (vacío si no
+ * anota ninguno o si alguno sigue jugando). Con ronda en curso, quien los tiene ya no anota nada: el scorer lo manda a
+ * la vista en vivo y ahí «Corregir mi tarjeta» reabre exactamente estos.
+ */
+export function equiposTerminadosDelCelular<E extends EquipoConAnotador>(
+  ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
+  equipos: readonly E[],
+  userId: string | null | undefined,
+  tomados: EquiposTomadosAMano = NINGUNO_TOMADO,
+): E[] {
+  if (!unCelularPorEquipo(ronda, equipos)) return []
+  const mios = equiposQueAnota(ronda, equipos, userId, tomados)
+  return mios.length > 0 && mios.every(equipoTerminado) ? mios : []
+}
+
 /** Equipos que nadie anota desde su celular: los que se pueden reclamar en «Elige tu equipo». */
 export function equiposLibres<E extends EquipoConAnotador>(equipos: readonly E[]): E[] {
   return equipos.filter(e => e.anotador_user_id == null)
@@ -209,8 +252,9 @@ export function nombreDeQuienAnota(
 }
 
 /**
- * ¿Este celular cierra la ronda y libera equipos? Un celular por equipo: solo el creador (la base rechaza Finalizar a
- * quien anota un equipo desde su celular). Ronda de un celular: sin cambio, cierra quien anota.
+ * ¿Este celular libera equipos? Un celular por equipo: solo el creador (la base rechaza liberar a quien no lo anota).
+ * Ahí nadie «finaliza»: cada celular termina su equipo y la ronda se cierra sola con el último (`terminaPorEquipo`).
+ * Ronda de un celular: sin cambio, cierra quien anota.
  */
 export function cierraLaRonda(
   ronda: Pick<RondaDeEquipos, 'formato_juego' | 'admin_mode' | 'creador_id'>,
@@ -247,7 +291,8 @@ export type EntradaAlScorerDeEquipos = 'anota' | 'elegir_equipo' | 'en_vivo'
 /**
  * ¿Quién entra al scorer de una ronda de equipos? Mismo criterio que la base, para no mostrar una tarjeta que el
  * servidor va a rechazar:
- *  - un celular por equipo: el creador siempre (cierra la ronda y libera equipos); quien ya anota un equipo, a su
+ *  - un celular por equipo: quien ya terminó todos los equipos que anota, a la ronda en vivo (`equiposTerminadosDelCelular`;
+ *    ahí «Corregir mi tarjeta» los reabre); si no, el creador siempre (libera equipos); quien ya anota un equipo, a su
  *    equipo; cualquier otra cuenta, a elegir equipo (el reclamo decide si queda alguno);
  *  - un celular: `puede_anotar_ronda` (creador, marcador designado o jugador con cuenta). El resto va a la ronda
  *    en vivo. Antes, con `admin_mode`, cualquier cuenta con el link veía el scorer y solo la RPC la rechazaba.
@@ -256,9 +301,11 @@ export function entradaAlScorerDeEquipos(
   ronda: RondaDeEquipos,
   equipos: readonly EquipoConAnotador[],
   userId: string | null | undefined,
+  tomados: EquiposTomadosAMano = NINGUNO_TOMADO,
 ): EntradaAlScorerDeEquipos {
   if (!userId) return 'en_vivo'
   if (unCelularPorEquipo(ronda, equipos)) {
+    if (equiposTerminadosDelCelular(ronda, equipos, userId, tomados).length > 0) return 'en_vivo'
     if (ronda.creador_id === userId) return 'anota'
     return equiposQueAnota(ronda, equipos, userId).length > 0 ? 'anota' : 'elegir_equipo'
   }

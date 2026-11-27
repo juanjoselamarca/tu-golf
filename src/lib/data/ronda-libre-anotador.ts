@@ -1,7 +1,8 @@
 // ─── Capa de datos — un celular por equipo (scramble rápido) ────────────────
 //
 // Únicas llamadas del cliente a `reclamar_equipo_de_ronda` y `liberar_equipo_de_ronda` (migración
-// 20261123100000_scramble_equipos_de_club). Cada respuesta vuelve como un resultado con el copy para el usuario:
+// 20261123100000_scramble_equipos_de_club) y a `terminar_equipo_de_ronda` y `reabrir_equipo_de_ronda` (migración
+// 20261127150000_terminar_equipo_de_ronda; contrato: scripts/ci/pruebas-sql/terminar-equipo.sql). Cada respuesta vuelve como un resultado con el copy para el usuario:
 // la pantalla no interpreta códigos SQL. Contrato de errores: scripts/ci/pruebas-sql/equipos-de-club.sql.
 //   P0001 la ronda o el equipo no existe · P0002 la ronda no está en curso ·
 //   P0003 sin sesión, demo, ronda de un celular, de torneo, equipo no de club o (liberar) no eres creador ni anotador.
@@ -12,6 +13,7 @@ import { conTimeout } from '@/lib/red/con-timeout'
 import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import { captureError } from '@/lib/error-tracking'
 import { nombreDelAnotador } from '@/golf/ronda-libre/anotador-de-equipo'
+import { triggerRoundUpdatePush } from '@/lib/round-notifications'
 
 /** Plazo de las dos RPC: el celular está en la cancha, con señal de cancha. */
 const PLAZO_ANOTADOR_MS = 12_000
@@ -88,4 +90,63 @@ export async function liberarEquipoDeRonda(supabase: Rpc, codigo: string, equipo
     void captureError(new Error(`liberar_equipo_de_ronda: ${error.code}`), { context: 'ronda_libre.liberar_equipo', level: 'warning', meta: { codigo } })
   }
   return { estado: 'error', mensaje: r.ronda === 'sin_permiso' ? 'Solo quien creó la ronda o quien anota ese equipo puede liberarlo.' : r.mensaje }
+}
+
+/** Error de terminar o reabrir un equipo, con el copy para el usuario. */
+export type ErrorDeEquipoTerminado = { estado: 'error'; ronda: 'cerrada' | 'sin_permiso' | 'sin_respuesta'; mensaje: string }
+
+export type ResultadoTerminarEquipo =
+  | { estado: 'ok'; rondaCerrada: boolean }
+  | { estado: 'incompleto' }
+  | ErrorDeEquipoTerminado
+
+export type ResultadoReabrirEquipo = { estado: 'ok' } | ErrorDeEquipoTerminado
+
+/** Copy cuando no se puede terminar/reabrir porque el equipo ya no es de este celular (lo liberaron, o no existe). */
+export const MENSAJE_EQUIPO_YA_NO_ES_TUYO = 'Cambió quién anota este equipo. Revisa la tarjeta.'
+
+function errorDeEquipo(fn: string, codigo: string, code: string | undefined): ErrorDeEquipoTerminado {
+  const r = mensajeDeError(code)
+  if (r.ronda === 'sin_respuesta' && code) {
+    void captureError(new Error(`${fn}: ${code}`), { context: `ronda_libre.${fn}`, level: 'warning', meta: { codigo } })
+  }
+  if (r.ronda === 'cerrada') return { estado: 'error', ronda: 'cerrada', mensaje: r.mensaje }
+  if (r.ronda === 'sin_respuesta') return { estado: 'error', ronda: 'sin_respuesta', mensaje: r.mensaje }
+  // P0001 (el equipo ya no está) y P0003 (ya no lo anota este celular): lo mismo para quien toca el botón.
+  return { estado: 'error', ronda: 'sin_permiso', mensaje: MENSAJE_EQUIPO_YA_NO_ES_TUYO }
+}
+
+/**
+ * «Terminar mi equipo»: cierra la tarjeta del equipo y, si era el último sin terminar, la base cierra la ronda en la
+ * misma transacción (`rondaCerrada`). Idempotente: un reintento cuya primera respuesta se perdió devuelve lo mismo.
+ * Tras un ok avisa a quienes siguen la ronda, como Finalizar: con la ronda cerrada, forzado (el «Resultado final» no
+ * se puede perder). Sin respuesta no se sabe si cerró: se empuja forzado igual (el servidor lee el estado real y no
+ * duplica el final). Nunca lanza.
+ */
+export async function terminarEquipoDeRonda(supabase: Rpc, codigo: string, equipoId: string): Promise<ResultadoTerminarEquipo> {
+  const { data, error } = await llamar(supabase, 'terminar_equipo_de_ronda', { p_codigo: codigo, p_equipo_id: equipoId })
+  if (error) {
+    const r = errorDeEquipo('terminar_equipo_de_ronda', codigo, error.code)
+    if (r.ronda === 'sin_respuesta') triggerRoundUpdatePush(codigo, { force: true })
+    return r
+  }
+  const d = (data ?? {}) as { estado?: string; ronda_cerrada?: boolean }
+  if (d.estado === 'ok') {
+    const rondaCerrada = d.ronda_cerrada === true
+    triggerRoundUpdatePush(codigo, rondaCerrada ? { force: true } : {})
+    return { estado: 'ok', rondaCerrada }
+  }
+  if (d.estado === 'incompleto') return { estado: 'incompleto' }
+  void captureError(new Error('terminar_equipo_de_ronda: respuesta desconocida'), { context: 'ronda_libre.terminar_equipo_de_ronda', meta: { codigo, estado: d.estado ?? null } })
+  return { estado: 'error', ronda: 'sin_respuesta', mensaje: 'Sin conexión. Prueba de nuevo.' }
+}
+
+/** «Corregir mi tarjeta»: con la ronda en curso, el equipo vuelve a jugar y su anotador puede corregir. Nunca lanza. */
+export async function reabrirEquipoDeRonda(supabase: Rpc, codigo: string, equipoId: string): Promise<ResultadoReabrirEquipo> {
+  const { error } = await llamar(supabase, 'reabrir_equipo_de_ronda', { p_codigo: codigo, p_equipo_id: equipoId })
+  if (!error) {
+    triggerRoundUpdatePush(codigo)
+    return { estado: 'ok' }
+  }
+  return errorDeEquipo('reabrir_equipo_de_ronda', codigo, error.code)
 }
