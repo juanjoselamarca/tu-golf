@@ -69,7 +69,7 @@ const stableford: GolfFormat = {
  */
 const matchPlay: GolfFormat = {
   name: 'Match Play',
-  description: 'Hoyo a hoyo — gana quien gane más hoyos',
+  description: 'Gana quien gane más hoyos',
   category: 'head_to_head',
   calcularResumen: calcularResumenRonda,
   scorePrimario,

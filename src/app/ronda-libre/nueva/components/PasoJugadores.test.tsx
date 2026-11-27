@@ -44,7 +44,7 @@ function Paso({ onSiguiente, equipos = false, rivalesIniciales = [RIVAL], repart
   )
 }
 
-const revisar = () => screen.getByRole('button', { name: /Revisar/ }) as HTMLButtonElement
+const revisar = () => screen.getByRole('button', { name: /Siguiente/ }) as HTMLButtonElement
 const indiceRival = () => document.getElementById('rival-0-indice') as HTMLInputElement
 const aviso = () => document.getElementById('paso-jugadores-aviso') as HTMLElement
 

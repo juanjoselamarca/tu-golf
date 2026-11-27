@@ -91,11 +91,11 @@ export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloquead
 
       {modosPermitidos.length > 1 && (
         <div style={{ marginTop: '20px' }}>
-          <div style={{ ...etiqueta, marginBottom: '10px' }}>Modo de scoring</div>
+          <div style={{ ...etiqueta, marginBottom: '10px' }}>Hándicap</div>
           <div style={{ display: 'flex', gap: '10px' }}>
             {([
-              { valor: 'neto' as const, label: 'Neto', desc: 'Con handicap' },
-              { valor: 'gross' as const, label: 'Gross', desc: 'Sin handicap' },
+              { valor: 'neto' as const, label: 'Neto', desc: 'Con hándicap' },
+              { valor: 'gross' as const, label: 'Gross', desc: 'Sin hándicap' },
             ]).map(m => {
               const activo = modo === m.valor
               const netoLocked = m.valor === 'neto' && netoBloqueado

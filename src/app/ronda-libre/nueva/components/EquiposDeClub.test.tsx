@@ -50,7 +50,7 @@ function Paso({ formato = 'scramble', modoInicial = 'gross', netoBloqueado = fal
 
 const soloEquipos = () => screen.getByRole('button', { name: 'Equipos con hándicap del club' })
 const conJugadores = () => screen.getByRole('button', { name: 'Jugadores con su índice' })
-const revisar = () => screen.getByRole('button', { name: /Revisar/ }) as HTMLButtonElement
+const revisar = () => screen.getByRole('button', { name: /Siguiente/ }) as HTMLButtonElement
 const aviso = () => document.getElementById('paso-jugadores-aviso') as HTMLElement
 const handicaps = () => screen.queryAllByLabelText(/^Hándicap del equipo/) as HTMLInputElement[]
 
@@ -264,14 +264,15 @@ describe('PasoJugadores — mínimo de drives por jugador', () => {
     abrirDrives()
     expect(minimo()).toBe('4')
     expect(subir().disabled).toBe(true)
-    expect(screen.getByText('Cada jugador aporta al menos 4 drives. En 18 hoyos, el máximo es 4.')).toBeTruthy()
+    expect(screen.getByText('Mínimo por jugador')).toBeTruthy()
+    expect(screen.queryByText(/Sin mínimo/)).toBeNull() // con mínimo no hay texto que repita el número
   })
 
   it('el − baja hasta 0 (sin mínimo) y ahí se frena', () => {
     abrirDrives(9)
     expect(minimo()).toBe('2')
     fireEvent.click(bajar())
-    expect(screen.getByText('Cada jugador aporta al menos 1 drive. En 9 hoyos, el máximo es 2.')).toBeTruthy()
+    expect(minimo()).toBe('1')
     fireEvent.click(bajar())
     expect(minimo()).toBe('0')
     expect(bajar().disabled).toBe(true)

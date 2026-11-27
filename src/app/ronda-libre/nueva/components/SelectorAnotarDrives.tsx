@@ -23,7 +23,7 @@ interface Props {
  * tocarlo la ronda es la de siempre; después de crear no se activa). Con Sí, cada tarjeta pide los jugadores del
  * equipo y se elige el mínimo de drives por jugador, que cambia de un campeonato a otro.
  */
-export function SelectorAnotarDrives({ anotarDrives, holes, minimo, maximo, onElegir, onMinimo }: Props) {
+export function SelectorAnotarDrives({ anotarDrives, minimo, maximo, onElegir, onMinimo }: Props) {
   return (
     <div style={{ marginBottom: '16px' }}>
       <div id="equipos-club-drives" style={{ ...etiqueta, fontSize: '14px', color: colores.texto }}>¿Anotar drives?</div>
@@ -49,7 +49,7 @@ export function SelectorAnotarDrives({ anotarDrives, holes, minimo, maximo, onEl
       {anotarDrives && (
         <>
           {minimo != null && maximo != null && (
-            <MinimoDeDrives minimo={minimo} maximo={maximo} holes={holes} onMinimo={onMinimo} />
+            <MinimoDeDrives minimo={minimo} maximo={maximo} onMinimo={onMinimo} />
           )}
         </>
       )}
@@ -57,14 +57,13 @@ export function SelectorAnotarDrives({ anotarDrives, holes, minimo, maximo, onEl
   )
 }
 
-function textoDelMinimo(minimo: number, maximo: number, holes: number): string {
-  if (minimo === 0) return 'Sin mínimo: solo se cuentan los drives de cada uno.'
-  const drives = minimo === 1 ? '1 drive' : `${minimo} drives`
-  return `Cada jugador aporta al menos ${drives}. En ${holes} hoyos, el máximo es ${maximo}.`
+/** Solo el 0 necesita explicarse: con mínimo, el número del − 4 + ya lo dice y el + se frena solo en el tope. */
+function textoDelMinimo(minimo: number): string | null {
+  return minimo === 0 ? 'Sin mínimo: solo se cuentan los drives de cada uno.' : null
 }
 
 /** − 4 +: el mínimo por jugador, de 0 al tope de los hoyos. Botones de 48px: se usa con una mano y con guante. */
-function MinimoDeDrives({ minimo, maximo, holes, onMinimo }: { minimo: number; maximo: number; holes: number; onMinimo: (n: number) => void }) {
+function MinimoDeDrives({ minimo, maximo, onMinimo }: { minimo: number; maximo: number; onMinimo: (n: number) => void }) {
   const boton = (habilitado: boolean) => ({
     width: '48px', height: '48px', flexShrink: 0, borderRadius: '12px',
     border: `1px solid ${habilitado ? colores.inputBorde : colores.borde}`,
@@ -76,8 +75,7 @@ function MinimoDeDrives({ minimo, maximo, holes, onMinimo }: { minimo: number; m
     <div style={{ marginTop: '12px', padding: '12px', borderRadius: '12px', border: `1px solid ${colores.borde}` }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
         <div id="equipos-club-drives-minimo">
-          <div style={{ fontSize: '16px', fontWeight: 600, color: colores.texto }}>Mínimo</div>
-          <div style={{ fontSize: '13px', color: colores.texto2 }}>drives por jugador</div>
+          <div style={{ fontSize: '16px', fontWeight: 600, color: colores.texto }}>Mínimo por jugador</div>
         </div>
         <div role="group" aria-labelledby="equipos-club-drives-minimo" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
@@ -110,9 +108,11 @@ function MinimoDeDrives({ minimo, maximo, holes, onMinimo }: { minimo: number; m
           </button>
         </div>
       </div>
-      <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4 }}>
-        {textoDelMinimo(minimo, maximo, holes)}
-      </div>
+      {textoDelMinimo(minimo) && (
+        <div style={{ fontSize: '13px', color: colores.texto2, marginTop: '8px', lineHeight: 1.4 }}>
+          {textoDelMinimo(minimo)}
+        </div>
+      )}
     </div>
   )
 }

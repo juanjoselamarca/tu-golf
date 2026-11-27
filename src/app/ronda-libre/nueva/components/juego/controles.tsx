@@ -98,7 +98,7 @@ export function SelectorPuntosEspeciales<T extends string>({ tipos, nombre, acti
 /** Neto | Gross de un juego (el mismo orden que el selector estándar). Sin candado Pro: los juegos no son features Pro. */
 export function SegmentoModo({ modo, onModo }: { modo: 'neto' | 'gross'; onModo: (m: 'neto' | 'gross') => void }) {
   return (
-    <div role="group" aria-label="Modo de scoring" style={{
+    <div role="group" aria-label="Hándicap" style={{
       display: 'flex', gap: '8px', background: colores.tarjeta, border: `1px solid ${colores.borde}`, borderRadius: '12px', padding: '4px',
     }}>
       {(['neto', 'gross'] as const).map(m => (

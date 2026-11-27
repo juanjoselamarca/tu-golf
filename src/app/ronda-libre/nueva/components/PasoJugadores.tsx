@@ -308,7 +308,7 @@ export function PasoJugadores(props: Props) {
             onClick={props.onSiguiente}
             style={{ ...primario(noAvanza), width: '100%' }}
           >
-            Revisar →
+            Siguiente →
           </button>
           {/* Siempre montado: un role="status" que aparece junto con su texto no siempre se anuncia. */}
           <div

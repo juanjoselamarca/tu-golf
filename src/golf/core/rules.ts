@@ -82,7 +82,7 @@ export const FORMAT_META: Record<FormatoJuego, {
   match_play: {
     category: 'head_to_head',
     label: 'Match Play',
-    description: 'Hoyo a hoyo — gana quien gane más hoyos',
+    description: 'Gana quien gane más hoyos',
     requiereEquipos: false,
     jugadoresPorEquipo: null,
     // Match Play se juega gross y neto. Neto es más común en Chile pero

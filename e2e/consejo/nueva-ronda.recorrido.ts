@@ -36,7 +36,7 @@ test('nueva ronda: jugar con un amigo en Los Leones', async ({ page }) => {
   // Lo que sí pide es el índice propio (la cuenta de pruebas no tiene, como una cuenta nueva).
   const indice = page.getByRole('textbox', { name: 'Índice' })
   if ((await indice.count()) && !(await indice.inputValue())) await r.escribir(indice, '18', 'Índice')
-  await r.tocar(page.getByRole('button', { name: /revisar/i }), 'Revisar')
+  await r.tocar(page.getByRole('button', { name: /siguiente/i }), 'Siguiente')
   await expect(page.getByText(/confirmar ronda/i).first()).toBeVisible()
   await r.pantalla('Confirmar', 'Revisar y crear la ronda')
 
