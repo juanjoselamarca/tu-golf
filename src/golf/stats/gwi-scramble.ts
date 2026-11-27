@@ -93,19 +93,22 @@ function leer(e: EquipoGWIScramble, totalHoyos: number): Lectura {
   const pares = e.paresJugados?.length === e.holesPlayed && e.paresRestantes?.length === restantes
   const suma = (ps: readonly number[] | undefined) => (pares && ps ? ps.reduce((s, p) => s + ajusteDe(p), 0) : 0)
   const neto = e.golpesHcpTotal != null && e.golpesHcpRestantes != null && totalHoyos > 0
+  // Golpes enteros en un solo lugar: el motor los da enteros; si algún día llegan fraccionarios, todo lee lo mismo.
+  const G = neto ? Math.round(e.golpesHcpTotal!) : 0
+  const quedan = neto ? Math.round(e.golpesHcpRestantes!) : 0
   return {
     restantes,
     ajusteJugado: suma(e.paresJugados),
     ajusteRestante: suma(e.paresRestantes),
-    golpesPorHoyo: neto ? e.golpesHcpTotal! / totalHoyos : 0,
-    golpesQueQuedan: neto ? Math.round(e.golpesHcpRestantes!) : 0,
-    excesoHcp: neto ? (e.golpesHcpTotal! - e.golpesHcpRestantes!) - e.golpesHcpTotal! * e.holesPlayed / totalHoyos : 0,
+    golpesPorHoyo: G / (totalHoyos || 1),
+    golpesQueQuedan: quedan,
+    excesoHcp: neto ? (G - quedan) - G * e.holesPlayed / totalHoyos : 0,
   }
 }
 
 /**
- * Ritmo común esperado por hoyo (vs par, en el modo de la ronda, sin la mezcla de pares) para lo que falta. En neto el
- * diff ya descontó los golpes de HCP de lo jugado, así que lo que falta se mide igual.
+ * Ritmo común esperado por hoyo (vs par, en el modo de la ronda) para lo que falta, sin la mezcla de pares ni los golpes
+ * de HCP ya recibidos por sobre su parte pareja (`excesoHcp`).
  */
 export function ritmoComun(a: EquipoGWIScramble, b: EquipoGWIScramble, totalHoyos = 18): number {
   const la = leer(a, totalHoyos), lb = leer(b, totalHoyos)
